@@ -61,11 +61,11 @@ const JudgePanel = () => {
     if (!authLoading && !rolesLoading && !isJudge) navigate("/");
   }, [isJudge, authLoading, rolesLoading, navigate]);
 
-  // F-05 route-guard: block bundle mount until roles are hydrated, and
-  // short-circuit for non-judges so no judge_* queries fire. Mirrors the
-  // AdminPanel.tsx inline gate (lines 224-225). Frontend-only change.
-  if (authLoading || rolesLoading) return <BrandLoader fullScreen />;
-  if (!isJudge) return null;
+  // F-05 route-guard: hydration/role gate. The actual early returns live
+  // AFTER all hooks are declared (see below), because React requires every
+  // hook to run on every render. Returning here caused React error #310
+  // (hook-count mismatch between the loading render and the loaded render),
+  // which blanked the whole Judge Panel.
 
   // ── Core state ──
   const [selectedCompId, setSelectedCompIdRaw] = useState<string | null>(null);
@@ -766,6 +766,13 @@ const JudgePanel = () => {
   // mutations themselves run normally — React only deprioritizes the renders
   // they trigger.
   const [, startBulkTransition] = useTransition();
+
+  // ── Route guard (moved here so every hook above always runs) ──
+  // Non-judges are redirected by the useEffect near the top; these returns
+  // just render a loader/blank until that happens. Must stay BELOW all hooks.
+  if (authLoading || rolesLoading) return <BrandLoader fullScreen />;
+  if (!isJudge) return null;
+
   const toggleBulkSelect = (photoKey: string) => setBulkSelected((prev) => { const n = new Set(prev); n.has(photoKey) ? n.delete(photoKey) : n.add(photoKey); return n; });
   const processBatched = async <T,>(items: T[], fn: (item: T) => Promise<void>, batchSize = 10) => {
     for (let i = 0; i < items.length; i += batchSize) { await Promise.all(items.slice(i, i + batchSize).map(fn)); }
