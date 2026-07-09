@@ -14,7 +14,7 @@ interface RecoveryEmailProps {
   recipient?: string
 }
 
-const LOGO_URL = 'https://isywidnfnjhtydmdfgtk.supabase.co/storage/v1/object/public/email-assets/logo.png'
+const LOGO_URL = 'https://jtdtehuqtinjxropkkcn.supabase.co/storage/v1/object/public/email-assets/logo.png'
 
 export const RecoveryEmail = ({ siteName, siteUrl, confirmationUrl, token, recipient }: RecoveryEmailProps) => {
   const baseUrl = siteUrl?.replace(/\/$/, '')

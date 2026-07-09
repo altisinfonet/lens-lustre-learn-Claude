@@ -8,7 +8,7 @@ import {
 
 interface MagicLinkEmailProps { siteName: string; confirmationUrl: string }
 
-const LOGO_URL = 'https://isywidnfnjhtydmdfgtk.supabase.co/storage/v1/object/public/email-assets/logo.png'
+const LOGO_URL = 'https://jtdtehuqtinjxropkkcn.supabase.co/storage/v1/object/public/email-assets/logo.png'
 
 export const MagicLinkEmail = ({ siteName, confirmationUrl }: MagicLinkEmailProps) => (
   <Html lang="en" dir="ltr">

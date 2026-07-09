@@ -8,7 +8,7 @@ import {
 
 interface EmailChangeEmailProps { siteName: string; email: string; newEmail: string; confirmationUrl: string }
 
-const LOGO_URL = 'https://isywidnfnjhtydmdfgtk.supabase.co/storage/v1/object/public/email-assets/logo.png'
+const LOGO_URL = 'https://jtdtehuqtinjxropkkcn.supabase.co/storage/v1/object/public/email-assets/logo.png'
 
 export const EmailChangeEmail = ({ siteName, email, newEmail, confirmationUrl }: EmailChangeEmailProps) => (
   <Html lang="en" dir="ltr">

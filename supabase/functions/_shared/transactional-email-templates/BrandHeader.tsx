@@ -11,7 +11,7 @@ import { Img, Section, Link } from 'npm:@react-email/components@0.0.22'
  * truth, verified reachable (HTTP 200, image/png) on 2026-05-02.
  */
 const LOGO_URL =
-  'https://isywidnfnjhtydmdfgtk.supabase.co/storage/v1/object/public/email-assets/logo.png'
+  'https://jtdtehuqtinjxropkkcn.supabase.co/storage/v1/object/public/email-assets/logo.png'
 
 const SITE_URL = 'https://www.50mmretina.com'
 

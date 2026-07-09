@@ -185,10 +185,10 @@ export default function CloudflareEdgeChecklist() {
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">
           {[
-            ["ORIGIN_HOST", "fiftymmretinaworld.lovable.app"],
-            ["SUPABASE_PROJECT_REF", "isywidnfnjhtydmdfgtk"],
+            ["ORIGIN_HOST", "lens-lustre-learn-claude.pages.dev"],
+            ["SUPABASE_PROJECT_REF", "jtdtehuqtinjxropkkcn"],
             ["ENABLE_REWRITE", "false"],
-            ["METADATA_FUNCTION_URL", "https://isywidnfnjhtydmdfgtk.functions.supabase.co/seo-route-metadata"],
+            ["METADATA_FUNCTION_URL", "https://jtdtehuqtinjxropkkcn.functions.supabase.co/seo-route-metadata"],
           ].map(([k, v]) => (
             <div key={k} className="flex items-center justify-between gap-2 border border-border px-2 py-1.5">
               <div className="min-w-0 flex-1">
