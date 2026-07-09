@@ -2,10 +2,15 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import { startNetworkTrace } from "./lib/networkTracer";
 import { runCacheBuster } from "./lib/cacheBuster";
+import { installImageFallback } from "./lib/imageFallback";
 
 import "./index.css";
 
 startNetworkTrace(8000);
+
+// Replace any broken <img> (e.g. legacy external cover URLs) with a branded
+// self-hosted placeholder so users never see a broken-image icon.
+installImageFallback();
 
 // Fire-and-forget: if the global `cache_buster` site_setting was bumped,
 // this will purge SW + Cache Storage and hard-reload before App mounts.

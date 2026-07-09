@@ -27,6 +27,22 @@ import { fireConversion } from "@/lib/adConversionContext";
 const classicEase = [0.4, 0, 0.2, 1] as const;
 const slowEase = [0.25, 0.1, 0.25, 1] as const;
 
+// Self-contained initials avatar (inline SVG data URI) — no external service.
+// Replaces the old i.pravatar.cc demo avatars, which could 503 / be blocked.
+const initialsAvatar = (name: string): string => {
+  const initials = name
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  const hue = h % 360;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><rect width='80' height='80' rx='40' fill='hsl(${hue},42%,42%)'/><text x='50%' y='50%' dy='.35em' text-anchor='middle' font-family='Georgia,serif' font-size='34' fill='#fff'>${initials}</text></svg>`;
+  return "data:image/svg+xml," + encodeURIComponent(svg);
+};
+
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 24 },
   visible: (i: number) => ({
@@ -818,11 +834,11 @@ const Index = () => {
                 </div>
                 <div className="space-y-2 flex-1">
                   {[
-                    { name: "Akira Tanaka", country: "🇯🇵", img: "https://i.pravatar.cc/80?img=11" },
-                    { name: "Sofia Müller", country: "🇩🇪", img: "https://i.pravatar.cc/80?img=32" },
-                    { name: "Carlos Rivera", country: "🇲🇽", img: "https://i.pravatar.cc/80?img=53" },
-                    { name: "Amara Osei", country: "🇬🇭", img: "https://i.pravatar.cc/80?img=44" },
-                    { name: "Priya Sharma", country: "🇮🇳", img: "https://i.pravatar.cc/80?img=25" },
+                    { name: "Akira Tanaka", country: "🇯🇵" },
+                    { name: "Sofia Müller", country: "🇩🇪" },
+                    { name: "Carlos Rivera", country: "🇲🇽" },
+                    { name: "Amara Osei", country: "🇬🇭" },
+                    { name: "Priya Sharma", country: "🇮🇳" },
                   ].map((m, i) => (
                     <motion.div
                       key={m.name}
@@ -833,7 +849,7 @@ const Index = () => {
                       className="flex items-center gap-2.5 bg-background/50 border border-border/40 rounded-lg px-3 py-2"
                     >
                       <div className="w-7 h-7 rounded-full bg-muted overflow-hidden shrink-0">
-                        <img src={m.img} alt="" className="w-full h-full object-cover" loading="lazy" />
+                        <img src={initialsAvatar(m.name)} alt="" className="w-full h-full object-cover" loading="lazy" />
                       </div>
                       <span className="text-xs flex-1 truncate" style={{ fontFamily: "var(--font-body)" }}>{m.name} {m.country}</span>
                       <span className="text-[8px] tracking-[0.1em] uppercase px-1.5 py-0.5 rounded-sm border border-primary/40 text-primary bg-primary/5" style={{ fontFamily: "var(--font-heading)" }}>
