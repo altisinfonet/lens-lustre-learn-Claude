@@ -1,0 +1,149 @@
+name: AUDIT FORBIDDEN
+
+# Phase 5 regression lock — runs on every push and pull request.
+# Blocks merges that:
+#   - reintroduce raw entry.status / placement / progression_decision in UI
+#     (enforced by ESLint rule `audit-v6/no-raw-entry-status`)
+#   - bypass DB triggers and call send-transactional-email from the client
+#     (enforced by src/test/notifications.spec.ts)
+#   - drop or rename one of the 9 judging email templates
+#   - strip the idempotency guard from the backfill RPCs
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  audit:
+    name: Audit forbidden patterns
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint — audit-v6 forbidden patterns (#1, #11, #12)
+        run: |
+          # Only fail the AUDIT FORBIDDEN job on the audit-v6 regression-lock
+          # rules. General lint hygiene runs separately and does NOT gate this audit.
+          bunx eslint src/ supabase/functions/ --no-warn-ignored 2>&1 | tee /tmp/eslint.log
+          if grep -E "audit-v6/(no-raw-entry-status|no-direct-transactional-email|no-unfiltered-judge-realtime|no-unfiltered-realtime-sensitive|no-legacy-decision-strings|no-as-any-in-protected-dirs|no-direct-wallet-ledger-writes|no-unsafe-edge-authority)" /tmp/eslint.log; then
+            echo "::error title=AUDIT FORBIDDEN::Forbidden pattern detected — see docs/audit/forbidden-patterns.md"
+            exit 1
+          fi
+
+      - name: Regression tests (notifications + publish gate)
+        run: bunx vitest run src/test/notifications.spec.ts src/test/publishGate.test.tsx
+
+      - name: Vocabulary staleness gate (R6)
+        run: |
+          # Fails if docs/judging/vocabulary.md does not match the JSON snapshot
+          # at docs/judging/vocabulary.source.json. Regenerate locally with:
+          #   bun run vocab:generate
+          bun run vocab:check
+
+      - name: Forbidden retired labels (Phase 8)
+        run: |
+          # Phase 8 hard-block: retired participant-facing strings must NEVER
+          # appear in /src or /supabase/functions/_shared/transactional-email-templates.
+          # Allowed source for these strings: stageCatalog.ts (RETIRED comment block)
+          # and .lovable/memory/judging/* (documentation only).
+          # See mem://judging/participant-wording-master-plan for the canonical 16 labels.
+          set +e
+          PATTERNS=(
+            'Shortlist for R2'
+            'Shortlist for Round 2'
+            'Shortlisted for R2'
+            'Qualified for 3rd Round'
+            'Not Selected for 3rd Round'
+            'Not Selected for Final Round'
+            'r1_shortlisted_for_r2'
+            'r2_not_selected_r3'
+            'r3_not_selected_final'
+            'r4_qualified_final'
+          )
+          # Scan only PARTICIPANT-FACING surfaces. Judge-side decision UI is
+          # allowed to keep its own internal R1 vocabulary (Accept/Reject/
+          # Shortlist for R2) — those are decision tokens, not participant
+          # tag labels. The PR-author SOW splits "judge UI" from "participant
+          # UI" — see mem://judging/participant-wording-master-plan §"How to
+          # read the canonical label in UI".
+          SCAN_PATHS="src/components/competitions src/components/dashboard src/components/profile src/pages/Dashboard.tsx src/pages/EntryDetail.tsx src/pages/SubmissionDetail.tsx src/pages/CompetitionDetail.tsx src/components/EntryCard.tsx src/components/judge/ParticipantStageBadge.tsx src/hooks/judging/useEntryPublicStatus.ts src/hooks/judging/useGatedEntryStatus.ts src/hooks/judging/tagLabelToDecision.ts src/lib/judging/participantWording.ts src/lib/judging/participantStageLabels.ts supabase/functions/_shared/transactional-email-templates"
+          # Exclude:
+          #  - stageCatalog.ts            (the RETIRED block lives there by design)
+          #  - tagLabelToDecision.ts      (back-compat alias map for legacy DB rows)
+          #  - participantStageLabels.ts  (back-compat ad-hoc-status delegator)
+          #  - useGatedEntryStatus.ts / useEntryPublicStatus.ts (JSDoc-only mentions)
+          #  - any *.test.* / *.spec.* fixtures
+          # See mem://judging/participant-wording-master-plan §"Retired labels".
+          EXCLUDES="--exclude=stageCatalog.ts --exclude=tagLabelToDecision.ts --exclude=participantStageLabels.ts --exclude=useGatedEntryStatus.ts --exclude=useEntryPublicStatus.ts --exclude=*.test.ts --exclude=*.test.tsx --exclude=*.spec.ts --exclude=*.spec.tsx"
+          HITS=0
+          for p in "${PATTERNS[@]}"; do
+            echo "::group::scan '${p}'"
+            if grep -RIn $EXCLUDES -- "$p" $SCAN_PATHS; then
+              echo "::error title=AUDIT FORBIDDEN::Retired label '${p}' found — use getStageByKey().tag_label_canonical (see mem://judging/participant-wording-master-plan)"
+              HITS=$((HITS+1))
+            fi
+            echo "::endgroup::"
+          done
+          # Also block bare 'Top 50' / 'Top 100' (without 'Global Photographer') in user-facing UI.
+          for p in 'Top 50' 'Top 100'; do
+            echo "::group::scan bare '${p}'"
+            if grep -RIn $EXCLUDES -- "$p" $SCAN_PATHS | grep -v 'Global Photographer'; then
+              echo "::error title=AUDIT FORBIDDEN::Bare '${p}' found — use canonical 'Top N Global Photographer' label"
+              HITS=$((HITS+1))
+            fi
+            echo "::endgroup::"
+          done
+          if [ "$HITS" -gt 0 ]; then
+            echo "::error title=AUDIT FORBIDDEN::${HITS} retired-label pattern(s) detected — see mem://judging/participant-wording-master-plan"
+            exit 1
+          fi
+
+      - name: RLS / SECURITY DEFINER authority guardrail (Phase 0B-6)
+        run: |
+          # Scans supabase/migrations/**.sql + supabase/functions/**/*.sql for:
+          #   1. SECURITY DEFINER without auth guard
+          #   2. SECURITY DEFINER without audit/logging path
+          #   3. permissive USING (true) / WITH CHECK (true) on sensitive tables
+          #   4. anon/public WRITE GRANTs on protected tables
+          #   5. dangerous ::app_role casts of user-controlled input
+          #   6. ALTER TABLE ... DISABLE ROW LEVEL SECURITY
+          #   7. public storage buckets on sensitive bucket names
+          # Baseline: scripts/audits/baselines/rls-authority-baseline.json
+          # See docs/fix-sprints/sprint-0-phase-0b-6-rls-authority-guardrail.md
+          node scripts/audits/rls-authority-scan.mjs
+
+      - name: Migration / Schema drift guardrail (Phase 0B-7)
+        run: |
+          # Scans supabase/migrations/**.sql for destructive / drift patterns
+          # against TWO frozen baselines:
+          #   scripts/audits/baselines/schema-contract-baseline.json
+          #   scripts/audits/baselines/rpc-contract-baseline.json
+          # Detects: DROP COLUMN / ALTER TYPE / RENAME / enum value drop /
+          # RLS disable / DROP POLICY / DROP TABLE on protected tables,
+          # plus new SECURITY DEFINER fns and RPC signature drift.
+          # See docs/fix-sprints/sprint-0-phase-0b-7-schema-drift-guardrail.md
+          node scripts/audits/schema-drift-scan.mjs
+
+      - name: v3 Stage Catalog parity (Phase 8 — exactly 16 active rows)
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+        run: |
+          # Strict count + label assertion runs even when DB is unreachable
+          # (offline mode parses TS only; falls back to count+label diff vs the
+          # in-script EXPECTED_LABELS table). DB diff still runs when secret set.
+          node scripts/audits/v3_catalog_parity.mjs
+
+      - name: PROOF — print AUDIT FORBIDDEN summary
+        if: success()
+        run: |
+          echo "::notice title=AUDIT FORBIDDEN::✅ 0 raw-status reads, 0 direct UI email sends, 9/9 templates registered, idempotency guard intact, vocabulary.md in sync."

@@ -1,0 +1,1023 @@
+{
+  "generated_at": "2026-05-12T11:18:38.966Z",
+  "description": "Phase 0B-7 frozen schema-contract baseline. PROTECTED_TABLES + PROTECTED_COLUMNS define the policy oracle. Enum value sets and SECDEF function list are frozen — additions allowed via baseline regen, removals/renames fail CI.",
+  "protected_tables": [
+    "wallet_transactions",
+    "wallet_balances",
+    "wallet_reconciliation_log",
+    "transactions",
+    "payouts",
+    "deposits",
+    "withdrawals",
+    "gifts",
+    "referrals",
+    "earnings",
+    "invoices",
+    "orders",
+    "judge_decisions",
+    "judge_scores",
+    "judge_sessions",
+    "judge_assignments",
+    "competition_entries",
+    "competition_rounds",
+    "competitions",
+    "photo_verification_requests",
+    "verification_requests",
+    "v3_stage_catalog",
+    "stage_catalog",
+    "criteria",
+    "notifications",
+    "user_notifications",
+    "notification_emit_log",
+    "notification_preferences",
+    "email_queue",
+    "user_roles",
+    "admin_actions",
+    "db_audit_logs",
+    "activity_logs",
+    "moderation",
+    "admin_notifications",
+    "certificates",
+    "certificate_recipients",
+    "entry_public_status"
+  ],
+  "protected_columns": [
+    "amount",
+    "balance",
+    "currency",
+    "status",
+    "current_round",
+    "progression_decision",
+    "placement",
+    "user_id",
+    "judge_id",
+    "competition_id",
+    "entry_id",
+    "decision",
+    "score",
+    "tier",
+    "stage_key",
+    "tag_label_canonical",
+    "verification_status",
+    "auto_expired",
+    "declared_at",
+    "locked_at",
+    "indexing_disabled",
+    "is_active"
+  ],
+  "enums": [
+    {
+      "file": "supabase/migrations/20260224160300_865c285a-6543-4437-a363-05dd0aa3ae09.sql",
+      "name": "public.app_role",
+      "values": [
+        "user",
+        "judge",
+        "content_editor",
+        "admin"
+      ]
+    },
+    {
+      "file": "supabase/migrations/20260418111925_f4685116-a5ec-4cc7-845f-0473240653d4.sql",
+      "name": "public.post_tag_status",
+      "values": [
+        "pending",
+        "approved",
+        "declined",
+        "removed"
+      ]
+    }
+  ],
+  "secdef_functions": [
+    {
+      "name": "notify_admin_comment_report",
+      "signature": "notify_admin_comment_report()"
+    },
+    {
+      "name": "notify_admin_post_report",
+      "signature": "notify_admin_post_report()"
+    },
+    {
+      "name": "notify_admin_role_application",
+      "signature": "notify_admin_role_application()"
+    },
+    {
+      "name": "notify_friend_request_accepted",
+      "signature": "notify_friend_request_accepted()"
+    },
+    {
+      "name": "notify_role_application_decision",
+      "signature": "notify_role_application_decision()"
+    },
+    {
+      "name": "public._diag_emit_test",
+      "signature": "public._diag_emit_test()"
+    },
+    {
+      "name": "public._gen_competition_order_no",
+      "signature": "public._gen_competition_order_no()"
+    },
+    {
+      "name": "public._phase4_validate",
+      "signature": "public._phase4_validate(uuid)"
+    },
+    {
+      "name": "public._tg_entry_public_status_recompute",
+      "signature": "public._tg_entry_public_status_recompute()"
+    },
+    {
+      "name": "public._tg_round_publish_recompute",
+      "signature": "public._tg_round_publish_recompute()"
+    },
+    {
+      "name": "public._tg_v3_catalog_recompute",
+      "signature": "public._tg_v3_catalog_recompute()"
+    },
+    {
+      "name": "public.acquire_judge_lock",
+      "signature": "public.acquire_judge_lock(uuid,integer,uuid,integer)"
+    },
+    {
+      "name": "public.admin_flag_entry_for_review",
+      "signature": "public.admin_flag_entry_for_review(uuid)"
+    },
+    {
+      "name": "public.admin_rewind_stage",
+      "signature": "public.admin_rewind_stage(uuid,text,text)"
+    },
+    {
+      "name": "public.admin_search_users",
+      "signature": "public.admin_search_users(text,text)"
+    },
+    {
+      "name": "public.admin_set_photo_rejected",
+      "signature": "public.admin_set_photo_rejected(uuid,integer,boolean,text)"
+    },
+    {
+      "name": "public.admin_wallet_credit",
+      "signature": "public.admin_wallet_credit(uuid,uuid,numeric,text,text,uuid,text,jsonb)"
+    },
+    {
+      "name": "public.admin_wallet_credit",
+      "signature": "public.admin_wallet_credit(uuid,uuid,numeric,text,text,uuid,text)"
+    },
+    {
+      "name": "public.any_photo_pending",
+      "signature": "public.any_photo_pending(uuid,integer)"
+    },
+    {
+      "name": "public.any_photo_pending",
+      "signature": "public.any_photo_pending(uuid)"
+    },
+    {
+      "name": "public.apply_decision_to_remaining",
+      "signature": "public.apply_decision_to_remaining(uuid,integer,text)"
+    },
+    {
+      "name": "public.approve_deposit",
+      "signature": "public.approve_deposit(uuid,uuid)"
+    },
+    {
+      "name": "public.are_friends",
+      "signature": "public.are_friends(uuid,uuid)"
+    },
+    {
+      "name": "public.audit_nr_drift_at_r2_plus",
+      "signature": "public.audit_nr_drift_at_r2_plus()"
+    },
+    {
+      "name": "public.audit_phase_parity",
+      "signature": "public.audit_phase_parity(int)"
+    },
+    {
+      "name": "public.audit_sensitive_table",
+      "signature": "public.audit_sensitive_table()"
+    },
+    {
+      "name": "public.audit_site_settings_table",
+      "signature": "public.audit_site_settings_table()"
+    },
+    {
+      "name": "public.auto_certificate_on_r4_award",
+      "signature": "public.auto_certificate_on_r4_award()"
+    },
+    {
+      "name": "public.auto_certificate_on_winner",
+      "signature": "public.auto_certificate_on_winner()"
+    },
+    {
+      "name": "public.auto_create_judging_rounds",
+      "signature": "public.auto_create_judging_rounds()"
+    },
+    {
+      "name": "public.auto_promote_chat_to_faq",
+      "signature": "public.auto_promote_chat_to_faq()"
+    },
+    {
+      "name": "public.auto_subscribe_newsletter",
+      "signature": "public.auto_subscribe_newsletter()"
+    },
+    {
+      "name": "public.auto_tier_judge_decision",
+      "signature": "public.auto_tier_judge_decision()"
+    },
+    {
+      "name": "public.backfill_judging_notifications",
+      "signature": "public.backfill_judging_notifications(int,boolean)"
+    },
+    {
+      "name": "public.backfill_judging_notifications",
+      "signature": "public.backfill_judging_notifications(integer,boolean)"
+    },
+    {
+      "name": "public.backfill_stuck_verifications",
+      "signature": "public.backfill_stuck_verifications(boolean)"
+    },
+    {
+      "name": "public.backfill_tag_decision_drift_admin",
+      "signature": "public.backfill_tag_decision_drift_admin()"
+    },
+    {
+      "name": "public.can_view_post",
+      "signature": "public.can_view_post(uuid,uuid,text)"
+    },
+    {
+      "name": "public.change_custom_url",
+      "signature": "public.change_custom_url(text)"
+    },
+    {
+      "name": "public.check_friend_limit",
+      "signature": "public.check_friend_limit()"
+    },
+    {
+      "name": "public.clear_custom_url",
+      "signature": "public.clear_custom_url()"
+    },
+    {
+      "name": "public.compute_entry_rank_score",
+      "signature": "public.compute_entry_rank_score(uuid)"
+    },
+    {
+      "name": "public.current_phase",
+      "signature": "public.current_phase(uuid)"
+    },
+    {
+      "name": "public.delete_email",
+      "signature": "public.delete_email(text,bigint)"
+    },
+    {
+      "name": "public.detect_duplicate_post",
+      "signature": "public.detect_duplicate_post()"
+    },
+    {
+      "name": "public.emit_notification",
+      "signature": "public.emit_notification(text,uuid,integer,uuid,text,text,text,uuid,text,jsonb,text)"
+    },
+    {
+      "name": "public.enforce_admin_brand_name",
+      "signature": "public.enforce_admin_brand_name()"
+    },
+    {
+      "name": "public.enforce_ai_image_policy",
+      "signature": "public.enforce_ai_image_policy()"
+    },
+    {
+      "name": "public.enforce_entry_fee",
+      "signature": "public.enforce_entry_fee()"
+    },
+    {
+      "name": "public.enforce_max_entries_per_user",
+      "signature": "public.enforce_max_entries_per_user()"
+    },
+    {
+      "name": "public.enforce_non_system_tags_round4",
+      "signature": "public.enforce_non_system_tags_round4()"
+    },
+    {
+      "name": "public.enforce_photo_limit",
+      "signature": "public.enforce_photo_limit()"
+    },
+    {
+      "name": "public.enforce_post_caption_only_update",
+      "signature": "public.enforce_post_caption_only_update()"
+    },
+    {
+      "name": "public.enforce_progression_decision_pending_gate",
+      "signature": "public.enforce_progression_decision_pending_gate()"
+    },
+    {
+      "name": "public.enforce_progression_decision_vocabulary",
+      "signature": "public.enforce_progression_decision_vocabulary()"
+    },
+    {
+      "name": "public.enforce_round_lock",
+      "signature": "public.enforce_round_lock()"
+    },
+    {
+      "name": "public.enforce_status_round_consistency",
+      "signature": "public.enforce_status_round_consistency()"
+    },
+    {
+      "name": "public.enqueue_email",
+      "signature": "public.enqueue_email(text,jsonb)"
+    },
+    {
+      "name": "public.enroll_in_course",
+      "signature": "public.enroll_in_course(uuid,uuid)"
+    },
+    {
+      "name": "public.fix_certificate_readiness_admin",
+      "signature": "public.fix_certificate_readiness_admin(uuid)"
+    },
+    {
+      "name": "public.fix_gift_drift_admin",
+      "signature": "public.fix_gift_drift_admin(uuid)"
+    },
+    {
+      "name": "public.fix_referral_drift_admin",
+      "signature": "public.fix_referral_drift_admin(uuid)"
+    },
+    {
+      "name": "public.friend_count",
+      "signature": "public.friend_count(uuid)"
+    },
+    {
+      "name": "public.generate_certificate_identifiers",
+      "signature": "public.generate_certificate_identifiers()"
+    },
+    {
+      "name": "public.generate_competition_slug",
+      "signature": "public.generate_competition_slug()"
+    },
+    {
+      "name": "public.get_ad_analytics",
+      "signature": "public.get_ad_analytics(timestamptz)"
+    },
+    {
+      "name": "public.get_ad_autoscale_stats",
+      "signature": "public.get_ad_autoscale_stats(timestamptz)"
+    },
+    {
+      "name": "public.get_certificate_drift_admin",
+      "signature": "public.get_certificate_drift_admin(uuid)"
+    },
+    {
+      "name": "public.get_certificate_readiness_drift_admin",
+      "signature": "public.get_certificate_readiness_drift_admin(uuid)"
+    },
+    {
+      "name": "public.get_competition_duplicate_clusters",
+      "signature": "public.get_competition_duplicate_clusters(uuid)"
+    },
+    {
+      "name": "public.get_competition_raw_commitments",
+      "signature": "public.get_competition_raw_commitments(uuid)"
+    },
+    {
+      "name": "public.get_derived_status_drift_admin",
+      "signature": "public.get_derived_status_drift_admin()"
+    },
+    {
+      "name": "public.get_entry_status_drift_admin",
+      "signature": "public.get_entry_status_drift_admin()"
+    },
+    {
+      "name": "public.get_entry_status_drift_summary_admin",
+      "signature": "public.get_entry_status_drift_summary_admin()"
+    },
+    {
+      "name": "public.get_entry_vote_counts",
+      "signature": "public.get_entry_vote_counts(uuid[])"
+    },
+    {
+      "name": "public.get_feed_candidates",
+      "signature": "public.get_feed_candidates(uuid[],integer,integer,integer)"
+    },
+    {
+      "name": "public.get_gated_entry_status",
+      "signature": "public.get_gated_entry_status(uuid[])"
+    },
+    {
+      "name": "public.get_gated_status_runtime_drift_admin",
+      "signature": "public.get_gated_status_runtime_drift_admin(uuid[])"
+    },
+    {
+      "name": "public.get_gift_drift_admin",
+      "signature": "public.get_gift_drift_admin()"
+    },
+    {
+      "name": "public.get_judge_collusion_admin",
+      "signature": "public.get_judge_collusion_admin(uuid,int,numeric)"
+    },
+    {
+      "name": "public.get_judge_entries_page_filtered",
+      "signature": "public.get_judge_entries_page_filtered(uuid,integer,text,timestamp with time zone,uuid,integer)"
+    },
+    {
+      "name": "public.get_judge_entries_page_v1",
+      "signature": "public.get_judge_entries_page_v1(uuid,integer,timestamptz,uuid,integer)"
+    },
+    {
+      "name": "public.get_judge_entries_page",
+      "signature": "public.get_judge_entries_page(uuid,integer,timestamp with time zone,uuid,integer)"
+    },
+    {
+      "name": "public.get_judge_entries_page",
+      "signature": "public.get_judge_entries_page(uuid,integer,timestamptz,uuid,integer)"
+    },
+    {
+      "name": "public.get_judging_drift_admin",
+      "signature": "public.get_judging_drift_admin()"
+    },
+    {
+      "name": "public.get_judging_live_tag_progression_invariant_admin",
+      "signature": "public.get_judging_live_tag_progression_invariant_admin()"
+    },
+    {
+      "name": "public.get_judging_tag_assignment_counts",
+      "signature": "public.get_judging_tag_assignment_counts()"
+    },
+    {
+      "name": "public.get_needs_review_recipients_for_round",
+      "signature": "public.get_needs_review_recipients_for_round(uuid,int)"
+    },
+    {
+      "name": "public.get_needs_review_recipients_for_round",
+      "signature": "public.get_needs_review_recipients_for_round(uuid,integer)"
+    },
+    {
+      "name": "public.get_notification_drift_admin",
+      "signature": "public.get_notification_drift_admin(int)"
+    },
+    {
+      "name": "public.get_notification_email_enabled",
+      "signature": "public.get_notification_email_enabled(uuid,text)"
+    },
+    {
+      "name": "public.get_notification_health_stats_admin",
+      "signature": "public.get_notification_health_stats_admin()"
+    },
+    {
+      "name": "public.get_per_photo_consensus",
+      "signature": "public.get_per_photo_consensus(uuid[])"
+    },
+    {
+      "name": "public.get_per_photo_placement",
+      "signature": "public.get_per_photo_placement(uuid[])"
+    },
+    {
+      "name": "public.get_photo_r4_awards",
+      "signature": "public.get_photo_r4_awards(uuid[])"
+    },
+    {
+      "name": "public.get_placement_drift_admin",
+      "signature": "public.get_placement_drift_admin(uuid)"
+    },
+    {
+      "name": "public.get_progression_drift_admin",
+      "signature": "public.get_progression_drift_admin()"
+    },
+    {
+      "name": "public.get_progression_drift",
+      "signature": "public.get_progression_drift()"
+    },
+    {
+      "name": "public.get_public_round_scores",
+      "signature": "public.get_public_round_scores(uuid,integer)"
+    },
+    {
+      "name": "public.get_referral_drift_admin",
+      "signature": "public.get_referral_drift_admin()"
+    },
+    {
+      "name": "public.get_result_visibility_invariant_admin",
+      "signature": "public.get_result_visibility_invariant_admin()"
+    },
+    {
+      "name": "public.get_round_eligible_photos",
+      "signature": "public.get_round_eligible_photos(uuid,int)"
+    },
+    {
+      "name": "public.get_round_eligible_photos",
+      "signature": "public.get_round_eligible_photos(uuid,integer)"
+    },
+    {
+      "name": "public.get_round_judging_gate_admin",
+      "signature": "public.get_round_judging_gate_admin(uuid,integer)"
+    },
+    {
+      "name": "public.get_round_judging_gate_self",
+      "signature": "public.get_round_judging_gate_self(uuid,int)"
+    },
+    {
+      "name": "public.get_round_pending_entries",
+      "signature": "public.get_round_pending_entries(uuid,int)"
+    },
+    {
+      "name": "public.get_round_summary",
+      "signature": "public.get_round_summary(uuid,int)"
+    },
+    {
+      "name": "public.get_round_summary",
+      "signature": "public.get_round_summary(uuid,integer)"
+    },
+    {
+      "name": "public.get_status_stage_key_drift_admin",
+      "signature": "public.get_status_stage_key_drift_admin()"
+    },
+    {
+      "name": "public.get_stuck_verifications_admin",
+      "signature": "public.get_stuck_verifications_admin()"
+    },
+    {
+      "name": "public.get_system_tag_catalog_drift",
+      "signature": "public.get_system_tag_catalog_drift()"
+    },
+    {
+      "name": "public.get_test_agent_health_admin",
+      "signature": "public.get_test_agent_health_admin()"
+    },
+    {
+      "name": "public.get_top_contributors_v1",
+      "signature": "public.get_top_contributors_v1()"
+    },
+    {
+      "name": "public.get_unjudged_parity_admin",
+      "signature": "public.get_unjudged_parity_admin(uuid,uuid,int)"
+    },
+    {
+      "name": "public.handle_first_admin",
+      "signature": "public.handle_first_admin()"
+    },
+    {
+      "name": "public.handle_new_user",
+      "signature": "public.handle_new_user()"
+    },
+    {
+      "name": "public.has_role",
+      "signature": "public.has_role(uuid,app_role)"
+    },
+    {
+      "name": "public.has_role",
+      "signature": "public.has_role(uuid,text)"
+    },
+    {
+      "name": "public.heartbeat_judge_lock",
+      "signature": "public.heartbeat_judge_lock(uuid,integer,uuid,integer)"
+    },
+    {
+      "name": "public.is_banned",
+      "signature": "public.is_banned(uuid)"
+    },
+    {
+      "name": "public.is_engagement_phase_locked",
+      "signature": "public.is_engagement_phase_locked(text,uuid)"
+    },
+    {
+      "name": "public.is_entry_owner",
+      "signature": "public.is_entry_owner(uuid,uuid)"
+    },
+    {
+      "name": "public.is_s3_storage_enabled",
+      "signature": "public.is_s3_storage_enabled()"
+    },
+    {
+      "name": "public.is_vote_phase_locked",
+      "signature": "public.is_vote_phase_locked(uuid)"
+    },
+    {
+      "name": "public.judge_can_access_entry",
+      "signature": "public.judge_can_access_entry(uuid,uuid)"
+    },
+    {
+      "name": "public.judging_invariants_check",
+      "signature": "public.judging_invariants_check()"
+    },
+    {
+      "name": "public.judging_write_decision_atomic",
+      "signature": "public.judging_write_decision_atomic(uuid,text,text)"
+    },
+    {
+      "name": "public.list_tag_decision_drift_admin",
+      "signature": "public.list_tag_decision_drift_admin()"
+    },
+    {
+      "name": "public.log_raw_commitments",
+      "signature": "public.log_raw_commitments()"
+    },
+    {
+      "name": "public.mirror_system_tag_to_decision",
+      "signature": "public.mirror_system_tag_to_decision()"
+    },
+    {
+      "name": "public.moderate_post_content",
+      "signature": "public.moderate_post_content()"
+    },
+    {
+      "name": "public.move_to_dlq",
+      "signature": "public.move_to_dlq(text,text,bigint,jsonb)"
+    },
+    {
+      "name": "public.mutual_friend_ids",
+      "signature": "public.mutual_friend_ids(uuid,uuid,integer)"
+    },
+    {
+      "name": "public.mutual_friends_count",
+      "signature": "public.mutual_friends_count(uuid,uuid)"
+    },
+    {
+      "name": "public.notify_admin_new_ticket",
+      "signature": "public.notify_admin_new_ticket()"
+    },
+    {
+      "name": "public.notify_badge_awarded",
+      "signature": "public.notify_badge_awarded()"
+    },
+    {
+      "name": "public.notify_certificate_issued",
+      "signature": "public.notify_certificate_issued()"
+    },
+    {
+      "name": "public.notify_competition_vote",
+      "signature": "public.notify_competition_vote()"
+    },
+    {
+      "name": "public.notify_course_published",
+      "signature": "public.notify_course_published()"
+    },
+    {
+      "name": "public.notify_entry_status_change",
+      "signature": "public.notify_entry_status_change()"
+    },
+    {
+      "name": "public.notify_featured_artist",
+      "signature": "public.notify_featured_artist()"
+    },
+    {
+      "name": "public.notify_friend_request_received",
+      "signature": "public.notify_friend_request_received()"
+    },
+    {
+      "name": "public.notify_image_comment",
+      "signature": "public.notify_image_comment()"
+    },
+    {
+      "name": "public.notify_image_reaction",
+      "signature": "public.notify_image_reaction()"
+    },
+    {
+      "name": "public.notify_journal_published",
+      "signature": "public.notify_journal_published()"
+    },
+    {
+      "name": "public.notify_new_competition",
+      "signature": "public.notify_new_competition()"
+    },
+    {
+      "name": "public.notify_new_follower",
+      "signature": "public.notify_new_follower()"
+    },
+    {
+      "name": "public.notify_post_comment",
+      "signature": "public.notify_post_comment()"
+    },
+    {
+      "name": "public.notify_post_reaction",
+      "signature": "public.notify_post_reaction()"
+    },
+    {
+      "name": "public.notify_post_tag",
+      "signature": "public.notify_post_tag()"
+    },
+    {
+      "name": "public.notify_potd_featured",
+      "signature": "public.notify_potd_featured()"
+    },
+    {
+      "name": "public.notify_round_published_insert",
+      "signature": "public.notify_round_published_insert()"
+    },
+    {
+      "name": "public.notify_round_published",
+      "signature": "public.notify_round_published()"
+    },
+    {
+      "name": "public.notify_user_ticket_reply",
+      "signature": "public.notify_user_ticket_reply()"
+    },
+    {
+      "name": "public.notify_verification_decided",
+      "signature": "public.notify_verification_decided()"
+    },
+    {
+      "name": "public.notify_verification_request_created",
+      "signature": "public.notify_verification_request_created()"
+    },
+    {
+      "name": "public.notify_verification_request_submitted",
+      "signature": "public.notify_verification_request_submitted()"
+    },
+    {
+      "name": "public.owns_album",
+      "signature": "public.owns_album(uuid,uuid)"
+    },
+    {
+      "name": "public.prevent_direct_custom_url_update",
+      "signature": "public.prevent_direct_custom_url_update()"
+    },
+    {
+      "name": "public.prevent_self_vote",
+      "signature": "public.prevent_self_vote()"
+    },
+    {
+      "name": "public.process_referral_reward",
+      "signature": "public.process_referral_reward(uuid,text,numeric)"
+    },
+    {
+      "name": "public.process_referral_reward",
+      "signature": "public.process_referral_reward(uuid,text)"
+    },
+    {
+      "name": "public.progression_order",
+      "signature": "public.progression_order(text)"
+    },
+    {
+      "name": "public.protect_admin_full_name",
+      "signature": "public.protect_admin_full_name()"
+    },
+    {
+      "name": "public.protect_system_tags_fn",
+      "signature": "public.protect_system_tags_fn()"
+    },
+    {
+      "name": "public.protect_system_tags",
+      "signature": "public.protect_system_tags()"
+    },
+    {
+      "name": "public.rate_limit_comments",
+      "signature": "public.rate_limit_comments()"
+    },
+    {
+      "name": "public.rate_limit_competition_entry",
+      "signature": "public.rate_limit_competition_entry()"
+    },
+    {
+      "name": "public.rate_limit_competition_votes",
+      "signature": "public.rate_limit_competition_votes()"
+    },
+    {
+      "name": "public.rate_limit_feed_events",
+      "signature": "public.rate_limit_feed_events()"
+    },
+    {
+      "name": "public.rate_limit_image_comments",
+      "signature": "public.rate_limit_image_comments()"
+    },
+    {
+      "name": "public.rate_limit_judge_scores",
+      "signature": "public.rate_limit_judge_scores()"
+    },
+    {
+      "name": "public.rate_limit_newsletter_subscribe",
+      "signature": "public.rate_limit_newsletter_subscribe()"
+    },
+    {
+      "name": "public.rate_limit_post_comments",
+      "signature": "public.rate_limit_post_comments()"
+    },
+    {
+      "name": "public.rate_limit_post_reactions",
+      "signature": "public.rate_limit_post_reactions()"
+    },
+    {
+      "name": "public.rate_limit_posts",
+      "signature": "public.rate_limit_posts()"
+    },
+    {
+      "name": "public.read_email_batch",
+      "signature": "public.read_email_batch(text,int,int)"
+    },
+    {
+      "name": "public.read_email_batch",
+      "signature": "public.read_email_batch(text,integer,integer)"
+    },
+    {
+      "name": "public.recompute_entry_from_tag_assignments",
+      "signature": "public.recompute_entry_from_tag_assignments(uuid)"
+    },
+    {
+      "name": "public.recompute_entry_public_status",
+      "signature": "public.recompute_entry_public_status(uuid)"
+    },
+    {
+      "name": "public.record_test_agent_run",
+      "signature": "public.record_test_agent_run(text,text,text,text,text,text,boolean,integer,text,boolean,boolean,boolean,jsonb,integer,text)"
+    },
+    {
+      "name": "public.refresh_score_cache",
+      "signature": "public.refresh_score_cache()"
+    },
+    {
+      "name": "public.release_judge_lock",
+      "signature": "public.release_judge_lock(uuid,integer,uuid)"
+    },
+    {
+      "name": "public.search_certificates",
+      "signature": "public.search_certificates(text,text,date)"
+    },
+    {
+      "name": "public.seed_round_publish_rows",
+      "signature": "public.seed_round_publish_rows()"
+    },
+    {
+      "name": "public.send_notification_email",
+      "signature": "public.send_notification_email()"
+    },
+    {
+      "name": "public.set_write_path",
+      "signature": "public.set_write_path(text)"
+    },
+    {
+      "name": "public.should_test_agent_run",
+      "signature": "public.should_test_agent_run(text)"
+    },
+    {
+      "name": "public.submit_competition_entry",
+      "signature": "public.submit_competition_entry(uuid,text,text,text[],text[],jsonb,boolean,jsonb)"
+    },
+    {
+      "name": "public.sync_competition_result_state_from_round_publish",
+      "signature": "public.sync_competition_result_state_from_round_publish()"
+    },
+    {
+      "name": "public.sync_entry_status_from_decision",
+      "signature": "public.sync_entry_status_from_decision()"
+    },
+    {
+      "name": "public.sync_oauth_on_login",
+      "signature": "public.sync_oauth_on_login()"
+    },
+    {
+      "name": "public.sync_profiles_public_data",
+      "signature": "public.sync_profiles_public_data()"
+    },
+    {
+      "name": "public.sync_system_tag_decision_map_from_catalog",
+      "signature": "public.sync_system_tag_decision_map_from_catalog()"
+    },
+    {
+      "name": "public.throttle_competition_entry_inserts",
+      "signature": "public.throttle_competition_entry_inserts()"
+    },
+    {
+      "name": "public.trg_entry_status_lifecycle_emit",
+      "signature": "public.trg_entry_status_lifecycle_emit()"
+    },
+    {
+      "name": "public.trg_recompute_entry_after_tag_change",
+      "signature": "public.trg_recompute_entry_after_tag_change()"
+    },
+    {
+      "name": "public.trg_recompute_entry_public_status",
+      "signature": "public.trg_recompute_entry_public_status()"
+    },
+    {
+      "name": "public.trg_recompute_publish_fanout",
+      "signature": "public.trg_recompute_publish_fanout()"
+    },
+    {
+      "name": "public.update_post_comments_count",
+      "signature": "public.update_post_comments_count()"
+    },
+    {
+      "name": "public.update_post_likes_count",
+      "signature": "public.update_post_likes_count()"
+    },
+    {
+      "name": "public.update_post_shares_count",
+      "signature": "public.update_post_shares_count()"
+    },
+    {
+      "name": "public.validate_competition_entry_ai_advisory",
+      "signature": "public.validate_competition_entry_ai_advisory()"
+    },
+    {
+      "name": "public.validate_competition_entry_photo_meta",
+      "signature": "public.validate_competition_entry_photo_meta()"
+    },
+    {
+      "name": "public.validate_competition_entry_status_transition",
+      "signature": "public.validate_competition_entry_status_transition()"
+    },
+    {
+      "name": "public.validate_feed_event_author",
+      "signature": "public.validate_feed_event_author()"
+    },
+    {
+      "name": "public.validate_judge_criteria_scores",
+      "signature": "public.validate_judge_criteria_scores()"
+    },
+    {
+      "name": "public.validate_judge_score_range",
+      "signature": "public.validate_judge_score_range()"
+    },
+    {
+      "name": "public.validate_post_tag_insert",
+      "signature": "public.validate_post_tag_insert()"
+    },
+    {
+      "name": "public.validate_post_tag_update",
+      "signature": "public.validate_post_tag_update()"
+    },
+    {
+      "name": "public.verify_certificate_by_token",
+      "signature": "public.verify_certificate_by_token(text)"
+    },
+    {
+      "name": "public.verify_certificate",
+      "signature": "public.verify_certificate(uuid)"
+    },
+    {
+      "name": "public.wallet_transaction",
+      "signature": "public.wallet_transaction(uuid,text,numeric,text,uuid,text,jsonb)"
+    }
+  ],
+  "destructive_findings": [
+    {
+      "file": "supabase/migrations/20260227152707_44fc9373-49aa-41d6-8967-0668af79829f.sql",
+      "line": 31,
+      "type": "DROP_PROTECTED_COLUMN",
+      "severity": "HIGH",
+      "target": "public.competitions.payment_details",
+      "snippet": "ALTER TABLE public.competitions DROP COLUMN IF EXISTS payment_details",
+      "key": "supabase/migrations/20260227152707_44fc9373-49aa-41d6-8967-0668af79829f.sql:31:DROP_PROTECTED_COLUMN:public.competitions.payment_details"
+    },
+    {
+      "file": "supabase/migrations/20260416134319_67e5bb86-806e-4e13-ae6d-4f72e8370b35.sql",
+      "line": 1,
+      "type": "DROP_PROTECTED_COLUMN",
+      "severity": "HIGH",
+      "target": "public.competitions.voting_starts_at",
+      "snippet": "ALTER TABLE public.competitions DROP COLUMN IF EXISTS voting_starts_at",
+      "key": "supabase/migrations/20260416134319_67e5bb86-806e-4e13-ae6d-4f72e8370b35.sql:1:DROP_PROTECTED_COLUMN:public.competitions.voting_starts_at"
+    },
+    {
+      "file": "supabase/migrations/20260421055129_98a3d7c6-4493-4bca-9fc7-c3ff9398fe75.sql",
+      "line": 28,
+      "type": "DROP_POLICY_PROTECTED",
+      "severity": "HIGH",
+      "target": "public.competition_orders::users_read_own_orders",
+      "snippet": "DROP POLICY IF EXISTS \"users_read_own_orders\" ON public.competition_orders",
+      "key": "supabase/migrations/20260421055129_98a3d7c6-4493-4bca-9fc7-c3ff9398fe75.sql:28:DROP_POLICY_PROTECTED:public.competition_orders::users_read_own_orders"
+    },
+    {
+      "file": "supabase/migrations/20260421055129_98a3d7c6-4493-4bca-9fc7-c3ff9398fe75.sql",
+      "line": 34,
+      "type": "DROP_POLICY_PROTECTED",
+      "severity": "HIGH",
+      "target": "public.competition_orders::admins_read_all_orders",
+      "snippet": "DROP POLICY IF EXISTS \"admins_read_all_orders\" ON public.competition_orders",
+      "key": "supabase/migrations/20260421055129_98a3d7c6-4493-4bca-9fc7-c3ff9398fe75.sql:34:DROP_POLICY_PROTECTED:public.competition_orders::admins_read_all_orders"
+    },
+    {
+      "file": "supabase/migrations/20260427062252_3ab8f280-053c-4681-92f7-4cceac8f9edb.sql",
+      "line": 13,
+      "type": "DROP_PROTECTED_TABLE",
+      "severity": "CRITICAL",
+      "target": "public.photo_verification_requests",
+      "snippet": "DROP TABLE IF EXISTS public.photo_verification_requests CASCADE;",
+      "key": "supabase/migrations/20260427062252_3ab8f280-053c-4681-92f7-4cceac8f9edb.sql:13:DROP_PROTECTED_TABLE:public.photo_verification_requests"
+    },
+    {
+      "file": "supabase/migrations/20260427062252_3ab8f280-053c-4681-92f7-4cceac8f9edb.sql",
+      "line": 14,
+      "type": "DROP_PROTECTED_TABLE",
+      "severity": "CRITICAL",
+      "target": "public.verification_requests",
+      "snippet": "DROP TABLE IF EXISTS public.verification_requests CASCADE;",
+      "key": "supabase/migrations/20260427062252_3ab8f280-053c-4681-92f7-4cceac8f9edb.sql:14:DROP_PROTECTED_TABLE:public.verification_requests"
+    },
+    {
+      "file": "supabase/migrations/20260430080310_0bf72a8d-18bc-402a-8ac4-8e8096ca531b.sql",
+      "line": 5,
+      "type": "DROP_PROTECTED_TABLE",
+      "severity": "CRITICAL",
+      "target": "public._v3_preflight_snapshot_competition_entries",
+      "snippet": "DROP TABLE IF EXISTS public._v3_preflight_snapshot_competition_entries;",
+      "key": "supabase/migrations/20260430080310_0bf72a8d-18bc-402a-8ac4-8e8096ca531b.sql:5:DROP_PROTECTED_TABLE:public._v3_preflight_snapshot_competition_entries"
+    },
+    {
+      "file": "supabase/migrations/20260430080310_0bf72a8d-18bc-402a-8ac4-8e8096ca531b.sql",
+      "line": 6,
+      "type": "DROP_PROTECTED_TABLE",
+      "severity": "CRITICAL",
+      "target": "public._v3_preflight_snapshot_judge_decisions",
+      "snippet": "DROP TABLE IF EXISTS public._v3_preflight_snapshot_judge_decisions;",
+      "key": "supabase/migrations/20260430080310_0bf72a8d-18bc-402a-8ac4-8e8096ca531b.sql:6:DROP_PROTECTED_TABLE:public._v3_preflight_snapshot_judge_decisions"
+    }
+  ],
+  "counts": {
+    "enums": 2,
+    "secdef_functions": 213,
+    "destructive_findings": 8
+  }
+}

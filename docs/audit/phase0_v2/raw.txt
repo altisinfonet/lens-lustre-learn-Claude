@@ -1,0 +1,278 @@
+================================================================
+ Phase 0 v2 — Forensic Baseline (READ-ONLY)
+ UTC: 2026-04-30T13:38:20Z
+ Mandate: No Assumptions · No Guesswork · No Part Checking · No Casual Approach · Claude Only
+================================================================
+
+############### 1A. FULL v3_stage_catalog (every column) ###############
+                  id                  |       stage_key       | round_number |      family      |   decision_token   |     tag_label_canonical      | advances_to_round | blocks_from_round |                                       description                                        | is_active |          created_at           |          updated_at           | cert_eligible 
+--------------------------------------+-----------------------+--------------+------------------+--------------------+------------------------------+-------------------+-------------------+------------------------------------------------------------------------------------------+-----------+-------------------------------+-------------------------------+---------------
+ 485abc85-35f4-4fb5-97c9-de2046d7c03f | r1_accept             |            1 | progression_pass | accept             | Accepted                     |                 2 |                   | R1 accept — photo advances to Round 2.                                                 | t         | 2026-04-30 10:15:22.314036+00 | 2026-04-30 11:06:26.038324+00 | t
+ 5d2673b4-4172-4fd1-a073-6795be5607eb | r1_accept_short       |            1 | progression_pass | accept             | Accept                       |                 2 |                   | R1 accept (short label, synonym of Accepted) — photo advances to Round 2.              | t         | 2026-04-30 10:23:41.187882+00 | 2026-04-30 11:06:26.038324+00 | t
+ 816a1d32-e459-4452-8beb-fa17d5e0eb3c | r1_needs_review       |            1 | needs_review     | needs_review       | Needs Review                 |                   |                   | R1 deferred — round cannot close while any photo is in this state.                     | t         | 2026-04-30 10:15:22.314036+00 | 2026-04-30 11:06:26.038324+00 | f
+ a80ad5a2-ea0b-4a9d-b315-f2c53410cd95 | r1_reject             |            1 | rejection        | reject             | Rejected                     |                   |                   | R1 reject — photo terminated from competition entirely.                                | t         | 2026-04-30 10:15:22.314036+00 | 2026-04-30 11:06:26.038324+00 | f
+ 5f45707e-c752-4248-b860-f654caddd9ab | r1_reject_short       |            1 | rejection        | reject             | Reject                       |                   |                   | R1 reject (short label, synonym of Rejected) — photo terminated from competition.      | t         | 2026-04-30 10:23:41.187882+00 | 2026-04-30 11:06:26.038324+00 | f
+ 9500a284-5e2b-43c9-9967-c4253201b4e2 | r1_shortlist_for_r2   |            1 | progression_pass | shortlist          | Shortlist for R2             |                 2 |                   | R1 shortlist — photo advances to Round 2 (synonym of Accepted in v3 vocab).            | t         | 2026-04-30 10:15:22.314036+00 | 2026-04-30 11:06:26.038324+00 | t
+ a07f8b53-1134-4ae9-87d6-b85a0ebdb802 | r2_not_selected_r3    |            2 | progression_fail | not_selected_r3    | Not Selected for 3rd Round   |                   |                 3 | R2 photo PASSED Round 2 but is OUT for Round 3. Keeps R2 qualification.                  | t         | 2026-04-30 10:15:22.314036+00 | 2026-04-30 11:06:26.038324+00 | f
+ b51ce2a9-73dd-4f26-89c0-327439d581af | r2_qualified_r3       |            2 | progression_pass | qualified_r3       | Qualified for 3rd Round      |                 3 |                   | R2 pass — photo advances to Round 3.                                                   | t         | 2026-04-30 10:15:22.314036+00 | 2026-04-30 11:06:26.038324+00 | t
+ 4d97f0c3-421f-496f-a55f-27505c241985 | r2_qualified_r3_short |            2 | progression_pass | qualified_r3       | Qualified for R3             |                 3 |                   | R2 pass (short label, synonym of Qualified for 3rd Round) — photo advances to Round 3. | t         | 2026-04-30 10:23:41.187882+00 | 2026-04-30 11:06:26.038324+00 | t
+ f9b12cdb-9afc-48e8-9110-842da67da60e | r3_not_selected_final |            3 | progression_fail | not_selected_final | Not Selected for Final Round |                   |                 4 | R3 photo PASSED Round 3 but is OUT for Round 4. Keeps R3 qualification.                  | t         | 2026-04-30 10:15:22.314036+00 | 2026-04-30 11:06:26.038324+00 | f
+ 802662df-6104-4975-a51b-cd72a6be2612 | r3_shortlisted_final  |            3 | progression_pass | shortlisted_final  | Shortlisted for Final        |                 4 |                   | R3 pass — photo advances to Round 4 (Final).                                           | t         | 2026-04-30 10:15:22.314036+00 | 2026-04-30 11:06:26.038324+00 | t
+ b2f81f9c-d8ab-46cd-b4e1-578afc9448b4 | r4_best_moment        |            4 | award            | special_jury       | Best Moment Award            |                   |                   | R4 award — Best Moment Award (sub-bucket of special_jury).                             | t         | 2026-04-30 10:15:22.314036+00 | 2026-04-30 11:06:26.038324+00 | t
+ 246c3188-37db-4c80-b55d-f52d7d79fd9b | r4_honorary_mention   |            4 | award            | honorary_mention   | Honorary Mention             |                   |                   | R4 award — Honorary Mention.                                                           | t         | 2026-04-30 10:15:22.314036+00 | 2026-04-30 11:06:26.038324+00 | t
+ 1deed43d-5be1-4727-b98e-c5447a08a2d5 | r4_runner_up_1        |            4 | award            | runner_up_1        | 1st Runner-Up                |                   |                   | R4 award — 1st Runner-Up.                                                              | t         | 2026-04-30 10:15:22.314036+00 | 2026-04-30 11:06:26.038324+00 | t
+ 98150e7d-1be2-4947-9c32-8b17072af621 | r4_runner_up_2        |            4 | award            | runner_up_2        | 2nd Runner-Up                |                   |                   | R4 award — 2nd Runner-Up.                                                              | t         | 2026-04-30 10:15:22.314036+00 | 2026-04-30 11:06:26.038324+00 | t
+ 4ff1b22f-330a-478a-9ff7-39c86204880d | r4_special_jury       |            4 | award            | special_jury       | Special Jury Award           |                   |                   | R4 award — Special Jury Award.                                                         | t         | 2026-04-30 10:15:22.314036+00 | 2026-04-30 11:06:26.038324+00 | t
+ e3eaf7ca-26b5-43be-a8f4-4c6f0eac3881 | r4_top_100            |            4 | award            | qualified          | Top 100 Global Photographer  |                   |                   | R4 award — Top 100 Global Photographer (mirrors decision token qualified).             | t         | 2026-04-30 10:15:22.314036+00 | 2026-04-30 11:06:26.038324+00 | t
+ 281bdd1d-3235-4aeb-aa70-5df34a811ec5 | r4_top_50             |            4 | award            | finalist           | Top 50 Finalist              |                   |                   | R4 award — Top 50 Finalist (mirrors decision token finalist).                          | t         | 2026-04-30 10:15:22.314036+00 | 2026-04-30 11:06:26.038324+00 | t
+ 62145701-ff47-41e7-b5e4-7955fb2fc5d6 | r4_winner             |            4 | award            | winner             | Winner                       |                   |                   | R4 award — Winner. Recognised in certificates and results.                             | t         | 2026-04-30 10:15:22.314036+00 | 2026-04-30 11:06:26.038324+00 | t
+(19 rows)
+
+
+############### 1A-bis. v3_stage_catalog DDL ###############
+                                                                                                                                                                                                 Table "public.v3_stage_catalog"
+       Column        |           Type           | Collation | Nullable |      Default      | Storage  | Compression | Stats target |                                                                                                                                         Description                                                                                                                                         
+---------------------+--------------------------+-----------+----------+-------------------+----------+-------------+--------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ id                  | uuid                     |           | not null | gen_random_uuid() | plain    |             |              | 
+ stage_key           | text                     |           | not null |                   | extended |             |              | Stable short identifier used by code (e.g. r1_accept, r2_qualified_r3, r4_winner). Never rename.
+ round_number        | integer                  |           | not null |                   | plain    |             |              | 
+ family              | text                     |           | not null |                   | extended |             |              | 
+ decision_token      | text                     |           | not null |                   | extended |             |              | 
+ tag_label_canonical | text                     |           | not null |                   | extended |             |              | Canonical-cased admin tag label. Lookups are case/whitespace-insensitive via lower(trim(...)).
+ advances_to_round   | integer                  |           |          |                   | plain    |             |              | 
+ blocks_from_round   | integer                  |           |          |                   | plain    |             |              | 
+ description         | text                     |           | not null |                   | extended |             |              | 
+ is_active           | boolean                  |           | not null | true              | plain    |             |              | 
+ created_at          | timestamp with time zone |           | not null | now()             | plain    |             |              | 
+ updated_at          | timestamp with time zone |           | not null | now()             | plain    |             |              | 
+ cert_eligible       | boolean                  |           | not null | false             | plain    |             |              | Judging v3 / Phase 3.2: TRUE when reaching this stage makes the photo eligible for a certificate. Seeded TRUE for family IN (progression_pass, award); FALSE for rejection, needs_review, progression_fail. Single source of truth used by complete-round and publish-round edge functions.
+Indexes:
+    "v3_stage_catalog_pkey" PRIMARY KEY, btree (id)
+    "v3_stage_catalog_label_lower_idx" btree (lower(tag_label_canonical)) WHERE is_active = true
+    "v3_stage_catalog_round_active_idx" btree (round_number) WHERE is_active = true
+    "v3_stage_catalog_round_label_uniq" UNIQUE CONSTRAINT, btree (round_number, tag_label_canonical)
+    "v3_stage_catalog_stage_key_key" UNIQUE CONSTRAINT, btree (stage_key)
+Check constraints:
+    "v3_stage_catalog_advances_chk" CHECK (advances_to_round IS NULL OR advances_to_round >= 2 AND advances_to_round <= 4)
+    "v3_stage_catalog_blocks_chk" CHECK (blocks_from_round IS NULL OR blocks_from_round >= 2 AND blocks_from_round <= 4)
+    "v3_stage_catalog_decision_token_chk" CHECK (decision_token = ANY (ARRAY['accept'::text, 'reject'::text, 'shortlist'::text, 'needs_review'::text, 'qualified'::text, 'finalist'::text, 'winner'::text, 'skip'::text, 'qualified_r3'::text, 'not_selected_r3'::text, 'shortlisted_final'::text, 'not_selected_final'::text, 'runner_up_1'::text, 'runner_up_2'::text, 'honorary_mention'::text, 'special_jury'::text]))
+    "v3_stage_catalog_family_chk" CHECK (family = ANY (ARRAY['progression_pass'::text, 'progression_fail'::text, 'rejection'::text, 'needs_review'::text, 'award'::text]))
+    "v3_stage_catalog_round_chk" CHECK (round_number >= 1 AND round_number <= 4)
+Policies:
+    POLICY "v3_stage_catalog_insert_admin" FOR INSERT
+      TO authenticated
+      WITH CHECK (has_role(auth.uid(), 'admin'::app_role))
+    POLICY "v3_stage_catalog_read_authenticated" FOR SELECT
+      TO authenticated
+      USING (true)
+    POLICY "v3_stage_catalog_update_admin" FOR UPDATE
+      TO authenticated
+      USING (has_role(auth.uid(), 'admin'::app_role))
+      WITH CHECK (has_role(auth.uid(), 'admin'::app_role))
+Triggers:
+    tr_v3_stage_catalog_touch BEFORE UPDATE ON v3_stage_catalog FOR EACH ROW EXECUTE FUNCTION tg_v3_stage_catalog_touch()
+Access method: heap
+
+
+############### 1B. competition_entries.progression_decision DISTINCT ###############
+ progression_decision | rows 
+----------------------+------
+ shortlisted          |    1
+(1 row)
+
+
+############### 1C. judging_tags FULL DUMP ###############
+                  id                  |         label          | is_active | visible_in_round | is_system | is_visible | is_quality_tag | sort_order 
+--------------------------------------+------------------------+-----------+------------------+-----------+------------+----------------+------------
+ 4b440411-1efe-49c4-a9ee-a491a78bdb4d | Reject                 | t         | {1}              | t         | f          | f              |         11
+ 4f1805d5-0a86-4abf-bb27-496da58bd0b2 | Accept                 | t         | {1}              | t         | f          | f              |         12
+ 0034f2e3-3626-4e93-93db-5aa1227e3341 | Needs Review           | t         | {1}              | t         | f          | f              |         13
+ 13f2d1bd-06cd-40e8-a086-64762d6fa372 | Shortlist for R2       | t         | {1}              | t         | f          | f              |         50
+ 67d446d4-fec6-4f45-8643-03c3ff2d462f | Qualified for R3       | t         | {2}              | t         | f          | f              |         14
+ bce0e662-76cb-4196-9798-e7d14bd1d782 | Not Selected for R3    | f         | {2}              | t         | f          | f              |         16
+ e2b179a8-3093-4cdd-8df4-282ac42a85f4 | Stayed at R2           | f         | {2}              | t         | f          | f              |         18
+ df11381a-1d96-4c46-8439-747ed3a7b0c6 | Shortlisted for Final  | t         | {3}              | t         | f          | f              |         15
+ 15012bbe-9d46-42e1-8e38-a639a3f5769f | Not Selected for Final | f         | {3}              | t         | f          | f              |         17
+ 37c160fd-149a-4795-9464-2e5860d1fff2 | Stayed at R3           | f         | {3}              | t         | f          | f              |         19
+ cfd7d5af-bf4a-4bba-9b53-d98e03fdf861 | Honorary Mention       | t         | {4}              | f         | t          | f              |          0
+ fa292f24-998f-4692-82ab-0a3e6b968443 | Qualified for Final    | t         | {4}              | f         | t          | f              |          0
+ 249926a9-58e6-49ca-91c3-75a12759095a | Top 100                | t         | {4}              | f         | t          | f              |          0
+ 0d734146-48a2-417b-876b-29a5c2243b16 | Top 50                 | t         | {4}              | f         | t          | f              |          0
+ 49c0c69f-0f94-4f92-996f-2878e9ee752c | Winner                 | t         | {4}              | f         | t          | f              |          6
+ b5281733-849a-43ce-97b0-7eafec9d41f0 | 1st Runner-Up          | t         | {4}              | f         | t          | f              |          7
+ f01c2ccb-7d8f-49a4-b645-b4fb6c25aabf | 2nd Runner-Up          | t         | {4}              | f         | t          | f              |          8
+ ddf5b7bb-775f-4906-b636-36f9b737b090 | Special Jury           | t         | {4}              | f         | t          | f              |         10
+(18 rows)
+
+
+############### 1D. judge_decisions.decision DISTINCT + counts ###############
+   decision   | round_number | rows 
+--------------+--------------+------
+ accept       |            1 |    1
+ reject       |            1 |    3
+ shortlist    |            1 |   16
+ qualified_r3 |            2 |   15
+(4 rows)
+
+
+############### 1D-bis. judge_decisions CHECK constraint ###############
+            conname             |                                                                                                                                                                             pg_get_constraintdef                                                                                                                                                                             
+--------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ judge_decisions_decision_check | CHECK ((decision = ANY (ARRAY['accept'::text, 'reject'::text, 'shortlist'::text, 'needs_review'::text, 'qualified'::text, 'finalist'::text, 'winner'::text, 'skip'::text, 'qualified_r3'::text, 'not_selected_r3'::text, 'shortlisted_final'::text, 'not_selected_final'::text, 'runner_up_1'::text, 'runner_up_2'::text, 'honorary_mention'::text, 'special_jury'::text])))
+(1 row)
+
+
+############### 2. Vocabulary counts ###############
+ is_active | count 
+-----------+-------
+ t         |    19
+(1 row)
+
+ round_number | count 
+--------------+-------
+            1 |     6
+            2 |     3
+            3 |     2
+            4 |     8
+(4 rows)
+
+
+############### 3. Duplicate / legacy presence vs locked 16-key set ###############
+Locked 16-key set:
+ R1: r1_accepted, r1_rejected, r1_shortlisted_for_r2, r1_needs_review
+ R2: r2_qualified_r3, r2_not_selected_r3
+ R3: r3_qualified_final, r3_not_selected_final
+ R4: r4_winner, r4_runner_up_1, r4_runner_up_2, r4_top_50, r4_top_100, r4_honorary_mention, r4_special_jury, r4_qualified_final
+
+       stage_key       | round_number | is_active |       status        
+-----------------------+--------------+-----------+---------------------
+ r1_accept             |            1 | t         | EXTRA (soft-delete)
+ r1_accept_short       |            1 | t         | EXTRA (soft-delete)
+ r1_reject             |            1 | t         | EXTRA (soft-delete)
+ r1_reject_short       |            1 | t         | EXTRA (soft-delete)
+ r1_shortlist_for_r2   |            1 | t         | EXTRA (soft-delete)
+ r2_qualified_r3_short |            2 | t         | EXTRA (soft-delete)
+ r3_shortlisted_final  |            3 | t         | EXTRA (soft-delete)
+ r4_best_moment        |            4 | t         | EXTRA (soft-delete)
+ r1_accepted           |              |           | MISSING (must add)
+ r1_rejected           |              |           | MISSING (must add)
+ r1_shortlisted_for_r2 |              |           | MISSING (must add)
+ r3_qualified_final    |              |           | MISSING (must add)
+ r4_qualified_final    |              |           | MISSING (must add)
+ r1_needs_review       |            1 | t         | OK (kept)
+ r2_not_selected_r3    |            2 | t         | OK (kept)
+ r2_qualified_r3       |            2 | t         | OK (kept)
+ r3_not_selected_final |            3 | t         | OK (kept)
+ r4_honorary_mention   |            4 | t         | OK (kept)
+ r4_runner_up_1        |            4 | t         | OK (kept)
+ r4_runner_up_2        |            4 | t         | OK (kept)
+ r4_special_jury       |            4 | t         | OK (kept)
+ r4_top_100            |            4 | t         | OK (kept)
+ r4_top_50             |            4 | t         | OK (kept)
+ r4_winner             |            4 | t         | OK (kept)
+(24 rows)
+
+
+############### 3b. Legacy values present in competition_entries.progression_decision ###############
+ progression_decision | rows |        status         
+----------------------+------+-----------------------
+ shortlisted          |    1 | LEGACY (must migrate)
+(1 row)
+
+
+############### 4. Sample dump — ALL entries in DB (system limitation disclosure) ###############
+ total_entries 
+---------------
+             1
+(1 row)
+
+ total_competitions 
+--------------------
+                  1
+(1 row)
+
+
+--- ALL competition_entries (full table — every column relevant to judging) ---
+               entry_id               |            competition_id            |               user_id                | current_round | progression_decision |      status      | photo_count |  created   
+--------------------------------------+--------------------------------------+--------------------------------------+---------------+----------------------+------------------+-------------+------------
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e | 813237c4-2cbf-4ca1-b051-9e5c59fa9723 | cc691988-699f-4da5-9b2e-f2346c7303be | 3             | shortlisted          | round2_qualified |          20 | 2026-04-29
+(1 row)
+
+
+--- Per-entry decision matrix (rounds 1-4) ---
+               entry_id               | photos | r1_decisions | r1_photos_decided | r2_decisions | r2_photos_decided | r3_decisions | r3_photos_decided | r4_decisions | r4_photos_decided 
+--------------------------------------+--------+--------------+-------------------+--------------+-------------------+--------------+-------------------+--------------+-------------------
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |     20 |           20 |                20 |           15 |                15 |            0 |                 0 |            0 |                 0
+(1 row)
+
+
+--- Full per-photo decision dump for the only existing entry ---
+               entry_id               | photo_index | round_number |   decision   |               judge_id               |          created_at           
+--------------------------------------+-------------+--------------+--------------+--------------------------------------+-------------------------------
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |           0 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 17:56:19.77546+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |           1 |            1 | accept       | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:02:04.216961+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |           2 |            1 | reject       | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:02:13.431799+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |           3 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:02:20.664867+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |           4 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:02:25.551209+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |           5 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:02:32.226809+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |           6 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:02:35.822144+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |           7 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:02:48.997399+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |           8 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:02:54.854078+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |           9 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:02:59.917603+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |          10 |            1 | reject       | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:07:41.515642+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |          11 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:07:47.203451+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |          12 |            1 | reject       | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:07:55.010756+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |          13 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:08:11.41543+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |          14 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:08:16.641478+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |          15 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:08:19.693004+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |          16 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:08:22.626836+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |          17 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:08:24.796991+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |          18 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:08:27.967063+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |          19 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:08:35.602718+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |           0 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:11:01.882711+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |           3 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:14:06.338856+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |           4 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:14:46.290725+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |           5 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:15:21.205188+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |           6 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:15:32.456875+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |           7 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:15:51.583735+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |           8 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:16:10.951472+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |           9 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:16:34.617988+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |          13 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:19:46.894469+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |          14 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:20:32.992442+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |          15 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:21:51.29539+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |          16 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:22:50.098952+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |          17 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:23:33.500272+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |          18 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:24:26.257277+00
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e |          19 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c | 2026-04-29 18:25:00.860166+00
+(35 rows)
+
+
+############### 4b. SYSTEM LIMITATION DISCLOSURE ###############
+Database currently contains the following row counts (raw evidence):
+        table        | rows 
+---------------------+------
+ competition_entries |    1
+ competitions        |    1
+ judge_decisions     |   35
+ judge_decisions R1  |   20
+ judge_decisions R2  |   15
+ judge_decisions R3  |    0
+ judge_decisions R4  |    0
+(7 rows)
+
+
+############### 5. PENDING audit — current-round photos missing decisions ###############
+               entry_id               | current_round | round_int | progression_decision | photo_count | photos_decided_current_round | pending_in_current_round 
+--------------------------------------+---------------+-----------+----------------------+-------------+------------------------------+--------------------------
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e | 3             |         3 | shortlisted          |          20 |                            0 |                       20
+(1 row)
+
+
+############### 5b. LEAK detection — non-null progression_decision while photos pending ###############
+               entry_id               | current_round | progression_decision | photo_count | photos_decided_current_round |                 finding                  
+--------------------------------------+---------------+----------------------+-------------+------------------------------+------------------------------------------
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e | 3             | shortlisted          |          20 |                            0 | LEAK: locked plan §Pending Rule violated
+(1 row)
+
+
+============== END OF RAW SQL OUTPUT ==============

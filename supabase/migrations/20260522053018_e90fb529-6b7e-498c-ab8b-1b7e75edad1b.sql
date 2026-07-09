@@ -1,0 +1,1 @@
+DROP POLICY "Users can remove own vote" ON public.competition_votes;

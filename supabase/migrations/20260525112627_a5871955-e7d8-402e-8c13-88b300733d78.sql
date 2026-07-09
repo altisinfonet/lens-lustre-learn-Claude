@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles_public_data DROP COLUMN IF EXISTS date_of_birth;

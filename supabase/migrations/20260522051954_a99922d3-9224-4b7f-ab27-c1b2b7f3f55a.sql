@@ -1,0 +1,3 @@
+REVOKE EXECUTE ON FUNCTION public.emit_notification(text, uuid, integer, uuid, text, text, text, uuid, text, jsonb, text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.emit_notification(text, uuid, integer, uuid, text, text, text, uuid, text, jsonb, text) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.emit_notification(text, uuid, integer, uuid, text, text, text, uuid, text, jsonb, text) FROM authenticated;

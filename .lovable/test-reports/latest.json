@@ -1,0 +1,45 @@
+{
+  "ts": "2026-05-02T10:47:02.148Z",
+  "status": "failed",
+  "trigger": "push",
+  "commit": "093eba61c4912794ad9a9b907ce2e8eef176d760",
+  "branch": "main",
+  "duration_ms": 26983,
+  "checks": {
+    "tsc": {
+      "pass": true,
+      "ms": 736
+    },
+    "vitest": {
+      "pass": false,
+      "ms": 13336,
+      "err": "9m\n\n\u001b[41m\u001b[1m FAIL \u001b[22m\u001b[49m src/components/judge/__tests__/JudgeGuideModal.test.tsx\u001b[2m > \u001b[22mJudgeGuideModal — Spec v3 / v6 contract\u001b[2m > \u001b[22mR4 tab states Winner is mandatory and runner-ups are optional\n\u001b[31m\u001b[1mAssertionError\u001b[22m: expected 'Judge\\'s Guide · v6Spec v3 — R1 decis…' to match /runner up.*optional/i\u001b[39m\n\n\u001b[32m- Expected:\u001b[39m \n/runner up.*optional/i\n\n\u001b[31m+ Received:\u001b[39m \n\"Judge's Guide · v6Spec v3 — R1 decisions, R2/R3 mandatory 10 criteria, R4 awards & tags. Reopen anytime from the toolbar.Round 1Rounds 2-3Round 4HotkeysRound 4 is the final. You score the same 10 criteria and assign award tags. Tags only appear in Round 4.Winner — mandatoryExactly one Winner must be assigned before the round can close.1st Runner-Up — optionalOptional. If assigned, must be unique.2nd Runner-Up — optionalOptional. If assigned, must be unique.Honorary Mention — optionalRecognition only. May be assigned to multiple entries.Special Jury Award — optionalRecognition only. May be assigned to multiple entries.Locking ≠ Declaring. When you complete the round the results are locked but still hidden from participants. The Admin must explicitly Declare the round to publish results, send certificates and notify participants.Shown once on first visitStart Judging\"\n\n\u001b[36m \u001b[2m❯\u001b[22m src/components/judge/__tests__/JudgeGuideModal.test.tsx:\u001b[2m81:18\u001b[22m\u001b[39m\n    \u001b[90m 79| \u001b[39m    \u001b[35mconst\u001b[39m body \u001b[33m=\u001b[39m document\u001b[33m.\u001b[39mbody\u001b[33m.\u001b[39mtextContent \u001b[33m??\u001b[39m \u001b[32m\"\"\u001b[39m\u001b[33m;\u001b[39m\n    \u001b[90m 80| \u001b[39m    \u001b[34mexpect\u001b[39m(body)\u001b[33m.\u001b[39m\u001b[34mtoMatch\u001b[39m(\u001b[36m/winner.*mandatory/i\u001b[39m)\u001b[33m;\u001b[39m\n    \u001b[90m 81| \u001b[39m    \u001b[34mexpect\u001b[39m(body)\u001b[33m.\u001b[39m\u001b[34mtoMatch\u001b[39m(\u001b[36m/runner up.*optional/i\u001b[39m)\u001b[33m;\u001b[39m\n    \u001b[90m   | \u001b[39m                 \u001b[31m^\u001b[39m\n    \u001b[90m 82| \u001b[39m    \u001b[34mexpect\u001b[39m(body)\u001b[33m.\u001b[39m\u001b[34mtoMatch\u001b[39m(\u001b[36m/locking.*declaring/i\u001b[39m)\u001b[33m;\u001b[39m\n    \u001b[90m 83| \u001b[39m  })\u001b[33m;\u001b[39m\n\n\u001b[31m\u001b[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/19]⎯\u001b[22m\u001b[39m\n\n"
+    },
+    "eslint": {
+      "pass": false,
+      "ms": 12459,
+      "err": "                                                                                                                                                                                                                                                          @typescript-eslint/no-explicit-any\n\n/home/runner/work/lens-lustre-learn/lens-lustre-learn/supabase/functions/test-smtp/index.ts\n   34:61  error  Empty block statement                     no-empty\n   39:57  error  Empty block statement                     no-empty\n   59:54  error  Empty block statement                     no-empty\n   64:57  error  Empty block statement                     no-empty\n   89:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any\n   90:11  error  Empty block statement                     no-empty\n  219:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any\n\n/home/runner/work/lens-lustre-learn/lens-lustre-learn/supabase/functions/verify-email-provider/index.ts\n  104:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any\n  111:70  error  Empty block statement                     no-empty\n  132:17  error  Empty block statement                     no-empty\n  141:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any\n\n/home/runner/work/lens-lustre-learn/lens-lustre-learn/supabase/functions/verify-image-hash/index.ts\n  40:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any\n  73:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any\n  73:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any\n\n/home/runner/work/lens-lustre-learn/lens-lustre-learn/tailwind.config.ts\n  169:13  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports\n\n✖ 1564 problems (1564 errors, 0 warnings)\n  9 errors and 0 warnings potentially fixable with the `--fix` option.\n\n"
+    },
+    "db_health": {
+      "pass": false,
+      "ms": 0,
+      "err": "400 {\"code\":\"42703\",\"details\":null,\"hint\":null,\"message\":\"column \\\"status_legacy\\\" does not exist\"}"
+    }
+  },
+  "health": null,
+  "failures": [
+    {
+      "check": "vitest",
+      "error": "[33m;\u001b[39m\n    \u001b[90m 80| \u001b[39m    \u001b[34mexpect\u001b[39m(body)\u001b[33m.\u001b[39m\u001b[34mtoMatch\u001b[39m(\u001b[36m/winner.*mandatory/i\u001b[39m)\u001b[33m;\u001b[39m\n    \u001b[90m 81| \u001b[39m    \u001b[34mexpect\u001b[39m(body)\u001b[33m.\u001b[39m\u001b[34mtoMatch\u001b[39m(\u001b[36m/runner up.*optional/i\u001b[39m)\u001b[33m;\u001b[39m\n    \u001b[90m   | \u001b[39m                 \u001b[31m^\u001b[39m\n    \u001b[90m 82| \u001b[39m    \u001b[34mexpect\u001b[39m(body)\u001b[33m.\u001b[39m\u001b[34mtoMatch\u001b[39m(\u001b[36m/locking.*declaring/i\u001b[39m)\u001b[33m;\u001b[39m\n    \u001b[90m 83| \u001b[39m  })\u001b[33m;\u001b[39m\n\n\u001b[31m\u001b[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/19]⎯\u001b[22m\u001b[39m\n\n"
+    },
+    {
+      "check": "eslint",
+      "error": "cript-eslint/no-explicit-any\n  73:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any\n  73:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any\n\n/home/runner/work/lens-lustre-learn/lens-lustre-learn/tailwind.config.ts\n  169:13  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports\n\n✖ 1564 problems (1564 errors, 0 warnings)\n  9 errors and 0 warnings potentially fixable with the `--fix` option.\n\n"
+    },
+    {
+      "check": "db_health",
+      "error": "400 {\"code\":\"42703\",\"details\":null,\"hint\":null,\"message\":\"column \\\"status_legacy\\\" does not exist\"}"
+    }
+  ],
+  "run_url": "https://github.com/altisinfonet/lens-lustre-learn/actions/runs/25250184947"
+}

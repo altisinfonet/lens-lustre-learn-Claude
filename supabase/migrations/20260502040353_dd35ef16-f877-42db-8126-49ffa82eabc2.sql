@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.get_round_judging_gate_self(UUID, INT) FROM anon;

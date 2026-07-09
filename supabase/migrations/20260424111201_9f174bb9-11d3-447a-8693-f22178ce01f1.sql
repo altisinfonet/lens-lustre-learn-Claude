@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.get_gated_entry_status(uuid[]) TO authenticated, anon, service_role;

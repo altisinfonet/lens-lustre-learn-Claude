@@ -1,0 +1,1 @@
+ALTER TABLE public.posts ADD COLUMN image_urls text[] NOT NULL DEFAULT '{}'::text[];

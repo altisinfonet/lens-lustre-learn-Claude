@@ -1,0 +1,1 @@
+ALTER TABLE public.competition_entries ADD COLUMN IF NOT EXISTS certificate_ready BOOLEAN NOT NULL DEFAULT FALSE;

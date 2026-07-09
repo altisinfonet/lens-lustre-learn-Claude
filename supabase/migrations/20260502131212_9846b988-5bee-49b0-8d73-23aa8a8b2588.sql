@@ -1,0 +1,2 @@
+DELETE FROM db_audit_logs WHERE table_name='competition_entries' AND NOT EXISTS (SELECT 1 FROM competition_entries e WHERE e.id::text = row_id);
+DELETE FROM wallet_transactions WHERE reference_type IN ('competition','competition_entry') AND reference_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM competitions c WHERE c.id = reference_id) AND NOT EXISTS (SELECT 1 FROM competition_entries e WHERE e.id = reference_id);

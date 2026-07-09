@@ -1,0 +1,1 @@
+ALTER TABLE public.ad_conversions ADD COLUMN conversion_value double precision NOT NULL DEFAULT 0;

@@ -1,0 +1,1935 @@
+{
+  "generated_by": "sprint-0-phase-0b-1",
+  "generated_at_utc": "2026-05-12",
+  "rule": "audit-v6/no-as-any-in-protected-dirs",
+  "policy": "Existing occurrences allowed; NEW occurrences in protected dirs blocked.",
+  "source": "eslint-ast (TSAsExpression+TSAnyKeyword) \u2014 empty-baseline self-discovery",
+  "count": 275,
+  "entries": [
+    {
+      "file": "src/components/admin/AdminActivityLogs.tsx",
+      "line": 56,
+      "excerpt": "let query = (supabase.from(\"activity_logs\" as any).select(\"*\") as any)",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminActivityLogs.tsx",
+      "line": 118,
+      "excerpt": "const { error } = await (supabase.from(\"activity_logs\" as any).update({ is_archived: true } as any).lt(\"created_at\", cutoff).eq(\"is_archived\", false) as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminActivityLogs.tsx",
+      "line": 131,
+      "excerpt": "const { error } = await (supabase.from(\"activity_logs\" as any).delete().lt(\"created_at\", cutoff) as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminActivityLogs.tsx",
+      "line": 146,
+      "excerpt": "const { error } = await (supabase.from(\"activity_logs\" as any).delete()",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminActivityLogs.tsx",
+      "line": 163,
+      "excerpt": "const { error } = await (supabase.from(\"activity_logs\" as any).delete().in(\"id\", Array.from(selectedIds)) as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminAdvertisements.tsx",
+      "line": 141,
+      "excerpt": "{ key: \"ad_slots\", value: updatedSlots as any, updated_at: now, updated_by: user.id },",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminAdvertisements.tsx",
+      "line": 160,
+      "excerpt": "{ key: \"adsense_config\", value: adsenseConfig as any, updated_at: new Date().toISOString(), updated_by: user.id },",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminAdvertisements.tsx",
+      "line": 184,
+      "excerpt": "{ key: \"feed_ad_positions\", value: parsed as any, updated_at: new Date().toISOString(), updated_by: user.id },",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminAnalytics.tsx",
+      "line": 72,
+      "excerpt": "if (analyticsData?.value) setAnalytics({ ...defaultAnalytics, ...(analyticsData.value as any) });",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminAnalytics.tsx",
+      "line": 73,
+      "excerpt": "if (eventsData?.value) setEvents({ ...defaultEventTracking, ...(eventsData.value as any) });",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminAnalytics.tsx",
+      "line": 91,
+      "excerpt": "value: sanitized as any,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminAnalytics.tsx",
+      "line": 110,
+      "excerpt": "value: events as any,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminAnnouncements.tsx",
+      "line": 65,
+      "excerpt": "{ key: \"announcements\", value: items as any, updated_at: new Date().toISOString(), updated_by: user.id },",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminAuthPages.tsx",
+      "line": 185,
+      "excerpt": "{ key: \"auth_page_settings\", value: settings as any, updated_by: user?.id },",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminBanners.tsx",
+      "line": 136,
+      "excerpt": "value: heroContent as any,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminBanners.tsx",
+      "line": 201,
+      "excerpt": "await supabase.from(\"hero_banners\").insert({",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminCertificates.tsx",
+      "line": 356,
+      "excerpt": "} else if (v && typeof v === \"object\" && \"url\" in (v as any)) {",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminCertificates.tsx",
+      "line": 357,
+      "excerpt": "setUrl((v as any).url);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminCertificates.tsx",
+      "line": 489,
+      "excerpt": "else if (v && typeof v === \"object\" && \"url\" in (v as any)) url = (v as any).url;",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminEmailTemplates.tsx",
+      "line": 132,
+      "excerpt": "({ error } = await supabase.from(\"email_templates\").insert({ ...payload, created_by: user.id } as any));",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminEngagement.tsx",
+      "line": 189,
+      "excerpt": "await supabase.from(table).update({ is_pinned: !img.is_pinned } as any).eq(\"id\", img.id);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminEngagement.tsx",
+      "line": 198,
+      "excerpt": "await supabase.from(table).update({ is_trending: !img.is_trending } as any).eq(\"id\", img.id);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminEngagement.tsx",
+      "line": 207,
+      "excerpt": "await supabase.from(table).update({ view_count: count } as any).eq(\"id\", img.id);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminEngagement.tsx",
+      "line": 243,
+      "excerpt": "const { error } = await supabase.from(\"scheduled_boosts\").insert({",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminEngagement.tsx",
+      "line": 263,
+      "excerpt": "await supabase.from(\"scheduled_boosts\").update({ status: newStatus, updated_at: new Date().toISOString() } as any).eq(\"id\", boost.id);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminEngagement.tsx",
+      "line": 410,
+      "excerpt": "<select value={seedImageType} onChange={e => setSeedImageType(e.target.value as any)}",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminExcellence.tsx",
+      "line": 191,
+      "excerpt": "value: tiers as any,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminFeaturedArtist.tsx",
+      "line": 274,
+      "excerpt": "setItems((data as any) || []);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminGallery.tsx",
+      "line": 131,
+      "excerpt": "if (data?.value && typeof data.value === \"object\" && \"layout\" in (data.value as any)) {",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminGallery.tsx",
+      "line": 132,
+      "excerpt": "setGalleryLayout((data.value as any).layout as LayoutType);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminGallery.tsx",
+      "line": 140,
+      "excerpt": "const { error } = await supabase.from(\"site_settings\").upsert({",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminGallery.tsx",
+      "line": 142,
+      "excerpt": "value: { layout } as any,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminHealth.tsx",
+      "line": 146,
+      "excerpt": "const last = entries[entries.length - 1] as any;",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminJudgingTags.tsx",
+      "line": 58,
+      "excerpt": ".from(\"judging_tags\" as any)",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminJudgingTags.tsx",
+      "line": 62,
+      "excerpt": "setTags((data as any as JudgingTag[]) || []);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminJudgingTags.tsx",
+      "line": 108,
+      "excerpt": "await supabase.from(\"judging_tags\" as any).update({ image_url: url } as any).eq(\"id\", tagId);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminJudgingTags.tsx",
+      "line": 117,
+      "excerpt": "await supabase.from(\"judging_tags\" as any).update({ image_url: null } as any).eq(\"id\", tagId);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminJudgingTags.tsx",
+      "line": 135,
+      "excerpt": "const { error } = await supabase.from(\"judging_tags\" as any).insert({",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminJudgingTags.tsx",
+      "line": 168,
+      "excerpt": "const { error } = await supabase.from(\"judging_tags\" as any).delete().eq(\"id\", id);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminJudgingTags.tsx",
+      "line": 186,
+      "excerpt": "await supabase.from(\"judging_tags\" as any).update({ is_active: !current } as any).eq(\"id\", id);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminKeywordBlocklist.tsx",
+      "line": 58,
+      "excerpt": "const { data, error } = await (supabase.from(\"blocked_keywords\" as any).select(\"id, keyword, category, severity, is_active, created_at\").order(\"created_at\", { a",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminKeywordBlocklist.tsx",
+      "line": 70,
+      "excerpt": "const { error } = await (supabase.from(\"blocked_keywords\" as any).insert({",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminKeywordBlocklist.tsx",
+      "line": 110,
+      "excerpt": "const { error } = await (supabase.from(\"blocked_keywords\" as any).insert(item as any) as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminKeywordBlocklist.tsx",
+      "line": 123,
+      "excerpt": "await (supabase.from(\"blocked_keywords\" as any).update({ is_active: !currentActive, updated_at: new Date().toISOString() } as any).eq(\"id\", id) as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminKeywordBlocklist.tsx",
+      "line": 133,
+      "excerpt": "await (supabase.from(\"blocked_keywords\" as any).delete().eq(\"id\", id) as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminKeywordBlocklist.tsx",
+      "line": 151,
+      "excerpt": "await (supabase.from(\"blocked_keywords\" as any).delete().eq(\"id\", id) as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminMenuBuilder.tsx",
+      "line": 145,
+      "excerpt": "value: [...existingPages, newPage] as any,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminNewsletterFaq.tsx",
+      "line": 78,
+      "excerpt": "const { data, error } = await (supabase",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminNewsletterFaq.tsx",
+      "line": 79,
+      "excerpt": ".from(\"newsletter_subscribers\" as any)",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminNewsletterFaq.tsx",
+      "line": 112,
+      "excerpt": "const { error } = await (supabase",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminNewsletterFaq.tsx",
+      "line": 113,
+      "excerpt": ".from(\"newsletter_subscribers\" as any)",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminNewsletterFaq.tsx",
+      "line": 129,
+      "excerpt": "const { error } = await (supabase",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminNewsletterFaq.tsx",
+      "line": 130,
+      "excerpt": ".from(\"newsletter_subscribers\" as any)",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminNewsletterFaq.tsx",
+      "line": 268,
+      "excerpt": "const { data, error } = await (supabase",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminNewsletterFaq.tsx",
+      "line": 269,
+      "excerpt": ".from(\"faq_entries\" as any)",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminNewsletterFaq.tsx",
+      "line": 310,
+      "excerpt": "const { error } = await (supabase.from(\"faq_entries\" as any).update(payload).eq(\"id\", editingId) as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminNewsletterFaq.tsx",
+      "line": 313,
+      "excerpt": "const { error } = await (supabase.from(\"faq_entries\" as any).insert(payload) as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminNewsletterFaq.tsx",
+      "line": 329,
+      "excerpt": "const { error } = await (supabase.from(\"faq_entries\" as any).delete().eq(\"id\", faq.id) as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminNewsletterFaq.tsx",
+      "line": 470,
+      "excerpt": "const { data, error } = await (supabase",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminNewsletterFaq.tsx",
+      "line": 471,
+      "excerpt": ".from(\"chat_questions\" as any)",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminNewsletterFaq.tsx",
+      "line": 483,
+      "excerpt": "const { error } = await (supabase.from(\"faq_entries\" as any).insert({",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminNewsletterFaq.tsx",
+      "line": 494,
+      "excerpt": "await (supabase.from(\"chat_questions\" as any).update({ promoted_to_faq: true }).eq(\"id\", q.id) as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminOnPageImages.tsx",
+      "line": 127,
+      "excerpt": "{ key: slot.key, value: url as any, updated_by: user.id, updated_at: new Date().toISOString() },",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminOnPageImages.tsx",
+      "line": 159,
+      "excerpt": "{ key: slot.key, value: \"\" as any, updated_by: user.id, updated_at: new Date().toISOString() },",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminOrders.tsx",
+      "line": 49,
+      "excerpt": ".from(\"competition_orders\" as any)",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminOrders.tsx",
+      "line": 54,
+      "excerpt": "const rows = (data as any as OrderRow[]) ?? [];",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminOrders.tsx",
+      "line": 63,
+      "excerpt": ": Promise.resolve({ data: [] as Profile[] }) as any,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminOrders.tsx",
+      "line": 66,
+      "excerpt": ": Promise.resolve({ data: [] as Competition[] }) as any,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminPerformance.tsx",
+      "line": 116,
+      "excerpt": "if (row.key === \"perf_lazyload\") setLazyLoad({ ...defaultLazyLoad, ...(row.value as any) });",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminPerformance.tsx",
+      "line": 117,
+      "excerpt": "if (row.key === \"perf_minify\") setMinify({ ...defaultMinify, ...(row.value as any) });",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminPerformance.tsx",
+      "line": 118,
+      "excerpt": "if (row.key === \"perf_cache\") setCache({ ...defaultCache, ...(row.value as any) });",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminPerformance.tsx",
+      "line": 119,
+      "excerpt": "if (row.key === \"perf_cdn\") setCDN({ ...defaultCDN, ...(row.value as any) });",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminPhotoOfDay.tsx",
+      "line": 156,
+      "excerpt": "await supabase.from(\"photo_of_the_day\").insert({",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminPhotoOfDay.tsx",
+      "line": 187,
+      "excerpt": "await supabase.from(\"photo_of_the_day\").update({ is_active: !current } as any).eq(\"id\", id);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminPhotoOfDay.tsx",
+      "line": 215,
+      "excerpt": "await supabase.from(\"photo_of_the_day\").update({ is_active: true } as any).in(\"id\", toActivate);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminPhotoOfDay.tsx",
+      "line": 225,
+      "excerpt": "await supabase.from(\"photo_of_the_day\").update({ is_active: false } as any).in(\"id\", ids);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminPhotoOfDay.tsx",
+      "line": 262,
+      "excerpt": "await supabase.from(\"photo_of_the_day\").update({",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminPhotoOfDay.tsx",
+      "line": 292,
+      "excerpt": "await supabase.from(\"photo_of_the_day\").update({ title: newTitle, description: newDesc } as any).eq(\"id\", p.id);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminPostReports.tsx",
+      "line": 46,
+      "excerpt": "const { data: reportsData } = await supabase",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminPostReports.tsx",
+      "line": 47,
+      "excerpt": ".from(\"post_reports\" as any)",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminPostReports.tsx",
+      "line": 73,
+      "excerpt": "const post = postMap.get(r.post_id) as any;",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminPostReports.tsx",
+      "line": 97,
+      "excerpt": "await supabase.from(\"profiles\").update({",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminPostReports.tsx",
+      "line": 107,
+      "excerpt": "await (supabase.from(\"post_reports\" as any).update({",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminPostReports.tsx",
+      "line": 123,
+      "excerpt": "const { error } = await (supabase.from(\"post_reports\" as any).delete().in(\"id\", ids) as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminReferrals.tsx",
+      "line": 66,
+      "excerpt": "(supabase.from(\"referrals\" as any).select(\"*\").order(\"created_at\", { ascending: false }).limit(50) as any),",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminReferrals.tsx",
+      "line": 70,
+      "excerpt": "const v = settingsRes.data.value as any;",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminReferrals.tsx",
+      "line": 107,
+      "excerpt": "value: settings as any,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminReferrals.tsx",
+      "line": 124,
+      "excerpt": "const { error } = await (supabase.rpc(\"process_referral_reward\" as any, {",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminReferrals.tsx",
+      "line": 142,
+      "excerpt": "const { error } = await (supabase.from(\"referrals\" as any).update({ status: \"rejected\" } as any).eq(\"id\", id) as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminRoleApplications.tsx",
+      "line": 103,
+      "excerpt": "const { error: roleError } = await supabase.from(\"user_roles\").insert({ user_id: app.user_id, role: app.requested_role as any });",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminRoleApplications.tsx",
+      "line": 127,
+      "excerpt": "const { error: roleError } = await supabase.from(\"user_roles\").insert({ user_id: app.user_id, role: app.requested_role as any });",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminSEO.tsx",
+      "line": 182,
+      "excerpt": "if (globalData?.value) setGlobalSEO({ ...defaultGlobalSEO, ...(globalData.value as any) });",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminSEO.tsx",
+      "line": 184,
+      "excerpt": "if (robotsData?.value) setRobotsTxt((robotsData.value as any).content || defaultRobotsTxt);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminSEO.tsx",
+      "line": 185,
+      "excerpt": "if (schemaData?.value && Array.isArray(schemaData.value)) setSchemas(schemaData.value as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminSEO.tsx",
+      "line": 195,
+      "excerpt": "value: globalSEO as any,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminSEO.tsx",
+      "line": 212,
+      "excerpt": "value: pageSEOList as any,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminSEO.tsx",
+      "line": 229,
+      "excerpt": "value: { content: robotsTxt } as any,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminSEO.tsx",
+      "line": 251,
+      "excerpt": "value: schemas as any,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminSupportTickets.tsx",
+      "line": 125,
+      "excerpt": "await supabase.from(\"ticket_replies\").insert({",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminSupportTickets.tsx",
+      "line": 133,
+      "excerpt": "await supabase.from(\"support_tickets\").update({ status: \"replied\", updated_at: new Date().toISOString() } as any).eq(\"id\", ticketId);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminSupportTickets.tsx",
+      "line": 166,
+      "excerpt": "await supabase.from(\"support_tickets\").update({ status: newStatus, updated_at: new Date().toISOString() } as any).eq(\"id\", ticketId);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminSupportTickets.tsx",
+      "line": 197,
+      "excerpt": "await supabase.from(\"support_tickets\").update({ status: \"deleted\", updated_at: new Date().toISOString() } as any).in(\"id\", ids);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminTransactions.tsx",
+      "line": 482,
+      "excerpt": "const { data: result, error: rpcErr } = await supabase.rpc(\"approve_deposit\" as any, {",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminUsers.tsx",
+      "line": 163,
+      "excerpt": "const { error } = await supabase.from(\"user_roles\").insert({ user_id: uid, role: bulkRole as any });",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminUsers.tsx",
+      "line": 187,
+      "excerpt": "const { error } = await supabase.from(\"user_roles\").delete().eq(\"user_id\", uid).eq(\"role\", bulkRole as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminUsers.tsx",
+      "line": 235,
+      "excerpt": ".eq(\"role\", role as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminUsers.tsx",
+      "line": 398,
+      "excerpt": "const { error } = await supabase.from(\"user_roles\").insert({ user_id: userId, role: role as any });",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminUsers.tsx",
+      "line": 417,
+      "excerpt": "const { error } = await supabase.from(\"user_roles\").delete().eq(\"user_id\", userId).eq(\"role\", role as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminUsers.tsx",
+      "line": 432,
+      "excerpt": "const { error } = await supabase.from(\"user_badges\").insert({ user_id: userId, badge_type: badgeType, assigned_by: user?.id } as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminVoteRewards.tsx",
+      "line": 75,
+      "excerpt": "value: newConfig as any,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AdminVoteRewards.tsx",
+      "line": 90,
+      "excerpt": "value: updated as any,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AwardsIntegrityAudit.tsx",
+      "line": 55,
+      "excerpt": "supabase.rpc(\"get_placement_drift_admin\" as any, arg),",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AwardsIntegrityAudit.tsx",
+      "line": 56,
+      "excerpt": "supabase.rpc(\"get_certificate_readiness_drift_admin\" as any, arg),",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/AwardsIntegrityAudit.tsx",
+      "line": 72,
+      "excerpt": "const { error: rpcErr } = await supabase.rpc(\"fix_certificate_readiness_admin\" as any, { _entry_id: row.entry_id });",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/CacheBusterControl.tsx",
+      "line": 60,
+      "excerpt": ".upsert({ key: \"cache_buster\", value: next as any }, { onConflict: \"key\" });",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/CertificateDriftAudit.tsx",
+      "line": 58,
+      "excerpt": "const { data, error } = await supabase.rpc(\"get_certificate_drift_admin\" as any, {",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/CollusionAudit.tsx",
+      "line": 46,
+      "excerpt": "const { data, error } = await supabase.rpc(\"get_judge_collusion_admin\" as any, {",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/DatabaseBackup.tsx",
+      "line": 17,
+      "excerpt": "if (data?.value && typeof data.value === \"object\" && \"timestamp\" in (data.value as any)) {",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/DatabaseBackup.tsx",
+      "line": 18,
+      "excerpt": "setLastBackup((data.value as any).timestamp);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/EmailRichTextToolbar.tsx",
+      "line": 527,
+      "excerpt": "<select value={imageAlign} onChange={e => setImageAlign(e.target.value as any)}",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/EmailRichTextToolbar.tsx",
+      "line": 600,
+      "excerpt": "<select value={imageAlign} onChange={e => setImageAlign(e.target.value as any)}",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/EntryStatusDriftAudit.tsx",
+      "line": 48,
+      "excerpt": "supabase.rpc(\"get_entry_status_drift_admin\" as any),",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/EntryStatusDriftAudit.tsx",
+      "line": 49,
+      "excerpt": "supabase.rpc(\"get_entry_status_drift_summary_admin\" as any),",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/JudgeUIvsDBGateAudit.tsx",
+      "line": 122,
+      "excerpt": "\"get_round_judging_gate_admin\" as any,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/JudgingDriftAudit.tsx",
+      "line": 44,
+      "excerpt": "const { data, error: rpcErr } = await supabase.rpc(\"get_progression_drift_admin\" as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/JudgingDriftAudit.tsx",
+      "line": 72,
+      "excerpt": "old_data: { progression_decision: row.stored_decision } as any,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/JudgingDriftAudit.tsx",
+      "line": 73,
+      "excerpt": "new_data: { progression_decision: row.expected_decision, source: \"JudgingDriftAudit\" } as any,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/JudgingForensicDriftAudit.tsx",
+      "line": 57,
+      "excerpt": "const { data, error: rpcErr } = await supabase.rpc(\"get_judging_drift_admin\" as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/JudgingInvariantsAudit.tsx",
+      "line": 93,
+      "excerpt": "const { data, error: rpcErr } = await supabase.rpc(\"list_tag_decision_drift_admin\" as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/JudgingInvariantsAudit.tsx",
+      "line": 109,
+      "excerpt": "const { data, error: rpcErr } = await supabase.rpc(\"judging_invariants_check\" as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/JudgingInvariantsAudit.tsx",
+      "line": 148,
+      "excerpt": "\"backfill_tag_decision_drift_admin\" as any,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/NotificationsHealthAudit.tsx",
+      "line": 39,
+      "excerpt": "supabase.rpc(\"get_notification_drift_admin\" as any, { _window_days: windowDays }),",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/NotificationsHealthAudit.tsx",
+      "line": 40,
+      "excerpt": "supabase.rpc(\"get_notification_health_stats_admin\" as any),",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/NotificationsHealthAudit.tsx",
+      "line": 57,
+      "excerpt": "const { data, error: rpcErr } = await supabase.rpc(\"backfill_judging_notifications\" as any, {",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/RoundPublishPanel.tsx",
+      "line": 57,
+      "excerpt": ".from(\"competition_round_publish\" as any)",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/RoundPublishPanel.tsx",
+      "line": 64,
+      "excerpt": "setRows((data as any as PublishRow[]) || []);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/RoundPublishPanel.tsx",
+      "line": 79,
+      "excerpt": "if (error || (data as any)?.error) {",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/RoundPublishPanel.tsx",
+      "line": 80,
+      "excerpt": "const context = (error as any)?.context;",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/RoundPublishPanel.tsx",
+      "line": 90,
+      "excerpt": "throw new Error((data as any)?.error || backendError || error?.message || \"Failed\");",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/UnjudgedParityAudit.tsx",
+      "line": 51,
+      "excerpt": "\"get_unjudged_parity_admin\" as any,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/WalletReconciliationAudit.tsx",
+      "line": 51,
+      "excerpt": "supabase.rpc(\"get_gift_drift_admin\" as any),",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/WalletReconciliationAudit.tsx",
+      "line": 52,
+      "excerpt": "supabase.rpc(\"get_referral_drift_admin\" as any),",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/WalletReconciliationAudit.tsx",
+      "line": 72,
+      "excerpt": "const { data, error: rpcErr } = await supabase.rpc(\"fix_gift_drift_admin\" as any, { _announcement_id: row.announcement_id });",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/WalletReconciliationAudit.tsx",
+      "line": 74,
+      "excerpt": "toast({ title: \"Gift backfilled\", description: `Tx: ${(data as any)?.tx_id?.slice(0, 8) ?? \"ok\"}` });",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/WalletReconciliationAudit.tsx",
+      "line": 90,
+      "excerpt": "const { data, error: rpcErr } = await supabase.rpc(\"fix_referral_drift_admin\" as any, { _referral_id: row.referral_id });",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/components/admin/WalletReconciliationAudit.tsx",
+      "line": 92,
+      "excerpt": "toast({ title: \"Referral backfilled\", description: `Tx: ${(data as any)?.tx_id?.slice(0, 8) ?? \"ok\"}` });",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/hooks/judging/decisionParityProbe.ts",
+      "line": 34,
+      "excerpt": "const { data, error } = await (supabase",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/decisionParityProbe.ts",
+      "line": 35,
+      "excerpt": ".from(\"judge_decisions\" as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useGatedEntryStatus.ts",
+      "line": 54,
+      "excerpt": "const { data, error } = await supabase.rpc(\"get_gated_entry_status\" as any, {",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useGatedEntryStatus.ts",
+      "line": 62,
+      "excerpt": "for (const row of (data as any as GatedEntryStatusRow[]) || []) {",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeActions.ts",
+      "line": 160,
+      "excerpt": "console.warn(`[SAVE-LOG] edge:FAILED ${logKey} err=${(edgeResult as any).error ?? \"unknown\"} \u2192 falling back to direct upsert`);",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeActions.ts",
+      "line": 168,
+      "excerpt": "console.log(`[SAVE-LOG] edge:OK ${logKey} db_score=${(edgeResult as any).verification?.score} db_updated_at=${(edgeResult as any).verification?.updated_at}`);",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeAggregateStats.ts",
+      "line": 105,
+      "excerpt": "const compRounds = rounds.filter((r) => (r as any).competition_id === compId);",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeClassicData.ts",
+      "line": 81,
+      "excerpt": "const meta: any[] = Array.isArray((entry as any).photo_meta) ? (entry as any).photo_meta : [];",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeClassicData.ts",
+      "line": 127,
+      "excerpt": "fetchInBatches((ids) => supabase.from(\"competition_votes\").select(\"entry_id\").in(\"entry_id\", ids) as any, entryIds),",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeClassicData.ts",
+      "line": 180,
+      "excerpt": "if (compData && (compData as any).judge_assignment_mode === \"distributed\") {",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeClassicData.ts",
+      "line": 182,
+      "excerpt": ".from(\"judge_entry_assignments\" as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeClassicData.ts",
+      "line": 198,
+      "excerpt": "const { data: eligibleRows, error: eligibleErr } = await (supabase.rpc as any)(",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeIntegrityData.ts",
+      "line": 34,
+      "excerpt": "const { data, error } = await supabase.rpc(\"get_competition_raw_commitments\" as any, {",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeIntegrityData.ts",
+      "line": 65,
+      "excerpt": "const { data, error } = await supabase.rpc(\"get_competition_duplicate_clusters\" as any, {",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgePhotoData.ts",
+      "line": 104,
+      "excerpt": "fetchInBatches((ids) => (supabase.from(\"judge_scores\" as any).select(\"entry_id, judge_id, round_number, score, feedback, photo_index, composition_score, color_p",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgePhotoData.ts",
+      "line": 105,
+      "excerpt": "fetchInBatches((ids) => (supabase.from(\"judge_tag_assignments\" as any).select(\"entry_id, tag_id, judge_id, round_number, photo_index, judging_tags(visible_in_ro",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgePhotoData.ts",
+      "line": 106,
+      "excerpt": "fetchInBatches((ids) => (supabase.from(\"judge_comments\" as any).select(\"id, entry_id, judge_id, comment, created_at, round_id, photo_index\") as any).in(\"entry_i",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgePhotoData.ts",
+      "line": 107,
+      "excerpt": "fetchInBatches((ids) => (supabase.from(\"judge_decisions\" as any).select(\"entry_id, judge_id, decision, round_number, photo_index\") as any).in(\"entry_id\", ids), ",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgePhotoData.ts",
+      "line": 194,
+      "excerpt": "const entryId = (payload.new as any)?.entry_id || (payload.old as any)?.entry_id;",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgePhotoData.ts",
+      "line": 198,
+      "excerpt": "const entryId = (payload.new as any)?.entry_id || (payload.old as any)?.entry_id;",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgePhotoData.ts",
+      "line": 202,
+      "excerpt": "const entryId = (payload.new as any)?.entry_id || (payload.old as any)?.entry_id;",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgePhotoData.ts",
+      "line": 206,
+      "excerpt": "const entryId = (payload.new as any)?.entry_id || (payload.old as any)?.entry_id;",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeRounds.ts",
+      "line": 21,
+      "excerpt": ".from(\"competition_judging_tags\" as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeRounds.ts",
+      "line": 29,
+      "excerpt": ".from(\"judging_tags\" as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeRounds.ts",
+      "line": 34,
+      "excerpt": "tags = (data as any as JudgingTag[]) || [];",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeRounds.ts",
+      "line": 37,
+      "excerpt": ".from(\"judging_tags\" as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeRounds.ts",
+      "line": 41,
+      "excerpt": "tags = (data as any as JudgingTag[]) || [];",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeRounds.ts",
+      "line": 46,
+      "excerpt": ".from(\"judging_rounds\" as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeRounds.ts",
+      "line": 51,
+      "excerpt": "const rounds = (roundsData as any as JudgingRound[]) || [];",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeRounds.ts",
+      "line": 100,
+      "excerpt": "const cid = (payload.new as any)?.competition_id || (payload.old as any)?.competition_id;",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 90,
+      "excerpt": ".from(\"judge_sessions\" as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 95,
+      "excerpt": "if (data) { setLocalElapsed((data as any).elapsed_seconds || 0); localElapsedRef.current = (data as any).elapsed_seconds || 0; }",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 97,
+      "excerpt": "const row = data as any;",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 131,
+      "excerpt": ".from(\"judge_sessions\" as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 140,
+      "excerpt": ".from(\"judge_sessions\" as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 141,
+      "excerpt": ".update({ status: \"active\", heartbeat_at: new Date().toISOString(), round_id: roundId || (existing as any).round_id } as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 142,
+      "excerpt": ".eq(\"id\", (existing as any).id);",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 143,
+      "excerpt": "setLocalElapsed((existing as any).elapsed_seconds || 0); localElapsedRef.current = (existing as any).elapsed_seconds || 0;",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 146,
+      "excerpt": "return (existing as any) as JudgeSession;",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 151,
+      "excerpt": ".from(\"judge_sessions\" as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 152,
+      "excerpt": ".insert({",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 164,
+      "excerpt": "return (newSession as any) as JudgeSession | null;",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 186,
+      "excerpt": ".from(\"judge_sessions\" as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 187,
+      "excerpt": ".update(patch as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 255,
+      "excerpt": ".from(\"judge_sessions\" as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 256,
+      "excerpt": ".update({",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 274,
+      "excerpt": ".from(\"judge_sessions\" as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 275,
+      "excerpt": ".update({",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 324,
+      "excerpt": ".from(\"judge_sessions\" as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 325,
+      "excerpt": ".update({",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 339,
+      "excerpt": ".from(\"judge_sessions\" as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 340,
+      "excerpt": ".update({",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 352,
+      "excerpt": ".from(\"judge_sessions\" as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgeSession.ts",
+      "line": 353,
+      "excerpt": ".update({ round_id: roundId } as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useJudgingLock.ts",
+      "line": 82,
+      "excerpt": "const result = data as any;",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/useMultiJudgeProgress.ts",
+      "line": 55,
+      "excerpt": ".from(\"judge_sessions\" as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/usePhotoDecisions.ts",
+      "line": 55,
+      "excerpt": "const { data, error } = await (supabase.rpc as any)(\"get_per_photo_consensus\", {",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/usePhotoPlacements.ts",
+      "line": 47,
+      "excerpt": "const { data, error } = await (supabase.rpc as any)(\"get_per_photo_placement\", {",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/usePhotoR4Award.ts",
+      "line": 44,
+      "excerpt": "const { data, error } = await (supabase.rpc as any)(\"get_photo_r4_awards\", {",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/usePhotoVoteCount.ts",
+      "line": 54,
+      "excerpt": ".from(\"entry_final_votes\" as any)",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/judging/usePhotoVoteCount.ts",
+      "line": 60,
+      "excerpt": "return Math.max(0, Number((data as any)?.final_votes ?? 0));",
+      "subsystem": "judging",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/wallet/useWalletPageData.ts",
+      "line": 27,
+      "excerpt": ".from(\"bank_details\" as any)",
+      "subsystem": "wallet",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/wallet/useWalletPageData.ts",
+      "line": 54,
+      "excerpt": "paymentGateways: (gatewaysRes as any)?.data?.payment_gateways || null,",
+      "subsystem": "wallet",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/wallet/useWalletPageData.ts",
+      "line": 55,
+      "excerpt": "savedBankDetails: (bankRes.data as any) || null,",
+      "subsystem": "wallet",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/wallet/useWalletWithdrawals.ts",
+      "line": 35,
+      "excerpt": "await supabase.from(\"bank_details\" as any).upsert({",
+      "subsystem": "wallet",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/hooks/wallet/useWalletWithdrawals.ts",
+      "line": 59,
+      "excerpt": "bank_details: bankInfo as any,",
+      "subsystem": "wallet",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "src/lib/activityLog.ts",
+      "line": 16,
+      "excerpt": "await (supabase.from(\"activity_logs\" as any).insert({",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/adSlots.ts",
+      "line": 336,
+      "excerpt": "supabase.from(table as any).insert(row as any).then(() => {}, () => {});",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/adminLogger.ts",
+      "line": 57,
+      "excerpt": "await supabase.from(\"activity_logs\" as any).insert({",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/competitionVotingPhotos.ts",
+      "line": 87,
+      "excerpt": "metaItem && typeof (metaItem as any).title === \"string\" && (metaItem as any).title.trim().length > 0",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/competitionVotingPhotos.ts",
+      "line": 88,
+      "excerpt": "? (metaItem as any).title",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/generateCertificatePdf.ts",
+      "line": 146,
+      "excerpt": "else if (v && typeof v === \"object\" && \"url\" in (v as any)) url = (v as any).url;",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/judgingApi.ts",
+      "line": 46,
+      "excerpt": "if (data && (data as any).ok === false) {",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/judgingApi.ts",
+      "line": 47,
+      "excerpt": "return { ok: false, source: \"edge-error\", error: (data as any).error ?? \"unknown\" };",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/profileBatch.ts",
+      "line": 25,
+      "excerpt": "const { data } = await (supabase.from(\"profiles_public_data\" as any) as any)",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/profileBatch.ts",
+      "line": 35,
+      "excerpt": "const { data } = await (supabase.from(\"profiles_public_data\" as any) as any)",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/profilePostHelper.ts",
+      "line": 37,
+      "excerpt": "const albumId = await getOrCreateAutoAlbum(userId, albumType as any);",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/profilesPublic.ts",
+      "line": 35,
+      "excerpt": "return supabase.from(\"profiles_public_data\" as any) as any;",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/s3Upload.ts",
+      "line": 21,
+      "excerpt": "const { data, error } = await supabase.rpc(\"is_s3_storage_enabled\" as any);",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/s3Upload.ts",
+      "line": 22,
+      "excerpt": "cachedS3Enabled = error ? false : !!(data as any);",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/s3Upload.ts",
+      "line": 54,
+      "excerpt": "const msg = (error as any)?.message || \"\";",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/s3Upload.ts",
+      "line": 55,
+      "excerpt": "const status = (error as any)?.context?.status ?? (error as any)?.status;",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/s3Upload.ts",
+      "line": 58,
+      "excerpt": "(error as any)?.name === \"FunctionsFetchError\" ||",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/s3Upload.ts",
+      "line": 116,
+      "excerpt": "const size = (file as any).size ?? 0;",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/s3Upload.ts",
+      "line": 150,
+      "excerpt": "const fullCT = (fullFile as any).type || \"application/octet-stream\";",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/s3Upload.ts",
+      "line": 151,
+      "excerpt": "const thumbCT = (thumbFile as any).type || \"application/octet-stream\";",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/s3Upload.ts",
+      "line": 152,
+      "excerpt": "const fullSize = (fullFile as any).size ?? 0;",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/s3Upload.ts",
+      "line": 153,
+      "excerpt": "const thumbSize = (thumbFile as any).size ?? 0;",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/lib/storageUpload.ts",
+      "line": 122,
+      "excerpt": "sortBy: options?.sortBy as any,",
+      "subsystem": "lib",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/modules/admin/CompetitionsModule.tsx",
+      "line": 297,
+      "excerpt": "ai_images_allowed: (data as any).ai_images_allowed !== false,",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/pages/admin/AdminTagSemanticsAudit.tsx",
+      "line": 92,
+      "excerpt": ".from(\"judging_tags\" as any)",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/pages/admin/AdminTagSemanticsAudit.tsx",
+      "line": 95,
+      "excerpt": "const countsP = supabase.rpc(\"get_judging_tag_assignment_counts\" as any);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "src/pages/admin/AdminTagSemanticsAudit.tsx",
+      "line": 99,
+      "excerpt": "if (!tagsRes.error) setTags((tagsRes.data as any as DbTag[]) || []);",
+      "subsystem": "admin-ui",
+      "severity_sprint_0a": "MEDIUM"
+    },
+    {
+      "file": "supabase/functions/backfill-thumbnails/index.ts",
+      "line": 198,
+      "excerpt": "const { data: isAdmin, error: rErr } = await supabase.rpc(\"has_role\", { _user_id: u.user.id, _role: \"admin\" as any });",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/complete-round/index.ts",
+      "line": 550,
+      "excerpt": "const isDistributed = (comp as any)?.judge_assignment_mode === \"distributed\";",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/complete-round/index.ts",
+      "line": 565,
+      "excerpt": "const s = distMap.get((r as any).entry_id) || new Set<string>();",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/complete-round/index.ts",
+      "line": 566,
+      "excerpt": "s.add((r as any).judge_id);",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/complete-round/index.ts",
+      "line": 567,
+      "excerpt": "distMap.set((r as any).entry_id, s);",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/complete-round/index.ts",
+      "line": 617,
+      "excerpt": "const isDistributed = (comp as any)?.judge_assignment_mode === \"distributed\";",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/complete-round/index.ts",
+      "line": 632,
+      "excerpt": "const s = distMap.get((r as any).entry_id) || new Set<string>();",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/complete-round/index.ts",
+      "line": 633,
+      "excerpt": "s.add((r as any).judge_id);",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/complete-round/index.ts",
+      "line": 634,
+      "excerpt": "distMap.set((r as any).entry_id, s);",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/create-payment-session/index.ts",
+      "line": 121,
+      "excerpt": "const rate = (rateData?.value as any)?.rate || 83.5;",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/dashboard-init/index.ts",
+      "line": 504,
+      "excerpt": "is_banned: (metaRow as any).is_banned ?? false,",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/dashboard-init/index.ts",
+      "line": 505,
+      "excerpt": "notification_sound_enabled: (metaRow as any).notification_sound_enabled ?? true,",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/entry-final-votes/index.ts",
+      "line": 58,
+      "excerpt": ".from(\"entry_final_votes\" as any)",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/fix-cache-headers/index.ts",
+      "line": 92,
+      "excerpt": "const { data: isAdmin } = await supabase.rpc(\"has_role\", { _user_id: u.user.id, _role: \"admin\" as any });",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/hard-delete-competition/index.ts",
+      "line": 95,
+      "excerpt": "if ((item as any).id === null) {",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/migrate-storage/index.ts",
+      "line": 178,
+      "excerpt": "const s3: S3Settings = settingsRow.value as any;",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/paypal-capture-order/index.ts",
+      "line": 57,
+      "excerpt": "const cfg = (settings?.value as any)?.paypal;",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/process-email-queue/index.ts",
+      "line": 65,
+      "excerpt": "await supabase.from('email_send_log').insert({",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/process-email-queue/index.ts",
+      "line": 72,
+      "excerpt": "const { error } = await supabase.rpc('move_to_dlq' as any, {",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/publish-round/index.ts",
+      "line": 130,
+      "excerpt": "\"get_round_pending_entries\" as any,",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/publish-round/index.ts",
+      "line": 240,
+      "excerpt": "const candidate = (setting?.value as any)?.email ?? (typeof setting?.value === \"string\" ? setting.value : null);",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/publish-round/index.ts",
+      "line": 244,
+      "excerpt": "\"get_needs_review_recipients_for_round\" as any,",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/publish-round/index.ts",
+      "line": 256,
+      "excerpt": "await admin.rpc(\"emit_notification\" as any, {",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/razorpay-verify-payment/index.ts",
+      "line": 68,
+      "excerpt": "const cfg = (settings?.value as any)?.razorpay;",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/s3-delete/index.ts",
+      "line": 91,
+      "excerpt": "const s3: S3Settings = settingsRow.value as any;",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/s3-signed-url/index.ts",
+      "line": 196,
+      "excerpt": "const s3: S3Settings = settingsRow.value as any;",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/s3-upload/index.ts",
+      "line": 24,
+      "excerpt": "keyData as any,",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/s3-upload/index.ts",
+      "line": 33,
+      "excerpt": "const hash = await crypto.subtle.digest(\"SHA-256\", data as any);",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/s3-upload/index.ts",
+      "line": 90,
+      "excerpt": "const s3: S3Settings = settingsRow.value as any;",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/seo-route-metadata/index.ts",
+      "line": 168,
+      "excerpt": "authorName = (prof as any)?.full_name || \"\";",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/seo-route-metadata/index.ts",
+      "line": 274,
+      "excerpt": "if ((data as any).indexing_disabled === true) {",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/seo-route-metadata/index.ts",
+      "line": 277,
+      "excerpt": "const name = (data as any).full_name || customUrl;",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/seo-route-metadata/index.ts",
+      "line": 304,
+      "excerpt": "if (data.privacy !== \"public\" || (data as any).indexing_disabled === true) {",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/submit-judge-decision/index.ts",
+      "line": 189,
+      "excerpt": "const code = (rpcErr as any).code ?? \"\";",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/submit-judge-score/index.ts",
+      "line": 116,
+      "excerpt": "const v = (criteria as any)[col];",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    },
+    {
+      "file": "supabase/functions/submit-judge-score/index.ts",
+      "line": 173,
+      "excerpt": "else merged[col] = ((existing ?? {}) as any)[col] ?? null;",
+      "subsystem": "edge-fn",
+      "severity_sprint_0a": "HIGH"
+    }
+  ]
+}

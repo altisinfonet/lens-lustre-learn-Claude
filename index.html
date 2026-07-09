@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Security Headers (meta http-equiv fallbacks) -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-Frame-Options" content="DENY" />
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()" />
+    <!-- CSP enforced via _headers file -->
+
+    <link rel="icon" href="/favicon.png?v=2" type="image/png" sizes="any" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://isywidnfnjhtydmdfgtk.supabase.co" />
+    <link rel="dns-prefetch" href="https://isywidnfnjhtydmdfgtk.supabase.co" />
+    <title>50mm Retina World — Competitions, Education & Journal for Photographers</title>
+    <meta name="description" content="Join 50mm Retina World — the ultimate platform for photographers. Enter global competitions, master your craft through expert courses, and explore our photography journal.">
+    <meta name="keywords" content="photography, competitions, photography courses, photo journal, wildlife photography, street photography, portrait photography, photography platform, 50mm Retina World">
+    <meta name="author" content="50mm Retina World" />
+    <!-- Canonical is injected per-page by React Helmet to avoid all pages pointing to "/" -->
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="50mm Retina World — Compete. Learn. Create.">
+    <meta property="og:description" content="The ultimate photography community — global competitions, expert courses, and an inspiring journal. Join 10,000+ photographers.">
+    <meta property="og:url" content="https://50mmretina.com/" />
+    <meta property="og:image" content="https://pub-f3e7af944f2746b7bb4fb6e679dd78de.r2.dev/site-assets/seo/1775321074863-k3b5rusybos.jpg">
+    <meta property="og:site_name" content="50mm Retina World" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="50mm Retina World — Compete. Learn. Create.">
+    <meta name="twitter:description" content="The ultimate photography community — global competitions, expert courses, and an inspiring journal.">
+    <meta name="twitter:image" content="https://pub-f3e7af944f2746b7bb4fb6e679dd78de.r2.dev/site-assets/seo/1775321074863-k3b5rusybos.jpg">
+
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#1a1410" />
+    <meta name="google-site-verification" content="i4SPfqIXGZEv5GQVJj1ThYUmcSTNOz88f4KYXNpaqtw" />
+
+    <!-- Structured data is injected by the app SEO layer -->
+  </head>
+
+  <body>
+    <div id="root">
+      <!-- Theme-aware loader background — must run before loader paints -->
+      <script>
+        (function(){try{var t=localStorage.getItem('theme');var d=t==='light'?false:true;window.__loaderBg=d?'hsl(222 47% 11%)':'hsl(209 40% 96%)'}catch(e){window.__loaderBg='hsl(222 47% 11%)'}})();
+      </script>
+      <!-- Single brand loader — visible until app signals ready -->
+      <div id="init-loader" style="position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;transition:opacity .4s ease">
+        <img src="/images/logo-fallback.webp" alt="" width="140" height="140" style="opacity:.85;filter:drop-shadow(0 0 24px hsl(200 70% 50%/.45));animation:initPulse 2s ease-in-out infinite" />
+        <span style="font-size:11px;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:hsl(220 10% 70%);font-family:system-ui">50mm Retina World</span>
+      </div>
+      <script>document.getElementById('init-loader').style.background=window.__loaderBg;</script>
+      <style>@keyframes initPulse{0%,100%{opacity:.85;transform:scale(1)}50%{opacity:1;transform:scale(1.04)}}</style>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Init-loader is removed ONLY when the app explicitly calls window.__dismissLoader()
+      // This prevents the "two loader" flash — no MutationObserver race condition
+      window.__dismissLoader = function() {
+        var el = document.getElementById('init-loader');
+        if (!el) return;
+        el.style.opacity = '0';
+        el.style.pointerEvents = 'none';
+        setTimeout(function() { el.remove(); }, 400);
+      };
+    </script>
+  </body>
+</html>

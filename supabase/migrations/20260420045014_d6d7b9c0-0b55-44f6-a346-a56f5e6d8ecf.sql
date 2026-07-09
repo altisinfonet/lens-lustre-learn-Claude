@@ -1,0 +1,1 @@
+ALTER FUNCTION public.validate_competition_entry_photo_meta() SET search_path = public;

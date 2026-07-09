@@ -1,0 +1,51 @@
+name: v3-catalog-parity
+
+# Plan Step 5.2 — fail CI if the TS mirror at src/lib/judging/stageCatalog.ts
+# drifts from the live DB v3_stage_catalog.
+#
+# Skipped automatically when SUPABASE_SERVICE_ROLE_KEY is not configured as a
+# repo secret (e.g. on PRs from forks). On the main branch / internal PRs it
+# runs and blocks merge on any drift.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/lib/judging/stageCatalog.ts"
+      - "scripts/audits/v3_catalog_parity.mjs"
+      - ".github/workflows/v3-catalog-parity.yml"
+  pull_request:
+    paths:
+      - "src/lib/judging/stageCatalog.ts"
+      - "scripts/audits/v3_catalog_parity.mjs"
+      - ".github/workflows/v3-catalog-parity.yml"
+  workflow_dispatch: {}
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install minimal deps
+        run: npm install --no-save @supabase/supabase-js@^2
+
+      - name: Skip if service-role key missing (fork PR)
+        id: gate
+        run: |
+          if [ -z "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::SUPABASE_SERVICE_ROLE_KEY missing — parity check skipped."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run v3_stage_catalog parity audit
+        if: steps.gate.outputs.skip == 'false'
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/audits/v3_catalog_parity.mjs

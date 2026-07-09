@@ -1,0 +1,336 @@
+{
+  "_doc": "Sprint 0 Phase 0B-5 — edge function authority baseline. Existing sites allow-listed. NEW occurrences will fail audit-v6/no-unsafe-edge-authority. Do NOT silently widen.",
+  "_phase": "sprint-0-phase-0b-5",
+  "_generated_at": "2026-05-12T10:59:24.064Z",
+  "_total": 41,
+  "entries": [
+    {
+      "file": "supabase/functions/analyze-gallery-image/index.ts",
+      "line": 2,
+      "function": "analyze-gallery-image",
+      "issue": "BROAD_CORS_WILDCARD",
+      "subsystem": "moderation",
+      "severity": "MEDIUM"
+    },
+    {
+      "file": "supabase/functions/auth-email-hook/index.ts",
+      "line": 14,
+      "function": "auth-email-hook",
+      "issue": "BROAD_CORS_WILDCARD",
+      "subsystem": "notifications",
+      "severity": "MEDIUM"
+    },
+    {
+      "file": "supabase/functions/auth-email-hook/index.ts",
+      "line": 85,
+      "function": "auth-email-hook",
+      "issue": "BROAD_CORS_WILDCARD",
+      "subsystem": "notifications",
+      "severity": "MEDIUM"
+    },
+    {
+      "file": "supabase/functions/cast-photo-vote/index.ts",
+      "line": 46,
+      "function": "cast-photo-vote",
+      "issue": "ANON_KEY_IN_PRIVILEGED",
+      "subsystem": "judging",
+      "severity": "HIGH"
+    },
+    {
+      "file": "supabase/functions/complete-round/index.ts",
+      "line": 172,
+      "function": "complete-round",
+      "issue": "ANON_KEY_IN_PRIVILEGED",
+      "subsystem": "judging",
+      "severity": "HIGH"
+    },
+    {
+      "file": "supabase/functions/create-payment-session/index.ts",
+      "line": 20,
+      "function": "create-payment-session",
+      "issue": "ANON_KEY_IN_PRIVILEGED",
+      "subsystem": "payments",
+      "severity": "CRITICAL"
+    },
+    {
+      "file": "supabase/functions/delete-user/index.ts",
+      "line": 19,
+      "function": "delete-user",
+      "issue": "ANON_KEY_IN_PRIVILEGED",
+      "subsystem": "admin",
+      "severity": "CRITICAL"
+    },
+    {
+      "file": "supabase/functions/delete-user/index.ts",
+      "line": 4,
+      "function": "delete-user",
+      "issue": "BROAD_CORS_WILDCARD",
+      "subsystem": "admin",
+      "severity": "MEDIUM"
+    },
+    {
+      "file": "supabase/functions/detect-ai-image/index.ts",
+      "line": 4,
+      "function": "detect-ai-image",
+      "issue": "BROAD_CORS_WILDCARD",
+      "subsystem": "moderation",
+      "severity": "MEDIUM"
+    },
+    {
+      "file": "supabase/functions/detect-orphan-files/index.ts",
+      "line": 73,
+      "function": "detect-orphan-files",
+      "issue": "ANON_KEY_IN_PRIVILEGED",
+      "subsystem": "admin",
+      "severity": "HIGH"
+    },
+    {
+      "file": "supabase/functions/detect-orphan-files/index.ts",
+      "line": 4,
+      "function": "detect-orphan-files",
+      "issue": "BROAD_CORS_WILDCARD",
+      "subsystem": "admin",
+      "severity": "MEDIUM"
+    },
+    {
+      "file": "supabase/functions/diagnose-brevo-key/index.ts",
+      "line": 26,
+      "function": "diagnose-brevo-key",
+      "issue": "ANON_KEY_IN_PRIVILEGED",
+      "subsystem": "notifications",
+      "severity": "HIGH"
+    },
+    {
+      "file": "supabase/functions/diagnose-brevo-key/index.ts",
+      "line": 8,
+      "function": "diagnose-brevo-key",
+      "issue": "BROAD_CORS_WILDCARD",
+      "subsystem": "notifications",
+      "severity": "MEDIUM"
+    },
+    {
+      "file": "supabase/functions/expire-gift-credits/index.ts",
+      "line": 12,
+      "function": "expire-gift-credits",
+      "issue": "MISSING_AUTH_VALIDATION",
+      "subsystem": "wallet",
+      "severity": "LOW"
+    },
+    {
+      "file": "supabase/functions/get-payment-gateways-public/index.ts",
+      "line": 21,
+      "function": "get-payment-gateways-public",
+      "issue": "MISSING_AUTH_VALIDATION",
+      "subsystem": "payments",
+      "severity": "CRITICAL"
+    },
+    {
+      "file": "supabase/functions/get-wallet-summary/index.ts",
+      "line": 18,
+      "function": "get-wallet-summary",
+      "issue": "ANON_KEY_IN_PRIVILEGED",
+      "subsystem": "wallet",
+      "severity": "CRITICAL"
+    },
+    {
+      "file": "supabase/functions/get-wallet-transactions/index.ts",
+      "line": 18,
+      "function": "get-wallet-transactions",
+      "issue": "ANON_KEY_IN_PRIVILEGED",
+      "subsystem": "wallet",
+      "severity": "CRITICAL"
+    },
+    {
+      "file": "supabase/functions/handle-email-unsubscribe/index.ts",
+      "line": 4,
+      "function": "handle-email-unsubscribe",
+      "issue": "BROAD_CORS_WILDCARD",
+      "subsystem": "notifications",
+      "severity": "MEDIUM"
+    },
+    {
+      "file": "supabase/functions/handle-email-unsubscribe/index.ts",
+      "line": 27,
+      "function": "handle-email-unsubscribe",
+      "issue": "MISSING_AUTH_VALIDATION",
+      "subsystem": "notifications",
+      "severity": "MEDIUM"
+    },
+    {
+      "file": "supabase/functions/hard-delete-competition/index.ts",
+      "line": 262,
+      "function": "hard-delete-competition",
+      "issue": "ANON_KEY_IN_PRIVILEGED",
+      "subsystem": "admin",
+      "severity": "CRITICAL"
+    },
+    {
+      "file": "supabase/functions/hard-delete-competition/index.ts",
+      "line": 4,
+      "function": "hard-delete-competition",
+      "issue": "BROAD_CORS_WILDCARD",
+      "subsystem": "admin",
+      "severity": "MEDIUM"
+    },
+    {
+      "file": "supabase/functions/judge-session-resume/index.ts",
+      "line": 16,
+      "function": "judge-session-resume",
+      "issue": "BROAD_CORS_WILDCARD",
+      "subsystem": "judging",
+      "severity": "MEDIUM"
+    },
+    {
+      "file": "supabase/functions/judging-invariants-nightly/index.ts",
+      "line": 14,
+      "function": "judging-invariants-nightly",
+      "issue": "BROAD_CORS_WILDCARD",
+      "subsystem": "judging",
+      "severity": "MEDIUM"
+    },
+    {
+      "file": "supabase/functions/manage-notifications/index.ts",
+      "line": 18,
+      "function": "manage-notifications",
+      "issue": "ANON_KEY_IN_PRIVILEGED",
+      "subsystem": "notifications",
+      "severity": "HIGH"
+    },
+    {
+      "file": "supabase/functions/moderate-comment/index.ts",
+      "line": 206,
+      "function": "moderate-comment",
+      "issue": "ANON_KEY_IN_PRIVILEGED",
+      "subsystem": "moderation",
+      "severity": "HIGH"
+    },
+    {
+      "file": "supabase/functions/paypal-capture-order/index.ts",
+      "line": 16,
+      "function": "paypal-capture-order",
+      "issue": "ANON_KEY_IN_PRIVILEGED",
+      "subsystem": "payments",
+      "severity": "HIGH"
+    },
+    {
+      "file": "supabase/functions/preview-transactional-email/index.ts",
+      "line": 6,
+      "function": "preview-transactional-email",
+      "issue": "BROAD_CORS_WILDCARD",
+      "subsystem": "notifications",
+      "severity": "MEDIUM"
+    },
+    {
+      "file": "supabase/functions/publish-round/index.ts",
+      "line": 34,
+      "function": "publish-round",
+      "issue": "ANON_KEY_IN_PRIVILEGED",
+      "subsystem": "judging",
+      "severity": "HIGH"
+    },
+    {
+      "file": "supabase/functions/publish-round/index.ts",
+      "line": 14,
+      "function": "publish-round",
+      "issue": "BROAD_CORS_WILDCARD",
+      "subsystem": "judging",
+      "severity": "MEDIUM"
+    },
+    {
+      "file": "supabase/functions/purge-s3-orphans/index.ts",
+      "line": 158,
+      "function": "purge-s3-orphans",
+      "issue": "ANON_KEY_IN_PRIVILEGED",
+      "subsystem": "admin",
+      "severity": "HIGH"
+    },
+    {
+      "file": "supabase/functions/purge-s3-orphans/index.ts",
+      "line": 12,
+      "function": "purge-s3-orphans",
+      "issue": "BROAD_CORS_WILDCARD",
+      "subsystem": "admin",
+      "severity": "MEDIUM"
+    },
+    {
+      "file": "supabase/functions/razorpay-verify-payment/index.ts",
+      "line": 30,
+      "function": "razorpay-verify-payment",
+      "issue": "ANON_KEY_IN_PRIVILEGED",
+      "subsystem": "payments",
+      "severity": "CRITICAL"
+    },
+    {
+      "file": "supabase/functions/send-gift-credit/index.ts",
+      "line": 13,
+      "function": "send-gift-credit",
+      "issue": "ANON_KEY_IN_PRIVILEGED",
+      "subsystem": "wallet",
+      "severity": "HIGH"
+    },
+    {
+      "file": "supabase/functions/send-transactional-email/index.ts",
+      "line": 12,
+      "function": "send-transactional-email",
+      "issue": "BROAD_CORS_WILDCARD",
+      "subsystem": "notifications",
+      "severity": "MEDIUM"
+    },
+    {
+      "file": "supabase/functions/submit-deposit/index.ts",
+      "line": 18,
+      "function": "submit-deposit",
+      "issue": "ANON_KEY_IN_PRIVILEGED",
+      "subsystem": "payments",
+      "severity": "HIGH"
+    },
+    {
+      "file": "supabase/functions/submit-judge-decision/index.ts",
+      "line": 45,
+      "function": "submit-judge-decision",
+      "issue": "BROAD_CORS_WILDCARD",
+      "subsystem": "judging",
+      "severity": "MEDIUM"
+    },
+    {
+      "file": "supabase/functions/submit-judge-score/index.ts",
+      "line": 24,
+      "function": "submit-judge-score",
+      "issue": "BROAD_CORS_WILDCARD",
+      "subsystem": "judging",
+      "severity": "MEDIUM"
+    },
+    {
+      "file": "supabase/functions/test-smtp/index.ts",
+      "line": 112,
+      "function": "test-smtp",
+      "issue": "ANON_KEY_IN_PRIVILEGED",
+      "subsystem": "notifications",
+      "severity": "HIGH"
+    },
+    {
+      "file": "supabase/functions/test-smtp/index.ts",
+      "line": 4,
+      "function": "test-smtp",
+      "issue": "BROAD_CORS_WILDCARD",
+      "subsystem": "notifications",
+      "severity": "MEDIUM"
+    },
+    {
+      "file": "supabase/functions/verify-email-provider/index.ts",
+      "line": 23,
+      "function": "verify-email-provider",
+      "issue": "ANON_KEY_IN_PRIVILEGED",
+      "subsystem": "notifications",
+      "severity": "HIGH"
+    },
+    {
+      "file": "supabase/functions/verify-email-provider/index.ts",
+      "line": 4,
+      "function": "verify-email-provider",
+      "issue": "BROAD_CORS_WILDCARD",
+      "subsystem": "notifications",
+      "severity": "MEDIUM"
+    }
+  ]
+}

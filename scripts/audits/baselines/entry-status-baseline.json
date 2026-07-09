@@ -1,0 +1,24 @@
+{
+  "phase": "0B-3",
+  "rule": "audit-v6/no-raw-entry-status",
+  "scope": ["src/**/*.{ts,tsx}", "supabase/functions/**/*.ts"],
+  "generated_at_utc": "2026-05-12T10:10:00Z",
+  "generator": "npx eslint <scope> -f json | filter ruleId=audit-v6/no-raw-entry-status",
+  "forbidden_patterns": [
+    "MemberExpression: (entry|e|submission).(status|placement|progression_decision|status_legacy)",
+    "PostgREST .eq/.neq/.in/.filter on column 'status'|'progression_decision'|'status_legacy' with judging-outcome literal"
+  ],
+  "approved_replacements": [
+    "useGatedEntryStatus(entryIds) — src/hooks/judging/useGatedEntryStatus.ts",
+    "useEntryPublicStatus(entryId) — src/hooks/judging/useEntryPublicStatus.ts",
+    "resolveDisplayStatus(row) — src/hooks/judging/useGatedEntryStatus.ts",
+    "publicStatus / publicPlacement props passed from gated parent"
+  ],
+  "current_violations_count": 0,
+  "violations": [],
+  "notes": [
+    "Baseline empty: rule + DIR_ALLOWLIST + FILE_ALLOWLIST already cover every legitimate raw reader.",
+    "ANY new raw read outside the allowlists will fail CI immediately (no grace period).",
+    "When adding a new legitimate raw reader: append to FILE_ALLOWLIST in eslint-rules/no-raw-entry-status.js with one-line justification — never widen DIR_ALLOWLIST."
+  ]
+}

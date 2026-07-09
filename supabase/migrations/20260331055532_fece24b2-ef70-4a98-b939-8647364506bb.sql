@@ -1,0 +1,1 @@
+ALTER TABLE public.ad_impressions ADD COLUMN IF NOT EXISTS revenue_estimate double precision NOT NULL DEFAULT 0;

@@ -1,0 +1,1 @@
+ALTER TABLE public.competitions ADD COLUMN IF NOT EXISTS judging_completed BOOLEAN NOT NULL DEFAULT false;

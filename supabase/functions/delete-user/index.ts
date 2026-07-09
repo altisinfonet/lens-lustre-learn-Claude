@@ -1,0 +1,92 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // Verify the caller is an admin
+    const callerClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user: caller } } = await callerClient.auth.getUser();
+    if (!caller) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+
+    const adminClient = createClient(supabaseUrl, serviceKey);
+    const { data: adminRole } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", caller.id)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!adminRole) return new Response(JSON.stringify({ error: "Admin only" }), { status: 403, headers: corsHeaders });
+
+    const { user_id } = await req.json();
+    if (!user_id || typeof user_id !== "string") {
+      return new Response(JSON.stringify({ error: "user_id required" }), { status: 400, headers: corsHeaders });
+    }
+
+    // Prevent self-deletion
+    if (user_id === caller.id) {
+      return new Response(JSON.stringify({ error: "Cannot delete yourself" }), { status: 400, headers: corsHeaders });
+    }
+
+    // Delete from all tables with user_id column
+    const userIdTables = [
+      "activity_logs", "bank_details", "certificate_testimonials", "certificates",
+      "comment_reactions", "comments", "competition_entries", "competition_votes",
+      "course_enrollments", "featured_photos", "gift_announcements", "highlights",
+      "image_comments", "image_reactions", "lesson_progress", "post_comment_reactions",
+      "post_comments", "post_reactions", "posts", "referral_codes", "role_applications",
+      "stories", "support_tickets", "ticket_replies", "user_badges", "user_notifications",
+      "user_roles", "verification_requests", "wallet_transactions", "wallets",
+      "withdrawal_requests",
+    ];
+
+    for (const table of userIdTables) {
+      await adminClient.from(table).delete().eq("user_id", user_id);
+    }
+
+    // Delete from tables with other user-referencing columns
+    await adminClient.from("follows").delete().or(`follower_id.eq.${user_id},following_id.eq.${user_id}`);
+    await adminClient.from("friendships").delete().or(`requester_id.eq.${user_id},addressee_id.eq.${user_id}`);
+    await adminClient.from("profile_views").delete().or(`profile_id.eq.${user_id},viewer_id.eq.${user_id}`);
+    await adminClient.from("referrals").delete().or(`referrer_id.eq.${user_id},referred_id.eq.${user_id}`);
+    await adminClient.from("competition_judges").delete().eq("judge_id", user_id);
+    await adminClient.from("judge_comments").delete().eq("judge_id", user_id);
+    await adminClient.from("judge_scores").delete().eq("judge_id", user_id);
+    await adminClient.from("judge_tag_assignments").delete().eq("judge_id", user_id);
+
+    // Nullify references where we don't want to delete the parent record
+    await adminClient.from("comment_reports").update({ reviewed_by: null }).eq("reviewed_by", user_id);
+    await adminClient.from("post_reports").update({ reviewed_by: null }).eq("reviewed_by", user_id);
+    await adminClient.from("role_applications").update({ reviewed_by: null }).eq("reviewed_by", user_id);
+    await adminClient.from("verification_requests").update({ reviewed_by: null }).eq("reviewed_by", user_id);
+    await adminClient.from("withdrawal_requests").update({ reviewed_by: null }).eq("reviewed_by", user_id);
+
+    // Delete profile (public schema)
+    await adminClient.from("profiles").delete().eq("id", user_id);
+
+    // Delete from auth.users — this frees the email for reuse
+    const { error: authError } = await adminClient.auth.admin.deleteUser(user_id);
+    if (authError) {
+      console.error("Auth delete error:", authError);
+      return new Response(JSON.stringify({ error: "Failed to delete auth user: " + authError.message }), { status: 500, headers: corsHeaders });
+    }
+
+    return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  } catch (err) {
+    console.error("Delete user error:", err);
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
+  }
+});

@@ -1,0 +1,39 @@
+{
+  "$schema_version": "1",
+  "phase": "Sprint 0 — Phase 0B-2",
+  "purpose": "Allow-list of EXISTING client-side direct writes to protected wallet/ledger tables (Sprint 0A snapshot). Rule audit-v6/no-direct-wallet-ledger-writes blocks NEW writes; cleanup of these baselined sites is deferred to a later phase.",
+  "protected_tables": [
+    "wallet_transactions",
+    "wallets",
+    "withdrawal_requests",
+    "wallet_reconciliation_log",
+    "competition_payment_details",
+    "competition_orders",
+    "gift_credits",
+    "raw_commitments"
+  ],
+  "generated_at": "2026-05-12",
+  "entry_count": 2,
+  "entries": [
+    {
+      "file": "src/components/AdminGiftCredit.tsx",
+      "line": 193,
+      "table": "gift_credits",
+      "operation": "insert",
+      "excerpt": ".from(\"gift_credits\").insert({ admin_id: user.id, amount, reason, target_type, target_value, ... })",
+      "severity": "HIGH",
+      "sprint_0a_finding_id": "F-7",
+      "note": "Admin gift credit issuance — direct insert from admin UI. Should be moved to an edge function with server-side admin role check + reconciliation."
+    },
+    {
+      "file": "src/components/admin/AdminTransactions.tsx",
+      "line": 509,
+      "table": "wallet_transactions",
+      "operation": "update",
+      "excerpt": "await supabase.from(\"wallet_transactions\").update({ status: \"rejected\" }).eq(\"id\", t.id);",
+      "severity": "CRITICAL",
+      "sprint_0a_finding_id": "F-1",
+      "note": "CRITICAL — admin UI mutates wallet_transactions.status directly, bypassing server-side reconciliation. Top priority for Phase 0C fix."
+    }
+  ]
+}

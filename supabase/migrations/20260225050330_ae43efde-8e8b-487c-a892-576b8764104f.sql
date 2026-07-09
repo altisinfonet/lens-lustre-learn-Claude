@@ -1,0 +1,1 @@
+DROP POLICY "Users can read own profile" ON public.profiles;

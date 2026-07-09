@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.wallet_transaction(uuid, text, numeric, text, uuid, text, jsonb) FROM authenticated;

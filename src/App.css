@@ -1,0 +1,13 @@
+/* Force full-bleed app root and neutralize any legacy centered-shell styles */
+html,
+body,
+#root {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  overflow-x: hidden;
+}

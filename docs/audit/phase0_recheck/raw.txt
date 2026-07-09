@@ -1,0 +1,215 @@
+=== Phase 0 Recheck — 2026-04-30T13:33:18Z ===
+
+=== 1A v3_stage_catalog (stage_key, round, is_active) ===
+       stage_key       | round_number | is_active 
+-----------------------+--------------+-----------
+ r1_accept             |            1 | t
+ r1_accept_short       |            1 | t
+ r1_needs_review       |            1 | t
+ r1_reject             |            1 | t
+ r1_reject_short       |            1 | t
+ r1_shortlist_for_r2   |            1 | t
+ r2_not_selected_r3    |            2 | t
+ r2_qualified_r3       |            2 | t
+ r2_qualified_r3_short |            2 | t
+ r3_not_selected_final |            3 | t
+ r3_shortlisted_final  |            3 | t
+ r4_best_moment        |            4 | t
+ r4_honorary_mention   |            4 | t
+ r4_runner_up_1        |            4 | t
+ r4_runner_up_2        |            4 | t
+ r4_special_jury       |            4 | t
+ r4_top_100            |            4 | t
+ r4_top_50             |            4 | t
+ r4_winner             |            4 | t
+(19 rows)
+
+
+=== 1B competition_entries.progression_decision DISTINCT + counts ===
+ progression_decision | count 
+----------------------+-------
+ shortlisted          |     1
+(1 row)
+
+
+=== 1C judging_tags (tag_id, label, is_active) ===
+ERROR:  column "tag_id" does not exist
+LINE 1: SELECT tag_id, label, is_active FROM judging_tags ORDER BY t...
+               ^
+
+=== 1D judge_decisions.decision DISTINCT + counts ===
+   decision   | count 
+--------------+-------
+ shortlist    |    16
+ qualified_r3 |    15
+ reject       |     3
+ accept       |     1
+(4 rows)
+
+
+=== 2 vocabulary counts (active/inactive) ===
+ is_active | count 
+-----------+-------
+ t         |    19
+(1 row)
+
+
+=== 3 duplicate / legacy presence in v3_stage_catalog ===
+       stage_key       | round_number | is_active 
+-----------------------+--------------+-----------
+ r1_accept             |            1 | t
+ r1_accept_short       |            1 | t
+ r1_reject             |            1 | t
+ r1_reject_short       |            1 | t
+ r1_shortlist_for_r2   |            1 | t
+ r2_qualified_r3       |            2 | t
+ r2_qualified_r3_short |            2 | t
+ r3_shortlisted_final  |            3 | t
+ r4_best_moment        |            4 | t
+(9 rows)
+
+
+=== 3b duplicate presence in competition_entries.progression_decision ===
+ progression_decision | count 
+----------------------+-------
+ shortlisted          |     1
+(1 row)
+
+
+=== 3c duplicate presence in judge_decisions.decision ===
+ decision  | count 
+-----------+-------
+ shortlist |    16
+ reject    |     3
+ accept    |     1
+(3 rows)
+
+
+=== 4 sample dump — 10 entries with photo decision counts ===
+ERROR:  column jd.photo_id does not exist
+LINE 9:            (SELECT COUNT(DISTINCT jd.photo_id) FROM judge_de...
+                                          ^
+HINT:  Perhaps you meant to reference the column "jd.photo_index".
+
+=== 4b multi-photo entry detail (top 1) — per-photo decisions ===
+ERROR:  column jd.photo_id does not exist
+LINE 3:     SELECT jd.photo_id, jd.round_number, jd.decision, jd.jud...
+                   ^
+HINT:  Perhaps you meant to reference the column "jd.photo_index".
+
+=== 4c rounds present in judge_decisions ===
+ round_number | rows | entries 
+--------------+------+---------
+            1 |   20 |       1
+            2 |   15 |       1
+(2 rows)
+
+
+=== 5 PENDING audit — entries with at least one photo missing a decision in their current round ===
+ERROR:  column jd.photo_id does not exist
+LINE 7:              (SELECT COUNT(DISTINCT jd.photo_id)
+                                            ^
+HINT:  Perhaps you meant to reference the column "jd.photo_index".
+
+=== 5b PENDING + leak check — entries with progression_decision NOT NULL but pending photos ===
+ERROR:  column jd.photo_id does not exist
+LINE 4:            (SELECT COUNT(DISTINCT jd.photo_id) FROM judge_de...
+                                          ^
+HINT:  Perhaps you meant to reference the column "jd.photo_index".
+
+=== 1C judging_tags (id, label, is_active, visible_in_round) — corrected ===
+                  id                  |         label          | is_active | visible_in_round 
+--------------------------------------+------------------------+-----------+------------------
+ 4f1805d5-0a86-4abf-bb27-496da58bd0b2 | Accept                 | t         | {1}
+ 0034f2e3-3626-4e93-93db-5aa1227e3341 | Needs Review           | t         | {1}
+ 4b440411-1efe-49c4-a9ee-a491a78bdb4d | Reject                 | t         | {1}
+ 13f2d1bd-06cd-40e8-a086-64762d6fa372 | Shortlist for R2       | t         | {1}
+ bce0e662-76cb-4196-9798-e7d14bd1d782 | Not Selected for R3    | f         | {2}
+ 67d446d4-fec6-4f45-8643-03c3ff2d462f | Qualified for R3       | t         | {2}
+ e2b179a8-3093-4cdd-8df4-282ac42a85f4 | Stayed at R2           | f         | {2}
+ 15012bbe-9d46-42e1-8e38-a639a3f5769f | Not Selected for Final | f         | {3}
+ df11381a-1d96-4c46-8439-747ed3a7b0c6 | Shortlisted for Final  | t         | {3}
+ 37c160fd-149a-4795-9464-2e5860d1fff2 | Stayed at R3           | f         | {3}
+ b5281733-849a-43ce-97b0-7eafec9d41f0 | 1st Runner-Up          | t         | {4}
+ f01c2ccb-7d8f-49a4-b645-b4fb6c25aabf | 2nd Runner-Up          | t         | {4}
+ cfd7d5af-bf4a-4bba-9b53-d98e03fdf861 | Honorary Mention       | t         | {4}
+ fa292f24-998f-4692-82ab-0a3e6b968443 | Qualified for Final    | t         | {4}
+ ddf5b7bb-775f-4906-b636-36f9b737b090 | Special Jury           | t         | {4}
+ 249926a9-58e6-49ca-91c3-75a12759095a | Top 100                | t         | {4}
+ 0d734146-48a2-417b-876b-29a5c2243b16 | Top 50                 | t         | {4}
+ 49c0c69f-0f94-4f92-996f-2878e9ee752c | Winner                 | t         | {4}
+(18 rows)
+
+
+=== 1D-bis judge_decisions check-constraint allowed values (DDL) ===
+see schema dump: accept, reject, shortlist, needs_review, qualified, finalist, winner, skip, qualified_r3, not_selected_r3, shortlisted_final, not_selected_final, runner_up_1, runner_up_2, honorary_mention, special_jury
+
+=== 4 sample dump — 10 entries — corrected (photo_index) ===
+               entry_id               |            competition_id            | current_round | progression_decision |      status      | photo_count | decision_rows | photos_with_any_decision 
+--------------------------------------+--------------------------------------+---------------+----------------------+------------------+-------------+---------------+--------------------------
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e | 813237c4-2cbf-4ca1-b051-9e5c59fa9723 | 3             | shortlisted          | round2_qualified |          20 |            35 |                       20
+(1 row)
+
+
+=== 4b multi-photo entry detail (top 1) — per-photo decisions ===
+ photo_index | round_number |   decision   |               judge_id               
+-------------+--------------+--------------+--------------------------------------
+           0 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+           1 |            1 | accept       | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+           2 |            1 | reject       | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+           3 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+           4 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+           5 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+           6 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+           7 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+           8 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+           9 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+          10 |            1 | reject       | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+          11 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+          12 |            1 | reject       | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+          13 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+          14 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+          15 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+          16 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+          17 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+          18 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+          19 |            1 | shortlist    | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+           0 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+           3 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+           4 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+           5 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+           6 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+           7 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+           8 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+           9 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+          13 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+          14 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+          15 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+          16 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+          17 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+          18 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+          19 |            2 | qualified_r3 | 4c200b33-ae64-46f0-ba5d-1a97152e6a6c
+(35 rows)
+
+
+=== 5 PENDING audit — current-round photos missing decisions ===
+               entry_id               | current_round | progression_decision | photo_count | photos_decided_current_round | pending_photos_current_round 
+--------------------------------------+---------------+----------------------+-------------+------------------------------+------------------------------
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e | 3             | shortlisted          |          20 |                            0 |                           20
+(1 row)
+
+
+=== 5b LEAK check — progression_decision NOT NULL but photos still pending in current round ===
+               entry_id               | current_round | progression_decision | photo_count | photos_decided_current_round 
+--------------------------------------+---------------+----------------------+-------------+------------------------------
+ 6ecd09a9-ce9b-48ae-960d-a497ffa3630e | 3             | shortlisted          |          20 |                            0
+(1 row)
+
+
+=== 5c rounds present in production data ===
+ round_number | rows | entries | judges 
+--------------+------+---------+--------
+            1 |   20 |       1 |      1
+            2 |   15 |       1 |      1
+(2 rows)
+

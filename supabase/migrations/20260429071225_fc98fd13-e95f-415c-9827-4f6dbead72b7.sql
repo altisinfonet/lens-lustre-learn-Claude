@@ -1,0 +1,2 @@
+DROP TRIGGER IF EXISTS trg_mirror_system_tag_to_decision_ins ON public.judge_tag_assignments;
+DROP TRIGGER IF EXISTS trg_mirror_system_tag_to_decision_del ON public.judge_tag_assignments;

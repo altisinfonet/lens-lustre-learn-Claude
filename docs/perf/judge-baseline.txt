@@ -1,0 +1,249 @@
+═══════════════════════════════════════════════════════════════════
+ JUDGE PANEL — BUNDLE BASELINE (SOW v2.1, Phase A, Step 4)
+ Generated: 2026-04-17T15:22:17Z
+ Build: vite build --mode production
+ Commit context: post Step-1/2/3 (lazy routes + vendor split + CSS anim)
+═══════════════════════════════════════════════════════════════════
+
+── GATE COMPLIANCE ──────────────────────────────────────────────
+Total JS chunks (whole app):          163    [gate: ≤30 — FAIL at app scope]
+Largest single chunk:                 1234 KB    [gate: <200KB — FAIL]
+
+Note: gate of '≤30 chunks / <200KB largest' is achievable for the
+/judge ROUTE first-paint set, not the whole app. Whole-app contains
+all 60+ admin pages, gallery views, course editor, etc. each split.
+
+── /JUDGE ROUTE FIRST-PAINT CHAIN (desktop) ───────────────────
+Chunk                                                Raw   Gzip est
+--------------------------------------------- ---------- ----------
+index-BdQq_4o_.js                                   64 B       97 B
+vendor-react-jahw8T8b.js                        156864 B    51372 B
+vendor-query-DlXZ9hq6.js                         42419 B    13010 B
+vendor-framer-motion-jKIhI6lo.js                130348 B    43062 B
+JudgePanel-BA4-usWM.js                           62966 B    18086 B
+CinemaJudgeView-CKny-O3Y.js                     122999 B    29728 B
+
+── /JUDGE ROUTE FIRST-PAINT CHAIN (mobile) ────────────────────
+Chunk                                                Raw   Gzip est
+--------------------------------------------- ---------- ----------
+index-BdQq_4o_.js                                   64 B       97 B
+vendor-react-jahw8T8b.js                        156864 B    51372 B
+vendor-query-DlXZ9hq6.js                         42419 B    13010 B
+vendor-framer-motion-jKIhI6lo.js                130348 B    43062 B
+JudgePanel-BA4-usWM.js                           62966 B    18086 B
+MobileJudgeView-S2Ug83W8.js                      21744 B     5914 B
+
+── TOP 25 LARGEST CHUNKS ──────────────────────────────────────
+   1263751 B  dist/assets/index-BqGUNG14.js
+    385665 B  dist/assets/jspdf.es.min-DTg3s0ys.js
+    201041 B  dist/assets/html2canvas.esm-DXEQVQnt.js
+    158774 B  dist/assets/index.es-CJR9TaEf.js
+    156864 B  dist/assets/vendor-react-jahw8T8b.js
+    130348 B  dist/assets/vendor-framer-motion-jKIhI6lo.js
+    122999 B  dist/assets/CinemaJudgeView-CKny-O3Y.js
+    117593 B  dist/assets/vendor-react-markdown-rGY2OdRo.js
+     78033 B  dist/assets/PublicProfile-DwBAaULW.js
+     62966 B  dist/assets/JudgePanel-BA4-usWM.js
+     62519 B  dist/assets/Dashboard-yk9YMmj2.js
+     60770 B  dist/assets/AdminAdvertisements-CUW_iwFG.js
+     52920 B  dist/assets/types-By9teAtI.js
+     51317 B  dist/assets/AdminSettings-CcHssHTu.js
+     49965 B  dist/assets/EditProfile-BdyqHAOR.js
+     42419 B  dist/assets/vendor-query-DlXZ9hq6.js
+     40912 B  dist/assets/Index-DOuq7Z8t.js
+     39788 B  dist/assets/CompetitionDetail-Df3EqJ7h.js
+     38841 B  dist/assets/AdminPanel-CTh3uSOI.js
+     37537 B  dist/assets/CompetitionsModule-Bnk9hLdF.js
+     36426 B  dist/assets/Wallet-CflamFD3.js
+     36189 B  dist/assets/AdminPageManagement-CqfMyqIa.js
+     30208 B  dist/assets/AdminNotifications-C-11JGxO.js
+     28936 B  dist/assets/CourseEditor-BSTaBE0A.js
+     27835 B  dist/assets/PostCommentsSection-KJtkHoKH.js
+
+── FULL CHUNK INVENTORY (sorted by size desc) ─────────────────
+   1263751 B  dist/assets/index-BqGUNG14.js
+    385665 B  dist/assets/jspdf.es.min-DTg3s0ys.js
+    201041 B  dist/assets/html2canvas.esm-DXEQVQnt.js
+    158774 B  dist/assets/index.es-CJR9TaEf.js
+    156864 B  dist/assets/vendor-react-jahw8T8b.js
+    130348 B  dist/assets/vendor-framer-motion-jKIhI6lo.js
+    122999 B  dist/assets/CinemaJudgeView-CKny-O3Y.js
+    117593 B  dist/assets/vendor-react-markdown-rGY2OdRo.js
+     78033 B  dist/assets/PublicProfile-DwBAaULW.js
+     62966 B  dist/assets/JudgePanel-BA4-usWM.js
+     62519 B  dist/assets/Dashboard-yk9YMmj2.js
+     60770 B  dist/assets/AdminAdvertisements-CUW_iwFG.js
+     52920 B  dist/assets/types-By9teAtI.js
+     51317 B  dist/assets/AdminSettings-CcHssHTu.js
+     49965 B  dist/assets/EditProfile-BdyqHAOR.js
+     42419 B  dist/assets/vendor-query-DlXZ9hq6.js
+     40912 B  dist/assets/Index-DOuq7Z8t.js
+     39788 B  dist/assets/CompetitionDetail-Df3EqJ7h.js
+     38841 B  dist/assets/AdminPanel-CTh3uSOI.js
+     37537 B  dist/assets/CompetitionsModule-Bnk9hLdF.js
+     36426 B  dist/assets/Wallet-CflamFD3.js
+     36189 B  dist/assets/AdminPageManagement-CqfMyqIa.js
+     30208 B  dist/assets/AdminNotifications-C-11JGxO.js
+     28936 B  dist/assets/CourseEditor-BSTaBE0A.js
+     27835 B  dist/assets/PostCommentsSection-KJtkHoKH.js
+     26136 B  dist/assets/AdminUsers-Dub1igsc.js
+     25281 B  dist/assets/AdminEngagement-WW_xSvIp.js
+     24666 B  dist/assets/AdminBanners-Bcb5yS08.js
+     24289 B  dist/assets/AdminGallery-C-djXZqY.js
+     23225 B  dist/assets/AdminCommentReports-BK_gs2Fg.js
+     23168 B  dist/assets/AdminSEO-DL_Q-2Yg.js
+     21996 B  dist/assets/Profile-BDD1ICve.js
+     21744 B  dist/assets/MobileJudgeView-S2Ug83W8.js
+     20880 B  dist/assets/EmailRichTextToolbar-DNltrG1Z.js
+     20529 B  dist/assets/AdminPhotoOfDay-DvblXkof.js
+     20364 B  dist/assets/CompetitionSubmit-BLDUXhDg.js
+     20265 B  dist/assets/dropdown-menu-CxQsCsdN.js
+     19410 B  dist/assets/ImageCropModal-CgkIGU4a.js
+     18813 B  dist/assets/AdminWalletTab-BaZhrctH.js
+     18674 B  dist/assets/JournalEditor-Do7QGltS.js
+     18598 B  dist/assets/AdminBadgeRoleDefinitions-CgOGHdCY.js
+     18583 B  dist/assets/PostCardSkeleton-CKVf2MK1.js
+     18166 B  dist/assets/AdminHealth-CR55rJAf.js
+     18159 B  dist/assets/CourseDetail-BxXGdfKy.js
+     17734 B  dist/assets/AdminRoleApplications-C1T82yi4.js
+     17661 B  dist/assets/AdminTransactions-CsjshTWh.js
+     17239 B  dist/assets/AdminFeaturedArtist-1yfFc56C.js
+     17180 B  dist/assets/AdminNewsletterFaq-_ENUlmz4.js
+     15814 B  dist/assets/AdminEmailTemplates-CDrJ7oxh.js
+     15313 B  dist/assets/SubmissionDetail-DwWFA9_U.js
+     14930 B  dist/assets/Friends-BB9aWW2w.js
+     14796 B  dist/assets/AdminCertificates-CJtHKtoI.js
+     14775 B  dist/assets/AdminExcellence-BmG5D96p.js
+     14443 B  dist/assets/AdminPerformance-hmBA_xiH.js
+     13978 B  dist/assets/Login-D4XeyS--.js
+     13890 B  dist/assets/AdminAnalytics-CazxJZE0.js
+     13275 B  dist/assets/Feed-DbioE8I6.js
+     13104 B  dist/assets/AdminGiftCredit-isTg9XLW.js
+     13059 B  dist/assets/HelpSupport-BkbnEldB.js
+     12561 B  dist/assets/AdminMenuBuilder-B6VYZUKr.js
+     12456 B  dist/assets/AdminSupportTickets-CGM8ZA_L.js
+     12428 B  dist/assets/CommentsSection-KTtgPSxq.js
+     12133 B  dist/assets/Signup-D8ebFwIb.js
+     12117 B  dist/assets/AdminReferrals-CfmAsRtc.js
+     11759 B  dist/assets/Discover-EDzidBc5.js
+     11317 B  dist/assets/LessonView-CmqwcL84.js
+     11159 B  dist/assets/AdminActivityLogs-BBdH2Yxl.js
+     11113 B  dist/assets/MyPhotos-CtcLeEsq.js
+     10970 B  dist/assets/AdminJudgingTags-CJyqd3_j.js
+     10390 B  dist/assets/Referrals-Bq4mlszE.js
+     10133 B  dist/assets/AdminKeywordBlocklist-D9ROfnh9.js
+      9672 B  dist/assets/EntriesModule-ByV2nWT_.js
+      9415 B  dist/assets/ResetPassword-MpULPTpA.js
+      9398 B  dist/assets/AdminAnnouncements-DaQab9rc.js
+      9331 B  dist/assets/EntryDetail-CRqfzi1r.js
+      9093 B  dist/assets/AdminVoteAuditPanel-DSFcFlhU.js
+      8801 B  dist/assets/CompleteRoundDialog-CquXx8Yj.js
+      8617 B  dist/assets/PostDetail-CqLBuInv.js
+      8237 B  dist/assets/Journal-BgT9tEiy.js
+      8232 B  dist/assets/slider-CBCdN5vX.js
+      8049 B  dist/assets/NotificationSettings-CBNoI_xl.js
+      8047 B  dist/assets/VerifyCertificate-CzzhbJmY.js
+      8047 B  dist/assets/AdminJournal-iJcSiSMi.js
+      8041 B  dist/assets/AdminCourses-i5xzr9NH.js
+      7677 B  dist/assets/AdminPostReports-D0-xIV90.js
+      7638 B  dist/assets/UnsavedChangesDialog-DRf0y7Mq.js
+      7371 B  dist/assets/FileUploadDropZone-DavPbwiX.js
+      7352 B  dist/assets/AdminAuthPages-Sq0LZ4YN.js
+      7342 B  dist/assets/Certificates-CMS35B1m.js
+      7223 B  dist/assets/Courses-yKu8M-sk.js
+      7116 B  dist/assets/CommentsModule-COGieG2P.js
+      6909 B  dist/assets/AdminOnPageImages-DjZL4mTS.js
+      6828 B  dist/assets/Competitions-BFLhCsIj.js
+      6445 B  dist/assets/AdminRedirects-CJjbR3aS.js
+      6414 B  dist/assets/AdminVoteRewards-CaXavBs4.js
+      6153 B  dist/assets/Winners-ocp2LvK5.js
+      5922 B  dist/assets/generateCertificatePdf-CbSXY7Md.js
+      5891 B  dist/assets/CookiePolicy-DdxE8Nki.js
+      5785 B  dist/assets/AdminUserGuide-i_j24s_b.js
+      5478 B  dist/assets/FeaturedArtistPage-D7k4wLUz.js
+      5209 B  dist/assets/SimpleCaptcha-DU__tTtA.js
+      4988 B  dist/assets/JournalArticle-NM6-EX6w.js
+      4845 B  dist/assets/PhotoOfTheDay-DkC1xNA3.js
+      4750 B  dist/assets/alert-dialog-DhKAKrbn.js
+      4725 B  dist/assets/AdminCompetitionRounds-DHD-_SK2.js
+      4712 B  dist/assets/CertificateVerifyByToken-BbE35b0z.js
+      4700 B  dist/assets/FacebookPhotoGrid-2OfZQAwf.js
+      4663 B  dist/assets/FeaturedArtist-Ck2QOASM.js
+      4416 B  dist/assets/fileSecurityScanner-BjK2wCz9.js
+      4332 B  dist/assets/profilePostHelper-CUO4kQDq.js
+      4087 B  dist/assets/AdminJudgeMonitoringPanel-BWKsYt2N.js
+      4037 B  dist/assets/AdminVerificationRequests-BJfIvJkE.js
+      3952 B  dist/assets/HashtagFeed-C_mxDwIs.js
+      3864 B  dist/assets/checkbox-CZIswg9Y.js
+      3768 B  dist/assets/Lightbox-KmAKeMmG.js
+      3668 B  dist/assets/AdminJudgeActivityLog-0tFcrcDZ.js
+      3513 B  dist/assets/ForgotPassword-DuhTXsN6.js
+      3431 B  dist/assets/AdminCompetitionJudges-BDKhvUTV.js
+      3384 B  dist/assets/GalleryMagazine-Djk5c0xQ.js
+      3237 B  dist/assets/tabs-BPjx6sT4.js
+      3085 B  dist/assets/DatabaseBackup-BIKzwLYB.js
+      2880 B  dist/assets/useCourses-C8ZjuoXp.js
+      2818 B  dist/assets/ParticipantStageBadge-D_5Hh-EZ.js
+      2751 B  dist/assets/UsersModule-DT2QzMMU.js
+      2581 B  dist/assets/GalleryBento-Bpcob3N3.js
+      2557 B  dist/assets/passwordSecurity-JzeVfx02.js
+      2477 B  dist/assets/ManagedPageView-CpF0rYM2.js
+      2434 B  dist/assets/JudgeMonitoringModule-Hz7WPckM.js
+      2419 B  dist/assets/GalleryMasonry-B2-ZDKGE.js
+      2354 B  dist/assets/AdminCompetitionFunnel-DcItzYDK.js
+      2261 B  dist/assets/GalleryClassic-B9GWbjsS.js
+      2213 B  dist/assets/index-oRVrRpDa.js
+      2201 B  dist/assets/useFriendshipMutations-DNM-OuUL.js
+      2146 B  dist/assets/Unsubscribe-Dn2Yi5IN.js
+      1976 B  dist/assets/useFriendFollow-BIpVzzNa.js
+      1942 B  dist/assets/progress-DtW_nZkH.js
+      1936 B  dist/assets/VoteAuditModule-knIgYIKy.js
+      1925 B  dist/assets/UserNextStepPanel-BQxy6yfR.js
+      1777 B  dist/assets/RoleApplicationsModule-BrK1wl92.js
+      1634 B  dist/assets/separator-fYUJ75qj.js
+      1591 B  dist/assets/JudgeActivityModule-DHT3qS6j.js
+      1557 B  dist/assets/DatabaseModule-U9hXnLUx.js
+      1550 B  dist/assets/GalleryImage-DhaS4Xmt.js
+      1527 B  dist/assets/table-Dk-oJFHS.js
+      1456 B  dist/assets/useWallet-DYNvAywU.js
+      1414 B  dist/assets/EngagementFooter-BvwSmTcn.js
+      1390 B  dist/assets/useCompetitionEntryMutations-C8UkkSds.js
+      1353 B  dist/assets/JudgingStampBadge-DlR1IbCS.js
+      1319 B  dist/assets/CustomUrlProfile-Dv7iH7Ux.js
+      1294 B  dist/assets/InfiniteScrollSentinel-lbSmH3i1.js
+      1100 B  dist/assets/useConfirmAction-B0oqCi5s.js
+      1089 B  dist/assets/useCompetitions-BqWcxLyL.js
+      1070 B  dist/assets/competitionPhase-BK2BwEck.js
+      1065 B  dist/assets/useAuthPageSettings-T5qgAo6d.js
+       874 B  dist/assets/Breadcrumbs-DmF60-5i.js
+       810 B  dist/assets/simulatedEngagement-ISja9Zxe.js
+       676 B  dist/assets/NotFound-B5zt6sQi.js
+       569 B  dist/assets/useAdminCompetitions-lOk6U8Sf.js
+       558 B  dist/assets/DownloadButton-mWnhULfJ.js
+       543 B  dist/assets/safeAdminExecute-DmyOGLN1.js
+       332 B  dist/assets/use-mobile-ByoC8_s9.js
+       124 B  dist/assets/courseAccess-oxblDNjN.js
+        64 B  dist/assets/index-BdQq_4o_.js
+
+── VENDOR SPLIT VERIFICATION (Step 3) ─────────────────────────
+vendor-framer-motion present:  1 file(s)
+vendor-react-markdown present: 1 file(s)
+vendor-react present:          2 file(s)
+vendor-query present:          1 file(s)
+judge-cinema split present:    1 file(s)
+judge-mobile split present:    1 file(s)
+
+── FINDINGS / NEXT-STEP RECOMMENDATIONS ───────────────────────
+1. The 1.26 MB 'index-*.js' entry chunk is the dominant cost. It
+   bundles App.tsx + every eagerly-imported component (Navbar,
+   Layout, providers, shared UI). Steps 1-3 successfully isolated
+   judge sub-views and motion lib, but did NOT shrink the entry.
+2. jspdf (385 KB) and html2canvas (201 KB) appear as separate
+   chunks — confirmed lazy (used only by certificate PDF flow).
+3. Step 5/6 candidates: (a) lazy-load Navbar/Layout admin bits,
+   (b) split shadcn 'index.es' (159 KB), (c) move auth providers
+   behind suspense boundary.
+
+═══════════════════════════════════════════════════════════════════
+ END BASELINE
+═══════════════════════════════════════════════════════════════════

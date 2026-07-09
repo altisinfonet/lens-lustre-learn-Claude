@@ -1,0 +1,1 @@
+ALTER TABLE public.comment_reports ALTER COLUMN comment_id DROP NOT NULL;

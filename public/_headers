@@ -1,0 +1,50 @@
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://translate.google.com https://translate.googleapis.com https://checkout.razorpay.com https://pagead2.googlesyndication.com https://www.googletagmanager.com https://connect.facebook.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://translate.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' blob: data: https://*.supabase.co https://*.r2.dev https://*.cloudflare.com https://translate.google.com https://www.google.com https://www.googletagmanager.com https://www.facebook.com; connect-src 'self' https://*.supabase.co https://*.supabase.in https://translate.googleapis.com https://checkout.razorpay.com https://pagead2.googlesyndication.com https://www.google-analytics.com https://www.googletagmanager.com https://connect.facebook.net; frame-src 'self' https://translate.google.com https://checkout.razorpay.com https://www.googletagmanager.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+  
+  Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate
+  Access-Control-Allow-Origin: https://50mmretina.com
+  X-Permitted-Cross-Domain-Policies: none
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: cross-origin
+  Cross-Origin-Embedder-Policy: unsafe-none
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/images/*
+  Cache-Control: public, max-age=2592000, immutable
+  Vary: Accept
+
+/*.webp
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.woff2
+  Cache-Control: public, max-age=31536000, immutable
+
+# Edge caching for public/read-heavy pages
+/competitions
+  Cache-Control: public, max-age=300, s-maxage=600, stale-while-revalidate=86400
+
+/discover
+  Cache-Control: public, max-age=300, s-maxage=600, stale-while-revalidate=86400
+
+/journal
+  Cache-Control: public, max-age=300, s-maxage=600, stale-while-revalidate=86400
+
+/courses
+  Cache-Control: public, max-age=300, s-maxage=600, stale-while-revalidate=86400
+
+/featured-artist
+  Cache-Control: public, max-age=300, s-maxage=600, stale-while-revalidate=86400
+
+/certificates/*
+  Cache-Control: public, max-age=600, s-maxage=1800, stale-while-revalidate=86400
+
+/winners
+  Cache-Control: public, max-age=300, s-maxage=600, stale-while-revalidate=86400

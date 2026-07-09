@@ -1,0 +1,192 @@
+{
+  "$schema": "vocabulary.source.schema.v1",
+  "generated_from": "system_tag_decision_map ⋈ judging_tags",
+  "snapshot_taken_at_utc": "2026-04-25T00:00:00Z",
+  "row_count": 11,
+  "rounds": [
+    {
+      "round_number": 1,
+      "name": "Round 1 — Initial Screening",
+      "decisions": [
+        {
+          "decision": "accept",
+          "tags": [
+            {
+              "tag_id": "4f1805d5-0a86-4abf-bb27-496da58bd0b2",
+              "label": "Accepted",
+              "color": "#00ff4c",
+              "icon": "award",
+              "is_system": true,
+              "is_active": true,
+              "visible_in_round": [1]
+            }
+          ]
+        },
+        {
+          "decision": "shortlist",
+          "tags": [
+            {
+              "tag_id": "13f2d1bd-06cd-40e8-a086-64762d6fa372",
+              "label": "Qualified for 2nd Round",
+              "color": "#fee22f",
+              "icon": "sparkles",
+              "is_system": true,
+              "is_active": true,
+              "visible_in_round": [1]
+            }
+          ]
+        },
+        {
+          "decision": "needs_verification",
+          "tags": [
+            {
+              "tag_id": "ec03eecf-800d-4028-909c-a11a75033327",
+              "label": "Verification Required - Round 1",
+              "color": "#17d0d3",
+              "icon": "check",
+              "is_system": true,
+              "is_active": true,
+              "visible_in_round": [1]
+            }
+          ]
+        },
+        {
+          "decision": "reject",
+          "tags": [
+            {
+              "tag_id": "4b440411-1efe-49c4-a9ee-a491a78bdb4d",
+              "label": "Rejected",
+              "color": "#ff0000",
+              "icon": "award",
+              "is_system": true,
+              "is_active": true,
+              "visible_in_round": [1]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "round_number": 2,
+      "name": "Round 2 — Quality Evaluation",
+      "decisions": [
+        {
+          "decision": "shortlist",
+          "tags": [
+            {
+              "tag_id": "67d446d4-fec6-4f45-8643-03c3ff2d462f",
+              "label": "Qualified for 3rd Round",
+              "color": "#00ffaa",
+              "icon": "sparkles",
+              "is_system": true,
+              "is_active": true,
+              "visible_in_round": [2]
+            }
+          ]
+        },
+        {
+          "decision": "needs_verification",
+          "tags": [
+            {
+              "tag_id": "c570fc9f-043b-4ee2-8591-fa2389c55812",
+              "label": "Verification Required - Round 2",
+              "color": "#17d0d3",
+              "icon": "check",
+              "is_system": true,
+              "is_active": true,
+              "visible_in_round": [2]
+            }
+          ]
+        },
+        {
+          "decision": "reject",
+          "tags": [
+            {
+              "tag_id": "bce0e662-76cb-4196-9798-e7d14bd1d782",
+              "label": "Not Selected for 3rd Round",
+              "color": "#d31763",
+              "icon": "check",
+              "is_system": true,
+              "is_active": true,
+              "visible_in_round": [2]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "round_number": 3,
+      "name": "Round 3 — Penultimate Selection",
+      "decisions": [
+        {
+          "decision": "shortlist",
+          "tags": [
+            {
+              "tag_id": "df11381a-1d96-4c46-8439-747ed3a7b0c6",
+              "label": "Qualified for Final Round",
+              "color": "#dcfeb4",
+              "icon": "sparkles",
+              "is_system": true,
+              "is_active": true,
+              "visible_in_round": [3]
+            }
+          ]
+        },
+        {
+          "decision": "needs_verification",
+          "tags": [
+            {
+              "tag_id": "16f90d24-10d8-46a8-8024-202d1fdd80a0",
+              "label": "Verification Required - Round 3",
+              "color": "#17d0d3",
+              "icon": "check",
+              "is_system": true,
+              "is_active": true,
+              "visible_in_round": [3]
+            }
+          ]
+        },
+        {
+          "decision": "reject",
+          "tags": [
+            {
+              "tag_id": "15012bbe-9d46-42e1-8e38-a639a3f5769f",
+              "label": "Not Selected for Final Round",
+              "color": "#d1cdc2",
+              "icon": "gem",
+              "is_system": true,
+              "is_active": true,
+              "visible_in_round": [3]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "round_number": 4,
+      "name": "Round 4 — Final Round",
+      "decisions": [
+        {
+          "decision": "needs_verification",
+          "tags": [
+            {
+              "tag_id": "7ba445d6-fae5-46b4-8656-f281a6b22159",
+              "label": "Verification Required - Final Round",
+              "color": "#17d0d3",
+              "icon": "check",
+              "is_system": true,
+              "is_active": true,
+              "visible_in_round": [4]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "decision_glossary": {
+    "accept": "Photo is accepted in the current round and advances to the next round.",
+    "shortlist": "Photo qualifies and advances to the next round (used for explicit progression labels in Rounds 1–3).",
+    "needs_verification": "Photo is placed on hold; participant must upload the original/RAW source file before judging continues.",
+    "reject": "Photo is removed from contention. In Round 1 this exits the competition entirely. In Rounds 2–3 it keeps current-round qualification but is OUT for the next round."
+  }
+}

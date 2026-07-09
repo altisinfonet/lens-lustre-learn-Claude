@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_ad_impressions_ad_source_created ON public.ad_impressions(ad_source, created_at);

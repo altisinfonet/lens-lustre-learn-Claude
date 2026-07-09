@@ -1,0 +1,27 @@
+# 50mm Retina World
+
+> Global photography community — enter competitions, take expert courses, read the journal, and earn while you create.
+
+50mm Retina World is a platform for photographers worldwide. Members compete in juried photography rounds, learn from professional courses, publish journal articles, and showcase their work on public profiles. The platform issues verifiable certificates for competition placements and course completions.
+
+## Pages
+
+- [Home](/): Platform overview and featured work.
+- [Discover](/discover): Search photographers, posts, competitions, and articles.
+- [Feed](/feed): Public photography feed from the community.
+- [Competitions](/competitions): Active and past photography competitions.
+- [Winners](/winners): Hall of fame for past competition winners.
+- [Journal](/journal): Long-form articles about photography craft, gear, and stories.
+- [Courses](/courses): Expert-led photography courses.
+- [Certificate Verification](/verify): Verify the authenticity of any 50mm Retina certificate.
+- [Featured Artists](/featured-artist): Curated photographer spotlights.
+
+## Account
+
+- [Login](/login): Sign in to an existing account.
+- [Signup](/signup): Create a new photographer account.
+
+## Optional
+
+- [Cookie Policy](/cookie-policy): Cookie and tracking disclosure.
+- [Help & Support](/help-support): Contact support and help articles.

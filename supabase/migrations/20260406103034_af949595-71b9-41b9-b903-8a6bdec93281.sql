@@ -1,0 +1,1 @@
+ALTER TABLE public.judge_scores ALTER COLUMN score DROP NOT NULL;

@@ -1,0 +1,58 @@
+project_id = "isywidnfnjhtydmdfgtk"
+
+[functions]
+  [functions.analyze-gallery-image]
+    verify_jwt = true
+  [functions.ask-anything]
+    verify_jwt = false
+  [functions.auth-email-hook]
+    verify_jwt = false
+  [functions.detect-ai-image]
+    verify_jwt = false
+  [functions.migrate-storage]
+    verify_jwt = false
+  [functions.process-email-queue]
+    verify_jwt = true
+  [functions.s3-upload]
+    verify_jwt = false
+  # CRITICAL: s3-presign-upload validates the user in code (see index.ts).
+  # It MUST stay verify_jwt=false so a transiently stale browser session
+  # (e.g. session_not_found / expired refresh) can't gateway-401 every upload.
+  # Removing this line silently re-introduces the "Edge Function returned a
+  # non-2xx status code" upload outage. Do not delete.
+  [functions.s3-presign-upload]
+    verify_jwt = false
+  [functions.sitemap]
+    verify_jwt = false
+  [functions.translate]
+    verify_jwt = false
+  [functions.vote-wallet-reward]
+    verify_jwt = false
+  [functions.send-transactional-email]
+    verify_jwt = true
+  [functions.preview-transactional-email]
+    verify_jwt = false
+  [functions.handle-email-unsubscribe]
+    verify_jwt = false
+  [functions.handle-email-suppression]
+    verify_jwt = false
+  [functions.rank-feed]
+    verify_jwt = false
+  [functions.create-payment-session]
+    verify_jwt = false
+  [functions.dashboard-init]
+    verify_jwt = false
+  [functions.s3-delete]
+    verify_jwt = false
+  [functions.get-payment-gateways-public]
+    verify_jwt = false
+  [functions.submit-judge-score]
+    verify_jwt = false
+  [functions.judge-session-resume]
+    verify_jwt = false
+  [functions.cast-photo-vote]
+    verify_jwt = false
+  [functions.expire-photo-verifications]
+    verify_jwt = false
+  [functions.seo-route-metadata]
+    verify_jwt = false

@@ -1,0 +1,1 @@
+SELECT public.wallet_ledger_v2_diff_snapshot('1 hour'::interval);

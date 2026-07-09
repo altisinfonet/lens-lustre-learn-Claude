@@ -1,0 +1,1 @@
+ALTER TABLE public.judging_tags ADD COLUMN IF NOT EXISTS icon text DEFAULT 'award';

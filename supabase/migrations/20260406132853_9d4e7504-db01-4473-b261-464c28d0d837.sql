@@ -1,0 +1,1 @@
+ALTER TABLE public.judging_tags ADD CONSTRAINT unique_tag_label UNIQUE (label);

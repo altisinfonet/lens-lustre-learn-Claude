@@ -1,0 +1,1 @@
+ALTER FUNCTION public.guard_stage_key_immutability() SET search_path = public;

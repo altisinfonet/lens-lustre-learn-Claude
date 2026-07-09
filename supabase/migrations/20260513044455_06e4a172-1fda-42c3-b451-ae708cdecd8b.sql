@@ -1,0 +1,2 @@
+DELETE FROM public.admin_notifications WHERE message LIKE '%HOTFIX5-SMOKE-%';
+DELETE FROM public.wallet_transactions WHERE id IN ('354de8e9-47a1-4918-b410-caf7f7d75006','545d0eed-c9cb-4b8f-a425-9a52050643fa');
