@@ -99,8 +99,15 @@ const Feed = () => {
       reaction_counts: {},
       is_suggested: !relevantUserIds.includes(rawPost.user_id),
     };
-    bufferPost(fp);
-  }, [relevantUserIds, bufferPost]);
+    // Own post -> show at top instantly; others -> keep behind the banner.
+    if (user?.id && rawPost.user_id === user.id) {
+      insertPost(fp);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.setTimeout(() => { void refetch(); }, 5000);
+    } else {
+      bufferPost(fp);
+    }
+  }, [relevantUserIds, bufferPost, insertPost, refetch, user?.id]);
 
   const handleUpdatePost = useCallback((rawPost: any) => {
     patchPost(rawPost.id, (current) => ({
