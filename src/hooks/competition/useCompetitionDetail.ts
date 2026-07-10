@@ -260,6 +260,7 @@ export const useCompetitionEntries = (competitionId: string | undefined, userId:
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!competitionId,
+      networkMode: "always",
     staleTime: isVoting ? 15 * 1000 : 60 * 1000,
     refetchOnMount: true,
     refetchOnReconnect: true,
