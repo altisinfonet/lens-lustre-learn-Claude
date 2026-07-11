@@ -16,7 +16,10 @@ export async function fetchEntryFinalVotes(entryIds: string[]): Promise<FinalVot
     body: { entry_ids: uniqueEntryIds },
   });
 
-  if (error) throw error;
+  if (error) {
+    console.warn("entry-final-votes failed; showing photos without vote tallies:", error);
+    return { totals: {}, perPhoto: {} };
+  }
 
   const payload = (data ?? {}) as {
     totals?: Record<string, number>;
