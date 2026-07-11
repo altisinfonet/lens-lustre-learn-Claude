@@ -43,7 +43,6 @@ interface Comment {
 const REACTION_CONFIG = [
   { type: "like", icon: ThumbsUp, label: "Like", activeClass: "text-primary" },
   { type: "love", icon: Heart, label: "Love", activeClass: "text-destructive" },
-  { type: "vote", icon: Vote, label: "Vote", activeClass: "text-primary" },
 ];
 
 const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props) => {
@@ -262,8 +261,8 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props)
               nameClassName="text-[10px] font-medium hover:text-primary hover:underline transition-colors"
             />
             <span className="text-[9px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
-            {comment.is_pinned && <span className="text-[8px] text-primary">📌</span>}
-            {comment.is_admin_seed && <span className="text-[8px] text-primary/70">★</span>}
+            {comment.is_pinned && <span className="text-[8px] text-primary">ð</span>}
+            {comment.is_admin_seed && <span className="text-[8px] text-primary/70">â</span>}
           </div>
           <p className="text-xs text-foreground/90 mt-0.5 break-words" style={{ fontFamily: "var(--font-body)" }}>
             <RichContentRenderer content={comment.content} />
@@ -321,7 +320,7 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props)
                 value={replyText}
                 onChange={setReplyText}
                 onSubmit={() => submitComment(replyText, comment.id)}
-                placeholder="Write a reply…"
+                placeholder="Write a replyâ¦"
                 disabled={posting}
                 className="bg-transparent border-b border-border focus:border-primary rounded-none px-0 text-xs"
               />
@@ -385,7 +384,7 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props)
                   value={newComment}
                   onChange={setNewComment}
                   onSubmit={() => submitComment(newComment)}
-                  placeholder="Add a comment…"
+                  placeholder="Add a commentâ¦"
                   disabled={posting}
                   maxLength={2200}
                   className="bg-transparent border-b border-border focus:border-primary rounded-none px-0 text-xs"
