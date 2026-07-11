@@ -3,12 +3,12 @@
  * ------------------------------------------------------------------
  * Returns authoritative final vote totals for a list of entry IDs.
  *
- *   • Entry-level total  = real_votes + adjustment_total  (from entry_final_votes view)
- *   • Per-photo total    = COUNT(competition_votes per photo) + SUM(admin_vote_adjustments per photo)
+ *   â¢ Entry-level total  = real_votes + adjustment_total  (from entry_final_votes view)
+ *   â¢ Per-photo total    = COUNT(competition_votes per photo) + SUM(admin_vote_adjustments per photo)
  *
  * SECURITY:
- *   • Uses the service-role client server-side ONLY.
- *   • Returns nothing besides aggregated counts — no admin_id, no reason,
+ *   â¢ Uses the service-role client server-side ONLY.
+ *   â¢ Returns nothing besides aggregated counts â no admin_id, no reason,
  *     no per-vote rows. The raw audit trail in admin_vote_adjustments
  *     remains admin-only at the DB (RLS).
  *
@@ -18,7 +18,7 @@
  *   per_photo: Record<entry_id, Record<photo_index, number>>,  // final total per photo
  * }
  */
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 import { getSecureHeaders } from "../_shared/secureHeaders.ts";
 
 const MAX_ENTRY_IDS = 200;
@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
           .slice(0, MAX_ENTRY_IDS);
       }
     } catch {
-      // ignore — empty input handled below
+      // ignore â empty input handled below
     }
 
     if (entryIds.length === 0) {
@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceKey);
 
     // PHOTO-GRAIN authoritative view (Phase 1): one row per (entry_id, photo_index).
-    // Single source of truth — no client-side or duplicate aggregation.
+    // Single source of truth â no client-side or duplicate aggregation.
     const { data: photoRows, error: viewErr } = await admin
       .from("entry_final_votes" as any)
       .select("entry_id, photo_index, final_votes")
