@@ -41,7 +41,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
   const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set());
   const [adminIds, setAdminIds] = useState<Set<string>>(new Set());
 
-  // Derive all data from sidebarData — ZERO independent fetches
+  // Derive all data from sidebarData â ZERO independent fetches
   const sections = useMemo<RightSidebarSections>(() => {
     if (!sidebarData?.sections) return defaultSections;
     return { ...defaultSections, ...(sidebarData.sections as any) };
@@ -60,7 +60,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
     (async () => {
       const checks = await Promise.all(
         rawSuggestions.map(async (s: any) => {
-          const { data } = await supabase.rpc("has_role", { _user_id: s.id, _role: "admin" });
+          const { data } = await supabase.rpc("app_has_role" as any, { _user_id: s.id, _role: "admin" });
           return { id: s.id, isAdmin: !!data };
         })
       );
@@ -94,12 +94,12 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
   };
 
   const placementIcon = (p: string | null) => {
-    if (!p) return "🏆";
+    if (!p) return "ð";
     const lower = p.toLowerCase();
-    if (lower === "gold" || lower === "1st") return "🥇";
-    if (lower === "silver" || lower === "2nd") return "🥈";
-    if (lower === "bronze" || lower === "3rd") return "🥉";
-    return "🏆";
+    if (lower === "gold" || lower === "1st") return "ð¥";
+    if (lower === "silver" || lower === "2nd") return "ð¥";
+    if (lower === "bronze" || lower === "3rd") return "ð¥";
+    return "ð";
   };
 
   if (loading || dashboardLoading) return <div className="space-y-5" />;
@@ -172,7 +172,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
           </div>
           <div className="px-4 py-2 border-t border-border">
             <Link to="/discover" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={headingFont}>
-              See All →
+              See All â
             </Link>
           </div>
         </div>
@@ -236,7 +236,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
           )}
           <div className="px-4 py-2 border-t border-border">
             <Link to="/competitions" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={headingFont}>
-              View All →
+              View All â
             </Link>
           </div>
         </div>
@@ -281,13 +281,13 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
           )}
           <div className="px-4 py-2 border-t border-border">
             <Link to="/courses" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={headingFont}>
-              Browse Courses →
+              Browse Courses â
             </Link>
           </div>
         </div>
       )}
 
-      {/* Top Contributors — anonymous only */}
+      {/* Top Contributors â anonymous only */}
       {!user && <SidebarTopContributors />}
 
       {sections.winners && (
@@ -333,7 +333,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
           )}
           <div className="px-4 py-2 border-t border-border">
             <Link to="/winners" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={headingFont}>
-              View All Winners →
+              View All Winners â
             </Link>
           </div>
         </div>
