@@ -26,12 +26,6 @@ const InlineStats = ({ stats }: { stats: SimulatedStats }) => (
         <span className="text-xs font-medium">Trending</span>
       </span>
     )}
-    {stats.isTopPost && (
-      <span className="inline-flex items-center gap-0.5 text-amber-500">
-        <Trophy className="h-3 w-3" />
-        <span className="text-xs font-medium">Top</span>
-      </span>
-    )}
   </>
 );
 
