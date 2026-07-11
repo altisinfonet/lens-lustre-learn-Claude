@@ -34,9 +34,9 @@ export const useFriendFollow = (targetUserId: string | undefined) => {
     if (!targetUserId) return;
 
     // Check if target user is admin (block friend requests).
-    // Must use SECURITY DEFINER RPC — direct user_roles SELECT is blocked by RLS
+    // Must use SECURITY DEFINER RPC â direct user_roles SELECT is blocked by RLS
     // for non-admin viewers (they can only see their own role row).
-    const { data: targetIsAdmin } = await supabase.rpc("has_role", {
+    const { data: targetIsAdmin } = await supabase.rpc("app_has_role" as any, {
       _user_id: targetUserId,
       _role: "admin",
     });
