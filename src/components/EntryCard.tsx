@@ -21,7 +21,7 @@ import ImageEngagement from "@/components/ImageEngagement";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import { buildCompetitionPhotoPath } from "@/lib/competitionVotingPhotos";
 import { participantKeyForJudgingTag, participantStageLabel, PARTICIPANT_PLACEMENT_LABELS } from "@/lib/judging/participantStageLabels";
-// Verification workflow removed (Spec v3 Apr 2026) — Needs Review is handled
+// Verification workflow removed (Spec v3 Apr 2026) â Needs Review is handled
 // via email + in-app notification on round publish. No per-photo override here.
 
 /**
@@ -65,12 +65,12 @@ interface EntryCardProps {
     /**
      * @deprecated UI MUST NOT read entry.status directly. Always go through
      * useGatedEntryStatus / `publicStatus` prop. Kept on the type only for
-     * data-fetch compatibility — see eslint-rules/no-raw-entry-status.js.
+     * data-fetch compatibility â see eslint-rules/no-raw-entry-status.js.
      */
     status: string;
     created_at: string;
     /**
-     * @deprecated Same as `status` — read `publicPlacement` instead.
+     * @deprecated Same as `status` â read `publicPlacement` instead.
      */
     placement: string | null;
     profiles: { full_name: string | null } | null;
@@ -94,12 +94,12 @@ interface EntryCardProps {
   toggleVote: (entryId: string, hasVoted: boolean, photoIndex?: number) => void;
   markAsPOTD: (entry: any) => void;
   /**
-   * Audit v6 P-01 — Publish-gated placement (winner / 1st_runner_up / …).
+   * Audit v6 P-01 â Publish-gated placement (winner / 1st_runner_up / â¦).
    * Caller MUST resolve via useGatedEntryStatus and pass null when the
    * relevant round is not yet published. Never derived from entry.placement.
    */
   publicPlacement?: string | null;
-  /** Audit v6 P-01 — Publish-gated status. Falls back to "judging_in_progress". */
+  /** Audit v6 P-01 â Publish-gated status. Falls back to "judging_in_progress". */
   publicStatus?: string;
 }
 
@@ -154,7 +154,7 @@ const EntryCard: React.FC<EntryCardProps> = ({
   const photoR4TagMap = (entry as any)._photoR4TagMap || {};
   const activePhotoR4Tag = photoR4TagMap[activePhotoIndex] || null;
   const activePhotoR4Label = typeof activePhotoR4Tag?.label === "string" ? activePhotoR4Tag.label : null;
-  // Plan Phase 5 / Task 5.6 — normalize DB tag labels and aliases through the
+  // Plan Phase 5 / Task 5.6 â normalize DB tag labels and aliases through the
   // same resolver as Mark 2 (`EntryTagStamps`) before choosing the visual key.
   const resolvedPhotoPlacement = participantKeyForJudgingTag(activePhotoR4Label);
   const photoPlacement: string | null = resolvedPhotoPlacement && PARTICIPANT_PLACEMENT_LABELS[resolvedPhotoPlacement]
@@ -187,7 +187,7 @@ const EntryCard: React.FC<EntryCardProps> = ({
   const [showUnvoteConfirm, setShowUnvoteConfirm] = useState(false);
 
   const handleVote = useCallback(() => {
-    // U-01: When user is about to UNVOTE, surface the 2× penalty warning before firing.
+    // U-01: When user is about to UNVOTE, surface the 2Ã penalty warning before firing.
     // This prevents accidental taps on the highlighted heart and makes the cost explicit.
     if (photoUserVoted) {
       setShowUnvoteConfirm(true);
@@ -247,32 +247,32 @@ const EntryCard: React.FC<EntryCardProps> = ({
           {/* Watermark overlay during judging */}
           <PhaseWatermark phase={competitionPhase} currentRound={competitionCurrentRound} surface="card" />
 
-          {/* Judging tag stamps — only in result phase */}
+          {/* Judging tag stamps â only in result phase */}
           {competitionPhase === "result" && activePhotoR4Tag && (
             <EntryTagStamps entryId={entry.id} photoIndex={activePhotoIndex} />
           )}
-          {/* Status / placement badges — PER PHOTO (not per entry).
+          {/* Status / placement badges â PER PHOTO (not per entry).
               Label text comes from PARTICIPANT_PLACEMENT_LABELS (canonical
               v3 contract). Only icon + visual classes are local. `most_viewed`
               is a UI-only badge with no canonical contract entry. */}
           {(() => {
             const PLACEMENT_VISUAL: Record<string, { icon: string; classes: string; sizeClasses: string }> = {
-              winner:             { icon: "🏆", classes: "bg-gradient-to-r from-yellow-500 to-amber-500 text-background shadow-lg shadow-yellow-500/40 animate-pulse",         sizeClasses: "top-2.5 left-2.5 text-[10px] tracking-[0.2em] font-bold px-4 py-2 rounded-md" },
-              "1st_runner_up":    { icon: "🥈", classes: "bg-gradient-to-r from-[hsl(0_0%_62%)] to-[hsl(0_0%_75%)] text-background shadow-md",                                  sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
-              "2nd_runner_up":    { icon: "🥉", classes: "bg-gradient-to-r from-amber-700 to-amber-600 text-background shadow-md",                                              sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
-              honorary_mention:   { icon: "🎖", classes: "bg-gradient-to-r from-teal-600 to-teal-500 text-white shadow-md",                                                    sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
-              honourable_mention: { icon: "🎖", classes: "bg-gradient-to-r from-teal-600 to-teal-500 text-white shadow-md",                                                    sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
-              special_jury:       { icon: "⚖️", classes: "bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md",                                                sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
-              top_50:             { icon: "🌟", classes: "bg-gradient-to-r from-fuchsia-600 to-pink-500 text-white shadow-md",                                                  sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
-              top_100:            { icon: "✨", classes: "bg-gradient-to-r from-violet-600 to-purple-500 text-white shadow-md",                                                 sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
-              finalist:           { icon: "⭐", classes: "bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-md",                                                 sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
-              qualified_final:    { icon: "⭐", classes: "bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-md",                                                 sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
-              most_viewed:        { icon: "👁", classes: "bg-primary/90 text-primary-foreground shadow-md",                                                                    sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] px-3 py-1.5 rounded-sm" },
+              winner:             { icon: "ð", classes: "bg-gradient-to-r from-yellow-500 to-amber-500 text-background shadow-lg shadow-yellow-500/40 animate-pulse",         sizeClasses: "top-2.5 left-2.5 text-[10px] tracking-[0.2em] font-bold px-4 py-2 rounded-md" },
+              "1st_runner_up":    { icon: "ð¥", classes: "bg-gradient-to-r from-[hsl(0_0%_62%)] to-[hsl(0_0%_75%)] text-background shadow-md",                                  sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
+              "2nd_runner_up":    { icon: "ð¥", classes: "bg-gradient-to-r from-amber-700 to-amber-600 text-background shadow-md",                                              sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
+              honorary_mention:   { icon: "ð", classes: "bg-gradient-to-r from-teal-600 to-teal-500 text-white shadow-md",                                                    sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
+              honourable_mention: { icon: "ð", classes: "bg-gradient-to-r from-teal-600 to-teal-500 text-white shadow-md",                                                    sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
+              special_jury:       { icon: "âï¸", classes: "bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md",                                                sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
+              top_50:             { icon: "ð", classes: "bg-gradient-to-r from-fuchsia-600 to-pink-500 text-white shadow-md",                                                  sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
+              top_100:            { icon: "â¨", classes: "bg-gradient-to-r from-violet-600 to-purple-500 text-white shadow-md",                                                 sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
+              finalist:           { icon: "â­", classes: "bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-md",                                                 sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
+              qualified_final:    { icon: "â­", classes: "bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-md",                                                 sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
+              most_viewed:        { icon: "ð", classes: "bg-primary/90 text-primary-foreground shadow-md",                                                                    sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] px-3 py-1.5 rounded-sm" },
             };
             if (!photoPlacement) return null;
             const visual = PLACEMENT_VISUAL[photoPlacement];
             if (!visual) return null;
-            // most_viewed is UI-only (no canonical contract entry) → fallback string.
+            // most_viewed is UI-only (no canonical contract entry) â fallback string.
             const label = PARTICIPANT_PLACEMENT_LABELS[photoPlacement] ?? (photoPlacement === "most_viewed" ? "Most Viewed" : photoPlacement);
             return (
               <span
@@ -283,35 +283,35 @@ const EntryCard: React.FC<EntryCardProps> = ({
               </span>
             );
           })()}
-          {/* Round qualification — strictly per photo. Label text is sourced from
+          {/* Round qualification â strictly per photo. Label text is sourced from
               the canonical participant wording contract (`participantStageLabel`)
               so it stays word-for-word in sync with EntryTagStamps (Marked 2).
               Only icon + color classes are defined locally. */}
           {!photoPlacement && perPhotoStatus !== "winner" && competitionPhase !== "submission_open" && (() => {
             // Visual map keyed by perPhotoStatus. Retired/forbidden keys
             // (round2_not_selected, round3_not_selected, needs_verification)
-            // are intentionally omitted — they are no longer part of the
+            // are intentionally omitted â they are no longer part of the
             // v3 participant wording contract. needs_verification is handled
             // by the dedicated `showVerificationRequired` indicator above.
             const STATUS_VISUAL: Record<string, { icon: string; classes: string }> = {
               // R1 outcomes
-              r1_accepted:         { icon: "✓", classes: "bg-emerald-600/90 text-white" },
-              r1_shortlisted_r2:   { icon: "★", classes: "bg-amber-600/90 text-white" },
-              r1_rejected:         { icon: "✗", classes: "bg-red-600/90 text-white" },
-              r1_needs_review:     { icon: "⚠", classes: "bg-yellow-500/90 text-white" },
-              round1_qualified:    { icon: "✓", classes: "bg-emerald-600/90 text-white" },
-              shortlisted:         { icon: "★", classes: "bg-amber-600/90 text-white" }, // R1 → R2 promotion
+              r1_accepted:         { icon: "â", classes: "bg-emerald-600/90 text-white" },
+              r1_shortlisted_r2:   { icon: "â", classes: "bg-amber-600/90 text-white" },
+              r1_rejected:         { icon: "â", classes: "bg-red-600/90 text-white" },
+              r1_needs_review:     { icon: "â ", classes: "bg-yellow-500/90 text-white" },
+              round1_qualified:    { icon: "â", classes: "bg-emerald-600/90 text-white" },
+              shortlisted:         { icon: "â", classes: "bg-amber-600/90 text-white" }, // R1 â R2 promotion
               // R2 outcomes
-              r2_accepted:         { icon: "✓", classes: "bg-cyan-600/90 text-white" },
-              r2_qualified_r3:     { icon: "★", classes: "bg-blue-600/90 text-white" },
-              round2_qualified:    { icon: "★", classes: "bg-blue-600/90 text-white" }, // legacy alias
+              r2_accepted:         { icon: "â", classes: "bg-cyan-600/90 text-white" },
+              r2_qualified_r3:     { icon: "â", classes: "bg-blue-600/90 text-white" },
+              round2_qualified:    { icon: "â", classes: "bg-blue-600/90 text-white" }, // legacy alias
               // R3 outcomes
-              r3_accepted:         { icon: "✓", classes: "bg-indigo-600/90 text-white" },
-              r3_qualified_final:  { icon: "⭐", classes: "bg-purple-600/90 text-white" },
-              finalist:            { icon: "⭐", classes: "bg-purple-600/90 text-white" }, // legacy alias
+              r3_accepted:         { icon: "â", classes: "bg-indigo-600/90 text-white" },
+              r3_qualified_final:  { icon: "â­", classes: "bg-purple-600/90 text-white" },
+              finalist:            { icon: "â­", classes: "bg-purple-600/90 text-white" }, // legacy alias
               // Negative / interim
-              needs_review:        { icon: "⚠", classes: "bg-yellow-500/90 text-white" },
-              rejected:            { icon: "✗", classes: "bg-red-600/90 text-white" },
+              needs_review:        { icon: "â ", classes: "bg-yellow-500/90 text-white" },
+              rejected:            { icon: "â", classes: "bg-red-600/90 text-white" },
             };
             const visual = STATUS_VISUAL[perPhotoStatus];
             if (!visual) return null;
@@ -334,7 +334,7 @@ const EntryCard: React.FC<EntryCardProps> = ({
         </div>
       )}
 
-      {/* MOBILE FOOTER — compact app-style card */}
+      {/* MOBILE FOOTER â compact app-style card */}
       <div className="block md:hidden">
         {/* Line 1: Title | By Author | Vote */}
         <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
@@ -391,29 +391,13 @@ const EntryCard: React.FC<EntryCardProps> = ({
         )}
         {competitionPhase === "judging" && (
           <p className="text-[9px] text-muted-foreground/60 italic px-3 pb-1.5" style={{ fontFamily: "var(--font-body)" }}>
-            Photographer hidden during judging · per-photo title shown above
+            Photographer hidden during judging Â· per-photo title shown above
           </p>
         )}
 
-        {/* Share / View entry actions */}
-        <div className="flex items-center border-t border-border/50">
-          <Link
-            to={buildCompetitionPhotoPath(entry.id, activePhotoIndex)}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[9px] tracking-[0.1em] uppercase text-muted-foreground hover:text-primary transition-colors"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            <ExternalLink className="h-3 w-3" /> View Photo
-          </Link>
-          <button
-            onClick={copyEntryLink}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[9px] tracking-[0.1em] uppercase text-muted-foreground hover:text-primary transition-colors border-l border-border/50"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            <Copy className="h-3 w-3" /> Copy Photo
-          </button>
-        </div>
+        {/* View Photo / Copy Photo actions removed per request */}
 
-        {/* Engagement stats — compact (hidden during voting/judging) */}
+        {/* Engagement stats â compact (hidden during voting/judging) */}
         {!hideEngagement && <EngagementFooter id={entry.id} createdAt={entry.created_at} />}
 
         {/* Admin POTD button */}
@@ -427,7 +411,7 @@ const EntryCard: React.FC<EntryCardProps> = ({
             <Star className="h-3 w-3" /> Photo of the Day
           </button>
         )}
-        {/* Reactions — only in result phase */}
+        {/* Reactions â only in result phase */}
         {competitionPhase === "result" && (
           <div className="border-t border-border/50 px-3 py-2">
             <ImageEngagement imageType="competition_entry" imageId={entry.id} photoIndex={activePhotoIndex} />
@@ -435,7 +419,7 @@ const EntryCard: React.FC<EntryCardProps> = ({
         )}
       </div>
 
-      {/* DESKTOP FOOTER — compact two-line layout */}
+      {/* DESKTOP FOOTER â compact two-line layout */}
       <div className="hidden md:block px-3.5 py-3">
         {/* Line 1: Title + Author + Vote/Status */}
         <div className="flex items-center gap-2">
@@ -489,27 +473,11 @@ const EntryCard: React.FC<EntryCardProps> = ({
         )}
         {competitionPhase === "judging" && (
           <p className="text-[9px] text-muted-foreground/60 italic mt-1" style={{ fontFamily: "var(--font-body)" }}>
-            Photographer hidden during judging · per-photo title shown above
+            Photographer hidden during judging Â· per-photo title shown above
           </p>
         )}
 
-        {/* Actions row */}
-        <div className="flex items-center border-t border-border/50 mt-2 pt-2">
-          <Link
-            to={buildCompetitionPhotoPath(entry.id, activePhotoIndex)}
-            className="flex-1 flex items-center justify-center gap-1.5 text-[9px] tracking-[0.1em] uppercase text-muted-foreground hover:text-primary transition-colors"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            <ExternalLink className="h-3 w-3" /> View Photo
-          </Link>
-          <button
-            onClick={copyEntryLink}
-            className="flex-1 flex items-center justify-center gap-1.5 text-[9px] tracking-[0.1em] uppercase text-muted-foreground hover:text-primary transition-colors border-l border-border/50"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            <Copy className="h-3 w-3" /> Copy Photo
-          </button>
-        </div>
+        {/* View Photo / Copy Photo actions removed per request */}
         {!hideEngagement && <EngagementFooter id={entry.id} createdAt={entry.created_at} className="px-0 border-t border-border/50 pt-2" />}
         {competitionPhase === "result" && isAdmin && entry.photos.length > 0 && (
           <button
@@ -528,7 +496,7 @@ const EntryCard: React.FC<EntryCardProps> = ({
         )}
       </div>
 
-      {/* U-01: Unvote confirmation — surfaces 2× penalty before deduction */}
+      {/* U-01: Unvote confirmation â surfaces 2Ã penalty before deduction */}
       <AlertDialog open={showUnvoteConfirm} onOpenChange={setShowUnvoteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -537,7 +505,7 @@ const EntryCard: React.FC<EntryCardProps> = ({
               Remove your vote?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Removing your vote deducts <strong>2× the original reward</strong> from your wallet.
+              Removing your vote deducts <strong>2Ã the original reward</strong> from your wallet.
               This action is recorded and cannot be undone for this photo.
             </AlertDialogDescription>
           </AlertDialogHeader>
