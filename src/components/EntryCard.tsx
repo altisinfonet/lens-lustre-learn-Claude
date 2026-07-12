@@ -160,6 +160,14 @@ const EntryCard: React.FC<EntryCardProps> = ({
   const photoPlacement: string | null = resolvedPhotoPlacement && PARTICIPANT_PLACEMENT_LABELS[resolvedPhotoPlacement]
     ? resolvedPhotoPlacement
     : null;
+  // Public results viewers don't receive judge-tag maps (_photoR4TagMap is
+  // owner/admin-scoped), so per-photo placement resolves null and winner/award
+  // badges never rendered on the public grid. Fall back to the publish-gated
+  // entry-level `publicPlacement` prop (Audit v6 P-01 contract guarantees it
+  // is null until the relevant round is admin-published).
+  const gatedPlacement: string | null =
+    publicPlacement && PARTICIPANT_PLACEMENT_LABELS[publicPlacement] ? publicPlacement : null;
+  const effectivePlacement: string | null = photoPlacement ?? gatedPlacement;
   // Audit v6 P-01: prefer the gated `publicStatus` prop. Fall back to the raw column ONLY
   // when no gated value was threaded (legacy callers); the rule allowlists this single read.
   // eslint-disable-next-line audit-v6/no-raw-entry-status
@@ -218,11 +226,11 @@ const EntryCard: React.FC<EntryCardProps> = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
       className={`border overflow-hidden group rounded-xl md:rounded-lg transition-all duration-500 hover:shadow-xl hover:-translate-y-0.5 ${
-        competitionPhase === "result" && photoPlacement === "winner"
+        competitionPhase === "result" && effectivePlacement === "winner"
           ? "border-yellow-500/70 ring-2 ring-yellow-500/30 shadow-[0_0_30px_-4px_hsl(45_100%_50%/0.3)]"
-          : competitionPhase === "result" && photoPlacement === "1st_runner_up"
+          : competitionPhase === "result" && effectivePlacement === "1st_runner_up"
           ? "border-[hsl(0_0%_70%)]/50 ring-1 ring-[hsl(0_0%_75%)]/20 shadow-[0_0_20px_-4px_hsl(0_0%_70%/0.25)]"
-          : competitionPhase === "result" && photoPlacement === "2nd_runner_up"
+          : competitionPhase === "result" && effectivePlacement === "2nd_runner_up"
           ? "border-amber-700/50 ring-1 ring-amber-700/20 shadow-[0_0_20px_-4px_hsl(30_80%_40%/0.25)]"
           : isJudging && isOwn ? "border-primary ring-1 ring-primary/30"
           : "border-border hover:border-primary/30"
@@ -269,11 +277,11 @@ const EntryCard: React.FC<EntryCardProps> = ({
               qualified_final:    { icon: "â­", classes: "bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-md",                                                 sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
               most_viewed:        { icon: "ð", classes: "bg-primary/90 text-primary-foreground shadow-md",                                                                    sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] px-3 py-1.5 rounded-sm" },
             };
-            if (!photoPlacement) return null;
-            const visual = PLACEMENT_VISUAL[photoPlacement];
+            if (!effectivePlacement) return null;
+            const visual = PLACEMENT_VISUAL[effectivePlacement];
             if (!visual) return null;
             // most_viewed is UI-only (no canonical contract entry) â fallback string.
-            const label = PARTICIPANT_PLACEMENT_LABELS[photoPlacement] ?? (photoPlacement === "most_viewed" ? "Most Viewed" : photoPlacement);
+            const label = PARTICIPANT_PLACEMENT_LABELS[effectivePlacement] ?? (effectivePlacement === "most_viewed" ? "Most Viewed" : effectivePlacement);
             return (
               <span
                 className={`absolute uppercase ${visual.sizeClasses} ${visual.classes}`}
@@ -287,7 +295,7 @@ const EntryCard: React.FC<EntryCardProps> = ({
               the canonical participant wording contract (`participantStageLabel`)
               so it stays word-for-word in sync with EntryTagStamps (Marked 2).
               Only icon + color classes are defined locally. */}
-          {!photoPlacement && perPhotoStatus !== "winner" && competitionPhase !== "submission_open" && (() => {
+          {!effectivePlacement && perPhotoStatus !== "winner" && competitionPhase !== "submission_open" && (() => {
             // Visual map keyed by perPhotoStatus. Retired/forbidden keys
             // (round2_not_selected, round3_not_selected, needs_verification)
             // are intentionally omitted â they are no longer part of the
