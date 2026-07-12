@@ -18,6 +18,30 @@ const EXPORTABLE_TABLES = [
   "activity_logs", "comment_reports", "scheduled_boosts",
 ];
 
+// BUG-027 / BUG-106: the export must NOT ship provider secrets or sensitive
+// PII/financial data in plaintext. Those values are redacted below; the backup
+// stays structurally complete but crown-jewel fields must be re-provisioned on
+// restore (they should never live in a downloadable file).
+const REDACTION = "***REDACTED***";
+
+// site_settings rows whose `value` is a credential blob (keys mirror the
+// public-read secret blocklist). Their value is replaced with the marker.
+const SECRET_SETTINGS_KEYS = new Set<string>([
+  "s3_storage_settings", "smtp_settings", "whatsapp_settings",
+  "payment_gateways", "ai_model_settings",
+]);
+
+// table -> columns whose values are redacted (financial account details + PII).
+const REDACT_COLUMNS: Record<string, Set<string>> = {
+  profiles: new Set([
+    "address_line1", "address_line2", "city", "state", "country", "postal_code",
+    "phone", "whatsapp", "national_id_url", "date_of_birth",
+  ]),
+  bank_details: new Set(["bank_account_name", "bank_account_number", "bank_name", "bank_ifsc"]),
+  competition_payment_details: new Set(["paypal_email", "bank_details", "upi_id"]),
+  withdrawal_requests: new Set(["bank_details"]),
+};
+
 function escapeSQL(value: unknown): string {
   if (value === null || value === undefined) return "NULL";
   if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
@@ -82,6 +106,10 @@ Deno.serve(async (req) => {
       `-- Generated: ${new Date().toISOString()}`,
       `-- Exported by: ${user.id}`,
       `-- Tables: ${EXPORTABLE_TABLES.length}`,
+      `-- NOTE: Provider secrets (site_settings credential keys) and sensitive`,
+      `-- PII/financial fields (bank details, home address, phone, national ID,`,
+      `-- date of birth, payout details) are REDACTED as '${REDACTION}' and must`,
+      `-- be re-provisioned on restore.`,
       "",
       "BEGIN;",
       "",
@@ -89,25 +117,72 @@ Deno.serve(async (req) => {
 
     let totalRows = 0;
 
+    // Convert one row to an INSERT, redacting secrets/PII (BUG-027 / BUG-106).
+    const rowToInsert = (t: string, row: Record<string, any>, redactCols?: Set<string>): string => {
+      const cols = Object.keys(row);
+      const vals = cols.map((c) => {
+        // Redact credential values in site_settings, keyed by row.key
+        if (t === "site_settings" && c === "value" && SECRET_SETTINGS_KEYS.has(row.key)) {
+          return escapeSQL(REDACTION);
+        }
+        // Redact sensitive PII/financial columns (leave NULLs as NULL)
+        if (redactCols && redactCols.has(c) && row[c] !== null && row[c] !== undefined) {
+          return escapeSQL(REDACTION);
+        }
+        return escapeSQL(row[c]);
+      });
+      return `INSERT INTO public.${t} (${cols.join(", ")}) VALUES (${vals.join(", ")});`;
+    };
+
+    // BUG-026: page through EVERY row instead of the old silent 10k cap.
+    const PAGE = 1000;
+    const MAX_ROWS_PER_TABLE = 500000; // hard safety bound so one huge table can't OOM the export
+
     for (const table of EXPORTABLE_TABLES) {
       try {
-        const { data, error } = await admin.from(table).select("*").limit(10000);
-        if (error) {
-          lines.push(`-- ERROR exporting ${table}: ${error.message}`);
+        // Exact count → honest header + completeness check.
+        const { count, error: countErr } = await admin
+          .from(table)
+          .select("*", { count: "exact", head: true });
+        if (countErr) {
+          lines.push(`-- ERROR counting ${table}: ${countErr.message}`);
           continue;
         }
-        if (!data || data.length === 0) {
+        if (!count) {
           lines.push(`-- ${table}: 0 rows`);
           lines.push("");
           continue;
         }
 
-        lines.push(`-- ${table}: ${data.length} rows`);
-        for (const row of data) {
-          const cols = Object.keys(row);
-          const vals = cols.map((c) => escapeSQL(row[c]));
-          lines.push(`INSERT INTO public.${table} (${cols.join(", ")}) VALUES (${vals.join(", ")});`);
-          totalRows++;
+        lines.push(`-- ${table}: ${count} rows`);
+        const redactCols = REDACT_COLUMNS[table];
+        const orderCol = table === "site_settings" ? "key" : "id"; // stable pagination key
+        let emitted = 0;
+        let offset = 0;
+        while (emitted < count && offset < MAX_ROWS_PER_TABLE) {
+          const { data, error } = await admin
+            .from(table)
+            .select("*")
+            .order(orderCol, { ascending: true })
+            .range(offset, offset + PAGE - 1);
+          if (error) {
+            lines.push(`-- ERROR exporting ${table} at offset ${offset}: ${error.message}`);
+            break;
+          }
+          if (!data || data.length === 0) break;
+          for (const row of data) {
+            lines.push(rowToInsert(table, row as Record<string, any>, redactCols));
+            emitted++;
+            totalRows++;
+          }
+          offset += data.length; // advance by rows actually returned (robust to PostgREST max-rows)
+        }
+        // BUG-026: never truncate silently — if the safety bound is ever hit, say so loudly.
+        if (emitted < count) {
+          lines.push(
+            `-- WARNING: ${table} has ${count} rows but only ${emitted} were exported ` +
+            `(safety cap ${MAX_ROWS_PER_TABLE}). THIS TABLE IS INCOMPLETE.`
+          );
         }
         lines.push("");
       } catch (err: any) {
