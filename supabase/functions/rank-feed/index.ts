@@ -142,40 +142,11 @@ Deno.serve(async (req) => {
     const deterministicIds = deterministicDiversified.map((p: any) => p.id);
     setCache(user_id, deterministicIds);
 
-    const LOVABLE_API_KEY = (Deno.env.get("AI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
-    if (LOVABLE_API_KEY && scored.length > 5) {
-      const backgroundRerank = (async () => {
-        try {
-          const top30 = scored.slice(0, 30);
-          const aiOrder = await aiRerank(top30, LOVABLE_API_KEY);
-          if (aiOrder.length === 0) return;
-          const ruleMap = new Map(top30.map((p: any, i: number) => [p.id, i]));
-          const aiMap = new Map(aiOrder.map((id: string, i: number) => [id, i]));
-          const blended = [...top30].sort((a: any, b: any) => {
-            const aB = (ruleMap.get(a.id) ?? 999) * 0.9 + (aiMap.get(a.id) ?? 999) * 0.1;
-            const bB = (ruleMap.get(b.id) ?? 999) * 0.9 + (aiMap.get(b.id) ?? 999) * 0.1;
-            return aB - bB;
-          });
-          const merged = [...scored];
-          merged.splice(0, 30, ...blended);
-          const finalIds = applyDiversityRules(merged).map((p: any) => p.id);
-          setCache(user_id, finalIds);
-        } catch (e) {
-          console.error("AI rerank background failed (ignored):", e);
-        }
-      })();
-      // Use EdgeRuntime.waitUntil if available; otherwise fire-and-forget.
-      // deno-lint-ignore no-explicit-any
-      const runtime = (globalThis as any).EdgeRuntime;
-      if (runtime?.waitUntil) {
-        runtime.waitUntil(backgroundRerank);
-      } else {
-        backgroundRerank.catch(() => {});
-      }
-    }
-
+    // AI rerank removed (cost control): the deterministic EdgeRank order above
+    // (affinity + weight + time-decay + diversity) is now the final feed order.
+    // No external AI calls are made from this function.
     return new Response(
-      JSON.stringify({ ranked_ids: deterministicIds, cached: false, ai_pending: !!LOVABLE_API_KEY }),
+      JSON.stringify({ ranked_ids: deterministicIds, cached: false, ai_pending: false }),
       { headers: { ...secureHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
@@ -186,41 +157,6 @@ Deno.serve(async (req) => {
     );
   }
 });
-
-async function aiRerank(
-  candidates: { id: string; score: number }[], apiKey: string,
-): Promise<string[]> {
-  const prompt = `Re-order these ${candidates.length} social feed posts for better diversity and discovery. Return ONLY a JSON array of post IDs.\n\nPosts (id | score):\n${candidates.map((c, i) => `${i + 1}. ${c.id} | score: ${Math.round(c.score)}`).join("\n")}`;
-
-  const res = await fetch((Deno.env.get("AI_GATEWAY_URL") ?? "https://ai.gateway.lovable.dev/v1/chat/completions"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      messages: [
-        { role: "system", content: "You are a feed diversity optimizer. Return only a valid JSON array of post IDs in optimized order. No explanation." },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.2, max_tokens: 2000,
-    }),
-  });
-
-  if (!res.ok) {
-    if (res.status === 429 || res.status === 402) return [];
-    throw new Error(`AI API error: ${res.status}`);
-  }
-
-  const data = await res.json();
-  const content = data.choices?.[0]?.message?.content || "";
-  try {
-    const match = content.match(/\[[\s\S]*\]/);
-    if (!match) return [];
-    const ids = JSON.parse(match[0]);
-    if (!Array.isArray(ids)) return [];
-    const validIds = new Set(candidates.map((c) => c.id));
-    return ids.filter((id: string) => validIds.has(id));
-  } catch { return []; }
-}
 
 function applyDiversityRules(
   posts: { id: string; author_id: string; score: number }[],
