@@ -333,6 +333,7 @@ const Certificates = () => {
                       <span className="hidden md:inline">Preview</span>
                     </button>
                     <button
+                      onClick={() => handleRequest(e)}
                       disabled={requesting === e.entry_id}
                       className="shrink-0 inline-flex items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase px-3 py-2 md:px-4 md:py-2.5 bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-wait transition-all duration-300 rounded-md md:rounded-none"
                       style={{ fontFamily: "var(--font-heading)" }}
