@@ -606,7 +606,10 @@ const SubmissionDetail = () => {
       }
 
       // Certificate (Ruleset v4: hide revoked certs from participant submission view)
-      const { data: cert } = await supabase.from("certificates").select("id").eq("user_id", user.id).eq("reference_id", competitionId).eq("is_revoked", false).limit(1);
+      // reference_id is the ENTRY id for certs written by Certificates.tsx
+      // handleRequest, and the COMPETITION id for legacy rows — dual-match both.
+      const certRefIds = [competitionId!, ...(entriesRes.data || []).map(e => e.id)];
+      const { data: cert } = await supabase.from("certificates").select("id").eq("user_id", user.id).in("reference_id", certRefIds).eq("is_revoked", false).limit(1);
       setCertificate(cert?.[0] || null);
       setLoading(false);
     };

@@ -751,8 +751,17 @@ const SubmissionsTab = ({ myEntries, statusFilter, setStatusFilter, statusCounts
   // Group entries by competition
   const compGroups = useMemo(() => {
     const groups: Record<string, CompGroup> = {};
+    // Certificates are written with reference_id = ENTRY id (Certificates.tsx
+    // handleRequest), while legacy rows hold the COMPETITION id. Dual-match
+    // both so "View Certificate" surfaces for entry-referenced certs.
+    const entryIdToCompId = new Map(myEntries.map(e => [e.id, e.competition_id]));
+    const certForCompetition = (competitionId: string) =>
+      certificates.find(c =>
+        c.reference_id === competitionId || entryIdToCompId.get(c.reference_id) === competitionId
+      );
     myEntries.forEach(entry => {
       if (!groups[entry.competition_id]) {
+        const cert = certForCompetition(entry.competition_id);
         groups[entry.competition_id] = {
           competition_id: entry.competition_id,
           competition_slug: entry.competition_slug,
@@ -762,8 +771,8 @@ const SubmissionsTab = ({ myEntries, statusFilter, setStatusFilter, statusCounts
           competition_cover: entry.competition_cover,
           entries: [],
           all_tags: [],
-          has_certificate: certificates.some(c => c.reference_id === entry.competition_id),
-          certificate_id: certificates.find(c => c.reference_id === entry.competition_id)?.id || null,
+          has_certificate: !!cert,
+          certificate_id: cert?.id || null,
         };
       }
       groups[entry.competition_id].entries.push(entry);
