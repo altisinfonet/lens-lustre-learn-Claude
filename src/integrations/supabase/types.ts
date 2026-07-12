@@ -6071,6 +6071,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_course_lessons_for_editor: {
+        Args: { _course_id: string }
+        Returns: Database["public"]["Tables"]["lessons"]["Row"][]
+      }
       get_derived_status_drift_admin: {
         Args: never
         Returns: {
@@ -6317,6 +6321,18 @@ export type Database = {
         Returns: {
           assignment_count: number
           tag_id: string
+        }[]
+      }
+      get_lesson_content: {
+        Args: { _lesson_id: string }
+        Returns: {
+          id: string
+          title: string
+          content: string
+          video_url: string | null
+          image_url: string | null
+          sort_order: number
+          course_id: string
         }[]
       }
       get_needs_review_recipients_for_round: {
@@ -6625,6 +6641,10 @@ export type Database = {
       }
       is_s3_storage_enabled: { Args: never; Returns: boolean }
       is_vote_phase_locked: { Args: { _entry_id: string }; Returns: boolean }
+      issue_course_completion_certificate: {
+        Args: { _course_id: string }
+        Returns: string
+      }
       judge_can_access_entry: {
         Args: { _entry_id: string; _judge_id: string }
         Returns: boolean
