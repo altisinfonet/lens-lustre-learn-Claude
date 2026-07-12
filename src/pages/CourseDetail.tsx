@@ -80,12 +80,8 @@ const CourseDetail = () => {
     const courseComplete = lessons.length > 0 && completedLessons.size === lessons.length;
     if (!courseComplete) return;
     setIssuingCert(true);
-    const { error } = await supabase.from("certificates").insert({
-      user_id: user.id,
-      title: `${course.title} — Completion Certificate`,
-      description: `Successfully completed all ${lessons.length} lessons in "${course.title}".`,
-      type: "course_completion",
-      reference_id: course.id,
+    const { error } = await supabase.rpc("issue_course_completion_certificate", {
+      _course_id: course.id,
     });
     if (error) {
       toast({ title: "Failed to issue certificate", description: error.message, variant: "destructive" });

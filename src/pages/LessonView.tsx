@@ -36,9 +36,7 @@ const LessonView = () => {
     queryKey: ["lesson-content", lessonId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("lessons")
-        .select("id, title, content, video_url, image_url, sort_order, course_id")
-        .eq("id", lessonId)
+        .rpc("get_lesson_content", { _lesson_id: lessonId! })
         .single();
       if (error) throw error;
       return data;
@@ -48,12 +46,14 @@ const LessonView = () => {
 
   // --- URL Guard: redirect if not enrolled or lesson locked ---
   useEffect(() => {
-    if (courseLoading || lessonLoading || !course || !lesson) return;
+    if (courseLoading || !course) return;
 
     if (!enrolled) {
       navigate(`/courses/${slug}`, { replace: true });
       return;
     }
+
+    if (lessonLoading || !lesson) return;
 
     const unlocked = isLessonUnlocked(lesson.id, lessons, completedLessons, enrolled);
     if (!unlocked) {

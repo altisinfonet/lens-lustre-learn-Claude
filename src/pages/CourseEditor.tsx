@@ -308,7 +308,7 @@ const CourseEditor = () => {
         setReviewsEnabled((course as any).reviews_enabled ?? false);
       }
       const [{ data: lessonData }, { data: moduleData }] = await Promise.all([
-        supabase.from("lessons").select("*").eq("course_id", id!).order("sort_order"),
+        supabase.rpc("get_course_lessons_for_editor", { _course_id: id! }),
         supabase.from("course_modules").select("id, title, sort_order").eq("course_id", id!).order("sort_order"),
       ]);
       if (moduleData) setModules(moduleData);
