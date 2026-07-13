@@ -186,6 +186,11 @@ const LanguagePicker = ({ compact = false, className = "" }: Props) => {
       .skiptranslate, .goog-te-banner-frame, #goog-gt-tt, .goog-te-balloon-frame { display: none !important; }
       body { top: 0 !important; position: static !important; }
       .goog-te-gadget { display: none !important; }
+      /* Newer Google Translate menu frame is appended directly to <body> and
+         is NOT matched by the .skiptranslate rule above, leaving an empty
+         ~96px block below the footer. Hide it — translation still works via
+         the hidden .goog-te-combo select, so this only removes dead space. */
+      .VIpgJd-ZVi9od-aZ2wEe-wOHMyf { display: none !important; }
     `;
     document.head.appendChild(style);
 
