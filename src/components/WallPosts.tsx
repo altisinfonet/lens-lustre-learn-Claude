@@ -327,6 +327,8 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
             image_url: uploadedUrls[0],
             tagged_user_ids: pendingTags.map((t) => t.taggedUserId),
             scheduled_for: iso,
+            privacy: newPrivacy,
+            indexing_disabled: excludeFromSearch,
           });
           toast({ title: "Post scheduled", description: `Will publish at ${scheduleAt.toLocaleString()}` });
           setNewContent("");

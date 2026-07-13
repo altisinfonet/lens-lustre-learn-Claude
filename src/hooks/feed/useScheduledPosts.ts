@@ -57,6 +57,8 @@ export interface CreateScheduledPostInput {
   image_url: string | null;
   tagged_user_ids?: string[];
   scheduled_for: string; // ISO UTC
+  privacy?: string; // BUG-024: carry the composer's privacy choice
+  indexing_disabled?: boolean; // BUG-024: carry the SEO opt-out choice
 }
 
 export function useCreateScheduledPost() {
@@ -75,6 +77,8 @@ export function useCreateScheduledPost() {
           tagged_user_ids: input.tagged_user_ids ?? [],
           scheduled_for: input.scheduled_for,
           original_scheduled_for: input.scheduled_for,
+          privacy: input.privacy ?? "public",
+          indexing_disabled: input.indexing_disabled ?? false,
         } as any)
         .select("*")
         .single();

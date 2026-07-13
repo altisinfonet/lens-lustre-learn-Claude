@@ -219,7 +219,10 @@ Deno.serve(async (req) => {
           content: contentStr,
           image_urls: row.image_urls ?? [],
           image_url: row.image_url,
-          privacy: "public",
+          // BUG-024: honor the privacy + SEO choice the user picked when
+          // scheduling (stored on scheduled_posts) instead of forcing public.
+          privacy: row.privacy ?? "public",
+          indexing_disabled: row.indexing_disabled ?? false,
         })
         .select("id")
         .single();
