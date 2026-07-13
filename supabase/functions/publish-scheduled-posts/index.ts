@@ -200,7 +200,9 @@ Deno.serve(async (req) => {
         .from("blocked_keywords")
         .select("keyword")
         .eq("is_active", true)
-        .in("severity", ["high", "critical"]);
+        // BUG-025: admin UI writes 'auto_hide'/'flag_review'; block on 'auto_hide'
+        // (keep legacy high/critical for backward-compat), matching the DB trigger.
+        .in("severity", ["auto_hide", "high", "critical"]);
       if (kwErr) throw new Error(`gateC_query: ${kwErr.message}`);
       const lc = contentStr.toLowerCase();
       const hit = (kw ?? []).find((k: { keyword: string }) =>
