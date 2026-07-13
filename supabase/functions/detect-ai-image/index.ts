@@ -49,7 +49,8 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = (Deno.env.get("AI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
+    // Per-function key (own credit limit/tracking) → shared AI_API_KEY → legacy Lovable.
+    const LOVABLE_API_KEY = (Deno.env.get("AI_DETECTION_AI_KEY") ?? Deno.env.get("AI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
     if (!LOVABLE_API_KEY) {
       return new Response(
         JSON.stringify({ error: "AI service not configured" }),

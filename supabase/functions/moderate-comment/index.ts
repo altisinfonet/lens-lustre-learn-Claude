@@ -318,7 +318,8 @@ Deno.serve(async (req) => {
     }
 
     // ── Layer 2: AI moderation (secondary) ──
-    const lovableApiKey = (Deno.env.get("AI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
+    // Per-function key (own credit limit/tracking) → shared AI_API_KEY → legacy Lovable.
+    const lovableApiKey = (Deno.env.get("MODERATION_AI_KEY") ?? Deno.env.get("AI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
     if (!lovableApiKey) {
       console.log("No AI key configured, skipping AI moderation");
       return new Response(JSON.stringify({ flagged: false }), { headers });

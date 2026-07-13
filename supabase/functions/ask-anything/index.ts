@@ -261,7 +261,8 @@ serve(async (req) => {
     const questionFP = fingerprint(userQuestion);
 
     // Call AI
-    const LOVABLE_API_KEY = (Deno.env.get("AI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
+    // Per-function key (own credit limit/tracking) → shared AI_API_KEY → legacy Lovable.
+    const LOVABLE_API_KEY = (Deno.env.get("CHATBOT_AI_KEY") ?? Deno.env.get("AI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const response = await fetch(

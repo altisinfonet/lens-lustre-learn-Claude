@@ -55,7 +55,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = (Deno.env.get("AI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
+    // Per-function key (own credit limit/tracking) → shared AI_API_KEY → legacy Lovable.
+    const LOVABLE_API_KEY = (Deno.env.get("IMAGE_ANALYSIS_AI_KEY") ?? Deno.env.get("AI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const response = await fetch((Deno.env.get("AI_GATEWAY_URL") ?? "https://ai.gateway.lovable.dev/v1/chat/completions"), {
