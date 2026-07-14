@@ -34,7 +34,8 @@ export type ImagePathType =
   | "certificate-template"
   | "ad"
   | "seo"
-  | "support";
+  | "support"
+  | "staff-id";
 
 interface GeneratePathOptions {
   /** Required for user-scoped paths */
@@ -132,6 +133,9 @@ export function generateImagePath(opts: GeneratePathOptions): string {
     case "support":
       if (!userId) throw new Error("userId required for support path");
       return `${userId}/${uniqueSegment()}.${ext}`;
+
+    case "staff-id":
+      return `staff-ids/${uniqueSegment()}.${ext}`;
 
     default: {
       const _exhaustive: never = type;
