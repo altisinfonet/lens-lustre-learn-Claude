@@ -1075,10 +1075,16 @@ Deno.serve(async (req) => {
       const qualifiedIds: string[] = [];
       const shortlistedIds: string[] = [];
       const rejectedIds: string[] = [];
+      // BUG-021: entries with ZERO judged eligible photos aggregate to null.
+      // The unjudged/coverage gates skip zero-eligible entries by design, so a
+      // null here means "no judge ever saw this entry" — it must NEVER fall
+      // into the promote bucket. Held out and rejected, surfaced separately.
+      const noEligibleIds: string[] = [];
       for (const entry of entries) {
         const photoCount = Array.isArray(entry.photos) ? entry.photos.length : 1;
         const entryDecision = aggregateEntryDecision(entry.id, photoCount, allR1Decisions, eligibleKeysR1);
-        if (entryDecision === "reject" || entryDecision === "rejected") rejectedIds.push(entry.id);
+        if (entryDecision === null) noEligibleIds.push(entry.id);
+        else if (entryDecision === "reject" || entryDecision === "rejected") rejectedIds.push(entry.id);
         else if (entryDecision === "shortlist" || entryDecision === "shortlisted") shortlistedIds.push(entry.id);
         else qualifiedIds.push(entry.id); // accept / round1_qualified
       }
@@ -1092,6 +1098,8 @@ Deno.serve(async (req) => {
             rejected: rejectedIds.length, rejected_ids: rejectedIds,
             qualified: qualifiedIds.length, qualified_ids: qualifiedIds,
             shortlisted: shortlistedIds.length, shortlisted_ids: shortlistedIds,
+            // BUG-021: zero-eligible-photo entries are rejected, never promoted.
+            no_eligible_photos: noEligibleIds.length, no_eligible_photos_ids: noEligibleIds,
             // 16-Key Frozen Contract v3 (Phase 1): r1_shortlisted_for_r2 → r1_shortlisted_r2.
             stage_keys_used: ["r1_rejected", "r1_accepted", "r1_shortlisted_r2"],
           },
@@ -1102,6 +1110,12 @@ Deno.serve(async (req) => {
       // v3_stage_catalog.stage_key. Validated by trg_progression_decision_vocabulary_gate.
       // Phase 1 renamed r1_shortlisted_for_r2 → r1_shortlisted_r2.
       if (rejectedIds.length > 0) await batchUpdateEntries(rejectedIds, { status: "rejected", current_round: "1", progression_decision: "r1_rejected" });
+      // BUG-021: zero-eligible entries are held back as rejected (same shape as
+      // judge-rejected) — reported separately via no_eligible_photos.
+      if (noEligibleIds.length > 0) {
+        console.log(JSON.stringify({ tag: "round_close_no_eligible_photos", round_number: 1, competition_id, count: noEligibleIds.length, ids: noEligibleIds }));
+        await batchUpdateEntries(noEligibleIds, { status: "rejected", current_round: "1", progression_decision: "r1_rejected" });
+      }
 
       await Promise.all([
         // Ruleset v4: certificates are R4-only. R1 promotion never sets certificate_ready=true.
@@ -1118,6 +1132,8 @@ Deno.serve(async (req) => {
         rejected: rejectedIds.length,
         qualified: qualifiedIds.length,
         shortlisted: shortlistedIds.length,
+        no_eligible_photos: noEligibleIds.length,
+        no_eligible_photos_ids: noEligibleIds,
         competition_round: 2,
         round_locked: true,
         mode: "decision_based",
@@ -1210,11 +1226,16 @@ Deno.serve(async (req) => {
       // R2 entries earn NO certificate (certs are R4-only).
       const promotedIds: string[] = [];
       const rejectedIds: string[] = [];
-      const qualifiedIds: string[] = []; // legacy fallback (no decision / unmapped)
+      const qualifiedIds: string[] = []; // legacy fallback (unmapped decision string only)
+      // BUG-021: null aggregate = zero judged eligible photos (gates skip these
+      // entries by design). Previously fell into the fallback promote bucket —
+      // ghost entries no judge ever saw advanced to R3. Now rejected + surfaced.
+      const noEligibleIds: string[] = [];
       for (const entry of entries) {
         const photoCount = Array.isArray(entry.photos) ? entry.photos.length : 1;
         const entryDecision = aggregateEntryDecision(entry.id, photoCount, allDecisions, eligibleKeysR2);
-        if (entryDecision === "shortlist" || entryDecision === "shortlisted" || entryDecision === "qualified_r3") promotedIds.push(entry.id);
+        if (entryDecision === null) noEligibleIds.push(entry.id);
+        else if (entryDecision === "shortlist" || entryDecision === "shortlisted" || entryDecision === "qualified_r3") promotedIds.push(entry.id);
         else if (entryDecision === "reject" || entryDecision === "rejected" || entryDecision === "skip") rejectedIds.push(entry.id);
         else qualifiedIds.push(entry.id);
       }
@@ -1228,6 +1249,8 @@ Deno.serve(async (req) => {
             promoted: promotedIds.length, promoted_ids: promotedIds,
             rejected: rejectedIds.length, rejected_ids: rejectedIds,
             qualified_fallback: qualifiedIds.length, qualified_fallback_ids: qualifiedIds,
+            // BUG-021: zero-eligible-photo entries are rejected, never promoted.
+            no_eligible_photos: noEligibleIds.length, no_eligible_photos_ids: noEligibleIds,
             // B1.9: Rejected R2 entries no longer carry progression_decision.
             // entry_public_status derives r2_not_selected_r3 from
             // (status='rejected' + current_round=2). Pass branches still write
@@ -1244,9 +1267,15 @@ Deno.serve(async (req) => {
       //  - Rejected entries do NOT receive a progression_decision (B1.9): the view
       //    derives 'r2_not_selected_r3' from (status='rejected' + current_round='2').
       //    current_round stays at '2' so the derivation is unambiguous.
+      // BUG-021: zero-eligible entries take the reject write (B1.9: no
+      // progression_decision; public status derives from status+round).
+      if (noEligibleIds.length > 0) {
+        console.log(JSON.stringify({ tag: "round_close_no_eligible_photos", round_number: 2, competition_id, count: noEligibleIds.length, ids: noEligibleIds }));
+      }
       await Promise.all([
         promotedIds.length > 0 ? batchUpdateEntries(promotedIds, { status: "round2_qualified", current_round: "3", certificate_ready: false, progression_decision: "r2_qualified_r3" }) : Promise.resolve(),
         rejectedIds.length > 0 ? batchUpdateEntries(rejectedIds, { status: "rejected", current_round: "2", certificate_ready: false }) : Promise.resolve(),
+        noEligibleIds.length > 0 ? batchUpdateEntries(noEligibleIds, { status: "rejected", current_round: "2", certificate_ready: false }) : Promise.resolve(),
         qualifiedIds.length > 0 ? batchUpdateEntries(qualifiedIds, { status: "round2_qualified", current_round: "3", certificate_ready: false, progression_decision: "r2_accepted" }) : Promise.resolve(),
       ]);
 
@@ -1258,6 +1287,8 @@ Deno.serve(async (req) => {
         promoted: promotedIds.length,
         rejected: rejectedIds.length,
         qualified: qualifiedIds.length,
+        no_eligible_photos: noEligibleIds.length,
+        no_eligible_photos_ids: noEligibleIds,
         competition_round: 3,
         progression: "decision_based_binary_v4",
         round_locked: true,
@@ -1348,11 +1379,16 @@ Deno.serve(async (req) => {
       // R3 entries earn NO certificate (certs are R4-only).
       const promotedIds: string[] = [];
       const rejectedIds: string[] = [];
-      const finalistIds: string[] = []; // legacy fallback (no decision / unmapped)
+      const finalistIds: string[] = []; // legacy fallback (unmapped decision string only)
+      // BUG-021: null aggregate = zero judged eligible photos (gates skip these
+      // entries by design). Previously fell into the fallback promote bucket —
+      // ghost entries no judge ever saw became FINALISTS. Now rejected + surfaced.
+      const noEligibleIds: string[] = [];
       for (const entry of entries) {
         const photoCount = Array.isArray(entry.photos) ? entry.photos.length : 1;
         const entryDecision = aggregateEntryDecision(entry.id, photoCount, allDecisions, eligibleKeysR3);
-        if (entryDecision === "shortlist" || entryDecision === "shortlisted" || entryDecision === "qualified_final" || entryDecision === "shortlisted_final") promotedIds.push(entry.id);
+        if (entryDecision === null) noEligibleIds.push(entry.id);
+        else if (entryDecision === "shortlist" || entryDecision === "shortlisted" || entryDecision === "qualified_final" || entryDecision === "shortlisted_final") promotedIds.push(entry.id);
         else if (entryDecision === "reject" || entryDecision === "rejected" || entryDecision === "skip") rejectedIds.push(entry.id);
         else finalistIds.push(entry.id);
       }
@@ -1366,6 +1402,8 @@ Deno.serve(async (req) => {
             promoted: promotedIds.length, promoted_ids: promotedIds,
             rejected: rejectedIds.length, rejected_ids: rejectedIds,
             finalist_fallback: finalistIds.length, finalist_fallback_ids: finalistIds,
+            // BUG-021: zero-eligible-photo entries are rejected, never promoted.
+            no_eligible_photos: noEligibleIds.length, no_eligible_photos_ids: noEligibleIds,
             // B1.9: Rejected R3 entries no longer carry progression_decision.
             // entry_public_status derives r3_not_selected_final from
             // (status='rejected' + current_round=3). Pass branches still write
@@ -1382,9 +1420,15 @@ Deno.serve(async (req) => {
       //  - Rejected entries do NOT receive a progression_decision (B1.9): the view
       //    derives 'r3_not_selected_final' from (status='rejected' + current_round='3').
       //    current_round stays at '3' so the derivation is unambiguous.
+      // BUG-021: zero-eligible entries take the reject write (B1.9: no
+      // progression_decision; public status derives from status+round).
+      if (noEligibleIds.length > 0) {
+        console.log(JSON.stringify({ tag: "round_close_no_eligible_photos", round_number: 3, competition_id, count: noEligibleIds.length, ids: noEligibleIds }));
+      }
       await Promise.all([
         promotedIds.length > 0 ? batchUpdateEntries(promotedIds, { status: "finalist", current_round: "4", certificate_ready: false, progression_decision: "r3_qualified_final" }) : Promise.resolve(),
         rejectedIds.length > 0 ? batchUpdateEntries(rejectedIds, { status: "rejected", current_round: "3", certificate_ready: false }) : Promise.resolve(),
+        noEligibleIds.length > 0 ? batchUpdateEntries(noEligibleIds, { status: "rejected", current_round: "3", certificate_ready: false }) : Promise.resolve(),
         finalistIds.length > 0 ? batchUpdateEntries(finalistIds, { status: "finalist", current_round: "4", certificate_ready: false, progression_decision: "r3_accepted" }) : Promise.resolve(),
       ]);
 
@@ -1396,6 +1440,8 @@ Deno.serve(async (req) => {
         promoted: promotedIds.length,
         rejected: rejectedIds.length,
         held: finalistIds.length,
+        no_eligible_photos: noEligibleIds.length,
+        no_eligible_photos_ids: noEligibleIds,
         competition_round: 4,
         progression: "decision_based_binary_v4",
         round_locked: true,
