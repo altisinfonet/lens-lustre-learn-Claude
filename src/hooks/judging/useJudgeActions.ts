@@ -306,16 +306,30 @@ export function useJudgeActions({
     // decision is required — the tag IS the decision. Marks (10 sliders)
     // remain optional and private.
 
-    // ── R4 Award uniqueness pre-check (read-only) ──
+    // ── R4 Award uniqueness pre-check (read-only, advisory; edge fn is authoritative) ──
+    // BUG-020: award tags are GLOBAL singleton rows, so a tag_id-only check matched
+    // awards from OTHER competitions and falsely blocked crowning a Winner in a new
+    // competition. Scope to THIS entry's competition + round. If the competition can't
+    // be resolved we skip the optimistic block and let the edge function decide.
     if (!hasTag && roundNumber === 4) {
       const tagLabel = clickedTagLabel?.toLowerCase().trim();
       if (tagLabel && UNIQUE_AWARD_LABELS.includes(tagLabel)) {
-        const { data: existingAssignments } = await supabase
-          .from("judge_tag_assignments")
-          .select("entry_id")
-          .eq("tag_id", tagId)
-          .neq("entry_id", entryId)
-          .limit(1);
+        const { data: thisEntry } = await supabase
+          .from("competition_entries")
+          .select("competition_id")
+          .eq("id", entryId)
+          .maybeSingle();
+        const competitionId = thisEntry?.competition_id;
+        const { data: existingAssignments } = competitionId
+          ? await supabase
+              .from("judge_tag_assignments")
+              .select("entry_id, competition_entries!inner(competition_id)")
+              .eq("tag_id", tagId)
+              .eq("round_number", roundNumber)
+              .eq("competition_entries.competition_id", competitionId)
+              .neq("entry_id", entryId)
+              .limit(1)
+          : { data: null };
 
         if (existingAssignments && existingAssignments.length > 0) {
           unlockMutation();
