@@ -15,6 +15,7 @@ export type AdminTab =
   | "journal" | "courses" | "certificates" | "excellence"
   | "competitions" | "competition_health" | "entries" | "judging_tags" | "tag_semantics" | "round_visibility" | "judge_monitoring" | "vote_audit" | "judge_activity" | "vote_rewards" | "verification_requests"
   | "users" | "applications" | "referrals" | "engagement"
+  | "employee"
   | "comments" | "keyword_blocklist" | "reports" | "post_reports"
   | "wallet" | "gifts" | "transactions" | "orders"
   | "seo" | "advertisements" | "performance" | "announcements" | "newsletter_faq"

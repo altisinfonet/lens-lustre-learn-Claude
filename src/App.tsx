@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./App.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/core/useAuth";
 import { ThemeProvider } from "@/hooks/core/useTheme";
 
@@ -64,6 +64,19 @@ const CookiePolicy = lazy(() => import("./pages/CookiePolicy"));
 const NotificationSettings = lazy(() => import("./pages/NotificationSettings"));
 const WatermarkQAMatrix = lazy(() => import("./pages/qa/WatermarkQAMatrix"));
 const ScheduledPostsPage = lazy(() => import("./pages/ScheduledPosts"));
+const IDVerification = lazy(() => import("./pages/IDVerification"));
+
+/**
+ * The vanity route `/:customUrl` greedily matches every single-segment path,
+ * including the staff-ID URL shape `/IDverification=<ID>` (printed on staff
+ * QR codes). This discriminator sends those to the verification page and
+ * everything else to the vanity profile resolver.
+ */
+const CustomUrlOrIdVerification = () => {
+  const { customUrl } = useParams<{ customUrl: string }>();
+  if (customUrl && /^IDverification=/i.test(customUrl)) return <IDVerification />;
+  return <CustomUrlProfile />;
+};
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -205,8 +218,13 @@ const App = () => {
                 <Route path="/settings/notifications" element={<NotificationSettings />} />
                 <Route path="/qa/watermark-matrix" element={<WatermarkQAMatrix />} />
                 <Route path="/scheduled-posts" element={<ScheduledPostsPage />} />
+                {/* Staff ID verification (public). The QR-code URL shape
+                    /IDverification=<ID> is a single segment, handled by the
+                    vanity-route discriminator below. */}
+                <Route path="/IDverification" element={<IDVerification />} />
+                <Route path="/IDverification/:idNumber" element={<IDVerification />} />
                 {/* Custom vanity URL - must be BEFORE catch-all but AFTER all known routes */}
-                <Route path="/:customUrl" element={<CustomUrlProfile />} />
+                <Route path="/:customUrl" element={<CustomUrlOrIdVerification />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Route>

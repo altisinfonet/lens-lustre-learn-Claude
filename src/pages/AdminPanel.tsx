@@ -76,13 +76,14 @@ const AdminKeywordBlocklist = lazy(() => import("@/components/admin/AdminKeyword
 const AdminUserGuide = lazy(() => import("@/components/admin/AdminUserGuide"));
 const AdminWalletTab = lazy(() => import("@/components/admin/AdminWalletTab"));
 const AdminOrders = lazy(() => import("@/components/admin/AdminOrders"));
+const AdminEmployee = lazy(() => import("@/components/admin/AdminEmployee"));
 
 /* All valid admin route segments */
 const VALID_ROUTES = new Set([
   "banners", "potd", "on_page_images", "portfolio", "featured_artist",
   "journal", "courses", "certificates", "excellence",
   "competitions", "competition_health", "entries", "judging_tags", "tag_semantics", "judge_monitoring", "vote_audit", "judge_activity", "vote_rewards",
-  "users", "applications", "referrals", "engagement",
+  "users", "applications", "referrals", "engagement", "employee",
   "comments", "keyword_blocklist", "reports", "post_reports",
   "wallet", "gifts", "transactions", "orders",
   "seo", "advertisements", "performance", "announcements", "newsletter_faq", "analytics",
@@ -138,6 +139,9 @@ const tabGroups = [
     ["applications", "Role Applications", Briefcase],
     ["referrals", "Referrals", UserPlus],
     ["engagement", "Engagement", Heart],
+  ] as const },
+  { label: "Employment", items: [
+    ["employee", "Employee", Briefcase],
   ] as const },
   { label: "Moderation", items: [
     ["comments", "Comments", MessageSquare],
@@ -254,6 +258,9 @@ const AdminPanel = () => {
       {/* Users — modularized */}
       {currentRoute === "users" && <LazyTab><UsersModule user={user} /></LazyTab>}
       {currentRoute === "applications" && <LazyTab><RoleApplicationsModule userId={user?.id || ""} /></LazyTab>}
+
+      {/* Employment */}
+      {currentRoute === "employee" && <LazyTab><AdminEmployee /></LazyTab>}
 
       {/* Moderation — modularized */}
       {currentRoute === "comments" && <LazyTab><CommentsModule user={user} /></LazyTab>}
