@@ -177,21 +177,24 @@ Deno.serve(async (req) => {
         .eq("competition_entries.competition_id", competition_id)
         .or(`label.eq.${winnerPlacement},label.eq.Winner`, { foreignTable: "judging_tags" });
       if (wErr) return json({ error: wErr.message }, 500);
-      const winnerKeys = new Set(
-        (winners || []).map((row: any) => `${row.entry_id}::${row.photo_index ?? 0}`)
-      );
-      const winnerCount = winnerKeys.size;
+      // BUG-044: dedupe by ENTRY, not (entry,photo). complete-round's winner
+      // gate is entry-grain, so a Winner tag on two photos of ONE entry (or
+      // two judges tagging the same entry) passed round-close but 409'd here —
+      // with the round already locked, the declaration was permanently stuck.
+      // The business rule is one winning ENTRY per competition.
+      const winnerEntries = new Set((winners || []).map((row: any) => row.entry_id));
+      const winnerCount = winnerEntries.size;
       if (winnerCount === 0) {
         return json({
           error:
-            "Cannot declare Round 4 — no Winner photo has been assigned. Golden Rule #4: exactly ONE Winner is mandatory to declare R4. Assign one Winner in the judge panel, then declare.",
+            "Cannot declare Round 4 — no Winner has been assigned. Golden Rule #4: exactly ONE Winner is mandatory to declare R4. Assign one Winner in the judge panel, then declare.",
           code: "r4_winner_missing",
         }, 409);
       }
       if (winnerCount > 1) {
         return json({
           error:
-            "Cannot declare Round 4 — " + winnerCount + " photos are marked as Winner. Exactly ONE Winner photo is allowed per competition.",
+            "Cannot declare Round 4 — " + winnerCount + " different entries are marked as Winner. Exactly ONE winning entry is allowed per competition.",
           code: "r4_winner_duplicate",
           winner_count: winnerCount,
         }, 409);
