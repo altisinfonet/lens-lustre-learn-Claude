@@ -176,7 +176,7 @@ const NotificationSettings = () => {
               <ToggleRow
                 icon={<Mail className="w-4 h-4" />}
                 label="Weekly Digest"
-                description="A weekly summary of activity you may have missed"
+                description="Coming soon — a weekly summary of activity you may have missed. Your choice is saved and will apply when the digest launches."
                 checked={preferences.email_weekly_digest}
                 onCheckedChange={toggle("email_weekly_digest")}
               />
