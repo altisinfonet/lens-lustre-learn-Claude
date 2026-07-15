@@ -104,11 +104,15 @@ const Certificates = () => {
       //   R4 → any award placement OR Qualified-for-Final tag (R4 published)
       // certificate_ready remains the judge-side completion signal; the publish-gate
       // (competition_round_publish.published_at IS NOT NULL) is what unlocks the UI.
-      const { data: readyEntries } = await supabase
-        .from("competition_entries")
-        .select("id, title, competition_id, status, placement, current_round, current_round_int, progression_decision, competitions(title)")
-        .eq("user_id", user.id)
-        .eq("certificate_ready", true);
+      // BUG-042B: raw progression_decision is no longer client-readable
+      // (column revoked). Own certificate-ready entries come from the
+      // owner-gated SECURITY DEFINER RPC (publish-gated server-side); the
+      // row shape below is mapped to match the old embedded-select exactly.
+      const { data: rpcEntries } = await supabase.rpc("get_my_certificate_entries" as any);
+      const readyEntries = ((rpcEntries as any[]) ?? []).map((r) => ({
+        ...r,
+        competitions: { title: r.competition_title },
+      }));
 
       // Build per-round publish map: { competition_id -> Set<round_number> }
       const candidateCompIds = Array.from(
