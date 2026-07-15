@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { queryKeys } from "@/lib/queryKeys";
 import { toast } from "@/hooks/core/use-toast";
+import { getCaptchaToken } from "@/lib/turnstile";
 
 interface ApplyRoleParams {
   userId: string;
@@ -37,8 +38,10 @@ export function useApplyForRole() {
 export function usePasswordReset() {
   return useMutation({
     mutationFn: async (email: string) => {
+      const captchaToken = await getCaptchaToken(); // BUG-043
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
+        captchaToken,
       });
       if (error) throw error;
     },

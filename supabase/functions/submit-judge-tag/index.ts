@@ -92,14 +92,21 @@ Deno.serve(async (req) => {
       return json({ ok: true, action: "removed" });
     }
 
-    // R4 unique-award check
+    // R4 unique-award check.
+    // BUG-020: award tags (Winner / Runner-Up) are GLOBAL singleton rows shared
+    // by every competition, so a tag_id-only match blocked awards platform-wide
+    // (once ANY competition had a Winner, no other competition could crown one,
+    // and R4 close then failed with 'Winner not assigned'). Scope the uniqueness
+    // to THIS competition + round via an inner join on the entry's competition_id.
     if (round_number === 4) {
       const label = (tag.label ?? "").toLowerCase().trim();
       if (UNIQUE_AWARD_LABELS.has(label)) {
         const { data: dupe } = await admin
           .from("judge_tag_assignments")
-          .select("entry_id")
+          .select("entry_id, competition_entries!inner(competition_id)")
           .eq("tag_id", tag_id)
+          .eq("round_number", round_number)
+          .eq("competition_entries.competition_id", competition_id)
           .neq("entry_id", entry_id)
           .limit(1);
         if (dupe && dupe.length > 0) {

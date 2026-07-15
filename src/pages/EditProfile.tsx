@@ -20,6 +20,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format, differenceInYears } from "date-fns";
 import { normalizeFullName } from "@/lib/nameNormalize";
+import { getCaptchaToken } from "@/lib/turnstile";
 
 const INTEREST_OPTIONS = [
   "Wildlife", "Street", "Portrait", "Aerial", "Documentary",
@@ -50,8 +51,10 @@ const EditProfile = () => {
   const handlePasswordReset = async () => {
     if (!user?.email) return;
     setSendingReset(true);
+    const captchaToken = await getCaptchaToken(); // BUG-043
     const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
       redirectTo: `${window.location.origin}/reset-password`,
+      captchaToken,
     });
     setSendingReset(false);
     if (error) {

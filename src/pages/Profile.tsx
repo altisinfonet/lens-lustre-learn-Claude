@@ -12,6 +12,7 @@ import { toast } from "@/hooks/core/use-toast";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import { getAdminIds, resolveBadges, isAdminUser } from "@/lib/adminBrand";
 import { useIsMobile } from "@/hooks/core/use-mobile";
+import { getCaptchaToken } from "@/lib/turnstile";
 
 interface ProfileData {
   full_name: string | null;
@@ -45,8 +46,10 @@ const Profile = () => {
   const handlePasswordReset = async () => {
     if (!user?.email) return;
     setSendingReset(true);
+    const captchaToken = await getCaptchaToken(); // BUG-043
     const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
       redirectTo: `${window.location.origin}/reset-password`,
+      captchaToken,
     });
     setSendingReset(false);
     if (error) {
