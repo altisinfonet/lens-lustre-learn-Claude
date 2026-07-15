@@ -10,8 +10,8 @@ import { z } from "zod";
 import SimpleCaptcha from "@/components/SimpleCaptcha";
 import { useTrustedDevice } from "@/hooks/core/useTrustedDevice";
 import { useAuthPageSettings } from "@/hooks/core/useAuthPageSettings";
-import {
 import { getCaptchaToken } from "@/lib/turnstile";
+import {
   getLockedOutSeconds,
   getFailedAttempts,
   recordFailedAttempt,
