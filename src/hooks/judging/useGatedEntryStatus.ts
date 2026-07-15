@@ -18,7 +18,7 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { participantStageLabel, PARTICIPANT_R4_TAG_TO_KEY } from "@/lib/judging/participantStageLabels";
+import { participantStageLabel, PARTICIPANT_R4_TAG_TO_KEY, normalizePlacementKey } from "@/lib/judging/participantStageLabels";
 import { queryKeys } from "@/lib/queryKeys";
 
 export interface GatedEntryStatusRow {
@@ -98,6 +98,14 @@ export function useGatedEntryStatus(entryIds: string[]) {
  */
 export function resolveDisplayStatus(row: GatedEntryStatusRow | undefined | null): string {
   if (!row) return "judging_in_progress";
+
+  // BUG-033: an award placement overrides public_status for the winner case.
+  // public_placement is only populated post-R4-publish (gated in the view),
+  // so consulting it here leaks nothing. Without this, a winner whose
+  // public_status isn't literally 'winner' never passes WINNER_PUBLIC_KEYS.
+  if (row.public_placement && normalizePlacementKey(row.public_placement) === "winner") {
+    return "winner";
+  }
 
   const baseStatus = row.public_status || "judging_in_progress";
   // Plan Phase 5 / Task 5.4 — R4 visible-tag → internal key mapping is

@@ -194,6 +194,20 @@ export function participantKeyForJudgingTag(label: string | null | undefined): s
     || null;
 }
 
+/**
+ * BUG-032/033 — canonical placement-key normalizer.
+ * `public_placement` reaches the UI in two vocabularies: token form
+ * (runner_up_1, runner_up_2 — what complete-round writes) and enum form
+ * (1st_runner_up, 2nd_runner_up — what the badge maps expect). Every
+ * placement-consuming surface must route through this before any
+ * PLACEMENT_CONFIG / label lookup. Returns null for unknown values.
+ */
+export function normalizePlacementKey(placement: string | null | undefined): string | null {
+  if (!placement) return null;
+  if (PARTICIPANT_PLACEMENT_LABELS[placement]) return placement;
+  return participantKeyForJudgingTag(placement);
+}
+
 export function participantLabelForJudgingTag(label: string | null | undefined): string {
   if (!label) return "";
   const participantKey = participantKeyForJudgingTag(label);

@@ -18,7 +18,7 @@ import { fetchPhotoStatusMaps, type PhotoStatusMap } from "@/lib/perPhotoStatus"
 import { useEntryPublicStatus } from "@/hooks/judging/useEntryPublicStatus";
 import type { PerPhotoStatus } from "@/hooks/judging/usePhotoDecisions";
 import { buildPublishedParticipantTagMaps, type PublishedTagAssignment } from "@/lib/judging/publishedTagVisibility";
-import { PARTICIPANT_PLACEMENT_LABELS, participantLabelForJudgingTag } from "@/lib/judging/participantStageLabels";
+import { PARTICIPANT_PLACEMENT_LABELS, participantLabelForJudgingTag, normalizePlacementKey } from "@/lib/judging/participantStageLabels";
 
 /* ── types ── */
 interface ImageReport {
@@ -77,10 +77,18 @@ const PLACEMENT_CONFIG: Record<string, { label: string; gradient: string; emoji:
   winner:          { label: PARTICIPANT_PLACEMENT_LABELS.winner,          gradient: "from-yellow-500 via-amber-400 to-yellow-600", emoji: "🏆" },
   "1st_runner_up": { label: PARTICIPANT_PLACEMENT_LABELS["1st_runner_up"], gradient: "from-slate-300 via-gray-200 to-slate-400",    emoji: "🥈" },
   "2nd_runner_up": { label: PARTICIPANT_PLACEMENT_LABELS["2nd_runner_up"], gradient: "from-amber-700 via-orange-600 to-amber-800",  emoji: "🥉" },
+  honorary_mention: { label: PARTICIPANT_PLACEMENT_LABELS.honorary_mention, gradient: "from-purple-600 via-violet-500 to-purple-700", emoji: "🎖️" },
+  special_jury:     { label: PARTICIPANT_PLACEMENT_LABELS.special_jury,     gradient: "from-cyan-600 via-sky-500 to-cyan-700",       emoji: "🏅" },
+  top_50:           { label: PARTICIPANT_PLACEMENT_LABELS.top_50,           gradient: "from-emerald-600 via-green-500 to-emerald-700", emoji: "⭐" },
+  top_100:          { label: PARTICIPANT_PLACEMENT_LABELS.top_100,          gradient: "from-teal-600 via-emerald-500 to-teal-700",   emoji: "🌟" },
+  finalist:         { label: PARTICIPANT_PLACEMENT_LABELS.finalist,         gradient: "from-indigo-600 via-blue-500 to-indigo-700",  emoji: "🏵️" },
 };
 
 const PlacementBadge = ({ placement }: { placement: string }) => {
-  const config = PLACEMENT_CONFIG[placement];
+  // BUG-032: public_placement arrives in token form (runner_up_1) or enum
+  // form (1st_runner_up); normalize before lookup so badges always render.
+  const normalized = normalizePlacementKey(placement) ?? placement;
+  const config = PLACEMENT_CONFIG[normalized];
   if (!config) return null;
   return (
     <motion.div

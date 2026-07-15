@@ -58,10 +58,14 @@ const Winners = () => {
 
   useEffect(() => {
     const fetchWinners = async () => {
+      // BUG-033: winners can be marked via status='winner' OR placement='winner'
+      // (complete-round writes placement for awards). Prefiltering on status
+      // alone hid winners whose status stayed 'finalist'. The publish gate
+      // below (useGatedEntryStatus) still decides what actually renders.
       const { data: rawEntries } = await supabase
         .from("competition_entries")
         .select("id, title, description, photos, photo_meta, user_id, competition_id")
-        .eq("status", "winner")
+        .or("status.eq.winner,placement.eq.winner")
         .order("created_at", { ascending: false });
 
       if (rawEntries && rawEntries.length > 0) {

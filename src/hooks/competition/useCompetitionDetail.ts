@@ -235,7 +235,11 @@ export const useCompetitionEntries = (competitionId: string | undefined, userId:
           badges: resolveBadges(entry.user_id, prof?.badges || [], adminIds),
           _photoVoteMap: mergedPhotoVoteMap,
           _userVotedPhotos: bucket?.userVotedPhotos ?? [],
-          _visibleStatus: anyRoundPublished ? entry.status : "submitted",
+          // BUG-040: _visibleStatus removed. It exposed the RAW entry.status the
+          // moment ANY round was published (a competition-level gate, not a
+          // per-outcome one), and EntryCard consulted it BEFORE the properly
+          // gated publicStatus prop — leaking unpublished R3/R4 outcomes.
+          // EntryCard now renders from the gated publicStatus exclusively.
           // Per-photo status map. Empty {} means viewer doesn't have permission
           // (RLS) — UI must fall back to entry.status only as a last resort.
           _photoStatusMap: photoStatusMaps.get(entry.id) ?? {},

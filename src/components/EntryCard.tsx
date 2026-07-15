@@ -20,7 +20,7 @@ import EngagementFooter from "@/components/EngagementFooter";
 import ImageEngagement from "@/components/ImageEngagement";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import { buildCompetitionPhotoPath } from "@/lib/competitionVotingPhotos";
-import { participantKeyForJudgingTag, participantStageLabel, PARTICIPANT_PLACEMENT_LABELS } from "@/lib/judging/participantStageLabels";
+import { participantKeyForJudgingTag, participantStageLabel, PARTICIPANT_PLACEMENT_LABELS, normalizePlacementKey } from "@/lib/judging/participantStageLabels";
 // Verification workflow removed (Spec v3 Apr 2026) â Needs Review is handled
 // via email + in-app notification on round publish. No per-photo override here.
 
@@ -165,13 +165,17 @@ const EntryCard: React.FC<EntryCardProps> = ({
   // badges never rendered on the public grid. Fall back to the publish-gated
   // entry-level `publicPlacement` prop (Audit v6 P-01 contract guarantees it
   // is null until the relevant round is admin-published).
+  // BUG-032: normalize token/enum placement forms before the label check.
+  const normalizedPublicPlacement = normalizePlacementKey(publicPlacement);
   const gatedPlacement: string | null =
-    publicPlacement && PARTICIPANT_PLACEMENT_LABELS[publicPlacement] ? publicPlacement : null;
+    normalizedPublicPlacement && PARTICIPANT_PLACEMENT_LABELS[normalizedPublicPlacement] ? normalizedPublicPlacement : null;
   const effectivePlacement: string | null = photoPlacement ?? gatedPlacement;
-  // Audit v6 P-01: prefer the gated `publicStatus` prop. Fall back to the raw column ONLY
-  // when no gated value was threaded (legacy callers); the rule allowlists this single read.
-  // eslint-disable-next-line audit-v6/no-raw-entry-status
-  const visibleEntryStatus: string = (entry as any)._visibleStatus ?? publicStatus ?? entry.status;
+  // BUG-040 / Audit v6 P-01: render ONLY from the gated publicStatus prop.
+  // The old chain consulted entry._visibleStatus (raw status once any round
+  // was published) ahead of the gate, leaking unpublished outcomes; the raw
+  // entry.status fallback is gone with it. CompetitionDetail (the sole
+  // caller) always threads publicStatus.
+  const visibleEntryStatus: string = publicStatus ?? "judging_in_progress";
   const perPhotoStatus: string = photoStatusMap[activePhotoIndex] ?? visibleEntryStatus;
   const showVerificationRequired = isOwn && perPhotoStatus === "needs_review";
   const judgingStatusChip = (
