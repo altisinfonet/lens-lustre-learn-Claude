@@ -59,15 +59,50 @@ Deno.serve(async (req) => {
     const batchSize = Math.min(Number(body?.batch_size ?? 25), 50);
     const competition_id: string | null = body?.competition_id ?? null;
 
-    let q = admin
-      .from("competition_entries")
-      .select("id, photos, photo_meta")
-      .order("created_at", { ascending: true })
-      .limit(batchSize);
-    if (competition_id) q = q.eq("competition_id", competition_id);
+    // BUG-028: the original query re-fetched the SAME first `batchSize` rows on
+    // every call (no needs-hash filter, no cursor), so re-invocation never
+    // progressed past the first batch and `done` was never true.
+    // Fix: keyset-scan the table (on id, cheap columns only) for entries that
+    // actually still NEED hashing, process up to batchSize of them, and report
+    // done only when the scan exhausted the table. Bare re-invocation now
+    // always progresses and terminates.
+    const isValidSha = (s: unknown) => typeof s === "string" && /^[0-9a-f]{64}$/.test(s);
+    const needsHash = (row: any): boolean => {
+      const photos: string[] = row.photos ?? [];
+      if (photos.length === 0) return false;
+      const meta: any[] = Array.isArray(row.photo_meta) ? row.photo_meta : [];
+      for (let i = 0; i < photos.length; i++) {
+        if (!isValidSha(meta[i]?.image_hash?.sha256)) return true;
+      }
+      return false;
+    };
 
-    const { data: entries, error } = await q;
-    if (error) throw error;
+    const SCAN_PAGE = 500;
+    const entries: any[] = [];
+    let lastId: string | null = null;
+    let scanExhausted = false;
+    while (entries.length < batchSize) {
+      let q = admin
+        .from("competition_entries")
+        .select("id, photos, photo_meta")
+        .order("id", { ascending: true })
+        .limit(SCAN_PAGE);
+      if (lastId) q = q.gt("id", lastId);
+      if (competition_id) q = q.eq("competition_id", competition_id);
+      const { data: page, error } = await q;
+      if (error) throw error;
+      let batchFull = false;
+      for (const row of page ?? []) {
+        if (!needsHash(row)) continue;
+        if (entries.length >= batchSize) { batchFull = true; break; }
+        entries.push(row);
+      }
+      // A needy row beyond the full batch means more work remains — never
+      // report done from this pass, even if this was the table's last page.
+      if (batchFull) break;
+      if ((page ?? []).length < SCAN_PAGE) { scanExhausted = true; break; }
+      lastId = page![page!.length - 1].id;
+    }
 
     let processed = 0;
     let updated = 0;
@@ -114,12 +149,17 @@ Deno.serve(async (req) => {
       }
     }
 
+    // done: the scan reached the end of the table while collecting this batch,
+    // so after this pass no entries beyond these remain to hash.
+    // stalled: candidates existed but nothing could be written this pass
+    // (e.g. photo fetches keep failing) — re-invoking alone won't help.
     return new Response(
       JSON.stringify({
         processed,
         updated,
         photos_hashed: photosHashed,
-        done: (entries ?? []).length < batchSize,
+        done: scanExhausted,
+        stalled: processed > 0 && updated === 0,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
