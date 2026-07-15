@@ -40,25 +40,31 @@ const TABLES: Record<string, TableSpec> = {
 };
 
 /**
- * Parse any known URL (Supabase public, Supabase render, or Cloudflare R2 pub-*.r2.dev)
- * into { bucket, key }. Returns null on unrecognized formats.
+ * Parse any known URL into { bucket, key }. Returns null on unrecognized formats.
  *
- * R2 layout we use: https://pub-XXXX.r2.dev/{bucket}/{key...}
  * Supabase: https://*.supabase.co/storage/v1/object/public/{bucket}/{key...}
+ * External (R2 / custom CDN domain, e.g. cdn.50mmretina.com): /{bucket}/{key...}
+ *
+ * BUG-029: the old parser only knew Supabase hosts and *.r2.dev, so production
+ * URLs on the custom CDN domain parsed to null and rows got full-size originals
+ * re-uploaded as "-thumb.webp". Now ANY host whose first path segment is a real
+ * storage bucket (validated against `knownBuckets`) is treated as an external
+ * source — config-free, and robust to future CDN domain changes.
  */
-function parseUrl(url: string): { bucket: string; key: string; source: "supabase" | "r2" | "unknown" } | null {
+function parseUrl(
+  url: string,
+  knownBuckets: Set<string>,
+): { bucket: string; key: string; source: "supabase" | "external" } | null {
   try {
     const u = new URL(url);
     // Supabase Storage public URL
     const sbMatch = u.pathname.match(/^\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
     if (sbMatch) return { bucket: sbMatch[1], key: decodeURIComponent(sbMatch[2]), source: "supabase" };
 
-    // Cloudflare R2 public URL — pathname is /{bucket}/{key...}
-    if (u.hostname.endsWith(".r2.dev")) {
-      const parts = u.pathname.replace(/^\//, "").split("/");
-      if (parts.length >= 2) {
-        return { bucket: parts[0], key: decodeURIComponent(parts.slice(1).join("/")), source: "r2" };
-      }
+    // External host (R2 public domain or custom CDN) — pathname is /{bucket}/{key...}
+    const parts = u.pathname.replace(/^\//, "").split("/");
+    if (parts.length >= 2 && (knownBuckets.has(parts[0]) || u.hostname.endsWith(".r2.dev"))) {
+      return { bucket: parts[0], key: decodeURIComponent(parts.slice(1).join("/")), source: "external" };
     }
   } catch { /* fallthrough */ }
   return null;
@@ -72,26 +78,54 @@ function renderUrl(bucket: string, key: string): string {
   return `${SUPABASE_URL}/storage/v1/render/image/public/${bucket}/${encodeURIComponent(key).replace(/%2F/g, "/")}?${params}`;
 }
 
-async function fetchThumbnail(originalUrl: string, parsed: ReturnType<typeof parseUrl>): Promise<{ data: Uint8Array; contentType: string }> {
-  // Only the Supabase render endpoint can resize. R2-hosted assets get re-uploaded as-is.
-  if (parsed?.source === "supabase") {
-    // Request WebP explicitly via format=webp (was format=origin which preserved JPEG)
-    const params = new URLSearchParams({
-      width: "600", height: "600", resize: "contain", quality: "70", format: "webp",
-    });
-    const url = `${SUPABASE_URL}/storage/v1/render/image/public/${parsed.bucket}/${encodeURIComponent(parsed.key).replace(/%2F/g, "/")}?${params}`;
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${SERVICE_KEY}` } });
-    if (res.ok) {
-      return { data: new Uint8Array(await res.arrayBuffer()), contentType: "image/webp" };
-    }
-    console.warn(`render failed ${res.status} for ${parsed.bucket}/${parsed.key}`);
+const RENDER_PARAMS = new URLSearchParams({
+  width: "600", height: "600", resize: "contain", quality: "70", format: "webp",
+});
+
+/** Call the Supabase render endpoint for an object already in storage. */
+async function renderStorageObject(bucket: string, key: string): Promise<Uint8Array> {
+  const url = `${SUPABASE_URL}/storage/v1/render/image/public/${bucket}/${encodeURIComponent(key).replace(/%2F/g, "/")}?${RENDER_PARAMS}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${SERVICE_KEY}` } });
+  if (!res.ok) throw new Error(`render ${bucket}/${key} → ${res.status}`);
+  return new Uint8Array(await res.arrayBuffer());
+}
+
+/**
+ * BUG-029: produce a REAL 600px WebP thumbnail for any source.
+ *  - Supabase-hosted objects: render endpoint directly.
+ *  - External sources (CDN/R2): fetch original bytes, stage them at a temp key
+ *    in the destination bucket, render THAT object, then delete the temp key.
+ * On any failure this THROWS — the row is reported failed instead of silently
+ * receiving a full-size original mislabeled as a thumbnail (the old behavior).
+ */
+async function fetchThumbnail(
+  supabase: any,
+  destBucket: string,
+  originalUrl: string,
+  parsed: ReturnType<typeof parseUrl>,
+): Promise<{ data: Uint8Array; contentType: string }> {
+  if (!parsed) throw new Error(`unrecognized image URL shape: ${originalUrl}`);
+
+  if (parsed.source === "supabase") {
+    return { data: await renderStorageObject(parsed.bucket, parsed.key), contentType: "image/webp" };
   }
 
-  // Fallback — fetch original bytes (no resize). Better than failing the row.
+  // External: stage → render → cleanup.
   const res = await fetch(originalUrl);
   if (!res.ok) throw new Error(`fetch ${originalUrl} → ${res.status}`);
-  const ct = res.headers.get("content-type") || "image/webp";
-  return { data: new Uint8Array(await res.arrayBuffer()), contentType: ct };
+  const original = new Uint8Array(await res.arrayBuffer());
+  const tmpKey = `__thumb_tmp/${crypto.randomUUID()}`;
+  const { error: tmpErr } = await supabase.storage.from(destBucket).upload(tmpKey, original, {
+    contentType: res.headers.get("content-type") || "application/octet-stream",
+    upsert: true,
+  });
+  if (tmpErr) throw new Error(`temp upload failed: ${tmpErr.message}`);
+  try {
+    const data = await renderStorageObject(destBucket, tmpKey);
+    return { data, contentType: "image/webp" };
+  } finally {
+    try { await supabase.storage.from(destBucket).remove([tmpKey]); } catch { /* best-effort cleanup */ }
+  }
 }
 
 /** HEAD a thumbnail URL to determine actual content-type. Returns null on error. */
@@ -120,13 +154,19 @@ function thumbPathFor(originalUrl: string, parsed: ReturnType<typeof parseUrl>):
   return `${base}-thumb.webp`;
 }
 
-async function processRow(supabase: any, spec: TableSpec, row: any, force: boolean): Promise<{ ok: boolean; error?: string; reencoded?: number }> {
+async function processRow(
+  supabase: any,
+  spec: TableSpec,
+  row: any,
+  force: boolean,
+  forceResize: boolean,
+  knownBuckets: Set<string>,
+): Promise<{ ok: boolean; error?: string; reencoded?: number }> {
   try {
     const handleOne = async (url: string): Promise<string> => {
-      const parsed = parseUrl(url);
-      const { data } = await fetchThumbnail(url, parsed);
+      const parsed = parseUrl(url, knownBuckets);
+      const { data } = await fetchThumbnail(supabase, spec.bucket, url, parsed);
       const path = thumbPathFor(url, parsed);
-      // Always store as image/webp (the render endpoint produces WebP)
       const { error: upErr } = await supabase.storage.from(spec.bucket).upload(path, data, {
         contentType: "image/webp", upsert: true, cacheControl: "31536000",
       });
@@ -140,8 +180,11 @@ async function processRow(supabase: any, spec: TableSpec, row: any, force: boole
       if (sourceUrls.length === 0) return { ok: false, error: "no source urls" };
       const existingThumbs: string[] = row[spec.thumbCol] || [];
 
-      // In force mode, only re-encode entries whose existing thumb is NOT image/webp
-      if (force && existingThumbs.length === sourceUrls.length) {
+      // force (content-type repair): only re-encode entries whose existing thumb
+      // is NOT image/webp. NOTE: fake thumbs produced by the old bug were
+      // UPLOADED with contentType image/webp, so this mode cannot see them —
+      // use force_resize to regenerate every thumbnail from source.
+      if (force && !forceResize && existingThumbs.length === sourceUrls.length) {
         let reencoded = 0;
         const newThumbs: string[] = [];
         for (let i = 0; i < sourceUrls.length; i++) {
@@ -163,11 +206,12 @@ async function processRow(supabase: any, spec: TableSpec, row: any, force: boole
       for (const url of sourceUrls) thumbs.push(await handleOne(url));
       const { error } = await supabase.from(spec.table).update({ [spec.thumbCol]: thumbs }).eq("id", row.id);
       if (error) throw error;
+      return { ok: true, reencoded: thumbs.length };
     } else {
       const url: string = row[spec.imageCol];
       if (!url) return { ok: false, error: "no source url" };
 
-      if (force && row[spec.thumbCol]) {
+      if (force && !forceResize && row[spec.thumbCol]) {
         const ct = await getContentType(row[spec.thumbCol]);
         if (ct && ct.includes("webp")) return { ok: true, reencoded: 0 };
       }
@@ -208,7 +252,20 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const target: string = body.target || "all";
     const limit: number = Math.min(body.limit || 25, 100);
-    const force: boolean = body.force === true;
+    // offset + stable id ordering let large repairs run in chunks without
+    // re-processing the same rows (per-call compute limits are real).
+    const offset: number = Math.max(Number(body.offset) || 0, 0);
+    // force: re-encode only thumbs whose content-type isn't webp (legacy repair).
+    // force_resize (BUG-029): regenerate EVERY thumbnail from source via a real
+    // resize — required to repair fake thumbs that were mislabeled image/webp.
+    const forceResize: boolean = body.force_resize === true;
+    const force: boolean = body.force === true || forceResize;
+
+    // BUG-029: known bucket names let parseUrl recognize custom CDN hosts
+    // (path = /{bucket}/{key...}) without any hardcoded domain.
+    const { data: bucketRows, error: bErr } = await supabase.storage.listBuckets();
+    if (bErr) throw new Error(`listBuckets failed: ${bErr.message}`);
+    const knownBuckets = new Set<string>((bucketRows ?? []).map((b: any) => b.name));
 
     const targets = target === "all" ? Object.keys(TABLES) : [target];
     const results: Record<string, any> = {};
@@ -217,7 +274,9 @@ Deno.serve(async (req) => {
       const spec = TABLES[t];
       if (!spec) { results[t] = { error: "unknown target" }; continue; }
       // In force mode, scan rows that DO have thumbnails (to re-check content-type)
-      const query = supabase.from(spec.table).select("*").limit(limit);
+      const query = supabase.from(spec.table).select("*")
+        .order("id", { ascending: true })
+        .range(offset, offset + limit - 1);
       const { data: rows, error } = await (force
         ? query.not(spec.thumbCol, "is", null)
         : query.is(spec.thumbCol, null));
@@ -226,7 +285,7 @@ Deno.serve(async (req) => {
       const stats = { processed: 0, succeeded: 0, failed: 0, reencoded: 0, skipped: 0, errors: [] as string[] };
       for (const row of rows || []) {
         stats.processed++;
-        const r = await processRow(supabase, spec, row, force);
+        const r = await processRow(supabase, spec, row, force, forceResize, knownBuckets);
         if (r.ok) {
           stats.succeeded++;
           if (force) {
