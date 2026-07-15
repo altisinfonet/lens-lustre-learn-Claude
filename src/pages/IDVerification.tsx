@@ -32,7 +32,7 @@ export function extractIdFromLocation(pathname: string, search: string, param?: 
 }
 
 const fmtDate = (d: string | null) =>
-  d ? new Date(d + "T00:00:00").toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }) : null;
+  d ? new Date(d + "T00:00:00").toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : null;
 
 export default function IDVerification() {
   const location = useLocation();
@@ -127,13 +127,13 @@ export default function IDVerification() {
       )}
 
       {!loading && staff && (
-        <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+        <div className="overflow-hidden rounded-2xl border bg-card shadow-lg">
           {/* status banner */}
           <div
             className={
               effectiveActive
-                ? "flex items-center justify-center gap-2 bg-emerald-600 py-2.5 text-sm font-semibold text-white"
-                : "flex items-center justify-center gap-2 bg-red-600 py-2.5 text-sm font-semibold text-white"
+                ? "flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 via-emerald-500 to-emerald-600 py-2.5 text-sm font-semibold tracking-wide text-white"
+                : "flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 via-red-500 to-red-600 py-2.5 text-sm font-semibold tracking-wide text-white"
             }
           >
             {effectiveActive ? <BadgeCheck className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}
@@ -144,54 +144,75 @@ export default function IDVerification() {
                 : "INACTIVE — NO LONGER A STAFF MEMBER"}
           </div>
 
-          <div className="flex flex-col items-center gap-6 p-6 sm:flex-row sm:items-start sm:p-8">
-            {staff.photo_url ? (
-              <img
-                src={staff.photo_url}
-                alt={staff.full_name}
-                className="h-32 w-32 shrink-0 rounded-full border-4 border-background object-cover shadow-md"
-              />
-            ) : (
-              <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-full bg-muted text-3xl font-bold text-muted-foreground">
-                {staff.full_name.slice(0, 2).toUpperCase()}
+          {/* identity header on a soft brand band, photo overlapping */}
+          <div className="relative">
+            <div className="h-20 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent" />
+            <div className="pointer-events-none absolute right-4 top-3 opacity-[0.07]">
+              <IdCard className="h-16 w-16" />
+            </div>
+            <div className="-mt-14 flex flex-col items-center gap-4 px-6 pb-2 sm:flex-row sm:items-end sm:px-8">
+              {staff.photo_url ? (
+                <img
+                  src={staff.photo_url}
+                  alt={staff.full_name}
+                  className="h-28 w-28 shrink-0 rounded-full border-4 border-card object-cover shadow-lg ring-2 ring-primary/20"
+                />
+              ) : (
+                <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-full border-4 border-card bg-muted text-3xl font-bold text-muted-foreground shadow-lg ring-2 ring-primary/20">
+                  {staff.full_name.slice(0, 2).toUpperCase()}
+                </div>
+              )}
+              <div className="min-w-0 flex-1 pb-1 text-center sm:text-left">
+                <h2 className="text-xl font-bold leading-tight sm:text-2xl">{staff.full_name}</h2>
+                {staff.designation && (
+                  <p className="mt-0.5 text-sm font-medium text-primary/90">{staff.designation}</p>
+                )}
               </div>
+              <div className="shrink-0 pb-1">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 font-mono text-xs font-semibold tracking-wider">
+                  <IdCard className="h-3.5 w-3.5" />
+                  {staff.id_number}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-6 pb-6 pt-4 sm:px-8">
+            {staff.about && (
+              <p className="mx-auto max-w-prose text-center text-sm leading-relaxed text-muted-foreground sm:text-left">
+                {staff.about}
+              </p>
             )}
 
-            <div className="min-w-0 flex-1 text-center sm:text-left">
-              <h2 className="text-xl font-bold">{staff.full_name}</h2>
-              {staff.designation && <p className="text-sm text-muted-foreground">{staff.designation}</p>}
-              <p className="mt-1 font-mono text-sm">
-                ID: <span className="font-semibold">{staff.id_number}</span>
-              </p>
-
-              {staff.about && (
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{staff.about}</p>
+            {/* stat tiles: label row on top, value below — nothing competes for width */}
+            <dl className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {staff.blood_group && (
+                <div className="flex flex-col items-center gap-1 rounded-xl border bg-muted/40 px-3 py-3.5 text-center">
+                  <dt className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <Droplets className="h-3.5 w-3.5 text-red-500" /> Blood Group
+                  </dt>
+                  <dd className="text-base font-bold">{staff.blood_group}</dd>
+                </div>
               )}
-
-              <dl className="mt-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
-                {staff.blood_group && (
-                  <div className="flex items-center justify-center gap-1.5 rounded-md bg-muted/60 px-3 py-2 sm:justify-start">
-                    <Droplets className="h-4 w-4 text-red-500" />
-                    <span className="text-muted-foreground">Blood</span>
-                    <span className="font-semibold">{staff.blood_group}</span>
-                  </div>
-                )}
-                {staff.active_from && (
-                  <div className="flex items-center justify-center gap-1.5 rounded-md bg-muted/60 px-3 py-2 sm:justify-start">
-                    <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">From</span>
-                    <span className="font-semibold">{fmtDate(staff.active_from)}</span>
-                  </div>
-                )}
-                {staff.expires_on && (
-                  <div className="flex items-center justify-center gap-1.5 rounded-md bg-muted/60 px-3 py-2 sm:justify-start">
-                    <CalendarX2 className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">Expiry</span>
-                    <span className={expired ? "font-semibold text-red-600" : "font-semibold"}>{fmtDate(staff.expires_on)}</span>
-                  </div>
-                )}
-              </dl>
-            </div>
+              {staff.active_from && (
+                <div className="flex flex-col items-center gap-1 rounded-xl border bg-muted/40 px-3 py-3.5 text-center">
+                  <dt className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <CalendarDays className="h-3.5 w-3.5" /> Active From
+                  </dt>
+                  <dd className="text-base font-bold">{fmtDate(staff.active_from)}</dd>
+                </div>
+              )}
+              {staff.expires_on && (
+                <div className="flex flex-col items-center gap-1 rounded-xl border bg-muted/40 px-3 py-3.5 text-center">
+                  <dt className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <CalendarX2 className="h-3.5 w-3.5" /> Expiry
+                  </dt>
+                  <dd className={expired ? "text-base font-bold text-red-600" : "text-base font-bold"}>
+                    {fmtDate(staff.expires_on)}
+                  </dd>
+                </div>
+              )}
+            </dl>
           </div>
 
           <div className="border-t bg-muted/40 px-6 py-3 text-center text-xs text-muted-foreground">
