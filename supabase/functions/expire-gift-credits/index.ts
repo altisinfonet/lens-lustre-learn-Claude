@@ -56,30 +56,30 @@ Deno.serve(async (req) => {
 
     for (const gift of expiredGifts) {
       try {
-        const { data: wallet } = await supabase
-          .from("wallets").select("balance").eq("user_id", gift.user_id).maybeSingle();
+        // BUG-048: atomic + idempotent expiry. The RPC locks the gift row, re-checks
+        // is_expired, debits (LEAST(amount,balance)) with an idempotency-tagged
+        // reference, and flips is_expired — all in ONE transaction. A crash/overlap
+        // can no longer double-debit (row lock + partial unique index backstop).
+        const { data: res, error: rpcError } = await supabase.rpc("expire_gift_credit", {
+          _gift_id: gift.id,
+        });
+        if (rpcError) {
+          console.error(`Failed to expire gift ${gift.id}:`, rpcError.message);
+          continue;
+        }
 
-        const currentBalance = wallet?.balance ?? 0;
-        const deductAmount = Math.min(gift.amount, currentBalance);
-
-        if (deductAmount > 0) {
-          const { error: txnError } = await supabase.rpc("wallet_transaction", {
-            _user_id: gift.user_id, _type: "gift_expiry", _amount: -deductAmount,
-            _description: `Gift credit expired: "${gift.reason}"`,
-            _metadata: { expired_gift_id: gift.id, original_amount: gift.amount },
-          });
-          if (txnError) { console.error(`Failed to deduct for gift ${gift.id}:`, txnError.message); continue; }
+        const deducted = Number(res?.deducted ?? 0);
+        if (deducted > 0) {
           // Phase 1A Step A — dry-run shadow (non-blocking, post-success only)
           await shadowApplyV2GE(supabase, {
-            op: "gift_refund", user_id: gift.user_id, amount: -deductAmount,
+            op: "gift_refund", user_id: gift.user_id, amount: -deducted,
             idempotency_key: `gift_expiry:${gift.id}`,
             description: `Gift credit expired: "${gift.reason}"`,
             reference_id: gift.id,
           });
         }
 
-        await supabase.from("gift_announcements").update({ is_expired: true }).eq("id", gift.id);
-        expiredCount++;
+        if (res?.expired) expiredCount++;
       } catch (err: any) {
         console.error(`Error processing gift ${gift.id}:`, err.message);
       }
