@@ -3,6 +3,7 @@ import { ArrowLeft, Loader2, Mail } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
+import { getCaptchaToken } from "@/lib/turnstile";
 
 const emailSchema = z.string().trim().email("Please enter a valid email").max(255);
 
@@ -23,8 +24,10 @@ const ForgotPassword = () => {
     }
 
     setLoading(true);
+    const captchaToken = await getCaptchaToken(); // BUG-043
     const { error } = await supabase.auth.resetPasswordForEmail(result.data, {
       redirectTo: `${window.location.origin}/reset-password`,
+      captchaToken,
     });
 
     if (error) {

@@ -11,6 +11,7 @@ import SimpleCaptcha from "@/components/SimpleCaptcha";
 import { useTrustedDevice } from "@/hooks/core/useTrustedDevice";
 import { useAuthPageSettings } from "@/hooks/core/useAuthPageSettings";
 import {
+import { getCaptchaToken } from "@/lib/turnstile";
   getLockedOutSeconds,
   getFailedAttempts,
   recordFailedAttempt,
@@ -166,11 +167,15 @@ const Login = () => {
     }
 
     try {
+      // BUG-043: Supabase Auth enforces Turnstile server-side; a fresh
+      // single-use token is required for every password attempt.
+      const captchaToken = await getCaptchaToken();
       const res = await withNetworkRetry(
         () =>
           supabase.auth.signInWithPassword({
             email: result.data.email,
             password: result.data.password,
+            options: { captchaToken },
           }),
         2
       );

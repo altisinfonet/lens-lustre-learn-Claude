@@ -11,6 +11,7 @@ import SimpleCaptcha from "@/components/SimpleCaptcha";
 import { useCaptureReferral } from "@/hooks/notifications/useReferral";
 import { useAuthPageSettings } from "@/hooks/core/useAuthPageSettings";
 import { normalizeFullName } from "@/lib/nameNormalize";
+import { getCaptchaToken } from "@/lib/turnstile";
 
 const signupSchema = z.object({
   fullName: z.string().trim().min(2, "Name must be at least 2 characters").max(37, "Name must be 37 characters or less"),
@@ -106,12 +107,15 @@ const Signup = () => {
         setLoading(null);
         return;
       }
+      // BUG-043: Turnstile token required (enforced server-side).
+      const captchaToken = await getCaptchaToken();
       const { error } = await supabase.auth.signUp({
         email: result.data.email,
         password: result.data.password,
         options: {
           data: { full_name: normalized },
           emailRedirectTo: window.location.origin,
+          captchaToken,
         },
       });
 
