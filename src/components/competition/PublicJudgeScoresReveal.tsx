@@ -64,13 +64,23 @@ function useCompletedRounds(competitionId: string) {
   return useQuery({
     queryKey: ["completed-rounds", competitionId],
     queryFn: async () => {
+      // BUG-030: judging_rounds is judge/admin-readable only (RLS), so every
+      // non-judge visitor got 0 rows here and the public scorecard never
+      // rendered. Gate on competition_round_publish instead — it is publicly
+      // readable for published rounds, and published_at (admin declared) is
+      // the canonical participant-visibility signal. The RPC downstream
+      // (get_public_round_scores, SECURITY DEFINER) enforces its own gate too.
       const { data } = await supabase
-        .from("judging_rounds")
-        .select("round_number, name, status")
+        .from("competition_round_publish")
+        .select("round_number, published_at")
         .eq("competition_id", competitionId)
-        .eq("status", "completed")
+        .not("published_at", "is", null)
         .order("round_number", { ascending: true });
-      return (data || []) as { round_number: number; name: string; status: string }[];
+      return (data || []).map((r: any) => ({
+        round_number: r.round_number as number,
+        name: `Round ${r.round_number}`,
+        status: "completed",
+      })) as { round_number: number; name: string; status: string }[];
     },
     enabled: !!competitionId,
     staleTime: 60_000,

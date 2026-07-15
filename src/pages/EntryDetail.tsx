@@ -22,7 +22,7 @@ import { useCompetitionVoting } from "@/hooks/competition/useCompetitionVoting";
 import { buildCompetitionPhotoPath, clampCompetitionPhotoIndex } from "@/lib/competitionVotingPhotos";
 import { fetchEntryFinalVotes } from "@/lib/finalVoteTotals";
 import { useGatedEntryStatus, resolveDisplayStatus } from "@/hooks/judging/useGatedEntryStatus";
-import { PARTICIPANT_PLACEMENT_LABELS } from "@/lib/judging/participantStageLabels";
+import { PARTICIPANT_PLACEMENT_LABELS, normalizePlacementKey } from "@/lib/judging/participantStageLabels";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -34,6 +34,11 @@ const PLACEMENT_CONFIG: Record<string, { label: string; emoji: string; className
   winner:          { label: PARTICIPANT_PLACEMENT_LABELS.winner,          emoji: "🏆", className: "bg-yellow-500/10 text-yellow-600 border-yellow-500/30" },
   "1st_runner_up": { label: PARTICIPANT_PLACEMENT_LABELS["1st_runner_up"], emoji: "🥈", className: "bg-slate-300/10 text-slate-500 border-slate-400/30" },
   "2nd_runner_up": { label: PARTICIPANT_PLACEMENT_LABELS["2nd_runner_up"], emoji: "🥉", className: "bg-amber-700/10 text-amber-700 border-amber-600/30" },
+  honorary_mention: { label: PARTICIPANT_PLACEMENT_LABELS.honorary_mention, emoji: "🎖️", className: "bg-purple-500/10 text-purple-600 border-purple-500/30" },
+  special_jury:     { label: PARTICIPANT_PLACEMENT_LABELS.special_jury,     emoji: "🏅", className: "bg-cyan-500/10 text-cyan-600 border-cyan-500/30" },
+  top_50:           { label: PARTICIPANT_PLACEMENT_LABELS.top_50,           emoji: "⭐", className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" },
+  top_100:          { label: PARTICIPANT_PLACEMENT_LABELS.top_100,          emoji: "🌟", className: "bg-teal-500/10 text-teal-600 border-teal-500/30" },
+  finalist:         { label: PARTICIPANT_PLACEMENT_LABELS.finalist,         emoji: "🏵️", className: "bg-indigo-500/10 text-indigo-600 border-indigo-500/30" },
 };
 
 interface EntryData {
@@ -210,7 +215,8 @@ const EntryDetail = () => {
   const ogImage = selectedPhotoUrl;
   const ogDescription = entry.description?.slice(0, 160) || `${entry.title} — competition entry on 50mm Retina World`;
   // Publish-gated: never show placement until Round 4 published.
-  const placementCfg = displayPlacement ? PLACEMENT_CONFIG[displayPlacement] : null;
+  // BUG-032: normalize token/enum placement forms before lookup.
+  const placementCfg = displayPlacement ? PLACEMENT_CONFIG[normalizePlacementKey(displayPlacement) ?? displayPlacement] : null;
   const isVotingPhase = entry.competitionPhase === "voting";
   const isResultPhase = entry.competitionPhase === "result";
   const isJudgingPhase = entry.competitionPhase === "judging";
