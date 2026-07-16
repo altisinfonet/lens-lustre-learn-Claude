@@ -116,7 +116,8 @@ const EntryDetail = () => {
       });
 
       const profileMap = await fetchProfileMap([raw.user_id]);
-      const profile = profileMap[raw.user_id];
+      // BUG-080: fetchProfileMap returns a Map — bracket access is always undefined.
+      const profile = profileMap.get(raw.user_id);
 
       const [{ totals: finalTotals, perPhoto: finalPerPhoto }, { data: userVoteRows }] = await Promise.all([
         fetchEntryFinalVotes([entryId]),
