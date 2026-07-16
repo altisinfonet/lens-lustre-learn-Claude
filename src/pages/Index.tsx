@@ -392,13 +392,15 @@ const Index = () => {
 
   // Sync banner query data → local state
   useEffect(() => {
-    if (_bannersData && _bannersData.length > 0) {
-      setHeroSlides(_bannersData.map((b: any) => ({
-        src: optimizeHeroImageUrl(b.image_url),
-        title: b.title,
-        category: b.category,
-      })));
-    }
+    // BUG-065: when the last banner is deactivated _bannersData is [], and the
+    // previous `length > 0` guard left stale slides on screen. Sync whenever the
+    // query has resolved so an empty array clears the hero.
+    if (!_bannersData) return;
+    setHeroSlides(_bannersData.map((b: any) => ({
+      src: optimizeHeroImageUrl(b.image_url),
+      title: b.title,
+      category: b.category,
+    })));
   }, [_bannersData]);
 
   // Sync gallery query data → local state
