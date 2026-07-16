@@ -61,8 +61,11 @@ const VerifyCertificate = () => {
     const trimmed = certId.trim();
     if (!trimmed) return;
 
+    // BUG-078: accept both the internal UUID and the human-facing CERT-xxxx id
+    // that users are actually given (verify_certificate now matches either).
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(trimmed)) {
+    const certIdRegex = /^CERT-[0-9A-Za-z]+$/i;
+    if (!uuidRegex.test(trimmed) && !certIdRegex.test(trimmed)) {
       setNotFound(true);
       setResults([]);
       setSearched(true);
