@@ -39,24 +39,40 @@ Deno.serve(async (req) => {
     }
 
     const toApply = Math.min(boost.increment_per_hour, boost.total_amount - boost.applied_amount);
-    const promises = [];
-    for (let i = 0; i < toApply; i++) {
-      promises.push(
-        supabase.from("image_reactions").insert({
-          image_id: boost.image_id, image_type: boost.image_type,
-          reaction_type: boost.reaction_type, user_id: crypto.randomUUID(),
-        })
-      );
+    try {
+      const promises = [];
+      for (let i = 0; i < toApply; i++) {
+        promises.push(
+          supabase.from("image_reactions").insert({
+            image_id: boost.image_id, image_type: boost.image_type,
+            reaction_type: boost.reaction_type, user_id: crypto.randomUUID(),
+          })
+        );
+      }
+      const results = await Promise.all(promises);
+
+      // BUG-072: supabase-js insert returns { error } instead of throwing, so
+      // Promise.all resolves even when every insert failed. Count only the inserts
+      // that actually succeeded, and advance applied_amount by that count — never
+      // unconditionally by toApply.
+      const succeeded = results.filter((r) => !r.error).length;
+      const failed = results.length - succeeded;
+      if (failed > 0) {
+        console.warn(`apply-scheduled-boosts: boost ${boost.id} had ${failed}/${results.length} failed reaction inserts`);
+      }
+
+      const newApplied = boost.applied_amount + succeeded;
+      await supabase.from("scheduled_boosts").update({
+        applied_amount: newApplied,
+        updated_at: new Date().toISOString(),
+        status: (newApplied >= boost.total_amount) ? "completed" : "active",
+      }).eq("id", boost.id);
+
+      // Only count the boost as processed if at least one reaction landed.
+      if (succeeded > 0) processed++;
+    } catch (err) {
+      console.error(`apply-scheduled-boosts: boost ${boost.id} failed`, (err as Error)?.message);
     }
-    await Promise.all(promises);
-
-    await supabase.from("scheduled_boosts").update({
-      applied_amount: boost.applied_amount + toApply,
-      updated_at: new Date().toISOString(),
-      status: (boost.applied_amount + toApply >= boost.total_amount) ? "completed" : "active",
-    }).eq("id", boost.id);
-
-    processed++;
   }
 
   return new Response(JSON.stringify({ processed }), { headers });
