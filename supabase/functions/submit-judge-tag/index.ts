@@ -115,27 +115,19 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Single-active-tag cleanup for this round (this judge, this photo)
-    const { data: roundTags } = await admin
-      .from("judging_tags")
-      .select("id")
-      .contains("visible_in_round", [round_number]);
-    const roundTagIds = (roundTags ?? []).map((t: any) => t.id).filter((id: string) => id !== tag_id);
-    if (roundTagIds.length > 0) {
-      await admin
-        .from("judge_tag_assignments")
-        .delete()
-        .eq("entry_id", entry_id)
-        .eq("photo_index", photo_index)
-        .eq("round_number", round_number)
-        .eq("judge_id", userId)
-        .in("tag_id", roundTagIds);
-    }
-
-    const { error: insErr } = await admin
-      .from("judge_tag_assignments")
-      .insert({ entry_id, photo_index, round_number, tag_id, judge_id: userId });
-    if (insErr) return json({ ok: false, error: insErr.message }, 500);
+    // BUG-054: the single-active-tag swap (remove this judge's other round tags on
+    // this photo, then insert the new one) must be ATOMIC. Previously it was two
+    // separate service-role calls, so a failed insert left the photo with no tag
+    // (the old one already deleted). Do both in one SECURITY DEFINER RPC — if the
+    // insert fails, the delete rolls back and the prior tag survives.
+    const { error: applyErr } = await admin.rpc("judge_apply_single_tag", {
+      _entry_id: entry_id,
+      _photo_index: photo_index,
+      _round_number: round_number,
+      _tag_id: tag_id,
+      _judge_id: userId,
+    });
+    if (applyErr) return json({ ok: false, error: applyErr.message }, 500);
 
     return json({ ok: true, action: "added" });
   } catch (e) {
