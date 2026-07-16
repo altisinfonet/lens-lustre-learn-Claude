@@ -53,6 +53,20 @@ export default function PersonalResultBanner({ phase, userId, entries }: Props) 
       e.publicPlacement === "1st_runner_up" ||
       e.publicPlacement === "2nd_runner_up"
   );
+  // BUG-082: recognise the remaining R4 award classes that previously fell
+  // through to the generic "thank you" message.
+  const specialJury = annotated.find(
+    (e) => e.publicPlacement === "special_jury" || e.publicPlacement === "r4_special_jury"
+  );
+  const honorary = annotated.find(
+    (e) => e.publicPlacement === "honorary_mention" || e.publicPlacement === "r4_honorary_mention"
+  );
+  const top50 = annotated.find(
+    (e) => e.publicPlacement === "top_50" || e.publicPlacement === "r4_top_50"
+  );
+  const top100 = annotated.find(
+    (e) => e.publicPlacement === "top_100" || e.publicPlacement === "r4_top_100"
+  );
   const qualified = annotated.find(
     (e) =>
       e.publicStatus === "round2_qualified" ||
@@ -80,11 +94,31 @@ export default function PersonalResultBanner({ phase, userId, entries }: Props) 
         : "Well done — 2nd Runner-Up! 🥉";
     subtitle = "Your entry earned a top placement. Be proud!";
     bgClass = "bg-[hsl(var(--muted))]/80 border-foreground/10 text-foreground";
+  } else if (specialJury) {
+    icon = <Award className="h-6 w-6" />;
+    title = "Special Jury Award! 🎖️";
+    subtitle = "The jury recognised your entry with a special distinction.";
+    bgClass = "bg-pink-500/10 border-pink-500/30 text-pink-600 dark:text-pink-400";
+  } else if (honorary) {
+    icon = <Award className="h-6 w-6" />;
+    title = "Honorary Mention 🏅";
+    subtitle = "Your entry earned an honorary mention from the judges.";
+    bgClass = "bg-teal-500/10 border-teal-500/30 text-teal-600 dark:text-teal-400";
   } else if (finalist) {
     icon = <Star className="h-6 w-6" />;
     title = "You're a Finalist! ⭐";
     subtitle = "Your work made it to the final round — an incredible achievement.";
     bgClass = "bg-purple-500/10 border-purple-500/30 text-purple-600 dark:text-purple-400";
+  } else if (top50) {
+    icon = <Star className="h-6 w-6" />;
+    title = "Top 50 Global Photographer 🌟";
+    subtitle = "Your work ranked among the Top 50 in this competition.";
+    bgClass = "bg-indigo-500/10 border-indigo-500/30 text-indigo-600 dark:text-indigo-400";
+  } else if (top100) {
+    icon = <Star className="h-6 w-6" />;
+    title = "Top 100 Global Photographer ✨";
+    subtitle = "Your work ranked among the Top 100 in this competition.";
+    bgClass = "bg-sky-500/10 border-sky-500/30 text-sky-600 dark:text-sky-400";
   } else if (qualified) {
     icon = <Award className="h-6 w-6" />;
     title = "Your entry was shortlisted";

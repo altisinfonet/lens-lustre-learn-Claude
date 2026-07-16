@@ -310,12 +310,14 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
     const loadStamps = async () => {
       // Admin declaration gate: public profile stamps must not reveal judge tags
       // until competition_round_publish.published_at is set for that tag round.
-      // HOTFIX-G: read tag assignments from publish-gated owner-safe view
-      // (no judge_id leak; zero rows pre-publication). Tag metadata is
-      // hydrated via a separate `judging_tags` lookup below.
+      // BUG-081: the owner-safe view filters ce.user_id=auth.uid(), so a VISITOR
+      // viewing someone else's profile always got 0 award stamps. Use the
+      // publish-gated public R4-award view instead (no judge_id leak, award-family
+      // only, zero rows pre-publication) so stamps render for everyone. Tag
+      // metadata is hydrated via a separate `judging_tags` lookup below.
       const [{ data: tagAssignRows }, { data: publishRows }] = await Promise.all([
         supabase
-          .from("judge_tag_assignments_owner_safe" as any)
+          .from("judge_tag_assignments_public_r4" as any)
           .select("tag_id, entry_id")
           .in("entry_id", entryIds),
         compIds.length > 0
