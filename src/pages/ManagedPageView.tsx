@@ -24,16 +24,13 @@ interface ManagedPage {
 
 const bodyFont = { fontFamily: "var(--font-body)" };
 
-/** Fire-and-forget view count increment — never blocks render */
-function incrementViewCount(pages: ManagedPage[], pageId: string) {
-  const updated = pages.map((p) =>
-    p.id === pageId ? { ...p, view_count: (p.view_count || 0) + 1 } : p
-  );
-  supabase.from("site_settings").upsert({
-    key: "managed_pages",
-    value: updated as any,
-    updated_at: new Date().toISOString(),
-  }).then(() => {});
+/** Fire-and-forget view count increment — never blocks render.
+ * BUG-066: bump only the target page's counter via a SECURITY DEFINER RPC.
+ * The old approach rewrote the entire managed_pages blob through site_settings,
+ * which admin-only RLS blocked for public visitors (so counts never moved) and
+ * which let an admin visit overwrite newer edits from a stale cache. */
+function incrementViewCount(pageId: string) {
+  supabase.rpc("increment_managed_page_view", { _page_id: pageId }).then(() => {});
 }
 
 const ManagedPageView = () => {
@@ -55,7 +52,7 @@ const ManagedPageView = () => {
       const pages = data.value as unknown as ManagedPage[];
       const found = pages.find((p) => p.slug === slug && p.is_published) ?? null;
       // Fire-and-forget view count increment using the full payload we just fetched.
-      if (found) incrementViewCount(pages, found.id);
+      if (found) incrementViewCount(found.id);
       return found;
     },
     enabled: !!slug,
