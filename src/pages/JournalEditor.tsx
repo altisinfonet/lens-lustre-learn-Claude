@@ -413,7 +413,9 @@ const JournalEditor = () => {
       const res = await supabase.from("journal_articles").insert(payload);
       error = res.error;
     } else {
-      const { slug: _, ...updatePayload } = payload;
+      // BUG-064: never rewrite author_id on edit (an admin editing another
+      // author's article would otherwise steal authorship). Set it on insert only.
+      const { slug: _, author_id: __, ...updatePayload } = payload;
       const res = await supabase.from("journal_articles").update(updatePayload).eq("id", id);
       error = res.error;
     }

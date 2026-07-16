@@ -457,7 +457,9 @@ const CourseEditor = () => {
       savedCourseId = data.id;
       setCourseId(data.id);
     } else {
-      const { slug: _, ...updatePayload } = coursePayload;
+      // BUG-064: never rewrite author_id on edit (an admin editing another
+      // author's course would otherwise steal authorship). Set it on insert only.
+      const { slug: _, author_id: __, ...updatePayload } = coursePayload;
       const { error } = await supabase.from("courses").update(updatePayload).eq("id", courseId!);
       if (error) { toast({ title: "Save failed", description: error.message, variant: "destructive" }); setSaving(false); return; }
     }
