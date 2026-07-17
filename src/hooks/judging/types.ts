@@ -80,44 +80,53 @@ export interface CriteriaScores {
   balance: number | null;
   light: number | null;
   depth: number | null;
+  // JUDGING-15 (2026-07-16): three new elements of art for R2–R4.
+  editing: number | null;
+  story: number | null;
+  moment: number | null;
 }
 
 export const DEFAULT_CRITERIA: CriteriaScores = {
   composition: null, color_palette: null, technique: null,
   line: null, shape: null, form: null, texture: null,
   space: null, tone: null, balance: null, light: null, depth: null,
+  editing: null, story: null, moment: null,
 };
 
 export const CRITERIA_KEYS = [
   "composition", "color_palette", "technique",
   "line", "shape", "form", "texture", "space", "tone", "balance", "light", "depth",
+  "editing", "story", "moment",
 ] as const;
 
 /**
- * SOW Round 2–4: exactly 10 criteria authoritative for scoring.
- * Phase 5 conformance: submit-judge-score edge function accepts ONLY these keys.
+ * JUDGING-15 (2026-07-16, owner-approved): Rounds 2–4 score on FIFTEEN elements
+ * of art — the original twelve plus Editing, Story, Moment — each 0..10. The
+ * final mark is their average (one decimal). submit-judge-score accepts exactly
+ * these 15 keys and requires all 15 before a final score is stored.
  */
 export const SOW_ROUND4_CRITERIA_KEYS = [
-  "line", "shape", "form", "texture", "color_palette", "space", "tone", "balance", "light", "depth",
+  "composition", "color_palette", "technique",
+  "line", "shape", "form", "texture", "space", "tone", "balance", "light", "depth",
+  "editing", "story", "moment",
 ] as const;
 
-/**
- * Legacy criteria retained in DB for audit trail (judge_scores columns exist)
- * but NEVER surfaced in R2+ UI and REJECTED by submit-judge-score edge fn.
- */
-export const LEGACY_CRITERIA_KEYS = ["composition", "technique"] as const;
+/** No legacy criteria any more — composition & technique are first-class in R2+. */
+export const LEGACY_CRITERIA_KEYS = [] as const;
 
 export const CRITERIA_LABELS: Record<string, string> = {
   composition: "Composition", color_palette: "Color Palette", technique: "Technique",
   line: "Line", shape: "Shape", form: "Form", texture: "Texture",
   space: "Space", tone: "Tone", balance: "Balance", light: "Light", depth: "Depth",
+  editing: "Editing", story: "Story", moment: "Moment",
 };
 
-/** SOW Round 4 display labels (Color Palette → "Color" for SOW alignment) */
+/** Round 2–4 display labels (Color Palette → "Color" for alignment). */
 export const SOW_ROUND4_CRITERIA_LABELS: Record<string, string> = {
+  composition: "Composition", color_palette: "Color", technique: "Technique",
   line: "Line", shape: "Shape", form: "Form", texture: "Texture",
-  color_palette: "Color", space: "Space", tone: "Tone", balance: "Balance",
-  light: "Light", depth: "Depth",
+  space: "Space", tone: "Tone", balance: "Balance", light: "Light", depth: "Depth",
+  editing: "Editing", story: "Story", moment: "Moment",
 };
 
 export interface PhotoScoreData {

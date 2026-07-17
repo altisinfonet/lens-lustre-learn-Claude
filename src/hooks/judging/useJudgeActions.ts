@@ -126,6 +126,10 @@ export function useJudgeActions({
       upsertData.balance_score = options.criteria.balance;
       upsertData.light_score = options.criteria.light;
       upsertData.depth_score = options.criteria.depth;
+      // JUDGING-15
+      upsertData.editing_score = options.criteria.editing;
+      upsertData.story_score = options.criteria.story;
+      upsertData.moment_score = options.criteria.moment;
     }
 
     // [SAVE-LOG] Client-side trace — visible in browser DevTools → Console.
@@ -141,12 +145,14 @@ export function useJudgeActions({
       round_number: roundNumber ?? 0,
       score,
       feedback: currentFeedback,
-      // Phase 5 SOW: edge function rejects legacy composition_score / technique_score.
-      // Send ONLY the 10 SOW criteria to the edge fn. Legacy values still go via
-      // the direct PostgREST upsert below (audit-trail columns retained in DB).
+      // JUDGING-15: send all 15 criteria to the edge fn (composition & technique
+      // are first-class again; editing/story/moment are new). The edge computes
+      // the one-decimal average once all 15 are present.
       criteria: options?.criteria
         ? {
+            composition_score: options.criteria.composition,
             color_palette_score: options.criteria.color_palette,
+            technique_score: options.criteria.technique,
             line_score: options.criteria.line,
             shape_score: options.criteria.shape,
             form_score: options.criteria.form,
@@ -156,6 +162,9 @@ export function useJudgeActions({
             balance_score: options.criteria.balance,
             light_score: options.criteria.light,
             depth_score: options.criteria.depth,
+            editing_score: options.criteria.editing,
+            story_score: options.criteria.story,
+            moment_score: options.criteria.moment,
           }
         : undefined,
     });

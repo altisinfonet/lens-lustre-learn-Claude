@@ -110,7 +110,7 @@ export function useJudgeClassicData({
       feedback: scoreData?.myFeedback ?? null,
       allScores: scoreData?.allScores ?? [],
       comments: photoData.photoCommentsMap[key] ?? [],
-      criteria: scoreData?.myCriteria ?? { composition: null, color_palette: null, technique: null, line: null, shape: null, form: null, texture: null, space: null, tone: null, balance: null, light: null, depth: null },
+      criteria: scoreData?.myCriteria ?? { composition: null, color_palette: null, technique: null, line: null, shape: null, form: null, texture: null, space: null, tone: null, balance: null, light: null, depth: null, editing: null, story: null, moment: null },
       decision: decisionData?.myDecision ?? null,
     };
   }, [getPhotoKey, photoData.photoScoresMap, photoData.photoTagsMap, photoData.photoCommentsMap, photoData.photoDecisionsMap]);
