@@ -64,7 +64,7 @@ export function useProfileCore(userId: string | undefined) {
 
 /** Fetch extended profile data (entries, certs, badges, etc.) — requires auth */
 async function fetchProfileExtended(userId: string, currentUserId: string) {
-  const [entriesData, certsRes, rolesRes, profileMapRes, friendRes, privacyRes, articlesRes, coursesRes, featuredPhotosRes, adminIds] = await Promise.all([
+  const [entriesData, certsRes, rolesRes, profileMapRes, friendRes, privacyRes, articlesRes, coursesRes, featuredPhotosRes, visibleFieldsRes, adminIds] = await Promise.all([
     fetchUserEntries(userId),
     supabase.from("certificates").select("id, title, type, issued_at").eq("user_id", userId).order("issued_at", { ascending: false }).limit(10),
     // F2: anon-safe RPC; filters to non-sensitive roles server-side
@@ -75,6 +75,12 @@ async function fetchProfileExtended(userId: string, currentUserId: string) {
     supabase.from("journal_articles").select("id, title, slug, excerpt, cover_image_url, published_at, tags").eq("author_id", userId).eq("status", "published").order("published_at", { ascending: false }).limit(10),
     supabase.from("courses").select("id, title, slug, cover_image_url, category, difficulty").eq("author_id", userId).eq("status", "published").order("created_at", { ascending: false }).limit(10),
     supabase.from("featured_photos" as any).select("id, image_url, thumbnail_url, title").eq("user_id", userId).order("sort_order").limit(6),
+    // BUG-112: friend-aware resolver for privacy-controlled fields. The anon mirror
+    // (profiles_public_data) NULLs anything non-public, which hid 'friends'-scoped
+    // fields from friends too. This authenticated RPC returns the fields the CALLER
+    // may see (public always; friends if accepted friend/owner/admin; only_me if
+    // owner/admin) so they can be merged over the mirror values below.
+    supabase.rpc("get_profile_visible_fields", { _target: userId } as any),
     getAdminIds(),
   ]);
 
@@ -92,7 +98,26 @@ async function fetchProfileExtended(userId: string, currentUserId: string) {
     userBadges: resolveBadges(userId, profileEntry?.badges || [], adminIds),
     isFriend: !!(friendRes as any)?.data,
     privacySettings: (privacyRes.data as any)?.privacy_settings ?? null,
+    // BUG-112: caller-resolved privacy fields (null when RPC returned nothing).
+    visibleFields: ((visibleFieldsRes as any)?.data?.[0] as VisibleProfileFields | undefined) ?? null,
   };
+}
+
+/** Privacy-controlled fields resolved for the current caller (BUG-112). */
+export interface VisibleProfileFields {
+  avatar_url: string | null;
+  bio: string | null;
+  photography_interests: string[] | null;
+  portfolio_url: string | null;
+  facebook_url: string | null;
+  instagram_url: string | null;
+  twitter_url: string | null;
+  youtube_url: string | null;
+  website_url: string | null;
+  current_city: string | null;
+  workplace: string | null;
+  education: string | null;
+  pronouns: string | null;
 }
 
 export function useProfileExtended(userId: string | undefined, currentUserId: string | undefined) {

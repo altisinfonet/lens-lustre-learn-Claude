@@ -261,15 +261,39 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
   // Sync core profile into local state
   useEffect(() => {
     if (coreProfile) {
+      // BUG-112: the anon mirror (profiles_public_data) NULLs any non-public field,
+      // which also hid 'friends'-scoped fields from accepted friends. When the
+      // caller-aware RPC has resolved (authenticated viewers), its values are the
+      // authoritative privacy result for these fields — merge them over the mirror
+      // so friends see friends-tier data while strangers/anon keep public-only.
+      const vf = extData?.visibleFields;
+      const resolved = vf
+        ? {
+            avatar_url: vf.avatar_url ?? coreProfile.avatar_url,
+            bio: vf.bio,
+            photography_interests: vf.photography_interests,
+            portfolio_url: vf.portfolio_url,
+            facebook_url: vf.facebook_url,
+            instagram_url: vf.instagram_url,
+            twitter_url: vf.twitter_url,
+            youtube_url: vf.youtube_url,
+            website_url: vf.website_url,
+            current_city: vf.current_city,
+            workplace: vf.workplace,
+            education: vf.education,
+            pronouns: vf.pronouns,
+          }
+        : {};
       setProfile((prev) => ({
         ...(prev || {} as ProfileData),
         ...coreProfile,
+        ...resolved,
         privacy_settings: extData?.privacySettings ?? coreProfile.privacy_settings,
       }));
       setDragPosition(coreProfile.cover_position);
       setSavedPosition(coreProfile.cover_position);
     }
-  }, [coreProfile, extData?.privacySettings]);
+  }, [coreProfile, extData?.privacySettings, extData?.visibleFields]);
 
   // Auto-scroll to wall section when ?section=wall
   useEffect(() => {
