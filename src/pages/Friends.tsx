@@ -494,21 +494,22 @@ const PersonRow = ({ profile, badges, subtitle, date, actions, mutualCount, mutu
 }) => {
   const name = profile.full_name || "Unknown User";
   const initials = name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+  const online = isActiveNow(profile.last_active_at);
 
   return (
     <div className="flex gap-3 p-3 md:p-5">
       <Link to={profileUrl(profile)} className="shrink-0 mt-0.5 relative">
         {profile.avatar_url ? (
-          <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={profile.avatar_url} alt={name} className="w-11 h-11 rounded-full object-cover" />
+          <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={profile.avatar_url} alt={name} className={`w-11 h-11 rounded-full object-cover ${online ? "ring-2 ring-green-500 ring-offset-2 ring-offset-background" : ""}`} />
         ) : (
-          <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center">
+          <div className={`w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center ${online ? "ring-2 ring-green-500 ring-offset-2 ring-offset-background" : ""}`}>
             <span className="text-sm font-light text-primary" style={{ fontFamily: "var(--font-display)" }}>{initials}</span>
           </div>
         )}
-        {/* Online/Offline dot */}
+        {/* Presence dot on the avatar (green = online, gray = offline) */}
         <span
-          className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background ${
-            isActiveNow(profile.last_active_at) ? "bg-green-500" : "bg-muted-foreground/30"
+          className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-background ${
+            online ? "bg-green-500" : "bg-muted-foreground/30"
           }`}
         />
       </Link>
@@ -573,12 +574,17 @@ const PersonRow = ({ profile, badges, subtitle, date, actions, mutualCount, mutu
             {subtitle}
           </p>
         )}
-        {/* Last seen indicator */}
-        {profile.last_active_at && (
-          <p className={`text-[9px] mt-0.5 ${isActiveNow(profile.last_active_at) ? "text-green-600 dark:text-green-400" : "text-muted-foreground/60"}`} style={{ fontFamily: "var(--font-body)" }}>
+        {/* Presence: bold green "Online" when active, else muted last-seen */}
+        {online ? (
+          <p className="text-[10px] mt-0.5 font-medium text-green-600 dark:text-green-400 flex items-center gap-1" style={{ fontFamily: "var(--font-body)" }}>
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+            Online
+          </p>
+        ) : profile.last_active_at ? (
+          <p className="text-[9px] mt-0.5 text-muted-foreground/60" style={{ fontFamily: "var(--font-body)" }}>
             {formatLastSeen(profile.last_active_at)}
           </p>
-        )}
+        ) : null}
         {/* Action buttons below */}
         {actions && (
           <div className="mt-2 flex items-center gap-2">{actions}</div>
