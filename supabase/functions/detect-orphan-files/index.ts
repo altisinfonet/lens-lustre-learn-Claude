@@ -112,25 +112,35 @@ Deno.serve(async (req) => {
       // Pattern: .../storage/v1/object/public/{bucket}/{path}
       const match = cleanUrl.match(/\/storage\/v1\/object\/(?:public|sign)\/([^?]+)/);
       if (match) return match[1];
-      // Also handle raw paths stored directly
+      // BUG-071: media is served from the R2/CDN host (e.g.
+      // https://cdn.50mmretina.com/<bucket>/<path>). Strip any absolute origin so
+      // an R2/CDN URL normalizes to the same <bucket>/<path> key as the stored
+      // object — otherwise referenced files were missed and flagged as orphans.
+      let pathPart = cleanUrl;
+      const hostMatch = cleanUrl.match(/^https?:\/\/[^/]+\/(.+)$/);
+      if (hostMatch) pathPart = hostMatch[1];
       for (const b of BUCKETS) {
+        if (pathPart.startsWith(b + "/")) return pathPart;
         if (cleanUrl.startsWith(b + "/")) return cleanUrl;
       }
       return null;
     };
 
-    for (const query of [...IMAGE_QUERIES, ...ARRAY_QUERIES]) {
-      const { data, error } = await adminClient.rpc("", {}).maybeSingle();
-      // Use raw SQL via postgrest - not available, use from() queries instead
-    }
-
-    // Alternative: query each table individually
+    // Query each table individually and collect all referenced storage paths.
     const collectUrls = async () => {
       const queries: Promise<void>[] = [];
 
       const addUrls = async (table: string, columns: string[]) => {
-        const { data } = await adminClient.from(table).select(columns.join(",")).limit(10000);
-        if (data) {
+        // BUG-071: paginate. A flat .limit(10000) truncated large tables, so
+        // referenced URLs beyond the cap were missed and their live files were
+        // then falsely reported as orphans.
+        const PAGE = 1000;
+        for (let from = 0; ; from += PAGE) {
+          const { data, error } = await adminClient
+            .from(table)
+            .select(columns.join(","))
+            .range(from, from + PAGE - 1);
+          if (error || !data || data.length === 0) break;
           for (const row of data) {
             for (const col of columns) {
               const val = row[col];
@@ -146,6 +156,7 @@ Deno.serve(async (req) => {
               }
             }
           }
+          if (data.length < PAGE) break;
         }
       };
 
