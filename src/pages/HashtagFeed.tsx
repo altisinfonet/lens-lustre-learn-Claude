@@ -35,11 +35,20 @@ const HashtagFeed = () => {
     if (!tag) return;
     setLoading(true);
 
-    // Search posts containing #tag (case-insensitive)
+    // BUG-087: sanitize the URL-supplied tag to the hashtag charset — this both
+    // prevents PostgREST .or() filter injection and normalizes matching. Use a
+    // single parameterized ilike (value is not interpolated into filter syntax)
+    // that catches the tag anywhere, not only when followed by a space/end.
+    const safeTag = (tag || "").replace(/[^a-zA-Z0-9_]/g, "");
+    if (!safeTag) {
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
     const { data } = await supabase
       .from("posts")
       .select("*")
-      .or(`content.ilike.%#${tag} %,content.ilike.%#${tag}`)
+      .ilike("content", `%#${safeTag}%`)
       .eq("privacy", "public")
       .order("created_at", { ascending: false })
       .limit(50);

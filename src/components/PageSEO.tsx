@@ -43,6 +43,8 @@ interface PageSEOProps {
   ogImage?: string;
   ogType?: "website" | "article";
   jsonLd?: JsonLdData;
+  /** BUG-089: pre-validated raw JSON-LD string rendered as-is (e.g. managed pages). */
+  rawJsonLd?: string;
 }
 
 const SITE_URL = "https://50mmretina.com";
@@ -119,7 +121,7 @@ function buildJsonLd(data: JsonLdData, canonicalUrl: string): object {
   }
 }
 
-const PageSEO = ({ title, description, ogImage, ogType, jsonLd }: PageSEOProps) => {
+const PageSEO = ({ title, description, ogImage, ogType, jsonLd, rawJsonLd }: PageSEOProps) => {
   const meta = useSEO(title);
   const qc = useQueryClient();
   const queryCache = qc.getQueryCache();
@@ -128,7 +130,7 @@ const PageSEO = ({ title, description, ogImage, ogType, jsonLd }: PageSEOProps) 
   const finalOgImage = ogImage || meta.ogImage;
   const finalCanonical = meta.canonicalUrl;
   const finalOgType = ogType || "website";
-  const shouldRenderSiteSchemas = !title && !description && !ogImage && !ogType && !jsonLd;
+  const shouldRenderSiteSchemas = !title && !description && !ogImage && !ogType && !jsonLd && !rawJsonLd;
 
   const cachedSchemas = useSyncExternalStore(
     (onStoreChange) => queryCache.subscribe(() => onStoreChange()),
@@ -168,6 +170,10 @@ const PageSEO = ({ title, description, ogImage, ogType, jsonLd }: PageSEOProps) 
         <script type="application/ld+json">
           {JSON.stringify(buildJsonLd(jsonLd, finalCanonical || ""))}
         </script>
+      )}
+
+      {rawJsonLd && (
+        <script type="application/ld+json">{rawJsonLd}</script>
       )}
 
       {shouldRenderSiteSchemas && cachedSchemas?.map((schema, i) => {

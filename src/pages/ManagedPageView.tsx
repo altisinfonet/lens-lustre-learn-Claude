@@ -75,10 +75,15 @@ const ManagedPageView = () => {
     return <Navigate to="/404" replace />;
   }
 
-  const title = page.title;
-  const content = page.content;
-  const metaTitle = page.meta_title || title;
-  const metaDesc = page.meta_description;
+  // BUG-090: honor the visitor's selected language — use the stored per-page
+  // translation when one exists, falling back to the default-locale fields.
+  const lang =
+    (typeof localStorage !== "undefined" && localStorage.getItem("preferred_translate_lang")) || "en";
+  const tr = page.translations ? page.translations[lang] : undefined;
+  const title = tr?.title || page.title;
+  const content = tr?.content || page.content;
+  const metaTitle = tr?.meta_title || page.meta_title || title;
+  const metaDesc = tr?.meta_description || page.meta_description;
   const canonical = `${window.location.origin}/page/${page.slug}`;
 
   let jsonLdScript: string | null = null;
@@ -97,6 +102,7 @@ const ManagedPageView = () => {
         title={metaTitle}
         description={metaDesc || undefined}
         ogImage={page.og_image || undefined}
+        rawJsonLd={jsonLdScript || undefined}
       />
       <article className="max-w-3xl">
         <div
