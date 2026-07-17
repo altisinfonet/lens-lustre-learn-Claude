@@ -142,7 +142,10 @@ export function useJudgeActions({
     const edgeResult = await submitJudgeScoreEdge({
       entry_id: entryId,
       photo_index: normalizedPI,
-      round_number: roundNumber ?? 0,
+      // BUG-084: unify the round default to 1 (every other path here uses ?? 1).
+      // The edge rejects round_number 0, which forced the fallback upsert and
+      // could land a score in a different round than the rest of the flow.
+      round_number: roundNumber ?? 1,
       score,
       feedback: currentFeedback,
       // JUDGING-15: send all 15 criteria to the edge fn (composition & technique

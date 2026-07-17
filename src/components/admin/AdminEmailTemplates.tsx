@@ -234,6 +234,16 @@ export default function AdminEmailTemplates({ user }: Props) {
         <p className="text-xs text-muted-foreground mt-2 max-w-md" style={{ fontFamily: "var(--font-body)" }}>
           Manage email templates for notifications, welcome messages, and transactional emails.
         </p>
+        {/* BUG-093: these DB rows are NOT read by any send path — outbound email is
+            rendered from the built-in React Email template registry. Make that
+            explicit so admins don't expect edits here to change live emails. */}
+        <div className="mt-3 max-w-2xl border border-yellow-500/30 bg-yellow-500/5 px-3 py-2 rounded" style={{ fontFamily: "var(--font-body)" }}>
+          <p className="text-[11px] text-yellow-600 leading-relaxed">
+            <strong>Reference only —</strong> live outbound emails are rendered from the built-in
+            template registry, not from these rows. Edits here do not change the emails your users
+            receive. Contact engineering to change a live template.
+          </p>
+        </div>
       </div>
 
       {/* Editor */}

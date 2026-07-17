@@ -729,8 +729,18 @@ const JudgePanel = () => {
       if (!prevStatusBeforePlacement.current[entryId]) prevStatusBeforePlacement.current[entryId] = currentEntry.status;
       newStatus = newPlacement === "winner" ? "winner" : currentEntry.status;
     } else {
+      // BUG-085: removing a placement must NOT silently demote to 'approved'
+      // (the in-memory prev-status ref is empty after a reload). Only a 'winner'
+      // placement ever changed the status; for any other placement the status is
+      // untouched, so keep it. When clearing 'winner', restore the remembered
+      // prior status, else fall back to 'finalist' (a winner is at least a
+      // finalist) — never 'approved'.
       const restored = prevStatusBeforePlacement.current[entryId];
-      newStatus = restored && restored !== "winner" ? restored : "approved";
+      if (currentEntry.status === "winner") {
+        newStatus = restored && restored !== "winner" ? restored : "finalist";
+      } else {
+        newStatus = currentEntry.status;
+      }
       delete prevStatusBeforePlacement.current[entryId];
     }
     try {
