@@ -249,8 +249,8 @@ Deno.serve(async (req) => {
     // ── Authorization: caller must be the comment owner OR an admin ──
     const callerId = claimsData.claims.sub as string;
     if (callerId !== ownerId) {
-      const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: callerId, _role: "admin" });
-      const { data: isSuper } = await supabase.rpc("has_role", { _user_id: callerId, _role: "super_admin" });
+      const { data: isAdmin } = await supabase.rpc("app_has_role", { _user_id: callerId, _role: "admin" });
+      const { data: isSuper } = await supabase.rpc("app_has_role", { _user_id: callerId, _role: "super_admin" });
       if (!isAdmin && !isSuper) {
         return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers });
       }

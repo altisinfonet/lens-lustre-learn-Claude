@@ -239,7 +239,7 @@ Deno.serve(async (req) => {
     if (uErr || !u?.user) {
       return new Response(JSON.stringify({ error: "unauth", detail: uErr?.message }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const { data: isAdmin, error: rErr } = await supabase.rpc("has_role", { _user_id: u.user.id, _role: "admin" as any });
+    const { data: isAdmin, error: rErr } = await supabase.rpc("app_has_role", { _user_id: u.user.id, _role: "admin" as any });
     if (rErr) {
       const { data: rows } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id).eq("role", "admin").maybeSingle();
       if (!rows) {

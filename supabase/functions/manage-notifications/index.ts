@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
 
     } else if (action === "dismiss_admin") {
       // Verify caller is admin
-      const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
+      const { data: isAdmin } = await supabase.rpc("app_has_role", { _user_id: userId, _role: "admin" });
       if (!isAdmin) {
         return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers });
       }
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
         .eq("is_read", false);
 
       if (body.includeAdmin) {
-        const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
+        const { data: isAdmin } = await supabase.rpc("app_has_role", { _user_id: userId, _role: "admin" });
         if (isAdmin) {
           await supabase
             .from("admin_notifications")
@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
 
     } else if (action === "insert_user_notification") {
       // Admin-only: insert notification for another user
-      const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
+      const { data: isAdmin } = await supabase.rpc("app_has_role", { _user_id: userId, _role: "admin" });
       if (!isAdmin) {
         return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers });
       }

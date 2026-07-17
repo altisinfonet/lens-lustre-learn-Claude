@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
     const { data: u, error: uErr } = await supabase.auth.getUser(token);
     if (uErr || !u?.user) return new Response(JSON.stringify({ error: "unauth" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: u.user.id, _role: "admin" as any });
+    const { data: isAdmin } = await supabase.rpc("app_has_role", { _user_id: u.user.id, _role: "admin" as any });
     if (!isAdmin) return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const body = await req.json().catch(() => ({}));

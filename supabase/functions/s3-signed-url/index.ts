@@ -172,7 +172,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { data: isAdmin } = await adminClient.rpc("has_role", {
+    const { data: isAdmin } = await adminClient.rpc("app_has_role", {
       _user_id: user.id,
       _role: "admin",
     });
