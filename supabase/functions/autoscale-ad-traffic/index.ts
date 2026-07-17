@@ -69,7 +69,7 @@ Deno.serve(async (req: Request) => {
 
     const stats = statsData as {
       impressions: { slot_id: string; ad_source: string; event_type: string; count: number }[];
-      conversions: { ad_id: string; count: number }[];
+      conversions: { ad_id: string; ad_source?: string | null; count: number }[];
       click_sources: { slot_id: string; ad_source: string }[];
     };
 
@@ -100,11 +100,15 @@ Deno.serve(async (req: Request) => {
       else if (imp.event_type === "click") entry[src].clicks += imp.count;
     }
 
-    // Attribute conversions using the click's ad_source for that slot
+    // BUG-073: attribute each conversion to the source it RECORDED at click time
+    // (ad_conversions.ad_source), so A/B credit reflects true per-source
+    // performance instead of the single most-recent click source. Legacy rows
+    // with no recorded source fall back to the last-click heuristic.
     for (const conv of (stats.conversions || [])) {
       const entry = slotStats.get(conv.ad_id);
       if (!entry) continue;
-      const src = lastClickSource.get(conv.ad_id) || "internal";
+      const recorded = conv.ad_source === "adsense" ? "adsense" : conv.ad_source === "internal" ? "internal" : null;
+      const src = recorded || lastClickSource.get(conv.ad_id) || "internal";
       entry[src as "internal" | "adsense"].conversions += conv.count;
     }
 

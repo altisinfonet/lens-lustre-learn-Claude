@@ -488,7 +488,8 @@ export const trackConversion = async (
   adId: string,
   conversionType: ConversionType,
   placement?: string,
-  metadata?: Record<string, unknown>
+  metadata?: Record<string, unknown>,
+  adSource?: string
 ) => {
   try {
     // Dedup conversions: block if same ad+type within 5 minutes
@@ -508,6 +509,9 @@ export const trackConversion = async (
       conversion_type: conversionType,
       conversion_value: conversionValue,
       metadata: metadata || {},
+      // BUG-073: record the session-resolved source so autoscale attributes this
+      // conversion to the source that drove it (normalized to adsense|internal).
+      ...(adSource ? { ad_source: adSource === "adsense" ? "adsense" : "internal" } : {}),
     };
 
     // Conversions use keepalive — fires once only (no duplicate unload push)

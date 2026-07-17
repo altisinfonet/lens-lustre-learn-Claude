@@ -7,6 +7,9 @@ interface AdClickContext {
   placement: string;
   click_id: string;
   timestamp: number;
+  // BUG-073: the session-resolved ad_source at click time, so a later conversion
+  // is attributed to the source that actually drove it (not the most-recent click).
+  ad_source?: string;
 }
 
 /** Generate a unique click ID */
@@ -28,10 +31,10 @@ export const appendAdParams = (url: string, adId: string, clickId: string): stri
 };
 
 /** Store ad click context when a user clicks an ad. Returns the generated click_id. */
-export const storeAdClickContext = (adId: string, placement: string): string => {
+export const storeAdClickContext = (adId: string, placement: string, adSource?: string): string => {
   const clickId = generateClickId();
   try {
-    const ctx: AdClickContext = { ad_id: adId, placement, click_id: clickId, timestamp: Date.now() };
+    const ctx: AdClickContext = { ad_id: adId, placement, click_id: clickId, timestamp: Date.now(), ad_source: adSource };
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(ctx));
   } catch {
     // silent
@@ -64,6 +67,6 @@ export const fireConversion = async (conversionType: ConversionType, metadata?: 
   await trackConversion(ctx.ad_id, conversionType, ctx.placement, {
     ...metadata,
     click_id: ctx.click_id,
-  });
+  }, ctx.ad_source);
   return true;
 };

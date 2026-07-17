@@ -492,7 +492,7 @@ const AdPlacement = ({
             const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
               e.preventDefault();
               trackAdEvent(ad.id, placement, "click", device, selectedSource, ad.cpm_rate, ad.cpc_rate);
-              const clickId = storeAdClickContext(ad.id, placement);
+              const clickId = storeAdClickContext(ad.id, placement, selectedSource);
               if (ad.click_url) {
                 window.open(appendAdParams(ad.click_url, ad.id, clickId), "_blank", "noopener,noreferrer");
               }
@@ -533,7 +533,7 @@ const AdPlacement = ({
                 const target = e.target as HTMLElement;
                 if (target.tagName === "A" || target.closest("a")) {
                   trackAdEvent(ad.id, placement, "click", device, selectedSource, ad.cpm_rate, ad.cpc_rate);
-                  storeAdClickContext(ad.id, placement);
+                  storeAdClickContext(ad.id, placement, selectedSource);
                 }
               }}
             />
