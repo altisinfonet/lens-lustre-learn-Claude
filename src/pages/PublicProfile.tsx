@@ -698,7 +698,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
             {/* Avatar */}
             <div className="relative z-10">
               {canView("avatar") && profile.avatar_url ? (
-                <img loading="eager" decoding="async" fetchPriority="high" src={profile.avatar_url} alt={displayName} className="h-[100px] w-[100px] rounded-full object-cover border-[3px] border-background shadow-xl" />
+                <img referrerPolicy="no-referrer" loading="eager" decoding="async" fetchPriority="high" src={profile.avatar_url} alt={displayName} className="h-[100px] w-[100px] rounded-full object-cover border-[3px] border-background shadow-xl" />
               ) : (
                 <div className="h-[100px] w-[100px] rounded-full bg-muted border-[3px] border-background flex items-center justify-center shadow-xl">
                   <Camera className="h-8 w-8 text-muted-foreground/30" />

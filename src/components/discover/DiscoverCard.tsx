@@ -85,7 +85,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
                 ? mutualFriends.slice(0, 3).map((m) => (
                     <Link key={m.id} to={`/profile/${m.id}`} className="relative z-[1] hover:z-10 transition-transform hover:scale-110">
                       {m.avatar_url ? (
-                        <img loading="lazy" decoding="async" src={m.avatar_url} alt={m.full_name || ""} className="h-5 w-5 rounded-full border-2 border-background object-cover" />
+                        <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={m.avatar_url} alt={m.full_name || ""} className="h-5 w-5 rounded-full border-2 border-background object-cover" />
                       ) : (
                         <div className="h-5 w-5 rounded-full border-2 border-background bg-muted flex items-center justify-center">
                           <span className="text-[7px] font-semibold text-muted-foreground">{(m.full_name || "?")[0]?.toUpperCase()}</span>

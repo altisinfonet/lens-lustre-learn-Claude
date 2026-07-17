@@ -37,7 +37,7 @@ const JudgeProgressPanel = memo(({ otherJudges, isLoading }: JudgeProgressPanelP
           return (
             <div key={judge.judgeId} className="flex items-center gap-2 py-1">
               {judge.judgeAvatar ? (
-                <img loading="lazy" decoding="async" src={judge.judgeAvatar} alt="" className="w-5 h-5 rounded-full object-cover border border-border shrink-0" />
+                <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={judge.judgeAvatar} alt="" className="w-5 h-5 rounded-full object-cover border border-border shrink-0" />
               ) : (
                 <div className="w-5 h-5 rounded-full bg-muted/30 border border-border flex items-center justify-center shrink-0">
                   <Camera className="w-2.5 h-2.5 text-muted-foreground/40" />

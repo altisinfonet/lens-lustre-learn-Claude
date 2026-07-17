@@ -326,7 +326,7 @@ const NotificationBell = () => {
                           <div key={fr.id} className="flex items-center gap-3 px-4 py-3 border-b border-border/50 hover:bg-muted/20 transition-colors">
                             <Link to={`/profile/${fr.requester_id}`} onClick={() => setOpen(false)} className="shrink-0">
                               {fr.requester_avatar ? (
-                                <img loading="lazy" decoding="async" src={fr.requester_avatar} alt="" className="w-9 h-9 rounded-full object-cover" />
+                                <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={fr.requester_avatar} alt="" className="w-9 h-9 rounded-full object-cover" />
                               ) : (
                                 <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
                                   <UserPlus className="h-4 w-4 text-primary" />
@@ -392,7 +392,7 @@ const NotificationBell = () => {
                               <Link to={getNotifLink(notif)} onClick={() => { dismissUserNotification(notif.id); setOpen(false); }} className="shrink-0">
                                 {(notif as any).actor_avatar ? (
                                   <div className="relative">
-                                    <img loading="lazy" decoding="async" src={(notif as any).actor_avatar} alt="" className="w-9 h-9 rounded-full object-cover" />
+                                    <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={(notif as any).actor_avatar} alt="" className="w-9 h-9 rounded-full object-cover" />
                                     <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
                                       <IconComp className="h-2.5 w-2.5 text-primary-foreground" />
                                     </div>

@@ -672,7 +672,7 @@ const CinemaJudgeView = (props: CinemaJudgeViewProps) => {
               <span className="text-[11px] font-semibold text-foreground leading-none mt-0.5 block" style={{ fontFamily: "var(--font-heading)" }}>{judgeName || "Judge"}</span>
             </div>
             {judgeAvatarUrl ? (
-              <img loading="lazy" decoding="async" src={judgeAvatarUrl} alt={judgeName || "Judge avatar"} className="w-8 h-8 rounded-full object-cover border border-border" />
+              <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={judgeAvatarUrl} alt={judgeName || "Judge avatar"} className="w-8 h-8 rounded-full object-cover border border-border" />
             ) : (
               <div className="w-8 h-8 rounded-full bg-muted/20 border border-border flex items-center justify-center">
                 <Camera className="w-3.5 h-3.5 text-muted-foreground/60" />

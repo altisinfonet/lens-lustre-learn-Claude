@@ -247,7 +247,7 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props)
       <div className="group flex gap-2 py-2">
         <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0 text-[9px] font-medium text-muted-foreground uppercase">
           {comment.avatar_url ? (
-            <img loading="lazy" decoding="async" src={comment.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
+            <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={comment.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
           ) : (
             comment.profile_name?.[0] || "?"
           )}

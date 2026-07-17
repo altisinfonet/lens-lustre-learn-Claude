@@ -175,7 +175,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
               <div key={m.id} className="flex items-center gap-3 px-4 py-3">
                 <Link to={`/profile/${m.id}`} className="shrink-0">
                   {m.avatar_url ? (
-                    <img loading="lazy" decoding="async" src={m.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                    <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={m.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
                   ) : (
                     <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                       <span className="text-[10px] text-primary" style={displayFont}>{(m.full_name || "?")[0]?.toUpperCase()}</span>
@@ -258,7 +258,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
                 <div key={u.id} className="flex items-center gap-3 px-4 py-3">
                   <Link to={`/profile/${u.id}`} className="shrink-0">
                     {u.avatar_url ? (
-                      <img loading="lazy" decoding="async" src={u.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                      <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={u.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                         <span className="text-[10px] text-primary" style={displayFont}>{(u.full_name || "?")[0]?.toUpperCase()}</span>

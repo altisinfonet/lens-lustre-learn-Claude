@@ -134,7 +134,7 @@ const HashtagFeed = () => {
               <div className="flex items-center gap-3 p-4 pb-2">
                 <Link to={`/profile/${post.user_id}`} className="shrink-0">
                   {post.author_avatar ? (
-                    <img loading="lazy" decoding="async" src={post.author_avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
+                    <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={post.author_avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold text-muted-foreground">
                       {(post.author_name || "?")[0]?.toUpperCase()}

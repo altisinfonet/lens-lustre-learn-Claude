@@ -81,7 +81,7 @@ export default function ProfileTypeaheadPicker({ value, onChange, label = "Link 
       {selected ? (
         <div className="flex items-center gap-3 border border-primary/40 bg-primary/5 rounded-sm px-3 py-2">
           {selected.avatar_url ? (
-            <img src={selected.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" />
+            <img referrerPolicy="no-referrer" src={selected.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" />
           ) : (
             <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center">
               <UserIcon className="h-3.5 w-3.5 text-muted-foreground" />
@@ -121,7 +121,7 @@ export default function ProfileTypeaheadPicker({ value, onChange, label = "Link 
                   className="w-full flex items-center gap-3 px-3 py-2 hover:bg-muted/60 text-left transition-colors"
                 >
                   {p.avatar_url ? (
-                    <img src={p.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" />
+                    <img referrerPolicy="no-referrer" src={p.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" />
                   ) : (
                     <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center">
                       <UserIcon className="h-3.5 w-3.5 text-muted-foreground" />

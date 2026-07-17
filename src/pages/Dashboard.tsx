@@ -231,7 +231,7 @@ const Dashboard = () => {
           {/* Avatar */}
           <Link to="/profile" className="shrink-0 group">
             {profile?.avatar_url ? (
-              <img loading="lazy" decoding="async" src={profile.avatar_url} alt={displayName} className="w-14 h-14 rounded-full object-cover border-2 border-border group-hover:border-primary transition-colors" />
+              <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={profile.avatar_url} alt={displayName} className="w-14 h-14 rounded-full object-cover border-2 border-border group-hover:border-primary transition-colors" />
             ) : (
               <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center border-2 border-border group-hover:border-primary transition-colors">
                 <span className="text-lg font-light text-primary" style={{ fontFamily: "var(--font-display)" }}>{initials}</span>
@@ -596,7 +596,7 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
           {suggestedPeople.map((person: any) => (
             <Link key={person.id} to={`/profile/${person.id}`} className="shrink-0 w-28 border border-border hover:border-primary/40 transition-all duration-300 text-center p-3 group">
               {person.avatar_url ? (
-                <img loading="lazy" decoding="async" src={person.avatar_url} alt={person.full_name || ""} className="w-12 h-12 rounded-full object-cover mx-auto mb-2 border border-border group-hover:border-primary transition-colors" />
+                <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={person.avatar_url} alt={person.full_name || ""} className="w-12 h-12 rounded-full object-cover mx-auto mb-2 border border-border group-hover:border-primary transition-colors" />
               ) : (
                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2 border border-border">
                   <User className="h-5 w-5 text-primary/40" />
@@ -1167,7 +1167,7 @@ const SocialTab = ({ friendRequests, recentPosts, user, handleFriendAction, frie
             return (
               <div key={req.id} className="flex items-center gap-3 p-3">
                 <Link to={`/profile/${req.requester_id}`} className="shrink-0">
-                  {req.requester_avatar ? <img loading="lazy" decoding="async" src={req.requester_avatar} alt={name} className="w-9 h-9 rounded-full object-cover" /> : <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center"><span className="text-xs font-light text-primary">{reqInitials}</span></div>}
+                  {req.requester_avatar ? <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={req.requester_avatar} alt={name} className="w-9 h-9 rounded-full object-cover" /> : <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center"><span className="text-xs font-light text-primary">{reqInitials}</span></div>}
                 </Link>
                 <div className="flex-1 min-w-0">
                   <Link to={`/profile/${req.requester_id}`} className="text-xs font-light hover:text-primary transition-colors" style={{ fontFamily: "var(--font-heading)" }}>{name}</Link>

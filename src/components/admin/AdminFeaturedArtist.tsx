@@ -203,7 +203,7 @@ function LivePreview({ form }: { form: typeof emptyForm }) {
           {/* Artist info */}
           <div className="flex items-center gap-3 pb-3 border-b border-border">
             {form.artist_avatar_url && (
-              <img loading="lazy" decoding="async" src={form.artist_avatar_url} alt="" className="h-8 w-8 rounded-full object-cover border border-border" />
+              <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={form.artist_avatar_url} alt="" className="h-8 w-8 rounded-full object-cover border border-border" />
             )}
             <div>
               <span className="text-[10px] tracking-[0.1em] uppercase block" style={{ fontFamily: "var(--font-heading)" }}>

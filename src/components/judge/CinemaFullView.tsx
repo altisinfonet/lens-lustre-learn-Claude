@@ -634,7 +634,7 @@ const CinemaFullView = (props: CinemaFullViewProps) => {
           <div className="h-4 w-px bg-border" />
           <div className="flex items-center gap-2">
             {selectedEntry.photographer_avatar && (
-              <img loading="lazy" decoding="async" src={selectedEntry.photographer_avatar} alt="" className="w-5 h-5 rounded-full object-cover border border-border/50" />
+              <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={selectedEntry.photographer_avatar} alt="" className="w-5 h-5 rounded-full object-cover border border-border/50" />
             )}
             <div className="flex flex-col">
               {(() => {

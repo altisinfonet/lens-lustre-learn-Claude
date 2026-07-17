@@ -396,7 +396,7 @@ const AdminExcellence = ({ user }: { user: User | null }) => {
               <div key={entry.user_id} className="flex items-center gap-3 px-3 py-2.5">
                 <span className="text-[10px] text-muted-foreground w-6 text-center font-mono">{i + 1}</span>
                 {entry.avatar_url ? (
-                  <img loading="lazy" decoding="async" src={entry.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover border border-border" />
+                  <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={entry.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover border border-border" />
                 ) : (
                   <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center border border-border">
                     <Users className="h-3 w-3 text-muted-foreground" />

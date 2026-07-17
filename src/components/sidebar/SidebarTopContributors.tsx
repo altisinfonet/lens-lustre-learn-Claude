@@ -47,7 +47,7 @@ const SidebarTopContributors = () => {
           <span className="text-xs shrink-0">{medals[i]}</span>
           <div className="w-7 h-7 rounded-full bg-muted overflow-hidden shrink-0">
             {c.avatar_url ? (
-              <img src={c.avatar_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+              <img referrerPolicy="no-referrer" src={c.avatar_url} alt="" className="w-full h-full object-cover" loading="lazy" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-[9px] font-medium text-muted-foreground uppercase">
                 {c.full_name?.[0] || "?"}

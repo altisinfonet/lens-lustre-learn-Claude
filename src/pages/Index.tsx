@@ -764,7 +764,7 @@ const Index = () => {
                       <div className="flex items-center gap-2.5 mb-2.5">
                         <div className="w-8 h-8 rounded-full bg-muted overflow-hidden">
                           {latestPost.avatar_url ? (
-                            <img loading="lazy" decoding="async" src={latestPost.avatar_url} alt="" className="w-full h-full object-cover" />
+                            <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={latestPost.avatar_url} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-[10px] font-medium text-muted-foreground uppercase">{latestPost.user_name?.[0] || "?"}</div>
                           )}
@@ -851,7 +851,7 @@ const Index = () => {
                       className="flex items-center gap-2.5 bg-background/50 border border-border/40 rounded-lg px-3 py-2"
                     >
                       <div className="w-7 h-7 rounded-full bg-muted overflow-hidden shrink-0">
-                        <img src={m.img || initialsAvatar(m.name)} alt="" className="w-full h-full object-cover" loading="lazy" />
+                        <img referrerPolicy="no-referrer" src={m.img || initialsAvatar(m.name)} alt="" className="w-full h-full object-cover" loading="lazy" />
                       </div>
                       <span className="text-xs flex-1 truncate" style={{ fontFamily: "var(--font-body)" }}>{m.name} {m.country}</span>
                       <span className="text-[8px] tracking-[0.1em] uppercase px-1.5 py-0.5 rounded-sm border border-primary/40 text-primary bg-primary/5" style={{ fontFamily: "var(--font-heading)" }}>
@@ -1015,7 +1015,7 @@ const Index = () => {
                         <span className="text-sm shrink-0 relative z-10">{medals[i] || ""}</span>
                         <div className="w-7 h-7 rounded-full bg-muted overflow-hidden shrink-0 relative z-10">
                           {c.avatar_url ? (
-                            <img loading="lazy" decoding="async" src={c.avatar_url} alt="" className="w-full h-full object-cover" />
+                            <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={c.avatar_url} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-[9px] font-medium text-muted-foreground uppercase">{c.full_name?.[0] || "?"}</div>
                           )}

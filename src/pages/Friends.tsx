@@ -499,7 +499,7 @@ const PersonRow = ({ profile, badges, subtitle, date, actions, mutualCount, mutu
     <div className="flex gap-3 p-3 md:p-5">
       <Link to={profileUrl(profile)} className="shrink-0 mt-0.5 relative">
         {profile.avatar_url ? (
-          <img loading="lazy" decoding="async" src={profile.avatar_url} alt={name} className="w-11 h-11 rounded-full object-cover" />
+          <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={profile.avatar_url} alt={name} className="w-11 h-11 rounded-full object-cover" />
         ) : (
           <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center">
             <span className="text-sm font-light text-primary" style={{ fontFamily: "var(--font-display)" }}>{initials}</span>

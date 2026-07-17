@@ -138,7 +138,7 @@ const PostCard = ({
       <div className="flex items-center gap-2.5 p-3 pb-0">
         <Link to={`/profile/${post.user_id}`} className="shrink-0">
           {post.author_avatar ? (
-            <img loading="lazy" decoding="async" src={post.author_avatar} alt="" className="w-8 h-8 rounded-full object-cover" />
+            <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={post.author_avatar} alt="" className="w-8 h-8 rounded-full object-cover" />
           ) : (
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
               <span className="text-xs text-primary" style={displayFont}>{(post.author_name || "?")[0]?.toUpperCase()}</span>

@@ -780,7 +780,7 @@ const EditProfile = () => {
           <div className="flex items-center gap-6">
             <div className="relative group">
               {avatarUrl ? (
-                <img loading="lazy" decoding="async" src={avatarUrl} alt="Profile" className="h-24 w-24 rounded-full object-cover border-2 border-border" />
+                <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={avatarUrl} alt="Profile" className="h-24 w-24 rounded-full object-cover border-2 border-border" />
               ) : (
                 <div className="h-24 w-24 rounded-full bg-muted border-2 border-border flex items-center justify-center">
                   <User className="h-8 w-8 text-muted-foreground/40" />
@@ -831,7 +831,7 @@ const EditProfile = () => {
                   </button>
                 </div>
                 <div className="p-6 flex flex-col items-center gap-4">
-                  <img loading="lazy" decoding="async" src={avatarPreviewUrl} alt="Preview" className="h-36 w-36 rounded-full object-cover border-2 border-border" />
+                  <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={avatarPreviewUrl} alt="Preview" className="h-36 w-36 rounded-full object-cover border-2 border-border" />
                   <textarea
                     value={avatarCaption}
                     onChange={(e) => setAvatarCaption(e.target.value)}

@@ -76,7 +76,7 @@ const AvatarCompletionRing = ({ profile, avatarUrl, displayName, size = 160 }: P
         }}
       >
         {avatarUrl ? (
-          <img loading="lazy" decoding="async" src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+          <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full bg-muted flex items-center justify-center">
             <User className="h-12 w-12 text-muted-foreground/40" />

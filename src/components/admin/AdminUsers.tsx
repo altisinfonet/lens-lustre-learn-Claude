@@ -799,7 +799,7 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
                   </button>
                   {/* Avatar */}
                   {u.avatar_url ? (
-                    <img loading="lazy" decoding="async" src={u.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover border border-border shrink-0" />
+                    <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={u.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover border border-border shrink-0" />
                   ) : (
                     <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-[10px] text-muted-foreground shrink-0 border border-border">
                       {(u.full_name || u.email || "?")[0]?.toUpperCase()}

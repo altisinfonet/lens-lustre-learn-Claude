@@ -131,7 +131,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
                 <div key={s.id} className="flex items-center gap-3 px-4 py-3">
                   <ProfileLink userId={s.id} className="shrink-0">
                     {s.avatar_url ? (
-                      <img loading="lazy" decoding="async" src={s.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
+                      <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={s.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
                     ) : (
                       <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
                         <span className="text-xs text-primary" style={displayFont}>
@@ -312,7 +312,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       {w.user_avatar ? (
-                        <img loading="lazy" decoding="async" src={w.user_avatar} alt="" className="w-4 h-4 rounded-full object-cover" />
+                        <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={w.user_avatar} alt="" className="w-4 h-4 rounded-full object-cover" />
                       ) : null}
                       <span className="text-[9px] text-muted-foreground truncate" style={bodyFont}>
                         {w.user_name || "Photographer"}

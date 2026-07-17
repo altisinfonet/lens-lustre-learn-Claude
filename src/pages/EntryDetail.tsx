@@ -252,7 +252,7 @@ const EntryDetail = () => {
             <div className="flex items-center gap-2.5 mb-2">
               <Link to={`/profile/${entry.user_id}`} className="shrink-0">
                 {entry.author_avatar ? (
-                  <img loading="lazy" decoding="async" src={entry.author_avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
+                  <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={entry.author_avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
                 ) : (
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                     <span className="text-sm text-primary" style={displayFont}>{(entry.author_name || "?")[0]?.toUpperCase()}</span>

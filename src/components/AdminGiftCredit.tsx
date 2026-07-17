@@ -319,7 +319,7 @@ const AdminGiftCredit = ({ user }: Props) => {
             {selectedUser ? (
               <div className="flex items-center gap-3 border border-primary/40 bg-primary/5 rounded-sm px-3 py-2.5">
                 {selectedUser.avatar_url ? (
-                  <img loading="lazy" decoding="async" src={selectedUser.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover border border-border" />
+                  <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={selectedUser.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover border border-border" />
                 ) : (
                   <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground uppercase">
                     {(selectedUser.full_name || selectedUser.email)?.[0] || "?"}
@@ -357,7 +357,7 @@ const AdminGiftCredit = ({ user }: Props) => {
                         className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-muted/60 transition-colors text-left"
                       >
                         {u.avatar_url ? (
-                          <img loading="lazy" decoding="async" src={u.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover border border-border" />
+                          <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={u.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover border border-border" />
                         ) : (
                           <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground uppercase">
                             {(u.full_name || u.email)?.[0] || "?"}

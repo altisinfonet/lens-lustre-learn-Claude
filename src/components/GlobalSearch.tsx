@@ -470,7 +470,7 @@ const GlobalSearch = () => {
                           )}
                         >
                           {result.type === "person" && result.avatarUrl ? (
-                            <img loading="lazy" decoding="async" src={result.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover mt-0.5 shrink-0" />
+                            <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={result.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover mt-0.5 shrink-0" />
                           ) : (
                             <div className={`mt-0.5 ${config.color}`}>
                               <Icon className="h-4 w-4" strokeWidth={1.5} />

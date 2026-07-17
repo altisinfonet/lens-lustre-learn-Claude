@@ -118,7 +118,7 @@ const ShareSummaryTooltip = ({ shareCount, postId, children }: ShareSummaryToolt
                       className="relative shrink-0"
                     >
                       {sharer.avatar_url ? (
-                        <img loading="lazy" decoding="async" src={sharer.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
+                        <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={sharer.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
                       ) : (
                         <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-sm font-semibold text-muted-foreground">
                           {(sharer.full_name || "?")[0]?.toUpperCase()}

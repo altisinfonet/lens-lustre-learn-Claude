@@ -181,7 +181,7 @@ const ReactionSummaryTooltip = ({ reactionCounts, totalCount, postId, children }
                          className="relative shrink-0"
                        >
                          {reactor.avatar_url ? (
-                           <img loading="lazy" decoding="async" src={reactor.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
+                           <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={reactor.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
                          ) : (
                            <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-sm font-semibold text-muted-foreground">
                              {(reactor.full_name || "?")[0]?.toUpperCase()}
