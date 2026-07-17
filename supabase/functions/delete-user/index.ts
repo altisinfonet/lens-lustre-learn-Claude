@@ -51,6 +51,10 @@ Deno.serve(async (req) => {
       "stories", "support_tickets", "ticket_replies", "user_badges", "user_notifications",
       "user_roles", "verification_requests", "wallet_transactions", "wallets",
       "withdrawal_requests",
+      // BUG-050: user-owned personal data / device tokens / queued content that
+      // previously orphaned after deletion (privacy + scheduled-post ghost author).
+      "user_devices", "scheduled_posts", "post_shares", "photo_albums",
+      "notification_preferences", "newsletter_subscribers",
     ];
 
     for (const table of userIdTables) {
@@ -67,12 +71,22 @@ Deno.serve(async (req) => {
     await adminClient.from("judge_scores").delete().eq("judge_id", user_id);
     await adminClient.from("judge_tag_assignments").delete().eq("judge_id", user_id);
 
+    // BUG-050: user-owned rows keyed by non-user_id columns
+    await adminClient.from("portfolio_images").delete().eq("uploaded_by", user_id);
+    // Moderation reports FILED BY the user: reporter_id is NOT NULL, so remove the
+    // report rows (reporter is gone) rather than orphan them.
+    await adminClient.from("reports").delete().eq("reporter_id", user_id);
+    await adminClient.from("comment_reports").delete().eq("reporter_id", user_id);
+    await adminClient.from("post_reports").delete().eq("reporter_id", user_id);
+
     // Nullify references where we don't want to delete the parent record
     await adminClient.from("comment_reports").update({ reviewed_by: null }).eq("reviewed_by", user_id);
     await adminClient.from("post_reports").update({ reviewed_by: null }).eq("reviewed_by", user_id);
     await adminClient.from("role_applications").update({ reviewed_by: null }).eq("reviewed_by", user_id);
     await adminClient.from("verification_requests").update({ reviewed_by: null }).eq("reviewed_by", user_id);
     await adminClient.from("withdrawal_requests").update({ reviewed_by: null }).eq("reviewed_by", user_id);
+    // BUG-050: anonymize the deleted user as an actor in other users' notifications
+    await adminClient.from("user_notifications").update({ actor_id: null }).eq("actor_id", user_id);
 
     // Delete profile (public schema)
     await adminClient.from("profiles").delete().eq("id", user_id);
