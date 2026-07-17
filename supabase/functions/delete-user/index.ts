@@ -88,6 +88,24 @@ Deno.serve(async (req) => {
     // BUG-050: anonymize the deleted user as an actor in other users' notifications
     await adminClient.from("user_notifications").update({ actor_id: null }).eq("actor_id", user_id);
 
+    // BUG-111: purge the remaining user-referencing tables that were still orphaning
+    // after BUG-050 (feed_events, ai_chat_usage, raw_commitments (PII), judge_* work +
+    // decisions, held_result_notifications, notification_emit_log, ad_conversions,
+    // auth_login_attempts, custom_url_history, post_tags) and strip the user from other
+    // users' scheduled_posts.tagged_user_ids[]. Done atomically server-side; financial/
+    // audit ledgers are intentionally preserved. Non-fatal: log and continue on error.
+    {
+      const { data: purge, error: purgeErr } = await adminClient.rpc(
+        "admin_purge_orphan_user_data",
+        { _uid: user_id },
+      );
+      if (purgeErr) {
+        console.error("admin_purge_orphan_user_data error:", purgeErr);
+      } else {
+        console.log("Purged orphan user data:", JSON.stringify(purge));
+      }
+    }
+
     // Delete profile (public schema)
     await adminClient.from("profiles").delete().eq("id", user_id);
 
