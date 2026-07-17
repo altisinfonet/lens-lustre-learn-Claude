@@ -68,21 +68,32 @@ Deno.serve(async (req) => {
 
     const user_id = claimsData.claims.sub;
 
-    // FIX 2: Check server-side cache first
-    const cached = getCached(user_id);
-    if (cached) {
-      return new Response(
-        JSON.stringify({ ranked_ids: cached, cached: true }),
-        { headers: { ...secureHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
+    // BUG-061: read the submitted candidate set FIRST so the cache can be
+    // reconciled against it. Returning the cache before reading body.posts hid a
+    // just-posted item (not in the 60s-old cache) until the TTL expired.
     const body = await req.json();
     const posts = body?.posts;
 
     if (!Array.isArray(posts) || posts.length === 0) {
       return new Response(
         JSON.stringify({ ranked_ids: [] }),
+        { headers: { ...secureHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // FIX 2: server-side cache (60s TTL) — but MERGE it against the current
+    // candidate set instead of returning it blindly: keep the cached ranking for
+    // ids still present, drop stale ids, and surface any NEW candidate ids
+    // (e.g. the user's just-posted item) at the top rather than hiding them.
+    const cached = getCached(user_id);
+    if (cached) {
+      const rank = new Map<string, number>(cached.map((id, i) => [id, i]));
+      const mergedIds = posts
+        .map((p: any, i: number) => ({ id: p.id, i, r: rank.has(p.id) ? (rank.get(p.id) as number) : -1 }))
+        .sort((a: any, b: any) => a.r - b.r || a.i - b.i)
+        .map((x: any) => x.id);
+      return new Response(
+        JSON.stringify({ ranked_ids: mergedIds, cached: true }),
         { headers: { ...secureHeaders, "Content-Type": "application/json" } },
       );
     }
