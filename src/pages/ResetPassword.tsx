@@ -64,11 +64,16 @@ const ResetPassword = () => {
       setPendingEmail(recoveryEmail);
     }
 
-    // If user has a valid session on this page, they came from a recovery link
+    // BUG-051: a plain authenticated session must NOT grant password-reset access.
+    // Recovery is entered ONLY via a real recovery signal (PASSWORD_RECOVERY event,
+    // a verified recovery_token, or a recovery-type / access_token hash from the
+    // email link) — all handled above. Here we only populate userId for the
+    // reuse/history checks; we do NOT set isRecovery just because a session exists,
+    // otherwise anyone on a shared logged-in browser could reset the password with
+    // no old password or emailed token.
     supabase.auth.getUser().then(({ data }) => {
       if (data.user?.id) {
         setUserId(data.user.id);
-        setIsRecovery(true);
       }
     });
 
