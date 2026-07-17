@@ -627,7 +627,7 @@ const JudgePanel = () => {
           flagUnjudgedEntries(
             result.unjudged_ids,
             "missing_scores",
-            errMsg || "Missing 10-criteria score",
+            errMsg || "Missing 15-criteria score",
           );
         }
         if (Array.isArray(result?.needs_review_ids) && result.needs_review_ids.length > 0) {
@@ -661,7 +661,7 @@ const JudgePanel = () => {
           if (decisionIds.length > 0) {
             const reason = result?.code === "scores_incomplete" ? "missing_scores" : "missing_decisions";
             const message = result?.code === "scores_incomplete"
-              ? "Fill all 10 SOW criteria on the highlighted photos"
+              ? "Fill all 15 criteria on the highlighted photos"
               : "Missing photo decision";
             flagUnjudgedEntries(decisionIds, reason as any, message);
           }
@@ -670,6 +670,17 @@ const JudgePanel = () => {
           title: "Round completion failed",
           description: result?.summary ? `${result.summary}. ${details.slice(-1)[0] ?? ""}` : (details.length > 0 ? `${errMsg} — ${details.join("; ")}` : errMsg),
           variant: "destructive",
+        });
+        return;
+      }
+
+      // BUG-056: an already-processed no-op is a WARNING, not a fresh success —
+      // no writes happened, so don't mark the round completed as if this call
+      // did the work. Surface it clearly and refresh state from the server.
+      if (result?.already_processed || result?.warning) {
+        toast({
+          title: "No action taken",
+          description: result?.message ?? "This round was already completed earlier — nothing was changed by this request.",
         });
         return;
       }

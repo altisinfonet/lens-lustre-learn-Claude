@@ -540,10 +540,12 @@ const CinemaJudgeView = (props: CinemaJudgeViewProps) => {
             }
 
             // 4) All judged + zero Needs Review → Complete Round
+            // BUG-057: route through the confirmation dialog + preflight
+            // (setCompleteRoundConfirm) — never call handleCompleteRound directly.
             if (allJudged) {
               return (
                 <button
-                  onClick={() => selectedRound && handleCompleteRound(selectedRound)}
+                  onClick={() => selectedRound && setCompleteRoundConfirm(selectedRound)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all border border-emerald-500/30 hover:border-emerald-500/50 animate-pulse"
                   style={{ fontFamily: "var(--font-heading)" }}
                   aria-label="Complete Round"
