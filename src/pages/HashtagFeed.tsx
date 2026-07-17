@@ -60,13 +60,29 @@ const HashtagFeed = () => {
     }
 
     const authorIds = [...new Set(data.map((p) => p.user_id))];
-    const [profileMap, adminIds] = await Promise.all([
+    const [profileMap, adminIds, moderatedRes] = await Promise.all([
       fetchProfileMap(authorIds),
       getAdminIds(),
+      // BUG-119: mirror BUG-088 — hashtag results must exclude banned/suspended
+      // authors (the hashtag query only filtered privacy='public'). anon has no
+      // SELECT on the mirror's moderation flags (BUG-121), so use the anon-callable
+      // ban-aware RPC which returns the moderated subset of these author ids.
+      supabase.rpc("filter_moderated_user_ids", { _ids: authorIds } as any),
     ]);
 
+    const blockedAuthors = new Set(
+      ((moderatedRes.data as any[]) || []).map((r) => r.id),
+    );
+    const visiblePosts = data.filter((p) => !blockedAuthors.has(p.user_id));
+
+    if (visiblePosts.length === 0) {
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
+
     setPosts(
-      data.map((p) => ({
+      visiblePosts.map((p) => ({
         ...p,
         image_urls: (p as any).image_urls || (p.image_url ? [p.image_url] : []),
         author_name: resolveName(p.user_id, profileMap.get(p.user_id)?.full_name ?? null, adminIds),
