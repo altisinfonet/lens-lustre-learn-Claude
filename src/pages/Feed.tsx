@@ -192,10 +192,13 @@ const Feed = () => {
       toast({ title: "Your account is restricted from posting", variant: "destructive" });
       return;
     }
-    // Record the share reference (not a duplicate post)
+    // Record the share reference (not a duplicate post).
+    // BUG-062: post_shares has no UPDATE policy, so a default upsert
+    // (ON CONFLICT DO UPDATE) fails RLS on re-share. ignoreDuplicates makes it
+    // ON CONFLICT DO NOTHING so re-sharing is a safe no-op instead of an error.
     const { error } = await supabase.from("post_shares" as any).upsert(
       { post_id: post.id, user_id: user.id } as any,
-      { onConflict: "post_id,user_id" }
+      { onConflict: "post_id,user_id", ignoreDuplicates: true }
     );
     if (error) {
       toast({ title: "Failed to share", variant: "destructive" });

@@ -18,19 +18,57 @@ async function fetchAndEnrich(
   currentUserId: string | undefined,
   cursor: string | null,
 ): Promise<UserPostsPage> {
-  let query = supabase
+  // BUG-062: the wall shows the user's OWN posts AND posts they've SHARED to
+  // their wall, merged into one newest-first stream (a shared item sorts by its
+  // SHARE time). Defensive: if the shares lookup fails, fall back to own posts
+  // only so the wall never breaks.
+  let ownQuery = supabase
     .from("posts")
     .select("*")
     .eq("user_id", targetUserId)
     .order("created_at", { ascending: false })
     .limit(PAGE_SIZE);
-
+  let shareQuery = supabase
+    .from("post_shares")
+    .select("post_id, created_at")
+    .eq("user_id", targetUserId)
+    .order("created_at", { ascending: false })
+    .limit(PAGE_SIZE);
   if (cursor) {
-    query = query.lt("created_at", cursor);
+    ownQuery = ownQuery.lt("created_at", cursor);
+    shareQuery = shareQuery.lt("created_at", cursor);
   }
 
-  const { data: postsData, error } = await query;
-  if (error || !postsData || postsData.length === 0) {
+  const [ownRes, shareRes] = await Promise.all([ownQuery, shareQuery]);
+  if (ownRes.error && shareRes.error) {
+    return { posts: [], nextCursor: null };
+  }
+
+  const ownRows = (ownRes.data || []).map((p: any) => ({ ...p }));
+
+  // Resolve shared posts (authored by others) and stamp them with the share time
+  // so they order/paginate by when they were shared.
+  let sharedRows: any[] = [];
+  const shareList = shareRes.error ? [] : (shareRes.data || []);
+  if (shareList.length > 0) {
+    const sharedIds = shareList.map((s: any) => s.post_id);
+    const shareTs = new Map<string, string>(shareList.map((s: any) => [s.post_id, s.created_at]));
+    const { data: sharedPosts } = await supabase.from("posts").select("*").in("id", sharedIds);
+    sharedRows = (sharedPosts || []).map((p: any) => ({
+      ...p,
+      created_at: shareTs.get(p.id) || p.created_at,
+    }));
+  }
+
+  // Merge (own-post precedence on id collision), newest-first by effective time.
+  const mergedById = new Map<string, any>();
+  for (const r of ownRows) mergedById.set(r.id, r);
+  for (const r of sharedRows) if (!mergedById.has(r.id)) mergedById.set(r.id, r);
+  const postsData = [...mergedById.values()]
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0))
+    .slice(0, PAGE_SIZE);
+
+  if (postsData.length === 0) {
     return { posts: [], nextCursor: null };
   }
 
