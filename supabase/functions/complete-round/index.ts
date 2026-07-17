@@ -1164,8 +1164,6 @@ Deno.serve(async (req) => {
       // - shortlisted = explicitly shortlisted into Round 2
       const entries = await fetchAllEntries({ current_round: "2", status_in: "round1_qualified,shortlisted" });
 
-      await saveSnapshot(entries);
-
       if (entries.length === 0) {
         await admin.from("competitions").update({ current_round: "3" }).eq("id", competition_id);
         await lockRound(2);
@@ -1275,6 +1273,11 @@ Deno.serve(async (req) => {
         });
       }
 
+      // BUG-086: snapshot only AFTER the coverage/score gates pass and only on a
+      // real close (dry_run returned above) — it was saved right after fetch,
+      // bloating snapshots on every dry_run preview and gate-blocked attempt.
+      await saveSnapshot(entries);
+
       // Declared-result source of truth:
       //  - Promoted/qualified entries carry a canonical progression_decision so
       //    entry_public_status can reveal them immediately after Admin declares R2.
@@ -1319,8 +1322,6 @@ Deno.serve(async (req) => {
     // ── ROUND 3: DECISION-BASED PROGRESSION ──
     if (round_number === 3) {
       const entries = await fetchAllEntries({ current_round: "3" });
-
-      await saveSnapshot(entries);
 
       if (entries.length === 0) {
         await admin.from("competitions").update({ current_round: "4" }).eq("id", competition_id);
@@ -1431,6 +1432,10 @@ Deno.serve(async (req) => {
         });
       }
 
+      // BUG-086: snapshot only AFTER gates pass and only on a real close
+      // (dry_run returned above) — was saved right after fetch (bloat).
+      await saveSnapshot(entries);
+
       // Declared-result source of truth:
       //  - Promoted/qualified entries carry a canonical progression_decision so
       //    entry_public_status can reveal them immediately after Admin declares R3.
@@ -1484,8 +1489,6 @@ Deno.serve(async (req) => {
         `unique=${UNIQUE_AWARDS.length}`);
 
       const entries = await fetchAllEntries({ current_round: "4" });
-
-      await saveSnapshot(entries);
 
       if (entries.length === 0) {
         return json({ error: "No entries in Round 4. Cannot finalize." }, 409);
@@ -1626,6 +1629,10 @@ Deno.serve(async (req) => {
           },
         });
       }
+
+      // BUG-086: snapshot only AFTER the score-coverage gate passes and only on
+      // a real close (dry_run returned above).
+      await saveSnapshot(entries);
 
       // Apply status + placement updates
       for (const update of statusUpdates) {
