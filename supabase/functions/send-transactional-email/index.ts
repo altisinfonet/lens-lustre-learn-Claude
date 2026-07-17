@@ -85,8 +85,12 @@ Deno.serve(async (req) => {
     const body = await req.json()
     templateName = body.templateName || body.template_name
     recipientEmail = body.recipientEmail || body.recipient_email
-    messageId = crypto.randomUUID()
-    idempotencyKey = body.idempotencyKey || body.idempotency_key || messageId
+    // BUG-067: the queue dedups on message_id, so message_id MUST be derived
+    // from the idempotency key when one is supplied — otherwise a fresh UUID per
+    // call defeats dedup and the same email sends twice. Fall back to a random
+    // UUID only when no idempotency key is provided.
+    idempotencyKey = body.idempotencyKey || body.idempotency_key || crypto.randomUUID()
+    messageId = idempotencyKey
     if (body.templateData && typeof body.templateData === 'object') {
       templateData = body.templateData
     }
