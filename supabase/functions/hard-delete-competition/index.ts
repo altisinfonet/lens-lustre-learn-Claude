@@ -475,9 +475,16 @@ Deno.serve(async (req) => {
       const allS3Keys = uniq([...s3Keys, ...referencedS3Keys]);
       s3Deleted = await deleteS3Keys(s3, allS3Keys);
 
-      // Verify by re-listing
-      const residue = await listS3KeysByPrefixes(s3, storagePrefixes.map((p) => `competition-photos/${p}/`));
-      s3ResidueAfter = residue.length;
+      // BUG-070: verify HONESTLY. Real layout is competition-photos/<userId>/
+      // competitions/<file> — no competition_id/entry_id in the path — so the old
+      // storagePrefixes never matched and residue was always 0 (false "clean").
+      // Re-list the ACTUAL parent folders of the deleted keys and count only keys
+      // we targeted that survived; never other competitions' files sharing the
+      // same <userId>/competitions/ folder.
+      const s3RefSet = new Set(allS3Keys);
+      const s3Parents = uniq(allS3Keys.map((k) => (k.includes("/") ? k.slice(0, k.lastIndexOf("/")) : "")));
+      const s3Residue = (await listS3KeysByPrefixes(s3, s3Parents)).filter((k) => s3RefSet.has(k));
+      s3ResidueAfter = s3Residue.length;
     }
 
     // Finally delete the competition itself
@@ -567,8 +574,13 @@ Deno.serve(async (req) => {
       try { residue[name] = await fn(); } catch (e) { residue[name] = -1; }
     }
 
-    // Storage residue — re-list internal bucket
-    const supaResidue = await listSupabaseStorageByPrefixes(adminClient, "competition-photos", storagePrefixes);
+    // Storage residue — BUG-070: verify against the REAL parent folders of the
+    // referenced paths (competition-photos/<userId>/competitions/...), counting
+    // only referenced paths that survived deletion. The old storagePrefixes
+    // (competition_id/entry_id) never matched -> always reported 0 (false clean).
+    const refSet = new Set(referencedPaths);
+    const refParents = uniq(referencedPaths.map((p) => (p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "")));
+    const supaResidue = (await listSupabaseStorageByPrefixes(adminClient, "competition-photos", refParents)).filter((k) => refSet.has(k));
     residue["storage_supabase"] = supaResidue.length;
     residue["storage_s3"] = s3ResidueAfter;
 
