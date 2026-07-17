@@ -69,7 +69,8 @@ Deno.serve(async () => {
     const { data: competitions } = await supabase
       .from("competitions")
       .select("id, updated_at, cover_image_url, title")
-      .in("status", ["open", "closed", "judging", "completed"]);
+      .in("status", ["open", "closed", "judging", "completed"])
+      .limit(HARD_CAP_PER_SECTION); // BUG-096: cap all sections, not just profiles/posts
 
     if (competitions) {
       for (const c of competitions) {
@@ -87,7 +88,8 @@ Deno.serve(async () => {
     const { data: articles } = await supabase
       .from("journal_articles")
       .select("slug, updated_at, cover_image_url")
-      .eq("status", "published");
+      .eq("status", "published")
+      .limit(HARD_CAP_PER_SECTION); // BUG-096
 
     if (articles) {
       for (const a of articles) {
@@ -105,7 +107,8 @@ Deno.serve(async () => {
     const { data: courses } = await supabase
       .from("courses")
       .select("slug, updated_at, cover_image_url")
-      .eq("status", "published");
+      .eq("status", "published")
+      .limit(HARD_CAP_PER_SECTION); // BUG-096
 
     if (courses) {
       for (const c of courses) {
@@ -123,7 +126,8 @@ Deno.serve(async () => {
     const { data: artists } = await supabase
       .from("featured_artists")
       .select("slug, updated_at, cover_image_url")
-      .eq("is_active", true);
+      .eq("is_active", true)
+      .limit(HARD_CAP_PER_SECTION); // BUG-096
 
     if (artists) {
       for (const a of artists) {
