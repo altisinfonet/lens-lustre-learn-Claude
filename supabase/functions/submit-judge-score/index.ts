@@ -111,12 +111,12 @@ Deno.serve(async (req) => {
   if (typeof feedback === "string" && feedback.length > 5000)
     return bad("feedback exceeds 5000 chars");
 
-  // Validate criteria payload — Phase 5: reject any legacy keys, accept only the 10 SOW keys
+  // Validate criteria payload — Phase 5: reject any legacy keys, accept only the 15 SOW keys
   const writeCriteria: Record<string, number | null> = {};
   if (criteria && typeof criteria === "object") {
     for (const legacyCol of LEGACY_REJECTED_COLUMNS) {
       if (legacyCol in criteria) {
-        return bad(`${legacyCol} is a legacy criterion and not accepted in R2+. Use the 10 SOW keys only.`, 400);
+        return bad(`${legacyCol} is a legacy criterion and not accepted in R2+. Use the 15 SOW keys only.`, 400);
       }
     }
     for (const key of Object.keys(criteria)) {

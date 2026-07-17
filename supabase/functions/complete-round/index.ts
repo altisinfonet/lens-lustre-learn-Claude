@@ -529,7 +529,7 @@ Deno.serve(async (req) => {
       // that appear in judge_entry_assignments for THIS round are actually part of
       // the round's judging surface. R1-qualified entries that were never re-assigned
       // in R2/R3/R4 would otherwise become invisible-yet-blocking eligibility rows
-      // (UI never shows them, but the coverage gate demanded 10 SOW criteria from
+      // (UI never shows them, but the coverage gate demanded 15 SOW criteria from
       // every competition_judge → round-close was permanently un-completable).
       const { data: compRow } = await admin
         .from("competitions")
@@ -745,7 +745,7 @@ Deno.serve(async (req) => {
 
       // Load current-round judge_scores rows for these entries in batches.
       // Multiple rows can exist historically for the same judge/photo; coverage
-      // passes if ANY current-round row has all 10 SOW criteria complete.
+      // passes if ANY current-round row has all 15 SOW criteria complete.
       const entryIds = entries.map((e: any) => e.id);
       const scoreRows: any[] = [];
       const cols = ["entry_id","judge_id","photo_index", ...SOW_SCORE_COLS].join(",");
@@ -1221,11 +1221,11 @@ Deno.serve(async (req) => {
         }, 409);
       }
 
-      // Spec v3 / B3+B4: every (judge, eligible photo) must have all 10 SOW criteria filled.
+      // Spec v3 / B3+B4: every (judge, eligible photo) must have all 15 SOW criteria filled.
       const scoreCovR2 = await checkScoreCoverage(entries, eligibleKeysR2);
       if (!scoreCovR2.ok) {
         return json({
-          error: `Cannot complete Round 2 — ${scoreCovR2.summary}. Each photo needs all 10 SOW criteria scored.`,
+          error: `Cannot complete Round 2 — ${scoreCovR2.summary}. Each photo needs all 15 SOW criteria scored.`,
           missing_score_count: scoreCovR2.missing_count,
           sample: scoreCovR2.sample,
           summary: scoreCovR2.summary,
@@ -1380,11 +1380,11 @@ Deno.serve(async (req) => {
         }, 409);
       }
 
-      // Spec v3 / B3+B4: every (judge, eligible photo) must have all 10 SOW criteria filled.
+      // Spec v3 / B3+B4: every (judge, eligible photo) must have all 15 SOW criteria filled.
       const scoreCovR3 = await checkScoreCoverage(entries, eligibleKeysR3);
       if (!scoreCovR3.ok) {
         return json({
-          error: `Cannot complete Round 3 — ${scoreCovR3.summary}. Each photo needs all 10 SOW criteria scored.`,
+          error: `Cannot complete Round 3 — ${scoreCovR3.summary}. Each photo needs all 15 SOW criteria scored.`,
           missing_score_count: scoreCovR3.missing_count,
           sample: scoreCovR3.sample,
           summary: scoreCovR3.summary,
