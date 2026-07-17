@@ -206,7 +206,14 @@ const Certificates = () => {
           const resolved = resolveEligibleRound(entry);
           if (!resolved) return null;
           // Per-(entry,type) dedupe — see existingRefTypeKeys above.
-          if (existingRefTypeKeys.has(`${entry.id}::${resolved.certType}`)) return null;
+          // BUG-079: reference_id convention is split — new certs store the ENTRY
+          // id, legacy/award certs store the COMPETITION id. Dedupe against BOTH
+          // (matching the dual-match readers in Dashboard/SubmissionDetail) so a
+          // legacy competition-level cert isn't offered again as a duplicate.
+          if (
+            existingRefTypeKeys.has(`${entry.id}::${resolved.certType}`) ||
+            existingRefTypeKeys.has(`${entry.competition_id}::${resolved.certType}`)
+          ) return null;
           const compTitle = entry.competitions?.title || "Competition";
           const { title, description } = certLabel(resolved.certType, compTitle);
           return {
