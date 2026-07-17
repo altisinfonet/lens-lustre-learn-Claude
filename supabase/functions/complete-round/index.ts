@@ -668,26 +668,34 @@ Deno.serve(async (req) => {
       return { ok: false, missing_judges: missingJudges.size, missing_decisions: missingCount, sample: missingSample, missing_full: missingFull, assigned_judges: assignedJudges.length };
     };
 
-    // ── Spec v3 / Blockers B3+B4: Mandatory 10 criteria coverage gate (R2/R3/R4 only) ──
-    // Every (judge, eligible photo) pair must have a judge_scores row with all 10 SOW
-    // criteria non-null. Locking the round is blocked until this is satisfied.
+    // ── JUDGING-15: Mandatory 15-criteria coverage gate (R2/R3/R4 only) ──
+    // Every (judge, eligible photo) pair must have a judge_scores row with all
+    // FIFTEEN elements of art non-null (owner-approved 2026-07-16). Locking the
+    // round is blocked until this is satisfied.
     const SOW_SCORE_COLS = [
-      "line_score","shape_score","form_score","texture_score","color_palette_score",
+      "composition_score","color_palette_score","technique_score",
+      "line_score","shape_score","form_score","texture_score",
       "space_score","tone_score","balance_score","light_score","depth_score",
+      "editing_score","story_score","moment_score",
     ] as const;
 
-    // Fix B (audit 2026-07-04): human-readable SOW criteria labels for the toast.
+    // Human-readable criteria labels for the toast.
     const SOW_LABELS: Record<string, string> = {
+      composition_score: "Composition",
+      color_palette_score: "Color Palette",
+      technique_score: "Technique",
       line_score: "Line",
       shape_score: "Shape",
       form_score: "Form",
       texture_score: "Texture",
-      color_palette_score: "Color Palette",
       space_score: "Space",
       tone_score: "Tone",
       balance_score: "Balance",
       light_score: "Light",
       depth_score: "Depth",
+      editing_score: "Editing",
+      story_score: "Story",
+      moment_score: "Moment",
     };
 
     // Fix B: derive a human photo label from photo_meta[pi].title, photo filename,
@@ -896,11 +904,14 @@ Deno.serve(async (req) => {
     if (!comp) return json({ error: "Competition not found" }, 404);
 
     const currentRoundNum = comp.current_round ? parseInt(comp.current_round, 10) : 0;
+    // BUG-056: an already-processed call performs NO writes — surface it as a
+    // WARNING (warning:true, ok:false) so the UI doesn't render it as a fresh
+    // successful round close. HTTP stays 200 (idempotent no-op, not an error).
     if (currentRoundNum > round_number) {
-      return json({ message: `Round ${round_number} already completed.`, already_processed: true });
+      return json({ message: `Round ${round_number} already completed.`, already_processed: true, warning: true, ok: false });
     }
     if (comp.phase === "result") {
-      return json({ message: "Competition already finalized.", already_processed: true });
+      return json({ message: "Competition already finalized.", already_processed: true, warning: true, ok: false });
     }
 
     // ── FIX 10: Lock completed round ──
@@ -1118,8 +1129,11 @@ Deno.serve(async (req) => {
       }
 
       await Promise.all([
-        // Ruleset v4: certificates are R4-only. R1 promotion never sets certificate_ready=true.
-        qualifiedIds.length > 0 ? batchUpdateEntries(qualifiedIds, { status: "round1_qualified", current_round: "2", certificate_ready: false, progression_decision: "r1_accepted" }) : Promise.resolve(),
+        // PHASE-2 (owner SOW 2026-07-16): "Accepted in Round 1" is TERMINAL — the
+        // entry's journey ends at R1 (current_round stays "1") and it earns the
+        // Round-1 Acceptance Certificate (issued after Declare — Phase 3).
+        // Only "Shortlist for Round 2" advances.
+        qualifiedIds.length > 0 ? batchUpdateEntries(qualifiedIds, { status: "round1_qualified", current_round: "1", certificate_ready: false, progression_decision: "r1_accepted" }) : Promise.resolve(),
         shortlistedIds.length > 0 ? batchUpdateEntries(shortlistedIds, { status: "shortlisted", current_round: "2", certificate_ready: false, progression_decision: "r1_shortlisted_r2" }) : Promise.resolve(),
       ]);
 
@@ -1276,7 +1290,10 @@ Deno.serve(async (req) => {
         promotedIds.length > 0 ? batchUpdateEntries(promotedIds, { status: "round2_qualified", current_round: "3", certificate_ready: false, progression_decision: "r2_qualified_r3" }) : Promise.resolve(),
         rejectedIds.length > 0 ? batchUpdateEntries(rejectedIds, { status: "rejected", current_round: "2", certificate_ready: false }) : Promise.resolve(),
         noEligibleIds.length > 0 ? batchUpdateEntries(noEligibleIds, { status: "rejected", current_round: "2", certificate_ready: false }) : Promise.resolve(),
-        qualifiedIds.length > 0 ? batchUpdateEntries(qualifiedIds, { status: "round2_qualified", current_round: "3", certificate_ready: false, progression_decision: "r2_accepted" }) : Promise.resolve(),
+        // PHASE-2 (owner SOW): "Accepted in Round 2" is TERMINAL — stays at R2
+        // (current_round "2"), earns the Round-2 Acceptance Certificate after
+        // Declare (Phase 3). Only "Qualified for Round 3" advances.
+        qualifiedIds.length > 0 ? batchUpdateEntries(qualifiedIds, { status: "round2_qualified", current_round: "2", certificate_ready: false, progression_decision: "r2_accepted" }) : Promise.resolve(),
       ]);
 
       await admin.from("competitions").update({ current_round: "3" }).eq("id", competition_id);
@@ -1429,7 +1446,12 @@ Deno.serve(async (req) => {
         promotedIds.length > 0 ? batchUpdateEntries(promotedIds, { status: "finalist", current_round: "4", certificate_ready: false, progression_decision: "r3_qualified_final" }) : Promise.resolve(),
         rejectedIds.length > 0 ? batchUpdateEntries(rejectedIds, { status: "rejected", current_round: "3", certificate_ready: false }) : Promise.resolve(),
         noEligibleIds.length > 0 ? batchUpdateEntries(noEligibleIds, { status: "rejected", current_round: "3", certificate_ready: false }) : Promise.resolve(),
-        finalistIds.length > 0 ? batchUpdateEntries(finalistIds, { status: "finalist", current_round: "4", certificate_ready: false, progression_decision: "r3_accepted" }) : Promise.resolve(),
+        // PHASE-2 (owner SOW): "Accepted in Round 3" is TERMINAL — the entry
+        // stops at R3 as round3_qualified (NOT a finalist; requires the
+        // round3_qualified status added by phase2_prereqs.sql) and earns the
+        // Round-3 Acceptance Certificate after Declare (Phase 3).
+        // Only "Qualified for Final" advances to R4.
+        finalistIds.length > 0 ? batchUpdateEntries(finalistIds, { status: "round3_qualified", current_round: "3", certificate_ready: false, progression_decision: "r3_accepted" }) : Promise.resolve(),
       ]);
 
       await admin.from("competitions").update({ current_round: "4" }).eq("id", competition_id);
@@ -1471,13 +1493,27 @@ Deno.serve(async (req) => {
 
       const entryIds = entries.map((e: any) => e.id);
 
-      // Spec v3 / B3+B4: every (judge, eligible R4 photo) must have all 10 SOW criteria.
+      // JUDGING-15: every (judge, eligible R4 photo) must have all 15 criteria.
       // R4 eligibility = every photo of every R4 entry (no decision-based pre-filter at R4).
       const eligibleKeysR4 = await fetchEligiblePhotoKeys(entries, 4);
+      // BUG-055 (owner decision 2026-07-16): ANY photo carrying an R4 award tag
+      // must be fully scored, even if it wasn't in the R3-qualified eligible set.
+      // Union award-tagged photos into the coverage key set so an award can never
+      // rest on an unscored photo.
+      {
+        const { data: awardTagged } = await admin
+          .from("judge_tag_assignments")
+          .select("entry_id, photo_index")
+          .eq("round_number", 4)
+          .in("entry_id", entryIds);
+        for (const t of (awardTagged || [])) {
+          eligibleKeysR4.add(`${(t as any).entry_id}::${(t as any).photo_index ?? 0}`);
+        }
+      }
       const scoreCovR4 = await checkScoreCoverage(entries, eligibleKeysR4);
       if (!scoreCovR4.ok) {
         return json({
-          error: `Cannot finalize Round 4 — ${scoreCovR4.summary}. Each photo needs all 10 SOW criteria scored.`,
+          error: `Cannot finalize Round 4 — ${scoreCovR4.summary}. Each photo (including every award-tagged photo) needs all 15 criteria scored.`,
           missing_score_count: scoreCovR4.missing_count,
           sample: scoreCovR4.sample,
           summary: scoreCovR4.summary,
