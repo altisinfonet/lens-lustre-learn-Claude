@@ -30,6 +30,9 @@ const FORBIDDEN_MARK_FIELDS = [
   "depth_score",
   "composition_score",
   "technique_score",
+  "editing_score",
+  "story_score",
+  "moment_score",
   // Aggregate marks that must also never reach participants directly
   "judge_score",
   "raw_score",

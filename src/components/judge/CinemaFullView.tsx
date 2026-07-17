@@ -384,8 +384,9 @@ const CinemaFullView = (props: CinemaFullViewProps) => {
   }, [activeCriteriaKeys, localCriteria, computedFinal.length, selectedPhotoEvaluation?.score]);
 
   const finalIntegerScore = useMemo(() => {
+    // JUDGING-15: the final mark is the average of the 15 criteria, one decimal.
     if (avgScore === null || avgScore === undefined) return selectedPhotoEvaluation?.score ?? null;
-    return Math.round(avgScore);
+    return Math.round(avgScore * 10) / 10;
   }, [avgScore, selectedPhotoEvaluation?.score]);
 
   // Tag counts — passed from parent CinemaJudgeView to avoid duplicate O(n²) computation
@@ -404,10 +405,10 @@ const CinemaFullView = (props: CinemaFullViewProps) => {
   const handleSubmitEvaluation = useCallback(() => {
     if (!selectedEntry || !selectedPhoto || isLocked || !!scoringEntry) return;
 
-    // Spec v3 — R2/R3 require ALL 10 SOW criteria filled before submit.
+    // JUDGING-15 — R2/R3/R4 require ALL 15 criteria filled before submit.
     // No partial scores, no score=0 shortcut, no 'Needs Review' fallback.
     const totalCriteria = (activeCriteriaKeys as readonly string[]).length;
-    const isScoringRound = props.roundNumber === 2 || props.roundNumber === 3;
+    const isScoringRound = (props.roundNumber ?? 0) >= 2;
     if (isScoringRound && computedFinal.length < totalCriteria) {
       toast({
         title: `${totalCriteria - computedFinal.length} of ${totalCriteria} criteria remaining`,
@@ -423,8 +424,10 @@ const CinemaFullView = (props: CinemaFullViewProps) => {
       return;
     }
 
-    // Reuse memoized avgScore to avoid divergence with computedFinal
-    const finalScore = computedFinal.length > 0 ? Math.round(avgScore!) : (selectedPhotoEvaluation?.score ?? 0);
+    // Reuse memoized avgScore to avoid divergence with computedFinal.
+    // JUDGING-15: send the one-decimal average (edge is authoritative and
+    // recomputes it from the 15 criteria regardless).
+    const finalScore = computedFinal.length > 0 ? Math.round(avgScore! * 10) / 10 : (selectedPhotoEvaluation?.score ?? 0);
     handleQuickScore(selectedEntry.id, selectedPhoto.photoIndex, finalScore, { criteria: localCriteria });
     setIsDirty(false);
   }, [selectedEntry, selectedPhoto, localCriteria, handleQuickScore, selectedPhotoEvaluation, isLocked, avgScore, computedFinal, scoringEntry, activeCriteriaKeys, props.roundNumber]);

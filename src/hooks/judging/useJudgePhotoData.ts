@@ -52,6 +52,9 @@ function buildMaps(
         balance: row.balance_score ?? null,
         light: row.light_score ?? null,
         depth: row.depth_score ?? null,
+        editing: row.editing_score ?? null,
+        story: row.story_score ?? null,
+        moment: row.moment_score ?? null,
       };
     }
   });
@@ -101,7 +104,7 @@ async function fetchPhotoData(
   if (entryIds.length === 0) return { photoScoresMap: {}, photoTagsMap: {}, photoCommentsMap: {}, photoDecisionsMap: {} };
 
   const [scores, tagAssigns, comments, decisions] = await Promise.all([
-    fetchInBatches((ids) => (supabase.from("judge_scores" as any).select("entry_id, judge_id, round_number, score, feedback, photo_index, composition_score, color_palette_score, technique_score, line_score, shape_score, form_score, texture_score, space_score, tone_score, balance_score, light_score, depth_score") as any).in("entry_id", ids), entryIds),
+    fetchInBatches((ids) => (supabase.from("judge_scores" as any).select("entry_id, judge_id, round_number, score, feedback, photo_index, composition_score, color_palette_score, technique_score, line_score, shape_score, form_score, texture_score, space_score, tone_score, balance_score, light_score, depth_score, editing_score, story_score, moment_score") as any).in("entry_id", ids), entryIds),
     fetchInBatches((ids) => (supabase.from("judge_tag_assignments" as any).select("entry_id, tag_id, judge_id, round_number, photo_index, judging_tags(visible_in_round)") as any).in("entry_id", ids), entryIds),
     fetchInBatches((ids) => (supabase.from("judge_comments" as any).select("id, entry_id, judge_id, comment, created_at, round_id, photo_index") as any).in("entry_id", ids), entryIds),
     fetchInBatches((ids) => (supabase.from("judge_decisions" as any).select("entry_id, judge_id, decision, round_number, photo_index") as any).in("entry_id", ids), entryIds),
