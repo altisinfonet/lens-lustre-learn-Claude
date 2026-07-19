@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -136,7 +136,6 @@ export type Database = {
           id: string | null
           judge_id: string | null
           photo_index: number | null
-          round_number: number | null
           tag_id: string | null
         }
         Insert: {
@@ -146,7 +145,6 @@ export type Database = {
           id?: string | null
           judge_id?: string | null
           photo_index?: number | null
-          round_number?: number | null
           tag_id?: string | null
         }
         Update: {
@@ -156,7 +154,6 @@ export type Database = {
           id?: string | null
           judge_id?: string | null
           photo_index?: number | null
-          round_number?: number | null
           tag_id?: string | null
         }
         Relationships: []
@@ -347,6 +344,7 @@ export type Database = {
       ad_conversions: {
         Row: {
           ad_id: string
+          ad_source: string | null
           conversion_type: string
           conversion_value: number
           created_at: string
@@ -358,6 +356,7 @@ export type Database = {
         }
         Insert: {
           ad_id: string
+          ad_source?: string | null
           conversion_type: string
           conversion_value?: number
           created_at?: string
@@ -369,6 +368,7 @@ export type Database = {
         }
         Update: {
           ad_id?: string
+          ad_source?: string | null
           conversion_type?: string
           conversion_value?: number
           created_at?: string
@@ -583,6 +583,27 @@ export type Database = {
           },
         ]
       }
+      auth_login_attempts: {
+        Row: {
+          failed_count: number
+          last_attempt: string
+          locked_until: string | null
+          user_id: string
+        }
+        Insert: {
+          failed_count?: number
+          last_attempt?: string
+          locked_until?: string | null
+          user_id: string
+        }
+        Update: {
+          failed_count?: number
+          last_attempt?: string
+          locked_until?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       badge_definitions: {
         Row: {
           badge_class: string
@@ -740,6 +761,7 @@ export type Database = {
           is_featured: boolean
           is_revoked: boolean
           issued_at: string
+          published_at: string | null
           reference_id: string | null
           revoked_at: string | null
           revoked_reason: string | null
@@ -758,6 +780,7 @@ export type Database = {
           is_featured?: boolean
           is_revoked?: boolean
           issued_at?: string
+          published_at?: string | null
           reference_id?: string | null
           revoked_at?: string | null
           revoked_reason?: string | null
@@ -776,6 +799,7 @@ export type Database = {
           is_featured?: boolean
           is_revoked?: boolean
           issued_at?: string
+          published_at?: string | null
           reference_id?: string | null
           revoked_at?: string | null
           revoked_reason?: string | null
@@ -860,7 +884,7 @@ export type Database = {
           id: string
           post_comment_id: string | null
           reason: string
-          reporter_id: string
+          reporter_id: string | null
           reviewed_by: string | null
           source: string | null
           status: string
@@ -874,7 +898,7 @@ export type Database = {
           id?: string
           post_comment_id?: string | null
           reason?: string
-          reporter_id: string
+          reporter_id?: string | null
           reviewed_by?: string | null
           source?: string | null
           status?: string
@@ -888,7 +912,7 @@ export type Database = {
           id?: string
           post_comment_id?: string | null
           reason?: string
-          reporter_id?: string
+          reporter_id?: string | null
           reviewed_by?: string | null
           source?: string | null
           status?: string
@@ -1093,6 +1117,27 @@ export type Database = {
             referencedColumns: ["stage_key"]
           },
         ]
+      }
+      competition_entry_counts: {
+        Row: {
+          cnt: number
+          competition_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          cnt?: number
+          competition_id: string
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          cnt?: number
+          competition_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       competition_judges: {
         Row: {
@@ -2117,6 +2162,57 @@ export type Database = {
         }
         Relationships: []
       }
+      held_result_notifications: {
+        Row: {
+          action_url: string | null
+          competition_id: string
+          created_at: string
+          email_data: Json
+          email_template: string | null
+          entity_id: string
+          id: string
+          in_app_message: string
+          in_app_reference_id: string | null
+          in_app_title: string
+          in_app_type: string
+          kind: string
+          recipient_user_id: string
+          round_number: number
+        }
+        Insert: {
+          action_url?: string | null
+          competition_id: string
+          created_at?: string
+          email_data?: Json
+          email_template?: string | null
+          entity_id: string
+          id?: string
+          in_app_message: string
+          in_app_reference_id?: string | null
+          in_app_title: string
+          in_app_type: string
+          kind: string
+          recipient_user_id: string
+          round_number: number
+        }
+        Update: {
+          action_url?: string | null
+          competition_id?: string
+          created_at?: string
+          email_data?: Json
+          email_template?: string | null
+          entity_id?: string
+          id?: string
+          in_app_message?: string
+          in_app_reference_id?: string | null
+          in_app_title?: string
+          in_app_type?: string
+          kind?: string
+          recipient_user_id?: string
+          round_number?: number
+        }
+        Relationships: []
+      }
       hero_banners: {
         Row: {
           active_from: string | null
@@ -2726,6 +2822,7 @@ export type Database = {
           composition_score: number | null
           created_at: string
           depth_score: number | null
+          editing_score: number | null
           entry_id: string
           feedback: string | null
           form_score: number | null
@@ -2733,11 +2830,13 @@ export type Database = {
           judge_id: string
           light_score: number | null
           line_score: number | null
+          moment_score: number | null
           photo_index: number
           round_number: number
           score: number | null
           shape_score: number | null
           space_score: number | null
+          story_score: number | null
           technique_score: number | null
           texture_score: number | null
           tone_score: number | null
@@ -2749,6 +2848,7 @@ export type Database = {
           composition_score?: number | null
           created_at?: string
           depth_score?: number | null
+          editing_score?: number | null
           entry_id: string
           feedback?: string | null
           form_score?: number | null
@@ -2756,11 +2856,13 @@ export type Database = {
           judge_id: string
           light_score?: number | null
           line_score?: number | null
+          moment_score?: number | null
           photo_index?: number
           round_number?: number
           score?: number | null
           shape_score?: number | null
           space_score?: number | null
+          story_score?: number | null
           technique_score?: number | null
           texture_score?: number | null
           tone_score?: number | null
@@ -2772,6 +2874,7 @@ export type Database = {
           composition_score?: number | null
           created_at?: string
           depth_score?: number | null
+          editing_score?: number | null
           entry_id?: string
           feedback?: string | null
           form_score?: number | null
@@ -2779,11 +2882,13 @@ export type Database = {
           judge_id?: string
           light_score?: number | null
           line_score?: number | null
+          moment_score?: number | null
           photo_index?: number
           round_number?: number
           score?: number | null
           shape_score?: number | null
           space_score?: number | null
+          story_score?: number | null
           technique_score?: number | null
           texture_score?: number | null
           tone_score?: number | null
@@ -3340,6 +3445,54 @@ export type Database = {
         }
         Relationships: []
       }
+      office_staff: {
+        Row: {
+          about: string
+          active_from: string | null
+          blood_group: string
+          created_at: string
+          created_by: string | null
+          designation: string
+          expires_on: string | null
+          full_name: string
+          id: string
+          id_number: string
+          job_status: string
+          photo_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          about?: string
+          active_from?: string | null
+          blood_group?: string
+          created_at?: string
+          created_by?: string | null
+          designation?: string
+          expires_on?: string | null
+          full_name: string
+          id?: string
+          id_number: string
+          job_status?: string
+          photo_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          about?: string
+          active_from?: string | null
+          blood_group?: string
+          created_at?: string
+          created_by?: string | null
+          designation?: string
+          expires_on?: string | null
+          full_name?: string
+          id?: string
+          id_number?: string
+          job_status?: string
+          photo_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       photo_albums: {
         Row: {
           album_type: string
@@ -3595,7 +3748,7 @@ export type Database = {
           id: string
           post_id: string
           reason: string
-          reporter_id: string
+          reporter_id: string | null
           reviewed_by: string | null
           status: string
           updated_at: string
@@ -3607,7 +3760,7 @@ export type Database = {
           id?: string
           post_id: string
           reason?: string
-          reporter_id: string
+          reporter_id?: string | null
           reviewed_by?: string | null
           status?: string
           updated_at?: string
@@ -3619,7 +3772,7 @@ export type Database = {
           id?: string
           post_id?: string
           reason?: string
-          reporter_id?: string
+          reporter_id?: string | null
           reviewed_by?: string | null
           status?: string
           updated_at?: string
@@ -3796,9 +3949,6 @@ export type Database = {
           bio: string | null
           city: string | null
           country: string | null
-          cover_position: number
-          cover_url: string | null
-          cover_video_url: string | null
           created_at: string
           current_city: string | null
           custom_url: string | null
@@ -3844,9 +3994,6 @@ export type Database = {
           bio?: string | null
           city?: string | null
           country?: string | null
-          cover_position?: number
-          cover_url?: string | null
-          cover_video_url?: string | null
           created_at?: string
           current_city?: string | null
           custom_url?: string | null
@@ -3892,9 +4039,6 @@ export type Database = {
           bio?: string | null
           city?: string | null
           country?: string | null
-          cover_position?: number
-          cover_url?: string | null
-          cover_video_url?: string | null
           created_at?: string
           current_city?: string | null
           custom_url?: string | null
@@ -3939,9 +4083,6 @@ export type Database = {
         Row: {
           avatar_url: string | null
           bio: string | null
-          cover_position: number | null
-          cover_url: string | null
-          cover_video_url: string | null
           created_at: string | null
           current_city: string | null
           custom_url: string | null
@@ -3967,9 +4108,6 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           bio?: string | null
-          cover_position?: number | null
-          cover_url?: string | null
-          cover_video_url?: string | null
           created_at?: string | null
           current_city?: string | null
           custom_url?: string | null
@@ -3995,9 +4133,6 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           bio?: string | null
-          cover_position?: number | null
-          cover_url?: string | null
-          cover_video_url?: string | null
           created_at?: string | null
           current_city?: string | null
           custom_url?: string | null
@@ -4354,9 +4489,11 @@ export type Database = {
           id: string
           image_url: string | null
           image_urls: string[]
+          indexing_disabled: boolean
           last_error: string | null
           last_shift_reason: string | null
           original_scheduled_for: string
+          privacy: string
           published_post_id: string | null
           scheduled_for: string
           shifted_count: number
@@ -4372,9 +4509,11 @@ export type Database = {
           id?: string
           image_url?: string | null
           image_urls?: string[]
+          indexing_disabled?: boolean
           last_error?: string | null
           last_shift_reason?: string | null
           original_scheduled_for: string
+          privacy?: string
           published_post_id?: string | null
           scheduled_for: string
           shifted_count?: number
@@ -4390,9 +4529,11 @@ export type Database = {
           id?: string
           image_url?: string | null
           image_urls?: string[]
+          indexing_disabled?: boolean
           last_error?: string | null
           last_shift_reason?: string | null
           original_scheduled_for?: string
+          privacy?: string
           published_post_id?: string | null
           scheduled_for?: string
           shifted_count?: number
@@ -4741,6 +4882,7 @@ export type Database = {
         Row: {
           actor_id: string | null
           created_at: string
+          dedup_key: string | null
           email_sent: boolean
           id: string
           is_read: boolean
@@ -4753,6 +4895,7 @@ export type Database = {
         Insert: {
           actor_id?: string | null
           created_at?: string
+          dedup_key?: string | null
           email_sent?: boolean
           id?: string
           is_read?: boolean
@@ -4765,6 +4908,7 @@ export type Database = {
         Update: {
           actor_id?: string | null
           created_at?: string
+          dedup_key?: string | null
           email_sent?: boolean
           id?: string
           is_read?: boolean
@@ -5674,9 +5818,6 @@ export type Database = {
         Row: {
           avatar_url: string | null
           bio: string | null
-          cover_position: number | null
-          cover_url: string | null
-          cover_video_url: string | null
           created_at: string | null
           current_city: string | null
           custom_url: string | null
@@ -5699,9 +5840,6 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           bio?: string | null
-          cover_position?: number | null
-          cover_url?: string | null
-          cover_video_url?: string | null
           created_at?: string | null
           current_city?: string | null
           custom_url?: string | null
@@ -5724,9 +5862,6 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           bio?: string | null
-          cover_position?: number | null
-          cover_url?: string | null
-          cover_video_url?: string | null
           created_at?: string | null
           current_city?: string | null
           custom_url?: string | null
@@ -5766,6 +5901,15 @@ export type Database = {
       }
     }
     Functions: {
+      _field_visible: {
+        Args: {
+          _is_friend_tier: boolean
+          _is_owner_tier: boolean
+          _scope: string
+        }
+        Returns: boolean
+      }
+      _flag_review_keyword_hit: { Args: { _content: string }; Returns: string }
       _gen_competition_order_no: { Args: never; Returns: string }
       _notification_template_for_entry: {
         Args: { _placement: string; _status: string }
@@ -5794,10 +5938,12 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_delete_auth_user: { Args: { _uid: string }; Returns: boolean }
       admin_flag_entry_for_review: {
         Args: { _entry_id: string }
         Returns: undefined
       }
+      admin_purge_orphan_user_data: { Args: { _uid: string }; Returns: Json }
       admin_reject_wallet_transaction: {
         Args: { _admin_id: string; _reason?: string; _txn_id: string }
         Returns: Json
@@ -5848,6 +5994,10 @@ export type Database = {
             Args: { p_entry_id: string; p_round_number: number }
             Returns: boolean
           }
+      app_has_role: {
+        Args: { _role: string; _user_id: string }
+        Returns: boolean
+      }
       apply_decision_to_remaining: {
         Args: {
           _competition_id: string
@@ -5918,6 +6068,10 @@ export type Database = {
         }[]
       }
       clear_custom_url: { Args: never; Returns: undefined }
+      competition_total_entries: {
+        Args: { _competition_id: string }
+        Returns: number
+      }
       compute_entry_rank_score: { Args: { _entry_id: string }; Returns: number }
       create_pending_deposit: {
         Args: {
@@ -5975,16 +6129,24 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      enqueue_post_job: { Args: { _payload: Json }; Returns: undefined }
       enroll_in_course: {
         Args: { _course_id: string; _user_id: string }
         Returns: Json
       }
+      expire_gift_credit: { Args: { _gift_id: string }; Returns: Json }
       extract_photo_hashes: {
         Args: { _meta: Json }
         Returns: {
           phash: string
           photo_index: number
           sha256: string
+        }[]
+      }
+      filter_moderated_user_ids: {
+        Args: { _ids: string[] }
+        Returns: {
+          id: string
         }[]
       }
       fix_certificate_readiness_admin: {
@@ -6073,7 +6235,24 @@ export type Database = {
       }
       get_course_lessons_for_editor: {
         Args: { _course_id: string }
-        Returns: Database["public"]["Tables"]["lessons"]["Row"][]
+        Returns: {
+          content: string
+          course_id: string
+          created_at: string
+          id: string
+          image_url: string | null
+          module_id: string | null
+          sort_order: number
+          title: string
+          updated_at: string
+          video_url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "lessons"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_derived_status_drift_admin: {
         Args: never
@@ -6326,13 +6505,27 @@ export type Database = {
       get_lesson_content: {
         Args: { _lesson_id: string }
         Returns: {
-          id: string
-          title: string
           content: string
-          video_url: string | null
-          image_url: string | null
-          sort_order: number
           course_id: string
+          id: string
+          image_url: string
+          sort_order: number
+          title: string
+          video_url: string
+        }[]
+      }
+      get_my_certificate_entries: {
+        Args: never
+        Returns: {
+          competition_id: string
+          competition_title: string
+          current_round: string
+          current_round_int: number
+          id: string
+          placement: string
+          progression_decision: string
+          status: string
+          title: string
         }[]
       }
       get_needs_review_recipients_for_round: {
@@ -6426,6 +6619,24 @@ export type Database = {
           id: string
         }[]
       }
+      get_profile_visible_fields: {
+        Args: { _target: string }
+        Returns: {
+          avatar_url: string
+          bio: string
+          current_city: string
+          education: string
+          facebook_url: string
+          instagram_url: string
+          photography_interests: string[]
+          portfolio_url: string
+          pronouns: string
+          twitter_url: string
+          website_url: string
+          workplace: string
+          youtube_url: string
+        }[]
+      }
       get_progression_drift_admin: {
         Args: never
         Returns: {
@@ -6438,6 +6649,14 @@ export type Database = {
           title: string
           total_decisions: number
           updated_at: string
+        }[]
+      }
+      get_public_final_votes: {
+        Args: { _entry_ids: string[] }
+        Returns: {
+          entry_id: string
+          final_votes: number
+          photo_index: number
         }[]
       }
       get_public_role_user_ids: { Args: { _role: string }; Returns: string[] }
@@ -6455,14 +6674,19 @@ export type Database = {
           average_score: number
           balance_score: number
           color_palette_score: number
+          composition_score: number
           depth_score: number
+          editing_score: number
           entry_id: string
           form_score: number
           light_score: number
           line_score: number
+          moment_score: number
           photo_index: number
           shape_score: number
           space_score: number
+          story_score: number
+          technique_score: number
           texture_score: number
           tone_score: number
         }[]
@@ -6626,6 +6850,11 @@ export type Database = {
         Args: { _a: string; _b: string }
         Returns: number
       }
+      html_escape: { Args: { _s: string }; Returns: string }
+      increment_managed_page_view: {
+        Args: { _page_id: string }
+        Returns: undefined
+      }
       is_banned: { Args: { _user_id: string }; Returns: boolean }
       is_engagement_phase_locked: {
         Args: { _image_id: string; _image_type: string }
@@ -6644,6 +6873,16 @@ export type Database = {
       issue_course_completion_certificate: {
         Args: { _course_id: string }
         Returns: string
+      }
+      judge_apply_single_tag: {
+        Args: {
+          _entry_id: string
+          _judge_id: string
+          _photo_index: number
+          _round_number: number
+          _tag_id: string
+        }
+        Returns: undefined
       }
       judge_can_access_entry: {
         Args: { _entry_id: string; _judge_id: string }
@@ -6710,6 +6949,18 @@ export type Database = {
         Args: { _album_id: string; _user_id: string }
         Returns: boolean
       }
+      password_verification_hook: { Args: { event: Json }; Returns: Json }
+      pj_handle_comment_notification: {
+        Args: { _msg: Json }
+        Returns: undefined
+      }
+      pj_handle_reaction_notification: {
+        Args: { _msg: Json }
+        Returns: undefined
+      }
+      pj_handle_recount_engagement: { Args: { _msg: Json }; Returns: undefined }
+      pj_handle_tag_notification: { Args: { _msg: Json }; Returns: undefined }
+      process_post_jobs: { Args: { _batch?: number }; Returns: Json }
       process_referral_reward:
         | {
             Args: { _activity_type: string; _referred_user_id: string }
@@ -6850,6 +7101,20 @@ export type Database = {
           title: string
           type: string
           verification_token: string
+        }[]
+      }
+      verify_staff_id: {
+        Args: { _id_number: string }
+        Returns: {
+          about: string
+          active_from: string
+          blood_group: string
+          designation: string
+          expires_on: string
+          full_name: string
+          id_number: string
+          job_status: string
+          photo_url: string
         }[]
       }
       wallet_ledger_apply_v2: {
