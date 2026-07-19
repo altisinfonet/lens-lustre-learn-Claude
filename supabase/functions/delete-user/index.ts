@@ -41,6 +41,24 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Cannot delete yourself" }), { status: 400, headers: corsHeaders });
     }
 
+    // Delete the auth user FIRST via a direct RPC. The GoTrue admin API
+    // (auth.admin.deleteUser) fails on this project with an empty error, and doing
+    // it last meant a failure destroyed all the user's data while leaving a
+    // still-logged-in "ghost" account. Deleting auth.users first (a) is proven to
+    // work, (b) cascades the FK-linked public tables, and (c) aborts cleanly on
+    // failure BEFORE any data is touched. Then we clean up the non-FK-linked rows.
+    const { data: authDeleted, error: authError } = await adminClient.rpc(
+      "admin_delete_auth_user",
+      { _uid: user_id },
+    );
+    if (authError) {
+      console.error("admin_delete_auth_user error:", authError);
+      return new Response(JSON.stringify({ error: "Failed to delete auth user: " + authError.message }), { status: 500, headers: corsHeaders });
+    }
+    if (authDeleted === false) {
+      return new Response(JSON.stringify({ error: "User not found" }), { status: 404, headers: corsHeaders });
+    }
+
     // Delete from all tables with user_id column
     const userIdTables = [
       "activity_logs", "bank_details", "certificate_testimonials", "certificates",
@@ -106,15 +124,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Delete profile (public schema)
+    // profiles was already cascade-deleted by admin_delete_auth_user (profiles.id
+    // -> auth.users is ON DELETE CASCADE); this is a defensive no-op.
     await adminClient.from("profiles").delete().eq("id", user_id);
-
-    // Delete from auth.users — this frees the email for reuse
-    const { error: authError } = await adminClient.auth.admin.deleteUser(user_id);
-    if (authError) {
-      console.error("Auth delete error:", authError);
-      return new Response(JSON.stringify({ error: "Failed to delete auth user: " + authError.message }), { status: 500, headers: corsHeaders });
-    }
 
     return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
