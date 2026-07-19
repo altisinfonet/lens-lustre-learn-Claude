@@ -69,7 +69,10 @@ Deno.serve(async () => {
     const { data: competitions } = await supabase
       .from("competitions")
       .select("id, updated_at, cover_image_url, title")
-      .in("status", ["open", "closed", "judging", "completed"])
+      // Public-facing competition statuses. 'completed' was never a valid status
+      // (check constraint uses result/closed/etc), so the old filter dropped
+      // finished + open-for-submission competitions from the sitemap.
+      .in("status", ["upcoming", "open", "submission_open", "judging", "result", "closed"])
       .limit(HARD_CAP_PER_SECTION); // BUG-096: cap all sections, not just profiles/posts
 
     if (competitions) {
