@@ -13,7 +13,7 @@ interface Props {
   participantName?: string
 }
 
-// Day-12 — Final farewell (last in the series)
+// Day-60 — Final farewell (last in the series)
 const Email = ({ participantName }: Props) => (
   <Html lang="en" dir="ltr">
     <Head />
@@ -52,7 +52,7 @@ const Email = ({ participantName }: Props) => (
 export const template = {
   component: Email,
   subject: 'One last frame before we go quiet · 50mm Retina World',
-  displayName: 'Re-engagement · Day 12 (final farewell)',
+  displayName: 'Re-engagement · Day 60 (final farewell)',
   previewData: { participantName: 'Alex' },
 } satisfies TemplateEntry
 

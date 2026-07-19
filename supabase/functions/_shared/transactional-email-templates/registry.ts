@@ -19,9 +19,12 @@ import { template as roundPublishedSummary } from './round-published-summary.tsx
 import { template as needsReviewSubmitRaw } from './needs-review-submit-raw.tsx'
 import { template as certificateRevoked } from './certificate-revoked.tsx'
 import { template as reengagementDay3 } from './reengagement-day-3.tsx'
-import { template as reengagementDay6 } from './reengagement-day-6.tsx'
-import { template as reengagementDay9 } from './reengagement-day-9.tsx'
-import { template as reengagementDay12 } from './reengagement-day-12.tsx'
+import { template as reengagementDay7 } from './reengagement-day-7.tsx'
+import { template as reengagementDay15 } from './reengagement-day-15.tsx'
+import { template as reengagementDay30 } from './reengagement-day-30.tsx'
+import { template as reengagementDay40 } from './reengagement-day-40.tsx'
+import { template as reengagementDay50 } from './reengagement-day-50.tsx'
+import { template as reengagementDay60 } from './reengagement-day-60.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'notification-alert': notificationAlert,
@@ -34,7 +37,10 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'needs-review-submit-raw': needsReviewSubmitRaw,
   'certificate-revoked': certificateRevoked,
   'reengagement-day-3': reengagementDay3,
-  'reengagement-day-6': reengagementDay6,
-  'reengagement-day-9': reengagementDay9,
-  'reengagement-day-12': reengagementDay12,
+  'reengagement-day-7': reengagementDay7,
+  'reengagement-day-15': reengagementDay15,
+  'reengagement-day-30': reengagementDay30,
+  'reengagement-day-40': reengagementDay40,
+  'reengagement-day-50': reengagementDay50,
+  'reengagement-day-60': reengagementDay60,
 }

@@ -16,7 +16,7 @@ interface Props {
   friendsActive?: number
 }
 
-// Day-9 — Warm direct
+// Day-15 — Warm direct
 const Email = ({ participantName, newPostsCount = 0, activeCompetitions = 0, friendsActive = 0 }: Props) => (
   <Html lang="en" dir="ltr">
     <Head />
@@ -29,7 +29,7 @@ const Email = ({ participantName, newPostsCount = 0, activeCompetitions = 0, fri
           That's the honest version. No tricks, no countdowns. The community you joined is more interesting when you're in it.
         </Text>
         <Text style={text}>
-          A small snapshot of what's happened while you've been away:
+          A small snapshot of what's happened over the last couple of weeks:
         </Text>
         <Section style={statBox}>
           {newPostsCount > 0 && <Text style={statLine}><strong>{newPostsCount}</strong> new photos from photographers you follow</Text>}
@@ -56,7 +56,7 @@ const Email = ({ participantName, newPostsCount = 0, activeCompetitions = 0, fri
 export const template = {
   component: Email,
   subject: (d: Record<string, any>) => `We miss your work${d?.participantName ? `, ${d.participantName}` : ''} · 50mm Retina World`,
-  displayName: 'Re-engagement · Day 9 (warm direct)',
+  displayName: 'Re-engagement · Day 15 (warm direct)',
   previewData: { participantName: 'Alex', newPostsCount: 124, activeCompetitions: 4, friendsActive: 15 },
 } satisfies TemplateEntry
 

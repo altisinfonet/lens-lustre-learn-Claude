@@ -16,7 +16,7 @@ interface Props {
   friendsActive?: number
 }
 
-// Day-6 — Playful
+// Day-7 — Playful
 const Email = ({ participantName, newPostsCount = 0, activeCompetitions = 0, friendsActive = 0 }: Props) => (
   <Html lang="en" dir="ltr">
     <Head />
@@ -24,13 +24,13 @@ const Email = ({ participantName, newPostsCount = 0, activeCompetitions = 0, fri
     <Body style={main}>
       <Container style={container}>
         <BrandHeader />
-        <Text style={kicker}>📸 Day 6 of radio silence</Text>
+        <Text style={kicker}>📸 Day 7 of radio silence</Text>
         <Heading style={h1}>Your shutter is collecting dust{participantName ? `, ${participantName}` : ''}!</Heading>
         <Text style={text}>
           We checked — your camera is plotting an escape. Your lens cap is winning. The dust bunnies have formed a union.
         </Text>
         <Text style={text}>
-          Here's what you've missed in just <strong>6 days</strong>:
+          Here's what you've missed in just <strong>a week</strong>:
         </Text>
         <Section style={statBox}>
           {newPostsCount > 0 && <Text style={statLine}>🔥 <strong>{newPostsCount}</strong> fresh shots dropped on the feed</Text>}
@@ -41,7 +41,7 @@ const Email = ({ participantName, newPostsCount = 0, activeCompetitions = 0, fri
         <Section style={ctaSection}>
           <Button href={`${SITE_URL}/feed`} style={button}>Dust Off The Shutter →</Button>
         </Section>
-        <Text style={ps}>P.S. Your followers refreshed their feed 47 times today. Not exaggerating. Slightly.</Text>
+        <Text style={ps}>P.S. Your followers refreshed their feed 47 times this week. Not exaggerating. Slightly.</Text>
         <Hr style={hr} />
         <Text style={footer}>— {SITE_NAME}</Text>
               <Disclaimer />
@@ -53,7 +53,7 @@ const Email = ({ participantName, newPostsCount = 0, activeCompetitions = 0, fri
 export const template = {
   component: Email,
   subject: 'Your shutter is collecting dust 📸 · 50mm Retina World',
-  displayName: 'Re-engagement · Day 6 (playful)',
+  displayName: 'Re-engagement · Day 7 (playful)',
   previewData: { participantName: 'Alex', newPostsCount: 87, activeCompetitions: 4, friendsActive: 12 },
 } satisfies TemplateEntry
 

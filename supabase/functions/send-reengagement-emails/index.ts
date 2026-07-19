@@ -1,5 +1,6 @@
-// Daily cron: scans for users inactive >= 3 days and sends a tone-rotating
-// "We miss you" email. Soft cap = 4 sends (days 3, 6, 9, 12) then stops.
+// Daily cron: scans for inactive users and sends a tone-rotating "We miss
+// you" email on an escalating schedule. Soft cap = 7 sends at days
+// 3, 7, 15, 30, 40, 50, 60 — then stops for good.
 // Honors notification_preferences.email_reengagement opt-out + suppressed_emails.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.97.0";
 
@@ -8,13 +9,22 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
 
-const STEP_DAYS = 3;
-const MAX_SENDS = 4;
+// Days of inactivity at which each successive email fires (step 1..N).
+const SCHEDULE_DAYS = [3, 7, 15, 30, 40, 50, 60];
+const MAX_SENDS = SCHEDULE_DAYS.length;       // 7
+const FIRST_DAY = SCHEDULE_DAYS[0];           // 3 — eligibility threshold
+// Minimum days between two consecutive sends to the same user. The tightest
+// real gap in the ladder is 3→7 (4 days); this also throttles any pre-existing
+// long-dormant user so they walk the ladder rather than getting flooded.
+const MIN_GAP_DAYS = 4;
 const TEMPLATE_BY_STEP: Record<number, string> = {
   1: "reengagement-day-3",   // poetic
-  2: "reengagement-day-6",   // playful
-  3: "reengagement-day-9",   // warm direct
-  4: "reengagement-day-12",  // final farewell
+  2: "reengagement-day-7",   // playful
+  3: "reengagement-day-15",  // warm direct
+  4: "reengagement-day-30",  // one-month digest
+  5: "reengagement-day-40",  // one-photo nudge
+  6: "reengagement-day-50",  // reassurance
+  7: "reengagement-day-60",  // final farewell
 };
 
 Deno.serve(async (req) => {
@@ -38,12 +48,12 @@ Deno.serve(async (req) => {
   const now = new Date();
   const nowMs = now.getTime();
 
-  // 1) Fetch candidates: inactive at least 3 days, under the cap
-  const threeDaysAgo = new Date(nowMs - STEP_DAYS * 86400_000).toISOString();
+  // 1) Fetch candidates: inactive at least FIRST_DAY days, under the cap
+  const firstThreshold = new Date(nowMs - FIRST_DAY * 86400_000).toISOString();
   const { data: candidates, error: cErr } = await supabase
     .from("profiles")
     .select("id, full_name, last_active_at, reengagement_sends_count, last_reengagement_sent_at, status")
-    .lt("last_active_at", threeDaysAgo)
+    .lt("last_active_at", firstThreshold)
     .lt("reengagement_sends_count", MAX_SENDS)
     .neq("status", "suspended")
     .limit(500);
@@ -60,15 +70,17 @@ Deno.serve(async (req) => {
       const lastActiveMs = p.last_active_at ? new Date(p.last_active_at).getTime() : 0;
       const daysInactive = Math.floor((nowMs - lastActiveMs) / 86400_000);
       const nextStep = (p.reengagement_sends_count ?? 0) + 1;
-      const requiredDays = nextStep * STEP_DAYS;
+      // Safety: never index past the ladder (candidate query already caps this).
+      if (nextStep > MAX_SENDS) { results.skipped++; continue; }
+      const requiredDays = SCHEDULE_DAYS[nextStep - 1];
 
       // Gate: not yet due for next step
       if (daysInactive < requiredDays) { results.skipped++; continue; }
 
-      // Gate: throttle — at least STEP_DAYS since last send
+      // Gate: throttle — at least MIN_GAP_DAYS since last send
       if (p.last_reengagement_sent_at) {
         const sinceLast = (nowMs - new Date(p.last_reengagement_sent_at).getTime()) / 86400_000;
-        if (sinceLast < STEP_DAYS - 0.5) { results.skipped++; continue; }
+        if (sinceLast < MIN_GAP_DAYS - 0.5) { results.skipped++; continue; }
       }
 
       // Get email + preferences
