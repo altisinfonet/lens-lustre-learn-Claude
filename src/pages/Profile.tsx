@@ -10,6 +10,7 @@ import { useProfileMap } from "@/hooks/profile/useProfileMap";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { toast } from "@/hooks/core/use-toast";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
+import ProfileStories from "@/components/profile/ProfileStories";
 import { getAdminIds, resolveBadges, isAdminUser } from "@/lib/adminBrand";
 import { useIsMobile } from "@/hooks/core/use-mobile";
 import { getCaptchaToken } from "@/lib/turnstile";
@@ -41,7 +42,6 @@ const Profile = () => {
     return entry?.badges || [];
   }, [user, profileMap]);
   const loading = profileLoading || badgesLoading;
-  const coverUrl = profile?.cover_url || null;
 
   const handlePasswordReset = async () => {
     if (!user?.email) return;
@@ -89,26 +89,19 @@ const Profile = () => {
   if (isMobile) {
     return (
       <main className="min-h-screen bg-background text-foreground pb-20">
-        {/* Cover area + Avatar */}
-        <div className="relative w-full overflow-hidden" style={{ aspectRatio: "3/1" }}>
-          {coverUrl ? (
-            <img loading="eager" decoding="async" fetchPriority="high" src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
+        {/* Instagram-style header: avatar, no cover banner */}
+        <div className="px-4 pt-5">
+          {profile ? (
+            <AvatarCompletionRing profile={profile} avatarUrl={avatarUrl} displayName={displayName} size={80} />
           ) : (
-            <div className="w-full h-full bg-muted/40" />
+            <div className="h-20 w-20 rounded-full bg-muted border-2 border-background flex items-center justify-center">
+              <Camera className="h-6 w-6 text-muted-foreground/40" />
+            </div>
           )}
-          <div className="absolute -bottom-10 left-4">
-            {profile ? (
-              <AvatarCompletionRing profile={profile} avatarUrl={avatarUrl} displayName={displayName} size={80} />
-            ) : (
-              <div className="h-20 w-20 rounded-full bg-muted border-2 border-background flex items-center justify-center">
-                <Camera className="h-6 w-6 text-muted-foreground/40" />
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Name + badges area */}
-        <div className="pt-12 px-4 pb-2">
+        <div className="pt-3 px-4 pb-2">
           <div>
             <UserIdentityBlock
               userId={user?.id || ""}
@@ -144,6 +137,9 @@ const Profile = () => {
             {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Share2 className="h-3.5 w-3.5 text-muted-foreground" />}
           </button>
         </div>
+
+        {/* Stories + Highlights (Instagram-style, in place of the old cover) */}
+        {user?.id && <ProfileStories userId={user.id} isOwner={true} />}
 
         {/* Compact tabs */}
         <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border">
@@ -295,14 +291,12 @@ const Profile = () => {
   /* ── DESKTOP: Original layout ── */
   return (
     <main className="min-h-screen bg-background text-foreground">
-      {/* Desktop cover banner (read-only) */}
-      <div className="relative max-w-5xl mx-auto rounded-b-xl overflow-hidden" style={{ aspectRatio: "3/1" }}>
-        {coverUrl ? (
-          <img loading="eager" decoding="async" fetchPriority="high" src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full bg-muted/40" />
-        )}
-      </div>
+      {/* Stories + Highlights (Instagram-style, in place of the old cover) */}
+      {user?.id && (
+        <div className="container mx-auto max-w-5xl pt-6">
+          <ProfileStories userId={user.id} isOwner={true} />
+        </div>
+      )}
 
       <div className="container mx-auto py-3 md:py-16 max-w-5xl">
 

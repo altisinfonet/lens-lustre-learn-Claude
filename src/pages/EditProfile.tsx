@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { generateImagePath, uploadImage } from "@/lib/imageUpload";
 import { toast } from "@/hooks/core/use-toast";
 import { compressAvatar, compressImageToFiles } from "@/lib/imageCompression";
-import { useUpdateProfile, useUpdateAvatar, useUpdateCover } from "@/hooks/profile/useProfileMutations";
+import { useUpdateProfile, useUpdateAvatar } from "@/hooks/profile/useProfileMutations";
 import { scanFileWithToast } from "@/lib/fileSecurityScanner";
 import { createProfileUpdatePost } from "@/lib/profilePostHelper";
 import ImageCropModal from "@/components/admin/ImageCropModal";
@@ -39,7 +39,6 @@ const EditProfile = () => {
   const navigate = useNavigate();
   const profileMutation = useUpdateProfile();
   const avatarMutation = useUpdateAvatar();
-  const coverMutation = useUpdateCover();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -327,7 +326,6 @@ const EditProfile = () => {
         setYoutubeUrl(rawYt.replace(/^https?:\/\/(www\.)?youtube\.com\/@?/i, "").replace(/\/$/, ""));
         setWebsiteUrl((data as any).website_url || "");
         setAvatarUrl(data.avatar_url || null);
-        setCoverUrl((data as any).cover_url || null);
         setCustomUrl((data as any).custom_url || "");
         setAddressLine1((data as any).address_line1 || "");
         setAddressLine2((data as any).address_line2 || "");
@@ -366,15 +364,6 @@ const EditProfile = () => {
   const [avatarCaption, setAvatarCaption] = useState("");
   const [showAvatarPreview, setShowAvatarPreview] = useState(false);
 
-  /* ── Cover photo upload: file select → crop → preview + caption → upload ── */
-  const [coverUrl, setCoverUrl] = useState<string | null>(null);
-  const [coverCropSrc, setCoverCropSrc] = useState<string | null>(null);
-  const [coverCroppedFile, setCoverCroppedFile] = useState<File | null>(null);
-  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
-  const [coverCaption, setCoverCaption] = useState("");
-  const [showCoverPreview, setShowCoverPreview] = useState(false);
-  const [uploadingCover, setUploadingCover] = useState(false);
-  const coverFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -435,64 +424,6 @@ const EditProfile = () => {
     setAvatarCaption("");
   };
 
-  /* ── Cover photo handlers ── */
-  const handleCoverFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast({ title: "Please select an image file", variant: "destructive" });
-      return;
-    }
-    setCoverCropSrc(URL.createObjectURL(file));
-    e.target.value = "";
-  };
-
-  const handleCoverCropDone = (croppedFile: File) => {
-    if (coverCropSrc) URL.revokeObjectURL(coverCropSrc);
-    setCoverCropSrc(null);
-    setCoverCroppedFile(croppedFile);
-    setCoverPreviewUrl(URL.createObjectURL(croppedFile));
-    setCoverCaption("");
-    setShowCoverPreview(true);
-  };
-
-  const handleCoverCropCancel = () => {
-    if (coverCropSrc) URL.revokeObjectURL(coverCropSrc);
-    setCoverCropSrc(null);
-  };
-
-  const handleCoverConfirmUpload = async () => {
-    if (!coverCroppedFile || !user) return;
-    setUploadingCover(true);
-    try {
-      const safe = await scanFileWithToast(coverCroppedFile, toast, { allowedTypes: "image" });
-      if (!safe) { setUploadingCover(false); return; }
-      const { webpFile } = await compressImageToFiles(coverCroppedFile, "cover", { maxDimension: 1920, webpQuality: 0.92 });
-      const filePath = generateImagePath({ userId: user.id, type: "cover", ext: "webp" });
-      const result = await uploadImage({ bucket: "avatars", file: webpFile, path: filePath, type: "cover", fileName: "cover.webp" });
-      const newUrl = `${result.url}?t=${Date.now()}`;
-      await coverMutation.mutateAsync({ coverUrl: newUrl, coverPosition: 50, storagePath: filePath });
-      setCoverUrl(newUrl);
-      await createProfileUpdatePost(user.id, "cover", newUrl, coverCaption || undefined);
-      toast({ title: "Cover photo updated" });
-    } catch (err: any) {
-      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
-    }
-    setUploadingCover(false);
-    setShowCoverPreview(false);
-    setCoverCroppedFile(null);
-    if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
-    setCoverPreviewUrl(null);
-    setCoverCaption("");
-  };
-
-  const handleCoverPreviewCancel = () => {
-    setShowCoverPreview(false);
-    setCoverCroppedFile(null);
-    if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
-    setCoverPreviewUrl(null);
-    setCoverCaption("");
-  };
 
   const toggleInterest = (interest: string) => {
     setInterests((prev) =>
@@ -680,104 +611,6 @@ const EditProfile = () => {
         <ProfileCompletionBar profile={profileData} className="mb-6 md:mb-12 border border-border rounded-xl md:rounded-none p-3 md:p-6" />
 
         <div className="space-y-5 md:space-y-8">
-          {/* Cover Photo */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>Cover Photo</span>
-              <PrivacyToggle value={privacySettings.cover || "public"} onChange={(v) => setFieldPrivacy("cover", v)} />
-            </div>
-            <div className="relative group rounded-lg overflow-hidden border border-border" style={{ aspectRatio: "3/1" }}>
-              {coverUrl ? (
-                <img loading="lazy" decoding="async" src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full bg-muted flex items-center justify-center">
-                  <Camera className="h-8 w-8 text-muted-foreground/30" />
-                </div>
-              )}
-              <button
-                type="button"
-                onClick={() => coverFileInputRef.current?.click()}
-                disabled={uploadingCover}
-                className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2"
-              >
-                {uploadingCover ? (
-                  <Loader2 className="h-5 w-5 text-primary-foreground animate-spin" />
-                ) : (
-                  <>
-                    <Camera className="h-5 w-5 text-primary-foreground" />
-                    <span className="text-xs text-primary-foreground font-medium" style={{ fontFamily: "var(--font-heading)" }}>
-                      {coverUrl ? "Change Cover" : "Add Cover Photo"}
-                    </span>
-                  </>
-                )}
-              </button>
-              <input ref={coverFileInputRef} type="file" accept="image/*" onChange={handleCoverFileSelect} className="hidden" />
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-1.5" style={{ fontFamily: "var(--font-body)" }}>
-              Recommended: 1920×640px (3:1 ratio). JPG, PNG or WebP. Max 5MB.
-            </p>
-          </div>
-
-          {/* Cover Crop Modal */}
-          {coverCropSrc && (
-            <ImageCropModal
-              imageSrc={coverCropSrc}
-              onCropComplete={handleCoverCropDone}
-              onCancel={handleCoverCropCancel}
-              forcedAspect={3}
-              targetWidth={1920}
-              targetHeight={640}
-            />
-          )}
-
-          {/* Cover Preview + Caption Modal */}
-          {showCoverPreview && coverPreviewUrl && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-              <div className="bg-card border border-border rounded-sm shadow-2xl w-[520px] max-w-[90vw] overflow-hidden">
-                <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-                  <span className="text-[10px] tracking-[0.2em] uppercase text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                    Update Cover Photo
-                  </span>
-                  <button type="button" onClick={handleCoverPreviewCancel} className="text-muted-foreground hover:text-foreground">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="p-4 flex flex-col items-center gap-4">
-                  <div className="w-full rounded-md overflow-hidden border border-border" style={{ aspectRatio: "3/1" }}>
-                    <img loading="lazy" decoding="async" src={coverPreviewUrl} alt="Cover Preview" className="w-full h-full object-cover" />
-                  </div>
-                  <textarea
-                    value={coverCaption}
-                    onChange={(e) => setCoverCaption(e.target.value)}
-                    placeholder="Say something about this cover photo…"
-                    maxLength={200}
-                    rows={2}
-                    className="w-full bg-transparent border border-border rounded-sm p-3 text-sm resize-none focus:border-primary outline-none transition-colors"
-                    style={{ fontFamily: "var(--font-body)" }}
-                  />
-                  <span className="text-[9px] text-muted-foreground self-end -mt-2">{coverCaption.length}/200</span>
-                </div>
-                <div className="px-4 py-3 border-t border-border flex items-center justify-end gap-2">
-                  <button type="button" onClick={handleCoverPreviewCancel}
-                    className="text-[10px] tracking-[0.15em] uppercase px-4 py-2 border border-border text-muted-foreground hover:text-foreground transition-colors rounded-sm"
-                    style={{ fontFamily: "var(--font-heading)" }}>
-                    Cancel
-                  </button>
-                  <button type="button" onClick={handleCoverConfirmUpload} disabled={uploadingCover}
-                    className="text-[10px] tracking-[0.15em] uppercase px-4 py-2 bg-primary text-primary-foreground hover:opacity-90 transition-opacity rounded-sm disabled:opacity-50 flex items-center gap-1.5"
-                    style={{ fontFamily: "var(--font-heading)" }}>
-                    {uploadingCover ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Camera className="h-3 w-3" />
-                    )}
-                    {uploadingCover ? "Uploading…" : "Save & Post"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Profile Picture */}
           <div className="flex items-center gap-6">
             <div className="relative group">

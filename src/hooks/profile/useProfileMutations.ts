@@ -120,48 +120,6 @@ export function useUpdateAvatar() {
   });
 }
 
-/* ── Update cover photo URL + position (atomic with rollback) ── */
-
-export function useUpdateCover() {
-  const { user } = useAuth();
-  const qc = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ coverUrl, coverPosition, storagePath }: { coverUrl?: string; coverPosition?: number; storagePath?: string }) => {
-      if (!user) throw new Error("Not authenticated");
-      const update: Record<string, any> = {};
-      if (coverUrl !== undefined) update.cover_url = coverUrl;
-      if (coverPosition !== undefined) update.cover_position = coverPosition;
-      const { error } = await supabase
-        .from("profiles")
-        .update(update as any)
-        .eq("id", user.id);
-      if (error) {
-        // DB failed — rollback uploaded file if this was a new upload
-        if (storagePath) {
-          try { await storageRemove("avatars", [storagePath]); } catch { /* best-effort */ }
-        }
-        throw error;
-      }
-    },
-    onMutate: async ({ coverUrl, coverPosition }) => {
-      if (!user) return;
-      await qc.cancelQueries({ queryKey: queryKeys.profileCore(user.id) });
-      const patch: Partial<ProfileCoreData> = {};
-      if (coverUrl !== undefined) patch.cover_url = coverUrl;
-      if (coverPosition !== undefined) patch.cover_position = coverPosition;
-      const snapshot = patchProfileCore(qc, user.id, patch);
-      return { snapshot };
-    },
-    onError: (err: Error, _vars, context) => {
-      if (user && context?.snapshot !== undefined) {
-        qc.setQueryData(queryKeys.profileCore(user.id), context.snapshot);
-      }
-      toast({ title: "Failed to update cover", description: err.message, variant: "destructive" });
-    },
-  });
-}
-
 /* ── Admin: update any user's profile (keep invalidate — complex) ── */
 
 export function useAdminUpdateProfile() {

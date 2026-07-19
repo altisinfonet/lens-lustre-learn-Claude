@@ -9,8 +9,6 @@ import { queryKeys } from "@/lib/queryKeys";
 export interface ProfileCoreData {
   full_name: string | null;
   avatar_url: string | null;
-  cover_url: string | null;
-  cover_position: number;
   bio: string | null;
   portfolio_url: string | null;
   photography_interests: string[] | null;
@@ -25,7 +23,6 @@ export interface ProfileCoreData {
   current_city?: string | null;
   workplace?: string | null;
   education?: string | null;
-  cover_video_url?: string | null;
   custom_url?: string | null;
 }
 
@@ -33,7 +30,7 @@ export interface ProfileCoreData {
 async function fetchProfileCore(userId: string): Promise<ProfileCoreData | null> {
   const [profileRes, adminIds] = await Promise.all([
     profilesPublic()
-      .select("full_name, avatar_url, cover_url, bio, portfolio_url, photography_interests, created_at, facebook_url, instagram_url, twitter_url, youtube_url, website_url, pronouns, current_city, workplace, education, cover_video_url, custom_url, cover_position")
+      .select("full_name, avatar_url, bio, portfolio_url, photography_interests, created_at, facebook_url, instagram_url, twitter_url, youtube_url, website_url, pronouns, current_city, workplace, education, custom_url")
       .eq("id", userId)
       .maybeSingle() as any,
     getAdminIds(),
@@ -48,7 +45,6 @@ async function fetchProfileCore(userId: string): Promise<ProfileCoreData | null>
 
   return {
     ...profileRes.data,
-    cover_position: profileRes.data?.cover_position ?? 50,
     privacy_settings: null,
   };
 }

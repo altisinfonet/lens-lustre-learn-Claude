@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import { useParams, Link } from "react-router-dom";
-import { Camera, CheckCircle2, ExternalLink, Globe, Trophy, BookOpen, User, Expand, Award, ChevronLeft, ChevronRight, Facebook, Instagram, GraduationCap, Twitter, Youtube, MapPin, Calendar, Image, BadgeCheck, ImagePlus, Move, Check, X, Play, Briefcase, Phone, Mail, Heart, Lock, Users as UsersIcon, Star, FileText, Layers, MessageSquare, BarChart3, Pencil } from "lucide-react";
+import { Camera, CheckCircle2, ExternalLink, Globe, Trophy, BookOpen, User, Expand, Award, ChevronLeft, ChevronRight, Facebook, Instagram, GraduationCap, Twitter, Youtube, MapPin, Calendar, Image, BadgeCheck, Check, X, Play, Briefcase, Phone, Mail, Heart, Lock, Users as UsersIcon, Star, FileText, Layers, MessageSquare, BarChart3, Pencil } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import JudgingStampBadge from "@/components/JudgingStampBadge";
@@ -20,7 +20,6 @@ import PhotoAlbums from "@/components/profile/PhotoAlbums";
 import { useAuth } from "@/hooks/core/useAuth";
 import { AnimatePresence, motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
-import { useUpdateCover } from "@/hooks/profile/useProfileMutations";
 import { profilesPublic } from "@/lib/profilesPublic";
 import { getAdminIds, resolveName, resolveBadges, isAdminUser } from "@/lib/adminBrand";
 import { canViewField, getPrivacy, type PrivacyLevel } from "@/components/PrivacyToggle";
@@ -143,8 +142,6 @@ const MiniCarousel = ({
 interface ProfileData {
   full_name: string | null;
   avatar_url: string | null;
-  cover_url: string | null;
-  cover_position: number;
   bio: string | null;
   portfolio_url: string | null;
   photography_interests: string[] | null;
@@ -159,7 +156,6 @@ interface ProfileData {
   current_city?: string | null;
   workplace?: string | null;
   education?: string | null;
-  cover_video_url?: string | null;
 }
 
 interface CompEntry {
@@ -235,7 +231,6 @@ const fadeUp = (delay = 0) => ({
 
 const PublicProfileInner = ({ userId }: { userId: string }) => {
   const { user: currentUser } = useAuth();
-  const coverMutation = useUpdateCover();
   const [searchParams] = useSearchParams();
   const wallSectionRef = useRef<HTMLDivElement>(null);
 
@@ -249,11 +244,6 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [lightboxPhoto, setLightboxPhoto] = useState<{ src: string; title: string; desc?: string } | null>(null);
   const [activeTab, setActiveTab] = useState<"wall" | "works" | "about">("wall");
-  const [repositionMode, setRepositionMode] = useState(false);
-  const [dragPosition, setDragPosition] = useState(50);
-  const [savedPosition, setSavedPosition] = useState(50);
-  const dragRef = useRef<{ startY: number; startPos: number } | null>(null);
-  const coverContainerRef = useRef<HTMLDivElement>(null);
   const [earnedStamps, setEarnedStamps] = useState<EarnedStamp[]>([]);
   const [judgeFeedback, setJudgeFeedback] = useState<JudgeFeedbackItem[]>([]);
   const isGuest = !currentUser;
@@ -290,8 +280,6 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
         ...resolved,
         privacy_settings: extData?.privacySettings ?? coreProfile.privacy_settings,
       }));
-      setDragPosition(coreProfile.cover_position);
-      setSavedPosition(coreProfile.cover_position);
     }
   }, [coreProfile, extData?.privacySettings, extData?.visibleFields]);
 
@@ -467,71 +455,6 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
     { key: "about" as const, label: "About" },
   ];
 
-    const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (!e.target.files?.[0] || !isOwner || !currentUser) return;
-      const file = e.target.files[0];
-      try {
-        const safe = await scanFileWithToast(file, toast, { allowedTypes: "image" });
-        if (!safe) return;
-        const { webpFile } = await compressImageToFiles(file, "cover", { maxDimension: 1920, webpQuality: 0.92 });
-        const path = generateImagePath({ userId: currentUser.id, type: "cover", ext: "webp" });
-        const result = await uploadImage({ bucket: "avatars", file: webpFile, path, type: "cover", fileName: "cover.webp" });
-        const url = `${result.url}?t=${Date.now()}`;
-        await coverMutation.mutateAsync({ coverUrl: url, coverPosition: 50, storagePath: path });
-        setProfile((prev) => prev ? { ...prev, cover_url: url, cover_position: 50 } : prev);
-        setDragPosition(50);
-        setSavedPosition(50);
-        setRepositionMode(true);
-        // Auto-post to wall like Facebook
-        await createProfileUpdatePost(currentUser.id, "cover", url);
-        toast({ title: "Cover photo updated! Drag to reposition." });
-      } catch (err: any) {
-        toast({ title: "Upload failed", description: err.message, variant: "destructive" });
-      }
-    };
-
-    const handleRepositionStart = () => {
-      setRepositionMode(true);
-      setDragPosition(savedPosition);
-    };
-
-    const handleRepositionSave = async () => {
-      if (!currentUser) return;
-      await coverMutation.mutateAsync({ coverPosition: dragPosition });
-      setSavedPosition(dragPosition);
-      setProfile((prev) => prev ? { ...prev, cover_position: dragPosition } : prev);
-      setRepositionMode(false);
-      toast({ title: "Cover position saved!" });
-    };
-
-    const handleRepositionCancel = () => {
-      setDragPosition(savedPosition);
-      setRepositionMode(false);
-    };
-
-    const onCoverPointerDown = (e: React.PointerEvent) => {
-      if (!repositionMode) return;
-      e.preventDefault();
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-      dragRef.current = { startY: e.clientY, startPos: dragPosition };
-    };
-
-    const onCoverPointerMove = (e: React.PointerEvent) => {
-      if (!dragRef.current || !coverContainerRef.current) return;
-      const containerH = coverContainerRef.current.getBoundingClientRect().height;
-      const deltaY = e.clientY - dragRef.current.startY;
-      // Moving mouse down → shows upper part → decrease %, moving up → increase %
-      const deltaPct = -(deltaY / containerH) * 100;
-      const newPos = Math.max(0, Math.min(100, dragRef.current.startPos + deltaPct));
-      setDragPosition(newPos);
-    };
-
-    const onCoverPointerUp = () => {
-      dragRef.current = null;
-    };
-
-    const coverPosition = repositionMode ? dragPosition : (profile.cover_position ?? 50);
-
     return (
     <main className="min-h-screen bg-background text-foreground">
       <PageSEO
@@ -539,104 +462,9 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
         description={profile.bio ? profile.bio.slice(0, 155) : `${displayName}'s photography profile on 50mm Retina World.`}
         ogImage={profile.avatar_url || undefined}
       />
-      {/* ═══ FACEBOOK-STYLE PROFILE HEADER ═══ */}
-      <section className="relative bg-background">
-        {/* ── Cover Photo ── */}
-        <div className="container mx-auto max-w-7xl px-0 sm:px-4">
-        <div
-          ref={coverContainerRef}
-          className={`relative overflow-hidden bg-gradient-to-br from-muted via-muted/80 to-muted/60 sm:rounded-b-xl ${repositionMode ? "cursor-grab active:cursor-grabbing" : ""}`}
-          style={{ aspectRatio: "3/1" }}
-          onPointerDown={onCoverPointerDown}
-          onPointerMove={onCoverPointerMove}
-          onPointerUp={onCoverPointerUp}
-        >
-          {profile.cover_video_url ? (
-            <video
-              src={profile.cover_video_url}
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="w-full h-full object-cover select-none pointer-events-none"
-              style={{ objectPosition: `center ${coverPosition}%` }}
-            />
-          ) : profile.cover_url ? (
-            <img loading="eager" decoding="async" fetchPriority="high"
-              src={profile.cover_url}
-              alt="Cover"
-              className="w-full h-full object-cover select-none pointer-events-none"
-              style={{ objectPosition: `center ${coverPosition}%` }}
-              draggable={false}
-            />
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-muted to-accent/5" />
-          )}
-          {/* Gradient overlay at bottom for text readability */}
-          {!repositionMode && (
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent" />
-          )}
-
-          {/* Reposition toolbar */}
-          {repositionMode && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-background/90 backdrop-blur-sm border border-border rounded-sm px-4 py-2 shadow-lg">
-              <Move className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-[10px] tracking-[0.12em] uppercase text-foreground" style={headingFont}>
-                Drag to reposition
-              </span>
-              <div className="w-px h-4 bg-border mx-1" />
-              <button
-                onClick={handleRepositionSave}
-                className="inline-flex items-center gap-1 text-[10px] tracking-[0.12em] uppercase px-3 py-1.5 bg-primary text-primary-foreground hover:opacity-90 transition-opacity rounded-sm"
-                style={headingFont}
-              >
-                <Check className="h-3 w-3" /> Save
-              </button>
-              <button
-                onClick={handleRepositionCancel}
-                className="inline-flex items-center gap-1 text-[10px] tracking-[0.12em] uppercase px-3 py-1.5 border border-border text-muted-foreground hover:text-foreground transition-colors rounded-sm"
-                style={headingFont}
-              >
-                <X className="h-3 w-3" /> Cancel
-              </button>
-            </div>
-          )}
-
-          {/* Cover edit button for owner */}
-          {isOwner && !repositionMode && (
-            <div className="absolute bottom-4 right-4 sm:right-6 z-10">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    className="inline-flex items-center gap-2 text-[10px] tracking-[0.12em] uppercase px-4 py-2 bg-background/80 backdrop-blur-sm text-foreground border border-border hover:bg-background hover:border-primary transition-all duration-300 rounded-sm"
-                    style={headingFont}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                    Edit Cover
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  {profile.cover_url && (
-                    <DropdownMenuItem onClick={handleRepositionStart} className="cursor-pointer gap-2">
-                      <Move className="h-3.5 w-3.5" />
-                      Reposition
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer gap-2 p-0">
-                    <label className="flex items-center gap-2 w-full px-2 py-1.5 cursor-pointer">
-                      <ImagePlus className="h-3.5 w-3.5" />
-                      {profile.cover_url ? "Change Cover" : "Add Cover Photo"}
-                      <input type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
-                    </label>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )}
-        </div>
-        </div>
-
-        {/* ── Profile Info Section (overlaps cover like Facebook) ── */}
+      {/* ═══ INSTAGRAM-STYLE PROFILE HEADER (no cover) ═══ */}
+      <section className="relative bg-background pt-6">
+        {/* ── Profile Info Section ── */}
         <div className="container mx-auto max-w-7xl px-4 relative">
           {/* Desktop: Two rows — Row 1: Avatar + Name | Buttons — Row 2: Stats below name */}
           <div className="hidden sm:block">
@@ -645,7 +473,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
               {/* Left: Avatar + Name */}
               <div className="flex items-end gap-5 min-w-0">
                 {/* Avatar with overlap */}
-                <div className="relative flex-shrink-0 z-10 -mt-[80px]">
+                <div className="relative flex-shrink-0 z-10">
                   {canView("avatar") && profile.avatar_url ? (
                     <img loading="lazy" decoding="async"
                       src={profile.avatar_url}
@@ -718,7 +546,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
           </div>
 
           {/* ═══ MOBILE: Centered stack ═══ */}
-          <div className="flex sm:hidden flex-col items-center -mt-[50px] gap-1.5">
+          <div className="flex sm:hidden flex-col items-center gap-1.5">
             {/* Avatar */}
             <div className="relative z-10">
               {canView("avatar") && profile.avatar_url ? (
@@ -771,6 +599,11 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
           <div className="border-b border-border mt-4" />
         </div>
       </section>
+
+      {/* ═══ Stories & Highlights (Instagram-style, in place of the old cover; visible to everyone) ═══ */}
+      <div className="container mx-auto max-w-7xl py-3 md:py-4">
+        <ProfileStories userId={userId!} isOwner={isOwner} />
+      </div>
 
       {/* ═══ Guest Join Wall ═══ */}
       {isGuest && (
@@ -843,11 +676,6 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
           <PublicProfileJoinWall />
         </>
       )}
-
-      {/* ═══ Stories & Highlights (visible to everyone) ═══ */}
-      <div className="container mx-auto max-w-7xl py-3 md:py-4">
-        <ProfileStories userId={userId!} isOwner={isOwner} />
-      </div>
 
       {/* ═══ Authenticated User Content ═══ */}
       {!isGuest && (

@@ -17,14 +17,11 @@ export interface PublicProfile {
   created_at: string;
   updated_at: string;
   privacy_settings?: Record<string, string> | null;
-  cover_url: string | null;
-  cover_position: number;
   custom_url: string | null;
   pronouns: string | null;
   current_city: string | null;
   workplace: string | null;
   education: string | null;
-  cover_video_url: string | null;
 }
 
 /**
