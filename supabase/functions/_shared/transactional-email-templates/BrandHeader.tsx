@@ -1,50 +1,64 @@
 /// <reference types="npm:@types/react@18.3.1" />
 import * as React from 'npm:react@18.3.1'
-import { Img, Section, Link } from 'npm:@react-email/components@0.0.22'
+import { Img, Section, Text } from 'npm:@react-email/components@0.0.22'
 
 /**
  * Shared 50mm Retina World brand header for ALL transactional email
- * templates. Renders a small logo (140x40) linking back to the site.
+ * templates. Dark premium design matching the approved auth email
+ * templates (GoTrue mailer_templates_*): a dark #0f172a card with the app
+ * icon logo, "50mm Retina World" wordmark, "Compete · Learn · Create"
+ * tagline, and a gold #c9a227 accent line beneath.
  *
- * The logo URL is the same one used by all auth email templates
- * (supabase/functions/_shared/email-templates/*.tsx) — single source of
- * truth, verified reachable (HTTP 200, image/png) on 2026-05-02.
+ * Single source of truth for the header across every transactional email —
+ * update here to restyle all of them at once.
  */
-const LOGO_URL =
-  'https://jtdtehuqtinjxropkkcn.supabase.co/storage/v1/object/public/email-assets/logo.png'
-
-const SITE_URL = 'https://www.50mmretina.com'
+const LOGO_URL = 'https://50mmretina.com/images/icon-512x512.png'
 
 export const BrandHeader: React.FC = () => (
-  <Section style={wrap}>
-    <Link href={SITE_URL} style={link}>
-      <Img
-        src={LOGO_URL}
-        alt="50mm Retina World"
-        width="64"
-        height="64"
-        style={img}
-      />
-    </Link>
+  <Section style={card}>
+    <Img
+      src={LOGO_URL}
+      alt="50mm Retina World"
+      width="58"
+      height="58"
+      style={logo}
+    />
+    <Text style={wordmark}>50mm Retina World</Text>
+    <Text style={tagline}>Compete &middot; Learn &middot; Create</Text>
   </Section>
 )
 
-const wrap: React.CSSProperties = {
+const card: React.CSSProperties = {
+  backgroundColor: '#0f172a',
+  padding: '32px 24px 24px',
   textAlign: 'center',
-  padding: '8px 0 24px',
-  borderBottom: '1px solid #f1f1f1',
-  marginBottom: '24px',
+  borderRadius: '12px',
+  borderBottom: '3px solid #c9a227',
+  marginBottom: '28px',
 }
 
-const link: React.CSSProperties = {
-  display: 'inline-block',
-  textDecoration: 'none',
-}
-
-const img: React.CSSProperties = {
-  display: 'inline-block',
-  width: '64px',
-  height: '64px',
+const logo: React.CSSProperties = {
+  display: 'block',
+  margin: '0 auto 12px',
+  borderRadius: '13px',
   border: 0,
   outline: 'none',
+}
+
+const wordmark: React.CSSProperties = {
+  color: '#ffffff',
+  fontSize: '19px',
+  fontWeight: 600,
+  letterSpacing: '0.4px',
+  margin: '0',
+  textAlign: 'center',
+}
+
+const tagline: React.CSSProperties = {
+  color: '#94a3b8',
+  fontSize: '11px',
+  letterSpacing: '1.5px',
+  textTransform: 'uppercase',
+  margin: '4px 0 0',
+  textAlign: 'center',
 }
