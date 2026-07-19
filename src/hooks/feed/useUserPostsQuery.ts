@@ -111,6 +111,7 @@ async function fetchAndEnrich(
       created_at: p.created_at,
       author_name: resolveName(p.user_id, profileMap.get(p.user_id)?.full_name ?? null, adminIds),
       author_avatar: profileMap.get(p.user_id)?.avatar_url || null,
+      author_last_active: profileMap.get(p.user_id)?.last_active_at ?? null,
       author_badges: resolveBadges(p.user_id, profileMap.get(p.user_id)?.badges || [], adminIds),
       like_count: p.likes_count || 0,
       comment_count: p.comments_count || 0,

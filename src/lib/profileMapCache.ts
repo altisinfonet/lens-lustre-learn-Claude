@@ -15,6 +15,8 @@ export interface ProfileMapEntry {
   avatar_url: string | null;
   badges: string[];
   roles: string[];
+  /** Presence heartbeat (5-min). Null for anon viewers or users who hide status. */
+  last_active_at: string | null;
 }
 
 export type ProfileMap = Map<string, ProfileMapEntry>;
@@ -72,12 +74,21 @@ function dedupeAndSort(ids: string[]): string[] {
 async function rawFetchProfileMap(sortedIds: string[]): Promise<ProfileMap> {
   if (sortedIds.length === 0) return new Map();
 
-  const [profilesRes, badgesRes, rolesRes] = await Promise.all([
+  const [profilesRes, badgesRes, rolesRes, presenceRes] = await Promise.all([
     profilesPublic().select("id, full_name, avatar_url").in("id", sortedIds),
     supabase.from("user_badges").select("user_id, badge_type").in("user_id", sortedIds),
     // F2: anon-safe RPC; returns only registered_photographer/student/content_editor
     supabase.rpc("get_public_roles_for_users", { _user_ids: sortedIds } as any),
+    // Presence (online dot). last_active_at is readable ONLY by authenticated users
+    // (and null for users who hid their active status), so for anon this query
+    // returns an error we ignore -> no dots for logged-out visitors, by design.
+    profilesPublic().select("id, last_active_at").in("id", sortedIds),
   ]);
+
+  const presenceMap = new Map<string, string | null>();
+  ((presenceRes.data as any[]) || []).forEach((p: any) => {
+    presenceMap.set(p.id, p.last_active_at ?? null);
+  });
 
   const badgeMap = new Map<string, string[]>();
   ((badgesRes.data as any[]) || []).forEach((b: any) => {
@@ -101,6 +112,7 @@ async function rawFetchProfileMap(sortedIds: string[]): Promise<ProfileMap> {
       avatar_url: p.avatar_url,
       badges: badgeMap.get(p.id) || [],
       roles: roleMap.get(p.id) || [],
+      last_active_at: presenceMap.get(p.id) ?? null,
     });
   });
 
@@ -113,6 +125,7 @@ async function rawFetchProfileMap(sortedIds: string[]): Promise<ProfileMap> {
         avatar_url: null,
         badges: [],
         roles: [],
+        last_active_at: null,
       });
     }
   }

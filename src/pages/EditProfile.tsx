@@ -102,6 +102,7 @@ const EditProfile = () => {
   const [dobYearPrivacy, setDobYearPrivacy] = useState<PrivacyLevel>("only_me");
   // SOW §5.2 — Privacy gate: hide profile from search engines
   const [indexingDisabled, setIndexingDisabled] = useState(false);
+  const [hideActiveStatus, setHideActiveStatus] = useState(false);
 
   const setFieldPrivacy = (field: string, value: PrivacyLevel) => {
     setPrivacySettings((prev) => ({ ...prev, [field]: value }));
@@ -350,6 +351,7 @@ const EditProfile = () => {
           setPrivacySettings({ ...DEFAULT_PRIVACY, ...ps });
           if (ps.dob_day_month) setDobDayMonthPrivacy(ps.dob_day_month);
           if (ps.dob_year) setDobYearPrivacy(ps.dob_year);
+          setHideActiveStatus(ps.active_status === "off");
         }
       }
       setLoading(false);
@@ -603,7 +605,7 @@ const EditProfile = () => {
         phone: phone.trim() || null,
         whatsapp: whatsapp.trim() || null,
         
-        privacy_settings: { ...privacySettings, dob_day_month: dobDayMonthPrivacy, dob_year: dobYearPrivacy },
+        privacy_settings: { ...privacySettings, dob_day_month: dobDayMonthPrivacy, dob_year: dobYearPrivacy, active_status: hideActiveStatus ? "off" : "on" },
         pronouns: pronouns.trim() || null,
         current_city: currentCity.trim() || null,
         workplace: workplace.trim() || null,
@@ -619,7 +621,7 @@ const EditProfile = () => {
       setSaveStatus("error");
     }
     setSaving(false);
-  }, [user, fullName, bio, portfolioUrl, interests, facebookUrl, instagramUrl, twitterUrl, youtubeUrl, websiteUrl, addressLine1, addressLine2, city, state, country, postalCode, phone, whatsapp, privacySettings, customUrl, customUrlAvailable, pronouns, currentCity, workplace, education, dateOfBirth, dobDayMonthPrivacy, dobYearPrivacy, indexingDisabled]);
+  }, [user, fullName, bio, portfolioUrl, interests, facebookUrl, instagramUrl, twitterUrl, youtubeUrl, websiteUrl, addressLine1, addressLine2, city, state, country, postalCode, phone, whatsapp, privacySettings, customUrl, customUrlAvailable, pronouns, currentCity, workplace, education, dateOfBirth, dobDayMonthPrivacy, dobYearPrivacy, indexingDisabled, hideActiveStatus]);
 
   // Debounced auto-save: triggers 1.5s after any field change
   const triggerAutoSave = useCallback(() => {
@@ -637,7 +639,7 @@ const EditProfile = () => {
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [fullName, bio, portfolioUrl, interests, facebookUrl, instagramUrl, twitterUrl, youtubeUrl, websiteUrl, addressLine1, addressLine2, city, state, country, postalCode, phone, whatsapp, privacySettings, customUrl, pronouns, currentCity, workplace, education, indexingDisabled]);
+  }, [fullName, bio, portfolioUrl, interests, facebookUrl, instagramUrl, twitterUrl, youtubeUrl, websiteUrl, addressLine1, addressLine2, city, state, country, postalCode, phone, whatsapp, privacySettings, customUrl, pronouns, currentCity, workplace, education, indexingDisabled, hideActiveStatus]);
 
   // Mark initial load as done after profile is fetched
   useEffect(() => {
@@ -915,6 +917,29 @@ const EditProfile = () => {
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5" style={{ fontFamily: "var(--font-body)" }}>
                     When enabled, your public profile will not appear in Google, Bing, or other search engine results. Existing search listings may take a few weeks to disappear.
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            {/* Active status (online presence) toggle */}
+            <div className="border-t border-border pt-4">
+              <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>
+                <Globe className="inline h-3 w-3 mr-1.5" />Active Status
+              </label>
+              <label className="flex items-start gap-3 py-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={hideActiveStatus}
+                  onChange={(e) => setHideActiveStatus(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-primary cursor-pointer"
+                />
+                <div className="flex-1">
+                  <div className="text-sm text-foreground" style={{ fontFamily: "var(--font-body)" }}>
+                    Hide when I'm active
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5" style={{ fontFamily: "var(--font-body)" }}>
+                    When enabled, other members won't see a green "online" dot on your avatar. Your active status stays private across the feed, comments, and profiles.
                   </div>
                 </div>
               </label>

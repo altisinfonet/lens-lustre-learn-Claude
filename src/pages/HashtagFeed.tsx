@@ -8,6 +8,7 @@ import RichContentRenderer from "@/components/RichContentRenderer";
 import FacebookPhotoGrid from "@/components/FacebookPhotoGrid";
 import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
+import PresenceAvatar from "@/components/PresenceAvatar";
 import PageSEO from "@/components/PageSEO";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
@@ -23,6 +24,7 @@ interface HashPost {
   author_name: string | null;
   author_avatar: string | null;
   author_badges: string[];
+  author_last_active: string | null;
 }
 
 const HashtagFeed = () => {
@@ -88,6 +90,7 @@ const HashtagFeed = () => {
         author_name: resolveName(p.user_id, profileMap.get(p.user_id)?.full_name ?? null, adminIds),
         author_avatar: profileMap.get(p.user_id)?.avatar_url || null,
         author_badges: resolveBadges(p.user_id, profileMap.get(p.user_id)?.badges || [], adminIds),
+        author_last_active: profileMap.get(p.user_id)?.last_active_at ?? null,
       }))
     );
     setLoading(false);
@@ -148,15 +151,13 @@ const HashtagFeed = () => {
             <div key={post.id} className="bg-card rounded-lg shadow-sm border border-border overflow-hidden">
               {/* Header */}
               <div className="flex items-center gap-3 p-4 pb-2">
-                <Link to={`/profile/${post.user_id}`} className="shrink-0">
-                  {post.author_avatar ? (
-                    <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={post.author_avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold text-muted-foreground">
-                      {(post.author_name || "?")[0]?.toUpperCase()}
-                    </div>
-                  )}
-                </Link>
+                <PresenceAvatar
+                  to={`/profile/${post.user_id}`}
+                  src={post.author_avatar}
+                  name={post.author_name}
+                  lastActiveAt={post.author_last_active}
+                  size={40}
+                />
                 <div>
                   <UserIdentityBlock
                     userId={post.user_id}

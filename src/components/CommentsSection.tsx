@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfileMap } from "@/hooks/profile/useProfileMap";
 import { useAuth } from "@/hooks/core/useAuth";
+import { isActiveNow } from "@/hooks/core/useLastActive";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { toast } from "@/hooks/core/use-toast";
@@ -30,6 +31,7 @@ interface Comment {
   updated_at: string;
   is_pinned: boolean;
   profile: { full_name: string | null; avatar_url: string | null } | null;
+  last_active: string | null;
   badges: string[];
   like_count: number;
   is_liked: boolean;
@@ -43,13 +45,22 @@ interface Props {
 
 const REPORT_REASONS = ["Inappropriate", "Spam", "Harassment", "Nudity", "Hate Speech", "False Information", "Violence"];
 
-const Avatar = ({ src, name, size = "sm" }: { src: string | null | undefined; name: string | null | undefined; size?: "xs" | "sm" }) => {
+const Avatar = ({ src, name, size = "sm", lastActiveAt }: { src: string | null | undefined; name: string | null | undefined; size?: "xs" | "sm"; lastActiveAt?: string | null }) => {
   const cls = size === "xs" ? "w-6 h-6 text-[10px]" : "w-8 h-8 text-xs";
-  if (src) return <img loading="lazy" decoding="async" src={src} alt="" className={`${cls} rounded-full object-cover`} />;
+  const online = isActiveNow(lastActiveAt);
   return (
-    <div className={`${cls} rounded-full bg-muted flex items-center justify-center font-semibold text-muted-foreground`}>
-      {(name || "?")[0]?.toUpperCase()}
-    </div>
+    <span className={`relative inline-block ${cls}`}>
+      {src ? (
+        <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={src} alt="" className={`${cls} rounded-full object-cover`} />
+      ) : (
+        <div className={`${cls} rounded-full bg-muted flex items-center justify-center font-semibold text-muted-foreground`}>
+          {(name || "?")[0]?.toUpperCase()}
+        </div>
+      )}
+      {online && (
+        <span aria-label="Online" title="Online" className="absolute bottom-0 right-0 block h-2 w-2 rounded-full bg-green-500 ring-2 ring-background" />
+      )}
+    </span>
   );
 };
 
@@ -136,6 +147,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
           full_name: resolveName(c.user_id, profileMap[c.user_id]?.full_name ?? null, adminIds),
           avatar_url: profileMap[c.user_id]?.avatar_url ?? null,
         },
+        last_active: profileMap[c.user_id]?.last_active_at ?? null,
         badges: resolveBadges(c.user_id, profileMap[c.user_id]?.badges || [], adminIds),
         like_count: rawReactions.likeCountMap.get(c.id) || 0,
         is_liked: rawReactions.userLikedSet.has(c.id),
@@ -330,7 +342,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
       <div className={`${depth > 0 ? "ml-10" : ""}`}>
         <div className="flex gap-2 group/comment py-0.5">
           <Link to={`/profile/${comment.user_id}`} className="shrink-0 mt-0.5">
-            <Avatar src={comment.profile?.avatar_url} name={comment.profile?.full_name} size={depth > 0 ? "xs" : "sm"} />
+            <Avatar src={comment.profile?.avatar_url} name={comment.profile?.full_name} size={depth > 0 ? "xs" : "sm"} lastActiveAt={comment.last_active} />
           </Link>
           <div className="flex-1 min-w-0">
             {editingId === comment.id ? (

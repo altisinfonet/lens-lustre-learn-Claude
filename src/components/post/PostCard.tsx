@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
+import { isActiveNow } from "@/hooks/core/useLastActive";
 import { REACTION_EMOJI_MAP, type ReactionType } from "@/components/ReactionPicker";
 import ReactionPicker from "@/components/ReactionPicker";
 import ReactionSummaryTooltip from "@/components/ReactionSummaryTooltip";
@@ -137,13 +138,18 @@ const PostCard = ({
       {/* ── Header ── */}
       <div className="flex items-center gap-2.5 p-3 pb-0">
         <Link to={`/profile/${post.user_id}`} className="shrink-0">
-          {post.author_avatar ? (
-            <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={post.author_avatar} alt="" className="w-8 h-8 rounded-full object-cover" />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <span className="text-xs text-primary" style={displayFont}>{(post.author_name || "?")[0]?.toUpperCase()}</span>
-            </div>
-          )}
+          <span className="relative inline-block w-8 h-8">
+            {post.author_avatar ? (
+              <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={post.author_avatar} alt="" className="w-8 h-8 rounded-full object-cover" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <span className="text-xs text-primary" style={displayFont}>{(post.author_name || "?")[0]?.toUpperCase()}</span>
+              </div>
+            )}
+            {isActiveNow(post.author_last_active) && (
+              <span aria-label="Online" title="Online" className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-card" />
+            )}
+          </span>
         </Link>
         <div className="flex-1 min-w-0">
           <UserIdentityBlock

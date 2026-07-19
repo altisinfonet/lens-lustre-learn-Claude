@@ -15,6 +15,7 @@ export interface UnifiedPost {
   author_name: string | null;
   author_avatar: string | null;
   author_badges: string[];
+  author_last_active?: string | null;
   like_count: number;
   comment_count: number;
   share_count: number;

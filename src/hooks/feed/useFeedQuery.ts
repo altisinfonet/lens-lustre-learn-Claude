@@ -105,6 +105,7 @@ async function enrichPosts(
         adminIds,
       ),
       author_avatar: profileMap.get(p.user_id)?.avatar_url || null,
+      author_last_active: profileMap.get(p.user_id)?.last_active_at ?? null,
       author_badges: resolveBadges(
         p.user_id,
         profileMap.get(p.user_id)?.badges || [],
