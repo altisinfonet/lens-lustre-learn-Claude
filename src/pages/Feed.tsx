@@ -8,6 +8,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Rss, RefreshCw, ArrowUp } from "lucide-react";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import PullToRefresh from "@/components/PullToRefresh";
+import FeedStoriesBar from "@/components/feed/FeedStoriesBar";
 import { useReactToPost, useUnreactToPost } from "@/hooks/feed/usePostReactionMutations";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useIsBanned } from "@/hooks/core/useIsBanned";
@@ -244,6 +245,9 @@ const Feed = () => {
     <PullToRefresh onRefresh={async () => { await refetch(); }}>
     <div className="py-3 md:py-14">
       <div className="min-w-0">
+        {/* Stories bar — everyone's public stories (official first, then followed by recency) */}
+        <FeedStoriesBar />
+
         {/* Header */}
         <div className="flex items-center justify-between mb-4 md:mb-8 px-2 md:px-0">
           <div>

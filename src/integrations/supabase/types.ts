@@ -4592,6 +4592,32 @@ export type Database = {
         }
         Relationships: []
       }
+      story_views: {
+        Row: {
+          story_id: string
+          viewed_at: string
+          viewer_id: string
+        }
+        Insert: {
+          story_id: string
+          viewed_at?: string
+          viewer_id: string
+        }
+        Update: {
+          story_id?: string
+          viewed_at?: string
+          viewer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_views_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_tickets: {
         Row: {
           created_at: string
@@ -6323,6 +6349,18 @@ export type Database = {
           privacy: string
           shares_count: number
           source_type: string
+          user_id: string
+        }[]
+      }
+      get_feed_stories_bar: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          full_name: string
+          has_unseen: boolean
+          is_official: boolean
+          latest_story_at: string
+          story_count: number
           user_id: string
         }[]
       }
