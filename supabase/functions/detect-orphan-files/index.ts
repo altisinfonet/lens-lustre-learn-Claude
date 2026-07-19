@@ -38,8 +38,6 @@ const IMAGE_QUERIES = [
   `SELECT thumbnail_url AS image_url FROM portfolio_images WHERE thumbnail_url IS NOT NULL`,
   `SELECT image_url FROM posts WHERE image_url IS NOT NULL`,
   `SELECT avatar_url AS image_url FROM profiles WHERE avatar_url IS NOT NULL`,
-  `SELECT cover_url AS image_url FROM profiles WHERE cover_url IS NOT NULL`,
-  `SELECT cover_video_url AS image_url FROM profiles WHERE cover_video_url IS NOT NULL`,
   `SELECT national_id_url AS image_url FROM profiles WHERE national_id_url IS NOT NULL`,
   `SELECT image_url FROM stories WHERE image_url IS NOT NULL`,
   `SELECT attachment_url AS image_url FROM ticket_replies WHERE attachment_url IS NOT NULL`,
@@ -177,7 +175,7 @@ Deno.serve(async (req) => {
       queries.push(addUrls("photo_of_the_day", ["image_url"]));
       queries.push(addUrls("portfolio_images", ["image_url", "thumbnail_url"]));
       queries.push(addUrls("posts", ["image_url", "image_urls"]));
-      queries.push(addUrls("profiles", ["avatar_url", "cover_url", "cover_video_url", "national_id_url"]));
+      queries.push(addUrls("profiles", ["avatar_url", "national_id_url"]));
       queries.push(addUrls("stories", ["image_url"]));
       queries.push(addUrls("ticket_replies", ["attachment_url"]));
       queries.push(addUrls("competition_entries", ["photos"]));

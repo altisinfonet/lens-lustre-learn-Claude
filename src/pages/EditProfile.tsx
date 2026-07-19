@@ -10,7 +10,7 @@ import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { generateImagePath, uploadImage } from "@/lib/imageUpload";
 import { toast } from "@/hooks/core/use-toast";
-import { compressAvatar, compressImageToFiles } from "@/lib/imageCompression";
+import { compressAvatar } from "@/lib/imageCompression";
 import { useUpdateProfile, useUpdateAvatar } from "@/hooks/profile/useProfileMutations";
 import { scanFileWithToast } from "@/lib/fileSecurityScanner";
 import { createProfileUpdatePost } from "@/lib/profilePostHelper";
