@@ -171,6 +171,7 @@ export function preSeedCaches(data: DashboardInitResponse, qc: QueryClient, user
           id,
           full_name: (profile?.full_name as string | null | undefined) ?? null,
           avatar_url: (profile?.avatar_url as string | null | undefined) ?? null,
+          last_active_at: (profile?.last_active_at as string | null | undefined) ?? null,
           badges: badges?.[id] ?? [],
           roles: roles?.[id] ?? [],
         };

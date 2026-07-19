@@ -204,6 +204,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       is_pinned: false,
+      last_active: null,
       profile: { full_name: currentProfile?.full_name || "You", avatar_url: currentProfile?.avatar_url || null },
       badges: [],
       like_count: 0,
