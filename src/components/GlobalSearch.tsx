@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/core/useAuth";
 import { Search, Trophy, BookOpen, Newspaper, X, SlidersHorizontal, Calendar as CalendarIcon, Tag, User, Layers, UserRound, MessageSquare } from "lucide-react";
 import { profilesPublic } from "@/lib/profilesPublic";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,15 +39,26 @@ const GlobalSearch = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   // Monotonic request id — lets us drop stale/slow responses so a cleared
   // search can never be repopulated by an in-flight request, and a failed
   // request can never leave the spinner stuck.
   const seqRef = useRef(0);
+  // Context-aware mode: on the feed the search behaves like FB/Insta —
+  // people-first. Everywhere else it's full content search.
+  const isFeed = location.pathname.startsWith("/feed");
+  // Ids of people the current user follows (loaded once per panel-open);
+  // used to rank friends first and tag them "Following".
+  const followedIdsRef = useRef<Set<string>>(new Set());
 
   // Advanced filters
   const [sectionFilter, setSectionFilter] = useState<SectionFilter>("all");
+  // Bumped when the follow list finishes loading so the initial
+  // friends-suggestion search re-runs with the loaded ids.
+  const [followsVersion, setFollowsVersion] = useState(0);
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -134,7 +146,18 @@ const GlobalSearch = () => {
               .select("id, full_name, avatar_url, bio")
               .eq("is_suspended", false)
               .ilike("full_name", searchTerm);
-            return qb.limit(8);
+            return qb.limit(sectionFilter === "person" ? 15 : 8);
+          })()
+        : shouldSearchPeople && sectionFilter === "person" && followedIdsRef.current.size > 0
+        ? (() => {
+            // People-mode with empty query (feed default): suggest the
+            // people you follow, like Instagram's search sheet.
+            const ids = Array.from(followedIdsRef.current).slice(0, 25);
+            return profilesPublic()
+              .select("id, full_name, avatar_url, bio")
+              .eq("is_suspended", false)
+              .in("id", ids)
+              .limit(12);
           })()
         : Promise.resolve({ data: [] }),
       shouldSearchPosts && q.trim().length >= 2
@@ -177,14 +200,23 @@ const GlobalSearch = () => {
         subtitle: a.excerpt?.slice(0, 60) || undefined,
         date: a.published_at,
       })),
-      ...(people.data || []).map((p: any) => ({
-        id: p.id,
-        title: p.full_name || "Photographer",
-        type: "person" as const,
-        url: `/profile/${p.id}`,
-        subtitle: p.bio?.slice(0, 60) || undefined,
-        avatarUrl: p.avatar_url,
-      })),
+      ...(people.data || [])
+        .map((p: any) => ({
+          id: p.id,
+          title: p.full_name || "Photographer",
+          type: "person" as const,
+          url: `/profile/${p.id}`,
+          subtitle: followedIdsRef.current.has(p.id)
+            ? "Following"
+            : p.bio?.slice(0, 60) || undefined,
+          avatarUrl: p.avatar_url,
+        }))
+        // Friends first — people you follow rank above everyone else.
+        .sort(
+          (a: any, b: any) =>
+            (followedIdsRef.current.has(b.id) ? 1 : 0) -
+            (followedIdsRef.current.has(a.id) ? 1 : 0)
+        ),
       ...(posts.data || []).map((p: any) => ({
         id: p.id,
         title: (p.content || "").slice(0, 80) || "Post",
@@ -209,7 +241,7 @@ const GlobalSearch = () => {
         setLoading(false);
       }
     }
-  }, [sectionFilter, dateFrom, dateTo, categoryFilter, authorFilter, hasActiveFilters]);
+  }, [sectionFilter, dateFrom, dateTo, categoryFilter, authorFilter, hasActiveFilters, followsVersion]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -226,6 +258,26 @@ const GlobalSearch = () => {
       setLoading(false);
     }
   }, [open]);
+
+  // On open: pick the context default — People on the feed, All elsewhere —
+  // and (re)load the follow list so friends can be ranked first.
+  useEffect(() => {
+    if (!open) return;
+    setSectionFilter(isFeed ? "person" : "all");
+    if (user) {
+      supabase
+        .from("follows")
+        .select("following_id")
+        .eq("follower_id", user.id)
+        .limit(500)
+        .then(({ data }) => {
+          followedIdsRef.current = new Set((data || []).map((r: any) => r.following_id));
+          setFollowsVersion((v) => v + 1);
+        });
+    } else {
+      followedIdsRef.current = new Set();
+    }
+  }, [open, isFeed, user]);
 
   const handleSelect = (result: SearchResult) => {
     setOpen(false);
@@ -308,7 +360,7 @@ const GlobalSearch = () => {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Search…"
+                placeholder={isFeed && sectionFilter === "person" ? "Search friends & people…" : "Search…"}
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60 text-foreground"
                 style={{ fontFamily: "var(--font-body)" }}
               />
@@ -485,8 +537,14 @@ const GlobalSearch = () => {
               {!loading && (query.length >= 2 || hasActiveFilters) && results.length === 0 && (
                 <div className="px-4 py-6 text-center">
                   <p className="text-xs text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                    No results found{query ? <> for "<span className="text-foreground">{query}</span>"</> : ""}
-                    {hasActiveFilters && " with current filters"}
+                    {sectionFilter === "person" && query.length < 2 ? (
+                      <>Follow photographers to see them here — or type a name to find people.</>
+                    ) : (
+                      <>
+                        No results found{query ? <> for "<span className="text-foreground">{query}</span>"</> : ""}
+                        {hasActiveFilters && " with current filters"}
+                      </>
+                    )}
                   </p>
                 </div>
               )}
