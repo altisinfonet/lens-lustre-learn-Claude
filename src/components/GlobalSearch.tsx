@@ -40,6 +40,10 @@ const GlobalSearch = () => {
   const navigate = useNavigate();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Monotonic request id — lets us drop stale/slow responses so a cleared
+  // search can never be repopulated by an in-flight request, and a failed
+  // request can never leave the spinner stuck.
+  const seqRef = useRef(0);
 
   // Advanced filters
   const [sectionFilter, setSectionFilter] = useState<SectionFilter>("all");
@@ -78,12 +82,15 @@ const GlobalSearch = () => {
   }, [open]);
 
   const search = useCallback(async (q: string) => {
+    const seq = ++seqRef.current;
     if (q.trim().length < 2 && !hasActiveFilters) {
       setResults([]);
+      setLoading(false);
       return;
     }
     setLoading(true);
     const searchTerm = q.trim().length >= 2 ? `%${q.trim()}%` : "%";
+    try {
 
     const shouldSearchComps = sectionFilter === "all" || sectionFilter === "competition";
     const shouldSearchCourses = sectionFilter === "all" || sectionFilter === "course";
@@ -188,10 +195,20 @@ const GlobalSearch = () => {
       })),
     ];
 
+    // Stale response — a newer search (or a clear) superseded this one. Drop it.
+    if (seq !== seqRef.current) return;
+
     // Filter by author name client-side if set (would need profile join for server-side)
     setResults(mapped);
     setSelectedIndex(0);
     setLoading(false);
+    } catch (err) {
+      console.error("[GlobalSearch] search failed:", err);
+      if (seq === seqRef.current) {
+        setResults([]);
+        setLoading(false);
+      }
+    }
   }, [sectionFilter, dateFrom, dateTo, categoryFilter, authorFilter, hasActiveFilters]);
 
   useEffect(() => {
@@ -200,6 +217,15 @@ const GlobalSearch = () => {
     }, 300);
     return () => clearTimeout(timeout);
   }, [query, search, open]);
+
+  // Panel closed → invalidate in-flight searches and reset the spinner so a
+  // slow response can never resurrect old results when the panel reopens.
+  useEffect(() => {
+    if (!open) {
+      seqRef.current++;
+      setLoading(false);
+    }
+  }, [open]);
 
   const handleSelect = (result: SearchResult) => {
     setOpen(false);
@@ -287,7 +313,18 @@ const GlobalSearch = () => {
                 style={{ fontFamily: "var(--font-body)" }}
               />
               {query && (
-                <button onClick={() => { setQuery(""); setResults([]); }} className="text-muted-foreground hover:text-foreground transition-colors">
+                <button
+                  onClick={() => {
+                    // Invalidate any in-flight search so it can't repopulate results
+                    seqRef.current++;
+                    setQuery("");
+                    setResults([]);
+                    setLoading(false);
+                    inputRef.current?.focus();
+                  }}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Clear search"
+                >
                   <X className="h-3.5 w-3.5" />
                 </button>
               )}
@@ -454,7 +491,7 @@ const GlobalSearch = () => {
                 </div>
               )}
 
-              {!loading && results.length > 0 && (
+              {!loading && (query.trim().length >= 2 || hasActiveFilters) && results.length > 0 && (
                 <ul className="py-1">
                   {results.map((result, index) => {
                     const config = typeConfig[result.type];
