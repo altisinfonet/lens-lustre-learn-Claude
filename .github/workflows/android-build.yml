@@ -39,6 +39,11 @@ jobs:
       - name: Add Android platform
         run: npx cap add android
 
+      - name: Raise minSdk to 24 (camera lib requirement)
+        run: |
+          sed -i 's/minSdkVersion = 23/minSdkVersion = 24/' android/variables.gradle
+          grep minSdkVersion android/variables.gradle
+
       - name: Generate icons and splash screens
         run: |
           npm install --no-audit --no-fund -D @capacitor/assets
