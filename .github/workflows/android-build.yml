@@ -44,6 +44,14 @@ jobs:
           sed -i 's/minSdkVersion = 23/minSdkVersion = 24/' android/variables.gradle
           sed -i 's/compileSdkVersion = 35/compileSdkVersion = 36/' android/variables.gradle
           sed -i -E 's/(com\.android\.tools\.build:gradle:)[0-9.]+/\18.9.1/' android/build.gradle
+
+      - name: Set app version (monotonic versionCode from run number)
+        run: |
+          VC=$(( 1000 + ${{ github.run_number }} ))
+          sed -i "s/versionCode 1/versionCode ${VC}/" android/app/build.gradle
+          sed -i 's/versionName "1.0"/versionName "1.1"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.1"
+          grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
           grep -n 'com.android.tools.build' android/build.gradle
 
