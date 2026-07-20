@@ -511,6 +511,9 @@ Deno.serve(async (req) => {
       const keys = new Set<string>();
       if (roundNum <= 1) {
         for (const e of entries) {
+          // PERMFIX: a rejected entry is out of the judging surface entirely
+          // (mirrors the UI's .neq("status","rejected") and the SQL gate fns).
+          if (e?.status === "rejected") continue;
           const pc = Array.isArray(e.photos) ? e.photos.length : 1;
           for (let pi = 0; pi < pc; pi++) {
             // FIX #4: admin-rejected photos are NOT eligible — they were
@@ -560,6 +563,9 @@ Deno.serve(async (req) => {
           if (!isQualifyingDecision(String(d.decision ?? ""), roundNum - 1)) continue;
           const pi = d.photo_index ?? 0;
           const entry = entryById.get(d.entry_id);
+          // PERMFIX: prior-round shortlists are dropped if the whole entry was
+          // rejected (entry-level), matching the UI + SQL gate functions.
+          if (entry && entry.status === "rejected") continue;
           // FIX #4: even prior-round shortlists are dropped if the photo was
           // rejected by an admin after the fact.
           if (entry && isPhotoRejected(entry, pi)) continue;

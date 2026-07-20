@@ -71,7 +71,11 @@ const CHECK_LABELS: Record<string, { title: string; help: string }> = {
   },
   eligibility_consistency: {
     title: "Eligibility Consistency",
-    help: "get_round_eligible_photos(R) must equal photos with a qualifying decision in R-1. Drift means R-N shows wrong photos.",
+    help: "get_round_eligible_photos(R) must equal photos with a qualifying decision in R-1 that belong to a non-rejected entry. Drift means R-N shows wrong photos.",
+  },
+  rejected_entry_gate_leak: {
+    title: "Rejected Entry Gate Leak",
+    help: "A rejected entry must never be counted by a judging gate. If this fails, a rejected entry's photos are still being demanded from judges — the exact bug that freezes 'Complete Round'. Sample lists the leaking entry/photo per round.",
   },
 };
 
