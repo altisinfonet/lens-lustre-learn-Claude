@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1095759898943",
+    "project_id": "mm-retina-world",
+    "storage_bucket": "mm-retina-world.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1095759898943:android:9fd1c17484fe429d6ecb8a",
+        "android_client_info": {
+          "package_name": "com.fiftymmretina.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAUD3u5r8__f0P6E21IYpCiJGzMJEKhjOE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
