@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 
 import VerificationRequestCard from "@/components/profile/VerificationRequestCard";
 import ActiveDevices from "@/components/ActiveDevices";
+import DeleteAccountSection from "@/components/settings/DeleteAccountSection";
 import ProfileAnalytics from "@/components/profile/ProfileAnalytics";
 import UserBadgeInline from "@/components/UserBadgeInline";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
@@ -1131,6 +1132,9 @@ const SettingsTab = ({ user, profile, roles, applications, hasRole, canApplyFor,
         <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>No applications yet.</p>
       )}
     </div>
+
+    {/* Danger Zone — self-serve permanent account deletion (Play/Apple requirement) */}
+    <DeleteAccountSection />
   </div>
 );
 
