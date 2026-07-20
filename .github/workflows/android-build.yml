@@ -1,0 +1,76 @@
+name: Android Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/android-build.yml"
+      - "ANDROID_BUILD_TRIGGER"
+
+jobs:
+  build-aab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install web dependencies
+        run: npm ci || npm install --no-audit --no-fund
+
+      - name: Install Capacitor + native plugins
+        run: |
+          npm install --no-audit --no-fund \
+            @capacitor/core @capacitor/cli @capacitor/android \
+            @capacitor/camera @capacitor/share @capacitor/splash-screen \
+            @capacitor-firebase/messaging
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Add Android platform
+        run: npx cap add android
+
+      - name: Generate icons and splash screens
+        run: |
+          npm install --no-audit --no-fund -D @capacitor/assets
+          npx capacitor-assets generate --android \
+            --iconBackgroundColor '#0f172a' --splashBackgroundColor '#0f172a' || true
+
+      - name: Place Firebase config
+        run: cp google-services.json android/app/google-services.json
+
+      - name: Sync web build into native project
+        run: npx cap sync android
+
+      - name: Build release bundle (unsigned)
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew bundleRelease --no-daemon --stacktrace
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-unsigned
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 14
+
+      - name: Upload debug info on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-reports
+          path: |
+            android/app/build/reports/
+            android/build/reports/
+          if-no-files-found: ignore
+          retention-days: 3
