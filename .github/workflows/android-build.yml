@@ -39,10 +39,13 @@ jobs:
       - name: Add Android platform
         run: npx cap add android
 
-      - name: Raise minSdk to 24 (camera lib requirement)
+      - name: Configure Android SDK and AGP versions
         run: |
           sed -i 's/minSdkVersion = 23/minSdkVersion = 24/' android/variables.gradle
-          grep minSdkVersion android/variables.gradle
+          sed -i 's/compileSdkVersion = 35/compileSdkVersion = 36/' android/variables.gradle
+          sed -i -E 's/(com\.android\.tools\.build:gradle:)[0-9.]+/\18.9.1/' android/build.gradle
+          cat android/variables.gradle
+          grep -n 'com.android.tools.build' android/build.gradle
 
       - name: Generate icons and splash screens
         run: |
