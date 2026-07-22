@@ -31,6 +31,7 @@ jobs:
           npm install --no-audit --no-fund \
             @capacitor/core @capacitor/cli @capacitor/android \
             @capacitor/camera @capacitor/share @capacitor/splash-screen \
+            @capacitor/app @capacitor/browser \
             @capacitor-firebase/messaging
 
       - name: Build web app
@@ -49,11 +50,32 @@ jobs:
         run: |
           VC=$(( 1000 + ${{ github.run_number }} ))
           sed -i "s/versionCode 1/versionCode ${VC}/" android/app/build.gradle
-          sed -i 's/versionName "1.0"/versionName "1.1"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.1"
+          sed -i 's/versionName "1.0"/versionName "1.1.1"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.1.1"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
           grep -n 'com.android.tools.build' android/build.gradle
+
+      - name: Add OAuth deep-link intent filter (app.fiftymmretina scheme)
+        run: |
+          python3 - <<'EOF'
+          path = 'android/app/src/main/AndroidManifest.xml'
+          s = open(path).read()
+          f = '''
+                      <intent-filter>
+                          <action android:name="android.intent.action.VIEW" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                          <category android:name="android.intent.category.BROWSABLE" />
+                          <data android:scheme="app.fiftymmretina" />
+                      </intent-filter>
+          '''
+          assert '</activity>' in s, 'activity tag not found'
+          assert 'app.fiftymmretina' not in s, 'intent filter already present'
+          s = s.replace('</activity>', f + '\n        </activity>', 1)
+          open(path, 'w').write(s)
+          print('Intent filter injected. MainActivity block:')
+          print(s[s.index('<activity'):s.index('</activity>') + 12])
+          EOF
 
       - name: Generate icons and splash screens
         run: |
