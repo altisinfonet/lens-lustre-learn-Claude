@@ -61,6 +61,15 @@ export function useChatSession() {
 
   const streamChat = useCallback(
     async (allMessages: Msg[]) => {
+      // Strip the display-only "**<name> says:** " prefix from assistant turns
+      // before sending history to the model. Otherwise the model sees its own
+      // past replies beginning with "<name> says:" and imitates the pattern,
+      // producing a doubled "<name> says: <name> says:" prefix on new replies.
+      const cleanMessages = allMessages.map((m) =>
+        m.role === "assistant"
+          ? { ...m, content: m.content.replace(/^\*\*[^*]+?\s+says:\*\*\s*/i, "") }
+          : m
+      );
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
@@ -68,7 +77,7 @@ export function useChatSession() {
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({
-          messages: allMessages,
+          messages: cleanMessages,
           device_id: deviceId.current,
           persona_name: persona.current.name,
         }),
