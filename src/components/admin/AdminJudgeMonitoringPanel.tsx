@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Users, Loader2, AlertTriangle, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cachedFetchProfilesByIds } from "@/lib/profileBatch";
@@ -23,11 +23,14 @@ interface JudgeStats {
 const AdminJudgeMonitoringPanel = ({ competitionId }: Props) => {
   const [stats, setStats] = useState<JudgeStats[]>([]);
   const [loading, setLoading] = useState(true);
+  const [live, setLive] = useState(false);
   const reveal = useJudgeReveal();
+  // Debounce rapid realtime events (a judge saving 15 criteria fires many
+  // rows in quick succession) into a single reload.
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    const fetch = async () => {
-      setLoading(true);
+  const load = useCallback(async (showSpinner: boolean) => {
+      if (showSpinner) setLoading(true);
 
       // Get judges assigned to this competition (with assignment timestamp)
       const { data: assignments } = await supabase
@@ -113,10 +116,38 @@ const AdminJudgeMonitoringPanel = ({ competitionId }: Props) => {
       result.sort((a, b) => a.completionPct - b.completionPct);
       setStats(result);
       setLoading(false);
+  }, [competitionId]);
+
+  useEffect(() => {
+    load(true);
+
+    // Live updates: judging tables broadcast via supabase_realtime
+    // (migration 20260722110000). judge_scores / judge_decisions carry no
+    // competition_id column, so those events arrive unfiltered — the reload
+    // itself is competition-scoped, making a stray refetch harmless.
+    // judge_activity_logs IS filterable by competition.
+    const scheduleReload = () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      reloadTimer.current = setTimeout(() => load(false), 800);
     };
 
-    fetch();
-  }, [competitionId]);
+    const channel = supabase
+      .channel(`admin-judge-monitor-${competitionId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "judge_scores" }, scheduleReload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "judge_decisions" }, scheduleReload)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "judge_activity_logs", filter: `competition_id=eq.${competitionId}` },
+        scheduleReload
+      )
+      .subscribe((status) => setLive(status === "SUBSCRIBED"));
+
+    return () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      supabase.removeChannel(channel);
+      setLive(false);
+    };
+  }, [competitionId, load]);
 
   if (loading) {
     return (
@@ -143,6 +174,15 @@ const AdminJudgeMonitoringPanel = ({ competitionId }: Props) => {
           <span className="text-[9px] tracking-[0.15em] uppercase text-muted-foreground font-semibold" style={{ fontFamily: "var(--font-heading)" }}>
             Judge Progress ({stats.length})
           </span>
+          {live && (
+            <span className="flex items-center gap-1 text-[8px] tracking-[0.1em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary" />
+              </span>
+              Live
+            </span>
+          )}
         </div>
         <JudgeRevealToggle />
       </div>

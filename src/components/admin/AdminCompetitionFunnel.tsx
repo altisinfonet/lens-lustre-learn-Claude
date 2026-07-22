@@ -39,6 +39,26 @@ const AdminCompetitionFunnel = ({ competitionId }: Props) => {
       setLoading(false);
     };
     fetch();
+
+    // Live updates: entry statuses change while judging progresses
+    // (competition_entries is in the supabase_realtime publication).
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const channel = supabase
+      .channel(`admin-funnel-${competitionId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "competition_entries", filter: `competition_id=eq.${competitionId}` },
+        () => {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(fetch, 800);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
   }, [competitionId]);
 
   if (loading) {
