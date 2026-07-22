@@ -56,6 +56,7 @@ interface UseJudgeActionsArgs {
 
 export function useJudgeActions({
   userId,
+  seatJudgeId,
   isAdmin,
   isRoundLocked,
   selectedRound,
