@@ -271,9 +271,9 @@ serve(async (req) => {
     const userQuestion = latestUserMsg?.content || "";
     const questionFP = fingerprint(userQuestion);
 
-    // Call AI
-    const LOVABLE_API_KEY = (Deno.env.get("AI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    // Call AI. Prefer the dedicated chatbot key; fall back to the generic keys.
+    const LOVABLE_API_KEY = (Deno.env.get("CHATBOT_AI_KEY") ?? Deno.env.get("AI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
+    if (!LOVABLE_API_KEY) throw new Error("AI API key is not configured");
 
     const response = await fetch(
       (Deno.env.get("AI_GATEWAY_URL") ?? "https://ai.gateway.lovable.dev/v1/chat/completions"),
