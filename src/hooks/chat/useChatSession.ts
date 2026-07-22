@@ -99,11 +99,11 @@ export function useChatSession() {
           if (!user) {
             setShowNewsletterCapture(true);
           }
-          // Add the limit message as assistant response
-          const pName = persona.current.name;
+          // Add the limit message as assistant response. No "<name> says:"
+          // prefix — the chat UI already shows the persona name + avatar.
           setMessages((prev) => [
             ...prev,
-            { role: "assistant", content: `**${pName} says:** ${json.message}` },
+            { role: "assistant", content: json.message },
           ]);
           return;
         }
@@ -117,7 +117,6 @@ export function useChatSession() {
       let textBuffer = "";
       let assistantSoFar = "";
       let streamDone = false;
-      const pName = persona.current.name;
 
       while (!streamDone) {
         const { done, value } = await reader.read();
@@ -144,16 +143,15 @@ export function useChatSession() {
             if (content) {
               assistantSoFar += content;
               const snapshot = assistantSoFar;
-              // Prepend persona prefix on first token
-              const prefixedContent = `**${pName} says:** ${snapshot}`;
+              // No "<name> says:" prefix — the UI already shows persona + avatar.
               setMessages((prev) => {
                 const last = prev[prev.length - 1];
                 if (last?.role === "assistant") {
                   return prev.map((m, i) =>
-                    i === prev.length - 1 ? { ...m, content: prefixedContent } : m
+                    i === prev.length - 1 ? { ...m, content: snapshot } : m
                   );
                 }
-                return [...prev, { role: "assistant", content: prefixedContent }];
+                return [...prev, { role: "assistant", content: snapshot }];
               });
             }
           } catch {
@@ -183,10 +181,9 @@ export function useChatSession() {
       // Check FAQ first
       const faqAnswer = checkFaqMatch(trimmed);
       if (faqAnswer) {
-        const pName = persona.current.name;
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: `**${pName} says:** ${faqAnswer}` },
+          { role: "assistant", content: faqAnswer },
         ]);
         questionCount.current += 1;
         return;
