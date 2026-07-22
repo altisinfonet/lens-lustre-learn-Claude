@@ -26,6 +26,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import { useSystemFlag } from "@/lib/useSystemFlag";
 import { useUnjudgedDriftMonitor } from "@/hooks/judging/useUnjudgedDriftMonitor";
+import { useMultiJudgeProgress } from "@/hooks/judging/useMultiJudgeProgress";
+import SeatModeBar from "@/components/judge/SeatModeBar";
 import { flagUnjudgedEntries, clearUnjudgedEntries, flagIncompletePhotos, clearIncompletePhotos, getFirstIncompletePhotoKey } from "@/lib/judging/saveErrorStore";
 
 import type { RoundFilterCounts } from "@/components/judge/JudgeRoundSidebar";
@@ -57,6 +59,15 @@ const JudgePanel = () => {
   const isJudge = hasRole("judge") || hasRole("admin");
   const isAdmin = hasRole("admin");
 
+  // ── MASTER-KEY seat mode ──
+  // An admin can "sit in a judge's seat" and see + edit that judge's exact
+  // panel; every write is stamped under the seat judge's name. Only admins can
+  // seat; a non-admin can never set this. `seatJudgeId` is the seat judge's id.
+  const [seatJudgeId, setSeatJudgeId] = useState<string | null>(null);
+  const seatActive = isAdmin && !!seatJudgeId;
+  // Identity that drives the "my" view and all write attribution.
+  const effectiveJudgeId = seatActive ? seatJudgeId! : user?.id;
+
   useEffect(() => {
     if (!authLoading && !rolesLoading && !isJudge) navigate("/");
   }, [isJudge, authLoading, rolesLoading, navigate]);
@@ -84,6 +95,9 @@ const JudgePanel = () => {
     setJudgingStarted(false);
     setBulkMode(false);
     setBulkSelected(new Set());
+    // MASTER-KEY: a seat belongs to one competition's judge — leaving the room
+    // vacates the seat so an admin can never carry a seat into another room.
+    setSeatJudgeId(null);
   }, []);
 
   const setSelectedRound = useCallback((id: string | null) => {
@@ -190,12 +204,20 @@ const JudgePanel = () => {
   const roundNumber = currentRound?.round_number ?? undefined;
 
   const data = useJudgeClassicData({
-    userId: user?.id,
+    // MASTER-KEY: in seat mode this is the seat judge, so all "my" buckets,
+    // scores, tags and decisions render as that judge sees them.
+    userId: effectiveJudgeId,
     isAdmin,
+    seatJudgeId: seatActive ? seatJudgeId! : undefined,
     selectedCompId,
     selectedRound,
     currentRound,
   });
+
+  // MASTER-KEY: full judge roster for the seat picker (admin only). Shares the
+  // React Query cache key with CinemaJudgeView's "Other Judges" widget, so this
+  // adds no extra network cost.
+  const { judges: seatRoster } = useMultiJudgeProgress(selectedCompId, user?.id);
 
   const {
     entries, setEntries, allPhotos, getPhotoKey, getPhotoEvaluation,
@@ -356,6 +378,7 @@ const JudgePanel = () => {
     !!selectedPhoto && !isRoundLocked,
     500,
     () => setFeedbackSavedSignal((s) => s + 1),
+    seatActive ? seatJudgeId! : undefined,
   );
 
   // ── Lock ──
@@ -397,6 +420,7 @@ const JudgePanel = () => {
   // ── Actions ──
   const actions = useJudgeActions({
     userId: user?.id,
+    seatJudgeId: seatActive ? seatJudgeId! : undefined,
     isAdmin,
     isRoundLocked: isEffectivelyLocked,
     selectedRound,
@@ -556,7 +580,7 @@ const JudgePanel = () => {
 
   // ── Aggregate stats ──
   const competitionIds = useMemo(() => competitions.map((c) => c.id), [competitions]);
-  const { data: aggregateStats } = useJudgeAggregateStats(user?.id, competitionIds);
+  const { data: aggregateStats } = useJudgeAggregateStats(effectiveJudgeId, competitionIds);
 
   // ── Round management ──
   const handleCompleteRound = async (roundId: string) => {
@@ -944,6 +968,7 @@ const JudgePanel = () => {
   if (isMobile) {
     return (
       <>
+        <SeatModeBar isAdmin={isAdmin} roster={seatRoster} seatJudgeId={seatActive ? seatJudgeId : null} onSeat={setSeatJudgeId} selfUserId={user?.id} />
         {showStartDialog && pendingStartRound && (
           <StartRoundDialog roundName={rounds.find((r) => r.id === pendingStartRound)?.name || "Round"} totalImages={allPhotos.length} onConfirm={confirmStartJudging} onCancel={() => { setShowStartDialog(false); setPendingStartRound(null); }} />
         )}
@@ -984,6 +1009,7 @@ const JudgePanel = () => {
   // ════════════════════════════════════════════════
   return (
     <>
+      <SeatModeBar isAdmin={isAdmin} roster={seatRoster} seatJudgeId={seatActive ? seatJudgeId : null} onSeat={setSeatJudgeId} selfUserId={user?.id} />
       {/* Phase 3: Resume dialog */}
       {showResumeDialog && session.session && (
         <ResumeSessionDialog
@@ -1002,7 +1028,7 @@ const JudgePanel = () => {
       
       <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
         <CinemaJudgeView
-          userId={user?.id ?? ""} isAdmin={isAdmin} competitions={competitions}
+          userId={effectiveJudgeId ?? ""} isAdmin={isAdmin} competitions={competitions}
           selectedCompId={selectedCompId} setSelectedCompId={setSelectedCompId}
           entries={entries} loadingEntries={loadingEntries} loadingMore={loadingMore} hasMoreEntries={hasMoreEntries}
           availableTags={availableTags} rounds={rounds} selectedRound={selectedRound} setSelectedRound={setSelectedRound}

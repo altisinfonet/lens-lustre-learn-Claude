@@ -26,6 +26,13 @@ import { useSystemFlag } from "@/lib/useSystemFlag";
 
 interface UseJudgeActionsArgs {
   userId: string | undefined;
+  /**
+   * MASTER-KEY seat mode: when an admin is seated as a judge, this is the seat
+   * judge's id. All writes (edge fn `as_judge_id` + fallback direct writes +
+   * optimistic cache) are stamped with the seat judge so the mark carries the
+   * judge's name. Undefined in normal judging.
+   */
+  seatJudgeId?: string;
   isAdmin: boolean;
   isRoundLocked: boolean;
   selectedRound: string | null;
@@ -71,6 +78,12 @@ export function useJudgeActions({
   const [scoringEntry, setScoringEntry] = useState<string | null>(null);
   const [taggingEntry, setTaggingEntry] = useState<string | null>(null);
   const feedbackRef = useRef("");
+
+  // MASTER-KEY: the identity every write is stamped under. Equals the seat
+  // judge when an admin is seated, else the real signed-in judge.
+  const effectiveJudgeId = seatJudgeId ?? userId;
+  // Sent to the edge fns only in seat mode; the wrapper omits it when undefined.
+  const asJudgeId = seatJudgeId;
   // F-01 Phase C: When ON, edge-fn failure surfaces an error instead of
   // silently falling back to a raw client write. Default OFF (dual-write).
   const edgeAuthoritative = useSystemFlag("judge_edge_authoritative");
@@ -108,7 +121,7 @@ export function useJudgeActions({
     const upsertData: any = {
       entry_id: entryId,
       photo_index: normalizedPI,
-      judge_id: userId,
+      judge_id: effectiveJudgeId!,
       round_number: roundNumber ?? 1,
       score,
       feedback: currentFeedback,
@@ -148,6 +161,7 @@ export function useJudgeActions({
       round_number: roundNumber ?? 1,
       score,
       feedback: currentFeedback,
+      as_judge_id: asJudgeId,
       // JUDGING-15: send all 15 criteria to the edge fn (composition & technique
       // are first-class again; editing/story/moment are new). The edge computes
       // the one-decimal average once all 15 are present.
@@ -211,7 +225,7 @@ export function useJudgeActions({
       .from("judge_scores")
       .select("score,updated_at")
       .eq("entry_id", entryId)
-      .eq("judge_id", userId)
+      .eq("judge_id", effectiveJudgeId!)
       .eq("round_number", roundNumber ?? 1)
       .eq("photo_index", normalizedPI)
       .maybeSingle();
@@ -365,6 +379,7 @@ export function useJudgeActions({
       photo_index: normalizedPI,
       round_number: roundNumber ?? 1,
       tag_id: tagId,
+      as_judge_id: asJudgeId,
     });
 
     if (!edgeResult.ok) {
@@ -388,7 +403,7 @@ export function useJudgeActions({
           .eq("photo_index", normalizedPI)
           .eq("round_number", roundNumber ?? 1)
           .eq("tag_id", tagId)
-          .eq("judge_id", userId);
+          .eq("judge_id", effectiveJudgeId!);
         if (error) {
           unlockMutation();
           setTaggingEntry(null);
@@ -403,12 +418,12 @@ export function useJudgeActions({
             .eq("entry_id", entryId)
             .eq("photo_index", normalizedPI)
             .eq("round_number", roundNumber ?? 1)
-            .eq("judge_id", userId)
+            .eq("judge_id", effectiveJudgeId!)
             .in("tag_id", currentRoundTags);
         }
         const { error } = await supabase
           .from("judge_tag_assignments")
-          .insert([{ entry_id: entryId, photo_index: normalizedPI, round_number: roundNumber ?? 1, tag_id: tagId, judge_id: userId }]);
+          .insert([{ entry_id: entryId, photo_index: normalizedPI, round_number: roundNumber ?? 1, tag_id: tagId, judge_id: effectiveJudgeId! }]);
         if (error) {
           unlockMutation();
           setTaggingEntry(null);
@@ -426,13 +441,13 @@ export function useJudgeActions({
       updateTagOptimistic(
         photoKey,
         currentTags.filter((id) => id !== tagId),
-        allTags.filter((t) => !(t.tag_id === tagId && t.judge_id === userId)),
+        allTags.filter((t) => !(t.tag_id === tagId && t.judge_id === effectiveJudgeId)),
       );
       if (clickedTagDecision) {
         updateDecisionOptimistic(entryId, normalizedPI, "", roundNumber ?? 1);
         if (import.meta.env.DEV) {
           probeDecisionParity({
-            entryId, photoIndex: normalizedPI, judgeId: userId,
+            entryId, photoIndex: normalizedPI, judgeId: effectiveJudgeId!,
             roundNumber: roundNumber ?? 1,
             optimisticDecision: "",
             source: "toggleTag:remove",
@@ -449,8 +464,8 @@ export function useJudgeActions({
       photoKey,
       [...currentTags.filter((id) => !currentRoundTagIds.has(id)), tagId],
       [
-        ...allTags.filter((t) => !(t.judge_id === userId && currentRoundTagIds.has(t.tag_id))),
-        { tag_id: tagId, judge_id: userId },
+        ...allTags.filter((t) => !(t.judge_id === effectiveJudgeId && currentRoundTagIds.has(t.tag_id))),
+        { tag_id: tagId, judge_id: effectiveJudgeId! },
       ],
     );
     // Mirror the new tag into the per-photo decision cache so sidebar counts
@@ -460,7 +475,7 @@ export function useJudgeActions({
       updateDecisionOptimistic(entryId, normalizedPI, clickedTagDecision, roundNumber ?? 1);
       if (import.meta.env.DEV) {
         probeDecisionParity({
-          entryId, photoIndex: normalizedPI, judgeId: userId,
+          entryId, photoIndex: normalizedPI, judgeId: effectiveJudgeId!,
           roundNumber: roundNumber ?? 1,
           optimisticDecision: clickedTagDecision,
           source: "toggleTag:add",
@@ -509,6 +524,7 @@ export function useJudgeActions({
       photo_index: normalizedPI,
       comment: commentText.trim(),
       round_id: selectedRound || null,
+      as_judge_id: asJudgeId,
     });
 
     let insertedRow: { id: string; comment: string; created_at: string; round_id: string | null } | null = null;
@@ -532,7 +548,7 @@ export function useJudgeActions({
         .insert({
           entry_id: entryId,
           photo_index: normalizedPI,
-          judge_id: userId,
+          judge_id: effectiveJudgeId!,
           comment: commentText.trim(),
           round_id: selectedRound || null,
         })
@@ -549,7 +565,7 @@ export function useJudgeActions({
     }
 
     const photoKey = `${entryId}::${normalizedPI}`;
-    addCommentOptimistic(photoKey, { ...insertedRow!, judge_id: userId } as JudgeComment);
+    addCommentOptimistic(photoKey, { ...insertedRow!, judge_id: effectiveJudgeId! } as JudgeComment);
     clearSaveError(entryId, normalizedPI);
     toast({ title: "Note saved ✓" });
     unlockMutation();

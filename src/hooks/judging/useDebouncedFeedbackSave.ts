@@ -21,7 +21,11 @@ export function useDebouncedFeedbackSave(
   enabled: boolean,
   debounceMs = 800,
   onSaved?: () => void,
+  /** MASTER-KEY seat mode: admin-only; store under this judge's identity. */
+  seatJudgeId?: string,
 ) {
+  // Identity every write is stamped under (seat judge, else self).
+  const effectiveJudgeId = seatJudgeId ?? userId;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef<string>("");
   const prevKeyRef = useRef<string>("");
@@ -73,6 +77,7 @@ export function useDebouncedFeedbackSave(
         photo_index: pi,
         round_number: roundNumber ?? 1,
         feedback: trimmed,
+        as_judge_id: seatJudgeId,
       });
 
       let error: { message: string } | null = null;
@@ -84,7 +89,7 @@ export function useDebouncedFeedbackSave(
           .select("id")
           .eq("entry_id", capturedEntryId)
           .eq("photo_index", pi)
-          .eq("judge_id", userId)
+          .eq("judge_id", effectiveJudgeId!)
           .eq("round_number", roundNumber ?? 1)
           .maybeSingle();
 
@@ -94,13 +99,13 @@ export function useDebouncedFeedbackSave(
             .update({ feedback: trimmed })
             .eq("entry_id", capturedEntryId)
             .eq("photo_index", pi)
-            .eq("judge_id", userId)
+            .eq("judge_id", effectiveJudgeId!)
             .eq("round_number", roundNumber ?? 1));
         } else {
           ({ error } = await supabase
             .from("judge_scores")
             .upsert(
-              { entry_id: capturedEntryId, photo_index: pi, judge_id: userId, round_number: roundNumber ?? 1, feedback: trimmed },
+              { entry_id: capturedEntryId, photo_index: pi, judge_id: effectiveJudgeId!, round_number: roundNumber ?? 1, feedback: trimmed },
               { onConflict: "entry_id,judge_id,round_number,photo_index" }
             ));
         }

@@ -42,6 +42,19 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "invalid_body" }, 400);
     }
 
+    // MASTER-KEY (2026-07-22, owner-approved): optional as_judge_id — admin-only
+    // seat mode; the tag toggle is stored under the seat judge's identity.
+    let effectiveJudgeId = userId;
+    const as_judge_id = body?.as_judge_id;
+    if (as_judge_id !== undefined && as_judge_id !== null) {
+      if (typeof as_judge_id !== "string" || as_judge_id.length < 10) {
+        return json({ ok: false, error: "as_judge_id must be a user id string" }, 400);
+      }
+      if (!isAdmin) return json({ ok: false, error: "as_judge_id requires admin" }, 403);
+      effectiveJudgeId = as_judge_id;
+    }
+    const seatMode = effectiveJudgeId !== userId;
+
     // Resolve competition_id
     const { data: entry, error: eErr } = await admin
       .from("competition_entries")
@@ -51,8 +64,16 @@ Deno.serve(async (req) => {
     if (eErr || !entry) return json({ ok: false, error: "entry_not_found" }, 404);
     const competition_id = entry.competition_id as string;
 
-    // Authz: assignment + round lock
-    await validateJudgeAssignment(admin, userId, entry_id, competition_id, isAdmin);
+    // Authz: assignment + round lock. Seat mode validates the SEAT JUDGE's
+    // real assignment (isAdmin=false) so the mark is one the judge could
+    // legitimately have made themselves.
+    await validateJudgeAssignment(
+      admin,
+      effectiveJudgeId,
+      entry_id,
+      competition_id,
+      seatMode ? false : isAdmin,
+    );
     await validateRoundNotLocked(admin, competition_id, round_number, isAdmin);
 
     // Tag must exist and be visible in this round. NOTE: client (useJudgeActions)
@@ -80,7 +101,7 @@ Deno.serve(async (req) => {
       .eq("photo_index", photo_index)
       .eq("round_number", round_number)
       .eq("tag_id", tag_id)
-      .eq("judge_id", userId)
+      .eq("judge_id", effectiveJudgeId)
       .maybeSingle();
 
     if (existing) {
@@ -125,7 +146,7 @@ Deno.serve(async (req) => {
       _photo_index: photo_index,
       _round_number: round_number,
       _tag_id: tag_id,
-      _judge_id: userId,
+      _judge_id: effectiveJudgeId,
     });
     if (applyErr) return json({ ok: false, error: applyErr.message }, 500);
 

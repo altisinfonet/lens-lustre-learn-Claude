@@ -95,6 +95,10 @@ Deno.serve(async (req) => {
     score,
     feedback,
     criteria,
+    // MASTER-KEY (2026-07-22, owner-approved): optional seat-mode identity.
+    // When present, the caller MUST be an admin; the row is stored under
+    // as_judge_id so the mark carries the judge's name. Absent → unchanged.
+    as_judge_id,
   } = body ?? {};
 
   if (!entry_id || typeof entry_id !== "string") return bad("entry_id required");
@@ -140,6 +144,16 @@ Deno.serve(async (req) => {
 
   const { admin, userId, isAdmin } = auth;
 
+  // MASTER-KEY seat mode: admin writes under the seat judge's identity.
+  let effectiveJudgeId = userId;
+  if (as_judge_id !== undefined && as_judge_id !== null) {
+    if (typeof as_judge_id !== "string" || as_judge_id.length < 10)
+      return bad("as_judge_id must be a user id string");
+    if (!isAdmin) return bad("Forbidden: as_judge_id requires admin", 403);
+    effectiveJudgeId = as_judge_id;
+  }
+  const seatMode = effectiveJudgeId !== userId;
+
   const { data: entry, error: entryErr } = await admin
     .from("competition_entries")
     .select("competition_id, photos")
@@ -154,7 +168,15 @@ Deno.serve(async (req) => {
 
   try {
     await validateRoundNotLocked(admin, competition_id, round_number, isAdmin);
-    await validateJudgeAssignment(admin, userId, entry_id, competition_id, isAdmin);
+    // In seat mode, validate the SEAT JUDGE's real assignment (isAdmin=false):
+    // the mark must be one the judge could legitimately have made themselves.
+    await validateJudgeAssignment(
+      admin,
+      effectiveJudgeId,
+      entry_id,
+      competition_id,
+      seatMode ? false : isAdmin,
+    );
   } catch (e) {
     if (e instanceof AuthError) return bad(e.message, e.status);
     return bad("Validation failed", 400);
@@ -175,7 +197,7 @@ Deno.serve(async (req) => {
       .from("judge_scores")
       .select("composition_score,color_palette_score,technique_score,line_score,shape_score,form_score,texture_score,space_score,tone_score,balance_score,light_score,depth_score,editing_score,story_score,moment_score,score")
       .eq("entry_id", entry_id)
-      .eq("judge_id", userId)
+      .eq("judge_id", effectiveJudgeId)
       .eq("round_number", round_number)
       .eq("photo_index", photo_index)
       .maybeSingle();
@@ -214,7 +236,7 @@ Deno.serve(async (req) => {
 
   const upsertRow: Record<string, unknown> = {
     entry_id,
-    judge_id: userId,
+    judge_id: effectiveJudgeId,
     round_number,
     photo_index,
     updated_at: nowIso,
@@ -226,7 +248,7 @@ Deno.serve(async (req) => {
 
   // [SAVE-LOG] Server-side trace — visible in edge function logs
   // (Lovable Cloud → Backend → Edge Functions → submit-judge-score → Logs)
-  const logKey = `entry=${entry_id} photo=${photo_index} round=${round_number} judge=${userId}`;
+  const logKey = `entry=${entry_id} photo=${photo_index} round=${round_number} judge=${effectiveJudgeId}`;
   console.log(`[SAVE-LOG] upsert:start ${logKey} score=${finalScore} criteria_keys=${Object.keys(writeCriteria).join(",")}`);
 
   const { error: upsertErr } = await admin
@@ -246,7 +268,7 @@ Deno.serve(async (req) => {
     .from("judge_scores")
     .select("score,line_score,shape_score,form_score,texture_score,color_palette_score,space_score,tone_score,balance_score,light_score,depth_score,updated_at")
     .eq("entry_id", entry_id)
-    .eq("judge_id", userId)
+    .eq("judge_id", effectiveJudgeId)
     .eq("round_number", round_number)
     .eq("photo_index", photo_index)
     .maybeSingle();
@@ -261,7 +283,7 @@ Deno.serve(async (req) => {
   console.log(`[SAVE-LOG] verify:OK ${logKey} db_score=${verifyRow.score} db_updated_at=${verifyRow.updated_at}`);
 
   await admin.from("judge_activity_logs").insert({
-    judge_id: userId,
+    judge_id: effectiveJudgeId,
     competition_id,
     entry_id,
     round_number,

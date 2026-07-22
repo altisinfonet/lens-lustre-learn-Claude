@@ -31,6 +31,19 @@ Deno.serve(async (req) => {
     if (!entry_id || !Number.isInteger(photo_index) || photo_index < 0) {
       return json({ ok: false, error: "invalid_body" }, 400);
     }
+
+    // MASTER-KEY (2026-07-22, owner-approved): optional as_judge_id — admin-only
+    // seat mode; the comment is stored under the seat judge's identity.
+    let effectiveJudgeId = userId;
+    const as_judge_id = body?.as_judge_id;
+    if (as_judge_id !== undefined && as_judge_id !== null) {
+      if (typeof as_judge_id !== "string" || as_judge_id.length < 10) {
+        return json({ ok: false, error: "as_judge_id must be a user id string" }, 400);
+      }
+      if (!isAdmin) return json({ ok: false, error: "as_judge_id requires admin" }, 403);
+      effectiveJudgeId = as_judge_id;
+    }
+    const seatMode = effectiveJudgeId !== userId;
     // Strip control chars, trim, length bound
     const comment = comment_raw.replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "").trim();
     if (comment.length < 1 || comment.length > 2000) {
@@ -45,7 +58,14 @@ Deno.serve(async (req) => {
     if (eErr || !entry) return json({ ok: false, error: "entry_not_found" }, 404);
     const competition_id = entry.competition_id as string;
 
-    await validateJudgeAssignment(admin, userId, entry_id, competition_id, isAdmin);
+    // Seat mode validates the SEAT JUDGE's real assignment (isAdmin=false).
+    await validateJudgeAssignment(
+      admin,
+      effectiveJudgeId,
+      entry_id,
+      competition_id,
+      seatMode ? false : isAdmin,
+    );
 
     // Derive round for lock check from round_id when possible, else from entry.current_round digits
     let round_number: number | null = null;
@@ -72,7 +92,7 @@ Deno.serve(async (req) => {
       .insert({
         entry_id,
         photo_index,
-        judge_id: userId,
+        judge_id: effectiveJudgeId,
         comment,
         round_id: round_id || null,
       })

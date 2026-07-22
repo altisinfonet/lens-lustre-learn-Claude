@@ -87,7 +87,18 @@ Deno.serve(async (req) => {
     return bad("Invalid JSON body");
   }
 
-  const { entry_id, photo_index, round_number, stage_key } = body ?? {};
+  // MASTER-KEY (2026-07-22, owner-approved): optional as_judge_id — admin-only
+  // seat mode; the decision is stored under the seat judge's identity.
+  const { entry_id, photo_index, round_number, stage_key, as_judge_id } = body ?? {};
+
+  let effectiveJudgeId = userId;
+  if (as_judge_id !== undefined && as_judge_id !== null) {
+    if (typeof as_judge_id !== "string" || as_judge_id.length < 10)
+      return bad("as_judge_id must be a user id string");
+    if (!isAdmin) return bad("Forbidden: as_judge_id requires admin", 403);
+    effectiveJudgeId = as_judge_id;
+  }
+  const seatMode = effectiveJudgeId !== userId;
 
   if (!entry_id || typeof entry_id !== "string") return bad("entry_id required");
   if (!Number.isInteger(photo_index) || photo_index < 0)
@@ -141,7 +152,15 @@ Deno.serve(async (req) => {
 
   try {
     await validateRoundNotLocked(admin, competition_id, round_number, isAdmin);
-    await validateJudgeAssignment(admin, userId, entry_id, competition_id, isAdmin);
+    // Seat mode: validate the SEAT JUDGE's real assignment (isAdmin=false) so
+    // the stored decision is one the judge could have made themselves.
+    await validateJudgeAssignment(
+      admin,
+      effectiveJudgeId,
+      entry_id,
+      competition_id,
+      seatMode ? false : isAdmin,
+    );
   } catch (e) {
     if (e instanceof AuthError) return bad(e.message, e.status);
     return bad("Validation failed", 400);
@@ -155,7 +174,7 @@ Deno.serve(async (req) => {
     .upsert(
       {
         entry_id,
-        judge_id: userId,
+        judge_id: effectiveJudgeId,
         round_number,
         photo_index,
         decision: stage.decision_token,
@@ -223,7 +242,7 @@ Deno.serve(async (req) => {
         .upsert(
           {
             entry_id,
-            judge_id: userId,
+            judge_id: effectiveJudgeId,
             round_number,
             photo_index,
             tag_id: tagRow.id,
@@ -260,7 +279,7 @@ Deno.serve(async (req) => {
 
   // ── 7. Activity log (best-effort, never blocks success) ─────────────────
   await admin.from("judge_activity_logs").insert({
-    judge_id: userId,
+    judge_id: effectiveJudgeId,
     competition_id,
     entry_id,
     round_number,

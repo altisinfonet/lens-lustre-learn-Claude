@@ -37,6 +37,13 @@ export const getRoundMode = (round: JudgingRound | null): "scoring" | "tagging" 
 interface UseJudgeClassicDataArgs {
   userId: string | undefined;
   isAdmin: boolean;
+  /**
+   * MASTER-KEY seat mode: when set, `userId` IS the seat judge's id and the
+   * entry list must mirror exactly what that judge sees — so in distributed
+   * mode we apply the seat judge's assignment filter even though the caller is
+   * an admin. Undefined in normal judging.
+   */
+  seatJudgeId?: string;
   selectedCompId: string | null;
   selectedRound: string | null;
   currentRound: JudgingRound | null;
@@ -45,6 +52,7 @@ interface UseJudgeClassicDataArgs {
 export function useJudgeClassicData({
   userId,
   isAdmin,
+  seatJudgeId,
   selectedCompId,
   selectedRound,
   currentRound,
@@ -168,9 +176,11 @@ export function useJudgeClassicData({
     if (append) setLoadingMore(true);
     else { setLoadingEntries(true); }
 
-    // Check distributed assignment
+    // Check distributed assignment. In seat mode we mirror the seat judge, so
+    // apply the assignment filter even though the caller is an admin (userId is
+    // the seat judge here).
     let assignedEntryIds: string[] | null = null;
-    if (!isAdmin) {
+    if (!isAdmin || seatJudgeId) {
       const { data: compData } = await supabase
         .from("competitions")
         .select("judge_assignment_mode")
@@ -285,7 +295,7 @@ export function useJudgeClassicData({
     setEntriesOffset(offset + rawEntries.length);
     setLoadingEntries(false);
     setLoadingMore(false);
-  }, [userId, enrichBatch, isAdmin]);
+  }, [userId, enrichBatch, isAdmin, seatJudgeId]);
 
   const handleLoadMore = useCallback(() => {
     if (!selectedCompId || loadingMore) return;

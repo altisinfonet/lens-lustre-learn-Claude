@@ -28,6 +28,8 @@ export interface ScorePayload {
   score?: number | null;
   feedback?: string | null;
   criteria?: Record<string, number | null>;
+  /** MASTER-KEY seat mode: admin-only; store under this judge's identity. */
+  as_judge_id?: string;
 }
 
 export interface DualWriteResult {
@@ -70,6 +72,8 @@ export interface TagTogglePayload {
   photo_index: number;
   round_number: number;
   tag_id: string;
+  /** MASTER-KEY seat mode: admin-only; store under this judge's identity. */
+  as_judge_id?: string;
 }
 export function submitJudgeTagEdge(p: TagTogglePayload) {
   return callEdge("submit-judge-tag", p);
@@ -80,6 +84,8 @@ export interface CommentPayload {
   photo_index: number;
   comment: string;
   round_id?: string | null;
+  /** MASTER-KEY seat mode: admin-only; store under this judge's identity. */
+  as_judge_id?: string;
 }
 export function submitJudgeCommentEdge(p: CommentPayload) {
   return callEdge("submit-judge-comment", p);
