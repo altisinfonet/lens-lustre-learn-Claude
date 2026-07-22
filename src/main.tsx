@@ -3,10 +3,15 @@ import App from "./App.tsx";
 import { startNetworkTrace } from "./lib/networkTracer";
 import { runCacheBuster } from "./lib/cacheBuster";
 import { installImageFallback } from "./lib/imageFallback";
+import { initNativeAuthDeepLink } from "./lib/native/authDeepLink";
 
 import "./index.css";
 
 startNetworkTrace(8000);
+
+// Inside the installed app only: complete Google/Apple sign-in when the OAuth
+// deep link (app.fiftymmretina://auth-callback) fires. No-op on web/PWA.
+initNativeAuthDeepLink();
 
 // Replace any broken <img> (e.g. legacy external cover URLs) with a branded
 // self-hosted placeholder so users never see a broken-image icon.
