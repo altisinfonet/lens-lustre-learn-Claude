@@ -11,6 +11,7 @@ import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { useIsBanned } from "@/hooks/core/useIsBanned";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadImageWithThumbnail } from "@/lib/imageUpload";
+import { queryKeys } from "@/lib/queryKeys";
 import { toast } from "@/hooks/core/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { Textarea } from "@/components/ui/textarea";
@@ -379,6 +380,9 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         setExcludeFromSearch(false);
         clearAllImages();
         await refetch();
+        // Keep the FEED in sync too: realtime inserts it instantly when the
+        // feed is mounted; invalidation covers navigation + flaky sockets.
+        queryClient.invalidateQueries({ queryKey: queryKeys.feed() });
       }
     } catch (err: any) {
       // This catch covers the WHOLE post pipeline (compress → upload → insert),
@@ -414,6 +418,19 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       toast({ title: "Failed to delete", description: error.message, variant: "destructive" });
     } else {
       queryClient.invalidateQueries({ queryKey: ["user-wall-posts", targetUserId] });
+      // Remove instantly from the FEED cache as well (deletes made on the wall
+      // previously lingered in the feed until a manual refresh).
+      queryClient.setQueryData<any>(queryKeys.feed(), (old: any) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            posts: (page.posts || []).filter((p: any) => p.id !== postId),
+          })),
+        };
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.feed() });
     }
   }, [user, targetUserId, queryClient]);
 

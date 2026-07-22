@@ -44,9 +44,12 @@ export function useFeedRealtime({
         { event: "INSERT", schema: "public", table: "posts" },
         (payload) => {
           const p = payload.new as any;
-          // Skip own posts — already added optimistically by the create flow
-          if (p.user_id === userIdRef.current) return;
-          if (p.privacy === "public" || relevantIdsRef.current.includes(p.user_id)) {
+          // NOTE: own posts are NOT skipped here. The create flow (WallPosts
+          // composer) does not write into the feed cache, so this event is the
+          // designed path for a user's own post to appear instantly — Feed's
+          // handleNewPost has an own-post branch (insert at top + scroll) that
+          // was previously dead code because of a skip here.
+          if (p.privacy === "public" || p.user_id === userIdRef.current || relevantIdsRef.current.includes(p.user_id)) {
             handlersRef.current.onNewPost(p);
           }
         }

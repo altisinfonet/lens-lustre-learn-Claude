@@ -91,31 +91,39 @@ Deno.serve(async (req) => {
       "user_devices", "scheduled_posts", "post_shares", "photo_albums",
       "notification_preferences", "newsletter_subscribers",
     ];
-    for (const table of userIdTables) {
-      await adminClient.from(table).delete().eq("user_id", user_id);
+    // PERF: run deletes in parallel batches instead of ~50 sequential
+    // round-trips (which made deletion take 15-30s and feel hung).
+    const chunk = <T,>(arr: T[], n: number): T[][] =>
+      Array.from({ length: Math.ceil(arr.length / n) }, (_, i) => arr.slice(i * n, i * n + n));
+    for (const batch of chunk(userIdTables, 10)) {
+      await Promise.all(batch.map((table) => adminClient.from(table).delete().eq("user_id", user_id)));
     }
 
-    // Tables that reference the user via other columns.
-    await adminClient.from("follows").delete().or(`follower_id.eq.${user_id},following_id.eq.${user_id}`);
-    await adminClient.from("friendships").delete().or(`requester_id.eq.${user_id},addressee_id.eq.${user_id}`);
-    await adminClient.from("profile_views").delete().or(`profile_id.eq.${user_id},viewer_id.eq.${user_id}`);
-    await adminClient.from("referrals").delete().or(`referrer_id.eq.${user_id},referred_id.eq.${user_id}`);
-    await adminClient.from("competition_judges").delete().eq("judge_id", user_id);
-    await adminClient.from("judge_comments").delete().eq("judge_id", user_id);
-    await adminClient.from("judge_scores").delete().eq("judge_id", user_id);
-    await adminClient.from("judge_tag_assignments").delete().eq("judge_id", user_id);
-    await adminClient.from("portfolio_images").delete().eq("uploaded_by", user_id);
-    await adminClient.from("reports").delete().eq("reporter_id", user_id);
-    await adminClient.from("comment_reports").delete().eq("reporter_id", user_id);
-    await adminClient.from("post_reports").delete().eq("reporter_id", user_id);
+    // Tables that reference the user via other columns — parallel.
+    await Promise.all([
+      adminClient.from("follows").delete().or(`follower_id.eq.${user_id},following_id.eq.${user_id}`),
+      adminClient.from("friendships").delete().or(`requester_id.eq.${user_id},addressee_id.eq.${user_id}`),
+      adminClient.from("profile_views").delete().or(`profile_id.eq.${user_id},viewer_id.eq.${user_id}`),
+      adminClient.from("referrals").delete().or(`referrer_id.eq.${user_id},referred_id.eq.${user_id}`),
+      adminClient.from("competition_judges").delete().eq("judge_id", user_id),
+      adminClient.from("judge_comments").delete().eq("judge_id", user_id),
+      adminClient.from("judge_scores").delete().eq("judge_id", user_id),
+      adminClient.from("judge_tag_assignments").delete().eq("judge_id", user_id),
+      adminClient.from("portfolio_images").delete().eq("uploaded_by", user_id),
+      adminClient.from("reports").delete().eq("reporter_id", user_id),
+      adminClient.from("comment_reports").delete().eq("reporter_id", user_id),
+      adminClient.from("post_reports").delete().eq("reporter_id", user_id),
+    ]);
 
-    // Nullify references where the parent record must survive (other users' data).
-    await adminClient.from("comment_reports").update({ reviewed_by: null }).eq("reviewed_by", user_id);
-    await adminClient.from("post_reports").update({ reviewed_by: null }).eq("reviewed_by", user_id);
-    await adminClient.from("role_applications").update({ reviewed_by: null }).eq("reviewed_by", user_id);
-    await adminClient.from("verification_requests").update({ reviewed_by: null }).eq("reviewed_by", user_id);
-    await adminClient.from("withdrawal_requests").update({ reviewed_by: null }).eq("reviewed_by", user_id);
-    await adminClient.from("user_notifications").update({ actor_id: null }).eq("actor_id", user_id);
+    // Nullify references where the parent record must survive — parallel.
+    await Promise.all([
+      adminClient.from("comment_reports").update({ reviewed_by: null }).eq("reviewed_by", user_id),
+      adminClient.from("post_reports").update({ reviewed_by: null }).eq("reviewed_by", user_id),
+      adminClient.from("role_applications").update({ reviewed_by: null }).eq("reviewed_by", user_id),
+      adminClient.from("verification_requests").update({ reviewed_by: null }).eq("reviewed_by", user_id),
+      adminClient.from("withdrawal_requests").update({ reviewed_by: null }).eq("reviewed_by", user_id),
+      adminClient.from("user_notifications").update({ actor_id: null }).eq("actor_id", user_id),
+    ]);
 
     // Server-side purge of the remaining user-referencing rows (feed_events,
     // raw_commitments PII, judge decisions, notification logs, post_tags, and the

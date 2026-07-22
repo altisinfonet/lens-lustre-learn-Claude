@@ -254,11 +254,19 @@ export async function uploadImageWithThumbnail(
 
   const baseName = file.name.replace(/\.[^.]+$/, "");
 
-  // Encode full-res to WebP (preserves resolution at q=0.92).
-  // Aligns with the platform-wide WebP-only image strategy.
+  // Encode to WebP (q=0.92), aligned with the platform-wide WebP-only strategy.
+  // PERF: wall/feed posts are capped at 2560px — encoding + uploading a full
+  // 50MP camera photo made posting take many seconds (worst on mobile webviews).
+  // 2560px is sharper than any feed/lightbox render. Competition entries and
+  // every other image type keep original resolution.
+  const maxDimension = type === "post" ? 2560 : undefined;
   let fullResFile: File;
   try {
-    const { webpFile } = await compressImageToFiles(file, baseName);
+    const { webpFile } = await compressImageToFiles(
+      file,
+      baseName,
+      maxDimension ? { maxDimension } : undefined,
+    );
     fullResFile = webpFile;
   } catch (err) {
     console.warn("Full-res WebP encoding failed, uploading original:", err);
