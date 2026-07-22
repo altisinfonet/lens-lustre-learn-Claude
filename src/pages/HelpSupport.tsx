@@ -46,9 +46,13 @@ const HelpSupport = () => {
   const [replyFiles, setReplyFiles] = useState<Record<string, File | null>>({});
   const [uploadingFile, setUploadingFile] = useState(false);
 
+  // Page is intentionally PUBLIC: it is the account/data-deletion resource URL
+  // declared in the Google Play Data safety form, and Google requires that
+  // deletion info be reachable without signing in (users may have lost access).
+  // Only the ticket features below require a session.
   useEffect(() => {
-    if (!authLoading && !user) navigate("/login");
-  }, [user, authLoading, navigate]);
+    if (!authLoading && !user) setLoading(false);
+  }, [user, authLoading]);
 
   useEffect(() => {
     if (!user) return;
@@ -229,13 +233,15 @@ const HelpSupport = () => {
             <h1 className="text-xl md:text-3xl font-light tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
               Support Tickets
             </h1>
-            <button
-              onClick={() => setShowForm(!showForm)}
-              className="inline-flex items-center gap-1.5 text-[10px] md:text-xs tracking-[0.15em] uppercase px-3 md:px-5 py-2 md:py-2.5 bg-primary text-primary-foreground hover:opacity-90 transition-opacity duration-500 rounded-lg md:rounded-none"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              <Plus className="h-3 w-3 md:h-3.5 md:w-3.5" /> New Ticket
-            </button>
+            {user && (
+              <button
+                onClick={() => setShowForm(!showForm)}
+                className="inline-flex items-center gap-1.5 text-[10px] md:text-xs tracking-[0.15em] uppercase px-3 md:px-5 py-2 md:py-2.5 bg-primary text-primary-foreground hover:opacity-90 transition-opacity duration-500 rounded-lg md:rounded-none"
+                style={{ fontFamily: "var(--font-heading)" }}
+              >
+                <Plus className="h-3 w-3 md:h-3.5 md:w-3.5" /> New Ticket
+              </button>
+            )}
           </div>
 
           {/* New Ticket Form */}
@@ -322,8 +328,25 @@ const HelpSupport = () => {
             </motion.div>
           )}
 
+          {/* Guests: tickets need an account */}
+          {!user && (
+            <div className="border border-border rounded-xl md:rounded-none p-6 md:p-10 text-center mb-4 md:mb-10">
+              <MessageSquare className="h-6 w-6 md:h-8 md:w-8 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground mb-4" style={{ fontFamily: "var(--font-body)" }}>
+                Sign in to create and track support tickets.
+              </p>
+              <button
+                onClick={() => navigate("/login")}
+                className="inline-flex items-center gap-1.5 text-[10px] md:text-xs tracking-[0.15em] uppercase px-4 py-2.5 bg-primary text-primary-foreground hover:opacity-90 transition-opacity duration-500"
+                style={{ fontFamily: "var(--font-heading)" }}
+              >
+                Sign In
+              </button>
+            </div>
+          )}
+
           {/* Tickets List */}
-          {tickets.length === 0 ? (
+          {!user ? null : tickets.length === 0 ? (
             <div className="border border-border rounded-xl md:rounded-none p-6 md:p-10 text-center">
               <MessageSquare className="h-6 w-6 md:h-8 md:w-8 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
@@ -425,6 +448,42 @@ const HelpSupport = () => {
               ))}
             </div>
           )}
+
+          {/* Account & Data Deletion — PUBLIC section. This page is the deletion
+              resource URL declared in the Google Play Data safety form, so this
+              information must be visible without signing in. */}
+          <section id="delete-account" className="mt-8 md:mt-14 border border-border rounded-xl md:rounded-none p-4 md:p-8">
+            <span className="text-[9px] md:text-[10px] tracking-[0.3em] uppercase text-primary block mb-3" style={{ fontFamily: "var(--font-heading)" }}>
+              Account &amp; Data Deletion
+            </span>
+            <h2 className="text-lg md:text-2xl font-light tracking-tight mb-4" style={{ fontFamily: "var(--font-display)" }}>
+              Delete your 50mm Retina World account
+            </h2>
+            <div className="space-y-3 text-sm text-muted-foreground leading-relaxed" style={{ fontFamily: "var(--font-body)" }}>
+              <p>
+                You can permanently delete your account and all associated data yourself, at any
+                time, from the app or the website:
+              </p>
+              <ol className="list-decimal pl-5 space-y-1.5">
+                <li>Sign in and open <span className="text-foreground">Dashboard → Settings</span>.</li>
+                <li>Scroll to the <span className="text-foreground">Danger Zone</span> section.</li>
+                <li>Tap <span className="text-foreground">Delete My Account</span> and type DELETE to confirm.</li>
+              </ol>
+              <p>
+                Deletion is immediate and permanent. It removes your profile, photos, posts,
+                stories, comments, likes, competition entries, certificates, wallet, and sign-in
+                credentials, and frees your email address. Records that we are legally required to
+                keep (for example financial payout ledgers) are retained only as required by law.
+              </p>
+              <p>
+                Lost access to your account? Email{" "}
+                <a href="mailto:altisappdev@gmail.com" className="text-primary underline underline-offset-2">
+                  altisappdev@gmail.com
+                </a>{" "}
+                from your registered email address and we will process the deletion for you.
+              </p>
+            </div>
+          </section>
         </motion.div>
       </div>
     </main>
