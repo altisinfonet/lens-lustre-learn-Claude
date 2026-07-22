@@ -55,8 +55,13 @@ const AdminCompetitionFunnel = ({ competitionId }: Props) => {
       )
       .subscribe();
 
+    // Polling backup (30s): keeps the funnel moving when the realtime
+    // websocket cannot connect.
+    const poll = setInterval(fetch, 30_000);
+
     return () => {
       if (timer) clearTimeout(timer);
+      clearInterval(poll);
       supabase.removeChannel(channel);
     };
   }, [competitionId]);

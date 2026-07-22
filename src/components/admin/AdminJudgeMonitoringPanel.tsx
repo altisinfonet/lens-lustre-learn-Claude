@@ -142,8 +142,14 @@ const AdminJudgeMonitoringPanel = ({ competitionId }: Props) => {
       )
       .subscribe((status) => setLive(status === "SUBSCRIBED"));
 
+    // Polling backup (15s): guarantees the admin view keeps moving even when
+    // the realtime websocket cannot connect (same pattern as the judge-panel
+    // "Other Judges" widget). Silent reload — no spinner flicker.
+    const poll = setInterval(() => load(false), 15_000);
+
     return () => {
       if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      clearInterval(poll);
       supabase.removeChannel(channel);
       setLive(false);
     };
@@ -174,13 +180,18 @@ const AdminJudgeMonitoringPanel = ({ competitionId }: Props) => {
           <span className="text-[9px] tracking-[0.15em] uppercase text-muted-foreground font-semibold" style={{ fontFamily: "var(--font-heading)" }}>
             Judge Progress ({stats.length})
           </span>
-          {live && (
+          {live ? (
             <span className="flex items-center gap-1 text-[8px] tracking-[0.1em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary" />
               </span>
               Live
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-[8px] tracking-[0.1em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-muted-foreground/50" />
+              Auto-refresh 15s
             </span>
           )}
         </div>
