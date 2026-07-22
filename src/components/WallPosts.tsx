@@ -381,7 +381,15 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         await refetch();
       }
     } catch (err: any) {
-      toast({ title: "Compression failed", description: err.message, variant: "destructive" });
+      // This catch covers the WHOLE post pipeline (compress → upload → insert),
+      // so name the failure truthfully instead of blaming "compression".
+      const msg: string = err?.message || "Unknown error";
+      const isNetwork = /failed to fetch|network|cors|load failed/i.test(msg);
+      toast({
+        title: isNetwork ? "Upload failed — check your connection" : "Failed to create post",
+        description: msg,
+        variant: "destructive",
+      });
     }
     setPosting(false);
   };
