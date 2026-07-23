@@ -10,6 +10,8 @@ import { useTheme } from "@/hooks/core/useTheme";
 import UserMenu from "@/components/UserMenu";
 import LanguagePicker from "@/components/LanguagePicker";
 import NotificationBell from "@/components/NotificationBell";
+import { useT } from "@/i18n/I18nContext";
+import { navKeyForLabel } from "@/i18n/translations";
 import { useNavigationMenu, type MenuTree } from "@/hooks/core/useNavigationMenu";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import * as LucideIcons from "lucide-react";
@@ -39,6 +41,8 @@ const isVisible = (
 
 const Navbar = ({ transparent = false }: NavbarProps) => {
   const { user } = useAuth();
+  const t = useT();
+  const navLabel = (label: string) => { const k = navKeyForLabel(label); return k ? t(k) : label; };
   const siteLogo = useSiteLogo();
   const { isAdmin } = useIsAdmin();
   const location = useLocation();
@@ -96,7 +100,7 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
           {...linkProps}
         >
           {item.icon && <DynIcon name={item.icon} className="h-3 w-3" />}
-          {item.label}
+          {navLabel(item.label)}
         </NavLink>
       );
     }
@@ -115,7 +119,7 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
           className={`hover:opacity-60 transition-opacity duration-500 flex items-center gap-1.5 ${isActive ? "text-primary" : ""}`}
         >
           {item.icon && <DynIcon name={item.icon} className="h-3 w-3" />}
-          {item.label}
+          {navLabel(item.label)}
           <ChevronDown className={`h-2.5 w-2.5 transition-transform duration-300 ${openMegaId === item.id ? "rotate-180" : ""}`} />
         </button>
 
@@ -133,7 +137,7 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
             >
               <div className="bg-card border border-border shadow-lg min-w-[320px] max-w-[480px] p-5">
                 <div className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground mb-3" style={{ fontFamily: "var(--font-heading)" }}>
-                  {item.label}
+                  {navLabel(item.label)}
                 </div>
                 <div className="grid gap-1">
                   {item.children
@@ -212,7 +216,7 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
             {loading
               ? fallbackLinks.map((l) => (
                   <NavLink key={l.to} to={l.to} className="hover:opacity-60 transition-opacity duration-500" activeClassName="text-primary">
-                    {l.label}
+                    {navLabel(l.label)}
                   </NavLink>
                 ))
               : navItems.map((item) => renderDesktopItem(item))
@@ -240,14 +244,14 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
                   className="text-xs tracking-[0.15em] uppercase hover:opacity-60 transition-opacity duration-500"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  Login
+                  {t("nav.login")}
                 </Link>
                 <Link
                   to="/signup"
                   className="text-xs tracking-[0.15em] uppercase px-5 py-2.5 border border-foreground/30 hover:bg-foreground hover:text-background transition-all duration-700"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  Join
+                  {t("nav.join")}
                 </Link>
               </>
             )}

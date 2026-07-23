@@ -5,6 +5,7 @@ import ProfileLink from "@/components/ProfileLink";
 import { UserPlus, Users, Trophy, Clock, BookOpen, Award } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
+import { useT } from "@/i18n/I18nContext";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import AnonymousSidebarFallback from "@/components/AnonymousSidebarFallback";
 import SidebarTopContributors from "@/components/sidebar/SidebarTopContributors";
@@ -37,6 +38,7 @@ interface FeedRightSidebarProps {
 
 const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRightSidebarProps) => {
   const { user, loading } = useAuth();
+  const t = useT();
   const hadUserRef = useRef(false);
   const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set());
   const [adminIds, setAdminIds] = useState<Set<string>>(new Set());
@@ -118,7 +120,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
           <div className="px-4 py-3 border-b border-border">
             <span className="text-[9px] tracking-[0.3em] uppercase text-primary flex items-center gap-1.5" style={headingFont}>
               <Users className="h-3 w-3" />
-              People You May Know
+              {t("sidebar.peopleYouMayKnow")}
             </span>
           </div>
           <div className="divide-y divide-border">

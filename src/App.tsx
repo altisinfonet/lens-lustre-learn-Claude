@@ -17,6 +17,7 @@ import BrandLoader from "@/components/BrandLoader";
 import DynamicFavicon from "@/components/DynamicFavicon";
 import SplashScreen from "@/components/SplashScreen";
 import AdFullscreenProvider from "@/components/ads/AdFullscreenProvider";
+import { I18nProvider } from "@/i18n/I18nContext";
 
 /* Lazy-load all pages for faster initial load on non-home routes */
 const Index = lazy(() => import("./pages/Index"));
@@ -155,6 +156,7 @@ const App = () => {
   <>
   <HelmetProvider>
   <QueryClientProvider client={queryClient}>
+    <I18nProvider>
     {!splashDone && <SplashScreen onComplete={() => setSplashDone(true)} />}
     <TooltipProvider>
       <Toaster />
@@ -241,6 +243,7 @@ const App = () => {
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
+    </I18nProvider>
   </QueryClientProvider>
   </HelmetProvider>
   </>

@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import AdZone from "@/components/ads/AdZone";
 import { getMinPostCount } from "@/lib/ads/feedAdPlacement";
+import { useT } from "@/i18n/I18nContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { useActivityLog } from "@/hooks/core/useActivityLog";
 import { useFeedQuery, flattenFeedPages, getNetworkIds, type FeedPost } from "@/hooks/feed/useFeedQuery";
@@ -40,6 +41,7 @@ const Feed = () => {
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
   const { log } = useActivityLog();
+  const t = useT();
   const { insertPost, replacePost, patchPost, removePost } = useFeedCacheUpdaters();
   const { bufferedCount, bufferPost, flushBuffer } = useNewPostsBanner();
   const { trackViewStart, trackViewEnd, trackAction } = useFeedEventTracker(user?.id);
@@ -255,11 +257,11 @@ const Feed = () => {
             <div className="flex items-center gap-3 mb-1">
               <div className="w-10 h-px bg-primary" />
               <span className="text-[9px] tracking-[0.3em] uppercase text-primary" style={headingFont}>
-                <Rss className="h-3 w-3 inline mr-1.5" />News Feed
+                <Rss className="h-3 w-3 inline mr-1.5" />{t("feed.newsFeed")}
               </span>
             </div>
             <h1 className="text-lg md:text-2xl font-light tracking-tight" style={displayFont}>
-              Your Feed
+              {t("feed.yourFeed")}
             </h1>
           </div>
           <button

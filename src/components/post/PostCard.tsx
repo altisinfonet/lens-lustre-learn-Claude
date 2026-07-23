@@ -20,6 +20,7 @@ import { getSimulatedStats } from "@/lib/simulatedEngagement";
 import { formatNumber, getMetrics, getPostBadge, getPostInsight } from "@/lib/postAnalytics";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { UnifiedPost } from "@/types/post";
+import { useT } from "@/i18n/I18nContext";
 
 const displayFont = { fontFamily: "var(--font-display)" };
 const headingFont = { fontFamily: "var(--font-heading)" };
@@ -50,6 +51,7 @@ const PostCard = ({
   onShareCountChange,
   onContentChange,
 }: PostCardProps) => {
+  const t = useT();
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [reportingOpen, setReportingOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
@@ -370,12 +372,12 @@ const PostCard = ({
           />
           <button onClick={() => setCommentsExpanded(!commentsExpanded)}
             className="md:flex-1 flex items-center justify-center md:gap-2 py-2 px-3 md:px-0 rounded-md my-1 text-sm font-semibold text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
-            <MessageCircle className="h-5 w-5" /> <span className="hidden md:inline">Comment</span>
+            <MessageCircle className="h-5 w-5" /> <span className="hidden md:inline">{t("post.comment")}</span>
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="md:flex-1 flex items-center justify-center md:gap-2 py-2 px-3 md:px-0 rounded-md my-1 text-sm font-semibold text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
-                <Share2 className="h-5 w-5" /> <span className="hidden md:inline">Share</span>
+                <Share2 className="h-5 w-5" /> <span className="hidden md:inline">{t("post.share")}</span>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">

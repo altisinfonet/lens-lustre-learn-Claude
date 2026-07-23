@@ -2,6 +2,7 @@ import { useState, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { TrendingUp, Cake, Newspaper, Vote, Coins, PartyPopper } from "lucide-react";
 import { useAuth } from "@/hooks/core/useAuth";
+import { useT } from "@/i18n/I18nContext";
 import CompetitionLightbox from "@/components/CompetitionLightbox";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import AnonymousSidebarFallback from "@/components/AnonymousSidebarFallback";
@@ -41,6 +42,7 @@ interface FeedLeftSidebarProps {
 
 const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftSidebarProps) => {
   const { user, loading } = useAuth();
+  const t = useT();
   const hadUserRef = useRef(false);
   const [lightboxSelection, setLightboxSelection] = useState<{ entryId: string; photoIndex: number } | null>(null);
   const { toggleVote, isVoting } = useCompetitionVoting({ competitionId: "", userId: user?.id });
@@ -91,12 +93,12 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
           <div className="px-4 py-3 border-b border-border">
             <span className="text-[9px] tracking-[0.3em] uppercase text-primary flex items-center gap-1.5" style={headingFont}>
               <Coins className="h-3 w-3" />
-              Vote & Earn
+              {t("sidebar.voteEarn")}
             </span>
           </div>
           <div className="p-4 space-y-3">
             <p className="text-xs text-muted-foreground leading-relaxed" style={bodyFont}>
-              Vote on competition entries and earn wallet credits!
+              {t("sidebar.voteEarnDesc")}
             </p>
             {visibleVotingEntries.length > 0 && (
               <div className="grid grid-cols-3 gap-1">
@@ -125,7 +127,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
               style={headingFont}
             >
               <Vote className="h-3 w-3" />
-              Start Voting
+              {t("sidebar.startVoting")}
             </Link>
           </div>
         </div>
@@ -137,7 +139,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
           <div className="px-4 py-3 border-b border-border">
             <span className="text-[9px] tracking-[0.3em] uppercase text-primary flex items-center gap-1.5" style={headingFont}>
               <TrendingUp className="h-3 w-3" />
-              Trending This Week
+              {t("sidebar.trending")}
             </span>
           </div>
           {trendingPhotos.length > 0 ? (
@@ -205,7 +207,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
           <div className="px-4 py-3 border-b border-border">
             <span className="text-[9px] tracking-[0.3em] uppercase text-primary flex items-center gap-1.5" style={headingFont}>
               <Newspaper className="h-3 w-3" />
-              Latest from Journal
+              {t("sidebar.latestJournal")}
             </span>
           </div>
           {journalPreviews.length > 0 ? (
@@ -237,7 +239,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
           )}
           <div className="px-4 py-2 border-t border-border">
             <Link to="/journal" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={headingFont}>
-              Read More →
+              {t("sidebar.readMore")} →
             </Link>
           </div>
         </div>

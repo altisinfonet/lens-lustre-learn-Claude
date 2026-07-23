@@ -19,6 +19,7 @@ import { useReactToPost, useUnreactToPost, type PostCacheMapper } from "@/hooks/
 import { useQueryClient } from "@tanstack/react-query";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAdFullscreen } from "@/components/ads/AdFullscreenProvider";
+import { useT } from "@/i18n/I18nContext";
 import PostCard from "@/components/post/PostCard";
 import ImageCropModal from "@/components/admin/ImageCropModal";
 import PostCardSkeleton from "@/components/post/PostCardSkeleton";
@@ -68,6 +69,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   const { isBanned } = useIsBanned();
   const queryClient = useQueryClient();
   const { requestInterstitial } = useAdFullscreen();
+  const t = useT();
 
   const {
     data,
@@ -579,7 +581,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                     el.style.height = "auto";
                     el.style.height = Math.min(el.scrollHeight, 440) + "px";
                   }}
-                  placeholder="What's on your mind?"
+                  placeholder={t("composer.placeholder")}
                   className={`relative rounded-2xl px-4 py-2.5 resize-none min-h-[40px] max-h-[440px] border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm placeholder:text-muted-foreground/60 overflow-y-auto ${newContent.length > 2200 ? "bg-transparent" : "bg-muted/50"}`}
                   rows={1}
                 />
@@ -650,8 +652,8 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
               <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
                 <ImagePlus className={`h-5 w-5 ${isDragOver ? "text-primary" : "text-muted-foreground"}`} />
               </div>
-              <span className="text-sm font-medium text-foreground">Add Photo</span>
-              <span className="text-xs text-muted-foreground">or drag and drop</span>
+              <span className="text-sm font-medium text-foreground">{t("composer.addPhoto")}</span>
+              <span className="text-xs text-muted-foreground">{t("composer.dragDrop")}</span>
             </div>
           )}
 
@@ -666,7 +668,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                 onChange={(e) => setExcludeFromSearch(e.target.checked)}
                 className="w-3.5 h-3.5 accent-primary cursor-pointer"
               />
-              <span>Exclude this post from search engines</span>
+              <span>{t("composer.excludeSearch")}</span>
             </label>
           )}
 
