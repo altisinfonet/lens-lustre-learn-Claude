@@ -5,7 +5,6 @@ import { useUserRoles } from "@/hooks/profile/useUserRoles";
 import { resolveAdminSubRoles } from "@/lib/adminRoleAccess";
 import { useWalletSummary } from "@/hooks/wallet/useWalletSummary";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
-import { usePwaInstall } from "@/hooks/core/usePwaInstall";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import NotificationBell from "@/components/NotificationBell";
@@ -15,13 +14,16 @@ import {
 import {
   LogOut, Shield, Scale, Wallet, LayoutDashboard, User, ImageIcon,
   Users, Rss, UserPlus, HelpCircle, Settings, Trophy, Edit2, Compass,
-  Sun, Moon, Globe, BookOpen, Award, FileText, Download, Share, Image as ImageLucide, Crown,
+  Sun, Moon, Globe, BookOpen, Award, FileText, Download, Image as ImageLucide, Crown,
 } from "lucide-react";
 import { useTheme } from "@/hooks/core/useTheme";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
+
+// Google Play listing for the published Android app. The old PWA "Install App"
+// prompt has been replaced by this store link now that the app is live.
+const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.fiftymmretina.app";
 
 interface Props {
   open: boolean;
@@ -46,8 +48,6 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
   const { theme, toggleTheme } = useTheme();
   const { balance: walletBalance } = useWalletSummary(!isAdmin ? user?.id : undefined);
   const { data: profileCore } = useProfileCore(user?.id);
-  const { canInstall, isIos, isInstalled, promptInstall } = usePwaInstall();
-  const [showIosGuide, setShowIosGuide] = useState(false);
   const avatarUrl = profileCore?.avatar_url ?? null;
   const fullName = profileCore?.full_name || "Photographer";
   const hasAdminPanelAccess = resolveAdminSubRoles(roles).length > 0;
@@ -67,19 +67,16 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
     navigate("/");
   };
 
-  const handleInstall = async () => {
-    if (canInstall) {
-      await promptInstall();
-    } else {
-      // Show manual install guide for the user's browser
-      setShowIosGuide(true);
-    }
+  // Open the Google Play listing for the published Android app.
+  const handleGetApp = () => {
+    window.open(PLAY_STORE_URL, "_blank", "noopener,noreferrer");
   };
 
-  const isAndroid = /android/i.test(navigator.userAgent);
-
-  // MobileProfileSheet is only rendered on mobile viewports, so always show install action
-  const showInstallAction = !isInstalled;
+  // Hide the "Get App" action when we're already running INSIDE the native
+  // Android app (Capacitor injects window.Capacitor) — no point linking users
+  // to the store from within the app itself. Shown everywhere else (mobile web).
+  const isNativeApp = typeof window !== "undefined" && !!(window as any).Capacitor;
+  const showInstallAction = !isNativeApp;
 
   // Build quick-action grid
   const quickActions: QuickAction[] = isAdmin
@@ -125,12 +122,12 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
         { icon: HelpCircle, label: "Help", to: "/help-support", show: true },
       ];
 
-  // Add install action if available
+  // Add "Get App" action (Google Play) unless already inside the native app
   if (showInstallAction) {
     quickActions.push({
-      icon: isIos ? Share : Download,
-      label: "Install App",
-      onClick: handleInstall,
+      icon: Download,
+      label: "Get App",
+      onClick: handleGetApp,
       show: true,
       animated: true,
     });
@@ -216,46 +213,6 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
             </AnimatePresence>
           </div>
         </div>
-
-        {/* Install guide toast */}
-        <AnimatePresence>
-          {showIosGuide && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              className="mx-4 mb-2 p-3 rounded-xl bg-primary/10 border border-primary/20"
-            >
-              <p className="text-[10px] text-foreground/80 leading-relaxed" style={headingFont}>
-                {isIos ? (
-                  <>
-                    Tap <Share className="inline h-3 w-3 text-primary mx-0.5" /> in Safari, then select{" "}
-                    <strong className="text-primary">"Add to Home Screen"</strong>
-                  </>
-                ) : isAndroid ? (
-                  <>
-                    Tap the <strong className="text-primary">⋮ menu</strong> in Chrome, then select{" "}
-                    <strong className="text-primary">"Install app"</strong> or{" "}
-                    <strong className="text-primary">"Add to Home Screen"</strong>
-                  </>
-                ) : (
-                  <>
-                    Open your browser menu and select{" "}
-                    <strong className="text-primary">"Install"</strong> or{" "}
-                    <strong className="text-primary">"Add to Home Screen"</strong>
-                  </>
-                )}
-              </p>
-              <button
-                onClick={() => setShowIosGuide(false)}
-                className="mt-1.5 text-[8px] uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors"
-                style={headingFont}
-              >
-                Got it
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Bottom row: Theme + Logout */}
         <div className="px-4 pb-6 pt-2 flex items-center gap-2 border-t border-border/40">
