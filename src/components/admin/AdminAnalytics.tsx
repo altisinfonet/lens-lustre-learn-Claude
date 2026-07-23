@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import { Loader2, Save, BarChart3, Code, Smartphone, ToggleLeft } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import AdminAnalyticsReports from "@/components/admin/AdminAnalyticsReports";
 import type { User } from "@supabase/supabase-js";
 
 interface AnalyticsSettings {
@@ -61,7 +62,7 @@ export default function AdminAnalytics({ user }: { user: User | null }) {
   const [events, setEvents] = useState<EventTrackingSettings>(defaultEventTracking);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("google");
+  const [activeTab, setActiveTab] = useState("reports");
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -157,8 +158,11 @@ export default function AdminAnalytics({ user }: { user: User | null }) {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-card border border-border mb-8">
+          <TabsTrigger value="reports" className="text-[10px] tracking-[0.15em] uppercase data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" style={headingFont}>
+            <BarChart3 className="h-3.5 w-3.5 mr-1.5" /> Reports
+          </TabsTrigger>
           <TabsTrigger value="google" className="text-[10px] tracking-[0.15em] uppercase data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" style={headingFont}>
-            <BarChart3 className="h-3.5 w-3.5 mr-1.5" /> Google Analytics
+            <Code className="h-3.5 w-3.5 mr-1.5" /> Setup
           </TabsTrigger>
           <TabsTrigger value="gtm" className="text-[10px] tracking-[0.15em] uppercase data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" style={headingFont}>
             <Code className="h-3.5 w-3.5 mr-1.5" /> GTM
@@ -171,7 +175,12 @@ export default function AdminAnalytics({ user }: { user: User | null }) {
           </TabsTrigger>
         </TabsList>
 
-        {/* Google Analytics */}
+        {/* Live GA4 Reports */}
+        <TabsContent value="reports">
+          <AdminAnalyticsReports />
+        </TabsContent>
+
+        {/* Google Analytics setup */}
         <TabsContent value="google">
           <div className="border border-border p-6 space-y-5">
             <div>

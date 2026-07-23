@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/hooks/core/useAuth";
 import { ThemeProvider } from "@/hooks/core/useTheme";
 
 import { CookieConsentProvider } from "@/hooks/core/useCookieConsent";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 import { HelmetProvider } from "react-helmet-async";
 import { lazy, Suspense, useEffect, useState } from "react";
 import Layout from "@/components/Layout";
@@ -163,6 +164,7 @@ const App = () => {
           <ThemeProvider>
           
           <CookieConsentProvider>
+          <GoogleAnalytics />
           <RedirectHandler />
           <Suspense fallback={allowSuspenseFallback ? <PageLoader /> : null}>
             <Routes>
