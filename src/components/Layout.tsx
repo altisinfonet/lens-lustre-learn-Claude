@@ -7,14 +7,10 @@ import PageSEO from "@/components/PageSEO";
 import FeedRightSidebar from "@/components/FeedRightSidebar";
 import FeedLeftSidebar from "@/components/FeedLeftSidebar";
 import ProfileLeftSidebar from "@/components/profile/ProfileLeftSidebar";
-import AdPlacement from "@/components/AdPlacement";
-import { useAdZonesV2Enabled } from "@/lib/ads/useAdZonesV2Enabled";
 import OnboardingModal from "@/components/OnboardingModal";
 import MobileBottomNav from "@/components/MobileBottomNav";
-import AnchorAd from "@/components/AnchorAd";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
 import SiteFooter from "@/components/SiteFooter";
-import { resetAdCounter } from "@/lib/adDensity";
 import PageTransition from "@/components/PageTransition";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useLastActive } from "@/hooks/core/useLastActive";
@@ -32,9 +28,6 @@ const hideNavRoutes = ["/login", "/signup", "/forgot-password", "/reset-password
 /** Routes where sidebars should NOT be shown (even for logged-in users) */
 const hideSidebarRoutes = ["/login", "/signup", "/forgot-password", "/reset-password", "/admin", "/courses", "/journal", "/judge", "/featured-artist"];
 
-/** Pages where ads should NOT be shown */
-const hideAdRoutes = ["/login", "/signup", "/forgot-password", "/reset-password"];
-
 const SKIP_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 /** Home page gets a transparent overlay navbar */
@@ -48,8 +41,6 @@ const Layout = () => {
 
 const LayoutInner = () => {
   const { pathname } = useLocation();
-  // Reset ad density counter on route change
-  useEffect(() => { resetAdCounter(); }, [pathname]);
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
   useLastActive();
@@ -65,11 +56,6 @@ const LayoutInner = () => {
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
   const isSidebarEligibleRoute = !isHome && !isSidebarHiddenRoute;
-  const showAds = !hideAdRoutes.includes(pathname) && !pathname.startsWith("/admin");
-  // Ad Zones v2 cutover gate — when the master flag is ON the legacy header /
-  // in-content / anchor placements retire (owner keeps only sidebar + the new
-  // formats). While OFF/loading, everything below renders exactly as today.
-  const adZonesV2 = useAdZonesV2Enabled();
 
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingProfile, setOnboardingProfile] = useState<Record<string, any> | null>(null);
@@ -144,12 +130,6 @@ const LayoutInner = () => {
         </>
       )}
 
-      {showAds && !isHome && adZonesV2 !== true && (
-        <div className="container mx-auto pt-2">
-          <AdPlacement placement="header" variant="plain" />
-        </div>
-      )}
-
       {!showOnboarding && <GiftCelebrationModal />}
 
       {user && showOnboarding && (
@@ -175,11 +155,6 @@ const LayoutInner = () => {
               <AnimatePresence mode="wait">
                 <PageTransition key={pathname}>
                   <Outlet />
-                  {showAds && adZonesV2 !== true && (
-                    <div className="py-6">
-                      <AdPlacement placement="in-content" />
-                    </div>
-                  )}
                 </PageTransition>
               </AnimatePresence>
             </div>
@@ -191,11 +166,6 @@ const LayoutInner = () => {
           <AnimatePresence mode="wait">
             <PageTransition key={pathname}>
               <Outlet />
-              {showAds && adZonesV2 !== true && (
-                <div className="container mx-auto py-6">
-                  <AdPlacement placement="in-content" />
-                </div>
-              )}
             </PageTransition>
           </AnimatePresence>
         )}
@@ -206,7 +176,6 @@ const LayoutInner = () => {
 
       {/* Mobile bottom navigation */}
       <MobileBottomNav />
-      {adZonesV2 !== true && <AnchorAd />}
       <CookieConsentBanner />
 
       {!hideNav && <AskAnything />}

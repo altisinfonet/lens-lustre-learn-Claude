@@ -4,8 +4,6 @@ import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, Clock, Tag, PenLine } from "lucide-react";
 import EngagementFooter from "@/components/EngagementFooter";
-import AdPlacement from "@/components/AdPlacement";
-import { useAdZonesV2Enabled } from "@/lib/ads/useAdZonesV2Enabled";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
@@ -15,7 +13,6 @@ const Journal = () => {
   const { user } = useAuth();
   const { isAdmin } = useIsAdmin();
   const { data: articles = [], isLoading: loading } = useJournal();
-  const adZonesV2 = useAdZonesV2Enabled();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedTag = searchParams.get("tag");
   const setSelectedTag = (tag: string | null) => {
@@ -51,13 +48,6 @@ const Journal = () => {
       <PageSEO title="Journal" description="Photography journal articles and stories." />
 
       <div className="container mx-auto py-6 md:py-24">
-        {/* Above-Journal Ad */}
-        {adZonesV2 !== true && (
-          <div className="mb-6 md:mb-10">
-            <AdPlacement placement="above-journal" variant="plain" />
-          </div>
-        )}
-
         {/* Title */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -285,12 +275,6 @@ const Journal = () => {
           </>
         )}
 
-        {/* Below-Journal Ad */}
-        {adZonesV2 !== true && (
-          <div className="mt-10 md:mt-16">
-            <AdPlacement placement="below-journal" variant="plain" />
-          </div>
-        )}
       </div>
     </main>
   );

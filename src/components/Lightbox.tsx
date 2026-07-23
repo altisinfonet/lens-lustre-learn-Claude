@@ -3,9 +3,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import ImageEngagement from "@/components/ImageEngagement";
-import AdPlacement from "@/components/AdPlacement";
 import AdZone from "@/components/ads/AdZone";
-import { useAdZonesV2Enabled } from "@/lib/ads/useAdZonesV2Enabled";
 import DownloadButton from "@/components/DownloadButton";
 import { useDownloadImage } from "@/hooks/core/useDownloadImage";
 
@@ -22,7 +20,6 @@ interface LightboxProps {
 const Lightbox = memo(({ images, currentIndex, isOpen, onClose, onPrev, onNext, imageType = "portfolio" }: LightboxProps) => {
   const current = images[currentIndex];
   const { downloading, download } = useDownloadImage();
-  const adZonesV2 = useAdZonesV2Enabled();
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -79,9 +76,7 @@ const Lightbox = memo(({ images, currentIndex, isOpen, onClose, onPrev, onNext, 
           </button>
 
           <div className="absolute bottom-4 left-1/2 z-20 w-[min(92vw,640px)] -translate-x-1/2" onClick={(e) => e.stopPropagation()}>
-            {adZonesV2 === true
-              ? <AdZone zone="lightbox" />
-              : <AdPlacement placement="lightbox-overlay" variant="plain" />}
+            <AdZone zone="lightbox" />
           </div>
 
           <AnimatePresence mode="wait">
