@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatINR, formatUSD, formatUSDFixed, formatINRFixed, formatINRShort } from "@/lib/currencyFormat";
 import { queryKeys } from "@/lib/queryKeys";
 import { fireConversion } from "@/lib/adConversionContext";
+import RewardedAdEntry from "@/components/ads/RewardedAdEntry";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -464,6 +465,9 @@ const Wallet = () => {
         <h1 className="text-2xl md:text-5xl font-light tracking-tight mb-4 md:mb-10" style={{ fontFamily: "var(--font-display)" }}>
           My <em className="italic text-primary">Wallet</em>
         </h1>
+
+        {/* Rewarded ad — opt-in earn (self-hides until an admin sets amount + creative) */}
+        <RewardedAdEntry onCredited={refresh} />
 
         {/* Payment return banner */}
         {returnBanner && (

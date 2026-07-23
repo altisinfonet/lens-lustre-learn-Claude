@@ -13,6 +13,7 @@
  * mounting this is safe even before any zone is configured.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 import FullscreenAdShell from "./FullscreenAdShell";
 import { useAdFrequency } from "@/lib/ads/useAdFrequency";
 import { type AdZoneConfig, type AdZoneId, fetchAdZones } from "@/lib/ads/adZonesV2";
@@ -40,9 +41,11 @@ const isRenderableOwn = (c?: AdZoneConfig | null): boolean =>
 
 export const AdFullscreenProvider = ({ children }: { children: ReactNode }) => {
   const gov = useAdFrequency();
+  const location = useLocation();
   const [zones, setZones] = useState<Record<AdZoneId, AdZoneConfig> | null>(null);
   const [open, setOpen] = useState<OpenState | null>(null);
   const appOpenTried = useRef(false);
+  const prevPathRef = useRef<string>(location.pathname);
 
   // Load zone configs once.
   useEffect(() => {
@@ -78,6 +81,17 @@ export const AdFullscreenProvider = ({ children }: { children: ReactNode }) => {
     gov.recordInterstitial();
     setOpen({ kind: "interstitial", config: cfg });
   }, [gov, zones, open]);
+
+  // Feed → competition-detail transition fires an interstitial (double-gated:
+  // master flag + interstitial_feed_to_competition toggle; governor-capped).
+  useEffect(() => {
+    const prev = prevPathRef.current;
+    const curr = location.pathname;
+    prevPathRef.current = curr;
+    if (prev.startsWith("/feed") && /^\/competitions\/[^/]+/.test(curr)) {
+      requestInterstitial("feed_to_competition");
+    }
+  }, [location.pathname, requestInterstitial]);
 
   const value = useMemo(() => ({ requestInterstitial }), [requestInterstitial]);
 
