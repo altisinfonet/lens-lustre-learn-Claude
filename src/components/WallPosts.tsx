@@ -20,6 +20,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import AdPlacement from "@/components/AdPlacement";
 import { useAdZonesV2Enabled } from "@/lib/ads/useAdZonesV2Enabled";
+import { useAdFullscreen } from "@/components/ads/AdFullscreenProvider";
 import PostCard from "@/components/post/PostCard";
 import ImageCropModal from "@/components/admin/ImageCropModal";
 import PostCardSkeleton from "@/components/post/PostCardSkeleton";
@@ -69,6 +70,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   const { isBanned } = useIsBanned();
   const queryClient = useQueryClient();
   const adZonesV2 = useAdZonesV2Enabled();
+  const { requestInterstitial } = useAdFullscreen();
 
   const {
     data,
@@ -385,6 +387,11 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         // Keep the FEED in sync too: realtime inserts it instantly when the
         // feed is mounted; invalidation covers navigation + flaky sockets.
         queryClient.invalidateQueries({ queryKey: queryKeys.feed() });
+        // Ad Zones v2: full-screen interstitial after a successful publish.
+        // Double-gated (master flag + interstitial_after_post toggle, both
+        // default OFF) and frequency-capped by the governor, so this is a
+        // no-op until an admin explicitly turns it on.
+        requestInterstitial("after_post");
       }
     } catch (err: any) {
       // This catch covers the WHOLE post pipeline (compress → upload → insert),
