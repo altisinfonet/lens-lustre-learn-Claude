@@ -11,7 +11,37 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { translations, LANGS, type Lang } from "./translations";
 
 const STORAGE_KEY = "app_lang";
-const isLang = (v: unknown): v is Lang => typeof v === "string" && LANGS.some((l) => l.code === v);
+const SUPPORTED = LANGS.map((l) => l.code);
+const isLang = (v: unknown): v is Lang => typeof v === "string" && SUPPORTED.includes(v as Lang);
+
+/** Match a browser/device locale (e.g. "hi-IN", "bn") to a language we ship. */
+const matchBrowserLang = (): Lang | null => {
+  try {
+    const candidates = [navigator.language, ...(navigator.languages || [])];
+    for (const c of candidates) {
+      const base = (c || "").toLowerCase().split("-")[0];
+      const hit = SUPPORTED.find((s) => s.toLowerCase() === base);
+      if (hit) return hit;
+    }
+  } catch { /* ignore */ }
+  return null;
+};
+
+/**
+ * Decide the starting language the way Facebook/Instagram do:
+ *   1) the user's explicit saved choice (wins), else
+ *   2) their device / browser language, if we support it, else
+ *   3) English.
+ * Only explicit choices are persisted, so auto-detection keeps tracking the
+ * device language until the user actively picks one.
+ */
+const detectInitialLang = (): Lang => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (isLang(saved)) return saved;
+  } catch { /* ignore */ }
+  return matchBrowserLang() ?? "en";
+};
 
 interface I18nValue {
   lang: Lang;
@@ -26,13 +56,7 @@ const I18nContext = createContext<I18nValue>({
 });
 
 export const I18nProvider = ({ children }: { children: ReactNode }) => {
-  const [lang, setLangState] = useState<Lang>(() => {
-    try {
-      const s = localStorage.getItem(STORAGE_KEY);
-      if (isLang(s)) return s;
-    } catch { /* ignore */ }
-    return "en";
-  });
+  const [lang, setLangState] = useState<Lang>(detectInitialLang);
 
   const setLang = useCallback((l: Lang) => {
     setLangState(l);
