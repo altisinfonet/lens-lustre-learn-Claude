@@ -18,6 +18,7 @@ import DynamicFavicon from "@/components/DynamicFavicon";
 import SplashScreen from "@/components/SplashScreen";
 import AdFullscreenProvider from "@/components/ads/AdFullscreenProvider";
 import { I18nProvider } from "@/i18n/I18nContext";
+import LanguageAccountSync from "@/components/LanguageAccountSync";
 
 /* Lazy-load all pages for faster initial load on non-home routes */
 const Index = lazy(() => import("./pages/Index"));
@@ -169,6 +170,7 @@ const App = () => {
           <CookieConsentProvider>
           <GoogleAnalytics />
           <RedirectHandler />
+          <LanguageAccountSync />
           <AdFullscreenProvider>
           <Suspense fallback={allowSuspenseFallback ? <PageLoader /> : null}>
             <Routes>
