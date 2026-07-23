@@ -8,6 +8,7 @@ import FeedRightSidebar from "@/components/FeedRightSidebar";
 import FeedLeftSidebar from "@/components/FeedLeftSidebar";
 import ProfileLeftSidebar from "@/components/profile/ProfileLeftSidebar";
 import AdPlacement from "@/components/AdPlacement";
+import { useAdZonesV2Enabled } from "@/lib/ads/useAdZonesV2Enabled";
 import OnboardingModal from "@/components/OnboardingModal";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import AnchorAd from "@/components/AnchorAd";
@@ -65,6 +66,10 @@ const LayoutInner = () => {
   );
   const isSidebarEligibleRoute = !isHome && !isSidebarHiddenRoute;
   const showAds = !hideAdRoutes.includes(pathname) && !pathname.startsWith("/admin");
+  // Ad Zones v2 cutover gate — when the master flag is ON the legacy header /
+  // in-content / anchor placements retire (owner keeps only sidebar + the new
+  // formats). While OFF/loading, everything below renders exactly as today.
+  const adZonesV2 = useAdZonesV2Enabled();
 
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingProfile, setOnboardingProfile] = useState<Record<string, any> | null>(null);
@@ -139,7 +144,7 @@ const LayoutInner = () => {
         </>
       )}
 
-      {showAds && !isHome && (
+      {showAds && !isHome && adZonesV2 !== true && (
         <div className="container mx-auto pt-2">
           <AdPlacement placement="header" variant="plain" />
         </div>
@@ -170,7 +175,7 @@ const LayoutInner = () => {
               <AnimatePresence mode="wait">
                 <PageTransition key={pathname}>
                   <Outlet />
-                  {showAds && (
+                  {showAds && adZonesV2 !== true && (
                     <div className="py-6">
                       <AdPlacement placement="in-content" />
                     </div>
@@ -186,7 +191,7 @@ const LayoutInner = () => {
           <AnimatePresence mode="wait">
             <PageTransition key={pathname}>
               <Outlet />
-              {showAds && (
+              {showAds && adZonesV2 !== true && (
                 <div className="container mx-auto py-6">
                   <AdPlacement placement="in-content" />
                 </div>
@@ -201,7 +206,7 @@ const LayoutInner = () => {
 
       {/* Mobile bottom navigation */}
       <MobileBottomNav />
-      <AnchorAd />
+      {adZonesV2 !== true && <AnchorAd />}
       <CookieConsentBanner />
 
       {!hideNav && <AskAnything />}

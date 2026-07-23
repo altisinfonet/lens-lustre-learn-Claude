@@ -19,6 +19,7 @@ import { useReactToPost, useUnreactToPost, type PostCacheMapper } from "@/hooks/
 import { useQueryClient } from "@tanstack/react-query";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import AdPlacement from "@/components/AdPlacement";
+import { useAdZonesV2Enabled } from "@/lib/ads/useAdZonesV2Enabled";
 import PostCard from "@/components/post/PostCard";
 import ImageCropModal from "@/components/admin/ImageCropModal";
 import PostCardSkeleton from "@/components/post/PostCardSkeleton";
@@ -67,6 +68,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   const { data: currentProfile } = useProfileCore(user?.id);
   const { isBanned } = useIsBanned();
   const queryClient = useQueryClient();
+  const adZonesV2 = useAdZonesV2Enabled();
 
   const {
     data,
@@ -772,7 +774,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                           onContentChange={handleContentChange}
                         />
                     </motion.div>
-                    {i === 1 && <AdPlacement placement="between-entries" className="my-4" />}
+                    {i === 1 && adZonesV2 !== true && <AdPlacement placement="between-entries" className="my-4" />}
                   </Fragment>
                 ))}
               </AnimatePresence>

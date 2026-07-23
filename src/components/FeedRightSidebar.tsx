@@ -1,5 +1,7 @@
 import { useState, useRef, useMemo, useEffect } from "react";
 import AdPlacement from "@/components/AdPlacement";
+import AdZone from "@/components/ads/AdZone";
+import { useAdZonesV2Enabled } from "@/lib/ads/useAdZonesV2Enabled";
 import { Link } from "react-router-dom";
 import ProfileLink from "@/components/ProfileLink";
 import { UserPlus, Users, Trophy, Clock, BookOpen, Award } from "lucide-react";
@@ -37,6 +39,7 @@ interface FeedRightSidebarProps {
 
 const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRightSidebarProps) => {
   const { user, loading } = useAuth();
+  const adZonesV2 = useAdZonesV2Enabled();
   const hadUserRef = useRef(false);
   const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set());
   const [adminIds, setAdminIds] = useState<Set<string>>(new Set());
@@ -110,7 +113,9 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
 
   return (
     <div className="space-y-5">
-      <AdPlacement placement="sidebar" variant="card" label="Sponsored" />
+      {adZonesV2 === true
+        ? <AdZone zone="sidebar" />
+        : <AdPlacement placement="sidebar" variant="card" label="Sponsored" />}
 
       {/* People You May Know */}
       {sections.people_you_may_know && (

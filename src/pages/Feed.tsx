@@ -16,6 +16,8 @@ import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import AdPlacement, { getMinPostCount } from "@/components/AdPlacement";
+import AdZone from "@/components/ads/AdZone";
+import { useAdZonesV2Enabled } from "@/lib/ads/useAdZonesV2Enabled";
 import { motion, AnimatePresence } from "framer-motion";
 import { useActivityLog } from "@/hooks/core/useActivityLog";
 import { useFeedQuery, flattenFeedPages, getNetworkIds, type FeedPost } from "@/hooks/feed/useFeedQuery";
@@ -38,6 +40,7 @@ const Feed = () => {
   const { isBanned } = useIsBanned();
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
+  const adZonesV2 = useAdZonesV2Enabled();
   const { log } = useActivityLog();
   const { insertPost, replacePost, patchPost, removePost } = useFeedCacheUpdaters();
   const { bufferedCount, bufferPost, flushBuffer } = useNewPostsBanner();
@@ -329,13 +332,19 @@ const Feed = () => {
 
                   {feedAdPositions.map((pos, slotIdx) =>
                     i === pos && posts.length >= getMinPostCount(slotIdx) ? (
-                      <AdPlacement
-                        key={`feed-ad-${slotIdx}`}
-                        placement="between-entries"
-                        className="mb-4"
-                        postCount={posts.length}
-                        slotIndex={slotIdx}
-                      />
+                      adZonesV2 === true ? (
+                        <div key={`feed-ad-${slotIdx}`} className="mb-4">
+                          <AdZone zone="story-card" />
+                        </div>
+                      ) : (
+                        <AdPlacement
+                          key={`feed-ad-${slotIdx}`}
+                          placement="between-entries"
+                          className="mb-4"
+                          postCount={posts.length}
+                          slotIndex={slotIdx}
+                        />
+                      )
                     ) : null
                   )}
                 </Fragment>
