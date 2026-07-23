@@ -18,6 +18,7 @@ import { invalidateAdSlotCache, invalidateAdsenseConfigCache, type AdSource } fr
 import AdAdsenseTab from "./ads/AdAdsenseTab";
 import AdAnalyticsTab from "./ads/AdAnalyticsTab";
 import AdPlacementsTab from "./ads/AdPlacementsTab";
+import AdminAdsV2 from "./ads/AdminAdsV2";
 import {
   type AdSlot, type AdsenseConfig, type ImpressionAgg, type ConversionAgg,
   type Placement, type Device, type AdImageSource,
@@ -320,6 +321,9 @@ export default function AdminAdvertisements({ user }: { user: User | null }) {
           </TabsTrigger>
           <TabsTrigger value="placements" className="text-[10px] tracking-[0.15em] uppercase data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" style={headingFont}>
             <Monitor className="h-3.5 w-3.5 mr-1.5" /> Placements
+          </TabsTrigger>
+          <TabsTrigger value="zones_v2" className="text-[10px] tracking-[0.15em] uppercase data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" style={headingFont}>
+            <Monitor className="h-3.5 w-3.5 mr-1.5" /> Ad Zones (New)
           </TabsTrigger>
         </TabsList>
 
@@ -746,6 +750,10 @@ export default function AdminAdvertisements({ user }: { user: User | null }) {
 
         <TabsContent value="placements">
           <AdPlacementsTab slots={slots} feedAdPositions={feedAdPositions} onFeedAdPositionsChange={setFeedAdPositions} onSaveFeedPositions={saveFeedPositions} savingPositions={savingPositions} />
+        </TabsContent>
+
+        <TabsContent value="zones_v2">
+          <AdminAdsV2 />
         </TabsContent>
       </Tabs>
       <ConfirmDialog {...dialogProps} />
