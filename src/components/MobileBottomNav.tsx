@@ -6,11 +6,13 @@ import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import MobileProfileSheet from "@/components/MobileProfileSheet";
 import { profilesPublic } from "@/lib/profilesPublic";
+import { useT } from "@/i18n/I18nContext";
 
 type Tab = {
   path: string;
   icon: any;
   label: string;
+  labelKey?: string;
   auth?: boolean;
   guest?: boolean;
   isSheet?: boolean;
@@ -19,6 +21,7 @@ type Tab = {
 
 const MobileBottomNav = () => {
   const { user } = useAuth();
+  const t = useT();
   const { pathname } = useLocation();
   const siteLogo = useSiteLogo();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -26,14 +29,14 @@ const MobileBottomNav = () => {
 
   // Build tabs — Wall route depends on user.id, Home is the elevated center
   const tabs: Tab[] = [
-    { path: "/feed", icon: Newspaper, label: "Feed", auth: true },
-    { path: user ? `/profile/${user.id}?section=wall` : "/login", icon: Rss, label: "Wall", auth: true },
-    { path: "/courses", icon: BookOpen, label: "Courses", guest: true },
-    { path: "/journal", icon: FileText, label: "Journal", guest: true },
-    { path: user ? "/home" : "/", icon: Home, label: "Home", isCenter: true },
-    { path: "/competitions", icon: Trophy, label: "Compete" },
-    { path: "/login", icon: LogIn, label: "Join", guest: true },
-    { path: "/profile", icon: User, label: "Profile", auth: true, isSheet: true },
+    { path: "/feed", icon: Newspaper, label: "Feed", labelKey: "nav.feed", auth: true },
+    { path: user ? `/profile/${user.id}?section=wall` : "/login", icon: Rss, label: "Wall", labelKey: "nav.wall", auth: true },
+    { path: "/courses", icon: BookOpen, label: "Courses", labelKey: "nav.courses", guest: true },
+    { path: "/journal", icon: FileText, label: "Journal", labelKey: "nav.journal", guest: true },
+    { path: user ? "/home" : "/", icon: Home, label: "Home", labelKey: "nav.home", isCenter: true },
+    { path: "/competitions", icon: Trophy, label: "Compete", labelKey: "nav.compete" },
+    { path: "/login", icon: LogIn, label: "Join", labelKey: "nav.join", guest: true },
+    { path: "/profile", icon: User, label: "Profile", labelKey: "nav.profile", auth: true, isSheet: true },
   ];
 
   useEffect(() => {
@@ -154,7 +157,7 @@ const MobileBottomNav = () => {
                     <User className={`h-5 w-5 ${active ? "stroke-[2.5]" : "stroke-[1.5]"}`} />
                   )}
                   <span className={`text-[9px] tracking-[0.1em] uppercase ${active ? "font-semibold" : "font-normal"}`}>
-                    Profile
+                    {t("nav.profile")}
                   </span>
                 </button>
               );
@@ -178,7 +181,7 @@ const MobileBottomNav = () => {
                 )}
                 <tab.icon className={`h-5 w-5 ${active ? "stroke-[2.5]" : "stroke-[1.5]"}`} />
                 <span className={`text-[9px] tracking-[0.1em] uppercase ${active ? "font-semibold" : "font-normal"}`}>
-                  {tab.label}
+                  {tab.labelKey ? t(tab.labelKey) : tab.label}
                 </span>
               </Link>
             );
