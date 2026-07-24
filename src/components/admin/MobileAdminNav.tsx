@@ -4,6 +4,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
+import { useT } from "@/i18n/I18nContext";
+import { ADMIN_GROUP_KEYS } from "@/i18n/translations";
 
 interface TabGroup {
   label: string;
@@ -34,6 +36,8 @@ export default function MobileAdminNav({ tab, setTab, tabGroups, unresolvedTicke
   const [searchQuery, setSearchQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
 
+  const t = useT();
+  const gl = (label: string) => { const k = ADMIN_GROUP_KEYS[label]; return k ? t(k) : label; };
   const allItems = tabGroups.flatMap(g =>
     g.items.map(i => ({ key: i[0], label: i[1], Icon: i[2], group: g.label }))
   );
@@ -41,7 +45,9 @@ export default function MobileAdminNav({ tab, setTab, tabGroups, unresolvedTicke
   const filtered = searchQuery.trim()
     ? allItems.filter(i =>
         i.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        i.group.toLowerCase().includes(searchQuery.toLowerCase())
+        i.group.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t("adm.nav." + i.key, i.label).toLowerCase().includes(searchQuery.toLowerCase()) ||
+        gl(i.group).toLowerCase().includes(searchQuery.toLowerCase())
       )
     : [];
 
@@ -88,7 +94,7 @@ export default function MobileAdminNav({ tab, setTab, tabGroups, unresolvedTicke
           <div className="flex-1 min-w-0">
             {showMenu ? (
               <h1 className="text-base font-semibold" style={{ fontFamily: "var(--font-heading)" }}>
-                Admin Panel
+                {t("msheet.admin")} {t("adm.panel")}
               </h1>
             ) : (
               <div className="flex items-center gap-1.5">
@@ -97,11 +103,11 @@ export default function MobileAdminNav({ tab, setTab, tabGroups, unresolvedTicke
                   className="text-xs text-muted-foreground hover:text-primary transition-colors"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  Admin
+                  {t("msheet.admin")}
                 </button>
                 <ChevronRight className="h-3 w-3 text-muted-foreground/40 shrink-0" />
                 <span className="text-xs text-primary font-medium truncate" style={{ fontFamily: "var(--font-heading)" }}>
-                  {currentItem?.label}
+                  {currentItem ? t("adm.nav." + currentItem.key, currentItem.label) : null}
                 </span>
               </div>
             )}
@@ -141,7 +147,7 @@ export default function MobileAdminNav({ tab, setTab, tabGroups, unresolvedTicke
                     ref={searchRef}
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="Search sections…"
+                    placeholder={t("adm.searchSections")}
                     className="w-full pl-9 pr-3 py-2.5 text-sm bg-muted/30 border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary/40"
                     style={{ fontFamily: "var(--font-body)" }}
                   />
@@ -155,11 +161,11 @@ export default function MobileAdminNav({ tab, setTab, tabGroups, unresolvedTicke
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors hover:bg-muted/30 active:bg-muted/50"
                       >
                         <item.Icon className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span className="text-sm text-foreground">{item.label}</span>
-                        <span className="ml-auto text-[9px] text-muted-foreground/40 uppercase tracking-wider">{item.group}</span>
+                        <span className="text-sm text-foreground">{t("adm.nav." + item.key, item.label)}</span>
+                        <span className="ml-auto text-[9px] text-muted-foreground/40 uppercase tracking-wider">{gl(item.group)}</span>
                       </button>
                     )) : (
-                      <p className="text-center text-sm text-muted-foreground py-6">No sections found</p>
+                      <p className="text-center text-sm text-muted-foreground py-6">{t("adm.noSections")}</p>
                     )}
                   </div>
                 )}
@@ -172,10 +178,10 @@ export default function MobileAdminNav({ tab, setTab, tabGroups, unresolvedTicke
         {showMenu && !searchOpen && (
           <div className="flex items-center border-t border-border/50">
             {[
-              { label: "Users", value: stats.users, color: "text-primary" },
-              { label: "Entries", value: stats.entries, color: "text-primary" },
-              { label: "Contests", value: stats.competitions, color: "text-primary" },
-              { label: "Tickets", value: stats.tickets, color: stats.tickets > 0 ? "text-destructive" : "text-primary" },
+              { label: t("adm.stat.users"), value: stats.users, color: "text-primary" },
+              { label: t("adm.nav.entries"), value: stats.entries, color: "text-primary" },
+              { label: t("adm.stat.contests"), value: stats.competitions, color: "text-primary" },
+              { label: t("adm.stat.tickets"), value: stats.tickets, color: stats.tickets > 0 ? "text-destructive" : "text-primary" },
             ].map((stat, i) => (
               <div key={stat.label} className={`flex-1 text-center py-2 ${i > 0 ? "border-l border-border/50" : ""}`}>
                 <div className={`text-sm font-semibold ${stat.color}`} style={{ fontFamily: "var(--font-heading)" }}>{stat.value}</div>
@@ -196,7 +202,7 @@ export default function MobileAdminNav({ tab, setTab, tabGroups, unresolvedTicke
                   className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground/50 px-1 mb-2"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  {group.label}
+                  {gl(group.label)}
                 </h4>
                 <div className="grid grid-cols-3 gap-2">
                   {group.items.map(([key, label, Icon]) => {
@@ -216,7 +222,7 @@ export default function MobileAdminNav({ tab, setTab, tabGroups, unresolvedTicke
                           className="text-[9px] tracking-wider uppercase text-center leading-tight"
                           style={{ fontFamily: "var(--font-heading)" }}
                         >
-                          {label}
+                          {t("adm.nav." + key, label)}
                         </span>
                         {key === "support_tickets" && unresolvedTicketCount > 0 && (
                           <span className="absolute top-1.5 right-1.5 bg-destructive text-destructive-foreground text-[7px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5">
