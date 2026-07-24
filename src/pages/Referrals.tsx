@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useT } from "@/i18n/I18nContext";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -34,6 +35,7 @@ interface Referral {
 }
 
 const Referrals = () => {
+  const t = useT();
   const { user, loading: authLoading } = useAuth();
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
@@ -114,7 +116,7 @@ const Referrals = () => {
   const handleCopy = async () => {
     await navigator.clipboard.writeText(referralLink);
     setCopied(true);
-    toast({ title: "Referral link copied!" });
+    toast({ title: t("ref.linkCopied") });
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -135,7 +137,7 @@ const Referrals = () => {
     const emails = inviteEmail.split(",").map(e => e.trim()).filter(Boolean);
     const invalidEmails = emails.filter(e => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
     if (invalidEmails.length > 0) {
-      toast({ title: "Invalid email(s)", description: invalidEmails.join(", "), variant: "destructive" });
+      toast({ title: t("ref.invalidEmails"), description: invalidEmails.join(", "), variant: "destructive" });
       return;
     }
     const subject = encodeURIComponent("Join me on 50mm Retina World!");
@@ -144,7 +146,7 @@ const Referrals = () => {
     );
     const mailto = `mailto:${emails.join(",")}?subject=${subject}&body=${body}`;
     window.open(mailto, "_blank");
-    toast({ title: "Email client opened!", description: `Invitation ready for ${emails.length} friend(s).` });
+    toast({ title: t("ref.emailOpened"), description: `${t("ref.invitationReady")} · ${emails.length}` });
     setInviteEmail("");
   };
 
@@ -165,10 +167,10 @@ const Referrals = () => {
       <div className="max-w-4xl mx-auto py-3 md:py-10">
 <motion.div initial="hidden" animate="visible" custom={0} variants={fadeUp}>
           <h1 className="text-xl md:text-4xl font-light mt-3 md:mt-6 mb-1 md:mb-2" style={{ fontFamily: "var(--font-display)" }}>
-            Invite <em className="italic text-primary">Friends</em>
+            {t("ref.invite")} <em className="italic text-primary">{t("menu.friends")}</em>
           </h1>
           <p className="text-xs md:text-sm text-muted-foreground mb-4 md:mb-8">
-            Share your referral link and earn wallet rewards when your friends make their first paid activity.
+            {t("ref.subtitle")}
           </p>
         </motion.div>
 
@@ -178,22 +180,22 @@ const Referrals = () => {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm tracking-[0.15em] uppercase flex items-center gap-2" style={{ fontFamily: "var(--font-heading)" }}>
                 <LinkIcon className="h-4 w-4 text-primary" />
-                Your Referral Link
+                {t("ref.yourLink")}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="flex-1 bg-muted/50 border border-border rounded-md px-4 py-3 text-sm font-mono truncate select-all">
-                  {generating ? "Generating..." : referralLink}
+                  {generating ? t("ref.generating") : referralLink}
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={handleCopy} disabled={!referralCode}>
                     {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    <span className="ml-1.5 text-xs uppercase tracking-wider">{copied ? "Copied" : "Copy"}</span>
+                    <span className="ml-1.5 text-xs uppercase tracking-wider">{copied ? t("common.copied") : t("common.copy")}</span>
                   </Button>
                   <Button size="sm" onClick={handleShare} disabled={!referralCode}>
                     <Share2 className="h-4 w-4" />
-                    <span className="ml-1.5 text-xs uppercase tracking-wider">Share</span>
+                    <span className="ml-1.5 text-xs uppercase tracking-wider">{t("jart.share")}</span>
                   </Button>
                 </div>
               </div>
@@ -207,12 +209,12 @@ const Referrals = () => {
               <div>
                 <Label className="text-xs uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5" style={{ fontFamily: "var(--font-heading)" }}>
                   <Mail className="h-3.5 w-3.5" />
-                  Invite Friends via Email
+                  {t("ref.inviteViaEmail")}
                 </Label>
                 <div className="flex flex-col sm:flex-row gap-2 mt-2">
                   <Input
                     type="email"
-                    placeholder="friend@example.com (comma-separated for multiple)"
+                    placeholder={t("ref.phEmail")}
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleEmailInvite()}
@@ -220,7 +222,7 @@ const Referrals = () => {
                   />
                   <Button size="sm" onClick={handleEmailInvite} disabled={!inviteEmail.trim() || !referralCode || sendingInvite} className="gap-1.5">
                     <Send className="h-4 w-4" />
-                    <span className="text-xs uppercase tracking-wider">Send Invite</span>
+                    <span className="text-xs uppercase tracking-wider">{t("ref.sendInvite")}</span>
                   </Button>
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1.5">
@@ -238,7 +240,7 @@ const Referrals = () => {
               <UserPlus className="h-5 w-5 md:h-8 md:w-8 mx-auto mb-1 md:mb-2 text-primary/60" />
               <div className="text-lg md:text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>{referrals.length}</div>
               <p className="text-[9px] md:text-xs text-muted-foreground uppercase tracking-wider mt-0.5 md:mt-1" style={{ fontFamily: "var(--font-heading)" }}>
-                Invites
+                {t("ref.invites")}
               </p>
             </CardContent>
           </Card>
@@ -247,7 +249,7 @@ const Referrals = () => {
               <Gift className="h-5 w-5 md:h-8 md:w-8 mx-auto mb-1 md:mb-2 text-primary/60" />
               <div className="text-lg md:text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>{rewardedCount}</div>
               <p className="text-[9px] md:text-xs text-muted-foreground uppercase tracking-wider mt-0.5 md:mt-1" style={{ fontFamily: "var(--font-heading)" }}>
-                Rewards
+                {t("ref.rewards")}
               </p>
             </CardContent>
           </Card>
@@ -256,7 +258,7 @@ const Referrals = () => {
               <DollarSign className="h-5 w-5 md:h-8 md:w-8 mx-auto mb-1 md:mb-2 text-primary/60" />
               <div className="text-lg md:text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>{formatUSDFixed(totalRewards)}</div>
               <p className="text-[9px] md:text-xs text-muted-foreground uppercase tracking-wider mt-0.5 md:mt-1" style={{ fontFamily: "var(--font-heading)" }}>
-                Earned
+                {t("ref.earned")}
               </p>
             </CardContent>
           </Card>
@@ -268,23 +270,23 @@ const Referrals = () => {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm tracking-[0.15em] uppercase flex items-center gap-2" style={{ fontFamily: "var(--font-heading)" }}>
                 <Users className="h-4 w-4 text-primary" />
-                Invited Friends
+                {t("ref.invitedFriends")}
               </CardTitle>
             </CardHeader>
             <CardContent>
               {referrals.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                  <p className="text-sm">No referrals yet. Share your link to start earning!</p>
+                  <p className="text-sm">{t("ref.noReferrals")}</p>
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-[10px] uppercase tracking-wider">Friend</TableHead>
-                      <TableHead className="text-[10px] uppercase tracking-wider">Status</TableHead>
-                      <TableHead className="text-[10px] uppercase tracking-wider">Reward</TableHead>
-                      <TableHead className="text-[10px] uppercase tracking-wider">Joined</TableHead>
+                      <TableHead className="text-[10px] uppercase tracking-wider">{t("ref.friend")}</TableHead>
+                      <TableHead className="text-[10px] uppercase tracking-wider">{t("ref.status")}</TableHead>
+                      <TableHead className="text-[10px] uppercase tracking-wider">{t("ref.reward")}</TableHead>
+                      <TableHead className="text-[10px] uppercase tracking-wider">{t("ref.joined")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -316,20 +318,20 @@ const Referrals = () => {
           <Card className="bg-muted/30 rounded-xl md:rounded-lg">
             <CardContent className="pt-6">
               <h3 className="text-xs tracking-[0.2em] uppercase font-semibold mb-4" style={{ fontFamily: "var(--font-heading)" }}>
-                How It Works
+                {t("ref.howItWorks")}
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm text-muted-foreground">
                 <div className="flex gap-3">
                   <span className="text-2xl font-bold text-primary/30" style={{ fontFamily: "var(--font-display)" }}>1</span>
-                  <p>Share your unique referral link with friends</p>
+                  <p>{t("ref.step1")}</p>
                 </div>
                 <div className="flex gap-3">
                   <span className="text-2xl font-bold text-primary/30" style={{ fontFamily: "var(--font-display)" }}>2</span>
-                  <p>They sign up using your link</p>
+                  <p>{t("ref.step2")}</p>
                 </div>
                 <div className="flex gap-3">
                   <span className="text-2xl font-bold text-primary/30" style={{ fontFamily: "var(--font-display)" }}>3</span>
-                  <p>You earn a wallet reward when they complete a paid activity</p>
+                  <p>{t("ref.step3")}</p>
                 </div>
               </div>
             </CardContent>

@@ -8,6 +8,7 @@ import { profilesPublic } from "@/lib/profilesPublic";
 import DiscoverCard from "@/components/discover/DiscoverCard";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import { motion, AnimatePresence } from "framer-motion";
+import { useT } from "@/i18n/I18nContext";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -34,6 +35,7 @@ interface DiscoverProfile {
 
 
 const Discover = () => {
+  const t = useT();
   const { user, loading: authLoading } = useAuth();
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
@@ -159,7 +161,7 @@ const Discover = () => {
   if (authLoading || !user) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
-        <span className="text-xs tracking-[0.3em] uppercase text-muted-foreground animate-pulse" style={headingFont}>Loading...</span>
+        <span className="text-xs tracking-[0.3em] uppercase text-muted-foreground animate-pulse" style={headingFont}>{t("common.loading")}</span>
       </main>
     );
   }
@@ -176,7 +178,7 @@ const Discover = () => {
             </span>
           </div>
           <h1 className="text-xl md:text-3xl font-light tracking-tight" style={displayFont}>
-            Discover <em className="text-primary">People</em>
+            {t("disc.discover")} <em className="text-primary">{t("disc.people")}</em>
           </h1>
           <p className="text-sm text-muted-foreground mt-2" style={bodyFont}>
             Find and connect with people from the community.
@@ -191,7 +193,7 @@ const Discover = () => {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name..."
+              placeholder={t("fr.searchByName")}
               className="w-full pl-10 pr-4 py-2.5 bg-transparent border border-border focus:border-primary outline-none text-sm transition-colors"
               style={bodyFont}
             />
@@ -206,7 +208,7 @@ const Discover = () => {
             style={headingFont}
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
-            Filters
+            {t("disc.filters")}
             {selectedInterests.length > 0 && (
               <span className="ml-1 bg-primary text-primary-foreground px-1.5 py-0.5 text-[8px] rounded-sm">
                 {selectedInterests.length}
@@ -230,11 +232,11 @@ const Discover = () => {
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground" style={headingFont}>
-                      Photography Interests
+                      {t("disc.interests")}
                     </span>
                     {selectedInterests.length > 0 && (
                       <button onClick={() => setSelectedInterests([])} className="text-[9px] tracking-[0.1em] uppercase text-primary hover:underline" style={headingFont}>
-                        Clear all
+                        {t("disc.clearAll")}
                       </button>
                     )}
                   </div>
@@ -259,12 +261,12 @@ const Discover = () => {
                 {/* Sort */}
                 <div>
                   <span className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground block mb-3" style={headingFont}>
-                    Sort by
+                    {t("disc.sortBy")}
                   </span>
                   <div className="flex gap-2">
                     {[
-                      { value: "newest" as SortOption, label: "Newest Members" },
-                      { value: "name" as SortOption, label: "Name (A-Z)" },
+                      { value: "newest" as SortOption, label: t("disc.newestMembers") },
+                      { value: "name" as SortOption, label: t("disc.nameAZ") },
                     ].map((opt) => (
                       <button
                         key={opt.value}
@@ -307,23 +309,23 @@ const Discover = () => {
         {loading ? (
           <div className="text-center py-16">
             <span className="text-xs tracking-[0.3em] uppercase text-muted-foreground animate-pulse" style={headingFont}>
-              Searching people...
+              {t("disc.searching")}
             </span>
           </div>
         ) : profiles.length === 0 ? (
           <div className="border border-dashed border-border p-12 text-center">
             <Compass className="h-8 w-8 text-muted-foreground/20 mx-auto mb-3" />
             <p className="text-sm text-muted-foreground" style={bodyFont}>
-              No people found matching your criteria.
+              {t("disc.noPeople")}
             </p>
             <p className="text-xs text-muted-foreground/60 mt-1" style={bodyFont}>
-              Try adjusting your search or filters.
+              {t("disc.tryAdjusting")}
             </p>
           </div>
         ) : (
           <>
             <h2 className="text-base md:text-lg font-semibold mb-4 px-1" style={headingFont}>
-              People you may know
+              {t("dash.peopleYouMayKnow")}
             </h2>
             <div className="flex flex-col">
               <AnimatePresence mode="popLayout">

@@ -15,6 +15,7 @@ import UserIdentityBlock from "@/components/UserIdentityBlock";
 import { getAdminIds, resolveName } from "@/lib/adminBrand";
 import { profileUrl } from "@/lib/urlHelpers";
 import { formatLastSeen, isActiveNow } from "@/hooks/core/useLastActive";
+import { useT } from "@/i18n/I18nContext";
 
 interface FriendProfile {
   id: string;
@@ -59,6 +60,7 @@ const fadeUp = {
 };
 
 const Friends = () => {
+  const t = useT();
   const { user, loading: authLoading } = useAuth();
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
@@ -300,11 +302,11 @@ const Friends = () => {
             <div className="flex items-center gap-4 mb-2">
               <div className="w-12 h-px bg-primary" />
               <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={headingFont}>
-                Connections
+                {t("fr.connections")}
               </span>
             </div>
             <h1 className="text-xl md:text-3xl font-light tracking-tight mb-3 md:mb-6" style={displayFont}>
-              Friends & <em className="italic text-primary">Network</em>
+              {t("fr.friendsAmp")} <em className="italic text-primary">{t("fr.network")}</em>
             </h1>
 
             {/* Summary stats */}
@@ -317,7 +319,7 @@ const Friends = () => {
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name..."
+                placeholder={t("fr.searchByName")}
                 className="pl-9 bg-transparent text-sm"
               />
             </div>
@@ -327,17 +329,17 @@ const Friends = () => {
                 <TabsList className="inline-flex gap-2 bg-transparent border-none p-0 h-auto w-max min-w-full md:min-w-0">
                 {pendingRequests.length > 0 && (
                   <TabsTrigger value="pending" className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
-                    <Clock className="h-3 w-3 shrink-0" /> Pending ({pendingRequests.length})
+                    <Clock className="h-3 w-3 shrink-0" /> {t("fr.pending")} ({pendingRequests.length})
                   </TabsTrigger>
                 )}
                 <TabsTrigger value="friends" className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
-                  <Users className="h-3 w-3 shrink-0" /> Friends ({friends.length})
+                  <Users className="h-3 w-3 shrink-0" /> {t("menu.friends")} ({friends.length})
                 </TabsTrigger>
                 <TabsTrigger value="followers" className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
-                  <Heart className="h-3 w-3 shrink-0" /> Followers ({followers.length})
+                  <Heart className="h-3 w-3 shrink-0" /> {t("fr.followers")} ({followers.length})
                 </TabsTrigger>
                 <TabsTrigger value="following" className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
-                  <Heart className="h-3 w-3 shrink-0" /> Following ({following.length})
+                  <Heart className="h-3 w-3 shrink-0" /> {t("fr.followingTab")} ({following.length})
                 </TabsTrigger>
                 </TabsList>
               </div>
@@ -353,21 +355,21 @@ const Friends = () => {
                         badges={badgeMap.get(req.profile.id) || []}
                         mutualCount={mutualCounts.get(req.profile.id)}
                         mutualFriends={mutualProfiles.get(req.profile.id)}
-                        subtitle={req.direction === "sent" ? "Request sent" : "Wants to be your friend"}
+                        subtitle={req.direction === "sent" ? t("fr.requestSent") : t("fr.wantsToBe")}
                         date={formatDate(req.since)}
                         actions={
                           req.direction === "received" ? (
                             <div className="flex gap-2">
                               <ActionBtn
                                 icon={<UserCheck className="h-3 w-3" />}
-                                label="Accept"
+                                label={t("dash.accept")}
                                 onClick={() => acceptRequest(req.friendshipId, req.profile.id)}
                                 disabled={actionLoading === req.friendshipId}
                                 variant="primary"
                               />
                               <ActionBtn
                                 icon={<UserX className="h-3 w-3" />}
-                                label="Decline"
+                                label={t("dash.decline")}
                                 onClick={() => declineRequest(req.friendshipId)}
                                 disabled={actionLoading === req.friendshipId}
                                 variant="muted"
@@ -376,7 +378,7 @@ const Friends = () => {
                           ) : (
                             <ActionBtn
                               icon={<UserX className="h-3 w-3" />}
-                              label="Cancel"
+                              label={t("common.cancel")}
                               onClick={() => declineRequest(req.friendshipId)}
                               disabled={actionLoading === req.friendshipId}
                               variant="muted"
@@ -387,7 +389,7 @@ const Friends = () => {
                     ))}
                   </div>
                   {pendingRequests.filter((r) => filterBySearch(r.profile)).length === 0 && (
-                    <EmptyState message="No matching pending requests" />
+                    <EmptyState message={t("fr.noMatchingPending")} />
                   )}
                 </TabsContent>
               )}
@@ -404,11 +406,11 @@ const Friends = () => {
                         mutualCount={mutualCounts.get(f.profile.id)}
                         mutualFriends={mutualProfiles.get(f.profile.id)}
                         subtitle={f.profile.city && f.profile.country ? `${f.profile.city}, ${f.profile.country}` : f.profile.bio?.slice(0, 60) || null}
-                        date={`Friends since ${formatDate(f.since)}`}
+                        date={`${t("fr.friendsSince")} ${formatDate(f.since)}`}
                         actions={
                           <ActionBtn
                             icon={<UserMinus className="h-3 w-3" />}
-                            label="Remove"
+                            label={t("fr.remove")}
                             onClick={() => removeFriend(f.friendshipId)}
                             disabled={actionLoading === f.friendshipId}
                             variant="danger"
@@ -418,7 +420,7 @@ const Friends = () => {
                     ))}
                   </div>
                 ) : (
-                  <EmptyState message={search ? "No friends match your search" : "You haven't added any friends yet. Visit other profiles to connect!"} />
+                  <EmptyState message={search ? t("fr.noFriendsMatch") : t("fr.noFriendsYet")} />
                 )}
               </TabsContent>
 
@@ -434,13 +436,13 @@ const Friends = () => {
                         mutualCount={mutualCounts.get(f.profile.id)}
                         mutualFriends={mutualProfiles.get(f.profile.id)}
                         subtitle={f.profile.city && f.profile.country ? `${f.profile.city}, ${f.profile.country}` : null}
-                        date={`Following since ${formatDate(f.since)}`}
+                        date={`${t("fr.followingSince")} ${formatDate(f.since)}`}
                         actions={null}
                       />
                     ))}
                   </div>
                 ) : (
-                  <EmptyState message={search ? "No followers match your search" : "No followers yet. Share your profile to grow your audience!"} />
+                  <EmptyState message={search ? t("fr.noFollowersMatch") : t("fr.noFollowersYet")} />
                 )}
               </TabsContent>
 
@@ -460,7 +462,7 @@ const Friends = () => {
                         actions={
                           <ActionBtn
                             icon={<Heart className="h-3 w-3" />}
-                            label="Unfollow"
+                            label={t("fr.unfollow")}
                             onClick={() => unfollow(f.id, f.profile.id)}
                             disabled={actionLoading === f.id}
                             variant="muted"
@@ -470,7 +472,7 @@ const Friends = () => {
                     ))}
                   </div>
                 ) : (
-                  <EmptyState message={search ? "No following match your search" : "You're not following anyone yet. Discover photographers to follow!"} />
+                  <EmptyState message={search ? t("fr.noFollowingMatch") : t("fr.noFollowingYet")} />
                 )}
               </TabsContent>
             </Tabs>
@@ -492,6 +494,7 @@ const PersonRow = ({ profile, badges, subtitle, date, actions, mutualCount, mutu
   mutualCount?: number;
   mutualFriends?: { id: string; full_name: string | null; avatar_url: string | null }[];
 }) => {
+  const t = useT();
   const name = profile.full_name || "Unknown User";
   const initials = name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
   const online = isActiveNow(profile.last_active_at);
@@ -551,9 +554,9 @@ const PersonRow = ({ profile, badges, subtitle, date, actions, mutualCount, mutu
               ))}
             </div>
             <span className="text-[10px] text-muted-foreground" style={headingFont}>
-              {mutualCount} mutual friend{mutualCount !== 1 ? "s" : ""}
+              {mutualCount} {t("fr.mutualFriends")}
               {mutualFriends && mutualFriends.length > 0 && (
-                <> including{" "}
+                <> {t("fr.including")}{" "}
                   <Link to={`/profile/${mutualFriends[0].id}`} className="text-foreground font-medium hover:text-primary transition-colors">
                     {mutualFriends[0].full_name || "a friend"}
                   </Link>

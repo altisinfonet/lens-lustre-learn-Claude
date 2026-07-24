@@ -21,6 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useT } from "@/i18n/I18nContext";
 
 interface Comment {
   id: string;
@@ -64,10 +65,10 @@ const Avatar = ({ src, name, size = "sm", lastActiveAt }: { src: string | null |
   );
 };
 
-const timeAgo = (date: string) => {
+const timeAgo = (date: string, justNow = "Just now") => {
   const diff = Date.now() - new Date(date).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "Just now";
+  if (mins < 1) return justNow;
   if (mins < 60) return `${mins}m`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h`;
@@ -77,6 +78,7 @@ const timeAgo = (date: string) => {
 };
 
 const CommentsSection = ({ articleId, entryId }: Props) => {
+  const t = useT();
   const { user } = useAuth();
   const { data: currentProfile } = useProfileCore(user?.id);
   const { isAdmin } = useIsAdmin();
@@ -192,7 +194,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
     const text = parentId ? replyText.trim() : newComment.trim();
     if (!text) return;
     if (text.length > 2000) {
-      toast({ title: "Comment too long (max 2000 chars)", variant: "destructive" });
+      toast({ title: t("cmt.tooLong"), variant: "destructive" });
       return;
     }
 
@@ -230,7 +232,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
     } as any);
 
     if (error) {
-      toast({ title: "Failed to post comment", description: error.message, variant: "destructive" });
+      toast({ title: t("cmt.postFailed"), description: error.message, variant: "destructive" });
       if (parentId) {
         setComments((prev) => prev.map((c) => c.id === parentId ? { ...c, replies: c.replies.filter((r) => r.id !== optimistic.id) } : c));
       } else {
@@ -250,7 +252,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
     }
     const { error } = await supabase.from("comments").delete().eq("id", commentId);
     if (error) {
-      toast({ title: "Failed to delete", variant: "destructive" });
+      toast({ title: t("cmt.deleteFailed"), variant: "destructive" });
       fetchComments();
     }
   };
@@ -263,7 +265,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
       .update({ content: editInput.trim(), updated_at: new Date().toISOString() })
       .eq("id", commentId);
     if (error) {
-      toast({ title: "Failed to edit", variant: "destructive" });
+      toast({ title: t("cmt.editFailed"), variant: "destructive" });
     } else {
       const updateInTree = (list: Comment[]): Comment[] =>
         list.map((c) => c.id === commentId
@@ -312,11 +314,11 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
       reason: reportReason.toLowerCase().replace(/\s/g, "_"),
     } as any);
     if (error?.code === "23505") {
-      toast({ title: "You already reported this comment" });
+      toast({ title: t("cmt.alreadyReported") });
     } else if (error) {
-      toast({ title: "Failed to report", variant: "destructive" });
+      toast({ title: t("cmt.reportFailed"), variant: "destructive" });
     } else {
-      toast({ title: "Comment reported" });
+      toast({ title: t("cmt.reported") });
     }
     setReportingId(null);
     setReportReason("");
@@ -352,21 +354,21 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
                   value={editInput}
                   onChange={setEditInput}
                   onSubmit={() => editComment(comment.id)}
-                  placeholder="Edit comment..."
+                  placeholder={t("cmt.phEdit")}
                   disabled={submitting}
                   maxLength={2200}
                   autoFocus
                   className="bg-muted rounded-2xl px-3 py-2 text-sm"
                 />
                 <button onClick={() => { setEditingId(null); setEditInput(""); }} className="text-xs text-muted-foreground hover:text-foreground mb-2">
-                  Cancel
+                  {t("common.cancel")}
                 </button>
               </div>
             ) : (
               <>
                 {comment.is_pinned && (
                   <div className="flex items-center gap-1 text-[10px] text-primary font-medium mb-0.5">
-                    <Pin className="h-3 w-3" /> Pinned comment
+                    <Pin className="h-3 w-3" /> {t("cmt.pinned")}
                   </div>
                 )}
 
@@ -381,7 +383,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
                       <RichContentRenderer content={comment.content} />
                     </p>
                     {isEdited(comment) && (
-                      <span className="text-[10px] text-muted-foreground italic ml-1">Edited</span>
+                      <span className="text-[10px] text-muted-foreground italic ml-1">{t("cmt.edited")}</span>
                     )}
                   </div>
 
@@ -393,13 +395,13 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
                 </div>
 
                 <div className="flex items-center gap-3 mt-1 px-1">
-                  <span className="text-xs text-muted-foreground font-medium">{timeAgo(comment.created_at)}</span>
+                  <span className="text-xs text-muted-foreground font-medium">{timeAgo(comment.created_at, t("dash.justNow"))}</span>
                   {user && (
                     <button
                       onClick={() => toggleLike(comment.id)}
                       className={`text-xs font-semibold transition-colors ${comment.is_liked ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
                     >
-                      Like
+                      {t("cmt.like")}
                     </button>
                   )}
                   {user && (
@@ -416,7 +418,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
                       }}
                       className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
                     >
-                      Reply
+                      {t("cmt.reply")}
                     </button>
                   )}
 
@@ -430,7 +432,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
                       <DropdownMenuContent align="start" className="w-44">
                         {isOwn && (
                           <DropdownMenuItem onClick={() => { setEditingId(comment.id); setEditInput(comment.content); }} className="cursor-pointer">
-                            <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
+                            <Pencil className="h-3.5 w-3.5 mr-2" /> {t("cmt.edit")}
                           </DropdownMenuItem>
                         )}
                         {isAdmin && depth === 0 && (
@@ -440,12 +442,12 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
                         )}
                         {canDelete && (
                           <DropdownMenuItem onClick={() => handleDelete(comment.id, comment.parent_id)} className="cursor-pointer text-destructive focus:text-destructive">
-                            <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                            <Trash2 className="h-3.5 w-3.5 mr-2" /> {t("common.delete")}
                           </DropdownMenuItem>
                         )}
                         {!isOwn && (
                           <DropdownMenuItem onClick={() => { setReportingId(comment.id); setReportReason(""); }} className="cursor-pointer text-destructive focus:text-destructive">
-                            <Flag className="h-3.5 w-3.5 mr-2" /> Report
+                            <Flag className="h-3.5 w-3.5 mr-2" /> {t("cmt.report")}
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
@@ -468,16 +470,16 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
                             onClick={() => setReportReason(r)}
                             className={`text-[10px] px-2 py-1 border rounded-md transition-all ${reportReason === r ? "border-destructive text-destructive bg-destructive/5 font-medium" : "border-border text-muted-foreground hover:border-muted-foreground/50"}`}
                           >
-                            {r}
+                            {t("cmt.r." + r, r)}
                           </button>
                         ))}
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => reportComment(comment.id)} disabled={!reportReason} className="text-[10px] px-3 py-1 bg-destructive text-destructive-foreground rounded-md hover:opacity-90 disabled:opacity-50">
-                          Submit
+                          {t("dash.submit")}
                         </button>
                         <button onClick={() => { setReportingId(null); setReportReason(""); }} className="text-[10px] px-3 py-1 border border-border rounded-md text-muted-foreground">
-                          Cancel
+                          {t("common.cancel")}
                         </button>
                       </div>
                     </motion.div>
@@ -491,7 +493,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
                       value={replyText}
                       onChange={setReplyText}
                       onSubmit={() => handlePost(comment.id)}
-                      placeholder={`Reply to ${comment.profile?.full_name || "Photographer"}...`}
+                      placeholder={`${t("cmt.phReplyTo")} ${comment.profile?.full_name || "Photographer"}...`}
                       disabled={submitting}
                       maxLength={2200}
                       autoFocus
@@ -519,8 +521,8 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
       >
         <span className="inline-flex items-center gap-2">
           <MessageCircle className="h-4 w-4" />
-          <span className="font-medium">Comments{totalCount > 0 ? ` (${totalCount})` : ""}</span>
-          <span className="text-xs text-muted-foreground/70 hidden sm:inline">— Join the discussion</span>
+          <span className="font-medium">{t("cmt.comments")}{totalCount > 0 ? ` (${totalCount})` : ""}</span>
+          <span className="text-xs text-muted-foreground/70 hidden sm:inline">{t("cmt.joinDiscussion")}</span>
         </span>
         <ChevronDown className="h-4 w-4 group-hover:translate-y-0.5 transition-transform" />
       </button>
@@ -532,7 +534,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
       <div className="px-4 pt-4 pb-2 border-b border-border flex items-center justify-between">
         <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
           <MessageCircle className="h-5 w-5 text-muted-foreground" />
-          Comments
+          {t("cmt.comments")}
           {totalCount > 0 && (
             <span className="text-sm font-normal text-muted-foreground">({totalCount})</span>
           )}
@@ -542,13 +544,13 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1">
-                  {sortMode === "relevant" ? "Most relevant" : "Newest first"}
+                  {sortMode === "relevant" ? t("cmt.mostRelevant") : t("cmt.newestFirst")}
                   <ChevronDown className="h-3 w-3" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem onClick={() => setSortMode("relevant")} className="cursor-pointer text-xs">Most relevant</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortMode("newest")} className="cursor-pointer text-xs">Newest first</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortMode("relevant")} className="cursor-pointer text-xs">{t("cmt.mostRelevant")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortMode("newest")} className="cursor-pointer text-xs">{t("cmt.newestFirst")}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -558,7 +560,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
               className="text-xs text-muted-foreground hover:text-foreground"
               title="Collapse"
             >
-              Hide
+              {t("cmt.hide")}
             </button>
           )}
         </div>
@@ -572,26 +574,26 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
               value={newComment}
               onChange={setNewComment}
               onSubmit={() => handlePost()}
-              placeholder="Write a comment..."
+              placeholder={t("cmt.phWrite")}
               disabled={submitting}
               maxLength={2200}
             />
           </div>
         ) : (
           <div className="bg-muted rounded-lg p-4 text-center mb-4">
-            <p className="text-sm text-muted-foreground mb-2">Log in to join the conversation</p>
-            <Link to="/login" className="text-sm font-semibold text-primary hover:underline">Login</Link>
+            <p className="text-sm text-muted-foreground mb-2">{t("cmt.loginToJoin")}</p>
+            <Link to="/login" className="text-sm font-semibold text-primary hover:underline">{t("nav.login")}</Link>
           </div>
         )}
 
         {loading ? (
-          <div className="text-sm text-muted-foreground animate-pulse py-6 text-center">Loading comments…</div>
+          <div className="text-sm text-muted-foreground animate-pulse py-6 text-center">{t("cmt.loading")}</div>
         ) : comments.length === 0 ? (
           <div className="text-center py-8">
             <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
               <MessageCircle className="h-6 w-6 text-muted-foreground/30" />
             </div>
-            <p className="text-sm text-muted-foreground">No comments yet. Be the first to share your thoughts!</p>
+            <p className="text-sm text-muted-foreground">{t("cmt.noComments")}</p>
           </div>
         ) : (
           <div className="space-y-0.5">

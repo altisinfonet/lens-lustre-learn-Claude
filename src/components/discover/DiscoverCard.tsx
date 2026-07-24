@@ -6,6 +6,7 @@ import UserIdentityBlock from "@/components/UserIdentityBlock";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 import { profilesPublic } from "@/lib/profilesPublic";
+import { useT } from "@/i18n/I18nContext";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const displayFont = { fontFamily: "var(--font-display)" };
@@ -27,6 +28,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
     friendStatus, loading, isSelf, isTargetAdmin, mutualFriendsCount,
     sendFriendRequest, removeFriend, acceptFriendRequest,
   } = useFriendFollow(profile.id);
+  const t = useT();
 
   const [mutualFriends, setMutualFriends] = useState<{ id: string; full_name: string | null; avatar_url: string | null }[]>([]);
 
@@ -101,9 +103,9 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
               }
             </div>
             <span className="text-[11px] text-muted-foreground" style={headingFont}>
-              {mutualFriendsCount} mutual friend{mutualFriendsCount !== 1 ? "s" : ""}
+              {mutualFriendsCount} {t("fr.mutualFriends")}
               {mutualFriends.length > 0 && (
-                <> including{" "}
+                <> {t("fr.including")}{" "}
                   <Link to={`/profile/${mutualFriends[0].id}`} className="text-foreground font-medium hover:text-primary transition-colors">
                     {mutualFriends[0].full_name || "a friend"}
                   </Link>
@@ -124,14 +126,14 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
                 style={headingFont}
               >
                 <UserPlus className="h-3.5 w-3.5" />
-                Add Friend
+                {t("fr.addFriend")}
               </button>
               <button
                 onClick={() => onDismiss(profile.id)}
                 className={`${btnBase} bg-muted text-muted-foreground hover:bg-muted/80`}
                 style={headingFont}
               >
-                Remove
+                {t("fr.remove")}
               </button>
             </>
           )}
@@ -144,14 +146,14 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
                 style={headingFont}
               >
                 <Clock className="h-3.5 w-3.5" />
-                Request Sent
+                {t("fr.requestSent")}
               </button>
               <button
                 onClick={() => onDismiss(profile.id)}
                 className={`${btnBase} bg-muted/60 text-muted-foreground hover:bg-muted/80`}
                 style={headingFont}
               >
-                Remove
+                {t("fr.remove")}
               </button>
             </>
           )}
@@ -164,14 +166,14 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
                 style={headingFont}
               >
                 <UserCheck className="h-3.5 w-3.5" />
-                Accept
+                {t("dash.accept")}
               </button>
               <button
                 onClick={() => onDismiss(profile.id)}
                 className={`${btnBase} bg-muted text-muted-foreground hover:bg-muted/80`}
                 style={headingFont}
               >
-                Remove
+                {t("fr.remove")}
               </button>
             </>
           )}
@@ -183,7 +185,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
               style={headingFont}
             >
               <UserMinus className="h-3.5 w-3.5" />
-              Unfriend
+              {t("fr.unfriend")}
             </button>
           )}
         </div>
