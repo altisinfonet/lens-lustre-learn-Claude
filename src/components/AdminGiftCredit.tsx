@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import { formatUSDFixed } from "@/lib/currencyFormat";
 import type { User } from "@supabase/supabase-js";
+import { useT } from "@/i18n/I18nContext";
 
 interface Props {
   user: User | null;
@@ -27,6 +28,7 @@ const roleOptions = [
 ];
 
 const AdminGiftCredit = ({ user }: Props) => {
+  const t = useT();
   const [targetType, setTargetType] = useState<TargetType>("all");
   const [email, setEmail] = useState("");
   const [selectedRole, setSelectedRole] = useState("user");
@@ -126,8 +128,8 @@ const AdminGiftCredit = ({ user }: Props) => {
   const handleSendGift = async () => {
     if (!user) return;
     const amt = parseFloat(amount);
-    if (!amt || amt <= 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
-    if (!reason.trim()) { toast({ title: "Please provide a reason", variant: "destructive" }); return; }
+    if (!amt || amt <= 0) { toast({ title: t("wal.enterValidAmount"), variant: "destructive" }); return; }
+    if (!reason.trim()) { toast({ title: t("dash.provideReason"), variant: "destructive" }); return; }
 
     const expiresAt = hasExpiry && expiryDate ? new Date(expiryDate + "T23:59:59.999Z").toISOString() : null;
 
@@ -138,7 +140,7 @@ const AdminGiftCredit = ({ user }: Props) => {
       let targetValue = "";
 
       if (targetType === "email") {
-        if (!email.trim()) { toast({ title: "Enter an email", variant: "destructive" }); setProcessing(false); return; }
+        if (!email.trim()) { toast({ title: t("gc.enterEmail"), variant: "destructive" }); setProcessing(false); return; }
         targetValue = email.trim();
       } else if (targetType === "role") {
         const { data: roleUsers } = await supabase.from("user_roles").select("user_id").eq("role", selectedRole as any);
@@ -157,12 +159,12 @@ const AdminGiftCredit = ({ user }: Props) => {
             updated_by: user.id,
           });
           setActiveAutoGift({ amount: amt, reason: reason.trim(), active: true });
-          toast({ title: "Auto-gift activated" });
+          toast({ title: t("gc.autoActivated") });
           setProcessing(false);
           fetchHistory();
           return;
         }
-        if (!dateFrom || !dateTo) { toast({ title: "Select a date range", variant: "destructive" }); setProcessing(false); return; }
+        if (!dateFrom || !dateTo) { toast({ title: t("gc.selectDateRange"), variant: "destructive" }); setProcessing(false); return; }
         const { data: newUsers } = await supabase.from("profiles").select("id")
           .gte("created_at", new Date(dateFrom).toISOString())
           .lte("created_at", new Date(dateTo + "T23:59:59").toISOString());
@@ -182,10 +184,10 @@ const AdminGiftCredit = ({ user }: Props) => {
           },
         });
         if (error) throw error;
-        toast({ title: `Gift of $${amt} sent to ${email.trim()}` });
+        toast({ title: `${t("gc.giftSent")} · $${amt} → ${email.trim()}` });
       } else {
         if (targetUserIds.length === 0) {
-          toast({ title: "No users found", variant: "destructive" });
+          toast({ title: t("au.noUsersFound"), variant: "destructive" });
           setProcessing(false);
           return;
         }
@@ -239,7 +241,7 @@ const AdminGiftCredit = ({ user }: Props) => {
           },
         });
 
-        toast({ title: `🎁 Gift sent to ${targetUserIds.length} user(s)` });
+        toast({ title: `🎁 ${t("gc.giftSent")} · ${targetUserIds.length}` });
       }
 
       setAmount("");
@@ -267,10 +269,10 @@ const AdminGiftCredit = ({ user }: Props) => {
   };
 
   const targetTypeOptions: { value: TargetType; label: string; icon: any }[] = [
-    { value: "email", label: "By Email", icon: Mail },
-    { value: "role", label: "By Role", icon: UserCheck },
-    { value: "all", label: "All Users", icon: Users },
-    { value: "new_registration", label: "New Registrations", icon: UserPlus },
+    { value: "email", label: t("gc.byEmail"), icon: Mail },
+    { value: "role", label: t("gc.byRole"), icon: UserCheck },
+    { value: "all", label: t("gc.allUsers"), icon: Users },
+    { value: "new_registration", label: t("gc.newRegistrations"), icon: UserPlus },
   ];
 
   return (
@@ -280,16 +282,16 @@ const AdminGiftCredit = ({ user }: Props) => {
         <div className="border border-primary/40 bg-primary/5 p-4 rounded-sm flex items-center justify-between flex-wrap gap-3">
           <div>
             <span className="text-[10px] tracking-[0.2em] uppercase text-primary block mb-1" style={{ fontFamily: "var(--font-heading)" }}>
-              🎁 Auto-Gift Active
+              {t("gc.autoGiftActive")}
             </span>
             <p className="text-xs text-muted-foreground">
-              Every new user receives <strong>${activeAutoGift.amount}</strong> — "{activeAutoGift.reason}"
+              {t("gc.everyNewUser")} <strong>${activeAutoGift.amount}</strong> — "{activeAutoGift.reason}"
             </p>
           </div>
           <button onClick={disableAutoGift}
             className="px-3 py-1.5 border border-destructive text-destructive text-[10px] tracking-[0.15em] uppercase hover:bg-destructive hover:text-destructive-foreground transition-all rounded-sm"
             style={{ fontFamily: "var(--font-heading)" }}>
-            Disable
+            {t("gc.disable")}
           </button>
         </div>
       )}
@@ -327,7 +329,7 @@ const AdminGiftCredit = ({ user }: Props) => {
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate" style={{ fontFamily: "var(--font-heading)" }}>
-                    {selectedUser.full_name || "No Name"}
+                    {selectedUser.full_name || t("gc.noName")}
                   </p>
                   <p className="text-[10px] text-muted-foreground truncate">{selectedUser.email}</p>
                 </div>
@@ -342,7 +344,7 @@ const AdminGiftCredit = ({ user }: Props) => {
                   value={email}
                   onChange={e => handleEmailChange(e.target.value)}
                   onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-                  placeholder="Start typing email to search..."
+                  placeholder={t("gc.phEmailSearch")}
                   className="w-full bg-transparent border border-border rounded-sm px-3 py-2 text-sm outline-none focus:border-primary"
                 />
                 {searchingUsers && (
@@ -378,14 +380,14 @@ const AdminGiftCredit = ({ user }: Props) => {
         {targetType === "role" && (
           <select value={selectedRole} onChange={e => setSelectedRole(e.target.value)}
             className="w-full bg-transparent border border-border rounded-sm px-3 py-2 text-sm outline-none focus:border-primary cursor-pointer">
-            {roleOptions.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+            {roleOptions.map(r => <option key={r.value} value={r.value}>{r.value === "user" ? t("gc.allUsers") : r.value === "registered_photographer" ? t("gc.regPhotographers") : r.value === "student" ? t("gc.students") : r.value === "judge" ? t("cm.thJudges") : r.value === "content_editor" ? t("gc.contentEditors") : r.label}</option>)}
           </select>
         )}
         {targetType === "new_registration" && (
           <div className="space-y-3">
             <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
               <input type="checkbox" checked={autoApplyFuture} onChange={e => setAutoApplyFuture(e.target.checked)} className="accent-primary" />
-              Auto-apply to future registrations
+              {t("gc.autoApply")}
             </label>
             {!autoApplyFuture && (
               <div className="grid grid-cols-2 gap-3">
@@ -400,9 +402,9 @@ const AdminGiftCredit = ({ user }: Props) => {
 
         {/* Amount, Reason, Expiry */}
         <div className="grid md:grid-cols-2 gap-3">
-          <input type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Amount ($)"
+          <input type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder={t("aw.amountUsd")}
             className="bg-transparent border border-border rounded-sm px-3 py-2 text-sm outline-none focus:border-primary" />
-          <input type="text" value={reason} onChange={e => setReason(e.target.value)} placeholder="Reason (visible to users)"
+          <input type="text" value={reason} onChange={e => setReason(e.target.value)} placeholder={t("gc.phReason")}
             className="bg-transparent border border-border rounded-sm px-3 py-2 text-sm outline-none focus:border-primary" />
         </div>
 
@@ -410,7 +412,7 @@ const AdminGiftCredit = ({ user }: Props) => {
         <div className="flex items-center gap-3 flex-wrap">
           <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
             <input type="checkbox" checked={hasExpiry} onChange={e => setHasExpiry(e.target.checked)} className="accent-primary" />
-            Set expiry date
+            {t("gc.setExpiry")}
           </label>
           {hasExpiry && (
             <div className="flex items-center gap-2">
@@ -421,7 +423,7 @@ const AdminGiftCredit = ({ user }: Props) => {
             </div>
           )}
           {!hasExpiry && (
-            <span className="text-[10px] text-muted-foreground italic">No expiry (permanent)</span>
+            <span className="text-[10px] text-muted-foreground italic">{t("gc.noExpiryPermanent")}</span>
           )}
         </div>
 
@@ -429,7 +431,7 @@ const AdminGiftCredit = ({ user }: Props) => {
           className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground text-[10px] tracking-[0.2em] uppercase hover:opacity-90 transition-opacity disabled:opacity-50 rounded-sm"
           style={{ fontFamily: "var(--font-heading)" }}>
           {processing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Gift className="h-3.5 w-3.5" />}
-          Send Gift
+          {t("gc.sendGift")}
         </button>
       </div>
 
@@ -437,7 +439,7 @@ const AdminGiftCredit = ({ user }: Props) => {
       {history.length > 0 && (
         <div>
           <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-3" style={{ fontFamily: "var(--font-heading)" }}>
-            Gift History ({history.length})
+            {t("gc.giftHistory")} ({history.length})
           </span>
           <div className="border border-border rounded-sm divide-y divide-border">
             {history.map((g: any) => (
@@ -449,7 +451,7 @@ const AdminGiftCredit = ({ user }: Props) => {
                     </span>
                     <span className="text-[10px] text-muted-foreground">→</span>
                     <span className="text-[10px] text-muted-foreground">
-                      {g.target_type === "all" ? "All Users" : g.target_type === "role" ? `Role: ${g.target_value}` : g.target_type === "email" ? g.target_value : "New Registrations"}
+                      {g.target_type === "all" ? t("gc.allUsers") : g.target_type === "role" ? `${t("gc.roleLabel")} ${g.target_value}` : g.target_type === "email" ? g.target_value : t("gc.newRegistrations")}
                     </span>
                     <span className="text-[8px] px-1.5 py-0.5 border border-primary/30 text-primary rounded-sm uppercase tracking-wider">{g.status}</span>
                   </div>
@@ -467,7 +469,7 @@ const AdminGiftCredit = ({ user }: Props) => {
                     ) : (
                       <>
                         <span>·</span>
-                        <span className="text-primary">No expiry</span>
+                        <span className="text-primary">{t("wal.noExpiry")}</span>
                       </>
                     )}
                   </div>
