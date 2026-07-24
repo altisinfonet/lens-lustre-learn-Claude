@@ -38,6 +38,7 @@ import { useUserEntriesInfinite } from "@/hooks/competition/useUserEntries";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
+import { useT } from "@/i18n/I18nContext";
 /* ───── animation helpers ───── */
 const fadeUp = {
   hidden: { opacity: 0, y: 14 },
@@ -60,15 +61,16 @@ interface CompGroup { competition_id: string; competition_slug: string | null; c
 
 type TabKey = "overview" | "submissions" | "social" | "settings";
 
-const TABS: { key: TabKey; label: string; icon: React.ElementType; }[] = [
-  { key: "overview", label: "Overview", icon: TrendingUp },
-  { key: "submissions", label: "My Submissions", icon: ImageIcon },
-  { key: "social", label: "Social", icon: Users },
-  { key: "settings", label: "Settings", icon: Settings },
+const TABS: { key: TabKey; labelKey: string; icon: React.ElementType; }[] = [
+  { key: "overview", labelKey: "dash.overview", icon: TrendingUp },
+  { key: "submissions", labelKey: "menu.mySubmissions", icon: ImageIcon },
+  { key: "social", labelKey: "dash.social", icon: Users },
+  { key: "settings", labelKey: "profile.settings", icon: Settings },
 ];
 
 /* ================================================================ */
 const Dashboard = () => {
+  const t = useT();
   const { user, loading: authLoading } = useAuth();
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
@@ -180,7 +182,7 @@ const Dashboard = () => {
 
   const handleApply = async () => {
     if (!user) return;
-    if (!applyReason.trim()) { toast({ title: "Please provide a reason", variant: "destructive" }); return; }
+    if (!applyReason.trim()) { toast({ title: t("dash.provideReason"), variant: "destructive" }); return; }
     applyForRoleMutation.mutate(
       {
         userId: user.id,
@@ -205,7 +207,7 @@ const Dashboard = () => {
   if (authLoading || loading || !user) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-xs tracking-[0.3em] uppercase text-muted-foreground animate-pulse" style={{ fontFamily: "var(--font-heading)" }}>Loading...</div>
+        <div className="text-xs tracking-[0.3em] uppercase text-muted-foreground animate-pulse" style={{ fontFamily: "var(--font-heading)" }}>{t("common.loading")}</div>
       </main>
     );
   }
@@ -247,24 +249,24 @@ const Dashboard = () => {
               {userBadges.length > 0 && <UserBadgeInline badges={userBadges} size="full" />}
               <TooltipProvider>
                 {hasRole("admin") && (
-                  <Tooltip><TooltipTrigger><span className="text-[8px] tracking-[0.2em] uppercase px-2 py-0.5 bg-primary text-primary-foreground rounded-full" style={{ fontFamily: "var(--font-heading)" }}>Admin</span></TooltipTrigger><TooltipContent>Since {getRoleDate("admin")}</TooltipContent></Tooltip>
+                  <Tooltip><TooltipTrigger><span className="text-[8px] tracking-[0.2em] uppercase px-2 py-0.5 bg-primary text-primary-foreground rounded-full" style={{ fontFamily: "var(--font-heading)" }}>{t("msheet.admin")}</span></TooltipTrigger><TooltipContent>Since {getRoleDate("admin")}</TooltipContent></Tooltip>
                 )}
                 {hasRole("judge") && (
-                  <Tooltip><TooltipTrigger><span className="text-[8px] tracking-[0.2em] uppercase px-2 py-0.5 bg-accent text-accent-foreground rounded-full" style={{ fontFamily: "var(--font-heading)" }}>Judge</span></TooltipTrigger><TooltipContent>Since {getRoleDate("judge")}</TooltipContent></Tooltip>
+                  <Tooltip><TooltipTrigger><span className="text-[8px] tracking-[0.2em] uppercase px-2 py-0.5 bg-accent text-accent-foreground rounded-full" style={{ fontFamily: "var(--font-heading)" }}>{t("msheet.judge")}</span></TooltipTrigger><TooltipContent>Since {getRoleDate("judge")}</TooltipContent></Tooltip>
                 )}
                 {hasRole("registered_photographer") && (
-                  <Tooltip><TooltipTrigger><span className="text-[8px] tracking-[0.2em] uppercase px-2 py-0.5 bg-primary/20 text-primary rounded-full" style={{ fontFamily: "var(--font-heading)" }}>Photographer</span></TooltipTrigger><TooltipContent>Verified {getRoleDate("registered_photographer")}</TooltipContent></Tooltip>
+                  <Tooltip><TooltipTrigger><span className="text-[8px] tracking-[0.2em] uppercase px-2 py-0.5 bg-primary/20 text-primary rounded-full" style={{ fontFamily: "var(--font-heading)" }}>{t("menu.badge.photographer")}</span></TooltipTrigger><TooltipContent>Verified {getRoleDate("registered_photographer")}</TooltipContent></Tooltip>
                 )}
                 {hasRole("content_editor") && (
-                  <Tooltip><TooltipTrigger><span className="text-[8px] tracking-[0.2em] uppercase px-2 py-0.5 bg-secondary text-secondary-foreground rounded-full" style={{ fontFamily: "var(--font-heading)" }}>Contributor</span></TooltipTrigger><TooltipContent>Since {getRoleDate("content_editor")}</TooltipContent></Tooltip>
+                  <Tooltip><TooltipTrigger><span className="text-[8px] tracking-[0.2em] uppercase px-2 py-0.5 bg-secondary text-secondary-foreground rounded-full" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.badge.contributor")}</span></TooltipTrigger><TooltipContent>Since {getRoleDate("content_editor")}</TooltipContent></Tooltip>
                 )}
                 {hasRole("student") && (
-                  <Tooltip><TooltipTrigger><span className="text-[8px] tracking-[0.2em] uppercase px-2 py-0.5 bg-accent/20 text-accent-foreground rounded-full" style={{ fontFamily: "var(--font-heading)" }}>Student</span></TooltipTrigger><TooltipContent>Since {getRoleDate("student")}</TooltipContent></Tooltip>
+                  <Tooltip><TooltipTrigger><span className="text-[8px] tracking-[0.2em] uppercase px-2 py-0.5 bg-accent/20 text-accent-foreground rounded-full" style={{ fontFamily: "var(--font-heading)" }}>{t("menu.badge.student")}</span></TooltipTrigger><TooltipContent>Since {getRoleDate("student")}</TooltipContent></Tooltip>
                 )}
               </TooltipProvider>
             </div>
             <p className="text-[10px] text-muted-foreground mt-0.5" style={{ fontFamily: "var(--font-body)" }}>
-              {user.email} · Member since {memberSince}
+              {user.email} · {t("dash.memberSince")} {memberSince}
             </p>
           </div>
 
@@ -275,7 +277,7 @@ const Dashboard = () => {
                 <TooltipTrigger>
                   <div className="flex flex-col items-center px-3 py-1.5 border border-border rounded-sm hover:border-primary/50 transition-colors cursor-default">
                     <span className="text-base font-light text-primary" style={{ fontFamily: "var(--font-display)" }}>{myEntries.length}</span>
-                    <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Entries</span>
+                    <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("msheet.entries")}</span>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>Total competition entries submitted</TooltipContent>
@@ -284,7 +286,7 @@ const Dashboard = () => {
                 <TooltipTrigger>
                   <div className="flex flex-col items-center px-3 py-1.5 border border-border rounded-sm hover:border-primary/50 transition-colors cursor-default">
                     <span className="text-base font-light text-primary" style={{ fontFamily: "var(--font-display)" }}>{totalVotes}</span>
-                    <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Votes</span>
+                    <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.votes")}</span>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>Total votes received on entries</TooltipContent>
@@ -293,7 +295,7 @@ const Dashboard = () => {
                 <TooltipTrigger>
                   <div className="flex flex-col items-center px-3 py-1.5 border border-border rounded-sm hover:border-primary/50 transition-colors cursor-default">
                     <span className="text-base font-light text-primary" style={{ fontFamily: "var(--font-display)" }}>{friendRequests.length}</span>
-                    <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Requests</span>
+                    <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.requests")}</span>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>Pending friend requests</TooltipContent>
@@ -317,7 +319,7 @@ const Dashboard = () => {
                 style={{ fontFamily: "var(--font-heading)" }}
               >
                 <tab.icon className="h-3.5 w-3.5" />
-                {tab.label}
+                {t(tab.labelKey)}
                 {badge && (
                   <span className="ml-1 inline-flex items-center justify-center h-4 min-w-[1rem] px-1 text-[8px] bg-primary text-primary-foreground rounded-full">
                     {badge}
@@ -398,29 +400,31 @@ const Dashboard = () => {
 /* ================================================================
    OVERVIEW TAB
    ================================================================ */
-const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles, memberSince, friendRequests, hasRole, upcomingComps, certificates, enrollments, suggestedPeople, gatedStatusOf }: any) => (
+const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles, memberSince, friendRequests, hasRole, upcomingComps, certificates, enrollments, suggestedPeople, gatedStatusOf }: any) => {
+  const t = useT();
+  return (
   <div className="space-y-4">
     {/* Welcome + Quick Actions */}
     <motion.div variants={fadeUp} custom={0} initial="hidden" animate="visible">
       <h2 className="text-xl md:text-2xl font-light tracking-tight mb-3" style={{ fontFamily: "var(--font-display)" }}>
-        Welcome, <em className="italic text-primary">{displayName.split(" ")[0]}</em>
+        {t("dash.welcome")} <em className="italic text-primary">{displayName.split(" ")[0]}</em>
       </h2>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {[
-          { icon: User, label: "Profile", desc: "View profile", to: "/profile" },
-          { icon: Trophy, label: "Competitions", desc: "Enter contests", to: "/competitions" },
-          { icon: Edit2, label: "Edit Profile", desc: "Update info", to: "/edit-profile" },
-          { icon: Wallet, label: "Wallet", desc: "Balance & history", to: "/wallet" },
-          { icon: Award, label: "Certificates", desc: "Achievements", to: "/certificates" },
-          { icon: Rss, label: "Feed", desc: "Latest updates", to: "/feed" },
-          { icon: GraduationCap, label: "Courses", desc: "Learn photography", to: "/courses" },
-          ...(hasRole("admin") ? [{ icon: Shield, label: "Admin", desc: "Manage site", to: "/admin" }] : []),
+          { icon: User, labelKey: "nav.profile", descKey: "dash.qa.viewProfile", to: "/profile" },
+          { icon: Trophy, labelKey: "nav.competitions", descKey: "dash.qa.enterContests", to: "/competitions" },
+          { icon: Edit2, labelKey: "menu.editProfile", descKey: "dash.qa.updateInfo", to: "/edit-profile" },
+          { icon: Wallet, labelKey: "menu.wallet", descKey: "dash.qa.balanceHistory", to: "/wallet" },
+          { icon: Award, labelKey: "msheet.certificates", descKey: "dash.qa.achievements", to: "/certificates" },
+          { icon: Rss, labelKey: "nav.feed", descKey: "dash.qa.latestUpdates", to: "/feed" },
+          { icon: GraduationCap, labelKey: "nav.courses", descKey: "dash.qa.learnPhotography", to: "/courses" },
+          ...(hasRole("admin") ? [{ icon: Shield, labelKey: "msheet.admin", descKey: "dash.qa.manageSite", to: "/admin" }] : []),
         ].map((a) => (
-          <Link key={a.label} to={a.to} className="group flex items-center gap-3 p-3 border border-border hover:border-primary/50 transition-all duration-300">
+          <Link key={a.to} to={a.to} className="group flex items-center gap-3 p-3 border border-border hover:border-primary/50 transition-all duration-300">
             <a.icon className="h-4 w-4 text-primary shrink-0 group-hover:scale-110 transition-transform" strokeWidth={1.5} />
             <div className="min-w-0">
-              <h3 className="text-[11px] tracking-[0.1em] uppercase truncate" style={{ fontFamily: "var(--font-heading)" }}>{a.label}</h3>
-              <p className="text-[9px] text-muted-foreground truncate" style={{ fontFamily: "var(--font-body)" }}>{a.desc}</p>
+              <h3 className="text-[11px] tracking-[0.1em] uppercase truncate" style={{ fontFamily: "var(--font-heading)" }}>{t(a.labelKey)}</h3>
+              <p className="text-[9px] text-muted-foreground truncate" style={{ fontFamily: "var(--font-body)" }}>{t(a.descKey)}</p>
             </div>
           </Link>
         ))}
@@ -433,9 +437,9 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
       <motion.div variants={fadeUp} custom={1} initial="hidden" animate="visible">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-            Recent Entries
+            {t("dash.recentEntries")}
           </span>
-          <Link to="/dashboard?tab=submissions" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>View All →</Link>
+          <Link to="/dashboard?tab=submissions" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.viewAllArrow")}</Link>
         </div>
         <div className="border border-border divide-y divide-border">
           {myEntries.slice(0, 4).map((entry: MyCompEntry) => (
@@ -462,8 +466,8 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
           {myEntries.length === 0 && (
             <div className="p-6 text-center">
               <ImageIcon className="h-5 w-5 text-muted-foreground/20 mx-auto mb-1.5" />
-              <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>No entries yet</p>
-              <Link to="/competitions" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline mt-1 inline-block" style={{ fontFamily: "var(--font-heading)" }}>Browse competitions →</Link>
+              <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>{t("dash.noEntriesYet")}</p>
+              <Link to="/competitions" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline mt-1 inline-block" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.browseCompsArrow")}</Link>
             </div>
           )}
         </div>
@@ -472,8 +476,8 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
       {/* Recent Posts */}
       <motion.div variants={fadeUp} custom={1.2} initial="hidden" animate="visible">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Recent Posts</span>
-          <Link to={`/profile/${user.id}?section=wall`} className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>My Wall →</Link>
+          <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.recentPosts")}</span>
+          <Link to={`/profile/${user.id}?section=wall`} className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.myWallArrow")}</Link>
         </div>
         <div className="border border-border divide-y divide-border">
           {recentPosts.slice(0, 4).map((post: RecentPost) => (
@@ -490,8 +494,8 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
           {recentPosts.length === 0 && (
             <div className="p-6 text-center">
               <MessageSquare className="h-5 w-5 text-muted-foreground/20 mx-auto mb-1.5" />
-              <p className="text-[10px] text-muted-foreground mb-2" style={{ fontFamily: "var(--font-body)" }}>No posts yet</p>
-              <Link to={`/profile/${user.id}`} className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>Write your first post →</Link>
+              <p className="text-[10px] text-muted-foreground mb-2" style={{ fontFamily: "var(--font-body)" }}>{t("dash.noPostsYet")}</p>
+              <Link to={`/profile/${user.id}`} className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.writeFirstPostArrow")}</Link>
             </div>
           )}
         </div>
@@ -503,7 +507,7 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
       {/* Upcoming Competitions */}
       <motion.div variants={fadeUp} custom={1.5} initial="hidden" animate="visible">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Upcoming Competitions</span>
+          <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.upcomingComps")}</span>
           <Link to="/competitions" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>All →</Link>
         </div>
         <div className="border border-border divide-y divide-border">
@@ -522,7 +526,7 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
           )) : (
             <div className="p-6 text-center">
               <Trophy className="h-5 w-5 text-muted-foreground/20 mx-auto mb-1.5" />
-              <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>No upcoming competitions</p>
+              <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>{t("dash.noUpcoming")}</p>
             </div>
           )}
         </div>
@@ -531,7 +535,7 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
       {/* My Certificates */}
       <motion.div variants={fadeUp} custom={1.7} initial="hidden" animate="visible">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Certificates</span>
+          <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("msheet.certificates")}</span>
           <Link to="/certificates" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>All →</Link>
         </div>
         <div className="border border-border divide-y divide-border">
@@ -548,7 +552,7 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
           )) : (
             <div className="p-6 text-center">
               <Award className="h-5 w-5 text-muted-foreground/20 mx-auto mb-1.5" />
-              <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>No certificates yet</p>
+              <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>{t("dash.noCertificates")}</p>
             </div>
           )}
         </div>
@@ -557,8 +561,8 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
       {/* My Courses */}
       <motion.div variants={fadeUp} custom={1.9} initial="hidden" animate="visible">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>My Courses</span>
-          <Link to="/courses" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>Browse →</Link>
+          <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.myCourses")}</span>
+          <Link to="/courses" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.browseArrow")}</Link>
         </div>
         <div className="border border-border divide-y divide-border">
           {enrollments.length > 0 ? enrollments.map((enr: any) => {
@@ -570,7 +574,7 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
                   <h4 className="text-xs font-light truncate" style={{ fontFamily: "var(--font-display)" }}>{course?.title || "Course"}</h4>
                   <p className="text-[9px] text-muted-foreground flex items-center gap-1">
                     <GraduationCap className="h-2.5 w-2.5" />
-                    Enrolled {new Date(enr.enrolled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    {t("dash.enrolled")} {new Date(enr.enrolled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                   </p>
                 </div>
                 <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-primary transition-colors" />
@@ -579,7 +583,7 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
           }) : (
             <div className="p-6 text-center">
               <GraduationCap className="h-5 w-5 text-muted-foreground/20 mx-auto mb-1.5" />
-              <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>Not enrolled in any courses</p>
+              <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>{t("dash.notEnrolled")}</p>
             </div>
           )}
         </div>
@@ -590,8 +594,8 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
     {suggestedPeople.length > 0 && (
       <motion.div variants={fadeUp} custom={2} initial="hidden" animate="visible">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>People You May Know</span>
-          <Link to="/discover" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>Discover →</Link>
+          <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.peopleYouMayKnow")}</span>
+          <Link to="/discover" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.discoverArrow")}</Link>
         </div>
         <div className="flex gap-3 overflow-x-auto pb-2">
           {suggestedPeople.map((person: any) => (
@@ -617,16 +621,17 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
 
     {/* Activity Timeline */}
     <motion.div variants={fadeUp} custom={2.5} initial="hidden" animate="visible">
-      <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-2" style={{ fontFamily: "var(--font-heading)" }}>Activity</span>
+      <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-2" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.activity")}</span>
       <div className="border border-border divide-y divide-border">
-        <ActivityItem icon={<User className="h-3 w-3" />} title="Account created" description="Welcome to 50mm Retina World" time={memberSince} />
+        <ActivityItem icon={<User className="h-3 w-3" />} title={t("dash.accountCreated")} description={t("dash.welcomeTo")} time={memberSince} />
         {roles.map((r: UserRole) => (
-          <ActivityItem key={r.role} icon={<Trophy className="h-3 w-3" />} title={`Role: ${r.role}`} description="Role-specific features unlocked" time={new Date(r.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })} />
+          <ActivityItem key={r.role} icon={<Trophy className="h-3 w-3" />} title={`${t("dash.role")}: ${r.role}`} description={t("dash.roleUnlocked")} time={new Date(r.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })} />
         ))}
       </div>
     </motion.div>
   </div>
-);
+  );
+};
 /* ================================================================
    SUBMISSIONS TAB — Competition-grouped 1:1 cards
    ================================================================ */
@@ -695,6 +700,7 @@ const CompetitionStatusLabel = ({
   gatedRow: EntryPublicStatusRow | undefined;
   compStatus: string;
 }) => {
+  const t = useT();
   const gated = gatedRow?.public_status;
   const placement = gatedRow?.public_placement;
   const isPublished = gated && gated !== "judging_in_progress";
@@ -706,7 +712,7 @@ const CompetitionStatusLabel = ({
     }
     return (
       <span className="inline-flex items-center gap-1 text-[8px] tracking-[0.15em] uppercase px-2 py-0.5 border border-yellow-500/40 text-yellow-600 bg-yellow-500/5 rounded-full font-semibold" style={{ fontFamily: "var(--font-heading)" }}>
-        <Clock className="h-2.5 w-2.5" /> Judging in Progress
+        <Clock className="h-2.5 w-2.5" /> {t("dash.judgingInProgress")}
       </span>
     );
   }
@@ -738,7 +744,14 @@ const CompetitionStatusLabel = ({
 
 const SubmissionsTab = ({ myEntries, statusFilter, setStatusFilter, statusCounts, certificates, userId, loadedCount }: { myEntries: MyCompEntry[]; statusFilter: string; setStatusFilter: (s: string) => void; statusCounts: Record<string, number>; certificates: any[]; userId: string | undefined; loadedCount: number }) => {
   const navigate = useNavigate();
+  const t = useT();
   const statuses = ["all", "submitted", "approved", "round1_qualified", "round2_qualified", "finalist", "winner", "rejected", "hold"];
+  const STATUS_KEYS: Record<string, string> = {
+    all: "dash.status.all", submitted: "dash.status.submitted", approved: "dash.status.approved",
+    round1_qualified: "dash.status.round1", round2_qualified: "dash.status.round2",
+    finalist: "dash.status.finalist", winner: "dash.status.winner",
+    rejected: "dash.status.rejected", hold: "dash.status.hold",
+  };
 
   // Judging v5 / Rule #5 + #6 — photographer sees nothing about their entry's
   // round status/tags until the admin explicitly publishes that round's results.
@@ -798,13 +811,13 @@ const SubmissionsTab = ({ myEntries, statusFilter, setStatusFilter, statusCounts
     <div className="space-y-4">
       {/* Filter pills */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground mr-1" style={{ fontFamily: "var(--font-heading)" }}>Filter:</span>
+        <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground mr-1" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.filter")}</span>
         {statuses.map(s => (
           <button key={s} onClick={() => setStatusFilter(s)}
             className={`text-[9px] tracking-[0.15em] uppercase px-3 py-1 border transition-all duration-300 ${statusFilter === s ? "border-primary text-primary bg-primary/10" : "border-border text-muted-foreground hover:border-primary/50"}`}
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            {s === "all" ? "All" : s === "round1_qualified" ? "Round 1" : s === "round2_qualified" ? "Round 2" : s === "hold" ? "On Hold" : s}
+            {STATUS_KEYS[s] ? t(STATUS_KEYS[s]) : s}
             {statusCounts[s] ? <span className="ml-1 text-[8px] opacity-60">({statusCounts[s]})</span> : null}
           </button>
         ))}
@@ -894,7 +907,7 @@ const SubmissionsTab = ({ myEntries, statusFilter, setStatusFilter, statusCounts
                       </h4>
                       <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                         <span className="text-white/60 text-[9px]" style={{ fontFamily: "var(--font-heading)" }}>
-                          {group.entries.length} {group.entries.length === 1 ? "entry" : "entries"}
+                          {group.entries.length} {group.entries.length === 1 ? t("dash.entry") : t("dash.entriesLower")}
                         </span>
                         <CompetitionStatusLabel
                           gatedRow={publicStatusMap[(group.entries[0] as any)?.id]}
@@ -908,7 +921,7 @@ const SubmissionsTab = ({ myEntries, statusFilter, setStatusFilter, statusCounts
                   <div className="p-2 bg-card space-y-1.5">
                     {judgingInProgress ? (
                       <p className="text-[9px] tracking-[0.15em] uppercase text-muted-foreground/70" style={{ fontFamily: "var(--font-heading)" }}>
-                        Judging in progress
+                        {t("dash.judgingInProgress")}
                       </p>
                     ) : (
                       <>
@@ -926,7 +939,7 @@ const SubmissionsTab = ({ myEntries, statusFilter, setStatusFilter, statusCounts
                             className="inline-flex items-center gap-1 text-[8px] tracking-[0.15em] uppercase text-primary hover:underline"
                             style={{ fontFamily: "var(--font-heading)" }}
                           >
-                            <Award className="h-3 w-3" /> View Certificate
+                            <Award className="h-3 w-3" /> {t("dash.viewCertificate")}
                           </Link>
                         )}
                       </>
@@ -941,10 +954,10 @@ const SubmissionsTab = ({ myEntries, statusFilter, setStatusFilter, statusCounts
         <div className="border border-dashed border-border p-10 text-center">
           <ImageIcon className="h-6 w-6 text-muted-foreground/20 mx-auto mb-2" />
           <p className="text-xs text-muted-foreground mb-3" style={{ fontFamily: "var(--font-body)" }}>
-            {statusFilter === "all" ? "No entries yet. Enter a competition to get started!" : "No entries with this status."}
+            {statusFilter === "all" ? t("dash.noEntriesCta") : t("dash.noEntriesFilter")}
           </p>
           <Link to="/competitions" className="inline-flex items-center gap-2 text-[10px] tracking-[0.15em] uppercase px-4 py-2 border border-border hover:border-primary hover:text-primary transition-all duration-500" style={{ fontFamily: "var(--font-heading)" }}>
-            <Trophy className="h-3 w-3" /> Browse Competitions
+            <Trophy className="h-3 w-3" /> {t("dash.browseCompetitions")}
           </Link>
         </div>
       )}
@@ -961,7 +974,7 @@ const SubmissionsTab = ({ myEntries, statusFilter, setStatusFilter, statusCounts
             <>
               <div className="border-t border-border pt-4">
                 <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                  Older Entries
+                  {t("dash.olderEntries")}
                 </span>
               </div>
               <div className="border border-border divide-y divide-border">
@@ -1000,8 +1013,8 @@ const SubmissionsTab = ({ myEntries, statusFilter, setStatusFilter, statusCounts
             hasNextPage={!!olderEntriesQuery.hasNextPage}
             isFetching={olderEntriesQuery.isFetchingNextPage || olderEntriesQuery.isLoading}
             showEndMarker={olderEntries.length > 0}
-            endLabel="No more entries"
-            loadingLabel="Loading older entries…"
+            endLabel={t("dash.noMoreEntries")}
+            loadingLabel={t("dash.loadingOlder")}
           />
         </div>
       )}
@@ -1011,7 +1024,9 @@ const SubmissionsTab = ({ myEntries, statusFilter, setStatusFilter, statusCounts
 /* ================================================================
    SETTINGS TAB
    ================================================================ */
-const SettingsTab = ({ user, profile, roles, applications, hasRole, canApplyFor, showApplyForm, setShowApplyForm, applyRole, setApplyRole, applyReason, setApplyReason, applyPortfolio, setApplyPortfolio, applyExperience, setApplyExperience, submitting, handleApply, sendingReset, handlePasswordReset, appStatusIcon, setRoles }: any) => (
+const SettingsTab = ({ user, profile, roles, applications, hasRole, canApplyFor, showApplyForm, setShowApplyForm, applyRole, setApplyRole, applyReason, setApplyReason, applyPortfolio, setApplyPortfolio, applyExperience, setApplyExperience, submitting, handleApply, sendingReset, handlePasswordReset, appStatusIcon, setRoles }: any) => {
+  const t = useT();
+  return (
   <div className="space-y-4">
     {/* Profile Insights - Only Me */}
     {user && profile && (
@@ -1019,39 +1034,39 @@ const SettingsTab = ({ user, profile, roles, applications, hasRole, canApplyFor,
     )}
     {/* Account Info */}
     <div className="border border-border p-4 md:p-5">
-      <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-3" style={{ fontFamily: "var(--font-heading)" }}>Account Information</span>
+      <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-3" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.accountInfo")}</span>
       <div className="grid sm:grid-cols-2 gap-4">
         <div>
-          <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>Email Address</span>
+          <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.emailAddress")}</span>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Mail className="h-3 w-3" />
             <span style={{ fontFamily: "var(--font-body)" }}>{user.email}</span>
-            <span className="text-[8px] tracking-[0.1em] uppercase px-1.5 py-0.5 border border-border text-muted-foreground/60" style={{ fontFamily: "var(--font-heading)" }}>Fixed</span>
+            <span className="text-[8px] tracking-[0.1em] uppercase px-1.5 py-0.5 border border-border text-muted-foreground/60" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.fixed")}</span>
           </div>
         </div>
         <div>
-          <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>Password</span>
+          <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>{t("auth.password")}</span>
           <button onClick={handlePasswordReset} disabled={sendingReset} className="inline-flex items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase px-3 py-1.5 border border-border hover:border-primary hover:text-primary transition-all duration-500 disabled:opacity-50" style={{ fontFamily: "var(--font-heading)" }}>
             <KeyRound className="h-3 w-3" />
-            {sendingReset ? "Sending…" : "Reset Password"}
+            {sendingReset ? t("dash.sending") : t("dash.resetPassword")}
           </button>
         </div>
       </div>
       {profile?.city && (
         <div className="mt-3 pt-3 border-t border-border">
-          <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>Location</span>
+          <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.location")}</span>
           <p className="text-xs text-muted-foreground flex items-center gap-1.5"><MapPin className="h-3 w-3" />{[profile.city, profile.state, profile.country].filter(Boolean).join(", ")}</p>
         </div>
       )}
       {profile?.phone && (
         <div className="mt-3 pt-3 border-t border-border">
-          <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>Phone</span>
+          <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.phoneLabel")}</span>
           <p className="text-xs text-muted-foreground flex items-center gap-1.5"><Phone className="h-3 w-3" />{profile.phone}</p>
         </div>
       )}
       <div className="mt-3 pt-3 border-t border-border">
         <Link to="/edit-profile" className="inline-flex items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>
-          <Edit2 className="h-3 w-3" /> Edit Profile
+          <Edit2 className="h-3 w-3" /> {t("menu.editProfile")}
         </Link>
       </div>
     </div>
@@ -1065,17 +1080,17 @@ const SettingsTab = ({ user, profile, roles, applications, hasRole, canApplyFor,
 
     {/* Role Applications */}
     <div className="border border-border p-4 md:p-5">
-      <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-3" style={{ fontFamily: "var(--font-heading)" }}>Role Applications</span>
+      <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-3" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.roleApplications")}</span>
       {(canApplyFor("judge") || canApplyFor("content_editor")) && !showApplyForm && (
         <div className="flex flex-wrap gap-2 mb-3">
           {canApplyFor("judge") && (
             <button onClick={() => { setApplyRole("judge"); setShowApplyForm(true); }} className="inline-flex items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase px-3 py-2 border border-border hover:border-primary/50 transition-all duration-500" style={{ fontFamily: "var(--font-heading)" }}>
-              <Briefcase className="h-3 w-3 text-primary" /> Apply: Judge
+              <Briefcase className="h-3 w-3 text-primary" /> {t("dash.applyJudge")}
             </button>
           )}
           {canApplyFor("content_editor") && (
             <button onClick={() => { setApplyRole("content_editor"); setShowApplyForm(true); }} className="inline-flex items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase px-3 py-2 border border-border hover:border-primary/50 transition-all duration-500" style={{ fontFamily: "var(--font-heading)" }}>
-              <Briefcase className="h-3 w-3 text-primary" /> Apply: Editor
+              <Briefcase className="h-3 w-3 text-primary" /> {t("dash.applyEditor")}
             </button>
           )}
         </div>
@@ -1085,27 +1100,27 @@ const SettingsTab = ({ user, profile, roles, applications, hasRole, canApplyFor,
         <div className="border border-border p-4 mb-3 space-y-3 bg-muted/10">
           <div className="flex items-center justify-between">
             <span className="text-[10px] tracking-[0.2em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>
-              {`Apply as ${applyRole === "judge" ? "Judge" : applyRole === "registered_photographer" ? "Photographer" : "Content Editor"}`}
+              {`${t("dash.applyAs")}: ${applyRole === "judge" ? t("msheet.judge") : applyRole === "registered_photographer" ? t("menu.badge.photographer") : t("dash.roleEditor")}`}
             </span>
             <button onClick={() => setShowApplyForm(false)} className="text-muted-foreground hover:text-foreground"><XCircle className="h-4 w-4" /></button>
           </div>
           <div>
-            <label className="block text-[9px] tracking-[0.2em] uppercase text-muted-foreground mb-1" style={{ fontFamily: "var(--font-heading)" }}>Why? *</label>
-            <Textarea value={applyReason} onChange={(e: any) => setApplyReason(e.target.value)} placeholder="Your reason..." className="bg-transparent text-sm" maxLength={1000} />
+            <label className="block text-[9px] tracking-[0.2em] uppercase text-muted-foreground mb-1" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.whyRequired")}</label>
+            <Textarea value={applyReason} onChange={(e: any) => setApplyReason(e.target.value)} placeholder={t("dash.phReason")} className="bg-transparent text-sm" maxLength={1000} />
           </div>
           <div>
-            <label className="block text-[9px] tracking-[0.2em] uppercase text-muted-foreground mb-1" style={{ fontFamily: "var(--font-heading)" }}>Portfolio URL</label>
+            <label className="block text-[9px] tracking-[0.2em] uppercase text-muted-foreground mb-1" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.portfolioUrl")}</label>
             <Input value={applyPortfolio} onChange={(e: any) => setApplyPortfolio(e.target.value)} placeholder="https://..." className="bg-transparent text-sm" maxLength={500} />
           </div>
           <div>
-            <label className="block text-[9px] tracking-[0.2em] uppercase text-muted-foreground mb-1" style={{ fontFamily: "var(--font-heading)" }}>Experience</label>
-            <Textarea value={applyExperience} onChange={(e: any) => setApplyExperience(e.target.value)} placeholder="Awards, years..." className="bg-transparent text-sm" maxLength={1000} />
+            <label className="block text-[9px] tracking-[0.2em] uppercase text-muted-foreground mb-1" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.experience")}</label>
+            <Textarea value={applyExperience} onChange={(e: any) => setApplyExperience(e.target.value)} placeholder={t("dash.phExperience")} className="bg-transparent text-sm" maxLength={1000} />
           </div>
           <div className="flex gap-2">
             <Button onClick={handleApply} disabled={submitting} className="text-[10px] tracking-[0.1em] uppercase bg-primary text-primary-foreground h-8" style={{ fontFamily: "var(--font-heading)" }}>
-              <Send className="h-3 w-3 mr-1" /> {submitting ? "Submitting…" : "Submit"}
+              <Send className="h-3 w-3 mr-1" /> {submitting ? t("dash.submitting") : t("dash.submit")}
             </Button>
-            <Button variant="ghost" onClick={() => setShowApplyForm(false)} className="text-[10px] tracking-[0.1em] uppercase h-8" style={{ fontFamily: "var(--font-heading)" }}>Cancel</Button>
+            <Button variant="ghost" onClick={() => setShowApplyForm(false)} className="text-[10px] tracking-[0.1em] uppercase h-8" style={{ fontFamily: "var(--font-heading)" }}>{t("common.cancel")}</Button>
           </div>
         </div>
       )}
@@ -1117,7 +1132,7 @@ const SettingsTab = ({ user, profile, roles, applications, hasRole, canApplyFor,
               <div className="mt-0.5">{appStatusIcon(app.status)}</div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-light" style={{ fontFamily: "var(--font-heading)" }}>
-                  {app.requested_role === "content_editor" ? "Content Editor" : app.requested_role === "registered_photographer" ? "Photographer" : "Judge"}
+                  {app.requested_role === "content_editor" ? t("dash.roleEditor") : app.requested_role === "registered_photographer" ? t("menu.badge.photographer") : t("msheet.judge")}
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">
                   <span className={app.status === "approved" ? "text-primary" : app.status === "rejected" ? "text-destructive" : "text-yellow-500"}>{app.status}</span>
@@ -1129,29 +1144,32 @@ const SettingsTab = ({ user, profile, roles, applications, hasRole, canApplyFor,
           ))}
         </div>
       ) : (
-        <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>No applications yet.</p>
+        <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>{t("dash.noApplications")}</p>
       )}
     </div>
 
     {/* Danger Zone — self-serve permanent account deletion (Play/Apple requirement) */}
     <DeleteAccountSection />
   </div>
-);
+  );
+};
 
 /* ================================================================
    SOCIAL TAB
    ================================================================ */
-const SocialTab = ({ friendRequests, recentPosts, user, handleFriendAction, friendActionLoading }: any) => (
+const SocialTab = ({ friendRequests, recentPosts, user, handleFriendAction, friendActionLoading }: any) => {
+  const t = useT();
+  return (
   <div className="space-y-4">
     <div className="flex flex-wrap gap-2">
       {[
-        { icon: Users, label: "Friends & Network", to: "/friends" },
-        { icon: MessageSquare, label: "My Wall", to: `/profile/${user.id}?section=wall` },
-        { icon: Rss, label: "Feed", to: "/feed" },
-        { icon: Star, label: "Discover Photographers", to: "/discover" },
+        { icon: Users, labelKey: "dash.friendsNetwork", to: "/friends" },
+        { icon: MessageSquare, labelKey: "menu.myWall", to: `/profile/${user.id}?section=wall` },
+        { icon: Rss, labelKey: "nav.feed", to: "/feed" },
+        { icon: Star, labelKey: "dash.discoverPhotographers", to: "/discover" },
       ].map(l => (
-        <Link key={l.label} to={l.to} className="inline-flex items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase px-3 py-2 border border-border hover:border-primary hover:text-primary transition-all duration-300" style={{ fontFamily: "var(--font-heading)" }}>
-          <l.icon className="h-3 w-3" /> {l.label}
+        <Link key={l.to} to={l.to} className="inline-flex items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase px-3 py-2 border border-border hover:border-primary hover:text-primary transition-all duration-300" style={{ fontFamily: "var(--font-heading)" }}>
+          <l.icon className="h-3 w-3" /> {t(l.labelKey)}
         </Link>
       ))}
     </div>
@@ -1159,14 +1177,14 @@ const SocialTab = ({ friendRequests, recentPosts, user, handleFriendAction, frie
       <div className="flex items-center gap-2 mb-2">
         <Users className="h-3.5 w-3.5 text-primary" />
         <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-          Friend Requests
+          {t("notif.friendRequests")}
           {friendRequests.length > 0 && <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-[1rem] px-1 text-[8px] bg-primary text-primary-foreground rounded-full">{friendRequests.length}</span>}
         </span>
       </div>
       {friendRequests.length > 0 ? (
         <div className="border border-border divide-y divide-border">
           {friendRequests.map((req: FriendRequest) => {
-            const name = req.requester_name || "Unknown User";
+            const name = req.requester_name || t("dash.unknownUser");
             const reqInitials = name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
             return (
               <div key={req.id} className="flex items-center gap-3 p-3">
@@ -1178,8 +1196,8 @@ const SocialTab = ({ friendRequests, recentPosts, user, handleFriendAction, frie
                   <p className="text-[9px] text-muted-foreground"><TimeAgo date={req.created_at} /></p>
                 </div>
                 <div className="flex gap-1.5 shrink-0">
-                  <button onClick={() => handleFriendAction(req.id, "accept", req.requester_id)} disabled={friendActionLoading === req.id} className="text-[9px] tracking-[0.1em] uppercase px-2.5 py-1 border border-primary/50 text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300 disabled:opacity-50" style={{ fontFamily: "var(--font-heading)" }}>Accept</button>
-                  <button onClick={() => handleFriendAction(req.id, "decline")} disabled={friendActionLoading === req.id} className="text-[9px] tracking-[0.1em] uppercase px-2.5 py-1 border border-border text-muted-foreground hover:border-destructive hover:text-destructive transition-all duration-300 disabled:opacity-50" style={{ fontFamily: "var(--font-heading)" }}>Decline</button>
+                  <button onClick={() => handleFriendAction(req.id, "accept", req.requester_id)} disabled={friendActionLoading === req.id} className="text-[9px] tracking-[0.1em] uppercase px-2.5 py-1 border border-primary/50 text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300 disabled:opacity-50" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.accept")}</button>
+                  <button onClick={() => handleFriendAction(req.id, "decline")} disabled={friendActionLoading === req.id} className="text-[9px] tracking-[0.1em] uppercase px-2.5 py-1 border border-border text-muted-foreground hover:border-destructive hover:text-destructive transition-all duration-300 disabled:opacity-50" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.decline")}</button>
                 </div>
               </div>
             );
@@ -1187,14 +1205,14 @@ const SocialTab = ({ friendRequests, recentPosts, user, handleFriendAction, frie
         </div>
       ) : (
         <div className="border border-dashed border-border p-6 text-center">
-          <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>No pending friend requests</p>
+          <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>{t("dash.noPendingRequests")}</p>
         </div>
       )}
     </div>
     <div>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Wall Posts</span>
-        <Link to={`/profile/${user.id}`} className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>View All →</Link>
+        <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.wallPosts")}</span>
+        <Link to={`/profile/${user.id}`} className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.viewAllArrow")}</Link>
       </div>
       {recentPosts.length > 0 ? (
         <div className="border border-border divide-y divide-border">
@@ -1211,12 +1229,13 @@ const SocialTab = ({ friendRequests, recentPosts, user, handleFriendAction, frie
         </div>
       ) : (
         <div className="border border-dashed border-border p-6 text-center">
-          <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>No posts yet</p>
+          <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>{t("dash.noPostsYet")}</p>
         </div>
       )}
     </div>
   </div>
-);
+  );
+};
 
 /* ================================================================
    SHARED COMPONENTS
@@ -1226,9 +1245,10 @@ const StatusBadge = ({ status }: { status: string }) => (
 );
 
 const TimeAgo = ({ date }: { date: string }) => {
+  const t = useT();
   const diff = Date.now() - new Date(date).getTime();
   const mins = Math.floor(diff / 60000);
-  let text = "Just now";
+  let text = t("dash.justNow");
   if (mins >= 1 && mins < 60) text = `${mins}m`;
   else if (mins >= 60 && mins < 1440) text = `${Math.floor(mins / 60)}h`;
   else if (mins >= 1440 && mins < 10080) text = `${Math.floor(mins / 1440)}d`;
