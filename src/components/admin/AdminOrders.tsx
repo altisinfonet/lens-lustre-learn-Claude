@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Download, Loader2 } from "lucide-react";
 import { formatUSDFixed } from "@/lib/currencyFormat";
+import { useT } from "@/i18n/I18nContext";
 
 type OrderRow = {
   id: string;
@@ -32,6 +33,7 @@ const HEAD = { fontFamily: "var(--font-heading)" } as const;
 const BODY = { fontFamily: "var(--font-body)" } as const;
 
 export default function AdminOrders() {
+  const t = useT();
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [comps, setComps] = useState<Record<string, Competition>>({});
@@ -121,10 +123,10 @@ export default function AdminOrders() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-base md:text-lg font-light tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
-            Orders <em className="italic text-primary">— Competition Entries</em>
+            {t("ao.heading")} <em className="italic text-primary">{t("ao.headingSub")}</em>
           </h2>
           <p className="text-[11px] text-muted-foreground mt-1" style={BODY}>
-            {filtered.length} of {orders.length} orders · Net {formatUSDFixed(totalAmount)}
+            {filtered.length} / {orders.length} {t("ao.ofOrders")} {formatUSDFixed(totalAmount)}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={exportCsv} className="text-[11px]">
@@ -134,7 +136,7 @@ export default function AdminOrders() {
 
       <div className="flex items-center gap-2 flex-wrap">
         <Input
-          placeholder="Search order no, user, competition…"
+          placeholder={t("ao.phSearch")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-xs h-8 text-xs"
@@ -145,9 +147,9 @@ export default function AdminOrders() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-            <SelectItem value="refunded">Refunded</SelectItem>
+            <SelectItem value="all">{t("ao.allStatuses")}</SelectItem>
+            <SelectItem value="completed">{t("ao.completed")}</SelectItem>
+            <SelectItem value="refunded">{t("ao.refunded")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -161,20 +163,20 @@ export default function AdminOrders() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="h-9 text-[10px] tracking-[0.15em] uppercase" style={HEAD}>Order No</TableHead>
-                <TableHead className="h-9 text-[10px] tracking-[0.15em] uppercase" style={HEAD}>Status</TableHead>
-                <TableHead className="h-9 text-[10px] tracking-[0.15em] uppercase" style={HEAD}>User</TableHead>
-                <TableHead className="h-9 text-[10px] tracking-[0.15em] uppercase" style={HEAD}>Competition</TableHead>
-                <TableHead className="h-9 text-[10px] tracking-[0.15em] uppercase text-right" style={HEAD}>Amount</TableHead>
-                <TableHead className="h-9 text-[10px] tracking-[0.15em] uppercase" style={HEAD}>Wallet Txn</TableHead>
-                <TableHead className="h-9 text-[10px] tracking-[0.15em] uppercase" style={HEAD}>Date (UTC)</TableHead>
+                <TableHead className="h-9 text-[10px] tracking-[0.15em] uppercase" style={HEAD}>{t("at.thOrderNo")}</TableHead>
+                <TableHead className="h-9 text-[10px] tracking-[0.15em] uppercase" style={HEAD}>{t("ref.status")}</TableHead>
+                <TableHead className="h-9 text-[10px] tracking-[0.15em] uppercase" style={HEAD}>{t("at.thUser")}</TableHead>
+                <TableHead className="h-9 text-[10px] tracking-[0.15em] uppercase" style={HEAD}>{t("win.competition")}</TableHead>
+                <TableHead className="h-9 text-[10px] tracking-[0.15em] uppercase text-right" style={HEAD}>{t("at.thAmount")}</TableHead>
+                <TableHead className="h-9 text-[10px] tracking-[0.15em] uppercase" style={HEAD}>{t("ao.walletTxn")}</TableHead>
+                <TableHead className="h-9 text-[10px] tracking-[0.15em] uppercase" style={HEAD}>{t("ao.dateUtc")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-xs text-muted-foreground" style={BODY}>
-                    No orders match these filters.
+                    {t("ao.noOrders")}
                   </TableCell>
                 </TableRow>
               ) : filtered.map((r) => {

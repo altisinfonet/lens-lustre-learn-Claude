@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, CheckCircle, XCircle, Gift, Banknote, IndianRupee, Settings } from "lucide-react";
 import WalletReconciliationAudit from "@/components/admin/WalletReconciliationAudit";
 import type { User } from "@supabase/supabase-js";
+import { useT } from "@/i18n/I18nContext";
 
 const PAGE_SIZE = 50;
 
@@ -47,6 +48,7 @@ interface GatewayConfig {
 }
 
 const AdminWalletTab = ({ user }: { user: User | null }) => {
+  const t = useT();
   const queryClient = useQueryClient();
   const [targetEmail, setTargetEmail] = useState("");
   const [targetUserId, setTargetUserId] = useState<string | null>(null);
@@ -70,7 +72,7 @@ const AdminWalletTab = ({ user }: { user: User | null }) => {
       .order("created_at", { ascending: false })
       .range(from, to);
     if (error) {
-      toast({ title: "Failed to load withdrawals", description: error.message, variant: "destructive" });
+      toast({ title: t("aw.loadWithdrawalsFailed"), description: error.message, variant: "destructive" });
       return;
     }
     if (data && data.length > 0) {
@@ -103,17 +105,17 @@ const AdminWalletTab = ({ user }: { user: User | null }) => {
     if (data && data.length > 0) {
       setTargetUserId(data[0].id);
       setTargetName(data[0].full_name || "User");
-      toast({ title: `Found: ${data[0].full_name}` });
+      toast({ title: `${t("aw.found")} ${data[0].full_name}` });
     } else {
-      toast({ title: "User not found", variant: "destructive" });
+      toast({ title: t("aw.userNotFound"), variant: "destructive" });
     }
   };
 
   const creditWallet = async () => {
     if (!user || !targetUserId) return;
     const amt = parseFloat(creditAmount);
-    if (!amt || amt <= 0) { toast({ title: "Enter valid amount", variant: "destructive" }); return; }
-    if (amt > 10000) { toast({ title: "Maximum credit is $10,000", description: "For larger amounts, contact the system administrator.", variant: "destructive" }); return; }
+    if (!amt || amt <= 0) { toast({ title: t("aw.enterValidAmount"), variant: "destructive" }); return; }
+    if (amt > 10000) { toast({ title: t("aw.maxCredit"), description: t("aw.maxCreditDesc"), variant: "destructive" }); return; }
     setProcessing(true);
     await safeAdminExecute("Credit wallet", async () => {
       const result = await supabase.rpc("admin_wallet_credit", {
@@ -153,7 +155,7 @@ const AdminWalletTab = ({ user }: { user: User | null }) => {
       updated_by: user?.id,
     }, { onConflict: "key" });
     if (error) {
-      toast({ title: "Failed to save rate", description: error.message, variant: "destructive" });
+      toast({ title: t("aw.saveRateFailed"), description: error.message, variant: "destructive" });
     } else {
       queryClient.invalidateQueries({ queryKey: ["site-setting", "usd_to_inr_rate"] });
       toast({ title: `Exchange rate set to ${formatINRFixed(Number(rate))}` });
@@ -222,12 +224,12 @@ const AdminWalletTab = ({ user }: { user: User | null }) => {
       <div className="border border-border p-6 space-y-6">
         <div className="flex items-center justify-between">
           <span className="text-xs tracking-[0.2em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>
-            <Settings className="h-3.5 w-3.5 inline mr-2" />Payment Gateway Configuration
+            <Settings className="h-3.5 w-3.5 inline mr-2" />{t("aw.gatewayConfig")}
           </span>
           <button onClick={saveGateways} disabled={gatewaySaving}
             className="px-5 py-2 bg-primary text-primary-foreground text-xs tracking-[0.15em] uppercase hover:opacity-90 transition-opacity disabled:opacity-50"
             style={{ fontFamily: "var(--font-heading)" }}>
-            {gatewaySaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save All"}
+            {gatewaySaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("aw.saveAll")}
           </button>
         </div>
         <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
@@ -323,7 +325,7 @@ const AdminWalletTab = ({ user }: { user: User | null }) => {
       {/* Exchange Rate */}
       <div className="border border-border p-6 space-y-4">
         <span className="text-xs tracking-[0.2em] uppercase text-primary block" style={{ fontFamily: "var(--font-heading)" }}>
-          <IndianRupee className="h-3.5 w-3.5 inline mr-2" />Exchange Rate Settings
+          <IndianRupee className="h-3.5 w-3.5 inline mr-2" />{t("aw.exchangeRate")}
         </span>
         <div className="flex flex-wrap gap-4 items-end">
           <div>
@@ -333,26 +335,26 @@ const AdminWalletTab = ({ user }: { user: User | null }) => {
           </div>
           <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer" style={{ fontFamily: "var(--font-body)" }}>
             <input type="checkbox" checked={autoFetch} onChange={e => setAutoFetch(e.target.checked)} className="accent-primary" />
-            Auto-fetch live rate (fallback)
+            {t("aw.autoFetch")}
           </label>
           <button onClick={saveRate}
             className="px-5 py-2 bg-primary text-primary-foreground text-xs tracking-[0.15em] uppercase hover:opacity-90 transition-opacity"
-            style={{ fontFamily: "var(--font-heading)" }}>Save Rate</button>
+            style={{ fontFamily: "var(--font-heading)" }}>{t("aw.saveRate")}</button>
         </div>
       </div>
 
       {/* Credit User Wallet */}
       <div className="border border-border p-6 space-y-4">
         <span className="text-xs tracking-[0.2em] uppercase text-primary block" style={{ fontFamily: "var(--font-heading)" }}>
-          <Gift className="h-3.5 w-3.5 inline mr-2" />Credit User Wallet
+          <Gift className="h-3.5 w-3.5 inline mr-2" />{t("aw.creditUserWallet")}
         </span>
         <div className="flex flex-wrap gap-3 items-end">
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2" style={{ fontFamily: "var(--font-heading)" }}>Search by Name</label>
+            <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2" style={{ fontFamily: "var(--font-heading)" }}>{t("aw.searchByName")}</label>
             <div className="flex gap-2">
-              <input type="text" value={targetEmail} onChange={e => setTargetEmail(e.target.value)} placeholder="User's name"
+              <input type="text" value={targetEmail} onChange={e => setTargetEmail(e.target.value)} placeholder={t("aw.phUserName")}
                 className="flex-1 bg-transparent border-b border-border focus:border-primary outline-none py-2 text-sm" style={{ fontFamily: "var(--font-body)" }} />
-              <button onClick={lookupUser} className="px-4 py-2 border border-border text-xs tracking-[0.15em] uppercase hover:border-primary/50 transition-all" style={{ fontFamily: "var(--font-heading)" }}>Find</button>
+              <button onClick={lookupUser} className="px-4 py-2 border border-border text-xs tracking-[0.15em] uppercase hover:border-primary/50 transition-all" style={{ fontFamily: "var(--font-heading)" }}>{t("aw.find")}</button>
             </div>
             {targetUserId && <p className="text-xs text-primary mt-1" style={{ fontFamily: "var(--font-body)" }}>✓ {targetName}</p>}
           </div>
@@ -360,31 +362,31 @@ const AdminWalletTab = ({ user }: { user: User | null }) => {
         {targetUserId && (
           <div className="flex flex-wrap gap-3 items-end">
             <div>
-              <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2" style={{ fontFamily: "var(--font-heading)" }}>Amount ($)</label>
+              <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2" style={{ fontFamily: "var(--font-heading)" }}>{t("aw.amountUsd")}</label>
               <input type="number" min="0.01" step="0.01" value={creditAmount} onChange={e => setCreditAmount(e.target.value)}
                 className="w-32 bg-transparent border-b border-border focus:border-primary outline-none py-2 text-sm" style={{ fontFamily: "var(--font-body)" }} />
             </div>
             <div>
-              <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2" style={{ fontFamily: "var(--font-heading)" }}>Type</label>
+              <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2" style={{ fontFamily: "var(--font-heading)" }}>{t("aw.type")}</label>
               <select value={creditType} onChange={e => setCreditType(e.target.value)}
                 className="bg-transparent border-b border-border focus:border-primary outline-none py-2 text-sm" style={{ fontFamily: "var(--font-body)" }}>
-                <option value="prize_winning">Prize Winnings</option>
-                <option value="gift">Gift</option>
-                <option value="refund">Refund</option>
-                <option value="honorarium">Honorarium</option>
-                <option value="promo_credit">Promo Credit</option>
-                <option value="referral_earning">Referral Earning</option>
+                <option value="prize_winning">{t("wal.txn.prize_winning")}</option>
+                <option value="gift">{t("wal.txn.gift")}</option>
+                <option value="refund">{t("wal.txn.refund")}</option>
+                <option value="honorarium">{t("wal.txn.honorarium")}</option>
+                <option value="promo_credit">{t("wal.txn.promo_credit")}</option>
+                <option value="referral_earning">{t("wal.txn.referral_earning")}</option>
               </select>
             </div>
             <div className="flex-1 min-w-[200px]">
-              <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2" style={{ fontFamily: "var(--font-heading)" }}>Description</label>
-              <input type="text" value={creditDesc} onChange={e => setCreditDesc(e.target.value)} placeholder="e.g. Competition prize"
+              <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2" style={{ fontFamily: "var(--font-heading)" }}>{t("cm.description")}</label>
+              <input type="text" value={creditDesc} onChange={e => setCreditDesc(e.target.value)} placeholder={t("aw.phCreditDesc")}
                 className="w-full bg-transparent border-b border-border focus:border-primary outline-none py-2 text-sm" style={{ fontFamily: "var(--font-body)" }} />
             </div>
             <button onClick={creditWallet} disabled={processing}
               className="px-5 py-2 bg-primary text-primary-foreground text-xs tracking-[0.15em] uppercase hover:opacity-90 transition-opacity disabled:opacity-50"
               style={{ fontFamily: "var(--font-heading)" }}>
-              {processing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Credit"}
+              {processing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("aw.credit")}
             </button>
           </div>
         )}
@@ -393,12 +395,12 @@ const AdminWalletTab = ({ user }: { user: User | null }) => {
       {/* Withdrawal Requests */}
       <div>
         <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>
-          <Banknote className="h-3.5 w-3.5 inline mr-2" />Withdrawal Requests ({withdrawals.length})
+          <Banknote className="h-3.5 w-3.5 inline mr-2" />{t("aw.withdrawalRequests")} ({withdrawals.length})
         </span>
         {withdrawals.length === 0 ? (
           <div className="text-center py-12 border border-dashed border-border">
             <Banknote className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>No withdrawal requests.</p>
+            <p className="text-sm text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>{t("aw.noWithdrawals")}</p>
           </div>
         ) : (
           <div className="border border-border divide-y divide-border">
@@ -408,7 +410,7 @@ const AdminWalletTab = ({ user }: { user: User | null }) => {
                   <div>
                     <p className="text-sm" style={{ fontFamily: "var(--font-heading)" }}>{w.user_name} — {formatUSDFixed(Number(w.amount))}</p>
                     <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                      {new Date(w.created_at).toLocaleDateString()} · Bank: {w.bank_details ? "Provided" : "N/A"}
+                      {new Date(w.created_at).toLocaleDateString()} · {t("wal.bank")} {w.bank_details ? t("aw.bankProvided") : "N/A"}
                     </p>
                   </div>
                   <span className={`text-[9px] tracking-[0.2em] uppercase px-3 py-1 border ${
@@ -419,17 +421,17 @@ const AdminWalletTab = ({ user }: { user: User | null }) => {
                 </div>
                 {w.status === "pending" && (
                   <div className="flex flex-wrap gap-2 items-center">
-                    <input type="text" placeholder="Admin note (optional)" value={wNotes[w.id] || ""} onChange={e => setWNotes(p => ({ ...p, [w.id]: e.target.value }))}
+                    <input type="text" placeholder={t("aw.phAdminNote")} value={wNotes[w.id] || ""} onChange={e => setWNotes(p => ({ ...p, [w.id]: e.target.value }))}
                       className="flex-1 bg-transparent border-b border-border focus:border-primary outline-none py-2 text-xs" style={{ fontFamily: "var(--font-body)" }} />
                     <button onClick={() => updateWithdrawal(w.id, "approved", wNotes[w.id] || "")}
                       className="inline-flex items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase text-primary hover:opacity-70"
                       style={{ fontFamily: "var(--font-heading)" }}>
-                      <CheckCircle className="h-3.5 w-3.5" /> Approve
+                      <CheckCircle className="h-3.5 w-3.5" /> {t("aw.approve")}
                     </button>
                     <button onClick={() => updateWithdrawal(w.id, "rejected", wNotes[w.id] || "")}
                       className="inline-flex items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase text-destructive hover:opacity-70"
                       style={{ fontFamily: "var(--font-heading)" }}>
-                      <XCircle className="h-3.5 w-3.5" /> Reject
+                      <XCircle className="h-3.5 w-3.5" /> {t("aw.reject")}
                     </button>
                   </div>
                 )}
@@ -440,7 +442,7 @@ const AdminWalletTab = ({ user }: { user: User | null }) => {
                 <button onClick={() => fetchWithdrawals(page + 1)}
                   className="text-[10px] tracking-[0.15em] uppercase text-primary hover:opacity-70"
                   style={{ fontFamily: "var(--font-heading)" }}>
-                  Load More
+                  {t("aw.loadMore")}
                 </button>
               </div>
             )}

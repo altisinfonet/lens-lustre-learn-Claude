@@ -11,6 +11,7 @@ import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import type { User } from "@supabase/supabase-js";
 import type { Json } from "@/integrations/supabase/types";
+import { useT } from "@/i18n/I18nContext";
 
 interface Transaction {
   id: string;
@@ -61,6 +62,7 @@ const PRESETS = [
 const TXN_PAGE_SIZE = 100;
 
 const AdminTransactions = ({ user }: { user: User | null }) => {
+  const t = useT();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -87,7 +89,7 @@ const AdminTransactions = ({ user }: { user: User | null }) => {
       .range(from, to);
 
     if (error) {
-      toast({ title: "Failed to load transactions", description: error.message, variant: "destructive" });
+      toast({ title: t("at.loadTxnsFailed"), description: error.message, variant: "destructive" });
       setLoading(false);
       return;
     }
@@ -183,7 +185,7 @@ const AdminTransactions = ({ user }: { user: User | null }) => {
     a.download = `transactions-${format(new Date(), "yyyy-MM-dd")}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast({ title: "CSV downloaded" });
+    toast({ title: t("at.csvDownloaded") });
   };
 
   const generatePDF = () => {
@@ -219,7 +221,7 @@ const AdminTransactions = ({ user }: { user: User | null }) => {
     }
 
     doc.save(`transactions-${format(new Date(), "yyyy-MM-dd")}.pdf`);
-    toast({ title: "PDF downloaded" });
+    toast({ title: t("at.pdfDownloaded") });
   };
 
   const htmlContent = useMemo(() => {
@@ -268,25 +270,25 @@ ${filtered.map(t => `<tr>
       <div className="flex items-center gap-4 mb-2">
         <div className="w-12 h-px bg-primary" />
         <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>
-          All Transactions
+          {t("at.allTransactions")}
         </span>
       </div>
       <h2 className="text-2xl font-light tracking-tight mb-6" style={{ fontFamily: "var(--font-display)" }}>
-        Transaction <em className="italic text-primary">Ledger</em>
+        {t("at.ledgerHeading")} <em className="italic text-primary">{t("at.ledgerWord")}</em>
       </h2>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="border border-border p-4">
-          <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>Total Transactions</span>
+          <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>{t("at.totalTxns")}</span>
           <span className="text-2xl font-light" style={{ fontFamily: "var(--font-display)" }}>{filtered.length}</span>
         </div>
         <div className="border border-border p-4">
-          <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>Credits</span>
+          <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>{t("at.credits")}</span>
           <span className="text-2xl font-light text-primary" style={{ fontFamily: "var(--font-display)" }}>{formatUSDFixed(totals.credits)}</span>
         </div>
         <div className="border border-border p-4">
-          <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>Debits</span>
+          <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>{t("at.debits")}</span>
           <span className="text-2xl font-light text-destructive" style={{ fontFamily: "var(--font-display)" }}>{formatUSDFixed(totals.debits)}</span>
         </div>
         <div className="border border-border p-4">
@@ -299,7 +301,7 @@ ${filtered.map(t => `<tr>
       <div className="border border-border p-4 mb-6 space-y-4">
         <div className="flex items-center gap-2 mb-2">
           <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Filters</span>
+          <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("at.filters")}</span>
         </div>
 
         {/* Search */}
@@ -307,7 +309,7 @@ ${filtered.map(t => `<tr>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search by user name, description, type..."
+            placeholder={t("at.phSearch")}
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full bg-transparent border-b border-border focus:border-primary outline-none py-2.5 pl-9 pr-3 text-sm transition-colors duration-300"
@@ -318,14 +320,14 @@ ${filtered.map(t => `<tr>
         <div className="flex flex-wrap gap-3 items-end">
           {/* Type filter */}
           <div>
-            <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>Type</span>
+            <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>{t("aw.type")}</span>
             <select
               value={typeFilter}
               onChange={e => setTypeFilter(e.target.value)}
               className="bg-transparent border border-border px-3 py-2 text-xs outline-none focus:border-primary transition-colors"
               style={{ fontFamily: "var(--font-body)" }}
             >
-              <option value="all">All Types</option>
+              <option value="all">{t("at.allTypes")}</option>
               {allTypes.map(t => (
                 <option key={t} value={t}>{txnTypeLabel[t] || t}</option>
               ))}
@@ -334,7 +336,7 @@ ${filtered.map(t => `<tr>
 
           {/* Date From */}
           <div>
-            <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>From</span>
+            <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>{t("at.from")}</span>
             <Popover>
               <PopoverTrigger asChild>
                 <button className={cn("inline-flex items-center gap-2 border border-border px-3 py-2 text-xs transition-colors hover:border-primary/50", dateFrom ? "text-foreground" : "text-muted-foreground")} style={{ fontFamily: "var(--font-body)" }}>
@@ -350,7 +352,7 @@ ${filtered.map(t => `<tr>
 
           {/* Date To */}
           <div>
-            <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>To</span>
+            <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>{t("at.to")}</span>
             <Popover>
               <PopoverTrigger asChild>
                 <button className={cn("inline-flex items-center gap-2 border border-border px-3 py-2 text-xs transition-colors hover:border-primary/50", dateTo ? "text-foreground" : "text-muted-foreground")} style={{ fontFamily: "var(--font-body)" }}>
@@ -378,7 +380,7 @@ ${filtered.map(t => `<tr>
               className="px-2.5 py-2 border border-border text-[9px] tracking-[0.1em] uppercase text-destructive/70 hover:border-destructive/50 transition-all"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              Clear
+              {t("ast.clear")}
             </button>
           </div>
         </div>
@@ -402,7 +404,7 @@ ${filtered.map(t => `<tr>
           className={cn("inline-flex items-center gap-2 px-5 py-2.5 border text-[10px] tracking-[0.15em] uppercase transition-all", showHtml ? "border-primary text-primary" : "border-border hover:border-primary/50")}
           style={{ fontFamily: "var(--font-heading)" }}
         >
-          <Globe className="h-3 w-3" /> {showHtml ? "Hide HTML" : "View HTML"}
+          <Globe className="h-3 w-3" /> {showHtml ? t("at.hideHtml") : t("at.viewHtml")}
         </button>
       </div>
 
@@ -410,7 +412,7 @@ ${filtered.map(t => `<tr>
       {showHtml && (
         <div className="border border-border mb-6">
           <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/30">
-            <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>HTML Preview</span>
+            <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("at.htmlPreview")}</span>
             <button onClick={() => {
               const blob = new Blob([htmlContent], { type: "text/html" });
               const url = URL.createObjectURL(blob);
@@ -419,12 +421,12 @@ ${filtered.map(t => `<tr>
               a.download = `transactions-${format(new Date(), "yyyy-MM-dd")}.html`;
               a.click();
               URL.revokeObjectURL(url);
-              toast({ title: "HTML downloaded" });
+              toast({ title: t("at.htmlDownloaded") });
             }}
               className="text-[9px] tracking-[0.15em] uppercase text-primary hover:opacity-70 transition-opacity"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              Download HTML
+              {t("at.downloadHtml")}
             </button>
           </div>
           <iframe srcDoc={htmlContent} className="w-full h-96 bg-background" title="Transaction Ledger HTML" />
@@ -434,7 +436,7 @@ ${filtered.map(t => `<tr>
       {/* Transaction Table */}
       <div className="border border-border divide-y divide-border">
         <div className="hidden md:grid grid-cols-[1fr_0.9fr_1.1fr_0.9fr_0.7fr_0.7fr_1.1fr_0.7fr] gap-2 px-4 py-2.5 bg-muted/30">
-          {["Date", "Order No", "User", "Type", "Amount", "Balance", "Description", "Status"].map(h => (
+          {[t("at.thDate"), t("at.thOrderNo"), t("at.thUser"), t("aw.type"), t("at.thAmount"), t("at.thBalance"), t("cm.description"), t("ref.status")].map(h => (
             <span key={h} className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{h}</span>
           ))}
         </div>
@@ -442,7 +444,7 @@ ${filtered.map(t => `<tr>
         {filtered.length === 0 ? (
           <div className="p-10 text-center">
             <FileText className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>No transactions found.</p>
+            <p className="text-sm text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>{t("at.noTxns")}</p>
           </div>
         ) : (
           filtered.slice(0, 500).map(t => (
@@ -475,7 +477,7 @@ ${filtered.map(t => `<tr>
               <span className="text-[10px] flex items-center gap-1">
                 {t.status === "pending" ? (
                   <span className="flex items-center gap-1.5">
-                    <span className="px-1.5 py-0.5 border border-yellow-500/40 text-yellow-600 bg-yellow-500/5 rounded-sm text-[9px]">Pending</span>
+                    <span className="px-1.5 py-0.5 border border-yellow-500/40 text-yellow-600 bg-yellow-500/5 rounded-sm text-[9px]">{t("fr.pending")}</span>
                     <button
                       onClick={async () => {
                         try {
@@ -494,10 +496,10 @@ ${filtered.map(t => `<tr>
                               message: `Your deposit of ${formatUSDFixed(Number(t.amount))} has been approved and credited to your wallet.`,
                             },
                           });
-                          toast({ title: "Deposit approved & credited" });
+                          toast({ title: t("at.depositApproved") });
                           fetchTransactions();
                         } catch (err: any) {
-                          toast({ title: "Approve failed", description: err.message, variant: "destructive" });
+                          toast({ title: t("at.approveFailed"), description: err.message, variant: "destructive" });
                         }
                       }}
                       className="p-1 hover:text-primary transition-colors" title="Approve & credit wallet"
@@ -523,10 +525,10 @@ ${filtered.map(t => `<tr>
                               message: `Your deposit request of ${formatUSDFixed(Number(t.amount))} was rejected. Please contact support for details.`,
                             },
                           });
-                          toast({ title: "Deposit rejected" });
+                          toast({ title: t("at.depositRejected") });
                           fetchTransactions(0);
                         } catch (err: any) {
-                          toast({ title: "Reject failed", description: err.message, variant: "destructive" });
+                          toast({ title: t("at.rejectFailed"), description: err.message, variant: "destructive" });
                         }
                       }}
                       className="p-1 hover:text-destructive transition-colors" title="Reject"
@@ -535,9 +537,9 @@ ${filtered.map(t => `<tr>
                     </button>
                   </span>
                 ) : t.status === "rejected" ? (
-                  <span className="px-1.5 py-0.5 border border-destructive/40 text-destructive bg-destructive/5 rounded-sm text-[9px]">Rejected</span>
+                  <span className="px-1.5 py-0.5 border border-destructive/40 text-destructive bg-destructive/5 rounded-sm text-[9px]">{t("dash.status.rejected")}</span>
                 ) : t.status === "approved" ? (
-                  <span className="px-1.5 py-0.5 border border-primary/40 text-primary bg-primary/5 rounded-sm text-[9px]">Approved</span>
+                  <span className="px-1.5 py-0.5 border border-primary/40 text-primary bg-primary/5 rounded-sm text-[9px]">{t("dash.status.approved")}</span>
                 ) : (
                   <span className="text-muted-foreground text-[9px]">{t.status}</span>
                 )}
@@ -553,7 +555,7 @@ ${filtered.map(t => `<tr>
               className="text-[10px] tracking-[0.15em] uppercase px-4 py-2 border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              Load More Transactions
+              {t("at.loadMoreTxns")}
             </button>
           </div>
         )}
@@ -561,7 +563,7 @@ ${filtered.map(t => `<tr>
         {filtered.length > 500 && (
           <div className="px-4 py-3 text-center">
             <span className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-              Showing 500 of {filtered.length} transactions. Download PDF/CSV for full data.
+              {t("at.showing500")} {filtered.length} {t("at.downloadFull")}
             </span>
           </div>
         )}
