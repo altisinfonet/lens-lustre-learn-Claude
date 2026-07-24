@@ -9,6 +9,7 @@ import { useConfirmAction } from "@/hooks/admin/useConfirmAction";
 import { Send, Clock, CheckCircle, MessageSquare, XCircle, ChevronDown, ChevronUp, Paperclip, FileText, Image, X, Trash2, ArrowUpDown } from "lucide-react";
 import { scanFileWithToast } from "@/lib/fileSecurityScanner";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useT } from "@/i18n/I18nContext";
 
 interface Ticket {
   id: string;
@@ -37,6 +38,7 @@ interface Props {
 }
 
 const AdminSupportTickets = ({ user }: Props) => {
+  const t = useT();
   const qc = useQueryClient();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,7 +107,7 @@ const AdminSupportTickets = ({ user }: Props) => {
       const result = await uploadImage({ bucket: "support-attachments", file, path, type: "support", fileName: file.name });
       return { url: result.url, name: file.name };
     } catch (error: any) {
-      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+      toast({ title: t("mp.uploadFailed"), description: error.message, variant: "destructive" });
       return null;
     }
   };
@@ -165,7 +167,7 @@ const AdminSupportTickets = ({ user }: Props) => {
   const updateTicketStatus = async (ticketId: string, newStatus: string) => {
     await supabase.from("support_tickets").update({ status: newStatus, updated_at: new Date().toISOString() } as any).eq("id", ticketId);
     setTickets((prev) => prev.map((t) => t.id === ticketId ? { ...t, status: newStatus } : t));
-    toast({ title: `Ticket marked as ${newStatus}` });
+    toast({ title: `${t("ast.markedAs")} ${t("ast.st." + newStatus, newStatus)}` });
   };
 
   const handleSelectToggle = (ticketId: string) => {
@@ -200,7 +202,7 @@ const AdminSupportTickets = ({ user }: Props) => {
         setExpandedTicket(null);
         setDeleting(false);
         qc.invalidateQueries({ queryKey: ["support-tickets"] });
-        toast({ title: `${ids.length} ticket(s) removed` });
+        toast({ title: `${ids.length} ${t("ast.ticketsRemoved")}` });
       },
     });
   };
@@ -225,7 +227,7 @@ const AdminSupportTickets = ({ user }: Props) => {
   if (loading) {
     return (
       <div className="text-xs tracking-[0.3em] uppercase text-muted-foreground animate-pulse py-12 text-center" style={{ fontFamily: "var(--font-heading)" }}>
-        Loading tickets...
+        {t("ast.loading")}
       </div>
     );
   }
@@ -236,7 +238,7 @@ const AdminSupportTickets = ({ user }: Props) => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
           <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-            {filtered.length} ticket{filtered.length !== 1 ? "s" : ""}
+            {filtered.length} · {t("adm.stat.tickets")}
           </span>
           {/* Sort toggle */}
           <button
@@ -257,7 +259,7 @@ const AdminSupportTickets = ({ user }: Props) => {
               className={`text-[10px] tracking-[0.15em] uppercase px-3 py-1.5 border transition-all ${filter === f ? "border-primary text-primary" : "border-border text-muted-foreground hover:border-foreground"}`}
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              {f}
+              {t("ast.st." + f, f)}
             </button>
           ))}
         </div>
@@ -276,14 +278,14 @@ const AdminSupportTickets = ({ user }: Props) => {
             style={{ fontFamily: "var(--font-heading)" }}
           >
             <Trash2 className="h-3 w-3" />
-            {deleting ? "Deleting..." : "Delete Selected"}
+            {deleting ? t("ast.deleting") : t("ast.deleteSelected")}
           </button>
           <button
             onClick={() => setSelectedIds(new Set())}
             className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground hover:text-foreground transition-colors"
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            Clear
+            {t("ast.clear")}
           </button>
         </div>
       )}
@@ -292,7 +294,7 @@ const AdminSupportTickets = ({ user }: Props) => {
         <div className="border border-border p-10 text-center">
           <MessageSquare className="h-8 w-8 text-muted-foreground/30 mx-auto mb-4" />
           <p className="text-sm text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-            No tickets found.
+            {t("ast.noTickets")}
           </p>
         </div>
       ) : (
@@ -304,7 +306,7 @@ const AdminSupportTickets = ({ user }: Props) => {
               onCheckedChange={(checked) => handleSelectAll(!!checked)}
             />
             <span className="text-[9px] tracking-[0.15em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-              Select all
+              {t("ast.selectAll")}
             </span>
           </div>
 
@@ -351,7 +353,7 @@ const AdminSupportTickets = ({ user }: Props) => {
                         className="text-[9px] tracking-[0.15em] uppercase px-3 py-1.5 border border-green-500/30 text-green-500 hover:bg-green-500/10 transition-all"
                         style={{ fontFamily: "var(--font-heading)" }}
                       >
-                        Mark Resolved
+                        {t("ast.markResolved")}
                       </button>
                     )}
                     {ticket.status !== "closed" && (
@@ -360,7 +362,7 @@ const AdminSupportTickets = ({ user }: Props) => {
                         className="text-[9px] tracking-[0.15em] uppercase px-3 py-1.5 border border-border text-muted-foreground hover:text-foreground transition-all"
                         style={{ fontFamily: "var(--font-heading)" }}
                       >
-                        Close Ticket
+                        {t("ast.closeTicket")}
                       </button>
                     )}
                     {(ticket.status === "resolved" || ticket.status === "closed") && (
@@ -369,7 +371,7 @@ const AdminSupportTickets = ({ user }: Props) => {
                         className="text-[9px] tracking-[0.15em] uppercase px-3 py-1.5 border border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10 transition-all"
                         style={{ fontFamily: "var(--font-heading)" }}
                       >
-                        Reopen
+                        {t("ast.reopen")}
                       </button>
                     )}
                   </div>
@@ -383,7 +385,7 @@ const AdminSupportTickets = ({ user }: Props) => {
                       <div className={`max-w-[80%] px-4 py-3 rounded-lg ${reply.is_admin ? "bg-primary/10 border border-primary/20" : "bg-muted/50 border border-border"}`}>
                         <p className="text-[9px] tracking-[0.15em] uppercase mb-1.5 font-semibold" style={{ fontFamily: "var(--font-heading)" }}>
                           {reply.is_admin ? (
-                            <span className="text-primary">50mm Retina World (You)</span>
+                            <span className="text-primary">{t("ast.youAdmin")}</span>
                           ) : (
                             <span className="text-muted-foreground">{ticket.user_name}</span>
                           )}
@@ -414,7 +416,7 @@ const AdminSupportTickets = ({ user }: Props) => {
                       <textarea
                         value={replyText[ticket.id] || ""}
                         onChange={(e) => setReplyText((prev) => ({ ...prev, [ticket.id]: e.target.value }))}
-                        placeholder="Type your reply to the user..."
+                        placeholder={t("ast.phReply")}
                         maxLength={2000}
                         rows={2}
                         className="flex-1 bg-transparent border border-border focus:border-primary outline-none p-3 text-sm resize-none"
@@ -431,7 +433,7 @@ const AdminSupportTickets = ({ user }: Props) => {
                           className="inline-flex items-center gap-1.5 text-xs tracking-[0.1em] uppercase px-4 py-2.5 bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
                           style={{ fontFamily: "var(--font-heading)" }}
                         >
-                          <Send className="h-3 w-3" /> Reply
+                          <Send className="h-3 w-3" /> {t("cmt.reply")}
                         </button>
                       </div>
                     </div>

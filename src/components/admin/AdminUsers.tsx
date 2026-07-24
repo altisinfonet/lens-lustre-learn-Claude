@@ -10,6 +10,7 @@ import { useRoleDefinitions, type RoleDefinition } from "@/hooks/profile/useRole
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { invalidateRoleCache } from "@/components/AutoRole";
+import { useT } from "@/i18n/I18nContext";
 
 const ROLE_LABELS: Record<string, string> = {
   user: "User",
@@ -44,6 +45,7 @@ interface ActiveUserQuery {
 }
 
 const AdminUsers = ({ user }: { user: AuthUser | null }) => {
+  const t = useT();
   const queryClient = useQueryClient();
   const badgeDefs = useBadgeDefinitions();
   const roleDefs = useRoleDefinitions();
@@ -168,7 +170,7 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
       }
     }
     refreshCurrentUsers();
-    toast({ title: `${getRoleLabel(bulkRole)} assigned to ${success} user(s)` });
+    toast({ title: `${t("au.roleAssigned")}: ${getRoleLabel(bulkRole)} → ${success}` });
     setSelectedIds(new Set());
     setBulkRole("");
     setBulkLoading(false);
@@ -192,7 +194,7 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
           }
         }
         refreshCurrentUsers();
-        toast({ title: `${getRoleLabel(bulkRole)} removed from ${success} user(s)` });
+        toast({ title: `${t("au.roleRemoved")}: ${getRoleLabel(bulkRole)} → ${success}` });
         setSelectedIds(new Set());
         setBulkRole("");
         setBulkLoading(false);
@@ -221,7 +223,7 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
       badgeUserIds = (badgeData as any[])?.map((b: any) => b.user_id) || [];
       if (badgeUserIds.length === 0) {
         setUsers([]);
-        if (!silent) toast({ title: `No users found with ${getBadgeLabel(badge)} badge` });
+        if (!silent) toast({ title: `${t("au.noUsersFound")} — ${getBadgeLabel(badge)}` });
         setLoading(false);
         return;
       }
@@ -236,7 +238,7 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
       roleUserIds = (roleData as any[])?.map((r: any) => r.user_id) || [];
       if (roleUserIds.length === 0) {
         setUsers([]);
-        if (!silent) toast({ title: `No users found with ${getRoleLabel(role)} role` });
+        if (!silent) toast({ title: `${t("au.noUsersFound")} — ${getRoleLabel(role)}` });
         setLoading(false);
         return;
       }
@@ -248,7 +250,7 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
     });
 
     if (error) {
-      if (!silent) toast({ title: "Search failed", description: error.message, variant: "destructive" });
+      if (!silent) toast({ title: t("au.searchFailed"), description: error.message, variant: "destructive" });
       setLoading(false);
       return;
     }
@@ -270,7 +272,7 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
           badge ? `${getBadgeLabel(badge)} badge` : "",
           role ? `${getRoleLabel(role)} role` : "",
         ].filter(Boolean).join(" & ");
-        if (!silent) toast({ title: `No users found${filters ? ` with ${filters}` : ""}` });
+        if (!silent) toast({ title: `${t("au.noUsersFound")}${filters ? ` — ${filters}` : ""}` });
         setLoading(false);
         return;
       }
@@ -295,7 +297,7 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
       setUsers(filtered.map((u: any) => ({ ...u, roles: roleMap.get(u.id) || [], badges: badgeMap.get(u.id) || [] })));
     } else {
       setUsers([]);
-      if (normalizedQuery && !silent) toast({ title: "No users found" });
+      if (normalizedQuery && !silent) toast({ title: t("au.noUsersFound") });
     }
     setLoading(false);
   };
@@ -335,9 +337,9 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
       suspended_until: suspendType === "permanent" ? null : new Date(Date.now() + parseInt(suspendDays) * 86400000).toISOString(),
     };
     const { error } = await supabase.from("profiles").update(update).eq("id", suspendTarget.id);
-    if (error) toast({ title: "Suspend failed", description: error.message, variant: "destructive" });
+    if (error) toast({ title: t("au.suspendFailed"), description: error.message, variant: "destructive" });
     else {
-      toast({ title: `${suspendTarget.full_name || "User"} suspended` });
+      toast({ title: `${suspendTarget.full_name || "User"} — ${t("au.suspendedWord")}` });
       setUsers((prev) => prev.map((u) => (u.id === suspendTarget.id ? { ...u, ...update } : u)));
     }
     setSuspendTarget(null);
@@ -350,9 +352,9 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
     const { error } = await supabase.from("profiles").update({
       is_suspended: false, suspended_until: null, suspension_reason: null,
     }).eq("id", userId);
-    if (error) toast({ title: "Revoke failed", variant: "destructive" });
+    if (error) toast({ title: t("au.revokeFailed"), variant: "destructive" });
     else {
-      toast({ title: "Suspension revoked" });
+      toast({ title: t("au.suspensionRevoked") });
       setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, is_suspended: false, suspended_until: null, suspension_reason: null } : u)));
     }
     setActionLoading(null);
@@ -366,9 +368,9 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
         setActionLoading(u.id);
         const { data, error } = await supabase.functions.invoke("delete-user", { body: { user_id: u.id } });
         if (error || data?.error) {
-          toast({ title: "Delete failed", description: data?.error || error?.message || "Unknown error", variant: "destructive" });
+          toast({ title: t("au.deleteFailed"), description: data?.error || error?.message || "", variant: "destructive" });
         } else {
-          toast({ title: "User permanently deleted", description: "All data removed. Email is now available for new signups." });
+          toast({ title: t("au.userDeleted"), description: t("au.userDeletedDesc") });
           setUsers((prev) => prev.filter((x) => x.id !== u.id));
         }
         setActionLoading(null);
@@ -384,9 +386,9 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
       bio: editBio.trim() || null,
       updated_at: new Date().toISOString(),
     }).eq("id", editTarget.id);
-    if (error) toast({ title: "Update failed", variant: "destructive" });
+    if (error) toast({ title: t("au.updateFailed"), variant: "destructive" });
     else {
-      toast({ title: "Profile updated" });
+      toast({ title: t("au.profileUpdated") });
       setUsers((prev) => prev.map((u) => (u.id === editTarget.id ? { ...u, full_name: editName.trim() || null, bio: editBio.trim() || null } : u)));
     }
     setEditTarget(null);
@@ -488,7 +490,7 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && fetchUsers(searchQuery.trim())}
-            placeholder={searchBy === "email" ? "Search by email..." : "Search by name..."}
+            placeholder={searchBy === "email" ? t("au.phSearchEmail") : t("fr.searchByName")}
             className="flex-1 bg-transparent outline-none py-2 text-sm min-w-0"
             style={{ fontFamily: "var(--font-body)" }}
           />
@@ -497,12 +499,12 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
           <button onClick={() => fetchUsers(searchQuery.trim())} disabled={loading}
             className="flex-1 sm:flex-none px-4 py-2 text-[10px] tracking-[0.15em] uppercase bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 rounded-sm"
             style={{ fontFamily: "var(--font-heading)" }}>
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Search"}
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("common.search")}
           </button>
           <button onClick={() => fetchUsers("", searchBy)} disabled={loading}
             className="flex-1 sm:flex-none px-4 py-2 text-[10px] tracking-[0.15em] uppercase border border-border hover:border-primary transition-colors rounded-sm"
             style={{ fontFamily: "var(--font-heading)" }}>
-            All
+            {t("dash.status.all")}
           </button>
         </div>
       </div>
@@ -510,7 +512,7 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
       {/* Role Filter */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground shrink-0" style={{ fontFamily: "var(--font-heading)" }}>
-          <Shield className="h-3 w-3 inline mr-1" />Filter by role:
+          <Shield className="h-3 w-3 inline mr-1" />{t("au.filterByRole")}
         </span>
         <button
           onClick={() => { setRoleFilter(""); fetchUsers(searchQuery.trim(), searchBy, badgeFilter, ""); }}
@@ -519,7 +521,7 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
           }`}
           style={{ fontFamily: "var(--font-heading)" }}
         >
-          All
+          {t("dash.status.all")}
         </button>
         {ALL_ROLES.map((r) => (
           <button
@@ -542,7 +544,7 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
       {/* Badge Filter */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground shrink-0" style={{ fontFamily: "var(--font-heading)" }}>
-          <Award className="h-3 w-3 inline mr-1" />Filter by badge:
+          <Award className="h-3 w-3 inline mr-1" />{t("au.filterByBadge")}
         </span>
         <button
           onClick={() => { setBadgeFilter(""); fetchUsers(searchQuery.trim(), searchBy, "", roleFilter); }}
@@ -551,7 +553,7 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
           }`}
           style={{ fontFamily: "var(--font-heading)" }}
         >
-          All
+          {t("dash.status.all")}
         </button>
         {badgeTypes.map((b) => (
           <button
@@ -576,7 +578,7 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
         <div className="flex items-center gap-3 border border-primary/30 bg-primary/5 p-3 rounded-sm">
           <span className="text-[10px] tracking-[0.15em] uppercase text-primary font-medium shrink-0" style={{ fontFamily: "var(--font-heading)" }}>
             <CheckSquare className="h-3.5 w-3.5 inline mr-1" />
-            {selectedIds.size} selected
+            {selectedIds.size} {t("au.selected")}
           </span>
           <select
             value={bulkRole}
@@ -584,7 +586,7 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
             className="bg-transparent border border-border rounded-sm px-2 py-1.5 text-xs outline-none focus:border-primary"
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            <option value="">Select role...</option>
+            <option value="">{t("au.selectRole")}</option>
             {ALL_ROLES.filter((r) => r !== "user").map((r) => (
               <option key={r} value={r}>{getRoleLabel(r)}</option>
             ))}
@@ -593,18 +595,18 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
             className="px-3 py-1.5 text-[10px] tracking-wider uppercase bg-primary text-primary-foreground hover:opacity-90 rounded-sm disabled:opacity-50 flex items-center gap-1"
             style={{ fontFamily: "var(--font-heading)" }}>
             {bulkLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-            Assign
+            {t("au.assign")}
           </button>
           <button onClick={bulkRemoveRole} disabled={!bulkRole || bulkRole === "user" || bulkLoading}
             className="px-3 py-1.5 text-[10px] tracking-wider uppercase border border-destructive/40 text-destructive hover:bg-destructive/10 rounded-sm disabled:opacity-50 flex items-center gap-1"
             style={{ fontFamily: "var(--font-heading)" }}>
             {bulkLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
-            Remove
+            {t("fr.remove")}
           </button>
           <button onClick={() => setSelectedIds(new Set())}
             className="ml-auto text-[10px] text-muted-foreground hover:text-foreground transition-colors"
             style={{ fontFamily: "var(--font-heading)" }}>
-            Clear
+            {t("ast.clear")}
           </button>
         </div>
       )}
@@ -614,7 +616,7 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
         <div className="border border-destructive/40 bg-destructive/5 p-4 rounded-sm space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-[10px] tracking-[0.2em] uppercase text-destructive font-medium" style={{ fontFamily: "var(--font-heading)" }}>
-              Suspend: {suspendTarget.full_name || suspendTarget.email}
+              {t("au.suspendLabel")} {suspendTarget.full_name || suspendTarget.email}
             </span>
             <button onClick={() => setSuspendTarget(null)} className="text-muted-foreground hover:text-foreground"><XCircle className="h-4 w-4" /></button>
           </div>
@@ -623,20 +625,20 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
               <input type="radio" checked={suspendType === "temporary"} onChange={() => setSuspendType("temporary")} className="accent-primary" /> Temporary
             </label>
             <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-              <input type="radio" checked={suspendType === "permanent"} onChange={() => setSuspendType("permanent")} className="accent-destructive" /> Permanent
+              <input type="radio" checked={suspendType === "permanent"} onChange={() => setSuspendType("permanent")} className="accent-destructive" /> {t("au.permanent")}
             </label>
             {suspendType === "temporary" && (
               <input type="number" value={suspendDays} onChange={(e) => setSuspendDays(e.target.value)} min="1"
-                className="w-20 bg-transparent border border-border rounded-sm px-2 py-1 text-xs outline-none focus:border-primary" placeholder="Days" />
+                className="w-20 bg-transparent border border-border rounded-sm px-2 py-1 text-xs outline-none focus:border-primary" placeholder={t("au.phDays")} />
             )}
           </div>
           <div className="flex items-center gap-2">
-            <input value={suspendReason} onChange={(e) => setSuspendReason(e.target.value)} placeholder="Reason..."
+            <input value={suspendReason} onChange={(e) => setSuspendReason(e.target.value)} placeholder={t("au.phReason")}
               className="flex-1 bg-transparent border border-border rounded-sm px-3 py-1.5 text-xs outline-none focus:border-primary" />
             <button onClick={suspendUser}
               className="px-4 py-1.5 text-[10px] tracking-wider uppercase bg-destructive text-destructive-foreground hover:opacity-90 rounded-sm"
               style={{ fontFamily: "var(--font-heading)" }}>
-              Confirm
+              {t("common.confirm")}
             </button>
           </div>
         </div>
@@ -647,19 +649,19 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
         <div className="border border-border p-4 rounded-sm space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-[10px] tracking-[0.2em] uppercase text-primary font-medium" style={{ fontFamily: "var(--font-heading)" }}>
-              Edit: {editTarget.full_name || editTarget.email}
+              {t("au.editLabel")} {editTarget.full_name || editTarget.email}
             </span>
             <button onClick={() => setEditTarget(null)} className="text-muted-foreground hover:text-foreground"><XCircle className="h-4 w-4" /></button>
           </div>
           <div className="flex items-center gap-3">
-            <input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Full name"
+            <input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder={t("auth.fullName")}
               className="flex-1 bg-transparent border border-border rounded-sm px-3 py-1.5 text-xs outline-none focus:border-primary" />
-            <input value={editBio} onChange={(e) => setEditBio(e.target.value)} placeholder="Bio"
+            <input value={editBio} onChange={(e) => setEditBio(e.target.value)} placeholder={t("ep.bio")}
               className="flex-1 bg-transparent border border-border rounded-sm px-3 py-1.5 text-xs outline-none focus:border-primary" />
             <button onClick={saveEdit}
               className="px-4 py-1.5 text-[10px] tracking-wider uppercase bg-primary text-primary-foreground hover:opacity-90 rounded-sm"
               style={{ fontFamily: "var(--font-heading)" }}>
-              Save
+              {t("common.save")}
             </button>
           </div>
         </div>
@@ -671,7 +673,7 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
           <div className="flex items-center justify-between">
             <span className="text-[10px] tracking-[0.2em] uppercase text-primary font-medium" style={{ fontFamily: "var(--font-heading)" }}>
               <Shield className="h-3.5 w-3.5 inline mr-1.5" />
-              Manage Roles: {roleTarget.full_name || roleTarget.email}
+              {t("au.manageRoles")} {roleTarget.full_name || roleTarget.email}
             </span>
             <button onClick={() => setRoleTarget(null)} className="text-muted-foreground hover:text-foreground"><XCircle className="h-4 w-4" /></button>
           </div>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Eye, XCircle, X, Search, RotateCcw, Loader2, Ban } from "lucide-react";
 import PhaseWatermark from "@/components/competition/PhaseWatermark";
 import { isPhotoRejected } from "@/lib/photoRejection";
+import { useT } from "@/i18n/I18nContext";
 
 interface EntryRow {
   id: string;
@@ -32,6 +33,7 @@ interface Props {
 const photoKey = (entryId: string, photoIndex: number) => `${entryId}::${photoIndex}`;
 
 const AdminEntriesSection = ({ entries, onTogglePhotoRejected, pendingKey }: Props) => {
+  const t = useT();
   const [searchQuery, setSearchQuery] = useState("");
   const [previewEntry, setPreviewEntry] = useState<EntryRow | null>(null);
   const [previewIndex, setPreviewIndex] = useState(0);
@@ -118,13 +120,13 @@ const AdminEntriesSection = ({ entries, onTogglePhotoRejected, pendingKey }: Pro
     <div>
       <div className="flex items-center gap-3 mb-1">
         <div className="w-8 h-px bg-primary" />
-        <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>Moderation</span>
+        <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>{t("ae.moderation")}</span>
       </div>
       <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>
-        {filtered.length} of {entries.length} entr{entries.length !== 1 ? "ies" : "y"}
+        {filtered.length} / {entries.length} · {t("adm.nav.entries")}
       </span>
       <p className="text-[10px] text-muted-foreground mb-4" style={{ fontFamily: "var(--font-body)" }}>
-        Hover a photo to reject it individually. Entry is auto-marked rejected only when <em>all</em> photos are rejected.
+        {t("ae.hoverHint")}
       </p>
 
       {/* Search Bar */}
@@ -134,7 +136,7 @@ const AdminEntriesSection = ({ entries, onTogglePhotoRejected, pendingKey }: Pro
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by entry title, photographer, or competition..."
+          placeholder={t("ae.phSearch")}
           className="w-full bg-transparent border border-border focus:border-primary outline-none pl-9 pr-8 py-2.5 text-sm transition-colors duration-300"
           style={{ fontFamily: "var(--font-body)" }}
         />
@@ -150,7 +152,7 @@ const AdminEntriesSection = ({ entries, onTogglePhotoRejected, pendingKey }: Pro
         <table className="w-full text-left">
           <thead>
             <tr className="border-b border-border">
-              {["Entry", "Competition", "Photographer", "Photos (hover to reject)", "Status"].map((h) => (
+              {[t("ae.thEntry"), t("win.competition"), t("ae.thPhotographer"), t("ae.thPhotos"), t("ref.status")].map((h) => (
                 <th key={h} className="px-4 py-3 text-[9px] tracking-[0.2em] uppercase text-muted-foreground font-normal" style={{ fontFamily: "var(--font-heading)" }}>{h}</th>
               ))}
             </tr>
@@ -175,20 +177,20 @@ const AdminEntriesSection = ({ entries, onTogglePhotoRejected, pendingKey }: Pro
                     </div>
                     {rejectedCount > 0 && (
                       <p className="text-[9px] text-destructive mt-1.5" style={{ fontFamily: "var(--font-heading)" }}>
-                        {rejectedCount}/{total} rejected
+                        {rejectedCount}/{total} {t("ae.rejectedWord")}
                       </p>
                     )}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`text-[9px] tracking-[0.2em] uppercase px-2.5 py-1 border ${entry.status === "rejected" ? "text-destructive border-destructive" : "text-muted-foreground border-border"}`} style={{ fontFamily: "var(--font-heading)" }}>
-                      {entry.status}
+                      {t("dash.status." + entry.status, entry.status)}
                     </span>
                   </td>
                 </tr>
               );
             })}
             {filtered.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-muted-foreground">{searchQuery ? "No entries match your search" : "No entries yet"}</td></tr>
+              <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-muted-foreground">{searchQuery ? t("ae.noMatch") : t("dash.noEntriesYet")}</td></tr>
             )}
           </tbody>
         </table>
@@ -211,7 +213,7 @@ const AdminEntriesSection = ({ entries, onTogglePhotoRejected, pendingKey }: Pro
                   <p className="text-[10px] text-muted-foreground">{entry.profiles?.full_name || "Unknown"}</p>
                 </div>
                 <span className={`text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 border shrink-0 ${entry.status === "rejected" ? "text-destructive border-destructive" : "text-muted-foreground border-border"}`} style={{ fontFamily: "var(--font-heading)" }}>
-                  {entry.status}
+                  {t("dash.status." + entry.status, entry.status)}
                 </span>
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -221,7 +223,7 @@ const AdminEntriesSection = ({ entries, onTogglePhotoRejected, pendingKey }: Pro
               </div>
               {rejectedCount > 0 && (
                 <p className="text-[9px] text-destructive" style={{ fontFamily: "var(--font-heading)" }}>
-                  {rejectedCount}/{total} rejected
+                  {rejectedCount}/{total} {t("ae.rejectedWord")}
                 </p>
               )}
             </div>
@@ -229,7 +231,7 @@ const AdminEntriesSection = ({ entries, onTogglePhotoRejected, pendingKey }: Pro
         })}
         {filtered.length === 0 && (
           <div className="text-center py-10 border border-dashed border-border rounded-sm">
-            <p className="text-sm text-muted-foreground">{searchQuery ? "No entries match your search" : "No entries yet"}</p>
+            <p className="text-sm text-muted-foreground">{searchQuery ? t("ae.noMatch") : t("dash.noEntriesYet")}</p>
           </div>
         )}
       </div>
@@ -246,7 +248,7 @@ const AdminEntriesSection = ({ entries, onTogglePhotoRejected, pendingKey }: Pro
                 {previewEntry.title}
               </span>
               {isPhotoRejected(previewEntry.photo_meta, previewIndex) && (
-                <span className="text-[9px] tracking-[0.2em] uppercase text-destructive border border-destructive px-2 py-0.5">Rejected</span>
+                <span className="text-[9px] tracking-[0.2em] uppercase text-destructive border border-destructive px-2 py-0.5">{t("dash.status.rejected")}</span>
               )}
             </div>
             <button onClick={closePreview} className="p-2 text-white/70 hover:text-white transition-colors">
