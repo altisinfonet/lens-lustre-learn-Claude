@@ -1,4 +1,5 @@
 import { AlertTriangle, Save, Trash2, ArrowLeft } from "lucide-react";
+import { useT } from "@/i18n/I18nContext";
 
 interface UnsavedChangesDialogProps {
   open: boolean;
@@ -8,6 +9,7 @@ interface UnsavedChangesDialogProps {
 }
 
 const UnsavedChangesDialog = ({ open, onDiscard, onStay, onSaveAndLeave }: UnsavedChangesDialogProps) => {
+  const t = useT();
   if (!open) return null;
 
   return (
@@ -21,13 +23,13 @@ const UnsavedChangesDialog = ({ open, onDiscard, onStay, onSaveAndLeave }: Unsav
             className="text-base font-medium"
             style={{ fontFamily: "var(--font-display)" }}
           >
-            Unsaved Changes
+            {t("jg.unsavedChanges")}
           </h2>
           <p
             className="text-sm text-muted-foreground mt-1.5"
             style={{ fontFamily: "var(--font-body)" }}
           >
-            You have unsaved evaluation changes. Leaving now will discard them.
+            {t("jg.unsavedDesc")}
           </p>
         </div>
 
@@ -39,7 +41,7 @@ const UnsavedChangesDialog = ({ open, onDiscard, onStay, onSaveAndLeave }: Unsav
               style={{ fontFamily: "var(--font-heading)" }}
             >
               <Save className="h-3.5 w-3.5" />
-              Save & Leave
+              {t("jg.saveLeave")}
             </button>
           )}
           <div className="flex gap-3">
@@ -49,7 +51,7 @@ const UnsavedChangesDialog = ({ open, onDiscard, onStay, onSaveAndLeave }: Unsav
               style={{ fontFamily: "var(--font-heading)" }}
             >
               <Trash2 className="h-3 w-3" />
-              Discard
+              {t("jg.discard")}
             </button>
             <button
               onClick={onStay}
@@ -57,7 +59,7 @@ const UnsavedChangesDialog = ({ open, onDiscard, onStay, onSaveAndLeave }: Unsav
               style={{ fontFamily: "var(--font-heading)" }}
             >
               <ArrowLeft className="h-3 w-3" />
-              Cancel
+              {t("common.cancel")}
             </button>
           </div>
         </div>

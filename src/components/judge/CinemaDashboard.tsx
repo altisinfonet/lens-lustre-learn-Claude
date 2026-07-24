@@ -4,6 +4,7 @@ import {
   Camera, ChevronRight, Sparkles,
 } from "lucide-react";
 import type { Competition, JudgingRound } from "@/hooks/judging/types";
+import { useT } from "@/i18n/I18nContext";
 
 interface CompetitionWithCover extends Competition {
   cover_image_url?: string;
@@ -76,7 +77,9 @@ const UpcomingCard = memo(({
   actionLabel: string;
   dateLabel: string;
   onClick: () => void;
-}) => (
+}) => {
+  const t = useT();
+  return (
   <div
     className="rounded-xl border border-border/60 bg-card/80 overflow-hidden cursor-pointer hover:border-border transition-all"
     onClick={onClick}
@@ -95,7 +98,7 @@ const UpcomingCard = memo(({
     {/* Info */}
     <div className="p-5 space-y-3.5">
       <span className="text-[9px] tracking-[0.2em] uppercase text-primary/80 font-semibold block" style={f}>
-        Upcoming Round
+        {t("jg.upcomingRound")}
       </span>
       <h3 className="text-[15px] font-bold text-foreground leading-snug" style={fd}>
         {comp.title}
@@ -106,7 +109,8 @@ const UpcomingCard = memo(({
     </div>
     </div>
   </div>
-));
+  );
+});
 UpcomingCard.displayName = "UpcomingCard";
 
 /* ── Stat item ── */
@@ -149,6 +153,7 @@ const CinemaDashboard = memo(({
   handleStartJudging,
   competitionProgress,
 }: CinemaDashboardProps) => {
+  const t = useT();
   const activeComps = competitions.filter(c => ["submission_open", "voting", "judging"].includes(c.phase));
   const resultComps = competitions.filter(c => c.phase === "result");
   const heroComp = activeComps[0];
@@ -212,10 +217,10 @@ const CinemaDashboard = memo(({
           className="mb-8"
         >
           <h1 className="text-[36px] lg:text-[42px] font-bold text-foreground tracking-tight leading-none" style={fd}>
-            Active Competitions
+            {t("jg.activeComps")}
           </h1>
           <p className="text-[14px] text-muted-foreground/60 mt-2 leading-relaxed" style={f}>
-            Manage your active judging assignments and review upcoming rounds.
+            {t("jg.manageAssignments")}
           </p>
         </motion.div>
 
@@ -317,7 +322,7 @@ const CinemaDashboard = memo(({
                             className="ml-auto px-8 py-3 rounded-xl bg-foreground text-background text-[14px] font-bold hover:opacity-90 transition-all"
                             style={f}
                           >
-                            Enter Panel
+                            {t("jg.enterPanel")}
                           </motion.button>
                         ) : (
                           <motion.button
@@ -327,7 +332,7 @@ const CinemaDashboard = memo(({
                             className="ml-auto px-8 py-3 rounded-xl bg-muted text-muted-foreground text-[14px] font-bold transition-all border border-border"
                             style={f}
                           >
-                            View Submissions
+                            {t("jg.viewSubmissions")}
                           </motion.button>
                         )}
                       </div>

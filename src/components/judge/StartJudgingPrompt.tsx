@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { Play, Eye, X } from "lucide-react";
+import { useT } from "@/i18n/I18nContext";
 
 /**
  * SOW v2.1 Step 3 (B): framer-motion replaced with Tailwind CSS animations.
@@ -16,6 +17,7 @@ interface StartJudgingPromptProps {
 }
 
 const StartJudgingPrompt = memo(({ open, roundName, onStartJudging, onViewOnly, onClose }: StartJudgingPromptProps) => {
+  const t = useT();
   if (!open) return null;
   return (
     <div
@@ -28,7 +30,7 @@ const StartJudgingPrompt = memo(({ open, roundName, onStartJudging, onViewOnly, 
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
-            Start Initial Screening?
+            {t("jg.startScreening")}
           </h3>
           <button onClick={onClose} className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors">
             <X className="h-4 w-4" />
@@ -37,7 +39,7 @@ const StartJudgingPrompt = memo(({ open, roundName, onStartJudging, onViewOnly, 
 
         <p className="text-[12px] text-muted-foreground mb-5 leading-relaxed" style={f}>
           You're about to open <span className="text-foreground font-semibold">{roundName}</span>.
-          Would you like to start judging or just preview the entries?
+          {t("jg.startOrPreview")}
         </p>
 
         <div className="space-y-2">
@@ -47,7 +49,7 @@ const StartJudgingPrompt = memo(({ open, roundName, onStartJudging, onViewOnly, 
             style={{ ...f, background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--ring)))" }}
           >
             <Play className="h-4 w-4" />
-            Start Judging — {roundName}
+            {t("jg.startJudging")} — {roundName}
           </button>
           <button
             onClick={onViewOnly}
@@ -55,7 +57,7 @@ const StartJudgingPrompt = memo(({ open, roundName, onStartJudging, onViewOnly, 
             style={f}
           >
             <Eye className="h-4 w-4" />
-            View Only (No scoring)
+            {t("jg.viewOnly")}
           </button>
         </div>
       </div>

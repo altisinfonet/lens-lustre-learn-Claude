@@ -31,6 +31,7 @@ import { useJudgeGuide } from "@/hooks/judging/useJudgeGuide";
 import { toast } from "@/hooks/core/use-toast";
 
 import type { Competition, JudgingTag, JudgingRound, JudgeComment, JudgeEntry, FlatPhoto, PhotoEvaluation, SidebarView, PhotoScoreData, PhotoTagData } from "@/hooks/judging/types";
+import { useT } from "@/i18n/I18nContext";
 
 const SCORE_BG_STYLE: Record<number, React.CSSProperties> = Object.fromEntries(
   Array.from({ length: 11 }, (_, i) => [i, { backgroundColor: `hsl(var(--score-${i}))` }])
@@ -271,6 +272,7 @@ CinemaVirtualizedGrid.displayName = "CinemaVirtualizedGrid";
    CINEMA MODE JUDGE VIEW
    ══════════════════════════════════════════════════════════════════ */
 const CinemaJudgeView = (props: CinemaJudgeViewProps) => {
+  const t = useT();
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const {
@@ -799,7 +801,7 @@ const CinemaJudgeView = (props: CinemaJudgeViewProps) => {
                     className="w-full text-left px-2 py-1.5 text-[12px] flex items-center gap-2.5 text-muted-foreground/60 hover:text-foreground transition-colors rounded-md hover:bg-muted/10"
                     style={{ fontFamily: "var(--font-heading)" }}>
                     <BookOpen className="w-4 h-4" />
-                    Judge Guide
+                    {t("jg.judgeGuide")}
                   </button>
                   <button onClick={() => {
                       const params = new URLSearchParams({ category: "Judging Query", subject: `[${selectedCompTitle}] — Judge Question` });
@@ -816,7 +818,7 @@ const CinemaJudgeView = (props: CinemaJudgeViewProps) => {
                     className="w-full text-left px-2 py-1.5 text-[12px] flex items-center gap-2.5 text-muted-foreground/60 hover:text-foreground transition-colors rounded-md hover:bg-muted/10"
                     style={{ fontFamily: "var(--font-heading)" }}>
                     <HelpCircle className="w-4 h-4" />
-                    Support
+                    {t("jg.support")}
                   </button>
                   <button onClick={() => {
                       if (selectedPhoto) {
@@ -831,7 +833,7 @@ const CinemaJudgeView = (props: CinemaJudgeViewProps) => {
                     className="w-full text-left px-2 py-1.5 text-[12px] flex items-center gap-2.5 text-muted-foreground/60 hover:text-foreground transition-colors rounded-md hover:bg-muted/10"
                     style={{ fontFamily: "var(--font-heading)" }}>
                     <LogOut className="w-4 h-4" />
-                    Logout
+                    {t("menu.logout")}
                   </button>
                 </div>
               </div>
@@ -1003,7 +1005,7 @@ const CinemaJudgeView = (props: CinemaJudgeViewProps) => {
                           {selectedComp?.phase === "voting" ? "Voting in Progress — View Only" : "Submissions Open — View Only"}
                         </p>
                         <p className="text-[10px] text-muted-foreground/60" style={{ fontFamily: "var(--font-heading)" }}>
-                          You can preview submissions but judging will be enabled after voting ends.
+                          {t("jg.previewOnly")}
                         </p>
                       </div>
                     </div>
@@ -1123,7 +1125,7 @@ const CinemaJudgeView = (props: CinemaJudgeViewProps) => {
                   {/* Current Round Mode (read-only display) */}
                   <div>
                     <h4 className="text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground/60 mb-3" style={{ fontFamily: "var(--font-heading)" }}>
-                      Active Mode
+                      {t("jg.activeMode")}
                     </h4>
                     <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-primary/40 bg-primary/5">
                       <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
@@ -1132,14 +1134,14 @@ const CinemaJudgeView = (props: CinemaJudgeViewProps) => {
                       </span>
                     </div>
                     <p className="text-[9px] text-muted-foreground/40 mt-1.5 px-1" style={{ fontFamily: "var(--font-heading)" }}>
-                      Mode is set by the active round
+                      {t("jg.modeByRound")}
                     </p>
                   </div>
 
                   {/* Quick Stats */}
                   <div>
                     <h4 className="text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground/60 mb-3" style={{ fontFamily: "var(--font-heading)" }}>
-                      Session Progress
+                      {t("jg.sessionProgress")}
                     </h4>
                     <div className="space-y-2">
                       {[
@@ -1170,7 +1172,7 @@ const CinemaJudgeView = (props: CinemaJudgeViewProps) => {
                   {availableTags.length > 0 && (props.roundNumber ?? 1) > 1 && (
                     <div>
                       <h4 className="text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground/60 mb-3" style={{ fontFamily: "var(--font-heading)" }}>
-                        Quality Tags
+                        {t("jg.qualityTags")}
                       </h4>
                       <div className="space-y-1">
                         {availableTags.map(tag => {

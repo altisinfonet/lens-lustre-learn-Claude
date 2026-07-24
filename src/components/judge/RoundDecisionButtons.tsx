@@ -24,6 +24,7 @@
 import { memo, useMemo } from "react";
 import { Loader2, CheckCircle2, XCircle, AlertTriangle, ArrowRight } from "lucide-react";
 import type { JudgingTag } from "@/hooks/judging/types";
+import { useT } from "@/i18n/I18nContext";
 
 const f = { fontFamily: "var(--font-heading)" };
 const fb = { fontFamily: "var(--font-body)" };
@@ -115,6 +116,15 @@ const RoundDecisionButtons = memo(({
   pendingTagId,
   compact = false,
 }: Props) => {
+  const t = useT();
+  const KIND_T: Record<string, [string, string]> = {
+    accept: ["jg.accept", "jg.acceptHint"],
+    promote: ["jg.promote", "jg.promoteHint"],
+    reject: ["jg.reject", "jg.rejectHint"],
+    needs_review: ["jg.needsReview", "jg.needsReviewHint"],
+  };
+  const kShort = (k: string, fb: string) => KIND_T[k] ? t(KIND_T[k][0], fb) : fb;
+  const kHint = (k: string, fb: string) => KIND_T[k] ? t(KIND_T[k][1], fb) : fb;
   const visibleTags = useMemo(
     () =>
       availableTags.filter(
@@ -155,8 +165,8 @@ const RoundDecisionButtons = memo(({
               onClick={() => onTagClick(tag.id)}
               disabled={disabled || isPending}
               aria-pressed={isActive}
-              aria-label={`${meta.short}: ${tag.label}`}
-              title={meta.hint}
+              aria-label={`${kShort(meta.kind, meta.short)}: ${tag.label}`}
+              title={kHint(meta.kind, meta.hint)}
               className={[
                 "flex items-center gap-2 rounded-lg border-2 transition-all font-bold uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed",
                 compact ? "px-2.5 py-1.5 text-[10px]" : "px-3 py-2.5 text-[11px] justify-start",
@@ -176,8 +186,8 @@ const RoundDecisionButtons = memo(({
       </div>
       {!compact && (
         <p className="text-[8px] text-muted-foreground/60" style={fb}>
-          Decisions write per-photo. Click the same option again to clear it.
-          Tags (Winner, Runner-Up, Top 50, etc.) only appear in Round 4.
+          {t("jg.decisionsNote")}
+          {t("jg.tagsRound4")}
         </p>
       )}
     </div>

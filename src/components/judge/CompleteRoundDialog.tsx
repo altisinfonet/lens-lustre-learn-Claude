@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { AlertTriangle, CheckCircle, Loader2, Trophy, ShieldAlert, RefreshCw, ScanSearch } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useT } from "@/i18n/I18nContext";
 
 interface CompleteRoundDialogProps {
   roundId: string;
@@ -56,6 +57,7 @@ const f = { fontFamily: "var(--font-heading)" };
 const fb = { fontFamily: "var(--font-body)" };
 
 const CompleteRoundDialog = ({ roundId, roundName, competitionId, roundNumber, onConfirm, onCancel, uiEligiblePhotos }: CompleteRoundDialogProps) => {
+  const t = useT();
   const [summary, setSummary] = useState<RoundSummary | null>(null);
   const [topEntries, setTopEntries] = useState<TopEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -269,7 +271,7 @@ const CompleteRoundDialog = ({ roundId, roundName, competitionId, roundNumber, o
                     style={f}
                   >
                     <RefreshCw className={`h-2.5 w-2.5 ${preflightLoading ? "animate-spin" : ""}`} />
-                    Recheck
+                    {t("jg.recheck")}
                   </button>
                 </div>
                 {preflightLoading ? (
@@ -322,7 +324,7 @@ const CompleteRoundDialog = ({ roundId, roundName, competitionId, roundNumber, o
 
             <div className="bg-muted/30 border border-border rounded-lg p-3 space-y-2">
               <p className="text-[9px] tracking-[0.15em] uppercase text-muted-foreground font-semibold" style={f}>
-                Impact Summary
+                {t("jg.impactSummary")}
               </p>
               <div className="grid grid-cols-2 gap-2 mt-2">
                 {[
@@ -346,7 +348,7 @@ const CompleteRoundDialog = ({ roundId, roundName, competitionId, roundNumber, o
                 <div className="flex items-center gap-1.5">
                   <Trophy className="h-3 w-3 text-primary" />
                   <p className="text-[9px] tracking-[0.15em] uppercase text-muted-foreground font-semibold" style={f}>
-                    Top Entries Preview
+                    {t("jg.topEntriesPreview")}
                   </p>
                 </div>
                 <div className="space-y-1 max-h-[180px] overflow-y-auto">
@@ -389,7 +391,7 @@ const CompleteRoundDialog = ({ roundId, roundName, competitionId, roundNumber, o
             className="flex-1 text-[11px] tracking-[0.1em] uppercase px-4 py-2.5 border border-border rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
             style={f}
           >
-            Cancel
+            {t("common.cancel")}
           </button>
 
           {phase === "complete" && (
@@ -400,7 +402,7 @@ const CompleteRoundDialog = ({ roundId, roundName, competitionId, roundNumber, o
               style={f}
             >
               <CheckCircle className="h-3.5 w-3.5" />
-              Review & Complete
+              {t("jg.reviewComplete")}
             </button>
           )}
 
@@ -412,7 +414,7 @@ const CompleteRoundDialog = ({ roundId, roundName, competitionId, roundNumber, o
               style={f}
             >
               {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-              Refresh & Check
+              {t("jg.refreshCheck")}
             </button>
           )}
 
@@ -423,7 +425,7 @@ const CompleteRoundDialog = ({ roundId, roundName, competitionId, roundNumber, o
               style={f}
             >
               <CheckCircle className="h-3.5 w-3.5" />
-              Proceed to Declare
+              {t("jg.proceedDeclare")}
             </button>
           )}
 
