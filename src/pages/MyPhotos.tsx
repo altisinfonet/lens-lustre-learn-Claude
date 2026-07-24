@@ -15,6 +15,7 @@ import { uploadImageWithThumbnail } from "@/lib/imageUpload";
 import Lightbox from "@/components/Lightbox";
 import ImageEngagement from "@/components/ImageEngagement";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
+import { useT } from "@/i18n/I18nContext";
 
 const PAGE_SIZE = 20;
 
@@ -59,6 +60,7 @@ const SquarePhotoCard = ({ imageUrl, postId, index, overlay, onClick }: {
 
 /* ─── My Uploads Grid ─── */
 const MyUploadsGrid = ({ userId }: { userId: string }) => {
+  const t = useT();
   const {
     data,
     isLoading,
@@ -89,7 +91,7 @@ const MyUploadsGrid = ({ userId }: { userId: string }) => {
   const posts = data?.pages.flat() ?? [];
 
   if (isLoading) return <GridSkeleton />;
-  if (posts.length === 0) return <EmptyState text="No photos uploaded yet" />;
+  if (posts.length === 0) return <EmptyState text={t("mp.noPhotosYet")} />;
 
   return (
     <>
@@ -112,6 +114,7 @@ const MyUploadsGrid = ({ userId }: { userId: string }) => {
 
 /* ─── Tagged In Grid ─── */
 const TaggedInGrid = ({ userId }: { userId: string }) => {
+  const t = useT();
   const {
     data,
     isLoading,
@@ -152,7 +155,7 @@ const TaggedInGrid = ({ userId }: { userId: string }) => {
   const photos = data?.pages.flat() ?? [];
 
   if (isLoading) return <GridSkeleton />;
-  if (photos.length === 0) return <EmptyState text="No tagged photos yet" />;
+  if (photos.length === 0) return <EmptyState text={t("mp.noTagged")} />;
 
   return (
     <>
@@ -175,6 +178,7 @@ const TaggedInGrid = ({ userId }: { userId: string }) => {
 
 /* ─── Albums Tab ─── */
 const AlbumsGrid = ({ userId, isOwner }: { userId: string; isOwner: boolean }) => {
+  const t = useT();
   const { data: albums = [], isLoading } = useUserAlbums(userId);
   const createAlbum = useCreateAlbum();
   const deleteAlbum = useDeleteAlbum();
@@ -207,23 +211,23 @@ const AlbumsGrid = ({ userId, isOwner }: { userId: string; isOwner: boolean }) =
                 className="aspect-square rounded-md border-2 border-dashed border-border hover:border-primary/50 flex flex-col items-center justify-center gap-1.5 transition-colors bg-card/30"
               >
                 <FolderPlus className="h-6 w-6 text-muted-foreground/60" />
-                <span className="text-[9px] text-muted-foreground" style={headingFont}>Create</span>
+                <span className="text-[9px] text-muted-foreground" style={headingFont}>{t("mp.create")}</span>
               </motion.button>
             </DialogTrigger>
             <DialogContent className="max-w-sm">
               <DialogHeader>
-                <DialogTitle className="text-sm" style={headingFont}>Create New Album</DialogTitle>
+                <DialogTitle className="text-sm" style={headingFont}>{t("mp.createNewAlbum")}</DialogTitle>
               </DialogHeader>
               <div className="space-y-3">
                 <Input
-                  placeholder="Album name"
+                  placeholder={t("mp.phAlbumName")}
                   value={newAlbumName}
                   onChange={(e) => setNewAlbumName(e.target.value)}
                   className="text-sm"
                   maxLength={50}
                 />
                 <Button size="sm" onClick={handleCreate} disabled={createAlbum.isPending || !newAlbumName.trim()} className="w-full text-xs">
-                  {createAlbum.isPending ? "Creating..." : "Create Album"}
+                  {createAlbum.isPending ? t("mp.creating") : t("mp.createAlbum")}
                 </Button>
               </div>
             </DialogContent>
@@ -242,7 +246,7 @@ const AlbumsGrid = ({ userId, isOwner }: { userId: string; isOwner: boolean }) =
         ))}
       </div>
 
-      {albums.length === 0 && !isOwner && <EmptyState text="No albums yet" />}
+      {albums.length === 0 && !isOwner && <EmptyState text={t("mp.noAlbums")} />}
     </div>
   );
 };
@@ -291,6 +295,7 @@ const AlbumCard = ({ album, index, isOwner, onClick, onDelete }: {
 
 /* ─── Album Detail View with Add Photos ─── */
 const AlbumDetailView = ({ album, onBack, isOwner }: { album: PhotoAlbum; onBack: () => void; isOwner: boolean }) => {
+  const t = useT();
   const { data: photos = [], isLoading } = useAlbumPhotos(album.id);
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -317,7 +322,7 @@ const AlbumDetailView = ({ album, onBack, isOwner }: { album: PhotoAlbum; onBack
     const { data: { session } } = await supabase.auth.getSession();
     const userId = session?.user?.id;
     if (!userId) {
-      toast({ title: "Please sign in to upload photos", variant: "destructive" });
+      toast({ title: t("mp.signInToUpload"), variant: "destructive" });
       return;
     }
     const fileList = Array.from(files);
@@ -366,7 +371,7 @@ const AlbumDetailView = ({ album, onBack, isOwner }: { album: PhotoAlbum; onBack
       qc.invalidateQueries({ queryKey: ["album-photos", album.id] });
       toast({ title: `${successCount} photo(s) added!` });
     } catch (err: any) {
-      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+      toast({ title: t("mp.uploadFailed"), description: err.message, variant: "destructive" });
     } finally {
       setTimeout(() => {
         setUploading(false);
@@ -400,7 +405,7 @@ const AlbumDetailView = ({ album, onBack, isOwner }: { album: PhotoAlbum; onBack
               disabled={uploading}
             >
               <Upload className="h-3.5 w-3.5" />
-              {uploading ? "Uploading..." : "Add Photos"}
+              {uploading ? t("mp.uploading") : t("mp.addPhotos")}
             </Button>
           </>
       )}
@@ -410,7 +415,7 @@ const AlbumDetailView = ({ album, onBack, isOwner }: { album: PhotoAlbum; onBack
       {uploading && uploadProgress.total > 0 && (
         <div className="mb-4 space-y-1.5">
           <div className="flex items-center justify-between text-[10px] text-muted-foreground" style={headingFont}>
-            <span>Compressing & uploading…</span>
+            <span>{t("mp.compressing")}</span>
             <span>{Math.min(uploadProgress.current + 1, uploadProgress.total)} / {uploadProgress.total}</span>
           </div>
           <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
@@ -425,7 +430,7 @@ const AlbumDetailView = ({ album, onBack, isOwner }: { album: PhotoAlbum; onBack
       )}
       <h3 className="text-base font-bold mb-3" style={headingFont}>{album.name}</h3>
       {isLoading ? <GridSkeleton /> : photos.length === 0 ? (
-        <EmptyState text="No photos in this album" />
+        <EmptyState text={t("mp.noPhotosInAlbum")} />
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1">
           {photos.map((photo, i) => (
@@ -473,15 +478,16 @@ const EmptyState = ({ text }: { text: string }) => (
 
 /* ─── Main Page ─── */
 const MyPhotos = () => {
+  const t = useT();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabKey>("uploads");
 
   if (!user) return null;
 
   const tabs: { key: TabKey; label: string }[] = [
-    { key: "uploads", label: "Your Photos" },
-    { key: "tagged", label: "Photos of You" },
-    { key: "albums", label: "Albums" },
+    { key: "uploads", label: t("mp.yourPhotos") },
+    { key: "tagged", label: t("mp.photosOfYou") },
+    { key: "albums", label: t("mp.albums") },
   ];
 
   return (
@@ -489,7 +495,7 @@ const MyPhotos = () => {
       <PageSEO title="My Photos" description="Browse and manage your photo collection" />
       <div className="max-w-5xl mx-auto py-6 px-0 sm:px-4">
         <div className="px-4 sm:px-0 mb-4">
-          <h1 className="text-xl font-bold" style={headingFont}>Photos</h1>
+          <h1 className="text-xl font-bold" style={headingFont}>{t("mp.photos")}</h1>
           <div className="flex gap-6 mt-3 border-b border-border">
             {tabs.map((tab) => (
               <button

@@ -8,6 +8,7 @@ import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { toast } from "@/hooks/core/use-toast";
 import CertificatePreviewModal from "@/components/CertificatePreviewModal";
 import type { CertificateType } from "@/lib/generateCertificatePdf";
+import { useT } from "@/i18n/I18nContext";
 
 
 const fadeUp = {
@@ -59,6 +60,7 @@ interface EligibleEntry {
 }
 
 const Certificates = () => {
+  const t = useT();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [certificates, setCertificates] = useState<Certificate[]>([]);
@@ -261,10 +263,10 @@ const Certificates = () => {
       if (newCert) {
         setCertificates((prev) => [newCert as Certificate, ...prev]);
         setEligible((prev) => prev.filter((x) => x.entry_id !== e.entry_id));
-        toast({ title: "Certificate generated", description: "Your certificate is ready to download." });
+        toast({ title: t("cert.generated"), description: t("cert.generatedDesc") });
       }
     } catch {
-      toast({ title: "Request failed", description: "Please try again.", variant: "destructive" });
+      toast({ title: t("cert.requestFailed"), description: t("cert.tryAgain"), variant: "destructive" });
     } finally {
       setRequesting(null);
     }
@@ -273,7 +275,7 @@ const Certificates = () => {
   if (authLoading || loading) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground text-sm">Loading…</div>
+        <div className="animate-pulse text-muted-foreground text-sm">{t("common.loading")}</div>
       </main>
     );
   }
@@ -287,12 +289,12 @@ const Certificates = () => {
             <div className="flex items-center gap-3 mb-1 md:mb-2">
               <div className="w-8 md:w-12 h-px bg-primary" />
               <span className="text-[9px] md:text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>
-                Achievements
+                {t("dash.qa.achievements")}
               </span>
             </div>
             <div className="flex items-end justify-between gap-3 flex-wrap">
               <h1 className="text-xl md:text-5xl font-light tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
-                My <em className="italic text-primary">Certificates</em>
+                {t("wal.my")} <em className="italic text-primary">{t("msheet.certificates")}</em>
               </h1>
               {/* Preview-all entry point — opens modal in gallery mode (every cert.type) */}
               <button
@@ -312,7 +314,7 @@ const Certificates = () => {
               <div className="flex items-center gap-2 mb-3">
                 <FileCheck2 className="h-3.5 w-3.5 text-emerald-500" />
                 <h2 className="text-[10px] md:text-xs tracking-[0.2em] uppercase text-emerald-600 dark:text-emerald-400" style={{ fontFamily: "var(--font-heading)" }}>
-                  Available to Request ({eligible.length})
+                  {t("cert.availableToRequest")} ({eligible.length})
                 </h2>
               </div>
               <div className="space-y-3">
@@ -341,7 +343,7 @@ const Certificates = () => {
                       title="Preview before requesting"
                     >
                       <Eye className="h-3 w-3" />
-                      <span className="hidden md:inline">Preview</span>
+                      <span className="hidden md:inline">{t("cert.preview")}</span>
                     </button>
                     <button
                       onClick={() => handleRequest(e)}
@@ -352,12 +354,12 @@ const Certificates = () => {
                       {requesting === e.entry_id ? (
                         <>
                           <Loader2 className="h-3 w-3 animate-spin" />
-                          Generating
+                          {t("cert.generating")}
                         </>
                       ) : (
                         <>
                           <FileCheck2 className="h-3 w-3" />
-                          Request Certificate
+                          {t("cert.requestCertificate")}
                         </>
                       )}
                     </button>
@@ -371,10 +373,10 @@ const Certificates = () => {
             <motion.div variants={fadeUp} custom={1} className="border border-border rounded-xl md:rounded-none p-6 md:p-12 text-center">
               <Award className="h-8 w-8 md:h-10 md:w-10 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground mb-2" style={{ fontFamily: "var(--font-body)" }}>
-                No certificates yet.
+                {t("cert.noCerts")}
               </p>
               <p className="text-xs text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                Win competitions or complete courses to earn your first certificate!
+                {t("cert.earnFirst")}
               </p>
               <Link
                 to="/courses"
@@ -411,7 +413,7 @@ const Certificates = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-[9px] md:text-[10px] tracking-[0.2em] uppercase text-destructive font-medium" style={{ fontFamily: "var(--font-heading)" }}>
-                              Revoked
+                              {t("cert.revoked")}
                             </span>
                             {cert.revoked_at && (
                               <span className="text-[9px] md:text-[10px] text-destructive/70" style={{ fontFamily: "var(--font-body)" }}>
@@ -448,7 +450,7 @@ const Certificates = () => {
                           title={cert.is_revoked ? "This certificate has been revoked" : "Preview certificate"}
                         >
                           <Eye className="h-3 w-3" />
-                          <span className="hidden md:inline">Preview</span>
+                          <span className="hidden md:inline">{t("cert.preview")}</span>
                         </button>
                         <button
                           onClick={async () => {
@@ -466,7 +468,7 @@ const Certificates = () => {
                               });
                               doc.save(`50mmRetina-Certificate-${(cert.certificate_id || cert.id).slice(0, 12)}.pdf`);
                             } catch {
-                              toast({ title: "Download failed", variant: "destructive" });
+                              toast({ title: t("cert.downloadFailed"), variant: "destructive" });
                             }
                           }}
                           disabled={cert.is_revoked}
@@ -496,7 +498,7 @@ const Certificates = () => {
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText(cert.certificate_id!).then(() => {
-                                toast({ title: "Copied!", description: "Certificate ID copied." });
+                                toast({ title: t("common.copied"), description: t("cert.idCopied") });
                               });
                             }}
                             className={`inline-flex items-center gap-1 font-mono hover:bg-primary/10 transition-colors cursor-pointer text-[9px] md:text-[10px] px-1.5 py-0.5 rounded border ${
@@ -513,13 +515,13 @@ const Certificates = () => {
                         <button
                           onClick={() => {
                             if (cert.is_revoked) {
-                              toast({ title: "Cannot share", description: "This certificate has been revoked.", variant: "destructive" });
+                              toast({ title: t("cert.cannotShare"), description: t("cert.revokedDesc"), variant: "destructive" });
                               return;
                             }
                             navigator.clipboard.writeText(shareUrl).then(() => {
-                              toast({ title: "Link copied!", description: "Verification link copied to clipboard." });
+                              toast({ title: t("jart.linkCopied"), description: t("cert.verifyLinkCopied") });
                             }).catch(() => {
-                              toast({ title: "Copy failed", variant: "destructive" });
+                              toast({ title: t("cert.copyFailed"), variant: "destructive" });
                             });
                           }}
                           disabled={cert.is_revoked}
@@ -527,7 +529,7 @@ const Certificates = () => {
                           style={{ fontFamily: "var(--font-heading)" }}
                         >
                           <Share2 className="h-3.5 w-3.5 md:h-3 md:w-3" />
-                          <span className="hidden md:inline">Share</span>
+                          <span className="hidden md:inline">{t("jart.share")}</span>
                         </button>
                       </div>
                     </div>

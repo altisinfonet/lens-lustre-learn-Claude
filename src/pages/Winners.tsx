@@ -10,6 +10,7 @@ import UserIdentityBlock from "@/components/UserIdentityBlock";
 import { getAdminIds, resolveBadges } from "@/lib/adminBrand";
 import { useGatedEntryStatus, resolveDisplayStatus } from "@/hooks/judging/useGatedEntryStatus";
 import { getR4AwardStages } from "@/lib/judging/stageCatalog";
+import { useT } from "@/i18n/I18nContext";
 
 // B1.10 — Public Hall of Fame must respect the admin publish gate.
 // `status='winner'` is only used as a server-side pre-filter for query efficiency;
@@ -52,6 +53,7 @@ interface WinnerEntry {
 }
 
 const Winners = () => {
+  const t = useT();
   // Raw candidates from DB (status='winner' is the pre-filter only — see top-of-file note).
   const [candidates, setCandidates] = useState<WinnerEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,7 +135,7 @@ const Winners = () => {
           <motion.div variants={fadeUp} custom={0} className="flex items-center gap-4 mb-2">
             <div className="w-12 h-px bg-yellow-500" />
             <span className="text-[10px] tracking-[0.3em] uppercase text-yellow-500" style={{ fontFamily: "var(--font-heading)" }}>
-              Hall of Fame
+              {t("win.hallOfFame")}
             </span>
           </motion.div>
           <motion.h1
@@ -142,7 +144,7 @@ const Winners = () => {
             className="text-xl md:text-6xl font-light tracking-tight mb-2 md:mb-4 px-2 md:px-0"
             style={{ fontFamily: "var(--font-display)" }}
           >
-            Competition <em className="italic text-yellow-500 drop-shadow-[0_0_12px_hsl(45_100%_50%/0.4)]">Winners</em>
+            {t("win.competition")} <em className="italic text-yellow-500 drop-shadow-[0_0_12px_hsl(45_100%_50%/0.4)]">{t("win.winners")}</em>
           </motion.h1>
           <motion.p
             variants={fadeUp}
@@ -150,7 +152,7 @@ const Winners = () => {
             className="text-xs md:text-sm text-muted-foreground max-w-lg mb-6 md:mb-16 px-2 md:px-0"
             style={{ fontFamily: "var(--font-body)" }}
           >
-            Celebrating the photographers whose vision and craft stood above the rest.
+            {t("win.celebrating")}
           </motion.p>
         </motion.div>
 
@@ -165,7 +167,7 @@ const Winners = () => {
           <div className="text-center py-20">
             <Trophy className="h-10 w-10 text-muted-foreground/30 mx-auto mb-4" />
             <p className="text-sm text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-              No winners announced yet. Stay tuned!
+              {t("win.noWinners")}
             </p>
           </div>
         ) : (
@@ -185,7 +187,7 @@ const Winners = () => {
                 <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4 flex-wrap">
                   <div className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500/10 rounded-full">
                     <Trophy className="h-3.5 w-3.5 text-yellow-500" />
-                    <span className="text-[9px] tracking-[0.15em] uppercase text-yellow-500 font-bold" style={{ fontFamily: "var(--font-heading)" }}>Winner</span>
+                    <span className="text-[9px] tracking-[0.15em] uppercase text-yellow-500 font-bold" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.status.winner")}</span>
                   </div>
                   <Link
                     to={`/competitions/${winner.competition.slug || winner.competition.id}`}

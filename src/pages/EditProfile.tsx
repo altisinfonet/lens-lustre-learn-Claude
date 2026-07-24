@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { format, differenceInYears } from "date-fns";
 import { normalizeFullName } from "@/lib/nameNormalize";
 import { getCaptchaToken } from "@/lib/turnstile";
+import { useT } from "@/i18n/I18nContext";
 
 const INTEREST_OPTIONS = [
   "Wildlife", "Street", "Portrait", "Aerial", "Documentary",
@@ -33,6 +34,7 @@ const inputCls = "w-full bg-transparent border-b border-border focus:border-prim
 const sectionHeadCls = "text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-6";
 
 const EditProfile = () => {
+  const t = useT();
   const { user, loading: authLoading } = useAuth();
   const { isAdmin } = useIsAdmin();
   
@@ -57,9 +59,9 @@ const EditProfile = () => {
     });
     setSendingReset(false);
     if (error) {
-      toast({ title: "Failed to send reset email", description: error.message, variant: "destructive" });
+      toast({ title: t("ep.resetFailed"), description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Password reset email sent", description: "Check your inbox for the reset link." });
+      toast({ title: t("ep.resetSent"), description: t("ep.checkInbox") });
     }
   };
 
@@ -369,7 +371,7 @@ const EditProfile = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast({ title: "Please select an image file", variant: "destructive" });
+      toast({ title: t("ep.selectImage"), variant: "destructive" });
       return;
     }
     setAvatarCropSrc(URL.createObjectURL(file));
@@ -404,9 +406,9 @@ const EditProfile = () => {
       await avatarMutation.mutateAsync({ avatarUrl: newUrl, storagePath: filePath });
       setAvatarUrl(newUrl);
       await createProfileUpdatePost(user.id, "avatar", newUrl, avatarCaption || undefined);
-      toast({ title: "Profile picture updated" });
+      toast({ title: t("ep.pictureUpdated") });
     } catch (err: any) {
-      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+      toast({ title: t("mp.uploadFailed"), description: err.message, variant: "destructive" });
     }
     setUploadingAvatar(false);
     setShowAvatarPreview(false);
@@ -463,7 +465,7 @@ const EditProfile = () => {
     const ytErr = validateYoutube(youtubeUrl);
     const customUrlErr = validateCustomUrl(customUrl);
     if (customUrl.trim() && customUrlAvailable === false) {
-      setErrors((prev) => ({ ...prev, customUrl: "This URL is already taken." }));
+      setErrors((prev) => ({ ...prev, customUrl: t("ep.urlTaken") }));
       setSaveStatus("error");
       return;
     }
@@ -500,7 +502,7 @@ const EditProfile = () => {
           if (rpcError) {
             const msg = (rpcError as any).message || "Failed to update custom URL";
             setErrors((prev) => ({ ...prev, customUrl: msg }));
-            toast({ title: "Custom URL Error", description: msg, variant: "destructive" });
+            toast({ title: t("ep.urlError"), description: msg, variant: "destructive" });
             setSaveStatus("error");
             setSaving(false);
             return;
@@ -548,7 +550,7 @@ const EditProfile = () => {
       setTimeout(() => setSaveStatus("idle"), 2000);
     } catch (e: any) {
       const msg = e?.message || "Save failed";
-      toast({ title: "Save Error", description: msg, variant: "destructive" });
+      toast({ title: t("ep.saveError"), description: msg, variant: "destructive" });
       setSaveStatus("error");
     }
     setSaving(false);
@@ -583,7 +585,7 @@ const EditProfile = () => {
   if (authLoading || loading) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-xs tracking-[0.3em] uppercase text-muted-foreground animate-pulse" style={{ fontFamily: "var(--font-heading)" }}>Loading...</div>
+        <div className="text-xs tracking-[0.3em] uppercase text-muted-foreground animate-pulse" style={{ fontFamily: "var(--font-heading)" }}>{t("common.loading")}</div>
       </main>
     );
   }
@@ -601,10 +603,10 @@ const EditProfile = () => {
 
         <div className="flex items-center gap-3 mb-1 md:mb-2">
           <div className="w-8 md:w-12 h-px bg-primary" />
-          <span className="text-[9px] md:text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>Profile</span>
+          <span className="text-[9px] md:text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>{t("nav.profile")}</span>
         </div>
         <h1 className="text-xl md:text-5xl font-light tracking-tight mb-4 md:mb-8" style={{ fontFamily: "var(--font-display)" }}>
-          Edit <em className="italic text-primary">Profile</em>
+          {t("ep.edit")} <em className="italic text-primary">{t("nav.profile")}</em>
         </h1>
 
         {/* Completion Bar */}
@@ -629,7 +631,7 @@ const EditProfile = () => {
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>Profile Picture</span>
+                <span className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.profilePicture")}</span>
                 <PrivacyToggle value={privacySettings.avatar || "public"} onChange={(v) => setFieldPrivacy("avatar", v)} />
               </div>
               <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingAvatar}
@@ -670,7 +672,7 @@ const EditProfile = () => {
                   <textarea
                     value={avatarCaption}
                     onChange={(e) => setAvatarCaption(e.target.value)}
-                    placeholder="Say something about this photo…"
+                    placeholder={t("ep.phCaption")}
                     maxLength={200}
                     rows={2}
                     className="w-full bg-transparent border border-border rounded-sm p-3 text-sm resize-none focus:border-primary outline-none transition-colors"
@@ -702,12 +704,12 @@ const EditProfile = () => {
           {/* Bio */}
           <div>
             <div className="flex items-center gap-2 mb-0">
-              <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>Bio</label>
+              <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.bio")}</label>
               <PrivacyToggle value={privacySettings.bio || "public"} onChange={(v) => setFieldPrivacy("bio", v)} />
             </div>
             <textarea value={bio} onChange={(e) => handleBioChange(e.target.value)} maxLength={500} rows={4}
               className={`w-full bg-transparent border ${errors.bio ? "border-destructive" : "border-border"} focus:border-primary outline-none p-4 text-sm transition-colors duration-500 resize-none`}
-              placeholder="Tell us about yourself..." style={{ fontFamily: "var(--font-body)" }} />
+              placeholder={t("ep.phBio")} style={{ fontFamily: "var(--font-body)" }} />
             <div className="flex justify-between mt-1">
               {errors.bio ? <p className="text-[9px] text-destructive" style={{ fontFamily: "var(--font-heading)" }}>{errors.bio}</p> : <span />}
               <span className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>{bio.length}/500</span>
@@ -783,11 +785,11 @@ const EditProfile = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {/* Full Name */}
             <div>
-              <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>Full Name</label>
+              <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("auth.fullName")}</label>
               <input type="text" value={fullName} onChange={(e) => handleFullNameChange(e.target.value)} maxLength={37}
                 disabled={isAdmin}
-                className={`${inputCls} ${errors.fullName ? "border-destructive" : ""} ${isAdmin ? "opacity-60 cursor-not-allowed" : ""}`} placeholder="Your full name" style={{ fontFamily: "var(--font-body)" }} />
-              {isAdmin && <p className="text-[9px] text-muted-foreground mt-1" style={{ fontFamily: "var(--font-heading)" }}>Brand name is locked for admin accounts</p>}
+                className={`${inputCls} ${errors.fullName ? "border-destructive" : ""} ${isAdmin ? "opacity-60 cursor-not-allowed" : ""}`} placeholder={t("ep.phFullName")} style={{ fontFamily: "var(--font-body)" }} />
+              {isAdmin && <p className="text-[9px] text-muted-foreground mt-1" style={{ fontFamily: "var(--font-heading)" }}>{t("ep.brandLocked")}</p>}
               {errors.fullName && <p className="text-[9px] text-destructive mt-1" style={{ fontFamily: "var(--font-heading)" }}>{errors.fullName}</p>}
             </div>
           </div>
@@ -909,7 +911,7 @@ const EditProfile = () => {
               />
               {checkingCustomUrl && (
                 <span className="text-[9px] text-muted-foreground ml-2 animate-pulse" style={{ fontFamily: "var(--font-heading)" }}>
-                  Checking…
+                  {t("ep.checking")}
                 </span>
               )}
               {!checkingCustomUrl && customUrl.trim() && customUrlAvailable === true && !errors.customUrl && (
@@ -926,7 +928,7 @@ const EditProfile = () => {
             {errors.customUrl && <p className="text-[9px] text-destructive mt-1" style={{ fontFamily: "var(--font-heading)" }}>{errors.customUrl}</p>}
             {urlSuggestions.length > 0 && (
               <div className="mt-2">
-                <p className="text-[9px] text-muted-foreground mb-1" style={{ fontFamily: "var(--font-heading)" }}>Try one of these:</p>
+                <p className="text-[9px] text-muted-foreground mb-1" style={{ fontFamily: "var(--font-heading)" }}>{t("ep.tryOne")}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {urlSuggestions.map((s) => (
                     <button
@@ -951,24 +953,24 @@ const EditProfile = () => {
             </span>
             <div className="space-y-5">
               <div>
-                <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>Pronouns</label>
+                <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.pronouns")}</label>
                 <input type="text" value={pronouns} onChange={(e) => setPronouns(e.target.value)} maxLength={30}
-                  className={inputCls} placeholder="e.g. He/Him, She/Her, They/Them" style={{ fontFamily: "var(--font-body)" }} />
+                  className={inputCls} placeholder="He/Him · She/Her · They/Them" style={{ fontFamily: "var(--font-body)" }} />
               </div>
               <div>
-                <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>Current City</label>
+                <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.currentCity")}</label>
                 <input type="text" value={currentCity} onChange={(e) => setCurrentCity(e.target.value)} maxLength={100}
-                  className={inputCls} placeholder="Where you currently live" style={{ fontFamily: "var(--font-body)" }} />
+                  className={inputCls} placeholder={t("ep.phCurrentCity")} style={{ fontFamily: "var(--font-body)" }} />
               </div>
               <div>
-                <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>Workplace</label>
+                <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.workplace")}</label>
                 <input type="text" value={workplace} onChange={(e) => setWorkplace(e.target.value)} maxLength={150}
-                  className={inputCls} placeholder="Company or freelance" style={{ fontFamily: "var(--font-body)" }} />
+                  className={inputCls} placeholder={t("ep.phWorkplace")} style={{ fontFamily: "var(--font-body)" }} />
               </div>
               <div>
-                <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>Education</label>
+                <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.education")}</label>
                 <input type="text" value={education} onChange={(e) => setEducation(e.target.value)} maxLength={150}
-                  className={inputCls} placeholder="School or university" style={{ fontFamily: "var(--font-body)" }} />
+                  className={inputCls} placeholder={t("ep.phEducation")} style={{ fontFamily: "var(--font-body)" }} />
               </div>
             </div>
 
@@ -977,7 +979,7 @@ const EditProfile = () => {
           {/* Portfolio URL */}
           <div>
             <div className="flex items-center gap-2">
-              <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>Portfolio URL</label>
+              <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("dash.portfolioUrl")}</label>
               <PrivacyToggle value={privacySettings.portfolio || "public"} onChange={(v) => setFieldPrivacy("portfolio", v)} />
             </div>
             <input type="url" value={portfolioUrl} onChange={(e) => setPortfolioUrl(e.target.value)} maxLength={255}
@@ -994,26 +996,26 @@ const EditProfile = () => {
             </div>
             <div className="space-y-5">
               <div>
-                <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>Address Line 1</label>
+                <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.addr1")}</label>
                 <input type="text" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} maxLength={200}
-                  className={inputCls} placeholder="Street address" style={{ fontFamily: "var(--font-body)" }} />
+                  className={inputCls} placeholder={t("ep.phStreet")} style={{ fontFamily: "var(--font-body)" }} />
               </div>
               <div>
-                <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>Address Line 2</label>
+                <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.addr2")}</label>
                 <input type="text" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} maxLength={200}
-                  className={inputCls} placeholder="Apartment, suite, etc." style={{ fontFamily: "var(--font-body)" }} />
+                  className={inputCls} placeholder={t("ep.phApt")} style={{ fontFamily: "var(--font-body)" }} />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>Country</label>
+                  <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.country")}</label>
                   <select value={country} onChange={(e) => handleCountryChange(e.target.value)}
                     className={`${inputCls} bg-background`} style={{ fontFamily: "var(--font-body)" }}>
-                    <option value="">Select country</option>
+                    <option value="">{t("ep.selectCountry")}</option>
                     {availableCountries.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>State / Province</label>
+                  <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.stateProvince")}</label>
                   <input type="text" value={state} onChange={(e) => setState(e.target.value)} maxLength={100}
                     className={inputCls} placeholder={country ? "Enter state" : "Select country first"} disabled={!country}
                     style={{ fontFamily: "var(--font-body)" }} />
@@ -1021,11 +1023,11 @@ const EditProfile = () => {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>City</label>
+                  <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.city")}</label>
                   {availableCities.length > 0 ? (
                     <select value={city} onChange={(e) => setCity(e.target.value)}
                       className={`${inputCls} bg-background`} style={{ fontFamily: "var(--font-body)" }}>
-                      <option value="">Select city</option>
+                      <option value="">{t("ep.selectCity")}</option>
                       {availableCities.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
                   ) : (
@@ -1035,9 +1037,9 @@ const EditProfile = () => {
                   )}
                 </div>
                 <div>
-                  <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>Postal Code</label>
+                  <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.postalCode")}</label>
                   <input type="text" value={postalCode} onChange={(e) => handlePostalCodeChange(e.target.value)} maxLength={10}
-                    className={`${inputCls} ${errors.postalCode ? "border-destructive" : ""}`} placeholder="Postal / ZIP code" style={{ fontFamily: "var(--font-body)" }} />
+                    className={`${inputCls} ${errors.postalCode ? "border-destructive" : ""}`} placeholder={t("ep.phPostal")} style={{ fontFamily: "var(--font-body)" }} />
                   {errors.postalCode && (
                     <span className="text-[10px] text-destructive flex items-center gap-1 mt-1" style={{ fontFamily: "var(--font-body)" }}>
                       <AlertCircle className="h-3 w-3" /> {errors.postalCode}
@@ -1058,7 +1060,7 @@ const EditProfile = () => {
             </div>
             <div className="space-y-5">
               <div>
-                <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>Phone Number</label>
+                <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.phoneNumber")}</label>
                 <input type="tel" value={phone} onChange={(e) => handlePhoneChange(e.target.value)} maxLength={20}
                   className={`${inputCls} ${errors.phone ? "border-destructive" : ""}`} placeholder="+91 XXXXX XXXXX" style={{ fontFamily: "var(--font-body)" }} />
                 {errors.phone && (
@@ -1068,7 +1070,7 @@ const EditProfile = () => {
                 )}
               </div>
               <div>
-                <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>WhatsApp Number</label>
+                <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.whatsapp")}</label>
                 <input type="tel" value={whatsapp} onChange={(e) => handleWhatsappChange(e.target.value)} maxLength={20}
                   className={`${inputCls} ${errors.whatsapp ? "border-destructive" : ""}`} placeholder="+91 XXXXX XXXXX" style={{ fontFamily: "var(--font-body)" }} />
                 {errors.whatsapp && (
@@ -1084,7 +1086,7 @@ const EditProfile = () => {
           {/* Other Links */}
           <div className="border border-border p-4 md:p-8">
             <div className="flex items-center justify-between mb-6">
-              <span className={sectionHeadCls} style={{ fontFamily: "var(--font-heading)" }}>Other Links</span>
+              <span className={sectionHeadCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.otherLinks")}</span>
               <PrivacyToggle value={privacySettings.social_links || "public"} onChange={(v) => setFieldPrivacy("social_links", v)} />
             </div>
             <div className="space-y-5">
@@ -1206,7 +1208,7 @@ const EditProfile = () => {
           {/* Photography Interests */}
           <div>
             <div className="flex items-center gap-2">
-              <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>Photography Interests</label>
+              <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("disc.interests")}</label>
               <PrivacyToggle value={privacySettings.interests || "public"} onChange={(v) => setFieldPrivacy("interests", v)} />
             </div>
             <div className="flex flex-wrap gap-2">
@@ -1227,11 +1229,11 @@ const EditProfile = () => {
 
           {/* Account Settings */}
           <div className="border border-border p-4 md:p-8">
-            <span className={sectionHeadCls} style={{ fontFamily: "var(--font-heading)" }}>Account Settings</span>
+            <span className={sectionHeadCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.accountSettings")}</span>
 
             <div className="mb-6">
               <div className="flex items-center gap-2">
-                <span className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>Member Since</span>
+                <span className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.memberSinceCap")}</span>
                 <PrivacyToggle value={privacySettings.member_since || "only_me"} onChange={(v) => setFieldPrivacy("member_since", v)} />
               </div>
               <p className="text-xs text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
@@ -1241,7 +1243,7 @@ const EditProfile = () => {
 
             <div className="mb-6">
               <div className="flex items-center gap-2">
-                <span className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>Email Address</span>
+                <span className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("dash.emailAddress")}</span>
                 <PrivacyToggle value={privacySettings.email || "only_me"} onChange={(v) => setFieldPrivacy("email", v)} />
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -1253,7 +1255,7 @@ const EditProfile = () => {
               </div>
             </div>
             <div>
-              <span className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>Password</span>
+              <span className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("auth.password")}</span>
               <p className="text-xs text-muted-foreground mb-3" style={{ fontFamily: "var(--font-body)" }}>
                 We'll send a password reset link to your email address.
               </p>
@@ -1272,25 +1274,25 @@ const EditProfile = () => {
               {saveStatus === "saving" && (
                 <>
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                  <span className="text-muted-foreground">Saving...</span>
+                  <span className="text-muted-foreground">{t("ep.saving")}</span>
                 </>
               )}
               {saveStatus === "saved" && (
                 <>
                   <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                  <span className="text-green-500">Saved</span>
+                  <span className="text-green-500">{t("common.saved")}</span>
                 </>
               )}
               {saveStatus === "error" && (
                 <>
                   <CloudOff className="h-3.5 w-3.5 text-destructive" />
-                  <span className="text-destructive">Fix errors to save</span>
+                  <span className="text-destructive">{t("ep.fixErrors")}</span>
                 </>
               )}
               {saveStatus === "idle" && (
                 <>
                   <Cloud className="h-3.5 w-3.5 text-muted-foreground/50" />
-                  <span className="text-muted-foreground/50">Auto-saved</span>
+                  <span className="text-muted-foreground/50">{t("ep.autoSaved")}</span>
                 </>
               )}
             </div>
