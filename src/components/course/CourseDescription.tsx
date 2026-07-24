@@ -1,3 +1,4 @@
+import { useT } from "@/i18n/I18nContext";
 const bodyFont = { fontFamily: "var(--font-body)" };
 const headingFont = { fontFamily: "var(--font-heading)" };
 
@@ -6,6 +7,7 @@ interface CourseDescriptionProps {
 }
 
 const CourseDescription = ({ description }: CourseDescriptionProps) => {
+  const t = useT();
   if (!description) return null;
 
   // Skip if description is very short (already shown in hero)
@@ -20,7 +22,7 @@ const CourseDescription = ({ description }: CourseDescriptionProps) => {
           className="text-[10px] tracking-[0.3em] uppercase text-primary"
           style={headingFont}
         >
-          About This Course
+          {t("crs.aboutCourse")}
         </span>
       </div>
 

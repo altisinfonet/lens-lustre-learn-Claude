@@ -11,6 +11,7 @@ import PageSEO from "@/components/PageSEO";
 import { toast } from "@/hooks/core/use-toast";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import Breadcrumbs from "@/components/Breadcrumbs";
+import { useT } from "@/i18n/I18nContext";
 
 interface Article {
   id: string;
@@ -61,6 +62,7 @@ const AuthorCard = ({
   publishedAt: string;
   variant: "inline" | "sidebar";
 }) => {
+  const t = useT();
   const date = new Date(publishedAt).toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -74,7 +76,7 @@ const AuthorCard = ({
           className="text-[9px] tracking-[0.25em] uppercase text-primary block mb-4"
           style={{ fontFamily: "var(--font-heading)" }}
         >
-          About the Author
+          {t("jart.aboutAuthor")}
         </span>
         <Link to={`/profile/${authorId}`} className="flex items-center gap-3 mb-3 group">
           {author?.avatar_url ? (
@@ -110,7 +112,7 @@ const AuthorCard = ({
           className="inline-flex items-center gap-1 text-[11px] tracking-[0.15em] uppercase text-primary hover:gap-2 transition-all"
           style={{ fontFamily: "var(--font-heading)" }}
         >
-          View Profile <ArrowRight className="h-3 w-3" />
+          {t("dash.qa.viewProfile")} <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
     );
@@ -138,7 +140,7 @@ const AuthorCard = ({
           className="text-[9px] tracking-[0.25em] uppercase text-primary block mb-1"
           style={{ fontFamily: "var(--font-heading)" }}
         >
-          Written by
+          {t("jart.writtenBy")}
         </span>
         <Link to={`/profile/${authorId}`} className="block">
           <div className="text-base font-medium text-foreground hover:text-primary transition-colors"
@@ -168,6 +170,7 @@ interface OtherArticle {
 }
 
 const JournalArticle = () => {
+  const t = useT();
   const { slug } = useParams<{ slug: string }>();
   const [article, setArticle] = useState<Article | null>(null);
   const [author, setAuthor] = useState<AuthorInfo | null>(null);
@@ -237,9 +240,9 @@ const JournalArticle = () => {
           sectionLabel: "JOURNAL",
         },
       });
-      toast({ title: "PDF downloaded!" });
+      toast({ title: t("jart.pdfDownloaded") });
     } catch {
-      toast({ title: "PDF generation failed", variant: "destructive" });
+      toast({ title: t("jart.pdfFailed"), variant: "destructive" });
     }
     setGeneratingPdf(false);
   };
@@ -253,7 +256,7 @@ const JournalArticle = () => {
     } else {
       await navigator.clipboard.writeText(url);
       setCopied(true);
-      toast({ title: "Link copied to clipboard!" });
+      toast({ title: t("jart.linkCopied") });
       setTimeout(() => setCopied(false), 2000);
     }
   };
@@ -261,7 +264,7 @@ const JournalArticle = () => {
   if (loading) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground text-sm">Loading…</div>
+        <div className="animate-pulse text-muted-foreground text-sm">{t("common.loading")}</div>
       </main>
     );
   }
@@ -269,9 +272,9 @@ const JournalArticle = () => {
   if (!article) {
     return (
       <main className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Article not found.</p>
+        <p className="text-muted-foreground">{t("jart.notFound")}</p>
         <Link to="/journal" className="text-primary text-sm underline">
-          Back to Journal
+          {t("jart.backToJournal")}
         </Link>
       </main>
     );
@@ -315,7 +318,7 @@ const JournalArticle = () => {
 
       <div className="container mx-auto max-w-6xl px-4 md:px-8 py-8 md:py-16">
         <Breadcrumbs
-          items={[{ label: "Journal", to: "/journal" }, { label: article.title }]}
+          items={[{ label: t("nav.journal"), to: "/journal" }, { label: article.title }]}
           className="mb-8"
         />
 
@@ -382,7 +385,7 @@ const JournalArticle = () => {
                     year: "numeric",
                   })}
                 </span>
-                <span className="tracking-[0.1em] text-muted-foreground/70">{readingTimeMin} min read</span>
+                <span className="tracking-[0.1em] text-muted-foreground/70">{readingTimeMin} {t("jart.minRead")}</span>
 
                 <div className="flex items-center gap-2 ml-auto">
                   <button
@@ -391,7 +394,7 @@ const JournalArticle = () => {
                     title="Share"
                   >
                     {copied ? <Check className="h-3 w-3" /> : <Share2 className="h-3 w-3" />}
-                    Share
+                    {t("jart.share")}
                   </button>
                   <button
                     onClick={handleDownloadPdf}
@@ -458,7 +461,7 @@ const JournalArticle = () => {
                       className="text-[10px] tracking-[0.3em] uppercase text-primary"
                       style={{ fontFamily: "var(--font-heading)" }}
                     >
-                      Other Articles
+                      {t("jart.otherArticles")}
                     </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -521,7 +524,7 @@ const JournalArticle = () => {
                     className="text-[9px] tracking-[0.25em] uppercase text-primary block mb-3"
                     style={{ fontFamily: "var(--font-heading)" }}
                   >
-                    Topics
+                    {t("jart.topics")}
                   </span>
                   <div className="flex flex-wrap gap-2">
                     {article.tags.map((tag) => (
@@ -545,7 +548,7 @@ const JournalArticle = () => {
                       className="text-[9px] tracking-[0.25em] uppercase text-primary"
                       style={{ fontFamily: "var(--font-heading)" }}
                     >
-                      Other Articles
+                      {t("jart.otherArticles")}
                     </span>
                     <Link
                       to="/journal"

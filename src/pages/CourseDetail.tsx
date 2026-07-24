@@ -16,8 +16,10 @@ import CourseCurriculum from "@/components/course/CourseCurriculum";
 import CourseSidebar from "@/components/course/CourseSidebar";
 import CourseDescription from "@/components/course/CourseDescription";
 import Breadcrumbs from "@/components/Breadcrumbs";
+import { useT } from "@/i18n/I18nContext";
 
 const CourseDetail = () => {
+  const t = useT();
   const { slug } = useParams<{ slug: string }>();
   const { user } = useAuth();
   const { balance, refresh: refreshWallet } = useWallet();
@@ -49,7 +51,7 @@ const CourseDetail = () => {
 
     if (!course.is_free && course.price && course.price > 0) {
       if (balance < course.price) {
-        toast({ title: "Insufficient balance", description: `You need ${formatUSDFixed(course.price)} but your wallet has ${formatUSDFixed(balance)}. Please top up first.`, variant: "destructive" });
+        toast({ title: t("wal.insufficientBalance"), description: `${t("crs.insufficientDesc")} (${t("csub.required")}: ${formatUSDFixed(course.price)} · ${t("csub.available")}: ${formatUSDFixed(balance)})`, variant: "destructive" });
         return;
       }
     }
@@ -64,12 +66,12 @@ const CourseDetail = () => {
       if (error) throw error;
 
       setEnrolled(true);
-      toast({ title: "Enrolled successfully!" });
+      toast({ title: t("crs.enrolledSuccess") });
       queryClient.invalidateQueries({ queryKey: queryKeys.courseDetail(slug || "") });
       refreshWallet();
     } catch (err: any) {
-      const msg = err.message || "Enrollment failed";
-      toast({ title: "Enrollment failed", description: msg, variant: "destructive" });
+      const msg = err.message || t("crs.enrollFailed");
+      toast({ title: t("crs.enrollFailed"), description: msg, variant: "destructive" });
     } finally {
       setEnrolling(false);
     }
@@ -84,10 +86,10 @@ const CourseDetail = () => {
       _course_id: course.id,
     });
     if (error) {
-      toast({ title: "Failed to issue certificate", description: error.message, variant: "destructive" });
+      toast({ title: t("crs.certFailed"), description: error.message, variant: "destructive" });
     } else {
       setHasCertificate(true);
-      toast({ title: "🎉 Certificate earned!", description: "View it in your certificates page." });
+      toast({ title: t("crs.certEarned"), description: t("crs.certEarnedDesc") });
     }
     setIssuingCert(false);
   };
@@ -95,7 +97,7 @@ const CourseDetail = () => {
   if (loading) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground text-sm">Loading…</div>
+        <div className="animate-pulse text-muted-foreground text-sm">{t("common.loading")}</div>
       </main>
     );
   }
@@ -103,8 +105,8 @@ const CourseDetail = () => {
   if (!course) {
     return (
       <main className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Course not found.</p>
-        <Link to="/courses" className="text-primary text-sm underline">Back to Courses</Link>
+        <p className="text-muted-foreground">{t("crs.notFound")}</p>
+        <Link to="/courses" className="text-primary text-sm underline">{t("crs.backToCourses")}</Link>
       </main>
     );
   }
@@ -130,7 +132,7 @@ const CourseDetail = () => {
 
       <div className="container mx-auto pt-3 pb-0">
         <Breadcrumbs items={[
-          { label: "Courses", to: "/courses" },
+          { label: t("nav.courses"), to: "/courses" },
           { label: course.title },
         ]} className="mb-3" />
       </div>

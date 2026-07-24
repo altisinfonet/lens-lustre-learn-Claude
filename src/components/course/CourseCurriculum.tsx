@@ -1,3 +1,4 @@
+import { useT } from "@/i18n/I18nContext";
 import { CheckCircle, Circle, Lock, Play } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -53,6 +54,7 @@ const CourseCurriculum = ({
   );
 
   // Use flat lessons for lock logic; fallback to module-derived list
+  const t = useT();
   const flatLessons = allLessons || modules.flatMap((m) => m.lessons).sort((a, b) => a.sort_order - b.sort_order);
 
   return (
@@ -65,11 +67,11 @@ const CourseCurriculum = ({
             className="text-[10px] tracking-[0.3em] uppercase text-primary"
             style={headingFont}
           >
-            Course Content
+            {t("crs.courseContent")}
           </span>
         </div>
         <span className="text-xs text-muted-foreground" style={bodyFont}>
-          {totalCompleted} / {totalLessons} completed
+          {totalCompleted} / {totalLessons} {t("crs.completed")}
         </span>
       </div>
 
@@ -142,7 +144,7 @@ const CourseCurriculum = ({
                             className="text-[9px] tracking-[0.15em] uppercase text-primary px-2 py-0.5 border border-primary/30 rounded"
                             style={headingFont}
                           >
-                            Continue
+                            {t("crs.continue")}
                           </span>
                         )}
                         {unlocked && !isActive && (

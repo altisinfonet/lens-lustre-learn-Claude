@@ -1,3 +1,4 @@
+import { useT } from "@/i18n/I18nContext";
 import { Award, BookOpen, CheckCircle, GraduationCap, Play } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ const CourseSidebar = ({
   onClaimCertificate,
 }: CourseSidebarProps) => {
   const navigate = useNavigate();
+  const t = useT();
   const progressPercent =
     lessons.length > 0 ? Math.round((completedLessons.size / lessons.length) * 100) : 0;
   const courseComplete = progressPercent === 100 && lessons.length > 0;
@@ -68,14 +70,14 @@ const CourseSidebar = ({
             >
               <GraduationCap className="h-4 w-4 mr-2" />
               {enrolling
-                ? "Enrolling…"
+                ? t("crs.enrolling")
                 : course.is_free
-                ? "Start Learning"
-                : `Enroll for ${formatUSDFixed(course.price ?? 0)}`}
+                ? t("crs.startLearning")
+                : `${t("crs.enrollFor")} ${formatUSDFixed(course.price ?? 0)}`}
             </Button>
             {!course.is_free && course.price && (
               <p className="text-[10px] text-muted-foreground text-center mt-2" style={bodyFont}>
-                Wallet balance: {formatUSDFixed(balance)}
+                {t("crs.walletBalance")} {formatUSDFixed(balance)}
               </p>
             )}
           </div>
@@ -89,12 +91,12 @@ const CourseSidebar = ({
               style={headingFont}
             >
               <Play className="h-4 w-4 mr-2" />
-              {completedLessons.size === 0 ? "Start Learning" : "Continue Learning"}
+              {completedLessons.size === 0 ? t("crs.startLearning") : t("crs.continueLearning")}
             </Button>
             <div className="flex items-center justify-center gap-2 mt-2">
               <CheckCircle className="h-3.5 w-3.5 text-primary" />
               <span className="text-xs text-primary" style={headingFont}>
-                Enrolled
+                {t("crs.enrolled")}
               </span>
             </div>
           </div>
@@ -105,7 +107,7 @@ const CourseSidebar = ({
           <div className="mb-5 pb-5 border-b border-border">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground" style={headingFont}>
-                Progress
+                {t("crs.progress")}
               </span>
               <span className="text-xs text-primary" style={headingFont}>
                 {progressPercent}%
@@ -113,7 +115,7 @@ const CourseSidebar = ({
             </div>
             <Progress value={progressPercent} className="h-1.5" />
             <p className="text-[10px] text-muted-foreground mt-2" style={bodyFont}>
-              {completedLessons.size} of {lessons.length} lessons completed
+              {completedLessons.size} {t("crs.of")} {lessons.length} {t("crs.lessonsCompleted")}
             </p>
 
             {courseComplete && (
@@ -121,7 +123,7 @@ const CourseSidebar = ({
                 <div className="flex items-center gap-2 text-primary">
                   <GraduationCap className="h-4 w-4" />
                   <span className="text-xs" style={headingFont}>
-                    Course Complete!
+                    {t("crs.courseComplete")}
                   </span>
                 </div>
                 {hasCertificate ? (
@@ -130,7 +132,7 @@ const CourseSidebar = ({
                     className="flex items-center gap-2 text-xs tracking-[0.1em] uppercase text-primary hover:opacity-80 transition-opacity"
                     style={headingFont}
                   >
-                    <Award className="h-3.5 w-3.5" /> View Certificate
+                    <Award className="h-3.5 w-3.5" /> {t("crs.viewCertificate")}
                   </Link>
                 ) : (
                   <button
@@ -140,7 +142,7 @@ const CourseSidebar = ({
                     style={headingFont}
                   >
                     <Award className="h-3.5 w-3.5" />
-                    {issuingCert ? "Issuing…" : "Claim Certificate"}
+                    {issuingCert ? t("crs.issuing") : t("crs.claimCertificate")}
                   </button>
                 )}
               </div>
@@ -151,21 +153,21 @@ const CourseSidebar = ({
         {/* Course info */}
         <div className="space-y-3">
           <div className="flex justify-between text-xs text-muted-foreground" style={bodyFont}>
-            <span>Lessons</span>
+            <span>{t("crs.lessons")}</span>
             <span className="font-medium text-foreground">{lessons.length}</span>
           </div>
           <div className="flex justify-between text-xs text-muted-foreground" style={bodyFont}>
-            <span>Difficulty</span>
+            <span>{t("crs.difficulty")}</span>
             <span className="font-medium text-foreground">{course.difficulty}</span>
           </div>
           <div className="flex justify-between text-xs text-muted-foreground" style={bodyFont}>
-            <span>Category</span>
+            <span>{t("crs.category")}</span>
             <span className="font-medium text-foreground">{course.category}</span>
           </div>
           <div className="flex justify-between text-xs text-muted-foreground" style={bodyFont}>
-            <span>Access</span>
+            <span>{t("crs.access")}</span>
             <span className="font-medium text-foreground">
-              {course.is_free ? "Free" : "Lifetime"}
+              {course.is_free ? t("crs.free") : t("crs.lifetime")}
             </span>
           </div>
         </div>

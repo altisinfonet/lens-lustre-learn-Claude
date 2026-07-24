@@ -1,3 +1,4 @@
+import { useT } from "@/i18n/I18nContext";
 import { BookOpen, Star, Users } from "lucide-react";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 
@@ -38,6 +39,7 @@ const CourseHero = ({
   adminRating,
   adminRatingCount,
 }: CourseHeroProps) => {
+  const t = useT();
   const ratingWhole = Math.floor(adminRating);
   const ratingDisplay = adminRating > 0 ? adminRating.toFixed(1) : "0.0";
   return (
@@ -119,7 +121,7 @@ const CourseHero = ({
               className="flex items-center gap-1 text-xs text-white/50"
               style={headingFont}
             >
-              <Users className="h-3 w-3" /> {adminStudents.toLocaleString()} students enrolled
+              <Users className="h-3 w-3" /> {adminStudents.toLocaleString()} {t("crs.studentsEnrolled")}
             </span>
           </div>
 
@@ -136,7 +138,7 @@ const CourseHero = ({
             />
             <span className="flex items-center gap-1">
               <BookOpen className="h-3 w-3" />
-              {lessonCount} lessons
+              {lessonCount} {t("crs.lessonsLower")}
             </span>
           </div>
         </div>

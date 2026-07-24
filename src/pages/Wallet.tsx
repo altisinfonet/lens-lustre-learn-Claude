@@ -56,6 +56,7 @@ const Wallet = () => {
   const navigate = useNavigate();
   const { balance, transactions, exchangeRate, loading, toINR, refresh } = useWallet();
   const t = useT();
+  const tr = t; // alias — the transaction list below shadows `t` as its map variable
   const { data: walletPageData } = useWalletPageData(user?.id);
   const { submitDeposit, isSubmitting: depositSubmitting } = useWalletDeposits();
   const { submitWithdrawal, isSubmitting: withdrawalSubmitting } = useWalletWithdrawals();
@@ -157,7 +158,7 @@ const Wallet = () => {
   if (authLoading || loading) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-xs tracking-[0.3em] uppercase text-muted-foreground animate-pulse" style={{ fontFamily: "var(--font-heading)" }}>Loading…</div>
+        <div className="text-xs tracking-[0.3em] uppercase text-muted-foreground animate-pulse" style={{ fontFamily: "var(--font-heading)" }}>{t("common.loading")}</div>
       </main>
     );
   }
@@ -190,7 +191,7 @@ const Wallet = () => {
   const handleGatewayPayment = async (gateway: string) => {
     const amtUSD = getAmountInUSD();
     if (!amtUSD || amtUSD <= 0) {
-      toast({ title: "Enter a valid amount", variant: "destructive" });
+      toast({ title: t("wal.enterValidAmount"), variant: "destructive" });
       return;
     }
     if (gateway === "UPI") {
@@ -211,7 +212,7 @@ const Wallet = () => {
       });
 
       if (error || data?.error) {
-        toast({ title: "Payment failed", description: data?.error || error?.message || "Could not create payment session", variant: "destructive" });
+        toast({ title: t("wal.paymentFailedTitle"), description: data?.error || error?.message || t("wal.noSession"), variant: "destructive" });
         setGatewayLoading(null);
         return;
       }
@@ -280,9 +281,9 @@ const Wallet = () => {
         return;
       }
 
-      toast({ title: "Unexpected response", variant: "destructive" });
+      toast({ title: t("wal.unexpectedResponse"), variant: "destructive" });
     } catch (err: any) {
-      toast({ title: "Payment error", description: err.message || "Something went wrong", variant: "destructive" });
+      toast({ title: t("wal.paymentError"), description: err.message || t("common.somethingWrong"), variant: "destructive" });
     }
     setGatewayLoading(null);
   };
@@ -290,11 +291,11 @@ const Wallet = () => {
   const handleUpiConfirm = async () => {
     const amt = getAmountInUSD();
     if (!amt || amt <= 0) {
-      toast({ title: "Enter a valid amount", variant: "destructive" });
+      toast({ title: t("wal.enterValidAmount"), variant: "destructive" });
       return;
     }
     if (!upiTxnRef.trim()) {
-      toast({ title: "Please enter your UPI transaction reference / UTR number", variant: "destructive" });
+      toast({ title: t("wal.enterUpiRef"), variant: "destructive" });
       return;
     }
     setUpiStep("submitting");
@@ -322,11 +323,11 @@ const Wallet = () => {
   const handleBankConfirm = async () => {
     const amt = getAmountInUSD();
     if (!amt || amt <= 0) {
-      toast({ title: "Enter a valid amount", variant: "destructive" });
+      toast({ title: t("wal.enterValidAmount"), variant: "destructive" });
       return;
     }
     if (!bankTxnRef.trim()) {
-      toast({ title: "Please enter your bank transaction reference number", variant: "destructive" });
+      toast({ title: t("wal.enterBankRef"), variant: "destructive" });
       return;
     }
     setBankStep("submitting");
@@ -360,11 +361,11 @@ const Wallet = () => {
   const handleWithdraw = async () => {
     const amt = getWithdrawAmountUSD();
     if (!amt || amt < 1) {
-      toast({ title: `Minimum withdrawal is ${formatUSD(1)}`, variant: "destructive" });
+      toast({ title: `${t("wal.minWithdrawal")} ${formatUSD(1)}`, variant: "destructive" });
       return;
     }
     if (amt > balance) {
-      toast({ title: "Insufficient balance", description: `Your balance is ${formatUSDFixed(balance)}`, variant: "destructive" });
+      toast({ title: t("wal.insufficientBalance"), description: `${t("wal.yourBalanceIs")} ${formatUSDFixed(balance)}`, variant: "destructive" });
       return;
     }
     const bankInfo = savedBankDetails?.bank_account_number?.trim()
@@ -381,15 +382,15 @@ const Wallet = () => {
           ifsc: wIfsc.trim(),
         };
     if (!bankInfo.account_number) {
-      toast({ title: "Please enter your bank account number", variant: "destructive" });
+      toast({ title: t("wal.enterAccountNumber"), variant: "destructive" });
       return;
     }
     if (!bankInfo.account_name) {
-      toast({ title: "Please enter the account holder name", variant: "destructive" });
+      toast({ title: t("wal.enterAccountHolder"), variant: "destructive" });
       return;
     }
     if (pendingWithdrawals.length > 0) {
-      toast({ title: "You already have a pending withdrawal", description: "Please wait for admin to process your existing request.", variant: "destructive" });
+      toast({ title: t("wal.alreadyPending"), description: t("wal.waitForAdmin"), variant: "destructive" });
       return;
     }
     setWithdrawSubmitting(true);
@@ -453,7 +454,7 @@ const Wallet = () => {
     }
 
     doc.save(`wallet-ledger-${ledgerYears}yr.pdf`);
-    toast({ title: "Ledger downloaded" });
+    toast({ title: t("wal.ledgerDownloaded") });
   };
 
   return (
@@ -462,10 +463,10 @@ const Wallet = () => {
 
         <div className="flex items-center gap-4 mb-2">
           <div className="w-12 h-px bg-primary" />
-          <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>e-Wallet</span>
+          <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>{t("wal.eWallet")}</span>
         </div>
         <h1 className="text-2xl md:text-5xl font-light tracking-tight mb-4 md:mb-10" style={{ fontFamily: "var(--font-display)" }}>
-          My <em className="italic text-primary">Wallet</em>
+          {t("wal.my")} <em className="italic text-primary">{t("wal.walletWord")}</em>
         </h1>
 
         {/* Rewarded ad — opt-in earn (self-hides until an admin sets amount + creative) */}
@@ -500,20 +501,20 @@ const Wallet = () => {
               <div>
                 <p className="text-sm font-medium" style={{ fontFamily: "var(--font-heading)" }}>
                   {returnBanner.kind === "success"
-                    ? `${returnBanner.gateway} payment received`
+                    ? `${returnBanner.gateway} — ${t("wal.paymentReceived")}`
                     : returnBanner.kind === "processing"
-                    ? `Confirming your ${returnBanner.gateway} payment…`
+                    ? `${returnBanner.gateway} — ${t("wal.confirmingPayment")}`
                     : returnBanner.kind === "cancelled"
-                    ? `${returnBanner.gateway} payment cancelled`
-                    : `${returnBanner.gateway} payment failed`}
+                    ? `${returnBanner.gateway} — ${t("wal.paymentCancelled")}`
+                    : `${returnBanner.gateway} — ${t("wal.paymentFailed")}`}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1" style={{ fontFamily: "var(--font-body)" }}>
                   {returnBanner.kind === "success"
-                    ? `Your wallet has been credited${returnBanner.amount ? ` with ${formatUSDFixed(returnBanner.amount)}` : ""}.`
+                    ? `${t("wal.credited")}${returnBanner.amount ? ` · ${formatUSDFixed(returnBanner.amount)}` : ""}`
                     : returnBanner.kind === "processing"
-                    ? "Please don't close this page."
+                    ? t("wal.dontClose")
                     : returnBanner.kind === "cancelled"
-                    ? "No charge was made."
+                    ? t("wal.noCharge")
                     : returnBanner.message}
                 </p>
               </div>
@@ -532,7 +533,7 @@ const Wallet = () => {
                   className="text-[10px] tracking-[0.2em] uppercase bg-primary text-primary-foreground px-3 py-2 hover:bg-primary/90 transition-colors"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  Return to 50mm Retina
+                  {t("wal.returnHome")}
                 </button>
               </div>
             )}
@@ -562,12 +563,12 @@ const Wallet = () => {
                   <AlertTriangle className="h-3.5 w-3.5 text-yellow-600 shrink-0 mt-0.5" />
                   <div>
                     <p className="text-[10px] font-medium text-yellow-700 dark:text-yellow-400" style={{ fontFamily: "var(--font-heading)" }}>
-                      {formatUSDFixed(expiringBalance.amount)} expiring soon
+                      {formatUSDFixed(expiringBalance.amount)} {t("wal.expiringSoon")}
                     </p>
                     <p className="text-[9px] text-yellow-600/80 dark:text-yellow-500/80" style={{ fontFamily: "var(--font-body)" }}>
-                      {expiringBalance.count} {`gift credit${expiringBalance.count > 1 ? "s" : ""} with expiry`}
+                      {expiringBalance.count} {t("wal.giftCreditsExpiry")}
                       {expiringBalance.soonest && (
-                        <> · Next: {new Date(expiringBalance.soonest).toLocaleDateString()}</>
+                        <> · {t("wal.next")} {new Date(expiringBalance.soonest).toLocaleDateString()}</>
                       )}
                     </p>
                   </div>
@@ -595,7 +596,7 @@ const Wallet = () => {
                 style={{ fontFamily: "var(--font-heading)" }}
               >
                 {currencyDisplay === "usd" ? <IndianRupee className="h-3.5 w-3.5" /> : <CreditCard className="h-3.5 w-3.5" />}
-                {currencyDisplay === "usd" ? "Show INR" : "Show USD"}
+                {currencyDisplay === "usd" ? t("wal.showInr") : t("wal.showUsd")}
               </button>
             </div>
           </div>
@@ -604,7 +605,7 @@ const Wallet = () => {
               className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              Powered by <span className="text-primary">Payeliana</span>
+              {t("wal.poweredBy")} <span className="text-primary">Payeliana</span>
             </span>
           </div>
         </motion.div>
@@ -613,12 +614,12 @@ const Wallet = () => {
         {showAddMoney && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="border border-primary/30 p-6 md:p-8 mb-8 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs tracking-[0.2em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>Add Money</span>
+              <span className="text-xs tracking-[0.2em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>{t("wallet.addMoney")}</span>
               <button onClick={() => setShowAddMoney(false)} className="text-muted-foreground hover:text-foreground text-sm">✕</button>
             </div>
             {/* Currency Toggle */}
             <div className="flex items-center gap-2">
-              <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Enter amount in</span>
+              <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("wal.enterAmountIn")}</span>
               <div className="inline-flex border border-border rounded-sm overflow-hidden">
                 <button onClick={() => { setAddCurrency("usd"); setAddAmount(""); }}
                   className={`px-3 py-1.5 text-[10px] tracking-[0.15em] uppercase transition-all duration-300 ${addCurrency === "usd" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
@@ -654,7 +655,7 @@ const Wallet = () => {
             </div>
             <input
               type="number" min="1" step="0.01"
-              placeholder={addCurrency === "usd" ? "Or enter custom amount ($)" : "Or enter custom amount (₹)"}
+              placeholder={addCurrency === "usd" ? `${t("wal.customAmount")} ($)` : `${t("wal.customAmount")} (₹)`}
               value={addAmount} onChange={e => setAddAmount(e.target.value)}
               className="w-full bg-transparent border-b border-border focus:border-primary outline-none py-3 text-sm transition-colors duration-500"
               style={{ fontFamily: "var(--font-body)" }}
@@ -672,7 +673,7 @@ const Wallet = () => {
               <div className="border border-dashed border-border p-4 text-center">
                 <AlertTriangle className="h-5 w-5 text-muted-foreground/40 mx-auto mb-2" />
                 <p className="text-xs text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                  No payment methods configured yet. Please contact the administrator.
+                  {t("wal.noGateways")}
                 </p>
               </div>
             ) : (
@@ -725,7 +726,7 @@ const Wallet = () => {
                       <div>
                         <span className="text-xs tracking-[0.1em] uppercase block">UPI</span>
                         <span className="text-[9px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                          {paymentGateways.upi.upi_id || "Direct UPI Payment"}
+                          {paymentGateways.upi.upi_id || t("wal.directUpi")}
                         </span>
                       </div>
                     </button>
@@ -733,21 +734,21 @@ const Wallet = () => {
                   {paymentGateways?.upi?.enabled && upiStep !== "idle" && (
                     <div className="sm:col-span-2 border border-primary/40 p-5 space-y-4">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs tracking-[0.2em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>Pay via UPI</span>
+                        <span className="text-xs tracking-[0.2em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>{t("wal.payViaUpi")}</span>
                         <button onClick={() => { setUpiStep("idle"); setUpiTxnRef(""); }} className="text-muted-foreground hover:text-foreground text-sm">✕</button>
                       </div>
                       <div className="bg-muted/30 border border-border p-4 space-y-2">
-                        <p className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Send payment to this UPI ID</p>
+                        <p className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("wal.sendToUpi")}</p>
                         <p className="text-lg font-medium text-foreground tracking-wide" style={{ fontFamily: "var(--font-display)" }}>
                           {paymentGateways.upi.upi_id || "—"}
                         </p>
                         <p className="text-xs text-primary font-medium" style={{ fontFamily: "var(--font-body)" }}>
-                          Amount: {formatINR(toINR(getAmountInUSD()))} ({formatUSDFixed(getAmountInUSD())})
+                          {t("wal.amount")} {formatINR(toINR(getAmountInUSD()))} ({formatUSDFixed(getAmountInUSD())})
                         </p>
                       </div>
                       <div className="space-y-1">
                         <label className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground block" style={{ fontFamily: "var(--font-heading)" }}>
-                          UPI Transaction Reference / UTR Number *
+                          {t("wal.upiRefLabel")}
                         </label>
                         <input
                           type="text"
@@ -760,7 +761,7 @@ const Wallet = () => {
                         />
                       </div>
                       <p className="text-[9px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                        After sending payment via your UPI app, enter the transaction reference number above and click confirm. Admin will verify and credit your wallet.
+                        {t("wal.upiInstructions")}
                       </p>
                       <button
                         onClick={handleUpiConfirm}
@@ -769,7 +770,7 @@ const Wallet = () => {
                         style={{ fontFamily: "var(--font-heading)" }}
                       >
                         {upiStep === "submitting" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Banknote className="h-3.5 w-3.5" />}
-                        Confirm Payment
+                        {t("wal.confirmPayment")}
                       </button>
                     </div>
                   )}
@@ -781,7 +782,7 @@ const Wallet = () => {
                       <div>
                         <span className="text-xs tracking-[0.1em] uppercase block">Bank Transfer</span>
                         <span className="text-[9px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                          {paymentGateways.bank.bank_name ? `${paymentGateways.bank.bank_name} — NEFT/IMPS` : "Manual Bank Transfer"}
+                          {paymentGateways.bank.bank_name ? `${paymentGateways.bank.bank_name} — NEFT/IMPS` : t("wal.manualBank")}
                         </span>
                       </div>
                     </button>
@@ -789,11 +790,11 @@ const Wallet = () => {
                   {paymentGateways?.bank?.enabled && bankStep !== "idle" && (
                     <div className="sm:col-span-2 border border-primary/40 p-5 space-y-4">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs tracking-[0.2em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>Pay via Bank Transfer</span>
+                        <span className="text-xs tracking-[0.2em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>{t("wal.payViaBank")}</span>
                         <button onClick={() => { setBankStep("idle"); setBankTxnRef(""); }} className="text-muted-foreground hover:text-foreground text-sm">✕</button>
                       </div>
                       <div className="bg-muted/30 border border-border p-4 space-y-2">
-                        <p className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Transfer to this Bank Account</p>
+                        <p className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("wal.transferToBank")}</p>
                         {paymentGateways.bank.bank_name && (
                           <p className="text-sm text-foreground" style={{ fontFamily: "var(--font-body)" }}>
                             <strong>Bank:</strong> {paymentGateways.bank.bank_name}
@@ -815,12 +816,12 @@ const Wallet = () => {
                           </p>
                         )}
                         <p className="text-xs text-primary font-medium" style={{ fontFamily: "var(--font-body)" }}>
-                          Amount: {formatINR(toINR(parseFloat(addAmount) || 0))} ({formatUSDFixed(parseFloat(addAmount || "0"))})
+                          {t("wal.amount")} {formatINR(toINR(parseFloat(addAmount) || 0))} ({formatUSDFixed(parseFloat(addAmount || "0"))})
                         </p>
                       </div>
                       <div className="space-y-1">
                         <label className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground block" style={{ fontFamily: "var(--font-heading)" }}>
-                          Bank Transaction Reference Number *
+                          {t("wal.bankRefLabel")}
                         </label>
                         <input
                           type="text"
@@ -833,7 +834,7 @@ const Wallet = () => {
                         />
                       </div>
                       <p className="text-[9px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                        After completing the bank transfer, enter the transaction reference number and click confirm. Admin will verify and credit your wallet.
+                        {t("wal.bankInstructions")}
                       </p>
                       <button
                         onClick={handleBankConfirm}
@@ -842,7 +843,7 @@ const Wallet = () => {
                         style={{ fontFamily: "var(--font-heading)" }}
                       >
                         {bankStep === "submitting" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Banknote className="h-3.5 w-3.5" />}
-                        Confirm Payment
+                        {t("wal.confirmPayment")}
                       </button>
                     </div>
                   )}
@@ -856,7 +857,7 @@ const Wallet = () => {
         {pendingWithdrawals.length > 0 && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="border border-yellow-500/30 bg-yellow-500/5 p-4 md:p-6 mb-4 space-y-3">
             <span className="text-[9px] tracking-[0.3em] uppercase text-yellow-600 dark:text-yellow-400 flex items-center gap-2" style={{ fontFamily: "var(--font-heading)" }}>
-              <Clock className="h-3.5 w-3.5" /> Pending Withdrawals
+              <Clock className="h-3.5 w-3.5" /> {t("wal.pendingWithdrawals")}
             </span>
             {pendingWithdrawals.map(w => (
               <div key={w.id} className="flex items-center justify-between text-xs border-t border-yellow-500/20 pt-2">
@@ -875,13 +876,13 @@ const Wallet = () => {
         {showWithdraw && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="border border-primary/30 p-6 md:p-8 mb-8 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs tracking-[0.2em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>Withdraw to Bank</span>
+              <span className="text-xs tracking-[0.2em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>{t("wal.withdrawToBank")}</span>
               <button onClick={() => setShowWithdraw(false)} className="text-muted-foreground hover:text-foreground text-sm">✕</button>
             </div>
 
             {/* Currency Toggle */}
             <div className="flex items-center gap-2">
-              <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Enter amount in</span>
+              <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("wal.enterAmountIn")}</span>
               <div className="inline-flex border border-border rounded-sm overflow-hidden">
                 <button onClick={() => { setWithdrawCurrency("usd"); setWithdrawAmount(""); }}
                   className={`px-3 py-1.5 text-[10px] tracking-[0.15em] uppercase transition-all duration-300 ${withdrawCurrency === "usd" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
@@ -898,7 +899,7 @@ const Wallet = () => {
 
             <input
               type="number" min="1" step="0.01"
-              placeholder={withdrawCurrency === "usd" ? "Amount ($) — min $1.00" : "Amount (₹)"}
+              placeholder={withdrawCurrency === "usd" ? `${t("wal.amount")} ($) — min $1.00` : `${t("wal.amount")} (₹)`}
               value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)}
               className="w-full bg-transparent border-b border-border focus:border-primary outline-none py-3 text-sm transition-colors duration-500"
               style={{ fontFamily: "var(--font-body)" }}
@@ -909,14 +910,14 @@ const Wallet = () => {
                   ? <>≈ {formatINR(toINR(parseFloat(withdrawAmount)))}</>
                   : <>≈ {formatUSD(parseFloat(withdrawAmount) / exchangeRate.rate)}</>
                 }
-                {" "}· Available: {formatUSDFixed(balance)}
+                {" "}· {t("wal.available")} {formatUSDFixed(balance)}
               </p>
             )}
 
             {/* Saved Bank Details Preview */}
             {savedBankDetails?.bank_account_number ? (
               <div className="bg-muted/30 border border-border p-4 space-y-1">
-                <p className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2" style={{ fontFamily: "var(--font-heading)" }}>Withdrawing to</p>
+                <p className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2" style={{ fontFamily: "var(--font-heading)" }}>{t("wal.withdrawingTo")}</p>
                 {savedBankDetails.bank_name && (
                   <p className="text-xs text-foreground" style={{ fontFamily: "var(--font-body)" }}>
                     <strong>Bank:</strong> {savedBankDetails.bank_name}
@@ -938,19 +939,19 @@ const Wallet = () => {
               </div>
             ) : (
               <div className="border border-border p-4 space-y-3">
-                <p className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Enter Bank Details</p>
-                <input type="text" placeholder="Account Holder Name *" value={wAccountName} onChange={e => setWAccountName(e.target.value)} maxLength={150}
+                <p className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("wal.enterBankDetails")}</p>
+                <input type="text" placeholder={t("wal.phAccountHolder")} value={wAccountName} onChange={e => setWAccountName(e.target.value)} maxLength={150}
                   className="w-full bg-transparent border-b border-border focus:border-primary outline-none py-2 text-sm transition-colors" style={{ fontFamily: "var(--font-body)" }} />
-                <input type="text" placeholder="Account Number *" value={wAccountNumber} onChange={e => setWAccountNumber(e.target.value)} maxLength={30}
+                <input type="text" placeholder={t("wal.phAccountNumber")} value={wAccountNumber} onChange={e => setWAccountNumber(e.target.value)} maxLength={30}
                   className="w-full bg-transparent border-b border-border focus:border-primary outline-none py-2 text-sm transition-colors" style={{ fontFamily: "var(--font-body)" }} />
                 <div className="grid grid-cols-2 gap-3">
-                  <input type="text" placeholder="Bank Name" value={wBankName} onChange={e => setWBankName(e.target.value)} maxLength={100}
+                  <input type="text" placeholder={t("wal.phBankName")} value={wBankName} onChange={e => setWBankName(e.target.value)} maxLength={100}
                     className="w-full bg-transparent border-b border-border focus:border-primary outline-none py-2 text-sm transition-colors" style={{ fontFamily: "var(--font-body)" }} />
-                  <input type="text" placeholder="IFSC Code" value={wIfsc} onChange={e => setWIfsc(e.target.value)} maxLength={20}
+                  <input type="text" placeholder={t("wal.phIfsc")} value={wIfsc} onChange={e => setWIfsc(e.target.value)} maxLength={20}
                     className="w-full bg-transparent border-b border-border focus:border-primary outline-none py-2 text-sm transition-colors" style={{ fontFamily: "var(--font-body)" }} />
                 </div>
                 <p className="text-[9px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                  These details will be saved for future withdrawals.
+                  {t("wal.detailsSaved")}
                 </p>
               </div>
             )}
@@ -959,7 +960,7 @@ const Wallet = () => {
               <div className="border border-yellow-500/30 bg-yellow-500/5 p-3 flex items-center gap-2">
                 <Clock className="h-3.5 w-3.5 text-yellow-600 shrink-0" />
                 <p className="text-[10px] text-yellow-700 dark:text-yellow-400" style={{ fontFamily: "var(--font-body)" }}>
-                  You have a pending withdrawal. Please wait for it to be processed before submitting another.
+                  {t("wal.pendingNote")}
                 </p>
               </div>
             )}
@@ -979,7 +980,7 @@ const Wallet = () => {
           className="flex flex-wrap items-center gap-4 mb-8 p-4 border border-border"
         >
           <Download className="h-4 w-4 text-muted-foreground" />
-          <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Download Ledger</span>
+          <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("wal.downloadLedger")}</span>
           <div className="flex gap-2">
             {[1, 2, 3, 5].map(yr => (
               <button key={yr} onClick={() => setLedgerYears(yr)}
@@ -1009,13 +1010,13 @@ const Wallet = () => {
         {/* Transaction History */}
         <motion.div initial="hidden" animate="visible" variants={fadeUp} custom={2}>
           <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>
-            Transaction History ({transactions.length})
+            {t("wal.txnHistory")} ({transactions.length})
           </span>
 
           {transactions.length === 0 ? (
             <div className="border border-border p-10 text-center">
               <WalletIcon className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>No transactions yet. Add money to get started.</p>
+              <p className="text-sm text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>{t("wal.noTxns")}</p>
             </div>
           ) : (
             <div className="border border-border divide-y divide-border">
@@ -1026,7 +1027,7 @@ const Wallet = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-light truncate" style={{ fontFamily: "var(--font-heading)" }}>
-                      {txnTypeLabel[t.type] || t.type}
+                      {tr("wal.txn." + t.type, txnTypeLabel[t.type] || t.type)}
                     </p>
                     {t.description && (
                       <p className="text-[10px] text-muted-foreground truncate" style={{ fontFamily: "var(--font-body)" }}>{t.description}</p>
@@ -1037,22 +1038,22 @@ const Wallet = () => {
                       </p>
                       {t.type === "gift" && t.metadata?.expires_at && (
                         <span className={`text-[9px] px-1.5 py-0.5 border rounded-sm ${t.status === "expired" || t.metadata?.is_expired ? "border-destructive/40 text-destructive bg-destructive/5" : "border-yellow-500/40 text-yellow-600 bg-yellow-500/5"}`}>
-                          {t.status === "expired" || t.metadata?.is_expired ? "Expired" : <>Expires: {new Date(t.metadata.expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</>}
+                          {t.status === "expired" || t.metadata?.is_expired ? tr("wal.expired") : <>{tr("wal.expires")} {new Date(t.metadata.expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</>}
                         </span>
                       )}
                       {t.type === "gift" && !t.metadata?.expires_at && (
-                        <span className="text-[9px] px-1.5 py-0.5 border border-primary/30 text-primary bg-primary/5 rounded-sm">No expiry</span>
+                        <span className="text-[9px] px-1.5 py-0.5 border border-primary/30 text-primary bg-primary/5 rounded-sm">{tr("wal.noExpiry")}</span>
                       )}
                       {t.status === "pending" && (
                         <span className="text-[9px] px-1.5 py-0.5 border border-yellow-500/40 text-yellow-600 bg-yellow-500/5 rounded-sm flex items-center gap-1">
-                          <Clock className="h-2.5 w-2.5" /> Pending Approval
+                          <Clock className="h-2.5 w-2.5" /> {tr("wal.pendingApproval")}
                         </span>
                       )}
                       {t.status === "rejected" && (
-                        <span className="text-[9px] px-1.5 py-0.5 border border-destructive/40 text-destructive bg-destructive/5 rounded-sm">Rejected</span>
+                        <span className="text-[9px] px-1.5 py-0.5 border border-destructive/40 text-destructive bg-destructive/5 rounded-sm">{tr("dash.status.rejected")}</span>
                       )}
                       {t.status === "approved" && (
-                        <span className="text-[9px] px-1.5 py-0.5 border border-primary/40 text-primary bg-primary/5 rounded-sm">Approved</span>
+                        <span className="text-[9px] px-1.5 py-0.5 border border-primary/40 text-primary bg-primary/5 rounded-sm">{tr("dash.status.approved")}</span>
                       )}
                     </div>
                   </div>
@@ -1061,7 +1062,7 @@ const Wallet = () => {
                       {Number(t.amount) >= 0 ? "+" : ""}{formatCurrency(Number(t.amount))}
                     </p>
                     <p className="text-[9px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                      Bal: {formatCurrency(Number(t.balance_after))}
+                      {tr("wal.bal")} {formatCurrency(Number(t.balance_after))}
                     </p>
                   </div>
                 </div>
