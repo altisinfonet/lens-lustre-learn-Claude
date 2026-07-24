@@ -25,6 +25,7 @@ import { resolveCompetitionPhase, phaseDisplayLabels } from "@/lib/competitionPh
 import ImageCropModal from "@/components/admin/ImageCropModal";
 import CoverImageUploader from "@/components/admin/CoverImageUploader";
 import type { User } from "@supabase/supabase-js";
+import { useT } from "@/i18n/I18nContext";
 
 const AdminCompetitionJudges = lazy(() => import("@/components/admin/AdminCompetitionJudges"));
 const AdminCompetitionRounds = lazy(() => import("@/components/admin/AdminCompetitionRounds"));
@@ -199,6 +200,7 @@ interface Props {
 }
 
 const CompetitionsModule = ({ user }: Props) => {
+  const t = useT();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { competitions } = useAdminCompetitions();
@@ -267,9 +269,9 @@ const CompetitionsModule = ({ user }: Props) => {
       const path = generateImagePath({ type: "comp-cover", ext: "webp" });
       const result = await uploadImage({ bucket: "competition-photos", file: webpFile, path, type: "comp-cover", fileName: `${baseName}.webp` });
       setForm(prev => ({ ...prev, cover_image_url: result.url }));
-      toast({ title: "Cover image uploaded" });
+      toast({ title: t("cm.coverUploaded") });
     } catch (err: unknown) {
-      toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
+      toast({ title: t("mp.uploadFailed"), description: err instanceof Error ? err.message : "", variant: "destructive" });
     }
   };
 
@@ -278,7 +280,7 @@ const CompetitionsModule = ({ user }: Props) => {
     try {
       const data = await competitionService.fetchFullCompetition(comp.id);
       if (!data) {
-        toast({ title: "Competition not found", variant: "destructive" });
+        toast({ title: t("cdet.notFound"), variant: "destructive" });
         return;
       }
       const pd = await competitionService.fetchPaymentDetails(comp.id);
@@ -298,28 +300,28 @@ const CompetitionsModule = ({ user }: Props) => {
       });
       setShowForm(true);
     } catch (err: unknown) {
-      toast({ title: "Failed to load competition", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
+      toast({ title: t("cm.loadFailed"), description: err instanceof Error ? err.message : "", variant: "destructive" });
     }
   };
 
   const handleSave = async () => {
     if (!user || !form.title.trim() || !form.starts_at || !form.ends_at) {
-      toast({ title: "Please fill in required fields (title, dates)", variant: "destructive" });
+      toast({ title: t("cm.fillRequired"), variant: "destructive" });
       return;
     }
-    if (form.title.trim().length > 200) { toast({ title: "Title must be under 200 characters", variant: "destructive" }); return; }
+    if (form.title.trim().length > 200) { toast({ title: t("cm.titleLimit"), variant: "destructive" }); return; }
     const entryFee = parseFloat(form.entry_fee) || 0;
-    if (entryFee < 0 || entryFee > 10000) { toast({ title: "Entry fee must be $0–$10,000", variant: "destructive" }); return; }
+    if (entryFee < 0 || entryFee > 10000) { toast({ title: t("cm.feeRange"), variant: "destructive" }); return; }
     const maxEntries = parseInt(form.max_entries_per_user) || 1;
-    if (maxEntries < 1 || maxEntries > 50) { toast({ title: "Max entries per user: 1–50", variant: "destructive" }); return; }
+    if (maxEntries < 1 || maxEntries > 50) { toast({ title: t("cm.maxEntriesRange"), variant: "destructive" }); return; }
     const maxPhotos = parseInt(form.max_photos_per_entry) || 5;
-    if (maxPhotos < 1 || maxPhotos > 20) { toast({ title: "Max photos per entry: 1–20", variant: "destructive" }); return; }
+    if (maxPhotos < 1 || maxPhotos > 20) { toast({ title: t("cm.maxPhotosRange"), variant: "destructive" }); return; }
 
     const startDate = new Date(form.starts_at);
     const endDate = new Date(form.ends_at);
     const votingEndDate = form.voting_ends_at ? new Date(form.voting_ends_at) : null;
-    if (startDate >= endDate) { toast({ title: "Start date must be before end date", variant: "destructive" }); return; }
-    if (votingEndDate && votingEndDate <= endDate) { toast({ title: "Voting end must be after submission end", variant: "destructive" }); return; }
+    if (startDate >= endDate) { toast({ title: t("cm.startBeforeEnd"), variant: "destructive" }); return; }
+    if (votingEndDate && votingEndDate <= endDate) { toast({ title: t("cm.votingAfterEnd"), variant: "destructive" }); return; }
 
     setSaving(true);
     try {
@@ -354,16 +356,16 @@ const CompetitionsModule = ({ user }: Props) => {
       }
 
       if (error) {
-        toast({ title: "Failed to save", description: error.message, variant: "destructive" });
+        toast({ title: t("cm.saveFailed"), description: error.message, variant: "destructive" });
       } else {
         const wasNew = !editingId;
-        toast({ title: wasNew ? "Competition created — you can now add judges & rounds" : "Competition updated" });
+        toast({ title: wasNew ? t("cm.created") : t("cm.updated") });
         queryClient.invalidateQueries({ queryKey: queryKeys.adminCompetitions() });
         if (wasNew && compId) setEditingId(compId);
         else resetForm();
       }
     } catch (err: unknown) {
-      toast({ title: "Save failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
+      toast({ title: t("cm.saveFailed"), description: err instanceof Error ? err.message : "", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -413,7 +415,7 @@ const CompetitionsModule = ({ user }: Props) => {
         <button onClick={() => { resetForm(); setShowForm(true); }}
           className="inline-flex items-center gap-2 text-xs tracking-[0.15em] uppercase px-5 py-2.5 bg-primary text-primary-foreground hover:opacity-90 transition-opacity duration-500"
           style={{ fontFamily: "var(--font-heading)" }}>
-          <Plus className="h-3.5 w-3.5" /> New Competition
+          <Plus className="h-3.5 w-3.5" /> {t("cm.newCompetition")}
         </button>
       </div>
 
@@ -421,47 +423,47 @@ const CompetitionsModule = ({ user }: Props) => {
         <div className="border border-border p-6 md:p-8 mb-8 space-y-5">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs tracking-[0.2em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>
-              {editingId ? "Edit Competition" : "New Competition"}
+              {editingId ? t("cm.editCompetition") : t("cm.newCompetition")}
             </span>
             <button onClick={resetForm} className="text-muted-foreground hover:text-foreground"><XCircle className="h-4 w-4" /></button>
           </div>
           <div className="grid md:grid-cols-2 gap-5">
-            <FormField label="Title *" value={form.title} onChange={(v) => setForm((f) => ({ ...f, title: v }))} placeholder="Competition title" />
-            <FormField label="Category" value={form.category} onChange={(v) => setForm((f) => ({ ...f, category: v }))} placeholder="e.g. Wildlife, Street" />
+            <FormField label={t("cm.title")} value={form.title} onChange={(v) => setForm((f) => ({ ...f, title: v }))} placeholder={t("cm.phTitle")} />
+            <FormField label={t("crs.category")} value={form.category} onChange={(v) => setForm((f) => ({ ...f, category: v }))} placeholder={t("cm.phCategory")} />
             <CoverImageUploader value={form.cover_image_url} onChange={(url) => setForm(f => ({ ...f, cover_image_url: url }))} recommendedWidth={1200} recommendedHeight={400} bucket="competition-photos" folder="covers" />
-            <FormField label="Entry Fee ($)" value={form.entry_fee} onChange={(v) => setForm((f) => ({ ...f, entry_fee: v }))} placeholder="0" type="number" />
-            <FormField label="Prize Info" value={form.prize_info} onChange={(v) => setForm((f) => ({ ...f, prize_info: v }))} placeholder="e.g. $500 grand prize" />
-            <FormField label="Max Entries/User" value={form.max_entries_per_user} onChange={(v) => setForm((f) => ({ ...f, max_entries_per_user: v }))} type="number" />
-            <FormField label="Max Photos/Entry" value={form.max_photos_per_entry} onChange={(v) => setForm((f) => ({ ...f, max_photos_per_entry: v }))} type="number" />
-            <FormField label="Submission Opens *" value={form.starts_at} onChange={(v) => setForm((f) => ({ ...f, starts_at: v }))} type="datetime-local" />
-            <FormField label="Submission Closes *" value={form.ends_at} onChange={(v) => setForm((f) => ({ ...f, ends_at: v }))} type="datetime-local" />
-            <FormField label="Voting Ends" value={form.voting_ends_at} onChange={(v) => setForm((f) => ({ ...f, voting_ends_at: v }))} type="datetime-local" />
+            <FormField label={t("cm.entryFee")} value={form.entry_fee} onChange={(v) => setForm((f) => ({ ...f, entry_fee: v }))} placeholder="0" type="number" />
+            <FormField label={t("cm.prizeInfo")} value={form.prize_info} onChange={(v) => setForm((f) => ({ ...f, prize_info: v }))} placeholder={t("cm.phPrize")} />
+            <FormField label={t("cm.maxEntriesUser")} value={form.max_entries_per_user} onChange={(v) => setForm((f) => ({ ...f, max_entries_per_user: v }))} type="number" />
+            <FormField label={t("cm.maxPhotosEntry")} value={form.max_photos_per_entry} onChange={(v) => setForm((f) => ({ ...f, max_photos_per_entry: v }))} type="number" />
+            <FormField label={t("cm.subOpens")} value={form.starts_at} onChange={(v) => setForm((f) => ({ ...f, starts_at: v }))} type="datetime-local" />
+            <FormField label={t("cm.subCloses")} value={form.ends_at} onChange={(v) => setForm((f) => ({ ...f, ends_at: v }))} type="datetime-local" />
+            <FormField label={t("cm.votingEnds")} value={form.voting_ends_at} onChange={(v) => setForm((f) => ({ ...f, voting_ends_at: v }))} type="datetime-local" />
           </div>
           <div className="flex items-center gap-3 py-3 px-4 border border-border bg-muted/20">
             <input type="checkbox" checked={form.ai_images_allowed} onChange={(e) => setForm((f) => ({ ...f, ai_images_allowed: e.target.checked }))} className="h-4 w-4 accent-primary" />
             <div>
-              <span className="text-xs font-medium" style={{ fontFamily: "var(--font-heading)" }}>Allow AI-Generated Images</span>
-              <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>If unchecked, participants must declare whether their submission is AI-generated.</p>
+              <span className="text-xs font-medium" style={{ fontFamily: "var(--font-heading)" }}>{t("cm.allowAi")}</span>
+              <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>{t("cm.allowAiHint")}</p>
             </div>
           </div>
           <div>
-            <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2" style={{ fontFamily: "var(--font-heading)" }}>Description</label>
+            <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2" style={{ fontFamily: "var(--font-heading)" }}>{t("cm.description")}</label>
             <textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={3}
               className="w-full bg-transparent border border-border focus:border-primary outline-none p-4 text-sm transition-colors duration-500 resize-none"
-              placeholder="Describe this competition..." style={{ fontFamily: "var(--font-body)" }} />
+              placeholder={t("cm.phDescription")} style={{ fontFamily: "var(--font-body)" }} />
           </div>
           {parseFloat(form.entry_fee) > 0 && (
             <div className="border border-border/50 p-5 space-y-4">
-              <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Payment Details</span>
+              <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("cm.paymentDetails")}</span>
               <div className="grid md:grid-cols-2 gap-5">
-                <FormField label="PayPal Email" value={form.paypal_email} onChange={(v) => setForm((f) => ({ ...f, paypal_email: v }))} placeholder="payments@example.com" />
-                <FormField label="UPI ID" value={form.upi_id} onChange={(v) => setForm((f) => ({ ...f, upi_id: v }))} placeholder="name@upi" />
+                <FormField label={t("cm.paypalEmail")} value={form.paypal_email} onChange={(v) => setForm((f) => ({ ...f, paypal_email: v }))} placeholder="payments@example.com" />
+                <FormField label={t("cm.upiId")} value={form.upi_id} onChange={(v) => setForm((f) => ({ ...f, upi_id: v }))} placeholder="name@upi" />
               </div>
               <div>
-                <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2" style={{ fontFamily: "var(--font-heading)" }}>Bank Details</label>
+                <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2" style={{ fontFamily: "var(--font-heading)" }}>{t("cm.bankDetails")}</label>
                 <textarea value={form.bank_details} onChange={(e) => setForm((f) => ({ ...f, bank_details: e.target.value }))} rows={2}
                   className="w-full bg-transparent border border-border focus:border-primary outline-none p-4 text-sm transition-colors duration-500 resize-none"
-                  placeholder="Bank name, Account number, IFSC, etc." style={{ fontFamily: "var(--font-body)" }} />
+                  placeholder={t("cm.phBankDetails")} style={{ fontFamily: "var(--font-body)" }} />
               </div>
             </div>
           )}
@@ -477,11 +479,11 @@ const CompetitionsModule = ({ user }: Props) => {
             </Suspense>
           ) : (
             <div className="border border-dashed border-border px-4 py-3 flex items-center justify-between">
-              <span className="text-[10px] text-muted-foreground italic" style={{ fontFamily: "var(--font-body)" }}>Judges & rounds will be available after saving.</span>
+              <span className="text-[10px] text-muted-foreground italic" style={{ fontFamily: "var(--font-body)" }}>{t("cm.judgesAfterSave")}</span>
               <button onClick={handleSave} disabled={saving || !form.title.trim() || !form.starts_at || !form.ends_at}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-[9px] tracking-[0.15em] uppercase hover:opacity-90 transition-opacity disabled:opacity-50"
                 style={{ fontFamily: "var(--font-heading)" }}>
-                {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} Save & Add Judges/Rounds
+                {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} {t("cm.saveAddJudges")}
               </button>
             </div>
           )}
@@ -489,9 +491,9 @@ const CompetitionsModule = ({ user }: Props) => {
             <button onClick={handleSave} disabled={saving}
               className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground text-xs tracking-[0.2em] uppercase hover:opacity-90 transition-opacity duration-500 disabled:opacity-50"
               style={{ fontFamily: "var(--font-heading)" }}>
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />} {editingId ? "Update" : "Create"}
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />} {editingId ? t("cm.update") : t("cm.create")}
             </button>
-            <button onClick={resetForm} className="text-xs tracking-[0.15em] uppercase text-muted-foreground hover:text-foreground" style={{ fontFamily: "var(--font-heading)" }}>Cancel</button>
+            <button onClick={resetForm} className="text-xs tracking-[0.15em] uppercase text-muted-foreground hover:text-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("common.cancel")}</button>
           </div>
         </div>
       )}
@@ -517,12 +519,12 @@ const CompetitionsModule = ({ user }: Props) => {
           <thead>
             <tr className="border-b border-border bg-muted/10">
               {([
-                { key: "title", label: "Title" },
-                { key: "category", label: "Category" },
-                { key: "phase", label: "Status" },
-                { key: null, label: "Fee" },
-                { key: null, label: "Judges" },
-                { key: "starts_at", label: "Schedule" },
+                { key: "title", label: t("cm.thTitle") },
+                { key: "category", label: t("crs.category") },
+                { key: "phase", label: t("ref.status") },
+                { key: null, label: t("cm.thFee") },
+                { key: null, label: t("cm.thJudges") },
+                { key: "starts_at", label: t("cm.thSchedule") },
                 { key: null, label: "" },
               ] as { key: "title" | "category" | "phase" | "starts_at" | null; label: string }[]).map((h) => (
                 <th key={h.label || "actions"}
@@ -695,7 +697,7 @@ const CompetitionsModule = ({ user }: Props) => {
               );
             })}
             {sortedCompetitions.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">No competitions yet</td></tr>
+              <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">{t("cm.noCompetitions")}</td></tr>
             )}
           </tbody>
         </table>
@@ -746,7 +748,7 @@ const CompetitionsModule = ({ user }: Props) => {
         );})}
         {competitions.length === 0 && (
           <div className="text-center py-10 border border-dashed border-border rounded-sm">
-            <p className="text-sm text-muted-foreground">No competitions yet</p>
+            <p className="text-sm text-muted-foreground">{t("cm.noCompetitions")}</p>
           </div>
         )}
       </div>
@@ -754,15 +756,15 @@ const CompetitionsModule = ({ user }: Props) => {
       <AlertDialog open={!!archiveTarget} onOpenChange={(open) => !open && setArchiveTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Archive Competition</AlertDialogTitle>
+            <AlertDialogTitle>{t("cm.archiveCompetition")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will archive the competition and hide it from public view. All entries will be preserved. This action is logged.
+              {t("cm.archiveDesc")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmArchive} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Archive
+              {t("cm.archive")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -772,22 +774,22 @@ const CompetitionsModule = ({ user }: Props) => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="h-5 w-5" /> Permanently Delete Competition
+              <AlertTriangle className="h-5 w-5" /> {t("cm.permDelete")}
             </AlertDialogTitle>
             <AlertDialogDescription className="space-y-2">
-              <span className="block font-semibold text-destructive">This action is IRREVERSIBLE.</span>
-              <span className="block">This will permanently delete the competition and ALL connected data including:</span>
-              <span className="block text-xs">• All entries & photos submitted by users</span>
-              <span className="block text-xs">• All votes, scores, judge decisions & comments</span>
-              <span className="block text-xs">• All judging rounds, sessions & assignments</span>
-              <span className="block text-xs">• Payment details & vote adjustments</span>
+              <span className="block font-semibold text-destructive">{t("cm.irreversible")}</span>
+              <span className="block">{t("cm.deleteAllData")}</span>
+              <span className="block text-xs">{t("cm.delEntries")}</span>
+              <span className="block text-xs">{t("cm.delVotes")}</span>
+              <span className="block text-xs">{t("cm.delRounds")}</span>
+              <span className="block text-xs">{t("cm.delPayments")}</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={hardDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={hardDeleting}>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmHardDelete} disabled={hardDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              {hardDeleting ? <><Loader2 className="h-4 w-4 animate-spin mr-1" /> Deleting…</> : "Delete Forever"}
+              {hardDeleting ? <><Loader2 className="h-4 w-4 animate-spin mr-1" /> {t("cm.deleting")}</> : t("cm.deleteForever")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
