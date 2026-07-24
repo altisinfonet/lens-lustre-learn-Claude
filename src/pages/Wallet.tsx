@@ -15,6 +15,7 @@ import { formatINR, formatUSD, formatUSDFixed, formatINRFixed, formatINRShort } 
 import { queryKeys } from "@/lib/queryKeys";
 import { fireConversion } from "@/lib/adConversionContext";
 import RewardedAdEntry from "@/components/ads/RewardedAdEntry";
+import { useT } from "@/i18n/I18nContext";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -54,6 +55,7 @@ const Wallet = () => {
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
   const { balance, transactions, exchangeRate, loading, toINR, refresh } = useWallet();
+  const t = useT();
   const { data: walletPageData } = useWalletPageData(user?.id);
   const { submitDeposit, isSubmitting: depositSubmitting } = useWalletDeposits();
   const { submitWithdrawal, isSubmitting: withdrawalSubmitting } = useWalletWithdrawals();
@@ -523,7 +525,7 @@ const Wallet = () => {
                   className="text-[10px] tracking-[0.2em] uppercase border border-border px-3 py-2 hover:bg-muted/50 transition-colors"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  Dismiss
+                  {t("wallet.dismiss")}
                 </button>
                 <button
                   onClick={() => navigate("/")}
@@ -543,7 +545,7 @@ const Wallet = () => {
         >
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
-              <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-2" style={{ fontFamily: "var(--font-heading)" }}>Available Balance</span>
+              <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-2" style={{ fontFamily: "var(--font-heading)" }}>{t("wallet.availableBalance")}</span>
               <div className="flex items-baseline gap-3">
                 <span className="text-4xl md:text-5xl font-light tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
                   {formatUSDFixed(Number(balance))}
@@ -578,14 +580,14 @@ const Wallet = () => {
                 className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground text-xs tracking-[0.2em] uppercase hover:opacity-90 transition-opacity duration-500"
                 style={{ fontFamily: "var(--font-heading)" }}
               >
-                <Plus className="h-3.5 w-3.5" /> Add Money
+                <Plus className="h-3.5 w-3.5" /> {t("wallet.addMoney")}
               </button>
               <button
                 onClick={() => setShowWithdraw(true)}
                 className="inline-flex items-center gap-2 px-6 py-3 border border-border text-xs tracking-[0.2em] uppercase hover:border-primary/50 transition-all duration-500"
                 style={{ fontFamily: "var(--font-heading)" }}
               >
-                <Banknote className="h-3.5 w-3.5" /> Withdraw
+                <Banknote className="h-3.5 w-3.5" /> {t("wallet.withdraw")}
               </button>
               <button
                 onClick={() => setCurrencyDisplay(c => c === "usd" ? "inr" : "usd")}
@@ -676,7 +678,7 @@ const Wallet = () => {
             ) : (
               <div className="space-y-2">
                 <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block" style={{ fontFamily: "var(--font-heading)" }}>
-                  Choose Payment Method
+                  {t("wallet.choosePayment")}
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {paymentGateways?.stripe?.enabled && (
@@ -967,7 +969,7 @@ const Wallet = () => {
               style={{ fontFamily: "var(--font-heading)" }}
             >
               {withdrawSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Banknote className="h-3.5 w-3.5" />}
-              Submit Withdrawal Request
+              {t("wallet.submitWithdrawal")}
             </button>
           </motion.div>
         )}

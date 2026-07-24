@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useCompetitions, CompetitionListItem } from "@/hooks/competition/useCompetitions";
 import { useAuth } from "@/hooks/core/useAuth";
 import { phaseStatusColors, phaseDisplayLabels } from "@/lib/competitionPhase";
+import { useT } from "@/i18n/I18nContext";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -20,16 +21,17 @@ type PhaseFilter = "all" | "submission_open" | "voting" | "judging" | "result";
 
 const Competitions = () => {
   const { user } = useAuth();
+  const t = useT();
   const [filter, setFilter] = useState<PhaseFilter>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const { data: competitions = [], isLoading: loading } = useCompetitions(filter === "all" ? undefined : filter);
 
   const filterLabels: Record<string, string> = {
-    all: "All",
-    submission_open: "Open",
-    voting: "Voting",
-    judging: "Judging",
-    result: "Results",
+    all: t("comp.filterAll"),
+    submission_open: t("comp.filterOpen"),
+    voting: t("comp.filterVoting"),
+    judging: t("comp.filterJudging"),
+    result: t("comp.filterResult"),
   };
 
   return (
@@ -39,13 +41,13 @@ const Competitions = () => {
 <motion.div initial="hidden" animate="visible">
           <motion.div variants={fadeUp} custom={0} className="flex items-center gap-4 mb-2">
             <div className="w-12 h-px bg-primary" />
-            <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>Compete</span>
+            <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>{t("nav.compete")}</span>
           </motion.div>
           <motion.h1 variants={fadeUp} custom={1} className="text-xl md:text-6xl font-light tracking-tight mb-2 md:mb-4 px-2 md:px-0" style={{ fontFamily: "var(--font-display)" }}>
             Photography <em className="italic text-primary">Competitions</em>
           </motion.h1>
           <motion.p variants={fadeUp} custom={2} className="text-xs md:text-sm text-muted-foreground max-w-lg mb-4 md:mb-12 px-2 md:px-0" style={{ fontFamily: "var(--font-body)" }}>
-            Showcase your talent, compete with photographers worldwide, and win recognition.
+            {t("comp.subtitle")}
           </motion.p>
 
           {/* Filters */}
@@ -68,13 +70,13 @@ const Competitions = () => {
         {/* Grid */}
         {loading ? (
           <div className="text-xs tracking-[0.3em] uppercase text-muted-foreground animate-pulse py-20 text-center" style={{ fontFamily: "var(--font-heading)" }}>
-            Loading competitions...
+            {t("comp.loading")}
           </div>
         ) : competitions.length === 0 ? (
           <div className="text-center py-20">
             <Trophy className="h-10 w-10 text-muted-foreground/30 mx-auto mb-4" />
             <p className="text-sm text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-              No competitions found. Check back soon!
+              {t("comp.empty")}
             </p>
           </div>
         ) : (
@@ -150,7 +152,7 @@ const Competitions = () => {
                         )}
                       </div>
                       <span className="inline-flex items-center gap-2 text-sm tracking-[0.2em] uppercase text-primary mt-2" style={{ fontFamily: "var(--font-heading)" }}>
-                        View Details
+                        {t("comp.viewDetails")}
                         <ArrowRight className="h-5 w-5 group-hover:translate-x-1 group-data-[expanded=true]:translate-x-1 transition-transform duration-500" />
                       </span>
                     </div>
@@ -165,7 +167,7 @@ const Competitions = () => {
                     {/* Tap hint - mobile only, hidden when expanded */}
                     <div className="absolute top-4 right-4 md:hidden group-data-[expanded=true]:opacity-0 transition-opacity duration-300">
                       <span className="text-[10px] tracking-[0.2em] uppercase px-3 py-1.5 border border-primary/40 bg-background/80 backdrop-blur-sm rounded-full text-primary" style={{ fontFamily: "var(--font-heading)" }}>
-                        Tap for info
+                        {t("comp.tapInfo")}
                       </span>
                     </div>
 
