@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useNotificationPreferences, type NotificationPreferences } from "@/hooks/notifications/useNotificationPreferences";
 import { useNotificationSound } from "@/hooks/core/useNotificationSound";
 import PageSEO from "@/components/PageSEO";
+import { useT } from "@/i18n/I18nContext";
 
 interface ToggleRowProps {
   icon: React.ReactNode;
@@ -18,7 +19,9 @@ interface ToggleRowProps {
   locked?: boolean;
 }
 
-const ToggleRow = ({ icon, label, description, checked, onCheckedChange, disabled, locked }: ToggleRowProps) => (
+const ToggleRow = ({ icon, label, description, checked, onCheckedChange, disabled, locked }: ToggleRowProps) => {
+  const t = useT();
+  return (
   <div className="flex items-center justify-between gap-4 py-3 px-1">
     <div className="flex items-start gap-3 min-w-0">
       <div className="mt-0.5 text-muted-foreground shrink-0">{icon}</div>
@@ -31,14 +34,15 @@ const ToggleRow = ({ icon, label, description, checked, onCheckedChange, disable
       {locked ? (
         <div className="flex items-center gap-1.5">
           <Shield className="w-3.5 h-3.5 text-primary" />
-          <span className="text-[10px] uppercase tracking-wider text-primary font-semibold">Always On</span>
+          <span className="text-[10px] uppercase tracking-wider text-primary font-semibold">{t("notif.alwaysOn")}</span>
         </div>
       ) : (
         <Switch checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} />
       )}
     </div>
   </div>
-);
+  );
+};
 
 const SectionHeader = ({ title, subtitle }: { title: string; subtitle?: string }) => (
   <div className="pt-6 pb-2 first:pt-0">
@@ -48,6 +52,7 @@ const SectionHeader = ({ title, subtitle }: { title: string; subtitle?: string }
 );
 
 const NotificationSettings = () => {
+  const t = useT();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { preferences, isLoading, updatePreference } = useNotificationPreferences();
@@ -65,7 +70,7 @@ const NotificationSettings = () => {
 
   return (
     <>
-      <PageSEO title="Notification Settings" description="Manage your notification preferences" />
+      <PageSEO title={t("notif.title")} description={t("notif.subtitle")} />
       <div className="min-h-screen bg-background">
         <div className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
           {/* Header */}
@@ -74,8 +79,8 @@ const NotificationSettings = () => {
               <Bell className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">Notification Settings</h1>
-              <p className="text-sm text-muted-foreground">Choose what you want to be notified about</p>
+              <h1 className="text-xl font-bold text-foreground">{t("notif.title")}</h1>
+              <p className="text-sm text-muted-foreground">{t("notif.subtitle")}</p>
             </div>
           </div>
 
@@ -89,142 +94,142 @@ const NotificationSettings = () => {
             <div className="space-y-0 divide-y divide-border/50">
 
               {/* Account & Security — always ON */}
-              <SectionHeader title="Account & Security" subtitle="These cannot be disabled for your safety" />
+              <SectionHeader title={t("notif.sec.account")} subtitle={t("notif.sec.accountSub")} />
               <ToggleRow
                 icon={<Shield className="w-4 h-4" />}
-                label="Support Ticket Replies"
-                description="When our team replies to your support ticket"
+                label={t("notif.support")}
+                description={t("notif.supportDesc")}
                 checked={true}
                 onCheckedChange={() => {}}
                 locked
               />
               <ToggleRow
                 icon={<Shield className="w-4 h-4" />}
-                label="Role Application Decisions"
-                description="When your role application is approved or rejected"
+                label={t("notif.roleDecision")}
+                description={t("notif.roleDecisionDesc")}
                 checked={true}
                 onCheckedChange={() => {}}
                 locked
               />
               <ToggleRow
                 icon={<Shield className="w-4 h-4" />}
-                label="Friend Request Accepted"
-                description="When someone accepts your friend request"
+                label={t("notif.friendAccepted")}
+                description={t("notif.friendAcceptedDesc")}
                 checked={true}
                 onCheckedChange={() => {}}
                 locked
               />
 
               {/* Email Notifications */}
-              <SectionHeader title="Email Notifications" subtitle="Control which emails you receive" />
+              <SectionHeader title={t("notif.sec.email")} subtitle={t("notif.sec.emailSub")} />
               <ToggleRow
                 icon={<Heart className="w-4 h-4" />}
-                label="Reactions"
-                description="When someone reacts to your post or photo"
+                label={t("notif.reactions")}
+                description={t("notif.reactionsEmailDesc")}
                 checked={preferences.email_reactions}
                 onCheckedChange={toggle("email_reactions")}
               />
               <ToggleRow
                 icon={<MessageSquare className="w-4 h-4" />}
-                label="Comments & Replies"
-                description="When someone comments on your content or replies to you"
+                label={t("notif.comments")}
+                description={t("notif.commentsEmailDesc")}
                 checked={preferences.email_comments}
                 onCheckedChange={toggle("email_comments")}
               />
               <ToggleRow
                 icon={<Users className="w-4 h-4" />}
-                label="Friend Requests"
-                description="When someone sends you a friend request"
+                label={t("notif.friendRequests")}
+                description={t("notif.friendRequestsDesc")}
                 checked={preferences.email_friend_requests}
                 onCheckedChange={toggle("email_friend_requests")}
               />
               <ToggleRow
                 icon={<Users className="w-4 h-4" />}
-                label="New Followers"
-                description="When someone starts following you"
+                label={t("notif.newFollowers")}
+                description={t("notif.newFollowersDesc")}
                 checked={preferences.email_new_followers}
                 onCheckedChange={toggle("email_new_followers")}
               />
               <ToggleRow
                 icon={<Trophy className="w-4 h-4" />}
-                label="Competition Updates"
-                description="Results, approvals, and winner announcements"
+                label={t("notif.compUpdates")}
+                description={t("notif.compUpdatesDesc")}
                 checked={preferences.email_competition_updates}
                 onCheckedChange={toggle("email_competition_updates")}
               />
               <ToggleRow
                 icon={<Gift className="w-4 h-4" />}
-                label="Gift Credits & Badges"
-                description="When you receive gift credits or earn a badge"
+                label={t("notif.giftCredits")}
+                description={t("notif.giftCreditsDesc")}
                 checked={preferences.email_gift_credits}
                 onCheckedChange={toggle("email_gift_credits")}
               />
               <ToggleRow
                 icon={<Award className="w-4 h-4" />}
-                label="Certificates"
-                description="When a new certificate is issued to you"
+                label={t("notif.certificates")}
+                description={t("notif.certificatesDesc")}
                 checked={preferences.email_certificates}
                 onCheckedChange={toggle("email_certificates")}
               />
               <ToggleRow
                 icon={<GraduationCap className="w-4 h-4" />}
-                label="Course Updates"
-                description="Updates about courses you're enrolled in"
+                label={t("notif.courseUpdates")}
+                description={t("notif.courseUpdatesDesc")}
                 checked={preferences.email_course_updates}
                 onCheckedChange={toggle("email_course_updates")}
               />
               <ToggleRow
                 icon={<Mail className="w-4 h-4" />}
-                label="Weekly Digest"
-                description="Coming soon — a weekly summary of activity you may have missed. Your choice is saved and will apply when the digest launches."
+                label={t("notif.weeklyDigest")}
+                description={t("notif.weeklyDigestDesc")}
                 checked={preferences.email_weekly_digest}
                 onCheckedChange={toggle("email_weekly_digest")}
               />
               <ToggleRow
                 icon={<Heart className="w-4 h-4" />}
-                label="We Miss You Emails"
-                description="If you're away for 3+ days, we'll send up to 4 gentle nudges to bring you back"
+                label={t("notif.missYou")}
+                description={t("notif.missYouDesc")}
                 checked={preferences.email_reengagement}
                 onCheckedChange={toggle("email_reengagement")}
               />
 
               {/* In-App Notifications */}
-              <SectionHeader title="In-App Notifications" subtitle="Control notifications within the app" />
+              <SectionHeader title={t("notif.sec.inapp")} subtitle={t("notif.sec.inappSub")} />
               <ToggleRow
                 icon={<Heart className="w-4 h-4" />}
-                label="Reactions"
-                description="In-app alerts for reactions on your content"
+                label={t("notif.reactions")}
+                description={t("notif.reactionsInappDesc")}
                 checked={preferences.inapp_reactions}
                 onCheckedChange={toggle("inapp_reactions")}
               />
               <ToggleRow
                 icon={<MessageSquare className="w-4 h-4" />}
-                label="Comments & Replies"
-                description="In-app alerts for comments and replies"
+                label={t("notif.comments")}
+                description={t("notif.commentsInappDesc")}
                 checked={preferences.inapp_comments}
                 onCheckedChange={toggle("inapp_comments")}
               />
               <ToggleRow
                 icon={<Users className="w-4 h-4" />}
-                label="Social Activity"
-                description="Friend requests, follows, and social interactions"
+                label={t("notif.socialActivity")}
+                description={t("notif.socialActivityDesc")}
                 checked={preferences.inapp_social}
                 onCheckedChange={toggle("inapp_social")}
               />
               <ToggleRow
                 icon={<Trophy className="w-4 h-4" />}
-                label="Competition Activity"
-                description="Votes, results, and competition updates"
+                label={t("notif.compActivity")}
+                description={t("notif.compActivityDesc")}
                 checked={preferences.inapp_competitions}
                 onCheckedChange={toggle("inapp_competitions")}
               />
 
               {/* Sound */}
-              <SectionHeader title="Sound" />
+              <SectionHeader title={t("notif.sec.sound")} />
               <ToggleRow
                 icon={<Volume2 className="w-4 h-4" />}
-                label="Notification Sound"
-                description="Play a chime when new notifications arrive"
+                label={t("notif.sound")}
+                description={t("notif.soundDesc")}
                 checked={soundEnabled.current}
                 onCheckedChange={(v) => setSoundEnabled(v)}
               />

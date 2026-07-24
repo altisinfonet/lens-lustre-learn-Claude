@@ -18,8 +18,21 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/hooks/core/useTheme";
 import { motion, AnimatePresence } from "framer-motion";
+import { useT } from "@/i18n/I18nContext";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
+
+// Map the grid's English action labels to translation keys (reuses existing
+// nav.*/menu.* keys where the wording matches; short labels use msheet.*).
+const MSHEET_LABEL_KEYS: Record<string, string> = {
+  "Admin": "msheet.admin", "Judge": "msheet.judge", "Profile": "nav.profile",
+  "Edit": "msheet.edit", "Dashboard": "menu.dashboard", "Entries": "msheet.entries",
+  "My Wall": "menu.myWall", "Feed": "nav.feed", "Discover": "menu.discover",
+  "Photos": "msheet.photos", "Winners": "msheet.winners", "Compete": "msheet.compete",
+  "Journal": "msheet.journal", "Courses": "msheet.courses", "Friends": "menu.friends",
+  "Certificates": "msheet.certificates", "Referrals": "menu.referrals", "Wallet": "menu.wallet",
+  "Settings": "profile.settings", "Help": "msheet.help", "Get App": "msheet.getApp",
+};
 
 // Google Play listing for the published Android app. The old PWA "Install App"
 // prompt has been replaced by this store link now that the app is live.
@@ -41,6 +54,8 @@ interface QuickAction {
 }
 
 const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
+  const t = useT();
+  const tl = (label: string) => { const k = MSHEET_LABEL_KEYS[label]; return k ? t(k) : label; };
   const { user, signOut } = useAuth();
   const { isAdmin } = useIsAdmin();
   const { roles, hasRole } = useUserRoles();
@@ -139,7 +154,7 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[85vh] bg-card backdrop-blur-2xl border-border">
         <DrawerHeader className="pb-2">
-          <DrawerTitle className="sr-only">Profile Menu</DrawerTitle>
+          <DrawerTitle className="sr-only">{t("msheet.profileMenu")}</DrawerTitle>
 
           {/* Avatar + Name */}
           <div className="flex items-center gap-3">
@@ -206,7 +221,7 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
                       }`}
                     style={headingFont}
                   >
-                    {action.label}
+                    {tl(action.label)}
                   </span>
                 </motion.button>
               ))}
@@ -222,7 +237,7 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
           >
             {theme === "dark" ? <Sun className="h-4 w-4 text-primary" /> : <Moon className="h-4 w-4 text-primary" />}
             <span className="text-[9px] tracking-[0.1em] uppercase text-foreground/60 dark:text-muted-foreground" style={headingFont}>
-              {theme === "dark" ? "Light" : "Dark"}
+              {theme === "dark" ? t("msheet.light") : t("msheet.dark")}
             </span>
           </button>
 
@@ -232,7 +247,7 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
           >
             <LogOut className="h-4 w-4 text-destructive-foreground" />
             <span className="text-[9px] tracking-[0.1em] uppercase text-destructive-foreground font-semibold" style={headingFont}>
-              Logout
+              {t("menu.logout")}
             </span>
           </button>
         </div>
