@@ -4,6 +4,7 @@ import AvatarCompletionRing from "@/components/AvatarCompletionRing";
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/core/useAuth";
+import { useT } from "@/i18n/I18nContext";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfileMap } from "@/hooks/profile/useProfileMap";
@@ -27,6 +28,7 @@ interface ProfileData {
 
 const Profile = () => {
   const { user, loading: authLoading } = useAuth();
+  const t = useT();
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -62,7 +64,7 @@ const Profile = () => {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-xs tracking-[0.3em] uppercase text-muted-foreground animate-pulse" style={{ fontFamily: "var(--font-heading)" }}>
-          Loading...
+          {t("common.loading")}
         </div>
       </main>
     );
@@ -151,7 +153,7 @@ const Profile = () => {
                 className={`flex-1 py-2.5 text-[11px] font-medium uppercase tracking-wider text-center transition-colors relative ${activeTab === tab ? "text-primary" : "text-muted-foreground"}`}
                 style={{ fontFamily: "var(--font-heading)" }}
               >
-                {tab === "about" ? "About" : "Settings"}
+                {tab === "about" ? t("profile.about") : t("profile.settings")}
                 {activeTab === tab && (
                   <motion.div layoutId="profileTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
                 )}

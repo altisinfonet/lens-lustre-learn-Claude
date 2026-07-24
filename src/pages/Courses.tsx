@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/core/useAuth";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import { useCourses, CourseListItem } from "@/hooks/content/useCourses";
+import { useT } from "@/i18n/I18nContext";
 
 
 const difficultyColor = (d: string) => {
@@ -21,6 +22,7 @@ const difficultyColor = (d: string) => {
 
 const Courses = () => {
   const { user } = useAuth();
+  const t = useT();
   const navigate = useNavigate();
   const { isAdmin } = useIsAdmin();
   const { data: courses = [], isLoading: loading } = useCourses();
@@ -38,19 +40,19 @@ const Courses = () => {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1 }}>
           <div className="flex items-center gap-4 mb-4">
             <div className="w-12 h-px bg-primary" />
-            <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>Learning</span>
+            <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>{t("courses.eyebrow")}</span>
           </div>
           <h1 className="text-2xl md:text-7xl font-light tracking-tight mb-3 md:mb-6" style={{ fontFamily: "var(--font-display)" }}>
             Photography <em className="italic">Courses</em>
           </h1>
           <p className="text-xs md:text-sm text-muted-foreground max-w-lg leading-relaxed mb-6 md:mb-12" style={{ fontFamily: "var(--font-body)" }}>
-            Master your craft with structured courses from experienced photographers. Track your progress lesson by lesson.
+            {t("courses.subtitle")}
           </p>
         </motion.div>
 
         {categories.length > 0 && (
           <div className="flex gap-2 mb-6 md:mb-12 overflow-x-auto scrollbar-hide">
-            <button onClick={() => setSelectedCategory(null)} className={`text-[10px] tracking-[0.15em] uppercase px-3 md:px-4 py-1.5 md:py-2 border rounded-full md:rounded-none transition-all duration-300 whitespace-nowrap ${!selectedCategory ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"}`} style={{ fontFamily: "var(--font-heading)" }}>All</button>
+            <button onClick={() => setSelectedCategory(null)} className={`text-[10px] tracking-[0.15em] uppercase px-3 md:px-4 py-1.5 md:py-2 border rounded-full md:rounded-none transition-all duration-300 whitespace-nowrap ${!selectedCategory ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"}`} style={{ fontFamily: "var(--font-heading)" }}>{t("comp.filterAll")}</button>
             {categories.map((cat) => (
               <button key={cat} onClick={() => setSelectedCategory(cat)} className={`text-[10px] tracking-[0.15em] uppercase px-3 md:px-4 py-1.5 md:py-2 border rounded-full md:rounded-none transition-all duration-300 whitespace-nowrap ${selectedCategory === cat ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"}`} style={{ fontFamily: "var(--font-heading)" }}>{cat}</button>
             ))}
@@ -70,7 +72,7 @@ const Courses = () => {
         ) : filtered.length === 0 ? (
           <div className="text-center py-24">
             <GraduationCap className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-            <p className="text-muted-foreground text-sm" style={{ fontFamily: "var(--font-body)" }}>No courses published yet. Check back soon.</p>
+            <p className="text-muted-foreground text-sm" style={{ fontFamily: "var(--font-body)" }}>{t("courses.empty")}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 pb-6 md:pb-10">
@@ -88,7 +90,7 @@ const Courses = () => {
                     )}
                     <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
                       {course.is_featured && (
-                        <span className="text-[8px] tracking-[0.15em] uppercase px-2.5 py-1 bg-yellow-500 text-yellow-950 font-semibold" style={{ fontFamily: "var(--font-heading)" }}>★ Featured</span>
+                        <span className="text-[8px] tracking-[0.15em] uppercase px-2.5 py-1 bg-yellow-500 text-yellow-950 font-semibold" style={{ fontFamily: "var(--font-heading)" }}>★ {t("common.featured")}</span>
                       )}
                       {course.labels?.map((label) => (
                         <span key={label} className={`text-[8px] tracking-[0.1em] uppercase px-2.5 py-1 font-semibold ${

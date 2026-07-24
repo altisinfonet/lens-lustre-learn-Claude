@@ -8,11 +8,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { useJournal, JournalArticle } from "@/hooks/content/useJournal";
+import { useT } from "@/i18n/I18nContext";
 
 const Journal = () => {
   const { user } = useAuth();
   const { isAdmin } = useIsAdmin();
   const { data: articles = [], isLoading: loading } = useJournal();
+  const t = useT();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedTag = searchParams.get("tag");
   const setSelectedTag = (tag: string | null) => {
@@ -57,14 +59,14 @@ const Journal = () => {
           <div className="flex items-center gap-4 mb-4">
             <div className="w-12 h-px bg-primary" />
             <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>
-              Photography Journal
+              {t("journal.eyebrow")}
             </span>
           </div>
           <h1 className="text-2xl md:text-7xl font-light tracking-tight mb-3 md:mb-6" style={{ fontFamily: "var(--font-display)" }}>
             Stories & <em className="italic">Insights</em>
           </h1>
           <p className="text-xs md:text-sm text-muted-foreground max-w-lg leading-relaxed mb-6 md:mb-12" style={{ fontFamily: "var(--font-body)" }}>
-            Dive into articles, behind-the-scenes stories, and photography techniques from our community of creators.
+            {t("journal.subtitle")}
           </p>
         </motion.div>
 
@@ -111,7 +113,7 @@ const Journal = () => {
         ) : filtered.length === 0 ? (
           <div className="text-center py-24">
             <p className="text-muted-foreground text-sm" style={{ fontFamily: "var(--font-body)" }}>
-              No articles published yet. Check back soon.
+              {t("journal.empty")}
             </p>
           </div>
         ) : (
@@ -143,7 +145,7 @@ const Journal = () => {
                                 className="text-[9px] tracking-[0.25em] uppercase px-3 py-1.5 bg-primary text-primary-foreground"
                                 style={{ fontFamily: "var(--font-heading)" }}
                               >
-                                Featured
+                                {t("common.featured")}
                               </span>
                             </div>
                           </div>
@@ -201,7 +203,7 @@ const Journal = () => {
                     <div className="flex items-center gap-4 mb-6 md:mb-12">
                       <div className="w-12 h-px bg-border" />
                       <span className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                        More Stories
+                        {t("journal.moreStories")}
                       </span>
                       <div className="flex-1 h-px bg-border" />
                     </div>

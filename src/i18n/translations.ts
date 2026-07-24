@@ -85,6 +85,17 @@ const en: Dict = {
   "wallet.submitWithdrawal": "Submit Withdrawal Request",
   "wallet.choosePayment": "Choose Payment Method",
   "wallet.confirmPayment": "Confirm Payment",
+  "common.featured": "Featured",
+  "common.loading": "Loading...",
+  "journal.eyebrow": "Photography Journal",
+  "journal.subtitle": "Dive into articles, behind-the-scenes stories, and photography techniques from our community of creators.",
+  "journal.empty": "No articles published yet. Check back soon.",
+  "journal.moreStories": "More Stories",
+  "courses.eyebrow": "Learning",
+  "courses.subtitle": "Master your craft with structured courses from experienced photographers. Track your progress lesson by lesson.",
+  "courses.empty": "No courses published yet. Check back soon.",
+  "profile.about": "About",
+  "profile.settings": "Settings",
 };
 
 const hi: Dict = {
@@ -150,6 +161,17 @@ const hi: Dict = {
   "wallet.submitWithdrawal": "निकासी अनुरोध भेजें",
   "wallet.choosePayment": "भुगतान का तरीका चुनें",
   "wallet.confirmPayment": "भुगतान की पुष्टि करें",
+  "common.featured": "विशेष",
+  "common.loading": "लोड हो रहा है...",
+  "journal.eyebrow": "फ़ोटोग्राफ़ी जर्नल",
+  "journal.subtitle": "लेख, पर्दे के पीछे की कहानियाँ, और हमारे रचनाकारों के समुदाय से फ़ोटोग्राफ़ी तकनीकों में गोता लगाएँ।",
+  "journal.empty": "अभी तक कोई लेख प्रकाशित नहीं हुआ। जल्द ही फिर देखें।",
+  "journal.moreStories": "और कहानियाँ",
+  "courses.eyebrow": "सीखना",
+  "courses.subtitle": "अनुभवी फ़ोटोग्राफ़रों के संरचित कोर्स के साथ अपने कौशल में महारत हासिल करें। पाठ दर पाठ अपनी प्रगति देखें।",
+  "courses.empty": "अभी तक कोई कोर्स प्रकाशित नहीं हुआ। जल्द ही फिर देखें।",
+  "profile.about": "परिचय",
+  "profile.settings": "सेटिंग्स",
 };
 
 const bn: Dict = {
@@ -215,6 +237,17 @@ const bn: Dict = {
   "wallet.submitWithdrawal": "উত্তোলনের অনুরোধ জমা দিন",
   "wallet.choosePayment": "পেমেন্ট পদ্ধতি বেছে নিন",
   "wallet.confirmPayment": "পেমেন্ট নিশ্চিত করুন",
+  "common.featured": "নির্বাচিত",
+  "common.loading": "লোড হচ্ছে...",
+  "journal.eyebrow": "ফটোগ্রাফি জার্নাল",
+  "journal.subtitle": "আমাদের নির্মাতাদের সম্প্রদায় থেকে নিবন্ধ, নেপথ্যের গল্প এবং ফটোগ্রাফি কৌশলে ডুব দিন।",
+  "journal.empty": "এখনও কোনো নিবন্ধ প্রকাশিত হয়নি। শীঘ্রই আবার দেখুন।",
+  "journal.moreStories": "আরও গল্প",
+  "courses.eyebrow": "শেখা",
+  "courses.subtitle": "অভিজ্ঞ ফটোগ্রাফারদের কাঠামোবদ্ধ কোর্সের মাধ্যমে আপনার দক্ষতা আয়ত্ত করুন। পাঠ ধরে ধরে আপনার অগ্রগতি ট্র্যাক করুন।",
+  "courses.empty": "এখনও কোনো কোর্স প্রকাশিত হয়নি। শীঘ্রই আবার দেখুন।",
+  "profile.about": "সম্পর্কে",
+  "profile.settings": "সেটিংস",
 };
 
 const mr: Dict = {
@@ -280,6 +313,17 @@ const mr: Dict = {
   "wallet.submitWithdrawal": "पैसे काढण्याची विनंती पाठवा",
   "wallet.choosePayment": "पेमेंट पद्धत निवडा",
   "wallet.confirmPayment": "पेमेंटची पुष्टी करा",
+  "common.featured": "वैशिष्ट्यपूर्ण",
+  "common.loading": "लोड होत आहे...",
+  "journal.eyebrow": "फोटोग्राफी जर्नल",
+  "journal.subtitle": "लेख, पडद्यामागील कथा आणि आमच्या निर्मात्यांच्या समुदायातील फोटोग्राफी तंत्रांमध्ये डुबकी घ्या.",
+  "journal.empty": "अद्याप कोणताही लेख प्रकाशित झालेला नाही. लवकरच पुन्हा तपासा.",
+  "journal.moreStories": "अधिक कथा",
+  "courses.eyebrow": "शिक्षण",
+  "courses.subtitle": "अनुभवी छायाचित्रकारांच्या संरचित कोर्ससह तुमच्या कौशल्यावर प्रभुत्व मिळवा. धडा-धड्याने तुमची प्रगती पहा.",
+  "courses.empty": "अद्याप कोणताही कोर्स प्रकाशित झालेला नाही. लवकरच पुन्हा तपासा.",
+  "profile.about": "विषयी",
+  "profile.settings": "सेटिंग्ज",
 };
 
 const gu: Dict = {
@@ -345,6 +389,17 @@ const gu: Dict = {
   "wallet.submitWithdrawal": "ઉપાડ વિનંતી સબમિટ કરો",
   "wallet.choosePayment": "ચુકવણી પદ્ધતિ પસંદ કરો",
   "wallet.confirmPayment": "ચુકવણીની પુષ્ટિ કરો",
+  "common.featured": "વિશેષ",
+  "common.loading": "લોડ થઈ રહ્યું છે...",
+  "journal.eyebrow": "ફોટોગ્રાફી જર્નલ",
+  "journal.subtitle": "અમારા સર્જકોના સમુદાયમાંથી લેખો, પડદા પાછળની વાર્તાઓ અને ફોટોગ્રાફી તકનીકોમાં ડૂબકી લગાવો.",
+  "journal.empty": "હજી સુધી કોઈ લેખ પ્રકાશિત થયો નથી. જલ્દી ફરી તપાસો.",
+  "journal.moreStories": "વધુ વાર્તાઓ",
+  "courses.eyebrow": "શીખવું",
+  "courses.subtitle": "અનુભવી ફોટોગ્રાફરોના સંરચિત કોર્સ સાથે તમારી કુશળતામાં નિપુણતા મેળવો. પાઠ દર પાઠ તમારી પ્રગતિ ટ્રૅક કરો.",
+  "courses.empty": "હજી સુધી કોઈ કોર્સ પ્રકાશિત થયો નથી. જલ્દી ફરી તપાસો.",
+  "profile.about": "વિશે",
+  "profile.settings": "સેટિંગ્સ",
 };
 
 const ta: Dict = {
@@ -410,6 +465,17 @@ const ta: Dict = {
   "wallet.submitWithdrawal": "திரும்பப் பெறும் கோரிக்கையைச் சமர்ப்பி",
   "wallet.choosePayment": "பணம் செலுத்தும் முறையைத் தேர்ந்தெடு",
   "wallet.confirmPayment": "பணம் செலுத்துவதை உறுதிப்படுத்து",
+  "common.featured": "சிறப்பு",
+  "common.loading": "ஏற்றுகிறது...",
+  "journal.eyebrow": "புகைப்படக் கலை இதழ்",
+  "journal.subtitle": "எங்கள் படைப்பாளர்களின் சமூகத்திலிருந்து கட்டுரைகள், திரைக்குப் பின்னால் கதைகள் மற்றும் புகைப்படக் கலை நுட்பங்களில் மூழ்குங்கள்.",
+  "journal.empty": "இன்னும் எந்தக் கட்டுரையும் வெளியிடப்படவில்லை. விரைவில் மீண்டும் பார்க்கவும்.",
+  "journal.moreStories": "மேலும் கதைகள்",
+  "courses.eyebrow": "கற்றல்",
+  "courses.subtitle": "அனுபவம் வாய்ந்த புகைப்படக் கலைஞர்களின் கட்டமைக்கப்பட்ட படிப்புகளுடன் உங்கள் திறமையில் தேர்ச்சி பெறுங்கள். பாடம் பாடமாக உங்கள் முன்னேற்றத்தைக் கண்காணியுங்கள்.",
+  "courses.empty": "இன்னும் எந்தப் படிப்பும் வெளியிடப்படவில்லை. விரைவில் மீண்டும் பார்க்கவும்.",
+  "profile.about": "பற்றி",
+  "profile.settings": "அமைப்புகள்",
 };
 
 const te: Dict = {
@@ -475,6 +541,17 @@ const te: Dict = {
   "wallet.submitWithdrawal": "ఉపసంహరణ అభ్యర్థనను సమర్పించండి",
   "wallet.choosePayment": "చెల్లింపు పద్ధతిని ఎంచుకోండి",
   "wallet.confirmPayment": "చెల్లింపును నిర్ధారించండి",
+  "common.featured": "ప్రత్యేకం",
+  "common.loading": "లోడ్ అవుతోంది...",
+  "journal.eyebrow": "ఫోటోగ్రఫీ జర్నల్",
+  "journal.subtitle": "మా సృష్టికర్తల సంఘం నుండి కథనాలు, తెర వెనుక కథలు మరియు ఫోటోగ్రఫీ పద్ధతులలో మునిగిపోండి.",
+  "journal.empty": "ఇంకా ఏ కథనం ప్రచురించబడలేదు. త్వరలో మళ్లీ చూడండి.",
+  "journal.moreStories": "మరిన్ని కథనాలు",
+  "courses.eyebrow": "నేర్చుకోవడం",
+  "courses.subtitle": "అనుభవజ్ఞ ఫోటోగ్రాఫర్ల నిర్మాణాత్మక కోర్సులతో మీ నైపుణ్యాన్ని నేర్చుకోండి. పాఠం వారీగా మీ పురోగతిని ట్రాక్ చేయండి.",
+  "courses.empty": "ఇంకా ఏ కోర్సు ప్రచురించబడలేదు. త్వరలో మళ్లీ చూడండి.",
+  "profile.about": "గురించి",
+  "profile.settings": "సెట్టింగ్‌లు",
 };
 
 export const translations: Record<Lang, Dict> = { en, hi, bn, mr, gu, ta, te };
