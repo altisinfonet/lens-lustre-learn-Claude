@@ -24,6 +24,7 @@ import { mapCompetitionEntriesToVotingPhotos } from "@/lib/competitionVotingPhot
 import RoundPublishPanel from "@/components/admin/RoundPublishPanel";
 import PersonalResultBanner from "@/components/competition/PersonalResultBanner";
 import { useEntryPublicStatus } from "@/hooks/judging/useEntryPublicStatus";
+import { useT } from "@/i18n/I18nContext";
 
 
 interface Competition {
@@ -62,7 +63,7 @@ interface Entry {
 // statusColors removed — using phaseStatusColors from competitionPhase utility
 
 const CompetitionDetail = () => {
-  
+  const t = useT();
   const { id: slugOrId, entryId: urlEntryId, photoIndex: urlPhotoIndex } = useParams<{ id: string; entryId?: string; photoIndex?: string }>();
   const { user } = useAuth();
   const { isAdmin } = useIsAdmin();
@@ -163,7 +164,7 @@ const CompetitionDetail = () => {
   if (loading) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-xs tracking-[0.3em] uppercase text-muted-foreground animate-pulse" style={{ fontFamily: "var(--font-heading)" }}>Loading...</div>
+        <div className="text-xs tracking-[0.3em] uppercase text-muted-foreground animate-pulse" style={{ fontFamily: "var(--font-heading)" }}>{t("common.loading")}</div>
       </main>
     );
   }
@@ -172,8 +173,8 @@ const CompetitionDetail = () => {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-light mb-4" style={{ fontFamily: "var(--font-display)" }}>Competition not found</h1>
-          <Link to="/competitions" className="text-xs text-primary tracking-[0.15em] uppercase hover:underline" style={{ fontFamily: "var(--font-heading)" }}>Browse competitions</Link>
+          <h1 className="text-2xl font-light mb-4" style={{ fontFamily: "var(--font-display)" }}>{t("cdet.notFound")}</h1>
+          <Link to="/competitions" className="text-xs text-primary tracking-[0.15em] uppercase hover:underline" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.browseCompetitions")}</Link>
         </div>
       </main>
     );
@@ -198,7 +199,7 @@ const CompetitionDetail = () => {
       />
       <div className="container mx-auto pt-3 pb-0">
         <Breadcrumbs items={[
-          { label: "Competitions", to: "/competitions" },
+          { label: t("nav.competitions"), to: "/competitions" },
           { label: competition.title },
         ]} className="mb-3" />
       </div>
@@ -214,7 +215,7 @@ const CompetitionDetail = () => {
           <div className="flex items-center gap-3 mb-3">
             <span className="text-[9px] tracking-[0.2em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>{competition.category}</span>
             <span className={`text-[9px] tracking-[0.2em] uppercase px-3 py-1 border ${phaseStatusColors[competition.phase] || ""}`} style={{ fontFamily: "var(--font-heading)" }}>
-              {phaseDisplayLabels[competition.phase] || competition.phase}
+              {t("phase." + competition.phase, phaseDisplayLabels[competition.phase] || competition.phase)}
             </span>
           </div>
           <h1 className="text-xl md:text-5xl font-light tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
@@ -238,10 +239,10 @@ const CompetitionDetail = () => {
             <Scale className="h-6 w-6 shrink-0 animate-pulse" />
             <div className="min-w-0">
               <p className="text-sm font-semibold" style={{ fontFamily: "var(--font-heading)" }}>
-                ⚖️ Judging is Going On
+                {t("cdet.judgingGoingOn")}
               </p>
               <p className="text-xs opacity-80" style={{ fontFamily: "var(--font-body)" }}>
-                Our judges are carefully reviewing all submissions. Results will be announced once judging is complete.
+                {t("cdet.judgingGoingOnDesc")}
               </p>
             </div>
           </div>
@@ -261,7 +262,7 @@ const CompetitionDetail = () => {
           <div>
             {competition.description && (
               <div className="mb-4 md:mb-12">
-                <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-2 md:mb-3" style={{ fontFamily: "var(--font-heading)" }}>About</span>
+                <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-2 md:mb-3" style={{ fontFamily: "var(--font-heading)" }}>{t("cdet.about")}</span>
                 <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line" style={{ fontFamily: "var(--font-body)" }}>
                   {competition.description}
                 </p>
@@ -272,7 +273,7 @@ const CompetitionDetail = () => {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                  Submissions ({photoItems.length})
+                  {t("cdet.submissions")} ({photoItems.length})
                 </span>
                 <div className="flex items-center gap-3">
                   {competition.phase === "voting" && photoItems.length > 0 && (
@@ -281,7 +282,7 @@ const CompetitionDetail = () => {
                       className="inline-flex items-center gap-2 text-xs tracking-[0.15em] uppercase px-5 py-2.5 border border-primary text-primary hover:bg-primary/10 transition-colors duration-500"
                       style={{ fontFamily: "var(--font-heading)" }}
                     >
-                      <Heart className="h-3 w-3" /> Quick Vote
+                      <Heart className="h-3 w-3" /> {t("cdet.quickVote")}
                     </button>
                   )}
                   {canSubmit && (
@@ -290,7 +291,7 @@ const CompetitionDetail = () => {
                       className="inline-flex items-center gap-2 text-xs tracking-[0.15em] uppercase px-5 py-2.5 bg-primary text-primary-foreground hover:opacity-90 transition-opacity duration-500"
                       style={{ fontFamily: "var(--font-heading)" }}
                     >
-                      <Upload className="h-3 w-3" /> Submit Entry
+                      <Upload className="h-3 w-3" /> {t("cdet.submitEntry")}
                     </Link>
                   )}
                 </div>
@@ -300,14 +301,14 @@ const CompetitionDetail = () => {
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-center py-20 border border-dashed border-border rounded-xl">
                   <Camera className="h-10 w-10 text-muted-foreground/15 mx-auto mb-4" />
                   <p className="text-sm font-medium text-muted-foreground mb-1" style={{ fontFamily: "var(--font-heading)" }}>
-                    No submissions yet
+                    {t("cdet.noSubmissions")}
                   </p>
                   <p className="text-xs text-muted-foreground/60 mb-4" style={{ fontFamily: "var(--font-body)" }}>
-                    Be the first to showcase your work!
+                    {t("cdet.beFirst")}
                   </p>
                   {canSubmit && (
                     <button onClick={() => navigate(`/competitions/${slugOrId}/submit`)} className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
-                      Submit Entry
+                      {t("cdet.submitEntry")}
                     </button>
                   )}
                 </motion.div>
@@ -355,20 +356,20 @@ const CompetitionDetail = () => {
           {/* Sidebar */}
           <div className="lg:col-span-1 space-y-6">
             <div className="border border-border p-4 md:p-6 space-y-4 md:space-y-5 rounded-xl md:rounded-none">
-              <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block" style={{ fontFamily: "var(--font-heading)" }}>Details</span>
+              <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block" style={{ fontFamily: "var(--font-heading)" }}>{t("cdet.details")}</span>
 
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 <Calendar className="h-3.5 w-3.5 text-primary" />
                 <div style={{ fontFamily: "var(--font-body)" }}>
-                  <div>Opens: {new Date(competition.starts_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
-                  <div>Closes: {new Date(competition.ends_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+                  <div>{t("cdet.opens")} {new Date(competition.starts_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+                  <div>{t("cdet.closes")} {new Date(competition.ends_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
                 </div>
               </div>
 
               {competition.entry_fee > 0 && (
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <Clock className="h-3.5 w-3.5 text-primary" />
-                  <span style={{ fontFamily: "var(--font-body)" }}>Entry fee: ${competition.entry_fee}</span>
+                  <span style={{ fontFamily: "var(--font-body)" }}>{t("cdet.entryFee")} ${competition.entry_fee}</span>
                 </div>
               )}
 
@@ -381,7 +382,7 @@ const CompetitionDetail = () => {
 
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 <Users className="h-3.5 w-3.5 text-primary" />
-                <span style={{ fontFamily: "var(--font-body)" }}>Max {competition.max_photos_per_entry} photos per entry</span>
+                <span style={{ fontFamily: "var(--font-body)" }}>{t("cdet.maxPhotos")} {competition.max_photos_per_entry}</span>
               </div>
 
               {/* AI Policy */}
@@ -389,8 +390,8 @@ const CompetitionDetail = () => {
                 <span className="text-base mt-[-2px]">{competition.ai_images_allowed ? '✅' : '🚫'}</span>
                 <span style={{ fontFamily: "var(--font-body)" }}>
                   {competition.ai_images_allowed
-                    ? "AI-generated images are allowed"
-                    : "AI-generated images are NOT allowed. Only original camera/mobile captures accepted."
+                    ? t("cdet.aiAllowed")
+                    : t("cdet.aiNotAllowed")
                   }
                 </span>
               </div>
@@ -407,7 +408,7 @@ const CompetitionDetail = () => {
                 className="block w-full text-center py-3.5 bg-primary text-primary-foreground text-xs tracking-[0.2em] uppercase hover:opacity-90 transition-opacity duration-500"
                 style={{ fontFamily: "var(--font-heading)" }}
               >
-                Submit Your Entry
+                {t("cdet.submitYourEntry")}
               </Link>
             )}
 
@@ -417,7 +418,7 @@ const CompetitionDetail = () => {
                 className="block w-full text-center py-3.5 border border-primary text-primary text-xs tracking-[0.2em] uppercase hover:bg-primary hover:text-primary-foreground transition-all duration-500"
                 style={{ fontFamily: "var(--font-heading)" }}
               >
-                Login to Submit
+                {t("cdet.loginToSubmit")}
               </Link>
             )}
           </div>

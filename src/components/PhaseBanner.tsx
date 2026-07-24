@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Clock, Trophy, Eye, Upload, Lock, Gavel } from "lucide-react";
 import { motion } from "framer-motion";
 import { resolveCompetitionPhase } from "@/lib/competitionPhase";
+import { useT } from "@/i18n/I18nContext";
 
 interface Competition {
   status: string;
@@ -13,34 +14,34 @@ interface Competition {
   judging_completed?: boolean | null;
 }
 
-const phaseConfig: Record<string, { label: string; description: string; icon: any; className: string }> = {
+const phaseConfig: Record<string, { labelKey: string; descKey: string; icon: any; className: string }> = {
   upcoming: {
-    label: "Upcoming",
-    description: "Submissions open soon",
+    labelKey: "pb.upcoming",
+    descKey: "pb.upcomingDesc",
     icon: Clock,
     className: "border-muted-foreground/30 bg-muted/40 text-muted-foreground",
   },
   submission_open: {
-    label: "Open for Submissions",
-    description: "Submit your best work before the deadline",
+    labelKey: "pb.open",
+    descKey: "pb.openDesc",
     icon: Upload,
     className: "border-primary/30 bg-primary/5 text-primary",
   },
   voting: {
-    label: "Voting Open",
-    description: "Vote for your favourite entries before voting closes",
+    labelKey: "pb.voting",
+    descKey: "pb.votingDesc",
     icon: Eye,
     className: "border-primary/30 bg-primary/5 text-primary",
   },
   judging: {
-    label: "Judging in Progress",
-    description: "Judges are reviewing entries — results will be announced soon",
+    labelKey: "pb.judging",
+    descKey: "pb.judgingDesc",
     icon: Gavel,
     className: "border-yellow-500/30 bg-yellow-500/5 text-yellow-600 dark:text-yellow-400",
   },
   result: {
-    label: "Results Announced",
-    description: "Winners declared — reactions and comments are open",
+    labelKey: "pb.result",
+    descKey: "pb.resultDesc",
     icon: Trophy,
     className: "border-foreground/10 bg-muted/30 text-muted-foreground",
   },
@@ -81,6 +82,7 @@ const Separator = () => (
 );
 
 export default function PhaseBanner({ competition }: { competition: Competition }) {
+  const t = useT();
   // Use canonical resolver — never trust raw phase field alone (P-04: stale countdown bug)
   const activePhase = resolveCompetitionPhase(competition);
   const config = phaseConfig[activePhase] || phaseConfig.upcoming;
@@ -98,11 +100,11 @@ export default function PhaseBanner({ competition }: { competition: Competition 
 
   const countdownLabel =
     activePhase === "upcoming"
-      ? "Opens in"
+      ? t("pb.opensIn")
       : activePhase === "submission_open"
-      ? "Submissions close in"
+      ? t("pb.subCloseIn")
       : activePhase === "voting"
-      ? "Voting closes in"
+      ? t("pb.voteCloseIn")
       : null;
 
   const countdown = useCountdown(countdownTarget || new Date().toISOString());
@@ -119,14 +121,14 @@ export default function PhaseBanner({ competition }: { competition: Competition 
           <Icon className="h-4 w-4 shrink-0" />
           <div>
             <span className="text-[10px] tracking-[0.25em] uppercase font-medium block" style={{ fontFamily: "var(--font-heading)" }}>
-              {config.label}
+              {t(config.labelKey)}
             </span>
             <span className="text-[10px] opacity-70" style={{ fontFamily: "var(--font-body)" }}>
-              {config.description}
+              {t(config.descKey)}
             </span>
             {activePhase === "judging" && competition.current_round && (
               <span className="text-[9px] tracking-[0.15em] uppercase opacity-80 mt-0.5 block" style={{ fontFamily: "var(--font-heading)" }}>
-                Round {competition.current_round} of 4 in progress
+                {t("pb.round")} {competition.current_round} {t("pb.roundOf4")}
               </span>
             )}
           </div>
@@ -137,13 +139,13 @@ export default function PhaseBanner({ competition }: { competition: Competition 
             <span className="text-[8px] tracking-[0.2em] uppercase opacity-50 mr-2" style={{ fontFamily: "var(--font-heading)" }}>
               {countdownLabel}
             </span>
-            <CountdownUnit value={countdown.days} label="Days" />
+            <CountdownUnit value={countdown.days} label={t("pb.days")} />
             <Separator />
-            <CountdownUnit value={countdown.hours} label="Hrs" />
+            <CountdownUnit value={countdown.hours} label={t("pb.hrs")} />
             <Separator />
-            <CountdownUnit value={countdown.minutes} label="Min" />
+            <CountdownUnit value={countdown.minutes} label={t("pb.min")} />
             <Separator />
-            <CountdownUnit value={countdown.seconds} label="Sec" />
+            <CountdownUnit value={countdown.seconds} label={t("pb.sec")} />
           </div>
         )}
 
@@ -151,7 +153,7 @@ export default function PhaseBanner({ competition }: { competition: Competition 
           <div className="flex items-center gap-1.5 opacity-50">
             <Lock className="h-3 w-3" />
             <span className="text-[9px] tracking-[0.15em] uppercase" style={{ fontFamily: "var(--font-heading)" }}>
-              Final Results
+              {t("pb.finalResults")}
             </span>
           </div>
         )}

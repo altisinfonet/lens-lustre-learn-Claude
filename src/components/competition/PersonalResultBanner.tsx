@@ -9,6 +9,7 @@
 import { motion } from "framer-motion";
 import { Trophy, Medal, Star, Award, Heart, Clock } from "lucide-react";
 import { useEntryPublicStatus } from "@/hooks/judging/useEntryPublicStatus";
+import { useT } from "@/i18n/I18nContext";
 
 interface Entry {
   id: string;
@@ -27,6 +28,7 @@ const f = { fontFamily: "var(--font-heading)" };
 const fb = { fontFamily: "var(--font-body)" };
 
 export default function PersonalResultBanner({ phase, userId, entries }: Props) {
+  const t = useT();
   const ownEntries = userId ? entries.filter((e) => e.user_id === userId) : [];
   const ownIds = ownEntries.map((e) => e.id);
   const { data: publicMap = {} } = useEntryPublicStatus(ownIds);
@@ -82,57 +84,57 @@ export default function PersonalResultBanner({ phase, userId, entries }: Props) 
 
   if (winner) {
     icon = <Trophy className="h-6 w-6" />;
-    title = "Congratulations, you won! 🏆";
-    subtitle = "Your entry was selected as the winner of this competition.";
+    title = t("pres.wonTitle");
+    subtitle = t("pres.wonSub");
     bgClass = "bg-yellow-500/10 border-yellow-500/30 text-yellow-600 dark:text-yellow-400";
   } else if (runnerUp) {
     icon = <Medal className="h-6 w-6" />;
     title =
       runnerUp.publicPlacement === "1st_runner_up"
       || runnerUp.publicPlacement === "runner_up_1"
-        ? "Amazing — 1st Runner-Up! 🥈"
-        : "Well done — 2nd Runner-Up! 🥉";
-    subtitle = "Your entry earned a top placement. Be proud!";
+        ? t("pres.ru1Title")
+        : t("pres.ru2Title");
+    subtitle = t("pres.ruSub");
     bgClass = "bg-[hsl(var(--muted))]/80 border-foreground/10 text-foreground";
   } else if (specialJury) {
     icon = <Award className="h-6 w-6" />;
-    title = "Special Jury Award! 🎖️";
-    subtitle = "The jury recognised your entry with a special distinction.";
+    title = t("pres.juryTitle");
+    subtitle = t("pres.jurySub");
     bgClass = "bg-pink-500/10 border-pink-500/30 text-pink-600 dark:text-pink-400";
   } else if (honorary) {
     icon = <Award className="h-6 w-6" />;
-    title = "Honorary Mention 🏅";
-    subtitle = "Your entry earned an honorary mention from the judges.";
+    title = t("pres.honTitle");
+    subtitle = t("pres.honSub");
     bgClass = "bg-teal-500/10 border-teal-500/30 text-teal-600 dark:text-teal-400";
   } else if (finalist) {
     icon = <Star className="h-6 w-6" />;
-    title = "You're a Finalist! ⭐";
-    subtitle = "Your work made it to the final round — an incredible achievement.";
+    title = t("pres.finalistTitle");
+    subtitle = t("pres.finalistSub");
     bgClass = "bg-purple-500/10 border-purple-500/30 text-purple-600 dark:text-purple-400";
   } else if (top50) {
     icon = <Star className="h-6 w-6" />;
-    title = "Top 50 Global Photographer 🌟";
-    subtitle = "Your work ranked among the Top 50 in this competition.";
+    title = t("pres.top50Title");
+    subtitle = t("pres.top50Sub");
     bgClass = "bg-indigo-500/10 border-indigo-500/30 text-indigo-600 dark:text-indigo-400";
   } else if (top100) {
     icon = <Star className="h-6 w-6" />;
-    title = "Top 100 Global Photographer ✨";
-    subtitle = "Your work ranked among the Top 100 in this competition.";
+    title = t("pres.top100Title");
+    subtitle = t("pres.top100Sub");
     bgClass = "bg-sky-500/10 border-sky-500/30 text-sky-600 dark:text-sky-400";
   } else if (qualified) {
     icon = <Award className="h-6 w-6" />;
-    title = "Your entry was shortlisted";
-    subtitle = "Thank you for participating. Your work stood out among many entries.";
+    title = t("pres.shortTitle");
+    subtitle = t("pres.shortSub");
     bgClass = "bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400";
   } else if (allPending) {
     icon = <Clock className="h-6 w-6" />;
-    title = "Judging in progress";
-    subtitle = "Results will be visible here once the admin publishes the round.";
+    title = t("pres.pendingTitle");
+    subtitle = t("pres.pendingSub");
     bgClass = "bg-muted/50 border-border text-muted-foreground";
   } else {
     icon = <Heart className="h-6 w-6" />;
-    title = "Thank you for participating";
-    subtitle = "Every submission helps build a stronger creative community.";
+    title = t("pres.thanksTitle");
+    subtitle = t("pres.thanksSub");
     bgClass = "bg-muted/50 border-border text-muted-foreground";
   }
 

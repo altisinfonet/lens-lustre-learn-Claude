@@ -35,6 +35,7 @@ import { compressImageToFiles } from "@/lib/imageCompression";
 import { scanFileWithToast } from "@/lib/fileSecurityScanner";
 import { extractExif, summarizeExif, type PhotoExif } from "@/lib/exifExtract";
 import { computeImageHash, type ImageHash } from "@/lib/imageHash";
+import { useT } from "@/i18n/I18nContext";
 
 interface PhotoCard {
   url: string;
@@ -57,6 +58,7 @@ const BODY = { fontFamily: "var(--font-body)" } as const;
 const DISPLAY = { fontFamily: "var(--font-display)" } as const;
 
 const CompetitionSubmit = () => {
+  const t = useT();
   const { id: slugOrId } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
   const { loading: rolesLoading } = useUserRoles();
@@ -120,7 +122,7 @@ const CompetitionSubmit = () => {
 
     const remaining = maxPhotos - photos.length;
     if (remaining <= 0) {
-      toast({ title: `Maximum ${maxPhotos} photos allowed`, variant: "destructive" });
+      toast({ title: `${t("csub.maxPhotosAllowed")}: ${maxPhotos}`, variant: "destructive" });
       return;
     }
 
@@ -181,7 +183,7 @@ const CompetitionSubmit = () => {
         ]);
       } catch (err: any) {
         skippedNames.push(file.name);
-        toast({ title: `Upload failed: ${file.name}`, description: err?.message, variant: "destructive" });
+        toast({ title: `${t("csub.uploadFailed")} ${file.name}`, description: err?.message, variant: "destructive" });
       }
     }
 
@@ -190,7 +192,7 @@ const CompetitionSubmit = () => {
 
     if (skippedNames.length > 0) {
       toast({
-        title: `${skippedNames.length} file${skippedNames.length === 1 ? "" : "s"} skipped`,
+        title: `${skippedNames.length} ${t("csub.filesSkipped")}`,
         description: skippedNames.slice(0, 3).join(", ") + (skippedNames.length > 3 ? `, +${skippedNames.length - 3} more` : ""),
         variant: "destructive",
       });
@@ -234,7 +236,7 @@ const CompetitionSubmit = () => {
     if (!user || !id) return;
 
     if (photos.length === 0) {
-      toast({ title: "Please upload at least one photo", variant: "destructive" });
+      toast({ title: t("csub.uploadAtLeastOne"), variant: "destructive" });
       return;
     }
 
@@ -242,8 +244,8 @@ const CompetitionSubmit = () => {
     const missingTitleIdx = photos.findIndex((p) => !p.title.trim());
     if (missingTitleIdx >= 0) {
       toast({
-        title: `Photo ${missingTitleIdx + 1}: title is required`,
-        description: "Each photo needs its own title (1–120 characters).",
+        title: `${t("csub.photo")} ${missingTitleIdx + 1}: ${t("csub.titleIsRequired")}`,
+        description: t("csub.titleReqDesc"),
         variant: "destructive",
       });
       updatePhoto(missingTitleIdx, { expanded: true });
@@ -254,8 +256,8 @@ const CompetitionSubmit = () => {
     const longDescIdx = photos.findIndex((p) => p.description.length > 500);
     if (longDescIdx >= 0) {
       toast({
-        title: `Photo ${longDescIdx + 1}: description too long`,
-        description: "Max 500 characters per photo description.",
+        title: `${t("csub.photo")} ${longDescIdx + 1}: ${t("csub.descTooLong")}`,
+        description: t("csub.descTooLongDesc"),
         variant: "destructive",
       });
       updatePhoto(longDescIdx, { expanded: true, description_open: true });
@@ -265,12 +267,12 @@ const CompetitionSubmit = () => {
     // AI flag policy
     const anyAi = photos.some((p) => p.is_ai_generated);
     if (!aiImagesAllowed && anyAi) {
-      toast({ title: "AI-generated images are not allowed in this competition", variant: "destructive" });
+      toast({ title: t("csub.aiNotAllowedToast"), variant: "destructive" });
       return;
     }
 
     if (!ownershipDisclaimer) {
-      toast({ title: "Please confirm the ownership disclaimer", variant: "destructive" });
+      toast({ title: t("csub.confirmOwnership"), variant: "destructive" });
       return;
     }
 
@@ -278,8 +280,8 @@ const CompetitionSubmit = () => {
     const blocking = photos.findIndex((p) => !p.exif_available && !p.raw_required);
     if (blocking >= 0) {
       toast({
-        title: `Photo ${blocking + 1}: missing EXIF`,
-        description: "Either fill EXIF manually or commit to send RAW on request.",
+        title: `${t("csub.photo")} ${blocking + 1}: ${t("csub.missingExif")}`,
+        description: t("csub.missingExifDesc"),
         variant: "destructive",
       });
       updatePhoto(blocking, { expanded: true });
@@ -288,7 +290,7 @@ const CompetitionSubmit = () => {
 
     // Pre-flight UX guard (atomic RPC will re-validate server-side):
     if (entryFee > 0 && balance < entryFee) {
-      toast({ title: "Insufficient wallet balance", description: `You need ${formatUSDFixed(entryFee)} but have ${formatUSDFixed(Number(balance))}.`, variant: "destructive" });
+      toast({ title: t("csub.insufficientBalance"), description: `${t("csub.required")}: ${formatUSDFixed(entryFee)} · ${t("csub.available")}: ${formatUSDFixed(Number(balance))}`, variant: "destructive" });
       return;
     }
 
@@ -328,7 +330,7 @@ const CompetitionSubmit = () => {
           _txn_amount: entryFee,
         }).then(() => {});
       }
-      toast({ title: `Entry submitted! Order ${result?.order_no ?? ""}`.trim() });
+      toast({ title: `${t("csub.entrySubmitted")} ${result?.order_no ?? ""}`.trim() });
       navigate(`/competitions/${slugOrId}`);
     } catch {
       /* mutation toasts on its own */
@@ -339,7 +341,7 @@ const CompetitionSubmit = () => {
   if (authLoading || loading || rolesLoading || walletLoading) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-xs tracking-[0.3em] uppercase text-muted-foreground animate-pulse" style={HEAD}>Loading...</div>
+        <div className="text-xs tracking-[0.3em] uppercase text-muted-foreground animate-pulse" style={HEAD}>{t("common.loading")}</div>
       </main>
     );
   }
@@ -347,9 +349,9 @@ const CompetitionSubmit = () => {
   /* ── HARD BLOCK: phase gate ── */
   if (competitionPhase !== "submission_open") {
     const phaseMessage =
-      competitionPhase === "judging" ? "Submissions are closed. Judging is in progress." :
-      competitionPhase === "result" ? "Competition has ended. Results are declared." :
-      "Submissions are not open yet.";
+      competitionPhase === "judging" ? t("csub.closedJudging") :
+      competitionPhase === "result" ? t("csub.closedResult") :
+      t("csub.notOpenYet");
     const PhaseIcon = competitionPhase === "judging" ? Clock : competitionPhase === "result" ? Trophy : Ban;
 
     return (
@@ -357,19 +359,19 @@ const CompetitionSubmit = () => {
         <div className="container mx-auto py-10 md:py-20 max-w-2xl">
           <div className="flex items-center gap-4 mb-2">
             <div className="w-12 h-px bg-primary" />
-            <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={HEAD}>Submit Entry</span>
+            <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={HEAD}>{t("csub.submitEntry")}</span>
           </div>
           <h1 className="text-xl md:text-4xl font-light tracking-tight mb-8" style={DISPLAY}>{compTitle}</h1>
           <div className="border-2 border-destructive/30 bg-destructive/5 p-6 md:p-10 text-center space-y-4">
             <PhaseIcon className="h-10 w-10 text-destructive/60 mx-auto" />
             <p className="text-sm font-medium text-destructive" style={HEAD}>{phaseMessage}</p>
-            <p className="text-xs text-muted-foreground" style={BODY}>You cannot submit entries at this time.</p>
+            <p className="text-xs text-muted-foreground" style={BODY}>{t("csub.cannotSubmitNow")}</p>
             <Link
               to={`/competitions/${slugOrId}`}
               className="inline-flex items-center gap-2 text-xs tracking-[0.15em] uppercase px-5 py-2.5 border border-border hover:border-primary hover:text-primary transition-all duration-500 mt-2"
               style={HEAD}
             >
-              ← Back to Competition
+              {t("csub.backToComp")}
             </Link>
           </div>
         </div>
@@ -384,18 +386,18 @@ const CompetitionSubmit = () => {
       <div className="container mx-auto py-3 md:py-20 max-w-2xl">
         <div className="flex items-center gap-4 mb-2">
           <div className="w-12 h-px bg-primary" />
-          <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={HEAD}>Submit Entry</span>
+          <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={HEAD}>{t("csub.submitEntry")}</span>
         </div>
         <h1 className="text-xl md:text-4xl font-light tracking-tight mb-2" style={DISPLAY}>{compTitle}</h1>
         <p className="text-[11px] text-muted-foreground mb-6 md:mb-12" style={BODY}>
-          Each photo carries its own title, optional description, and AI flag. One image, one card.
+          {t("csub.intro")}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-6 md:space-y-8">
           {/* Photos — per-photo accordion (the entire form is now per-photo) */}
           <div>
             <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-3" style={HEAD}>
-              Photos * ({photos.length}/{maxPhotos}) — one card per image
+              {t("csub.photosLabel")} * ({photos.length}/{maxPhotos}) — {t("csub.oneCardPerImage")}
             </label>
 
             <div className="space-y-3">
@@ -415,7 +417,7 @@ const CompetitionSubmit = () => {
                       <div className="flex-1 min-w-0 flex flex-col">
                         <div className="flex items-center justify-between gap-2 mb-1">
                           <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground" style={HEAD}>
-                            Photo {i + 1}
+                            {t("csub.photo")} {i + 1}
                           </span>
                           <button
                             type="button"
@@ -429,7 +431,7 @@ const CompetitionSubmit = () => {
 
                         {/* Title shown inline (this is the photo's identity) */}
                         <span className="text-xs font-medium text-foreground truncate" style={BODY}>
-                          {photo.title || <span className="text-amber-500">Title required</span>}
+                          {photo.title || <span className="text-amber-500">{t("csub.titleRequired")}</span>}
                         </span>
 
                         <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -464,7 +466,7 @@ const CompetitionSubmit = () => {
                           style={HEAD}
                         >
                           <ChevronDown className={`h-3 w-3 transition-transform ${photo.expanded ? "rotate-180" : ""}`} />
-                          {photo.expanded ? "Hide details" : "Edit photo"}
+                          {photo.expanded ? t("csub.hideDetails") : t("csub.editPhoto")}
                         </button>
                       </div>
                     </div>
@@ -475,7 +477,7 @@ const CompetitionSubmit = () => {
                         {/* Photo title — REQUIRED */}
                         <div>
                           <label className="block text-[9px] tracking-[0.15em] uppercase text-muted-foreground mb-1" style={HEAD}>
-                            Photo Title *
+                            {t("csub.photoTitle")}
                           </label>
                           <input
                             type="text"
@@ -484,7 +486,7 @@ const CompetitionSubmit = () => {
                             maxLength={120}
                             required
                             className="w-full bg-transparent border border-border focus:border-primary outline-none px-3 py-2 text-xs"
-                            placeholder="Name this photo"
+                            placeholder={t("csub.phNamePhoto")}
                             style={BODY}
                           />
                           <p className="text-[9px] text-muted-foreground mt-1" style={BODY}>
@@ -505,7 +507,7 @@ const CompetitionSubmit = () => {
                               className="h-3.5 w-3.5 accent-primary"
                             />
                             <span className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground" style={HEAD}>
-                              Add description (optional)
+                              {t("csub.addDescription")}
                             </span>
                           </label>
                           {photo.description_open && (
@@ -516,7 +518,7 @@ const CompetitionSubmit = () => {
                                 maxLength={500}
                                 rows={3}
                                 className="w-full bg-transparent border border-border focus:border-primary outline-none p-3 text-xs resize-none"
-                                placeholder="Tell the story behind this photo…"
+                                placeholder={t("csub.phStory")}
                                 style={BODY}
                               />
                               <p className="text-[9px] text-muted-foreground mt-1" style={BODY}>
@@ -538,16 +540,16 @@ const CompetitionSubmit = () => {
                             <span>
                               <span className="text-[11px] font-medium block flex items-center gap-1.5" style={HEAD}>
                                 <Sparkles className="h-3 w-3 text-purple-400" />
-                                This is an AI-generated image
+                                {t("csub.isAiImage")}
                               </span>
                               <span className="text-[9px] text-muted-foreground" style={BODY}>
-                                Tick if this photo was created or significantly modified using AI tools.
+                                {t("csub.isAiHint")}
                               </span>
                             </span>
                           </label>
                           {!aiImagesAllowed && photo.is_ai_generated && (
                             <div className="text-[10px] text-destructive font-medium mt-2 pl-6" style={HEAD}>
-                              ⚠ AI-generated images are NOT allowed in this competition.
+                              {t("csub.aiNotAllowedWarn")}
                             </div>
                           )}
                         </div>
@@ -555,18 +557,18 @@ const CompetitionSubmit = () => {
                         {/* EXIF section */}
                         <div className="flex items-center gap-2 pt-2">
                           <Camera className="h-3.5 w-3.5 text-primary" />
-                          <span className="text-[10px] tracking-[0.2em] uppercase text-primary" style={HEAD}>EXIF Metadata</span>
+                          <span className="text-[10px] tracking-[0.2em] uppercase text-primary" style={HEAD}>{t("csub.exifMetadata")}</span>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
-                          <ExifField label="Camera" placeholder="Canon EOS R5" value={photo.exif.camera ?? ""} onChange={(v) => updateExif(i, "camera", v)} />
-                          <ExifField label="Lens" placeholder="24-70mm f/2.8" value={photo.exif.lens ?? ""} onChange={(v) => updateExif(i, "lens", v)} />
-                          <ExifField label="ISO" placeholder="400" type="number" value={photo.exif.iso?.toString() ?? ""} onChange={(v) => updateExif(i, "iso", v)} />
-                          <ExifField label="Aperture (f-number)" placeholder="2.8" type="number" value={photo.exif.aperture?.toString() ?? ""} onChange={(v) => updateExif(i, "aperture", v)} />
-                          <ExifField label="Shutter (sec)" placeholder="0.004" type="number" value={photo.exif.shutter_speed?.toString() ?? ""} onChange={(v) => updateExif(i, "shutter_speed", v)} />
-                          <ExifField label="Focal length (mm)" placeholder="50" type="number" value={photo.exif.focal_length?.toString() ?? ""} onChange={(v) => updateExif(i, "focal_length", v)} />
+                          <ExifField label={t("csub.exifCamera")} placeholder="Canon EOS R5" value={photo.exif.camera ?? ""} onChange={(v) => updateExif(i, "camera", v)} />
+                          <ExifField label={t("csub.exifLens")} placeholder="24-70mm f/2.8" value={photo.exif.lens ?? ""} onChange={(v) => updateExif(i, "lens", v)} />
+                          <ExifField label={t("csub.exifIso")} placeholder="400" type="number" value={photo.exif.iso?.toString() ?? ""} onChange={(v) => updateExif(i, "iso", v)} />
+                          <ExifField label={t("csub.exifAperture")} placeholder="2.8" type="number" value={photo.exif.aperture?.toString() ?? ""} onChange={(v) => updateExif(i, "aperture", v)} />
+                          <ExifField label={t("csub.exifShutter")} placeholder="0.004" type="number" value={photo.exif.shutter_speed?.toString() ?? ""} onChange={(v) => updateExif(i, "shutter_speed", v)} />
+                          <ExifField label={t("csub.exifFocal")} placeholder="50" type="number" value={photo.exif.focal_length?.toString() ?? ""} onChange={(v) => updateExif(i, "focal_length", v)} />
                           <div className="col-span-2">
-                            <ExifField label="Date taken" type="date" value={photo.exif.date_taken ? photo.exif.date_taken.slice(0, 10) : ""} onChange={(v) => updateExif(i, "date_taken", v)} />
+                            <ExifField label={t("csub.exifDate")} type="date" value={photo.exif.date_taken ? photo.exif.date_taken.slice(0, 10) : ""} onChange={(v) => updateExif(i, "date_taken", v)} />
                           </div>
                         </div>
 
@@ -580,10 +582,10 @@ const CompetitionSubmit = () => {
                           />
                           <span>
                             <span className="text-xs font-medium block" style={HEAD}>
-                              EXIF unavailable — I commit to submit the RAW file on request
+                              {t("csub.rawCommit")}
                             </span>
                             <span className="text-[10px] text-muted-foreground" style={BODY}>
-                              Required if EXIF cannot be auto-read or filled. Failure to provide RAW after shortlisting will disqualify this photo.
+                              {t("csub.rawHint")}
                             </span>
                           </span>
                         </label>
@@ -605,7 +607,7 @@ const CompetitionSubmit = () => {
                   ) : (
                     <>
                       <ImagePlus className="h-5 w-5 text-muted-foreground" />
-                      <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground" style={HEAD}>Add Photo</span>
+                      <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground" style={HEAD}>{t("csub.addPhoto")}</span>
                     </>
                   )}
                 </button>
@@ -621,17 +623,17 @@ const CompetitionSubmit = () => {
               className="hidden"
             />
             <p className="text-[10px] text-muted-foreground mt-2" style={BODY}>
-              Max 50MB per photo. JPG, PNG, HEIC or WebP. EXIF read from the original; image is then compressed to WebP.
+              {t("csub.uploadNote")}
             </p>
           </div>
 
           {/* Entry fee */}
           {entryFee > 0 && (
             <div className="p-4 border border-border bg-muted/30 space-y-2">
-              <p className="text-xs" style={HEAD}>Entry Fee: <strong>{formatUSDFixed(entryFee)}</strong></p>
+              <p className="text-xs" style={HEAD}>{t("csub.entryFeeLabel")} <strong>{formatUSDFixed(entryFee)}</strong></p>
               <p className="text-xs text-muted-foreground" style={BODY}>
-                Wallet Balance: {formatUSDFixed(Number(balance))}
-                {balance < entryFee && <> — <Link to="/wallet" className="text-primary underline">Add funds</Link></>}
+                {t("csub.walletBalance")} {formatUSDFixed(Number(balance))}
+                {balance < entryFee && <> — <Link to="/wallet" className="text-primary underline">{t("csub.addFunds")}</Link></>}
               </p>
             </div>
           )}
@@ -648,10 +650,10 @@ const CompetitionSubmit = () => {
               <span>
                 <span className="text-xs font-medium block" style={HEAD}>
                   <ShieldCheck className="h-3.5 w-3.5 inline mr-1" />
-                  I confirm that all submitted photos are my original work
+                  {t("csub.ownershipTitle")}
                 </span>
                 <span className="text-[10px] text-muted-foreground" style={BODY}>
-                  By checking this box, I declare that I am the sole owner and creator of the submitted photographs. Submitting work that is not my own may result in disqualification.
+                  {t("csub.ownershipHint")}
                 </span>
               </span>
             </label>
@@ -672,7 +674,7 @@ const CompetitionSubmit = () => {
               style={HEAD}
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-              {entryFee > 0 ? `Pay ${formatUSDFixed(entryFee)} & Submit` : "Submit Entry"}
+              {entryFee > 0 ? `${t("csub.pay")} ${formatUSDFixed(entryFee)} ${t("csub.andSubmit")}` : t("csub.submitEntry")}
             </button>
           </div>
         </form>

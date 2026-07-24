@@ -160,7 +160,7 @@ const Competitions = () => {
                     {/* Status badge - always visible */}
                     <div className="absolute top-4 left-4">
                       <span className={`text-sm tracking-[0.2em] uppercase px-4 py-2 border bg-background/80 backdrop-blur-sm rounded-full ${phaseStatusColors[comp.phase] || ""}`} style={{ fontFamily: "var(--font-heading)" }}>
-                        {phaseDisplayLabels[comp.phase] || comp.phase}
+                        {t("phase." + comp.phase, phaseDisplayLabels[comp.phase] || comp.phase)}
                       </span>
                     </div>
 
