@@ -9,6 +9,7 @@ import { useWalletSummary } from "@/hooks/wallet/useWalletSummary";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
+import { useT } from "@/i18n/I18nContext";
 
 import {
   Popover,
@@ -64,6 +65,20 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
   const handleNav = (to: string) => { setOpen(false); onNavigate?.(); navigate(to); };
   const handleLogout = async () => { setOpen(false); onNavigate?.(); await signOut(); navigate("/"); };
 
+  const t = useT();
+  const MENU_LABEL_KEYS: Record<string, string> = {
+    "Admin Panel": "menu.adminPanel", "Judge Panel": "menu.judgePanel", "Profile": "nav.profile",
+    "Edit Profile": "menu.editProfile", "Dashboard": "menu.dashboard", "My Submissions": "menu.mySubmissions",
+    "Competitions": "nav.competitions", "Help & Support": "menu.helpSupport", "Feed": "nav.feed",
+    "Discover": "menu.discover", "My Wall": "menu.myWall", "My Photos": "menu.myPhotos",
+    "My Certificates": "menu.myCertificates", "Friends": "menu.friends", "Referrals": "menu.referrals",
+    "Wallet": "menu.wallet", "Settings": "profile.settings",
+  };
+  const MENU_SECTION_KEYS: Record<string, string> = {
+    "Admin": "menu.sec.admin", "Account": "menu.sec.account", "Judge": "menu.sec.judge",
+    "Main": "menu.sec.main", "My Content": "menu.sec.myContent", "Social": "menu.sec.social",
+  };
+  const tm = (map: Record<string, string>, s: string) => { const k = map[s]; return k ? t(k) : s; };
   const sections: MenuSection[] = isAdmin ? [
     {
       title: "Admin",
@@ -158,7 +173,7 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
           <div key={section.title}>
             {sIdx > 0 && <div className="my-1 border-t border-border" />}
             <div className="pt-1.5 pb-0.5">
-              <span className="text-[8px] tracking-[0.25em] uppercase text-muted-foreground/60" style={{ fontFamily: "var(--font-heading)" }}>{section.title}</span>
+              <span className="text-[8px] tracking-[0.25em] uppercase text-muted-foreground/60" style={{ fontFamily: "var(--font-heading)" }}>{tm(MENU_SECTION_KEYS, section.title)}</span>
             </div>
             {section.items.filter(i => i.show).map((item) => (
               <button
@@ -168,7 +183,7 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
                 style={{ fontFamily: "var(--font-heading)" }}
               >
                 <item.icon className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
-                <span className="text-[10px] tracking-[0.1em] uppercase flex-1">{item.label}</span>
+                <span className="text-[10px] tracking-[0.1em] uppercase flex-1">{tm(MENU_LABEL_KEYS, item.label)}</span>
                 {item.extra}
               </button>
             ))}
@@ -182,7 +197,7 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
             style={{ fontFamily: "var(--font-heading)" }}
           >
             <LogOut className="h-3.5 w-3.5" />
-            <span className="text-[10px] tracking-[0.1em] uppercase">Logout</span>
+            <span className="text-[10px] tracking-[0.1em] uppercase">{t("menu.logout")}</span>
           </button>
         </div>
       </div>
@@ -232,7 +247,7 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
                 <div key={section.title}>
                   {sIdx > 0 && <div className="my-1 mx-3 border-t border-border/30" />}
                   <div className="px-4 pt-2 pb-0.5">
-                    <span className="text-[8px] tracking-[0.25em] uppercase text-muted-foreground/50" style={{ fontFamily: "var(--font-heading)" }}>{section.title}</span>
+                    <span className="text-[8px] tracking-[0.25em] uppercase text-muted-foreground/50" style={{ fontFamily: "var(--font-heading)" }}>{tm(MENU_SECTION_KEYS, section.title)}</span>
                   </div>
                   {section.items.filter(i => i.show).map((item) => (
                     <Tooltip key={item.to + item.label}>
@@ -243,7 +258,7 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
                           style={{ fontFamily: "var(--font-heading)" }}
                         >
                           <item.icon className="h-3.5 w-3.5 text-muted-foreground/70 group-hover:text-primary transition-colors duration-200" />
-                          <span className="text-[10px] tracking-[0.1em] uppercase flex-1 text-foreground/80 group-hover:text-foreground transition-colors duration-200">{item.label}</span>
+                          <span className="text-[10px] tracking-[0.1em] uppercase flex-1 text-foreground/80 group-hover:text-foreground transition-colors duration-200">{tm(MENU_LABEL_KEYS, item.label)}</span>
                           {item.extra}
                         </button>
                       </TooltipTrigger>
@@ -265,7 +280,7 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
             style={{ fontFamily: "var(--font-heading)" }}
           >
             <LogOut className="h-3.5 w-3.5" />
-            <span className="text-[10px] tracking-[0.1em] uppercase">Logout</span>
+            <span className="text-[10px] tracking-[0.1em] uppercase">{t("menu.logout")}</span>
           </button>
         </div>
       </PopoverContent>

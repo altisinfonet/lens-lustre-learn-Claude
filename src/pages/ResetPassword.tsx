@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { CheckCircle, Loader2, Lock, AlertTriangle, Eye, EyeOff, LogOut } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useT } from "@/i18n/I18nContext";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import {
@@ -12,6 +13,7 @@ import {
 const passwordSchema = z.string().min(8, "Password must be at least 8 characters").max(72);
 
 const ResetPassword = () => {
+  const t = useT();
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -191,11 +193,11 @@ const ResetPassword = () => {
               style={{ fontFamily: "var(--font-heading)" }}
             >
               {verifyingToken ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Continue Reset
+              {t("reset.continueReset")}
             </button>
           ) : (
             <Link to="/forgot-password" className="text-xs tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>
-              Request New Link
+              {t("reset.requestNewLink")}
             </Link>
           )}
         </div>
@@ -231,7 +233,7 @@ const ResetPassword = () => {
             style={{ fontFamily: "var(--font-heading)" }}
           >
             {signingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
-            Sign Out From All Devices
+            {t("reset.signOutAll")}
           </button>
         </div>
       </main>
@@ -247,7 +249,7 @@ const ResetPassword = () => {
           Set New <em className="italic text-primary">Password</em>
         </h1>
         <p className="text-sm text-muted-foreground mb-8" style={{ fontFamily: "var(--font-body)" }}>
-          Choose a strong password for your account.
+          {t("reset.chooseStrong")}
         </p>
 
         {error && (
@@ -259,7 +261,7 @@ const ResetPassword = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground block mb-1.5" style={{ fontFamily: "var(--font-heading)" }}>
-              New Password
+              {t("reset.newPassword")}
             </label>
             <div className="relative">
               <input
@@ -312,7 +314,7 @@ const ResetPassword = () => {
                 {passwordValidation.valid && (
                   <div className="flex items-center gap-1.5 text-[9px] text-green-500" style={{ fontFamily: "var(--font-heading)" }}>
                     <CheckCircle className="h-3 w-3" />
-                    <span>Strong password</span>
+                    <span>{t("reset.strongPassword")}</span>
                   </div>
                 )}
               </div>
@@ -320,14 +322,14 @@ const ResetPassword = () => {
           </div>
           <div>
             <label className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground block mb-1.5" style={{ fontFamily: "var(--font-heading)" }}>
-              Confirm Password
+              {t("reset.confirmPassword")}
             </label>
             <div className="relative">
               <input
                 type={showConfirm ? "text" : "password"}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Re-enter password"
+                placeholder={t("reset.phReenter")}
                 required
                 maxLength={72}
                 className="w-full py-3 px-4 pr-11 bg-transparent border border-border text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary transition-colors"
@@ -344,7 +346,7 @@ const ResetPassword = () => {
             </div>
             {confirmPassword.length > 0 && password !== confirmPassword && (
               <p className="mt-1.5 text-[9px] text-destructive" style={{ fontFamily: "var(--font-heading)" }}>
-                Passwords do not match
+                {t("reset.mismatch")}
               </p>
             )}
           </div>
@@ -352,7 +354,7 @@ const ResetPassword = () => {
           {/* Reuse warning */}
           <div className="flex items-start gap-2 text-[10px] text-muted-foreground px-3 py-2 border border-border rounded" style={{ fontFamily: "var(--font-body)" }}>
             <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-yellow-500" />
-            <span>You cannot reuse your last password.</span>
+            <span>{t("reset.noReuse")}</span>
           </div>
 
           <button
@@ -362,7 +364,7 @@ const ResetPassword = () => {
             style={{ fontFamily: "var(--font-heading)" }}
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Update Password
+            {t("reset.updatePassword")}
           </button>
         </form>
       </div>

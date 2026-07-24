@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft, Loader2, Mail } from "lucide-react";
 import { useState } from "react";
+import { useT } from "@/i18n/I18nContext";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import { getCaptchaToken } from "@/lib/turnstile";
@@ -8,6 +9,7 @@ import { getCaptchaToken } from "@/lib/turnstile";
 const emailSchema = z.string().trim().email("Please enter a valid email").max(255);
 
 const ForgotPassword = () => {
+  const t = useT();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -68,7 +70,7 @@ const ForgotPassword = () => {
           Forgot <em className="italic text-primary">Password?</em>
         </h1>
         <p className="text-sm text-muted-foreground mb-8" style={{ fontFamily: "var(--font-body)" }}>
-          Enter your email and we'll send you a reset link.
+          {t("reset.forgotSubtitle")}
         </p>
 
         {error && (
@@ -80,7 +82,7 @@ const ForgotPassword = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground block mb-1.5" style={{ fontFamily: "var(--font-heading)" }}>
-              Email
+              {t("auth.email")}
             </label>
             <input
               type="email"
@@ -100,7 +102,7 @@ const ForgotPassword = () => {
             style={{ fontFamily: "var(--font-heading)" }}
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Send Reset Link
+            {t("reset.sendResetLink")}
           </button>
         </form>
       </div>
