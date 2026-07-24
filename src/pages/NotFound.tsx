@@ -2,8 +2,10 @@
 import { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Aperture, Home, Trophy, Compass, Newspaper, ArrowLeft } from "lucide-react";
+import { useT } from "@/i18n/I18nContext";
 
 const NotFound = () => {
+  const t = useT();
   const location = useLocation();
 
   useEffect(() => {
@@ -24,9 +26,9 @@ const NotFound = () => {
           </span>
         </div>
 
-        <h1 className="text-2xl font-bold sm:text-3xl">This frame is empty</h1>
+        <h1 className="text-2xl font-bold sm:text-3xl">{t("nf.frameEmpty")}</h1>
         <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-          The page you're looking for was moved, deleted, or never existed.
+          {t("nf.pageGone")}
           {location.pathname && (
             <>
               {" "}
@@ -43,13 +45,13 @@ const NotFound = () => {
             to="/"
             className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
           >
-            <Home className="h-4 w-4" /> Back to Home
+            <Home className="h-4 w-4" /> {t("nf.backToHome")}
           </Link>
           <button
             onClick={() => window.history.back()}
             className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition hover:bg-muted"
           >
-            <ArrowLeft className="h-4 w-4" /> Go Back
+            <ArrowLeft className="h-4 w-4" /> {t("nf.goBack")}
           </button>
         </div>
 

@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import { Plus, Send, MessageSquare, Clock, CheckCircle, XCircle, ChevronDown, ChevronUp, Paperclip, FileText, Image, Loader2, X, FileSpreadsheet } from "lucide-react";
 import { scanFileWithToast } from "@/lib/fileSecurityScanner";
 import FileUploadDropZone, { type UploadedFile } from "@/components/FileUploadDropZone";
+import { useT } from "@/i18n/I18nContext";
 
 interface Ticket {
   id: string;
@@ -29,6 +30,7 @@ interface Reply {
 }
 
 const HelpSupport = () => {
+  const t = useT();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -96,14 +98,14 @@ const HelpSupport = () => {
       const result = await uploadImage({ bucket: "support-attachments", file, path, type: "support", fileName: file.name });
       return { url: result.url, name: file.name };
     } catch (error: any) {
-      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+      toast({ title: t("mp.uploadFailed"), description: error.message, variant: "destructive" });
       return null;
     }
   };
 
   const handleSubmit = async () => {
     if (!user || !subject.trim() || !issue.trim()) {
-      toast({ title: "Please fill in both subject and issue", variant: "destructive" });
+      toast({ title: t("hs.fillBoth"), variant: "destructive" });
       return;
     }
     setSubmitting(true);
@@ -123,7 +125,7 @@ const HelpSupport = () => {
       .single();
 
     if (ticketErr || !ticket) {
-      toast({ title: "Failed to create ticket", description: ticketErr?.message, variant: "destructive" });
+      toast({ title: t("hs.ticketFailed"), description: ticketErr?.message, variant: "destructive" });
       setSubmitting(false);
       return;
     }
@@ -142,7 +144,7 @@ const HelpSupport = () => {
     setIssueFile(null);
     setIssuePreUpload(null);
     setShowForm(false);
-    toast({ title: "Ticket submitted successfully!" });
+    toast({ title: t("hs.ticketSubmitted") });
     fetchTickets();
   };
 
@@ -212,7 +214,7 @@ const HelpSupport = () => {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-xs tracking-[0.3em] uppercase text-muted-foreground animate-pulse" style={{ fontFamily: "var(--font-heading)" }}>
-          Loading...
+          {t("common.loading")}
         </div>
       </main>
     );
@@ -226,12 +228,12 @@ const HelpSupport = () => {
           <div className="flex items-center gap-3 mb-1 md:mb-2">
             <div className="w-8 md:w-12 h-px bg-primary hidden md:block" />
             <span className="text-[9px] md:text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>
-              Help & Support
+              {t("hs.helpSupport")}
             </span>
           </div>
           <div className="flex items-center justify-between mb-4 md:mb-10">
             <h1 className="text-xl md:text-3xl font-light tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
-              Support Tickets
+              {t("hs.supportTickets")}
             </h1>
             {user && (
               <button
@@ -239,7 +241,7 @@ const HelpSupport = () => {
                 className="inline-flex items-center gap-1.5 text-[10px] md:text-xs tracking-[0.15em] uppercase px-3 md:px-5 py-2 md:py-2.5 bg-primary text-primary-foreground hover:opacity-90 transition-opacity duration-500 rounded-lg md:rounded-none"
                 style={{ fontFamily: "var(--font-heading)" }}
               >
-                <Plus className="h-3 w-3 md:h-3.5 md:w-3.5" /> New Ticket
+                <Plus className="h-3 w-3 md:h-3.5 md:w-3.5" /> {t("hs.newTicket")}
               </button>
             )}
           </div>
@@ -248,17 +250,17 @@ const HelpSupport = () => {
           {showForm && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="border border-border rounded-xl md:rounded-none p-4 md:p-8 mb-4 md:mb-10 space-y-4 md:space-y-5">
               <span className="text-xs tracking-[0.2em] uppercase text-primary block" style={{ fontFamily: "var(--font-heading)" }}>
-                Submit a New Ticket
+                {t("hs.submitNewTicket")}
               </span>
               <div>
                 <label htmlFor="support-subject" className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2" style={{ fontFamily: "var(--font-heading)" }}>
-                  Subject *
+                  {t("hs.subject")}
                 </label>
                 <input
                   id="support-subject"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  placeholder="Brief description of your issue"
+                  placeholder={t("hs.phSubject")}
                   maxLength={200}
                   className="w-full bg-transparent border-b border-border focus:border-primary outline-none py-3 text-sm transition-colors duration-500"
                   style={{ fontFamily: "var(--font-body)" }}
@@ -266,13 +268,13 @@ const HelpSupport = () => {
               </div>
               <div>
                 <label htmlFor="support-issue" className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2" style={{ fontFamily: "var(--font-heading)" }}>
-                  Issue Details *
+                  {t("hs.issueDetails")}
                 </label>
                 <textarea
                   id="support-issue"
                   value={issue}
                   onChange={(e) => setIssue(e.target.value)}
-                  placeholder="Describe your issue in detail..."
+                  placeholder={t("hs.phIssue")}
                   rows={4}
                   maxLength={2000}
                   className="w-full bg-transparent border border-border focus:border-primary outline-none p-4 text-sm transition-colors duration-500 resize-none"
@@ -282,7 +284,7 @@ const HelpSupport = () => {
               {/* File attachment */}
               <div>
                 <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2" style={{ fontFamily: "var(--font-heading)" }}>
-                  Attachment <span className="normal-case">(Images, PDFs, or Documents, max 10MB)</span>
+                  {t("hs.attachment")} <span className="normal-case">{t("hs.attachmentNote")}</span>
                 </label>
                 {issueFile ? (
                   <div className="inline-flex items-center gap-2 px-3 py-2 bg-muted/50 border border-border text-sm">
@@ -315,14 +317,14 @@ const HelpSupport = () => {
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
                   {uploadingFile ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                  {submitting ? "Submitting…" : "Submit Ticket"}
+                  {submitting ? t("hs.submitting") : t("hs.submitTicket")}
                 </button>
                 <button
                   onClick={() => { setShowForm(false); setSubject(""); setIssue(""); setIssueFile(null); setIssuePreUpload(null); }}
                   className="text-xs tracking-[0.15em] uppercase px-5 py-2.5 border border-border hover:border-primary transition-all"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </button>
               </div>
             </motion.div>
@@ -333,14 +335,14 @@ const HelpSupport = () => {
             <div className="border border-border rounded-xl md:rounded-none p-6 md:p-10 text-center mb-4 md:mb-10">
               <MessageSquare className="h-6 w-6 md:h-8 md:w-8 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground mb-4" style={{ fontFamily: "var(--font-body)" }}>
-                Sign in to create and track support tickets.
+                {t("hs.signInToTrack")}
               </p>
               <button
                 onClick={() => navigate("/login")}
                 className="inline-flex items-center gap-1.5 text-[10px] md:text-xs tracking-[0.15em] uppercase px-4 py-2.5 bg-primary text-primary-foreground hover:opacity-90 transition-opacity duration-500"
                 style={{ fontFamily: "var(--font-heading)" }}
               >
-                Sign In
+                {t("auth.signIn")}
               </button>
             </div>
           )}
@@ -350,7 +352,7 @@ const HelpSupport = () => {
             <div className="border border-border rounded-xl md:rounded-none p-6 md:p-10 text-center">
               <MessageSquare className="h-6 w-6 md:h-8 md:w-8 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                No support tickets yet. Click "New Ticket" to get help.
+                {t("hs.noTickets")}
               </p>
             </div>
           ) : (
@@ -391,7 +393,7 @@ const HelpSupport = () => {
                               {reply.is_admin ? (
                                 <span className="text-primary">50mm Retina World Support</span>
                               ) : (
-                                <span className="text-muted-foreground">You</span>
+                                <span className="text-muted-foreground">{t("hs.you")}</span>
                               )}
                               <span className="text-muted-foreground/50 ml-2 font-normal">
                                 {new Date(reply.created_at).toLocaleDateString("en-US", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
@@ -421,7 +423,7 @@ const HelpSupport = () => {
                             <input
                               value={replyText[ticket.id] || ""}
                               onChange={(e) => setReplyText((prev) => ({ ...prev, [ticket.id]: e.target.value }))}
-                              placeholder="Type your reply..."
+                              placeholder={t("hs.phReply")}
                               maxLength={2000}
                               className="flex-1 bg-transparent border-b border-border focus:border-primary outline-none py-2 text-sm"
                               style={{ fontFamily: "var(--font-body)" }}
@@ -454,10 +456,10 @@ const HelpSupport = () => {
               information must be visible without signing in. */}
           <section id="delete-account" className="mt-8 md:mt-14 border border-border rounded-xl md:rounded-none p-4 md:p-8">
             <span className="text-[9px] md:text-[10px] tracking-[0.3em] uppercase text-primary block mb-3" style={{ fontFamily: "var(--font-heading)" }}>
-              Account &amp; Data Deletion
+              {t("hs.accountDeletion")}
             </span>
             <h2 className="text-lg md:text-2xl font-light tracking-tight mb-4" style={{ fontFamily: "var(--font-display)" }}>
-              Delete your 50mm Retina World account
+              {t("hs.deleteYourAccount")}
             </h2>
             <div className="space-y-3 text-sm text-muted-foreground leading-relaxed" style={{ fontFamily: "var(--font-body)" }}>
               <p>

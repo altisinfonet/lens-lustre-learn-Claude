@@ -19,6 +19,7 @@ import { useEntryPublicStatus } from "@/hooks/judging/useEntryPublicStatus";
 import type { PerPhotoStatus } from "@/hooks/judging/usePhotoDecisions";
 import { buildPublishedParticipantTagMaps, type PublishedTagAssignment } from "@/lib/judging/publishedTagVisibility";
 import { PARTICIPANT_PLACEMENT_LABELS, participantLabelForJudgingTag, normalizePlacementKey } from "@/lib/judging/participantStageLabels";
+import { useT } from "@/i18n/I18nContext";
 
 /* ── types ── */
 interface ImageReport {
@@ -125,6 +126,7 @@ const SubmissionLightbox = ({
   publicPlacement: string | null;
   publicStatus: string;
 }) => {
+  const t = useT();
   const report = imageReports.find(r => r.photo_index === currentIndex);
   const photoTags = entry.tagsByPhoto[currentIndex] || [];
   const perPhotoTitle = entry.photo_titles[currentIndex] ?? entry.title;
@@ -207,7 +209,7 @@ const SubmissionLightbox = ({
         <div>
           <h3 className="text-sm font-light" style={{ fontFamily: "var(--font-display)" }}>{perPhotoTitle}</h3>
           <p className="text-[9px] text-muted-foreground mt-1" style={{ fontFamily: "var(--font-heading)" }}>
-            Photo {currentIndex + 1} of {photos.length}
+            {t("csub.photo")} {currentIndex + 1} {t("sd.photoOf")} {photos.length}
           </p>
           <div className="mt-2">
             <ParticipantStageBadge status={displayStatus} tags={[]} compact />
@@ -221,13 +223,13 @@ const SubmissionLightbox = ({
         {rejection?.rejected && (
           <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 space-y-1">
             <p className="text-[10px] tracking-[0.2em] uppercase text-destructive font-semibold" style={{ fontFamily: "var(--font-heading)" }}>
-              Removed by Moderation
+              {t("sd.removedByModeration")}
             </p>
             <p className="text-[11px] text-foreground/90" style={{ fontFamily: "var(--font-body)" }}>
-              {rejection.reason || "This image was removed from the public gallery and judging by an administrator."}
+              {rejection.reason || t("sd.removedDefault")}
             </p>
             <p className="text-[9px] text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-              It is hidden from voters and judges site-wide. Your other photos are unaffected.
+              {t("sd.hiddenNote")}
             </p>
           </div>
         )}
@@ -241,7 +243,7 @@ const SubmissionLightbox = ({
         {scoresReleased && report && (
           <div className="space-y-2">
             <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block" style={{ fontFamily: "var(--font-heading)" }}>
-              <Star className="h-3 w-3 inline mr-1" /> Score
+              <Star className="h-3 w-3 inline mr-1" /> {t("sd.score")}
             </span>
             {report.avg !== null && (
               <div className="flex items-center gap-2">
@@ -266,10 +268,10 @@ const SubmissionLightbox = ({
         {!scoresReleased && (
           <div className="rounded-md border border-border/60 bg-muted/20 p-3">
             <p className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground font-semibold" style={{ fontFamily: "var(--font-heading)" }}>
-              Scores Locked
+              {t("sd.scoresLocked")}
             </p>
             <p className="text-[10px] text-muted-foreground/80 mt-1" style={{ fontFamily: "var(--font-body)" }}>
-              Judges' marks and feedback are released only after results are declared.
+              {t("sd.scoresLockedDesc")}
             </p>
           </div>
         )}
@@ -278,7 +280,7 @@ const SubmissionLightbox = ({
         {scoresReleased && entry.score_avg !== null && (
           <div className="pt-3 border-t border-border">
             <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>
-              Overall Average
+              {t("sd.overallAverage")}
             </span>
             <span className="text-lg text-primary font-light" style={{ fontFamily: "var(--font-display)" }}>
               <Star className="h-4 w-4 inline fill-primary mr-1" />{entry.score_avg}/10
@@ -290,7 +292,7 @@ const SubmissionLightbox = ({
         {photoTags.length > 0 && (
           <div className="pt-3 border-t border-border">
             <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block mb-2" style={{ fontFamily: "var(--font-heading)" }}>
-              <Award className="h-3 w-3 inline mr-1" /> Tags
+              <Award className="h-3 w-3 inline mr-1" /> {t("sd.tags")}
             </span>
             <div className="flex flex-wrap gap-1.5">
               {photoTags.map(tag => (
@@ -306,6 +308,7 @@ const SubmissionLightbox = ({
 
 /* ── Main Page ── */
 const SubmissionDetail = () => {
+  const t = useT();
   const { competitionId, entryId: urlEntryId, photoIndex: urlPhotoIndex } = useParams<{ competitionId: string; entryId?: string; photoIndex?: string }>();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -665,7 +668,7 @@ const SubmissionDetail = () => {
   if (authLoading || loading) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
-        <span className="text-xs tracking-[0.3em] uppercase text-muted-foreground animate-pulse" style={{ fontFamily: "var(--font-heading)" }}>Loading...</span>
+        <span className="text-xs tracking-[0.3em] uppercase text-muted-foreground animate-pulse" style={{ fontFamily: "var(--font-heading)" }}>{t("common.loading")}</span>
       </main>
     );
   }
@@ -673,8 +676,8 @@ const SubmissionDetail = () => {
   if (!comp) {
     return (
       <main className="min-h-screen bg-background p-8 text-center">
-        <p className="text-muted-foreground">Competition not found.</p>
-        <Link to="/dashboard?tab=submissions" className="text-primary hover:underline text-sm mt-2 inline-block">← Back to Dashboard</Link>
+        <p className="text-muted-foreground">{t("sd.notFoundComp")}</p>
+        <Link to="/dashboard?tab=submissions" className="text-primary hover:underline text-sm mt-2 inline-block">{t("sd.backToDashboard")}</Link>
       </main>
     );
   }
@@ -686,7 +689,7 @@ const SubmissionDetail = () => {
   const scoresReleased = publishedRoundSet.has(4);
   // Award placement (winner / runner-up) is also a Round 4 reveal.
   const placementReleased = publishedRoundSet.has(4);
-  const compStatusLabel = compPhase === "result" ? "Results Declared" : compPhase === "judging" ? "Judging in Progress" : "Open";
+  const compStatusLabel = compPhase === "result" ? t("sd.resultsDeclared") : compPhase === "judging" ? t("dash.judgingInProgress") : t("phase.submission_open");
 
   // Owner edit window: phase MUST be submission_open AND now() <= ends_at.
   // Mirrors the DB RLS USING clause exactly. RLS is the source of truth;
@@ -795,7 +798,7 @@ const SubmissionDetail = () => {
                       onClick={() => setEditingEntryId(entry.id)}
                     >
                       <Pencil className="h-3 w-3 mr-1.5" />
-                      Edit
+                      {t("cmt.edit")}
                     </Button>
                   </>
                 )}
@@ -848,7 +851,7 @@ const SubmissionDetail = () => {
                     {/* FIX #4: Owner-visible "Removed by Moderation" ribbon. */}
                     {photoRejection?.rejected && (
                       <div className="absolute inset-x-0 top-0 bg-destructive text-destructive-foreground px-3 py-1.5 text-[10px] tracking-[0.18em] uppercase font-semibold text-center" style={{ fontFamily: "var(--font-heading)" }}>
-                        Removed by Moderation{photoRejection.reason ? ` — ${photoRejection.reason}` : ""}
+                        {t("sd.removedByModeration")}{photoRejection.reason ? ` — ${photoRejection.reason}` : ""}
                       </div>
                     )}
 
@@ -899,17 +902,17 @@ const SubmissionDetail = () => {
         {entries.length === 0 && (
           <div className="text-center py-12 border border-dashed border-border">
             <ImageIcon className="h-8 w-8 text-muted-foreground/20 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">No entries found for this competition.</p>
+            <p className="text-sm text-muted-foreground">{t("sd.noEntries")}</p>
           </div>
         )}
 
         {/* Back + View Competition links */}
         <div className="flex items-center gap-4 mt-6 pt-4 border-t border-border">
           <Link to="/dashboard?tab=submissions" className="inline-flex items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase text-muted-foreground hover:text-foreground transition-colors" style={{ fontFamily: "var(--font-heading)" }}>
-            <ArrowLeft className="h-3 w-3" /> Back to Submissions
+            <ArrowLeft className="h-3 w-3" /> {t("sd.backToSubmissions")}
           </Link>
           <Link to={`/competitions/${competitionId}`} className="inline-flex items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>
-            <ExternalLink className="h-3 w-3" /> View Competition
+            <ExternalLink className="h-3 w-3" /> {t("sd.viewCompetition")}
           </Link>
         </div>
       </div>
