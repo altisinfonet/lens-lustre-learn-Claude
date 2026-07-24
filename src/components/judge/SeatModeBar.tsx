@@ -11,6 +11,7 @@
  */
 import { memo } from "react";
 import { KeyRound, X, ChevronDown, Eye } from "lucide-react";
+import { useT } from "@/i18n/I18nContext";
 
 export interface SeatRosterEntry {
   judgeId: string;
@@ -28,6 +29,7 @@ interface SeatModeBarProps {
 }
 
 const SeatModeBar = memo(({ isAdmin, roster, seatJudgeId, onSeat, selfUserId }: SeatModeBarProps) => {
+  const t = useT();
   if (!isAdmin) return null;
 
   const pickable = roster.filter((r) => r.judgeId !== selfUserId);
@@ -61,7 +63,7 @@ const SeatModeBar = memo(({ isAdmin, roster, seatJudgeId, onSeat, selfUserId }: 
     <div className="w-full bg-muted/30 border-b border-border px-4 py-1.5 flex items-center gap-2">
       <Eye className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
       <span className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground/70 shrink-0" style={{ fontFamily: "var(--font-heading)" }}>
-        View as judge
+        {t("jg.viewAsJudge")}
       </span>
       <div className="relative">
         <select

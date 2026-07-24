@@ -1074,6 +1074,15 @@ const en: Dict = {
   "jg.reviewComplete": "Review & Complete",
   "jg.refreshCheck": "Refresh & Check",
   "jg.proceedDeclare": "Proceed to Declare",
+  "jg.resumeSession": "Resume Previous Session?",
+  "jg.lastImage": "Last image",
+  "jg.timeSpent": "Time spent",
+  "jg.startFromBeginning": "Start from Beginning",
+  "jg.noTagsRound4": "No tags assigned to Round 4 by admin.",
+  "jg.rawSubmissions": "RAW Submissions",
+  "jg.rawDesc": "Photos where the photographer committed to deliver RAW on request (EXIF was missing or stripped at submit).",
+  "jg.exifMissing": "EXIF missing",
+  "jg.viewAsJudge": "View as judge",
 };
 
 const hi: Dict = {
@@ -2128,6 +2137,15 @@ const hi: Dict = {
   "jg.reviewComplete": "समीक्षा करें और पूर्ण करें",
   "jg.refreshCheck": "रीफ्रेश और जांच",
   "jg.proceedDeclare": "घोषणा के लिए आगे बढ़ें",
+  "jg.resumeSession": "पिछला सत्र फिर शुरू करें?",
+  "jg.lastImage": "अंतिम छवि",
+  "jg.timeSpent": "बिताया गया समय",
+  "jg.startFromBeginning": "शुरुआत से शुरू करें",
+  "jg.noTagsRound4": "एडमिन ने राउंड 4 के लिए कोई टैग निर्धारित नहीं किया।",
+  "jg.rawSubmissions": "RAW प्रविष्टियाँ",
+  "jg.rawDesc": "वे फोटो जिनके लिए फोटोग्राफर ने अनुरोध पर RAW देने का वचन दिया (EXIF अनुपलब्ध था)।",
+  "jg.exifMissing": "EXIF अनुपलब्ध",
+  "jg.viewAsJudge": "जज के रूप में देखें",
 };
 
 const bn: Dict = {
@@ -3182,6 +3200,15 @@ const bn: Dict = {
   "jg.reviewComplete": "পর্যালোচনা ও সম্পন্ন",
   "jg.refreshCheck": "রিফ্রেশ ও পরীক্ষা",
   "jg.proceedDeclare": "ঘোষণায় এগিয়ে যান",
+  "jg.resumeSession": "আগের সেশন পুনরায় শুরু করবেন?",
+  "jg.lastImage": "শেষ ছবি",
+  "jg.timeSpent": "ব্যয়িত সময়",
+  "jg.startFromBeginning": "শুরু থেকে শুরু করুন",
+  "jg.noTagsRound4": "অ্যাডমিন রাউন্ড 4-এ কোনো ট্যাগ দেননি।",
+  "jg.rawSubmissions": "RAW জমা",
+  "jg.rawDesc": "যেসব ছবিতে ফটোগ্রাফার অনুরোধে RAW দিতে প্রতিশ্রুতিবদ্ধ (EXIF ছিল না)।",
+  "jg.exifMissing": "EXIF নেই",
+  "jg.viewAsJudge": "বিচারক হিসেবে দেখুন",
 };
 
 const mr: Dict = {
@@ -4236,6 +4263,15 @@ const mr: Dict = {
   "jg.reviewComplete": "पुनरावलोकन व पूर्ण करा",
   "jg.refreshCheck": "रिफ्रेश व तपासा",
   "jg.proceedDeclare": "घोषणेकडे पुढे जा",
+  "jg.resumeSession": "मागील सत्र पुन्हा सुरू करायचे?",
+  "jg.lastImage": "शेवटची प्रतिमा",
+  "jg.timeSpent": "घालवलेला वेळ",
+  "jg.startFromBeginning": "सुरुवातीपासून सुरू करा",
+  "jg.noTagsRound4": "अ‍ॅडमिनने फेरी 4 साठी टॅग नियुक्त केलेले नाहीत.",
+  "jg.rawSubmissions": "RAW नोंदी",
+  "jg.rawDesc": "ज्या फोटोंसाठी फोटोग्राफरने विनंतीनुसार RAW देण्याचे वचन दिले (EXIF नव्हते).",
+  "jg.exifMissing": "EXIF गहाळ",
+  "jg.viewAsJudge": "परीक्षक म्हणून पहा",
 };
 
 const gu: Dict = {
@@ -5290,6 +5326,15 @@ const gu: Dict = {
   "jg.reviewComplete": "સમીક્ષા અને પૂર્ણ કરો",
   "jg.refreshCheck": "રીફ્રેશ અને તપાસો",
   "jg.proceedDeclare": "જાહેરાત તરફ આગળ વધો",
+  "jg.resumeSession": "અગાઉનું સત્ર ફરી શરૂ કરવું?",
+  "jg.lastImage": "છેલ્લી છબી",
+  "jg.timeSpent": "વિતાવેલો સમય",
+  "jg.startFromBeginning": "શરૂઆતથી શરૂ કરો",
+  "jg.noTagsRound4": "એડમિને રાઉન્ડ 4 માટે કોઈ ટેગ સોંપ્યા નથી.",
+  "jg.rawSubmissions": "RAW એન્ટ્રીઓ",
+  "jg.rawDesc": "જે ફોટા માટે ફોટોગ્રાફરે વિનંતી પર RAW આપવાનું વચન આપ્યું (EXIF નહોતું).",
+  "jg.exifMissing": "EXIF ખૂટે છે",
+  "jg.viewAsJudge": "નિર્ણાયક તરીકે જુઓ",
 };
 
 const ta: Dict = {
@@ -6344,6 +6389,15 @@ const ta: Dict = {
   "jg.reviewComplete": "மறுஆய்வு & நிறைவு",
   "jg.refreshCheck": "புதுப்பித்து சரிபார்",
   "jg.proceedDeclare": "அறிவிப்புக்கு தொடரவும்",
+  "jg.resumeSession": "முந்தைய அமர்வைத் தொடரவா?",
+  "jg.lastImage": "கடைசி படம்",
+  "jg.timeSpent": "செலவழித்த நேரம்",
+  "jg.startFromBeginning": "தொடக்கத்திலிருந்து தொடங்கு",
+  "jg.noTagsRound4": "சுற்று 4-க்கு நிர்வாகி குறிச்சொற்களை ஒதுக்கவில்லை.",
+  "jg.rawSubmissions": "RAW சமர்ப்பிப்புகள்",
+  "jg.rawDesc": "புகைப்படக்காரர் கோரிக்கையின் பேரில் RAW வழங்க உறுதியளித்த படங்கள் (EXIF இல்லை).",
+  "jg.exifMissing": "EXIF இல்லை",
+  "jg.viewAsJudge": "நடுவராகக் காண்க",
 };
 
 const te: Dict = {
@@ -7398,6 +7452,15 @@ const te: Dict = {
   "jg.reviewComplete": "సమీక్షించి పూర్తి చేయండి",
   "jg.refreshCheck": "రిఫ్రెష్ & తనిఖీ",
   "jg.proceedDeclare": "ప్రకటనకు కొనసాగండి",
+  "jg.resumeSession": "మునుపటి సెషన్ కొనసాగించాలా?",
+  "jg.lastImage": "చివరి చిత్రం",
+  "jg.timeSpent": "గడిపిన సమయం",
+  "jg.startFromBeginning": "మొదటి నుండి ప్రారంభించండి",
+  "jg.noTagsRound4": "అడ్మిన్ రౌండ్ 4కు ట్యాగ్‌లు కేటాయించలేదు.",
+  "jg.rawSubmissions": "RAW సమర్పణలు",
+  "jg.rawDesc": "ఫోటోగ్రాఫర్ అభ్యర్థనపై RAW ఇస్తానని హామీ ఇచ్చిన ఫోటోలు (EXIF లేదు).",
+  "jg.exifMissing": "EXIF లేదు",
+  "jg.viewAsJudge": "జడ్జ్‌గా చూడండి",
 };
 
 export const translations: Record<Lang, Dict> = { en, hi, bn, mr, gu, ta, te };

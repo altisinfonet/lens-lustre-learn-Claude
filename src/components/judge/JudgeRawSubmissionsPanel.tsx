@@ -10,6 +10,7 @@
 import { motion } from "framer-motion";
 import { FileWarning, ShieldCheck, Clock, ImageOff, AlertCircle, Loader2 } from "lucide-react";
 import { useCompetitionRawCommitments } from "@/hooks/judging/useJudgeIntegrityData";
+import { useT } from "@/i18n/I18nContext";
 
 const HEAD = { fontFamily: "var(--font-heading)" } as const;
 
@@ -19,13 +20,14 @@ interface Props {
 }
 
 export const JudgeRawSubmissionsPanel = ({ competitionId, onJump }: Props) => {
+  const t = useT();
   const { data, isLoading, error } = useCompetitionRawCommitments(competitionId);
 
   return (
     <div className="p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-[11px] font-bold tracking-[0.25em] uppercase text-muted-foreground/70" style={HEAD}>
-          RAW Submissions
+          {t("jg.rawSubmissions")}
         </h3>
         {data && data.length > 0 && (
           <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-0.5" style={HEAD}>
@@ -35,7 +37,7 @@ export const JudgeRawSubmissionsPanel = ({ competitionId, onJump }: Props) => {
       </div>
 
       <p className="text-[10px] text-muted-foreground/60 leading-relaxed">
-        Photos where the photographer committed to deliver RAW on request (EXIF was missing or stripped at submit).
+        {t("jg.rawDesc")}
       </p>
 
       {isLoading && (
@@ -118,7 +120,7 @@ export const JudgeRawSubmissionsPanel = ({ competitionId, onJump }: Props) => {
                   {!row.exif_available && (
                     <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400">
                       <FileWarning className="h-2.5 w-2.5" />
-                      EXIF missing
+                      {t("jg.exifMissing")}
                     </span>
                   )}
                 </div>

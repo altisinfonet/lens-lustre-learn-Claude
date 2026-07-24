@@ -1,4 +1,5 @@
 import { AlertTriangle, Play } from "lucide-react";
+import { useT } from "@/i18n/I18nContext";
 
 interface StartRoundDialogProps {
   roundName: string;
@@ -8,6 +9,7 @@ interface StartRoundDialogProps {
 }
 
 const StartRoundDialog = ({ roundName, totalImages, onConfirm, onCancel }: StartRoundDialogProps) => {
+  const t = useT();
   return (
     <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-card border border-border rounded-xl shadow-2xl max-w-md w-full p-6 space-y-5">
@@ -38,7 +40,7 @@ const StartRoundDialog = ({ roundName, totalImages, onConfirm, onCancel }: Start
             className="flex-1 text-[11px] tracking-[0.1em] uppercase px-4 py-2.5 border border-border rounded-lg hover:bg-muted transition-colors"
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             onClick={onConfirm}
@@ -46,7 +48,7 @@ const StartRoundDialog = ({ roundName, totalImages, onConfirm, onCancel }: Start
             style={{ fontFamily: "var(--font-heading)" }}
           >
             <Play className="h-3.5 w-3.5" />
-            Start Judging
+            {t("jg.startJudging")}
           </button>
         </div>
       </div>

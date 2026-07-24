@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Competition, JudgingRound, SidebarView, JudgingTag } from "@/hooks/judging/types";
+import { useT } from "@/i18n/I18nContext";
 
 const f = { fontFamily: "var(--font-heading)" };
 
@@ -127,6 +128,7 @@ const RoundRow = memo(({
   round, isLocked, isExpanded, isSelectedRound, isActive, isCompleted, isPending,
   sidebarView, counts, roundTags, tagCountsMap, unjudgedCount, onRoundClick, onSubmenuClick,
 }: RoundRowProps) => {
+  const t = useT();
   return (
     <div className="mb-1">
       <button
@@ -219,7 +221,7 @@ const RoundRow = memo(({
               {round.round_number === 4 && (
                 roundTags.length === 0 ? (
                   <div className="px-2 py-2 text-[9px] text-muted-foreground/50 italic" style={f}>
-                    No tags assigned to Round 4 by admin.
+                    {t("jg.noTagsRound4")}
                   </div>
                 ) : (
                   roundTags.map((tag) => {
@@ -280,6 +282,7 @@ const JudgeRoundSidebar = memo(({
   rounds, selectedRound, setSelectedRound, sidebarView, setSidebarView, setSelectedPhotoKey,
   filterCounts, availableTags, tagCountsMap, setMobileTab, onCinemaMode,
 }: JudgeRoundSidebarProps) => {
+  const t = useT();
   const [expandedRound, setExpandedRound] = useState<string | null>(null);
 
   const activeRound = useMemo(() => rounds.find(r => r.status === "active"), [rounds]);

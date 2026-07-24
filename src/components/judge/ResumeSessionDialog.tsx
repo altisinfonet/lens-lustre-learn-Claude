@@ -5,6 +5,7 @@
  * SOW v2.1 Step 3 (B): framer-motion replaced with Tailwind CSS animations.
  */
 import { RotateCcw, SkipForward } from "lucide-react";
+import { useT } from "@/i18n/I18nContext";
 
 interface ResumeSessionDialogProps {
   competitionTitle: string;
@@ -21,6 +22,7 @@ const formatTime = (s: number) => {
 };
 
 const ResumeSessionDialog = ({ competitionTitle, lastEntryIndex, elapsedSeconds, onResume, onStartFresh }: ResumeSessionDialogProps) => {
+  const t = useT();
   return (
     <div className="fixed inset-0 z-[300] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-md w-full p-8 text-center space-y-5 animate-in zoom-in-95 fade-in duration-200">
@@ -30,7 +32,7 @@ const ResumeSessionDialog = ({ competitionTitle, lastEntryIndex, elapsedSeconds,
 
         <div>
           <h2 className="text-lg font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
-            Resume Previous Session?
+            {t("jg.resumeSession")}
           </h2>
           <p className="text-sm text-muted-foreground mt-2" style={{ fontFamily: "var(--font-body)" }}>
             You have an unfinished judging session for <strong className="text-foreground">{competitionTitle}</strong>.
@@ -40,12 +42,12 @@ const ResumeSessionDialog = ({ competitionTitle, lastEntryIndex, elapsedSeconds,
         <div className="flex justify-center gap-6 text-xs text-muted-foreground/70" style={{ fontFamily: "var(--font-heading)" }}>
           <div>
             <span className="block text-foreground text-sm font-bold">{lastEntryIndex + 1}</span>
-            Last image
+            {t("jg.lastImage")}
           </div>
           <div className="w-px bg-border" />
           <div>
             <span className="block text-foreground text-sm font-bold">{formatTime(elapsedSeconds)}</span>
-            Time spent
+            {t("jg.timeSpent")}
           </div>
         </div>
 
@@ -64,7 +66,7 @@ const ResumeSessionDialog = ({ competitionTitle, lastEntryIndex, elapsedSeconds,
             style={{ fontFamily: "var(--font-heading)" }}
           >
             <SkipForward className="h-3 w-3 inline mr-1" />
-            Start from Beginning
+            {t("jg.startFromBeginning")}
           </button>
         </div>
       </div>
