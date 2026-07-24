@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useSiteLogo } from "@/hooks/core/useSiteLogo";
+import { useT } from "@/i18n/I18nContext";
 import { ArrowLeft, Loader2, Mail, Eye, EyeOff } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -31,6 +32,7 @@ const friendlyError = (raw: string): string => {
 };
 
 const Signup = () => {
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
   const siteLogo = useSiteLogo();
   const [success, setSuccess] = useState(false);
@@ -149,7 +151,7 @@ const Signup = () => {
             We've sent a verification link to <strong className="text-foreground">{email}</strong>. Click the link to activate your account.
           </p>
           <Link to="/login" className="text-xs tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>
-            Back to Login
+            {t("auth.backToLogin")}
           </Link>
         </div>
       </main>
@@ -214,14 +216,14 @@ const Signup = () => {
                       <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
                     </svg>
                   )}
-                  Continue with Apple
+                  {t("auth.continueApple")}
                 </button>
               )}
 
               <div className="flex items-center gap-3 py-1">
                 <div className="flex-1 h-px bg-border" />
                 <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                  Or sign up with email
+                  {t("auth.orSignUpEmail")}
                 </span>
                 <div className="flex-1 h-px bg-border" />
               </div>
@@ -233,14 +235,14 @@ const Signup = () => {
             <form onSubmit={handleStep1} className="space-y-2.5">
               <div>
                 <label htmlFor="signup-fullname" className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>
-                  Full Name
+                  {t("auth.fullName")}
                 </label>
                 <input
                   id="signup-fullname"
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Your name"
+                  placeholder={t("auth.phName")}
                   required
                   maxLength={37}
                   autoFocus
@@ -250,7 +252,7 @@ const Signup = () => {
               </div>
               <div>
                 <label htmlFor="signup-email" className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>
-                  Email
+                  {t("auth.email")}
                 </label>
                 <input
                   id="signup-email"
@@ -269,7 +271,7 @@ const Signup = () => {
                 className="w-full py-2.5 bg-primary text-primary-foreground text-[10px] tracking-[0.15em] uppercase hover:opacity-90 transition-opacity duration-500 flex items-center justify-center gap-2.5"
                 style={{ fontFamily: "var(--font-heading)" }}
               >
-                <Mail className="h-3.5 w-3.5" /> Proceed
+                <Mail className="h-3.5 w-3.5" /> {t("auth.proceed")}
               </button>
             </form>
           )}
@@ -280,12 +282,12 @@ const Signup = () => {
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-xs text-muted-foreground truncate" style={{ fontFamily: "var(--font-body)" }}>{fullName} · {email}</span>
                 <button type="button" onClick={() => { setStep(1); setPassword(""); setError(null); setCaptchaVerified(false); }} className="text-[10px] tracking-[0.15em] uppercase text-primary hover:underline shrink-0" style={{ fontFamily: "var(--font-heading)" }}>
-                  Change
+                  {t("auth.change")}
                 </button>
               </div>
               <div>
                 <label htmlFor="signup-password" className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block mb-1" style={{ fontFamily: "var(--font-heading)" }}>
-                  Password
+                  {t("auth.password")}
                 </label>
                 <div className="relative">
                   <input
@@ -293,7 +295,7 @@ const Signup = () => {
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Min 8 characters"
+                    placeholder={t("auth.phMinChars")}
                     required
                     maxLength={72}
                     autoFocus
@@ -343,7 +345,7 @@ const Signup = () => {
                 style={{ fontFamily: "var(--font-heading)" }}
               >
                 {loading === "email" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
-                Create Account
+                {t("auth.createAccount")}
               </button>
             </form>
           )}

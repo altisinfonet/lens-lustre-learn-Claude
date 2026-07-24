@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useSiteLogo } from "@/hooks/core/useSiteLogo";
+import { useT } from "@/i18n/I18nContext";
 import { ArrowLeft, Loader2, Mail, Eye, EyeOff, ShieldCheck, ShieldX, Timer } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -59,6 +60,7 @@ const friendlyError = (raw: string): string => {
 };
 
 const Login = () => {
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
   const siteLogo = useSiteLogo();
   const [loading, setLoading] = useState<"google" | "apple" | "email" | null>(null);
@@ -329,7 +331,7 @@ const Login = () => {
                   <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
                 </svg>
               )}
-              Continue with Apple
+              {t("auth.continueApple")}
             </button>
           )}
 
@@ -337,7 +339,7 @@ const Login = () => {
           <div className="flex items-center gap-4 py-2">
             <div className="flex-1 h-px bg-border" />
             <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-              Or sign in with email
+              {t("auth.orSignInEmail")}
             </span>
             <div className="flex-1 h-px bg-border" />
           </div>
@@ -348,7 +350,7 @@ const Login = () => {
               <>
                 <div>
                   <label htmlFor="login-email" className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground block mb-1.5" style={{ fontFamily: "var(--font-heading)" }}>
-                    Email
+                    {t("auth.email")}
                   </label>
                   <input
                     id="login-email"
@@ -370,7 +372,7 @@ const Login = () => {
                   className="w-full py-3.5 bg-primary text-primary-foreground text-xs tracking-[0.15em] uppercase hover:opacity-90 transition-opacity duration-500 disabled:opacity-50 flex items-center justify-center gap-3"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  <Mail className="h-4 w-4" /> Proceed
+                  <Mail className="h-4 w-4" /> {t("auth.proceed")}
                 </button>
               </>
             ) : (
@@ -378,12 +380,12 @@ const Login = () => {
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs text-muted-foreground truncate" style={{ fontFamily: "var(--font-body)" }}>{email}</span>
                   <button type="button" onClick={() => { setStep(1); setPassword(""); setError(null); }} className="text-[10px] tracking-[0.15em] uppercase text-primary hover:underline shrink-0" style={{ fontFamily: "var(--font-heading)" }}>
-                    Change
+                    {t("auth.change")}
                   </button>
                 </div>
                 <div>
                   <label htmlFor="login-password" className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground block mb-1.5" style={{ fontFamily: "var(--font-heading)" }}>
-                    Password
+                    {t("auth.password")}
                   </label>
                   <div className="relative">
                     <input
@@ -391,7 +393,7 @@ const Login = () => {
                       type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Your password"
+                      placeholder={t("auth.phPassword")}
                       required
                       maxLength={72}
                       disabled={isLockedOut}
@@ -421,12 +423,12 @@ const Login = () => {
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
                   {loading === "email" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                  {isLockedOut ? "Locked" : "Sign In"}
+                  {isLockedOut ? t("auth.locked") : t("auth.signIn")}
                 </button>
 
                 <div className="text-center">
                   <Link to="/forgot-password" className="text-[10px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>
-                    Forgot Password?
+                    {t("auth.forgotPassword")}
                   </Link>
                 </div>
               </>
@@ -435,12 +437,12 @@ const Login = () => {
         </div>
 
         <p className="text-[10px] text-muted-foreground mt-4 text-center" style={{ fontFamily: "var(--font-body)" }}>
-          Don't have an account?{" "}
-          <Link to="/signup" className="text-primary hover:underline">Create one</Link>
+          {t("auth.noAccount")}{" "}
+          <Link to="/signup" className="text-primary hover:underline">{t("auth.createOne")}</Link>
         </p>
 
         <p className="text-[8px] text-muted-foreground/60 mt-1.5 text-center" style={{ fontFamily: "var(--font-body)" }}>
-          By continuing, you agree to our terms of service and privacy policy.
+          {t("auth.terms")}
         </p>
       </div>
     </main>
