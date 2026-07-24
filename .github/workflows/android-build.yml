@@ -129,8 +129,8 @@ jobs:
                   "        release {\n"
                   "            storeFile file(\"release.keystore\")\n"
                   "            storePassword System.getenv(\"KEYSTORE_PASSWORD\")\n"
-                  "            keyAlias System.getenv(\"KEY_ALIAS\")\n"
-                  "            keyPassword System.getenv(\"KEY_PASSWORD\")\n"
+                  "            keyAlias \"upload\"\n"
+                  "            keyPassword System.getenv(\"KEYSTORE_PASSWORD\")\n"
                   "        }\n"
                   "    }\n"
               )
