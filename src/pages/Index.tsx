@@ -22,6 +22,7 @@ import { useSiteLogo } from "@/hooks/core/useSiteLogo";
 import { useTopContributors } from "@/hooks/useTopContributors";
 import { toast } from "@/hooks/core/use-toast";
 import { fireConversion } from "@/lib/adConversionContext";
+import { useT } from "@/i18n/I18nContext";
 
 /* Classic easing — gentle, cinematic transitions */
 const classicEase = [0.4, 0, 0.2, 1] as const;
@@ -161,9 +162,9 @@ const getScrollColorAtProgress = (progress: number, colors: string[]) => {
 
 /* Animated community counters with counting effect on scroll */
 const COUNTER_TARGETS = [
-  { label: "Members", target: 100000, suffix: "+" },
-  { label: "Follows", target: 6000000, suffix: "+" },
-  { label: "Posts", target: 10000000, suffix: "+" },
+  { label: "Members", tKey: "home.members", target: 100000, suffix: "+" },
+  { label: "Follows", tKey: "home.follows", target: 6000000, suffix: "+" },
+  { label: "Posts", tKey: "home.postsLabel", target: 10000000, suffix: "+" },
 ];
 
 const formatCounterValue = (n: number) => {
@@ -173,6 +174,7 @@ const formatCounterValue = (n: number) => {
 };
 
 const CommunityCounters = () => {
+  const t = useT();
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
   const [values, setValues] = useState([0, 0, 0]);
@@ -200,7 +202,7 @@ const CommunityCounters = () => {
           <span className="text-base font-light block" style={{ fontFamily: "var(--font-display)" }}>
             {formatCounterValue(values[i])}{c.suffix}
           </span>
-          <span className="text-[8px] tracking-[0.12em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{c.label}</span>
+          <span className="text-[8px] tracking-[0.12em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t(c.tKey, c.label)}</span>
         </div>
       ))}
     </div>
@@ -221,6 +223,7 @@ interface PortfolioImage {
 }
 
 const Index = () => {
+  const t = useT();
   const { user } = useAuth();
   const qc = useQueryClient();
   const siteLogo = useSiteLogo();
@@ -479,7 +482,7 @@ const Index = () => {
       <PageSEO jsonLd={{ type: "WebSite" }} />
 
       {/* Hero */}
-      <section className="relative h-screen-safe flex items-end pb-32 md:pb-28 overflow-hidden bg-background" aria-label="Featured photography">
+      <section className="relative h-screen-safe flex items-end pb-32 md:pb-28 overflow-hidden bg-background" aria-label={t("home.aria.hero", "Featured photography")}>
         {/* Pre-render all slides, only toggle opacity — avoids mount/unmount flicker */}
         {heroSlides.map((slide, i) => {
           const isCurrent = i === currentSlide;
@@ -546,7 +549,7 @@ const Index = () => {
             </motion.div>
           </motion.div>
         </div>
-        <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 3, duration: 1 }} onClick={() => document.getElementById("spotlight")?.scrollIntoView({ behavior: "smooth" })} className="absolute bottom-20 md:bottom-10 left-1/2 -translate-x-1/2 z-20 group cursor-pointer" aria-label="Scroll to spotlight">
+        <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 3, duration: 1 }} onClick={() => document.getElementById("spotlight")?.scrollIntoView({ behavior: "smooth" })} className="absolute bottom-20 md:bottom-10 left-1/2 -translate-x-1/2 z-20 group cursor-pointer" aria-label={t("home.aria.scrollSpotlight", "Scroll to spotlight")}>
           <motion.div animate={{ y: [0, 8, 0] }} transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}>
             <ArrowDown className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors duration-500" />
           </motion.div>
@@ -554,12 +557,12 @@ const Index = () => {
       </section>
 
       {/* Spotlight */}
-      <section id="spotlight" className="py-12 md:py-18" aria-label="Spotlight">
+      <section id="spotlight" className="py-12 md:py-18" aria-label={t("home.aria.spotlight", "Spotlight")}>
         <div className="container mx-auto">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} className="flex items-center gap-4 mb-12">
             <motion.div variants={fadeUp} custom={0} className="flex items-center gap-4">
               <div className="w-12 h-px bg-primary" />
-              <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>Spotlight</span>
+              <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>{t("home.spotlight", "Spotlight")}</span>
             </motion.div>
           </motion.div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
@@ -574,7 +577,7 @@ const Index = () => {
 
 
       {/* Featured Works — Redesigned */}
-      <section id="works" className="py-9 md:py-16 relative" aria-label="Selected photography works">
+      <section id="works" className="py-9 md:py-16 relative" aria-label={t("home.aria.works", "Selected photography works")}>
         {/* Background accent */}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-card/30 to-transparent pointer-events-none" />
 
@@ -588,7 +591,7 @@ const Index = () => {
             <motion.div variants={fadeUp} custom={0} className="flex items-center justify-center gap-4 mb-6">
               <div className="w-16 h-px bg-primary" />
               <span className="text-[10px] tracking-[0.4em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>
-                Portfolio
+                {t("home.portfolio", "Portfolio")}
               </span>
               <div className="w-16 h-px bg-primary" />
             </motion.div>
@@ -598,7 +601,7 @@ const Index = () => {
               className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-light tracking-tight whitespace-nowrap"
               style={{ fontFamily: "var(--font-display)" }}
             >
-              Selected <em className="italic text-primary">Works</em>
+              {t("home.selected", "Selected")} <em className="italic text-primary">{t("home.works", "Works")}</em>
             </motion.h2>
             <motion.p
               variants={fadeIn}
@@ -606,7 +609,7 @@ const Index = () => {
               className="text-sm text-muted-foreground mt-4 max-w-md mx-auto"
               style={{ fontFamily: "var(--font-body)" }}
             >
-              A curated collection of moments frozen in time — click any image to explore
+              {t("home.worksSub", "A curated collection of moments frozen in time — click any image to explore")}
             </motion.p>
           </motion.header>
 
@@ -626,7 +629,7 @@ const Index = () => {
               return (
                 <div className="text-center py-16 border border-dashed border-border rounded-sm">
                   <p className="text-sm text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                    No active works available right now.
+                    {t("home.noWorks", "No active works available right now.")}
                   </p>
                 </div>
               );
@@ -652,7 +655,7 @@ const Index = () => {
                       }`}
                       style={{ fontFamily: "var(--font-heading)" }}
                     >
-                      {cat}
+                      {cat === "All" ? t("home.catAll", "All") : t("home.cat." + cat.toLowerCase(), cat)}
                     </button>
                   ))}
                 </div>
@@ -695,7 +698,7 @@ const Index = () => {
 
 
       {/* Social Engagement Showcase */}
-      <section className="relative py-16 md:py-20 overflow-hidden" aria-label="Community and social features" style={{ background: "hsl(var(--scroll-bg-2))" }}>
+      <section className="relative py-16 md:py-20 overflow-hidden" aria-label={t("home.aria.community", "Community and social features")} style={{ background: "hsl(var(--scroll-bg-2))" }}>
         {/* Subtle diagonal line accent */}
         <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
           <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full opacity-[0.03]" style={{ background: "radial-gradient(circle, hsl(var(--primary)), transparent 70%)" }} />
@@ -715,14 +718,14 @@ const Index = () => {
                 <motion.div variants={fadeUp} custom={0} className="flex items-center gap-4 mb-3">
                   <div className="w-10 h-px bg-primary" />
                   <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>
-                    Community
+                    {t("home.community", "Community")}
                   </span>
                 </motion.div>
                 <motion.h2 variants={fadeUp} custom={1} className="text-3xl sm:text-4xl md:text-5xl font-light tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
-                  Connect & <em className="italic text-primary">Engage</em>
+                  {t("home.connect", "Connect &")} <em className="italic text-primary">{t("home.engage", "Engage")}</em>
                 </motion.h2>
                 <motion.p variants={fadeUp} custom={2} className="text-sm text-muted-foreground mt-3 max-w-md" style={{ fontFamily: "var(--font-body)" }}>
-                  More than a portfolio — react, comment, share, and grow with photographers worldwide.
+                  {t("home.communitySub", "More than a portfolio — react, comment, share, and grow with photographers worldwide.")}
                 </motion.p>
               </div>
               <motion.div variants={fadeIn} custom={2} className="hidden sm:block">
@@ -731,7 +734,7 @@ const Index = () => {
                   className="group inline-flex items-center gap-2 text-[10px] tracking-[0.2em] uppercase text-muted-foreground hover:text-primary transition-colors duration-500"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  {user ? "Go to Feed" : "Join Now"} <ArrowRight className="h-3 w-3 group-hover:translate-x-1 transition-transform duration-500" />
+                  {user ? t("home.goToFeed", "Go to Feed") : t("home.joinNow", "Join Now")} <ArrowRight className="h-3 w-3 group-hover:translate-x-1 transition-transform duration-500" />
                 </Link>
               </motion.div>
             </div>
@@ -755,7 +758,7 @@ const Index = () => {
                   <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                     <Rss className="h-4 w-4 text-primary" />
                   </div>
-                  <h3 className="text-sm font-medium tracking-tight" style={{ fontFamily: "var(--font-heading)" }}>Share Your Story</h3>
+                  <h3 className="text-sm font-medium tracking-tight" style={{ fontFamily: "var(--font-heading)" }}>{t("home.shareStory", "Share Your Story")}</h3>
                 </div>
                 {/* Live post from DB */}
                 <div className="bg-background/50 border border-border/40 rounded-lg p-3.5 shadow-sm">
@@ -772,7 +775,7 @@ const Index = () => {
                         <div className="min-w-0">
                           <UserIdentityBlock
                             userId={latestPost.user_id}
-                            name={latestPost.user_name || "Photographer"}
+                            name={latestPost.user_name || t("home.photographer", "Photographer")}
                             nameClassName="text-xs font-medium truncate [font-family:var(--font-body)]"
                           />
                           <span className="text-[10px] text-muted-foreground flex items-center gap-1">
@@ -791,13 +794,13 @@ const Index = () => {
                     </>
                   ) : (
                     <div className="py-8 text-center">
-                      <p className="text-xs text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>Be the first to share your story!</p>
+                      <p className="text-xs text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>{t("home.beFirst", "Be the first to share your story!")}</p>
                     </div>
                   )}
                   <div className="border-t border-border/40 pt-2 flex items-center justify-around text-[11px] text-muted-foreground">
-                    <span className="flex items-center gap-1.5 cursor-default"><span className="text-sm">👍</span> Like</span>
-                    <span className="flex items-center gap-1.5"><MessageCircle className="h-3.5 w-3.5" /> Comment</span>
-                    <span className="flex items-center gap-1.5"><Rss className="h-3.5 w-3.5" /> Share</span>
+                    <span className="flex items-center gap-1.5 cursor-default"><span className="text-sm">👍</span> {t("home.like", "Like")}</span>
+                    <span className="flex items-center gap-1.5"><MessageCircle className="h-3.5 w-3.5" /> {t("home.comment", "Comment")}</span>
+                    <span className="flex items-center gap-1.5"><Rss className="h-3.5 w-3.5" /> {t("home.share", "Share")}</span>
                   </div>
                 </div>
                 {/* Reaction bar */}
@@ -832,7 +835,7 @@ const Index = () => {
                   <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                     <Users className="h-4 w-4 text-primary" />
                   </div>
-                  <h3 className="text-sm font-medium tracking-tight" style={{ fontFamily: "var(--font-heading)" }}>Build Your Circle</h3>
+                  <h3 className="text-sm font-medium tracking-tight" style={{ fontFamily: "var(--font-heading)" }}>{t("home.buildCircle", "Build Your Circle")}</h3>
                 </div>
                 <div className="space-y-2 flex-1">
                   {[
@@ -855,7 +858,7 @@ const Index = () => {
                       </div>
                       <span className="text-xs flex-1 truncate" style={{ fontFamily: "var(--font-body)" }}>{m.name} {m.country}</span>
                       <span className="text-[8px] tracking-[0.1em] uppercase px-1.5 py-0.5 rounded-sm border border-primary/40 text-primary bg-primary/5" style={{ fontFamily: "var(--font-heading)" }}>
-                        Member
+                        {t("home.member", "Member")}
                       </span>
                     </motion.div>
                   ))}
@@ -878,18 +881,18 @@ const Index = () => {
                   <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                     <Rss className="h-4 w-4 text-primary" />
                   </div>
-                  <h3 className="text-sm font-medium tracking-tight" style={{ fontFamily: "var(--font-heading)" }}>Your Feed</h3>
+                  <h3 className="text-sm font-medium tracking-tight" style={{ fontFamily: "var(--font-heading)" }}>{t("home.yourFeed", "Your Feed")}</h3>
                 </div>
                 <div className="space-y-2 flex-1">
                   {[
-                    { text: "shared a wildlife photo", emoji: "📸", time: "5m" },
-                    { text: "won 1st in Portrait Masters", emoji: "🏆", time: "1h" },
-                    { text: "reacted ❤️ to your shot", emoji: "❤️", time: "2h" },
-                    { text: "started following you", emoji: "👋", time: "3h" },
-                    { text: "commented on your post", emoji: "💬", time: "4h" },
-                    { text: "entered Landscape Challenge", emoji: "🏔️", time: "5h" },
-                    { text: "earned a new badge", emoji: "🎖️", time: "6h" },
-                    { text: "uploaded 3 new photos", emoji: "🖼️", time: "8h" },
+                    { text: "shared a wildlife photo", tKey: "home.act.shared", emoji: "📸", time: "5m" },
+                    { text: "won 1st in Portrait Masters", tKey: "home.act.won", emoji: "🏆", time: "1h" },
+                    { text: "reacted ❤️ to your shot", tKey: "home.act.reacted", emoji: "❤️", time: "2h" },
+                    { text: "started following you", tKey: "home.act.followed", emoji: "👋", time: "3h" },
+                    { text: "commented on your post", tKey: "home.act.commented", emoji: "💬", time: "4h" },
+                    { text: "entered Landscape Challenge", tKey: "home.act.entered", emoji: "🏔️", time: "5h" },
+                    { text: "earned a new badge", tKey: "home.act.badge", emoji: "🎖️", time: "6h" },
+                    { text: "uploaded 3 new photos", tKey: "home.act.uploaded", emoji: "🖼️", time: "8h" },
                   ].map((item, i) => (
                     <motion.div
                       key={i}
@@ -900,7 +903,7 @@ const Index = () => {
                       className="flex items-center gap-2 bg-background/30 rounded-lg px-2.5 py-1.5 border border-border/20"
                     >
                       <span className="text-sm shrink-0">{item.emoji}</span>
-                      <span className="flex-1 text-muted-foreground text-[11px] truncate" style={{ fontFamily: "var(--font-body)" }}>{item.text}</span>
+                      <span className="flex-1 text-muted-foreground text-[11px] truncate" style={{ fontFamily: "var(--font-body)" }}>{t(item.tKey, item.text)}</span>
                       <span className="text-[9px] text-muted-foreground/40 shrink-0">{item.time}</span>
                     </motion.div>
                   ))}
@@ -922,13 +925,13 @@ const Index = () => {
                   <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                     <Eye className="h-4 w-4 text-primary" />
                   </div>
-                  <h3 className="text-sm font-medium tracking-tight" style={{ fontFamily: "var(--font-heading)" }}>Privacy Controls</h3>
+                  <h3 className="text-sm font-medium tracking-tight" style={{ fontFamily: "var(--font-heading)" }}>{t("home.privacy", "Privacy Controls")}</h3>
                 </div>
                 <div className="space-y-2">
                   {[
-                    { icon: Globe, label: "Public", desc: "Everyone", active: true },
-                    { icon: Users, label: "Friends Only", desc: "Friends", active: false },
-                    { icon: Eye, label: "Only Me", desc: "Private", active: false },
+                    { icon: Globe, label: "Public", labelKey: "home.privacyPublic", desc: "Everyone", descKey: "home.privacyEveryone", active: true },
+                    { icon: Users, label: "Friends Only", labelKey: "home.privacyFriends", desc: "Friends", descKey: "home.privacyFriendsShort", active: false },
+                    { icon: Eye, label: "Only Me", labelKey: "home.privacyOnlyMe", desc: "Private", descKey: "home.privacyPrivate", active: false },
                   ].map((p, i) => (
                     <motion.div
                       key={p.label}
@@ -941,8 +944,8 @@ const Index = () => {
                       }`}
                     >
                       <p.icon className={`h-3.5 w-3.5 shrink-0 ${p.active ? "text-primary" : "text-muted-foreground"}`} />
-                      <span className={`text-xs flex-1 ${p.active ? "text-primary font-medium" : "text-muted-foreground"}`} style={{ fontFamily: "var(--font-body)" }}>{p.label}</span>
-                      <span className="text-[9px] text-muted-foreground/50">{p.desc}</span>
+                      <span className={`text-xs flex-1 ${p.active ? "text-primary font-medium" : "text-muted-foreground"}`} style={{ fontFamily: "var(--font-body)" }}>{t(p.labelKey, p.label)}</span>
+                      <span className="text-[9px] text-muted-foreground/50">{t(p.descKey, p.desc)}</span>
                       {p.active && (
                         <div className="w-3.5 h-3.5 rounded-full bg-primary flex items-center justify-center">
                           <ArrowRight className="h-2 w-2 text-primary-foreground rotate-[-45deg]" />
@@ -969,14 +972,14 @@ const Index = () => {
                   <ArrowRight className="h-5 w-5 text-primary group-hover:text-primary-foreground transition-colors duration-500" />
                 </div>
                 <p className="text-xs text-muted-foreground mb-3 max-w-[200px]" style={{ fontFamily: "var(--font-body)" }}>
-                  Join a vibrant community of photographers
+                  {t("home.joinVibrant", "Join a vibrant community of photographers")}
                 </p>
                 <Link
                   to={user ? "/feed" : "/signup"}
                   className="text-[10px] tracking-[0.2em] uppercase text-primary hover:text-foreground transition-colors duration-500"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  {user ? "Explore Feed" : "Get Started Free"}
+                  {user ? t("home.exploreFeed", "Explore Feed") : t("home.getStarted", "Get Started Free")}
                 </Link>
               </div>
             </motion.div>
@@ -995,8 +998,8 @@ const Index = () => {
                   <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                     <Trophy className="h-4 w-4 text-primary" />
                   </div>
-                  <h3 className="text-sm font-medium tracking-tight" style={{ fontFamily: "var(--font-heading)" }}>Top Contributors</h3>
-                  <span className="ml-auto text-[8px] tracking-[0.1em] uppercase text-muted-foreground/60" style={{ fontFamily: "var(--font-heading)" }}>This Month</span>
+                  <h3 className="text-sm font-medium tracking-tight" style={{ fontFamily: "var(--font-heading)" }}>{t("home.topContributors", "Top Contributors")}</h3>
+                  <span className="ml-auto text-[8px] tracking-[0.1em] uppercase text-muted-foreground/60" style={{ fontFamily: "var(--font-heading)" }}>{t("home.thisMonth", "This Month")}</span>
                 </div>
                 <div className="space-y-2">
                   {topContributors.length > 0 ? topContributors.map((c, i) => {
@@ -1023,17 +1026,17 @@ const Index = () => {
                         <div className="flex-1 min-w-0 relative z-10">
                           <UserIdentityBlock
                             userId={c.id}
-                            name={c.full_name || "Photographer"}
+                            name={c.full_name || t("home.photographer", "Photographer")}
                             nameClassName="text-xs truncate [font-family:var(--font-body)]"
                           />
                         </div>
-                        <span className="text-[9px] text-muted-foreground/60 shrink-0 relative z-10" style={{ fontFamily: "var(--font-heading)" }}>{c.posts_count} posts</span>
+                        <span className="text-[9px] text-muted-foreground/60 shrink-0 relative z-10" style={{ fontFamily: "var(--font-heading)" }}>{c.posts_count} {t("home.postsSuffix", "posts")}</span>
                       </motion.div>
                     );
                   }) : (
                     <div className="py-8 text-center">
                       <Trophy className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
-                      <p className="text-[10px] text-muted-foreground/50" style={{ fontFamily: "var(--font-body)" }}>Contributors loading…</p>
+                      <p className="text-[10px] text-muted-foreground/50" style={{ fontFamily: "var(--font-body)" }}>{t("home.contributorsLoading", "Contributors loading…")}</p>
                     </div>
                   )}
                 </div>
@@ -1044,7 +1047,7 @@ const Index = () => {
       </section>
 
       {/* Quote */}
-      <section className="relative py-14 md:py-30 overflow-hidden" aria-label="Photography quote">
+      <section className="relative py-14 md:py-30 overflow-hidden" aria-label={t("home.aria.quote", "Photography quote")}>
         {quoteBackground ? (
           <div className="absolute inset-0">
             <img src={quoteBackground} alt="" className="w-full h-full object-cover brightness-[0.15]" aria-hidden="true" loading="lazy" />
@@ -1061,8 +1064,8 @@ const Index = () => {
           >
             <Layers className="h-6 w-6 md:h-8 md:w-8 text-primary mx-auto mb-4 md:mb-8" strokeWidth={1} />
             <p className="text-xl md:text-5xl lg:text-6xl font-light leading-[1.2] max-w-4xl mx-auto mb-4 md:mb-8 text-white" style={{ fontFamily: "var(--font-display)" }}>
-              "The camera is an instrument that teaches people how to see
-              <em className="italic text-primary"> without a camera</em>"
+              "{t("home.quoteText", "The camera is an instrument that teaches people how to see")}
+              <em className="italic text-primary"> {t("home.quoteAccent", "without a camera")}</em>"
             </p>
             <cite className="text-[10px] tracking-[0.3em] uppercase text-white/60 not-italic" style={{ fontFamily: "var(--font-heading)" }}>
               — Dorothea Lange
@@ -1072,7 +1075,7 @@ const Index = () => {
       </section>
 
       {/* CTA */}
-      <section className="py-12 md:py-24" aria-label="Join 50mm Retina World">
+      <section className="py-12 md:py-24" aria-label={t("home.aria.cta", "Join 50mm Retina World")}>
         <div className="container mx-auto text-center">
           <motion.div
             initial="hidden"
@@ -1080,10 +1083,10 @@ const Index = () => {
             viewport={{ once: true }}
           >
             <motion.h2 variants={fadeUp} custom={0} className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-light tracking-tight mb-4 md:mb-8 whitespace-nowrap" style={{ fontFamily: "var(--font-display)" }}>
-              Start <em className="italic text-primary">Creating</em>
+              {t("home.start", "Start")} <em className="italic text-primary">{t("home.creating", "Creating")}</em>
             </motion.h2>
             <motion.p variants={fadeUp} custom={1} className="text-sm text-muted-foreground max-w-md mx-auto mb-8 md:mb-12 leading-relaxed" style={{ fontFamily: "var(--font-body)" }}>
-              Your lens has stories to tell. Join a community that celebrates the art of photography in its purest form.
+              {t("home.ctaSub", "Your lens has stories to tell. Join a community that celebrates the art of photography in its purest form.")}
             </motion.p>
             <motion.div variants={fadeUp} custom={2}>
               <Link
@@ -1094,7 +1097,7 @@ const Index = () => {
                 <span className="w-16 h-16 rounded-full border border-primary flex items-center justify-center group-hover:bg-primary group-hover:scale-105 transition-all duration-[1s]">
                   <ArrowRight className="h-5 w-5 text-primary group-hover:text-primary-foreground transition-colors duration-700" />
                 </span>
-                Create Free Account
+                {t("home.createAccount", "Create Free Account")}
               </Link>
             </motion.div>
           </motion.div>
@@ -1113,7 +1116,7 @@ const Index = () => {
                 </span>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed mb-5" style={{ fontFamily: "var(--font-body)" }}>
-                A curated platform for photographers who see the world differently.
+                {t("home.footerTagline", "A curated platform for photographers who see the world differently.")}
               </p>
               {/* Social Media Icons */}
               {(() => {
@@ -1158,21 +1161,21 @@ const Index = () => {
                 );
               })()}
             </div>
-            <nav aria-label="Footer navigation">
-              <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-3" style={{ fontFamily: "var(--font-heading)" }}>Navigate</span>
+            <nav aria-label={t("home.aria.footerNav", "Footer navigation")}>
+              <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-3" style={{ fontFamily: "var(--font-heading)" }}>{t("home.navigate", "Navigate")}</span>
               <div className="grid grid-cols-[1fr_1fr] gap-y-3 md:grid-cols-1">
-                <a href="#works" className="text-xs text-foreground/70 hover:text-foreground transition-colors duration-500" style={{ fontFamily: "var(--font-body)" }}>Works</a>
-                <Link to="/competitions" className="text-xs text-foreground/70 hover:text-foreground transition-colors duration-500" style={{ fontFamily: "var(--font-body)" }}>Competitions</Link>
-                <Link to="/courses" className="text-xs text-foreground/70 hover:text-foreground transition-colors duration-500" style={{ fontFamily: "var(--font-body)" }}>Education</Link>
-                <Link to="/journal" className="text-xs text-foreground/70 hover:text-foreground transition-colors duration-500" style={{ fontFamily: "var(--font-body)" }}>Journal</Link>
-                <Link to="/#featured-artist" className="text-xs text-foreground/70 hover:text-foreground transition-colors duration-500" style={{ fontFamily: "var(--font-body)" }}>Featured Artist</Link>
-                <Link to="/verify" className="text-xs text-foreground/70 hover:text-foreground transition-colors duration-500" style={{ fontFamily: "var(--font-body)" }}>Verify Certificate</Link>
+                <a href="#works" className="text-xs text-foreground/70 hover:text-foreground transition-colors duration-500" style={{ fontFamily: "var(--font-body)" }}>{t("home.works", "Works")}</a>
+                <Link to="/competitions" className="text-xs text-foreground/70 hover:text-foreground transition-colors duration-500" style={{ fontFamily: "var(--font-body)" }}>{t("nav.competitions", "Competitions")}</Link>
+                <Link to="/courses" className="text-xs text-foreground/70 hover:text-foreground transition-colors duration-500" style={{ fontFamily: "var(--font-body)" }}>{t("home.linkEducation", "Education")}</Link>
+                <Link to="/journal" className="text-xs text-foreground/70 hover:text-foreground transition-colors duration-500" style={{ fontFamily: "var(--font-body)" }}>{t("nav.journal", "Journal")}</Link>
+                <Link to="/#featured-artist" className="text-xs text-foreground/70 hover:text-foreground transition-colors duration-500" style={{ fontFamily: "var(--font-body)" }}>{t("home.linkFeaturedArtist", "Featured Artist")}</Link>
+                <Link to="/verify" className="text-xs text-foreground/70 hover:text-foreground transition-colors duration-500" style={{ fontFamily: "var(--font-body)" }}>{t("home.linkVerify", "Verify Certificate")}</Link>
               </div>
             </nav>
             <div className="text-center md:text-right">
-              <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-3" style={{ fontFamily: "var(--font-heading)" }}>Newsletter</span>
+              <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-3" style={{ fontFamily: "var(--font-heading)" }}>{t("home.newsletter", "Newsletter")}</span>
               <p className="text-[10px] text-muted-foreground mb-3 leading-relaxed" style={{ fontFamily: "var(--font-body)" }}>
-                Stay inspired with updates & insights.
+                {t("home.newsletterSub", "Stay inspired with updates & insights.")}
               </p>
               <form
                 onSubmit={async (e) => {
@@ -1186,10 +1189,10 @@ const Index = () => {
                         { email: email.toLowerCase().trim(), source: "website" } as any,
                         { onConflict: "email" }
                       ) as any);
-                      toast({ title: "Subscribed!", description: "You'll receive our latest updates soon." });
+                      toast({ title: t("home.subscribed", "Subscribed!"), description: t("home.subscribedDesc", "You'll receive our latest updates soon.") });
                       form.reset();
                     } catch {
-                      toast({ title: "Subscribed!", description: "You'll receive our latest updates soon." });
+                      toast({ title: t("home.subscribed", "Subscribed!"), description: t("home.subscribedDesc", "You'll receive our latest updates soon.") });
                       form.reset();
                     }
                   }
@@ -1209,11 +1212,11 @@ const Index = () => {
                   className="h-8 px-3 rounded-sm bg-primary text-primary-foreground text-[9px] tracking-[0.15em] uppercase hover:bg-primary/90 transition-colors duration-300 shrink-0"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  Subscribe
+                  {t("home.subscribe", "Subscribe")}
                 </button>
               </form>
               <p className="text-[10px] text-muted-foreground mt-6 text-center" style={{ fontFamily: "var(--font-body)" }}>
-                © 2026 50mm Retina World. All rights reserved.
+                {t("home.rights", "© 2026 50mm Retina World. All rights reserved.")}
               </p>
             </div>
           </div>
