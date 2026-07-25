@@ -18,6 +18,8 @@ import { DashboardProvider, useDashboardContext } from "@/hooks/core/DashboardCo
 
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
 import { useGlobalConversionTracker } from "@/hooks/core/useGlobalConversionTracker";
 import { supabase } from "@/integrations/supabase/client";
 import { AnimatePresence } from "framer-motion";
@@ -41,6 +43,7 @@ const Layout = () => {
 
 const LayoutInner = () => {
   const { pathname } = useLocation();
+  const queryClient = useQueryClient();
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
   useLastActive();
@@ -145,7 +148,17 @@ const LayoutInner = () => {
           open={showOnboarding}
           userId={user.id}
           profile={onboardingProfile}
-          onComplete={() => setShowOnboarding(false)}
+          onComplete={() => {
+            setShowOnboarding(false);
+            // The avatar/profile saved during onboarding must show INSTANTLY —
+            // without this, the header kept the stale cached profile (no avatar)
+            // until a manual refresh refetched it.
+            if (user) {
+              queryClient.invalidateQueries({ queryKey: queryKeys.profileCore(user.id) });
+              queryClient.invalidateQueries({ queryKey: queryKeys.dashboard(user.id) });
+              queryClient.invalidateQueries({ queryKey: queryKeys.profileMapPrefix() });
+            }
+          }}
         />
       )}
 
