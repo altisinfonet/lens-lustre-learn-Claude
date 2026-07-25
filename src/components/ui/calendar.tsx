@@ -7,10 +7,29 @@ import { buttonVariants } from "@/components/ui/button";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
-function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
+function Calendar({ className, classNames, showOutsideDays = true, footer, ...props }: CalendarProps) {
+  // Universal "OK" action: dispatches an Escape keydown that Radix's Popover/Dialog
+  // dismiss layer catches, closing the surrounding date-picker popover after the user
+  // has set the day/month/year. No-op for inline calendars not inside a dismissable layer.
+  const okFooter = (
+    <div className="mt-2 flex justify-end border-t border-border pt-2">
+      <button
+        type="button"
+        onClick={(e) =>
+          e.currentTarget.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+          )
+        }
+        className={cn(buttonVariants({ variant: "default", size: "sm" }), "h-8 px-6")}
+      >
+        OK
+      </button>
+    </div>
+  );
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
+      footer={footer ?? okFooter}
       className={cn("p-3 pointer-events-auto rounded-lg border border-border bg-popover mb-2", className)}
       classNames={{
         months: "flex flex-col sm:flex-row gap-2",
