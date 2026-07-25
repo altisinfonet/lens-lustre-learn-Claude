@@ -9,6 +9,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { translations, LANGS, type Lang } from "./translations";
+import { homeTranslations } from "./home";
 
 const STORAGE_KEY = "app_lang";
 const SUPPORTED = LANGS.map((l) => l.code);
@@ -43,6 +44,16 @@ const detectInitialLang = (): Lang => {
   return matchBrowserLang() ?? "en";
 };
 
+/**
+ * Look a key up in one language, across both dictionaries.
+ * `homeTranslations` holds the landing-page strings (kept in their own file so
+ * `translations.ts` stays a manageable size); `translations` holds everything
+ * else. The two key sets do not overlap, so the order here is only a
+ * preference, not a behaviour change for existing keys.
+ */
+const lookup = (l: Lang, key: string): string | undefined =>
+  homeTranslations[l]?.[key] ?? translations[l]?.[key];
+
 interface I18nValue {
   lang: Lang;
   setLang: (l: Lang) => void;
@@ -70,7 +81,7 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
 
   const t = useCallback(
     (key: string, fallback?: string): string =>
-      translations[lang]?.[key] ?? translations.en[key] ?? fallback ?? key,
+      lookup(lang, key) ?? lookup("en", key) ?? fallback ?? key,
     [lang],
   );
 
