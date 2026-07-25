@@ -120,8 +120,16 @@ Deno.serve(async (req) => {
       const templateName = TEMPLATE_BY_STEP[nextStep];
       const idempotencyKey = `reengage-${p.id}-step${nextStep}`;
 
-      const sendRes = await supabase.functions.invoke("send-transactional-email", {
-        body: {
+      // BUG FIX 2026-07-25: supabase.functions.invoke() authenticated with the
+      // runtime SUPABASE_SERVICE_ROLE_KEY, which send-transactional-email's
+      // strict service-role-JWT gate rejected — every send returned non-2xx.
+      // The cron already calls THIS function with a valid service-role JWT in
+      // the Authorization header (verified 200 when replayed directly), so we
+      // forward that same header for the internal call.
+      const sendRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-transactional-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: authHeader },
+        body: JSON.stringify({
           templateName,
           recipientEmail: email,
           idempotencyKey,
@@ -131,13 +139,14 @@ Deno.serve(async (req) => {
             activeCompetitions: activeCompetitions ?? 0,
             friendsActive: friendsActive ?? 0,
           },
-        },
+        }),
       });
 
-      if (sendRes.error) {
-        console.error(`[reengagement] send failed for ${p.id}:`, sendRes.error.message);
+      if (!sendRes.ok) {
+        const errText = await sendRes.text();
+        console.error(`[reengagement] send failed for ${p.id}: HTTP ${sendRes.status} ${errText.slice(0, 200)}`);
         results.errors++;
-        results.details.push({ user_id: p.id, step: nextStep, error: sendRes.error.message });
+        results.details.push({ user_id: p.id, step: nextStep, error: `HTTP ${sendRes.status}` });
         continue;
       }
 
