@@ -15,6 +15,8 @@ import { motion } from "framer-motion";
 import { generateImagePath, uploadImage } from "@/lib/imageUpload";
 import { compressAvatar } from "@/lib/imageCompression";
 import { scanFileWithToast } from "@/lib/fileSecurityScanner";
+import { useI18n } from "@/i18n/I18nContext";
+import { LANGS } from "@/i18n/translations";
 
 const INTEREST_OPTIONS = [
   "Wildlife", "Street", "Portrait", "Aerial", "Documentary",
@@ -74,6 +76,14 @@ async function isFlatOrBlank(file: File): Promise<boolean> {
 
 const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalProps) => {
   const [saving, setSaving] = useState(false);
+
+  // Language is chosen HERE, at profile creation (Facebook/Instagram model).
+  // `lang` already holds the account's saved preference if it has one
+  // (LanguageAccountSync applies it on login), otherwise the device language,
+  // otherwise English — so this field is never blank. Picking a language calls
+  // setLang, which converts the app immediately, and handleFinish writes the
+  // code to profiles.preferred_language so it follows the user across devices.
+  const { lang, setLang } = useI18n();
 
   // Form state
   const [selectedInterests, setSelectedInterests] = useState<string[]>(profile?.photography_interests || []);
@@ -150,6 +160,12 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
         user_type: userType,
         date_of_birth: format(dateOfBirth!, "yyyy-MM-dd"),
         avatar_url: avatarUrl,
+        // Persist the language code chosen on this screen. Written explicitly
+        // here (not left to LanguageAccountSync) so the preference is saved
+        // even when the user keeps the pre-selected language and never touches
+        // the picker — the column's legacy default is the string 'English',
+        // which is not a valid language code and would otherwise be ignored.
+        preferred_language: lang,
         onboarding_completed: true,
         onboarding_skipped_at: null,
       };
@@ -212,6 +228,36 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
           </p>
 
           <div className="space-y-5">
+            {/* Language — chosen at profile creation, applies instantly */}
+            <div className="space-y-2">
+              <span className="text-[10px] tracking-[0.2em] uppercase text-foreground font-medium block" style={{ fontFamily: "var(--font-heading)" }}>
+                Your language
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {LANGS.map((l) => {
+                  const selected = lang === l.code;
+                  return (
+                    <button
+                      key={l.code}
+                      type="button"
+                      onClick={() => setLang(l.code)}
+                      aria-pressed={selected}
+                      className={`flex items-center gap-1.5 text-[10px] tracking-[0.08em] px-3 py-1.5 border rounded-sm transition-all duration-300 ${
+                        selected ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/50"
+                      }`}
+                      style={{ fontFamily: "var(--font-heading)" }}
+                    >
+                      <span className="text-sm leading-none">{l.flag}</span>
+                      {l.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[9px] text-muted-foreground leading-snug" style={{ fontFamily: "var(--font-body)" }}>
+                You can change this any time from the language menu.
+              </p>
+            </div>
+
             {/* Mandatory profile photo */}
             <div className="flex flex-col items-center gap-3">
               <button
