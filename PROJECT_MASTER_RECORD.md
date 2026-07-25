@@ -213,10 +213,39 @@ on Play **1005**), compileSdk 36, minSdk 24, **targetSdk 36**, Capacitor version
    publish-gated source. Audited in `PhaseN_*` + `rls-audit-judging.md`.
 6. **cwd resets between shell calls** in the working environment — always `cd` into the repo
    first. Repo path in the AI env: `/home/claude/project/repo`.
+7. **⚠ EDGE FUNCTIONS DO NOT AUTO-DEPLOY FROM GITHUB COMMITS (biggest email gotcha).**
+   Committing a change to `supabase/functions/**` on `main` does **NOT** deploy it. On
+   2026-07-25 the live `process-email-queue` was **5 days** stale and `auth-email-hook` **16
+   days** stale versus the repo — so every prior email/template fix committed to git had
+   **never gone live.** The FRONTEND auto-deploys via Lovable (~115s); EDGE FUNCTIONS must be
+   deployed explicitly. To deploy: Supabase dashboard → Edge Functions → pick the function →
+   **Code** tab → edit → **Deploy updates** (or push a deploy through Lovable). After any edge
+   change, verify the function's "last deployed" timestamp updated. Check staleness with the
+   Overview tab (it shows "X days ago").
+8. **Email system — SOLVED 2026-07-25 (deliverability + logo + OTP).** Root causes were infra,
+   not app logic: (a) transactional mail sent from the **unauthenticated** `www.50mmretina.com`
+   while only `50mmretina.com` is Brevo-authenticated → spam/dropped. Fixed by forcing ALL mail
+   through `noreply@50mmretina.com` in `process-email-queue` (single sender-normalization point;
+   **deployed**). (b) The deployed `auth-email-hook` signup template's logo pointed at the **OLD**
+   Supabase project `isywidnfnjhtydmdfgtk` (pre-migration) → dead URL → broken logo; fixed to
+   `jtdtehuqtinjxropkkcn` and **deployed**. (c) The 2026-07-10/11 `Brevo API error (401): Key not
+   found` failures were an already-fixed bad admin key. The send cron (`process-email-queue`,
+   every 10s) and env `BREVO_API_KEY` are healthy. **Signup verification is now email OTP**
+   (6-digit code via `verifyOtp({type:'signup'})` in `src/pages/Signup.tsx`; the confirmation
+   email renders the code; link kept as fallback). **Still open (optional):** the
+   `photo-verification-request` email has **no template at all** (a DB trigger enqueues it → it
+   always errors `Unknown template` → DLQ). Either add a template + register it, or stop the
+   trigger. Diagnostics: `email_send_log` (status/error_message), `select * from cron.job`,
+   `diagnose-brevo-key` function.
 
 ## 13. Environment / build commands cheat-sheet
-- Deploy web: push to `main` → Lovable auto-publishes (~115s).
-- Deploy Android: edit `ANDROID_BUILD_TRIGGER`, push → Actions builds `.aab` → sign → upload.
+- Deploy web (frontend): push to `main` → Lovable auto-publishes (~115s).
+- **Deploy edge functions: NOT automatic** — Supabase dashboard → Edge Functions → function →
+  Code → Deploy updates (see §12.7). Verify the "last deployed" time changes.
+- Deploy Android: edit `ANDROID_BUILD_TRIGGER`, push → Actions auto-builds a **signed** `.aab`
+  (`app-release-aab`, targetSdk 36) → download → upload to Play (see `NEXT_RELEASE_RUNBOOK.md`).
+- Diagnose email: `email_send_log` status breakdown; confirm `process-email-queue` cron active;
+  Brevo → Senders/Domains authenticated; sender must be `@50mmretina.com`.
 - Typecheck: `npx tsc --noEmit -p tsconfig.app.json`.
 - Tests: `npm run test`. Lint: `npm run lint`. Vocabulary tooling: `npm run vocab:*`.
 
@@ -229,6 +258,7 @@ on Play **1005**), compileSdk 36, minSdk 24, **targetSdk 36**, Capacitor version
 ## 15. Maintenance log (append every session — newest first)
 | Date | Who/Model | What changed | Where |
 |---|---|---|---|
+| 2026-07-25 | AI (Opus 4.8) | **Fixed the email system end-to-end (deliverability + logo + OTP) and discovered edge functions weren't deploying from GitHub.** Root-caused "mail not arriving" to unauthenticated `www.` sender domain → normalized ALL mail to `noreply@50mmretina.com` in `process-email-queue`. Root-caused "no logo" to the deployed signup email pointing at the **old** Supabase project (`isywidnfnjhtydmdfgtk`) → fixed to current project. Switched signup verification to **email OTP** (6-digit code). **Deployed both edge functions via the Supabase dashboard** (they were 5–16 days stale vs repo — GitHub commits don't auto-deploy functions; see §12.7). Triggered Android build **1011** to bundle the email/OTP frontend. Skipped Google-DOB auto-fill (needs Google sensitive-scope review; deferred). | `process-email-queue`, `auth-email-hook` (deployed), `src/pages/Signup.tsx`, `_shared/email-templates/signup.tsx`, this file |
 | 2026-07-24 | AI (Opus 4.8) | **Android release SHIPPED to signed + prepared-on-Play state.** Set up **CI auto-signing** (secrets `ANDROID_KEYSTORE_BASE64` + `ANDROID_KEYSTORE_PASSWORD`; `signingConfig` injected at build). Root-caused repeated "No key with alias" failures to a corrupted `ANDROID_KEY_ALIAS` secret → **hardcoded `keyAlias "upload"`** in the workflow and reused keystore pw for the key pw. Built + verified signed bundle **1010 (targetSdk 36)** (cert SHA-256 matches Play upload cert), uploaded to a **Production draft**, left for owner's Submit. Wrote **`NEXT_RELEASE_RUNBOOK.md`** and refreshed `ANDROID_RELEASE_RUNBOOK.md` (both: signing solved, don't re-investigate). | `.github/workflows/android-build.yml`, GitHub secrets, Play Console, runbooks |
 | 2026-07-24 | AI (Opus 4.8 / Fable 5) | **Completed the i18n rollout:** translated the entire remaining admin back-office + full judging surface (judge grid/list/full-view, guide modal, placement board, audit tools, stages 1–3, settings panels). Dictionary 1,060→**2,947 keys/lang** (+1,887). 116/123 admin+judge components wired. Fixed a runtime `t`-shadow crash in `AdminTransactions`; hardened default I18n context. **Fixed the Play target-API warning** by adding `targetSdkVersion = 36` to `android-build.yml`. 7 commits prepared on top of `df95bac`. | `src/i18n/translations.ts`, ~98 components, `.github/workflows/android-build.yml`, this file |
 | 2026-07 | AI (Opus 4.8) | Created this master record + `ANDROID_RELEASE_RUNBOOK.md`; documented build/backend/i18n/secrets-inventory. Translation progress ~1,060/1,243. | root docs |
