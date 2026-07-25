@@ -41,6 +41,26 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Cannot delete yourself" }), { status: 400, headers: corsHeaders });
     }
 
+    // Capture the target's email + name BEFORE deletion, for the post-deletion
+    // erasure-confirmation notice (profiles cascades away with auth.users).
+    // Non-fatal if unavailable: deletion proceeds, notice is skipped and logged.
+    let notifyEmail: string | null = null;
+    let notifyName: string | null = null;
+    try {
+      const { data: targetUser } = await adminClient.auth.admin.getUserById(user_id);
+      notifyEmail = targetUser?.user?.email ?? null;
+    } catch (lookupErr) {
+      console.error("getUserById failed (erasure notice will be skipped):", lookupErr);
+    }
+    {
+      const { data: prof } = await adminClient
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user_id)
+        .maybeSingle();
+      notifyName = (prof as any)?.full_name ?? null;
+    }
+
     // Delete the auth user FIRST via a direct RPC. The GoTrue admin API
     // (auth.admin.deleteUser) fails on this project with an empty error, and doing
     // it last meant a failure destroyed all the user's data while leaving a
@@ -128,7 +148,41 @@ Deno.serve(async (req) => {
     // -> auth.users is ON DELETE CASCADE); this is a defensive no-op.
     await adminClient.from("profiles").delete().eq("id", user_id);
 
-    return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // Erasure-confirmation notice to the deleted account's email (same as the
+    // self-serve delete-my-account path). Rendered/queued/retried/logged by the
+    // standard transactional pipeline; email_send_log is the proof of notice.
+    // A failure here must NEVER fail the deletion itself.
+    let confirmationQueued = false;
+    if (notifyEmail) {
+      try {
+        const res = await fetch(`${supabaseUrl}/functions/v1/send-transactional-email`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({
+            templateName: "account-deleted",
+            recipientEmail: notifyEmail,
+            idempotencyKey: `account-deleted-${user_id}`,
+            templateData: {
+              fullName: notifyName,
+              deletedAt: new Date().toISOString(),
+            },
+          }),
+        });
+        confirmationQueued = res.ok;
+        if (!res.ok) {
+          console.error("account-deleted email enqueue failed:", res.status, await res.text());
+        }
+      } catch (mailErr) {
+        console.error("account-deleted email error:", mailErr);
+      }
+    } else {
+      console.error("account-deleted email skipped: no email found for target", { user_id });
+    }
+
+    return new Response(JSON.stringify({ success: true, confirmation_email_queued: confirmationQueued }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     console.error("Delete user error:", err);
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
