@@ -1,10 +1,7 @@
 # Android Release Runbook — 50mm Retina World
 
-> **Source of truth note:** Everything below was read directly out of this repository's
-> committed files (`.github/workflows/android-build.yml`, `capacitor.config.ts`,
-> `package.json`, `CAPACITOR_SETUP.md`, `STORE_LISTING.md`). It is **not** a memory of
-> having run the build. Where the repo does not record something (e.g. the exact upload
-> keystore location), it is marked **UNKNOWN — verify manually** rather than guessed.
+> **Status 2026-07-24: builds are AUTOMATIC and SELF-SIGNING.** For the fast path,
+> read **`NEXT_RELEASE_RUNBOOK.md`** (one page). This file is the full detail.
 > **No secrets are included in this file.**
 
 App identity:
@@ -12,27 +9,28 @@ App identity:
 - **appName:** `50mm Retina World`
 - **webDir:** `dist`
 - **OAuth deep-link scheme:** `app.fiftymmretina`
-- **GitHub repo:** `altisinfonet/lens-lustre-learn-claude` (branch `main`)
+- **GitHub repo:** `altisinfonet/lens-lustre-learn-Claude` (branch `main`)
 
 ---
 
 ## 1. How the app is built & published
 
-Built **in the cloud with GitHub Actions** — not locally, not Android Studio.
+Built **in the cloud with GitHub Actions** — not locally, not Android Studio. As of
+2026-07-24 the CI output is a **SIGNED, upload-ready** `.aab` (previously unsigned).
 
 - **Workflow file:** `.github/workflows/android-build.yml`
 - **Trigger:** a push to `main` that changes **either** the workflow file **or** a file
-  named **`ANDROID_BUILD_TRIGGER`** (repo root). The July release was fired by updating
-  `ANDROID_BUILD_TRIGGER` (its contents are just a timestamp).
-- **Output:** an **UNSIGNED** Android App Bundle uploaded as a GitHub Actions artifact
-  named **`app-release-unsigned`** → `android/app/build/outputs/bundle/release/app-release.aab`
-  (14-day artifact retention).
+  named **`ANDROID_BUILD_TRIGGER`** (repo root, contents are just a marker string).
+- **Output:** a **SIGNED** Android App Bundle, artifact named **`app-release-aab`**
+  → `android/app/build/outputs/bundle/release/app-release.aab` (14-day retention, ~13 MB).
 
 ### To cut a new build
-1. Edit `ANDROID_BUILD_TRIGGER` (e.g. paste a fresh `date` timestamp) and commit to `main`.
-2. Open the repo's **Actions** tab → **Android Build** → wait for the run to finish.
-3. Download the **`app-release-unsigned`** artifact (the `.aab`).
-4. **Sign it** (see §5) and upload to **Play Console → Internal testing → Production**.
+1. (Optional) bump `versionName` in the workflow's "Set app version" step.
+2. Edit `ANDROID_BUILD_TRIGGER` and commit to `main`.
+3. Repo → **Actions** → **Android Build** → wait ~4–5 min for a green run.
+4. Download the **`app-release-aab`** artifact (a zip containing `app-release.aab` — already
+   signed) and upload to **Play Console → Production/Testing → Create new release**.
+   See `NEXT_RELEASE_RUNBOOK.md` for the exact Play steps and the >10 MB upload caveat.
 
 ### What the workflow does, in order
 1. `actions/checkout@v4`
@@ -42,106 +40,107 @@ Built **in the cloud with GitHub Actions** — not locally, not Android Studio.
 5. Installs Capacitor + native plugins (see §3)
 6. `npm run build` — builds the web app into `dist/`
 7. `npx cap add android` — **generates the native `android/` project fresh**
-8. Patches `android/variables.gradle`: `minSdkVersion 23→24`, `compileSdkVersion 35→36`;
-   patches `android/build.gradle`: Android Gradle Plugin → `8.9.1`
+8. Patches `android/variables.gradle`: `minSdkVersion 23→24`, `compileSdkVersion 35→36`,
+   **`targetSdkVersion → 36`**; patches `android/build.gradle`: AGP → `8.9.1`
 9. Sets version: `versionCode = 1000 + <github.run_number>`, `versionName = "1.1.1"`
-10. Injects an OAuth deep-link `<intent-filter>` (scheme `app.fiftymmretina`) into
-    `AndroidManifest.xml`
+10. Injects OAuth deep-link `<intent-filter>` (scheme `app.fiftymmretina`) into the manifest
 11. Generates icons/splash via `@capacitor/assets` (background `#0f172a`)
 12. Copies `google-services.json` → `android/app/google-services.json`
 13. `npx cap sync android`
-14. `./gradlew bundleRelease --no-daemon` → produces the unsigned `.aab`
-15. Uploads the `.aab` artifact (and build reports on failure)
+14. **Configure release signing** — if `ANDROID_KEYSTORE_BASE64` is set, decodes the keystore
+    and injects a `signingConfig` into `android/app/build.gradle` (logs "this build will be
+    SIGNED"). No secret → falls back to unsigned (safe default).
+15. `./gradlew bundleRelease --no-daemon` → produces the **signed** `.aab`
+16. Uploads the `app-release-aab` artifact (and, if `PLAY_SERVICE_ACCOUNT_JSON` is ever added,
+    can auto-push to Play internal testing — currently not configured)
 
 ---
 
 ## 2. Native `android/` project
-
-- **NOT committed** anywhere in this repo (no separate repo either).
-- It is **generated on every CI run** by `npx cap add android` and then patched by the
-  workflow steps above, so the folder is ephemeral.
-- **Implication:** any permanent native change (SDK levels, manifest entries, Firebase,
-  icons) must live **in the workflow** — editing a local `android/` folder will not
-  persist, because CI regenerates it each build.
+- **NOT committed** — regenerated every CI run by `npx cap add android`, then patched.
+- **Implication:** any permanent native change (SDK levels, manifest, signing, icons) must
+  live **in the workflow**; editing a local `android/` folder does not persist.
 
 ---
 
 ## 3. Capacitor & SDK versions
-
-- **Capacitor version: NOT pinned.** `package.json` contains no `@capacitor/*` entries;
-  the workflow runs a bare `npm install @capacitor/core @capacitor/cli @capacitor/android …`
-  with no version, so each build pulls **whatever is latest on npm at build time.**
-  → **UNKNOWN exact version — read it from the specific Actions build log.**
-- **compileSdkVersion = 36** (explicitly set in CI)
-- **minSdkVersion = 24** (explicitly set in CI)
-- **targetSdkVersion = NOT overridden in CI** → uses the Capacitor template default
-  (the pre-patch template used compileSdk 35 / minSdk 23).
-  → **verify the exact target in the build log if it matters for Play requirements.**
+- **Capacitor version: NOT pinned** — CI installs latest `@capacitor/*` at build time.
+  Pin exact versions in `package.json` if you want reproducible builds.
+- **compileSdkVersion = 36**, **minSdkVersion = 24**, **targetSdkVersion = 36** (all set in CI).
+  targetSdk 36 (Android 16) **clears** the Play "update target API by 31 Aug 2026" warning —
+  verified in the built bundle 1010 via `bundletool dump manifest`.
 - **Android Gradle Plugin:** `8.9.1`
-- **Native plugins installed:** `@capacitor/core`, `@capacitor/cli`, `@capacitor/android`,
-  `@capacitor/camera`, `@capacitor/share`, `@capacitor/splash-screen`, `@capacitor/app`,
-  `@capacitor/browser`, `@capacitor-firebase/messaging`
+- **Native plugins:** `@capacitor/core|cli|android|camera|share|splash-screen|app|browser`,
+  `@capacitor-firebase/messaging`
 
 ---
 
 ## 4. Version numbers
-
-- **versionName:** `1.1.1` (hardcoded in the workflow)
-- **versionCode:** `1000 + <GitHub Actions run number>` (monotonic)
-  → The exact integer for any given release = 1000 + that run's number, visible on the
-  run in the **Actions** tab. **UNKNOWN from code alone.**
-- ⚠ To ship a **new** Play release you must bump the version. `versionCode` auto-increments
-  via the run number, but **`versionName` is hardcoded to `1.1.1`** — update it in the
-  workflow's "Set app version" step for a user-visible version change.
+- **versionName:** `1.1.1` (hardcoded in the workflow — edit it there to change the shown version).
+- **versionCode:** `1000 + <run_number>`, monotonic. Latest built = **1010** (run #10).
+  Live on Play before it = **1005**.
 
 ---
 
-## 5. Signing / keystore
+## 5. Signing / keystore  ← SOLVED, do not re-investigate
 
-- CI produces an **UNSIGNED** `.aab`. There is **no signing step in the workflow** and
-  **no keystore (`.jks`/`.keystore`) committed anywhere in this repo.**
-- Intended approach (per `CAPACITOR_SETUP.md` checklist): **Play App Signing** — "let
-  Google manage the signing key." Under that model you still sign the upload with an
-  **upload key** before uploading to Play Console.
-- **UNKNOWN — verify manually:** where the unsigned bundle gets signed and where the
-  **upload keystore** lives is **not recorded in the repo.** Whoever performed the last
-  upload holds it (a local keystore on their machine, or an upload key created in Play
-  Console). **Do not assume it is in the repo — it is not.** Locate it before the next
-  release, and back it up somewhere safe; losing the upload key requires a Play Console
-  key reset.
+CI **signs automatically**. Details:
+- The workflow's "Configure release signing" step injects a gradle `signingConfig` using the
+  keystore decoded from a secret. **`keyAlias` is HARDCODED to `upload`** in the workflow
+  (the alias name is not sensitive). This replaced a corrupted `ANDROID_KEY_ALIAS` **secret**
+  that had trailing whitespace and caused repeated "No key with alias 'upload' found" build
+  failures on 2026-07-24. **Do not reintroduce a KEY_ALIAS secret.**
+- **GitHub secrets used** (Settings → Secrets and variables → Actions) — already set:
+  - `ANDROID_KEYSTORE_BASE64` — base64 of the upload keystore (`.jks`)
+  - `ANDROID_KEYSTORE_PASSWORD` — keystore password (also used as the key password; they're equal)
+  - *(legacy `ANDROID_KEY_ALIAS` / `ANDROID_KEY_PASSWORD` secrets may still exist but are
+    NOT used by the workflow.)*
+- **Keystore identity (verified with keytool/bundletool):** PKCS12, **1 entry**, alias
+  **`upload`**, **PrivateKeyEntry**, owner `CN=50mm Retina World, O=ALTIS INFONET PVT LTD`,
+  cert **SHA-256 `35:2F:82:CF:6F:E1:77:5E:3D:9C:EF:8A:2E:63:45:9F:EB:0A:F0:47:01:1D:C6:29:A3:A0:73:C1:A8:1D:99:12`**
+  — matches Play's expected upload certificate.
+- **Owner holds** the `.jks` file + password (password manager / `KEYSTOREREADME.txt`).
+  **Never commit the keystore or password.** Losing it forces a Play upload-key reset.
+- **Play App Signing** is ON (Google holds the app signing key; we sign uploads with the
+  `upload` key above).
 
 ---
 
 ## 6. GitHub / CI
-
-- **Remote:** `github.com/altisinfonet/lens-lustre-learn-claude`, account **altisinfonet**.
-- Pushing to **`main`** auto-deploys the **web app**; touching `ANDROID_BUILD_TRIGGER` on
-  `main` fires the **Android** build.
-- **Existing workflows:** `.github/workflows/android-build.yml`, `.github/workflows/typecheck.yml`
-- **Firebase:** `google-services.json` is committed at repo root; the workflow copies it
-  into `android/app/`.
-
-> **⚠ SECURITY:** the working copy's git remote URL had a **GitHub personal-access token
-> embedded in it**. Treat that token as exposed — **rotate it** in GitHub settings and
-> re-clone using SSH or a credential helper instead of a token-in-URL.
+- **Remote:** `github.com/altisinfonet/lens-lustre-learn-Claude`, account **altisinfonet**.
+- Pushing to `main` auto-deploys the **web app** (via Lovable); touching `ANDROID_BUILD_TRIGGER`
+  or the workflow fires the **Android** build.
+- **Workflows:** `.github/workflows/android-build.yml`, `.github/workflows/typecheck.yml`
+- **Firebase:** `google-services.json` committed at repo root; workflow copies it into `android/app/`.
+- Editing repo files from a read-only AI session: use GitHub's web **"Upload files"** UI to
+  overwrite in place (reliable), or the web editor. Direct `git push` may be blocked.
 
 ---
 
-## 7. Related docs already in the repo
-
-- `CAPACITOR_SETUP.md` — push-notification wiring + store-submission checklist + signing note
-- `STORE_LISTING.md` — store listing copy, bundle ID, version-bump notes
-- `.github/workflows/android-build.yml` — the build recipe (source of most of this doc)
-- `ANDROID_BUILD_TRIGGER` — the file you edit to trigger a build
-- `resources/android/` — `icon-foreground.png`, `icon-background.png` (icon/splash source art)
-- `google-services.json` — Firebase config (repo root)
+## 7. Play Console publishing
+- App: **50mm Retina World**. **Managed publishing is OFF** → after you "Submit for review",
+  the release auto-publishes to production once Google's review passes (hours–1 day).
+- Release flow: Production → Create new release → upload `.aab` → name + notes → Next → **Save**
+  (saves a draft to Publishing overview). The **owner's** final action is
+  **"Submit N changes for review"** in Publishing overview. AI should stop at Save.
+- **2026-07-24:** release **1010 (1.1.1), targetSdk 36** was built, verified, uploaded, and
+  prepared as a Production draft — left awaiting the owner's Submit.
 
 ---
 
-## Quick "gotchas" checklist for the next release
-- [ ] Bump **`versionName`** in the workflow if the user-visible version should change.
-- [ ] Confirm the **Capacitor version** that resolves in CI (it floats — pin it if you
-      want reproducible builds: add exact `@capacitor/*` versions to `package.json`).
-- [ ] Have the **upload keystore** in hand and backed up (see §5).
-- [ ] Sign the downloaded `.aab` before uploading (CI output is unsigned).
-- [ ] **Rotate** the exposed GitHub token (see §6).
+## 8. Related docs in the repo
+- `NEXT_RELEASE_RUNBOOK.md` — **one-page fast path (read this first)**
+- `PROJECT_MASTER_RECORD.md` — whole-project cold-start reference
+- `.github/workflows/android-build.yml` — the build+sign recipe
+- `ANDROID_BUILD_TRIGGER` — edit to trigger a build
+- `CAPACITOR_SETUP.md`, `STORE_LISTING.md`, `resources/android/*`, `google-services.json`
+
+---
+
+## Quick checklist for the next release
+- [ ] (If needed) bump `versionName` in the workflow.
+- [ ] Edit `ANDROID_BUILD_TRIGGER`, commit → wait for a green **Android Build** run.
+- [ ] Confirm the run logged "this build will be SIGNED" and produced `app-release-aab`.
+- [ ] Upload the signed `.aab` to Play → Create release → Save (draft).
+- [ ] Hand off to the owner for **Submit for review** (that's the go-live click).
+- [ ] Signing/keystore/targetSdk are already solved — don't re-investigate them.

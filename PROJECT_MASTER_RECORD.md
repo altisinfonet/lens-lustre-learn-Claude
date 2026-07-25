@@ -76,12 +76,24 @@ values, but still keep them in `.env` (git-ignored), not hardcoded.
 - **Practical deploy wait:** ~**115 seconds** after push before the change is live (used
   throughout the i18n work). Then hard-refresh to bust cache.
 
-## 7. How the ANDROID app builds
-See the dedicated **`ANDROID_RELEASE_RUNBOOK.md`** (full detail). One-line: GitHub Actions
-workflow `.github/workflows/android-build.yml`, triggered by editing **`ANDROID_BUILD_TRIGGER`**,
-outputs an **unsigned** `.aab` artifact → download, sign, upload to Play Console.
-Key facts: versionName `1.1.1`, versionCode `1000 + run_number`, compileSdk 36, minSdk 24,
-Capacitor version NOT pinned, **upload keystore location UNKNOWN — verify.**
+## 7. How the ANDROID app builds  ← now AUTOMATIC + SELF-SIGNING
+**Fast path: read `NEXT_RELEASE_RUNBOOK.md` (one page).** Full detail:
+`ANDROID_RELEASE_RUNBOOK.md`. One-line: GitHub Actions workflow
+`.github/workflows/android-build.yml`, triggered by editing **`ANDROID_BUILD_TRIGGER`** (or the
+workflow), outputs a **SIGNED, upload-ready** `.aab` artifact named **`app-release-aab`** →
+download → upload to Play Console → owner submits.
+Key facts: versionName `1.1.1`, versionCode `1000 + run_number` (latest built **1010**; live
+on Play **1005**), compileSdk 36, minSdk 24, **targetSdk 36**, Capacitor version NOT pinned.
+- **Signing is DONE (2026-07-24):** CI signs automatically. `keyAlias` is **hardcoded to
+  `upload`** in the workflow; secrets `ANDROID_KEYSTORE_BASE64` + `ANDROID_KEYSTORE_PASSWORD`
+  provide the keystore + password (key password = keystore password). Keystore = PKCS12, 1
+  entry, alias `upload`, PrivateKeyEntry, cert SHA-256 `35:2F:82:CF:…:99:12` (matches Play's
+  upload cert). **Do not re-investigate signing.** See runbook §5.
+- **targetSdk fix (2026-07-24):** the workflow set compileSdk/minSdk but never set
+  `targetSdkVersion`, causing the Play "update target API by 31 Aug 2026" warning. Added
+  `targetSdkVersion = 36`; verified in built bundle 1010. **API 36 clears the requirement.**
+- **Play publishing:** managed publishing **OFF** → owner's "Submit for review" = go-live.
+  Release 1010 was built, verified, uploaded, and left as a prepared Production draft.
 
 ## 8. Backend — Supabase (`jtdtehuqtinjxropkkcn`)
 - **Migrations:** `supabase/migrations/` (545). Schema changes go here.
@@ -109,7 +121,7 @@ Capacitor version NOT pinned, **upload keystore location UNKNOWN — verify.**
 | Supabase **service role** key | Supabase dashboard → API | server-only; used by edge functions |
 | Edge-function secrets (Brevo, Stripe, PayPal, Razorpay, AWS S3, FCM server key, GA) | Supabase dashboard → **Edge Functions → Secrets** | **not in repo** |
 | Firebase client config | `google-services.json` (committed at repo root) | client config, not a secret key |
-| Android **upload keystore** + its passwords | **UNKNOWN — verify** (owner's machine or Play Console) | see runbook §5; back it up! |
+| Android **upload keystore** (base64) + password | GitHub → Settings → Secrets → Actions: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD` (both set); owner also holds the `.jks` + `KEYSTOREREADME.txt` | alias `upload`; key pw = keystore pw; used by CI auto-signing. Back up the `.jks`! |
 | GitHub push token | was embedded in the clone's git remote URL | **ROTATE — exposed** (see §12) |
 | Play Console / Google / Supabase / Brevo / payment logins | owner only | never in repo |
 
@@ -153,29 +165,48 @@ Capacitor version NOT pinned, **upload keystore location UNKNOWN — verify.**
    **Total ~1,243 · Completed <n> · Remaining <1243−n>.**
 
 ### Progress state (update each pass)
-- **~1,060 / ~1,243 strings done (~85%).** DONE: all member-facing screens, judges' applicant
-  flows, and admin (shell + Users, Entries, Support Tickets, Competitions, Wallet,
-  Transactions, Orders, Role Applications, Gift Credits) + Judge Panel core (dashboard, judge
-  view, decision buttons, all dialogs, sidebar, RAW panel, seat bar).
-- **REMAINING ~183:** ~32 low-traffic admin tools (Banners, Gallery, Photo of Day, SEO,
-  Email Templates, Announcements, Analytics, Page Management, Menu Builder, Redirects,
-  Integrations, Post Reports, Keyword Blocklist, Employee, Engagement…) + a few judge
-  micro-labels. Listed in the "Remaining Modules" section of the latest
-  `50mmRetina_Translation_Module_Report.docx`.
-- **Intentionally English (by design):** downloadable PDF/CSV/HTML exports (jsPDF/ export docs
-  can't render Indic scripts and are shared with banks/accountants); payment gateway brand
-  names (Stripe/PayPal/Razorpay).
+- **COMPLETE — full app translated.** As of **2026-07-24** the dictionary holds **2,947 keys
+  per language** (up from ~1,060; **+1,887 keys × 7 ≈ 13,209 new strings**). Every user-facing
+  admin and judging surface is now wired: **116/123 admin+judge components** (the remaining 7
+  are text-free wrappers — AdminPage/Toolbar/Table, AdminAdvertisements, LongPressButton,
+  RippleButton, NavigationBlocker — nothing to translate).
+- This closed out the prior "REMAINING ~183" list (all ~32 low-traffic admin tools + judge
+  micro-labels) **and** the big-ops modules the earlier report had deliberately left English:
+  SEO, Page Management, Redirects, On-Page Images, Menu Builder, Analytics (+Reports),
+  Performance, Health dashboards, Tag Semantics, Email templates + rich-text toolbar, Ads V2,
+  Certificates, Judging Tags, Engagement, Referrals, Newsletter/FAQ, Notifications,
+  Announcements, Journal, Courses, Keyword Blocklist, Badge/Role Definitions, Vote Rewards,
+  Auth Pages, User Guide, Competition Funnel/Judges/Rounds, Judge Activity/Monitoring,
+  Employees, Comment/Post Reports, Featured Artist, Banners, Gallery, Photo of Day, Excellence,
+  Activity Logs, and the SMTP/S3/AI/WhatsApp/social settings config panels.
+- **Verification run every batch:** `tsc` clean → scripted `useT()`-scope audit → variable-
+  shadowing audit (every `.map/.find/.filter(t=>…)` checked so no translate call is captured by
+  a shadowing `t`) → key-resolution + 7-language parity (all dicts equal, no dupes) → no new
+  test failures. Live Hindi verify still pending push+deploy of the delivering commits (§15).
+- **Intentionally English (by design):** downloadable PDF/CSV/HTML exports (Indic scripts don't
+  render in jsPDF and are shared with banks/accountants); brand names (Stripe/PayPal/Razorpay,
+  Brevo, Twilio, Meta, OpenAI, Lovable…); technical tokens (SQL, env-var names, URLs, metric
+  codes like LCP/TTFB, API-key placeholders, enum values such as TLS/SSL).
 
 ## 12. KNOWN ISSUES / GOTCHAS (read before editing)
 1. **Ambient `t` typecheck trap (most important):** an ambient declaration makes bare `t`
    *always* typecheck, so a `t()` used outside a real `useT()` scope passes `tsc` but
-   **crashes at runtime.** Two such bugs were already caught by manual audit and fixed
-   (`CinemaDashboard.UpcomingCard`, `JudgeRoundSidebar.RoundRow`). **Always audit `t` scope by
-   hand.** Prefer live-render verification over trusting typecheck alone.
+   **crashes at runtime.** Bugs already caught by manual audit and fixed:
+   `CinemaDashboard.UpcomingCard`, `JudgeRoundSidebar.RoundRow`, and (2026-07-24)
+   `AdminTransactions` — a `.map(t => …)` row variable named `t` shadowed the translator inside
+   the pending/approve/reject controls. Also hardened `I18nContext` so the **default** context
+   `t` resolves the English dict (not the raw key) when no provider is mounted — fixes unwrapped
+   renders and several unit tests. **Always audit `t` scope by hand**, and watch for callback
+   params named `t` (rename to `tg`). Prefer live-render verification over typecheck alone.
 2. **Capacitor version is not pinned** → non-reproducible Android builds. Pin exact
    `@capacitor/*` versions in `package.json` if reproducibility matters.
-3. **Android CI output is unsigned** and the **upload keystore location is unknown** — locate
-   & back it up before the next release (losing it forces a Play key reset).
+3. **Android signing is SOLVED — do not re-investigate.** CI auto-signs; `keyAlias` is
+   **hardcoded to `upload`** (a corrupted `ANDROID_KEY_ALIAS` secret with trailing whitespace
+   caused repeated "No key with alias" failures on 2026-07-24 — hardcoding the non-secret alias
+   fixed it permanently). Do not re-add a KEY_ALIAS secret. The `.aab` artifact
+   `app-release-aab` is >10 MB, so the browser `file_upload` bridge can't inject it into Play —
+   the file must be picked via the OS dialog (or staged via the device bridge). Owner still must
+   keep the `.jks` backed up (losing it forces a Play key reset).
 4. **Exposed GitHub token:** the clone's git remote URL had a personal-access token in it.
    **Rotate it** (GitHub → Settings → Developer settings → PATs) and use SSH/credential helper.
 5. **Judging privacy:** never surface raw `entry.status`/`placement` to participants; use the
@@ -198,6 +229,8 @@ Capacitor version NOT pinned, **upload keystore location UNKNOWN — verify.**
 ## 15. Maintenance log (append every session — newest first)
 | Date | Who/Model | What changed | Where |
 |---|---|---|---|
+| 2026-07-24 | AI (Opus 4.8) | **Android release SHIPPED to signed + prepared-on-Play state.** Set up **CI auto-signing** (secrets `ANDROID_KEYSTORE_BASE64` + `ANDROID_KEYSTORE_PASSWORD`; `signingConfig` injected at build). Root-caused repeated "No key with alias" failures to a corrupted `ANDROID_KEY_ALIAS` secret → **hardcoded `keyAlias "upload"`** in the workflow and reused keystore pw for the key pw. Built + verified signed bundle **1010 (targetSdk 36)** (cert SHA-256 matches Play upload cert), uploaded to a **Production draft**, left for owner's Submit. Wrote **`NEXT_RELEASE_RUNBOOK.md`** and refreshed `ANDROID_RELEASE_RUNBOOK.md` (both: signing solved, don't re-investigate). | `.github/workflows/android-build.yml`, GitHub secrets, Play Console, runbooks |
+| 2026-07-24 | AI (Opus 4.8 / Fable 5) | **Completed the i18n rollout:** translated the entire remaining admin back-office + full judging surface (judge grid/list/full-view, guide modal, placement board, audit tools, stages 1–3, settings panels). Dictionary 1,060→**2,947 keys/lang** (+1,887). 116/123 admin+judge components wired. Fixed a runtime `t`-shadow crash in `AdminTransactions`; hardened default I18n context. **Fixed the Play target-API warning** by adding `targetSdkVersion = 36` to `android-build.yml`. 7 commits prepared on top of `df95bac`. | `src/i18n/translations.ts`, ~98 components, `.github/workflows/android-build.yml`, this file |
 | 2026-07 | AI (Opus 4.8) | Created this master record + `ANDROID_RELEASE_RUNBOOK.md`; documented build/backend/i18n/secrets-inventory. Translation progress ~1,060/1,243. | root docs |
 | 2026-07 | AI (i18n passes) | Built the 7-language i18n system; translated all member-facing + judge + high-traffic admin surfaces. | `src/i18n/*`, wired across app |
 
