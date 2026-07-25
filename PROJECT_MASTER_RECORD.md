@@ -13,6 +13,40 @@
 
 ---
 
+## 0. Development rules (MANDATORY — read before touching anything)
+
+These are the owner's standing rules for **all** work on this project. They override any
+default "helpful" behaviour. Follow them literally.
+
+**ABSOLUTELY NO:**
+- ❌ **Guesswork** — never act on what a setting/value/flow *probably* is. Read the actual
+  value from the dashboard/DB/source first, then act.
+- ❌ **Assumptions** — if a fact isn't verified, verify it or mark it UNKNOWN. Do not fill gaps
+  with plausible-sounding defaults.
+- ❌ **Implicit behavior** — no silent side effects. State exactly what each change does.
+- ❌ **Hidden operations** — never make changes the owner wasn't told about.
+- ❌ **Recursive actions** — no self-triggering chains of edits/deploys.
+- ❌ **Fan-out execution** — don't spawn broad multi-target changes off one instruction.
+- ❌ **Bulk modifications** — change only what's needed; no sweeping edits.
+- ❌ **Auto-fix behavior** — don't "helpfully" fix unrelated things you notice.
+- ❌ **Background dependency changes** — never bump/install/upgrade deps unprompted.
+- ❌ **"Probably safe" logic** — "probably" is not allowed. Know, then do.
+- ❌ **Casual AI shortcuts** — no cutting corners to look done.
+
+**REQUIRED for every change:**
+1. **Verify the current state first** (read the real value/source), then make one deliberate
+   change, then **verify the result end-to-end** before reporting it done.
+2. **Never mark something "Done" without proof.** A change is only done when its effect is
+   confirmed (value re-read after save, flow tested, screenshot/preview checked). Marking work
+   done that wasn't actually verified is the single worst failure mode here — do not do it.
+3. **One thing at a time**, explicitly described.
+
+> History note: past sessions wasted time and lost trust by (a) marking OTP/email work "Done"
+> that wasn't wired end-to-end, and (b) guessing an OTP length instead of reading it. The fix
+> that finally worked came from reading the real `MAILER_OTP_LENGTH` value first. Learn from it.
+
+---
+
 ## 1. What this is
 A photography-competition + community platform: web app (React SPA) + Android app (Capacitor
 wrapper of the same web build) + Supabase backend. Members enter photo competitions, judges
