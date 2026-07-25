@@ -43,6 +43,9 @@ const Signup = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [captchaVerified, setCaptchaVerified] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
+  const [otp, setOtp] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [resendMsg, setResendMsg] = useState<string | null>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
   useCaptureReferral();
@@ -139,18 +142,97 @@ const Signup = () => {
 
   const onCaptchaVerified = useCallback((v: boolean) => setCaptchaVerified(v), []);
 
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    const code = otp.trim();
+    if (!/^\d{6}$/.test(code)) {
+      setError("Please enter the 6-digit code from your email.");
+      return;
+    }
+    setVerifying(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token: code,
+        type: "signup",
+      });
+      if (error) {
+        setError(friendlyError(error.message));
+      } else {
+        // Session is now set; the useEffect on `user` will redirect to /dashboard.
+        navigate("/dashboard");
+      }
+    } catch (err: any) {
+      setError(friendlyError(err?.message || "Something went wrong."));
+    }
+    setVerifying(false);
+  };
+
+  const handleResend = async () => {
+    setError(null);
+    setResendMsg(null);
+    try {
+      const { error } = await supabase.auth.resend({ type: "signup", email });
+      if (error) setError(friendlyError(error.message));
+      else setResendMsg("A new code is on its way. Check your inbox (and spam).");
+    } catch (err: any) {
+      setError(friendlyError(err?.message || "Could not resend the code."));
+    }
+  };
+
   if (success) {
     return (
       <main className="min-h-screen bg-background text-foreground flex items-center justify-center px-6">
-        <div className="max-w-md text-center">
+        <div className="max-w-md w-full text-center">
           <Mail className="h-10 w-10 text-primary mx-auto mb-6" />
-          <h1 className="text-3xl font-light tracking-tight mb-4" style={{ fontFamily: "var(--font-display)" }}>
-            Check Your <em className="italic text-primary">Email</em>
+          <h1 className="text-3xl font-light tracking-tight mb-3" style={{ fontFamily: "var(--font-display)" }}>
+            Enter Your <em className="italic text-primary">Code</em>
           </h1>
-          <p className="text-sm text-muted-foreground mb-8" style={{ fontFamily: "var(--font-body)" }}>
-            We've sent a verification link to <strong className="text-foreground">{email}</strong>. Click the link to activate your account.
+          <p className="text-sm text-muted-foreground mb-6" style={{ fontFamily: "var(--font-body)" }}>
+            We've sent a 6-digit verification code to <strong className="text-foreground">{email}</strong>. Enter it below to activate your account.
           </p>
-          <Link to="/login" className="text-xs tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>
+
+          {error && (
+            <div className="mb-3 text-xs text-destructive border border-destructive/30 px-3 py-2 w-full text-center" style={{ fontFamily: "var(--font-body)" }}>
+              {error}
+            </div>
+          )}
+          {resendMsg && !error && (
+            <div className="mb-3 text-xs text-primary border border-primary/30 px-3 py-2 w-full text-center" style={{ fontFamily: "var(--font-body)" }}>
+              {resendMsg}
+            </div>
+          )}
+
+          <form onSubmit={handleVerifyOtp} className="space-y-3">
+            <input
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="••••••"
+              autoFocus
+              className="w-full py-3 px-3 bg-transparent border border-border text-center text-2xl tracking-[0.5em] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary transition-colors"
+              style={{ fontFamily: "var(--font-body)" }}
+            />
+            <button
+              type="submit"
+              disabled={verifying || otp.length !== 6}
+              className="w-full py-2.5 bg-primary text-primary-foreground text-[10px] tracking-[0.15em] uppercase hover:opacity-90 transition-opacity duration-500 disabled:opacity-50 flex items-center justify-center gap-2.5"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              {verifying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              Verify &amp; Continue
+            </button>
+          </form>
+
+          <p className="text-[11px] text-muted-foreground mt-4" style={{ fontFamily: "var(--font-body)" }}>
+            Didn't get it?{" "}
+            <button type="button" onClick={handleResend} className="text-primary hover:underline">Resend code</button>
+            {" "}· or use the link in the email.
+          </p>
+          <Link to="/login" className="inline-block mt-4 text-xs tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>
             {t("auth.backToLogin")}
           </Link>
         </div>
