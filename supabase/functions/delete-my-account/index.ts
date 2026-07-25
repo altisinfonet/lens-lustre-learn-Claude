@@ -45,6 +45,19 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceKey);
 
+    // Capture what we need for the post-deletion erasure-confirmation email
+    // BEFORE anything is deleted (profiles cascades away with auth.users).
+    const notifyEmail: string | null = caller.email ?? null;
+    let notifyName: string | null = null;
+    {
+      const { data: prof } = await adminClient
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user_id)
+        .maybeSingle();
+      notifyName = (prof as any)?.full_name ?? null;
+    }
+
     // Safety: admins cannot self-delete through this path (prevents locking the
     // whole platform out). They must be removed by another admin / support.
     const { data: adminRole } = await adminClient
@@ -137,7 +150,43 @@ Deno.serve(async (req) => {
     // Defensive: profiles cascades from auth.users, but ensure it's gone.
     await adminClient.from("profiles").delete().eq("id", user_id);
 
-    return new Response(JSON.stringify({ success: true }), {
+    // Erasure-confirmation notice: after the deletion has fully completed, send
+    // the (former) account email a written confirmation that the account and
+    // its personal data were deleted. Sent via the standard transactional
+    // pipeline so it is rendered, queued, retried and logged (email_send_log is
+    // our proof the notice was issued). A failure here must NEVER fail the
+    // deletion itself — the deletion already happened.
+    let confirmationQueued = false;
+    if (notifyEmail) {
+      try {
+        const res = await fetch(`${supabaseUrl}/functions/v1/send-transactional-email`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({
+            templateName: "account-deleted",
+            recipientEmail: notifyEmail,
+            idempotencyKey: `account-deleted-${user_id}`,
+            templateData: {
+              fullName: notifyName,
+              deletedAt: new Date().toISOString(),
+            },
+          }),
+        });
+        confirmationQueued = res.ok;
+        if (!res.ok) {
+          console.error("account-deleted email enqueue failed:", res.status, await res.text());
+        }
+      } catch (mailErr) {
+        console.error("account-deleted email error:", mailErr);
+      }
+    } else {
+      console.error("account-deleted email skipped: caller had no email on JWT", { user_id });
+    }
+
+    return new Response(JSON.stringify({ success: true, confirmation_email_queued: confirmationQueued }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
