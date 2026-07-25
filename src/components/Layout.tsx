@@ -53,7 +53,13 @@ const LayoutInner = () => {
   const { sidebarData, isLoading: dashboardLoading } = useDashboardContext();
 
   const hideNav = hideNavRoutes.includes(pathname);
-  const isHome = pathname === "/";
+  // The marketing home page lives at BOTH "/" (logged-out) and "/home"
+  // (logged-in — IndexGate redirects "/" to "/feed", so the logo links here).
+  // Treating only "/" as home meant "/home" fell through to the feed shell:
+  // Index rendered inside `flex gap-8 container mx-auto` with a max-w-[590px]
+  // column, so the full-bleed hero was squeezed to 590px on desktop and the
+  // 90%-wide .container left blank bands down both edges on mobile/app.
+  const isHome = pathname === "/" || pathname === "/home";
   const isProfilePage = pathname === "/profile";
   const isSidebarHiddenRoute = hideSidebarRoutes.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
