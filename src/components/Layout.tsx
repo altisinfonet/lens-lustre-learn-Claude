@@ -69,6 +69,14 @@ const LayoutInner = () => {
       setShowOnboarding(false);
       return;
     }
+    // Never show onboarding over auth screens. A password-recovery link signs
+    // the user in and lands on /reset-password — with an incomplete profile the
+    // onboarding modal was covering the "set new password" form, so users could
+    // never actually reset their password.
+    if (hideNavRoutes.includes(pathname) || sessionStorage.getItem("password_recovery_active") === "true") {
+      setShowOnboarding(false);
+      return;
+    }
 
     // Check sessionStorage cache to avoid querying on every page load
     const cacheKey = `onboarding_done_${user.id}`;
@@ -112,7 +120,7 @@ const LayoutInner = () => {
       setShowOnboarding(true);
     };
     check();
-  }, [user, isAdmin, adminLoading]);
+  }, [user, isAdmin, adminLoading, pathname]);
 
   return (
     <>
