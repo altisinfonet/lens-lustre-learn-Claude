@@ -50,12 +50,18 @@ Deno.serve(async (req) => {
 
   // 1) Fetch candidates: inactive at least FIRST_DAY days, under the cap
   const firstThreshold = new Date(nowMs - FIRST_DAY * 86400_000).toISOString();
+  // BUG: this previously filtered on `profiles.status`, a column that does not
+  // exist (profiles has is_suspended / is_banned booleans). Every daily cron
+  // run 500'd with "column profiles.status does not exist" and no reengagement
+  // email was ever sent. Fixed to the real columns; banned accounts are also
+  // excluded — they must never receive "we miss you" mail.
   const { data: candidates, error: cErr } = await supabase
     .from("profiles")
-    .select("id, full_name, last_active_at, reengagement_sends_count, last_reengagement_sent_at, status")
+    .select("id, full_name, last_active_at, reengagement_sends_count, last_reengagement_sent_at")
     .lt("last_active_at", firstThreshold)
     .lt("reengagement_sends_count", MAX_SENDS)
-    .neq("status", "suspended")
+    .eq("is_suspended", false)
+    .eq("is_banned", false)
     .limit(500);
 
   if (cErr) {
