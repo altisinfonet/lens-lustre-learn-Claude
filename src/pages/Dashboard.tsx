@@ -229,17 +229,21 @@ const Dashboard = () => {
       <div className="container mx-auto py-3 md:py-10 max-w-6xl">
 {/* ═══════ Profile Header Bar ═══════ */}
         <motion.div initial="hidden" animate="visible" variants={fadeUp} custom={0}
-          className="flex flex-col sm:flex-row items-center sm:items-start gap-3 p-3 md:p-5 border border-border mb-3 md:mb-4 bg-card/30 rounded-xl md:rounded-none"
+          className="relative overflow-hidden flex flex-col sm:flex-row items-center gap-4 md:gap-5 p-4 md:p-6 mb-3 md:mb-5 rounded-2xl border border-border/50 bg-gradient-to-br from-card/80 via-card/40 to-primary/[0.05] shadow-sm"
         >
-          {/* Avatar */}
+          {/* Avatar — Instagram-style gradient ring */}
           <Link to="/profile" className="shrink-0 group">
-            {profile?.avatar_url ? (
-              <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={profile.avatar_url} alt={displayName} className="w-14 h-14 rounded-full object-cover border-2 border-border group-hover:border-primary transition-colors" />
-            ) : (
-              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center border-2 border-border group-hover:border-primary transition-colors">
-                <span className="text-lg font-light text-primary" style={{ fontFamily: "var(--font-display)" }}>{initials}</span>
+            <div className="p-[2.5px] rounded-full bg-gradient-to-tr from-primary via-sky-400 to-primary/30 group-hover:rotate-[15deg] transition-transform duration-500">
+              <div className="p-[2.5px] rounded-full bg-background">
+                {profile?.avatar_url ? (
+                  <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={profile.avatar_url} alt={displayName} className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover" />
+                ) : (
+                  <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                    <span className="text-xl md:text-2xl font-light text-primary" style={{ fontFamily: "var(--font-display)" }}>{initials}</span>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </Link>
 
           {/* Info */}
@@ -270,13 +274,13 @@ const Dashboard = () => {
             </p>
           </div>
 
-          {/* Quick stat pills */}
-          <div className="flex gap-3 shrink-0">
+          {/* Quick stats — Instagram-style clean counters */}
+          <div className="flex items-center gap-7 md:gap-9 shrink-0 sm:pr-2">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger>
-                  <div className="flex flex-col items-center px-3 py-1.5 border border-border rounded-sm hover:border-primary/50 transition-colors cursor-default">
-                    <span className="text-base font-light text-primary" style={{ fontFamily: "var(--font-display)" }}>{myEntries.length}</span>
+                  <div className="flex flex-col items-center cursor-default">
+                    <span className="text-xl md:text-2xl font-light text-foreground leading-tight" style={{ fontFamily: "var(--font-display)" }}>{myEntries.length}</span>
                     <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("msheet.entries")}</span>
                   </div>
                 </TooltipTrigger>
@@ -284,8 +288,8 @@ const Dashboard = () => {
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger>
-                  <div className="flex flex-col items-center px-3 py-1.5 border border-border rounded-sm hover:border-primary/50 transition-colors cursor-default">
-                    <span className="text-base font-light text-primary" style={{ fontFamily: "var(--font-display)" }}>{totalVotes}</span>
+                  <div className="flex flex-col items-center cursor-default">
+                    <span className="text-xl md:text-2xl font-light text-foreground leading-tight" style={{ fontFamily: "var(--font-display)" }}>{totalVotes}</span>
                     <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.votes")}</span>
                   </div>
                 </TooltipTrigger>
@@ -293,8 +297,8 @@ const Dashboard = () => {
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger>
-                  <div className="flex flex-col items-center px-3 py-1.5 border border-border rounded-sm hover:border-primary/50 transition-colors cursor-default">
-                    <span className="text-base font-light text-primary" style={{ fontFamily: "var(--font-display)" }}>{friendRequests.length}</span>
+                  <div className="flex flex-col items-center cursor-default">
+                    <span className="text-xl md:text-2xl font-light text-foreground leading-tight" style={{ fontFamily: "var(--font-display)" }}>{friendRequests.length}</span>
                     <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.requests")}</span>
                   </div>
                 </TooltipTrigger>
@@ -420,11 +424,13 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
           { icon: GraduationCap, labelKey: "nav.courses", descKey: "dash.qa.learnPhotography", to: "/courses" },
           ...(hasRole("admin") ? [{ icon: Shield, labelKey: "msheet.admin", descKey: "dash.qa.manageSite", to: "/admin" }] : []),
         ].map((a) => (
-          <Link key={a.to} to={a.to} className="group flex items-center gap-3 p-3 border border-border hover:border-primary/50 transition-all duration-300">
-            <a.icon className="h-4 w-4 text-primary shrink-0 group-hover:scale-110 transition-transform" strokeWidth={1.5} />
+          <Link key={a.to} to={a.to} className="group flex flex-col sm:flex-row items-center gap-2 sm:gap-3 p-3 sm:p-3.5 rounded-xl border border-border/50 bg-card/40 hover:bg-card hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 transition-all duration-300 text-center sm:text-left">
+            <span className="flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 group-hover:bg-primary/20 shrink-0 transition-colors">
+              <a.icon className="h-4 w-4 text-primary group-hover:scale-110 transition-transform" strokeWidth={1.5} />
+            </span>
             <div className="min-w-0">
-              <h3 className="text-[11px] tracking-[0.1em] uppercase truncate" style={{ fontFamily: "var(--font-heading)" }}>{t(a.labelKey)}</h3>
-              <p className="text-[9px] text-muted-foreground truncate" style={{ fontFamily: "var(--font-body)" }}>{t(a.descKey)}</p>
+              <h3 className="text-[10px] sm:text-[11px] tracking-[0.1em] uppercase truncate" style={{ fontFamily: "var(--font-heading)" }}>{t(a.labelKey)}</h3>
+              <p className="hidden sm:block text-[9px] text-muted-foreground truncate" style={{ fontFamily: "var(--font-body)" }}>{t(a.descKey)}</p>
             </div>
           </Link>
         ))}
@@ -441,11 +447,11 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
           </span>
           <Link to="/dashboard?tab=submissions" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.viewAllArrow")}</Link>
         </div>
-        <div className="border border-border divide-y divide-border">
+        <div className="rounded-2xl border border-border/50 bg-card/30 divide-y divide-border/40 overflow-hidden">
           {myEntries.slice(0, 4).map((entry: MyCompEntry) => (
             <Link key={entry.id} to={`/competitions/${entry.competition_slug || entry.competition_id}`} className="flex items-center gap-3 p-3 hover:bg-muted/30 transition-colors group">
               {entry.photos.length > 0 && (
-                <img src={entry.photos[0]} alt={entry.title} className="w-10 h-10 object-cover shrink-0 border border-border" loading="lazy" onContextMenu={(e) => e.preventDefault()} draggable={false} data-watermark="skip" />
+                <img src={entry.photos[0]} alt={entry.title} className="w-10 h-10 rounded-lg object-cover shrink-0 border border-border/50" loading="lazy" onContextMenu={(e) => e.preventDefault()} draggable={false} data-watermark="skip" />
               )}
               <div className="flex-1 min-w-0">
                 <h4 className="text-xs font-light truncate" style={{ fontFamily: "var(--font-display)" }}>{entry.title}</h4>
@@ -479,7 +485,7 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
           <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.recentPosts")}</span>
           <Link to={`/profile/${user.id}?section=wall`} className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.myWallArrow")}</Link>
         </div>
-        <div className="border border-border divide-y divide-border">
+        <div className="rounded-2xl border border-border/50 bg-card/30 divide-y divide-border/40 overflow-hidden">
           {recentPosts.slice(0, 4).map((post: RecentPost) => (
             <div key={post.id} className="p-3">
               <p className="text-xs text-foreground line-clamp-2 mb-1" style={{ fontFamily: "var(--font-body)" }}>{post.content}</p>
@@ -510,10 +516,10 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
           <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.upcomingComps")}</span>
           <Link to="/competitions" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>All →</Link>
         </div>
-        <div className="border border-border divide-y divide-border">
+        <div className="rounded-2xl border border-border/50 bg-card/30 divide-y divide-border/40 overflow-hidden">
           {upcomingComps.length > 0 ? upcomingComps.map((comp: any) => (
             <Link key={comp.id} to={`/competitions/${(comp as any).slug || comp.id}`} className="flex items-center gap-3 p-3 hover:bg-muted/30 transition-colors group">
-              {comp.cover_image_url && <img src={comp.cover_image_url} alt={comp.title} className="w-10 h-10 object-cover shrink-0 border border-border" loading="lazy" />}
+              {comp.cover_image_url && <img src={comp.cover_image_url} alt={comp.title} className="w-10 h-10 rounded-lg object-cover shrink-0 border border-border/50" loading="lazy" />}
               <div className="flex-1 min-w-0">
                 <h4 className="text-xs font-light truncate" style={{ fontFamily: "var(--font-display)" }}>{comp.title}</h4>
                 <p className="text-[9px] text-muted-foreground flex items-center gap-1">
@@ -538,7 +544,7 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
           <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("msheet.certificates")}</span>
           <Link to="/certificates" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>All →</Link>
         </div>
-        <div className="border border-border divide-y divide-border">
+        <div className="rounded-2xl border border-border/50 bg-card/30 divide-y divide-border/40 overflow-hidden">
           {certificates.length > 0 ? certificates.slice(0, 3).map((cert: any) => (
             <div key={cert.id} className="p-3">
               <div className="flex items-center gap-2">
@@ -564,12 +570,12 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
           <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.myCourses")}</span>
           <Link to="/courses" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.browseArrow")}</Link>
         </div>
-        <div className="border border-border divide-y divide-border">
+        <div className="rounded-2xl border border-border/50 bg-card/30 divide-y divide-border/40 overflow-hidden">
           {enrollments.length > 0 ? enrollments.map((enr: any) => {
             const course = enr.courses;
             return (
               <Link key={enr.id} to={course ? `/courses/${course.slug}` : "/courses"} className="flex items-center gap-3 p-3 hover:bg-muted/30 transition-colors group">
-                {course?.cover_image_url && <img src={course.cover_image_url} alt={course.title} className="w-10 h-10 object-cover shrink-0 border border-border" loading="lazy" />}
+                {course?.cover_image_url && <img src={course.cover_image_url} alt={course.title} className="w-10 h-10 rounded-lg object-cover shrink-0 border border-border/50" loading="lazy" />}
                 <div className="flex-1 min-w-0">
                   <h4 className="text-xs font-light truncate" style={{ fontFamily: "var(--font-display)" }}>{course?.title || "Course"}</h4>
                   <p className="text-[9px] text-muted-foreground flex items-center gap-1">
@@ -597,22 +603,29 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
           <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.peopleYouMayKnow")}</span>
           <Link to="/discover" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.discoverArrow")}</Link>
         </div>
-        <div className="flex gap-3 overflow-x-auto pb-2">
+        {/* Instagram-story-style strip: gradient-ring circular avatars */}
+        <div className="flex gap-4 md:gap-5 overflow-x-auto pb-2 pt-1 px-1 scrollbar-hide">
           {suggestedPeople.map((person: any) => (
-            <Link key={person.id} to={`/profile/${person.id}`} className="shrink-0 w-28 border border-border hover:border-primary/40 transition-all duration-300 text-center p-3 group">
-              {person.avatar_url ? (
-                <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={person.avatar_url} alt={person.full_name || ""} className="w-12 h-12 rounded-full object-cover mx-auto mb-2 border border-border group-hover:border-primary transition-colors" />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2 border border-border">
-                  <User className="h-5 w-5 text-primary/40" />
+            <Link key={person.id} to={`/profile/${person.id}`} className="shrink-0 w-[4.5rem] md:w-20 text-center group">
+              <div className="mx-auto w-fit p-[2px] rounded-full bg-gradient-to-tr from-primary via-sky-400 to-primary/30 group-hover:scale-105 transition-transform duration-300">
+                <div className="p-[2px] rounded-full bg-background">
+                  {person.avatar_url ? (
+                    <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={person.avatar_url} alt={person.full_name || ""} className="w-14 h-14 md:w-16 md:h-16 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="h-5 w-5 text-primary/40" />
+                    </div>
+                  )}
                 </div>
-              )}
-              <UserIdentityBlock
-                userId={person.id}
-                name={person.full_name || "Photographer"}
-                nameClassName="text-[10px] font-light truncate [font-family:var(--font-heading)]"
-              />
-              <p className="text-[8px] text-muted-foreground truncate mt-0.5" style={{ fontFamily: "var(--font-body)" }}>{person.bio?.slice(0, 30) || ""}</p>
+              </div>
+              <div className="mt-1.5">
+                <UserIdentityBlock
+                  userId={person.id}
+                  name={person.full_name || "Photographer"}
+                  nameClassName="text-[10px] font-light truncate [font-family:var(--font-heading)]"
+                />
+                <p className="text-[8px] text-muted-foreground truncate mt-0.5" style={{ fontFamily: "var(--font-body)" }}>{person.bio?.slice(0, 30) || ""}</p>
+              </div>
             </Link>
           ))}
         </div>
@@ -622,10 +635,10 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
     {/* Activity Timeline */}
     <motion.div variants={fadeUp} custom={2.5} initial="hidden" animate="visible">
       <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-2" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.activity")}</span>
-      <div className="border border-border divide-y divide-border">
-        <ActivityItem icon={<User className="h-3 w-3" />} title={t("dash.accountCreated")} description={t("dash.welcomeTo")} time={memberSince} />
+      <div className="rounded-2xl border border-border/50 bg-card/30 divide-y divide-border/40 overflow-hidden">
+        <ActivityItem icon={<User className="h-3 w-3" />} title={t("dash.accountCreated")} description={t("dash.welcomeTo")} time={profile?.created_at ? new Date(profile.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" }) : "—"} />
         {roles.map((r: UserRole) => (
-          <ActivityItem key={r.role} icon={<Trophy className="h-3 w-3" />} title={`${t("dash.role")}: ${r.role}`} description={t("dash.roleUnlocked")} time={new Date(r.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })} />
+          <ActivityItem key={r.role} icon={<Trophy className="h-3 w-3" />} title={`${t("dash.role")}: ${r.role}`} description={t("dash.roleUnlocked")} time={new Date(r.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })} />
         ))}
       </div>
     </motion.div>
@@ -977,7 +990,7 @@ const SubmissionsTab = ({ myEntries, statusFilter, setStatusFilter, statusCounts
                   {t("dash.olderEntries")}
                 </span>
               </div>
-              <div className="border border-border divide-y divide-border">
+              <div className="rounded-2xl border border-border/50 bg-card/30 divide-y divide-border/40 overflow-hidden">
                 {olderEntries.map((entry) => (
                   <Link
                     key={entry.id}
@@ -1182,7 +1195,7 @@ const SocialTab = ({ friendRequests, recentPosts, user, handleFriendAction, frie
         </span>
       </div>
       {friendRequests.length > 0 ? (
-        <div className="border border-border divide-y divide-border">
+        <div className="rounded-2xl border border-border/50 bg-card/30 divide-y divide-border/40 overflow-hidden">
           {friendRequests.map((req: FriendRequest) => {
             const name = req.requester_name || t("dash.unknownUser");
             const reqInitials = name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
@@ -1215,7 +1228,7 @@ const SocialTab = ({ friendRequests, recentPosts, user, handleFriendAction, frie
         <Link to={`/profile/${user.id}`} className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.viewAllArrow")}</Link>
       </div>
       {recentPosts.length > 0 ? (
-        <div className="border border-border divide-y divide-border">
+        <div className="rounded-2xl border border-border/50 bg-card/30 divide-y divide-border/40 overflow-hidden">
           {recentPosts.map((post: RecentPost) => (
             <div key={post.id} className="p-3">
               <p className="text-xs text-foreground line-clamp-2 mb-1" style={{ fontFamily: "var(--font-body)" }}>{post.content}</p>
