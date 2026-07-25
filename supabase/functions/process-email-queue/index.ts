@@ -305,7 +305,14 @@ Deno.serve(async (req) => {
         // Parse sender name and email from "Name <email>" format
         const fromMatch = (payload.from as string)?.match(/^(.+?)\s*<(.+?)>$/)
         const senderName = fromMatch ? fromMatch[1].trim() : '50mm Retina World'
-        const senderEmail = fromMatch ? fromMatch[2].trim() : 'no-reply@50mmretina.com'
+        const parsedEmail = fromMatch ? fromMatch[2].trim() : 'noreply@50mmretina.com'
+        // Consolidate ALL outgoing mail onto the Brevo-authenticated domain so SPF/DKIM
+        // pass and messages land in the inbox. 50mmretina.com is the authenticated sender
+        // domain; callers that used other domains (e.g. www.50mmretina.com) are normalized
+        // here so we never send from an unauthenticated domain. Local part is preserved.
+        const AUTHENTICATED_SENDER_DOMAIN = '50mmretina.com'
+        const localPart = (parsedEmail.split('@')[0] || 'noreply').trim() || 'noreply'
+        const senderEmail = `${localPart}@${AUTHENTICATED_SENDER_DOMAIN}`
 
         const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
           method: 'POST',
