@@ -255,7 +255,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
                     style={{ fontFamily: "var(--font-body)" }}
                   >
                     {dateOfBirth ? format(dateOfBirth, "dd MMMM yyyy") : "Select your date of birth"}
-                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                    <CalendarIcon className="h-4 w-4 text-primary" />
                   </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0 z-[200]" align="start">
