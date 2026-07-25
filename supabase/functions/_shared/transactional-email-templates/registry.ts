@@ -25,6 +25,7 @@ import { template as reengagementDay30 } from './reengagement-day-30.tsx'
 import { template as reengagementDay40 } from './reengagement-day-40.tsx'
 import { template as reengagementDay50 } from './reengagement-day-50.tsx'
 import { template as reengagementDay60 } from './reengagement-day-60.tsx'
+import { template as accountDeleted } from './account-deleted.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'notification-alert': notificationAlert,
@@ -43,4 +44,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'reengagement-day-40': reengagementDay40,
   'reengagement-day-50': reengagementDay50,
   'reengagement-day-60': reengagementDay60,
+  'account-deleted': accountDeleted,
 }
