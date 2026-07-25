@@ -56,6 +56,13 @@ const Signup = () => {
     if (user) navigate("/dashboard");
   }, [user, navigate]);
 
+  // Prefill email when arriving from forgot-password's "No account found →
+  // Create Account" path (/signup?email=...).
+  useEffect(() => {
+    const prefill = new URLSearchParams(window.location.search).get("email");
+    if (prefill) setEmail(prefill);
+  }, []);
+
   const handleOAuth = async (provider: "google" | "apple") => {
     setError(null);
     setLoading(provider);
