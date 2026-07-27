@@ -148,7 +148,7 @@ const Login = () => {
     const remaining = getLockedOutSeconds();
     if (remaining > 0) {
       setLockoutSeconds(remaining);
-      setError(`Account temporarily locked. Please wait ${formatTime(remaining)} before trying again.`);
+      setError(t("login.tempLocked").replace("{t}", formatTime(remaining, t)));
       return;
     }
 
