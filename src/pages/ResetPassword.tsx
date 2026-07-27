@@ -10,7 +10,9 @@ import {
   recordPasswordUsage,
 } from "@/lib/passwordSecurity";
 
-const passwordSchema = z.string().min(8, "Password must be at least 8 characters").max(72);
+// Zod runs at module scope, outside the component, so it cannot call t().
+// It stores a translation KEY instead; the render site translates it.
+const passwordSchema = z.string().min(8, "signup.passwordMin").max(72);
 
 const ResetPassword = () => {
   const t = useT();
@@ -97,7 +99,7 @@ const ResetPassword = () => {
     });
 
     if (error) {
-      setError("This reset link is invalid or has expired. Please request a new one.");
+      setError("reset.linkExpired");
       setVerifyingToken(false);
       return;
     }
@@ -134,7 +136,7 @@ const ResetPassword = () => {
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError("reset.mismatch");
       return;
     }
 
@@ -142,7 +144,7 @@ const ResetPassword = () => {
     if (userId) {
       const reused = await isPasswordReused(userId, password);
       if (reused) {
-        setError("You cannot reuse a recent password. Please choose a new one.");
+        setError("reset.reuseError");
         return;
       }
     }
@@ -170,17 +172,17 @@ const ResetPassword = () => {
         <div className="max-w-md text-center">
           <Lock className="h-10 w-10 text-muted-foreground mx-auto mb-6" />
           <h1 className="text-2xl font-light tracking-tight mb-4" style={{ fontFamily: "var(--font-display)" }}>
-            {pendingToken && pendingEmail ? "Confirm Reset Request" : "Invalid Reset Link"}
+            {pendingToken && pendingEmail ? t("reset.confirmRequestTitle") : t("reset.invalidLinkTitle")}
           </h1>
           <p className="text-sm text-muted-foreground mb-8" style={{ fontFamily: "var(--font-body)" }}>
             {pendingToken && pendingEmail
-              ? "Tap below to continue securely and set your new password."
-              : "This link is invalid or has expired. Please request a new password reset."}
+              ? t("reset.confirmRequestBody")
+              : t("reset.invalidLinkBody")}
           </p>
 
           {error ? (
             <div className="mb-6 text-sm text-destructive border border-destructive/30 px-4 py-3" style={{ fontFamily: "var(--font-body)" }}>
-              {error}
+              {t(error, error)}
             </div>
           ) : null}
 
@@ -220,10 +222,10 @@ const ResetPassword = () => {
             <CheckCircle className="h-8 w-8 text-primary" />
           </div>
           <h1 className="text-3xl md:text-4xl font-light tracking-tight mb-4" style={{ fontFamily: "var(--font-display)" }}>
-            Password <em className="italic text-primary">Updated</em>
+            {t("reset.updatedA")} <em className="italic text-primary">{t("reset.updatedB")}</em>
           </h1>
           <p className="text-sm text-muted-foreground mb-6 leading-relaxed" style={{ fontFamily: "var(--font-body)" }}>
-            Your password has been successfully changed. For security, we recommend signing out from all devices so every session uses the new password.
+            {t("reset.updatedBody")}
           </p>
 
           <button
@@ -246,7 +248,7 @@ const ResetPassword = () => {
         <Lock className="h-8 w-8 text-primary mb-8" />
 
         <h1 className="text-3xl md:text-4xl font-light tracking-tight mb-3" style={{ fontFamily: "var(--font-display)" }}>
-          Set New <em className="italic text-primary">Password</em>
+          {t("reset.setNewA")} <em className="italic text-primary">{t("reset.setNewB")}</em>
         </h1>
         <p className="text-sm text-muted-foreground mb-8" style={{ fontFamily: "var(--font-body)" }}>
           {t("reset.chooseStrong")}
@@ -254,7 +256,7 @@ const ResetPassword = () => {
 
         {error && (
           <div className="mb-6 text-sm text-destructive border border-destructive/30 px-4 py-3" style={{ fontFamily: "var(--font-body)" }}>
-            {error}
+            {t(error, error)}
           </div>
         )}
 
@@ -268,7 +270,7 @@ const ResetPassword = () => {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Min 8 characters"
+                placeholder={t("auth.phMinChars")}
                 required
                 maxLength={72}
                 className="w-full py-3 px-4 pr-11 bg-transparent border border-border text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary transition-colors"
@@ -306,7 +308,7 @@ const ResetPassword = () => {
                     {passwordValidation.errors.map((err, i) => (
                       <div key={i} className="flex items-start gap-1.5 text-[9px] text-destructive" style={{ fontFamily: "var(--font-heading)" }}>
                         <AlertTriangle className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                        <span>{err}</span>
+                        <span>{t(err, err)}</span>
                       </div>
                     ))}
                   </div>

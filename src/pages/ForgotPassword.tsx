@@ -6,7 +6,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import { getCaptchaToken } from "@/lib/turnstile";
 
-const emailSchema = z.string().trim().email("Please enter a valid email").max(255);
+// Zod runs at module scope, outside the component, so it cannot call t().
+// It stores a translation KEY instead; the render site translates it. Server
+// messages from Supabase come through the same state and are not keys, so the
+// render site passes them as their own fallback and they render unchanged.
+const emailSchema = z.string().trim().email("auth.invalidEmail").max(255);
 
 const ForgotPassword = () => {
   const t = useT();
@@ -69,11 +73,10 @@ const ForgotPassword = () => {
         <div className="max-w-md text-center">
           <Mail className="h-10 w-10 text-primary mx-auto mb-6" />
           <h1 className="text-3xl font-light tracking-tight mb-4" style={{ fontFamily: "var(--font-display)" }}>
-            No Account <em className="italic text-primary">Found</em>
+            {t("fp.noAccountA")} <em className="italic text-primary">{t("fp.noAccountB")}</em>
           </h1>
           <p className="text-sm text-muted-foreground mb-8" style={{ fontFamily: "var(--font-body)" }}>
-            There's no account registered with <strong className="text-foreground">{email}</strong>.
-            You can create one in under a minute.
+            {t("fp.noAccountBody1")} <strong className="text-foreground">{email}</strong>{t("fp.noAccountBody2")}
           </p>
           <div className="space-y-4">
             <Link
@@ -81,7 +84,7 @@ const ForgotPassword = () => {
               className="block w-full py-3.5 bg-primary text-primary-foreground text-xs tracking-[0.15em] uppercase hover:opacity-90 transition-opacity duration-500"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              Create Account
+              {t("auth.createAccount")}
             </Link>
             <button
               type="button"
@@ -89,7 +92,7 @@ const ForgotPassword = () => {
               className="text-xs tracking-[0.15em] uppercase text-muted-foreground hover:text-foreground transition-colors"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              Try a different email
+              {t("fp.tryDifferent")}
             </button>
           </div>
         </div>
@@ -103,13 +106,13 @@ const ForgotPassword = () => {
         <div className="max-w-md text-center">
           <Mail className="h-10 w-10 text-primary mx-auto mb-6" />
           <h1 className="text-3xl font-light tracking-tight mb-4" style={{ fontFamily: "var(--font-display)" }}>
-            Check Your <em className="italic text-primary">Email</em>
+            {t("fp.checkA")} <em className="italic text-primary">{t("fp.checkB")}</em>
           </h1>
           <p className="text-sm text-muted-foreground mb-8" style={{ fontFamily: "var(--font-body)" }}>
-            We've sent a password reset link to <strong className="text-foreground">{email}</strong>. Open it to set a new password.
+            {t("fp.sentBody1")} <strong className="text-foreground">{email}</strong>{t("fp.sentBody2")}
           </p>
           <Link to="/login" className="text-xs tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>
-            Back to Login
+            {t("auth.backToLogin")}
           </Link>
         </div>
       </main>
@@ -120,11 +123,11 @@ const ForgotPassword = () => {
     <main className="min-h-screen bg-background text-foreground flex items-center justify-center px-6">
       <div className="w-full max-w-sm">
         <Link to="/login" className="inline-flex items-center gap-2 text-xs tracking-[0.15em] uppercase text-muted-foreground hover:text-foreground transition-colors duration-500 mb-12" style={{ fontFamily: "var(--font-heading)" }}>
-          <ArrowLeft className="h-3 w-3" /> Back to Login
+          <ArrowLeft className="h-3 w-3" /> {t("auth.backToLogin")}
         </Link>
 
         <h1 className="text-3xl md:text-4xl font-light tracking-tight mb-3" style={{ fontFamily: "var(--font-display)" }}>
-          Forgot <em className="italic text-primary">Password?</em>
+          {t("fp.titleA")} <em className="italic text-primary">{t("fp.titleB")}</em>
         </h1>
         <p className="text-sm text-muted-foreground mb-8" style={{ fontFamily: "var(--font-body)" }}>
           {t("reset.forgotSubtitle")}
@@ -132,7 +135,7 @@ const ForgotPassword = () => {
 
         {error && (
           <div className="mb-6 text-sm text-destructive border border-destructive/30 px-4 py-3" style={{ fontFamily: "var(--font-body)" }}>
-            {error}
+            {t(error, error)}
           </div>
         )}
 

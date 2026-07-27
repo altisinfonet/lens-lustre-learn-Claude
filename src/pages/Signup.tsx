@@ -14,20 +14,29 @@ import { useAuthPageSettings } from "@/hooks/core/useAuthPageSettings";
 import { normalizeFullName } from "@/lib/nameNormalize";
 import { getCaptchaToken } from "@/lib/turnstile";
 
+// Zod runs at module scope, outside the component, so it cannot call t().
+// It stores translation KEYS instead; the render site translates them.
 const signupSchema = z.object({
-  fullName: z.string().trim().min(2, "Name must be at least 2 characters").max(37, "Name must be 37 characters or less"),
-  email: z.string().trim().email("Please enter a valid email").max(255),
-  password: z.string().min(8, "Password must be at least 8 characters").max(72),
+  fullName: z.string().trim().min(2, "signup.nameMin").max(37, "signup.nameMax"),
+  email: z.string().trim().email("auth.invalidEmail").max(255),
+  password: z.string().min(8, "signup.passwordMin").max(72),
 });
 
+/**
+ * Maps a raw Supabase error to a translation KEY, not to English text.
+ * Sits at module scope so it cannot call t(); the render site translates
+ * whatever lands in `error` state. A raw message we do not recognise is
+ * returned unchanged and t(raw, raw) passes it through, so unmapped server
+ * errors still display exactly as before.
+ */
 const friendlyError = (raw: string): string => {
   const lower = raw.toLowerCase();
   if (lower.includes("failed to fetch") || lower.includes("networkerror") || lower.includes("load failed"))
-    return "Unable to connect to the server. Please check your internet connection and try again.";
+    return "login.errNetwork";
   if (lower.includes("already registered") || lower.includes("already been registered"))
-    return "This email is already registered. Try signing in instead.";
+    return "signup.errAlreadyRegistered";
   if (lower.includes("too many requests") || lower.includes("rate limit"))
-    return "Too many attempts. Please wait a moment before trying again.";
+    return "login.errRateLimit";
   return raw;
 };
 
@@ -73,7 +82,7 @@ const Signup = () => {
         setLoading(null);
       }
     } catch (err: any) {
-      setError(friendlyError(err?.message || "Something went wrong. Please try again."));
+      setError(friendlyError(err?.message || "common.somethingWrongRetry"));
       setLoading(null);
     }
   };
@@ -84,11 +93,11 @@ const Signup = () => {
     const trimmedName = fullName.trim();
     const trimmedEmail = email.trim();
     if (trimmedName.length < 2) {
-      setError("Name must be at least 2 characters");
+      setError("signup.nameMin");
       return;
     }
     if (!z.string().email().safeParse(trimmedEmail).success) {
-      setError("Please enter a valid email");
+      setError("auth.invalidEmail");
       return;
     }
     setFullName(trimmedName);
@@ -107,7 +116,7 @@ const Signup = () => {
     }
 
     if (!captchaVerified) {
-      setError("Please complete the security check first.");
+      setError("signup.completeCaptcha");
       return;
     }
 
@@ -115,7 +124,7 @@ const Signup = () => {
     try {
       const normalized = normalizeFullName(result.data.fullName);
       if (!normalized) {
-        setError("Name cannot be empty.");
+        setError("signup.nameEmpty");
         setLoading(null);
         return;
       }
@@ -142,7 +151,7 @@ const Signup = () => {
         ).then(() => {});
       }
     } catch (err: any) {
-      setError(friendlyError(err?.message || "Something went wrong."));
+      setError(friendlyError(err?.message || "common.somethingWrong"));
     }
     setLoading(null);
   };
@@ -154,7 +163,7 @@ const Signup = () => {
     setError(null);
     const code = otp.trim();
     if (!/^\d{6}$/.test(code)) {
-      setError("Please enter the 6-digit code from your email.");
+      setError("signup.otpInvalid");
       return;
     }
     setVerifying(true);
@@ -171,7 +180,7 @@ const Signup = () => {
         navigate("/dashboard");
       }
     } catch (err: any) {
-      setError(friendlyError(err?.message || "Something went wrong."));
+      setError(friendlyError(err?.message || "common.somethingWrong"));
     }
     setVerifying(false);
   };
@@ -182,9 +191,9 @@ const Signup = () => {
     try {
       const { error } = await supabase.auth.resend({ type: "signup", email });
       if (error) setError(friendlyError(error.message));
-      else setResendMsg("A new code is on its way. Check your inbox (and spam).");
+      else setResendMsg("signup.resendSent");
     } catch (err: any) {
-      setError(friendlyError(err?.message || "Could not resend the code."));
+      setError(friendlyError(err?.message || "signup.resendFailed"));
     }
   };
 
@@ -194,20 +203,20 @@ const Signup = () => {
         <div className="max-w-md w-full text-center">
           <Mail className="h-10 w-10 text-primary mx-auto mb-6" />
           <h1 className="text-3xl font-light tracking-tight mb-3" style={{ fontFamily: "var(--font-display)" }}>
-            Enter Your <em className="italic text-primary">Code</em>
+            {t("signup.codeTitleA")} <em className="italic text-primary">{t("signup.codeTitleB")}</em>
           </h1>
           <p className="text-sm text-muted-foreground mb-6" style={{ fontFamily: "var(--font-body)" }}>
-            We've sent a 6-digit verification code to <strong className="text-foreground">{email}</strong>. Enter it below to activate your account.
+            {t("signup.otpBody1")} <strong className="text-foreground">{email}</strong>{t("signup.otpBody2")}
           </p>
 
           {error && (
             <div className="mb-3 text-xs text-destructive border border-destructive/30 px-3 py-2 w-full text-center" style={{ fontFamily: "var(--font-body)" }}>
-              {error}
+              {t(error, error)}
             </div>
           )}
           {resendMsg && !error && (
             <div className="mb-3 text-xs text-primary border border-primary/30 px-3 py-2 w-full text-center" style={{ fontFamily: "var(--font-body)" }}>
-              {resendMsg}
+              {t(resendMsg, resendMsg)}
             </div>
           )}
 
@@ -230,14 +239,14 @@ const Signup = () => {
               style={{ fontFamily: "var(--font-heading)" }}
             >
               {verifying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-              Verify &amp; Continue
+              {t("signup.verifyContinue")}
             </button>
           </form>
 
           <p className="text-[11px] text-muted-foreground mt-4" style={{ fontFamily: "var(--font-body)" }}>
-            Didn't get it?{" "}
-            <button type="button" onClick={handleResend} className="text-primary hover:underline">Resend code</button>
-            {" "}· or use the link in the email.
+            {t("signup.didntGetIt")}{" "}
+            <button type="button" onClick={handleResend} className="text-primary hover:underline">{t("signup.resendCode")}</button>
+            {" "}{t("signup.orUseLink")}
           </p>
           <Link to="/login" className="inline-block mt-4 text-xs tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>
             {t("auth.backToLogin")}
@@ -252,7 +261,7 @@ const Signup = () => {
       {/* Left — Image */}
       <div className="hidden lg:block lg:w-1/2 relative overflow-hidden">
         {cfg.background_image ? (
-          <img loading="eager" decoding="async" fetchPriority="high" src={cfg.background_image} alt="Photography by 50mm Retina World" className="w-full h-full object-cover" />
+          <img loading="eager" decoding="async" fetchPriority="high" src={cfg.background_image} alt={t("login.altBackground")} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full bg-muted" />
         )}
@@ -262,7 +271,7 @@ const Signup = () => {
       {/* Right — Content */}
       <div className="w-full lg:w-1/2 flex flex-col justify-center items-center px-6 md:px-12 lg:px-16">
         <Link to="/" className="self-start inline-flex items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase text-muted-foreground hover:text-foreground transition-colors mb-3" style={{ fontFamily: "var(--font-heading)" }}>
-          <ArrowLeft className="h-3 w-3" /> Back
+          <ArrowLeft className="h-3 w-3" /> {t("common.back")}
         </Link>
 
         <div className="flex flex-col items-center text-center mb-3">
@@ -277,7 +286,7 @@ const Signup = () => {
 
         {error && (
           <div className="mb-3 text-xs text-destructive border border-destructive/30 px-3 py-2 max-w-sm w-full text-center" style={{ fontFamily: "var(--font-body)" }}>
-            {error}
+            {t(error, error)}
           </div>
         )}
 
@@ -395,7 +404,7 @@ const Signup = () => {
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
                   >
                     {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                   </button>
@@ -407,7 +416,7 @@ const Signup = () => {
                   if (/[A-Z]/.test(password)) score++;
                   if (/[0-9]/.test(password)) score++;
                   if (/[^A-Za-z0-9]/.test(password)) score++;
-                  const label = score <= 1 ? "Weak" : score <= 2 ? "Fair" : score <= 3 ? "Good" : "Strong";
+                  const label = score <= 1 ? t("pw.weak") : score <= 2 ? t("pw.fair") : score <= 3 ? t("pw.good") : t("pw.strong");
                   const colors = ["bg-destructive", "bg-destructive", "bg-yellow-500", "bg-primary", "bg-green-500"];
                   const textColors = ["text-destructive", "text-destructive", "text-yellow-500", "text-primary", "text-green-500"];
                   return (
@@ -441,12 +450,12 @@ const Signup = () => {
         </div>
 
         <p className="text-[10px] text-muted-foreground mt-4 text-center" style={{ fontFamily: "var(--font-body)" }}>
-          Already have an account?{" "}
-          <Link to="/login" className="text-primary hover:underline">Sign in</Link>
+          {t("signup.alreadyHaveAccount")}{" "}
+          <Link to="/login" className="text-primary hover:underline">{t("signup.signInLink")}</Link>
         </p>
 
         <p className="text-[8px] text-muted-foreground/60 mt-1.5 text-center" style={{ fontFamily: "var(--font-body)" }}>
-          By continuing, you agree to our terms of service and privacy policy.
+          {t("auth.terms")}
         </p>
       </div>
     </main>

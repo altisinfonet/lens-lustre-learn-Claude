@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { Eye, Expand } from "lucide-react";
 import GalleryImage from "./GalleryImage";
+import { useI18n } from "@/i18n/I18nContext";
 
 interface GalleryItem {
   id?: string;
@@ -22,6 +23,13 @@ interface Props {
 const headingFont = { fontFamily: "var(--font-heading)" };
 
 const GalleryMagazine = memo(({ works, onImageClick, optimizeUrl }: Props) => {
+  // Hook must run before the early return below (Rules of Hooks).
+  const { t } = useI18n();
+  // Same lookup the category filter chips use, so a card and its chip agree.
+  // Null-guarded: the old code rendered the raw value, so a missing category
+  // must stay harmless rather than throw on .toLowerCase().
+  const catLabel = (c?: string | null) => (c ? t("home.cat." + c.toLowerCase(), c) : "");
+
   if (works.length === 0) return null;
 
   const hero = works[0];
@@ -47,12 +55,12 @@ const GalleryMagazine = memo(({ works, onImageClick, optimizeUrl }: Props) => {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10" />
         <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-4 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-500 z-10">
-          <p className="text-[9px] tracking-[0.3em] uppercase text-primary mb-1" style={headingFont}>{hero.category}</p>
+          <p className="text-[9px] tracking-[0.3em] uppercase text-primary mb-1" style={headingFont}>{catLabel(hero.category)}</p>
           <p className="text-sm font-light text-foreground" style={{ fontFamily: "var(--font-display)" }}>{hero.title}</p>
         </div>
         {hero.is_trending && (
           <div className="absolute top-2 left-2 z-10">
-            <span className="inline-flex items-center gap-1 text-[7px] tracking-[0.15em] uppercase px-1.5 py-0.5 bg-primary text-primary-foreground rounded-sm" style={headingFont}>🔥 Trending</span>
+            <span className="inline-flex items-center gap-1 text-[7px] tracking-[0.15em] uppercase px-1.5 py-0.5 bg-primary text-primary-foreground rounded-sm" style={headingFont}>🔥 {t("home.trending", "Trending")}</span>
           </div>
         )}
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">

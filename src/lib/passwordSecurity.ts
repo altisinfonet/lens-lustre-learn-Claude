@@ -19,6 +19,12 @@ const COMMON_PASSWORDS = new Set([
 
 export interface PasswordValidation {
   valid: boolean;
+  /**
+   * Translation KEYS, not English text. This module has no access to the i18n
+   * context (it is a plain library, not a component), so it returns keys and
+   * the render site calls t(key, key). Every key here exists in
+   * src/i18n/translations.ts under the "pwv." prefix.
+   */
   errors: string[];
   score: number; // 0-5
 }
@@ -37,27 +43,27 @@ export function validatePasswordStrength(password: string): PasswordValidation {
   let score = 0;
 
   if (password.length >= 8) score++;
-  else errors.push("Must be at least 8 characters");
+  else errors.push("pwv.min8");
 
   if (password.length >= 12) score++;
 
   if (/[A-Z]/.test(password)) score++;
-  else errors.push("Must contain at least one uppercase letter");
+  else errors.push("pwv.upper");
 
   if (/[a-z]/.test(password)) {
     // no score increment, just validation
   } else {
-    errors.push("Must contain at least one lowercase letter");
+    errors.push("pwv.lower");
   }
 
   if (/[0-9]/.test(password)) score++;
-  else errors.push("Must contain at least one number");
+  else errors.push("pwv.number");
 
   if (/[^A-Za-z0-9]/.test(password)) score++;
-  else errors.push("Must contain at least one special character (!@#$%^&*)");
+  else errors.push("pwv.special");
 
   if (COMMON_PASSWORDS.has(password.toLowerCase())) {
-    errors.push("This password is too common. Please choose a stronger one.");
+    errors.push("pwv.tooCommon");
     score = Math.max(score - 2, 0);
   }
 

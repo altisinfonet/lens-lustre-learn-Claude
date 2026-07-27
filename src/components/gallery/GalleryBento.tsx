@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { Eye, Expand } from "lucide-react";
 import GalleryImage from "./GalleryImage";
+import { useI18n } from "@/i18n/I18nContext";
 
 interface GalleryItem {
   id?: string;
@@ -22,6 +23,13 @@ interface Props {
 const headingFont = { fontFamily: "var(--font-heading)" };
 
 const GalleryBento = memo(({ works, onImageClick, optimizeUrl }: Props) => {
+  // Hook must run before the early return below (Rules of Hooks).
+  const { t } = useI18n();
+  // Same lookup the category filter chips use, so a card and its chip agree.
+  // Null-guarded: the old code rendered the raw value, so a missing category
+  // must stay harmless rather than throw on .toLowerCase().
+  const catLabel = (c?: string | null) => (c ? t("home.cat." + c.toLowerCase(), c) : "");
+
   if (works.length === 0) return null;
 
   const getSizeClass = (i: number): string => {
@@ -59,7 +67,7 @@ const GalleryBento = memo(({ works, onImageClick, optimizeUrl }: Props) => {
           />
           {i === 0 && (
             <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 bg-gradient-to-t from-background/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10">
-              <p className="text-[9px] tracking-[0.3em] uppercase text-primary mb-1" style={headingFont}>{work.category}</p>
+              <p className="text-[9px] tracking-[0.3em] uppercase text-primary mb-1" style={headingFont}>{catLabel(work.category)}</p>
               <p className="text-sm font-light text-foreground" style={{ fontFamily: "var(--font-display)" }}>{work.title}</p>
             </div>
           )}

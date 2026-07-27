@@ -1,6 +1,7 @@
 import { memo, useMemo } from "react";
 import { Eye, Expand } from "lucide-react";
 import GalleryImage from "./GalleryImage";
+import { useI18n } from "@/i18n/I18nContext";
 
 interface GalleryItem {
   id?: string;
@@ -22,6 +23,12 @@ interface Props {
 const headingFont = { fontFamily: "var(--font-heading)" };
 
 const GalleryMasonry = memo(({ works, onImageClick, optimizeUrl }: Props) => {
+  const { t } = useI18n();
+  // Same lookup the category filter chips use, so a card and its chip agree.
+  // Null-guarded: the old code rendered the raw value, so a missing category
+  // must stay harmless rather than throw on .toLowerCase().
+  const catLabel = (c?: string | null) => (c ? t("home.cat." + c.toLowerCase(), c) : "");
+
   const aspectRatios = useMemo(() => {
     const ratios = ["aspect-[3/4]", "aspect-square", "aspect-[4/5]", "aspect-[3/2]", "aspect-[2/3]", "aspect-[4/3]"];
     return works.map((_, i) => ratios[i % ratios.length]);
@@ -48,7 +55,7 @@ const GalleryMasonry = memo(({ works, onImageClick, optimizeUrl }: Props) => {
             optimizeUrl={optimizeUrl}
           />
           <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-background/80 to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-400 z-10">
-            <p className="text-[8px] tracking-[0.2em] uppercase text-primary" style={headingFont}>{work.category}</p>
+            <p className="text-[8px] tracking-[0.2em] uppercase text-primary" style={headingFont}>{catLabel(work.category)}</p>
             <p className="text-[11px] font-light text-foreground truncate" style={{ fontFamily: "var(--font-body)" }}>{work.title}</p>
           </div>
           {work.is_trending && (

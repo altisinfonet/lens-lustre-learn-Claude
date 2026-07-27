@@ -46,16 +46,19 @@ const withNetworkRetry = async <T,>(operation: () => Promise<T>, retries = 2): P
   throw new Error("Network retry exhausted");
 };
 
+/**
+ * Maps a raw Supabase error to a translation KEY, not to English text.
+ * This function sits at module scope so it cannot call t(); the render site
+ * translates whatever lands in `error` state. A raw message we do not
+ * recognise is returned unchanged and t(raw, raw) passes it through, so
+ * unmapped server errors still display exactly as before.
+ */
 const friendlyError = (raw: string): string => {
   const lower = raw.toLowerCase();
-  if (isNetworkError(raw))
-    return "Unable to connect to the server. Please check your internet connection and try again.";
-  if (lower.includes("invalid login credentials"))
-    return "Incorrect email or password. Please try again.";
-  if (lower.includes("email not confirmed"))
-    return "Your email hasn't been verified yet. Please check your inbox.";
-  if (lower.includes("too many requests") || lower.includes("rate limit"))
-    return "Too many attempts. Please wait a moment before trying again.";
+  if (isNetworkError(raw)) return "login.errNetwork";
+  if (lower.includes("invalid login credentials")) return "login.errCredentials";
+  if (lower.includes("email not confirmed")) return "login.errUnverified";
+  if (lower.includes("too many requests") || lower.includes("rate limit")) return "login.errRateLimit";
   return raw;
 };
 
@@ -132,7 +135,7 @@ const Login = () => {
         setLoading(null);
       }
     } catch (err: any) {
-      setError(friendlyError(err?.message || "Something went wrong. Please try again."));
+      setError(friendlyError(err?.message || "common.somethingWrongRetry"));
       setLoading(null);
     }
   };
@@ -191,7 +194,7 @@ const Login = () => {
 
           if (lockoutDuration > 0) {
             setLockoutSeconds(lockoutDuration);
-            setError(`Too many failed attempts. Account locked for ${formatTime(lockoutDuration)}. Please try again later.`);
+            setError(t("login.lockedFor").replace("{t}", formatTime(lockoutDuration, t)));
           } else {
             setError(friendlyError(res.error.message));
           }
@@ -204,7 +207,7 @@ const Login = () => {
         setFailedAttempts(0);
       }
     } catch (err: any) {
-      const message = err?.message || "Something went wrong.";
+      const message = err?.message || "common.somethingWrong";
       setError(friendlyError(message));
       if (!isNetworkError(message)) {
         const lockoutDuration = recordFailedAttempt();
@@ -227,10 +230,10 @@ const Login = () => {
         <div className="max-w-sm w-full text-center space-y-8">
           <ShieldCheck className="h-12 w-12 text-primary mx-auto" />
           <h1 className="text-2xl font-light tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
-            Trust This <em className="italic text-primary">Device</em>?
+            {t("login.trustA")} <em className="italic text-primary">{t("login.trustB")}</em>?
           </h1>
           <p className="text-sm text-muted-foreground leading-relaxed" style={{ fontFamily: "var(--font-body)" }}>
-            Would you like to remember this device? You won't be asked again on future logins from this browser.
+            {t("login.trustBody")}
           </p>
           <div className="space-y-3">
             <button
@@ -238,18 +241,18 @@ const Login = () => {
               className="w-full py-3.5 bg-primary text-primary-foreground text-xs tracking-[0.15em] uppercase hover:opacity-90 transition-opacity duration-500 flex items-center justify-center gap-2"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              <ShieldCheck className="h-4 w-4" /> Yes, Trust This Device
+              <ShieldCheck className="h-4 w-4" /> {t("login.trustYes")}
             </button>
             <button
               onClick={() => handleTrustDecision(false)}
               className="w-full py-3.5 border border-border text-foreground text-xs tracking-[0.15em] uppercase hover:bg-muted transition-colors duration-500 flex items-center justify-center gap-2"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              <ShieldX className="h-4 w-4" /> No, Don't Trust
+              <ShieldX className="h-4 w-4" /> {t("login.trustNo")}
             </button>
           </div>
           <p className="text-[10px] text-muted-foreground/60" style={{ fontFamily: "var(--font-body)" }}>
-            You can manage trusted devices from your profile settings.
+            {t("login.trustHint")}
           </p>
         </div>
       </main>
@@ -261,7 +264,7 @@ const Login = () => {
       {/* Left — Image */}
       <div className="hidden lg:block lg:w-1/2 relative overflow-hidden">
         {cfg.background_image ? (
-          <img loading="eager" decoding="async" fetchPriority="high" src={cfg.background_image} alt="Photography by 50mm Retina World" className="w-full h-full object-cover" />
+          <img loading="eager" decoding="async" fetchPriority="high" src={cfg.background_image} alt={t("login.altBackground")} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full bg-muted" />
         )}
@@ -271,7 +274,7 @@ const Login = () => {
       {/* Right — Content */}
       <div className="w-full lg:w-1/2 flex flex-col justify-center items-center px-6 md:px-12 lg:px-16">
         <Link to="/" className="self-start inline-flex items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase text-muted-foreground hover:text-foreground transition-colors mb-3" style={{ fontFamily: "var(--font-heading)" }}>
-          <ArrowLeft className="h-3 w-3" /> Back
+          <ArrowLeft className="h-3 w-3" /> {t("common.back")}
         </Link>
 
         <div className="flex flex-col items-center text-center mb-3">
@@ -286,7 +289,7 @@ const Login = () => {
 
         {error && (
           <div className="mb-3 text-xs text-destructive border border-destructive/30 px-3 py-2 max-w-sm w-full text-center" style={{ fontFamily: "var(--font-body)" }}>
-            {error}
+            {t(error, error)}
           </div>
         )}
 
@@ -295,9 +298,9 @@ const Login = () => {
           <div className="mb-6 flex items-center gap-3 text-sm text-destructive border border-destructive/30 px-4 py-3 max-w-sm w-full" style={{ fontFamily: "var(--font-body)" }}>
             <Timer className="h-5 w-5 flex-shrink-0 animate-pulse" />
             <div>
-              <span className="font-medium">Account locked</span>
+              <span className="font-medium">{t("login.accountLocked")}</span>
               <span className="block text-xs text-muted-foreground mt-0.5">
-                Try again in {formatTime(lockoutSeconds)}
+                {t("login.tryAgainIn").replace("{t}", formatTime(lockoutSeconds, t))}
               </span>
             </div>
           </div>
@@ -305,7 +308,7 @@ const Login = () => {
 
         {!isLockedOut && failedAttempts > 0 && failedAttempts < 3 && (
           <div className="mb-4 text-[10px] tracking-[0.15em] uppercase text-muted-foreground max-w-sm w-full text-center" style={{ fontFamily: "var(--font-heading)" }}>
-            {3 - failedAttempts} {`attempt${3 - failedAttempts > 1 ? "s" : ""} remaining before security check`}
+            {t(3 - failedAttempts > 1 ? "login.attemptsRemaining" : "login.attemptRemainingOne").replace("{n}", String(3 - failedAttempts))}
           </div>
         )}
 
@@ -345,7 +348,7 @@ const Login = () => {
           </div>
 
           {/* Email/Password form — two-step */}
-          <form onSubmit={step === 1 ? (e) => { e.preventDefault(); setError(null); const trimmed = email.trim(); if (!z.string().email().safeParse(trimmed).success) { setError("Please enter a valid email"); return; } setEmail(trimmed); setStep(2); } : handleEmailLogin} className="space-y-4">
+          <form onSubmit={step === 1 ? (e) => { e.preventDefault(); setError(null); const trimmed = email.trim(); if (!z.string().email().safeParse(trimmed).success) { setError("auth.invalidEmail"); return; } setEmail(trimmed); setStep(2); } : handleEmailLogin} className="space-y-4">
             {step === 1 ? (
               <>
                 <div>
@@ -405,7 +408,7 @@ const Login = () => {
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground/70 hover:text-foreground transition-colors"
-                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -449,11 +452,15 @@ const Login = () => {
   );
 };
 
-function formatTime(seconds: number): string {
+// Takes t so the minute/second abbreviations render in the chosen language.
+// Digits stay Western Arabic, which is what all seven locales use in practice.
+function formatTime(seconds: number, t: (key: string, fallback?: string) => string): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
+  const mu = t("common.minShort", "m");
+  const su = t("common.secShort", "s");
+  if (m > 0) return `${m}${mu} ${s}${su}`;
+  return `${s}${su}`;
 }
 
 export default Login;

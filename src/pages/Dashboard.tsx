@@ -284,7 +284,7 @@ const Dashboard = () => {
                     <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("msheet.entries")}</span>
                   </div>
                 </TooltipTrigger>
-                <TooltipContent>Total competition entries submitted</TooltipContent>
+                <TooltipContent>{t("dash.tipEntries")}</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger>
@@ -293,7 +293,7 @@ const Dashboard = () => {
                     <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.votes")}</span>
                   </div>
                 </TooltipTrigger>
-                <TooltipContent>Total votes received on entries</TooltipContent>
+                <TooltipContent>{t("dash.tipVotes")}</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger>
@@ -302,7 +302,7 @@ const Dashboard = () => {
                     <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.requests")}</span>
                   </div>
                 </TooltipTrigger>
-                <TooltipContent>Pending friend requests</TooltipContent>
+                <TooltipContent>{t("dash.tipFriendReqs")}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
@@ -514,7 +514,7 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
       <motion.div variants={fadeUp} custom={1.5} initial="hidden" animate="visible">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.upcomingComps")}</span>
-          <Link to="/competitions" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>All →</Link>
+          <Link to="/competitions" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>{t("common.all")} →</Link>
         </div>
         <div className="rounded-2xl border border-border/50 bg-card/30 divide-y divide-border/40 overflow-hidden">
           {upcomingComps.length > 0 ? upcomingComps.map((comp: any) => (
@@ -542,7 +542,7 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
       <motion.div variants={fadeUp} custom={1.7} initial="hidden" animate="visible">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("msheet.certificates")}</span>
-          <Link to="/certificates" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>All →</Link>
+          <Link to="/certificates" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>{t("common.all")} →</Link>
         </div>
         <div className="rounded-2xl border border-border/50 bg-card/30 divide-y divide-border/40 overflow-hidden">
           {certificates.length > 0 ? certificates.slice(0, 3).map((cert: any) => (
@@ -1262,9 +1262,9 @@ const TimeAgo = ({ date }: { date: string }) => {
   const diff = Date.now() - new Date(date).getTime();
   const mins = Math.floor(diff / 60000);
   let text = t("dash.justNow");
-  if (mins >= 1 && mins < 60) text = `${mins}m`;
-  else if (mins >= 60 && mins < 1440) text = `${Math.floor(mins / 60)}h`;
-  else if (mins >= 1440 && mins < 10080) text = `${Math.floor(mins / 1440)}d`;
+  if (mins >= 1 && mins < 60) text = `${mins}${t("common.minShort", "m")}`;
+  else if (mins >= 60 && mins < 1440) text = `${Math.floor(mins / 60)}${t("common.hourShort", "h")}`;
+  else if (mins >= 1440 && mins < 10080) text = `${Math.floor(mins / 1440)}${t("common.dayShort", "d")}`;
   else if (mins >= 10080) text = new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   return <span>{text}</span>;
 };

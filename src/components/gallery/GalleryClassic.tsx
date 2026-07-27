@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { Eye, Expand } from "lucide-react";
 import GalleryImage from "./GalleryImage";
+import { useI18n } from "@/i18n/I18nContext";
 
 interface GalleryItem {
   id?: string;
@@ -22,6 +23,9 @@ interface Props {
 const headingFont = { fontFamily: "var(--font-heading)" };
 
 const GalleryClassic = memo(({ works, onImageClick, optimizeUrl }: Props) => {
+  // Hook must run before the early return below (Rules of Hooks).
+  const { t } = useI18n();
+
   if (works.length === 0) return null;
 
   return (
@@ -44,12 +48,12 @@ const GalleryClassic = memo(({ works, onImageClick, optimizeUrl }: Props) => {
           />
           {work.is_trending && (
             <div className="absolute top-1.5 left-1.5 z-10">
-              <span className="inline-flex items-center gap-1 text-[7px] tracking-[0.15em] uppercase px-1.5 py-0.5 bg-primary text-primary-foreground rounded-sm" style={headingFont}>🔥 Trending</span>
+              <span className="inline-flex items-center gap-1 text-[7px] tracking-[0.15em] uppercase px-1.5 py-0.5 bg-primary text-primary-foreground rounded-sm" style={headingFont}>🔥 {t("home.trending", "Trending")}</span>
             </div>
           )}
           {work.is_pinned && (
             <div className={`absolute ${work.is_trending ? "top-6" : "top-1.5"} left-1.5 z-10`}>
-              <span className="inline-flex items-center gap-0.5 text-[7px] tracking-[0.15em] uppercase px-1.5 py-0.5 bg-background/80 backdrop-blur-sm text-primary border border-primary/30 rounded-sm" style={headingFont}>📌 Pinned</span>
+              <span className="inline-flex items-center gap-0.5 text-[7px] tracking-[0.15em] uppercase px-1.5 py-0.5 bg-background/80 backdrop-blur-sm text-primary border border-primary/30 rounded-sm" style={headingFont}>📌 {t("home.pinned", "Pinned")}</span>
             </div>
           )}
           {(work.view_count || 0) > 0 && (
