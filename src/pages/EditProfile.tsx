@@ -23,6 +23,8 @@ import { normalizeFullName } from "@/lib/nameNormalize";
 import { getCaptchaToken } from "@/lib/turnstile";
 import { useT } from "@/i18n/I18nContext";
 
+// These exact strings are PERSISTED to profiles.photography_interests, so they
+// stay English. Only the rendered label is translated, via onb.int.<lowercase>.
 const INTEREST_OPTIONS = [
   "Wildlife", "Street", "Portrait", "Aerial", "Documentary",
   "Landscape", "Architecture", "Macro", "Sports", "Fashion",
@@ -119,22 +121,22 @@ const EditProfile = () => {
 
   // Validation helpers
   const validateFullName = (value: string): string => {
-    if (!value.trim()) return "Name is required";
-    if (value.trim().length < 2) return "Name must be at least 2 characters";
-    if (value.trim().length > 37) return "Name must be 37 characters or less";
-    if (/<[^>]*>/i.test(value)) return "Name cannot contain HTML tags";
-    if (/[<>{}()\[\]\\\/;`$]/.test(value)) return "Name contains invalid characters";
-    if (/script|javascript|onerror|onclick/i.test(value)) return "Name contains prohibited content";
-    if (!/^[\p{L}\p{M}\s'\-.,]+$/u.test(value.trim())) return "Name can only contain letters, spaces, hyphens, apostrophes, and periods";
+    if (!value.trim()) return t("ep.vNameRequired");
+    if (value.trim().length < 2) return t("ep.vNameMin2");
+    if (value.trim().length > 37) return t("ep.vNameMax37");
+    if (/<[^>]*>/i.test(value)) return t("ep.vNameHtml");
+    if (/[<>{}()\[\]\\\/;`$]/.test(value)) return t("ep.vNameInvalidChars");
+    if (/script|javascript|onerror|onclick/i.test(value)) return t("ep.vNameProhibited");
+    if (!/^[\p{L}\p{M}\s'\-.,]+$/u.test(value.trim())) return t("ep.vNameAllowed");
     return "";
   };
 
   const validateBio = (value: string): string => {
-    if (value.length > 500) return "Bio must be less than 500 characters";
-    if (/<script[\s>]/i.test(value)) return "Bio cannot contain script tags";
-    if (/javascript\s*:/i.test(value)) return "Bio contains prohibited content";
-    if (/<iframe|<object|<embed|<form/i.test(value)) return "Bio cannot contain HTML elements";
-    if (/on\w+\s*=\s*["']/i.test(value)) return "Bio contains prohibited event handlers";
+    if (value.length > 500) return t("ep.vBioMax500");
+    if (/<script[\s>]/i.test(value)) return t("ep.vBioScript");
+    if (/javascript\s*:/i.test(value)) return t("ep.vBioProhibited");
+    if (/<iframe|<object|<embed|<form/i.test(value)) return t("ep.vBioHtml");
+    if (/on\w+\s*=\s*["']/i.test(value)) return t("ep.vBioHandlers");
     return "";
   };
 
@@ -152,13 +154,13 @@ const EditProfile = () => {
   const validatePhone = (value: string): string => {
     if (!value.trim()) return "";
     const cleaned = value.replace(/[\s\-()]/g, "");
-    if (!/^\+?\d{7,15}$/.test(cleaned)) return "Enter a valid phone number (7-15 digits, optional + prefix)";
+    if (!/^\+?\d{7,15}$/.test(cleaned)) return t("ep.vPhone");
     return "";
   };
 
   const validatePostalCode = (value: string): string => {
     if (!value.trim()) return "";
-    if (!/^[A-Za-z0-9\s\-]{3,10}$/.test(value.trim())) return "Enter a valid postal/ZIP code";
+    if (!/^[A-Za-z0-9\s\-]{3,10}$/.test(value.trim())) return t("ep.vPostal");
     return "";
   };
 
@@ -172,10 +174,10 @@ const EditProfile = () => {
 
   const validateCustomUrl = (value: string): string => {
     if (!value.trim()) return "";
-    if (value.trim().length < 3) return "Custom URL must be at least 3 characters.";
-    if (value.trim().length > 50) return "Custom URL must be less than 50 characters.";
-    if (!/^[a-zA-Z0-9._\-]+$/.test(value.trim())) return "Only letters, numbers, dots, hyphens, and underscores allowed.";
-    if (RESERVED_URLS.includes(value.trim().toLowerCase())) return "This URL is reserved.";
+    if (value.trim().length < 3) return t("ep.vUrlMin3");
+    if (value.trim().length > 50) return t("ep.vUrlMax50");
+    if (!/^[a-zA-Z0-9._\-]+$/.test(value.trim())) return t("ep.vUrlChars");
+    if (RESERVED_URLS.includes(value.trim().toLowerCase())) return t("ep.vUrlReserved");
     return "";
   };
 
@@ -232,7 +234,7 @@ const EditProfile = () => {
       const releasedAt = (data as any).released_at ? new Date((data as any).released_at) : null;
       if (releasedAt && Date.now() - releasedAt.getTime() < 30 * 24 * 60 * 60 * 1000) {
         setCustomUrlAvailable(false);
-        setErrors((prev) => ({ ...prev, customUrl: `This URL was recently released. Available after ${new Date(releasedAt.getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}.` }));
+        setErrors((prev) => ({ ...prev, customUrl: t("ep.vUrlReleased").replace("{t}", new Date(releasedAt.getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()) }));
         if (cleaned.length >= 3) generateSuggestions(cleaned);
         return;
       }
@@ -479,7 +481,7 @@ const EditProfile = () => {
     try {
       const normalizedName = normalizeFullName(fullName);
       if (!normalizedName) {
-        setErrors((prev) => ({ ...prev, fullName: "Name cannot be empty." }));
+        setErrors((prev) => ({ ...prev, fullName: t("ep.vNameEmpty") }));
         setSaving(false);
         setSaveStatus("error");
         return;
@@ -500,7 +502,7 @@ const EditProfile = () => {
             _new_url: currentCustomUrl,
           }) as any;
           if (rpcError) {
-            const msg = (rpcError as any).message || "Failed to update custom URL";
+            const msg = (rpcError as any).message || t("ep.urlUpdateFailed");
             setErrors((prev) => ({ ...prev, customUrl: msg }));
             toast({ title: t("ep.urlError"), description: msg, variant: "destructive" });
             setSaveStatus("error");
@@ -511,7 +513,7 @@ const EditProfile = () => {
           // User cleared custom_url — use RPC to maintain history consistency
           const { error: clearError } = await supabase.rpc("clear_custom_url" as any) as any;
           if (clearError) {
-            toast({ title: "Error", description: "Failed to clear custom URL", variant: "destructive" });
+            toast({ title: t("common.error"), description: t("ep.clearUrlFailed"), variant: "destructive" });
             setSaveStatus("error");
             setSaving(false);
             return;
@@ -549,7 +551,7 @@ const EditProfile = () => {
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 2000);
     } catch (e: any) {
-      const msg = e?.message || "Save failed";
+      const msg = e?.message || t("ep.saveFailed");
       toast({ title: t("ep.saveError"), description: msg, variant: "destructive" });
       setSaveStatus("error");
     }
@@ -596,7 +598,7 @@ const EditProfile = () => {
       {saveStatus === "saved" && (
         <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 bg-green-500/10 border border-green-500/30 text-green-600 dark:text-green-400 px-4 py-1.5 rounded-full text-[10px] tracking-[0.15em] uppercase animate-in fade-in slide-in-from-top-2 duration-300" style={{ fontFamily: "var(--font-heading)" }}>
           <CheckCircle2 className="h-3 w-3" />
-          Saved
+          {t("common.saved")}
         </div>
       )}
       <div className="container mx-auto py-3 md:py-20 max-w-2xl">
@@ -617,7 +619,7 @@ const EditProfile = () => {
           <div className="flex items-center gap-6">
             <div className="relative group">
               {avatarUrl ? (
-                <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={avatarUrl} alt="Profile" className="h-24 w-24 rounded-full object-cover border-2 border-border" />
+                <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={avatarUrl} alt={t("onb.profileAlt")} className="h-24 w-24 rounded-full object-cover border-2 border-border" />
               ) : (
                 <div className="h-24 w-24 rounded-full bg-muted border-2 border-border flex items-center justify-center">
                   <User className="h-8 w-8 text-muted-foreground/40" />
@@ -636,9 +638,9 @@ const EditProfile = () => {
               </div>
               <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingAvatar}
                 className="text-xs text-primary hover:underline transition-all duration-300" style={{ fontFamily: "var(--font-body)" }}>
-                {uploadingAvatar ? "Uploading…" : "Change photo"}
+                {uploadingAvatar ? t("ep.uploading") : t("ep.changePhoto")}
               </button>
-              <p className="text-[10px] text-muted-foreground mt-1" style={{ fontFamily: "var(--font-body)" }}>JPG, PNG or WebP. Max 5MB.</p>
+              <p className="text-[10px] text-muted-foreground mt-1" style={{ fontFamily: "var(--font-body)" }}>{t("ep.photoHint")}</p>
             </div>
           </div>
 
@@ -661,14 +663,14 @@ const EditProfile = () => {
               <div className="bg-card border border-border rounded-sm shadow-2xl w-[420px] max-w-[90vw] overflow-hidden">
                 <div className="px-4 py-3 border-b border-border flex items-center justify-between">
                   <span className="text-[10px] tracking-[0.2em] uppercase text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                    Update Profile Picture
+                    {t("ep.updatePicture")}
                   </span>
                   <button type="button" onClick={handleAvatarPreviewCancel} className="text-muted-foreground hover:text-foreground">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
                 <div className="p-6 flex flex-col items-center gap-4">
-                  <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={avatarPreviewUrl} alt="Preview" className="h-36 w-36 rounded-full object-cover border-2 border-border" />
+                  <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={avatarPreviewUrl} alt={t("ep.previewAlt")} className="h-36 w-36 rounded-full object-cover border-2 border-border" />
                   <textarea
                     value={avatarCaption}
                     onChange={(e) => setAvatarCaption(e.target.value)}
@@ -684,7 +686,7 @@ const EditProfile = () => {
                   <button type="button" onClick={handleAvatarPreviewCancel}
                     className="text-[10px] tracking-[0.15em] uppercase px-4 py-2 border border-border text-muted-foreground hover:text-foreground transition-colors rounded-sm"
                     style={{ fontFamily: "var(--font-heading)" }}>
-                    Cancel
+                    {t("common.cancel")}
                   </button>
                   <button type="button" onClick={handleAvatarConfirmUpload} disabled={uploadingAvatar}
                     className="text-[10px] tracking-[0.15em] uppercase px-4 py-2 bg-primary text-primary-foreground hover:opacity-90 transition-opacity rounded-sm disabled:opacity-50 flex items-center gap-1.5"
@@ -694,7 +696,7 @@ const EditProfile = () => {
                     ) : (
                       <Camera className="h-3 w-3" />
                     )}
-                    {uploadingAvatar ? "Uploading…" : "Save & Post"}
+                    {uploadingAvatar ? t("ep.uploading") : t("ep.savePost")}
                   </button>
                 </div>
               </div>
@@ -723,21 +725,21 @@ const EditProfile = () => {
             {/* Notification Settings Link */}
             <div>
               <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>
-                <Bell className="inline h-3 w-3 mr-1.5" />Notifications
+                <Bell className="inline h-3 w-3 mr-1.5" />{t("ep.notifications")}
               </label>
               <Link
                 to="/settings/notifications"
                 className="flex items-center gap-3 py-3 text-sm text-primary hover:text-primary/80 transition-colors"
                 style={{ fontFamily: "var(--font-body)" }}
               >
-                Manage notification preferences →
+                {t("ep.manageNotifPrefs")} →
               </Link>
             </div>
 
             {/* SOW §5.2 — Search engine privacy toggle */}
             <div className="border-t border-border pt-4">
               <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>
-                <Globe className="inline h-3 w-3 mr-1.5" />Search Engine Visibility
+                <Globe className="inline h-3 w-3 mr-1.5" />{t("ep.searchEngineVisibility")}
               </label>
               <label className="flex items-start gap-3 py-3 cursor-pointer group">
                 <input
@@ -748,10 +750,10 @@ const EditProfile = () => {
                 />
                 <div className="flex-1">
                   <div className="text-sm text-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                    Hide my profile from search engines
+                    {t("ep.hideFromSearch")}
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5" style={{ fontFamily: "var(--font-body)" }}>
-                    When enabled, your public profile will not appear in Google, Bing, or other search engine results. Existing search listings may take a few weeks to disappear.
+                    {t("ep.hideFromSearchHint")}
                   </div>
                 </div>
               </label>
@@ -760,7 +762,7 @@ const EditProfile = () => {
             {/* Active status (online presence) toggle */}
             <div className="border-t border-border pt-4">
               <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>
-                <Globe className="inline h-3 w-3 mr-1.5" />Active Status
+                <Globe className="inline h-3 w-3 mr-1.5" />{t("ep.activeStatus")}
               </label>
               <label className="flex items-start gap-3 py-3 cursor-pointer group">
                 <input
@@ -771,10 +773,10 @@ const EditProfile = () => {
                 />
                 <div className="flex-1">
                   <div className="text-sm text-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                    Hide when I'm active
+                    {t("ep.hideActive")}
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5" style={{ fontFamily: "var(--font-body)" }}>
-                    When enabled, other members won't see a green "online" dot on your avatar. Your active status stays private across the feed, comments, and profiles.
+                    {t("ep.hideActiveHint")}
                   </div>
                 </div>
               </label>
@@ -799,7 +801,7 @@ const EditProfile = () => {
             {/* Date of Birth picker */}
             <div className="space-y-2">
               <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>
-                <CalendarIcon className="inline h-3 w-3 mr-1.5" />Date of Birth
+                <CalendarIcon className="inline h-3 w-3 mr-1.5" />{t("onb.dobLabel")}
               </label>
               <Popover open={dobOpen} onOpenChange={setDobOpen}>
                 <PopoverTrigger asChild>
@@ -811,7 +813,11 @@ const EditProfile = () => {
                     )}
                     style={{ fontFamily: "var(--font-body)" }}
                   >
-                    {dateOfBirth ? format(dateOfBirth, "dd MMMM yyyy") : "Select your date of birth"}
+                    {/* NOTE: date-fns format() is called with no `locale` option, so the
+                        month name renders in English in all seven languages. Flagged,
+                        not changed — fixing it needs date-fns locale imports and is a
+                        separate decision. */}
+                    {dateOfBirth ? format(dateOfBirth, "dd MMMM yyyy") : t("onb.dobPlaceholder")}
                     <CalendarIcon className="h-4 w-4 text-primary" />
                   </button>
                 </PopoverTrigger>
@@ -833,14 +839,14 @@ const EditProfile = () => {
                       onClick={() => setDobOpen(false)}
                       className="px-4 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                     >
-                      OK
+                      {t("common.ok")}
                     </button>
                   </div>
                 </PopoverContent>
               </Popover>
               {dateOfBirth && (
                 <p className="text-[9px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                  Age: {differenceInYears(new Date(), dateOfBirth)} years
+                  {t("ep.ageYears").replace("{n}", String(differenceInYears(new Date(), dateOfBirth)))}
                 </p>
               )}
             </div>
@@ -848,12 +854,12 @@ const EditProfile = () => {
             {/* DOB Visibility options */}
             <div className="space-y-2">
               <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>
-                Visibility Options
+                {t("ep.visibilityOptions")}
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <span className="text-[9px] tracking-[0.15em] uppercase text-muted-foreground block mb-1.5" style={{ fontFamily: "var(--font-heading)" }}>
-                    Day & Month
+                    {t("ep.dayMonth")}
                   </span>
                   <select
                     value={dobDayMonthPrivacy}
@@ -861,14 +867,14 @@ const EditProfile = () => {
                     className="w-full text-[10px] bg-background border border-border rounded-sm px-2 py-1.5"
                     style={{ fontFamily: "var(--font-body)" }}
                   >
-                    <option value="public">🌍 Public</option>
-                    <option value="friends">👥 Friends only</option>
-                    <option value="only_me">🔒 Only me</option>
+                    <option value="public">{t("ep.visPublic")}</option>
+                    <option value="friends">{t("ep.visFriends")}</option>
+                    <option value="only_me">{t("ep.visOnlyMe")}</option>
                   </select>
                 </div>
                 <div>
                   <span className="text-[9px] tracking-[0.15em] uppercase text-muted-foreground block mb-1.5" style={{ fontFamily: "var(--font-heading)" }}>
-                    Year
+                    {t("ep.year")}
                   </span>
                   <select
                     value={dobYearPrivacy}
@@ -876,14 +882,14 @@ const EditProfile = () => {
                     className="w-full text-[10px] bg-background border border-border rounded-sm px-2 py-1.5"
                     style={{ fontFamily: "var(--font-body)" }}
                   >
-                    <option value="public">🌍 Public</option>
-                    <option value="friends">👥 Friends only</option>
-                    <option value="only_me">🔒 Only me</option>
+                    <option value="public">{t("ep.visPublic")}</option>
+                    <option value="friends">{t("ep.visFriends")}</option>
+                    <option value="only_me">{t("ep.visOnlyMe")}</option>
                   </select>
                 </div>
               </div>
               <p className="text-[9px] text-muted-foreground/70" style={{ fontFamily: "var(--font-body)" }}>
-                Control who can see your birthday — day/month and year separately.
+                {t("ep.dobPrivacyHint")}
               </p>
             </div>
           </div>
@@ -891,10 +897,10 @@ const EditProfile = () => {
           {/* Custom Profile URL */}
           <div>
             <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>
-              <Globe className="inline h-3 w-3 mr-1.5" />Custom Profile URL
+              <Globe className="inline h-3 w-3 mr-1.5" />{t("ep.customProfileUrl")}
             </label>
             <p className="text-[10px] text-muted-foreground mb-2" style={{ fontFamily: "var(--font-body)" }}>
-              Choose a unique URL for your public profile. Leave empty to use the default.
+              {t("ep.customUrlHint")}
             </p>
             <div className="flex items-center gap-0">
               <span className="text-[10px] text-muted-foreground py-3 pr-1 whitespace-nowrap" style={{ fontFamily: "var(--font-body)" }}>
@@ -916,12 +922,12 @@ const EditProfile = () => {
               )}
               {!checkingCustomUrl && customUrl.trim() && customUrlAvailable === true && !errors.customUrl && (
                 <span className="text-[9px] text-primary ml-2" style={{ fontFamily: "var(--font-heading)" }}>
-                  ✓ Available
+                  ✓ {t("ep.available")}
                 </span>
               )}
               {!checkingCustomUrl && customUrl.trim() && customUrlAvailable === false && (
                 <span className="text-[9px] text-destructive ml-2" style={{ fontFamily: "var(--font-heading)" }}>
-                  ✗ Taken
+                  ✗ {t("ep.taken")}
                 </span>
               )}
             </div>
@@ -949,13 +955,13 @@ const EditProfile = () => {
           {/* Profile Intro Fields */}
           <div className="border border-border p-4 md:p-8">
             <span className={sectionHeadCls} style={{ fontFamily: "var(--font-heading)" }}>
-              <User className="inline h-3 w-3 mr-2" />Profile Intro
+              <User className="inline h-3 w-3 mr-2" />{t("ep.profileIntro")}
             </span>
             <div className="space-y-5">
               <div>
                 <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.pronouns")}</label>
                 <input type="text" value={pronouns} onChange={(e) => setPronouns(e.target.value)} maxLength={30}
-                  className={inputCls} placeholder="He/Him · She/Her · They/Them" style={{ fontFamily: "var(--font-body)" }} />
+                  className={inputCls} placeholder={t("ep.phPronouns")} style={{ fontFamily: "var(--font-body)" }} />
               </div>
               <div>
                 <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.currentCity")}</label>
@@ -990,7 +996,7 @@ const EditProfile = () => {
           <div className="border border-border p-4 md:p-8">
             <div className="flex items-center justify-between mb-6">
               <span className={sectionHeadCls} style={{ fontFamily: "var(--font-heading)" }}>
-                <MapPin className="inline h-3 w-3 mr-2" />Address
+                <MapPin className="inline h-3 w-3 mr-2" />{t("ep.address")}
               </span>
               <PrivacyToggle value={privacySettings.city_country || "public"} onChange={(v) => setFieldPrivacy("city_country", v)} />
             </div>
@@ -1017,7 +1023,7 @@ const EditProfile = () => {
                 <div>
                   <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.stateProvince")}</label>
                   <input type="text" value={state} onChange={(e) => setState(e.target.value)} maxLength={100}
-                    className={inputCls} placeholder={country ? "Enter state" : "Select country first"} disabled={!country}
+                    className={inputCls} placeholder={country ? t("ep.phEnterState") : t("ep.phSelectCountryFirst")} disabled={!country}
                     style={{ fontFamily: "var(--font-body)" }} />
                 </div>
               </div>
@@ -1032,7 +1038,7 @@ const EditProfile = () => {
                     </select>
                   ) : (
                     <input type="text" value={city} onChange={(e) => setCity(e.target.value)} maxLength={100}
-                      className={inputCls} placeholder={state ? "Enter city" : "Select state first"} disabled={!state && availableStates.length > 0}
+                      className={inputCls} placeholder={state ? t("ep.phEnterCity") : t("ep.phSelectStateFirst")} disabled={!state && availableStates.length > 0}
                       style={{ fontFamily: "var(--font-body)" }} />
                   )}
                 </div>
@@ -1054,7 +1060,7 @@ const EditProfile = () => {
           <div className="border border-border p-4 md:p-8">
             <div className="flex items-center justify-between mb-6">
               <span className={sectionHeadCls} style={{ fontFamily: "var(--font-heading)" }}>
-                <Phone className="inline h-3 w-3 mr-2" />Communication
+                <Phone className="inline h-3 w-3 mr-2" />{t("ep.communication")}
               </span>
               <PrivacyToggle value={privacySettings.phone || "only_me"} onChange={(v) => setFieldPrivacy("phone", v)} />
             </div>
@@ -1197,7 +1203,7 @@ const EditProfile = () => {
               {/* Website */}
               <div>
                 <label className="flex items-center gap-2 text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2" style={{ fontFamily: "var(--font-heading)" }}>
-                  <Globe className="h-3 w-3" /> Website URL
+                  <Globe className="h-3 w-3" /> {t("ep.websiteUrl")}
                 </label>
                 <input type="url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} maxLength={500}
                   className={inputCls} placeholder="https://yourwebsite.com" style={{ fontFamily: "var(--font-body)" }} />
@@ -1219,7 +1225,7 @@ const EditProfile = () => {
                     className={`text-[11px] tracking-[0.1em] px-4 py-2 border transition-all duration-500 ${
                       selected ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-foreground/50"
                     }`} style={{ fontFamily: "var(--font-heading)" }}>
-                    {interest}
+                    {t(`onb.int.${interest.toLowerCase()}`, interest)}
                     {selected && <X className="inline h-3 w-3 ml-1.5 -mr-1" />}
                   </button>
                 );
@@ -1237,7 +1243,7 @@ const EditProfile = () => {
                 <PrivacyToggle value={privacySettings.member_since || "only_me"} onChange={(v) => setFieldPrivacy("member_since", v)} />
               </div>
               <p className="text-xs text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                Control whether your join date is visible on your public profile.
+                {t("ep.memberSinceHint")}
               </p>
             </div>
 
@@ -1250,20 +1256,20 @@ const EditProfile = () => {
                 <Mail className="h-3.5 w-3.5" />
                 <span style={{ fontFamily: "var(--font-body)" }}>{user?.email}</span>
                 <span className="text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 border border-border text-muted-foreground/60 ml-2" style={{ fontFamily: "var(--font-heading)" }}>
-                  Registered
+                  {t("ep.registered")}
                 </span>
               </div>
             </div>
             <div>
               <span className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("auth.password")}</span>
               <p className="text-xs text-muted-foreground mb-3" style={{ fontFamily: "var(--font-body)" }}>
-                We'll send a password reset link to your email address.
+                {t("ep.resetHint")}
               </p>
               <button type="button" onClick={handlePasswordReset} disabled={sendingReset}
                 className="inline-flex items-center gap-2 text-xs tracking-[0.15em] uppercase px-5 py-2.5 border border-border hover:border-primary hover:text-primary transition-all duration-500 disabled:opacity-50"
                 style={{ fontFamily: "var(--font-heading)" }}>
                 <KeyRound className="h-3 w-3" />
-                {sendingReset ? "Sending…" : "Send Reset Link"}
+                {sendingReset ? t("ep.sending") : t("ep.sendResetLink")}
               </button>
             </div>
           </div>
@@ -1300,7 +1306,7 @@ const EditProfile = () => {
             <Link to="/dashboard"
               className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground hover:text-foreground transition-colors duration-500"
               style={{ fontFamily: "var(--font-heading)" }}>
-              ← Back to Dashboard
+              ← {t("ep.backToDashboard")}
             </Link>
           </div>
         </div>

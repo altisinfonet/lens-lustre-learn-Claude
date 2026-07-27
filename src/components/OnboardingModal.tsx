@@ -18,16 +18,21 @@ import { scanFileWithToast } from "@/lib/fileSecurityScanner";
 import { useI18n } from "@/i18n/I18nContext";
 import { LANGS } from "@/i18n/translations";
 
+// These exact strings are PERSISTED to profiles.photography_interests, so they
+// stay English. Only the rendered label is translated, via onb.int.<lowercase>.
 const INTEREST_OPTIONS = [
   "Wildlife", "Street", "Portrait", "Aerial", "Documentary",
   "Landscape", "Architecture", "Macro", "Sports", "Fashion",
   "Underwater", "Astrophotography", "Food", "Travel", "Abstract",
 ];
 
+// `value` is PERSISTED to profiles.user_type and must stay English.
+// `label` / `description` are translation KEYS, not display text — this array is
+// at module scope where t() cannot be called, so the render site does t(label).
 const USER_TYPES = [
-  { value: "student", label: "Student", description: "I'm learning photography", icon: GraduationCap },
-  { value: "normal", label: "Enthusiast", description: "Photography is my hobby", icon: User },
-  { value: "photographer", label: "Photographer", description: "I'm a professional / aspiring pro", icon: Aperture },
+  { value: "student", label: "onb.typeStudent", description: "onb.typeStudentDesc", icon: GraduationCap },
+  { value: "normal", label: "onb.typeEnthusiast", description: "onb.typeEnthusiastDesc", icon: User },
+  { value: "photographer", label: "onb.typePhotographer", description: "onb.typePhotographerDesc", icon: Aperture },
 ];
 
 interface OnboardingModalProps {
@@ -83,7 +88,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
   // otherwise English — so this field is never blank. Picking a language calls
   // setLang, which converts the app immediately, and handleFinish writes the
   // code to profiles.preferred_language so it follows the user across devices.
-  const { lang, setLang } = useI18n();
+  const { lang, setLang, t } = useI18n();
 
   // Form state
   const [selectedInterests, setSelectedInterests] = useState<string[]>(profile?.photography_interests || []);
@@ -120,8 +125,8 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
       if (!safe) return;
       if (await isFlatOrBlank(file)) {
         toast({
-          title: "Please choose a real photo",
-          description: "A blank or solid black image can't be used as your profile photo. Dark, moody photos are fine.",
+          title: t("onb.realPhotoTitle"),
+          description: t("onb.realPhotoBody"),
           variant: "destructive",
         });
         return;
@@ -133,9 +138,9 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
       const { error } = await supabase.from("profiles").update({ avatar_url: newUrl } as any).eq("id", userId);
       if (error) throw error;
       setAvatarUrl(newUrl);
-      toast({ title: "Profile photo added" });
+      toast({ title: t("onb.photoAdded") });
     } catch (err: any) {
-      toast({ title: "Upload failed", description: err?.message || "Please try another image", variant: "destructive" });
+      toast({ title: t("onb.uploadFailed"), description: err?.message || t("onb.tryAnotherImage"), variant: "destructive" });
     } finally {
       setUploadingAvatar(false);
     }
@@ -146,11 +151,11 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
 
   const handleFinish = async () => {
     if (!canProceed) {
-      if (!dateOfBirth) toast({ title: "Please enter your date of birth", variant: "destructive" });
-      else if (!ageOk) toast({ title: "You must be at least 18 years old to join", variant: "destructive" });
-      else if (!avatarUrl) toast({ title: "Please add a profile photo to continue", variant: "destructive" });
-      else if (!userType) toast({ title: "Please select whether you're a Student, Photographer, or Enthusiast", variant: "destructive" });
-      else if (selectedInterests.length === 0) toast({ title: "Please select at least one photography interest", variant: "destructive" });
+      if (!dateOfBirth) toast({ title: t("onb.needDob"), variant: "destructive" });
+      else if (!ageOk) toast({ title: t("onb.need18"), variant: "destructive" });
+      else if (!avatarUrl) toast({ title: t("onb.needPhoto"), variant: "destructive" });
+      else if (!userType) toast({ title: t("onb.needType"), variant: "destructive" });
+      else if (selectedInterests.length === 0) toast({ title: t("onb.needInterest"), variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -185,10 +190,10 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
         } as any);
       }
 
-      toast({ title: "Welcome aboard! 🎉", description: "You're all set." });
+      toast({ title: t("onb.welcomeAboard"), description: t("onb.allSet") });
       onComplete();
     } catch (err: any) {
-      toast({ title: "Something went wrong", description: err.message, variant: "destructive" });
+      toast({ title: t("common.somethingWrong"), description: err.message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -209,7 +214,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
           <div className="inline-flex items-center gap-2 mb-3">
             <Sparkles className="h-4 w-4 text-primary" />
             <span className="text-[9px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>
-              Welcome to 50mm Retina World
+              {t("onb.welcomeBrand")}
             </span>
           </div>
         </div>
@@ -221,17 +226,17 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
           className="px-8 pb-8"
         >
           <h2 className="text-xl font-light tracking-tight text-center mb-2" style={{ fontFamily: "var(--font-display)" }}>
-            Let's set up your profile
+            {t("onb.setupTitle")}
           </h2>
           <p className="text-xs text-muted-foreground text-center mb-6" style={{ fontFamily: "var(--font-body)" }}>
-            Just one quick step — then you're in.
+            {t("onb.setupSub")}
           </p>
 
           <div className="space-y-5">
             {/* Language — chosen at profile creation, applies instantly */}
             <div className="space-y-2">
               <span className="text-[10px] tracking-[0.2em] uppercase text-foreground font-medium block" style={{ fontFamily: "var(--font-heading)" }}>
-                Your language
+                {t("onb.yourLanguage")}
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {LANGS.map((l) => {
@@ -254,7 +259,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
                 })}
               </div>
               <p className="text-[9px] text-muted-foreground leading-snug" style={{ fontFamily: "var(--font-body)" }}>
-                You can change this any time from the language menu.
+                {t("onb.langHint")}
               </p>
             </div>
 
@@ -265,10 +270,10 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingAvatar}
                 className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-dashed border-primary/40 hover:border-primary bg-muted/40 flex items-center justify-center transition-colors"
-                aria-label="Upload profile photo"
+                aria-label={t("onb.uploadPhotoAria")}
               >
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <img src={avatarUrl} alt={t("onb.profileAlt")} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 ) : (
                   <ImagePlus className="h-7 w-7 text-muted-foreground" />
                 )}
@@ -280,14 +285,14 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
               </button>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePickPhoto} />
               <span className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                {avatarUrl ? "Tap to replace your photo" : "Profile photo"} <span className="text-destructive">*</span>
+                {avatarUrl ? t("onb.tapReplace") : t("onb.profilePhoto")} <span className="text-destructive">*</span>
               </span>
             </div>
 
             {/* Date of Birth */}
             <div className="space-y-2">
               <span className="text-[10px] tracking-[0.2em] uppercase text-foreground font-medium block" style={{ fontFamily: "var(--font-heading)" }}>
-                Date of Birth <span className="text-destructive">*</span>
+                {t("onb.dobLabel")} <span className="text-destructive">*</span>
               </span>
               <Popover>
                 <PopoverTrigger asChild>
@@ -300,7 +305,11 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
                     )}
                     style={{ fontFamily: "var(--font-body)" }}
                   >
-                    {dateOfBirth ? format(dateOfBirth, "dd MMMM yyyy") : "Select your date of birth"}
+                    {/* NOTE: date-fns format() is called with no `locale` option, so the
+                        month name renders in English in all seven languages. Flagged,
+                        not changed — fixing it needs date-fns locale imports and is a
+                        separate decision. */}
+                    {dateOfBirth ? format(dateOfBirth, "dd MMMM yyyy") : t("onb.dobPlaceholder")}
                     <CalendarIcon className="h-4 w-4 text-primary" />
                   </button>
                 </PopoverTrigger>
@@ -310,7 +319,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
                     selected={dateOfBirth}
                     onSelect={(d) => {
                       setDateOfBirth(d);
-                      if (d) setDobError(differenceInYears(new Date(), d) < 18 ? "You must be at least 18 years old" : "");
+                      if (d) setDobError(differenceInYears(new Date(), d) < 18 ? t("onb.dobUnder18") : "");
                     }}
                     disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
                     captionLayout="dropdown-buttons"
@@ -329,7 +338,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
             {/* Role */}
             <div className="space-y-2">
               <span className="text-[10px] tracking-[0.2em] uppercase text-foreground font-medium block" style={{ fontFamily: "var(--font-heading)" }}>
-                I am a... <span className="text-destructive">*</span>
+                {t("onb.iAmA")} <span className="text-destructive">*</span>
               </span>
               <RadioGroup value={userType} onValueChange={setUserType} className="grid grid-cols-3 gap-2">
                 {USER_TYPES.map(({ value, label, description, icon: Icon }) => (
@@ -344,8 +353,8 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center ${userType === value ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
                       <Icon className="h-4 w-4" />
                     </div>
-                    <span className="text-[11px] font-medium" style={{ fontFamily: "var(--font-heading)" }}>{label}</span>
-                    <span className="text-[9px] text-muted-foreground leading-tight" style={{ fontFamily: "var(--font-body)" }}>{description}</span>
+                    <span className="text-[11px] font-medium" style={{ fontFamily: "var(--font-heading)" }}>{t(label, label)}</span>
+                    <span className="text-[9px] text-muted-foreground leading-tight" style={{ fontFamily: "var(--font-body)" }}>{t(description, description)}</span>
                   </Label>
                 ))}
               </RadioGroup>
@@ -355,11 +364,11 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] tracking-[0.2em] uppercase text-foreground font-medium" style={{ fontFamily: "var(--font-heading)" }}>
-                  What excites you? <span className="text-destructive">*</span>
+                  {t("onb.whatExcites")} <span className="text-destructive">*</span>
                 </span>
                 {selectedInterests.length > 0 && (
                   <span className="ml-auto text-[9px] text-primary px-2 py-0.5 bg-primary/10 rounded-full" style={{ fontFamily: "var(--font-heading)" }}>
-                    {selectedInterests.length} selected
+                    {t("onb.nSelected").replace("{n}", String(selectedInterests.length))}
                   </span>
                 )}
               </div>
@@ -375,7 +384,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
                       }`}
                       style={{ fontFamily: "var(--font-heading)" }}
                     >
-                      {interest}
+                      {t(`onb.int.${interest.toLowerCase()}`, interest)}
                     </button>
                   );
                 })}
@@ -390,7 +399,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
               className="w-full inline-flex items-center justify-center gap-2 text-xs tracking-[0.15em] uppercase px-6 py-3 bg-primary text-primary-foreground hover:opacity-90 transition-opacity duration-500 disabled:opacity-40"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              {saving ? (<><Loader2 className="h-3.5 w-3.5 animate-spin" />Setting up…</>) : (<><Camera className="h-3.5 w-3.5" />Enter 50mm Retina World</>)}
+              {saving ? (<><Loader2 className="h-3.5 w-3.5 animate-spin" />{t("onb.settingUp")}</>) : (<><Camera className="h-3.5 w-3.5" />{t("onb.enterWorld")}</>)}
             </button>
           </div>
         </motion.div>

@@ -24,21 +24,26 @@ import { useProfileCore, useProfileExtended } from "@/hooks/profile/useProfileDa
 import ProfileSkeleton from "@/components/ProfileSkeleton";
 import PageSEO from "@/components/PageSEO";
 import { useEntryPublicStatus } from "@/hooks/judging/useEntryPublicStatus";
+import { useT } from "@/i18n/I18nContext";
 
 /* ── Privacy Indicator (shown to owner only) ── */
-const PRIVACY_ICONS: Record<PrivacyLevel, { icon: typeof Globe; label: string }> = {
-  public: { icon: Globe, label: "Public" },
-  friends: { icon: UsersIcon, label: "Friends" },
-  only_me: { icon: Lock, label: "Only Me" },
+// This map is at MODULE scope, where t() cannot be called. `labelKey` is the
+// translation key; `label` is kept as the English fallback passed to t() as its
+// second argument. The render site below resolves it.
+const PRIVACY_ICONS: Record<PrivacyLevel, { icon: typeof Globe; labelKey: string; label: string }> = {
+  public: { icon: Globe, labelKey: "pp.privPublic", label: "Public" },
+  friends: { icon: UsersIcon, labelKey: "pp.privFriends", label: "Friends" },
+  only_me: { icon: Lock, labelKey: "pp.privOnlyMe", label: "Only Me" },
 };
 
 const PrivacyIndicator = ({ level }: { level: PrivacyLevel }) => {
+  const t = useT();
   const cfg = PRIVACY_ICONS[level] || PRIVACY_ICONS.public;
   const Icon = cfg.icon;
   return (
     <span className="inline-flex items-center gap-1 text-[8px] tracking-[0.15em] uppercase text-muted-foreground/60 ml-1" style={{ fontFamily: "var(--font-heading)" }}>
       <Icon className="h-2.5 w-2.5" />
-      {cfg.label}
+      {t(cfg.labelKey, cfg.label)}
     </span>
   );
 };
@@ -225,6 +230,7 @@ const fadeUp = (delay = 0) => ({
 });
 
 const PublicProfileInner = ({ userId }: { userId: string }) => {
+  const t = useT();
   const { user: currentUser } = useAuth();
   const [searchParams] = useSearchParams();
   const wallSectionRef = useRef<HTMLDivElement>(null);
@@ -394,7 +400,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
             if (scores && scores.length > 0) {
               const entryMap = new Map(entries.map((e: any) => [e.id, e.title]));
               setJudgeFeedback(scores.map((s: any) => ({
-                entry_title: entryMap.get(s.entry_id) || "Entry",
+                entry_title: entryMap.get(s.entry_id) || t("pp.entryFallback"),
                 score: s.score, feedback: s.feedback, photo_index: s.photo_index,
               })));
             } else {
@@ -419,42 +425,50 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
     return (
       <main className="min-h-screen bg-background flex flex-col items-center justify-center gap-6">
         <User className="h-12 w-12 text-muted-foreground/30" />
-        <p className="text-muted-foreground text-sm" style={bodyFont}>This profile doesn't exist.</p>
+        <p className="text-muted-foreground text-sm" style={bodyFont}>{t("pp.notFound")}</p>
         <Link to="/" className="text-xs tracking-[0.15em] uppercase text-primary hover:underline" style={headingFont}>
-          Back to Home
+          {t("pp.backToHome")}
         </Link>
       </main>
     );
   }
 
-  const displayName = profile.full_name || "Photographer";
+  const displayName = profile.full_name || t("prof.photographerFallback");
+  // NOTE: the hard-coded "en-US" locale means this month/year will stay English
+  // regardless of the in-app language picker. Flagged, not changed: threading the
+  // app language into date formatting is a separate decision, and it is the same
+  // gap already flagged in Dashboard, OnboardingModal, EditProfile, Profile and
+  // IDVerification. Two further instances exist below (article and certificate dates).
   const memberSince = new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   const isOwner = currentUser?.id === userId;
   const ps = profile.privacy_settings;
   const canView = (field: string) => canViewField(getPrivacy(ps, field), isOwner, isFriend);
 
+  // "Facebook", "Instagram", "X" and "YouTube" are BRAND NAMES and stay Latin in
+  // every language — deliberately not translated. Only the two generic labels
+  // ("Website", "Portfolio") are translated. Do not "fix" the mixed treatment.
   const socialLinks = canView("social_links") ? [
     profile.facebook_url && { icon: Facebook, label: "Facebook", url: profile.facebook_url },
     profile.instagram_url && { icon: Instagram, label: "Instagram", url: profile.instagram_url },
     profile.twitter_url && { icon: Twitter, label: "X", url: profile.twitter_url },
     profile.youtube_url && { icon: Youtube, label: "YouTube", url: profile.youtube_url },
-    profile.website_url && { icon: Globe, label: "Website", url: profile.website_url },
-    canView("portfolio") && profile.portfolio_url && !profile.website_url && { icon: Globe, label: "Portfolio", url: profile.portfolio_url },
+    profile.website_url && { icon: Globe, label: t("pp.website"), url: profile.website_url },
+    canView("portfolio") && profile.portfolio_url && !profile.website_url && { icon: Globe, label: t("pp.portfolio"), url: profile.portfolio_url },
   ].filter(Boolean) as { icon: any; label: string; url: string }[] : [];
 
   const worksCount = entries.length + featuredPhotos.length + articles.length + coursesCreated.length;
   const tabs = [
-    { key: "wall" as const, label: "Wall" },
-    { key: "works" as const, label: "Works", count: worksCount },
-    { key: "about" as const, label: "About" },
+    { key: "wall" as const, label: t("pp.tabWall") },
+    { key: "works" as const, label: t("pp.tabWorks"), count: worksCount },
+    { key: "about" as const, label: t("pp.tabAbout") },
   ];
 
     return (
     <main className="min-h-screen bg-background text-foreground">
       <PageSEO
         title={displayName}
-        description={profile.bio ? profile.bio.slice(0, 155) : `${displayName}'s photography profile on 50mm Retina World.`}
+        description={profile.bio ? profile.bio.slice(0, 155) : t("pp.seoDesc").replace("{t}", displayName)}
         ogImage={profile.avatar_url || undefined}
       />
       {/* ═══ INSTAGRAM-STYLE PROFILE HEADER (no cover) ═══ */}
@@ -505,7 +519,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                       style={headingFont}
                     >
                       <Pencil className="h-3 w-3" />
-                      Edit Profile
+                      {t("pp.editProfile")}
                     </Link>
                   )}
                   {isGuest && (
@@ -514,7 +528,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                       className="inline-flex items-center gap-1.5 text-[9px] tracking-[0.1em] font-semibold uppercase px-3 py-1.5 bg-primary text-primary-foreground hover:opacity-90 rounded-md transition-opacity"
                       style={headingFont}
                     >
-                      Follow
+                      {t("pp.follow")}
                     </Link>
                   )}
                 </div>
@@ -528,7 +542,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                 )}
                 {canView("member_since") && (
                   <span className="text-[10px] text-muted-foreground" style={bodyFont}>
-                    Joined {memberSince}
+                    {t("pp.joined").replace("{t}", memberSince)}
                   </span>
                 )}
               </div>
@@ -563,7 +577,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
 
             {canView("member_since") && (
               <p className="text-[10px] text-muted-foreground" style={bodyFont}>
-                Joined {memberSince}
+                {t("pp.joined").replace("{t}", memberSince)}
               </p>
             )}
 
@@ -579,12 +593,12 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
               {!isOwner && !isGuest && <FriendFollowButtons targetUserId={userId!} />}
               {isOwner && (
                 <Link to="/edit-profile" className="inline-flex items-center gap-2 text-[10px] tracking-[0.08em] font-semibold px-4 py-2 bg-muted hover:bg-accent text-foreground rounded-md border border-border transition-colors" style={headingFont}>
-                  <Pencil className="h-3.5 w-3.5" /> Edit Profile
+                  <Pencil className="h-3.5 w-3.5" /> {t("pp.editProfile")}
                 </Link>
               )}
               {isGuest && (
                 <Link to="/signup" className="inline-flex items-center gap-2 text-[10px] tracking-[0.08em] font-semibold px-4 py-2 bg-primary text-primary-foreground hover:opacity-90 rounded-md transition-opacity" style={headingFont}>
-                  Follow
+                  {t("pp.follow")}
                 </Link>
               )}
             </div>
@@ -609,7 +623,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
               <div className="border border-border p-5 space-y-3">
                 <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
                   <User className="h-3.5 w-3.5 text-primary" />
-                  About
+                  {t("pp.tabAbout")}
                 </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed" style={bodyFont}>{profile.bio}</p>
               </div>
@@ -623,7 +637,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                     </div>
                     <div>
                       <p className="text-sm" style={bodyFont}>{(profile as any).workplace}</p>
-                      <span className="text-[10px] text-muted-foreground" style={headingFont}>Workplace</span>
+                      <span className="text-[10px] text-muted-foreground" style={headingFont}>{t("pp.workplace")}</span>
                     </div>
                   </div>
                 )}
@@ -634,7 +648,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                     </div>
                     <div>
                       <p className="text-sm" style={bodyFont}>{(profile as any).education}</p>
-                      <span className="text-[10px] text-muted-foreground" style={headingFont}>Education</span>
+                      <span className="text-[10px] text-muted-foreground" style={headingFont}>{t("pp.education")}</span>
                     </div>
                   </div>
                 )}
@@ -645,7 +659,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                     </div>
                     <div>
                       <p className="text-sm" style={bodyFont}>{(profile as any).current_city}</p>
-                      <span className="text-[10px] text-muted-foreground" style={headingFont}>Current City</span>
+                      <span className="text-[10px] text-muted-foreground" style={headingFont}>{t("pp.currentCity")}</span>
                     </div>
                   </div>
                 )}
@@ -655,7 +669,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
               <div className="border border-border p-5 space-y-3">
                 <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
                   <Heart className="h-3.5 w-3.5 text-primary" />
-                  Links
+                  {t("pp.links")}
                 </h3>
                 <div className="flex flex-wrap gap-x-5 gap-y-2">
                   {socialLinks.map((link) => (
@@ -714,7 +728,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
         {socialLinks.length > 0 && (
           <div className="border border-border p-4 mb-6">
             <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground mb-3" style={headingFont}>
-              Links
+              {t("pp.links")}
             </h3>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
               {socialLinks.map((link) => (
@@ -762,7 +776,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                   <div className="border border-dashed border-border p-12 text-center">
                     <Camera className="h-8 w-8 text-muted-foreground/20 mx-auto mb-3" />
                     <p className="text-xs text-muted-foreground" style={bodyFont}>
-                      No works to show yet.
+                      {t("pp.noWorks")}
                     </p>
                   </div>
                 ) : (
@@ -776,6 +790,10 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                           const catCounts: Record<string, number> = {};
                           entries.forEach(e => {
                             const comp = e.competition as any;
+                            // NOT user-facing: `cat` is only ever used as an object
+                            // key, and `catCounts` is consumed solely via
+                            // Object.keys(catCounts).length below. The string is
+                            // never rendered, so it is deliberately not translated.
                             const cat = comp?.title?.split(" ")[0] || "General";
                             catCounts[cat] = (catCounts[cat] || 0) + 1;
                           });
@@ -783,20 +801,20 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                             <div className="border border-border p-5 space-y-3">
                               <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
                                 <BarChart3 className="h-3.5 w-3.5 text-primary" />
-                                Photography Stats
+                                {t("pp.photographyStats")}
                               </h3>
                               <div className="grid grid-cols-3 gap-3 text-center">
                                 <div>
                                   <p className="text-2xl font-light" style={displayFont}>{entries.length}</p>
-                                  <span className="text-[9px] tracking-[0.12em] uppercase text-muted-foreground" style={headingFont}>Submissions</span>
+                                  <span className="text-[9px] tracking-[0.12em] uppercase text-muted-foreground" style={headingFont}>{t("pp.submissions")}</span>
                                 </div>
                                 <div>
                                   <p className="text-2xl font-light text-primary" style={displayFont}>{winners.length}</p>
-                                  <span className="text-[9px] tracking-[0.12em] uppercase text-muted-foreground" style={headingFont}>Awards</span>
+                                  <span className="text-[9px] tracking-[0.12em] uppercase text-muted-foreground" style={headingFont}>{t("pp.awards")}</span>
                                 </div>
                                 <div>
                                   <p className="text-2xl font-light" style={displayFont}>{Object.keys(catCounts).length}</p>
-                                  <span className="text-[9px] tracking-[0.12em] uppercase text-muted-foreground" style={headingFont}>Competitions</span>
+                                  <span className="text-[9px] tracking-[0.12em] uppercase text-muted-foreground" style={headingFont}>{t("pp.competitions")}</span>
                                 </div>
                               </div>
                             </div>
@@ -808,7 +826,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                           <div className="border border-border p-5 space-y-3">
                             <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
                               <Award className="h-3.5 w-3.5 text-primary" />
-                              Judging Awards
+                              {t("pp.judgingAwards")}
                             </h3>
                             <div className="flex flex-wrap gap-2">
                               {earnedStamps.map((stamp) => (
@@ -836,7 +854,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                       <div className="border border-border p-5 space-y-4">
                         <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
                           <Trophy className="h-3.5 w-3.5 text-primary" />
-                          Awards & Placements
+                          {t("pp.awardsPlacements")}
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                           {entries.filter((e: any) => isPublicWinner(e.id)).map((entry: any) => (
@@ -858,7 +876,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                                 <div className="absolute top-2 left-2 z-10">
                                   <span className="text-[8px] tracking-[0.15em] uppercase px-2 py-0.5 bg-primary text-primary-foreground inline-flex items-center gap-1" style={headingFont}>
                                     <Trophy className="h-2.5 w-2.5" />
-                                    {visiblePlacement(entry.id) || "Winner"}
+                                    {visiblePlacement(entry.id) || t("pp.winner")}
                                   </span>
                                 </div>
                                 <div className="absolute bottom-0 left-0 right-0 p-3">
@@ -881,16 +899,16 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                       <div className="border border-border p-5 space-y-4">
                         <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
                           <Star className="h-3.5 w-3.5 text-primary" />
-                          Featured Photos
+                          {t("pp.featuredPhotos")}
                         </h3>
                         <div className="grid grid-cols-3 gap-2">
                           {featuredPhotos.map((photo) => (
                             <div
                               key={photo.id}
                               className="group relative cursor-pointer aspect-square overflow-hidden"
-                              onClick={() => setLightboxPhoto({ src: photo.image_url, title: photo.title || "Featured Photo" })}
+                              onClick={() => setLightboxPhoto({ src: photo.image_url, title: photo.title || t("pp.featuredPhoto") })}
                             >
-                              <img src={photo.thumbnail_url || photo.image_url} alt={photo.title || "Featured"} className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                              <img src={photo.thumbnail_url || photo.image_url} alt={photo.title || t("pp.featuredAlt")} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                                 <Expand className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                               </div>
@@ -908,7 +926,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                       <div className="space-y-4">
                         <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
                           <Image className="h-3.5 w-3.5 text-primary" />
-                          Competition Submissions
+                          {t("pp.competitionSubmissions")}
                         </h3>
                         {/* Hero piece */}
                         {(() => {
@@ -932,7 +950,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                                 {isPublicWinner(hero.id) && (
                                   <div className="absolute top-4 left-4">
                                     <span className="text-[9px] tracking-[0.2em] uppercase px-3 py-1 bg-primary text-primary-foreground inline-flex items-center gap-1.5" style={headingFont}>
-                                      <Award className="h-3 w-3" /> Winner
+                                      <Award className="h-3 w-3" /> {t("pp.winner")}
                                     </span>
                                   </div>
                                 )}
@@ -995,7 +1013,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                                   {isPublicWinner(entry.id) && (
                                     <div className="absolute top-2 left-2 z-10">
                                       <span className="text-[8px] tracking-[0.15em] uppercase px-2 py-0.5 bg-primary text-primary-foreground inline-flex items-center gap-1" style={headingFont}>
-                                        <Trophy className="h-2.5 w-2.5" /> Winner
+                                        <Trophy className="h-2.5 w-2.5" /> {t("pp.winner")}
                                       </span>
                                     </div>
                                   )}
@@ -1020,7 +1038,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                       <div className="border border-border p-5 space-y-4">
                         <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
                           <FileText className="h-3.5 w-3.5 text-primary" />
-                          Published Articles
+                          {t("pp.publishedArticles")}
                         </h3>
                         <div className="space-y-3">
                           {articles.map((article) => (
@@ -1040,6 +1058,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                                 <div className="flex items-center gap-2 mt-1.5">
                                   {article.published_at && (
                                     <span className="text-[9px] text-muted-foreground" style={headingFont}>
+                                      {/* Date-locale gap, flagged not fixed — see the note on `memberSince` above. */}
                                       {new Date(article.published_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
                                     </span>
                                   )}
@@ -1059,7 +1078,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                       <div className="border border-border p-5 space-y-4">
                         <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
                           <Layers className="h-3.5 w-3.5 text-primary" />
-                          Courses Created
+                          {t("pp.coursesCreated")}
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {coursesCreated.map((course) => (
@@ -1074,6 +1093,9 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                               <div className="p-3">
                                 <h4 className="text-sm font-medium truncate group-hover:text-primary transition-colors" style={headingFont}>{course.title}</h4>
                                 <div className="flex items-center gap-2 mt-1.5">
+                                  {/* `course.category` and `course.difficulty` are DB column values,
+                                      not UI literals. They are out of scope for Phase 1 (component
+                                      strings) and are recorded in the Phase 2 (DB content) inventory. */}
                                   <span className="text-[8px] tracking-[0.1em] uppercase px-1.5 py-0.5 border border-border text-muted-foreground rounded-sm" style={headingFont}>{course.category}</span>
                                   <span className="text-[8px] tracking-[0.1em] uppercase px-1.5 py-0.5 border border-border text-muted-foreground rounded-sm" style={headingFont}>{course.difficulty}</span>
                                 </div>
@@ -1089,8 +1111,8 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                       <div className="border border-border p-5 space-y-4">
                         <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
                           <MessageSquare className="h-3.5 w-3.5 text-primary" />
-                          Judge Feedback
-                          <span className="text-[8px] px-1.5 py-0.5 bg-muted text-muted-foreground rounded-sm" style={headingFont}>Only You</span>
+                          {t("pp.judgeFeedback")}
+                          <span className="text-[8px] px-1.5 py-0.5 bg-muted text-muted-foreground rounded-sm" style={headingFont}>{t("pp.onlyYou")}</span>
                         </h3>
                         <div className="space-y-2">
                           {judgeFeedback.slice(0, 10).map((fb, i) => (
@@ -1101,7 +1123,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                   <h4 className="text-xs font-medium truncate" style={headingFont}>{fb.entry_title}</h4>
-                                  <span className="text-[8px] text-muted-foreground" style={headingFont}>Photo #{fb.photo_index + 1}</span>
+                                  <span className="text-[8px] text-muted-foreground" style={headingFont}>{t("pp.photoN").replace("{n}", String(fb.photo_index + 1))}</span>
                                 </div>
                                 {fb.feedback && (
                                   <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2" style={bodyFont}>{fb.feedback}</p>
@@ -1131,7 +1153,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                   <div className="border border-border p-5 space-y-4">
                     <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
                       <User className="h-3.5 w-3.5 text-primary" />
-                      Overview
+                      {t("pp.overview")}
                     </h3>
                     {canView("pronouns") && (profile as any).pronouns && (
                       <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -1155,7 +1177,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                   <div className="border border-border p-5 space-y-4">
                     <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
                       <Briefcase className="h-3.5 w-3.5 text-primary" />
-                      Work & Education
+                      {t("pp.workEducation")}
                     </h3>
                     {canView("workplace") && (profile as any).workplace && (
                       <div className="flex items-center gap-3">
@@ -1164,7 +1186,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm" style={bodyFont}>{(profile as any).workplace}</p>
-                          <span className="text-[10px] text-muted-foreground" style={headingFont}>Workplace</span>
+                          <span className="text-[10px] text-muted-foreground" style={headingFont}>{t("pp.workplace")}</span>
                         </div>
                         {isOwner && <PrivacyIndicator level={getPrivacy(ps, "workplace")} />}
                       </div>
@@ -1176,7 +1198,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm" style={bodyFont}>{(profile as any).education}</p>
-                          <span className="text-[10px] text-muted-foreground" style={headingFont}>Education</span>
+                          <span className="text-[10px] text-muted-foreground" style={headingFont}>{t("pp.education")}</span>
                         </div>
                         {isOwner && <PrivacyIndicator level={getPrivacy(ps, "education")} />}
                       </div>
@@ -1189,7 +1211,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                   <div className="border border-border p-5 space-y-4">
                     <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
                       <MapPin className="h-3.5 w-3.5 text-primary" />
-                      Places Lived
+                      {t("pp.placesLived")}
                     </h3>
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
@@ -1197,7 +1219,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm" style={bodyFont}>{(profile as any).current_city}</p>
-                        <span className="text-[10px] text-muted-foreground" style={headingFont}>Current City</span>
+                        <span className="text-[10px] text-muted-foreground" style={headingFont}>{t("pp.currentCity")}</span>
                       </div>
                       {isOwner && <PrivacyIndicator level={getPrivacy(ps, "city_country")} />}
                     </div>
@@ -1209,7 +1231,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                   <div className="border border-border p-5 space-y-4">
                     <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
                       <Phone className="h-3.5 w-3.5 text-primary" />
-                      Contact & Basic Info
+                      {t("pp.contactBasicInfo")}
                     </h3>
                     {(profile as any).phone && (
                       <div className="flex items-center gap-3">
@@ -1218,7 +1240,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm" style={bodyFont}>{(profile as any).phone}</p>
-                          <span className="text-[10px] text-muted-foreground" style={headingFont}>Phone</span>
+                          <span className="text-[10px] text-muted-foreground" style={headingFont}>{t("pp.phone")}</span>
                         </div>
                         <PrivacyIndicator level={getPrivacy(ps, "phone")} />
                       </div>
@@ -1229,7 +1251,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm" style={bodyFont}>{currentUser?.email}</p>
-                        <span className="text-[10px] text-muted-foreground" style={headingFont}>Email</span>
+                        <span className="text-[10px] text-muted-foreground" style={headingFont}>{t("pp.email")}</span>
                       </div>
                       <PrivacyIndicator level={getPrivacy(ps, "email")} />
                     </div>
@@ -1242,7 +1264,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                           <a href={profile.portfolio_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline truncate block" style={bodyFont}>
                             {profile.portfolio_url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                           </a>
-                          <span className="text-[10px] text-muted-foreground" style={headingFont}>Portfolio</span>
+                          <span className="text-[10px] text-muted-foreground" style={headingFont}>{t("pp.portfolio")}</span>
                         </div>
                         <PrivacyIndicator level={getPrivacy(ps, "portfolio")} />
                       </div>
@@ -1254,7 +1276,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm" style={bodyFont}>{memberSince}</p>
-                          <span className="text-[10px] text-muted-foreground" style={headingFont}>Member Since</span>
+                          <span className="text-[10px] text-muted-foreground" style={headingFont}>{t("pp.memberSince")}</span>
                         </div>
                         <PrivacyIndicator level={getPrivacy(ps, "member_since")} />
                       </div>
@@ -1267,7 +1289,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                   <div className="border border-border p-5 space-y-4">
                     <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
                       <Globe className="h-3.5 w-3.5 text-primary" />
-                      Contact Info
+                      {t("pp.contactInfo")}
                     </h3>
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
@@ -1277,7 +1299,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                         <a href={profile.portfolio_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline truncate block" style={bodyFont}>
                           {profile.portfolio_url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                         </a>
-                        <span className="text-[10px] text-muted-foreground" style={headingFont}>Portfolio</span>
+                        <span className="text-[10px] text-muted-foreground" style={headingFont}>{t("pp.portfolio")}</span>
                       </div>
                     </div>
                     {canView("member_since") && (
@@ -1287,7 +1309,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm" style={bodyFont}>{memberSince}</p>
-                          <span className="text-[10px] text-muted-foreground" style={headingFont}>Member Since</span>
+                          <span className="text-[10px] text-muted-foreground" style={headingFont}>{t("pp.memberSince")}</span>
                         </div>
                       </div>
                     )}
@@ -1299,7 +1321,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                   <div className="border border-border p-5 space-y-4">
                     <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
                       <Heart className="h-3.5 w-3.5 text-primary" />
-                      Links & Social
+                      {t("pp.linksSocial")}
                     </h3>
                     <div className="space-y-3">
                       {socialLinks.map((link) => (
@@ -1329,10 +1351,10 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                   <div className="border border-border p-5 space-y-4">
                     <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
                       <Camera className="h-3.5 w-3.5 text-primary" />
-                      Photography Details
+                      {t("pp.photographyDetails")}
                     </h3>
                     <div>
-                      <span className="text-[10px] tracking-[0.1em] uppercase text-muted-foreground block mb-2" style={headingFont}>Specializations</span>
+                      <span className="text-[10px] tracking-[0.1em] uppercase text-muted-foreground block mb-2" style={headingFont}>{t("pp.specializations")}</span>
                       <div className="flex flex-wrap gap-2">
                         {profile.photography_interests.map((interest) => (
                           <span
@@ -1340,7 +1362,12 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                             className="text-[10px] tracking-[0.1em] uppercase px-3 py-1.5 border border-border text-muted-foreground rounded-sm"
                             style={headingFont}
                           >
-                            {interest}
+                            {/* Reuses the interest labels already established in
+                                OnboardingModal and EditProfile. The array values
+                                themselves are PERSISTED to
+                                profiles.photography_interests, so they stay
+                                English; only the rendered label is translated. */}
+                            {t(`onb.int.${interest.toLowerCase()}`, interest)}
                           </span>
                         ))}
                       </div>
@@ -1348,13 +1375,24 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                     {entries.length > 0 && (
                       <div className="flex items-center gap-3 text-sm text-muted-foreground">
                         <Image className="h-4 w-4 text-muted-foreground/60" />
-                        <span style={bodyFont}>{entries.length} competition submission{entries.length !== 1 ? "s" : ""}</span>
+                        {/* t() has no interpolation and no plural engine, so the
+                            singular and plural forms are two separate keys and the
+                            count is substituted via {n}. */}
+                        <span style={bodyFont}>
+                          {entries.length === 1
+                            ? t("pp.compSubmission1")
+                            : t("pp.compSubmissionsN").replace("{n}", String(entries.length))}
+                        </span>
                       </div>
                     )}
                     {entries.filter((e: any) => isPublicWinner(e.id)).length > 0 && (
                       <div className="flex items-center gap-3 text-sm text-primary">
                         <Trophy className="h-4 w-4 text-primary/60" />
-                        <span style={bodyFont}>{entries.filter((e: any) => isPublicWinner(e.id)).length} award{entries.filter((e: any) => isPublicWinner(e.id)).length !== 1 ? "s" : ""}</span>
+                        <span style={bodyFont}>
+                          {entries.filter((e: any) => isPublicWinner(e.id)).length === 1
+                            ? t("pp.award1")
+                            : t("pp.awardsN").replace("{n}", String(entries.filter((e: any) => isPublicWinner(e.id)).length))}
+                        </span>
                       </div>
                     )}
                     {isOwner && <PrivacyIndicator level={getPrivacy(ps, "interests")} />}
@@ -1366,7 +1404,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                   <div className="border border-border p-5 space-y-4">
                     <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
                       <Award className="h-3.5 w-3.5 text-primary" />
-                      Certificates & Awards
+                      {t("pp.certificatesAwards")}
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {certificates.map((cert) => (
@@ -1381,6 +1419,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                           <div className="min-w-0 flex-1">
                             <h4 className="text-sm font-medium truncate" style={headingFont}>{cert.title}</h4>
                             <p className="text-[10px] text-muted-foreground" style={headingFont}>
+                              {/* Date-locale gap, flagged not fixed — see the note on `memberSince` above. */}
                               {new Date(cert.issued_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
                             </p>
                           </div>
@@ -1395,7 +1434,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                 {!profile.bio && certificates.length === 0 && socialLinks.length === 0 && !(profile as any).workplace && !(profile as any).education && !(profile as any).current_city && (!profile.photography_interests || profile.photography_interests.length === 0) && (
                   <div className="border border-dashed border-border p-12 text-center">
                     <User className="h-8 w-8 text-muted-foreground/20 mx-auto mb-3" />
-                    <p className="text-xs text-muted-foreground" style={bodyFont}>No additional info available.</p>
+                    <p className="text-xs text-muted-foreground" style={bodyFont}>{t("pp.noAdditionalInfo")}</p>
                   </div>
                 )}
               </motion.div>
@@ -1433,7 +1472,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                   className="mt-6 text-[10px] tracking-[0.2em] uppercase text-muted-foreground hover:text-primary transition-colors duration-300"
                   style={headingFont}
                 >
-                  Close
+                  {t("common.close")}
                 </button>
               </div>
             </motion.div>
@@ -1444,7 +1483,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
       {/* Footer */}
       <div className="container mx-auto max-w-7xl py-4 md:py-8 text-center">
         <Link to="/" className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground hover:text-primary transition-colors duration-500" style={headingFont}>
-          ← Back to 50mm Retina World
+          {t("pp.backToSite")}
         </Link>
       </div>
         </>

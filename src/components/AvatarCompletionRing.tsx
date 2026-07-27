@@ -2,6 +2,7 @@ import { calcProfileCompletion } from "@/lib/profileCompletion";
 import { useMemo, useState } from "react";
 import { User, Edit2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useT } from "@/i18n/I18nContext";
 
 interface Props {
   profile: Record<string, any>;
@@ -11,6 +12,7 @@ interface Props {
 }
 
 const AvatarCompletionRing = ({ profile, avatarUrl, displayName, size = 160 }: Props) => {
+  const t = useT();
   const [hovered, setHovered] = useState(false);
   const { total, sections } = useMemo(() => calcProfileCompletion(profile), [profile]);
 
@@ -107,13 +109,13 @@ const AvatarCompletionRing = ({ profile, avatarUrl, displayName, size = 160 }: P
             className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground mb-2"
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            Complete your profile
+            {t("prof.completeYourProfile")}
           </p>
           <ul className="space-y-1 mb-2.5">
             {missing.map((m) => (
               <li key={m.label} className="text-xs text-muted-foreground flex items-center gap-1.5">
                 <span className="h-1 w-1 rounded-full bg-muted-foreground/40 flex-shrink-0" />
-                {m.label}
+                {t(m.labelKey, m.label)}
               </li>
             ))}
           </ul>
@@ -123,7 +125,7 @@ const AvatarCompletionRing = ({ profile, avatarUrl, displayName, size = 160 }: P
             style={{ fontFamily: "var(--font-heading)" }}
           >
             <Edit2 className="h-3 w-3" />
-            Complete Now
+            {t("pc.completeNow")}
           </Link>
         </div>
       )}

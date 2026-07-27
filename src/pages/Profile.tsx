@@ -55,9 +55,9 @@ const Profile = () => {
     });
     setSendingReset(false);
     if (error) {
-      toast({ title: "Failed to send reset email", description: error.message, variant: "destructive" });
+      toast({ title: t("ep.resetFailed"), description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Password reset email sent", description: "Check your inbox for the reset link." });
+      toast({ title: t("ep.resetSent"), description: t("ep.checkInbox") });
     }
   };
   if (authLoading || loading) {
@@ -70,8 +70,11 @@ const Profile = () => {
     );
   }
 
-  const displayName = profile?.full_name || "Photographer";
+  const displayName = profile?.full_name || t("prof.photographerFallback");
   const avatarUrl = profile?.avatar_url || null;
+  // NOTE: toLocaleDateString is pinned to "en-US", so the month name renders in
+  // English in all seven languages. Flagged, not changed — switching to the
+  // active language is a separate decision (see the date-locale audit item).
   const memberSince = profile?.created_at
     ? new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })
     : null;
@@ -83,7 +86,7 @@ const Profile = () => {
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(profileUrl);
     setCopied(true);
-    toast({ title: "Profile URL copied!" });
+    toast({ title: t("prof.urlCopied") });
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -114,7 +117,7 @@ const Profile = () => {
           </div>
           {memberSince && (
             <p className="text-[11px] text-muted-foreground mt-0.5" style={{ fontFamily: "var(--font-body)" }}>
-              Member since {memberSince}
+              {t("prof.memberSince").replace("{t}", memberSince)}
             </p>
           )}
           {profile?.bio && (
@@ -127,10 +130,10 @@ const Profile = () => {
         {/* Action buttons row */}
         <div className="px-4 pb-3 flex gap-2">
           <Link to="/edit-profile" className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium py-2 bg-muted/60 border border-border rounded-lg transition-colors" style={{ fontFamily: "var(--font-heading)" }}>
-            <Edit2 className="h-3 w-3" /> Edit Profile
+            <Edit2 className="h-3 w-3" /> {t("menu.editProfile")}
           </Link>
           <Link to={(profile as any)?.custom_url ? `/${(profile as any).custom_url}?section=wall` : `/profile/${user?.id}?section=wall`} className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium py-2 bg-muted/60 border border-border rounded-lg transition-colors" style={{ fontFamily: "var(--font-heading)" }}>
-            <MessageSquare className="h-3 w-3" /> My Wall
+            <MessageSquare className="h-3 w-3" /> {t("prof.myWall")}
           </Link>
           <Link to="/friends" className="flex items-center justify-center gap-1.5 text-[11px] font-medium py-2 px-3 bg-muted/60 border border-border rounded-lg transition-colors" style={{ fontFamily: "var(--font-heading)" }}>
             <Users className="h-3 w-3" />
@@ -167,14 +170,14 @@ const Profile = () => {
           <div className="px-4 py-3 space-y-3">
             {/* Details card */}
             <div className="bg-card border border-border rounded-xl p-3 space-y-2.5">
-              <h3 className="text-xs font-semibold" style={{ fontFamily: "var(--font-heading)" }}>Details</h3>
+              <h3 className="text-xs font-semibold" style={{ fontFamily: "var(--font-heading)" }}>{t("cdet.details")}</h3>
 
               {user?.email && (
                 <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
                   <Mail className="h-3.5 w-3.5 flex-shrink-0" />
                   <span className="truncate" style={{ fontFamily: "var(--font-body)" }}>{user.email}</span>
                   <span className="text-[8px] uppercase px-1.5 py-0.5 border border-border rounded text-muted-foreground/50 ml-auto flex-shrink-0">
-                    <Lock className="h-2.5 w-2.5 inline mr-0.5" />Private
+                    <Lock className="h-2.5 w-2.5 inline mr-0.5" />{t("prof.private")}
                   </span>
                 </div>
               )}
@@ -203,7 +206,7 @@ const Profile = () => {
             {/* Bio card */}
             {profile?.bio && (
               <div className="bg-card border border-border rounded-xl p-3">
-                <h3 className="text-xs font-semibold mb-1.5" style={{ fontFamily: "var(--font-heading)" }}>Bio</h3>
+                <h3 className="text-xs font-semibold mb-1.5" style={{ fontFamily: "var(--font-heading)" }}>{t("ep.bio")}</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed" style={{ fontFamily: "var(--font-body)" }}>{profile.bio}</p>
               </div>
             )}
@@ -211,11 +214,11 @@ const Profile = () => {
             {/* Interests */}
             {profile?.photography_interests && profile.photography_interests.length > 0 && (
               <div className="bg-card border border-border rounded-xl p-3">
-                <h3 className="text-xs font-semibold mb-2" style={{ fontFamily: "var(--font-heading)" }}>Photography Interests</h3>
+                <h3 className="text-xs font-semibold mb-2" style={{ fontFamily: "var(--font-heading)" }}>{t("disc.interests")}</h3>
                 <div className="flex flex-wrap gap-1.5">
                   {profile.photography_interests.map(interest => (
                     <span key={interest} className="text-[10px] px-2.5 py-1 bg-muted/50 border border-border rounded-full text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                      {interest}
+                      {t(`onb.int.${interest.toLowerCase()}`, interest)}
                     </span>
                   ))}
                 </div>
@@ -228,7 +231,7 @@ const Profile = () => {
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <Share2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                   <span className="text-[10px] text-muted-foreground truncate" style={{ fontFamily: "var(--font-heading)" }}>
-                    {(profile as any)?.custom_url ? `50mmretina.com/${(profile as any).custom_url}` : "Public Profile"}
+                    {(profile as any)?.custom_url ? `50mmretina.com/${(profile as any).custom_url}` : t("prof.publicProfile")}
                   </span>
                 </div>
                 <Link
@@ -236,7 +239,7 @@ const Profile = () => {
                   className="text-[10px] text-primary font-medium flex-shrink-0 ml-2"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  View <ExternalLink className="h-2.5 w-2.5 inline ml-0.5" />
+                  {t("prof.view")} <ExternalLink className="h-2.5 w-2.5 inline ml-0.5" />
                 </Link>
               </div>
             </div>
@@ -246,10 +249,10 @@ const Profile = () => {
               <div className="bg-card border border-border rounded-xl p-6 text-center">
                 <Camera className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
                 <p className="text-xs text-muted-foreground mb-3" style={{ fontFamily: "var(--font-body)" }}>
-                  Complete your profile to let others know about your work.
+                  {t("prof.completeHint")}
                 </p>
                 <Link to="/edit-profile" className="inline-flex items-center gap-1.5 text-[11px] font-medium px-4 py-2 bg-primary text-primary-foreground rounded-lg" style={{ fontFamily: "var(--font-heading)" }}>
-                  <Edit2 className="h-3 w-3" /> Complete Profile
+                  <Edit2 className="h-3 w-3" /> {t("prof.completeProfile")}
                 </Link>
               </div>
             )}
@@ -260,18 +263,18 @@ const Profile = () => {
           <div className="px-4 py-3 space-y-3">
             {/* Email card */}
             <div className="bg-card border border-border rounded-xl p-3">
-              <h3 className="text-xs font-semibold mb-2" style={{ fontFamily: "var(--font-heading)" }}>Email Address</h3>
+              <h3 className="text-xs font-semibold mb-2" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.emailAddress")}</h3>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Mail className="h-3.5 w-3.5" />
                 <span style={{ fontFamily: "var(--font-body)" }}>{user?.email}</span>
               </div>
-              <p className="text-[10px] text-muted-foreground/60 mt-1" style={{ fontFamily: "var(--font-heading)" }}>Cannot be changed</p>
+              <p className="text-[10px] text-muted-foreground/60 mt-1" style={{ fontFamily: "var(--font-heading)" }}>{t("prof.cannotChange")}</p>
             </div>
             {/* Password card */}
             <div className="bg-card border border-border rounded-xl p-3">
-              <h3 className="text-xs font-semibold mb-1.5" style={{ fontFamily: "var(--font-heading)" }}>Password</h3>
+              <h3 className="text-xs font-semibold mb-1.5" style={{ fontFamily: "var(--font-heading)" }}>{t("auth.password")}</h3>
               <p className="text-[10px] text-muted-foreground mb-2.5" style={{ fontFamily: "var(--font-body)" }}>
-                We'll send a password reset link to your email.
+                {t("prof.resetHintShort")}
               </p>
               <button
                 onClick={handlePasswordReset}
@@ -280,7 +283,7 @@ const Profile = () => {
                 style={{ fontFamily: "var(--font-heading)" }}
               >
                 <KeyRound className="h-3 w-3" />
-                {sendingReset ? "Sending…" : "Send Reset Link"}
+                {sendingReset ? t("ep.sending") : t("ep.sendResetLink")}
               </button>
             </div>
           </div>
@@ -321,7 +324,7 @@ const Profile = () => {
               <div className="text-center md:text-left flex-1 min-w-0">
                 <div className="flex items-center gap-4 mb-2 justify-center md:justify-start">
                   <div className="w-12 h-px bg-primary hidden md:block" />
-                  <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>Profile</span>
+                  <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>{t("nav.profile")}</span>
                 </div>
                 <div className="mb-3">
                   <UserIdentityBlock
@@ -334,7 +337,7 @@ const Profile = () => {
                 <div className="space-y-2">
                   {memberSince && (
                     <div className="flex items-center gap-2 justify-center md:justify-start text-[10px] tracking-[0.15em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                      <span>Member since {memberSince}</span>
+                      <span>{t("prof.memberSince").replace("{t}", memberSince)}</span>
                     </div>
                   )}
                   {user?.email && (
@@ -342,7 +345,7 @@ const Profile = () => {
                       <Mail className="h-3 w-3" />
                       <span>{user.email}</span>
                       <span className="inline-flex items-center gap-1 text-[8px] tracking-[0.15em] uppercase px-2 py-0.5 border border-border text-muted-foreground/50 rounded-sm">
-                        <Lock className="h-2.5 w-2.5" />Private
+                        <Lock className="h-2.5 w-2.5" />{t("prof.private")}
                       </span>
                     </div>
                   )}
@@ -352,13 +355,13 @@ const Profile = () => {
 
             <div className="flex flex-wrap gap-3 justify-center md:justify-start w-full">
               <Link to="/edit-profile" className="inline-flex items-center gap-2 text-xs tracking-[0.15em] uppercase px-5 py-2.5 border border-border hover:border-primary hover:text-primary transition-all duration-500" style={{ fontFamily: "var(--font-heading)" }}>
-                <Edit2 className="h-3 w-3" /> Edit Profile
+                <Edit2 className="h-3 w-3" /> {t("menu.editProfile")}
               </Link>
               <Link to={(profile as any)?.custom_url ? `/${(profile as any).custom_url}?section=wall` : `/profile/${user?.id}?section=wall`} className="inline-flex items-center gap-2 text-xs tracking-[0.15em] uppercase px-5 py-2.5 border border-border hover:border-primary hover:text-primary transition-all duration-500" style={{ fontFamily: "var(--font-heading)" }}>
-                <MessageSquare className="h-3 w-3" /> My Wall
+                <MessageSquare className="h-3 w-3" /> {t("prof.myWall")}
               </Link>
               <Link to="/friends" className="inline-flex items-center gap-2 text-xs tracking-[0.15em] uppercase px-5 py-2.5 border border-border hover:border-primary hover:text-primary transition-all duration-500" style={{ fontFamily: "var(--font-heading)" }}>
-                <Users className="h-3 w-3" /> Friends
+                <Users className="h-3 w-3" /> {t("menu.friends")}
               </Link>
             </div>
 
@@ -368,19 +371,19 @@ const Profile = () => {
                 <span className="text-[10px] tracking-[0.1em] text-muted-foreground truncate" style={{ fontFamily: "var(--font-heading)" }}>
                   {(profile as any)?.custom_url ? `50mmretina.com/${(profile as any).custom_url}` : `${window.location.origin}/profile/${user?.id}`}
                 </span>
-                <button onClick={handleCopyUrl} className="flex-shrink-0 p-1 hover:text-primary transition-colors duration-300" title="Copy profile URL">
+                <button onClick={handleCopyUrl} className="flex-shrink-0 p-1 hover:text-primary transition-colors duration-300" title={t("prof.copyUrlTitle")}>
                   {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
                 </button>
               </div>
               <Link to={(profile as any)?.custom_url ? `/${(profile as any).custom_url}` : `/profile/${user?.id}`} className="inline-flex items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase text-primary hover:underline transition-all duration-300" style={{ fontFamily: "var(--font-heading)" }}>
-                <ExternalLink className="h-3 w-3" />View Public Profile
+                <ExternalLink className="h-3 w-3" />{t("prof.viewPublicProfile")}
               </Link>
             </div>
           </div>
 
           {profile?.city && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.8 }} className="mb-12">
-              <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>Location</span>
+              <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>{t("prof.location")}</span>
               <p className="text-sm text-muted-foreground flex items-center gap-2" style={{ fontFamily: "var(--font-body)" }}>
                 <MapPin className="h-3.5 w-3.5" />{[profile.city, profile.state, profile.country].filter(Boolean).join(", ")}
               </p>
@@ -389,7 +392,7 @@ const Profile = () => {
 
           {profile?.phone && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25, duration: 0.8 }} className="mb-12">
-              <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>Contact</span>
+              <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>{t("prof.contact")}</span>
               <p className="text-sm text-muted-foreground flex items-center gap-2" style={{ fontFamily: "var(--font-body)" }}>
                 <Phone className="h-3.5 w-3.5" /> {profile.phone}
               </p>
@@ -398,14 +401,14 @@ const Profile = () => {
 
           {profile?.bio && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.8 }} className="mb-12">
-              <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>About</span>
+              <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>{t("profile.about")}</span>
               <p className="text-sm text-muted-foreground leading-relaxed max-w-xl" style={{ fontFamily: "var(--font-body)" }}>{profile.bio}</p>
             </motion.div>
           )}
 
           {profile?.portfolio_url && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3, duration: 0.8 }} className="mb-12">
-              <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>Portfolio</span>
+              <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>{t("prof.portfolio")}</span>
               <a href={profile.portfolio_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-primary hover:underline transition-all duration-500" style={{ fontFamily: "var(--font-body)" }}>
                 <Globe className="h-3.5 w-3.5" />{profile.portfolio_url.replace(/^https?:\/\//, "")}<ExternalLink className="h-3 w-3 opacity-50" />
               </a>
@@ -414,11 +417,11 @@ const Profile = () => {
 
           {profile?.photography_interests && profile.photography_interests.length > 0 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.8 }} className="mb-12">
-              <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>Photography Interests</span>
+              <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>{t("disc.interests")}</span>
               <div className="flex flex-wrap gap-2">
                 {profile.photography_interests.map((interest) => (
                   <span key={interest} className="text-[11px] tracking-[0.1em] px-4 py-2 border border-border text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                    {interest}
+                    {t(`onb.int.${interest.toLowerCase()}`, interest)}
                   </span>
                 ))}
               </div>
@@ -426,20 +429,20 @@ const Profile = () => {
           )}
 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5, duration: 0.8 }} className="mb-12 border border-border p-8">
-            <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-6" style={{ fontFamily: "var(--font-heading)" }}>Account Settings</span>
+            <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-6" style={{ fontFamily: "var(--font-heading)" }}>{t("ep.accountSettings")}</span>
             <div className="mb-6">
-              <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground block mb-2" style={{ fontFamily: "var(--font-heading)" }}>Email Address</span>
+              <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground block mb-2" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.emailAddress")}</span>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Mail className="h-3.5 w-3.5" />
                 <span style={{ fontFamily: "var(--font-body)" }}>{user?.email}</span>
-                <span className="text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 border border-border text-muted-foreground/60 ml-2" style={{ fontFamily: "var(--font-heading)" }}>Cannot be changed</span>
+                <span className="text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 border border-border text-muted-foreground/60 ml-2" style={{ fontFamily: "var(--font-heading)" }}>{t("prof.cannotChange")}</span>
               </div>
             </div>
             <div>
-              <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground block mb-2" style={{ fontFamily: "var(--font-heading)" }}>Password</span>
-              <p className="text-xs text-muted-foreground mb-3" style={{ fontFamily: "var(--font-body)" }}>We'll send a password reset link to your email address.</p>
+              <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground block mb-2" style={{ fontFamily: "var(--font-heading)" }}>{t("auth.password")}</span>
+              <p className="text-xs text-muted-foreground mb-3" style={{ fontFamily: "var(--font-body)" }}>{t("ep.resetHint")}</p>
               <button onClick={handlePasswordReset} disabled={sendingReset} className="inline-flex items-center gap-2 text-xs tracking-[0.15em] uppercase px-5 py-2.5 border border-border hover:border-primary hover:text-primary transition-all duration-500 disabled:opacity-50" style={{ fontFamily: "var(--font-heading)" }}>
-                <KeyRound className="h-3 w-3" />{sendingReset ? "Sending…" : "Send Reset Link"}
+                <KeyRound className="h-3 w-3" />{sendingReset ? t("ep.sending") : t("ep.sendResetLink")}
               </button>
             </div>
           </motion.div>
@@ -447,9 +450,9 @@ const Profile = () => {
           {!profile?.bio && !profile?.portfolio_url && (!profile?.photography_interests || profile.photography_interests.length === 0) && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.8 }} className="border border-border p-10 text-center">
               <Camera className="h-8 w-8 text-muted-foreground/30 mx-auto mb-4" />
-              <p className="text-sm text-muted-foreground mb-4" style={{ fontFamily: "var(--font-body)" }}>Your profile is looking a little empty. Add a bio, portfolio, and interests to let others know about your work.</p>
+              <p className="text-sm text-muted-foreground mb-4" style={{ fontFamily: "var(--font-body)" }}>{t("prof.emptyDesktop")}</p>
               <Link to="/edit-profile" className="inline-flex items-center gap-2 text-xs tracking-[0.15em] uppercase px-6 py-3 bg-primary text-primary-foreground hover:opacity-90 transition-opacity duration-500" style={{ fontFamily: "var(--font-heading)" }}>
-                <Edit2 className="h-3 w-3" /> Complete Your Profile
+                <Edit2 className="h-3 w-3" /> {t("prof.completeYourProfile")}
               </Link>
             </motion.div>
           )}

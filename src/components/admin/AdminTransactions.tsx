@@ -447,35 +447,35 @@ ${filtered.map(t => `<tr>
             <p className="text-sm text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>{t("at.noTxns")}</p>
           </div>
         ) : (
-          filtered.slice(0, 500).map(t => (
-            <div key={t.id} className="grid grid-cols-1 md:grid-cols-[1fr_0.9fr_1.1fr_0.9fr_0.7fr_0.7fr_1.1fr_0.7fr] gap-1 md:gap-2 px-4 py-3 hover:bg-muted/20 transition-colors duration-200">
+          filtered.slice(0, 500).map(txn => (
+            <div key={txn.id} className="grid grid-cols-1 md:grid-cols-[1fr_0.9fr_1.1fr_0.9fr_0.7fr_0.7fr_1.1fr_0.7fr] gap-1 md:gap-2 px-4 py-3 hover:bg-muted/20 transition-colors duration-200">
               <span className="text-[11px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                {new Date(t.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
-                <span className="block text-[9px] opacity-60">{new Date(t.created_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
+                {new Date(txn.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                <span className="block text-[9px] opacity-60">{new Date(txn.created_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
               </span>
-              <span className="text-[10px] font-mono text-muted-foreground truncate" style={{ fontFamily: "var(--font-heading)" }} title={t.order_no || ""}>
-                {t.order_no || <span className="opacity-40">—</span>}
+              <span className="text-[10px] font-mono text-muted-foreground truncate" style={{ fontFamily: "var(--font-heading)" }} title={txn.order_no || ""}>
+                {txn.order_no || <span className="opacity-40">—</span>}
               </span>
               <span className="text-[11px] truncate" style={{ fontFamily: "var(--font-body)" }}>
-                {t.user_name || <span className="text-muted-foreground">{t.user_id.slice(0, 12)}…</span>}
+                {txn.user_name || <span className="text-muted-foreground">{txn.user_id.slice(0, 12)}…</span>}
               </span>
               <span className="text-[11px] flex items-center gap-1.5" style={{ fontFamily: "var(--font-heading)" }}>
-                {creditTypes.includes(t.type)
+                {creditTypes.includes(txn.type)
                   ? <ArrowDownLeft className="h-3 w-3 text-primary shrink-0" />
                   : <ArrowUpRight className="h-3 w-3 text-destructive shrink-0" />}
-                {txnTypeLabel[t.type] || t.type}
+                {txnTypeLabel[txn.type] || txn.type}
               </span>
-              <span className={cn("text-[11px] font-medium", Number(t.amount) >= 0 ? "text-primary" : "text-destructive")} style={{ fontFamily: "var(--font-heading)" }}>
-                {Number(t.amount) >= 0 ? "+" : ""}{formatUSDFixed(Number(t.amount))}
+              <span className={cn("text-[11px] font-medium", Number(txn.amount) >= 0 ? "text-primary" : "text-destructive")} style={{ fontFamily: "var(--font-heading)" }}>
+                {Number(txn.amount) >= 0 ? "+" : ""}{formatUSDFixed(Number(txn.amount))}
               </span>
               <span className="text-[11px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                {formatUSDFixed(Number(t.balance_after))}
+                {formatUSDFixed(Number(txn.balance_after))}
               </span>
               <span className="text-[10px] text-muted-foreground truncate" style={{ fontFamily: "var(--font-body)" }}>
-                {t.description || "—"}
+                {txn.description || "—"}
               </span>
               <span className="text-[10px] flex items-center gap-1">
-                {t.status === "pending" ? (
+                {txn.status === "pending" ? (
                   <span className="flex items-center gap-1.5">
                     <span className="px-1.5 py-0.5 border border-yellow-500/40 text-yellow-600 bg-yellow-500/5 rounded-sm text-[9px]">{t("fr.pending")}</span>
                     <button
@@ -483,17 +483,17 @@ ${filtered.map(t => `<tr>
                         try {
                           const { data: result, error: rpcErr } = await supabase.rpc("approve_deposit" as any, {
                             _admin_id: user?.id,
-                            _txn_id: t.id,
+                            _txn_id: txn.id,
                           });
                           if (rpcErr) throw rpcErr;
                           // Notify user via Edge Function
                           await supabase.functions.invoke("manage-notifications", {
                             body: {
                               action: "insert_user_notification",
-                              targetUserId: t.user_id,
+                              targetUserId: txn.user_id,
                               type: "deposit_approved",
                               title: "Deposit Approved",
-                              message: `Your deposit of ${formatUSDFixed(Number(t.amount))} has been approved and credited to your wallet.`,
+                              message: `Your deposit of ${formatUSDFixed(Number(txn.amount))} has been approved and credited to your wallet.`,
                             },
                           });
                           toast({ title: t("at.depositApproved") });
@@ -511,7 +511,7 @@ ${filtered.map(t => `<tr>
                         try {
                           const { error: rejectError } = await supabase.rpc("admin_reject_wallet_transaction", {
                             _admin_id: user?.id,
-                            _txn_id: t.id,
+                            _txn_id: txn.id,
                             _reason: null,
                           });
                           if (rejectError) throw rejectError;
@@ -519,10 +519,10 @@ ${filtered.map(t => `<tr>
                           await supabase.functions.invoke("manage-notifications", {
                             body: {
                               action: "insert_user_notification",
-                              targetUserId: t.user_id,
+                              targetUserId: txn.user_id,
                               type: "deposit_rejected",
                               title: "Deposit Rejected",
-                              message: `Your deposit request of ${formatUSDFixed(Number(t.amount))} was rejected. Please contact support for details.`,
+                              message: `Your deposit request of ${formatUSDFixed(Number(txn.amount))} was rejected. Please contact support for details.`,
                             },
                           });
                           toast({ title: t("at.depositRejected") });
@@ -536,12 +536,12 @@ ${filtered.map(t => `<tr>
                       <XCircle className="h-3.5 w-3.5 text-destructive" />
                     </button>
                   </span>
-                ) : t.status === "rejected" ? (
+                ) : txn.status === "rejected" ? (
                   <span className="px-1.5 py-0.5 border border-destructive/40 text-destructive bg-destructive/5 rounded-sm text-[9px]">{t("dash.status.rejected")}</span>
-                ) : t.status === "approved" ? (
+                ) : txn.status === "approved" ? (
                   <span className="px-1.5 py-0.5 border border-primary/40 text-primary bg-primary/5 rounded-sm text-[9px]">{t("dash.status.approved")}</span>
                 ) : (
-                  <span className="text-muted-foreground text-[9px]">{t.status}</span>
+                  <span className="text-muted-foreground text-[9px]">{txn.status}</span>
                 )}
               </span>
             </div>

@@ -2,6 +2,7 @@ import { calcProfileCompletion } from "@/lib/profileCompletion";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle2, Circle, Info } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useT } from "@/i18n/I18nContext";
 
 interface Props {
   profile: Record<string, any>;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 const ProfileCompletionBar = ({ profile, className = "" }: Props) => {
+  const t = useT();
   const { total, sections } = calcProfileCompletion(profile);
 
   const color =
@@ -26,13 +28,13 @@ const ProfileCompletionBar = ({ profile, className = "" }: Props) => {
           className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground flex items-center gap-1.5"
           style={{ fontFamily: "var(--font-heading)" }}
         >
-          Profile Completion
+          {t("pc.title")}
           <Popover>
             <PopoverTrigger asChild>
               <button
                 type="button"
                 className="text-muted-foreground hover:text-primary transition-colors"
-                aria-label="Show completion details"
+                aria-label={t("pc.showDetails")}
               >
                 <Info className="h-3.5 w-3.5" />
               </button>
@@ -40,12 +42,12 @@ const ProfileCompletionBar = ({ profile, className = "" }: Props) => {
             <PopoverContent side="bottom" align="start" className="w-64 p-3 text-xs space-y-1.5">
               {total === 100 ? (
                 <p className="text-green-500 font-medium" style={{ fontFamily: "var(--font-body)" }}>
-                  🎉 Your profile is 100% complete!
+                  {t("pc.allDone")}
                 </p>
               ) : (
                 <>
                   <p className="text-muted-foreground mb-2" style={{ fontFamily: "var(--font-body)" }}>
-                    Complete these to reach 100%:
+                    {t("pc.completeThese")}
                   </p>
                   {sections.map((s) => (
                     <div key={s.label} className="flex items-center gap-1.5 text-muted-foreground">
@@ -54,7 +56,7 @@ const ProfileCompletionBar = ({ profile, className = "" }: Props) => {
                       ) : (
                         <Circle className="h-3 w-3 text-muted-foreground/30 flex-shrink-0" />
                       )}
-                      <span style={{ fontFamily: "var(--font-body)" }}>{s.label} ({s.percentage}%)</span>
+                      <span style={{ fontFamily: "var(--font-body)" }}>{t(s.labelKey, s.label)} ({s.percentage}%)</span>
                     </div>
                   ))}
                 </>

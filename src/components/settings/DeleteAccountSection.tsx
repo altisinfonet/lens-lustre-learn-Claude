@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
+import { useT } from "@/i18n/I18nContext";
 
 /**
  * Self-serve permanent account deletion. Any signed-in user can irreversibly
@@ -16,9 +17,15 @@ import {
  * competition entries, comments, stories, wallet, etc.). Calls the
  * `delete-my-account` edge function, which only ever acts on the caller's own id.
  */
+// NOT translated, deliberately: this is the token the user must TYPE. It is
+// compared against their input via `confirmText.trim().toUpperCase() ===
+// CONFIRM_WORD`, so it must stay the Latin literal "DELETE" in every language —
+// translating it would change what the user has to type. Only the surrounding
+// instruction text is translated.
 const CONFIRM_WORD = "DELETE";
 
 const DeleteAccountSection = () => {
+  const t = useT();
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const [open, setOpen] = useState(false);
@@ -34,16 +41,16 @@ const DeleteAccountSection = () => {
       const { data, error } = await supabase.functions.invoke("delete-my-account");
       const errMsg = error?.message || (data as { error?: string } | null)?.error;
       if (errMsg) {
-        toast({ title: "Could not delete account", description: errMsg, variant: "destructive" });
+        toast({ title: t("dsa.failed"), description: errMsg, variant: "destructive" });
         setLoading(false);
         return;
       }
-      toast({ title: "Account deleted", description: "Your account and all data have been permanently removed." });
+      toast({ title: t("dsa.deleted"), description: t("dsa.deletedDesc") });
       // Clear the session locally and leave the app.
       try { await signOut(); } catch { /* session already gone with the user row */ }
       navigate("/", { replace: true });
     } catch (e) {
-      toast({ title: "Could not delete account", description: (e as Error).message, variant: "destructive" });
+      toast({ title: t("dsa.failed"), description: (e as Error).message, variant: "destructive" });
       setLoading(false);
     }
   };
@@ -54,16 +61,14 @@ const DeleteAccountSection = () => {
         className="text-[9px] tracking-[0.3em] uppercase text-destructive block mb-3 flex items-center gap-1.5"
         style={{ fontFamily: "var(--font-heading)" }}
       >
-        <AlertTriangle className="h-3 w-3" /> Danger Zone
+        <AlertTriangle className="h-3 w-3" /> {t("dsa.dangerZone")}
       </span>
 
       <p className="text-xs text-muted-foreground leading-relaxed mb-1" style={{ fontFamily: "var(--font-body)" }}>
-        Permanently delete your account and everything in it — your profile, photos, posts,
-        stories, comments, competition entries, and wallet.
+        {t("dsa.intro")}
       </p>
       <p className="text-[11px] text-destructive/80 leading-relaxed mb-4" style={{ fontFamily: "var(--font-body)" }}>
-        This cannot be undone. If you have an active wallet balance or an in-progress competition,
-        withdraw or resolve it first — deletion forfeits it.
+        {t("dsa.warning")}
       </p>
 
       <button
@@ -71,19 +76,23 @@ const DeleteAccountSection = () => {
         className="inline-flex items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase px-3 py-2 border border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all duration-500"
         style={{ fontFamily: "var(--font-heading)" }}
       >
-        <Trash2 className="h-3 w-3" /> Delete My Account
+        <Trash2 className="h-3 w-3" /> {t("dsa.deleteMyAccount")}
       </button>
 
       <Dialog open={open} onOpenChange={(v) => { if (!loading) setOpen(v); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive" style={{ fontFamily: "var(--font-heading)" }}>
-              <AlertTriangle className="h-4 w-4" /> Delete account permanently?
+              <AlertTriangle className="h-4 w-4" /> {t("dsa.dialogTitle")}
             </DialogTitle>
             <DialogDescription className="text-xs leading-relaxed pt-1" style={{ fontFamily: "var(--font-body)" }}>
-              This will <strong>permanently erase</strong> your profile, all your photos and posts,
-              stories, comments, likes, competition entries, certificates and wallet. It cannot be
-              undone and support cannot recover it.
+              {/* `dsa.dialogDesc` embeds a {t} placeholder because the emphasised
+                  verb phrase sits at different positions in different languages;
+                  splitting on it keeps the <strong> around the right words. */}
+              {(() => {
+                const [before, after = ""] = t("dsa.dialogDesc").split("{t}");
+                return (<>{before}<strong>{t("dsa.permanentlyErase")}</strong>{after}</>);
+              })()}
             </DialogDescription>
           </DialogHeader>
 
@@ -92,7 +101,10 @@ const DeleteAccountSection = () => {
               className="block text-[9px] tracking-[0.2em] uppercase text-muted-foreground mb-1.5"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              Type <span className="text-destructive font-semibold">{CONFIRM_WORD}</span> to confirm
+              {(() => {
+                const [before, after = ""] = t("dsa.typeToConfirm").split("{t}");
+                return (<>{before}<span className="text-destructive font-semibold">{CONFIRM_WORD}</span>{after}</>);
+              })()}
             </label>
             <Input
               value={confirmText}
@@ -101,7 +113,7 @@ const DeleteAccountSection = () => {
               autoFocus
               disabled={loading}
               className="bg-transparent text-sm"
-              aria-label="Type DELETE to confirm account deletion"
+              aria-label={t("dsa.ariaConfirm").replace("{t}", CONFIRM_WORD)}
             />
           </div>
 
@@ -113,7 +125,7 @@ const DeleteAccountSection = () => {
               className="text-[10px] tracking-[0.1em] uppercase h-9"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               onClick={handleDelete}
@@ -122,7 +134,7 @@ const DeleteAccountSection = () => {
               style={{ fontFamily: "var(--font-heading)" }}
             >
               {loading ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : <Trash2 className="h-3 w-3 mr-1.5" />}
-              {loading ? "Deleting…" : "Delete Forever"}
+              {loading ? t("dsa.deleting") : t("dsa.deleteForever")}
             </Button>
           </DialogFooter>
         </DialogContent>

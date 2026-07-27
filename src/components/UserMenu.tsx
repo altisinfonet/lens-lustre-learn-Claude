@@ -47,9 +47,11 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
 
   if (!user) return null;
 
-  const fullName = profileCore?.full_name || "Photographer";
-  const initials = fullName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
-
+  // NOTE: `roleBadge` is assigned here but is not referenced anywhere in this
+  // file's JSX — it is dead code. Its five Badge labels ("Admin", "Judge",
+  // "Photographer", "Student", "Guest") are therefore NOT translated: adding
+  // dictionary keys for strings that have no render site would be dead weight.
+  // Flagged, not removed — deleting it is a separate decision.
   const roleBadge = hasRole("admin") ? (
     <Badge variant="default" className="text-[9px] px-1.5 py-0">Admin</Badge>
   ) : hasRole("judge") ? (
@@ -65,7 +67,18 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
   const handleNav = (to: string) => { setOpen(false); onNavigate?.(); navigate(to); };
   const handleLogout = async () => { setOpen(false); onNavigate?.(); await signOut(); navigate("/"); };
 
+  // NOTE: useT() is called here, AFTER the early `if (!user) return null;`
+  // above. That is a pre-existing violation of the React rules of hooks
+  // (a hook called conditionally). Flagged, not moved — reordering hooks
+  // changes render behaviour and is a separate decision.
   const t = useT();
+
+  // Moved down from above the early return so that `t` is in scope for the
+  // fallback display name. Behaviour is unchanged: neither value is read
+  // between the early return and this point.
+  const fullName = profileCore?.full_name || t("prof.photographerFallback");
+  const initials = fullName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+
   const MENU_LABEL_KEYS: Record<string, string> = {
     "Admin Panel": "menu.adminPanel", "Judge Panel": "menu.judgePanel", "Profile": "nav.profile",
     "Edit Profile": "menu.editProfile", "Dashboard": "menu.dashboard", "My Submissions": "menu.mySubmissions",
@@ -83,69 +96,69 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
     {
       title: "Admin",
       items: [
-        { icon: Shield, label: "Admin Panel", to: "/admin", show: true, tooltip: "Manage the platform" },
-        { icon: Scale, label: "Judge Panel", to: "/judge", show: true, tooltip: "Review entries" },
+        { icon: Shield, label: "Admin Panel", to: "/admin", show: true, tooltip: t("menu.tip.adminPanel") },
+        { icon: Scale, label: "Judge Panel", to: "/judge", show: true, tooltip: t("menu.tip.judgePanel") },
       ],
     },
     {
       title: "Account",
       items: [
-        { icon: User, label: "Profile", to: "/profile", show: true, tooltip: "View your profile" },
-        { icon: Edit2, label: "Edit Profile", to: "/edit-profile", show: true, tooltip: "Update your info" },
-        { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard?tab=overview", show: true, tooltip: "Your home base" },
-        { icon: ImageIcon, label: "My Submissions", to: "/dashboard?tab=submissions", show: true, tooltip: "Competition entries" },
-        { icon: Trophy, label: "Competitions", to: "/competitions", show: true, tooltip: "Browse & enter" },
-        { icon: HelpCircle, label: "Help & Support", to: "/help-support", show: true, tooltip: "Get assistance" },
+        { icon: User, label: "Profile", to: "/profile", show: true, tooltip: t("menu.tip.profile") },
+        { icon: Edit2, label: "Edit Profile", to: "/edit-profile", show: true, tooltip: t("menu.tip.editProfile") },
+        { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard?tab=overview", show: true, tooltip: t("menu.tip.dashboard") },
+        { icon: ImageIcon, label: "My Submissions", to: "/dashboard?tab=submissions", show: true, tooltip: t("menu.tip.mySubmissions") },
+        { icon: Trophy, label: "Competitions", to: "/competitions", show: true, tooltip: t("menu.tip.competitions") },
+        { icon: HelpCircle, label: "Help & Support", to: "/help-support", show: true, tooltip: t("menu.tip.helpSupport") },
       ],
     },
   ] : [
     ...(hasRole("judge") ? [{
       title: "Judge",
       items: [
-        { icon: Scale, label: "Judge Panel", to: "/judge", show: true, tooltip: "Review & score entries" },
+        { icon: Scale, label: "Judge Panel", to: "/judge", show: true, tooltip: t("menu.tip.judgeScore") },
       ],
     }] : []),
     {
       title: "Main",
       items: [
-        { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard", show: true, tooltip: "Your home base" },
-        { icon: Rss, label: "Feed", to: "/feed", show: true, tooltip: "Latest updates" },
-        { icon: Compass, label: "Discover", to: "/discover", show: true, tooltip: "Find photographers" },
+        { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard", show: true, tooltip: t("menu.tip.dashboard") },
+        { icon: Rss, label: "Feed", to: "/feed", show: true, tooltip: t("menu.tip.feed") },
+        { icon: Compass, label: "Discover", to: "/discover", show: true, tooltip: t("menu.tip.discover") },
       ],
     },
     {
       title: "My Content",
       items: [
-        { icon: ImageIcon, label: "My Submissions", to: "/dashboard?tab=submissions", show: true, tooltip: "Competition entries" },
-        { icon: MessageSquare, label: "My Wall", to: `/profile/${user.id}?section=wall`, show: true, tooltip: "Your posts & updates" },
-        { icon: Camera, label: "My Photos", to: "/photos", show: true, tooltip: "Your photo collection" },
-        { icon: Trophy, label: "Competitions", to: "/competitions", show: true, tooltip: "Browse & enter" },
-        { icon: Award, label: "My Certificates", to: "/certificates", show: true, tooltip: "Your achievements" },
+        { icon: ImageIcon, label: "My Submissions", to: "/dashboard?tab=submissions", show: true, tooltip: t("menu.tip.mySubmissions") },
+        { icon: MessageSquare, label: "My Wall", to: `/profile/${user.id}?section=wall`, show: true, tooltip: t("menu.tip.myWall") },
+        { icon: Camera, label: "My Photos", to: "/photos", show: true, tooltip: t("menu.tip.myPhotos") },
+        { icon: Trophy, label: "Competitions", to: "/competitions", show: true, tooltip: t("menu.tip.competitions") },
+        { icon: Award, label: "My Certificates", to: "/certificates", show: true, tooltip: t("menu.tip.myCertificates") },
       ],
     },
     {
       title: "Social",
       items: [
-        { icon: Users, label: "Friends", to: "/friends", show: true, tooltip: "Manage connections" },
-        { icon: UserPlus, label: "Referrals", to: "/referrals", show: true, tooltip: "Invite & earn" },
+        { icon: Users, label: "Friends", to: "/friends", show: true, tooltip: t("menu.tip.friends") },
+        { icon: UserPlus, label: "Referrals", to: "/referrals", show: true, tooltip: t("menu.tip.referrals") },
       ],
     },
     {
       title: "Account",
       items: [
-        { icon: User, label: "Profile", to: "/profile", show: true, tooltip: "View your profile" },
-        { icon: Edit2, label: "Edit Profile", to: "/edit-profile", show: true, tooltip: "Update your info" },
+        { icon: User, label: "Profile", to: "/profile", show: true, tooltip: t("menu.tip.profile") },
+        { icon: Edit2, label: "Edit Profile", to: "/edit-profile", show: true, tooltip: t("menu.tip.editProfile") },
         {
-          icon: Wallet, label: "Wallet", to: "/wallet", show: true, tooltip: "Balance & transactions",
+          icon: Wallet, label: "Wallet", to: "/wallet", show: true, tooltip: t("menu.tip.wallet"),
           extra: walletBalance !== null ? (
             <span className="ml-auto text-[10px] px-1.5 py-0.5 bg-primary/15 text-primary rounded-full" style={{ fontFamily: "var(--font-heading)" }}>
               {formatUSDFixed(Number(walletBalance))}
             </span>
           ) : null,
         },
-        { icon: Shield, label: "Admin Panel", to: "/admin", show: hasAdminPanelAccess, tooltip: "Open your assigned admin modules" },
-        { icon: Settings, label: "Settings", to: "/dashboard?tab=settings", show: true, tooltip: "Account settings" },
-        { icon: HelpCircle, label: "Help & Support", to: "/help-support", show: true, tooltip: "Get assistance" },
+        { icon: Shield, label: "Admin Panel", to: "/admin", show: hasAdminPanelAccess, tooltip: t("menu.tip.adminModules") },
+        { icon: Settings, label: "Settings", to: "/dashboard?tab=settings", show: true, tooltip: t("menu.tip.settings") },
+        { icon: HelpCircle, label: "Help & Support", to: "/help-support", show: true, tooltip: t("menu.tip.helpSupport") },
       ],
     },
   ];
@@ -208,7 +221,7 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className="flex items-center gap-2 rounded-full border border-border hover:border-primary transition-all duration-300 p-0.5 pr-3 cursor-pointer" aria-label="User menu">
+        <button className="flex items-center gap-2 rounded-full border border-border hover:border-primary transition-all duration-300 p-0.5 pr-3 cursor-pointer" aria-label={t("menu.ariaUserMenu")}>
           <Avatar className="h-8 w-8">
             <AvatarImage src={avatarUrl} alt={fullName} />
             <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">{initials}</AvatarFallback>

@@ -20,7 +20,11 @@ interface ProfileFields {
 }
 
 interface CompletionSection {
+  /** English label. Kept as the fallback passed to t(); never rendered alone. */
   label: string;
+  /** i18n key for `label`. This module is outside React, so it cannot call
+   *  t() itself — it returns the KEY and the render site resolves it. */
+  labelKey: string;
   percentage: number;
   completed: boolean;
 }
@@ -30,16 +34,16 @@ export function calcProfileCompletion(p: ProfileFields): {
   sections: CompletionSection[];
 } {
   const sections: CompletionSection[] = [
-    { label: "Profile Picture", percentage: 5, completed: !!p.avatar_url },
-    { label: "Full Name", percentage: 10, completed: !!p.full_name?.trim() },
-    { label: "Bio", percentage: 8, completed: !!p.bio?.trim() },
-    { label: "Portfolio URL", percentage: 5, completed: !!p.portfolio_url?.trim() },
-    { label: "Photography Interests", percentage: 7, completed: !!(p.photography_interests && p.photography_interests.length > 0) },
-    { label: "Social Media", percentage: 5, completed: !!(p.facebook_url || p.instagram_url || p.website_url) },
-    { label: "Address", percentage: 10, completed: !!(p.address_line1?.trim() && p.city?.trim() && p.state?.trim() && p.country?.trim()) },
-    { label: "Postal Code", percentage: 5, completed: !!p.postal_code?.trim() },
-    { label: "Phone Number", percentage: 15, completed: !!p.phone?.trim() },
-    { label: "WhatsApp Number", percentage: 10, completed: !!p.whatsapp?.trim() },
+    { label: "Profile Picture", labelKey: "pc.profilePicture", percentage: 5, completed: !!p.avatar_url },
+    { label: "Full Name", labelKey: "pc.fullName", percentage: 10, completed: !!p.full_name?.trim() },
+    { label: "Bio", labelKey: "pc.bio", percentage: 8, completed: !!p.bio?.trim() },
+    { label: "Portfolio URL", labelKey: "pc.portfolioUrl", percentage: 5, completed: !!p.portfolio_url?.trim() },
+    { label: "Photography Interests", labelKey: "pc.interests", percentage: 7, completed: !!(p.photography_interests && p.photography_interests.length > 0) },
+    { label: "Social Media", labelKey: "pc.socialMedia", percentage: 5, completed: !!(p.facebook_url || p.instagram_url || p.website_url) },
+    { label: "Address", labelKey: "pc.address", percentage: 10, completed: !!(p.address_line1?.trim() && p.city?.trim() && p.state?.trim() && p.country?.trim()) },
+    { label: "Postal Code", labelKey: "pc.postalCode", percentage: 5, completed: !!p.postal_code?.trim() },
+    { label: "Phone Number", labelKey: "pc.phoneNumber", percentage: 15, completed: !!p.phone?.trim() },
+    { label: "WhatsApp Number", labelKey: "pc.whatsapp", percentage: 10, completed: !!p.whatsapp?.trim() },
   ];
 
   const total = sections.reduce((sum, s) => sum + (s.completed ? s.percentage : 0), 0);
