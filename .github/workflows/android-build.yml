@@ -74,6 +74,240 @@ jobs:
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
+      - name: Install Android NDK (needed to package native debug symbols)
+        run: |
+          echo y | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.1.12297006" > /dev/null
+          echo "NDK 27.1.12297006 installed"
+
+      - name: Enable R8 minification + native debug symbols (fixes both Play warnings)
+        run: |
+          python3 - <<'EOF'
+          import re
+          p = "android/app/build.gradle"
+          s = open(p).read()
+          # Pin the NDK so debugSymbolLevel has a toolchain to use.
+          s = re.sub(r"(android\s*\{)", r'\1\n    ndkVersion "27.1.12297006"', s, count=1)
+          # 1) R8 code shrinking ON for release. AGP >= 4.1 embeds the resulting
+          #    deobfuscation map inside the AAB (BUNDLE-METADATA), which clears
+          #    Play's "no deobfuscation file" warning and reduces app size.
+          # 2) debugSymbolLevel SYMBOL_TABLE embeds native symbols in the AAB,
+          #    clearing Play's "native code without debug symbols" warning.
+          s = re.sub(r"(buildTypes\s*\{\s*release\s*\{)",
+                     r"\1\n            minifyEnabled true\n            shrinkResources true\n            ndk { debugSymbolLevel 'SYMBOL_TABLE' }",
+                     s, count=1)
+          # Capacitor's template already carries "minifyEnabled false" further
+          # down the same block; in Gradle the LAST assignment wins - drop it.
+          s = re.sub(r"\n\s*minifyEnabled false", "", s)
+          s = re.sub(r"\n\s*shrinkResources false", "", s)
+          open(p, "w").write(s)
+          i = s.index("buildTypes")
+          print(s[i:i+320])
+          EOF
+          # The Capacitor/Cordova bridge finds plugins by reflection - R8 must not
+          # strip or rename any of it, or the app breaks at runtime.
+          cat >> android/app/proguard-rules.pro <<'PRO'
+          -keep class com.getcapacitor.** { *; }
+          -keep class org.apache.cordova.** { *; }
+          -keep @com.getcapacitor.annotation.CapacitorPlugin class * { *; }
+          -keepclassmembers class * {
+            @com.getcapacitor.PluginMethod <methods>;
+            @com.getcapacitor.annotation.PermissionCallback <methods>;
+            @com.getcapacitor.annotation.ActivityCallback <methods>;
+          }
+          -keepclassmembers class * {
+            @android.webkit.JavascriptInterface <methods>;
+          }
+          -keep class com.fiftymmretina.app.** { *; }
+          -dontwarn org.apache.cordova.**
+          PRO
+          echo "--- proguard-rules.pro ---"
+          cat android/app/proguard-rules.pro
+
+      - name: Add OAuth deep-link intent filter (app.fiftymmretina scheme)
+        run: |
+          python3 - <<'EOF'
+          path = 'android/app/src/main/AndroidManifest.xml'
+          s = open(path).read()
+          f = '''
+                      <intent-filter>
+                          <action android:name="android.intent.action.VIEW" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                          <category android:name="android.intent.category.BROWSABLE" />
+                          <data android:scheme="app.fiftymmretina" />
+                      </intent-filter>
+          '''
+          assert '</activity>' in s, 'activity tag not found'
+          assert 'app.fiftymmretina' not in s, 'intent filter already present'
+          s = s.replace('</activity>', f + '\n        </activity>', 1)
+          open(path, 'w').write(s)
+          print('Intent filter injected.')
+          EOF
+
+      - name: Generate icons and splash screens
+        run: |
+          npm install --no-audit --no-fund -D @capacitor/assets
+          npx capacitor-assets generate --android \
+            --iconBackgroundColor '#0f172a' --splashBackgroundColor '#0f172a' || true
+
+      - name: Place Firebase config
+        run: cp google-services.json android/app/google-services.json
+
+      - name: Sync web build into native project
+        run: npx cap sync android
+
+      # -------------------------------------------------------------------
+      # OPTIONAL SIGNING — only runs if you've added the keystore secret.
+      # With no secret, this is a no-op and the build stays unsigned (as today).
+      # -------------------------------------------------------------------
+      - name: Configure release signing (only if keystore secret is set)
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KS_B64" ]; then
+            echo "::notice::No ANDROID_KEYSTORE_BASE64 secret set — building UNSIGNED. Add the keystore + password secrets to auto-sign."
+            exit 0
+          fi
+          echo "$KS_B64" | base64 -d > android/app/release.keystore
+          python3 - <<'PY'
+          import re
+          p = "android/app/build.gradle"
+          s = open(p).read()
+          if "signingConfigs" not in s:
+              signing = (
+                  "\n    signingConfigs {\n"
+                  "        release {\n"
+                  "            storeFile file(\"release.keystore\")\n"
+                  "            storePassword System.getenv(\"KEYSTORE_PASSWORD\")\n"
+                  "            keyAlias \"upload\"\n"
+                  "            keyPassword System.getenv(\"KEYSTORE_PASSWORD\")\n"
+                  "        }\n"
+                  "    }\n"
+              )
+              s = re.sub(r"(android\s*\{)", r"\1" + signing, s, count=1)
+          s = re.sub(r"(buildTypes\s*\{\s*release\s*\{)",
+                     r"\1\n            signingConfig signingConfigs.release", s, count=1)
+          open(p, "w").write(s)
+          print("Release signing config injected — this build will be SIGNED.")
+          PY
+
+      - name: Build release bundle
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew bundleRelease --no-daemon --stacktrace
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 14
+
+      # -------------------------------------------------------------------
+      # OPTIONAL AUTO-UPLOAD TO PLAY — only runs if PLAY_SERVICE_ACCOUNT_JSON
+      # is set (and the build is signed). Pushes to the Internal testing track
+      # as a DRAFT; you then review + roll out in the Play Console.
+      # -------------------------------------------------------------------
+      - name: Upload to Google Play (internal, draft) — only if Play secret is set
+        if: ${{ env.PLAY_SA != '' }}
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.fiftymmretina.app
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+          track: internal
+          status: draft
+
+      - name: Upload debug info on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-reports
+          path: |
+            android/app/build/reports/
+            android/build/reports/
+          if-no-files-found: ignore
+          retention-days: 3
+name: Android Build
+
+# 50mm Retina World — Android build with OPTIONAL auto-signing + auto-upload.
+# ---------------------------------------------------------------------------
+# This is a drop-in upgrade of your existing .github/workflows/android-build.yml.
+# It is SAFE to add as-is: with NO secrets set it behaves EXACTLY like today
+# (builds an unsigned .aab). It "levels up" automatically as you add secrets:
+#
+#   • Add ANDROID_KEYSTORE_BASE64 + ANDROID_KEYSTORE_PASSWORD + ANDROID_KEY_ALIAS
+#     + ANDROID_KEY_PASSWORD  →  every build comes out SIGNED and upload-ready.
+#   • Also add PLAY_SERVICE_ACCOUNT_JSON  →  every build is auto-uploaded to the
+#     Play Console "Internal testing" track as a DRAFT (you just review + roll out).
+#
+# Secrets go in GitHub → Settings → Secrets and variables → Actions. The person
+# who has the upload keystore adds them ONCE; nobody else ever needs to see them.
+# See ANDROID_AUTORELEASE_SETUP.md for the 10-minute one-time setup.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/android-build.yml"
+      - "ANDROID_BUILD_TRIGGER"
+
+jobs:
+  build-aab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PLAY_SA: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install web dependencies
+        run: npm ci || npm install --no-audit --no-fund
+
+      - name: Install Capacitor + native plugins
+        run: |
+          npm install --no-audit --no-fund \
+            @capacitor/core @capacitor/cli @capacitor/android \
+            @capacitor/camera @capacitor/share @capacitor/splash-screen \
+            @capacitor/app @capacitor/browser \
+            @capacitor-firebase/messaging
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Add Android platform
+        run: npx cap add android
+
+      - name: Configure Android SDK and AGP versions
+        run: |
+          sed -i 's/minSdkVersion = 23/minSdkVersion = 24/' android/variables.gradle
+          sed -i 's/compileSdkVersion = 35/compileSdkVersion = 36/' android/variables.gradle
+          # Target API 36 (Android 16) — required by Google Play from 31 Aug 2026.
+          sed -i -E 's/targetSdkVersion = [0-9]+/targetSdkVersion = 36/' android/variables.gradle
+          sed -i -E 's/(com\.android\.tools\.build:gradle:)[0-9.]+/\18.9.1/' android/build.gradle
+
+      - name: Set app version (monotonic versionCode from run number)
+        run: |
+          VC=$(( 1000 + ${{ github.run_number }} ))
+          sed -i "s/versionCode 1/versionCode ${VC}/" android/app/build.gradle
+          sed -i 's/versionName "1.0"/versionName "1.1.1"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.1.1"
+          grep -E "versionCode|versionName" android/app/build.gradle
+          cat android/variables.gradle
+
       - name: Add OAuth deep-link intent filter (app.fiftymmretina scheme)
         run: |
           python3 - <<'EOF'
