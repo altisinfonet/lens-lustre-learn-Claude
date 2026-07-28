@@ -259,6 +259,20 @@ const GlobalSearch = () => {
     }
   }, [open]);
 
+  // Route changed → dismiss and reset the search entirely (Instagram
+  // behavior: search never stays open on top of the destination page).
+  // This is the safety net for the Android WebView bug where tapping a
+  // result navigated but the row's click handler was not delivered, so the
+  // panel survived navigation with its stale query still showing.
+  useEffect(() => {
+    seqRef.current++; // drop any in-flight search
+    setOpen(false);
+    setQuery("");
+    setResults([]);
+    setLoading(false);
+    setSelectedIndex(0);
+  }, [location.pathname]);
+
   // On open: pick the context default — People on the feed, All elsewhere —
   // and (re)load the follow list so friends can be ranked first.
   useEffect(() => {
