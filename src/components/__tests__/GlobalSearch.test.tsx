@@ -30,7 +30,7 @@ const makeQueryStub = () => {
   const stub: Record<string, unknown> = {};
   const chain = () => stub;
   for (const m of [
-    "select", "eq", "ilike", "gte", "lte", "in", "order", "limit",
+    "select", "eq", "ilike", "gte", "lte", "in", "or", "order", "limit",
   ]) {
     stub[m] = chain;
   }
