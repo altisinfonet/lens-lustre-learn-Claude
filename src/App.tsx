@@ -19,6 +19,7 @@ import SplashScreen from "@/components/SplashScreen";
 import AdFullscreenProvider from "@/components/ads/AdFullscreenProvider";
 import { I18nProvider } from "@/i18n/I18nContext";
 import LanguageAccountSync from "@/components/LanguageAccountSync";
+import AppUpdatePrompt from "@/components/AppUpdatePrompt";
 
 /* Lazy-load all pages for faster initial load on non-home routes */
 const Index = lazy(() => import("./pages/Index"));
@@ -162,6 +163,7 @@ const App = () => {
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <AppUpdatePrompt />
       <BrowserRouter>
         <DynamicFavicon />
         <AuthProvider>
