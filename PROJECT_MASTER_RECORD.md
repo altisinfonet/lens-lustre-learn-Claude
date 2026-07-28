@@ -116,8 +116,15 @@ values, but still keep them in `.env` (git-ignored), not hardcoded.
 `.github/workflows/android-build.yml`, triggered by editing **`ANDROID_BUILD_TRIGGER`** (or the
 workflow), outputs a **SIGNED, upload-ready** `.aab` artifact named **`app-release-aab`** →
 download → upload to Play Console → owner submits.
-Key facts: versionName `1.1.1`, versionCode `1000 + run_number` (latest built **1010**; live
-on Play **1005**), compileSdk 36, minSdk 24, **targetSdk 36**, Capacitor version NOT pinned.
+Key facts: versionName `1.1.1`, versionCode `1000 + run_number` (latest built **1016**; live
+on Play **1014**), compileSdk 36, minSdk 24, **targetSdk 36**, Capacitor version NOT pinned.
+- **R8 + NDK upgrade (2026-07-28, commit a83685f):** workflow now installs NDK
+  `27.1.12297006`, enables `minifyEnabled true` + `shrinkResources` (R8) with Capacitor
+  keep-rules (proguard), and sets `ndk.debugSymbolLevel "SYMBOL_TABLE"`. Run #16 artifact:
+  **10.2 MB** (was 13 MB) = R8 proof, versionCode 1016. **OPEN:** Play still shows the
+  "native code without debug symbols" warning for 1016 — `SYMBOL_TABLE` did **not** land
+  native symbols in the bundle; the R8/deobfuscation-map warning IS cleared. Debug before
+  next build if symbolicated crashes matter.
 - **Signing is DONE (2026-07-24):** CI signs automatically. `keyAlias` is **hardcoded to
   `upload`** in the workflow; secrets `ANDROID_KEYSTORE_BASE64` + `ANDROID_KEYSTORE_PASSWORD`
   provide the keystore + password (key password = keystore password). Keystore = PKCS12, 1
@@ -130,7 +137,23 @@ on Play **1005**), compileSdk 36, minSdk 24, **targetSdk 36**, Capacitor version
   Release 1010 was built, verified, uploaded, and left as a prepared Production draft.
 
 ## 8. Backend — Supabase (`jtdtehuqtinjxropkkcn`)
-- **Migrations:** `supabase/migrations/` (545). Schema changes go here.
+- **Migrations:** `supabase/migrations/` (545+). Schema changes go here.
+- **Username system (2026-07-28, applied + live-verified):**
+  `20260728120000_username_system.sql` — permanent Instagram-format usernames
+  (`profiles.custom_url`), claimed **once** at onboarding via `claim_username` RPC
+  (+ `username_available` / `suggest_username`, all anon-tested); a DB trigger forbids any
+  later change; account deletion frees the name. Onboarding gate in `Layout.tsx` now also
+  requires `custom_url` (and the 24h photo-skip loophole is removed) — pre-existing
+  username-less users get pulled through onboarding once. `EditProfile` URL editor is
+  read-only.
+- **Stored social counts (2026-07-28, applied + live-verified):**
+  `20260728120100_profile_stats.sql` — `profile_stats` (followers/following/friends counts)
+  maintained by SECURITY DEFINER triggers on `follows`/`friendships`, backfilled, public
+  SELECT only; `useFriendFollow` reads it. `follows` has NO foreign keys, so rows can
+  reference deleted profiles ("ghosts"); the triggers are ghost-tolerant. The 2 ghost follow
+  rows that existed (both deleted-account followers of the test account `4c200b33…`) were
+  **deleted with owner approval on 2026-07-28** and the backfill re-run — verified:
+  follows=27, followers_sum=27, following_sum=27, ghosts=0.
 - **Edge functions:** `supabase/functions/` (60+). Notable ones:
   - Payments: `create-payment-session`, `paypal-capture-order`, `razorpay-verify-payment`,
     `submit-deposit`, `admin-process-withdrawal`, `get-payment-gateways-public`.
@@ -226,9 +249,12 @@ on Play **1005**), compileSdk 36, minSdk 24, **targetSdk 36**, Capacitor version
 1. **Ambient `t` typecheck trap (most important):** an ambient declaration makes bare `t`
    *always* typecheck, so a `t()` used outside a real `useT()` scope passes `tsc` but
    **crashes at runtime.** Bugs already caught by manual audit and fixed:
-   `CinemaDashboard.UpcomingCard`, `JudgeRoundSidebar.RoundRow`, and (2026-07-24)
-   `AdminTransactions` — a `.map(t => …)` row variable named `t` shadowed the translator inside
-   the pending/approve/reject controls. Also hardened `I18nContext` so the **default** context
+   `CinemaDashboard.UpcomingCard`, `JudgeRoundSidebar.RoundRow`, and `AdminTransactions` — a
+   `.map(t => …)` row variable named `t` shadowed the translator inside the pending/approve/
+   reject controls. **Correction (2026-07-28):** the 2026-07-24 session identified the
+   AdminTransactions bug but its fix never landed on `main` — the 7 t-shadow TS errors kept
+   the Typecheck workflow red until the **owner's own commit `6cf5773` (2026-07-28)** fixed
+   them (typecheck green since runs #99–101). Also hardened `I18nContext` so the **default** context
    `t` resolves the English dict (not the raw key) when no provider is mounted — fixes unwrapped
    renders and several unit tests. **Always audit `t` scope by hand**, and watch for callback
    params named `t` (rename to `tg`). Prefer live-render verification over typecheck alone.
@@ -292,6 +318,7 @@ on Play **1005**), compileSdk 36, minSdk 24, **targetSdk 36**, Capacitor version
 ## 15. Maintenance log (append every session — newest first)
 | Date | Who/Model | What changed | Where |
 |---|---|---|---|
+| 2026-07-28 | AI (Fable 5) + owner | **Search fix, username/social-counts feature set, R8 workflow, releases 1014→1016, ghost-follow cleanup.** (1) `15314eb` fix(search): GlobalSearch now dismisses on route change (+ regression test); live-verified on web. (2) `a465174` six-features: permanent Instagram-format usernames (`custom_url`, `claim_username` RPC, change-forbidding trigger, deletion frees name), photo-bug fix (24h skip loophole removed; onboarding gate also requires `custom_url`), EditProfile URL read-only, `useFriendFollow` reads `profile_stats`; migrations `20260728120000` + `20260728120100` **applied to live Supabase and anon-verified**. (3) Typecheck green again via **owner's `6cf5773`** (7 AdminTransactions t-shadow errors; §12.1 corrected). (4) `3ec3117`+`a83685f` android-build.yml: NDK 27.1.12297006, R8 `minifyEnabled`+`shrinkResources`, Capacitor keep-rules, `debugSymbolLevel SYMBOL_TABLE`; run #16 artifact 10.2 MB (was 13 MB), versionCode **1016**. (5) Play: owner submitted the old draft (renamed "1016 (1.1.1) — username, social count, signup fixe") still containing **bundle 1014** → LIVE on Google Play 2026-07-28 16:06 IST. Bundle 1016 then placed in a new Production draft **"1016 (1.1.1) — smaller app, performance"** (notes: smaller size/bug fixes/perf), review page 0 errors / **1 warning: native debug symbols still missing in 1016** (§7 OPEN item; deobfuscation-map warning cleared). Saved, awaiting owner device-test + Submit. (6) **Owner-approved data deletion:** 2 ghost follow rows removed + stats backfill re-run; verified follows=27, followers_sum=27, following_sum=27, ghosts=0. | `src/components/GlobalSearch*`, `src/components/Layout.tsx`, `src/pages/EditProfile.tsx`, `src/hooks/useFriendFollow*`, `supabase/migrations/20260728*`, `.github/workflows/android-build.yml`, Play Console, live Supabase, this file §7 §8 §12.1 |
 | 2026-07-25 | AI (Opus 4.8) | **OTP length fix, reset-password fix, and legal account-deletion confirmation.** (1) Root-caused "panel asks 6-digit but email shows 8-digit → token invalid": Supabase `MAILER_OTP_LENGTH` was **8** → set to **6** (Auth → Sign In/Providers → Email); also centered the confirm button in the built-in Confirm-signup template (`align="center"` on the button table). (2) Fixed password-reset flow: the recovery link signs the user in, and `Layout.tsx` was showing the onboarding modal OVER `/reset-password` so a new password could never be set → onboarding now suppressed on auth routes + while `password_recovery_active`. (3) **Erasure-confirmation email on account deletion (GDPR-style):** new `account-deleted` transactional template (what was deleted, what's retained & why, irreversible, contact); both `delete-my-account` (self) and `delete-user` (admin) now capture email/name BEFORE the cascade and send the notice AFTER, via `send-transactional-email` (queued/retried/logged in `email_send_log` = proof of notice; failures never fail the deletion). **All 3 functions deployed via dashboard** (§12.7). Added §0 mandatory dev rules. KNOWN GAP: login's "email not verified" error still has no resend/verify path. | Supabase Auth settings + Confirm-signup template, `src/components/Layout.tsx`, `_shared/transactional-email-templates/account-deleted.tsx` + `registry.ts`, `delete-my-account`, `delete-user` (all deployed), this file §0 |
 | 2026-07-25 | AI (Opus 4.8) | **Fixed the email system end-to-end (deliverability + logo + OTP) and discovered edge functions weren't deploying from GitHub.** Root-caused "mail not arriving" to unauthenticated `www.` sender domain → normalized ALL mail to `noreply@50mmretina.com` in `process-email-queue`. Root-caused "no logo" to the deployed signup email pointing at the **old** Supabase project (`isywidnfnjhtydmdfgtk`) → fixed to current project. Switched signup verification to **email OTP** (6-digit code). **Deployed both edge functions via the Supabase dashboard** (they were 5–16 days stale vs repo — GitHub commits don't auto-deploy functions; see §12.7). Triggered Android build **1011** to bundle the email/OTP frontend. Skipped Google-DOB auto-fill (needs Google sensitive-scope review; deferred). | `process-email-queue`, `auth-email-hook` (deployed), `src/pages/Signup.tsx`, `_shared/email-templates/signup.tsx`, this file |
 | 2026-07-24 | AI (Opus 4.8) | **Android release SHIPPED to signed + prepared-on-Play state.** Set up **CI auto-signing** (secrets `ANDROID_KEYSTORE_BASE64` + `ANDROID_KEYSTORE_PASSWORD`; `signingConfig` injected at build). Root-caused repeated "No key with alias" failures to a corrupted `ANDROID_KEY_ALIAS` secret → **hardcoded `keyAlias "upload"`** in the workflow and reused keystore pw for the key pw. Built + verified signed bundle **1010 (targetSdk 36)** (cert SHA-256 matches Play upload cert), uploaded to a **Production draft**, left for owner's Submit. Wrote **`NEXT_RELEASE_RUNBOOK.md`** and refreshed `ANDROID_RELEASE_RUNBOOK.md` (both: signing solved, don't re-investigate). | `.github/workflows/android-build.yml`, GitHub secrets, Play Console, runbooks |
