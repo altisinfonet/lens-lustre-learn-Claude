@@ -1,0 +1,20 @@
+-- Fix: people search / suggestions / homepage community strip returned
+-- nothing (42501 permission denied) for logged-OUT visitors.
+--
+-- Why: 20260703111634 deliberately revoked anon SELECT on the moderation
+-- columns (last_active_at, is_banned, is_suspended) of profiles_public_data.
+-- Then commit 77eda58 (2026-07-24) added .eq("is_suspended", false) filters
+-- to anon-reachable queries (GlobalSearch, Discover, Index, useSearch) —
+-- and referencing an ungranted column in a WHERE clause fails the whole
+-- query for anon. Signed-in users were unaffected (authenticated role has
+-- the full grant).
+--
+-- Fix: re-grant ONLY is_suspended to anon so those filters can evaluate.
+-- last_active_at (presence) and is_banned stay hidden from anon, preserving
+-- the intent of the 20260703111634 security review.
+--
+-- Applied live 2026-07-28 and verified as anon via REST:
+--   * search with is_suspended=eq.false     -> 200 + rows
+--   * select last_active_at                 -> still 42501 (blocked)
+--   * select is_banned                      -> still 42501 (blocked)
+GRANT SELECT (is_suspended) ON public.profiles_public_data TO anon;
