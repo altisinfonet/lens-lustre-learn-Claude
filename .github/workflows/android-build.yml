@@ -49,7 +49,8 @@ jobs:
             @capacitor/core @capacitor/cli @capacitor/android \
             @capacitor/camera @capacitor/share @capacitor/splash-screen \
             @capacitor/app @capacitor/browser \
-            @capacitor-firebase/messaging
+            @capacitor-firebase/messaging \
+            @capawesome/capacitor-app-update
 
       - name: Build web app
         run: npm run build
