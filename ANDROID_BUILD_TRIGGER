@@ -1,1 +1,3 @@
 build: 2026-07-28 six-features release (usernames + stored counts + photo gate + search fix, commit a465174)
+
+build 1018 — fix(search): portal mobile sheet to body; navbar backdrop-filter collapsed fixed inset-0 (4281fae)
