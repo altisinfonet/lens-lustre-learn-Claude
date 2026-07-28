@@ -30,8 +30,6 @@ const hideNavRoutes = ["/login", "/signup", "/forgot-password", "/reset-password
 /** Routes where sidebars should NOT be shown (even for logged-in users) */
 const hideSidebarRoutes = ["/login", "/signup", "/forgot-password", "/reset-password", "/admin", "/courses", "/journal", "/judge", "/featured-artist"];
 
-const SKIP_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
-
 /** Home page gets a transparent overlay navbar */
 const Layout = () => {
   return (
@@ -105,25 +103,22 @@ const LayoutInner = () => {
       const profile = data as any;
 
       const missingUserType = !profile.user_type;
+      // Permanent username (custom_url) is claimed during onboarding and is
+      // mandatory for every account. Existing accounts without one are pulled
+      // through the gate once on their next visit.
+      const missingUsername = !profile.custom_url;
 
-      // If onboarding was completed AND user_type is set, cache and skip
-      if (profile.onboarding_completed && !missingUserType) {
+      // Onboarding is DONE only when completed AND user_type AND username set.
+      if (profile.onboarding_completed && !missingUserType && !missingUsername) {
         sessionStorage.setItem(cacheKey, "true");
         return;
       }
 
-      // Check if skipped recently (within 24 hours)
-      if (profile.onboarding_skipped_at) {
-        const skippedAt = new Date(profile.onboarding_skipped_at).getTime();
-        const now = Date.now();
-        if (now - skippedAt < SKIP_COOLDOWN_MS) {
-          return;
-        }
-        await supabase
-          .from("profiles")
-          .update({ onboarding_skipped_at: null } as any)
-          .eq("id", user.id);
-      }
+      // NOTE (bug fix 2026-07-28): the 24-hour "skipped recently" window that
+      // used to live here was the loophole that let accounts exist without a
+      // profile photo — onboarding_skipped_at delayed the modal for a day at a
+      // time, indefinitely. Nothing in the current UI even sets that column.
+      // Onboarding is now unskippable: incomplete profile => modal, always.
 
       setOnboardingProfile(profile);
       setShowOnboarding(true);

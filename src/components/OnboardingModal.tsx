@@ -98,6 +98,43 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Permanent public username (Instagram format: a-z 0-9 . _ , 3-30 chars).
+  // Auto-suggested from the display name via the suggest_username RPC;
+  // editable here ONCE; after claim_username succeeds a DB trigger makes it
+  // immutable for the lifetime of the account.
+  const alreadyClaimed = !!profile?.custom_url;
+  const [username, setUsername] = useState<string>(profile?.custom_url || "");
+  const [usernameStatus, setUsernameStatus] = useState<
+    "idle" | "checking" | "available" | "taken" | "invalid"
+  >(alreadyClaimed ? "available" : "idle");
+
+  // One-time server-generated suggestion for accounts without a name yet.
+  useEffect(() => {
+    if (alreadyClaimed || username) return;
+    supabase
+      .rpc("suggest_username" as any, { display_name: profile?.full_name || "" })
+      .then(({ data }) => {
+        if (typeof data === "string" && data) setUsername(data);
+      });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Debounced live availability check while the user edits.
+  useEffect(() => {
+    if (alreadyClaimed) return;
+    const v = username.trim().toLowerCase();
+    if (!v) { setUsernameStatus("idle"); return; }
+    if (!/^[a-z0-9_][a-z0-9._]{1,28}[a-z0-9_]$/.test(v) || v.includes("..")) {
+      setUsernameStatus("invalid");
+      return;
+    }
+    setUsernameStatus("checking");
+    const h = setTimeout(async () => {
+      const { data } = await supabase.rpc("username_available" as any, { candidate: v });
+      setUsernameStatus(data ? "available" : "taken");
+    }, 350);
+    return () => clearTimeout(h);
+  }, [username, alreadyClaimed]);
+
   // Silent auto-follow of the official account is enforced server-side (DB trigger);
   // no UI here on purpose.
   useEffect(() => {
@@ -142,19 +179,38 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
   };
 
   const ageOk = !!dateOfBirth && differenceInYears(new Date(), dateOfBirth) >= 18;
-  const canProceed = ageOk && !!avatarUrl && !!userType && selectedInterests.length > 0;
+  const usernameOk = alreadyClaimed || usernameStatus === "available";
+  const canProceed = ageOk && !!avatarUrl && !!userType && selectedInterests.length > 0 && usernameOk;
 
   const handleFinish = async () => {
     if (!canProceed) {
       if (!dateOfBirth) toast({ title: "Please enter your date of birth", variant: "destructive" });
       else if (!ageOk) toast({ title: "You must be at least 18 years old to join", variant: "destructive" });
       else if (!avatarUrl) toast({ title: "Please add a profile photo to continue", variant: "destructive" });
+      else if (!usernameOk) toast({ title: "Please choose an available username", variant: "destructive" });
       else if (!userType) toast({ title: "Please select whether you're a Student, Photographer, or Enthusiast", variant: "destructive" });
       else if (selectedInterests.length === 0) toast({ title: "Please select at least one photography interest", variant: "destructive" });
       return;
     }
     setSaving(true);
     try {
+      // Claim the permanent username FIRST (atomic; the unique index in the
+      // DB is the referee). If another signup raced us to the same name,
+      // surface it and let the user pick again - nothing else written yet.
+      if (!alreadyClaimed) {
+        const { data: claim, error: claimErr } = await supabase
+          .rpc("claim_username" as any, { candidate: username.trim().toLowerCase() });
+        if (claimErr) throw claimErr;
+        const res = claim as any;
+        if (!res?.ok) {
+          setUsernameStatus(res?.reason === "taken" ? "taken" : "invalid");
+          toast({
+            title: "That username was just taken - please pick another",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
       const updates: Record<string, any> = {
         photography_interests: selectedInterests,
         user_type: userType,
@@ -172,17 +228,22 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
       const { error } = await supabase.from("profiles").update(updates as any).eq("id", userId);
       if (error) throw error;
 
-      // Auto-apply role based on the selection (unchanged behavior).
-      if (userType === "photographer") {
-        await supabase.from("role_applications" as any).insert({
-          user_id: userId, requested_role: "registered_photographer",
-          reason: "Selected 'Photographer' during onboarding", status: "pending",
-        } as any);
-      } else if (userType === "student") {
-        await supabase.from("role_applications" as any).insert({
-          user_id: userId, requested_role: "student",
-          reason: "Selected 'Student' during onboarding", status: "pending",
-        } as any);
+      // Auto-apply role based on the selection — only on FIRST-TIME type
+      // selection. Returning users (pulled back through the gate to claim a
+      // username) already have user_type set; re-inserting would file a
+      // duplicate pending application.
+      if (!profile?.user_type) {
+        if (userType === "photographer") {
+          await supabase.from("role_applications" as any).insert({
+            user_id: userId, requested_role: "registered_photographer",
+            reason: "Selected 'Photographer' during onboarding", status: "pending",
+          } as any);
+        } else if (userType === "student") {
+          await supabase.from("role_applications" as any).insert({
+            user_id: userId, requested_role: "student",
+            reason: "Selected 'Student' during onboarding", status: "pending",
+          } as any);
+        }
       }
 
       toast({ title: "Welcome aboard! 🎉", description: "You're all set." });
@@ -255,6 +316,54 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
               </div>
               <p className="text-[9px] text-muted-foreground leading-snug" style={{ fontFamily: "var(--font-body)" }}>
                 You can change this any time from the language menu.
+              </p>
+            </div>
+
+            {/* Permanent username — claimed once, then locked for life (DB trigger) */}
+            <div className="space-y-2">
+              <span className="text-[10px] tracking-[0.2em] uppercase text-foreground font-medium block" style={{ fontFamily: "var(--font-heading)" }}>
+                Username
+              </span>
+              <div className={`flex items-center gap-2 border rounded-sm px-3 py-2 transition-colors ${
+                alreadyClaimed ? "border-border bg-muted/40"
+                : usernameStatus === "taken" || usernameStatus === "invalid" ? "border-destructive"
+                : usernameStatus === "available" ? "border-primary/60"
+                : "border-border"
+              }`}>
+                <span className="text-muted-foreground text-sm">@</span>
+                <input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                  disabled={alreadyClaimed}
+                  maxLength={30}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className="flex-1 bg-transparent text-sm outline-none text-foreground disabled:text-muted-foreground"
+                  style={{ fontFamily: "var(--font-body)" }}
+                  aria-label="Username"
+                />
+                {!alreadyClaimed && (
+                  <span
+                    className={`text-[9px] tracking-[0.15em] uppercase ${
+                      usernameStatus === "available" ? "text-primary"
+                      : usernameStatus === "taken" || usernameStatus === "invalid" ? "text-destructive"
+                      : "text-muted-foreground"
+                    }`}
+                    style={{ fontFamily: "var(--font-heading)" }}
+                  >
+                    {usernameStatus === "available" ? "Available"
+                      : usernameStatus === "taken" ? "Taken"
+                      : usernameStatus === "invalid" ? "Invalid"
+                      : usernameStatus === "checking" ? "Checking…"
+                      : ""}
+                  </span>
+                )}
+              </div>
+              <p className="text-[9px] text-muted-foreground leading-snug" style={{ fontFamily: "var(--font-body)" }}>
+                {alreadyClaimed
+                  ? "Your username is permanent and cannot be changed."
+                  : "Lowercase letters, numbers, dots and underscores (3–30). This is permanent — it can never be changed later."}
               </p>
             </div>
 

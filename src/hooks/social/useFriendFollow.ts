@@ -42,16 +42,19 @@ export const useFriendFollow = (targetUserId: string | undefined) => {
     });
     setIsTargetAdmin(!!targetIsAdmin);
 
-    // Fetch public counts
-    const [friendCountRes, followerRes, followingRes] = await Promise.all([
-      supabase.rpc("friend_count", { _user_id: targetUserId }),
-      supabase.from("follows").select("id", { count: "exact", head: true }).eq("following_id", targetUserId),
-      supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id", targetUserId),
-    ]);
+    // Public counts — read from the stored profile_stats row (maintained
+    // transactionally by DB triggers on follows/friendships; backfilled by
+    // migration). One read replaces the old friend_count RPC + two exact
+    // COUNT(*) queries. A missing row simply means zero activity.
+    const { data: stats } = await supabase
+      .from("profile_stats" as any)
+      .select("followers_count, following_count, friends_count")
+      .eq("user_id", targetUserId)
+      .maybeSingle();
 
-    setFriendCount((friendCountRes.data as number) ?? 0);
-    setFollowerCount(followerRes.count ?? 0);
-    setFollowingCount(followingRes.count ?? 0);
+    setFriendCount((stats as any)?.friends_count ?? 0);
+    setFollowerCount((stats as any)?.followers_count ?? 0);
+    setFollowingCount((stats as any)?.following_count ?? 0);
 
     if (!user || isSelf) return;
 

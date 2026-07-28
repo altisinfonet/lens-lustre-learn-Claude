@@ -894,7 +894,7 @@ const EditProfile = () => {
               <Globe className="inline h-3 w-3 mr-1.5" />Custom Profile URL
             </label>
             <p className="text-[10px] text-muted-foreground mb-2" style={{ fontFamily: "var(--font-body)" }}>
-              Choose a unique URL for your public profile. Leave empty to use the default.
+              Your username is permanent. It was claimed when you joined and can never be changed.
             </p>
             <div className="flex items-center gap-0">
               <span className="text-[10px] text-muted-foreground py-3 pr-1 whitespace-nowrap" style={{ fontFamily: "var(--font-body)" }}>
@@ -903,10 +903,11 @@ const EditProfile = () => {
               <input
                 type="text"
                 value={customUrl}
-                onChange={(e) => handleCustomUrlChange(e.target.value)}
+                disabled
+                readOnly
                 maxLength={50}
-                className={`${inputCls} flex-1 ${errors.customUrl ? "border-destructive" : ""}`}
-                placeholder="your-name"
+                className={`${inputCls} flex-1 text-muted-foreground bg-muted/40 cursor-not-allowed`}
+                placeholder="set during signup"
                 style={{ fontFamily: "var(--font-body)" }}
               />
               {checkingCustomUrl && (
