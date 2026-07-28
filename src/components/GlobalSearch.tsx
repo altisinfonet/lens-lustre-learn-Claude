@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/core/useAuth";
 import { Search, Trophy, BookOpen, Newspaper, X, ArrowLeft, User, Layers, UserRound, MessageSquare, Clock } from "lucide-react";
@@ -78,7 +79,24 @@ const GlobalSearch = () => {
   const location = useLocation();
   const { user } = useAuth();
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // md+ renders the anchored dropdown in place (unchanged, proven path).
+  // Below md the sheet is PORTALED to document.body: the navbar carries
+  // backdrop-filter, which in Chromium makes it the containing block for
+  // position:fixed descendants — inside the nav, "fixed inset-0" collapses
+  // to the navbar box and the sheet body gets clipped (the 1017 app bug).
+  // document.body is verified transform/filter-free, so the portaled sheet
+  // truly fills the screen.
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
   // Monotonic request id — lets us drop stale/slow responses so a cleared
   // search can never be repopulated by an in-flight request, and a failed
   // request can never leave the spinner stuck.
@@ -115,9 +133,11 @@ const GlobalSearch = () => {
   // Click outside to close
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const t = e.target as Node;
+      // The panel may be portaled to document.body (mobile) — a tap inside
+      // it must NOT count as "outside", or the sheet would close on any tap.
+      if (wrapperRef.current?.contains(t) || panelRef.current?.contains(t)) return;
+      setOpen(false);
     };
     if (open) document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -413,10 +433,14 @@ const GlobalSearch = () => {
         </span>
       </button>
 
-      {/* Panel — full-screen sheet on mobile, anchored dropdown on md+ */}
+      {/* Panel — full-screen sheet on mobile (portaled to body, see comment
+          at panelRef), anchored dropdown rendered in place on md+ */}
+      {(() => {
+        const panel = (
       <AnimatePresence>
         {open && (
           <motion.div
+            ref={panelRef}
             initial={{ opacity: 0, y: -8, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.97 }}
@@ -676,6 +700,9 @@ const GlobalSearch = () => {
           </motion.div>
         )}
       </AnimatePresence>
+        );
+        return isDesktop ? panel : createPortal(panel, document.body);
+      })()}
     </div>
   );
 };
