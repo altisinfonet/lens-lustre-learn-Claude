@@ -20,56 +20,86 @@ import AdFullscreenProvider from "@/components/ads/AdFullscreenProvider";
 import { I18nProvider } from "@/i18n/I18nContext";
 import LanguageAccountSync from "@/components/LanguageAccountSync";
 import AppUpdatePrompt from "@/components/AppUpdatePrompt";
+import AppErrorBoundary from "@/components/AppErrorBoundary";
+
+
+/**
+ * lazy() with self-healing: after a deploy, a phone still holding the old
+ * index.html asks for hashed chunks that no longer exist -> the route failed
+ * and the page went BLANK (owner report 2026-07-28). On a chunk-load failure
+ * we reload once (session-guarded) so the browser picks up the new build;
+ * if it still fails, AppErrorBoundary shows a Reload screen instead of blank.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const lazyRetry = (factory: () => Promise<any>) =>
+  lazy(() =>
+    factory().then(
+      (m) => {
+        try { sessionStorage.removeItem("chunk_reload_v1"); } catch { /* ignore */ }
+        return m;
+      },
+      (err) => {
+        try {
+          if (!sessionStorage.getItem("chunk_reload_v1")) {
+            sessionStorage.setItem("chunk_reload_v1", "1");
+            window.location.reload();
+            return new Promise(() => { /* page is reloading */ });
+          }
+        } catch { /* ignore */ }
+        throw err;
+      },
+    ),
+  );
 
 /* Lazy-load all pages for faster initial load on non-home routes */
-const Index = lazy(() => import("./pages/Index"));
-const CropTest = lazy(() => import("./pages/CropTest"));
-const Login = lazy(() => import("./pages/Login"));
-const Signup = lazy(() => import("./pages/Signup"));
-const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
-const ResetPassword = lazy(() => import("./pages/ResetPassword"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const EditProfile = lazy(() => import("./pages/EditProfile"));
-const Profile = lazy(() => import("./pages/Profile"));
-const Competitions = lazy(() => import("./pages/Competitions"));
-const CompetitionDetail = lazy(() => import("./pages/CompetitionDetail"));
-const CompetitionSubmit = lazy(() => import("./pages/CompetitionSubmit"));
-const AdminPanel = lazy(() => import("./pages/AdminPanel"));
-const Journal = lazy(() => import("./pages/Journal"));
-const JournalArticle = lazy(() => import("./pages/JournalArticle"));
-const JournalEditor = lazy(() => import("./pages/JournalEditor"));
-const Courses = lazy(() => import("./pages/Courses"));
-const CourseDetail = lazy(() => import("./pages/CourseDetail"));
-const CourseEditor = lazy(() => import("./pages/CourseEditor"));
-const LessonView = lazy(() => import("./pages/LessonView"));
-const Certificates = lazy(() => import("./pages/Certificates"));
-const VerifyCertificate = lazy(() => import("./pages/VerifyCertificate"));
-const CertificateVerifyByToken = lazy(() => import("./pages/CertificateVerifyByToken"));
-const Winners = lazy(() => import("./pages/Winners"));
-const JudgePanel = lazy(() => import(/* webpackChunkName: "judge-panel", vite: { chunkName: "judge-panel" } */ "./pages/JudgePanel"));
-const Wallet = lazy(() => import("./pages/Wallet"));
-const PublicProfile = lazy(() => import("./pages/PublicProfile"));
-const Friends = lazy(() => import("./pages/Friends"));
-const Feed = lazy(() => import("./pages/Feed"));
-const Discover = lazy(() => import("./pages/Discover"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const Phase7BadgesQA = lazy(() => import("./pages/dev/Phase7BadgesQA"));
-const FeaturedArtistPage = lazy(() => import("./pages/FeaturedArtistPage"));
-const Referrals = lazy(() => import("./pages/Referrals"));
-const HelpSupport = lazy(() => import("./pages/HelpSupport"));
-const ManagedPageView = lazy(() => import("./pages/ManagedPageView"));
-const SubmissionDetail = lazy(() => import("./pages/SubmissionDetail"));
-const HashtagFeed = lazy(() => import("./pages/HashtagFeed"));
-const PostDetail = lazy(() => import("./pages/PostDetail"));
-const EntryDetail = lazy(() => import("./pages/EntryDetail"));
-const CustomUrlProfile = lazy(() => import("./pages/CustomUrlProfile"));
-const Unsubscribe = lazy(() => import("./pages/Unsubscribe"));
-const MyPhotos = lazy(() => import("./pages/MyPhotos"));
-const CookiePolicy = lazy(() => import("./pages/CookiePolicy"));
-const NotificationSettings = lazy(() => import("./pages/NotificationSettings"));
-const WatermarkQAMatrix = lazy(() => import("./pages/qa/WatermarkQAMatrix"));
-const ScheduledPostsPage = lazy(() => import("./pages/ScheduledPosts"));
-const IDVerification = lazy(() => import("./pages/IDVerification"));
+const Index = lazyRetry(() => import("./pages/Index"));
+const CropTest = lazyRetry(() => import("./pages/CropTest"));
+const Login = lazyRetry(() => import("./pages/Login"));
+const Signup = lazyRetry(() => import("./pages/Signup"));
+const ForgotPassword = lazyRetry(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazyRetry(() => import("./pages/ResetPassword"));
+const Dashboard = lazyRetry(() => import("./pages/Dashboard"));
+const EditProfile = lazyRetry(() => import("./pages/EditProfile"));
+const Profile = lazyRetry(() => import("./pages/Profile"));
+const Competitions = lazyRetry(() => import("./pages/Competitions"));
+const CompetitionDetail = lazyRetry(() => import("./pages/CompetitionDetail"));
+const CompetitionSubmit = lazyRetry(() => import("./pages/CompetitionSubmit"));
+const AdminPanel = lazyRetry(() => import("./pages/AdminPanel"));
+const Journal = lazyRetry(() => import("./pages/Journal"));
+const JournalArticle = lazyRetry(() => import("./pages/JournalArticle"));
+const JournalEditor = lazyRetry(() => import("./pages/JournalEditor"));
+const Courses = lazyRetry(() => import("./pages/Courses"));
+const CourseDetail = lazyRetry(() => import("./pages/CourseDetail"));
+const CourseEditor = lazyRetry(() => import("./pages/CourseEditor"));
+const LessonView = lazyRetry(() => import("./pages/LessonView"));
+const Certificates = lazyRetry(() => import("./pages/Certificates"));
+const VerifyCertificate = lazyRetry(() => import("./pages/VerifyCertificate"));
+const CertificateVerifyByToken = lazyRetry(() => import("./pages/CertificateVerifyByToken"));
+const Winners = lazyRetry(() => import("./pages/Winners"));
+const JudgePanel = lazyRetry(() => import(/* webpackChunkName: "judge-panel", vite: { chunkName: "judge-panel" } */ "./pages/JudgePanel"));
+const Wallet = lazyRetry(() => import("./pages/Wallet"));
+const PublicProfile = lazyRetry(() => import("./pages/PublicProfile"));
+const Friends = lazyRetry(() => import("./pages/Friends"));
+const Feed = lazyRetry(() => import("./pages/Feed"));
+const Discover = lazyRetry(() => import("./pages/Discover"));
+const NotFound = lazyRetry(() => import("./pages/NotFound"));
+const Phase7BadgesQA = lazyRetry(() => import("./pages/dev/Phase7BadgesQA"));
+const FeaturedArtistPage = lazyRetry(() => import("./pages/FeaturedArtistPage"));
+const Referrals = lazyRetry(() => import("./pages/Referrals"));
+const HelpSupport = lazyRetry(() => import("./pages/HelpSupport"));
+const ManagedPageView = lazyRetry(() => import("./pages/ManagedPageView"));
+const SubmissionDetail = lazyRetry(() => import("./pages/SubmissionDetail"));
+const HashtagFeed = lazyRetry(() => import("./pages/HashtagFeed"));
+const PostDetail = lazyRetry(() => import("./pages/PostDetail"));
+const EntryDetail = lazyRetry(() => import("./pages/EntryDetail"));
+const CustomUrlProfile = lazyRetry(() => import("./pages/CustomUrlProfile"));
+const Unsubscribe = lazyRetry(() => import("./pages/Unsubscribe"));
+const MyPhotos = lazyRetry(() => import("./pages/MyPhotos"));
+const CookiePolicy = lazyRetry(() => import("./pages/CookiePolicy"));
+const NotificationSettings = lazyRetry(() => import("./pages/NotificationSettings"));
+const WatermarkQAMatrix = lazyRetry(() => import("./pages/qa/WatermarkQAMatrix"));
+const ScheduledPostsPage = lazyRetry(() => import("./pages/ScheduledPosts"));
+const IDVerification = lazyRetry(() => import("./pages/IDVerification"));
 
 /**
  * The vanity route `/:customUrl` greedily matches every single-segment path,
@@ -174,6 +204,7 @@ const App = () => {
           <RedirectHandler />
           <LanguageAccountSync />
           <AdFullscreenProvider>
+          <AppErrorBoundary>
           <Suspense fallback={allowSuspenseFallback ? <PageLoader /> : null}>
             <Routes>
               <Route element={<Layout />}>
@@ -240,6 +271,7 @@ const App = () => {
               </Route>
             </Routes>
           </Suspense>
+          </AppErrorBoundary>
           </AdFullscreenProvider>
           </CookieConsentProvider>
           
