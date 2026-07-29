@@ -121,10 +121,24 @@ on Play **1014**), compileSdk 36, minSdk 24, **targetSdk 36**, Capacitor version
 - **R8 + NDK upgrade (2026-07-28, commit a83685f):** workflow now installs NDK
   `27.1.12297006`, enables `minifyEnabled true` + `shrinkResources` (R8) with Capacitor
   keep-rules (proguard), and sets `ndk.debugSymbolLevel "SYMBOL_TABLE"`. Run #16 artifact:
-  **10.2 MB** (was 13 MB) = R8 proof, versionCode 1016. **OPEN:** Play still shows the
-  "native code without debug symbols" warning for 1016 — `SYMBOL_TABLE` did **not** land
-  native symbols in the bundle; the R8/deobfuscation-map warning IS cleared. Debug before
-  next build if symbolicated crashes matter.
+  **10.2 MB** (was 13 MB) = R8 proof, versionCode 1016. **RESOLVED 2026-07-29 as NOT FIXABLE BY US — evidence-backed, do not re-investigate:**
+  the 1024 AAB was downloaded and inspected byte-level (outer artifact zip + inner AAB zip
+  parsed; ELF section headers read). The app's ONLY native code is 3 Google-shipped libs
+  (×4 ABIs): CameraX `libimage_processing_util_jni.so` + `libsurface_util_jni.so` (via the
+  camera plugin) and `libdatastore_shared_counter.so` (androidx datastore via push
+  messaging). All ship **fully stripped upstream** (`.dynsym` only, NO `.symtab`/`.debug_*`
+  — verified per-lib), and Google does not publish their symbols. The AGP pipeline is
+  correctly configured and ran clean (ndkVersion pinned, `debugSymbolLevel SYMBOL_TABLE`
+  present in app/build.gradle, `stripReleaseDebugSymbols` + `extractReleaseNativeSymbolTables`
+  EXECUTED with zero warnings in run 30428733503) — extraction simply had nothing to
+  extract, so `BUNDLE-METADATA/com.android.tools.build.debugsymbols/` is absent. The
+  deobfuscation half IS fixed and verified inside the 1024 AAB itself
+  (`BUNDLE-METADATA/com.android.tools.build.obfuscation/proguard.map`, 18.3 MB + r8.json).
+  Every app bundling CameraX/datastore shows this exact warning; it is advisory, does not
+  block review, and 1016→1023 all shipped with it. Only theoretical clears: Google
+  publishing symbols upstream, or removing the camera/push features (unacceptable).
+  Uploading a hand-built symbols zip from the same stripped libs would add no debug info
+  and is expected to be rejected — not attempted.
 - **Signing is DONE (2026-07-24):** CI signs automatically. `keyAlias` is **hardcoded to
   `upload`** in the workflow; secrets `ANDROID_KEYSTORE_BASE64` + `ANDROID_KEYSTORE_PASSWORD`
   provide the keystore + password (key password = keystore password). Keystore = PKCS12, 1
