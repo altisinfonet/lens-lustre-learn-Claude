@@ -73,7 +73,11 @@ const GlobalSearch = () => {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  // -1 = no row highlighted. Only the ArrowUp/ArrowDown keys set this; on
+  // touch it must stay -1 or the first row looks permanently "selected"
+  // AND the highlight re-render under the finger makes Android WebView drop
+  // the tap's click event (the "tap does nothing / sheet stays open" bug).
+  const [selectedIndex, setSelectedIndex] = useState(-1);
   const [recent, setRecent] = useState<RecentEntry[]>([]);
   const navigate = useNavigate();
   const location = useLocation();
@@ -146,8 +150,9 @@ const GlobalSearch = () => {
   const search = useCallback(async (q: string) => {
     const seq = ++seqRef.current;
     const term = q.trim();
-    // Instagram behavior: search from the FIRST character.
-    if (term.length < 1 && sectionFilter !== "person") {
+    // Search from the FIRST character; an empty box shows nothing
+    // (owner rule 2026-07-28: no auto-populated rows before typing).
+    if (term.length < 1) {
       setResults([]);
       setLoading(false);
       return;
@@ -184,17 +189,6 @@ const GlobalSearch = () => {
               ? qb.ilike("custom_url", pattern)
               : qb.or(`full_name.ilike.${pattern},custom_url.ilike.${pattern}`);
             return qb.limit(sectionFilter === "person" ? 15 : 8);
-          })()
-        : shouldSearchPeople && sectionFilter === "person" && followedIdsRef.current.size > 0
-        ? (() => {
-            // People-mode with empty query (feed default): suggest the
-            // people you follow, like Instagram's search sheet.
-            const ids = Array.from(followedIdsRef.current).slice(0, 25);
-            return profilesPublic()
-              .select("id, full_name, avatar_url, bio, custom_url")
-              .eq("is_suspended", false)
-              .in("id", ids)
-              .limit(12);
           })()
         : Promise.resolve({ data: [] }),
       shouldSearchPosts && term.length >= 1
@@ -278,7 +272,7 @@ const GlobalSearch = () => {
     if (seq !== seqRef.current) return;
 
     setResults(mapped);
-    setSelectedIndex(0);
+    setSelectedIndex(-1);
     setLoading(false);
     } catch (err) {
       console.error("[GlobalSearch] search failed:", err);
@@ -316,14 +310,15 @@ const GlobalSearch = () => {
     setQuery("");
     setResults([]);
     setLoading(false);
-    setSelectedIndex(0);
+    setSelectedIndex(-1);
   }, [location.pathname]);
 
   // On open: pick the context default — People on the feed, All elsewhere —
   // load the recent list, and (re)load the follow list so friends rank first.
   useEffect(() => {
     if (!open) return;
-    setSectionFilter(isFeed ? "person" : "all");
+    // Always open on "All" — no pre-picked tab mode (owner feedback 2026-07-28).
+    setSectionFilter("all");
     setRecent(loadRecent());
     if (user) {
       supabase
@@ -387,8 +382,11 @@ const GlobalSearch = () => {
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setSelectedIndex((i) => Math.max(i - 1, 0));
-    } else if (e.key === "Enter" && results[selectedIndex]) {
-      handleSelect(results[selectedIndex]);
+    } else if (e.key === "Enter") {
+      // With no keyboard-highlighted row (-1, the default), Enter opens the
+      // first result — but never a phantom selection.
+      const target = results[selectedIndex] ?? results[0];
+      if (target) handleSelect(target);
     }
   };
 
@@ -491,7 +489,13 @@ const GlobalSearch = () => {
               {tabs.map((tab) => (
                 <button
                   key={tab.key}
-                  onClick={() => setSectionFilter(tab.key)}
+                  onClick={() => {
+                    // Clear the old list IMMEDIATELY — stale rows must never
+                    // linger while the 300ms debounce re-searches the new tab.
+                    setSectionFilter(tab.key);
+                    setResults([]);
+                    setSelectedIndex(-1);
+                  }}
                   className={cn(
                     "shrink-0 text-[10px] tracking-[0.1em] uppercase px-3 py-1.5 border rounded-full transition-all duration-300",
                     sectionFilter === tab.key
@@ -579,13 +583,6 @@ const GlobalSearch = () => {
                 </div>
               )}
 
-              {!loading && sectionFilter === "person" && query.trim().length === 0 && results.length === 0 && !showRecent && (
-                <div className="px-4 py-6 text-center">
-                  <p className="text-xs text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                    Follow photographers to see them here — or type a name to find people.
-                  </p>
-                </div>
-              )}
 
               {!loading && results.length > 0 && (
                 <ul className="py-1">
@@ -597,7 +594,6 @@ const GlobalSearch = () => {
                       <li key={`${result.type}-${result.id}`}>
                         <button
                           onClick={() => handleSelect(result)}
-                          onMouseEnter={() => setSelectedIndex(index)}
                           className={cn(
                             "w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150",
                             index === selectedIndex ? "bg-muted" : "hover:bg-muted/50"
@@ -676,7 +672,7 @@ const GlobalSearch = () => {
                 </ul>
               )}
 
-              {!loading && query.trim().length === 0 && !showRecent && sectionFilter !== "person" && (
+              {!loading && query.trim().length === 0 && !showRecent && (
                 <div className="px-4 py-6 text-center">
                   <p className="text-xs text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
                     Start typing to search people, competitions, courses and more
