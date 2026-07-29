@@ -4,3 +4,4 @@ build 1018 — fix(search): portal mobile sheet to body; navbar backdrop-filter 
 build 1019 — fix(search): no auto-suggestions, no phantom row highlight, tap-to-select fixed, instant tab clear (owner's 5 bug reports)
 build 1020 — fix(search): post results open /post/:id (PostDetail), not /feed
 build 1021 — feat: profile-only language, See translation on posts, blank-page self-heal (dd7fc24)
+build 1022 — feat(search): premium search (typo-tolerant ranked RPC, hashtags, synced recents)
