@@ -262,7 +262,9 @@ const GlobalSearch = () => {
         id: p.id,
         title: (p.content || "").slice(0, 80) || "Post",
         type: "post" as const,
-        url: `/feed`,
+        // Open THE post (PostDetail route) — never just the feed, where a
+        // tap while already on /feed looked like nothing happened.
+        url: `/post/${p.id}`,
         subtitle: p.created_at ? `Posted ${format(new Date(p.created_at), "MMM d, yyyy")}` : undefined,
         date: p.created_at,
       })),
