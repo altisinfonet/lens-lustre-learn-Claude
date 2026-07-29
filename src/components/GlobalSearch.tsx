@@ -165,27 +165,48 @@ const GlobalSearch = () => {
     const isUsername = term.startsWith("@");
     const bare = term.replace(/^[@#]/, "").trim();
 
-    const { data: gs, error } = await (supabase.rpc as any)("global_search", {
-      term: isHashtag ? bare : isUsername ? bare : term,
-      section: isHashtag ? "post" : sectionFilter,
-      username_only: isUsername,
-    });
+    const [{ data: gs, error }, tagRes] = await Promise.all([
+      (supabase.rpc as any)("global_search", {
+        term: isHashtag ? bare : isUsername ? bare : term,
+        section: isHashtag ? "post" : sectionFilter,
+        username_only: isUsername,
+      }),
+      // Hashtag mode also asks for REAL tags used in public posts —
+      // typo-tolerant, so "#50mmratina" still surfaces "#50mmretina".
+      isHashtag && bare.length >= 1
+        ? (supabase.rpc as any)("global_search_hashtags", { term: bare })
+        : Promise.resolve({ data: [] }),
+    ]);
     if (error) throw error;
+    const tagSuggestions: { tag: string; uses: number }[] = (tagRes?.data || []) as any[];
     const g = (gs || {}) as {
       people?: any[]; competitions?: any[]; courses?: any[];
       articles?: any[]; posts?: any[];
     };
 
     const mapped: SearchResult[] = [
-      // Hashtag mode: a direct row to the tag's feed, above matching posts.
+      // Hashtag mode: REAL tags from public posts first (typo-tolerant,
+      // with usage counts); the literal typed tag is included only when it
+      // isn't already among the real suggestions.
       ...(isHashtag && bare.length >= 1
-        ? [{
-            id: `tag-${bare.toLowerCase()}`,
-            title: `#${bare.toLowerCase()}`,
-            type: "hashtag" as const,
-            url: `/hashtag/${encodeURIComponent(bare.toLowerCase())}`,
-            subtitle: "See all posts",
-          }]
+        ? [
+            ...tagSuggestions.map((t) => ({
+              id: `tag-${t.tag}`,
+              title: `#${t.tag}`,
+              type: "hashtag" as const,
+              url: `/hashtag/${encodeURIComponent(t.tag)}`,
+              subtitle: `${t.uses} post${t.uses === 1 ? "" : "s"}`,
+            })),
+            ...(tagSuggestions.some((t) => t.tag === bare.toLowerCase())
+              ? []
+              : [{
+                  id: `tag-${bare.toLowerCase()}`,
+                  title: `#${bare.toLowerCase()}`,
+                  type: "hashtag" as const,
+                  url: `/hashtag/${encodeURIComponent(bare.toLowerCase())}`,
+                  subtitle: "See all posts",
+                }]),
+          ]
         : []),
       ...(g.people || [])
         .map((p: any) => ({
@@ -475,6 +496,7 @@ const GlobalSearch = () => {
               {/* Mobile back/close — the sheet covers the whole screen */}
               <button
                 onClick={() => setOpen(false)}
+                onPointerDown={(e) => { e.preventDefault(); setOpen(false); }}
                 className="md:hidden text-muted-foreground hover:text-foreground transition-colors"
                 aria-label="Close search"
               >
@@ -484,6 +506,13 @@ const GlobalSearch = () => {
               <input
                 ref={inputRef}
                 autoFocus
+                type="search"
+                inputMode="search"
+                enterKeyHint="search"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -493,8 +522,10 @@ const GlobalSearch = () => {
               />
               {query && (
                 <button
-                  onClick={() => {
-                    // Invalidate any in-flight search so it can't repopulate results
+                  onPointerDown={(e) => {
+                    // pointerdown (not click): still fires when a stuck phone
+                    // keyboard/IME state swallows synthesized clicks.
+                    e.preventDefault();
                     seqRef.current++;
                     setQuery("");
                     setResults([]);
