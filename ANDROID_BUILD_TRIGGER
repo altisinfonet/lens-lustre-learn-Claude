@@ -1,3 +1,4 @@
 build: 2026-07-28 six-features release (usernames + stored counts + photo gate + search fix, commit a465174)
 
 build 1018 — fix(search): portal mobile sheet to body; navbar backdrop-filter collapsed fixed inset-0 (4281fae)
+build 1019 — fix(search): no auto-suggestions, no phantom row highlight, tap-to-select fixed, instant tab clear (owner's 5 bug reports)
