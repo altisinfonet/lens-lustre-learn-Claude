@@ -58,6 +58,19 @@ jobs:
       - name: Add Android platform
         run: npx cap add android
 
+      - name: Enable edge-to-edge (clears both Play user-experience recommendations)
+        run: |
+          # The template opts OUT of edge-to-edge via the deprecated
+          # windowOptOutEdgeToEdgeEnforcement attribute - exactly what Play
+          # flags as "may not display for all users" + "deprecated APIs or
+          # parameters". Flip every occurrence off; the WebView insets are
+          # handled by adjustMarginsForEdgeToEdge in capacitor.config.ts.
+          grep -rl "windowOptOutEdgeToEdgeEnforcement" android/app/src/main/res/ | while read f; do
+            sed -i 's/\(windowOptOutEdgeToEdgeEnforcement">\)true/\1false/' "$f"
+            echo "patched: $f"
+          done || echo "no opt-out flag found (template already clean)"
+          grep -rn "windowOptOutEdgeToEdgeEnforcement" android/app/src/main/res/ || true
+
       - name: Configure Android SDK and AGP versions
         run: |
           sed -i 's/minSdkVersion = 23/minSdkVersion = 24/' android/variables.gradle
@@ -100,6 +113,9 @@ jobs:
           # down the same block; in Gradle the LAST assignment wins - drop it.
           s = re.sub(r"\n\s*minifyEnabled false", "", s)
           s = re.sub(r"\n\s*shrinkResources false", "", s)
+          # Play "R8 optimization" recommendation: the template's default rule
+          # file skips R8's optimizing passes - switch to the optimize variant.
+          s = s.replace("proguard-android.txt", "proguard-android-optimize.txt")
           open(p, "w").write(s)
           i = s.index("buildTypes")
           print(s[i:i+320])
