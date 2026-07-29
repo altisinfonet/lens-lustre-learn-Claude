@@ -50,14 +50,14 @@ CREATE TRIGGER trg_notify_certificate_issued
 AFTER INSERT ON public.certificates
 FOR EACH ROW EXECUTE FUNCTION public.notify_certificate_issued();
 
--- 4. Photo of the Day → notify photographer
+-- 4. The Curated Wall → notify photographer
 CREATE OR REPLACE FUNCTION public.notify_potd_featured()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
 AS $$
 BEGIN
   IF NEW.photographer_id IS NOT NULL AND NEW.is_active = true THEN
     INSERT INTO public.user_notifications (user_id, type, title, message, reference_id)
-    VALUES (NEW.photographer_id, 'potd_featured', 'Photo of the Day! 📸', 'Your photo "' || NEW.title || '" has been selected as Photo of the Day!', NEW.id);
+    VALUES (NEW.photographer_id, 'potd_featured', 'The Curated Wall! 🎨', 'Your photo "' || NEW.title || '" has been selected for The Curated Wall!', NEW.id);
   END IF;
   RETURN NEW;
 END;

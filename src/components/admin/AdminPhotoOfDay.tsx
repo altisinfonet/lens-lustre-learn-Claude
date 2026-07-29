@@ -192,7 +192,7 @@ export default function AdminPhotoOfDay({ user }: { user: User | null }) {
 
   const deleteItem = async (id: string) => {
     confirmAction({
-      title: "Delete this Photo of the Day?",
+      title: "Delete this Curated Wall entry?",
       description: "This action cannot be undone.",
       onConfirm: async () => {
         await supabase.from("photo_of_the_day").delete().eq("id", id);
@@ -554,7 +554,7 @@ export default function AdminPhotoOfDay({ user }: { user: User | null }) {
       ) : (
         <div className="text-center py-16 border border-dashed border-border rounded-sm">
           <ImageIcon className="h-10 w-10 text-muted-foreground/30 mx-auto mb-4" />
-          <p className="text-sm text-muted-foreground" style={bodyFont}>No Photo of the Day entries yet. Upload your first batch above.</p>
+          <p className="text-sm text-muted-foreground" style={bodyFont}>No Curated Wall entries yet. Upload your first batch above.</p>
           <p className="text-[10px] text-muted-foreground/60 mt-2" style={bodyFont}>
             <Sparkles className="h-3 w-3 inline mr-1" />
             AI will auto-suggest titles for each upload

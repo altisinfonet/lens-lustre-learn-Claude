@@ -785,7 +785,7 @@ const en: Dict = {
   "adm.nav.admin_notifications": "Notifications",
   "adm.nav.activity_logs": "Activity Logs",
   "adm.nav.banners": "Hero Banners",
-  "adm.nav.potd": "Photo of Day",
+  "adm.nav.potd": "The Curated Wall",
   "adm.nav.portfolio": "Gallery",
   "adm.nav.on_page_images": "On-Page Images",
   "adm.nav.featured_artist": "Featured Artist",

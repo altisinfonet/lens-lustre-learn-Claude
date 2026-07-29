@@ -68,7 +68,7 @@ export default function PhotoOfTheDay() {
         <div className="flex items-center gap-3 mb-4">
           <Star className="h-4 w-4 text-primary fill-primary" />
           <span className="text-[10px] tracking-[0.35em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>
-            Photo of the Day
+            The Curated Wall
           </span>
         </div>
         <div className="aspect-square bg-muted/30 rounded-sm mb-4 flex flex-col items-center justify-center border border-border/50">
@@ -95,7 +95,7 @@ export default function PhotoOfTheDay() {
       <div className="flex items-center gap-3 mb-4">
         <Star className="h-4 w-4 text-primary fill-primary" />
         <span className="text-[10px] tracking-[0.35em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>
-          Photo of the Day
+          The Curated Wall
         </span>
       </div>
 

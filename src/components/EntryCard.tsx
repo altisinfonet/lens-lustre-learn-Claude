@@ -420,7 +420,7 @@ const EntryCard: React.FC<EntryCardProps> = ({
             className="w-full inline-flex items-center justify-center gap-1.5 text-[9px] tracking-[0.15em] uppercase px-3 py-2 border-t border-yellow-500/30 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-500/10 transition-all duration-300"
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            <Star className="h-3 w-3" /> Photo of the Day
+            <Star className="h-3 w-3" /> The Curated Wall
           </button>
         )}
         {/* Reactions â only in result phase */}
@@ -498,7 +498,7 @@ const EntryCard: React.FC<EntryCardProps> = ({
             className="mt-2 w-full inline-flex items-center justify-center gap-1.5 text-[9px] tracking-[0.15em] uppercase px-3 py-2 border border-yellow-500/30 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-500/10 transition-all duration-300"
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            <Star className="h-3 w-3" /> Photo of the Day
+            <Star className="h-3 w-3" /> The Curated Wall
           </button>
         )}
         {competitionPhase === "result" && (

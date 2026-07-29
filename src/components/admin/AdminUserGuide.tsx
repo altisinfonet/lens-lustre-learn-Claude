@@ -16,7 +16,7 @@ const sections = [
     icon: LayoutDashboard,
     items: [
       "Hero Banners — Upload and manage homepage banners with scheduling.",
-      "Photo of Day — Select a daily featured photo from community submissions.",
+      "The Curated Wall — Select curated featured photos from community submissions.",
       "Gallery — Curate and manage the public gallery showcase.",
       "On-Page Images — Upload images used across site pages.",
       "Featured Artist — Create in-depth artist spotlight articles.",

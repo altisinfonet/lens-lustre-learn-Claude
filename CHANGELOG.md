@@ -91,7 +91,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Admin notifications** — `admin_notifications` table for system alerts.
 - **Activity logging** — `activity_logs` table for user action tracking.
 - **User notifications** — `user_notifications` table with realtime support.
-- **Photo of the Day** — `photo_of_the_day` table for daily featured photography.
+- **The Curated Wall** — `photo_of_the_day` table for curated featured photography.
 - **Verification requests** — `verification_requests` table for photographer verification workflow.
 - **Highlights (Stories)** — `highlights` and `highlight_items` tables for profile story-like content.
 - **Featured photos** — `featured_photos` table for profile showcases.

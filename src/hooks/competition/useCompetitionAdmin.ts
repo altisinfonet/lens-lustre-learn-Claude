@@ -32,7 +32,7 @@ export function useCompetitionAdmin() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "⭐ Marked as Photo of the Day!" });
+      toast({ title: "⭐ Marked as The Curated Wall!" });
     },
     onError: (err: any) => {
       toast({ title: "Failed", description: err.message, variant: "destructive" });

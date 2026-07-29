@@ -34,7 +34,7 @@ Your wallet balance (in USD) can be used to enter paid competitions, enroll in c
 Stay updated with the latest from 50mm Retina World! Subscribe to our newsletter for:
 - Photography tips, tutorials, and creative inspiration.
 - Competition announcements and deadline reminders.
-- Featured artist spotlights and Photo of the Day highlights.
+- Featured artist spotlights and The Curated Wall highlights.
 - Platform updates, new courses, and exclusive offers.
 
 Users can subscribe via the website footer or during AI chat conversations.
@@ -131,8 +131,8 @@ IMPORTANT: Never give the exact same response twice. Vary your phrasing, example
 - Hashtag feeds: Click a hashtag to see all posts with that tag.
 - Mutual friends are shown on profiles.
 
-### Photo of the Day (POTD)
-- Admin selects a Photo of the Day from competition entries or user submissions.
+### The Curated Wall (POTD)
+- Admin selects a Curated Wall photo from competition entries or user submissions.
 - POTD is featured prominently on the homepage.
 - Selected photographers get recognition and visibility.
 

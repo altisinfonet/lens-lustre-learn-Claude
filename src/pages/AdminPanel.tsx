@@ -112,7 +112,7 @@ const tabGroups = [
   ] as const },
   { label: "Content", items: [
     ["banners", "Hero Banners", LayoutDashboard],
-    ["potd", "Photo of Day", Star],
+    ["potd", "The Curated Wall", Star],
     ["portfolio", "Gallery", Image],
     ["on_page_images", "On-Page Images", Upload],
     ["featured_artist", "Featured Artist", Star],
