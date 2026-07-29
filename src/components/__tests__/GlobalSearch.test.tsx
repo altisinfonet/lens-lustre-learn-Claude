@@ -40,7 +40,10 @@ const makeQueryStub = () => {
 };
 
 vi.mock("@/integrations/supabase/client", () => ({
-  supabase: { from: () => makeQueryStub() },
+  supabase: {
+    from: () => makeQueryStub(),
+    rpc: () => Promise.resolve({ data: {}, error: null }),
+  },
 }));
 
 vi.mock("@/lib/profilesPublic", () => ({
