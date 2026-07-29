@@ -2,8 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/core/useAuth";
-import { Search, Trophy, BookOpen, Newspaper, X, ArrowLeft, User, Layers, UserRound, MessageSquare, Clock } from "lucide-react";
-import { profilesPublic } from "@/lib/profilesPublic";
+import { Search, Trophy, BookOpen, Newspaper, X, ArrowLeft, User, Layers, UserRound, MessageSquare, Clock, Hash } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -12,7 +11,7 @@ import { format } from "date-fns";
 interface SearchResult {
   id: string;
   title: string;
-  type: "competition" | "course" | "article" | "person" | "post";
+  type: "competition" | "course" | "article" | "person" | "post" | "hashtag";
   url: string;
   subtitle?: string;
   date?: string;
@@ -61,12 +60,10 @@ const typeConfig = {
   article: { icon: Newspaper, label: "Journal", color: "text-secondary" },
   person: { icon: UserRound, label: "Person", color: "text-foreground" },
   post: { icon: MessageSquare, label: "Post", color: "text-muted-foreground" },
+  hashtag: { icon: Hash, label: "Hashtag", color: "text-primary" },
 };
 
 type SectionFilter = "all" | "competition" | "course" | "article" | "person" | "post";
-
-/** Strip characters that would break a PostgREST .or() expression. */
-const sanitizeForOr = (s: string) => s.replace(/[,()]/g, " ").trim();
 
 const GlobalSearch = () => {
   const [open, setOpen] = useState(false);
@@ -158,64 +155,39 @@ const GlobalSearch = () => {
       return;
     }
     setLoading(true);
-    const searchTerm = term.length >= 1 ? `%${term}%` : "%";
     try {
 
-    const shouldSearchComps = sectionFilter === "all" || sectionFilter === "competition";
-    const shouldSearchCourses = sectionFilter === "all" || sectionFilter === "course";
-    const shouldSearchArticles = sectionFilter === "all" || sectionFilter === "article";
-    const shouldSearchPeople = sectionFilter === "all" || sectionFilter === "person";
-    const shouldSearchPosts = sectionFilter === "all" || sectionFilter === "post";
+    // PREMIUM SEARCH (2026-07-29): ONE server round trip via the
+    // global_search RPC — typo-tolerant (trigram similarity) and
+    // relevance-ranked (exact > prefix > word-start > fuzzy) in Postgres.
+    // Replaces the old 6-query client fan-out; follower counts come joined.
+    const isHashtag = term.startsWith("#");
+    const isUsername = term.startsWith("@");
+    const bare = term.replace(/^[@#]/, "").trim();
 
-    const [comps, courses, articles, people, posts] = await Promise.all([
-      shouldSearchComps && term.length >= 1
-        ? supabase.from("competitions").select("id, title, category, status, starts_at").ilike("title", searchTerm).limit(8)
-        : Promise.resolve({ data: [] }),
-      shouldSearchCourses && term.length >= 1
-        ? supabase.from("courses").select("id, title, slug, category, difficulty, published_at").eq("status", "published").ilike("title", searchTerm).limit(8)
-        : Promise.resolve({ data: [] }),
-      shouldSearchArticles && term.length >= 1
-        ? supabase.from("journal_articles").select("id, title, slug, excerpt, published_at, tags").eq("status", "published").ilike("title", searchTerm).limit(8)
-        : Promise.resolve({ data: [] }),
-      shouldSearchPeople && term.length >= 1
-        ? (() => {
-            // Match name OR @username. A leading @ means username-only.
-            const bare = sanitizeForOr(term.replace(/^@/, ""));
-            const pattern = `%${bare}%`;
-            let qb = profilesPublic()
-              .select("id, full_name, avatar_url, bio, custom_url")
-              .eq("is_suspended", false);
-            qb = term.startsWith("@")
-              ? qb.ilike("custom_url", pattern)
-              : qb.or(`full_name.ilike.${pattern},custom_url.ilike.${pattern}`);
-            return qb.limit(sectionFilter === "person" ? 15 : 8);
-          })()
-        : Promise.resolve({ data: [] }),
-      shouldSearchPosts && term.length >= 1
-        ? supabase.from("posts").select("id, content, user_id, created_at")
-            .eq("privacy", "public")
-            .ilike("content", searchTerm)
-            .order("created_at", { ascending: false })
-            .limit(8)
-        : Promise.resolve({ data: [] }),
-    ]);
-
-    // Follower counts for the people rows (stored counts in profile_stats).
-    const peopleIds = (people.data || []).map((p: any) => p.id);
-    const followerCounts = new Map<string, number>();
-    if (peopleIds.length > 0) {
-      // profile_stats is newer than the generated Supabase types — cast like
-      // profilesPublic() does for profiles_public_data.
-      const { data: stats } = await (supabase.from("profile_stats" as any) as any)
-        .select("user_id, followers_count")
-        .in("user_id", peopleIds);
-      for (const s of (stats || []) as { user_id: string; followers_count: number }[]) {
-        followerCounts.set(s.user_id, s.followers_count);
-      }
-    }
+    const { data: gs, error } = await (supabase.rpc as any)("global_search", {
+      term: isHashtag ? bare : isUsername ? bare : term,
+      section: isHashtag ? "post" : sectionFilter,
+      username_only: isUsername,
+    });
+    if (error) throw error;
+    const g = (gs || {}) as {
+      people?: any[]; competitions?: any[]; courses?: any[];
+      articles?: any[]; posts?: any[];
+    };
 
     const mapped: SearchResult[] = [
-      ...(people.data || [])
+      // Hashtag mode: a direct row to the tag's feed, above matching posts.
+      ...(isHashtag && bare.length >= 1
+        ? [{
+            id: `tag-${bare.toLowerCase()}`,
+            title: `#${bare.toLowerCase()}`,
+            type: "hashtag" as const,
+            url: `/hashtag/${encodeURIComponent(bare.toLowerCase())}`,
+            subtitle: "See all posts",
+          }]
+        : []),
+      ...(g.people || [])
         .map((p: any) => ({
           id: p.id,
           title: p.full_name || "Photographer",
@@ -224,7 +196,7 @@ const GlobalSearch = () => {
           subtitle: followedIdsRef.current.has(p.id) ? "Following" : undefined,
           avatarUrl: p.avatar_url,
           handle: p.custom_url || undefined,
-          followers: followerCounts.get(p.id) ?? 0,
+          followers: p.followers_count ?? 0,
         }))
         // Friends first — people you follow rank above everyone else.
         .sort(
@@ -232,7 +204,7 @@ const GlobalSearch = () => {
             (followedIdsRef.current.has(b.id) ? 1 : 0) -
             (followedIdsRef.current.has(a.id) ? 1 : 0)
         ),
-      ...(comps.data || []).map((c: any) => ({
+      ...(g.competitions || []).map((c: any) => ({
         id: c.id,
         title: c.title,
         type: "competition" as const,
@@ -241,7 +213,7 @@ const GlobalSearch = () => {
         date: c.starts_at,
         category: c.category,
       })),
-      ...(courses.data || []).map((c: any) => ({
+      ...(g.courses || []).map((c: any) => ({
         id: c.id,
         title: c.title,
         type: "course" as const,
@@ -250,15 +222,15 @@ const GlobalSearch = () => {
         date: c.published_at,
         category: c.category,
       })),
-      ...(articles.data || []).map((a: any) => ({
+      ...(g.articles || []).map((a: any) => ({
         id: a.id,
         title: a.title,
         type: "article" as const,
         url: `/journal/${a.slug}`,
-        subtitle: a.excerpt?.slice(0, 60) || undefined,
+        subtitle: a.excerpt || undefined,
         date: a.published_at,
       })),
-      ...(posts.data || []).map((p: any) => ({
+      ...(g.posts || []).map((p: any) => ({
         id: p.id,
         title: (p.content || "").slice(0, 80) || "Post",
         type: "post" as const,
@@ -288,7 +260,7 @@ const GlobalSearch = () => {
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (open) search(query);
-    }, 300);
+    }, 150);
     return () => clearTimeout(timeout);
   }, [query, search, open]);
 
@@ -323,6 +295,28 @@ const GlobalSearch = () => {
     setSectionFilter("all");
     setRecent(loadRecent());
     if (user) {
+      // Account-synced recents (2026-07-29): the member's recent searches
+      // follow them across devices/logins, like preferred_language does.
+      (supabase.from("search_recents" as any) as any)
+        .select("item_type, item_id, title, url, avatar_url, handle")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false })
+        .limit(RECENT_MAX)
+        .then(({ data }: { data: any[] | null }) => {
+          if (!data) return;
+          const rows: RecentEntry[] = data.map((r: any) => ({
+            id: r.item_id,
+            type: r.item_type,
+            title: r.title,
+            url: r.url,
+            avatarUrl: r.avatar_url || undefined,
+            handle: r.handle || undefined,
+          }));
+          setRecent(rows);
+          saveRecent(rows); // keep the local cache warm for instant next open
+        });
+    }
+    if (user) {
       supabase
         .from("follows")
         .select("following_id")
@@ -338,20 +332,49 @@ const GlobalSearch = () => {
   }, [open, isFeed, user]);
 
   const rememberRecent = (entry: RecentEntry) => {
-    const next = [entry, ...loadRecent().filter((r) => !(r.type === entry.type && r.id === entry.id))].slice(0, RECENT_MAX);
+    const next = [entry, ...recent.filter((r) => !(r.type === entry.type && r.id === entry.id))].slice(0, RECENT_MAX);
     saveRecent(next);
     setRecent(next);
+    if (user) {
+      // Fire-and-forget account sync — a failure only costs cross-device sync.
+      (supabase.from("search_recents" as any) as any)
+        .upsert({
+          user_id: user.id,
+          item_type: entry.type,
+          item_id: entry.id,
+          title: entry.title,
+          url: entry.url,
+          avatar_url: entry.avatarUrl ?? null,
+          handle: entry.handle ?? null,
+          updated_at: new Date().toISOString(),
+        })
+        .then(() => {});
+    }
   };
 
   const removeRecent = (entry: RecentEntry) => {
-    const next = loadRecent().filter((r) => !(r.type === entry.type && r.id === entry.id));
+    const next = recent.filter((r) => !(r.type === entry.type && r.id === entry.id));
     saveRecent(next);
     setRecent(next);
+    if (user) {
+      (supabase.from("search_recents" as any) as any)
+        .delete()
+        .eq("user_id", user.id)
+        .eq("item_type", entry.type)
+        .eq("item_id", entry.id)
+        .then(() => {});
+    }
   };
 
   const clearRecent = () => {
     saveRecent([]);
     setRecent([]);
+    if (user) {
+      (supabase.from("search_recents" as any) as any)
+        .delete()
+        .eq("user_id", user.id)
+        .then(() => {});
+    }
   };
 
   const handleSelect = (result: SearchResult) => {
@@ -571,7 +594,7 @@ const GlobalSearch = () => {
                 </div>
               )}
 
-              {loading && (
+              {loading && results.length === 0 && (
                 <div className="px-4 py-6 text-center">
                   <span className="text-xs text-muted-foreground animate-pulse" style={{ fontFamily: "var(--font-heading)" }}>Searching…</span>
                 </div>
@@ -586,7 +609,7 @@ const GlobalSearch = () => {
               )}
 
 
-              {!loading && results.length > 0 && (
+              {results.length > 0 && (
                 <ul className="py-1">
                   {results.map((result, index) => {
                     const config = typeConfig[result.type];
