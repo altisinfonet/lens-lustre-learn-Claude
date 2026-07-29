@@ -10,6 +10,13 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
   },
+  android: {
+    // Proper edge-to-edge on Android 15+ (target SDK 36): the WebView gets
+    // margins for the status/navigation bars instead of the deprecated
+    // opt-out flag the platform template ships (which Play flags as
+    // "may not display for all users" + "deprecated APIs or parameters").
+    adjustMarginsForEdgeToEdge: 'auto',
+  },
   plugins: {
     // FCM presentation while the app is foregrounded
     FirebaseMessaging: {
