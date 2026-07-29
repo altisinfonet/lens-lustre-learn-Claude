@@ -5,3 +5,4 @@ build 1019 — fix(search): no auto-suggestions, no phantom row highlight, tap-t
 build 1020 — fix(search): post results open /post/:id (PostDetail), not /feed
 build 1021 — feat: profile-only language, See translation on posts, blank-page self-heal (dd7fc24)
 build 1022 — feat(search): premium search (typo-tolerant ranked RPC, hashtags, synced recents)
+build 1023 — fix(search): real hashtag suggestions (typo-tolerant) + phone keyboard hardening
