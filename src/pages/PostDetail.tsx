@@ -8,6 +8,7 @@ import { useDownloadImage } from "@/hooks/core/useDownloadImage";
 import DownloadButton from "@/components/DownloadButton";
 import { toast } from "@/hooks/core/use-toast";
 import RichContentRenderer from "@/components/RichContentRenderer";
+import TranslateBar from "@/components/post/TranslateBar";
 import PostCommentsSection from "@/components/PostCommentsSection";
 import EngagementFooter from "@/components/EngagementFooter";
 import FacebookPhotoGrid from "@/components/FacebookPhotoGrid";
@@ -278,6 +279,7 @@ const PostDetail = () => {
               <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={bodyFont}>
                 <RichContentRenderer content={post.content} />
               </p>
+              <TranslateBar text={post.content} />
             </div>
           )}
 

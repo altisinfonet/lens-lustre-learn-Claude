@@ -21,7 +21,8 @@ import { cn } from "@/lib/utils";
 import { format, differenceInYears } from "date-fns";
 import { normalizeFullName } from "@/lib/nameNormalize";
 import { getCaptchaToken } from "@/lib/turnstile";
-import { useT } from "@/i18n/I18nContext";
+import { useT, useI18n } from "@/i18n/I18nContext";
+import { LANGS } from "@/i18n/translations";
 
 const INTEREST_OPTIONS = [
   "Wildlife", "Street", "Portrait", "Aerial", "Documentary",
@@ -35,6 +36,7 @@ const sectionHeadCls = "text-[9px] tracking-[0.3em] uppercase text-muted-foregro
 
 const EditProfile = () => {
   const t = useT();
+  const { lang, setLang } = useI18n();
   const { user, loading: authLoading } = useAuth();
   const { isAdmin } = useIsAdmin();
   
@@ -714,6 +716,36 @@ const EditProfile = () => {
               {errors.bio ? <p className="text-[9px] text-destructive" style={{ fontFamily: "var(--font-heading)" }}>{errors.bio}</p> : <span />}
               <span className="text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>{bio.length}/500</span>
             </div>
+          </div>
+
+          {/* Language — the ONLY place the app language is changed (account
+              setting, follows the member across devices; owner rule 2026-07-28:
+              no navbar/home-page language switcher). */}
+          <div className="border-t border-border pt-4">
+            <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>
+              <Globe className="inline h-3 w-3 mr-1.5" />{t("profile_language", "Language")}
+            </label>
+            <div className="flex flex-wrap gap-2 py-2">
+              {LANGS.map((l) => (
+                <button
+                  key={l.code}
+                  type="button"
+                  onClick={() => setLang(l.code)}
+                  className={`px-3 py-1.5 rounded-full border text-xs transition-colors ${
+                    lang === l.code
+                      ? "border-primary text-primary bg-primary/10"
+                      : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                  }`}
+                  style={{ fontFamily: "var(--font-body)" }}
+                  aria-pressed={lang === l.code}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
+              {t("profile_language_hint", "The app shows in this language everywhere you sign in.")}
+            </p>
           </div>
 
           {/* Row 1: Speaking Language + Full Name */}
