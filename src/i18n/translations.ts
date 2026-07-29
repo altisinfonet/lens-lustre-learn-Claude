@@ -23,6 +23,11 @@ export const LANGS: { code: Lang; label: string; flag: string }[] = [
 type Dict = Record<string, string>;
 
 const en: Dict = {
+  "post_see_translation": "See translation",
+  "post_see_original": "See original",
+  "post_translating": "Translating…",
+  "profile_language": "Language",
+  "profile_language_hint": "The app shows in this language everywhere you sign in.",
   "nav.competitions": "Competitions",
   "nav.journal": "Journal",
   "nav.courses": "Courses",
@@ -1086,6 +1091,11 @@ const en: Dict = {
 };
 
 const hi: Dict = {
+  "post_see_translation": "अनुवाद देखें",
+  "post_see_original": "मूल देखें",
+  "post_translating": "अनुवाद हो रहा है…",
+  "profile_language": "भाषा",
+  "profile_language_hint": "जहाँ भी आप साइन इन करें, ऐप इसी भाषा में दिखेगा।",
   "nav.competitions": "प्रतियोगिताएँ",
   "nav.journal": "जर्नल",
   "nav.courses": "कोर्स",
@@ -2149,6 +2159,11 @@ const hi: Dict = {
 };
 
 const bn: Dict = {
+  "post_see_translation": "অনুবাদ দেখুন",
+  "post_see_original": "মূল দেখুন",
+  "post_translating": "অনুবাদ হচ্ছে…",
+  "profile_language": "ভাষা",
+  "profile_language_hint": "আপনি যেখানেই সাইন ইন করুন, অ্যাপ এই ভাষায় দেখাবে।",
   "nav.competitions": "প্রতিযোগিতা",
   "nav.journal": "জার্নাল",
   "nav.courses": "কোর্স",
@@ -3212,6 +3227,11 @@ const bn: Dict = {
 };
 
 const mr: Dict = {
+  "post_see_translation": "भाषांतर पहा",
+  "post_see_original": "मूळ पहा",
+  "post_translating": "भाषांतर होत आहे…",
+  "profile_language": "भाषा",
+  "profile_language_hint": "तुम्ही जिथेही साइन इन कराल, अ‍ॅप याच भाषेत दिसेल.",
   "nav.competitions": "स्पर्धा",
   "nav.journal": "जर्नल",
   "nav.courses": "कोर्स",
@@ -4275,6 +4295,11 @@ const mr: Dict = {
 };
 
 const gu: Dict = {
+  "post_see_translation": "અનુવાદ જુઓ",
+  "post_see_original": "મૂળ જુઓ",
+  "post_translating": "અનુવાદ થઈ રહ્યો છે…",
+  "profile_language": "ભાષા",
+  "profile_language_hint": "તમે જ્યાં પણ સાઇન ઇન કરો, એપ આ ભાષામાં દેખાશે.",
   "nav.competitions": "સ્પર્ધાઓ",
   "nav.journal": "જર્નલ",
   "nav.courses": "કોર્સ",
@@ -5338,6 +5363,11 @@ const gu: Dict = {
 };
 
 const ta: Dict = {
+  "post_see_translation": "மொழிபெயர்ப்பைக் காண்க",
+  "post_see_original": "மூலத்தைக் காண்க",
+  "post_translating": "மொழிபெயர்க்கிறது…",
+  "profile_language": "மொழி",
+  "profile_language_hint": "நீங்கள் எங்கு உள்நுழைந்தாலும் ஆப்ஸ் இந்த மொழியில் காட்டப்படும்.",
   "nav.competitions": "போட்டிகள்",
   "nav.journal": "இதழ்",
   "nav.courses": "படிப்புகள்",
@@ -6401,6 +6431,11 @@ const ta: Dict = {
 };
 
 const te: Dict = {
+  "post_see_translation": "అనువాదం చూడండి",
+  "post_see_original": "అసలు చూడండి",
+  "post_translating": "అనువదిస్తోంది…",
+  "profile_language": "భాష",
+  "profile_language_hint": "మీరు ఎక్కడ సైన్ ఇన్ చేసినా యాప్ ఈ భాషలో కనిపిస్తుంది.",
   "nav.competitions": "పోటీలు",
   "nav.journal": "జర్నల్",
   "nav.courses": "కోర్సులు",
