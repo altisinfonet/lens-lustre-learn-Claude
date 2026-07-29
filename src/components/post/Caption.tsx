@@ -1,5 +1,6 @@
 import { useState } from "react";
 import RichContentRenderer from "@/components/RichContentRenderer";
+import TranslateBar from "@/components/post/TranslateBar";
 
 interface CaptionProps {
   content: string;
@@ -26,6 +27,7 @@ const Caption = ({ content, maxLines = 2 }: CaptionProps) => {
           {expanded ? "See less" : "See more"}
         </button>
       )}
+      <TranslateBar text={content} />
     </div>
   );
 };
