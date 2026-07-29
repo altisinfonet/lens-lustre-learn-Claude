@@ -8,7 +8,6 @@ import { useAuth } from "@/hooks/core/useAuth";
 import GlobalSearch from "@/components/GlobalSearch";
 import { useTheme } from "@/hooks/core/useTheme";
 import UserMenu from "@/components/UserMenu";
-import LanguagePicker from "@/components/LanguagePicker";
 import NotificationBell from "@/components/NotificationBell";
 import { useT } from "@/i18n/I18nContext";
 import { navKeyForLabel } from "@/i18n/translations";
@@ -232,7 +231,6 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
             >
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
-            <LanguagePicker />
             <GlobalSearch />
             {user && <NotificationBell />}
             {user ? (
@@ -259,7 +257,6 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
 
           {/* Mobile right actions */}
           <div className="flex items-center gap-2 lg:hidden">
-            <LanguagePicker compact />
             <button
               onClick={toggleTheme}
               className="p-2 rounded-full border border-border hover:border-primary hover:text-primary transition-all duration-500"
