@@ -110,6 +110,22 @@ const AdminGallery = ({ user }: { user: User | null }) => {
     });
   }, [images, sortCol, sortDir]);
 
+  /**
+   * Suggestion list for the category field: the built-in CATEGORIES plus every
+   * custom category already in use on existing images (so a name typed once is
+   * offered as a pick from then on). The field itself is free text — anything
+   * typed here becomes a real category and appears in the home page gallery
+   * filter bar automatically (Index.tsx derives that bar from the categories
+   * actually present on visible images).
+   */
+  const categorySuggestions = useMemo(
+    () =>
+      Array.from(
+        new Set([...CATEGORIES, ...images.map((i) => i.category).filter(Boolean)]),
+      ).sort((a, b) => a.localeCompare(b)),
+    [images],
+  );
+
   const activeCount = images.filter((i) => i.is_visible).length;
 
   const fetchImages = useCallback(async () => {
@@ -322,16 +338,19 @@ const AdminGallery = ({ user }: { user: User | null }) => {
 
   const saveEdit = async () => {
     if (!editingId) return;
+    // Category is free text now — trim so " Nature" and "Nature" don't become
+    // two separate filter buttons on the home page. Empty falls back to General.
+    const category = editForm.category.trim() || "General";
     await supabase.from("portfolio_images").update({
       title: editForm.title,
-      category: editForm.category,
+      category,
       active_from: editForm.active_from || null,
       active_until: editForm.active_until || null,
     }).eq("id", editingId);
     setImages((prev) =>
       prev.map((p) =>
         p.id === editingId
-          ? { ...p, title: editForm.title, category: editForm.category, active_from: editForm.active_from || null, active_until: editForm.active_until || null }
+          ? { ...p, title: editForm.title, category, active_from: editForm.active_from || null, active_until: editForm.active_until || null }
           : p
       )
     );
@@ -585,9 +604,20 @@ const AdminGallery = ({ user }: { user: User | null }) => {
                   </div>
                   <div className="w-24 shrink-0">
                     {isEditing ? (
-                      <select value={editForm.category} onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))} className="bg-transparent border border-border rounded-sm text-[10px] px-1 py-0.5 outline-none w-full">
-                        {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                      </select>
+                      <>
+                        <input
+                          list="gallery-category-options"
+                          value={editForm.category}
+                          onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
+                          placeholder="Type or pick"
+                          className="bg-transparent border border-border rounded-sm text-[10px] px-1 py-0.5 outline-none w-full"
+                          style={bodyFont}
+                          aria-label="Category — type a custom name or pick an existing one"
+                        />
+                        <datalist id="gallery-category-options">
+                          {categorySuggestions.map((c) => <option key={c} value={c} />)}
+                        </datalist>
+                      </>
                     ) : (
                       <span className="text-[9px] px-1.5 py-0.5 border border-border rounded-sm" style={headingFont}>{img.category}</span>
                     )}
