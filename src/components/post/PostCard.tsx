@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { MessageCircle, Share2, Copy, MoreHorizontal, Trash2, Flag, Heart, Repeat, Eye, BarChart2, Pencil } from "lucide-react";
+import { MessageCircle, Share2, Copy, MoreHorizontal, Trash2, Flag, Heart, Repeat, Eye, BarChart2, Pencil, UserPlus } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +21,7 @@ import { formatNumber, getMetrics, getPostBadge, getPostInsight } from "@/lib/po
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { UnifiedPost } from "@/types/post";
 import { useT } from "@/i18n/I18nContext";
+import { useSendFriendRequest } from "@/hooks/social/useFriendshipMutations";
 
 const displayFont = { fontFamily: "var(--font-display)" };
 const headingFont = { fontFamily: "var(--font-heading)" };
@@ -59,6 +60,9 @@ const PostCard = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editDraft, setEditDraft] = useState(post.content || "");
   const [savingEdit, setSavingEdit] = useState(false);
+  // Add-friend from suggested posts (sends request + auto-follows)
+  const sendFriend = useSendFriendRequest();
+  const [friendRequested, setFriendRequested] = useState(false);
 
   const handleSaveCaption = async () => {
     if (!currentUserId || savingEdit) return;
@@ -170,6 +174,19 @@ const PostCard = ({
             )}
           </div>
         </div>
+        {currentUserId && post.is_suggested && currentUserId !== post.user_id && (
+          <button
+            onClick={() => {
+              if (friendRequested || sendFriend.isPending) return;
+              sendFriend.mutate(post.user_id, { onSuccess: () => setFriendRequested(true) });
+            }}
+            disabled={friendRequested || sendFriend.isPending}
+            className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-primary/40 text-primary text-[9px] tracking-[0.1em] uppercase hover:bg-primary hover:text-primary-foreground transition-colors disabled:opacity-60"
+            style={headingFont}
+          >
+            <UserPlus className="h-3 w-3" /> {friendRequested ? "Requested" : "Add friend"}
+          </button>
+        )}
         {currentUserId && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -270,6 +270,17 @@ const Friends = () => {
       (profile.country || "").toLowerCase().includes(q);
   };
 
+  // "Awaited" = requests RECEIVED (others want to be my friend) — accept one by one.
+  // "Pending" = requests I SENT — waiting for the other side.
+  const receivedRequests = useMemo(
+    () => pendingRequests.filter((r) => r.direction === "received"),
+    [pendingRequests],
+  );
+  const sentRequests = useMemo(
+    () => pendingRequests.filter((r) => r.direction === "sent"),
+    [pendingRequests],
+  );
+
   const allListedUserIds = useMemo(
     () => Array.from(new Set([
       ...pendingRequests.map((r) => r.profile.id),
@@ -324,12 +335,15 @@ const Friends = () => {
               />
             </div>
 
-            <Tabs defaultValue={pendingRequests.length > 0 ? "pending" : "friends"} className="w-full">
+            <Tabs defaultValue={receivedRequests.length > 0 ? "awaited" : sentRequests.length > 0 ? "pending" : "friends"} className="w-full">
               <div className="overflow-x-auto scrollbar-hide -mx-2 px-2 md:mx-0 md:px-0 mb-3 md:mb-6" style={{ WebkitOverflowScrolling: "touch" }}>
                 <TabsList className="inline-flex gap-2 bg-transparent border-none p-0 h-auto w-max min-w-full md:min-w-0">
-                {pendingRequests.length > 0 && (
+                <TabsTrigger value="awaited" className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
+                  <UserCheck className="h-3 w-3 shrink-0" /> Awaited ({receivedRequests.length})
+                </TabsTrigger>
+                {sentRequests.length > 0 && (
                   <TabsTrigger value="pending" className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
-                    <Clock className="h-3 w-3 shrink-0" /> {t("fr.pending")} ({pendingRequests.length})
+                    <Clock className="h-3 w-3 shrink-0" /> {t("fr.pending")} ({sentRequests.length})
                   </TabsTrigger>
                 )}
                 <TabsTrigger value="friends" className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
@@ -344,51 +358,71 @@ const Friends = () => {
                 </TabsList>
               </div>
 
-              {/* Pending Requests */}
-              {pendingRequests.length > 0 && (
-                <TabsContent value="pending">
+              {/* Awaited — requests RECEIVED, accept one by one */}
+              <TabsContent value="awaited">
+                {receivedRequests.filter((r) => filterBySearch(r.profile)).length > 0 ? (
                   <div className="border border-border divide-y divide-border">
-                    {pendingRequests.filter((r) => filterBySearch(r.profile)).map((req) => (
+                    {receivedRequests.filter((r) => filterBySearch(r.profile)).map((req) => (
                       <PersonRow
                         key={req.friendshipId}
                         profile={req.profile}
                         badges={badgeMap.get(req.profile.id) || []}
                         mutualCount={mutualCounts.get(req.profile.id)}
                         mutualFriends={mutualProfiles.get(req.profile.id)}
-                        subtitle={req.direction === "sent" ? t("fr.requestSent") : t("fr.wantsToBe")}
+                        subtitle={t("fr.wantsToBe")}
                         date={formatDate(req.since)}
                         actions={
-                          req.direction === "received" ? (
-                            <div className="flex gap-2">
-                              <ActionBtn
-                                icon={<UserCheck className="h-3 w-3" />}
-                                label={t("dash.accept")}
-                                onClick={() => acceptRequest(req.friendshipId, req.profile.id)}
-                                disabled={actionLoading === req.friendshipId}
-                                variant="primary"
-                              />
-                              <ActionBtn
-                                icon={<UserX className="h-3 w-3" />}
-                                label={t("dash.decline")}
-                                onClick={() => declineRequest(req.friendshipId)}
-                                disabled={actionLoading === req.friendshipId}
-                                variant="muted"
-                              />
-                            </div>
-                          ) : (
+                          <div className="flex gap-2">
+                            <ActionBtn
+                              icon={<UserCheck className="h-3 w-3" />}
+                              label={t("dash.accept")}
+                              onClick={() => acceptRequest(req.friendshipId, req.profile.id)}
+                              disabled={actionLoading === req.friendshipId}
+                              variant="primary"
+                            />
                             <ActionBtn
                               icon={<UserX className="h-3 w-3" />}
-                              label={t("common.cancel")}
+                              label={t("dash.decline")}
                               onClick={() => declineRequest(req.friendshipId)}
                               disabled={actionLoading === req.friendshipId}
                               variant="muted"
                             />
-                          )
+                          </div>
                         }
                       />
                     ))}
                   </div>
-                  {pendingRequests.filter((r) => filterBySearch(r.profile)).length === 0 && (
+                ) : (
+                  <EmptyState message="No friend requests waiting for you right now." />
+                )}
+              </TabsContent>
+
+              {/* Pending — requests I SENT */}
+              {sentRequests.length > 0 && (
+                <TabsContent value="pending">
+                  <div className="border border-border divide-y divide-border">
+                    {sentRequests.filter((r) => filterBySearch(r.profile)).map((req) => (
+                      <PersonRow
+                        key={req.friendshipId}
+                        profile={req.profile}
+                        badges={badgeMap.get(req.profile.id) || []}
+                        mutualCount={mutualCounts.get(req.profile.id)}
+                        mutualFriends={mutualProfiles.get(req.profile.id)}
+                        subtitle={t("fr.requestSent")}
+                        date={formatDate(req.since)}
+                        actions={
+                          <ActionBtn
+                            icon={<UserX className="h-3 w-3" />}
+                            label={t("common.cancel")}
+                            onClick={() => declineRequest(req.friendshipId)}
+                            disabled={actionLoading === req.friendshipId}
+                            variant="muted"
+                          />
+                        }
+                      />
+                    ))}
+                  </div>
+                  {sentRequests.filter((r) => filterBySearch(r.profile)).length === 0 && (
                     <EmptyState message={t("fr.noMatchingPending")} />
                   )}
                 </TabsContent>
