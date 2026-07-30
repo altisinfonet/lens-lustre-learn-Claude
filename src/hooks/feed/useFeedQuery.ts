@@ -15,6 +15,11 @@ export type FeedPost = UnifiedPost & { is_suggested: boolean };
 
 /* ── Helpers ── */
 
+/**
+ * Friends + followed users + self. Used ONLY to label posts as
+ * `is_suggested` (author outside the user's network) — it no longer
+ * restricts what appears in the feed.
+ */
 async function fetchRelevantUsers(userId: string): Promise<string[]> {
   const [followsRes, friendsRes] = await Promise.all([
     supabase.from("follows").select("following_id").eq("follower_id", userId),
@@ -33,25 +38,39 @@ async function fetchRelevantUsers(userId: string): Promise<string[]> {
   return Array.from(new Set([...followedIds, ...friendIds, userId]));
 }
 
-/** FIX 3: Single RPC call replaces 3 separate queries */
-async function fetchCandidatePool(networkIds: string[]): Promise<any[]> {
-  const { data, error } = await supabase.rpc("get_feed_candidates", {
-    _network_ids: networkIds,
+/**
+ * BROADCAST + NEVER-REPEAT FEED (owner-approved spec, 2026-07-30).
+ *
+ * One RPC call per page. The database returns, in order:
+ *   Tier 1 "unseen"   — every visible post the user has never viewed,
+ *                       fewest total viewers first, then newest first.
+ *   Tier 2 "recycled" — when unseen runs out: already-seen posts,
+ *                       least-recently-seen first. The feed never runs dry.
+ *
+ * `excludeIds` = posts already delivered in THIS scroll session, so a
+ * post is never repeated while the user keeps scrolling.
+ */
+async function fetchBroadcastPage(excludeIds: string[]): Promise<any[]> {
+  const { data, error } = await supabase.rpc("get_broadcast_feed" as any, {
+    _exclude_ids: excludeIds,
+    _limit: PAGE_SIZE,
   });
-
   if (error || !data) {
-    console.error("get_feed_candidates RPC failed, falling back:", error);
-    // Fallback to simple recent query
-    const { data: fallback } = await supabase
+    console.error("get_broadcast_feed RPC failed, falling back to chronological:", error);
+    // Explicit fallback (used only if the DB function is not deployed yet):
+    // plain newest-first public posts. RLS still enforces privacy.
+    let query = supabase
       .from("posts")
       .select("id, user_id, content, image_url, image_urls, privacy, created_at, likes_count, comments_count, shares_count")
-      .eq("privacy", "public")
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(PAGE_SIZE);
+    if (excludeIds.length > 0) {
+      query = query.not("id", "in", `(${excludeIds.join(",")})`);
+    }
+    const { data: fallback } = await query;
     return fallback || [];
   }
-
-  return data;
+  return data as any[];
 }
 
 /** Reduced enrichment — uses precomputed counts, fewer queries */
@@ -123,35 +142,28 @@ async function enrichPosts(
   });
 }
 
-/** Send candidate pool to rank-feed for scoring + diversity */
-async function rankCandidates(
-  posts: any[],
-  networkIds: string[],
-): Promise<string[]> {
-  if (posts.length <= 3) return posts.map((p) => p.id);
-  try {
-    const postData = posts.map((p) => ({
-      id: p.id,
-      author_id: p.user_id,
-      created_at: p.created_at,
-      like_count: p.likes_count || 0,
-      comment_count: p.comments_count || 0,
-      is_from_network: networkIds.includes(p.user_id),
-      has_image: ((p.image_urls?.length || 0) > 0) || !!p.image_url,
-      author_interaction_count: 0,
-    }));
-    const res = await supabase.functions.invoke("rank-feed", {
-      body: { posts: postData },
-    });
-    if (res.data?.ranked_ids?.length > 0) {
-      return res.data.ranked_ids;
-    }
-  } catch {
-    // Fall through to chronological
+/**
+ * Diversity rule kept from the previous ranking engine: no same author
+ * back-to-back. Reorders WITHIN the page only; `prevAuthor` carries the
+ * last author of the previous page so the rule also holds across the
+ * page boundary. If every remaining post is by the same author the rule
+ * is unavoidable and posts are emitted as-is.
+ */
+function reorderNoBackToBack<T extends { user_id: string }>(
+  posts: T[],
+  prevAuthor: string | null,
+): T[] {
+  const result: T[] = [];
+  const pool = [...posts];
+  let last = prevAuthor;
+  while (pool.length > 0) {
+    let idx = pool.findIndex((p) => p.user_id !== last);
+    if (idx === -1) idx = 0; // all remaining posts share one author — unavoidable
+    const [p] = pool.splice(idx, 1);
+    result.push(p);
+    last = p.user_id;
   }
-  return posts
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .map((p) => p.id);
+  return result;
 }
 
 /* ── The hook ── */
@@ -164,8 +176,13 @@ interface FeedPage {
 
 export function useFeedQuery(userId: string | undefined) {
   const networkIdsRef = useRef<string[]>([]);
-  const rankedIdsRef = useRef<string[]>([]);
-  const rawPostMapRef = useRef<Map<string, any>>(new Map());
+  // Snapshot of delivered post ids BEFORE each page, keyed by page index.
+  // Makes React Query page refetches deterministic (a refetch of page N
+  // re-uses exactly the exclude list page N was originally fetched with).
+  const excludeByPageRef = useRef<Map<number, string[]>>(new Map());
+  // Last author of the previous page — lets the no-back-to-back rule
+  // hold across page boundaries.
+  const lastAuthorByPageRef = useRef<Map<number, string | null>>(new Map());
 
   // Build placeholderData from localStorage cache for instant render
   const placeholderData = useMemo(() => {
@@ -192,52 +209,50 @@ export function useFeedQuery(userId: string | undefined) {
       const isFirstPage = pageIndex === 0;
 
       if (isFirstPage) {
+        // Network list is fetched ONLY to label `is_suggested`.
         const networkIds = await fetchRelevantUsers(userId!);
         networkIdsRef.current = networkIds;
-
-        // FIX 3: Single RPC call instead of 3 queries
-        const pool = await fetchCandidatePool(networkIds);
-
-        const postMap = new Map<string, any>();
-        pool.forEach((p) => postMap.set(p.id, p));
-        rawPostMapRef.current = postMap;
-
-        const rankedIds = await rankCandidates(pool, networkIds);
-        rankedIdsRef.current = rankedIds;
+        excludeByPageRef.current = new Map([[0, []]]);
+        lastAuthorByPageRef.current = new Map([[0, null]]);
       }
 
       const networkIds = networkIdsRef.current;
-      const rankedIds = rankedIdsRef.current;
+      const excludeIds = excludeByPageRef.current.get(pageIndex) ?? [];
 
-      const start = pageIndex * PAGE_SIZE;
-      const end = start + PAGE_SIZE;
-      const pageIds = rankedIds.slice(start, end);
+      const rawPosts = await fetchBroadcastPage(excludeIds);
 
-      if (pageIds.length === 0) {
+      if (rawPosts.length === 0) {
+        // Everything visible has been delivered this session — feed end.
+        // (Tier 2 recycling already happened server-side, so reaching here
+        // means the user scrolled through literally every visible post twice.)
         return { posts: [], nextCursor: null, networkIds };
       }
 
-      const rawPosts = pageIds
-        .map((id) => rawPostMapRef.current.get(id))
-        .filter(Boolean);
-
       const enriched = await enrichPosts(rawPosts, networkIds, userId!);
 
-      const idOrder = new Map(pageIds.map((id, i) => [id, i]));
-      enriched.sort((a, b) =>
-        ((idOrder.get(a.id) as number) ?? 999) - ((idOrder.get(b.id) as number) ?? 999),
+      // Keep server order (tier + fairness), then apply the one client-side
+      // rule: no same author back-to-back.
+      const prevAuthor = lastAuthorByPageRef.current.get(pageIndex) ?? null;
+      const ordered = reorderNoBackToBack(enriched, prevAuthor);
+
+      // Record state snapshots for the NEXT page.
+      excludeByPageRef.current.set(
+        pageIndex + 1,
+        [...excludeIds, ...ordered.map((p) => p.id)],
+      );
+      lastAuthorByPageRef.current.set(
+        pageIndex + 1,
+        ordered.length > 0 ? ordered[ordered.length - 1].user_id : prevAuthor,
       );
 
       // Persist first page to localStorage for instant load next visit
-      if (isFirstPage && enriched.length > 0) {
-        persistFeedPage(enriched, networkIds, userId!);
+      if (isFirstPage && ordered.length > 0) {
+        persistFeedPage(ordered, networkIds, userId!);
       }
 
-      const hasMore = end < rankedIds.length;
-
       return {
-        posts: enriched,
-        nextCursor: hasMore ? pageIndex + 1 : null,
+        posts: ordered,
+        nextCursor: pageIndex + 1,
         networkIds,
       };
     },
