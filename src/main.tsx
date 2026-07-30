@@ -7,11 +7,11 @@ import { initNativeAuthDeepLink } from "./lib/native/authDeepLink";
 
 import "./index.css";
 
-// BUILD MARKER — bump this string on any release where lazy-route chunks changed
-// but the entry bundle content otherwise wouldn't. It forces a new hashed filename
-// for the entry bundle so browsers holding a year-cached immutable copy of the old
-// one (same name, stale chunk references) pick up the fresh build. (2026-07-30-1)
-export const APP_BUILD = "2026-07-30-1";
+// BUILD MARKER — bump this string on any release where the UI "mysteriously"
+// doesn't update. It is a window side-effect (NOT a bare export, which gets
+// tree-shaken away) so it survives into the bundle and forces a new hashed
+// entry filename, busting year-cached immutable copies of the old bundle.
+(window as any).__APP_BUILD = "2026-07-30-1";
 
 startNetworkTrace(8000);
 
