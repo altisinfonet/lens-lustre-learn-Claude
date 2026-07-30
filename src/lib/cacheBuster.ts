@@ -22,6 +22,24 @@ const QUERY_KEY = "cb";
 
 type CacheBusterValue = { enabled?: boolean; version?: number } | null;
 
+/**
+ * Remove a leftover `?cb=<n>` from the address bar without navigating.
+ * The bust itself needs the query to force a revalidation, but once the page
+ * has loaded there is no reason to keep it — it was sticking in the URL bar,
+ * in bookmarks and in shared links forever (owner report 2026-07-30).
+ */
+export function stripCacheBusterParam(): void {
+  try {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has(QUERY_KEY)) return;
+    url.searchParams.delete(QUERY_KEY);
+    const clean = url.pathname + (url.searchParams.toString() ? `?${url.searchParams}` : "") + url.hash;
+    window.history.replaceState(window.history.state, "", clean);
+  } catch {
+    /* noop — cosmetic only */
+  }
+}
+
 export async function runCacheBuster(): Promise<void> {
   try {
     const { data } = await supabase
@@ -42,6 +60,17 @@ export async function runCacheBuster(): Promise<void> {
 
     // Persist BEFORE reload so we don't loop forever.
     localStorage.setItem(LOCAL_KEY, String(serverVersion));
+
+    // FIRST-VISIT FAST PATH (fix 2026-07-30).
+    // A browser with no recorded version has never loaded this app before: it
+    // has no service worker and no Cache Storage from us, and it just fetched
+    // the CURRENT index.html and the CURRENT hashed bundle. There is nothing
+    // stale to bust. Reloading it anyway fired location.replace() while React
+    // was still mounting, which is exactly the "page is blank the first time,
+    // fine after a refresh" report — and it left ?cb=<n> stuck in the URL.
+    // Record the version and return; the emergency lever below still works for
+    // returning users, who are the ones that can actually hold a stale build.
+    if (localVersion === 0) return;
 
     // Best-effort: drop service workers and caches.
     try {

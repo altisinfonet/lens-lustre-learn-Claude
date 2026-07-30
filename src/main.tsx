@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import { startNetworkTrace } from "./lib/networkTracer";
-import { runCacheBuster } from "./lib/cacheBuster";
+import { runCacheBuster, stripCacheBusterParam } from "./lib/cacheBuster";
 import { installImageFallback } from "./lib/imageFallback";
 import { initNativeAuthDeepLink } from "./lib/native/authDeepLink";
 
@@ -11,7 +11,7 @@ import "./index.css";
 // doesn't update. It is a window side-effect (NOT a bare export, which gets
 // tree-shaken away) so it survives into the bundle and forces a new hashed
 // entry filename, busting year-cached immutable copies of the old bundle.
-(window as any).__APP_BUILD = "2026-07-30-2";
+(window as any).__APP_BUILD = "2026-07-30-3";
 
 startNetworkTrace(8000);
 
@@ -23,8 +23,12 @@ initNativeAuthDeepLink();
 // self-hosted placeholder so users never see a broken-image icon.
 installImageFallback();
 
+// Clean a leftover ?cb=<n> out of the address bar (no navigation, cosmetic).
+stripCacheBusterParam();
+
 // Fire-and-forget: if the global `cache_buster` site_setting was bumped,
 // this will purge SW + Cache Storage and hard-reload before App mounts.
+// First-time browsers are skipped inside — see cacheBuster.ts.
 void runCacheBuster();
 
 createRoot(document.getElementById("root")!).render(<App />);
