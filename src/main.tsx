@@ -7,6 +7,12 @@ import { initNativeAuthDeepLink } from "./lib/native/authDeepLink";
 
 import "./index.css";
 
+// BUILD MARKER — bump this string on any release where lazy-route chunks changed
+// but the entry bundle content otherwise wouldn't. It forces a new hashed filename
+// for the entry bundle so browsers holding a year-cached immutable copy of the old
+// one (same name, stale chunk references) pick up the fresh build. (2026-07-30-1)
+export const APP_BUILD = "2026-07-30-1";
+
 startNetworkTrace(8000);
 
 // Inside the installed app only: complete Google/Apple sign-in when the OAuth
