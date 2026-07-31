@@ -27,6 +27,19 @@ export function useSendFriendRequest() {
   return useMutation({
     mutationFn: async (targetUserId: string) => {
       if (!user) throw new Error("Not authenticated");
+      // POLICY (owner, standing): the official/admin account can be FOLLOWED but
+      // never friended. `useFriendFollow` enforced this for profile buttons, but
+      // the feed's Add-friend button called this mutation directly and bypassed
+      // it (owner report 2026-07-31 — a request reached the official account).
+      // The rule now lives at the mutation, so no future caller can skip it.
+      // A DB trigger backs it up as the final authority.
+      const { data: targetIsAdmin } = await supabase.rpc("has_role" as never, {
+        _user_id: targetUserId,
+        _role: "admin",
+      } as never);
+      if (targetIsAdmin) {
+        throw new Error("FOLLOW_ONLY_ACCOUNT");
+      }
       const { error } = await supabase.from("friendships").insert({
         requester_id: user.id,
         addressee_id: targetUserId,
@@ -46,6 +59,15 @@ export function useSendFriendRequest() {
       if ((err as { code?: string })?.code === "23505"
           || /duplicate key value|already exists/i.test(err.message || "")) {
         toast({ title: "Friend request already sent" });
+        return;
+      }
+      // Official account: follow-only by policy (also blocked in the DB).
+      if (err.message === "FOLLOW_ONLY_ACCOUNT"
+          || /follow[- ]only|does not accept friend requests/i.test(err.message || "")) {
+        toast({
+          title: "This account can only be followed",
+          description: "Use Follow to see their photography.",
+        });
         return;
       }
       toast({ title: "Couldn't send friend request", description: err.message, variant: "destructive" });
