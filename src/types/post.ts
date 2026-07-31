@@ -2,7 +2,7 @@ import type { ReactionType } from "@/components/ReactionPicker";
 
 /**
  * Unified Post type — used by BOTH Feed and Wall.
- * Only the data source differs; the UI is identical.
+ * The only difference between the two surfaces is the query, not the shape.
  */
 export interface UnifiedPost {
   id: string;
@@ -14,8 +14,8 @@ export interface UnifiedPost {
   created_at: string;
   author_name: string | null;
   author_avatar: string | null;
-  author_badges: string[];
   author_last_active?: string | null;
+  author_badges?: string[];
   like_count: number;
   comment_count: number;
   share_count: number;
@@ -31,8 +31,11 @@ export interface UnifiedPost {
    * exists, and inserting another would violate the unique constraint on
    * (requester_id, addressee_id) — the cause of the "duplicate key value"
    * error users hit on 2026-07-31.
+   *
+   * "unavailable" = this account does not accept friend requests at all
+   * (the official/admin account — POLICY: follow only, never friend).
    */
-  friend_state?: "none" | "sent" | "received" | "friends";
+  friend_state?: "none" | "sent" | "received" | "friends" | "unavailable";
   views?: number;
   reach?: number;
 }
