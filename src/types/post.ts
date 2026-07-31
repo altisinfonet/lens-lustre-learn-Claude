@@ -24,6 +24,15 @@ export interface UnifiedPost {
   top_reactions: string[];
   reaction_counts: Record<string, number>;
   is_suggested?: boolean;
+  /**
+   * Friendship state between the viewer and this post's author.
+   * "none" = no friendship row exists in either direction (the only state where
+   * an "Add friend" button may be shown). Anything else means a row already
+   * exists, and inserting another would violate the unique constraint on
+   * (requester_id, addressee_id) — the cause of the "duplicate key value"
+   * error users hit on 2026-07-31.
+   */
+  friend_state?: "none" | "sent" | "received" | "friends";
   views?: number;
   reach?: number;
 }

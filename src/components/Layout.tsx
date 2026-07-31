@@ -107,9 +107,17 @@ const LayoutInner = () => {
       // mandatory for every account. Existing accounts without one are pulled
       // through the gate once on their next visit.
       const missingUsername = !profile.custom_url;
+      // A profile photo is mandatory (owner policy). This check was MISSING:
+      // accounts that finished onboarding back when the photo was optional kept
+      // `onboarding_completed = true` with a null avatar and were never asked
+      // again. Including it here pulls every one of them through the gate on
+      // their next visit — web or app — and the modal cannot be dismissed, so
+      // they cannot view or post anything until a photo is set.
+      const missingAvatar = !profile.avatar_url;
 
-      // Onboarding is DONE only when completed AND user_type AND username set.
-      if (profile.onboarding_completed && !missingUserType && !missingUsername) {
+      // Onboarding is DONE only when completed AND user_type AND username AND
+      // profile photo are all present.
+      if (profile.onboarding_completed && !missingUserType && !missingUsername && !missingAvatar) {
         sessionStorage.setItem(cacheKey, "true");
         return;
       }

@@ -174,7 +174,23 @@ const PostCard = ({
             )}
           </div>
         </div>
-        {currentUserId && post.is_suggested && currentUserId !== post.user_id && (
+        {/*
+          Only offer "Add friend" when NO friendship row exists in either
+          direction. `is_suggested` alone was not enough: someone you had
+          already sent a request to (or who had requested you) is still
+          "suggested" until accepted, so tapping inserted a duplicate row and
+          the raw Postgres unique-constraint error was shown to the user
+          (owner report 2026-07-31).
+        */}
+        {/*
+          Strict equality on purpose: if friend_state is UNDEFINED we do not
+          know the relationship (e.g. a post inserted live by realtime, or a
+          post restored from the localStorage feed cache written before this
+          field existed). Unknown must mean "don't offer the action" — treating
+          it as "none" is what let the duplicate-key error through.
+        */}
+        {currentUserId && post.is_suggested && currentUserId !== post.user_id
+          && post.friend_state === "none" && (
           <button
             onClick={() => {
               if (friendRequested || sendFriend.isPending) return;

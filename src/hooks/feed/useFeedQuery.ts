@@ -85,12 +85,27 @@ async function enrichPosts(
   const postIds = postsData.map((p) => p.id);
 
   // 3 queries instead of 4: merge reaction queries into ONE, filter user reactions client-side
-  const [profileMapRes, allReactionsRes, adminIds] =
+  // Plus one small query for friendship state, so the "Add friend" button is
+  // never offered for someone a friendship row already exists with.
+  const [profileMapRes, allReactionsRes, adminIds, friendshipsRes] =
     await Promise.all([
       fetchProfileMap(authorIds),
       supabase.from("post_reactions").select("post_id, reaction_type, user_id").in("post_id", postIds),
       getAdminIds(),
+      supabase
+        .from("friendships")
+        .select("requester_id, addressee_id, status")
+        .or(`requester_id.eq.${currentUserId},addressee_id.eq.${currentUserId}`),
     ]);
+
+  // authorId -> friendship state with the current viewer
+  const friendStateMap = new Map<string, "sent" | "received" | "friends">();
+  (friendshipsRes.data || []).forEach((f: any) => {
+    const other = f.requester_id === currentUserId ? f.addressee_id : f.requester_id;
+    if (f.status === "accepted") friendStateMap.set(other, "friends");
+    else if (f.requester_id === currentUserId) friendStateMap.set(other, "sent");
+    else friendStateMap.set(other, "received");
+  });
 
   const profileMap = profileMapRes;
 
@@ -138,6 +153,7 @@ async function enrichPosts(
       top_reactions: topReactions,
       reaction_counts: typeCounts,
       is_suggested: !networkIds.includes(p.user_id),
+      friend_state: friendStateMap.get(p.user_id) ?? "none",
     };
   });
 }

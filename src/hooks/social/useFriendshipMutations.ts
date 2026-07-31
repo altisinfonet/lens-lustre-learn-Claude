@@ -40,7 +40,15 @@ export function useSendFriendRequest() {
       qc.invalidateQueries({ queryKey: queryKeys.friendships(), exact: false });
     },
     onError: (err: Error) => {
-      toast({ title: "Failed to send request", description: err.message, variant: "destructive" });
+      // 23505 = unique violation on (requester_id, addressee_id): a request to
+      // this person already exists. That is not an error worth alarming anyone
+      // with — and the raw Postgres text must never reach a user.
+      if ((err as { code?: string })?.code === "23505"
+          || /duplicate key value|already exists/i.test(err.message || "")) {
+        toast({ title: "Friend request already sent" });
+        return;
+      }
+      toast({ title: "Couldn't send friend request", description: err.message, variant: "destructive" });
     },
   });
 }
