@@ -50,3 +50,19 @@ build 1029 — v1.2.2 (2026-07-31). Bug fixes only. Build config unchanged from
     next login / app open. The gate previously checked username and user type
     but NOT the photo, so accounts completed before the photo was required were
     never asked again.
+
+build 1027 — v1.2.2 release (2026-07-31). Since 1026 (v1.2.1):
+  * ALL FAKE ENGAGEMENT NUMBERS REMOVED. getSimulatedStats() invented view and
+    "reach" figures from a hash of the item id (2,000-100,000 range) and showed
+    them as real. Deleted. Numbers now come from real sources only: posts from
+    feed_events via get_post_view_counts(), stories from story_views (counts
+    only, never viewer names), profiles from profile_views. "Reach", "Trending"
+    and "Top post" had no real source anywhere and are gone entirely rather
+    than estimated.
+  * Official account is FOLLOW-ONLY again. The feed Add-friend button called the
+    mutation directly and bypassed the rule, so real friend requests reached the
+    official account. Now enforced in three places: the feed marks admin authors
+    unavailable so no button renders, the mutation refuses, and a BEFORE INSERT
+    trigger on friendships rejects the row.
+  * Profile photo is mandatory: accounts with no DP are gated on next open.
+  * Home page: Google Play badge in the footer, duplicate copyright removed.
