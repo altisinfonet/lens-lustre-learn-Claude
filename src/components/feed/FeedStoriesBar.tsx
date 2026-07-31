@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Plus, X, ChevronLeft, ChevronRight, Trash2, Star } from "lucide-react";
+import { Plus, X, ChevronLeft, ChevronRight, Trash2, Star, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 import { toast } from "@/hooks/core/use-toast";
@@ -60,12 +60,15 @@ const FeedStoriesBar = () => {
   const [groupStories, setGroupStories] = useState<Story[]>([]);
   const [storyIdx, setStoryIdx] = useState(0);
   const [deleting, setDeleting] = useState(false);
+  // story_id -> number of people who viewed it. Own stories only; the RPC
+  // returns counts only, never viewer identities.
+  const [viewCounts, setViewCounts] = useState<Record<string, number>>({});
 
   const nowIso = () => new Date().toISOString();
 
   const loadBar = useCallback(async () => {
     if (!user) return;
-    const [{ data: barData }, { data: own }] = await Promise.all([
+    const [{ data: barData }, { data: own }, { data: counts }] = await Promise.all([
       supabase.rpc("get_feed_stories_bar" as any),
       supabase
         .from("stories" as any)
@@ -73,9 +76,13 @@ const FeedStoriesBar = () => {
         .eq("user_id", user.id)
         .gt("expires_at", nowIso())
         .order("created_at", { ascending: true }),
+      supabase.rpc("get_my_story_view_counts" as any),
     ]);
     setBar(((barData as any[]) || []) as BarUser[]);
     setOwnStories(((own as any[]) || []) as Story[]);
+    const map: Record<string, number> = {};
+    ((counts as any[]) || []).forEach((r: any) => { map[r.story_id] = r.view_count ?? 0; });
+    setViewCounts(map);
   }, [user]);
 
   useEffect(() => {
@@ -325,6 +332,16 @@ const FeedStoriesBar = () => {
                 </span>
               </div>
               <div className="flex items-center gap-3">
+                {currentGroup.isOwn && (
+                  <span
+                    className="flex items-center gap-1 text-white/80 text-[11px] tabular-nums"
+                    style={headingFont}
+                    title="People who viewed this story"
+                  >
+                    <Eye className="h-4 w-4" />
+                    {viewCounts[currentStory.id] ?? 0}
+                  </span>
+                )}
                 {currentGroup.isOwn && (
                   <button onClick={handleDeleteOwn} disabled={deleting} className="text-white/80 hover:text-red-400">
                     <Trash2 className="h-4 w-4" />
