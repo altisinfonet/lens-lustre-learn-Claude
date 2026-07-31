@@ -24,3 +24,18 @@ build 1025 — v1.2.0 release (2026-07-31). Everything since 1024 (v1.1.1, 29 Ju
   * Admin Gallery: free-text photo category (custom names flow to home page).
   * Fixes: first-visit blank page + sticky ?cb= param from the cache-buster;
     entry-bundle cache-bust marker so deploys can no longer serve stale code.
+
+build 1027 — v1.2.1 (2026-07-31). Play Console recommendations + one bug fix:
+  * FIX (regression from 1026): "Add friend" on a suggested post showed a raw
+    Postgres error "duplicate key value violates unique constraint
+    friendships_requester_id_addressee_id_key" when a friendship row already
+    existed. The button is now hidden unless no friendship exists in either
+    direction, and a duplicate can never surface a database error.
+  * Removed the UNUSED @capacitor/camera plugin. Nothing in the app imported it,
+    but it dragged in io.ionic.libs.ioncameralib, which Play named in the
+    "deprecated edge-to-edge APIs" and (obfuscated) BitmapFactory downsampling
+    recommendations.
+  * AGP 8.9.1 -> 8.12.3 and Gradle wrapper -> 8.13 (AGP 8.12 is the minimum for
+    the next item; 8.13 is the minimum Gradle for AGP 8.12).
+  * Enabled android.r8.optimizedResourceShrinking=true — clears Play's
+    "Optimized resource shrinking isn't enabled" recommendation.
