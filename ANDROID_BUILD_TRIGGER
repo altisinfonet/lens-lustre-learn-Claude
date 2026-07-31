@@ -39,3 +39,14 @@ build 1027 — v1.2.1 (2026-07-31). Play Console recommendations + one bug fix:
     the next item; 8.13 is the minimum Gradle for AGP 8.12).
   * Enabled android.r8.optimizedResourceShrinking=true — clears Play's
     "Optimized resource shrinking isn't enabled" recommendation.
+
+build 1029 — v1.2.2 (2026-07-31). Bug fixes only. Build config unchanged from
+1028 (AGP 8.12.3 / Gradle 8.13), which cleared 3 of Play's 4 recommendations.
+  * FIX: "Add friend" on a suggested post showed a raw database error
+    (duplicate key ... friendships_requester_id_addressee_id_key) when a
+    friendship already existed. The button now appears only when no friendship
+    exists in either direction, and a duplicate can never surface a DB error.
+  * FIX: a profile with no photo now re-opens the mandatory setup screen on the
+    next login / app open. The gate previously checked username and user type
+    but NOT the photo, so accounts completed before the photo was required were
+    never asked again.
