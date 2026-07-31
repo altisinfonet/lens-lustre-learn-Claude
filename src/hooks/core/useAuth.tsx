@@ -282,6 +282,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (user) logAuthEvent(user.id, "logout");
     resetDashboardBootstrap();
     clearFeedCache();
+    // Stop this device receiving the departing user's pushes (matters on a
+    // shared phone). No-op on web; never allowed to block sign-out.
+    try {
+      const { unregisterPushNotifications } = await import("@/lib/native/push");
+      await unregisterPushNotifications();
+    } catch { /* best-effort */ }
     await supabase.auth.signOut();
   };
 

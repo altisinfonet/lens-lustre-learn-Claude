@@ -19,6 +19,7 @@ import SplashScreen from "@/components/SplashScreen";
 import AdFullscreenProvider from "@/components/ads/AdFullscreenProvider";
 import { I18nProvider } from "@/i18n/I18nContext";
 import LanguageAccountSync from "@/components/LanguageAccountSync";
+import PushNotificationsGate from "@/components/PushNotificationsGate";
 import AppUpdatePrompt from "@/components/AppUpdatePrompt";
 import AppErrorBoundary from "@/components/AppErrorBoundary";
 
@@ -203,6 +204,7 @@ const App = () => {
           <GoogleAnalytics />
           <RedirectHandler />
           <LanguageAccountSync />
+          <PushNotificationsGate />
           <AdFullscreenProvider>
           <AppErrorBoundary>
           <Suspense fallback={allowSuspenseFallback ? <PageLoader /> : null}>
