@@ -189,7 +189,7 @@ const Journal = () => {
                               })}
                             </span>
                           </div>
-                          <EngagementFooter id={hero.id} createdAt={hero.published_at || hero.created_at} wordCount={200} className="mt-3 px-0" />
+                          <EngagementFooter wordCount={200} className="mt-3 px-0" />
                           <div className="mt-6 flex items-center gap-2 text-xs tracking-[0.15em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>
                             Read Article <ArrowRight className="h-3.5 w-3.5" />
                           </div>
@@ -265,7 +265,7 @@ const Journal = () => {
                                 })}
                               </span>
                             </div>
-                            <EngagementFooter id={article.id} createdAt={article.published_at || article.created_at} wordCount={150} className="mt-2 px-0" />
+                            <EngagementFooter wordCount={150} className="mt-2 px-0" />
                           </Link>
                         </motion.article>
                       ))}

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { Eye, TrendingUp, UserPlus, Heart, BarChart3 } from "lucide-react";
+import { Eye, UserPlus, Heart, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { getSimulatedStats } from "@/lib/simulatedEngagement";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -23,9 +22,6 @@ const ProfileAnalytics = ({ userId, createdAt }: Props) => {
   const [reactionsCount, setReactionsCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Simulated stats for the auto-increasing effect
-  const simulated = getSimulatedStats(userId, createdAt);
-
   useEffect(() => {
     const load = async () => {
       const [viewsRes, followersRes, reactionsRes] = await Promise.all([
@@ -41,15 +37,14 @@ const ProfileAnalytics = ({ userId, createdAt }: Props) => {
     load();
   }, [userId]);
 
-  // Combine real + simulated for display
-  const totalViews = realViews + (simulated.show ? simulated.views : 0);
-  const totalReach = simulated.show ? simulated.reach : Math.max(followersCount * 3, 50);
-
+  // REAL numbers only (2026-07-31). Previously each of these had a simulated
+  // component added on top — profile views were inflated by a hashed 2K-100K
+  // figure, reactions by 5% of it, and "Reach" was entirely invented. The Reach
+  // tile is GONE because no real source for it exists anywhere.
   const stats = [
-    { icon: Eye, label: "Profile Views", value: formatNum(totalViews), color: "text-blue-500" },
+    { icon: Eye, label: "Profile Views", value: formatNum(realViews), color: "text-blue-500" },
     { icon: UserPlus, label: "Followers", value: formatNum(followersCount), color: "text-emerald-500" },
-    { icon: Heart, label: "Total Reactions", value: formatNum(reactionsCount + (simulated.show ? Math.floor(simulated.views * 0.05) : 0)), color: "text-pink-500" },
-    { icon: TrendingUp, label: "Reach", value: formatNum(totalReach), color: "text-primary" },
+    { icon: Heart, label: "Reactions Given", value: formatNum(reactionsCount), color: "text-pink-500" },
   ];
 
   return (
@@ -71,12 +66,6 @@ const ProfileAnalytics = ({ userId, createdAt }: Props) => {
           </div>
         ))}
       </div>
-      {simulated.isTrending && (
-        <div className="flex items-center gap-2 text-[10px] text-primary" style={headingFont}>
-          <TrendingUp className="h-3 w-3" />
-          Your profile is trending!
-        </div>
-      )}
     </div>
   );
 };

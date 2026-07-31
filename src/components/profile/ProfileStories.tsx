@@ -6,7 +6,6 @@ import { toast } from "@/hooks/core/use-toast";
 import { uploadImage } from "@/lib/imageUpload";
 import { compressImage } from "@/lib/imageCompression";
 import { AnimatePresence, motion } from "framer-motion";
-import { getSimulatedStats } from "@/lib/simulatedEngagement";
 import { Button } from "@/components/ui/button";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
@@ -250,7 +249,24 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
   };
 
   const currentViewerItem = viewerImages[viewerIdx];
-  const currentStats = currentViewerItem ? getSimulatedStats(currentViewerItem.id, currentViewerItem.createdAt) : null;
+  // REAL story view counts for the owner's own stories (counts only — the RPC
+  // cannot return viewer identities). Replaces the removed simulated figures.
+  const [storyViewCounts, setStoryViewCounts] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!isOwner) return;
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase.rpc("get_my_story_view_counts" as any);
+      if (cancelled) return;
+      const map: Record<string, number> = {};
+      ((data as any[]) || []).forEach((r: any) => { map[r.story_id] = r.view_count ?? 0; });
+      setStoryViewCounts(map);
+    })();
+    return () => { cancelled = true; };
+  }, [isOwner]);
+
+  // REAL story view counts (story_views), own stories only — counts, never names.
+  const currentStats = currentViewerItem ? { views: storyViewCounts[currentViewerItem.id] } : null;
 
   const hasContent = stories.length > 0 || highlights.length > 0;
   if (!hasContent && !isOwner) return null;
@@ -483,8 +499,11 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
                 <p className="text-white/80 text-sm mt-3 text-center">{viewerImages[viewerIdx].caption}</p>
               )}
 
-              {/* Simulated Engagement Stats */}
-              {currentStats?.show && (
+              {/* REAL story view count (story_views). Own stories only.
+                  2026-07-31: this block previously showed simulated views AND a
+                  "Reached" figure invented from a hash, plus a seeded Trending
+                  badge. Reach has no real source and is removed entirely. */}
+              {isOwner && typeof currentStats?.views === "number" && (
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -493,23 +512,8 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
                   <div className="flex items-center gap-1.5 text-white/80">
                     <Eye className="h-3.5 w-3.5" />
                     <span className="text-xs font-medium">Viewed by</span>
-                    <span className="text-xs font-bold text-white">{currentStats.viewsLabel}</span>
+                    <span className="text-xs font-bold text-white">{currentStats.views}</span>
                   </div>
-                  <div className="w-px h-3 bg-white/20" />
-                  <div className="flex items-center gap-1.5 text-white/80">
-                    <Radio className="h-3.5 w-3.5" />
-                    <span className="text-xs font-medium">Reached</span>
-                    <span className="text-xs font-bold text-white">{currentStats.reachLabel}</span>
-                  </div>
-                  {currentStats.isTrending && (
-                    <>
-                      <div className="w-px h-3 bg-white/20" />
-                      <div className="flex items-center gap-1 text-accent">
-                        <TrendingUp className="h-3.5 w-3.5" />
-                        <span className="text-[10px] font-semibold uppercase tracking-wider">Trending</span>
-                      </div>
-                    </>
-                  )}
                 </motion.div>
               )}
 

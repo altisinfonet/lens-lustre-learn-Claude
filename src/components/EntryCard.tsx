@@ -410,7 +410,7 @@ const EntryCard: React.FC<EntryCardProps> = ({
         {/* View Photo / Copy Photo actions removed per request */}
 
         {/* Engagement stats â compact (hidden during voting/judging) */}
-        {!hideEngagement && <EngagementFooter id={entry.id} createdAt={entry.created_at} />}
+        {!hideEngagement && <EngagementFooter views={(entry as any).view_count ?? null} />}
 
         {/* Admin POTD button */}
         {competitionPhase === "result" && isAdmin && entry.photos.length > 0 && (
@@ -490,7 +490,7 @@ const EntryCard: React.FC<EntryCardProps> = ({
         )}
 
         {/* View Photo / Copy Photo actions removed per request */}
-        {!hideEngagement && <EngagementFooter id={entry.id} createdAt={entry.created_at} className="px-0 border-t border-border/50 pt-2" />}
+        {!hideEngagement && <EngagementFooter views={(entry as any).view_count ?? null} className="px-0 border-t border-border/50 pt-2" />}
         {competitionPhase === "result" && isAdmin && entry.photos.length > 0 && (
           <button
             onClick={handlePOTD}

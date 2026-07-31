@@ -339,7 +339,7 @@ const EntryDetail = () => {
             {isJudgingPhase && (
               <span className="italic text-muted-foreground/40">Votes hidden during judging</span>
             )}
-            {!isVotingPhase && !isJudgingPhase && <EngagementFooter id={entry.id} createdAt={entry.created_at} inline />}
+            {!isVotingPhase && !isJudgingPhase && <EngagementFooter views={(entry as any).view_count ?? null} inline />}
           </div>
 
           {/* Actions */}
