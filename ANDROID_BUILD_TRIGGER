@@ -6,3 +6,21 @@ build 1020 — fix(search): post results open /post/:id (PostDetail), not /feed
 build 1021 — feat: profile-only language, See translation on posts, blank-page self-heal (dd7fc24)
 build 1022 — feat(search): premium search (typo-tolerant ranked RPC, hashtags, synced recents)
 build 1023 — fix(search): real hashtag suggestions (typo-tolerant) + phone keyboard hardening
+build 1025 — v1.2.0 release (2026-07-31). Everything since 1024 (v1.1.1, 29 Jul):
+  * Feed: broadcast + never-repeat. All public posts eligible (no 48h window, no
+    370-post cap), unseen-first with fewest-viewers-first fairness, recycling
+    fallback so the feed never ends, no same-author back-to-back.
+  * Stories (24h): public to the whole community (was follows-only), ordered
+    newest-first, and the author sees a VIEW COUNT (number only, no names).
+  * Feed posts: "Add friend" button on Suggested posts (sends request + follows).
+  * /friends: new "Awaited" tab for received requests (accept one by one);
+    "Pending" now shows only requests you sent.
+  * Notifications: comment/reaction notifications open the exact post; friend
+    requests open the Awaited list. Shared link map used by bell + push.
+  * PUSH NOTIFICATIONS (new): device registers on login, DB trigger fires
+    send-push on every notification, tap deep-links into the app, per-user
+    push_* preferences, unregister on logout.
+  * "Photo of the Day" renamed to "The Curated Wall" everywhere (text only).
+  * Admin Gallery: free-text photo category (custom names flow to home page).
+  * Fixes: first-visit blank page + sticky ?cb= param from the cache-buster;
+    entry-bundle cache-bust marker so deploys can no longer serve stale code.
