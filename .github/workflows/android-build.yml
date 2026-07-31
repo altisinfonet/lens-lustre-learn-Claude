@@ -47,7 +47,7 @@ jobs:
         run: |
           npm install --no-audit --no-fund \
             @capacitor/core @capacitor/cli @capacitor/android \
-            @capacitor/camera @capacitor/share @capacitor/splash-screen \
+            @capacitor/share @capacitor/splash-screen \
             @capacitor/app @capacitor/browser \
             @capacitor-firebase/messaging \
             @capawesome/capacitor-app-update
@@ -77,14 +77,26 @@ jobs:
           sed -i 's/compileSdkVersion = 35/compileSdkVersion = 36/' android/variables.gradle
           # Target API 36 (Android 16) — required by Google Play from 31 Aug 2026.
           sed -i -E 's/targetSdkVersion = [0-9]+/targetSdkVersion = 36/' android/variables.gradle
-          sed -i -E 's/(com\.android\.tools\.build:gradle:)[0-9.]+/\18.9.1/' android/build.gradle
+          # AGP 8.12+ is REQUIRED for optimized resource shrinking (Play
+          # "R8 optimization" recommendation). AGP 8.12 needs Gradle >= 8.13,
+          # so the wrapper is bumped in lockstep - see Android's AGP/Gradle
+          # compatibility table.
+          sed -i -E 's/(com\.android\.tools\.build:gradle:)[0-9.]+/\18.12.3/' android/build.gradle
+          sed -i -E 's#(distributionUrl=.*gradle-)[0-9.]+(-(bin|all)\.zip)#\18.13\2#' android/gradle/wrapper/gradle-wrapper.properties
+          echo "--- AGP / Gradle ---"
+          grep -n "com.android.tools.build:gradle" android/build.gradle
+          grep -n "distributionUrl" android/gradle/wrapper/gradle-wrapper.properties
+          # Optimized resource shrinking (AGP >= 8.12). Default from AGP 9.
+          printf '\nandroid.r8.optimizedResourceShrinking=true\n' >> android/gradle.properties
+          echo "--- gradle.properties tail ---"
+          tail -5 android/gradle.properties
 
       - name: Set app version (monotonic versionCode from run number)
         run: |
           VC=$(( 1000 + ${{ github.run_number }} ))
           sed -i "s/versionCode 1/versionCode ${VC}/" android/app/build.gradle
-          sed -i 's/versionName "1.0"/versionName "1.2.0"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.0"
+          sed -i 's/versionName "1.0"/versionName "1.2.1"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.1"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
