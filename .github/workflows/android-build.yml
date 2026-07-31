@@ -81,6 +81,8 @@ jobs:
           # "R8 optimization" recommendation). AGP 8.12 needs Gradle >= 8.13,
           # so the wrapper is bumped in lockstep - see Android's AGP/Gradle
           # compatibility table.
+          # AGP 8.12.3 + Gradle 8.13 — the configuration that built 1028
+          # successfully and cleared 3 of Play's 4 recommendations.
           sed -i -E 's/(com\.android\.tools\.build:gradle:)[0-9.]+/\18.12.3/' android/build.gradle
           sed -i -E 's#(distributionUrl=.*gradle-)[0-9.]+(-(bin|all)\.zip)#\18.13\2#' android/gradle/wrapper/gradle-wrapper.properties
           echo "--- AGP / Gradle ---"
@@ -95,8 +97,8 @@ jobs:
         run: |
           VC=$(( 1000 + ${{ github.run_number }} ))
           sed -i "s/versionCode 1/versionCode ${VC}/" android/app/build.gradle
-          sed -i 's/versionName "1.0"/versionName "1.2.1"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.1"
+          sed -i 's/versionName "1.0"/versionName "1.2.2"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.2"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
