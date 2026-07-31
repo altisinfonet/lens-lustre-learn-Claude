@@ -87,7 +87,7 @@ async function enrichPosts(
   // 3 queries instead of 4: merge reaction queries into ONE, filter user reactions client-side
   // Plus one small query for friendship state, so the "Add friend" button is
   // never offered for someone a friendship row already exists with.
-  const [profileMapRes, allReactionsRes, adminIds, friendshipsRes] =
+  const [profileMapRes, allReactionsRes, adminIds, friendshipsRes, viewCountsRes] =
     await Promise.all([
       fetchProfileMap(authorIds),
       supabase.from("post_reactions").select("post_id, reaction_type, user_id").in("post_id", postIds),
@@ -96,7 +96,14 @@ async function enrichPosts(
         .from("friendships")
         .select("requester_id, addressee_id, status")
         .or(`requester_id.eq.${currentUserId},addressee_id.eq.${currentUserId}`),
+      // REAL view counts (distinct viewers from feed_events, author excluded).
+      // Replaces the simulated 2K-100K figures removed on 2026-07-31.
+      supabase.rpc("get_post_view_counts" as never, { _post_ids: postIds } as never),
     ]);
+
+    const viewCountMap = new Map<string, number>();
+    ((viewCountsRes as { data?: { post_id: string; views: number }[] })?.data || [])
+      .forEach((r) => viewCountMap.set(r.post_id, r.views ?? 0));
 
   // authorId -> friendship state with the current viewer
   const friendStateMap = new Map<string, "sent" | "received" | "friends">();
@@ -153,7 +160,13 @@ async function enrichPosts(
       top_reactions: topReactions,
       reaction_counts: typeCounts,
       is_suggested: !networkIds.includes(p.user_id),
-      friend_state: friendStateMap.get(p.user_id) ?? "none",
+      // POLICY: the official/admin account can be FOLLOWED but never friended.
+      // useFriendFollow already enforced this on profiles; the feed's Add-friend
+      // button bypassed it (owner report 2026-07-31), so it is enforced here too.
+      friend_state: adminIds.has(p.user_id)
+        ? ("unavailable" as const)
+        : (friendStateMap.get(p.user_id) ?? "none"),
+      views: viewCountMap.get(p.id) ?? 0,
     };
   });
 }
