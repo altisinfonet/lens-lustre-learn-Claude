@@ -73,9 +73,12 @@ const NOTIF_CATEGORY: Record<string, string> = {
 
 function getNotifLink(notif: UserNotification): string {
   switch (notif.type) {
+    // The DB triggers store NEW.post_id in reference_id for these, so we can
+    // open the exact post instead of dumping the user on the feed (bug report
+    // 2026-07-31: "clicking the notification doesn't take me to the comment").
     case "post_reaction":
     case "post_comment":
-      return "/feed";
+      return notif.reference_id ? `/post/${notif.reference_id}` : "/feed";
     case "image_reaction":
     case "image_comment":
     case "comment_reply":
@@ -86,9 +89,13 @@ function getNotifLink(notif: UserNotification): string {
     case "competition_winner":
     case "new_competition":
       return notif.reference_id ? `/competitions/${notif.reference_id}` : "/competitions";
+    // A pending request needs the Awaited list (where it can be accepted), not
+    // the sender's profile. /friends opens on Awaited when requests are waiting.
+    case "friend_request":
+      return "/friends";
+    // These are informational — the person is the destination.
     case "new_follower":
     case "friend_accepted":
-    case "friend_request":
       return notif.reference_id ? `/profile/${notif.reference_id}` : "/friends";
     case "role_approved":
     case "role_rejected":
