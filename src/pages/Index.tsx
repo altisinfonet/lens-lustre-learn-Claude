@@ -1160,6 +1160,34 @@ const Index = () => {
                   </div>
                 );
               })()}
+
+              {/* Google Play badge — sits directly under the social icons.
+                  Rendered as inline SVG (no external image) so it can never
+                  become a broken image and costs no extra network request. */}
+              <a
+                href="https://play.google.com/store/apps/details?id=com.fiftymmretina.app"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Get 50mm Retina World on Google Play"
+                title="Get it on Google Play"
+                onClick={() => fireConversion("cta_click", { source: "footer", action: "google_play" })}
+                className="mt-4 inline-flex items-center gap-3 rounded-lg border border-border bg-background/60 px-4 py-2.5 transition-all duration-300 hover:border-primary hover:bg-primary/5 hover:scale-[1.03]"
+              >
+                <svg viewBox="0 0 512 512" className="h-7 w-7 shrink-0" aria-hidden="true">
+                  <path fill="#00D4FF" d="M47 21.6C40.3 28.7 36.4 39.7 36.4 54v404c0 14.3 3.9 25.3 10.6 32.4l1.4 1.3 226.3-226.3v-5.3L48.4 20.2 47 21.6z" />
+                  <path fill="#FFD500" d="M349.6 331.9l-75.4-75.5v-5.3l75.5-75.5 1.7 1 89.4 50.8c25.5 14.5 25.5 38.2 0 52.7l-89.4 50.8-1.8 1z" />
+                  <path fill="#FF3A44" d="M351.4 330.9L274.2 253.7 47 480.9c8.4 8.9 22.3 10 38 1.1l266.4-151.1z" />
+                  <path fill="#00F076" d="M351.4 176.5L85 25.4C69.3 16.5 55.4 17.6 47 26.5l227.2 227.2 77.2-77.2z" />
+                </svg>
+                <span className="text-left leading-tight">
+                  <span className="block text-[8px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+                    Get it on
+                  </span>
+                  <span className="block text-sm text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+                    Google Play
+                  </span>
+                </span>
+              </a>
             </div>
             <nav aria-label={t("home.aria.footerNav", "Footer navigation")}>
               <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-3" style={{ fontFamily: "var(--font-heading)" }}>{t("home.navigate", "Navigate")}</span>
@@ -1215,9 +1243,8 @@ const Index = () => {
                   {t("home.subscribe", "Subscribe")}
                 </button>
               </form>
-              <p className="text-[10px] text-muted-foreground mt-6 text-center" style={{ fontFamily: "var(--font-body)" }}>
-                {t("home.rights", "© 2026 50mm Retina World. All rights reserved.")}
-              </p>
+              {/* Copyright removed here — the same line already appears in the
+                  bottom footer bar, so it was showing twice. */}
             </div>
           </div>
         </div>
