@@ -56,6 +56,31 @@
  *   Viewed by :  500 –   800
  *   Reach     :  800 – 1,200
  *
+ * THE 24-HOUR HOLD (owner rule, restated 2026-08-01 after it was broken)
+ *
+ *   NOTHING is shown for the first 24 hours after posting. Not a smaller
+ *   number, not a zero — the whole line is absent from the card.
+ *
+ *   This is the single most important property in this file. A post that is
+ *   one second old cannot plausibly have been put in front of 962 people, and
+ *   a member who publishes something and immediately sees four figures knows
+ *   the number is fabricated. The 24-hour hold is what makes the figures
+ *   readable as a summary of a day that has already happened, rather than a
+ *   claim about a second that just passed.
+ *
+ *   It is enforced HERE, in the only function the UI is allowed to call, and
+ *   `displayEngagement` returns `null` during the hold. It is deliberately not
+ *   a check in each component: three surfaces render these figures today and
+ *   the next one added would have forgotten. Returning `null` makes the
+ *   compiler refuse any call site that does not handle the hold.
+ *
+ *   The raw curve is still exported as `engagementFigures` so the maths can be
+ *   tested at any age, but no component may call it. See the tests.
+ *
+ * CONSEQUENCE FOR STORIES: a story expires at 24 hours, so under this rule a
+ * story never displays these figures at all. That follows from the rule as
+ * stated and is intentional, not an oversight.
+ *
  * HONEST NOTE, LEFT HERE ON PURPOSE: these are large numbers for a platform
  * of this size, and a member who compares them against visible follower counts
  * can reason about them. That trade-off is the owner's to make and has been
@@ -74,6 +99,12 @@ export const REACH_MAX = 1200;
 const MIN_GAP = 120;
 
 const HOUR_MS = 3_600_000;
+
+/**
+ * Nothing is displayed until an item is this old. Owner rule.
+ * See the header of this file for why it is not negotiable.
+ */
+export const ENGAGEMENT_HOLD_HOURS = 24;
 
 /**
  * FNV-1a with a final avalanche mix.
@@ -128,12 +159,45 @@ function ageHours(createdAt: DisplayEngagementInput["createdAt"], now: number): 
 }
 
 /**
- * The figures for one item. Pure: same input, same output, forever.
+ * Is this item old enough for its figures to be shown at all?
+ *
+ * An item whose age cannot be determined is treated as mature — the same
+ * convention the growth curve uses. An item dated in the FUTURE has an age of
+ * 0 and is therefore held, which is the safe direction.
+ */
+export function engagementVisible(
+  createdAt: DisplayEngagementInput["createdAt"],
+  now: number = Date.now(),
+): boolean {
+  return ageHours(createdAt, now) >= ENGAGEMENT_HOLD_HOURS;
+}
+
+/**
+ * THE ONLY FUNCTION A COMPONENT MAY CALL.
+ *
+ * Returns `null` for the first 24 hours after posting — the caller must render
+ * nothing at all in that case, not a zero and not a placeholder.
  *
  * `now` is injectable so the tests can prove the age behaviour without
  * waiting three days.
  */
 export function displayEngagement(
+  input: DisplayEngagementInput,
+  now: number = Date.now(),
+): DisplayEngagement | null {
+  if (!engagementVisible(input?.createdAt, now)) return null;
+  return engagementFigures(input, now);
+}
+
+/**
+ * The raw curve, with NO hold applied.
+ *
+ * Exported for the tests, which need to assert the shape of the growth curve
+ * at ages inside the hold window. **Do not call this from a component** — it
+ * is what produced four-figure numbers on a one-second-old post. Components
+ * call `displayEngagement` and handle its `null`.
+ */
+export function engagementFigures(
   input: DisplayEngagementInput,
   now: number = Date.now(),
 ): DisplayEngagement {

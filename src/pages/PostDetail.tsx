@@ -336,18 +336,23 @@ const PostDetail = () => {
 
             {/* Reach / Viewed-by, right-aligned on the same line as the counts —
                 the same layout as the feed card, and the same source, so a post
-                cannot read one way in the feed and another way here. See
+                cannot read one way in the feed and another way here. Null for
+                the first 24 hours after posting, exactly as in the feed. See
                 src/lib/displayEngagement.ts. */}
-            <span className="inline-flex items-center gap-1 whitespace-nowrap">
-              <Users className="h-3 w-3" />
-              <span className="font-medium text-foreground/80">{formatEngagementCount(displayStats.reach)}</span>
-              <span>reached</span>
-            </span>
-            <span className="inline-flex items-center gap-1 whitespace-nowrap">
-              <Eye className="h-3 w-3" />
-              <span className="font-medium text-foreground/80">{formatEngagementCount(displayStats.views)}</span>
-              <span>viewed</span>
-            </span>
+            {displayStats && (
+              <>
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <Users className="h-3 w-3" />
+                  <span className="font-medium text-foreground/80">{formatEngagementCount(displayStats.reach)}</span>
+                  <span>reached</span>
+                </span>
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <Eye className="h-3 w-3" />
+                  <span className="font-medium text-foreground/80">{formatEngagementCount(displayStats.views)}</span>
+                  <span>viewed</span>
+                </span>
+              </>
+            )}
           </div>
 
           {/* Actions */}

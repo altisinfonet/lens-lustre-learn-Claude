@@ -20,7 +20,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { render, fireEvent } from "@testing-library/react";
 import PostMedia from "@/components/post/PostMedia";
 
 vi.mock("@/hooks/core/useDownloadImage", () => ({
@@ -185,5 +185,85 @@ describe("PostMedia — CDN images go through Cloudflare", () => {
   it("leaves a GIF alone so the animation survives", () => {
     const { container } = render(<PostMedia urls={[cdn(".gif")]} />);
     expect(sharpImg(container)!.getAttribute("src")).not.toContain("/cdn-cgi/image/");
+  });
+});
+
+/**
+ * ── OLD POSTS: the frame is measured when the filename does not carry it ──
+ *
+ * Reported by the owner with a screenshot on 2026-08-01: a landscape photo
+ * sitting in the middle of a tall portrait card with big dark bars above and
+ * below. Cause: photos posted before 2026-08-01 have no `-w<W>h<H>` in their
+ * name, so they fell back to the 4:5 default — which was right while the image
+ * was `object-cover` and force-cropped, and wrong the moment it became
+ * `object-contain`.
+ *
+ * The fallback still applies BEFORE the image loads (nothing can be known yet),
+ * so the two tests above stay true. These pin what happens after it loads.
+ */
+describe("PostMedia — an old photo takes its shape from the image itself", () => {
+  /** Fire a load on the backdrop with a given intrinsic size. */
+  const loadBackdrop = (container: HTMLElement, w: number, h: number) => {
+    const back = backdropImg(container)!;
+    Object.defineProperty(back, "naturalWidth", { value: w, configurable: true });
+    Object.defineProperty(back, "naturalHeight", { value: h, configurable: true });
+    fireEvent.load(back);
+  };
+
+  it("re-shapes a legacy landscape photo once its size is known", () => {
+    const { container } = render(<PostMedia urls={[photo(".webp")]} />);
+    expect(Number(frameOf(container))).toBeCloseTo(0.8, 6); // before load
+    loadBackdrop(container, 32, 21); // ~3:2
+    expect(Number(frameOf(container))).toBeCloseTo(32 / 21, 6);
+  });
+
+  it("still clamps what it measures — a panorama cannot swallow the feed", () => {
+    const { container } = render(<PostMedia urls={[photo(".webp")]} />);
+    loadBackdrop(container, 32, 8); // 4:1
+    expect(Number(frameOf(container))).toBeCloseTo(1.91, 6);
+  });
+
+  it("still clamps a legacy 9:16 phone shot to 4:5", () => {
+    const { container } = render(<PostMedia urls={[photo(".webp")]} />);
+    loadBackdrop(container, 18, 32);
+    expect(Number(frameOf(container))).toBeCloseTo(0.8, 6);
+  });
+
+  it("does NOT re-measure a photo whose filename already carries dimensions", () => {
+    // New uploads must have zero reflow. If a stray load event could move the
+    // frame, every new post would jump as its image arrived.
+    const { container } = render(<PostMedia urls={[photo("-w3000h2000.webp")]} />);
+    loadBackdrop(container, 10, 32); // wildly different — must be ignored
+    expect(Number(frameOf(container))).toBeCloseTo(1.5, 6);
+  });
+
+  it("ignores a zero or missing intrinsic size instead of collapsing the card", () => {
+    const { container } = render(<PostMedia urls={[photo(".webp")]} />);
+    loadBackdrop(container, 0, 0);
+    expect(Number(frameOf(container))).toBeCloseTo(0.8, 6);
+  });
+});
+
+describe("PostMedia — the blurred padding has to be visible", () => {
+  it("does not dim the backdrop into a black void", () => {
+    // It was brightness-[0.55], tuned on a bright photo. On a dark forest shot
+    // that is indistinguishable from an empty card, which is what the owner
+    // saw and reasonably read as "the blur was removed".
+    const { container } = render(<PostMedia urls={[photo("-w4200h1400.webp")]} />);
+    const cls = backdropImg(container)!.className;
+    const m = cls.match(/brightness-\[([\d.]+)\]/);
+    expect(m, `no brightness class found in "${cls}"`).toBeTruthy();
+    expect(Number(m![1])).toBeGreaterThanOrEqual(0.75);
+  });
+
+  it("falls back to the original when the 32px transform fails", () => {
+    // The backdrop had no error handler at all: a failed transform rendered an
+    // empty layer, and the bars really were blank.
+    const url = photo("-w4200h1400.webp");
+    const { container } = render(<PostMedia urls={[url]} />);
+    const back = backdropImg(container)!;
+    expect(back.getAttribute("src")).toContain("width=32");
+    fireEvent.error(back);
+    expect(backdropImg(container)!.getAttribute("src")).toBe(url);
   });
 });
