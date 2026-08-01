@@ -65,6 +65,7 @@ const PostCard = ({
 
   // Reach / Viewed-by. Memoised on the inputs that can change it, so the pair
   // cannot flicker between renders of the same card.
+  // NULL for the first 24 hours after posting — the whole line is then absent.
   const stats = useMemo(
     () =>
       displayEngagement({
@@ -368,24 +369,28 @@ const PostCard = ({
             properties that keep the pair internally consistent, is documented in
             src/lib/displayEngagement.ts. Every other number here is real.
             `ml-auto` is what holds it against the right edge even when the post
-            has no reactions, comments or shares at all. */}
-        <motion.div
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25 }}
-          className="ml-auto flex items-center gap-3 text-xs whitespace-nowrap"
-        >
-          <span className="inline-flex items-center gap-1">
-            <Users className="h-3 w-3" />
-            <span className="font-medium text-foreground/80">{formatEngagementCount(stats.reach)}</span>
-            <span>reached</span>
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <Eye className="h-3 w-3" />
-            <span className="font-medium text-foreground/80">{formatEngagementCount(stats.views)}</span>
-            <span>viewed</span>
-          </span>
-        </motion.div>
+            has no reactions, comments or shares at all.
+            `stats` is null for the first 24 hours after posting — the line is
+            then absent entirely, which is the owner's rule. */}
+        {stats && (
+          <motion.div
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="ml-auto flex items-center gap-3 text-xs whitespace-nowrap"
+          >
+            <span className="inline-flex items-center gap-1">
+              <Users className="h-3 w-3" />
+              <span className="font-medium text-foreground/80">{formatEngagementCount(stats.reach)}</span>
+              <span>reached</span>
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Eye className="h-3 w-3" />
+              <span className="font-medium text-foreground/80">{formatEngagementCount(stats.views)}</span>
+              <span>viewed</span>
+            </span>
+          </motion.div>
+        )}
       </div>
 
       {/* ── Action Bar ── */}

@@ -3,21 +3,65 @@ import { X, ChevronLeft, ChevronRight, Heart } from "lucide-react";
 import { useDownloadImage } from "@/hooks/core/useDownloadImage";
 import DownloadButton from "@/components/DownloadButton";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
-import { frameAspectForUrls } from "@/lib/imageFrame";
+import { frameAspectFor, frameAspectForUrls, parseImageDims } from "@/lib/imageFrame";
 
 interface PostMediaProps {
   urls: string[];
   onDoubleTapLike?: () => void;
 }
 
+/**
+ * ── THE FRAME, AND WHY IT IS SOMETIMES MEASURED ──
+ *
+ * The card's shape normally comes from the `-w<W>h<H>` the uploader writes into
+ * the filename, so it is known before a single byte of the photo is fetched and
+ * nothing reflows.
+ *
+ * Every photo posted BEFORE 2026-08-01 has no such suffix. Those used to be
+ * force-cropped to 4:5 at upload, so a 4:5 frame was correct for them. It is
+ * not correct any more: the sharp image is now `object-contain`, so an old
+ * landscape photo sat inside a portrait frame with enormous bars above and
+ * below it. Reported by the owner with a screenshot, 2026-08-01.
+ *
+ * So when — and ONLY when — the URL carries no dimensions, the frame is
+ * measured from the image itself. It is measured from the 32px LQIP, which is
+ * fetched eagerly and arrives in a few milliseconds, rather than from the sharp
+ * image, which is lazy and would resize the card long after the reader has
+ * settled on it. The cost is up to ~2% of ratio error from rounding a 32px
+ * edge; the blurred backdrop covers a bar that thin and no one can see it.
+ *
+ * A photo WITH dimensions in its name is never measured, so new posts still
+ * have zero reflow.
+ */
 const PostMedia = ({ urls, onDoubleTapLike }: PostMediaProps) => {
-  if (urls.length === 0) return null;
+  const first = urls[0];
   // One frame per card, taken from the first photo — see src/lib/imageFrame.ts.
   // An album must not resize between slides: the buttons would move under the
   // user's finger and everything below would reflow on every swipe.
-  const frameAspect = frameAspectForUrls(urls);
-  if (urls.length === 1) return <SingleImagePost src={urls[0]} frameAspect={frameAspect} onDoubleTapLike={onDoubleTapLike} />;
-  return <AlbumCarousel urls={urls} frameAspect={frameAspect} onDoubleTapLike={onDoubleTapLike} />;
+  const declaredAspect = frameAspectForUrls(urls);
+  const needsMeasure = parseImageDims(first) === null;
+  const [measuredAspect, setMeasuredAspect] = useState<number | null>(null);
+
+  // A different first photo is a different frame. Without this reset a card
+  // recycled by the feed's virtualiser would keep the previous photo's shape.
+  useEffect(() => { setMeasuredAspect(null); }, [first]);
+
+  const handleNaturalSize = useCallback(
+    (w: number, h: number) => {
+      if (!needsMeasure) return;
+      if (!(w > 0) || !(h > 0)) return;
+      setMeasuredAspect((prev) => (prev === null ? frameAspectFor(w / h) : prev));
+    },
+    [needsMeasure],
+  );
+
+  if (urls.length === 0) return null;
+
+  const frameAspect = measuredAspect ?? declaredAspect;
+  if (urls.length === 1) {
+    return <SingleImagePost src={first} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} />;
+  }
+  return <AlbumCarousel urls={urls} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} />;
 };
 
 /* ── Supabase render-endpoint helpers ──
@@ -130,12 +174,33 @@ const FEED_SIZES = "(max-width: 768px) 100vw, 600px";
  * When the photo's ratio equals the frame's — which is the common case, since
  * the frame is derived from the photo — the backdrop is completely covered and
  * costs nothing visually either.
+ *
+ * BRIGHTNESS, corrected 2026-08-01. The backdrop was dimmed to 0.55, which was
+ * tuned on a bright photo. On a dark photograph — a forest interior, a night
+ * shot — 0.55 of an already-dark image is indistinguishable from an empty
+ * card, and the padding reads as a black void rather than as the photo. 0.8
+ * keeps the photo's own edge clearly separated while leaving the bars visibly
+ * part of the picture.
+ *
+ * The backdrop also gets its own error fallback. It had none: if the 32px
+ * transform failed, the layer rendered nothing at all and the bars really were
+ * blank. It now falls back to the untransformed original once.
  */
-const ProgressiveImage = ({ src, className }: { src: string; className?: string }) => {
+const ProgressiveImage = ({
+  src,
+  className,
+  onNaturalSize,
+}: {
+  src: string;
+  className?: string;
+  /** Reports the intrinsic size of the backdrop copy — see PostMedia's header. */
+  onNaturalSize?: (width: number, height: number) => void;
+}) => {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [backdropFailed, setBackdropFailed] = useState(false);
   const transformable = isTransformable(src);
-  const lqip = transformable ? buildLqipUrl(src) : src;
+  const lqip = transformable && !backdropFailed ? buildLqipUrl(src) : src;
   const sharpSrc = transformable ? buildRenderUrl(src, 800) : src;
   const srcSet = buildSrcSet(src);
 
@@ -145,10 +210,15 @@ const ProgressiveImage = ({ src, className }: { src: string; className?: string 
         src={lqip}
         alt=""
         aria-hidden="true"
-        className={`absolute inset-0 w-full h-full object-cover scale-125 blur-2xl brightness-[0.55] ${className ?? ""}`}
+        className={`absolute inset-0 w-full h-full object-cover scale-125 blur-2xl brightness-[0.8] ${className ?? ""}`}
         loading="eager"
         decoding="async"
         style={{ imageRendering: "pixelated" }}
+        onLoad={(e) => {
+          const img = e.currentTarget;
+          onNaturalSize?.(img.naturalWidth, img.naturalHeight);
+        }}
+        onError={() => setBackdropFailed(true)}
       />
       <img
         src={failed ? src : sharpSrc}
@@ -200,7 +270,7 @@ function useDoubleTap(onDoubleTap?: (x: number, y: number) => void) {
 }
 
 /* ── Single Image ── */
-const SingleImagePost = ({ src, frameAspect, onDoubleTapLike }: { src: string; frameAspect: number; onDoubleTapLike?: () => void }) => {
+const SingleImagePost = ({ src, frameAspect, onNaturalSize, onDoubleTapLike }: { src: string; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void }) => {
   const [heart, setHeart] = useState<{ x: number; y: number; id: number } | null>(null);
   const { downloading, download } = useDownloadImage();
 
@@ -211,7 +281,7 @@ const SingleImagePost = ({ src, frameAspect, onDoubleTapLike }: { src: string; f
 
   return (
     <div className="relative group/img w-full overflow-hidden rounded-sm bg-muted/30" style={{ aspectRatio: String(frameAspect) }} onClick={handleDoubleTap}>
-      <ProgressiveImage src={src} />
+      <ProgressiveImage src={src} onNaturalSize={onNaturalSize} />
       <AnimatePresence>{heart && <DoubleTapHeart key={heart.id} x={heart.x} y={heart.y} />}</AnimatePresence>
       <DownloadButton
         downloading={downloading === src}
@@ -229,7 +299,7 @@ function preloadImage(url: string | undefined) { if (!url) return; const img = n
 const SWIPE_THRESHOLD = 50;
 const SWIPE_VELOCITY = 300;
 
-const AlbumCarousel = ({ urls, frameAspect, onDoubleTapLike }: { urls: string[]; frameAspect: number; onDoubleTapLike?: () => void }) => {
+const AlbumCarousel = ({ urls, frameAspect, onNaturalSize, onDoubleTapLike }: { urls: string[]; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void }) => {
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -267,7 +337,9 @@ const AlbumCarousel = ({ urls, frameAspect, onDoubleTapLike }: { urls: string[];
       <div className="relative group/album w-full overflow-hidden rounded-sm bg-muted/30" style={{ aspectRatio: String(frameAspect) }} onClick={handleDoubleTap}>
         <AnimatePresence initial={false} custom={direction} mode="popLayout">
           <motion.div key={current} custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3, ease: "easeOut" }} drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.15} onDragEnd={handleDragEnd} className="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing">
-            <ProgressiveImage src={urls[current]} />
+            {/* Only slide 0 may set the frame — an album has ONE shape and it
+                belongs to the first photo. Swiping must never resize the card. */}
+            <ProgressiveImage src={urls[current]} onNaturalSize={current === 0 ? onNaturalSize : undefined} />
           </motion.div>
         </AnimatePresence>
         <AnimatePresence>{heart && <DoubleTapHeart key={heart.id} x={heart.x} y={heart.y} />}</AnimatePresence>
