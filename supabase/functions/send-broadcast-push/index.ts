@@ -94,11 +94,16 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Unauthorized" }, 401);
 
-    const caller = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user } } = await caller.auth.getUser();
-    if (!user) return json({ error: "Unauthorized" }, 401);
+    // Validate the caller with the SERVICE client, passing the JWT directly.
+    // The earlier version built a second client from SUPABASE_ANON_KEY, which is
+    // not reliably present in the function environment — when it was missing the
+    // client could not verify anyone and every call came back 401.
+    const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
+    const { data: userData, error: userErr } = await admin.auth.getUser(jwt);
+    const user = userData?.user;
+    if (userErr || !user) {
+      return json({ error: "Unauthorized", detail: userErr?.message ?? "no user for token" }, 401);
+    }
 
     const { data: role } = await admin
       .from("user_roles").select("role")
