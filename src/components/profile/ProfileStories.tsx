@@ -273,6 +273,10 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
 
   // Reach / Viewed-by for the story currently on screen. DISPLAY figures, not
   // measurements — the reasoning is documented in src/lib/displayEngagement.ts.
+  // NOTE: displayEngagement holds everything for the first 24 hours, and a
+  // story expires at 24 hours, so in practice this is always null for stories
+  // and the block below never renders. That follows from the owner's 24-hour
+  // rule; it is not an accident. Highlights, which outlive 24 hours, do show.
   const currentDisplay = currentViewerItem
     ? displayEngagement({ id: currentViewerItem.id, createdAt: currentViewerItem.createdAt })
     : null;
