@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { MessageCircle, Share2, Copy, MoreHorizontal, Trash2, Flag, Heart, Repeat, Eye, Pencil, UserPlus } from "lucide-react";
+import { MessageCircle, Share2, Copy, MoreHorizontal, Trash2, Flag, Heart, Repeat, Eye, Pencil, UserPlus, Users } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,7 @@ import Caption from "@/components/post/Caption";
 import PostCommentsSection from "@/components/PostCommentsSection";
 import { timeAgo, privacyIcon } from "@/lib/postUtils";
 import { formatNumber } from "@/lib/postAnalytics";
+import { displayEngagement, formatEngagementCount } from "@/lib/displayEngagement";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { UnifiedPost } from "@/types/post";
 import { useT } from "@/i18n/I18nContext";
@@ -61,6 +62,19 @@ const PostCard = ({
   // Add-friend from suggested posts (sends request + auto-follows)
   const sendFriend = useSendFriendRequest();
   const [friendRequested, setFriendRequested] = useState(false);
+
+  // Reach / Viewed-by. Memoised on the inputs that can change it, so the pair
+  // cannot flicker between renders of the same card.
+  const stats = useMemo(
+    () =>
+      displayEngagement({
+        id: post.id,
+        createdAt: post.created_at,
+        reactions: post.like_count,
+        comments: post.comment_count,
+      }),
+    [post.id, post.created_at, post.like_count, post.comment_count],
+  );
 
   const handleSaveCaption = async () => {
     if (!currentUserId || savingEdit) return;
@@ -339,29 +353,34 @@ const PostCard = ({
         )}
       </div>
 
-      {/* ── Analytics Row ── REAL views only ──
-          2026-07-31: this row used getSimulatedStats() — view AND "reach"
-          numbers invented from a hash of the post id (2K–100K). Removed.
-          `post.views` is now the real distinct-viewer count from feed_events
-          (get_post_view_counts RPC, joined in useFeedQuery). "Reach" had no
-          real source at all and is gone; the badge/insight derived from those
-          fake figures are gone with it. Show nothing rather than something
-          invented. */}
-      {typeof post.views === "number" && (
-        <div className="px-3 pb-1">
-          <motion.span
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25 }}
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground"
-            style={headingFont}
-            title={`${post.views} ${post.views === 1 ? "person has" : "people have"} seen this`}
-          >
+      {/* ── Analytics Row ──
+          2026-08-01, owner instruction: Reach and Viewed-by are DISPLAY figures
+          from `displayEngagement`, not measurements. The real distinct-viewer
+          count (`post.views`, from get_post_view_counts) is still collected and
+          still available on the object — it is simply not what this row renders.
+          Everything about why, and the four properties that keep the pair
+          internally consistent, is documented in src/lib/displayEngagement.ts.
+          Every other number on this card is real. */}
+      <div className="px-3 pb-1">
+        <motion.div
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+          className="flex items-center gap-3.5 text-xs text-muted-foreground"
+          style={headingFont}
+        >
+          <span className="inline-flex items-center gap-1">
+            <Users className="h-3 w-3" />
+            <span className="font-medium text-foreground/80">{formatEngagementCount(stats.reach)}</span>
+            <span>reached</span>
+          </span>
+          <span className="inline-flex items-center gap-1">
             <Eye className="h-3 w-3" />
-            <span className="font-medium">{formatNumber(post.views)}</span>
-          </motion.span>
-        </div>
-      )}
+            <span className="font-medium text-foreground/80">{formatEngagementCount(stats.views)}</span>
+            <span>viewed</span>
+          </span>
+        </motion.div>
+      </div>
 
       {/* ── Action Bar ── */}
       <div className="mx-2.5 border-t border-border select-none">
