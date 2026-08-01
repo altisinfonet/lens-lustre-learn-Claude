@@ -76,7 +76,10 @@ const Caption = ({ content, maxLines = 2 }: CaptionProps) => {
   if (!content) return null;
 
   return (
-    <div className="px-3 py-2">
+    // No top padding: the post header supplies the gap above this text, so a
+    // post with a caption and one without keep the SAME spacing above the media.
+    // Adding `pt` back here would silently push captioned posts down again.
+    <div className="px-3 pb-2">
       <div ref={clampRef} className={expanded ? "" : CLAMP[maxLines] || CLAMP[2]}>
         <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ fontFamily: "var(--font-body)" }}>
           <RichContentRenderer content={content} />

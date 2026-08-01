@@ -154,7 +154,13 @@ const PostCard = ({
   return (
     <div className="border border-border mb-2 md:mb-4 rounded-xl md:rounded-none overflow-hidden">
       {/* ── Header ── */}
-      <div className="flex items-center gap-2.5 p-3 pb-0">
+      {/* Header. `pb-2` is load-bearing: it is the ONLY thing standing between
+          the header and the media on a post with no caption. Until 2026-08-01
+          this was `pb-0` and the gap came entirely from Caption's `py-2`, so a
+          caption-less post — every Suggested post, most reshares — had its photo
+          jammed against the name. Any change here must keep the header-to-media
+          gap identical whether or not a caption exists. */}
+      <div className="flex items-center gap-2.5 p-3 pb-2">
         <Link to={`/profile/${post.user_id}`} className="shrink-0">
           <span className="relative inline-block w-8 h-8">
             {post.author_avatar ? (
@@ -273,7 +279,7 @@ const PostCard = ({
 
       {/* ── Caption ── */}
       {isEditing ? (
-        <div className="px-3 py-2 space-y-2">
+        <div className="px-3 pb-2 space-y-2">
           <Textarea
             value={editDraft}
             onChange={(e) => setEditDraft(e.target.value)}

@@ -279,7 +279,7 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
   return (
     <div ref={containerRef} className={cn(frame.wrapper, className)} style={frame.aspect ? { aspectRatio: frame.aspect } : undefined}>
       {zone === "story-card" && (
-        <div className="px-2 pt-1.5 text-[9px] tracking-[0.25em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Sponsored</div>
+        <div className="px-3 pt-3 pb-2 text-[9px] tracking-[0.25em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Sponsored</div>
       )}
 
       {/* GOOGLE (web AdSense) */}
