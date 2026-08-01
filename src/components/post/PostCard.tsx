@@ -321,7 +321,10 @@ const PostCard = ({
         </div>
       )}
 
-      {/* ── Reactions Row ── */}
+      {/* ── Reactions Row ──
+          Reach / Viewed-by share this line, pushed to the right edge with
+          `ml-auto` (owner instruction 2026-08-01). They were a second row until
+          then, which cost a whole line of card height for two small numbers. */}
       <div className="flex items-center gap-4 px-3 py-1.5 text-sm text-muted-foreground" style={headingFont}>
         {post.like_count > 0 && (
           <ReactionSummaryTooltip reactionCounts={post.reaction_counts} totalCount={post.like_count} postId={post.id}>
@@ -351,23 +354,20 @@ const PostCard = ({
             </span>
           </ShareSummaryTooltip>
         )}
-      </div>
 
-      {/* ── Analytics Row ──
-          2026-08-01, owner instruction: Reach and Viewed-by are DISPLAY figures
-          from `displayEngagement`, not measurements. The real distinct-viewer
-          count (`post.views`, from get_post_view_counts) is still collected and
-          still available on the object — it is simply not what this row renders.
-          Everything about why, and the four properties that keep the pair
-          internally consistent, is documented in src/lib/displayEngagement.ts.
-          Every other number on this card is real. */}
-      <div className="px-3 pb-1">
+        {/* Reach and Viewed-by. DISPLAY figures from `displayEngagement`, not
+            measurements. The real distinct-viewer count (`post.views`, from
+            get_post_view_counts) is still collected and still on the object — it
+            is simply not what this renders. Everything about why, and the four
+            properties that keep the pair internally consistent, is documented in
+            src/lib/displayEngagement.ts. Every other number here is real.
+            `ml-auto` is what holds it against the right edge even when the post
+            has no reactions, comments or shares at all. */}
         <motion.div
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25 }}
-          className="flex items-center gap-3.5 text-xs text-muted-foreground"
-          style={headingFont}
+          className="ml-auto flex items-center gap-3 text-xs whitespace-nowrap"
         >
           <span className="inline-flex items-center gap-1">
             <Users className="h-3 w-3" />
