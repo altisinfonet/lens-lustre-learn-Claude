@@ -333,18 +333,17 @@ const PostDetail = () => {
               </ShareSummaryTooltip>
             )}
             <div className="flex-1" />
-          </div>
 
-          {/* Reach / Viewed-by. Same source as the feed card, so a post cannot
-              read one way in the feed and another way here — see
-              src/lib/displayEngagement.ts. */}
-          <div className="flex items-center gap-3.5 px-3 pb-1.5 text-xs text-muted-foreground" style={headingFont}>
-            <span className="inline-flex items-center gap-1">
+            {/* Reach / Viewed-by, right-aligned on the same line as the counts —
+                the same layout as the feed card, and the same source, so a post
+                cannot read one way in the feed and another way here. See
+                src/lib/displayEngagement.ts. */}
+            <span className="inline-flex items-center gap-1 whitespace-nowrap">
               <Users className="h-3 w-3" />
               <span className="font-medium text-foreground/80">{formatEngagementCount(displayStats.reach)}</span>
               <span>reached</span>
             </span>
-            <span className="inline-flex items-center gap-1">
+            <span className="inline-flex items-center gap-1 whitespace-nowrap">
               <Eye className="h-3 w-3" />
               <span className="font-medium text-foreground/80">{formatEngagementCount(displayStats.views)}</span>
               <span>viewed</span>
