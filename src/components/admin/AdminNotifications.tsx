@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/core/use-toast";
+import AdminPushBroadcast from "@/components/admin/AdminPushBroadcast";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -156,6 +157,10 @@ const AdminNotifications = () => {
 
   return (
     <div className="space-y-4">
+      {/* Send a push to every app user. Sits above the incoming-notifications
+          list because it is an action, not a record. */}
+      <AdminPushBroadcast />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
