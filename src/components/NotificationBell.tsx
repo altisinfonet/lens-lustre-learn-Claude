@@ -422,7 +422,12 @@ const NotificationBell = () => {
               </div>
 
               {/* Footer */}
-              <div className="border-t border-border px-4 py-2.5 text-center">
+              <div className="border-t border-border px-4 py-2.5 flex items-center justify-center gap-4">
+                {/* The bell is an UNREAD inbox; the full history lives on /notifications. */}
+                <Link to="/notifications" onClick={() => setOpen(false)} className="text-[10px] tracking-[0.15em] uppercase text-primary hover:underline" style={headingFont}>
+                  See All
+                </Link>
+                <span className="text-[10px] text-border">|</span>
                 <Link to="/friends" onClick={() => setOpen(false)} className="text-[10px] tracking-[0.15em] uppercase text-primary hover:underline" style={headingFont}>
                   View All Friends
                 </Link>
