@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef } from "react";
-import { Plus, X, ChevronLeft, ChevronRight, Eye, Radio, TrendingUp, Trash2, Clock, Star } from "lucide-react";
+import { Plus, X, ChevronLeft, ChevronRight, Eye, Radio, TrendingUp, Trash2, Clock, Star, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 import { toast } from "@/hooks/core/use-toast";
 import { uploadImage } from "@/lib/imageUpload";
 import { compressImage } from "@/lib/imageCompression";
 import { AnimatePresence, motion } from "framer-motion";
+import { displayEngagement, formatEngagementCount } from "@/lib/displayEngagement";
 import { Button } from "@/components/ui/button";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
@@ -266,7 +267,15 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
   }, [isOwner]);
 
   // REAL story view counts (story_views), own stories only — counts, never names.
+  // Still loaded and still the source of truth in the database; see below for
+  // why the viewer renders the display figures instead.
   const currentStats = currentViewerItem ? { views: storyViewCounts[currentViewerItem.id] } : null;
+
+  // Reach / Viewed-by for the story currently on screen. DISPLAY figures, not
+  // measurements — the reasoning is documented in src/lib/displayEngagement.ts.
+  const currentDisplay = currentViewerItem
+    ? displayEngagement({ id: currentViewerItem.id, createdAt: currentViewerItem.createdAt })
+    : null;
 
   const hasContent = stories.length > 0 || highlights.length > 0;
   if (!hasContent && !isOwner) return null;
@@ -499,20 +508,25 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
                 <p className="text-white/80 text-sm mt-3 text-center">{viewerImages[viewerIdx].caption}</p>
               )}
 
-              {/* REAL story view count (story_views). Own stories only.
-                  2026-07-31: this block previously showed simulated views AND a
-                  "Reached" figure invented from a hash, plus a seeded Trending
-                  badge. Reach has no real source and is removed entirely. */}
-              {isOwner && typeof currentStats?.views === "number" && (
+              {/* Own stories only. Reach and Viewed-by are DISPLAY figures
+                  (src/lib/displayEngagement.ts), stable per story and growing
+                  with its age — not the raw story_views count, which is still
+                  recorded in the database and still owner-only. */}
+              {isOwner && currentDisplay && (
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="flex items-center gap-4 mt-3 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm"
                 >
                   <div className="flex items-center gap-1.5 text-white/80">
+                    <Users className="h-3.5 w-3.5" />
+                    <span className="text-xs font-medium">Reached by</span>
+                    <span className="text-xs font-bold text-white">{formatEngagementCount(currentDisplay.reach)}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-white/80">
                     <Eye className="h-3.5 w-3.5" />
                     <span className="text-xs font-medium">Viewed by</span>
-                    <span className="text-xs font-bold text-white">{currentStats.views}</span>
+                    <span className="text-xs font-bold text-white">{formatEngagementCount(currentDisplay.views)}</span>
                   </div>
                 </motion.div>
               )}

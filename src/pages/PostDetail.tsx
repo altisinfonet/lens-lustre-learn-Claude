@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 import { fetchProfileMap } from "@/lib/profileMapCache";
-import { Globe, Users, Lock, ArrowLeft, Share2, Copy, Flag, MoreHorizontal, MessageCircle } from "lucide-react";
+import { Globe, Users, Lock, ArrowLeft, Share2, Copy, Flag, MoreHorizontal, MessageCircle, Eye } from "lucide-react";
 import { useDownloadImage } from "@/hooks/core/useDownloadImage";
 import DownloadButton from "@/components/DownloadButton";
 import { toast } from "@/hooks/core/use-toast";
@@ -19,6 +19,7 @@ import ShareSummaryTooltip from "@/components/ShareSummaryTooltip";
 import { useReactToPost, useUnreactToPost } from "@/hooks/feed/usePostReactionMutations";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import PageSEO from "@/components/PageSEO";
+import { displayEngagement, formatEngagementCount } from "@/lib/displayEngagement";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -202,6 +203,12 @@ const PostDetail = () => {
   }
 
   const allImages = post.image_urls?.length ? post.image_urls : post.image_url ? [post.image_url] : [];
+  const displayStats = displayEngagement({
+    id: post.id,
+    createdAt: post.created_at,
+    reactions: post.like_count,
+    comments: post.comment_count,
+  });
   const ogImage = allImages[0] || undefined;
   const ogDescription = post.content?.slice(0, 160) || "A post on 50mm Retina World";
 
@@ -326,6 +333,22 @@ const PostDetail = () => {
               </ShareSummaryTooltip>
             )}
             <div className="flex-1" />
+          </div>
+
+          {/* Reach / Viewed-by. Same source as the feed card, so a post cannot
+              read one way in the feed and another way here — see
+              src/lib/displayEngagement.ts. */}
+          <div className="flex items-center gap-3.5 px-3 pb-1.5 text-xs text-muted-foreground" style={headingFont}>
+            <span className="inline-flex items-center gap-1">
+              <Users className="h-3 w-3" />
+              <span className="font-medium text-foreground/80">{formatEngagementCount(displayStats.reach)}</span>
+              <span>reached</span>
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Eye className="h-3 w-3" />
+              <span className="font-medium text-foreground/80">{formatEngagementCount(displayStats.views)}</span>
+              <span>viewed</span>
+            </span>
           </div>
 
           {/* Actions */}
