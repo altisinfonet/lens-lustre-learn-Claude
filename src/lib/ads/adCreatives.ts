@@ -12,15 +12,17 @@
  *   `ad_zones_v2` picture. So this file adds a capability without taking one
  *   away — an existing single-image zone keeps working untouched.
  *
- * ROTATION RULE (both readings of "multi slot" are satisfied)
- *   Creatives are ordered by `sort_order`, so an admin controls which picture is
- *   "first". Position 0 in the feed takes the first, position 1 the second, and
- *   so on — that is the ordered behaviour. A per-SESSION offset is then added,
- *   so a member who scrolls the feed twice does not see the same two pictures
- *   both times, and across many sessions every picture gets roughly equal
- *   exposure. The offset is stored in sessionStorage, so it is stable while the
- *   member scrolls (an ad never swaps under their eyes mid-scroll) and resets on
- *   their next visit.
+ * PLACEMENT RULE (owner decision 2026-08-01) — FIXED, never rotated.
+ *   Creatives are ordered by `sort_order`. Picture #1 always appears after 2
+ *   posts, #2 after 5, #3 after 10, #4 after 15, then one every 10 posts. The
+ *   admin sees that mapping spelled out next to each picture as they upload, so
+ *   what they arrange in the panel is exactly what a member sees.
+ *
+ *   An earlier draft rotated pictures between positions so every one got equal
+ *   exposure. That was deliberately dropped: the owner wants a picture's place
+ *   to be predictable, which rotation cannot give. The cost is that pictures far
+ *   down the list only reach members who scroll that deep — see
+ *   src/lib/ads/feedAdPlacement.ts.
  */
 import { supabase } from "@/integrations/supabase/client";
 import type { AdZoneId } from "./adZonesV2";
@@ -38,7 +40,6 @@ export interface AdCreative {
 }
 
 const CACHE_TTL_MS = 60_000;
-const SESSION_OFFSET_KEY = "adz_rot_offset";
 
 const cache = new Map<string, { at: number; rows: AdCreative[] }>();
 const inflight = new Map<string, Promise<AdCreative[]>>();
@@ -90,39 +91,18 @@ export const fetchAdCreatives = async (zone: AdZoneId): Promise<AdCreative[]> =>
 };
 
 /**
- * A number that is fixed for this browsing session. Used to rotate which
- * picture lands in the first feed slot, so repeat scrolls are not identical.
- * Falls back to 0 when sessionStorage is unavailable — a stable, correct
- * ordering is better than a random one that reshuffles on every render.
- */
-const sessionOffset = (): number => {
-  try {
-    const existing = sessionStorage.getItem(SESSION_OFFSET_KEY);
-    if (existing !== null) {
-      const n = parseInt(existing, 10);
-      if (Number.isFinite(n) && n >= 0) return n;
-    }
-    // performance.now() is monotonic per page-load and needs no crypto/seed.
-    const n = Math.floor(Math.abs(performance.now() * 1000)) % 997;
-    sessionStorage.setItem(SESSION_OFFSET_KEY, String(n));
-    return n;
-  } catch {
-    return 0;
-  }
-};
-
-/**
- * Pick the creative for one in-feed ad position.
+ * The creative for one in-feed ad position — a straight lookup, no shuffling.
  *
- * `slotIndex` is which ad this is on the page (0 = the first one shown, after
- * post 2; 1 = the next, after post 5; …). With N pictures and M positions the
- * modulo guarantees each position gets a DIFFERENT picture whenever N >= M, and
- * degrades gracefully (repeats) rather than showing nothing when N < M.
+ * `slotIndex` 0 is the ad after post 2, 1 the ad after post 5, and so on, so
+ * slot N is simply the Nth picture in the library. Deliberately NOT a modulo:
+ * if there is no Nth picture the answer is "nothing", never a repeat of an
+ * earlier one. Seeing the same advert twice while scrolling is worse than
+ * seeing one fewer.
  *
- * Returns null for an empty library so the caller can fall back.
+ * Returns null for an empty library, which tells the caller to fall back to the
+ * zone's single picture.
  */
 export const pickCreativeForSlot = (creatives: AdCreative[], slotIndex: number): AdCreative | null => {
-  if (!creatives.length) return null;
-  const idx = (sessionOffset() + slotIndex) % creatives.length;
-  return creatives[idx] ?? null;
+  if (!creatives.length || slotIndex < 0) return null;
+  return creatives[slotIndex] ?? null;
 };
