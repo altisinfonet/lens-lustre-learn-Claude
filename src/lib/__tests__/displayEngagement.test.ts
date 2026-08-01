@@ -1,6 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
 import {
-  displayEngagement,
+  // The RAW curve. Everything below that asserts the shape of the numbers uses
+  // this, because the shape has to be provable at ages inside the 24-hour hold
+  // as well as outside it. Components must NOT use it — see the gate tests at
+  // the bottom of this file, which are the ones that protect the owner's rule.
+  engagementFigures as displayEngagement,
+  // The gated entry point components actually call.
+  displayEngagement as visibleEngagement,
+  engagementVisible,
+  ENGAGEMENT_HOLD_HOURS,
   formatEngagementCount,
   VIEWS_MIN,
   VIEWS_MAX,
@@ -41,7 +49,7 @@ describe("displayEngagement — determinism", () => {
     const before = displayEngagement({ id: ids[19], createdAt: "2026-07-20T00:00:00Z" }, T0);
     vi.resetModules();
     const again = await import("@/lib/displayEngagement");
-    expect(again.displayEngagement({ id: ids[19], createdAt: "2026-07-20T00:00:00Z" }, T0)).toEqual(before);
+    expect(again.engagementFigures({ id: ids[19], createdAt: "2026-07-20T00:00:00Z" }, T0)).toEqual(before);
   });
 });
 
@@ -202,5 +210,80 @@ describe("formatEngagementCount", () => {
     expect(formatEngagementCount(10_000)).toBe("10K");
     expect(formatEngagementCount(12_400)).toBe("12.4K");
     expect(formatEngagementCount(2_000_000)).toBe("2M");
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * THE 24-HOUR HOLD
+ *
+ * This block is the most important one in the file. On 2026-08-01 a post
+ * published one second earlier displayed "962 reached · 661 viewed" — a number
+ * that cannot be true and that any member can falsify by posting once. The
+ * hold existed as a policy and had no test, so nothing caught its absence.
+ *
+ * These tests are written against `visibleEngagement` — the function the UI
+ * calls — precisely because that is where the guarantee has to live.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+describe("the 24-hour hold", () => {
+  const id = ids[42];
+
+  it("shows NOTHING for a post made one second ago", () => {
+    expect(visibleEngagement({ id, createdAt: new Date(T0 - 1000).toISOString() }, T0)).toBeNull();
+  });
+
+  it("shows nothing at any point inside the first 24 hours", () => {
+    for (const h of [0, 0.5, 1, 6, 12, 18, 23, 23.99]) {
+      const at = new Date(T0 - h * HOUR).toISOString();
+      expect(visibleEngagement({ id, createdAt: at }, T0), `${h}h old`).toBeNull();
+    }
+  });
+
+  it("shows the figures from exactly 24 hours onwards", () => {
+    for (const h of [24, 24.01, 25, 48, 24 * 30]) {
+      const at = new Date(T0 - h * HOUR).toISOString();
+      const out = visibleEngagement({ id, createdAt: at }, T0);
+      expect(out, `${h}h old`).not.toBeNull();
+      expect(out!.views).toBeGreaterThanOrEqual(VIEWS_MIN);
+      expect(out!.reach).toBeGreaterThan(out!.views);
+    }
+  });
+
+  it("holds a post dated in the FUTURE — a clock skew must not leak numbers", () => {
+    expect(visibleEngagement({ id, createdAt: new Date(T0 + HOUR).toISOString() }, T0)).toBeNull();
+  });
+
+  it("uses the exported constant, so the boundary cannot drift from the docs", () => {
+    expect(ENGAGEMENT_HOLD_HOURS).toBe(24);
+    const justUnder = new Date(T0 - (ENGAGEMENT_HOLD_HOURS * HOUR - 1)).toISOString();
+    const justOver = new Date(T0 - ENGAGEMENT_HOLD_HOURS * HOUR).toISOString();
+    expect(visibleEngagement({ id, createdAt: justUnder }, T0)).toBeNull();
+    expect(visibleEngagement({ id, createdAt: justOver }, T0)).not.toBeNull();
+  });
+
+  it("returns the same numbers as the raw curve once it is past the hold", () => {
+    const at = new Date(T0 - 72 * HOUR).toISOString();
+    expect(visibleEngagement({ id, createdAt: at }, T0)).toEqual(
+      displayEngagement({ id, createdAt: at }, T0),
+    );
+  });
+
+  it("treats an item of unknown age as mature, matching the growth curve", () => {
+    expect(visibleEngagement({ id }, T0)).not.toBeNull();
+    expect(visibleEngagement({ id, createdAt: "not a date" }, T0)).not.toBeNull();
+  });
+
+  it("engagementVisible agrees with what displayEngagement returns", () => {
+    for (const h of [0, 5, 23.5, 24, 100]) {
+      const at = new Date(T0 - h * HOUR).toISOString();
+      expect(engagementVisible(at, T0)).toBe(visibleEngagement({ id, createdAt: at }, T0) !== null);
+    }
+  });
+
+  it("a story never qualifies: stories expire at 24h, the hold ends at 24h", () => {
+    // Documented consequence, asserted so it is a decision and not a surprise.
+    for (const h of [0.1, 6, 12, 23.9]) {
+      expect(visibleEngagement({ id, createdAt: new Date(T0 - h * HOUR).toISOString() }, T0)).toBeNull();
+    }
   });
 });
