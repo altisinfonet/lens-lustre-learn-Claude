@@ -35,9 +35,14 @@ interface Props {
   onSkip?: () => void;
 }
 
+// "Free" first and selected by default: cropping is opt-in from 2026-08-01, so
+// someone who opened this dialog wants to choose their own frame, not be handed
+// a preset. 4:5 is listed because it is the platform's portrait standard and
+// was the forced ratio until today — one tap gets the old behaviour back.
 const ASPECT_OPTIONS = [
   { label: "Free", value: undefined },
   { label: "1:1", value: 1 },
+  { label: "4:5", value: 4 / 5 },
   { label: "16:9", value: 16 / 9 },
   { label: "4:3", value: 4 / 3 },
   { label: "3:2", value: 3 / 2 },
