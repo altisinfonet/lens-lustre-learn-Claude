@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { MessageCircle, Send, Globe, Users, Lock, ChevronDown, ImagePlus, X, Tag, CalendarClock } from "lucide-react";
+import { MessageCircle, Send, Globe, Users, Lock, ChevronDown, ImagePlus, X, Tag, CalendarClock, Crop } from "lucide-react";
 import TagPeopleModal, { type PendingTag } from "@/components/post/TagPeopleModal";
 import { ScheduleDateTimePicker } from "@/components/post/ScheduleDateTimePicker";
 import { useCreateScheduledPost } from "@/hooks/feed/useScheduledPosts";
@@ -172,7 +172,16 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   const [posting, setPosting] = useState(false);
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  const [cropQueue, setCropQueue] = useState<{ file: File; src: string }[]>([]);
+  // Index of the photo whose Crop dialog is open, or null. Cropping is now an
+  // explicit per-photo action rather than a gate every upload must pass.
+  const [cropIndex, setCropIndex] = useState<number | null>(null);
+  // Synchronous mirror of selectedImages.length. Dropping several files at once
+  // fires one async FileReader per file, so the closure's view of the state is
+  // stale by the time each callback runs — the 10-photo cap has to be counted
+  // somewhere that updates immediately. Doing the check inside a setState
+  // updater instead would put a toast() side effect in a function React is free
+  // to call twice.
+  const selectedCountRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
@@ -220,15 +229,19 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       // Decode-probe: if the browser can't actually render it, reject.
       const probe = new Image();
       probe.onload = () => {
-        // Enqueue for user-driven crop (4:5 aspect, matches feed display).
-        setCropQueue(prev => {
-          const totalPending = selectedImages.length + prev.length;
-          if (totalPending >= 10) {
-            toast({ title: "Maximum 10 photos per post", variant: "destructive" });
-            return prev;
-          }
-          return [...prev, { file, src: dataUrl }];
-        });
+        // 2026-08-01 (owner instruction): the photo goes in AS SHOT.
+        // Until today every photo was force-marched through a 4:5 crop modal
+        // and the cropped file was what uploaded — the original never reached
+        // storage, so the platform silently recomposed photographers' frames.
+        // Cropping is now opt-in, per photo, via the Crop button on each
+        // thumbnail. See src/lib/imageFrame.ts for how any ratio is displayed.
+        if (selectedCountRef.current >= 10) {
+          toast({ title: "Maximum 10 photos per post", variant: "destructive" });
+          return;
+        }
+        selectedCountRef.current += 1;
+        setSelectedImages(prev => [...prev, file]);
+        setImagePreviews(prev => [...prev, dataUrl]);
       };
       probe.onerror = () => rejectUnsupported(file);
       probe.src = dataUrl;
@@ -259,38 +272,41 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   };
 
   const clearImage = (index: number) => {
+    selectedCountRef.current = Math.max(0, selectedCountRef.current - 1);
     setSelectedImages(prev => prev.filter((_, i) => i !== index));
     setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    // Removing a photo shifts every later index; a stale cropIndex would then
+    // point at the wrong photo, so close the dialog rather than guess.
+    setCropIndex(null);
   };
 
   const clearAllImages = () => {
+    selectedCountRef.current = 0;
     setSelectedImages([]);
     setImagePreviews([]);
-    setCropQueue([]);
+    setCropIndex(null);
     setPendingTags([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  // Cropping REPLACES the photo in place. Cancelling changes nothing at all —
+  // the original stays selected, which is the whole point of the new default.
   const handleCropConfirm = useCallback((croppedFile: File) => {
+    const idx = cropIndex;
+    if (idx === null) return;
     const reader = new FileReader();
     reader.onload = () => {
       const previewUrl = reader.result as string;
-      setSelectedImages(prev => (prev.length >= 10 ? prev : [...prev, croppedFile]));
-      setImagePreviews(prev => (prev.length >= 10 ? prev : [...prev, previewUrl]));
-      setCropQueue(prev => prev.slice(1));
+      setSelectedImages(prev => prev.map((f, i) => (i === idx ? croppedFile : f)));
+      setImagePreviews(prev => prev.map((p, i) => (i === idx ? previewUrl : p)));
+      setCropIndex(null);
     };
-    reader.onerror = () => setCropQueue(prev => prev.slice(1));
+    reader.onerror = () => setCropIndex(null);
     reader.readAsDataURL(croppedFile);
-  }, []);
+  }, [cropIndex]);
 
-  // Skip: discard current photo only, advance queue.
-  const handleCropSkip = useCallback(() => {
-    setCropQueue(prev => prev.slice(1));
-  }, []);
-
-  // Cancel: close the crop flow — discard the current photo AND any remaining queued photos.
   const handleCropCancel = useCallback(() => {
-    setCropQueue([]);
+    setCropIndex(null);
   }, []);
 
 
@@ -596,16 +612,12 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           </div>
 
           <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageSelect} className="hidden" />
-          {cropQueue.length > 0 && (
+          {cropIndex !== null && imagePreviews[cropIndex] && (
             <ImageCropModal
-              key={cropQueue[0].src}
-              imageSrc={cropQueue[0].src}
-              forcedAspect={4 / 5}
+              key={`crop-${cropIndex}-${imagePreviews[cropIndex].slice(-24)}`}
+              imageSrc={imagePreviews[cropIndex]}
               onCropComplete={handleCropConfirm}
               onCancel={handleCropCancel}
-              onSkip={handleCropSkip}
-              queuePosition={selectedImages.length + 1}
-              queueTotal={selectedImages.length + cropQueue.length}
             />
           )}
           {imagePreviews.length > 0 && (
@@ -624,10 +636,19 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
                 {imagePreviews.map((preview, idx) => (
                   <div key={idx} className="relative aspect-square rounded-md overflow-hidden border border-border">
-                    <img decoding="async" src={preview} alt="" className="w-full h-full object-cover" />
+                    <img decoding="async" src={preview} alt="" className="w-full h-full object-contain bg-muted/40" />
                     <button onClick={() => clearImage(idx)}
                       className="absolute top-1 right-1 p-1 bg-card/90 backdrop-blur-sm rounded-full text-muted-foreground hover:text-destructive hover:bg-card transition-all shadow-sm">
                       <X className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCropIndex(idx)}
+                      title="Crop this photo"
+                      className="absolute bottom-1 left-1 inline-flex items-center gap-1 px-1.5 py-1 bg-card/90 backdrop-blur-sm rounded-full text-[10px] text-muted-foreground hover:text-foreground hover:bg-card transition-all shadow-sm"
+                    >
+                      <Crop className="h-3 w-3" />
+                      Crop
                     </button>
                   </div>
                 ))}
