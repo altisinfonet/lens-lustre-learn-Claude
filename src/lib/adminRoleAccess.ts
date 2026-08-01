@@ -18,7 +18,7 @@ export type AdminTab =
   | "employee"
   | "comments" | "keyword_blocklist" | "reports" | "post_reports"
   | "wallet" | "gifts" | "transactions" | "orders"
-  | "seo" | "advertisements" | "performance" | "announcements" | "newsletter_faq"
+  | "seo" | "advertisements" | "push_notification" | "performance" | "announcements" | "newsletter_faq"
   | "page_management" | "menu_builder" | "redirects"
   | "settings" | "auth_pages" | "email_templates" | "database"
   | "support_tickets" | "user_guide";
