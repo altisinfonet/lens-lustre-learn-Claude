@@ -22,6 +22,36 @@ import {
 } from "@/lib/ads/adZonesV2";
 import { compressImageToFiles } from "@/lib/imageCompression";
 import { generateImagePath, uploadImage } from "@/lib/imageUpload";
+import { feedAdPositionsLabel } from "@/lib/ads/feedAdPlacement";
+import AdCreativeLibrary from "./AdCreativeLibrary";
+
+/**
+ * The one line under each slot name telling the admin EXACTLY where and how
+ * often that spot appears. Owner request 2026-08-01: "just below the slot name,
+ * after how many feed it show, mention small text so that admin can see."
+ *
+ * The Story Card line is generated from FEED_AD_POSITIONS, so it can never
+ * disagree with the code. The rest state a real constraint each one has — every
+ * claim here was read out of the component that mounts the zone, not assumed.
+ */
+const zonePlacementNote = (zone: AdZoneId): string => {
+  switch (zone) {
+    case "story-card":
+      return `Inside the feed — shows ${feedAdPositionsLabel()}. Works everywhere, including the app.`;
+    case "sidebar":
+      return "Right-hand column. DESKTOP WEB ONLY — it is not visible on phones or in the app.";
+    case "lightbox":
+      return "Inside the photo viewer, on the Home gallery and My Photos only. Not in the feed.";
+    case "interstitial":
+      return "Full screen after someone posts, and when they open a competition from the feed. Needs those triggers switched on under Full-screen & Rewards.";
+    case "rewarded":
+      return "On the Wallet page only, as a 'watch to earn' button. Hidden until the credit amount is above 0.";
+    case "app-open":
+      return "Full screen once when the app opens. Needs 'When the app first opens' switched on under Full-screen & Rewards.";
+    default:
+      return "";
+  }
+};
 
 const hFont = { fontFamily: "var(--font-heading)" };
 const bFont = { fontFamily: "var(--font-body)" };
@@ -261,6 +291,8 @@ const AdminAdsV2 = () => {
                 <div>
                   <p className="text-sm font-semibold text-foreground" style={hFont}>{meta.label}</p>
                   <p className="text-[11px] text-muted-foreground" style={bFont}>{guide.where}</p>
+                  {/* Where and how often this spot actually appears. */}
+                  <p className="text-[10px] text-primary/80 mt-0.5" style={bFont}>{zonePlacementNote(zone)}</p>
                 </div>
 
                 {/* Simple 3-way choice */}
@@ -275,6 +307,11 @@ const AdminAdsV2 = () => {
 
                 {c.mode === "own" && (
                   <div className="space-y-3 pt-1">
+                    {/* Many-picture library. Story Card only for now — that is
+                        the spot the owner needs 50+ ads in. Other zones keep
+                        the single-picture flow untouched. */}
+                    {zone === "story-card" && <AdCreativeLibrary zone={zone} />}
+
                     <ImageUploader zone={zone} value={c.own.image_source === "code" ? "" : c.own.image_url}
                       onChange={(url) => patchOwn(zone, { image_url: url, image_source: "upload" })} />
                     <div>

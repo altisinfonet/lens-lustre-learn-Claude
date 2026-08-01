@@ -16,7 +16,7 @@ import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import AdZone from "@/components/ads/AdZone";
-import { getMinPostCount } from "@/lib/ads/feedAdPlacement";
+import { FEED_AD_POSITIONS, shouldShowFeedAd } from "@/lib/ads/feedAdPlacement";
 import { useT } from "@/i18n/I18nContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { useActivityLog } from "@/hooks/core/useActivityLog";
@@ -32,8 +32,12 @@ const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
 const displayFont = { fontFamily: "var(--font-display)" };
 
-/** Default feed ad positions (0-indexed post indices after which an ad appears) */
-const DEFAULT_FEED_AD_POSITIONS = [1, 4, 14, 34, 54];
+/**
+ * Feed ad positions (0-indexed post indices after which an ad appears).
+ * Single source of truth is src/lib/ads/feedAdPlacement.ts, so the admin panel's
+ * "shows after post 2, 5, 10 and 15" line and this list can never disagree.
+ */
+const DEFAULT_FEED_AD_POSITIONS = [...FEED_AD_POSITIONS];
 
 const Feed = () => {
   const { user, loading: authLoading } = useAuth();
@@ -331,9 +335,12 @@ const Feed = () => {
                   </motion.div>
 
                   {feedAdPositions.map((pos, slotIdx) =>
-                    i === pos && posts.length >= getMinPostCount(slotIdx) ? (
+                    i === pos && shouldShowFeedAd(pos, posts.length) ? (
                       <div key={`feed-ad-${slotIdx}`} className="mb-4">
-                        <AdZone zone="story-card" />
+                        {/* slotIndex picks a DIFFERENT picture from the Story
+                            Card library for each position, so a member never
+                            sees the same ad twice in one scroll. */}
+                        <AdZone zone="story-card" slotIndex={slotIdx} />
                       </div>
                     ) : null
                   )}
