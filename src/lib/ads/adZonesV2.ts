@@ -21,6 +21,7 @@
  * the v2 system is verified and the feature flag is switched on.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { getSiteSetting } from "@/lib/siteSettingsCache";
 
 /* ── Zones & modes ── */
 
@@ -236,8 +237,10 @@ export async function fetchAdZones(): Promise<Record<AdZoneId, AdZoneConfig>> {
   const out = {} as Record<AdZoneId, AdZoneConfig>;
   for (const z of ALL_ZONES) out[z] = defaultZoneConfig(z);
   try {
-    const { data } = await supabase.from("site_settings").select("value").eq("key", AD_ZONES_KEY).maybeSingle();
-    const stored = (data?.value ?? {}) as Record<string, unknown>;
+    // Batched + cached: <AdZone> mounts once per ad slot and the feed renders
+    // several, so a direct query here was 3 requests x every slot on screen.
+    const value = await getSiteSetting(AD_ZONES_KEY);
+    const stored = (value ?? {}) as Record<string, unknown>;
     for (const z of ALL_ZONES) {
       if (stored[z]) out[z] = normalizeZone(stored[z], z);
     }
@@ -249,8 +252,7 @@ export async function fetchAdZones(): Promise<Record<AdZoneId, AdZoneConfig>> {
 
 export async function fetchAdFrequency(): Promise<AdFrequencyConfig> {
   try {
-    const { data } = await supabase.from("site_settings").select("value").eq("key", AD_FREQUENCY_KEY).maybeSingle();
-    return normalizeFrequency(data?.value);
+    return normalizeFrequency(await getSiteSetting(AD_FREQUENCY_KEY));
   } catch {
     return defaultFrequencyConfig();
   }
@@ -259,8 +261,7 @@ export async function fetchAdFrequency(): Promise<AdFrequencyConfig> {
 /** Master flag — while false, v2 stays fully dormant. Defaults to false. */
 export async function fetchAdZonesEnabled(): Promise<boolean> {
   try {
-    const { data } = await supabase.from("site_settings").select("value").eq("key", AD_ZONES_FLAG_KEY).maybeSingle();
-    return data?.value === true;
+    return (await getSiteSetting(AD_ZONES_FLAG_KEY)) === true;
   } catch {
     return false;
   }

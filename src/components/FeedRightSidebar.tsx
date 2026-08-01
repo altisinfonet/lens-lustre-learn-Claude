@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useEffect } from "react";
+import { getAdminIds } from "@/lib/adminBrand";
 import AdZone from "@/components/ads/AdZone";
 import { Link } from "react-router-dom";
 import ProfileLink from "@/components/ProfileLink";
@@ -55,19 +56,19 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
   const winners = sidebarData?.winners ?? [];
 
   // Admin profiles cannot receive friend requests (follow-only).
-  // Probe each suggestion via has_role SECURITY DEFINER RPC and drop admins.
+  //
+  // 2026-08-01: this used to call `app_has_role` once PER suggestion inside a
+  // Promise.all — a textbook N+1, measured at 5 requests on a normal feed load
+  // and growing with the suggestion list. `getAdminIds()` answers the same
+  // question for everyone in ONE call and memoises the result for the session,
+  // and the page already calls it elsewhere, so this costs nothing at all now.
   useEffect(() => {
     if (rawSuggestions.length === 0) return;
     let cancelled = false;
     (async () => {
-      const checks = await Promise.all(
-        rawSuggestions.map(async (s: any) => {
-          const { data } = await supabase.rpc("app_has_role" as any, { _user_id: s.id, _role: "admin" });
-          return { id: s.id, isAdmin: !!data };
-        })
-      );
+      const admins = await getAdminIds();
       if (cancelled) return;
-      setAdminIds(new Set(checks.filter((c) => c.isAdmin).map((c) => c.id)));
+      setAdminIds(new Set(rawSuggestions.filter((s: any) => admins.has(s.id)).map((s: any) => s.id)));
     })();
     return () => { cancelled = true; };
   }, [rawSuggestions]);

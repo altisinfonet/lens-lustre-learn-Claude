@@ -1,13 +1,38 @@
 /**
- * Global profile + badge + role batch fetcher with QueryClient caching.
+ * Global profile + badge + role fetcher, cached PER USER ID.
  *
- * One call replaces separate profilesPublic(), user_badges, user_roles queries.
- * Results are cached via React Query so the same ID set is never refetched within staleTime.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHY THIS IS KEYED BY ID AND NOT BY ID-SET (rewritten 2026-08-01)
+ *
+ * This module used to cache through React Query keyed on the sorted ID array:
+ *
+ *     queryKeys.profileMap([a, b, c])   // one cache entry
+ *     queryKeys.profileMap([a])         // a DIFFERENT entry -> refetches `a`
+ *     queryKeys.profileMap([b, c])      // a THIRD entry -> refetches b and c
+ *
+ * Every caller asks for its own slice of IDs, so almost no two keys matched and
+ * the cache almost never hit. It batched perfectly WITHIN a call and never
+ * ACROSS calls.
+ *
+ * Measured on the production feed before this change: **13 calls to
+ * rawFetchProfileMap, each issuing 4 queries = 52 requests**, for a feed of
+ * ~10 posts by ~8 distinct authors. Those 52 are most of the 106 Supabase
+ * requests a single feed load was making. Full numbers in
+ * PERFORMANCE_AUDIT.md.
+ *
+ * NOW: every profile is cached under its own id, and a request fetches only the
+ * ids it does not already have. Requests raised within the same ~10 ms window
+ * are coalesced into ONE round trip (the DataLoader pattern), and an id already
+ * in flight is awaited rather than re-fetched. 52 requests become 4.
+ *
+ * The React Query layer in useProfileMap() is left in place on purpose — it now
+ * caches the ASSEMBLED map per component, and its queryFn is nearly free
+ * because it reads this entity cache instead of the network.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 import { supabase } from "@/integrations/supabase/client";
 import { QueryClient } from "@tanstack/react-query";
 import { profilesPublic } from "@/lib/profilesPublic";
-import { queryKeys } from "@/lib/queryKeys";
 
 export interface ProfileMapEntry {
   id: string;
@@ -37,9 +62,12 @@ export function setProfileMapQueryClient(qc: QueryClient) {
         { event: "*", schema: "public", table: "user_badges" },
         (payload: any) => {
           const changedUserId = payload?.new?.user_id ?? payload?.old?.user_id;
-          if (_qc && changedUserId) {
-            void _qc.invalidateQueries({ queryKey: queryKeys.profileMap([changedUserId]) });
-          }
+          // Was `invalidateQueries({ queryKey: queryKeys.profileMap([id]) })`,
+          // which matched an ID-SET key of exactly one user — a key almost
+          // nothing in the app ever uses, so badge/role changes silently never
+          // invalidated anything. Go through invalidateProfileMap, which evicts
+          // the entity and busts the whole ["profile-map"] prefix.
+          if (changedUserId) invalidateProfileMap(changedUserId);
         },
       )
       .on(
@@ -47,9 +75,12 @@ export function setProfileMapQueryClient(qc: QueryClient) {
         { event: "*", schema: "public", table: "user_roles" },
         (payload: any) => {
           const changedUserId = payload?.new?.user_id ?? payload?.old?.user_id;
-          if (_qc && changedUserId) {
-            void _qc.invalidateQueries({ queryKey: queryKeys.profileMap([changedUserId]) });
-          }
+          // Was `invalidateQueries({ queryKey: queryKeys.profileMap([id]) })`,
+          // which matched an ID-SET key of exactly one user — a key almost
+          // nothing in the app ever uses, so badge/role changes silently never
+          // invalidated anything. Go through invalidateProfileMap, which evicts
+          // the entity and busts the whole ["profile-map"] prefix.
+          if (changedUserId) invalidateProfileMap(changedUserId);
         },
       )
       .subscribe();
@@ -63,6 +94,9 @@ export function setProfileMapQueryClient(qc: QueryClient) {
  * sorted multi-ID arrays). Pass nothing for a full bust.
  */
 export function invalidateProfileMap(_userId?: string) {
+  // Evict the entity cache too, or the React Query refetch would just re-read
+  // the stale entity and nothing would actually change.
+  clearProfileEntityCache(_userId);
   if (!_qc) return;
   void _qc.invalidateQueries({ queryKey: ["profile-map"] });
 }
@@ -71,8 +105,139 @@ function dedupeAndSort(ids: string[]): string[] {
   return [...new Set(ids)].sort();
 }
 
-async function rawFetchProfileMap(sortedIds: string[]): Promise<ProfileMap> {
-  if (sortedIds.length === 0) return new Map();
+/* ── Entity cache + micro-batcher ─────────────────────────────────────────── */
+
+/** How long a cached profile is considered fresh. Matches useProfileMap's staleTime. */
+const ENTITY_TTL_MS = 5 * 60_000;
+
+/**
+ * How long to hold new ids before firing. One frame. Long enough for every
+ * component in a single React commit to land in the same batch, short enough
+ * that nobody perceives it. Set to 0 and each effect pass fires its own query
+ * again — which is the bug this module exists to prevent.
+ */
+const BATCH_WINDOW_MS = 10;
+
+/**
+ * A profile the database did not return is cached only briefly. Caching a
+ * "not found" for the full 5 minutes means one transient failure leaves a blank
+ * name and avatar on screen for five minutes with no retry — found while
+ * writing the failure test for this file. 30 s still stops a genuinely deleted
+ * user being re-queried on every render.
+ */
+const NEGATIVE_TTL_MS = 30_000;
+
+interface CachedEntity { entry: ProfileMapEntry; at: number; negative: boolean }
+
+const entityCache = new Map<string, CachedEntity>();
+/** ids currently being fetched -> the batch promise that will fill them. */
+const inFlight = new Map<string, Promise<void>>();
+
+let pendingIds = new Set<string>();
+let pendingTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingResolve: (() => void) | null = null;
+let pendingPromise: Promise<void> | null = null;
+
+function isFresh(c: CachedEntity | undefined, now: number): c is CachedEntity {
+  if (!c) return false;
+  return now - c.at < (c.negative ? NEGATIVE_TTL_MS : ENTITY_TTL_MS);
+}
+
+function placeholder(id: string): ProfileMapEntry {
+  return { id, full_name: null, avatar_url: null, badges: [], roles: [], last_active_at: null };
+}
+
+/** Queue ids for the next batch and return a promise that settles when it lands. */
+function enqueue(ids: string[]): Promise<void> {
+  for (const id of ids) pendingIds.add(id);
+
+  if (!pendingPromise) {
+    pendingPromise = new Promise<void>((resolve) => { pendingResolve = resolve; });
+  }
+  const promise = pendingPromise;
+
+  if (pendingTimer === null) {
+    pendingTimer = setTimeout(() => { void flush(); }, BATCH_WINDOW_MS);
+  }
+  for (const id of ids) inFlight.set(id, promise);
+  return promise;
+}
+
+async function flush(): Promise<void> {
+  const ids = [...pendingIds].sort();
+  const resolve = pendingResolve;
+  // Reset BEFORE awaiting, so ids arriving during the request start a new batch
+  // instead of silently joining one that has already been sent.
+  pendingIds = new Set();
+  pendingTimer = null;
+  pendingResolve = null;
+  pendingPromise = null;
+
+  try {
+    if (ids.length > 0) {
+      const { map, found, failed } = await rawFetchProfileMap(ids);
+      if (!failed) {
+        const now = Date.now();
+        for (const id of ids) {
+          entityCache.set(id, {
+            entry: map.get(id) ?? placeholder(id),
+            at: now,
+            negative: !found.has(id),
+          });
+        }
+      }
+    }
+  } catch (err) {
+    // A failed batch must not poison the cache or hang its waiters. The ids stay
+    // uncached, so the next request retries them.
+    console.warn("profileMap batch failed:", err);
+  } finally {
+    for (const id of ids) inFlight.delete(id);
+    resolve?.();
+  }
+}
+
+/**
+ * Resolve these ids from the entity cache, fetching only what is missing.
+ * Concurrent callers within BATCH_WINDOW_MS share one round trip.
+ */
+async function loadIntoCache(sortedIds: string[]): Promise<void> {
+  const now = Date.now();
+  const missing: string[] = [];
+  const waits: Promise<void>[] = [];
+
+  for (const id of sortedIds) {
+    if (isFresh(entityCache.get(id), now)) continue;
+    const pending = inFlight.get(id);
+    if (pending) { waits.push(pending); continue; }
+    missing.push(id);
+  }
+
+  if (missing.length > 0) waits.push(enqueue(missing));
+  if (waits.length > 0) await Promise.all(waits);
+}
+
+function assemble(sortedIds: string[]): ProfileMap {
+  const out: ProfileMap = new Map();
+  for (const id of sortedIds) out.set(id, entityCache.get(id)?.entry ?? placeholder(id));
+  return out;
+}
+
+/** Drop cached entities. No argument = drop everything. Exported for tests. */
+export function clearProfileEntityCache(userId?: string) {
+  if (userId) entityCache.delete(userId);
+  else entityCache.clear();
+}
+
+/**
+ * Returns the assembled map AND the set of ids the profiles query actually
+ * returned a row for. The caller needs the difference to know which entries are
+ * real and which are placeholders — see NEGATIVE_TTL_MS.
+ */
+async function rawFetchProfileMap(
+  sortedIds: string[],
+): Promise<{ map: ProfileMap; found: Set<string>; failed: boolean }> {
+  if (sortedIds.length === 0) return { map: new Map(), found: new Set(), failed: false };
 
   const [profilesRes, badgesRes, rolesRes, presenceRes] = await Promise.all([
     profilesPublic().select("id, full_name, avatar_url").in("id", sortedIds),
@@ -105,7 +270,9 @@ async function rawFetchProfileMap(sortedIds: string[]): Promise<ProfileMap> {
   });
 
   const result: ProfileMap = new Map();
+  const found = new Set<string>();
   ((profilesRes.data as any[]) || []).forEach((p: any) => {
+    found.add(p.id);
     result.set(p.id, {
       id: p.id,
       full_name: p.full_name,
@@ -116,21 +283,16 @@ async function rawFetchProfileMap(sortedIds: string[]): Promise<ProfileMap> {
     });
   });
 
-  // Ensure every requested ID exists in the map (even if not found in DB)
+  // Ensure every requested ID exists in the map (even if not found in DB).
+  // These are placeholders, NOT data — `found` is what tells the caller apart.
   for (const id of sortedIds) {
-    if (!result.has(id)) {
-      result.set(id, {
-        id,
-        full_name: null,
-        avatar_url: null,
-        badges: [],
-        roles: [],
-        last_active_at: null,
-      });
-    }
+    if (!result.has(id)) result.set(id, placeholder(id));
   }
 
-  return result;
+  // A query ERROR is not the same as "this user has no row". The first must not
+  // be cached at all or a transient blip blanks a name for the whole TTL; the
+  // second is a real answer and is cached (briefly — see NEGATIVE_TTL_MS).
+  return { map: result, found, failed: !!(profilesRes as any)?.error };
 }
 
 /**
@@ -139,7 +301,8 @@ async function rawFetchProfileMap(sortedIds: string[]): Promise<ProfileMap> {
 export async function fetchProfileMapDirect(ids: string[]): Promise<ProfileMap> {
   const sorted = dedupeAndSort(ids);
   if (sorted.length === 0) return new Map();
-  return rawFetchProfileMap(sorted);
+  await loadIntoCache(sorted);
+  return assemble(sorted);
 }
 
 /**
@@ -147,11 +310,7 @@ export async function fetchProfileMapDirect(ids: string[]): Promise<ProfileMap> 
  * Uses QueryClient cache when available for imperative callers.
  */
 export async function fetchProfileMap(ids: string[]): Promise<ProfileMap> {
-  const sorted = dedupeAndSort(ids);
-  if (sorted.length === 0) return new Map();
-  if (!_qc) return rawFetchProfileMap(sorted);
-  return _qc.fetchQuery({
-    queryKey: queryKeys.profileMap(sorted),
-    queryFn: () => rawFetchProfileMap(sorted),
-  });
+  // Goes straight through the entity cache. The old QueryClient.fetchQuery
+  // indirection keyed by ID-SET is exactly what made this slow — see the header.
+  return fetchProfileMapDirect(ids);
 }
