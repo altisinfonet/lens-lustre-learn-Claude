@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/core/useAuth";
 import { toast } from "@/hooks/core/use-toast";
 import { useIsBanned } from "@/hooks/core/useIsBanned";
 import { queryKeys } from "@/lib/queryKeys";
+import { isOwnProfilePhoto, isMissingPhotoError, PROFILE_PHOTO_REQUIRED_MESSAGE } from "@/lib/profilePhoto";
 
 /* ── Minimal comment shape expected by PostCommentsSection ── */
 
@@ -64,7 +65,15 @@ export function useAddComment(
         })
         .select("id")
         .single();
-      if (error) throw error;
+      if (error) {
+        // A RESTRICTIVE policy refuses comments from accounts with no uploaded
+        // profile photo (2026-08-01). Postgres reports it as a bare RLS
+        // violation, so translate it into something a member can act on.
+        if (isMissingPhotoError(error, isOwnProfilePhoto(cached?.avatar_url))) {
+          throw new Error(PROFILE_PHOTO_REQUIRED_MESSAGE);
+        }
+        throw error;
+      }
       return data;
     },
 
