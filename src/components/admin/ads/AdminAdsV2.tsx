@@ -37,7 +37,7 @@ import AdCreativeLibrary from "./AdCreativeLibrary";
 const zonePlacementNote = (zone: AdZoneId): string => {
   switch (zone) {
     case "story-card":
-      return `Inside the feed — shows ${feedAdPositionsLabel()}. Works everywhere, including the app.`;
+      return `Inside the feed — one ad ${feedAdPositionsLabel()}. Each picture below has its own fixed place. Works everywhere, including the app.`;
     case "sidebar":
       return "Right-hand column. DESKTOP WEB ONLY — it is not visible on phones or in the app.";
     case "lightbox":
