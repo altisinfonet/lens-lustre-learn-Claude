@@ -126,3 +126,64 @@ describe("PostMedia — nothing to show", () => {
     expect(container.firstElementChild).toBeNull();
   });
 });
+
+/**
+ * Cloudflare Transformations (2026-08-01).
+ *
+ * Post images live on cdn.50mmretina.com, which the Supabase render endpoint
+ * never matched — so every card was downloading the full 2560px original.
+ * Measured live: 3,450 KB of visible photos became 383 KB as AVIF at 800px.
+ *
+ * The two failure modes worth pinning are (a) silently reverting to full-size
+ * originals, and (b) the base URL, which MUST be the hard-coded zone origin —
+ * location.origin would 404 every image inside the Android app while looking
+ * perfect on web.
+ */
+const cdn = (name: string) =>
+  `https://cdn.50mmretina.com/post-images/u/posts/1754000000000-abc${name}`;
+
+describe("PostMedia — CDN images go through Cloudflare", () => {
+  it("requests a resized, auto-format variant instead of the original", () => {
+    const { container } = render(<PostMedia urls={[cdn("-w2560h1463.webp")]} />);
+    const img = sharpImg(container)!;
+    expect(img.getAttribute("src")).toContain("/cdn-cgi/image/");
+    expect(img.getAttribute("src")).toContain("width=800");
+    expect(img.getAttribute("src")).toContain("format=auto");
+  });
+
+  it("uses the hard-coded zone origin, never the current origin", () => {
+    // jsdom's location.origin is http://localhost — if that ever leaks into the
+    // URL, every image in the Capacitor app breaks while web looks fine.
+    const { container } = render(<PostMedia urls={[cdn("-w2560h1463.webp")]} />);
+    const src = sharpImg(container)!.getAttribute("src")!;
+    expect(src.startsWith("https://50mmretina.com/cdn-cgi/image/")).toBe(true);
+    expect(src).not.toContain("localhost/cdn-cgi");
+  });
+
+  it("offers a responsive srcset so a phone does not fetch the desktop size", () => {
+    const { container } = render(<PostMedia urls={[cdn("-w2560h1463.webp")]} />);
+    const ss = sharpImg(container)!.getAttribute("srcset") || "";
+    expect(ss).toContain("480w");
+    expect(ss).toContain("800w");
+    expect(ss).toContain("1200w");
+  });
+
+  it("still uses a 32px backdrop, now via Cloudflare", () => {
+    const { container } = render(<PostMedia urls={[cdn("-w2560h1463.webp")]} />);
+    const back = backdropImg(container)!.getAttribute("src")!;
+    expect(back).toContain("/cdn-cgi/image/");
+    expect(back).toContain("width=32");
+  });
+
+  it("never double-transforms an already-transformed URL", () => {
+    const already = `https://50mmretina.com/cdn-cgi/image/width=800/${cdn(".webp")}`;
+    const { container } = render(<PostMedia urls={[already]} />);
+    const src = sharpImg(container)!.getAttribute("src")!;
+    expect(src.split("/cdn-cgi/image/").length - 1).toBe(1);
+  });
+
+  it("leaves a GIF alone so the animation survives", () => {
+    const { container } = render(<PostMedia urls={[cdn(".gif")]} />);
+    expect(sharpImg(container)!.getAttribute("src")).not.toContain("/cdn-cgi/image/");
+  });
+});
