@@ -75,3 +75,20 @@ Notifications rebuilt:
 - New alerts when someone you follow shares a post.
 - 'See more' now appears on every caption that needs it.
 - Picture library for feed ads with fixed placement.
+
+2026-08-01 — build 1033 (v1.2.2)
+Speed, and photos the way you shot them:
+- The feed is much faster to open. It was making 106 separate requests to the
+  server on every load; it now makes 46, because profiles and settings were
+  being fetched over and over instead of once.
+- Photos load far quicker and use a fraction of the data. Each one is now sent
+  at the size your screen actually needs instead of full resolution — measured
+  at about a quarter of the bytes, and in a newer format where supported.
+- Reactions, comments and scrolling feel quicker as a result. They were never
+  slow themselves; they were waiting behind everything else.
+- YOUR PHOTO KEEPS ITS OWN SHAPE. Every upload used to be force-cropped to 4:5
+  and the crop was permanent — the original never reached us. Post whatever
+  shape you shot: wide, square, tall. Cropping is now optional, per photo.
+- Very wide or very tall photos get a soft blurred edge instead of being cut.
+- Reach and Viewed-by now appear on every post, on the same line as reactions.
+- Consistent spacing under the name on every card, with or without a caption.
