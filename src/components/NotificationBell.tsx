@@ -110,7 +110,16 @@ const NotificationBell = () => {
       }
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    const onScroll = () => setOpen(false);
+    // Close when the PAGE scrolls behind the open panel — but never when the
+    // panel's own list is scrolled. `scroll` does not bubble, yet a capture-phase
+    // listener on window still receives scrolls dispatched to any element in the
+    // document, including this panel's `overflow-y-auto` list. Without this guard
+    // the panel closed the instant the user dragged the notification list.
+    const onScroll = (e: Event) => {
+      const target = e.target as Node | null;
+      if (target && containerRef.current?.contains(target)) return;
+      setOpen(false);
+    };
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("touchstart", onPointerDown, { passive: true });
     document.addEventListener("keydown", onKey);
