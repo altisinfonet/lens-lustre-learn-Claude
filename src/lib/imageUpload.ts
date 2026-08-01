@@ -1,6 +1,7 @@
 import { storageUpload } from "@/lib/storageUpload";
 import { isS3Enabled, uploadPairToS3 } from "@/lib/s3Upload";
 import { compressThumbnail, compressImageToFiles } from "@/lib/imageCompression";
+import { dimsSuffix } from "@/lib/imageFrame";
 
 const PRIVATE_BUCKETS = new Set(["national-ids", "support-attachments"]);
 
@@ -248,10 +249,6 @@ export async function uploadImageWithThumbnail(
 
   const ext = "webp";
 
-  const fullPath = generateImagePath({ userId, type, ext, subPath });
-  // Thumbnail path mirrors full path with "-thumb" suffix before extension
-  const thumbPath = fullPath.replace(`.${ext}`, `-thumb.${ext}`);
-
   const baseName = file.name.replace(/\.[^.]+$/, "");
 
   // Encode to WebP (q=0.92), aligned with the platform-wide WebP-only strategy.
@@ -261,17 +258,40 @@ export async function uploadImageWithThumbnail(
   // every other image type keep original resolution.
   const maxDimension = type === "post" ? 2560 : undefined;
   let fullResFile: File;
+  let encodedDims: { width: number; height: number } | null = null;
   try {
-    const { webpFile } = await compressImageToFiles(
+    const { webpFile, width, height } = await compressImageToFiles(
       file,
       baseName,
       maxDimension ? { maxDimension } : undefined,
     );
     fullResFile = webpFile;
+    encodedDims = { width, height };
   } catch (err) {
     console.warn("Full-res WebP encoding failed, uploading original:", err);
     fullResFile = file;
   }
+
+  // ── Dimensions in the filename (posts only, 2026-08-01) ──
+  // The feed sizes a post's frame BEFORE the image loads; reading naturalWidth
+  // on load instead would reflow every card as it decodes. Carrying w×h in the
+  // path means no column on `posts` and, more importantly, no change to
+  // `get_broadcast_feed` — the riskiest RPC here — for a presentation detail.
+  // Scoped to `post` deliberately: competition entries and the gallery have
+  // their own display rules and are not part of this change.
+  // If encoding failed we have no dimensions; the suffix is omitted and the
+  // card falls back to 4:5, exactly as every pre-2026-08-01 post does.
+  // Path generation must therefore happen AFTER encoding, not before.
+  const basePath = generateImagePath({ userId, type, ext, subPath });
+  const fullPath =
+    type === "post" && encodedDims
+      ? basePath.replace(
+          new RegExp(`\\.${ext}$`),
+          `${dimsSuffix(encodedDims.width, encodedDims.height)}.${ext}`,
+        )
+      : basePath;
+  // Thumbnail path mirrors full path with "-thumb" suffix before extension
+  const thumbPath = fullPath.replace(`.${ext}`, `-thumb.${ext}`);
 
   // Attempt thumbnail compression
   let thumbnailFile: File;

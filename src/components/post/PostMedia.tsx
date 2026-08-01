@@ -3,6 +3,7 @@ import { X, ChevronLeft, ChevronRight, Heart } from "lucide-react";
 import { useDownloadImage } from "@/hooks/core/useDownloadImage";
 import DownloadButton from "@/components/DownloadButton";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
+import { frameAspectForUrls } from "@/lib/imageFrame";
 
 interface PostMediaProps {
   urls: string[];
@@ -11,8 +12,12 @@ interface PostMediaProps {
 
 const PostMedia = ({ urls, onDoubleTapLike }: PostMediaProps) => {
   if (urls.length === 0) return null;
-  if (urls.length === 1) return <SingleImagePost src={urls[0]} onDoubleTapLike={onDoubleTapLike} />;
-  return <AlbumCarousel urls={urls} onDoubleTapLike={onDoubleTapLike} />;
+  // One frame per card, taken from the first photo — see src/lib/imageFrame.ts.
+  // An album must not resize between slides: the buttons would move under the
+  // user's finger and everything below would reflow on every swipe.
+  const frameAspect = frameAspectForUrls(urls);
+  if (urls.length === 1) return <SingleImagePost src={urls[0]} frameAspect={frameAspect} onDoubleTapLike={onDoubleTapLike} />;
+  return <AlbumCarousel urls={urls} frameAspect={frameAspect} onDoubleTapLike={onDoubleTapLike} />;
 };
 
 /* ── Supabase render-endpoint helpers ──
@@ -62,7 +67,27 @@ function buildSrcSet(url: string): string | undefined {
 
 const FEED_SIZES = "(max-width: 768px) 100vw, 600px";
 
-/* ── Progressive Image (Phase 1: LQIP + srcset) ── */
+/* ── Progressive Image ──
+ * Two layers, and the back one now does two jobs.
+ *
+ * BEFORE 2026-08-01 the 32px LQIP was purely a loading placeholder: it faded to
+ * opacity-0 the moment the sharp image arrived, and the sharp image was
+ * `object-cover` inside a frame hard-locked to 4:5 — so every photo that was
+ * not 4:5 got silently cropped.
+ *
+ * NOW the sharp image is `object-contain`: the whole photograph is shown, never
+ * recomposed. When its ratio does not exactly match the frame that leaves bars,
+ * and the LQIP fills them — heavily blurred, scaled past the edges so the blur
+ * has nothing to bleed into, and dimmed so the photo's own edge stays readable.
+ *
+ * The backdrop costs ZERO extra bandwidth: that 32px image was already being
+ * downloaded as the placeholder. Blurring a 32px source is visually identical
+ * to blurring the full-size one, at ~1KB instead of ~200KB.
+ *
+ * When the photo's ratio equals the frame's — which is the common case, since
+ * the frame is derived from the photo — the backdrop is completely covered and
+ * costs nothing visually either.
+ */
 const ProgressiveImage = ({ src, className }: { src: string; className?: string }) => {
   const [loaded, setLoaded] = useState(false);
   const transformable = isTransformable(src);
@@ -76,7 +101,7 @@ const ProgressiveImage = ({ src, className }: { src: string; className?: string 
         src={lqip}
         alt=""
         aria-hidden="true"
-        className={`absolute inset-0 w-full h-full object-cover scale-105 blur-md transition-opacity duration-500 ${loaded ? "opacity-0" : "opacity-100"} ${className ?? ""}`}
+        className={`absolute inset-0 w-full h-full object-cover scale-125 blur-2xl brightness-[0.55] ${className ?? ""}`}
         loading="eager"
         decoding="async"
         style={{ imageRendering: "pixelated" }}
@@ -86,7 +111,7 @@ const ProgressiveImage = ({ src, className }: { src: string; className?: string 
         srcSet={srcSet}
         sizes={srcSet ? FEED_SIZES : undefined}
         alt=""
-        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"} ${className ?? ""}`}
+        className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"} ${className ?? ""}`}
         loading="lazy"
         decoding="async"
         onLoad={() => setLoaded(true)}
@@ -124,7 +149,7 @@ function useDoubleTap(onDoubleTap?: (x: number, y: number) => void) {
 }
 
 /* ── Single Image ── */
-const SingleImagePost = ({ src, onDoubleTapLike }: { src: string; onDoubleTapLike?: () => void }) => {
+const SingleImagePost = ({ src, frameAspect, onDoubleTapLike }: { src: string; frameAspect: number; onDoubleTapLike?: () => void }) => {
   const [heart, setHeart] = useState<{ x: number; y: number; id: number } | null>(null);
   const { downloading, download } = useDownloadImage();
 
@@ -134,7 +159,7 @@ const SingleImagePost = ({ src, onDoubleTapLike }: { src: string; onDoubleTapLik
   });
 
   return (
-    <div className="relative group/img w-full overflow-hidden rounded-sm bg-muted/30" style={{ aspectRatio: "4/5" }} onClick={handleDoubleTap}>
+    <div className="relative group/img w-full overflow-hidden rounded-sm bg-muted/30" style={{ aspectRatio: String(frameAspect) }} onClick={handleDoubleTap}>
       <ProgressiveImage src={src} />
       <AnimatePresence>{heart && <DoubleTapHeart key={heart.id} x={heart.x} y={heart.y} />}</AnimatePresence>
       <DownloadButton
@@ -153,7 +178,7 @@ function preloadImage(url: string | undefined) { if (!url) return; const img = n
 const SWIPE_THRESHOLD = 50;
 const SWIPE_VELOCITY = 300;
 
-const AlbumCarousel = ({ urls, onDoubleTapLike }: { urls: string[]; onDoubleTapLike?: () => void }) => {
+const AlbumCarousel = ({ urls, frameAspect, onDoubleTapLike }: { urls: string[]; frameAspect: number; onDoubleTapLike?: () => void }) => {
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -188,7 +213,7 @@ const AlbumCarousel = ({ urls, onDoubleTapLike }: { urls: string[]; onDoubleTapL
 
   return (
     <>
-      <div className="relative group/album w-full overflow-hidden rounded-sm bg-muted/30" style={{ aspectRatio: "4/5" }} onClick={handleDoubleTap}>
+      <div className="relative group/album w-full overflow-hidden rounded-sm bg-muted/30" style={{ aspectRatio: String(frameAspect) }} onClick={handleDoubleTap}>
         <AnimatePresence initial={false} custom={direction} mode="popLayout">
           <motion.div key={current} custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3, ease: "easeOut" }} drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.15} onDragEnd={handleDragEnd} className="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing">
             <ProgressiveImage src={urls[current]} />
