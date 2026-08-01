@@ -10,7 +10,7 @@
   * (e.g. dashboard-init hasn't resolved yet or cache was GC'd).
   */
  import { useQuery, useQueryClient } from "@tanstack/react-query";
- import { supabase } from "@/integrations/supabase/client";
+ import { getSiteSetting } from "@/lib/siteSettingsCache";
  import { awaitDashboardBootstrap } from "@/lib/dashboardInitGate";
 
  export function useSiteSetting<T = unknown>(key: string) {
@@ -25,16 +25,9 @@
        await awaitDashboardBootstrap();
        const seeded = qc.getQueryData<T | null>(["site-setting", key]);
        if (seeded !== undefined) return seeded;
-       try {
-         const { data } = await supabase
-           .from("site_settings")
-           .select("value")
-           .eq("key", key)
-           .maybeSingle();
-         return (data?.value as T) ?? null;
-       } catch {
-         return null;
-       }
+       // Batched + shared: several components asking for different keys in the
+       // same frame now cost ONE request, not one each.
+       return await getSiteSetting<T>(key);
      },
      staleTime: 10 * 60_000,
      gcTime: 15 * 60_000,
