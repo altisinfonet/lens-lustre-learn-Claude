@@ -66,3 +66,12 @@ build 1027 — v1.2.2 release (2026-07-31). Since 1026 (v1.2.1):
     trigger on friendships rejects the row.
   * Profile photo is mandatory: accounts with no DP are gated on next open.
   * Home page: Google Play badge in the footer, duplicate copyright removed.
+
+2026-08-01 — build 1032 (v1.2.2)
+Notifications rebuilt:
+- New Notifications screen: full history, grouped rows, photo thumbnails,
+  relative time, Follow back without leaving the list.
+- Notification list no longer closes while you scroll it.
+- New alerts when someone you follow shares a post.
+- 'See more' now appears on every caption that needs it.
+- Picture library for feed ads with fixed placement.
