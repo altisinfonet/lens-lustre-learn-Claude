@@ -14,6 +14,7 @@ import { toast } from "@/hooks/core/use-toast";
 import { motion } from "framer-motion";
 import { generateImagePath, uploadImage } from "@/lib/imageUpload";
 import { compressAvatar } from "@/lib/imageCompression";
+import { isOwnProfilePhoto } from "@/lib/profilePhoto";
 import { scanFileWithToast } from "@/lib/fileSecurityScanner";
 import { useI18n } from "@/i18n/I18nContext";
 import { LANGS } from "@/i18n/translations";
@@ -93,8 +94,16 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
   );
   const [dobError, setDobError] = useState("");
 
-  // Mandatory profile photo (pre-filled from an OAuth avatar if the user has one).
-  const [avatarUrl, setAvatarUrl] = useState<string>(profile?.avatar_url || "");
+  // Mandatory profile photo. It is pre-filled ONLY from a photo the member
+  // actually uploaded to our storage — never from an OAuth picture.
+  //
+  // This used to be `profile?.avatar_url || ""`, which is how 31 accounts got
+  // through: Google sign-in fills avatar_url with the Google account picture,
+  // that value landed here, and `canProceed` was satisfied before the member
+  // had chosen anything. See src/lib/profilePhoto.ts.
+  const [avatarUrl, setAvatarUrl] = useState<string>(
+    isOwnProfilePhoto(profile?.avatar_url) ? (profile!.avatar_url as string) : "",
+  );
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -138,7 +147,10 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
   // Silent auto-follow of the official account is enforced server-side (DB trigger);
   // no UI here on purpose.
   useEffect(() => {
-    if (profile?.avatar_url && !avatarUrl) setAvatarUrl(profile.avatar_url);
+    // Same rule as the initial state: only an own-storage photo may back-fill.
+    if (isOwnProfilePhoto(profile?.avatar_url) && !avatarUrl) {
+      setAvatarUrl(profile!.avatar_url as string);
+    }
   }, [profile?.avatar_url]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleInterest = (interest: string) => {

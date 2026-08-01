@@ -12,6 +12,7 @@ import MobileBottomNav from "@/components/MobileBottomNav";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
 import SiteFooter from "@/components/SiteFooter";
 import PageTransition from "@/components/PageTransition";
+import { isOwnProfilePhoto } from "@/lib/profilePhoto";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useLastActive } from "@/hooks/core/useLastActive";
 import { DashboardProvider, useDashboardContext } from "@/hooks/core/DashboardContext";
@@ -107,13 +108,20 @@ const LayoutInner = () => {
       // mandatory for every account. Existing accounts without one are pulled
       // through the gate once on their next visit.
       const missingUsername = !profile.custom_url;
-      // A profile photo is mandatory (owner policy). This check was MISSING:
-      // accounts that finished onboarding back when the photo was optional kept
-      // `onboarding_completed = true` with a null avatar and were never asked
-      // again. Including it here pulls every one of them through the gate on
-      // their next visit — web or app — and the modal cannot be dismissed, so
-      // they cannot view or post anything until a photo is set.
-      const missingAvatar = !profile.avatar_url;
+      // A profile photo is mandatory (owner policy), and it only counts if the
+      // member UPLOADED it.
+      //
+      // `!profile.avatar_url` was not enough. Google sign-in writes the
+      // member's Google account picture into avatar_url automatically, before
+      // they touch anything — so the check was already false at account
+      // creation and the gate never opened. Measured 2026-08-01: 31 of 77
+      // accounts had a lh3.googleusercontent.com URL as their "profile photo",
+      // never chosen, often Google's grey letter placeholder. See
+      // src/lib/profilePhoto.ts.
+      //
+      // Using isOwnProfilePhoto here pulls all 31 through the gate on their
+      // next visit, web or app, and the modal cannot be dismissed.
+      const missingAvatar = !isOwnProfilePhoto(profile.avatar_url);
 
       // Onboarding is DONE only when completed AND user_type AND username AND
       // profile photo are all present.
