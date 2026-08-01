@@ -98,6 +98,7 @@ const Unsubscribe = lazyRetry(() => import("./pages/Unsubscribe"));
 const MyPhotos = lazyRetry(() => import("./pages/MyPhotos"));
 const CookiePolicy = lazyRetry(() => import("./pages/CookiePolicy"));
 const NotificationSettings = lazyRetry(() => import("./pages/NotificationSettings"));
+const Notifications = lazyRetry(() => import("./pages/Notifications"));
 const WatermarkQAMatrix = lazyRetry(() => import("./pages/qa/WatermarkQAMatrix"));
 const ScheduledPostsPage = lazyRetry(() => import("./pages/ScheduledPosts"));
 const IDVerification = lazyRetry(() => import("./pages/IDVerification"));
@@ -258,6 +259,7 @@ const App = () => {
                 <Route path="/photos" element={<MyPhotos />} />
                 <Route path="/unsubscribe" element={<Unsubscribe />} />
                 <Route path="/cookie-policy" element={<CookiePolicy />} />
+                <Route path="/notifications" element={<Notifications />} />
                 <Route path="/settings/notifications" element={<NotificationSettings />} />
                 <Route path="/qa/watermark-matrix" element={<WatermarkQAMatrix />} />
                 <Route path="/scheduled-posts" element={<ScheduledPostsPage />} />
