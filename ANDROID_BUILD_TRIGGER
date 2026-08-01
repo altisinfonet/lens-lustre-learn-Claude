@@ -1,3 +1,13 @@
+Build 1034 - 2026-08-01
+
+Reach and Viewed-by now appear only after a post is 24 hours old. Nothing is
+shown before that.
+
+Older photos keep their own shape again. A wide photo posted before today no
+longer sits inside a tall card with empty space above and below it, and where
+padding is still needed the blurred edge of the photo is clearly visible on
+dark images too.
+
 build: 2026-07-28 six-features release (usernames + stored counts + photo gate + search fix, commit a465174)
 
 build 1018 — fix(search): portal mobile sheet to body; navbar backdrop-filter collapsed fixed inset-0 (4281fae)
