@@ -65,7 +65,14 @@ function isCdnImage(url: string): boolean {
 }
 
 function buildCfUrl(url: string, width: number, quality = 70): string {
-  return `${CF_ZONE_ORIGIN}/cdn-cgi/image/width=${width},quality=${quality},format=auto/${url}`;
+  // %2C, NOT a literal comma. Cloudflare accepts either, but `srcset` is a
+  // COMMA-SEPARATED list — a raw comma inside a candidate URL makes the browser
+  // fail to parse the whole attribute, `currentSrc` comes back empty and NO
+  // image loads at all. That shipped for a few minutes on 2026-08-01: the cards
+  // showed only their blurred backdrop. Verified both forms return a correct
+  // 800px image; only this one survives srcset.
+  const opts = [`width=${width}`, `quality=${quality}`, "format=auto"].join("%2C");
+  return `${CF_ZONE_ORIGIN}/cdn-cgi/image/${opts}/${url}`;
 }
 
 function isTransformable(url: string): boolean {
