@@ -27,6 +27,7 @@ import {
   fetchAdZonesEnabled,
 } from "@/lib/ads/adZonesV2";
 import { detectDevice, trackZoneEvent } from "@/lib/ads/adTrackV2";
+import { type AdCreative, fetchAdCreatives, pickCreativeForSlot } from "@/lib/ads/adCreatives";
 
 /** Only the inline zones are valid here. */
 type InlineZone = Extract<AdZoneId, "sidebar" | "story-card" | "lightbox">;
@@ -34,6 +35,14 @@ type InlineZone = Extract<AdZoneId, "sidebar" | "story-card" | "lightbox">;
 interface AdZoneProps {
   zone: InlineZone;
   className?: string;
+  /**
+   * Which ad this is on the page (0 = first, 1 = second, …). Only meaningful
+   * where a zone appears more than once — currently the feed's Story Card.
+   * It selects a DIFFERENT picture from the zone's library per position, so a
+   * member never sees the same ad twice in one scroll. Omit for zones that
+   * appear once.
+   */
+  slotIndex?: number;
 }
 
 /** Per-zone frame. Single-hue, mobile-safe, matches the existing ad aesthetic. */
@@ -108,10 +117,11 @@ const CreativeOverlay = ({ headline, subtext, cta }: { headline: string; subtext
   );
 };
 
-const AdZone = ({ zone, className }: AdZoneProps) => {
+const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
   const { isAdmin } = useIsAdmin();
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [config, setConfig] = useState<AdZoneConfig | null>(null);
+  const [creatives, setCreatives] = useState<AdCreative[] | null>(null);
   const [publisherId, setPublisherId] = useState<string>("");
   const [device, setDevice] = useState<AdDevice>(() => detectDevice(typeof window === "undefined" ? 1280 : window.innerWidth));
   const containerRef = useRef<HTMLDivElement>(null);
@@ -121,10 +131,18 @@ const AdZone = ({ zone, className }: AdZoneProps) => {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const [flag, zones, freq] = await Promise.all([fetchAdZonesEnabled(), fetchAdZones(), fetchAdFrequency()]);
+      const [flag, zones, freq, lib] = await Promise.all([
+        fetchAdZonesEnabled(),
+        fetchAdZones(),
+        fetchAdFrequency(),
+        // The picture library. Empty (or table absent) → fall back to the
+        // single `ad_zones_v2` image, which is the pre-library behaviour.
+        fetchAdCreatives(zone),
+      ]);
       if (!alive) return;
       setEnabled(flag);
       setConfig(zones[zone]);
+      setCreatives(lib);
       // Publisher id lives in the legacy adsense_config; reuse it read-only.
       void freq; // reserved (not needed for inline zones)
       try {
@@ -146,8 +164,18 @@ const AdZone = ({ zone, className }: AdZoneProps) => {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  /**
+   * The picture actually shown. A non-empty library wins and supplies a
+   * DIFFERENT creative per `slotIndex`; otherwise we use the zone's single
+   * image exactly as before. `null` means "use config.own".
+   */
+  const chosen = useMemo(
+    () => (creatives && creatives.length ? pickCreativeForSlot(creatives, slotIndex) : null),
+    [creatives, slotIndex],
+  );
+
   const active = useMemo(() => {
-    if (!enabled || !config) return false;
+    if (!enabled || !config || creatives === null) return false;
     if (config.mode === "off") return false;
     if (!config.devices.includes(device)) return false;
     // schedule window
@@ -162,9 +190,12 @@ const AdZone = ({ zone, className }: AdZoneProps) => {
     }
     // renderable?
     if (config.mode === "google") return !!config.google.adsense_slot_id.trim() && !!publisherId.trim();
+    // A library picture is renderable on its own — the zone's single image may
+    // be blank and that is fine.
+    if (chosen) return true;
     if (config.own.image_source === "code") return config.own.ad_code.trim().length > 0;
     return config.own.image_url.trim().length > 0;
-  }, [enabled, config, device, publisherId]);
+  }, [enabled, config, device, publisherId, chosen, creatives]);
 
   // Impression tracking (50% visible for 1s), pauses when tab hidden.
   useEffect(() => {
@@ -180,7 +211,7 @@ const AdZone = ({ zone, className }: AdZoneProps) => {
       const total = elapsed + (t0 != null ? performance.now() - t0 : 0);
       if (total >= REQUIRED && !impressionTracked.current) {
         impressionTracked.current = true;
-        trackZoneEvent(zone, config.mode, "impression", device);
+        trackZoneEvent(zone, config.mode, "impression", device, chosen?.id);
       }
     };
     const iv = setInterval(tick, 200);
@@ -194,7 +225,7 @@ const AdZone = ({ zone, className }: AdZoneProps) => {
     document.addEventListener("visibilitychange", onVis);
     obs.observe(el);
     return () => { obs.disconnect(); clearInterval(iv); document.removeEventListener("visibilitychange", onVis); };
-  }, [active, config, device, zone]);
+  }, [active, config, device, zone, chosen]);
 
   const frame = ZONE_FRAME[zone];
 
@@ -213,10 +244,28 @@ const AdZone = ({ zone, className }: AdZoneProps) => {
 
   const c = config!;
 
+  /**
+   * The creative fields actually rendered: the library picture when there is
+   * one, otherwise the zone's single image. Everything below reads `cr`, so the
+   * two paths cannot drift apart.
+   */
+  const cr = chosen
+    ? {
+        image_source: "upload" as const,
+        image_url: chosen.image_url,
+        ad_code: "",
+        click_url: chosen.click_url,
+        alt_text: chosen.alt_text,
+        creative_headline: chosen.headline,
+        creative_subtext: chosen.subtext,
+        creative_cta: chosen.cta,
+      }
+    : c.own;
+
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
-    trackZoneEvent(zone, c.mode, "click", device);
-    if (c.own.click_url) window.open(c.own.click_url, "_blank", "noopener,noreferrer");
+    trackZoneEvent(zone, c.mode, "click", device, chosen?.id);
+    if (cr.click_url) window.open(cr.click_url, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -232,25 +281,25 @@ const AdZone = ({ zone, className }: AdZoneProps) => {
         </div>
       )}
 
-      {/* OWN — image creative */}
-      {c.mode === "own" && c.own.image_source !== "code" && c.own.image_url && (
-        c.own.click_url ? (
-          <a href={c.own.click_url} target="_blank" rel="noopener noreferrer" className="block relative" onClick={handleClick}>
+      {/* OWN — image creative (library picture, or the zone's single image) */}
+      {c.mode === "own" && cr.image_source !== "code" && cr.image_url && (
+        cr.click_url ? (
+          <a href={cr.click_url} target="_blank" rel="noopener noreferrer" className="block relative" onClick={handleClick}>
             <div className="relative overflow-hidden rounded-sm h-full">
-              <img src={c.own.image_url} alt={c.own.alt_text || "Sponsored"} className={frame.image} loading="lazy" />
-              <CreativeOverlay headline={c.own.creative_headline} subtext={c.own.creative_subtext} cta={c.own.creative_cta} />
+              <img src={cr.image_url} alt={cr.alt_text || "Sponsored"} className={frame.image} loading="lazy" />
+              <CreativeOverlay headline={cr.creative_headline} subtext={cr.creative_subtext} cta={cr.creative_cta} />
             </div>
           </a>
         ) : (
           <div className="relative overflow-hidden rounded-sm h-full">
-            <img src={c.own.image_url} alt={c.own.alt_text || "Sponsored"} className={frame.image} loading="lazy" />
-            <CreativeOverlay headline={c.own.creative_headline} subtext={c.own.creative_subtext} cta={c.own.creative_cta} />
+            <img src={cr.image_url} alt={cr.alt_text || "Sponsored"} className={frame.image} loading="lazy" />
+            <CreativeOverlay headline={cr.creative_headline} subtext={cr.creative_subtext} cta={cr.creative_cta} />
           </div>
         )
       )}
 
-      {/* OWN — raw sanitized HTML */}
-      {c.mode === "own" && c.own.image_source === "code" && c.own.ad_code && (
+      {/* OWN — raw sanitized HTML (single-image path only; libraries are pictures) */}
+      {c.mode === "own" && !chosen && c.own.image_source === "code" && c.own.ad_code && (
         <div
           className="text-xs [&_img]:max-w-full [&_img]:rounded-sm"
           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(c.own.ad_code) }}
