@@ -164,18 +164,26 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  /** True once the library has loaded and actually contains pictures. */
+  const hasLibrary = !!(creatives && creatives.length);
+
   /**
-   * The picture actually shown. A non-empty library wins and supplies a
-   * DIFFERENT creative per `slotIndex`; otherwise we use the zone's single
-   * image exactly as before. `null` means "use config.own".
+   * The picture for THIS position. Library picture #N belongs to slot N; if
+   * there is no #N, this is null and nothing renders here — a gap is correct,
+   * repeating an earlier advert is not.
    */
   const chosen = useMemo(
-    () => (creatives && creatives.length ? pickCreativeForSlot(creatives, slotIndex) : null),
-    [creatives, slotIndex],
+    () => (hasLibrary ? pickCreativeForSlot(creatives!, slotIndex) : null),
+    [hasLibrary, creatives, slotIndex],
   );
 
   const active = useMemo(() => {
     if (!enabled || !config || creatives === null) return false;
+    // Library is in charge: this position has no picture assigned to it.
+    if (hasLibrary && !chosen) return false;
+    // No library at all — the zone's single picture belongs to the first
+    // position only, so it is never repeated further down the feed.
+    if (!hasLibrary && slotIndex > 0) return false;
     if (config.mode === "off") return false;
     if (!config.devices.includes(device)) return false;
     // schedule window
@@ -195,7 +203,7 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
     if (chosen) return true;
     if (config.own.image_source === "code") return config.own.ad_code.trim().length > 0;
     return config.own.image_url.trim().length > 0;
-  }, [enabled, config, device, publisherId, chosen, creatives]);
+  }, [enabled, config, device, publisherId, chosen, creatives, hasLibrary, slotIndex]);
 
   // Impression tracking (50% visible for 1s), pauses when tab hidden.
   useEffect(() => {

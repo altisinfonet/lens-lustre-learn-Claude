@@ -16,7 +16,7 @@ import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import AdZone from "@/components/ads/AdZone";
-import { FEED_AD_POSITIONS, shouldShowFeedAd } from "@/lib/ads/feedAdPlacement";
+import { slotForPostIndex, shouldShowFeedAd } from "@/lib/ads/feedAdPlacement";
 import { useT } from "@/i18n/I18nContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { useActivityLog } from "@/hooks/core/useActivityLog";
@@ -31,13 +31,6 @@ import type { UnifiedPost } from "@/types/post";
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
 const displayFont = { fontFamily: "var(--font-display)" };
-
-/**
- * Feed ad positions (0-indexed post indices after which an ad appears).
- * Single source of truth is src/lib/ads/feedAdPlacement.ts, so the admin panel's
- * "shows after post 2, 5, 10 and 15" line and this list can never disagree.
- */
-const DEFAULT_FEED_AD_POSITIONS = [...FEED_AD_POSITIONS];
 
 const Feed = () => {
   const { user, loading: authLoading } = useAuth();
@@ -64,14 +57,6 @@ const Feed = () => {
 
   const reactMutation = useReactToPost();
   const unreactMutation = useUnreactToPost();
-
-  // ── Configurable feed ad positions — pre-seeded by dashboard-init ──
-  const { data: cachedAdPositions } = useQuery({
-    queryKey: ["feed-ad-positions"],
-    queryFn: () => Promise.resolve(DEFAULT_FEED_AD_POSITIONS),
-    staleTime: 10 * 60_000,
-  });
-  const feedAdPositions = cachedAdPositions ?? DEFAULT_FEED_AD_POSITIONS;
 
   const [showBackToTop, setShowBackToTop] = useState(false);
 
@@ -334,16 +319,19 @@ const Feed = () => {
                     />
                   </motion.div>
 
-                  {feedAdPositions.map((pos, slotIdx) =>
-                    i === pos && shouldShowFeedAd(pos, posts.length) ? (
-                      <div key={`feed-ad-${slotIdx}`} className="mb-4">
-                        {/* slotIndex picks a DIFFERENT picture from the Story
-                            Card library for each position, so a member never
-                            sees the same ad twice in one scroll. */}
-                        <AdZone zone="story-card" slotIndex={slotIdx} />
+                  {(() => {
+                    // Picture #N in the Story Card library owns a fixed place:
+                    // #1 after 2 posts, #2 after 5, #3 after 10, #4 after 15,
+                    // then one every 10. slotForPostIndex is the inverse of that
+                    // mapping, so the feed and the admin panel cannot disagree.
+                    const slot = slotForPostIndex(i);
+                    if (slot === null || !shouldShowFeedAd(i, posts.length)) return null;
+                    return (
+                      <div key={`feed-ad-${slot}`} className="mb-4">
+                        <AdZone zone="story-card" slotIndex={slot} />
                       </div>
-                    ) : null
-                  )}
+                    );
+                  })()}
                 </Fragment>
               ))}
             </AnimatePresence>

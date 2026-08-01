@@ -24,6 +24,7 @@ import { toast } from "@/hooks/core/use-toast";
 import { compressImageToFiles } from "@/lib/imageCompression";
 import { generateImagePath, uploadImage } from "@/lib/imageUpload";
 import { invalidateAdCreatives } from "@/lib/ads/adCreatives";
+import { feedAdSlotLabel } from "@/lib/ads/feedAdPlacement";
 import type { AdZoneId } from "@/lib/ads/adZonesV2";
 
 interface Row {
@@ -153,8 +154,8 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
         <div>
           <p className="text-[11px] font-semibold text-foreground" style={hFont}>Picture library — add as many ads as you like</p>
           <p className="text-[10px] text-muted-foreground" style={bFont}>
-            Each position in the feed shows a <strong>different</strong> picture from this library, and they rotate so every
-            picture gets seen. Changes here save on their own — there is no Save button to forget.
+            Each picture has its <strong>own fixed place</strong> in the feed, shown beside it below. Add as many as you like —
+            the deeper ones appear to people who scroll further. Changes here save on their own; there is no Save button to forget.
           </p>
         </div>
         <div className="text-[10px] text-muted-foreground shrink-0" style={bFont}>
@@ -194,7 +195,11 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
               <img src={r.image_url} alt={r.alt_text || "Ad"} className="h-16 w-16 object-cover rounded-sm border border-border shrink-0 bg-muted/20" />
               <div className="min-w-0 flex-1 space-y-1.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground shrink-0" style={hFont}>#{i + 1}</span>
+                  {/* Exactly where THIS picture lands in the feed, generated
+                      from the placement rule so it can never go stale. */}
+                  <span className="text-[10px] text-primary shrink-0 font-medium" style={hFont}>
+                    {zone === "story-card" ? feedAdSlotLabel(i) : `#${i + 1}`}
+                  </span>
                   <label className="flex items-center gap-1.5 text-[10px] text-foreground cursor-pointer" style={bFont}>
                     <input type="checkbox" className="accent-primary" checked={r.is_active}
                       onChange={(e) => void patch(r.id, { is_active: e.target.checked })} />
