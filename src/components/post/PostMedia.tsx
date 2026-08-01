@@ -33,15 +33,51 @@ const PostMedia = ({ urls, onDoubleTapLike }: PostMediaProps) => {
 const SUPABASE_PUBLIC_RE = /\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/;
 const SUPABASE_RENDER_RE = /\/storage\/v1\/render\/image\/public\//;
 
+/* ── Cloudflare Transformations (2026-08-01) ──
+ * Post images live on cdn.50mmretina.com (R2), NOT Supabase storage, so the
+ * Supabase render endpoint above never matched them and every feed card was
+ * downloading the FULL 2560px original. Measured on production: five visible
+ * photos = 3,450 KB, every one displayed at 588px.
+ *
+ * Cloudflare Transformations is now enabled on the 50mmretina.com zone, so the
+ * same five photos come back as AVIF at 800px for 383 KB — 89% less. It also
+ * fixes every photo ever posted, retroactively, with no re-upload.
+ *
+ * TWO THINGS THAT WILL BREAK THIS IF CHANGED CARELESSLY:
+ *
+ * 1. The base MUST be the hard-coded zone origin, never `location.origin`.
+ *    Inside the Android (Capacitor) app the origin is a local scheme, and
+ *    `location.origin + "/cdn-cgi/..."` would 404 on every image in the app
+ *    while looking perfect on web.
+ * 2. /cdn-cgi/image/ responses carry NO CORS headers. That is fine for <img>,
+ *    but anything that FETCHES an image — the download button, canvas
+ *    re-encoding — must keep using the untransformed URL. It already does.
+ */
+const CF_ZONE_ORIGIN = "https://50mmretina.com";
+const CDN_HOST = "cdn.50mmretina.com";
+
+function isCdnImage(url: string): boolean {
+  try {
+    return new URL(url).host === CDN_HOST;
+  } catch {
+    return false;
+  }
+}
+
+function buildCfUrl(url: string, width: number, quality = 70): string {
+  return `${CF_ZONE_ORIGIN}/cdn-cgi/image/width=${width},quality=${quality},format=auto/${url}`;
+}
+
 function isTransformable(url: string): boolean {
   if (!url || url.startsWith("data:") || url.startsWith("blob:")) return false;
   if (SUPABASE_RENDER_RE.test(url)) return false; // already transformed
-  if (!SUPABASE_PUBLIC_RE.test(url)) return false;
+  if (url.indexOf("/cdn-cgi/image/") !== -1) return false; // already transformed
   if (/\.(gif|svg)(\?|$)/i.test(url)) return false; // preserve animation/vector
-  return true;
+  return isCdnImage(url) || SUPABASE_PUBLIC_RE.test(url);
 }
 
 function buildRenderUrl(url: string, width: number, quality = 70): string {
+  if (isCdnImage(url)) return buildCfUrl(url, width, quality);
   try {
     const u = new URL(url);
     const m = u.pathname.match(SUPABASE_PUBLIC_RE);
@@ -90,6 +126,7 @@ const FEED_SIZES = "(max-width: 768px) 100vw, 600px";
  */
 const ProgressiveImage = ({ src, className }: { src: string; className?: string }) => {
   const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
   const transformable = isTransformable(src);
   const lqip = transformable ? buildLqipUrl(src) : src;
   const sharpSrc = transformable ? buildRenderUrl(src, 800) : src;
@@ -107,15 +144,22 @@ const ProgressiveImage = ({ src, className }: { src: string; className?: string 
         style={{ imageRendering: "pixelated" }}
       />
       <img
-        src={sharpSrc}
-        srcSet={srcSet}
-        sizes={srcSet ? FEED_SIZES : undefined}
+        src={failed ? src : sharpSrc}
+        srcSet={failed ? undefined : srcSet}
+        sizes={!failed && srcSet ? FEED_SIZES : undefined}
         alt=""
         className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"} ${className ?? ""}`}
         loading="lazy"
         decoding="async"
         onLoad={() => setLoaded(true)}
-        onError={() => setLoaded(true)}
+        onError={() => {
+          // On the free Cloudflare plan, exceeding 5,000 unique transformations
+          // in a month makes the transform endpoint return an error instead of
+          // degrading — which would show a BROKEN image, not a heavy one. Fall
+          // back to the untransformed original once, then give up.
+          if (!failed) { setFailed(true); return; }
+          setLoaded(true);
+        }}
       />
     </>
   );
