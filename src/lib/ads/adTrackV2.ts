@@ -42,10 +42,21 @@ export const trackZoneEvent = (
   mode: AdZoneMode,
   eventType: "impression" | "click",
   device: AdDevice,
+  /**
+   * Which picture from the zone's library was shown. Lets the admin see
+   * impressions/clicks/CTR PER PHOTO instead of one merged number per zone.
+   * Omitted for zones still using the single `ad_zones_v2` image.
+   */
+  creativeId?: string | null,
 ): void => {
   try {
-    if (eventType === "impression" && isDuplicate(`adz_imp_${zone}`, IMPRESSION_DEDUP_MS)) return;
-    if (eventType === "click" && isDuplicate(`adz_clk_${zone}`, CLICK_DEDUP_MS)) return;
+    // The dedup key MUST include the creative. The feed now shows several
+    // Story Card ads on one page; a zone-only key would let the first ad
+    // suppress every later one inside the 30s window, silently under-counting
+    // every ad after the first.
+    const key = creativeId ? `${zone}_${creativeId}` : zone;
+    if (eventType === "impression" && isDuplicate(`adz_imp_${key}`, IMPRESSION_DEDUP_MS)) return;
+    if (eventType === "click" && isDuplicate(`adz_clk_${key}`, CLICK_DEDUP_MS)) return;
 
     const row = {
       slot_id: zone,
@@ -54,6 +65,7 @@ export const trackZoneEvent = (
       device,
       ad_source: sourceForMode(mode),
       revenue_estimate: 0,
+      ...(creativeId ? { creative_id: creativeId } : {}),
     };
     // Fire-and-forget; RLS silently rejects anonymous inserts.
     supabase.from("ad_impressions").insert(row as any).then(() => {}, () => {});
