@@ -184,7 +184,20 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
       setAvatarUrl(newUrl);
       toast({ title: "Profile photo added" });
     } catch (err: any) {
-      toast({ title: "Upload failed", description: err?.message || "Please try another image", variant: "destructive" });
+      // A profile photo is REQUIRED to finish signing up, so a failure here
+      // stops a new member dead. On 2026-08-02 one was stopped by
+      // "Upload failed / Please try another image" and had nothing to act on,
+      // because the underlying rejection was a DOM Event with no `.message`
+      // (see loadImage in src/lib/imageCompression.ts). Say which of the two
+      // things went wrong, and say what to do about it.
+      const decodeFailed = err?.name === "ImageDecodeError";
+      toast({
+        title: decodeFailed ? "That photo can't be opened here" : "Upload failed",
+        description:
+          err?.message ||
+          "Something went wrong sending the photo. Check your connection and try again.",
+        variant: "destructive",
+      });
     } finally {
       setUploadingAvatar(false);
     }
