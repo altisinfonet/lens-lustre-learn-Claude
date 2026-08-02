@@ -11,6 +11,7 @@ import { useNotificationsQuery, type UserNotification } from "@/hooks/notificati
 import { useNotificationSound } from "@/hooks/core/useNotificationSound";
 import { getNotifLink } from "@/lib/notificationLinks";
 import { useDismissOnRouteChange } from "@/hooks/core/useDismissOnRouteChange";
+import { useIsPrimaryInstance } from "@/hooks/core/useIsPrimaryInstance";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -93,13 +94,20 @@ const NotificationBell = () => {
     cache,
   } = useNotificationsQuery(user?.id, isAdmin);
 
-  // Play sound when new notifications arrive
+  // Play a sound when new notifications arrive — ONCE, not once per copy.
+  //
+  // This component is mounted twice: a desktop copy and a mobile copy, one
+  // hidden by CSS. CSS hides, it does not unmount, so both ran this effect and
+  // the chime played twice on every arrival. Only the primary instance plays.
+  const isPrimaryBell = useIsPrimaryInstance(user?.id ? `notification-bell:${user.id}` : "");
   useEffect(() => {
-    if (totalCount > prevCountRef.current && prevCountRef.current > 0) {
-      playNotificationSound();
-    }
+    const rose = totalCount > prevCountRef.current && prevCountRef.current > 0;
+    // Track the count in EVERY instance, primary or not. If only the primary
+    // tracked it, promoting a new primary after an unmount would leave it with
+    // a stale baseline of 0 and swallow the next sound.
     prevCountRef.current = totalCount;
-  }, [totalCount, playNotificationSound]);
+    if (rose && isPrimaryBell) playNotificationSound();
+  }, [totalCount, playNotificationSound, isPrimaryBell]);
 
   // LAYER 1 — a route change always closes it.
   //
