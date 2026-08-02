@@ -99,6 +99,26 @@ const EMPTY: NotificationsData = {
 const PANEL_GROUP_LIMIT = 20;
 
 /**
+ * Types the bell must NOT take from the notifications table, because it already
+ * renders them from somewhere else.
+ *
+ * A friend request produces a pending `friendships` row AND a `friend_request`
+ * notification. The bell fetches both, so until 2026-08-02 every pending request
+ * was **counted twice in the badge and drawn twice in the panel** — once with
+ * Accept/Decline, once as a line that did nothing. Measured on production: every
+ * member with 3 pending requests had exactly 3 unread friend_request rows.
+ *
+ * The friendships row wins because it is the one that can be acted on. The
+ * notification still exists and still appears on /notifications, which is a
+ * history and should show it.
+ *
+ * This is passed to the RPC rather than filtered here on purpose: the badge is
+ * counted server-side, so filtering client-side would leave the number wrong —
+ * exactly the fault Stage 3c was about.
+ */
+const BELL_EXCLUDED_TYPES = ["friend_request"];
+
+/**
  * The unread total, taken from the rows the RPC returned.
  *
  * Every row carries the same figure because a set-returning function has
@@ -163,6 +183,7 @@ async function fetchNotifications(
     // stop counting at 30.
     supabase.rpc("get_my_unread_notifications_grouped" as any, {
       _limit: PANEL_GROUP_LIMIT,
+      _exclude_types: BELL_EXCLUDED_TYPES,
     }),
   ]);
 
