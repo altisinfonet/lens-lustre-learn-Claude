@@ -15,10 +15,24 @@ export function getNotifLink(notif: NotifLinkInput): string {
     case "post_reaction":
     case "post_comment":
       return notif.reference_id ? `/post/${notif.reference_id}` : "/feed";
+    // A reply to a comment. Measured on production 2026-08-02: of 11 rows,
+    // 9 reference_ids are live posts, 2 are posts that have since been deleted,
+    // and NONE is a gallery image — so this is a post reply in practice and
+    // "/discover" was sending people to a gallery that has nothing to do with
+    // the reply they were told about.
+    case "comment_reply":
+      return notif.reference_id ? `/post/${notif.reference_id}` : "/feed";
+    // Reactions and comments on the home-page gallery. reference_id points at a
+    // `portfolio_images` row, which has NO page of its own anywhere in the app,
+    // so the gallery is the closest true destination. Deliberately unchanged.
     case "image_reaction":
     case "image_comment":
-    case "comment_reply":
       return "/discover";
+    // Someone you follow posted. reference_id is that post — verified on
+    // production. This was the single highest-volume type with no case at all,
+    // so it fell through to the default and landed every member on /dashboard.
+    case "new_post_from_following":
+      return notif.reference_id ? `/post/${notif.reference_id}` : "/feed";
     case "competition_vote":
     case "entry_approved":
     case "entry_rejected":
