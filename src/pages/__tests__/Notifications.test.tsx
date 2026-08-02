@@ -81,18 +81,64 @@ describe("/notifications", () => {
   });
 
   it("renders the aggregated sentence with the real counts", () => {
+    // Names, not usernames. Owner decision 2026-08-01: FULL NAME first,
+    // @username only as the fallback — on every surface, so the bell, this page
+    // and the push message all say the same thing.
     withGroups([
       group({
         type: "new_post_from_following",
         actor_ids: ["a1", "a2", "a3"],
+        actor_names: ["Anindita Hidayat", "Vicky Roy", "Somnath Pal"],
         actor_usernames: ["aninditahidayat", "vickyroy87", "somnath"],
         actor_count: 5,
         event_count: 33,
       }),
     ]);
     renderPage();
-    expect(screen.getByText(/aninditahidayat, vickyroy87/)).toBeInTheDocument();
+    expect(screen.getByText(/Anindita Hidayat, Vicky Roy/)).toBeInTheDocument();
+    // 3 names came back but the true distinct count is 5 → "and 3 others".
+    expect(screen.getByText(/and 3 others/)).toBeInTheDocument();
     expect(screen.getByText(/shared 33 photos\./)).toBeInTheDocument();
+  });
+
+  it("falls back to the username when someone has no full name", () => {
+    withGroups([
+      group({ type: "new_follower", actor_names: [""], actor_usernames: ["vickyroy87"] }),
+    ]);
+    renderPage();
+    // The name and the verb live in separate elements (the name is bold), so
+    // assert them separately rather than with one regex across the boundary.
+    expect(screen.getByText("vickyroy87")).toBeInTheDocument();
+    expect(screen.getByText(/started following you\./)).toBeInTheDocument();
+  });
+
+  it("never renders the word Someone", () => {
+    // "Someone commented on your photo" was the owner's complaint. A person with
+    // neither a name nor a username is "A member" — a real, if anonymous, human.
+    withGroups([
+      group({ type: "post_comment", actor_names: [""], actor_usernames: [""] }),
+    ]);
+    renderPage();
+    expect(screen.queryByText(/Someone/)).not.toBeInTheDocument();
+    expect(screen.getByText("A member")).toBeInTheDocument();
+    expect(screen.getByText(/commented on your photo\./)).toBeInTheDocument();
+  });
+
+  it("puts no name in front of a notification that has no human actor", () => {
+    // A competition result is something that happened TO you. Gluing a person
+    // onto the front of it was always wrong.
+    withGroups([
+      group({
+        type: "entry_approved",
+        actor_ids: [],
+        actor_names: [],
+        actor_usernames: [],
+        actor_count: 0,
+        message: "Your entry in \"Monsoon\" has been approved!",
+      }),
+    ]);
+    renderPage();
+    expect(screen.getByText(/Your entry in "Monsoon" has been approved!/)).toBeInTheDocument();
   });
 
   it("shows Follow back for a new follower we are NOT following", () => {
