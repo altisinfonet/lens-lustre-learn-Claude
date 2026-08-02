@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { useDismissOnRouteChange } from "@/hooks/core/useDismissOnRouteChange";
 
 interface SearchResult {
   id: string;
@@ -299,14 +300,19 @@ const GlobalSearch = () => {
   // This is the safety net for the Android WebView bug where tapping a
   // result navigated but the row's click handler was not delivered, so the
   // panel survived navigation with its stale query still showing.
-  useEffect(() => {
+  // Keyed on the NAVIGATION, not the path: `location.pathname` does not change
+  // when you navigate to the page you are already on, or on back/forward
+  // between identical paths — and "search from /feed, tap a /feed result" is a
+  // real action. useDismissOnRouteChange also runs before paint, so the panel
+  // cannot flash on the destination route. Same hook as NotificationBell.
+  useDismissOnRouteChange(() => {
     seqRef.current++; // drop any in-flight search
     setOpen(false);
     setQuery("");
     setResults([]);
     setLoading(false);
     setSelectedIndex(-1);
-  }, [location.pathname]);
+  });
 
   // On open: pick the context default — People on the feed, All elsewhere —
   // load the recent list, and (re)load the follow list so friends rank first.
