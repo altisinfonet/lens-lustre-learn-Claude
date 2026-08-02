@@ -12,6 +12,8 @@ import { useNotificationSound } from "@/hooks/core/useNotificationSound";
 import { getNotifLink } from "@/lib/notificationLinks";
 import { useDismissOnRouteChange } from "@/hooks/core/useDismissOnRouteChange";
 import { useIsPrimaryInstance } from "@/hooks/core/useIsPrimaryInstance";
+import { describeNotification, relativeAge } from "@/lib/notifications/describe";
+import { subjectFromRow } from "@/lib/notifications/adapters";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -230,16 +232,10 @@ const NotificationBell = () => {
     cache.clearAll();
   };
 
-  const timeAgoFn = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "Just now";
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    const days = Math.floor(hrs / 24);
-    return `${days}d ago`;
-  };
+  // Ages come from the shared formatter. There used to be a second, bell-only
+  // implementation here ("5m ago") while the history page used another ("5m"),
+  // so the same event showed two different ages depending on where you looked.
+  const timeAgoFn = (dateStr: string) => relativeAge(dateStr);
 
   if (!user) return null;
 
@@ -361,7 +357,7 @@ const NotificationBell = () => {
                               )}
                             </Link>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs truncate" style={bodyFont}>
+                              <p className="text-xs line-clamp-2" style={bodyFont}>
                                 <span className="inline-flex items-center gap-1 flex-wrap">
                                   <Link to={`/profile/${fr.requester_id}`} onClick={() => setOpen(false)} className="font-medium hover:text-primary transition-colors">
                                     {fr.requester_name || "Someone"}
@@ -431,8 +427,16 @@ const NotificationBell = () => {
                                 )}
                               </Link>
                               <div className="flex-1 min-w-0">
-                                <Link to={getNotifLink(notif)} onClick={() => { dismissUserNotification(notif.id); setOpen(false); }} className="text-xs hover:text-primary transition-colors block truncate" style={bodyFont}>
-                                  {notif.message}
+                                {/* The SENTENCE is composed here, from the same
+                                    function the history page uses — the bell used to
+                                    render `notif.message`, the string a trigger froze
+                                    when the event happened, so the two surfaces said
+                                    different things about the same event.
+                                    `line-clamp-2`, not `truncate`: this column is about
+                                    200px wide and a one-line clip cut names mid-word
+                                    ("Partha Dalal started following y…"). */}
+                                <Link to={getNotifLink(notif)} onClick={() => { dismissUserNotification(notif.id); setOpen(false); }} className="text-xs hover:text-primary transition-colors block line-clamp-2" style={bodyFont}>
+                                  {describeNotification(subjectFromRow(notif as any)).text}
                                 </Link>
                                 <span className="text-[9px] text-muted-foreground" style={headingFont}>{timeAgoFn(notif.created_at)}</span>
                               </div>
@@ -465,7 +469,7 @@ const NotificationBell = () => {
                               <HelpCircle className="h-4 w-4 text-primary" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <Link to="/admin" onClick={() => { setOpen(false); localStorage.setItem("admin-active-tab", "support_tickets"); }} className="text-xs font-medium hover:text-primary transition-colors block truncate" style={bodyFont}>
+                              <Link to="/admin" onClick={() => { setOpen(false); localStorage.setItem("admin-active-tab", "support_tickets"); }} className="text-xs font-medium hover:text-primary transition-colors block line-clamp-2" style={bodyFont}>
                                 {notif.message}
                               </Link>
                               <span className="text-[9px] text-muted-foreground" style={headingFont}>{timeAgoFn(notif.created_at)}</span>
