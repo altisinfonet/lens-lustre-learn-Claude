@@ -268,6 +268,30 @@ jobs:
           chmod +x gradlew
           ./gradlew bundleRelease --no-daemon --stacktrace
 
+      - name: Prove the notification icon is actually inside the bundle
+        run: |
+          set -euo pipefail
+          AAB=android/app/build/outputs/bundle/release/app-release.aab
+          test -f "$AAB"
+          echo "--- resource entries named ic_notification (resources.pb) ---"
+          unzip -p "$AAB" base/resources.pb > /tmp/res.pb
+          N=$(grep -c -a ic_notification /tmp/res.pb || true)
+          echo "resources.pb matches: $N"
+          test "$N" -ge 1
+          echo "--- notification meta-data in the bundled manifest ---"
+          unzip -p "$AAB" base/manifest/AndroidManifest.xml > /tmp/bin_manifest
+          python3 - <<'PY'
+          data = open("/tmp/bin_manifest", "rb").read()
+          hay = data.decode("latin-1") + data.decode("utf-16-le", "ignore")
+          missing = [k for k in ("default_notification_icon", "default_notification_color") if k not in hay]
+          if missing:
+              raise SystemExit("MISSING from the bundled manifest: " + ", ".join(missing))
+          print("present: default_notification_icon")
+          print("present: default_notification_color")
+          PY
+          echo "--- drawable files carrying the icon ---"
+          unzip -l "$AAB" | grep -i ic_notification || echo "(paths renamed by resource optimisation; the resources.pb match above is the proof)"
+
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
