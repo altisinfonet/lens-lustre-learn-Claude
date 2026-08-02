@@ -1,3 +1,60 @@
+Build 1037 - 2026-08-02
+
+INTERNAL CHANGELOG. Never shown to a member. Play "What's new" stays
+"Bug fixes and improvements." per the owner's standing instruction.
+
+REGISTRATION — the one thing this build must not break, and does not
+- A new member was stopped dead at the last step of signing up by
+  "Upload failed / Please try another image" with no reason given. A profile
+  photo is mandatory, so they could not join at all.
+  Cause: the image loader rejected its promise with a DOM Event, which has no
+  `.message`, so every caller printed its fallback string. The upload never
+  reached the network - the browser could not decode the chosen file.
+  Fixed: a real error carrying the file's type (to the console, never to the
+  member), a second decode attempt via createImageBitmap that rescues files the
+  <img> element rejects, and a message that says what to do next without naming
+  any format or vendor.
+- The signup gate itself is UNCHANGED: 18+, a profile photo on our own storage,
+  an available username, a member type, and at least one interest. Each has its
+  own specific message. Nothing was added to it.
+- Server changes shipped today do not affect app versions already on Play:
+  1033/1034 never called the new functions, the grouped-history function's
+  signature is untouched, and the SELECT policy behind their notification list
+  is unchanged.
+
+NOTIFICATIONS - the system, rebuilt
+- The panel that would not close. framer-motion kept the exiting node mounted:
+  a 304x456 invisible rectangle over the top-right of every page, swallowing
+  clicks until reload. On Android it simply stayed visible over the new page.
+  Removal no longer waits on an animation; a route change, Escape, an outside
+  tap and a real backdrop each close it independently.
+- The chime played twice on every arrival - the bell is mounted twice, one copy
+  hidden by CSS, and CSS hides without unmounting. Exactly one instance now owns
+  the subscription and the sound, and leadership moves if that copy unmounts.
+- One sentence everywhere. The bell used to render frozen text written by the
+  database months earlier while the history page recomposed its own. Same event,
+  different words. Both now come from one function.
+- Push said "commented on your post" while the app said "commented on your
+  photo". The push body is composed at send time now, from live data. It also
+  stops naming 33 members who have deleted their accounts, and an admin can no
+  longer appear under a real person's name.
+- The badge stopped counting at 30. It counted a page, not the inbox; a member
+  with 111 unread saw 30. It counts every unread event now, and the panel says
+  how many are not on screen instead of quietly stopping.
+- The bell groups like the history page - a day of reactions is one line, with
+  real counts, not 40 lines.
+- Tapping a new-post notification landed you on the dashboard. It opens the post.
+  A reply opened an unrelated gallery. It opens the post.
+- A friend request was counted twice and drawn twice. Once now. Answering one
+  also clears the notification behind it.
+- Push notifications can be turned off - a master switch plus per-type switches,
+  including the new-photo alerts, which are the most frequent.
+- A notification can be deleted. Until now nothing in the app could remove one.
+- Notifications older than 90 days are cleared automatically. Anything still
+  unread is kept, however old.
+- The history screen is reachable from the account menu on phone and desktop.
+  It used to be reachable only from inside a panel that closes itself.
+
 Build 1036 - 2026-08-01
 
 - Shared a photo to your wall by mistake? Open the menu on that post and choose
