@@ -38,10 +38,24 @@ export interface UserNotification {
   id: string;
   type: string;
   title: string;
+  /**
+   * The sentence a database trigger froze when the event happened. The bell no
+   * longer renders this for any type it can phrase itself — see
+   * src/lib/notifications/describe.ts. It remains the fallback for types with
+   * their own server-written wording (competition results, wallet, tickets).
+   */
   message: string;
   reference_id: string | null;
   actor_id: string | null;
   created_at: string;
+  /* Hydrated client-side from profiles, so the sentence can be composed here
+     with the same rules the history page uses. */
+  actor_avatar?: string | null;
+  actor_name?: string | null;
+  actor_username?: string | null;
+  /** false = the profile was looked up and is gone. undefined = no lookup. */
+  actor_known?: boolean;
+  actor_is_admin?: boolean;
 }
 
 interface NotificationsData {
@@ -116,12 +130,19 @@ async function fetchNotifications(
   const actorIds = ((userNotifsRes.data || []) as any[])
     .map((n: any) => n.actor_id)
     .filter(Boolean);
-  let actorMap = new Map<string, { full_name: string | null; avatar_url: string | null }>();
+  // `custom_url` is fetched as well as `full_name` because the bell now COMPOSES
+  // its sentence (see src/lib/notifications/describe.ts) instead of rendering
+  // the frozen `message` column a trigger wrote months ago. Full name first,
+  // username as the fallback — the owner's rule, applied on every surface.
+  let actorMap = new Map<
+    string,
+    { full_name: string | null; custom_url: string | null; avatar_url: string | null }
+  >();
   if (actorIds.length > 0) {
     const { data: actorProfiles } = await profilesPublic()
-      .select("id, full_name, avatar_url")
+      .select("id, full_name, custom_url, avatar_url")
       .in("id", actorIds);
-    actorMap = new Map((actorProfiles || []).map((p) => [p.id, p]));
+    actorMap = new Map((actorProfiles || []).map((p: any) => [p.id, p]));
   }
 
   return {
@@ -136,10 +157,20 @@ async function fetchNotifications(
     })),
     giftNotifications: giftsRes.data || [],
     adminNotifications,
-    userNotifications: ((userNotifsRes.data || []) as any[]).map((n: any) => ({
-      ...n,
-      actor_avatar: n.actor_id ? actorMap.get(n.actor_id)?.avatar_url : null,
-    })),
+    userNotifications: ((userNotifsRes.data || []) as any[]).map((n: any) => {
+      const actor = n.actor_id ? actorMap.get(n.actor_id) : undefined;
+      return {
+        ...n,
+        actor_avatar: actor?.avatar_url ?? null,
+        actor_name: actor?.full_name ?? null,
+        actor_username: actor?.custom_url ?? null,
+        // We queried for this id and got nothing back => the profile is gone.
+        // That is a DIFFERENT state from "no actor on the row at all", and the
+        // two read differently on screen ("A deleted account" vs no name).
+        actor_known: n.actor_id ? actorMap.has(n.actor_id) : undefined,
+        actor_is_admin: n.actor_id ? adminIds.has(n.actor_id) : false,
+      };
+    }),
   };
 }
 
