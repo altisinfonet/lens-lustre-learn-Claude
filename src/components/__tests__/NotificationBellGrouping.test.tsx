@@ -51,7 +51,7 @@ vi.mock("@/integrations/supabase/client", () => ({
   },
 }));
 
-const markGroupRead = vi.fn(() => Promise.resolve());
+const markGroupRead = vi.fn((_ids: string[]) => Promise.resolve());
 vi.mock("@/hooks/notifications/useNotificationHistory", () => ({
   markGroupRead: (ids: string[]) => markGroupRead(ids),
 }));
