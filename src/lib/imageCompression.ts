@@ -38,9 +38,15 @@ export class ImageDecodeError extends Error {
   readonly fileType: string;
   readonly fileSize: number;
   constructor(fileType: string, fileSize: number) {
+    // NO FORMAT OR VENDOR NAME IN THIS STRING. Owner's standing rule: nothing a
+    // member can read may name a third-party format or brand — "a newer format
+    // where supported", never the name of it. The type IS needed to diagnose
+    // the next report, so it goes to the console and onto the error object,
+    // never into the sentence.
     super(
-      `This device could not open that image${fileType ? ` (${fileType})` : ""}. ` +
-        `Please choose a different photo, or re-save it as JPG and try again.`,
+      "This device could not open that photo. Your phone may be saving pictures " +
+        "in a newer, space-saving format. Switch your camera to the most " +
+        "compatible photo setting, or pick a different picture, and try again.",
     );
     this.name = "ImageDecodeError";
     this.fileType = fileType;
@@ -110,10 +116,11 @@ const loadImage = async (file: File | Blob): Promise<CanvasImageSource & { width
     }
   }
 
-  throw new ImageDecodeError(
-    (file as File).type || "",
-    (file as File).size ?? 0,
-  );
+  const type = (file as File).type || "";
+  const size = (file as File).size ?? 0;
+  // The diagnosable half, kept out of the member's view.
+  console.warn("[image] no decoder for this file", { type, size });
+  throw new ImageDecodeError(type, size);
 };
 
 /**
