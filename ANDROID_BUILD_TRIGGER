@@ -1,3 +1,50 @@
+Build 1040 - 2026-08-02
+
+INTERNAL CHANGELOG. Never shown to a member. Play "What's new" stays
+"Bug fixes and improvements." per the owner's standing instruction.
+
+THE NOTIFICATION ICON — the only change since 1037
+
+WHAT MEMBERS SAW
+  Every push arrived with a blank white square in the status bar instead of
+  any mark at all.
+
+WHY
+  Nothing was configured. There was no ic_notification drawable anywhere in
+  the repository, and no default_notification_icon meta-data in the manifest.
+  With no small icon declared, the messaging library falls back to the
+  launcher icon - and since Android 5.0 the status bar flattens the small
+  icon to its alpha mask, keeping only which pixels are opaque and discarding
+  every colour. The launcher icon is fully opaque, so its mask is a solid
+  rectangle. That is the white square. The image was never corrupt.
+
+WHAT CHANGED
+  - A monochrome mark - the camera aperture from the centre of the app logo,
+    white on a fully transparent background - at all five densities
+    (24dp: 24, 36, 48, 72 and 96 px).
+  - default_notification_icon and default_notification_color declared in the
+    manifest, with the accent colour used to tint the icon in the shade.
+  - Both are installed by the build itself, after the native project is
+    generated, because that folder is not stored in the repository.
+
+  1039 shipped an earlier glyph that read as a flower at real size. 1040
+  replaces it with the classic iris, which is legible at 24dp.
+
+HOW IT IS PROVEN, not assumed
+  The build now opens the finished bundle and fails if the icon is not in it:
+    - ic_notification present in the bundle resource table
+    - default_notification_icon present in the bundled manifest
+    - default_notification_color present in the bundled manifest
+  This matters because the release build runs resource shrinking, which is
+  free to drop a drawable that is only referenced from the manifest. Any
+  future change that quietly strips the icon now stops at CI instead of
+  reaching the store.
+
+REGISTRATION
+  Untouched. No app code, no web code and no database changed in this build.
+
+====================================================================
+
 Build 1037 - 2026-08-02
 
 INTERNAL CHANGELOG. Never shown to a member. Play "What's new" stays
