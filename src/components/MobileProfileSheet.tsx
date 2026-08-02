@@ -13,7 +13,7 @@ import {
 import {
   LogOut, Shield, Scale, Wallet, LayoutDashboard, User, ImageIcon,
   Users, Rss, UserPlus, HelpCircle, Settings, Trophy, Edit2, Compass,
-  Sun, Moon, Globe, BookOpen, Award, FileText, Download, Image as ImageLucide, Crown,
+  Sun, Moon, Globe, BookOpen, Award, FileText, Download, Image as ImageLucide, Crown, Bell,
 } from "lucide-react";
 import { useTheme } from "@/hooks/core/useTheme";
 import { motion, AnimatePresence } from "framer-motion";
@@ -100,6 +100,11 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
         { icon: User, label: "Profile", to: "/profile", show: true },
         { icon: Edit2, label: "Edit", to: "/edit-profile", show: true },
         { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard", show: true },
+        // The ONLY way back to /notifications used to be the bell panel's own
+        // footer — dismiss the panel and the history was unreachable. Placed
+        // right after Dashboard because it is a frequent destination, not a
+        // setting.
+        { icon: Bell, label: "Notifications", to: "/notifications", show: true },
         { icon: ImageIcon, label: "Entries", to: "/dashboard?tab=submissions", show: true },
         { icon: ImageLucide, label: "Photos", to: "/photos", show: true },
         { icon: Crown, label: "Winners", to: "/winners", show: true },
@@ -111,6 +116,7 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
         { icon: User, label: "Profile", to: "/profile", show: true },
         { icon: Edit2, label: "Edit", to: "/edit-profile", show: true },
         { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard", show: true },
+        { icon: Bell, label: "Notifications", to: "/notifications", show: true },
         { icon: Rss, label: "My Wall", to: `/profile/${user.id}?section=wall`, show: true },
         { icon: Compass, label: "Feed", to: "/feed", show: true },
         { icon: Compass, label: "Discover", to: "/discover", show: true },

@@ -19,7 +19,7 @@ import {
 import {
   LogOut, Shield, Scale, Wallet, LayoutDashboard, User, ImageIcon,
   Users, MessageSquare, Compass, Rss, UserPlus, HelpCircle, Settings,
-  Trophy, Edit2, Award, Camera,
+  Trophy, Edit2, Award, Camera, Bell,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -101,6 +101,9 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
         { icon: User, label: "Profile", to: "/profile", show: true, tooltip: "View your profile" },
         { icon: Edit2, label: "Edit Profile", to: "/edit-profile", show: true, tooltip: "Update your info" },
         { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard?tab=overview", show: true, tooltip: "Your home base" },
+        // The ONLY way back to /notifications used to be the bell panel's own
+        // footer — dismiss the panel and the history was unreachable.
+        { icon: Bell, label: "Notifications", to: "/notifications", show: true, tooltip: "Everything you have missed" },
         { icon: ImageIcon, label: "My Submissions", to: "/dashboard?tab=submissions", show: true, tooltip: "Competition entries" },
         { icon: Trophy, label: "Competitions", to: "/competitions", show: true, tooltip: "Browse & enter" },
         { icon: HelpCircle, label: "Help & Support", to: "/help-support", show: true, tooltip: "Get assistance" },
@@ -117,6 +120,9 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
       title: "Main",
       items: [
         { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard", show: true, tooltip: "Your home base" },
+        // The ONLY way back to /notifications used to be the bell panel's own
+        // footer — dismiss the panel and the history was unreachable.
+        { icon: Bell, label: "Notifications", to: "/notifications", show: true, tooltip: "Everything you have missed" },
         { icon: Rss, label: "Feed", to: "/feed", show: true, tooltip: "Latest updates" },
         { icon: Compass, label: "Discover", to: "/discover", show: true, tooltip: "Find photographers" },
       ],
