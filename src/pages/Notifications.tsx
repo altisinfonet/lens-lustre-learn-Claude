@@ -26,16 +26,17 @@ import {
   markGroupRead,
 } from "@/hooks/notifications/useNotificationHistory";
 import {
-  notificationSentence,
-  actorPhrase,
-  actionPhrase,
-  relativeAge,
   bucketFor,
   BUCKET_LABEL,
-  actorLabel,
   type NotificationGroup,
   type BucketKey,
 } from "@/lib/notificationText";
+// The sentence itself comes from the shared layer, NOT from this page. The bell
+// composes from the same function, so the two surfaces cannot drift apart
+// again — see src/lib/notifications/describe.ts for the naming rules.
+import { describeNotification, actorDisplayName } from "@/lib/notifications/describe";
+import { subjectFromGroup } from "@/lib/notifications/adapters";
+import { useAdminIds } from "@/hooks/core/useAdminIds";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -68,6 +69,7 @@ function NotificationRow({
   onOpen,
   onFollowBack,
   followPending,
+  adminIds,
 }: {
   group: NotificationGroup;
   isFollowing: boolean;
@@ -75,11 +77,14 @@ function NotificationRow({
   onOpen: (g: NotificationGroup) => void;
   onFollowBack: (actorId: string) => void;
   followPending: boolean;
+  /** Passed down rather than fetched per row — one lookup for the whole list. */
+  adminIds: Set<string>;
 }) {
   const t = useT();
   const unread = (group.unread_count ?? 0) > 0;
   const actorId = group.actor_ids?.[0];
-  const action = actionPhrase(group);
+  const subject = subjectFromGroup(group, adminIds);
+  const described = describeNotification(subject);
 
   // Only offer Follow back when we KNOW they are not already followed.
   // Unknown state must disable the action, never enable it (§0).
@@ -96,17 +101,16 @@ function NotificationRow({
         onClick={() => onOpen(group)}
         className="flex items-center gap-3 flex-1 min-w-0 text-left"
       >
-        <Avatar url={group.actor_avatars?.[0] || undefined} alt={actorLabel(group, 0)} />
+        <Avatar url={group.actor_avatars?.[0] || undefined} alt={actorDisplayName(subject.actors[0])} />
         <span className="text-xs leading-relaxed text-foreground min-w-0" style={bodyFont}>
-          {action ? (
+          {described.hasActor ? (
             <>
-              <span className="font-semibold">{actorPhrase(group)}</span> {action}
+              <span className="font-semibold">{described.actorText}</span> {described.action}
             </>
           ) : (
-            // types with their own server-written wording render it verbatim
-            notificationSentence(group)
+            described.text
           )}{" "}
-          <span className="text-muted-foreground">{relativeAge(group.latest_at)}</span>
+          <span className="text-muted-foreground">{described.age}</span>
         </span>
       </button>
 
@@ -140,6 +144,8 @@ function NotificationRow({
 const Notifications = () => {
   const t = useT();
   const navigate = useNavigate();
+  // One admin lookup for the whole list, not one per row.
+  const adminIds = useAdminIds();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const followMutation = useToggleFollow();
@@ -244,6 +250,7 @@ const Notifications = () => {
                 followPending={busyActor === group.actor_ids?.[0]}
                 onOpen={openGroup}
                 onFollowBack={followBack}
+                adminIds={adminIds}
               />
             ))}
           </section>
