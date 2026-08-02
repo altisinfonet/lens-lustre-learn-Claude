@@ -7,7 +7,6 @@ import { useWalletSummary } from "@/hooks/wallet/useWalletSummary";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
-import NotificationBell from "@/components/NotificationBell";
 import {
   Drawer, DrawerContent, DrawerHeader, DrawerTitle,
 } from "@/components/ui/drawer";
@@ -170,10 +169,18 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
               />
               <span className="text-[9px] text-muted-foreground truncate block mt-0.5">{user.email}</span>
             </div>
-            <div className="relative">
-              <span className="absolute inset-0 rounded-full ring-2 ring-primary animate-ping opacity-30" />
-              <NotificationBell />
-            </div>
+            {/* SWAPPED 2026-08-01 (owner): the dark/light toggle now sits here,
+                where the notification bell used to be, and the bell moved to the
+                mobile top bar. The ping ring went with the bell — it was there to
+                draw the eye to unread notifications and means nothing on a theme
+                switch. */}
+            <button
+              onClick={toggleTheme}
+              className="shrink-0 p-2 rounded-full border border-border hover:border-primary transition-colors"
+              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4 text-primary" /> : <Moon className="h-4 w-4 text-primary" />}
+            </button>
           </div>
         </DrawerHeader>
 
@@ -229,18 +236,12 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
           </div>
         </div>
 
-        {/* Bottom row: Theme + Logout */}
+        {/* Bottom row: Logout.
+            The theme button that used to sit here was removed on 2026-08-01:
+            the toggle moved up into this sheet's header (swapping places with
+            the notification bell, which is now in the top bar), and two theme
+            buttons in one sheet is one too many. */}
         <div className="px-4 pb-6 pt-2 flex items-center gap-2 border-t border-border/40">
-          <button
-            onClick={toggleTheme}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent dark:bg-muted/40 hover:bg-accent/80 dark:hover:bg-muted/70 transition-colors flex-1"
-          >
-            {theme === "dark" ? <Sun className="h-4 w-4 text-primary" /> : <Moon className="h-4 w-4 text-primary" />}
-            <span className="text-[9px] tracking-[0.1em] uppercase text-foreground/60 dark:text-muted-foreground" style={headingFont}>
-              {theme === "dark" ? t("msheet.light") : t("msheet.dark")}
-            </span>
-          </button>
-
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-destructive hover:bg-destructive/90 transition-colors flex-1"

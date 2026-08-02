@@ -469,6 +469,45 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     }
   }, [user, targetUserId, queryClient]);
 
+  /**
+   * Undo a share. Reported 2026-08-01: a member shared someone else's photo to
+   * their wall by mistake and had no way to take it down — the post is not
+   * theirs to delete, so the card's menu offered only "Report content".
+   *
+   * This removes the SHARE ROW, never the post. The original is untouched and
+   * still belongs to its author; only the reference that put it on this wall
+   * goes away. Scoped by user_id as well as post_id so it can only ever remove
+   * the caller's own share.
+   */
+  const handleRemoveShare = useCallback(async (postId: string) => {
+    if (!user) return;
+    const { error } = await supabase
+      .from("post_shares" as any)
+      .delete()
+      .eq("post_id", postId)
+      .eq("user_id", user.id);
+    if (error) {
+      toast({ title: "Could not remove it", description: error.message, variant: "destructive" });
+      return;
+    }
+    // Drop it from the wall straight away rather than waiting for a refetch —
+    // the whole point is that the member sees it gone immediately.
+    queryClient.setQueryData<any>(["user-wall-posts", targetUserId], (old: any) => {
+      if (!old?.pages) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page: any) => ({
+          ...page,
+          posts: (page.posts || []).filter((p: any) => p.id !== postId),
+        })),
+      };
+    });
+    queryClient.invalidateQueries({ queryKey: ["user-wall-posts", targetUserId] });
+    // The author's share count drops too; refresh the feed so it is not stale.
+    queryClient.invalidateQueries({ queryKey: queryKeys.feed() });
+    toast({ title: "Removed from your wall" });
+  }, [user, targetUserId, queryClient]);
+
   const handleCommentCountChange = useCallback((postId: string, delta: number) => {
     queryClient.setQueryData<any>(["user-wall-posts", targetUserId], (old: any) => {
       if (!old?.pages) return old;
@@ -807,6 +846,11 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                           onReact={handleReact}
                           onUnreact={handleUnreact}
                           onDelete={handleDelete}
+                          onRemoveShare={
+                            // Only on your OWN wall. Viewing someone else's wall
+                            // must never offer to remove their share.
+                            user?.id && user.id === targetUserId ? handleRemoveShare : undefined
+                          }
                           onCommentCountChange={handleCommentCountChange}
                           onShareCountChange={handleShareCountChange}
                           onContentChange={handleContentChange}

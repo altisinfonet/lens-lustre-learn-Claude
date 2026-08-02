@@ -166,16 +166,30 @@ const App = () => {
   useEffect(() => {
     const isHomepage = window.location.pathname === "/";
 
+    // BLANK PAGE BUG (owner report 2026-08-01, screenshots of an empty Compete
+    // and Profile tab in the Android app).
+    //
+    // Every route below is lazy(). While its chunk is loading, <Suspense>
+    // renders `fallback`, and `fallback` was `allowSuspenseFallback ? <PageLoader/> : null`.
+    // On a non-home route that flag was only flipped INSIDE requestAnimationFrame
+    // — and rAF is throttled or entirely suspended in a backgrounded Android
+    // webview (the same trap as PROJECT_MASTER_RECORD §12.14). If the frame
+    // never ran, the fallback stayed `null`, so the app rendered its header and
+    // bottom nav with NOTHING in between: a full blank page, exactly as
+    // reported, until the chunk happened to resolve.
+    //
+    // The flag is now set synchronously, so there is always something to show.
+    // rAF still owns dismissing the init loader, which is what it was for.
+    setAllowSuspenseFallback(true);
+
     if (!isHomepage) {
       // Non-homepage: dismiss on first paint
       requestAnimationFrame(() => {
         window.__dismissLoader?.();
-        setAllowSuspenseFallback(true);
       });
     } else {
-      // Homepage: Index.tsx will call __dismissLoader after hero image loads.
-      // Just enable suspense fallback so React can render.
-      setAllowSuspenseFallback(true);
+      // Homepage: Index.tsx calls __dismissLoader after the hero image loads.
+      // Nothing extra to do here now that the flag is set above.
     }
 
     // Safety timeout — guarantees loader is dismissed even if hero never loads

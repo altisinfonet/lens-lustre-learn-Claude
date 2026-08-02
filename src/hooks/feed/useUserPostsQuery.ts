@@ -57,6 +57,11 @@ async function fetchAndEnrich(
     sharedRows = (sharedPosts || []).map((p: any) => ({
       ...p,
       created_at: shareTs.get(p.id) || p.created_at,
+      // Marks this row as "on the wall because it was shared", which is what
+      // makes an un-share possible. Own posts never carry it — the merge below
+      // gives own posts precedence on an id collision, so a post you wrote AND
+      // shared stays a normal own post with Edit/Delete.
+      is_reshare: true,
     }));
   }
 
@@ -120,6 +125,9 @@ async function fetchAndEnrich(
       user_reaction: userRx || null,
       top_reactions: topReactions,
       reaction_counts: typeCounts,
+      // Carried through from the merge above — without this the flag is dropped
+      // here and the wall can never tell a reshare from an own post.
+      is_reshare: !!p.is_reshare,
     };
   });
 

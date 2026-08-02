@@ -255,15 +255,14 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
             )}
           </div>
 
-          {/* Mobile right actions */}
+          {/* Mobile right actions.
+              SWAPPED 2026-08-01 (owner): the notification bell now sits here,
+              where the dark/light toggle used to be, and the toggle moved into
+              the profile sheet header where the bell used to be. Notifications
+              are checked many times a day; the theme is set once. Desktop is
+              deliberately unchanged — this is an app/mobile-only layout. */}
           <div className="flex items-center gap-2 lg:hidden">
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-full border border-border hover:border-primary hover:text-primary transition-all duration-500"
-              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-            >
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </button>
+            {user && <NotificationBell />}
             {user && <GlobalSearch />}
           </div>
         </div>
