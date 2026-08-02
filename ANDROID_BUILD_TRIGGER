@@ -1,3 +1,17 @@
+Build 1036 - 2026-08-01
+
+- Shared a photo to your wall by mistake? Open the menu on that post and choose
+  Remove from my wall. It comes off your wall only; the original post and the
+  photographer's copy are untouched.
+- Fixed pages that sometimes opened completely blank. A page that is still
+  loading now shows a loader instead of an empty screen.
+- The notification bell moved to the top bar, and the light/dark switch moved
+  into the profile panel where the bell used to be.
+- A profile photo is required to post or comment, and an auto-filled account
+  picture no longer counts as one.
+- Reach and Viewed-by appear only once a post is 24 hours old.
+- Older photos keep their own shape; no more empty bars around a wide photo.
+
 Build 1035 - 2026-08-01
 
 Profile photo policy closed properly.
