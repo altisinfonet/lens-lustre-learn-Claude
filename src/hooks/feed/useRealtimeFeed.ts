@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsPrimaryInstance } from "@/hooks/core/useIsPrimaryInstance";
 
 /**
  * Subscribes to realtime changes on posts, post_reactions, and post_comments.
@@ -161,11 +162,22 @@ export function useNotificationRealtime(
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
 
-  useEffect(() => {
-    if (!userId) return;
+  // The notification bell is mounted TWICE — a desktop copy and a mobile copy,
+  // one hidden by CSS. CSS hides; it does not unmount. So without this guard
+  // both copies subscribed, and because the channel name was a fixed string
+  // both created a channel object on the SAME topic: unmounting the hidden bell
+  // could tear the topic out from under the visible one. Only the primary
+  // instance subscribes. See useIsPrimaryInstance.
+  const isPrimary = useIsPrimaryInstance(userId ? `notif-realtime:${userId}` : "");
 
+  useEffect(() => {
+    if (!userId || !isPrimary) return;
+
+    // Per-user topic. A fixed "notif-live" is shared across every session in the
+    // process, so signing out and back in as somebody else could collide with a
+    // channel that had not finished tearing down.
     const channel = supabase
-      .channel("notif-live")
+      .channel(`notif-live:${userId}`)
       // User notifications
       .on(
         "postgres_changes",
@@ -285,5 +297,5 @@ export function useNotificationRealtime(
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [userId]); // Only re-subscribe when userId changes
+  }, [userId, isPrimary]); // Re-subscribe when the user changes, or when this instance becomes the primary one
 }
