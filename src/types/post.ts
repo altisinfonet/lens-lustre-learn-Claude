@@ -38,4 +38,13 @@ export interface UnifiedPost {
   friend_state?: "none" | "sent" | "received" | "friends" | "unavailable";
   views?: number;
   reach?: number;
+  /**
+   * True when this row reached the wall through post_shares rather than being
+   * authored by the wall's owner. Set ONLY by useUserPostsQuery — the feed does
+   * not distinguish reshares. It is what lets the wall offer "Remove from my
+   * wall" on a post somebody else wrote: before 2026-08-01 a mis-tapped share
+   * could not be undone at all, because the post is not yours to delete and the
+   * card offered nothing but "Report content".
+   */
+  is_reshare?: boolean;
 }
