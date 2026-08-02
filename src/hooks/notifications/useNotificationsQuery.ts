@@ -1,11 +1,38 @@
+/**
+ * The bell's data: an UNREAD inbox, grouped the same way the history page
+ * groups, with a badge count that comes from the server.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHAT CHANGED 2026-08-02 (Stage 3c) AND WHY
+ *
+ * This hook used to read raw rows — `.eq("is_read", false).limit(30)` — and the
+ * badge counted the LENGTH OF THAT ARRAY. Two consequences, both measured on
+ * production before this was touched:
+ *
+ *   1. 40 reactions in a day were 40 lines in the panel and ONE line on
+ *      /notifications. Same events, two different shapes.
+ *   2. The badge stopped counting at 30. 4 members were over it; the worst had
+ *      **111 unread and a badge reading 30**. Silently wrong is the worst kind.
+ *
+ * Both are gone: the rows come from `get_my_unread_notifications_grouped()`,
+ * which applies the same `notif_group_key()` the history page uses, and the
+ * badge uses that function's `total_unread` — counted over every unread row,
+ * not over the page of groups that came back.
+ *
+ * The actor profile lookup that used to live here is gone too: the RPC returns
+ * names, handles and avatars already, so the bell now costs one query instead
+ * of two.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { profilesPublic } from "@/lib/profilesPublic";
 import { getAdminIds, resolveName } from "@/lib/adminBrand";
 import { queryKeys } from "@/lib/queryKeys";
 import { useNotificationRealtime } from "@/hooks/feed/useRealtimeFeed";
 import { queueCacheUpdate } from "@/lib/batchedCacheUpdate";
+import type { NotificationGroup } from "@/lib/notificationText";
 
 /* ── Types ── */
 
@@ -34,35 +61,26 @@ export interface AdminNotification {
   created_at: string;
 }
 
-export interface UserNotification {
-  id: string;
-  type: string;
-  title: string;
+/**
+ * One unread group, exactly the shape /notifications receives, plus the true
+ * unread total. Sharing the type is deliberate: a shape that differs by one
+ * field between two surfaces is a shape somebody will get wrong.
+ */
+export interface UserNotificationGroup extends NotificationGroup {
   /**
-   * The sentence a database trigger froze when the event happened. The bell no
-   * longer renders this for any type it can phrase itself — see
-   * src/lib/notifications/describe.ts. It remains the fallback for types with
-   * their own server-written wording (competition results, wallet, tickets).
+   * Every unread row this member has, NOT the number of groups returned and
+   * not the number of events inside them. This is the badge.
    */
-  message: string;
-  reference_id: string | null;
-  actor_id: string | null;
-  created_at: string;
-  /* Hydrated client-side from profiles, so the sentence can be composed here
-     with the same rules the history page uses. */
-  actor_avatar?: string | null;
-  actor_name?: string | null;
-  actor_username?: string | null;
-  /** false = the profile was looked up and is gone. undefined = no lookup. */
-  actor_known?: boolean;
-  actor_is_admin?: boolean;
+  total_unread: number;
 }
 
 interface NotificationsData {
   friendRequests: FriendRequest[];
   giftNotifications: GiftNotification[];
   adminNotifications: AdminNotification[];
-  userNotifications: UserNotification[];
+  userNotifications: UserNotificationGroup[];
+  /** Server truth. Survives the group list being capped. */
+  unreadTotal: number;
 }
 
 const EMPTY: NotificationsData = {
@@ -70,7 +88,50 @@ const EMPTY: NotificationsData = {
   giftNotifications: [],
   adminNotifications: [],
   userNotifications: [],
+  unreadTotal: 0,
 };
+
+/**
+ * How many groups the panel asks for. The BADGE is not limited by this — that
+ * is the whole reason the RPC returns total_unread separately. A member with
+ * 83 unread groups sees the newest 20 here and all of them under "See All".
+ */
+const PANEL_GROUP_LIMIT = 20;
+
+/**
+ * The unread total, taken from the rows the RPC returned.
+ *
+ * Every row carries the same figure because a set-returning function has
+ * nowhere else to put it. No rows means nothing unread, so 0 is right.
+ *
+ * Pulled out as a named function so it can be tested: this one line is what
+ * used to be `.length` of a capped array.
+ */
+export function unreadTotalOf(groups: { total_unread?: number | null }[]): number {
+  return groups[0]?.total_unread ?? 0;
+}
+
+/**
+ * The number on the bell.
+ *
+ * The user-notification part comes from `unreadTotal` — the server's count of
+ * every unread row — and NOT from `userNotifications.length`, which is a page
+ * of at most 20 groups. That substitution is the whole of the badge fix; if it
+ * is ever reverted, a member with 111 unread sees 20 again.
+ */
+export function badgeCountOf(d: {
+  friendRequests: unknown[];
+  giftNotifications: unknown[];
+  adminNotifications: unknown[];
+  unreadTotal: number;
+}): number {
+  return (
+    d.friendRequests.length +
+    d.giftNotifications.length +
+    d.adminNotifications.length +
+    d.unreadTotal
+  );
+}
 
 const sortDesc = <T extends { created_at: string }>(list: T[]): T[] =>
   [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -81,7 +142,7 @@ async function fetchNotifications(
   userId: string,
   isAdmin: boolean,
 ): Promise<NotificationsData> {
-  const [friendsRes, giftsRes, userNotifsRes] = await Promise.all([
+  const [friendsRes, giftsRes, groupsRes] = await Promise.all([
     supabase
       .from("friendships")
       .select("id, requester_id, created_at")
@@ -97,13 +158,12 @@ async function fetchNotifications(
       .eq("is_expired", false)
       .order("created_at", { ascending: false })
       .limit(10),
-    supabase
-      .from("user_notifications")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("is_read", false)
-      .order("created_at", { ascending: false })
-      .limit(30),
+    // Grouped by the database, by the same rule /notifications uses. The old
+    // call here was a raw row read capped at 30, which is what made the badge
+    // stop counting at 30.
+    supabase.rpc("get_my_unread_notifications_grouped" as any, {
+      _limit: PANEL_GROUP_LIMIT,
+    }),
   ]);
 
   let adminNotifications: AdminNotification[] = [];
@@ -127,23 +187,9 @@ async function fetchNotifications(
     profileMap = new Map((profiles || []).map((p) => [p.id, p]));
   }
 
-  const actorIds = ((userNotifsRes.data || []) as any[])
-    .map((n: any) => n.actor_id)
-    .filter(Boolean);
-  // `custom_url` is fetched as well as `full_name` because the bell now COMPOSES
-  // its sentence (see src/lib/notifications/describe.ts) instead of rendering
-  // the frozen `message` column a trigger wrote months ago. Full name first,
-  // username as the fallback — the owner's rule, applied on every surface.
-  let actorMap = new Map<
-    string,
-    { full_name: string | null; custom_url: string | null; avatar_url: string | null }
-  >();
-  if (actorIds.length > 0) {
-    const { data: actorProfiles } = await profilesPublic()
-      .select("id, full_name, custom_url, avatar_url")
-      .in("id", actorIds);
-    actorMap = new Map((actorProfiles || []).map((p: any) => [p.id, p]));
-  }
+  // No actor lookup here any more. The RPC returns actor names, handles and
+  // avatars with the group, so the second round trip this used to make is gone.
+  const groups = (groupsRes.data ?? []) as UserNotificationGroup[];
 
   return {
     friendRequests: (friendsRes.data || []).map((f) => ({
@@ -157,20 +203,8 @@ async function fetchNotifications(
     })),
     giftNotifications: giftsRes.data || [],
     adminNotifications,
-    userNotifications: ((userNotifsRes.data || []) as any[]).map((n: any) => {
-      const actor = n.actor_id ? actorMap.get(n.actor_id) : undefined;
-      return {
-        ...n,
-        actor_avatar: actor?.avatar_url ?? null,
-        actor_name: actor?.full_name ?? null,
-        actor_username: actor?.custom_url ?? null,
-        // We queried for this id and got nothing back => the profile is gone.
-        // That is a DIFFERENT state from "no actor on the row at all", and the
-        // two read differently on screen ("A deleted account" vs no name).
-        actor_known: n.actor_id ? actorMap.has(n.actor_id) : undefined,
-        actor_is_admin: n.actor_id ? adminIds.has(n.actor_id) : false,
-      };
-    }),
+    userNotifications: groups,
+    unreadTotal: unreadTotalOf(groups),
   };
 }
 
@@ -190,15 +224,19 @@ function useNotifCacheUpdaters(userId: string | undefined) {
     [queryClient, key],
   );
 
-  const insertUserNotification = useCallback(
-    (notif: UserNotification) => {
-      patch((prev) => {
-        if (prev.userNotifications.some((n) => n.id === notif.id)) return prev;
-        return {
-          ...prev,
-          userNotifications: sortDesc([...prev.userNotifications, notif]),
-        };
-      });
+  /**
+   * A notification just arrived over realtime.
+   *
+   * It cannot simply be spliced into the list any more: the list holds GROUPS,
+   * and only the database knows whether this event joins an existing group or
+   * starts a new one. So the badge moves immediately — that is what the member
+   * sees, and what the arrival sound keys off — and the grouped list is
+   * refetched a moment later by the caller. Guessing the grouping client-side
+   * would put a number on screen that the next refetch contradicts.
+   */
+  const bumpUnread = useCallback(
+    (by = 1) => {
+      patch((prev) => ({ ...prev, unreadTotal: Math.max(0, prev.unreadTotal + by) }));
     },
     [patch],
   );
@@ -272,12 +310,23 @@ function useNotifCacheUpdaters(userId: string | undefined) {
     [patch],
   );
 
-  const removeUserNotification = useCallback(
-    (id: string) => {
-      patch((prev) => ({
-        ...prev,
-        userNotifications: prev.userNotifications.filter((n) => n.id !== id),
-      }));
+  /**
+   * Dismissing a line in the panel dismisses the whole group behind it — the
+   * member is told how many events that is ("… and 31 others"), so removing
+   * one row of it and leaving 30 behind would be the surprising behaviour.
+   * The badge drops by the group's real event count, not by one.
+   */
+  const removeUserGroup = useCallback(
+    (groupKey: string) => {
+      patch((prev) => {
+        const gone = prev.userNotifications.find((g) => g.group_key === groupKey);
+        if (!gone) return prev;
+        return {
+          ...prev,
+          userNotifications: prev.userNotifications.filter((g) => g.group_key !== groupKey),
+          unreadTotal: Math.max(0, prev.unreadTotal - (gone.event_count ?? 1)),
+        };
+      });
     },
     [patch],
   );
@@ -287,14 +336,14 @@ function useNotifCacheUpdaters(userId: string | undefined) {
   }, [patch]);
 
   return {
-    insertUserNotification,
+    bumpUnread,
     insertFriendRequest,
     removeFriendRequest,
     insertGift,
     removeGift,
     insertAdminNotification,
     removeAdminNotification,
-    removeUserNotification,
+    removeUserGroup,
     clearAll,
     patch,
   };
@@ -314,12 +363,40 @@ export function useNotificationsQuery(
   });
 
   const cache = useNotifCacheUpdaters(userId);
+  const queryClient = useQueryClient();
+
+  /**
+   * Refetch the grouped list, at most once per second.
+   *
+   * Grouping is the database's answer, so a new event means asking again. A
+   * busy photo can draw dozens of reactions inside a few seconds, and one
+   * refetch per reaction would be pointless traffic — the previous code had a
+   * 150ms batching window on its cache writes for exactly this reason.
+   */
+  const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleRegroup = useCallback(() => {
+    if (refetchTimer.current) return;
+    refetchTimer.current = setTimeout(() => {
+      refetchTimer.current = null;
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications(userId ?? "") });
+    }, 1000);
+  }, [queryClient, userId]);
+
+  useEffect(
+    () => () => {
+      if (refetchTimer.current) clearTimeout(refetchTimer.current);
+    },
+    [],
+  );
 
   // Realtime handlers — write directly to React Query cache
   const realtimeHandlers = useMemo(
     () => ({
-      onUserNotification: (notif: any) => {
-        cache.insertUserNotification(notif);
+      onUserNotification: (_notif: any) => {
+        // Badge first (instant, and it is what the arrival sound watches),
+        // regrouped list a beat later.
+        cache.bumpUnread(1);
+        scheduleRegroup();
       },
       onFriendRequest: async (friendship: any) => {
         if (friendship.status !== "pending") return;
@@ -358,7 +435,7 @@ export function useNotificationsQuery(
           }
         : undefined,
     }),
-    [cache, isAdmin],
+    [cache, isAdmin, scheduleRegroup],
   );
 
   useNotificationRealtime(userId, realtimeHandlers);
@@ -367,11 +444,7 @@ export function useNotificationsQuery(
 
   return {
     ...data,
-    totalCount:
-      data.friendRequests.length +
-      data.giftNotifications.length +
-      data.adminNotifications.length +
-      data.userNotifications.length,
+    totalCount: badgeCountOf(data),
     isLoading: query.isLoading,
     cache,
   };
