@@ -82,13 +82,25 @@ vi.mock("@/integrations/supabase/client", () => ({
 }));
 
 const NOTIF = {
-  id: "n1",
+  // A grouped row, the shape get_my_unread_notifications_grouped() returns —
+  // NOT a raw user_notifications row. The bell reads groups since 2026-08-02;
+  // a fixture in the old shape would render without a key and test nothing real.
+  group_key: "post_comment|2026-08-02",
   type: "post_comment",
-  title: "New comment",
-  message: "Someone commented on your photo",
+  notification_ids: ["n1"],
+  actor_ids: ["actor-1"],
+  actor_names: ["Partha Dalal"],
+  actor_usernames: ["parthad"],
+  actor_avatars: [""],
+  actor_count: 1,
+  event_count: 1,
+  unread_count: 1,
   reference_id: "post-1",
-  actor_id: "actor-1",
-  created_at: new Date().toISOString(),
+  thumbnail_url: null,
+  title: "New comment",
+  message: "Partha Dalal commented on your post",
+  latest_at: new Date().toISOString(),
+  total_unread: 1,
 };
 
 vi.mock("@/hooks/notifications/useNotificationsQuery", () => ({
@@ -97,17 +109,18 @@ vi.mock("@/hooks/notifications/useNotificationsQuery", () => ({
     giftNotifications: [],
     adminNotifications: [],
     userNotifications: [NOTIF],
+    unreadTotal: 1,
     totalCount: 1,
     isLoading: false,
     cache: {
-      insertUserNotification: vi.fn(),
+      bumpUnread: vi.fn(),
       insertFriendRequest: vi.fn(),
       removeFriendRequest: vi.fn(),
       insertGift: vi.fn(),
       removeGift: vi.fn(),
       insertAdminNotification: vi.fn(),
       removeAdminNotification: vi.fn(),
-      removeUserNotification: vi.fn(),
+      removeUserGroup: vi.fn(),
       clearAll: vi.fn(),
       patch: vi.fn(),
     },
