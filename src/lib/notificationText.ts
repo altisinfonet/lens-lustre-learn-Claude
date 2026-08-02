@@ -1,13 +1,28 @@
 /**
- * Turns a grouped notification row into the sentence the user reads.
+ * The shape of a grouped notification row, and which section it belongs to.
  *
- * Kept out of the page component on purpose: this is pure, testable logic, and
- * the phrasing has to stay identical between the notifications page and any
- * future surface (bell, push tap, app). The grouping itself happens in the
- * database — see get_my_notifications_grouped() — so this file only formats
- * what it is handed.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THIS FILE USED TO PHRASE NOTIFICATIONS TOO. IT NO LONGER DOES.
  *
- * NOTHING here invents a number. Counts come straight from the RPC.
+ * It once exported `actorPhrase`, `actionPhrase`, `notificationSentence`,
+ * `actorLabel` and its own `relativeAge`. Those were superseded on 2026-08-01
+ * by `src/lib/notifications/describe.ts`, which every surface now uses — the
+ * bell, the history page, and (through the SQL copy pinned by
+ * pushCatalogParity.test.ts) the push body.
+ *
+ * They were deleted on 2026-08-02 rather than left lying around, because they
+ * still said the two things that were removed from the product on purpose:
+ * **"Someone"** and **"just shared a post."** Dead code that renders banned
+ * wording is not dead — it is waiting for the next person who imports it.
+ *
+ * `hasInlineAction()` went with them. The rule it held — that a follower or a
+ * friend request must never be collapsed into a group, because each carries a
+ * button — now lives in the database, in `notif_group_key()`, which is where
+ * the grouping actually happens.
+ *
+ * WHAT IS LEFT IS NOT PHRASING: the row type, and the bucket a row falls into
+ * on the history screen.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 
 export interface NotificationGroup {
@@ -26,109 +41,6 @@ export interface NotificationGroup {
   title: string;
   message: string;
   latest_at: string;
-}
-
-/** Display handle for an actor: @username if they have one, else their name. */
-export function actorLabel(group: NotificationGroup, index: number): string {
-  const username = group.actor_usernames?.[index]?.trim();
-  if (username) return username;
-  const name = group.actor_names?.[index]?.trim();
-  return name || "Someone";
-}
-
-/**
- * "aninditahidayat", "aninditahidayat and vickyroy87",
- * "aninditahidayat, vickyroy87 and 31 others".
- *
- * The RPC returns at most 3 actors but always the true actor_count, so the
- * "and N others" number is real even though we only have three names.
- */
-export function actorPhrase(group: NotificationGroup): string {
-  const shown = Math.min(group.actor_ids?.length ?? 0, 2);
-  if (shown === 0) return "Someone";
-
-  const names = Array.from({ length: shown }, (_, i) => actorLabel(group, i));
-  const remaining = Math.max(0, (group.actor_count ?? shown) - shown);
-
-  if (remaining === 0) {
-    return names.length === 1 ? names[0] : `${names[0]} and ${names[1]}`;
-  }
-  if (remaining === 1 && shown >= 2) {
-    return `${names[0]}, ${names[1]} and 1 other`;
-  }
-  return shown === 1
-    ? `${names[0]} and ${remaining} ${remaining === 1 ? "other" : "others"}`
-    : `${names[0]}, ${names[1]} and ${remaining} others`;
-}
-
-/** The verb half of the sentence. Plural forms use the REAL event count. */
-export function actionPhrase(group: NotificationGroup): string {
-  const n = group.event_count ?? 1;
-  const many = n > 1;
-
-  switch (group.type) {
-    case "new_post_from_following":
-      return many ? `shared ${n} photos.` : "just shared a post.";
-    case "post_reaction":
-    case "image_reaction":
-      return many ? `reacted to your photos ${n} times.` : "reacted to your photo.";
-    case "post_comment":
-    case "image_comment":
-      return many ? `left ${n} comments on your photos.` : "commented on your photo.";
-    case "comment_reply":
-      return many ? `replied to you ${n} times.` : "replied to your comment.";
-    case "new_follower":
-      return "started following you.";
-    case "friend_request":
-      return "sent you a friend request.";
-    case "friend_accepted":
-      return "accepted your friend request.";
-    case "post_tag":
-      return "tagged you in a photo.";
-    default:
-      // Types with their own server-written wording (competition results,
-      // wallet, tickets, certificates) keep that wording verbatim rather than
-      // being paraphrased here.
-      return "";
-  }
-}
-
-/**
- * Full sentence. Falls back to the notification's own stored message for any
- * type this file does not phrase itself, so a new type can never render blank.
- */
-export function notificationSentence(group: NotificationGroup): string {
-  const action = actionPhrase(group);
-  if (!action) return group.message || group.title || "";
-  return `${actorPhrase(group)} ${action}`;
-}
-
-/** Types that carry an inline action and so must never be collapsed away. */
-export function hasInlineAction(group: NotificationGroup): boolean {
-  return group.type === "new_follower" || group.type === "friend_request";
-}
-
-/**
- * Instagram-style compact age: 1m / 5h / 6d / 1w / 3mo / 2y.
- * `now` is injectable so tests are not clock-dependent.
- */
-export function relativeAge(iso: string, now: Date = new Date()): string {
-  const then = new Date(iso).getTime();
-  if (!Number.isFinite(then)) return "";
-  const secs = Math.max(0, Math.floor((now.getTime() - then) / 1000));
-
-  if (secs < 60) return "now";
-  const mins = Math.floor(secs / 60);
-  if (mins < 60) return `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  const weeks = Math.floor(days / 7);
-  if (days < 30) return `${weeks}w`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo`;
-  return `${Math.floor(days / 365)}y`;
 }
 
 export type BucketKey = "new" | "last30" | "earlier";
