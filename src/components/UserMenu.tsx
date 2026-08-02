@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useDismissOnRouteChange } from "@/hooks/core/useDismissOnRouteChange";
 
 interface UserMenuProps {
   onNavigate?: () => void;
@@ -44,6 +45,13 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
   const { data: profileCore } = useProfileCore(user?.id);
   const avatarUrl = profileCore?.avatar_url ?? null;
   const hasAdminPanelAccess = resolveAdminSubRoles(roles).length > 0;
+
+  // Every navigation closes this menu, not just the ones that go through
+  // handleNav. A deep link, the back button, or a tap whose handler the Android
+  // webview drops would otherwise leave it open on top of the new page — the
+  // same failure the notification panel had. Must sit above the early return so
+  // the hook order is stable.
+  useDismissOnRouteChange(() => setOpen(false));
 
   if (!user) return null;
 

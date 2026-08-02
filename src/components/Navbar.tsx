@@ -14,6 +14,7 @@ import { navKeyForLabel } from "@/i18n/translations";
 import { useNavigationMenu, type MenuTree } from "@/hooks/core/useNavigationMenu";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import * as LucideIcons from "lucide-react";
+import { useDismissOnRouteChange } from "@/hooks/core/useDismissOnRouteChange";
 
 interface NavbarProps {
   transparent?: boolean;
@@ -74,11 +75,13 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
     megaTimeout.current = setTimeout(() => setOpenMegaId(null), 200);
   };
 
-  // Close mega menu on route change
-  useEffect(() => {
+  // Close the mega menu and the mobile menu on every navigation.
+  // Keyed on the navigation rather than the pathname — see
+  // useDismissOnRouteChange for why that difference matters.
+  useDismissOnRouteChange(() => {
     setOpenMegaId(null);
     setMobileMenuOpen(false);
-  }, [location.pathname]);
+  });
 
   const renderDesktopItem = (item: MenuTree) => {
     const hasChildren = item.children.filter((c) => isVisible(c.visibility, user, isAdmin)).length > 0;

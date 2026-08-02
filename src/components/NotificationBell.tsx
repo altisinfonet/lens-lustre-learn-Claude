@@ -1,15 +1,16 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Bell, UserPlus, Gift, Check, X, HelpCircle, MessageCircle, Heart, Award, Trophy, Eye, Vote, Users, Camera, BookOpen, GraduationCap, Star, Cake, Newspaper, Tag } from "lucide-react";
 import { toast } from "@/hooks/core/use-toast";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
-import { AnimatePresence, motion } from "framer-motion";
-import UserIdentityBlock from "@/components/UserIdentityBlock";
+import { motion } from "framer-motion";
 import { useNotificationsQuery, type UserNotification } from "@/hooks/notifications/useNotificationsQuery";
 import { useNotificationSound } from "@/hooks/core/useNotificationSound";
 import { getNotifLink } from "@/lib/notificationLinks";
+import { useDismissOnRouteChange } from "@/hooks/core/useDismissOnRouteChange";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -100,7 +101,32 @@ const NotificationBell = () => {
     prevCountRef.current = totalCount;
   }, [totalCount, playNotificationSound]);
 
-  // Close on outside click (works inside transformed ancestors like Drawer) + Escape
+  // LAYER 1 — a route change always closes it.
+  //
+  // This is the layer that holds when nothing else does. On 2026-08-01 the
+  // owner tapped "See All": the page changed and the panel stayed. Measured on
+  // production, the node was still in the DOM at opacity 0 with the closing
+  // transform applied — so the click HAD been delivered and setOpen(false) HAD
+  // run, and the element was still never removed. Anything that depends on a
+  // handler firing, or on an animation finishing, can fail. A layout effect
+  // keyed on the navigation cannot. See useDismissOnRouteChange.
+  useDismissOnRouteChange(() => setOpen(false));
+
+  // LAYER 4 — Escape is ALWAYS listening, even while closed.
+  //
+  // It used to live in the `if (!open) return` effect below. That meant the
+  // listener was torn down the instant `open` flipped to false — which, while
+  // the panel was still stuck on screen, left the user pressing Escape at
+  // something with nothing attached to it. Verified on production: Escape did
+  // nothing. One always-live keydown listener costs nothing and removes the
+  // whole "the listener was gone before the panel was" failure class.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Close on outside click (works inside transformed ancestors like Drawer)
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (e: MouseEvent | TouchEvent) => {
@@ -109,7 +135,6 @@ const NotificationBell = () => {
         setOpen(false);
       }
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     // Close when the PAGE scrolls behind the open panel — but never when the
     // panel's own list is scrolled. `scroll` does not bubble, yet a capture-phase
     // listener on window still receives scrolls dispatched to any element in the
@@ -122,12 +147,10 @@ const NotificationBell = () => {
     };
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("touchstart", onPointerDown, { passive: true });
-    document.addEventListener("keydown", onKey);
     window.addEventListener("scroll", onScroll, { passive: true, capture: true });
     return () => {
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("touchstart", onPointerDown);
-      document.removeEventListener("keydown", onKey);
       window.removeEventListener("scroll", onScroll, true);
     };
   }, [open]);
@@ -226,6 +249,9 @@ const NotificationBell = () => {
         onClick={() => setOpen(!open)}
         className="relative p-2 rounded-full border border-border hover:border-primary hover:text-primary transition-all duration-500"
         aria-label="Notifications"
+        aria-expanded={open}
+        aria-controls="notification-panel"
+        aria-haspopup="dialog"
       >
         <Bell className="h-4 w-4" />
         {totalCount > 0 && (
@@ -235,14 +261,40 @@ const NotificationBell = () => {
         )}
       </button>
 
-      <AnimatePresence>
-        {open && (
-          <>
-
+      {/* LAYER 2 — the panel is removed by plain React reconciliation.
+          There is deliberately NO <AnimatePresence> and NO `exit` prop here.
+          AnimatePresence keeps an exiting child MOUNTED until its animation
+          reports completion, and on 2026-08-01 that completion never came: the
+          panel sat in the DOM at opacity 0 with `transform: scale(0.95)
+          translateY(8px)`, a 304x456 invisible rectangle over the top-right of
+          every page, swallowing every click inside it until a full reload. On
+          Android the animation could not run at all, so the panel simply stayed
+          visible over the new page — which is what the owner reported.
+          The entrance animation stays; it does not gate unmount. Losing the
+          200ms fade-out is the price, and it is the right one.
+          NotificationBellDismiss.test.tsx fails the build if this comes back. */}
+      {open && (
+        <>
+          {/* LAYER 3 — a real backdrop, portalled to <body> so no transformed or
+              blurred ancestor can trap it. `pointerdown`, not `click`: an
+              Android webview drops the click on an element that disappears
+              under the finger, which is exactly how this class of bug started.
+              z-40 keeps it under the z-50 navbar and over the page. */}
+          {createPortal(
+            <div
+              data-testid="notif-scrim"
+              className="fixed inset-0 z-40"
+              onPointerDown={() => setOpen(false)}
+              aria-hidden="true"
+            />,
+            document.body,
+          )}
             <motion.div
+              id="notification-panel"
+              role="dialog"
+              aria-label="Notifications"
               initial={{ opacity: 0, y: 8, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.95 }}
               transition={{ duration: 0.2 }}
               className="absolute right-0 top-full mt-2 w-80 max-h-[480px] bg-card border border-border shadow-xl z-50 overflow-hidden flex flex-col"
             >
@@ -433,9 +485,8 @@ const NotificationBell = () => {
                 </Link>
               </div>
             </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+        </>
+      )}
     </div>
   );
 };

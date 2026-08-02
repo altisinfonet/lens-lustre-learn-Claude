@@ -145,17 +145,21 @@ const LayoutInner = () => {
   return (
     <>
       <PageSEO />
-      {!hideNav && isHome && (
-        <div className="absolute top-0 left-0 right-0 z-50">
+      {/* ONE Navbar, always in the same place in the tree.
+          It used to be rendered from two different JSX positions — one for the
+          home route, one for everything else — so crossing that boundary
+          destroyed and rebuilt the navbar and everything inside it: the
+          notification bell's unread state, the search box, any open menu. The
+          home page still gets its overlaid, transparent treatment, but through
+          a wrapper class rather than a second element, so React keeps one
+          instance across every route.
+          The home-only wrapper carries `absolute top-0 left-0 right-0 z-50`
+          exactly as before — see the note above about /home and the hero. */}
+      {!hideNav && (
+        <div className={isHome ? "absolute top-0 left-0 right-0 z-50" : undefined}>
           <AnnouncementBar />
-          <Navbar transparent />
+          <Navbar transparent={isHome} />
         </div>
-      )}
-      {!hideNav && !isHome && (
-        <>
-          <AnnouncementBar />
-          <Navbar />
-        </>
       )}
 
       {!showOnboarding && <GiftCelebrationModal />}
