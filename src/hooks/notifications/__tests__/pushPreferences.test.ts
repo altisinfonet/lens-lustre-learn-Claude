@@ -40,7 +40,16 @@ const read = (p: string) =>
 const hook = read("src/hooks/notifications/useNotificationPreferences.ts");
 const page = read("src/pages/NotificationSettings.tsx");
 
-/** Exactly the columns `push_on_notification()` reads. */
+/**
+ * Exactly the columns `push_on_notification()` reads.
+ *
+ * `push_new_posts` joined this list on 2026-08-02. It existed in the table from
+ * the start but the trigger ignored it, so `new_post_from_following` — the
+ * highest-volume push on the platform — fell through to "push to everyone" and
+ * could only be silenced by killing every push. The toggle was held OFF the
+ * screen until migration 20260802230000 taught the trigger to read it. Proven
+ * on production, rolled back: on -> 1 push queued, off -> 0.
+ */
 const HONOURED = [
   "push_enabled",
   "push_reactions",
@@ -48,6 +57,7 @@ const HONOURED = [
   "push_friend_requests",
   "push_new_followers",
   "push_competition_updates",
+  "push_new_posts",
 ];
 
 describe("the preferences hook carries the push switches", () => {
@@ -81,12 +91,31 @@ describe("the settings screen shows them", () => {
 });
 
 describe("no switch that does nothing", () => {
-  it("never offers a new-posts toggle, because the trigger ignores that column", () => {
-    // push_new_posts EXISTS in the table but push_on_notification() does not
-    // read it — a new-post push falls through to "send to everyone" and is
-    // governed only by push_enabled. Putting it on screen would be a control
-    // that changes nothing, which is the whole fault this section removes.
-    expect(page).not.toContain("push_new_posts");
-    expect(hook).not.toContain("push_new_posts");
+  /**
+   * The rule is not "never show this toggle" — it is "never show a toggle the
+   * server ignores". So the toggle is allowed to exist only while the trigger
+   * demonstrably reads the column. This reads the migration and fails if the
+   * line is ever removed while the switch stays on screen.
+   */
+  const trigger = readFileSync(
+    join(process.cwd(), "supabase/migrations/20260802230000_push_new_posts_switch_is_read.sql"),
+    "utf8",
+  )
+    .split("\n")
+    .map((l) => l.replace(/--.*$/, ""))
+    .join("\n");
+
+  it("only offers the new-posts toggle because the trigger reads that column", () => {
+    expect(trigger).toMatch(
+      /WHEN NEW\.type = 'new_post_from_following'\s+THEN np\.push_new_posts/,
+    );
+    expect(page).toContain("push_new_posts");
+  });
+
+  it("keeps the master switch ahead of every category, so it still silences all", () => {
+    const caseBlock = trigger.slice(trigger.indexOf("SELECT CASE"), trigger.indexOf("INTO _allow"));
+    expect(caseBlock.indexOf("push_enabled = false")).toBeLessThan(
+      caseBlock.indexOf("np.push_new_posts"),
+    );
   });
 });
