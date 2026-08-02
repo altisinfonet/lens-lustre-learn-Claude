@@ -24,10 +24,10 @@ export interface NotificationPreferences {
    * They had simply never been exposed anywhere in the app, so the 12 members
    * with a registered device had no way to stop receiving pushes.
    *
-   * `push_new_posts` is deliberately ABSENT. The column exists, but the trigger
-   * does not read it — a new-post push falls through to "send to everyone" and
-   * is governed only by push_enabled. Exposing it would be a switch that does
-   * nothing, which is the exact fault being fixed here.
+   * `push_new_posts` was deliberately absent when this shipped, because the
+   * trigger did not read it. Migration 20260802230000 added the one line that
+   * reads it — proven on production, rolled back: on -> 1 push queued, off -> 0
+   * — so the switch is real and is now here.
    */
   push_enabled: boolean;
   push_reactions: boolean;
@@ -35,6 +35,7 @@ export interface NotificationPreferences {
   push_friend_requests: boolean;
   push_new_followers: boolean;
   push_competition_updates: boolean;
+  push_new_posts: boolean;
 }
 
 const DEFAULTS: NotificationPreferences = {
@@ -60,6 +61,7 @@ const DEFAULTS: NotificationPreferences = {
   push_friend_requests: true,
   push_new_followers: true,
   push_competition_updates: true,
+  push_new_posts: true,
 };
 
 export function useNotificationPreferences() {
@@ -102,6 +104,7 @@ export function useNotificationPreferences() {
         push_friend_requests: (data as any).push_friend_requests ?? true,
         push_new_followers: (data as any).push_new_followers ?? true,
         push_competition_updates: (data as any).push_competition_updates ?? true,
+        push_new_posts: (data as any).push_new_posts ?? true,
       };
     },
     enabled: !!user,

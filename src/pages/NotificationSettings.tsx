@@ -282,6 +282,14 @@ const NotificationSettings = () => {
                 onCheckedChange={toggle("push_competition_updates")}
                 disabled={!preferences.push_enabled}
               />
+              <ToggleRow
+                icon={<Bell className="w-4 h-4" />}
+                label={t("notif.pushNewPosts", "New photos from people you follow")}
+                description={t("notif.pushNewPostsDesc", "The most frequent alert on the platform. Turn it off and everything else still reaches you.")}
+                checked={preferences.push_new_posts}
+                onCheckedChange={toggle("push_new_posts")}
+                disabled={!preferences.push_enabled}
+              />
 
               {/* Sound */}
               <SectionHeader title={t("notif.sec.sound")} />
