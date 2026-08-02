@@ -186,6 +186,43 @@ jobs:
       - name: Sync web build into native project
         run: npx cap sync android
 
+      - name: Install monochrome notification icon and manifest meta-data
+        run: |
+          set -euo pipefail
+          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            mkdir -p "android/app/src/main/res/drawable-$d"
+            cp "resources/android/notification/ic_notification-$d.png" "android/app/src/main/res/drawable-$d/ic_notification.png"
+          done
+          mkdir -p android/app/src/main/res/values
+          cat > android/app/src/main/res/values/notification_colors.xml <<'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="notification_accent">#C6A04A</color>
+          </resources>
+          XML
+          python3 - <<'PY'
+          import pathlib
+          p = pathlib.Path("android/app/src/main/AndroidManifest.xml")
+          s = p.read_text()
+          assert "default_notification_icon" not in s, "meta-data already present"
+          assert s.count("</application>") == 1, "unexpected manifest shape"
+          meta = (
+              '<meta-data\n'
+              '            android:name="com.google.firebase.messaging.default_notification_icon"\n'
+              '            android:resource="@drawable/ic_notification" />\n'
+              '        <meta-data\n'
+              '            android:name="com.google.firebase.messaging.default_notification_color"\n'
+              '            android:resource="@color/notification_accent" />\n'
+              '    </application>'
+          )
+          p.write_text(s.replace("</application>", meta))
+          print("manifest patched")
+          PY
+          echo "--- notification drawables ---"
+          ls -1 android/app/src/main/res/drawable-*/ic_notification.png
+          echo "--- manifest meta-data lines ---"
+          grep -c default_notification android/app/src/main/AndroidManifest.xml
+
       # -------------------------------------------------------------------
       # OPTIONAL SIGNING — only runs if you've added the keystore secret.
       # With no secret, this is a no-op and the build stays unsigned (as today).
