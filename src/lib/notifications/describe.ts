@@ -44,8 +44,13 @@
  */
 import { BRAND_NAME } from "@/lib/adminBrand";
 
-/** Types that describe a thing that happened TO you, with no human actor. */
-const IMPERSONAL_TYPES = new Set([
+/**
+ * Types that describe a thing that happened TO you, with no human actor.
+ *
+ * Exported so a test can prove this list and ACTION_CATALOG never overlap — an
+ * overlap would put a person's name in front of "Your entry was approved."
+ */
+export const IMPERSONAL_TYPES = new Set([
   "entry_approved",
   "entry_rejected",
   "entry_shortlisted",
@@ -113,18 +118,26 @@ export interface NotificationDescription {
   hasActor: boolean;
 }
 
+/**
+ * The two labels used when a person cannot be named. Exported because the push
+ * body is composed in SQL (notif_display_name) and a test compares the two
+ * word for word — see src/lib/notifications/__tests__/pushCatalogParity.test.ts.
+ */
+export const NAME_UNKNOWN = "A member";
+export const NAME_DELETED = "A deleted account";
+
 /** One actor's display name, with all three naming rules applied. */
 export function actorDisplayName(actor: NotificationActor | undefined): string {
-  if (!actor) return "A member";
+  if (!actor) return NAME_UNKNOWN;
   // Rule 1 wins over everything: an admin is the brand, whatever their profile
   // says. This is the leak that made an admin's real name visible in push.
   if (actor.isAdmin) return BRAND_NAME;
-  if (actor.known === false) return "A deleted account";
+  if (actor.known === false) return NAME_DELETED;
   const name = actor.fullName?.trim();
   if (name) return name; // Rule 2: full name first…
   const username = actor.username?.trim();
   if (username) return username; // …then @username.
-  return "A member"; // Rule 3: a real person we have no label for.
+  return NAME_UNKNOWN; // Rule 3: a real person we have no label for.
 }
 
 /**
@@ -149,33 +162,46 @@ export function actorPhrase(subject: NotificationSubject): string {
   return shown === 1 ? `${names[0]} and ${others}` : `${names[0]}, ${names[1]} and ${others}`;
 }
 
+export interface ActionEntry {
+  /** Exactly one event. This is also the string the push body uses. */
+  one: string;
+  /** Two or more events collapsed into one line. Absent = never grouped. */
+  many?: (n: number) => string;
+}
+
+/**
+ * EVERY PHRASE THE APP CAN SAY ABOUT A NOTIFICATION, in one object.
+ *
+ * This was a `switch` until 2026-08-02. It is data now for one reason: the push
+ * body is composed inside the database (public.notif_action_phrase, added in
+ * migration 20260802090000_push_text_from_catalog.sql) and the two copies must
+ * never drift. A list can be walked by a test; a switch cannot.
+ * `pushCatalogParity.test.ts` walks this object, reads the migration file, and
+ * fails if one character differs.
+ *
+ * A type missing from here is not an error — it renders the sentence the server
+ * wrote, on every surface. Adding a type is safe; changing a phrase means
+ * changing it in the migration too, and CI will say so.
+ */
+export const ACTION_CATALOG: Readonly<Record<string, ActionEntry>> = {
+  new_post_from_following: { one: "shared a photo.", many: (n) => `shared ${n} photos.` },
+  post_reaction: { one: "reacted to your photo.", many: (n) => `reacted to your photos ${n} times.` },
+  image_reaction: { one: "reacted to your photo.", many: (n) => `reacted to your photos ${n} times.` },
+  post_comment: { one: "commented on your photo.", many: (n) => `left ${n} comments on your photos.` },
+  image_comment: { one: "commented on your photo.", many: (n) => `left ${n} comments on your photos.` },
+  comment_reply: { one: "replied to your comment.", many: (n) => `replied to you ${n} times.` },
+  new_follower: { one: "started following you." },
+  friend_request: { one: "sent you a friend request." },
+  friend_accepted: { one: "accepted your friend request." },
+  post_tag: { one: "tagged you in a photo." },
+};
+
 /** The verb half. Plural forms use the REAL event count, never an estimate. */
 export function actionPhrase(subject: NotificationSubject): string {
+  const entry = ACTION_CATALOG[subject.type];
+  if (!entry) return "";
   const n = subject.eventCount ?? 1;
-  const many = n > 1;
-
-  switch (subject.type) {
-    case "new_post_from_following":
-      return many ? `shared ${n} photos.` : "shared a photo.";
-    case "post_reaction":
-    case "image_reaction":
-      return many ? `reacted to your photos ${n} times.` : "reacted to your photo.";
-    case "post_comment":
-    case "image_comment":
-      return many ? `left ${n} comments on your photos.` : "commented on your photo.";
-    case "comment_reply":
-      return many ? `replied to you ${n} times.` : "replied to your comment.";
-    case "new_follower":
-      return "started following you.";
-    case "friend_request":
-      return "sent you a friend request.";
-    case "friend_accepted":
-      return "accepted your friend request.";
-    case "post_tag":
-      return "tagged you in a photo.";
-    default:
-      return "";
-  }
+  return n > 1 && entry.many ? entry.many(n) : entry.one;
 }
 
 /** Compact age: now / 5m / 3h / 6d / 1w / 3mo / 2y. `now` injectable for tests. */
@@ -224,15 +250,23 @@ export function describeNotification(
     };
   }
 
-  const impersonal = IMPERSONAL_TYPES.has(subject.type);
-  const actorText = impersonal ? "" : actorPhrase(subject);
-
-  if (!actorText) {
-    // A type we phrase, but with nobody to name. Capitalise the verb so it
-    // still reads as a sentence rather than a fragment.
+  if (IMPERSONAL_TYPES.has(subject.type)) {
+    // Nothing happened to you at the hands of a person. Capitalise the verb so
+    // it still reads as a sentence rather than a fragment. (No type is both
+    // impersonal and phrasable today; this is the guard for the day one is.)
     const standalone = action.charAt(0).toUpperCase() + action.slice(1);
     return { actorText: "", action, text: standalone, age, hasActor: false };
   }
+
+  // A social type always had a human behind it, so the sentence always gets a
+  // subject — even when we cannot say who.
+  //
+  // This is not hypothetical. delete-user and delete-my-account both null out
+  // user_notifications.actor_id when an account goes, which is right, and 33
+  // rows on production are in that state. Without this line they would read
+  // "Started following you." — a headless sentence, and the exact shape of the
+  // old "Someone" bug wearing different clothes.
+  const actorText = actorPhrase(subject) || NAME_UNKNOWN;
 
   return { actorText, action, text: `${actorText} ${action}`, age, hasActor: true };
 }
