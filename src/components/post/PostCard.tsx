@@ -31,6 +31,13 @@ interface PostCardProps {
   onReact: (postId: string, type: ReactionType) => void;
   onUnreact: (postId: string) => void;
   onDelete?: (postId: string) => void;
+  /**
+   * Provided ONLY by the wall, and only when the viewer is looking at their own
+   * wall at a post they reshared. Its presence is what turns on "Remove from my
+   * wall". A mis-tapped share used to be permanent: the post belongs to someone
+   * else, so the menu offered nothing but "Report content".
+   */
+  onRemoveShare?: (postId: string) => void;
   onShareToWall?: (post: UnifiedPost) => void;
   /** Callback for optimistic comment count updates */
   onCommentCountChange?: (postId: string, delta: number) => void;
@@ -46,6 +53,7 @@ const PostCard = ({
   onReact,
   onUnreact,
   onDelete,
+  onRemoveShare,
   onShareToWall,
   onCommentCountChange,
   onShareCountChange,
@@ -243,9 +251,19 @@ const PostCard = ({
                   </DropdownMenuItem>
                 </>
               ) : (
-                <DropdownMenuItem onClick={() => { setReportingOpen(true); setReportReason(""); }} className="py-2.5">
-                  <Flag className="h-4 w-4 mr-2.5" /> Report content
-                </DropdownMenuItem>
+                <>
+                  {onRemoveShare && post.is_reshare && (
+                    <DropdownMenuItem
+                      onClick={() => onRemoveShare(post.id)}
+                      className="text-destructive focus:text-destructive py-2.5"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2.5" /> Remove from my wall
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={() => { setReportingOpen(true); setReportReason(""); }} className="py-2.5">
+                    <Flag className="h-4 w-4 mr-2.5" /> Report content
+                  </DropdownMenuItem>
+                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
