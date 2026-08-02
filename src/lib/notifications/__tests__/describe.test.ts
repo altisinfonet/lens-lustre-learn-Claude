@@ -137,11 +137,26 @@ describe('the word "Someone" is gone, and the states it hid are separated', () =
     expect(d.text).toBe('Your entry in "Monsoon" has been approved!');
   });
 
-  it("still reads as a sentence when a phrasable type has lost its actor", () => {
+  it("still names a subject when a social type has lost its actor", () => {
+    // CHANGED 2026-08-02. This used to expect the headless "Reacted to your
+    // photo." Production says that is the wrong call: delete-user and
+    // delete-my-account null out user_notifications.actor_id when an account
+    // goes, and 33 rows are in that state right now. A social event always had
+    // a person behind it, so the sentence keeps a subject even when we can no
+    // longer say who — a headless verb is the old "Someone" bug in disguise.
     const subject = subjectFromGroup(
       groupRow({ type: "post_reaction", actor_ids: [], actor_names: [], actor_count: 0 }),
     );
-    expect(describeNotification(subject, NOW).text).toBe("Reacted to your photo.");
+    expect(describeNotification(subject, NOW).text).toBe("A member reacted to your photo.");
+  });
+
+  it("leaves an impersonal notification with no subject at all", () => {
+    // The other half of the same decision: nobody DID this to you, so nothing
+    // is prefixed. Guard for the day a type is both impersonal and phrasable.
+    const subject = subjectFromGroup(
+      groupRow({ type: "entry_approved", actor_ids: [], actor_names: [], actor_count: 0, message: "" }),
+    );
+    expect(describeNotification(subject, NOW).text).not.toMatch(/^A member/);
   });
 });
 
