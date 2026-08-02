@@ -109,4 +109,20 @@ describe("the hook cannot go back to counting rows", () => {
     expect(src).toContain("get_my_unread_notifications_grouped");
     expect(src).not.toMatch(/from\("user_notifications"\)/);
   });
+
+  /**
+   * A friend request writes a pending `friendships` row AND a `friend_request`
+   * notification. The bell reads both, so every pending request was counted
+   * twice in the badge and drawn twice in the panel. Measured on production
+   * 2026-08-02: every member with 3 pending requests had exactly 3 unread
+   * friend_request rows.
+   *
+   * The exclusion is sent to the RPC, not applied here, because `total_unread`
+   * is counted server-side — filtering in the client would fix the list and
+   * leave the number wrong, which is the fault Stage 3c existed to remove.
+   */
+  it("tells the server not to count friend requests, so the badge counts them once", () => {
+    expect(src).toMatch(/BELL_EXCLUDED_TYPES\s*=\s*\[\s*"friend_request"\s*\]/);
+    expect(src).toMatch(/_exclude_types:\s*BELL_EXCLUDED_TYPES/);
+  });
 });
