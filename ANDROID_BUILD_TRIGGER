@@ -1,3 +1,34 @@
+Build 1041 - 2026-08-02
+
+INTERNAL CHANGELOG. Never shown to a member. Play "What's new" stays
+"Bug fixes and improvements." per the owner's standing instruction.
+
+THE NOTIFICATION MARK IS NOW THE LOGO ITSELF
+
+  Owner's decision, taken after seeing every option at real size: use the
+  logo, not a simplified mark.
+
+  Cut from the artwork the owner supplied. The status bar keeps only the
+  silhouette - which pixels are solid - and paints it in one flat colour, so
+  what ships is the bright artwork of the badge: the outer ring, the 5, the
+  aperture and the eye, as a single shape.
+
+  Tuned separately at each density instead of one image resized five times,
+  because the trade-off is different at every size. At 96 px and 72 px - what
+  3x and 4x phones actually draw, which is most phones in use - the badge is
+  legible. At 24 px it reduces to a ring and an eye; that density is rare.
+
+  1039 shipped a drawn aperture; 1040 corrected its shape. 1041 replaces both
+  with the real logo at the owner's instruction.
+
+  The bundle-level assertion added in 1039 still runs: the build opens the
+  finished bundle and fails if the icon or either meta-data entry is missing.
+
+REGISTRATION
+  Untouched. No app code, no web code and no database change in this build.
+
+====================================================================
+
 Build 1040 - 2026-08-02
 
 INTERNAL CHANGELOG. Never shown to a member. Play "What's new" stays
