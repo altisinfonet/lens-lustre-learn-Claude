@@ -13,7 +13,7 @@
  */
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Bell } from "lucide-react";
+import { ArrowLeft, Bell, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useT } from "@/i18n/I18nContext";
@@ -24,6 +24,7 @@ import {
   useNotificationHistory,
   useFollowingSet,
   markGroupRead,
+  deleteGroup,
 } from "@/hooks/notifications/useNotificationHistory";
 import {
   bucketFor,
@@ -68,6 +69,7 @@ function NotificationRow({
   followReady,
   onOpen,
   onFollowBack,
+  onDelete,
   followPending,
   adminIds,
 }: {
@@ -76,6 +78,7 @@ function NotificationRow({
   followReady: boolean;
   onOpen: (g: NotificationGroup) => void;
   onFollowBack: (actorId: string) => void;
+  onDelete: (g: NotificationGroup) => void;
   followPending: boolean;
   /** Passed down rather than fetched per row — one lookup for the whole list. */
   adminIds: Set<string>;
@@ -137,6 +140,18 @@ function NotificationRow({
           />
         </button>
       )}
+
+      {/* Remove this line for good. Separate from opening it, and separate
+          from the bell's X, which means "mark read". Deleting has no undo, so
+          it never shares a control with something that does. */}
+      <button
+        onClick={() => onDelete(group)}
+        aria-label={t("notifications.delete", "Delete")}
+        title={t("notifications.delete", "Delete")}
+        className="shrink-0 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
@@ -184,6 +199,23 @@ const Notifications = () => {
       }
     }
     navigate(getNotifLink({ type: group.type, reference_id: group.reference_id }));
+  };
+
+  /**
+   * Delete, not dismiss. There is no undo, so the row goes and the caches are
+   * refetched from the server rather than patched optimistically — a list that
+   * disagrees with the database is worse than a moment's delay.
+   */
+  const removeGroup = async (group: NotificationGroup) => {
+    try {
+      await deleteGroup(group.notification_ids ?? []);
+    } catch {
+      // Leave the row on screen. A delete that silently "worked" and then came
+      // back on the next refetch is the worst of both.
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["notification-history", user?.id ?? ""] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.notifications(user?.id ?? "") });
   };
 
   const followBack = async (actorId: string) => {
@@ -250,6 +282,7 @@ const Notifications = () => {
                 followPending={busyActor === group.actor_ids?.[0]}
                 onOpen={openGroup}
                 onFollowBack={followBack}
+                onDelete={removeGroup}
                 adminIds={adminIds}
               />
             ))}

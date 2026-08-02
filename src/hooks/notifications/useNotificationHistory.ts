@@ -87,3 +87,26 @@ export async function markGroupRead(notificationIds: string[]): Promise<void> {
     .in("id", notificationIds);
   if (error) throw error;
 }
+
+/**
+ * Delete a group's notifications outright.
+ *
+ * There was no way to remove a notification anywhere in the app until
+ * 2026-08-02, and it was not a missing button — `user_notifications` had no
+ * DELETE policy at all, so with RLS on, nobody could delete a row. Migration
+ * 20260802190000 adds one, scoped to `auth.uid() = user_id`. Proven on
+ * production in a rolled-back transaction: a member deleting their own row
+ * removes 1; the same member aiming at another member's rows removes 0.
+ *
+ * This is IRREVERSIBLE — there is no trash. It is deliberately separate from
+ * `markGroupRead`: marking read can be undone, deleting cannot, and the two
+ * must never sit behind the same control.
+ */
+export async function deleteGroup(notificationIds: string[]): Promise<void> {
+  if (!notificationIds.length) return;
+  const { error } = await supabase
+    .from("user_notifications")
+    .delete()
+    .in("id", notificationIds);
+  if (error) throw error;
+}
