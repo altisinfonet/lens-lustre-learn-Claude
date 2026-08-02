@@ -7,13 +7,15 @@ import { useAuth } from "@/hooks/core/useAuth";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import { useNotificationsQuery, type UserNotification } from "@/hooks/notifications/useNotificationsQuery";
+import { useNotificationsQuery, type UserNotificationGroup } from "@/hooks/notifications/useNotificationsQuery";
 import { useNotificationSound } from "@/hooks/core/useNotificationSound";
 import { getNotifLink } from "@/lib/notificationLinks";
 import { useDismissOnRouteChange } from "@/hooks/core/useDismissOnRouteChange";
 import { useIsPrimaryInstance } from "@/hooks/core/useIsPrimaryInstance";
 import { describeNotification, relativeAge } from "@/lib/notifications/describe";
-import { subjectFromRow } from "@/lib/notifications/adapters";
+import { subjectFromGroup } from "@/lib/notifications/adapters";
+import { useAdminIds } from "@/hooks/core/useAdminIds";
+import { markGroupRead } from "@/hooks/notifications/useNotificationHistory";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -84,6 +86,9 @@ const NotificationBell = () => {
   const { playNotificationSound } = useNotificationSound();
   const prevCountRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Needed to render an admin as the brand rather than a real name — the same
+  // hook, and therefore the same rule, that /notifications uses.
+  const adminIds = useAdminIds();
 
   // All notification data lives in React Query cache — no local state
   const {
@@ -91,6 +96,7 @@ const NotificationBell = () => {
     giftNotifications,
     adminNotifications,
     userNotifications,
+    unreadTotal,
     totalCount,
     isLoading: loading,
     cache,
@@ -193,30 +199,43 @@ const NotificationBell = () => {
     setOpen(false);
   };
 
-  const dismissUserNotification = async (id: string) => {
-    await supabase.functions.invoke("manage-notifications", {
-      body: { action: "dismiss_user", id },
-    });
-    cache.removeUserNotification(id);
-    setOpen(false);
+  /**
+   * Dismiss a whole GROUP.
+   *
+   * The line says "Partha, Tanmay and 31 others reacted to your photo" — so the
+   * X next to it has to clear all 33, not one of them. `markGroupRead` marks
+   * every id in the group; RLS ("Users can update own notifications") already
+   * restricts that to this member's own rows, which is why it needs no edge
+   * function — the same call /notifications has been using since Stage 1.
+   *
+   * Types that carry an individual action (friend_request, post_tag,
+   * new_follower) are never grouped by notif_group_key(), so for those this is
+   * exactly one notification and behaves as it always did.
+   */
+  const dismissUserGroup = async (group: UserNotificationGroup, close = true) => {
+    cache.removeUserGroup(group.group_key);
+    try {
+      await markGroupRead(group.notification_ids ?? []);
+    } catch {
+      /* The row stays unread and the next refetch brings it back — better than
+         a panel that lies about what it cleared. */
+    }
+    if (close) setOpen(false);
   };
 
-  const respondToTag = async (notif: UserNotification, decision: "approved" | "declined") => {
-    if (!user || !notif.reference_id) return;
+  const respondToTag = async (group: UserNotificationGroup, decision: "approved" | "declined") => {
+    if (!user || !group.reference_id) return;
     const { error } = await supabase
       .from("post_tags")
       .update({ status: decision, responded_at: new Date().toISOString() })
-      .eq("post_id", notif.reference_id)
+      .eq("post_id", group.reference_id)
       .eq("tagged_user_id", user.id)
       .eq("status", "pending");
     if (error) {
       toast({ title: "Couldn't update tag", description: error.message, variant: "destructive" });
       return;
     }
-    await supabase.functions.invoke("manage-notifications", {
-      body: { action: "dismiss_user", id: notif.id },
-    });
-    cache.removeUserNotification(notif.id);
+    await dismissUserGroup(group, false);
     toast({
       title: decision === "approved" ? "Tag approved" : "Tag declined",
       description: decision === "approved" ? "Now visible on your Photos of You." : "This person can no longer tag you on this post.",
@@ -239,13 +258,27 @@ const NotificationBell = () => {
 
   if (!user) return null;
 
-  // Group user notifications by category
-  const groupedNotifs = userNotifications.reduce<Record<string, UserNotification[]>>((acc, n) => {
-    const cat = NOTIF_CATEGORY[n.type] || "Other";
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(n);
-    return acc;
-  }, {});
+  // Sort the already-grouped rows into the panel's category headings.
+  const groupedNotifs = userNotifications.reduce<Record<string, UserNotificationGroup[]>>(
+    (acc, g) => {
+      const cat = NOTIF_CATEGORY[g.type] || "Other";
+      if (!acc[cat]) acc[cat] = [];
+      acc[cat].push(g);
+      return acc;
+    },
+    {},
+  );
+
+  /**
+   * True when the badge counts more than the panel is showing.
+   *
+   * The panel asks for 20 groups; a member can have far more (83 was the
+   * highest on production, mostly individual followers, which are deliberately
+   * never grouped). Saying so out loud is the point: the previous bell just
+   * stopped at 30 and said nothing.
+   */
+  const shownEvents = userNotifications.reduce((n, g) => n + (g.event_count ?? 1), 0);
+  const hiddenEvents = Math.max(0, unreadTotal - shownEvents);
 
   return (
     <div className="relative" ref={containerRef}>
@@ -405,17 +438,24 @@ const NotificationBell = () => {
                       </NotifSection>
                     )}
 
-                    {/* Grouped User Notifications */}
-                    {Object.entries(groupedNotifs).map(([category, notifs]) => (
+                    {/* User notifications — ONE LINE PER GROUP.
+                        The database decides what a group is (notif_group_key),
+                        so a day of reactions is one line here and one line on
+                        /notifications. It used to be 40 lines here and 1 there. */}
+                    {Object.entries(groupedNotifs).map(([category, groups]) => (
                       <NotifSection key={category} title={category}>
-                        {notifs.map((notif) => {
-                          const IconComp = NOTIF_ICON[notif.type] || Bell;
+                        {groups.map((group) => {
+                          const IconComp = NOTIF_ICON[group.type] || Bell;
+                          const avatar = group.actor_avatars?.[0]?.trim() || null;
+                          const link = getNotifLink(group);
+                          // Same function, same words, as the history page.
+                          const described = describeNotification(subjectFromGroup(group, adminIds));
                           return (
-                            <div key={notif.id} className="flex items-center gap-3 px-4 py-3 border-b border-border/50 hover:bg-muted/20 transition-colors">
-                              <Link to={getNotifLink(notif)} onClick={() => { dismissUserNotification(notif.id); setOpen(false); }} className="shrink-0">
-                                {(notif as any).actor_avatar ? (
+                            <div key={group.group_key} className="flex items-center gap-3 px-4 py-3 border-b border-border/50 hover:bg-muted/20 transition-colors">
+                              <Link to={link} onClick={() => dismissUserGroup(group)} className="shrink-0">
+                                {avatar ? (
                                   <div className="relative">
-                                    <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={(notif as any).actor_avatar} alt="" className="w-9 h-9 rounded-full object-cover" />
+                                    <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={avatar} alt="" className="w-9 h-9 rounded-full object-cover" />
                                     <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
                                       <IconComp className="h-2.5 w-2.5 text-primary-foreground" />
                                     </div>
@@ -427,30 +467,25 @@ const NotificationBell = () => {
                                 )}
                               </Link>
                               <div className="flex-1 min-w-0">
-                                {/* The SENTENCE is composed here, from the same
-                                    function the history page uses — the bell used to
-                                    render `notif.message`, the string a trigger froze
-                                    when the event happened, so the two surfaces said
-                                    different things about the same event.
-                                    `line-clamp-2`, not `truncate`: this column is about
-                                    200px wide and a one-line clip cut names mid-word
-                                    ("Partha Dalal started following y…"). */}
-                                <Link to={getNotifLink(notif)} onClick={() => { dismissUserNotification(notif.id); setOpen(false); }} className="text-xs hover:text-primary transition-colors block line-clamp-2" style={bodyFont}>
-                                  {describeNotification(subjectFromRow(notif as any)).text}
+                                {/* `line-clamp-2`, not `truncate`: this column is
+                                    about 200px wide and a one-line clip cut names
+                                    mid-word ("Partha Dalal started following y…"). */}
+                                <Link to={link} onClick={() => dismissUserGroup(group)} className="text-xs hover:text-primary transition-colors block line-clamp-2" style={bodyFont}>
+                                  {described.text}
                                 </Link>
-                                <span className="text-[9px] text-muted-foreground" style={headingFont}>{timeAgoFn(notif.created_at)}</span>
+                                <span className="text-[9px] text-muted-foreground" style={headingFont}>{timeAgoFn(group.latest_at)}</span>
                               </div>
-                              {notif.type === "post_tag" ? (
+                              {group.type === "post_tag" ? (
                                 <div className="flex items-center gap-1 shrink-0">
-                                  <button onClick={() => respondToTag(notif, "approved")} className="h-7 w-7 rounded-full bg-primary/10 hover:bg-primary/20 flex items-center justify-center text-primary transition-colors" title="Approve">
+                                  <button onClick={() => respondToTag(group, "approved")} className="h-7 w-7 rounded-full bg-primary/10 hover:bg-primary/20 flex items-center justify-center text-primary transition-colors" title="Approve">
                                     <Check className="h-3.5 w-3.5" />
                                   </button>
-                                  <button onClick={() => respondToTag(notif, "declined")} className="h-7 w-7 rounded-full bg-muted hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors" title="Decline">
+                                  <button onClick={() => respondToTag(group, "declined")} className="h-7 w-7 rounded-full bg-muted hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors" title="Decline">
                                     <X className="h-3.5 w-3.5" />
                                   </button>
                                 </div>
                               ) : (
-                                <button onClick={() => dismissUserNotification(notif.id)} className="h-7 w-7 rounded-full bg-muted hover:bg-muted/80 flex items-center justify-center text-muted-foreground shrink-0 transition-colors" title="Dismiss">
+                                <button onClick={() => dismissUserGroup(group, false)} className="h-7 w-7 rounded-full bg-muted hover:bg-muted/80 flex items-center justify-center text-muted-foreground shrink-0 transition-colors" title={group.event_count > 1 ? `Dismiss all ${group.event_count}` : "Dismiss"}>
                                   <X className="h-3 w-3" />
                                 </button>
                               )}
@@ -484,6 +519,16 @@ const NotificationBell = () => {
                   </>
                 )}
               </div>
+
+              {/* Say it when the panel is not showing everything, rather than
+                  quietly stopping — which is what the old 30-row cap did. */}
+              {hiddenEvents > 0 && (
+                <div className="px-4 py-2 border-t border-border/50 text-center">
+                  <Link to="/notifications" onClick={() => setOpen(false)} className="text-[10px] text-muted-foreground hover:text-primary transition-colors" style={bodyFont}>
+                    {hiddenEvents} more not shown here — see all
+                  </Link>
+                </div>
+              )}
 
               {/* Footer */}
               <div className="border-t border-border px-4 py-2.5 flex items-center justify-center gap-4">
