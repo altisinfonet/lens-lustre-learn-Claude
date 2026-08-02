@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/core/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
-import { Bell, Mail, MessageSquare, Heart, Users, Trophy, Gift, GraduationCap, Award, Shield, Volume2 } from "lucide-react";
+import { Bell, Mail, MessageSquare, Heart, Users, Trophy, Gift, GraduationCap, Award, Shield, Volume2, Smartphone } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNotificationPreferences, type NotificationPreferences } from "@/hooks/notifications/useNotificationPreferences";
@@ -222,6 +222,65 @@ const NotificationSettings = () => {
                 description={t("notif.compActivityDesc")}
                 checked={preferences.inapp_competitions}
                 onCheckedChange={toggle("inapp_competitions")}
+              />
+
+              {/* PUSH — the switches the DEVICE obeys.
+                  These are not new columns. `push_on_notification()` has read
+                  them since 2026-08-01; they had simply never been on screen,
+                  so the 12 members with a registered device had no way to turn
+                  pushes off. Nothing server-side changed to add this section.
+
+                  There is deliberately NO "new posts" row: the column exists but
+                  the trigger does not read it, so a new-post push is governed
+                  only by the master switch below. A toggle that does nothing is
+                  the fault this section exists to remove. */}
+              <SectionHeader title={t("notif.sec.push")} subtitle={t("notif.sec.pushSub")} />
+              <ToggleRow
+                icon={<Smartphone className="w-4 h-4" />}
+                label={t("notif.pushAll")}
+                description={t("notif.pushAllDesc")}
+                checked={preferences.push_enabled}
+                onCheckedChange={toggle("push_enabled")}
+              />
+              <ToggleRow
+                icon={<Heart className="w-4 h-4" />}
+                label={t("notif.reactions")}
+                description={t("notif.reactionsInappDesc")}
+                checked={preferences.push_reactions}
+                onCheckedChange={toggle("push_reactions")}
+                disabled={!preferences.push_enabled}
+              />
+              <ToggleRow
+                icon={<MessageSquare className="w-4 h-4" />}
+                label={t("notif.comments")}
+                description={t("notif.commentsInappDesc")}
+                checked={preferences.push_comments}
+                onCheckedChange={toggle("push_comments")}
+                disabled={!preferences.push_enabled}
+              />
+              <ToggleRow
+                icon={<Users className="w-4 h-4" />}
+                label={t("notif.friendRequests")}
+                description={t("notif.socialActivityDesc")}
+                checked={preferences.push_friend_requests}
+                onCheckedChange={toggle("push_friend_requests")}
+                disabled={!preferences.push_enabled}
+              />
+              <ToggleRow
+                icon={<Users className="w-4 h-4" />}
+                label={t("notif.newFollowers")}
+                description={t("notif.socialActivityDesc")}
+                checked={preferences.push_new_followers}
+                onCheckedChange={toggle("push_new_followers")}
+                disabled={!preferences.push_enabled}
+              />
+              <ToggleRow
+                icon={<Trophy className="w-4 h-4" />}
+                label={t("notif.compUpdates")}
+                description={t("notif.compActivityDesc")}
+                checked={preferences.push_competition_updates}
+                onCheckedChange={toggle("push_competition_updates")}
+                disabled={!preferences.push_enabled}
               />
 
               {/* Sound */}
