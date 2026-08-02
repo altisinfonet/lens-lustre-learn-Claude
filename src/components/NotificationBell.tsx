@@ -171,15 +171,45 @@ const NotificationBell = () => {
     };
   }, [open]);
 
-  const acceptFriend = async (id: string) => {
+  /**
+   * Answering a friend request must also close the notification it came from.
+   *
+   * It did not, and the row simply stayed unread for ever: 14 rows on production
+   * on 2026-08-02 were unread friend_request notifications for requests that had
+   * ALREADY been accepted. The notification's `reference_id` is the requester's
+   * profile id (verified: 113 of 127 rows), which is what makes this findable
+   * without knowing the notification's own id.
+   *
+   * It runs after the friendship write and its failure is swallowed: a
+   * notification that stays unread is a much smaller problem than a friend
+   * request that appears not to have been accepted.
+   */
+  const clearFriendRequestNotification = async (requesterId: string) => {
+    if (!user) return;
+    try {
+      await supabase
+        .from("user_notifications")
+        .update({ is_read: true })
+        .eq("user_id", user.id)
+        .eq("type", "friend_request")
+        .eq("reference_id", requesterId)
+        .eq("is_read", false);
+    } catch {
+      /* see above */
+    }
+  };
+
+  const acceptFriend = async (id: string, requesterId: string) => {
     await supabase.from("friendships").update({ status: "accepted" }).eq("id", id);
     cache.removeFriendRequest(id);
+    await clearFriendRequestNotification(requesterId);
     setOpen(false);
   };
 
-  const declineFriend = async (id: string) => {
+  const declineFriend = async (id: string, requesterId: string) => {
     await supabase.from("friendships").delete().eq("id", id);
     cache.removeFriendRequest(id);
+    await clearFriendRequestNotification(requesterId);
     setOpen(false);
   };
 
@@ -401,10 +431,10 @@ const NotificationBell = () => {
                               <span className="text-[9px] text-muted-foreground" style={headingFont}>{timeAgoFn(fr.created_at)}</span>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
-                              <button onClick={() => acceptFriend(fr.id)} className="h-7 w-7 rounded-full bg-primary/10 hover:bg-primary/20 flex items-center justify-center text-primary transition-colors" title="Accept">
+                              <button onClick={() => acceptFriend(fr.id, fr.requester_id)} className="h-7 w-7 rounded-full bg-primary/10 hover:bg-primary/20 flex items-center justify-center text-primary transition-colors" title="Accept">
                                 <Check className="h-3.5 w-3.5" />
                               </button>
-                              <button onClick={() => declineFriend(fr.id)} className="h-7 w-7 rounded-full bg-muted hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors" title="Decline">
+                              <button onClick={() => declineFriend(fr.id, fr.requester_id)} className="h-7 w-7 rounded-full bg-muted hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors" title="Decline">
                                 <X className="h-3.5 w-3.5" />
                               </button>
                             </div>
