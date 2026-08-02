@@ -72,15 +72,22 @@ describe("when the browser cannot open the chosen photo", () => {
 
     // This is the whole point: the toast prints err.message. If it is empty,
     // the member is told nothing and is stuck on a mandatory step.
-    await expect(compressImage(fakeFile("image/heic"))).rejects.toThrow(/could not open that image/i);
-    await expect(compressImage(fakeFile("image/heic"))).rejects.toThrow(/re-save it as JPG/i);
+    await expect(compressImage(fakeFile("image/heic"))).rejects.toThrow(/could not open that photo/i);
+    await expect(compressImage(fakeFile("image/heic"))).rejects.toThrow(/most compatible photo setting/i);
   });
 
-  it("names the file's own type, so the next screenshot is diagnosable", async () => {
+  it("names NO format or vendor in anything a member reads", async () => {
+    // Owner's standing rule: no third-party format or brand name in app UI.
+    // The type is still needed to diagnose, so it lives on the error object and
+    // in the console — never in the sentence.
     stubUndecodableImage();
     vi.stubGlobal("createImageBitmap", () => Promise.reject(new Error("no decoder")));
 
-    await expect(compressImage(fakeFile("image/heic"))).rejects.toThrow(/image\/heic/);
+    const err = await compressImage(fakeFile("image/heic")).catch((e) => e);
+    expect(err.message).not.toMatch(/heic|heif|jpe?g|png|webp|iphone|android|samsung|apple/i);
+    // …but the diagnostic detail is still there for us.
+    expect(err.fileType).toBe("image/heic");
+    expect(err.fileSize).toBeGreaterThan(0);
   });
 
   it("tries a second decoder before giving up", async () => {
