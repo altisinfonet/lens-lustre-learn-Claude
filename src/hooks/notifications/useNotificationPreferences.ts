@@ -18,6 +18,23 @@ export interface NotificationPreferences {
   inapp_competitions: boolean;
   email_weekly_digest: boolean;
   email_reengagement: boolean;
+  /**
+   * PUSH. These six columns are not new and they are not decoration: the
+   * database trigger `push_on_notification()` has read them since 2026-08-01.
+   * They had simply never been exposed anywhere in the app, so the 12 members
+   * with a registered device had no way to stop receiving pushes.
+   *
+   * `push_new_posts` is deliberately ABSENT. The column exists, but the trigger
+   * does not read it — a new-post push falls through to "send to everyone" and
+   * is governed only by push_enabled. Exposing it would be a switch that does
+   * nothing, which is the exact fault being fixed here.
+   */
+  push_enabled: boolean;
+  push_reactions: boolean;
+  push_comments: boolean;
+  push_friend_requests: boolean;
+  push_new_followers: boolean;
+  push_competition_updates: boolean;
 }
 
 const DEFAULTS: NotificationPreferences = {
@@ -35,6 +52,14 @@ const DEFAULTS: NotificationPreferences = {
   inapp_competitions: true,
   email_weekly_digest: true,
   email_reengagement: true,
+  // Same defaults the columns carry (NOT NULL DEFAULT true), so a member with
+  // no preferences row sees exactly what the server will do for them.
+  push_enabled: true,
+  push_reactions: true,
+  push_comments: true,
+  push_friend_requests: true,
+  push_new_followers: true,
+  push_competition_updates: true,
 };
 
 export function useNotificationPreferences() {
@@ -69,6 +94,14 @@ export function useNotificationPreferences() {
         inapp_competitions: data.inapp_competitions,
         email_weekly_digest: data.email_weekly_digest,
         email_reengagement: (data as any).email_reengagement ?? true,
+        // `?? true` matches the column default, so a row written before these
+        // columns existed reads as "on" rather than silently as "off".
+        push_enabled: (data as any).push_enabled ?? true,
+        push_reactions: (data as any).push_reactions ?? true,
+        push_comments: (data as any).push_comments ?? true,
+        push_friend_requests: (data as any).push_friend_requests ?? true,
+        push_new_followers: (data as any).push_new_followers ?? true,
+        push_competition_updates: (data as any).push_competition_updates ?? true,
       };
     },
     enabled: !!user,
