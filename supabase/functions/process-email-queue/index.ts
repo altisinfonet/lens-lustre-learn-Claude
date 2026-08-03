@@ -20,7 +20,7 @@ function isRateLimited(error: unknown): boolean {
 }
 
 // Check if an error is a forbidden (403) response, which means emails are
-// disabled for this project. Retrying won't help â move straight to DLQ.
+// disabled for this project. Retrying won't help — move straight to DLQ.
 function isForbidden(error: unknown): boolean {
   if (error && typeof error === 'object' && 'status' in error) {
     return (error as { status: number }).status === 403
@@ -390,14 +390,14 @@ Deno.serve(async (req) => {
             })
             .eq('id', 1)
 
-          // Stop processing â remaining messages stay in queue (VT expires, retried next cycle)
+          // Stop processing — remaining messages stay in queue (VT expires, retried next cycle)
           return new Response(
             JSON.stringify({ processed: totalProcessed, stopped: 'rate_limited' }),
             { headers: { 'Content-Type': 'application/json' } }
           )
         }
 
-        // 403 from Brevo means invalid API key or unauthorized sender â retrying won't help.
+        // 403 from Brevo means invalid API key or unauthorized sender — retrying won't help.
         if (isForbidden(error)) {
           await moveToDlq(supabase, queue, msg, 'Brevo API forbidden (check API key and sender domain)')
           return new Response(
