@@ -1,3 +1,58 @@
+Build 1042 - 2026-08-03
+
+INTERNAL CHANGELOG. Never shown to a member. Play "What's new" stays
+"Bug fixes and improvements." per the owner's standing instruction.
+
+THIS IS THE BUILD TO UPLOAD. 1039, 1040 and 1041 are superseded - they were
+all cut BEFORE the two fixes below, so none of them should go to the store.
+
+1. THE NOTIFICATION MARK IS THE LOGO  (carried over from 1041)
+
+   Push notifications showed a blank white square. Nothing was configured:
+   no notification icon existed anywhere in the repository, so the messaging
+   library fell back to the launcher icon - and since Android 5.0 the status
+   bar flattens the small icon to its alpha mask, keeping only which pixels
+   are solid. An opaque square becomes a solid white rectangle.
+
+   The owner's logo now ships as the mark, cut separately at each of the five
+   densities. The build opens the finished bundle and FAILS if the icon or
+   either manifest entry is missing, so this cannot silently regress.
+
+2. 74 CORRUPTED CHARACTERS REPAIRED  (new since 1041)
+
+   A UTF-8 file had been read as Latin-1 and re-saved, turning single
+   characters into two or three. 41 of them rendered to members as empty
+   boxes:
+
+     - every competition placement badge (trophy, medals, mentions, stars)
+     - every round status icon (tick, star, cross, warning)
+     - the sidebar medal icons
+     - four sidebar links that should end in an arrow
+     - the pinned-comment marker
+     - both comment box placeholders
+     - the unvote warning, which should read "2x the original reward"
+
+   Repaired by reversing the exact byte transformation, not by retyping. A
+   test now fails the build if it ever returns.
+
+3. THE COMMENT SEND BUTTON  (new since 1041)
+
+   Measured on production: the send button was a 24x24 px tap target. The
+   minimum on Android is 48dp and on iOS 44pt, and an adult thumb is about
+   45px across - so the target was smaller than the finger meant to hit it.
+   People were missing it and hitting the text field instead.
+
+   It is now 44x44. The icon is unchanged at 16px, so nothing looks
+   different - there is simply something to hit. It also fires on pointer
+   down as well as click, because the Android WebView can fail to deliver a
+   click after a tap that closes the keyboard, and the keyboard now shows a
+   Send key instead of a plain newline.
+
+REGISTRATION
+  Untouched. No database change and no change to sign-up in this build.
+
+====================================================================
+
 Build 1041 - 2026-08-02
 
 INTERNAL CHANGELOG. Never shown to a member. Play "What's new" stays
