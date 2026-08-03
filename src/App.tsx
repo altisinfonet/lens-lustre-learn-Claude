@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./App.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams, Outlet, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/core/useAuth";
 import { ThemeProvider } from "@/hooks/core/useTheme";
 
@@ -137,6 +137,52 @@ setLiveAdminSyncQueryClient(queryClient);
 
 const PageLoader = () => <BrandLoader />;
 
+/**
+ * MEMBERS-ONLY ROUTES REDIRECT TO /login. ALWAYS.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Owner requirement, 2026-08-03: "any link which is accessible to a logged-in
+ * user, if a logged-out user tries to open it, the sign-in page must open."
+ *
+ * There was no central guard. Every page hand-wrote
+ * `if (!authLoading && !user) navigate("/login")` — and nine pages forgot.
+ * Verified logged-out, per route, in a rendered browser before this change:
+ *
+ *   /profile          rendered a fake "Photographer" profile skeleton
+ *   /photos           rendered header+footer with a LITERALLY BLANK body
+ *                     (MyPhotos ends in `if (!user) return null`)
+ *   /notifications    rendered "Nothing here yet." — a lie; you are logged out
+ *   /entry/:entryId   "Entry not found" — wrong: entries are not anon-readable
+ *                     in the database, so the true state is "sign in first"
+ *   /journal/new      "You don't have permission" — wrong message for
+ *   /journal/edit/:id   a logged-out visitor, same for the two below
+ *   /courses/new
+ *   /courses/edit/:id
+ *   /courses/:slug/lessons/:lessonId   "Lesson not found" (its parent,
+ *                     /courses/:slug, HAS a guard — the child forgot)
+ *
+ * The routes wrapped in <RequireAuth> in the tree below are EXACTLY that list.
+ * Nothing else changed:
+ *   - deliberately public and staying public: /hashtag/:tag (its own UI says
+ *     "public posts"), /IDverification (public staff-card check), /post/:postId
+ *     (posts are anon-readable by RLS — share links), profiles by URL, journal,
+ *     competitions, winners, courses catalogue.
+ *   - /admin and /judge are ROLE-gated inside their pages (they redirect to "/")
+ *     — a stricter rule than sign-in, left exactly as it was.
+ *   - pages that already guard themselves keep their own guard too; this is
+ *     defence in depth, not a replacement.
+ *
+ * While auth is still resolving we render the brand loader, NOT a redirect —
+ * kicking a signed-in member to /login because their session had not hydrated
+ * yet would be a worse bug than the one this fixes.
+ */
+const RequireAuth = () => {
+  const { user, loading } = useAuth();
+  if (loading) return <BrandLoader fullScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  return <Outlet />;
+};
+
 declare global {
   interface Window {
     __dismissLoader?: () => void;
@@ -234,7 +280,21 @@ const App = () => {
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/edit-profile" element={<EditProfile />} />
-                <Route path="/profile" element={<Profile />} />
+                {/* ── Members-only: signed-out visitors are sent to /login ──
+                    The census behind this exact list is in the RequireAuth
+                    comment above. Add new members-only routes HERE, not as
+                    bare siblings. */}
+                <Route element={<RequireAuth />}>
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/journal/new" element={<JournalEditor />} />
+                  <Route path="/journal/edit/:id" element={<JournalEditor />} />
+                  <Route path="/courses/new" element={<CourseEditor />} />
+                  <Route path="/courses/edit/:id" element={<CourseEditor />} />
+                  <Route path="/courses/:slug/lessons/:lessonId" element={<LessonView />} />
+                  <Route path="/entry/:entryId" element={<EntryDetail />} />
+                  <Route path="/photos" element={<MyPhotos />} />
+                  <Route path="/notifications" element={<Notifications />} />
+                </Route>
                 <Route path="/profile/:userId" element={<PublicProfile />} />
                 <Route path="/friends" element={<Friends />} />
                 <Route path="/feed" element={<Feed />} />
@@ -246,14 +306,9 @@ const App = () => {
                 <Route path="/admin/*" element={<AdminPanel />} />
                 <Route path="/judge" element={<JudgePanel />} />
                 <Route path="/journal" element={<Journal />} />
-                <Route path="/journal/new" element={<JournalEditor />} />
-                <Route path="/journal/edit/:id" element={<JournalEditor />} />
                 <Route path="/journal/:slug" element={<JournalArticle />} />
                 <Route path="/courses" element={<Courses />} />
-                <Route path="/courses/new" element={<CourseEditor />} />
-                <Route path="/courses/edit/:id" element={<CourseEditor />} />
                 <Route path="/courses/:slug" element={<CourseDetail />} />
-                <Route path="/courses/:slug/lessons/:lessonId" element={<LessonView />} />
                 <Route path="/certificates" element={<Certificates />} />
                 <Route path="/verify" element={<VerifyCertificate />} />
                 <Route path="/verify/:token" element={<CertificateVerifyByToken />} />
@@ -269,11 +324,8 @@ const App = () => {
                 <Route path="/dashboard/submission/:competitionId/entry/:entryId/photo/:photoIndex" element={<SubmissionDetail />} />
                 <Route path="/hashtag/:tag" element={<HashtagFeed />} />
                 <Route path="/post/:postId" element={<PostDetail />} />
-                <Route path="/entry/:entryId" element={<EntryDetail />} />
-                <Route path="/photos" element={<MyPhotos />} />
                 <Route path="/unsubscribe" element={<Unsubscribe />} />
                 <Route path="/cookie-policy" element={<CookiePolicy />} />
-                <Route path="/notifications" element={<Notifications />} />
                 <Route path="/settings/notifications" element={<NotificationSettings />} />
                 <Route path="/qa/watermark-matrix" element={<WatermarkQAMatrix />} />
                 <Route path="/scheduled-posts" element={<ScheduledPostsPage />} />
