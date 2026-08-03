@@ -294,9 +294,27 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
            * Instagram keeps it pinned to the last line, next to where the
            * cursor is. `bottom-0` on a 36px box still reads as centred.
            */
-          className="absolute right-0 bottom-0 flex h-11 w-11 items-center justify-center text-primary hover:text-primary/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors z-10"
+          className="group absolute right-0 bottom-0 flex h-11 w-11 items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed z-10"
         >
-          <Send className="h-4 w-4" />
+          {/*
+            The button is VISIBLE now — a filled circle, the way Instagram
+            draws it.
+
+            History, so this is never re-litigated: the original button was a
+            bare 16px icon in a 24px target — half of what a thumb needs. The
+            first fix (2026-08-03) grew the TARGET to 44px but deliberately
+            left the picture identical, and the owner's verdict was blunt:
+            "button size same as it was before." He was right that an
+            invisible fix is indistinguishable from no fix. The affordance has
+            to be seen to be believed.
+
+            So: a 30px filled disc members can SEE, inside the 44px zone a
+            thumb can HIT. The disc must never be the tap target itself —
+            30px would be back below every platform minimum.
+          */}
+          <span className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-colors group-hover:bg-primary/85">
+            <Send className="h-4 w-4 -translate-x-px" />
+          </span>
         </button>
       )}
       </div>
