@@ -68,8 +68,22 @@ describe("the comment send button is reachable with a thumb", () => {
     expect(sizeOf("w"), "send button width").toBeGreaterThanOrEqual(44);
   });
 
-  it("keeps the icon small — the target grew, the design did not", () => {
-    expect(buttonJsx).toMatch(/<Send className="h-4 w-4"/);
+  it("is VISIBLY a button — a filled disc, not a bare icon", () => {
+    // 2026-08-03, owner's verdict on the invisible-target fix: "button size
+    // same as it was before." He was right — growing the tap zone while
+    // leaving the picture identical is indistinguishable from doing nothing.
+    // The affordance must be seen. Instagram draws a filled circle; so do we.
+    expect(buttonJsx).toMatch(/rounded-full bg-primary/);
+    expect(buttonJsx).toMatch(/<Send className="h-4 w-4/);
+  });
+
+  it("the visible disc is smaller than the tap target — the disc is looks, the 44px is touch", () => {
+    // If someone ever makes the disc itself the button, 30px is back below
+    // every platform minimum and the whole regression returns wearing paint.
+    const disc = buttonJsx.match(/h-\[(\d+)px\] w-\[(\d+)px\]/);
+    expect(disc, "expected an explicit disc size inside the button").not.toBeNull();
+    expect(Number(disc![1])).toBeLessThan(44);
+    expect(Number(disc![1])).toBe(Number(disc![2])); // a circle, not an oval
   });
 
   it("is type=button, so it can never submit a surrounding form", () => {
