@@ -151,11 +151,14 @@ describe("the box is multi-line, the way Instagram's is", () => {
     expect(new Set(caps).size, "the two caps must agree or the overlay drifts").toBe(1);
   });
 
-  it("keeps the send button on the last line, not floating in the middle", () => {
-    // Centred was fine while the box was 36px tall. Now that it grows, a
-    // centred button would sit in the middle of a paragraph.
-    expect(buttonJsx).toMatch(/bottom-0/);
-    expect(buttonJsx).not.toMatch(/top-1\/2/);
+  it("centres the disc on the LAST LINE — the -4px is arithmetic, not taste", () => {
+    // pill = 8+20+8 = 36px; last-line centre = 18px from the bottom at every
+    // height. The 44px button's centre sits at bottom+22, so bottom must be
+    // -4px for the disc to land at 18. `bottom-0` put it 4px high and its edge
+    // poked out of a one-line pill — the owner caught it on sight.
+    expect(buttonJsx).toMatch(/bottom-\[-4px\]/);
+    expect(buttonJsx).not.toMatch(/bottom-0[^-]/);
+    expect(buttonJsx).not.toMatch(/top-1\/2/); // centred-on-box floats into a paragraph when tall
   });
 
   it("anchors the button to the FIELD, not to the wrapper", () => {
