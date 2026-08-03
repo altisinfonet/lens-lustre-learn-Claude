@@ -287,14 +287,24 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
           onClick={handleSendClick}
           disabled={submitBlocked}
           /**
-           * Anchored to the BOTTOM, not vertically centred.
+           * ANCHORED SO THE DISC IS CENTRED ON THE LAST LINE — exactly.
            *
-           * While the box was one line those were the same thing. Now that it
-           * grows, a centred button would float into the middle of a paragraph.
-           * Instagram keeps it pinned to the last line, next to where the
-           * cursor is. `bottom-0` on a 36px box still reads as centred.
+           * The geometry, so nobody "improves" this by eye:
+           *   pill      = 8px pad + 20px line + 8px pad = 36px at one line
+           *   last-line centre = 8 + 10 = 18px from the pill's bottom, at
+           *                      EVERY height (padding and line are constants)
+           *   button    = 44px tall, so its centre sits at bottom + 22
+           *
+           * With `bottom-0` the disc centre lands at 22px — 4px too high, and
+           * the disc's edge poked out of the pill's top at one line. The owner
+           * saw it immediately ("alignment must be middle"). `bottom:-4px`
+           * puts the button centre at -4 + 22 = 18px: dead centre of a
+           * one-line pill, and dead centre of the LAST LINE when the box has
+           * grown — which is what Instagram does. The 4px of button hanging
+           * past each edge is the invisible tap zone, not the disc; the disc
+           * (28px, centred) spans 4..32 inside a 0..36 pill.
            */
-          className="group absolute right-0 bottom-0 flex h-11 w-11 items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed z-10"
+          className="group absolute right-0 bottom-[-4px] flex h-11 w-11 items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed z-10"
         >
           {/*
             The button is VISIBLE now — a filled circle, the way Instagram
@@ -312,7 +322,8 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
             thumb can HIT. The disc must never be the tap target itself —
             30px would be back below every platform minimum.
           */}
-          <span className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-colors group-hover:bg-primary/85">
+          {/* 28px, per the owner: "middle and compact". Fits 4..32 in a 36px pill. */}
+          <span className="flex h-[28px] w-[28px] items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-colors group-hover:bg-primary/85">
             <Send className="h-4 w-4 -translate-x-px" />
           </span>
         </button>
