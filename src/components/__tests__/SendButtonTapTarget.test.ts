@@ -143,6 +143,37 @@ describe("the box is multi-line, the way Instagram's is", () => {
     expect(buttonJsx).toMatch(/bottom-0/);
     expect(buttonJsx).not.toMatch(/top-1\/2/);
   });
+
+  it("anchors the button to the FIELD, not to the wrapper", () => {
+    // CAUGHT IN A RENDERED SCREENSHOT, not by reading the code.
+    //
+    // The wrapper contains the field AND the character counter. While
+    // `relative` sat on the wrapper, `bottom-0` resolved to the bottom of the
+    // whole wrapper, so the send button hung outside the pill, below its
+    // bottom-right corner. It looked broken and no unit test noticed, because
+    // jsdom has no layout.
+    //
+    // The fix is a `relative` div wrapping ONLY the field. These assertions pin
+    // that structure.
+    const body = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+
+    // the outer wrapper must NOT be the positioning context
+    expect(body).toMatch(/className=\{`flex-1 mention-input-wrapper \$\{className\}`\}/);
+    expect(body).not.toMatch(/className=\{`relative flex-1 mention-input-wrapper/);
+
+    // ...and a relative box must sit between the wrapper and the field
+    const wrapperAt = body.indexOf("mention-input-wrapper");
+    const relativeAt = body.indexOf('<div className="relative">', wrapperAt);
+    const fieldAt = body.indexOf("<MentionsInput", wrapperAt);
+    expect(relativeAt, "expected a relative div after the wrapper").toBeGreaterThan(wrapperAt);
+    expect(relativeAt, "the relative div must come BEFORE the field").toBeLessThan(fieldAt);
+
+    // the counter must live OUTSIDE that relative box, or it is inside the
+    // button's positioning context again
+    const counterAt = body.indexOf("/ {maxLength}");
+    const closeAt = body.lastIndexOf("</div>", counterAt);
+    expect(closeAt, "the relative box must close before the counter").toBeGreaterThan(fieldAt);
+  });
 });
 
 describe("the keyboard behaves like Instagram's", () => {
