@@ -1,3 +1,52 @@
+Build 1043 - 2026-08-03
+
+INTERNAL CHANGELOG. Never shown to a member. Play "What's new" stays
+"Bug fixes and improvements." per the owner's standing instruction.
+
+THIS IS THE BUILD TO UPLOAD. It supersedes 1039-1042; every earlier build
+is missing at least one of the fixes below.
+
+CONTAINS, on top of everything in 1042:
+
+1. INSTAGRAM-STYLE MULTILINE COMMENT BOX
+   The comment field is now a real multi-line box: it grows one line at a
+   time as the member types, up to five lines, then scrolls. On a phone the
+   return key makes a new line and the button posts; on a desktop Enter
+   posts and Shift+Enter makes a new line - the same split the big social
+   apps use, chosen deliberately by the owner. The first letter of a
+   comment is now capitalised automatically.
+
+2. A SEND BUTTON MEMBERS CAN SEE AND HIT
+   The send control is now a filled circular button, centred exactly on
+   the line it posts from, with a 44px touch area. The first fix only
+   enlarged the invisible touch zone; the owner correctly rejected a fix
+   that could not be seen.
+
+3. PROFILE COMPLETION PANEL FIXED
+   The "complete your profile" panel opened a third off the left edge of
+   the screen on phones, appeared on first touch and could not be
+   dismissed. It is now anchored fully on-screen, opens on tap and closes
+   on a second tap.
+
+ABOUT THE BLANK-PAGE REPORT
+   Could not be reproduced in the current code: all internal pages render
+   at phone size with zero errors in six routes tested. The report came
+   from build 1042 on a very slow connection (~30 KB/s in the screenshot).
+   If it recurs ON THIS BUILD, that changes the diagnosis - report it with
+   the page name.
+
+MENTIONS
+   Verified end-to-end in this code: typing @ plus letters queries the
+   member list (the exact query was also proven directly against the
+   backend) and the suggestion list renders on screen at phone width and
+   is tappable. If the installed app still shows nothing, the suspect is
+   the connection, not the feature.
+
+REGISTRATION
+   Untouched. No database change in this build.
+
+====================================================================
+
 Build 1042 - 2026-08-03
 
 INTERNAL CHANGELOG. Never shown to a member. Play "What's new" stays
