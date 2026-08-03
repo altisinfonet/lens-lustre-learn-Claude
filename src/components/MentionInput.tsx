@@ -55,6 +55,42 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
   const overLimit = value.length > maxLength;
   const submitBlocked = disabled || overLimit;
 
+  /**
+   * SENDING HAS TO SURVIVE THE ANDROID WEBVIEW.
+   *
+   * Measured on production 2026-08-03: the old button was a 24x24 px tap target
+   * (16 px icon + 4 px padding). Android's minimum is 48 dp and iOS's is 44 pt,
+   * so it was HALF the required size, sitting 8 px from the edge of a 36 px
+   * pill. A thumb is roughly 45 px wide — people were missing it and hitting the
+   * input instead. It is now a 44x44 target; the icon is unchanged at 16 px, so
+   * nothing looks different, there is simply something to hit.
+   *
+   * It also fires on `pointerdown`, not only `click`, for the reason already
+   * recorded in this codebase (GlobalSearch.tsx does the same): the Android
+   * WebView sometimes never delivers the click after a tap that dismisses the
+   * keyboard. `preventDefault` keeps focus in the field so the keyboard does not
+   * flicker shut between the two events.
+   *
+   * `sentRef` makes the pair idempotent — whichever event arrives first wins and
+   * the other is ignored, so a comment can never be posted twice.
+   */
+  const sentRef = useRef(0);
+
+  const fire = () => {
+    if (submitBlocked) return;
+    const now = Date.now();
+    if (now - sentRef.current < 500) return; // the other event already handled it
+    sentRef.current = now;
+    onSubmit();
+  };
+
+  const handleSendPointerDown = (e: React.PointerEvent) => {
+    e.preventDefault(); // keep focus in the input; stops the keyboard closing first
+    fire();
+  };
+
+  const handleSendClick = () => fire();
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       // react-mentions sets a flag while suggestion list is active by intercepting Enter itself.
@@ -77,6 +113,15 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
         autoFocus={autoFocus}
         singleLine
         allowSpaceInQuery
+        /**
+         * Gives the Android keyboard a "Send" key instead of a plain newline.
+         * Verified against the library source: react-mentions spreads every prop
+         * it does not consume itself straight onto the real <input>, so this
+         * reaches the element. Measured on production before this change: the
+         * input carried no enterKeyHint at all, so there was no way to send a
+         * comment from the keyboard — the 24px button was the only route.
+         */
+        enterKeyHint="send"
         inputRef={(node: any) => {
           inputRef.current = node;
           if (typeof _forwardedRef === "function") _forwardedRef(node);
@@ -91,14 +136,18 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
             minHeight: "36px",
           },
           input: {
-            padding: showSendButton ? "8px 36px 8px 16px" : "8px 16px",
+            // Right padding must clear the 44px send button, or typed text runs
+            // underneath it. MUST stay identical to `highlighter` below —
+            // react-mentions overlays the two, and a 1px difference misaligns
+            // every @mention pill.
+            padding: showSendButton ? "8px 44px 8px 16px" : "8px 16px",
             border: "none",
             outline: "none",
             borderRadius: "9999px",
             color: "hsl(var(--foreground))",
           },
           highlighter: {
-            padding: showSendButton ? "8px 36px 8px 16px" : "8px 16px",
+            padding: showSendButton ? "8px 44px 8px 16px" : "8px 16px", // keep in step with `input`
             border: "none",
             borderRadius: "9999px",
             color: "hsl(var(--foreground))",
@@ -162,9 +211,12 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
 
       {showSendButton && value.trim() && (
         <button
-          onClick={() => { if (!submitBlocked) onSubmit(); }}
+          type="button"
+          aria-label="Send"
+          onPointerDown={handleSendPointerDown}
+          onClick={handleSendClick}
           disabled={submitBlocked}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-primary hover:text-primary/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors z-10"
+          className="absolute right-0 top-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center text-primary hover:text-primary/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors z-10"
         >
           <Send className="h-4 w-4" />
         </button>
