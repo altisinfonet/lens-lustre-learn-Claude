@@ -12,6 +12,18 @@ interface Props {
 
 const AvatarCompletionRing = ({ profile, avatarUrl, displayName, size = 160 }: Props) => {
   const [hovered, setHovered] = useState(false);
+
+  /**
+   * A tap fires mouseenter AND click, in that order. An ungated click-toggle
+   * therefore opened the panel (enter) and instantly closed it again (toggle)
+   * on every first tap — measured in a rendered harness, not guessed. So the
+   * two input worlds are separated: hover drives the panel on fine pointers,
+   * click drives it on coarse ones, and neither interferes with the other.
+   */
+  const isTouch = () =>
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(pointer: coarse)").matches;
   const { total, sections } = useMemo(() => calcProfileCompletion(profile), [profile]);
 
   const missing = sections.filter((s) => !s.completed);
@@ -31,8 +43,9 @@ const AvatarCompletionRing = ({ profile, avatarUrl, displayName, size = 160 }: P
     <div
       className="relative flex-shrink-0 group"
       style={{ width: size, height: size }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => { if (!isTouch()) setHovered(true); }}
+      onMouseLeave={() => { if (!isTouch()) setHovered(false); }}
+      onClick={() => { if (isTouch()) setHovered((h) => !h); }}
     >
       {/* SVG ring */}
       <svg
@@ -100,7 +113,18 @@ const AvatarCompletionRing = ({ profile, avatarUrl, displayName, size = 160 }: P
       {/* Hover tooltip — missing fields */}
       {hovered && missing.length > 0 && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 bg-popover text-popover-foreground border border-border rounded-md shadow-lg p-3 w-56 animate-in fade-in-0 zoom-in-95 duration-200"
+          /**
+           * ANCHORED TO THE RING'S LEFT EDGE, NOT CENTRED ON IT.
+           *
+           * Measured on the mobile profile (ring size 80, sitting 16px from
+           * the screen edge): `left-1/2 -translate-x-1/2` centred this 224px
+           * panel on a 40px-wide midpoint, so it spanned from -56px — a third
+           * of it OFF the left of the screen. That is the "showing outside of
+           * page" the owner photographed. `left-0` keeps every pixel on
+           * screen wherever the ring sits, and the max-width stops it ever
+           * exceeding the viewport on narrow phones.
+           */
+          className="absolute left-0 bg-popover text-popover-foreground border border-border rounded-md shadow-lg p-3 w-56 max-w-[calc(100vw-2rem)] animate-in fade-in-0 zoom-in-95 duration-200"
           style={{ top: size + 8, zIndex: 50, fontFamily: "var(--font-body)" }}
         >
           <p
