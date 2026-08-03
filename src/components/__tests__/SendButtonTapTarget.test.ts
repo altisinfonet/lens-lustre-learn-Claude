@@ -102,10 +102,99 @@ describe("the comment send button is reachable with a thumb", () => {
   });
 });
 
-describe("the keyboard can send too", () => {
-  it("asks Android for a Send key", () => {
-    // Before this change the input carried no enterKeyHint, so the keyboard
-    // offered a plain newline and the 24px button was the ONLY way to send.
-    expect(src).toMatch(/enterKeyHint="send"/);
+describe("the box is multi-line, the way Instagram's is", () => {
+  it("is a textarea, not a single-line input", () => {
+    // react-mentions renders <input type="text"> when `singleLine` is set and
+    // <textarea> when it is not. Instagram, Facebook and WhatsApp all use a
+    // textarea for comments. Owner's decision, 2026-08-03.
+    const body = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    expect(body).not.toMatch(/^\s*singleLine\s*$/m);
+  });
+
+  it("pins lineHeight identically on the input and the highlighter", () => {
+    // THE TRAP. react-mentions overlays the textarea on the highlighter, and
+    // the highlighter — being in normal flow — is what sets the box height.
+    // Before this change lineHeight was set on the highlighter ONLY. On one
+    // line that is invisible; the moment the text wraps, every @mention pill
+    // drifts out of alignment and the measured height is wrong.
+    const lineHeights = [...src.matchAll(/lineHeight:\s*"(\d+)px"/g)].map((m) => Number(m[1]));
+    expect(lineHeights, "expected a lineHeight on both input and highlighter").toHaveLength(2);
+    expect(lineHeights[0]).toBe(lineHeights[1]);
+  });
+
+  it("caps its height so a long comment cannot push the composer off screen", () => {
+    // The field accepts 2200 characters. Uncapped, that is a very tall box.
+    //
+    // Scoped to the style block BEFORE `suggestions:` on purpose — the @mention
+    // dropdown has its own maxHeight and is a different thing. An earlier draft
+    // of this test scooped that up and failed for the wrong reason.
+    const boxStyles = src.slice(
+      src.indexOf("control: {"),
+      src.indexOf("suggestions: {"),
+    );
+    const caps = [...boxStyles.matchAll(/maxHeight:\s*"(\d+)px"/g)].map((m) => Number(m[1]));
+    expect(caps.length, "expected a cap on the control and on the highlighter").toBe(2);
+    expect(new Set(caps).size, "the two caps must agree or the overlay drifts").toBe(1);
+  });
+
+  it("keeps the send button on the last line, not floating in the middle", () => {
+    // Centred was fine while the box was 36px tall. Now that it grows, a
+    // centred button would sit in the middle of a paragraph.
+    expect(buttonJsx).toMatch(/bottom-0/);
+    expect(buttonJsx).not.toMatch(/top-1\/2/);
+  });
+
+  it("anchors the button to the FIELD, not to the wrapper", () => {
+    // CAUGHT IN A RENDERED SCREENSHOT, not by reading the code.
+    //
+    // The wrapper contains the field AND the character counter. While
+    // `relative` sat on the wrapper, `bottom-0` resolved to the bottom of the
+    // whole wrapper, so the send button hung outside the pill, below its
+    // bottom-right corner. It looked broken and no unit test noticed, because
+    // jsdom has no layout.
+    //
+    // The fix is a `relative` div wrapping ONLY the field. These assertions pin
+    // that structure.
+    const body = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+
+    // the outer wrapper must NOT be the positioning context
+    expect(body).toMatch(/className=\{`flex-1 mention-input-wrapper \$\{className\}`\}/);
+    expect(body).not.toMatch(/className=\{`relative flex-1 mention-input-wrapper/);
+
+    // ...and a relative box must sit between the wrapper and the field
+    const wrapperAt = body.indexOf("mention-input-wrapper");
+    const relativeAt = body.indexOf('<div className="relative">', wrapperAt);
+    const fieldAt = body.indexOf("<MentionsInput", wrapperAt);
+    expect(relativeAt, "expected a relative div after the wrapper").toBeGreaterThan(wrapperAt);
+    expect(relativeAt, "the relative div must come BEFORE the field").toBeLessThan(fieldAt);
+
+    // the counter must live OUTSIDE that relative box, or it is inside the
+    // button's positioning context again
+    const counterAt = body.indexOf("/ {maxLength}");
+    const closeAt = body.lastIndexOf("</div>", counterAt);
+    expect(closeAt, "the relative box must close before the counter").toBeGreaterThan(fieldAt);
+  });
+});
+
+describe("the keyboard behaves like Instagram's", () => {
+  it("does NOT label the return key 'Send'", () => {
+    // Deliberate reversal, 2026-08-03. enterKeyHint="send" was correct while
+    // the box was single-line and the 24px button was unusable. Now Enter
+    // inserts a new line on touch, so a key labelled "Send" would lie.
+    const body = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    expect(body).not.toMatch(/enterKeyHint/);
+  });
+
+  it("capitalises the first letter of a comment", () => {
+    expect(src).toMatch(/autoCapitalize="sentences"/);
+  });
+
+  it("only submits on Enter when the pointer is not a finger", () => {
+    // Phones have no Shift key. If Enter posted on touch, a member could never
+    // write a second line — which would defeat the whole point of the change.
+    const body = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    expect(body).toMatch(/\(pointer:\s*coarse\)/);
+    expect(body).toMatch(/if\s*\(isTouch\(\)\)\s*return/);
+    expect(body).toMatch(/if\s*\(e\.shiftKey\)\s*return/);
   });
 });
