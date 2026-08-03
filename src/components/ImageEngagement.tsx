@@ -261,8 +261,8 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props)
               nameClassName="text-[10px] font-medium hover:text-primary hover:underline transition-colors"
             />
             <span className="text-[9px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
-            {comment.is_pinned && <span className="text-[8px] text-primary">ð</span>}
-            {comment.is_admin_seed && <span className="text-[8px] text-primary/70">â</span>}
+            {comment.is_pinned && <span className="text-[8px] text-primary">📌</span>}
+            {comment.is_admin_seed && <span className="text-[8px] text-primary/70">★</span>}
           </div>
           <p className="text-xs text-foreground/90 mt-0.5 break-words" style={{ fontFamily: "var(--font-body)" }}>
             <RichContentRenderer content={comment.content} />
@@ -320,7 +320,7 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props)
                 value={replyText}
                 onChange={setReplyText}
                 onSubmit={() => submitComment(replyText, comment.id)}
-                placeholder="Write a replyâ¦"
+                placeholder="Write a reply…"
                 disabled={posting}
                 className="bg-transparent border-b border-border focus:border-primary rounded-none px-0 text-xs"
               />
@@ -384,7 +384,7 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props)
                   value={newComment}
                   onChange={setNewComment}
                   onSubmit={() => submitComment(newComment)}
-                  placeholder="Add a commentâ¦"
+                  placeholder="Add a comment…"
                   disabled={posting}
                   maxLength={2200}
                   className="bg-transparent border-b border-border focus:border-primary rounded-none px-0 text-xs"

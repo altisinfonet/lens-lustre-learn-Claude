@@ -44,7 +44,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
   const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set());
   const [adminIds, setAdminIds] = useState<Set<string>>(new Set());
 
-  // Derive all data from sidebarData â ZERO independent fetches
+  // Derive all data from sidebarData — ZERO independent fetches
   const sections = useMemo<RightSidebarSections>(() => {
     if (!sidebarData?.sections) return defaultSections;
     return { ...defaultSections, ...(sidebarData.sections as any) };
@@ -97,12 +97,12 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
   };
 
   const placementIcon = (p: string | null) => {
-    if (!p) return "ð";
+    if (!p) return "🏆";
     const lower = p.toLowerCase();
-    if (lower === "gold" || lower === "1st") return "ð¥";
-    if (lower === "silver" || lower === "2nd") return "ð¥";
-    if (lower === "bronze" || lower === "3rd") return "ð¥";
-    return "ð";
+    if (lower === "gold" || lower === "1st") return "🥇";
+    if (lower === "silver" || lower === "2nd") return "🥈";
+    if (lower === "bronze" || lower === "3rd") return "🥉";
+    return "🏆";
   };
 
   if (loading || dashboardLoading) return <div className="space-y-5" />;
@@ -175,7 +175,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
           </div>
           <div className="px-4 py-2 border-t border-border">
             <Link to="/discover" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={headingFont}>
-              See All â
+              See All →
             </Link>
           </div>
         </div>
@@ -239,7 +239,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
           )}
           <div className="px-4 py-2 border-t border-border">
             <Link to="/competitions" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={headingFont}>
-              View All â
+              View All →
             </Link>
           </div>
         </div>
@@ -284,13 +284,13 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
           )}
           <div className="px-4 py-2 border-t border-border">
             <Link to="/courses" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={headingFont}>
-              Browse Courses â
+              Browse Courses →
             </Link>
           </div>
         </div>
       )}
 
-      {/* Top Contributors â anonymous only */}
+      {/* Top Contributors — anonymous only */}
       {!user && <SidebarTopContributors />}
 
       {sections.winners && (
@@ -336,7 +336,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
           )}
           <div className="px-4 py-2 border-t border-border">
             <Link to="/winners" className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={headingFont}>
-              View All Winners â
+              View All Winners →
             </Link>
           </div>
         </div>
