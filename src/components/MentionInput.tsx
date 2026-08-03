@@ -129,7 +129,19 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
   };
 
   return (
-    <div className={`relative flex-1 mention-input-wrapper ${className}`}>
+    <div className={`flex-1 mention-input-wrapper ${className}`}>
+      {/*
+        THE POSITIONING CONTEXT IS THIS BOX, NOT THE WRAPPER.
+
+        The send button is absolutely positioned. While `relative` sat on the
+        outer wrapper, `bottom-0` resolved to the bottom of the wrapper — which
+        also contains the character counter — so the button hung outside the
+        pill, below its bottom-right corner. Caught in a rendered screenshot
+        before shipping, not by reading the code.
+
+        This div wraps ONLY the field, so the button is anchored to the field.
+      */}
+      <div className="relative">
       <MentionsInput
         value={value}
         onChange={(_e, newValue) => onChange(newValue)}
@@ -287,6 +299,7 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
           <Send className="h-4 w-4" />
         </button>
       )}
+      </div>
       {value.length > 0 && (
         <div className={`text-[10px] mt-1 pr-2 text-right tabular-nums ${overLimit ? "text-destructive font-semibold" : "text-muted-foreground/60"}`}>
           {value.length} / {maxLength}{overLimit ? ` · ${value.length - maxLength} over limit` : ""}
