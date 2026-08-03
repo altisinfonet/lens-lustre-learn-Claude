@@ -91,15 +91,41 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
 
   const handleSendClick = () => fire();
 
+  /**
+   * ENTER BEHAVES DIFFERENTLY ON A PHONE AND ON A DESKTOP — ON PURPOSE.
+   *
+   * This is what Instagram actually does, and the owner chose it deliberately
+   * on 2026-08-03:
+   *
+   *   touch device   Enter inserts a NEW LINE. The 44px send button posts.
+   *   desktop        Enter POSTS. Shift+Enter inserts a new line.
+   *
+   * The reason it has to differ: a phone keyboard has no Shift, so if Enter
+   * posted on touch, a member could never write a second line — which is the
+   * entire point of making this box multi-line. On a desktop the opposite is
+   * true: everyone expects Enter to send, and Shift+Enter is the universal
+   * escape hatch.
+   *
+   * `(pointer: coarse)` is the honest test — it asks whether the primary input
+   * device is a finger, rather than sniffing the user agent, which lies.
+   */
+  const isTouch = () =>
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(pointer: coarse)").matches;
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      // react-mentions sets a flag while suggestion list is active by intercepting Enter itself.
-      // If default was prevented (selection in dropdown), we won't reach this; otherwise submit.
-      if (!(e as any).defaultPrevented) {
-        e.preventDefault();
-        if (!submitBlocked) onSubmit();
-      }
-    }
+    if (e.key !== "Enter") return;
+
+    // react-mentions swallows Enter itself while its @suggestion list is open,
+    // so a prevented event means "the member picked a name", never "send".
+    if ((e as any).defaultPrevented) return;
+
+    if (e.shiftKey) return; // Shift+Enter is always a new line, on every device
+    if (isTouch()) return;  // phones: let Enter do what the keyboard says — new line
+
+    e.preventDefault();
+    fire();
   };
 
   return (
@@ -111,17 +137,32 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
         placeholder={placeholder}
         disabled={disabled}
         autoFocus={autoFocus}
-        singleLine
+        /**
+         * NO `singleLine` — this is what makes the box multi-line.
+         *
+         * react-mentions renders <input type="text"> when `singleLine` is set
+         * and <textarea> when it is not. Instagram, Facebook and WhatsApp all
+         * use a textarea for comments; we were the odd one out.
+         *
+         * In multi-line mode the library positions the textarea absolutely at
+         * height:100% over the highlighter, and the HIGHLIGHTER — which is in
+         * normal flow — is what actually sets the height. So the box grows on
+         * its own as text wraps; no JavaScript resizing is needed. That only
+         * holds while the two share identical typography, which is why
+         * `lineHeight` is now pinned on both below.
+         */
         allowSpaceInQuery
         /**
-         * Gives the Android keyboard a "Send" key instead of a plain newline.
-         * Verified against the library source: react-mentions spreads every prop
-         * it does not consume itself straight onto the real <input>, so this
-         * reaches the element. Measured on production before this change: the
-         * input carried no enterKeyHint at all, so there was no way to send a
-         * comment from the keyboard — the 24px button was the only route.
+         * `autoCapitalize` was never set, so a comment started lowercase. Every
+         * other social app capitalises the first letter.
+         *
+         * `enterKeyHint` is deliberately ABSENT. It was "send" while the box was
+         * single-line, because the keyboard was the only usable way to post past
+         * a 24px button. Now that Enter inserts a new line on touch (see
+         * handleKeyDown) a key labelled "Send" would lie about what it does.
+         * The 44px button is the send route on a phone, exactly as on Instagram.
          */
-        enterKeyHint="send"
+        autoCapitalize="sentences"
         inputRef={(node: any) => {
           inputRef.current = node;
           if (typeof _forwardedRef === "function") _forwardedRef(node);
@@ -131,27 +172,44 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
         style={{
           control: {
             backgroundColor: "hsl(var(--muted))",
-            borderRadius: "9999px",
+            // 18px, not a pill. At one line it still looks round; at four lines
+            // a 9999px radius would bow the sides out like a capsule.
+            borderRadius: "18px",
             fontSize: "15px",
+            // 15px text + 20px line + 8px padding top and bottom = 36px for a
+            // single line, which is exactly the height the box had before. Each
+            // further line adds exactly 20px.
             minHeight: "36px",
+            // Instagram stops growing at roughly five lines and scrolls after
+            // that. 20*5 + 16 = 116. Without a cap, a 2200-character comment
+            // would push the composer off the screen.
+            maxHeight: "116px",
           },
           input: {
             // Right padding must clear the 44px send button, or typed text runs
-            // underneath it. MUST stay identical to `highlighter` below —
-            // react-mentions overlays the two, and a 1px difference misaligns
-            // every @mention pill.
+            // underneath it. Padding AND lineHeight MUST stay identical to
+            // `highlighter` below — react-mentions overlays the two, and once
+            // the box wraps, any difference misaligns every @mention pill and
+            // makes the measured height wrong.
             padding: showSendButton ? "8px 44px 8px 16px" : "8px 16px",
+            lineHeight: "20px",
             border: "none",
             outline: "none",
-            borderRadius: "9999px",
+            borderRadius: "18px",
             color: "hsl(var(--foreground))",
+            // The library's multi-line default is overflow:hidden. `auto` lets
+            // a long comment scroll inside the capped box; react-mentions
+            // mirrors this scroll onto the highlighter via its own onScroll
+            // handler, so the two never drift apart.
+            overflowY: "auto",
           },
           highlighter: {
-            padding: showSendButton ? "8px 44px 8px 16px" : "8px 16px", // keep in step with `input`
+            padding: showSendButton ? "8px 44px 8px 16px" : "8px 16px", // in step with `input`
+            lineHeight: "20px", // in step with `input` — see the note above
             border: "none",
-            borderRadius: "9999px",
+            borderRadius: "18px",
             color: "hsl(var(--foreground))",
-            lineHeight: "1.2",
+            maxHeight: "116px",
           },
           suggestions: {
             list: {
@@ -216,7 +274,15 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
           onPointerDown={handleSendPointerDown}
           onClick={handleSendClick}
           disabled={submitBlocked}
-          className="absolute right-0 top-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center text-primary hover:text-primary/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors z-10"
+          /**
+           * Anchored to the BOTTOM, not vertically centred.
+           *
+           * While the box was one line those were the same thing. Now that it
+           * grows, a centred button would float into the middle of a paragraph.
+           * Instagram keeps it pinned to the last line, next to where the
+           * cursor is. `bottom-0` on a 36px box still reads as centred.
+           */
+          className="absolute right-0 bottom-0 flex h-11 w-11 items-center justify-center text-primary hover:text-primary/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors z-10"
         >
           <Send className="h-4 w-4" />
         </button>
