@@ -1,3 +1,38 @@
+Build 1044 - 2026-08-03
+
+INTERNAL CHANGELOG. Never shown to a member. Play "What's new" stays
+"Bug fixes and improvements." per the owner's standing instruction.
+
+THIS IS THE FINAL BUILD OF THE DAY - UPLOAD THIS ONE. Supersedes 1043,
+which is identical except for the item below.
+
+NEW SINCE 1043:
+
+MEMBERS-ONLY LINKS SEND A SIGNED-OUT VISITOR TO THE SIGN-IN PAGE
+   Nine member pages (own profile, own photos, notifications, entry pages,
+   journal and course editors, lessons) used to render an empty or
+   misleading shell when opened signed out. They now redirect to the
+   sign-in page. Verified per route in a rendered browser, before and
+   after. Deliberately public pages (journal, competitions, winners,
+   shared post links, the staff-ID check) are unchanged - shared post
+   links were re-verified query-by-query against the live database and
+   work for signed-out visitors.
+
+ALSO ACTIVE (server-side, no build needed, already live for every build):
+   Google-hosted profile pictures are no longer stored or shown. Google
+   began refusing them (HTTP 503), which broke member photos at sign-in,
+   at joining, and across the feed. 27 affected accounts cleaned; signup
+   and login no longer write such links.
+
+CARRIED FROM 1043: multiline comment box, visible centred send button,
+   profile-completion panel fix, the logo notification icon, the 74
+   repaired characters.
+
+REGISTRATION
+   Untouched. Sign-up flow has no changes in this build.
+
+====================================================================
+
 Build 1043 - 2026-08-03
 
 INTERNAL CHANGELOG. Never shown to a member. Play "What's new" stays
