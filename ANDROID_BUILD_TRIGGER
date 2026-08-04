@@ -1,3 +1,12 @@
+Build 1046 — 2026-08-04
+- No running character counter on any member text area (was showing "55/2200" style
+  readouts on every comment box, the caption editor and the composer — owner order).
+  A single red line appears ONLY when a member is over the limit, telling them how
+  many characters to remove, because the send button is disabled at that point.
+- Carries everything from 1045 (full 4:5 ad picture, fast ad updates, canonical
+  share/referral links, native share sheet) — upload 1046 INSTEAD of 1045.
+- Web build 2026-08-04-2. PR #58.
+
 Build 1045 — 2026-08-04
 - Feed ad card now shows its picture at the FULL 4:5, same size as a post photo (aspect box moved from the whole card to the media area; label no longer eats into the image).
 - Admin ad changes reach screens fast: 60s settings-read cap + cache invalidation on save + mounted ad zones refetch on the save event (was up to 10 min).
