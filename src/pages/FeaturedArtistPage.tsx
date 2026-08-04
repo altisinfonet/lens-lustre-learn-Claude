@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { publicUrl, shareLink } from "@/lib/publicUrl";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import DOMPurify from "dompurify";
@@ -272,12 +273,12 @@ const FeaturedArtistPage = () => {
   };
 
   const handleShare = async () => {
-    const url = window.location.href;
+    // location.href inside the installed app is https://localhost/… — a link
+    // to nowhere for whoever receives it. Share the canonical site URL.
+    const url = publicUrl(window.location.pathname);
     const shareDescription = htmlToPlainText(article?.excerpt || author?.bio || "", 155);
-    if (navigator.share) {
-      try { await navigator.share({ title: article?.title, text: shareDescription, url }); } catch {}
-    } else {
-      await navigator.clipboard.writeText(url);
+    const result = await shareLink({ title: article?.title, text: shareDescription, url });
+    if (result === "copied") {
       setCopied(true);
       toast({ title: "Link copied to clipboard!" });
       setTimeout(() => setCopied(false), 2000);

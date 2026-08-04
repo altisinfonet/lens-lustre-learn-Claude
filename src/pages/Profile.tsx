@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
+import { publicUrl } from "@/lib/publicUrl";
 import { Camera, Copy, Check, Edit2, ExternalLink, Globe, KeyRound, Lock, Mail, MapPin, MessageSquare, Phone, Share2, Users } from "lucide-react";
 import AvatarCompletionRing from "@/components/AvatarCompletionRing";
 import { motion } from "framer-motion";
@@ -50,7 +51,7 @@ const Profile = () => {
     setSendingReset(true);
     const captchaToken = await getCaptchaToken(); // BUG-043
     const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: publicUrl("/reset-password"),
       captchaToken,
     });
     setSendingReset(false);
@@ -77,8 +78,8 @@ const Profile = () => {
     : null;
 
   const profileUrl = (profile as any)?.custom_url
-    ? `${window.location.origin}/${(profile as any).custom_url}`
-    : `${window.location.origin}/profile/${user?.id}`;
+    ? publicUrl(`/${(profile as any).custom_url}`)
+    : publicUrl(`/profile/${user?.id}`);
 
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(profileUrl);
@@ -366,7 +367,7 @@ const Profile = () => {
               <div className="flex items-center gap-2 px-4 py-2.5 bg-muted/50 border border-border rounded-sm max-w-full overflow-hidden">
                 <Share2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                 <span className="text-[10px] tracking-[0.1em] text-muted-foreground truncate" style={{ fontFamily: "var(--font-heading)" }}>
-                  {(profile as any)?.custom_url ? `50mmretina.com/${(profile as any).custom_url}` : `${window.location.origin}/profile/${user?.id}`}
+                  {(profile as any)?.custom_url ? `50mmretina.com/${(profile as any).custom_url}` : publicUrl(`/profile/${user?.id}`)}
                 </span>
                 <button onClick={handleCopyUrl} className="flex-shrink-0 p-1 hover:text-primary transition-colors duration-300" title="Copy profile URL">
                   {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}

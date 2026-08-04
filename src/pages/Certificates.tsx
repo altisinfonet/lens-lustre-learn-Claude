@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { publicUrl } from "@/lib/publicUrl";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Award, Download, Calendar, Share2, Copy, FileCheck2, Loader2, Eye, Ban } from "lucide-react";
@@ -393,8 +394,8 @@ const Certificates = () => {
                   .replace(" — Completion Certificate", "")
                   .replace(" — Winner Certificate", "");
                 const shareUrl = cert.verification_token
-                  ? `${window.location.origin}/certificate/${cert.verification_token}`
-                  : `${window.location.origin}/verify?id=${cert.id}`;
+                  ? publicUrl(`/certificate/${cert.verification_token}`)
+                  : publicUrl(`/verify?id=${cert.id}`);
 
                 return (
                   <motion.div

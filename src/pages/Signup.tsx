@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
+import { SITE_ORIGIN } from "@/lib/publicUrl";
 import { useSiteLogo } from "@/hooks/core/useSiteLogo";
 import { useT } from "@/i18n/I18nContext";
 import { ArrowLeft, Loader2, Mail, Eye, EyeOff } from "lucide-react";
@@ -126,7 +127,7 @@ const Signup = () => {
         password: result.data.password,
         options: {
           data: { full_name: normalized },
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: SITE_ORIGIN,
           captchaToken,
         },
       });

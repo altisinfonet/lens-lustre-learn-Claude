@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { publicUrl } from "@/lib/publicUrl";
 import { useParams, Navigate } from "react-router-dom";
 import DOMPurify from "dompurify";
 import { useQuery } from "@tanstack/react-query";
@@ -84,7 +85,7 @@ const ManagedPageView = () => {
   const content = tr?.content || page.content;
   const metaTitle = tr?.meta_title || page.meta_title || title;
   const metaDesc = tr?.meta_description || page.meta_description;
-  const canonical = `${window.location.origin}/page/${page.slug}`;
+  const canonical = publicUrl(`/page/${page.slug}`);
 
   let jsonLdScript: string | null = null;
   if (page.json_ld) {

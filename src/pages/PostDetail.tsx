@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { publicUrl } from "@/lib/publicUrl";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -161,7 +162,7 @@ const PostDetail = () => {
   };
 
   const copyLink = () => {
-    navigator.clipboard.writeText(`${window.location.origin}/post/${postId}`);
+    navigator.clipboard.writeText(publicUrl(`/post/${postId}`));
     toast({ title: "Link copied!" });
   };
 
