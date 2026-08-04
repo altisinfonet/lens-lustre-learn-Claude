@@ -1,3 +1,13 @@
+Build 1049 — 2026-08-04
+- The member's name now always wins the space. In narrow places the badge was
+  taking room from the name and cutting it short; the badge now shortens itself
+  instead, and shrinks to just its icon before a single letter of the name is
+  lost.
+- Badge text set to 8.5px.
+- Everything from 1048 (readable solid badge pills in dark and light) and 1047.
+  Upload 1049 INSTEAD of 1048.
+- Web build 2026-08-04-5. PR #61.
+
 Build 1048 — 2026-08-04
 - Badges are readable at last. Every badge except the blue Verified one was a
   see-through tint with dark text at 7px, which failed the readability standard
