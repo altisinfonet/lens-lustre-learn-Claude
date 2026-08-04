@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { publicUrl } from "@/lib/publicUrl";
 import { Link } from "react-router-dom";
 import { MessageCircle, Share2, Copy, MoreHorizontal, Trash2, Flag, Heart, Repeat, Eye, Pencil, UserPlus, Users } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
@@ -134,7 +135,7 @@ const PostCard = ({
   };
 
   const copyLink = () => {
-    navigator.clipboard.writeText(`${window.location.origin}/post/${post.id}`);
+    navigator.clipboard.writeText(publicUrl(`/post/${post.id}`));
     toast({ title: "Link copied to clipboard!" });
   };
 
