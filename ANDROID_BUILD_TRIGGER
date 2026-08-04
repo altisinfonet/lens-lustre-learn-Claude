@@ -1,3 +1,11 @@
+Build 1045 — 2026-08-04
+- Feed ad card now shows its picture at the FULL 4:5, same size as a post photo (aspect box moved from the whole card to the media area; label no longer eats into the image).
+- Admin ad changes reach screens fast: 60s settings-read cap + cache invalidation on save + mounted ad zones refetch on the save event (was up to 10 min).
+- Every link that leaves the app now uses the real site origin instead of the WebView's localhost: referral link, post/profile/entry/certificate/journal shares, competition-photo copy links, and password-reset emails sent from the app.
+- Share buttons in the app now open the native share sheet (the WebView has no navigator.share; before, they silently copied a dead localhost URL).
+- Feed reshuffles on every refresh (DB-side, migration 20260804090000 — already live for all builds; listed here for the record).
+- Web build 2026-08-04-1. PR #57.
+
 Build 1044 - 2026-08-03
 
 INTERNAL CHANGELOG. Never shown to a member. Play "What's new" stays
