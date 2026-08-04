@@ -16,7 +16,8 @@ export interface BadgeConfig {
   label: string;
   /** Tailwind classes for the ribbon */
   ribbonClass: string;
-  /** Tailwind classes for compact badge */
+  /** Solid fill for the compact pill. Rendered through solidPillClass() in
+   *  src/lib/badgePalette.ts, which guarantees white-on-fill >= 4.5:1. */
   badgeClass: string;
   /** Emoji/icon shorthand */
   icon: string;
@@ -27,35 +28,35 @@ export const BADGES: Record<BadgeType, BadgeConfig> = {
     type: "top_rated",
     label: "Top Rated",
     ribbonClass: "bg-gradient-to-r from-amber-500 to-yellow-400 text-white shadow-amber-500/30",
-    badgeClass: "bg-amber-500/15 text-amber-600 border-amber-500/30",
+    badgeClass: "bg-amber-700",
     icon: "⭐",
   },
   verified: {
     type: "verified",
     label: "Verified",
     ribbonClass: "bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-blue-500/30",
-    badgeClass: "bg-blue-500/15 text-blue-600 border-blue-500/30",
+    badgeClass: "bg-blue-600",
     icon: "✓",
   },
   most_popular: {
     type: "most_popular",
     label: "Most Popular",
     ribbonClass: "bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-pink-500/30",
-    badgeClass: "bg-pink-500/15 text-pink-600 border-pink-500/30",
+    badgeClass: "bg-pink-600",
     icon: "🔥",
   },
   most_trusted: {
     type: "most_trusted",
     label: "Most Trusted",
     ribbonClass: "bg-gradient-to-r from-emerald-500 to-green-400 text-white shadow-emerald-500/30",
-    badgeClass: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
+    badgeClass: "bg-emerald-700",
     icon: "🛡",
   },
   rising_star: {
     type: "rising_star",
     label: "Rising Star",
     ribbonClass: "bg-gradient-to-r from-violet-500 to-purple-400 text-white shadow-violet-500/30",
-    badgeClass: "bg-violet-500/15 text-violet-600 border-violet-500/30",
+    badgeClass: "bg-violet-600",
     icon: "🚀",
   },
 };
