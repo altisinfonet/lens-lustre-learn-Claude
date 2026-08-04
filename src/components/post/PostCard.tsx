@@ -307,9 +307,12 @@ const PostCard = ({
             className="text-[13px] min-h-[80px] resize-none"
             autoFocus
           />
-          {editDraft.length > 0 && (
-            <div className={`text-[10px] text-right tabular-nums ${editDraft.length > 2200 ? "text-destructive font-semibold" : "text-muted-foreground/60"}`}>
-              {editDraft.length} / 2200{editDraft.length > 2200 ? ` · ${editDraft.length - 2200} over limit` : ""}
+          {/* No running counter (owner, 2026-08-04: "Don't show it anywhere").
+              The line appears ONLY over the limit, where Save is disabled and
+              silence would leave a dead button unexplained. */}
+          {editDraft.length > 2200 && (
+            <div className="text-[10px] text-right tabular-nums text-destructive font-semibold">
+              {editDraft.length - 2200} over the 2200 limit — shorten to save
             </div>
           )}
           <div className="flex items-center justify-end gap-2">
