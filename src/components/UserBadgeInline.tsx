@@ -1,6 +1,7 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { useBadgeDefinitions } from "@/hooks/profile/useBadgeDefinitions";
+import { solidPillClass, BADGE_ICON_SIZE } from "@/lib/badgePalette";
 
 interface Props {
   badges: string[];
@@ -28,7 +29,10 @@ const UserBadgeInline = ({ badges, size = "compact" }: Props) => {
   const isVerified = badges.includes("verified");
   const otherBadges = badges.filter((b) => b !== "verified");
 
-  const labelSize = size === "compact" ? "text-[7px] px-1 py-px" : "text-[8px] px-1.5 py-0.5";
+  // Size + colour now come from ONE place (src/lib/badgePalette.ts) and the
+  // stored class string is normalised there, so a badge cannot render
+  // unreadable whatever the database holds. Was: 7px text on a 15%-transparent
+  // fill, which failed WCAG AA in both modes for all ten colours.
   const tickSize = size === "compact" ? "h-3.5 w-3.5" : "h-4 w-4";
 
   return (
@@ -52,10 +56,8 @@ const UserBadgeInline = ({ badges, size = "compact" }: Props) => {
         return (
           <Tooltip key={b}>
             <TooltipTrigger asChild>
-              <span
-                className={`inline-flex h-auto items-center gap-0.5 ${labelSize} tracking-[0.06em] uppercase font-semibold rounded-sm border shrink-0 leading-none cursor-default ${cfg.badge_class}`}
-              >
-                <span className="text-[8px]">{cfg.icon}</span>
+              <span className={solidPillClass(cfg.badge_class, size)}>
+                <span className={BADGE_ICON_SIZE}>{cfg.icon}</span>
                 {cfg.label}
               </span>
             </TooltipTrigger>
