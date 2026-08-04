@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { UserPlus, X, Check } from "lucide-react";
+import { UserPlus, X, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import ProfileLink from "@/components/ProfileLink";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import { useDashboardContext } from "@/hooks/core/DashboardContext";
@@ -38,6 +38,17 @@ import { useT } from "@/i18n/I18nContext";
 
 /** How many cards to render. Enough to scroll, not enough to feel like a wall. */
 const MAX_CARDS = 12;
+
+/** Card width (132) + the gap between cards (gap-2.5 = 10px). One tap = one card. */
+const CARD_STEP = 142;
+
+/**
+ * A few pixels of slack before "there is more this way" turns off. Browsers
+ * report fractional scroll offsets, so `scrollLeft + clientWidth === scrollWidth`
+ * is almost never exactly true at the end of a rail — without this the right
+ * arrow would stay lit forever on some devices.
+ */
+const EDGE_SLACK = 4;
 
 const FeedFriendSuggestions = () => {
   const t = useT();
@@ -78,6 +89,45 @@ const FeedFriendSuggestions = () => {
       .slice(0, MAX_CARDS);
   }, [rawSuggestions, adminIds, dismissed]);
 
+  /**
+   * ARROWS — "a small arrow will make the user understand that there is more."
+   * Owner instruction, 2026-08-04, after seeing the first render: a rail that
+   * scrolls but shows no affordance reads as a row that simply ends.
+   *
+   * `canLeft` / `canRight` are measured from the rail's own scroll geometry, not
+   * guessed from the number of cards — on a wide phone all the cards may already
+   * fit, and an arrow pointing at nothing is worse than no arrow. Both start
+   * false and are set by the first measurement, so nothing flashes on mount.
+   */
+  const railRef = useRef<HTMLDivElement | null>(null);
+  const [canLeft, setCanLeft] = useState(false);
+  const [canRight, setCanRight] = useState(false);
+
+  const measure = useCallback(() => {
+    const el = railRef.current;
+    if (!el) return;
+    setCanLeft(el.scrollLeft > EDGE_SLACK);
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - EDGE_SLACK);
+  }, []);
+
+  /**
+   * useLayoutEffect, so the first measurement happens before paint: the right
+   * arrow is there on the very first frame the rail is visible, never a beat
+   * later. ResizeObserver covers rotation and the keyboard opening/closing.
+   */
+  useLayoutEffect(() => {
+    const el = railRef.current;
+    if (!el) return;
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [measure, people.length]);
+
+  const nudge = (dir: -1 | 1) => {
+    railRef.current?.scrollBy({ left: dir * CARD_STEP, behavior: "smooth" });
+  };
+
   // Web: the sidebar already covers this. Nothing to render.
   if (!isNativeCapacitorApp()) return null;
   // Never render an empty shell — a header with no cards is worse than nothing.
@@ -116,7 +166,18 @@ const FeedFriendSuggestions = () => {
         `overscroll-x-contain` stops a sideways swipe from also dragging the
         page behind it.
       */}
-      <div className="flex gap-2.5 overflow-x-auto overscroll-x-contain snap-x snap-mandatory scrollbar-hide px-4 pb-4 pt-1">
+      <div className="relative">
+      <div
+        ref={railRef}
+        onScroll={measure}
+        /*
+          `scroll-px-4` matches `px-4`. Without it, snap-mandatory pulls the
+          first card flush against the left edge on load — measured scrollLeft
+          16 at rest — which both eats the inset AND lights the "there is more
+          to the left" arrow while sitting at the very start.
+        */
+        className="flex gap-2.5 overflow-x-auto overscroll-x-contain snap-x snap-mandatory scroll-px-4 scrollbar-hide px-4 pb-4 pt-1"
+      >
         {people.map((s: any) => {
           const isSent = sent.has(s.id);
           return (
@@ -154,13 +215,20 @@ const FeedFriendSuggestions = () => {
               </ProfileLink>
 
               {/* Same identity block as everywhere else, so badges and the
-                  name-outranks-badge rule apply here too without restating them. */}
+                  name-outranks-badge rule apply here too without restating them.
+
+                  `stack` puts the badge on its own line: this card is 132px
+                  wide, and inline the badge would be squeezed to nothing beside
+                  the name — a card with a name and no badge. The standing rule
+                  is that the badge shows wherever the name shows. */}
               <div className="mt-2 w-full flex justify-center">
                 <UserIdentityBlock
                   userId={s.id}
                   name={s.full_name || "Photographer"}
                   linkTo={`/profile/${s.id}`}
-                  nameClassName="text-[11px] font-semibold text-foreground truncate hover:text-primary transition-colors"
+                  stack
+                  align="center"
+                  nameClassName="text-[11px] font-semibold text-foreground hover:text-primary transition-colors"
                 />
               </div>
 
@@ -207,6 +275,42 @@ const FeedFriendSuggestions = () => {
             </div>
           );
         })}
+      </div>
+
+        {/*
+          The arrows sit OVER the rail, not in the flow, so turning one on or off
+          never shifts a card by a pixel. `pointer-events-none` on the hidden
+          state would still swallow a swipe, so they are unmounted instead.
+
+          A soft fade of the card background runs under each arrow: it is the fade
+          that says "this row continues", the chevron just names the direction.
+        */}
+        {canLeft && (
+          <>
+            <div className="pointer-events-none absolute left-0 top-0 bottom-4 w-10 bg-gradient-to-r from-card to-transparent" />
+            <button
+              type="button"
+              onClick={() => nudge(-1)}
+              aria-label={t("feedSuggest.prev", "Previous")}
+              className="absolute left-1 top-[52px] -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background/95 text-foreground shadow-sm active:scale-95 transition-transform"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          </>
+        )}
+        {canRight && (
+          <>
+            <div className="pointer-events-none absolute right-0 top-0 bottom-4 w-10 bg-gradient-to-l from-card to-transparent" />
+            <button
+              type="button"
+              onClick={() => nudge(1)}
+              aria-label={t("feedSuggest.next", "Next")}
+              className="absolute right-1 top-[52px] -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background/95 text-foreground shadow-sm active:scale-95 transition-transform"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </>
+        )}
       </div>
     </section>
   );
