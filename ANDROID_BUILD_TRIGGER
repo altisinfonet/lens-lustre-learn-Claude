@@ -1,3 +1,15 @@
+Build 1048 — 2026-08-04
+- Badges are readable at last. Every badge except the blue Verified one was a
+  see-through tint with dark text at 7px, which failed the readability standard
+  in BOTH dark and light mode for all ten colours. Each badge is now a solid
+  coloured pill with white text at 10px, so it reads the same whatever is behind
+  it. The blue Verified badge is untouched.
+- Also covers "Featured Creator" and every other role pill, and the Admin panel's
+  colour choices are now all readable by default, so a new badge cannot be
+  created unreadable.
+- Carries everything from 1047.
+- Web build 2026-08-04-4. PR #60.
+
 Build 1047 — 2026-08-04
 - Reach and Viewed-by no longer react to anything a member does. Liking a post
   used to make them jump in the same instant, and removing the like made them go
