@@ -1,3 +1,14 @@
+Build 1047 — 2026-08-04
+- Reach and Viewed-by no longer react to anything a member does. Liking a post
+  used to make them jump in the same instant, and removing the like made them go
+  DOWN — which is impossible for real figures and made them look computed on the
+  spot. They now depend only on the post and how old it is, so they can only ever
+  move upwards, slowly, over hours and days.
+- Carries everything from 1046 (no character counters) and 1045 (full 4:5 ad
+  picture, fast ad updates, canonical share/referral links, native share sheet).
+  Upload 1047 INSTEAD of 1045/1046.
+- Web build 2026-08-04-3. PR #59.
+
 Build 1046 — 2026-08-04
 - No running character counter on any member text area (was showing "55/2200" style
   readouts on every comment box, the caption editor and the composer — owner order).
