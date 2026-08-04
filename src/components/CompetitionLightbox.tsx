@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useState } from "react";
+import { SITE_ORIGIN } from "@/lib/publicUrl";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronLeft, ChevronRight, Heart, AlertTriangle, Copy } from "lucide-react";
@@ -182,7 +183,7 @@ const CompetitionLightbox = memo(({
                     )}
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(buildCompetitionPhotoUrl(window.location.origin, current.entryId, current.photoIndex));
+                        navigator.clipboard.writeText(buildCompetitionPhotoUrl(SITE_ORIGIN, current.entryId, current.photoIndex));
                         toast({ title: "Photo link copied!" });
                       }}
                       className="inline-flex items-center gap-1.5 mt-2 text-[10px] tracking-[0.1em] uppercase text-muted-foreground hover:text-primary transition-colors"

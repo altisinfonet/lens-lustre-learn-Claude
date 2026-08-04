@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from "react";
+import { publicUrl } from "@/lib/publicUrl";
 import { Heart, Star, Share2, Copy, ExternalLink, AlertTriangle } from "lucide-react";
 import {
   AlertDialog,
@@ -218,7 +219,7 @@ const EntryCard: React.FC<EntryCardProps> = ({
   }, [markAsPOTD, entry]);
 
   const copyEntryLink = useCallback(() => {
-    navigator.clipboard.writeText(`${window.location.origin}${buildCompetitionPhotoPath(entry.id, activePhotoIndex)}`);
+    navigator.clipboard.writeText(publicUrl(buildCompetitionPhotoPath(entry.id, activePhotoIndex)));
     toast({ title: "Photo link copied!" });
   }, [activePhotoIndex, entry.id]);
 

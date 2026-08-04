@@ -20,6 +20,7 @@ import {
   type AdZoneId, type AdZoneConfig, type AdZoneMode, type AdDevice, type AdFrequencyConfig,
   defaultZoneConfig, normalizeZone, defaultFrequencyConfig, normalizeFrequency,
 } from "@/lib/ads/adZonesV2";
+import { invalidateSiteSetting } from "@/lib/siteSettingsCache";
 import { compressImageToFiles } from "@/lib/imageCompression";
 import { generateImagePath, uploadImage } from "@/lib/imageUpload";
 import { feedAdPositionsLabel } from "@/lib/ads/feedAdPlacement";
@@ -95,6 +96,11 @@ const ZONE_GUIDE: Record<AdZoneId, { where: string; size: string; shape: string;
 async function saveSetting(key: string, value: unknown) {
   const { error } = await supabase.from("site_settings").upsert({ key, value } as any, { onConflict: "key" });
   if (error) throw error;
+  // Without this the admin saves and their own session keeps serving the OLD
+  // value from the settings cache for its full TTL (owner report 2026-08-04:
+  // "ad changed from Admin panel but not updated"). The "ad-slots-updated"
+  // event then makes every mounted AdZone refetch, which now misses the cache.
+  invalidateSiteSetting(key);
 }
 
 /* ── One-button picture uploader (compress → upload → preview) ── */

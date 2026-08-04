@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { publicUrl } from "@/lib/publicUrl";
 import DOMPurify from "dompurify";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -299,7 +300,7 @@ export default function AdminPageManagement({ user }: { user: User | null }) {
   };
 
   const copyPageUrl = (slug: string) => {
-    navigator.clipboard.writeText(`${window.location.origin}/page/${slug}`);
+    navigator.clipboard.writeText(publicUrl(`/page/${slug}`));
     toast({ title: "Page URL copied to clipboard" });
   };
 

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { publicUrl } from "@/lib/publicUrl";
 import { ArrowLeft, Loader2, Mail } from "lucide-react";
 import { useState } from "react";
 import { useT } from "@/i18n/I18nContext";
@@ -51,7 +52,7 @@ const ForgotPassword = () => {
 
     const captchaToken = await getCaptchaToken(); // BUG-043
     const { error } = await supabase.auth.resetPasswordForEmail(result.data, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: publicUrl("/reset-password"),
       captchaToken,
     });
 

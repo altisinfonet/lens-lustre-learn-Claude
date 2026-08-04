@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { publicUrl } from "@/lib/publicUrl";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -192,7 +193,7 @@ const EntryDetail = () => {
 
   const copyLink = () => {
     if (!entryId) return;
-    navigator.clipboard.writeText(`${window.location.origin}${buildCompetitionPhotoPath(entryId, selectedPhotoIndex)}`);
+    navigator.clipboard.writeText(publicUrl(buildCompetitionPhotoPath(entryId, selectedPhotoIndex)));
     toast({ title: "Photo link copied!" });
   };
 

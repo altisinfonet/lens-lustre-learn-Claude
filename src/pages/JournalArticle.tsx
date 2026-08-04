@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { publicUrl, shareLink } from "@/lib/publicUrl";
 import { useParams, Link } from "react-router-dom";
 import DOMPurify from "dompurify";
 import { motion } from "framer-motion";
@@ -248,13 +249,11 @@ const JournalArticle = () => {
   };
 
   const handleShare = async () => {
-    const url = window.location.href;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: article?.title, url });
-      } catch {}
-    } else {
-      await navigator.clipboard.writeText(url);
+    // location.href inside the installed app is https://localhost/… — a link
+    // to nowhere for whoever receives it. Share the canonical site URL.
+    const url = publicUrl(window.location.pathname);
+    const result = await shareLink({ title: article?.title, url });
+    if (result === "copied") {
       setCopied(true);
       toast({ title: t("jart.linkCopied") });
       setTimeout(() => setCopied(false), 2000);

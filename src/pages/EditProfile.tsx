@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
+import { publicUrl } from "@/lib/publicUrl";
 import { Bell, Camera, CheckCircle2, Facebook, Instagram, Globe, KeyRound, Loader2, Mail, MapPin, Phone, Save, User, X, AlertCircle, ExternalLink, Twitter, Youtube, CloudOff, Cloud, CalendarIcon } from "lucide-react";
 import ProfileCompletionBar from "@/components/ProfileCompletionBar";
 import PrivacyToggle, { DEFAULT_PRIVACY, type PrivacyLevel } from "@/components/PrivacyToggle";
@@ -56,7 +57,7 @@ const EditProfile = () => {
     setSendingReset(true);
     const captchaToken = await getCaptchaToken(); // BUG-043
     const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: publicUrl("/reset-password"),
       captchaToken,
     });
     setSendingReset(false);

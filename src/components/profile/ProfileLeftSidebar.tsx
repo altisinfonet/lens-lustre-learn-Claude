@@ -1,4 +1,5 @@
 import { useAuth } from "@/hooks/core/useAuth";
+import { publicUrl } from "@/lib/publicUrl";
 import FeaturedPhotos from "./FeaturedPhotos";
 import ProfileIntro from "./ProfileIntro";
 import QRCodeCard from "./QRCodeCard";
@@ -36,8 +37,8 @@ const ProfileLeftSidebar = () => {
 
   const privacy = profile?.privacy_settings as Record<string, string> | null;
   const profileUrl = profile?.custom_url
-    ? `${window.location.origin}/${profile.custom_url}`
-    : `${window.location.origin}/profile/${user.id}`;
+    ? publicUrl(`/${profile.custom_url}`)
+    : publicUrl(`/profile/${user.id}`);
   const displayName = profile?.full_name || "Photographer";
 
   return (

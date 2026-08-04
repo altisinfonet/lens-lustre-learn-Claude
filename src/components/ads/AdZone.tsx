@@ -53,6 +53,14 @@ const ZONE_FRAME: Record<InlineZone, { wrapper: string; image: string; aspect?: 
   },
   "story-card": {
     // Post-shaped card so it sits naturally in the feed.
+    //
+    // The 4:5 aspect belongs to the MEDIA AREA, not the whole card — measured
+    // 2026-08-04 in rendered Chromium at feed width (380px column): with the
+    // aspect on the wrapper, the "Sponsored" label ate 32px of the 475px box,
+    // so the picture rendered 442px tall with its bottom 31px clipped by
+    // overflow-hidden, visibly smaller than every 4:5 post photo (475px)
+    // around it. A post card is header + full 4:5 media; the ad must be
+    // label + full 4:5 media the same way.
     wrapper: "w-full overflow-hidden rounded-sm border border-border bg-card/50",
     image: "w-full h-full object-cover",
     aspect: "4 / 5",
@@ -126,8 +134,21 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
   const [device, setDevice] = useState<AdDevice>(() => detectDevice(typeof window === "undefined" ? 1280 : window.innerWidth));
   const containerRef = useRef<HTMLDivElement>(null);
   const impressionTracked = useRef(false);
+  /**
+   * Bumped when the admin saves in Ad Spots ("ad-slots-updated"), so every
+   * mounted zone in THAT session refetches immediately instead of holding its
+   * mount-time snapshot. Other sessions are covered by the 60s read cap in
+   * adZonesV2/adCreatives.
+   */
+  const [reloadTick, setReloadTick] = useState(0);
 
-  // Load flag + config once.
+  useEffect(() => {
+    const onUpdated = () => setReloadTick((t) => t + 1);
+    window.addEventListener("ad-slots-updated", onUpdated);
+    return () => window.removeEventListener("ad-slots-updated", onUpdated);
+  }, []);
+
+  // Load flag + config on mount and again on every admin save event.
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -156,7 +177,7 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
       } catch { /* ignore */ }
     })();
     return () => { alive = false; };
-  }, [zone]);
+  }, [zone, reloadTick]);
 
   useEffect(() => {
     const onResize = () => setDevice(detectDevice(window.innerWidth));
@@ -276,15 +297,25 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
     if (cr.click_url) window.open(cr.click_url, "_blank", "noopener,noreferrer");
   };
 
+  /**
+   * The aspect box sits on the MEDIA container (see the story-card note in
+   * ZONE_FRAME). With a definite aspect the inner <img h-full> finally has a
+   * height to fill; without one (sidebar/lightbox) the old h-full behaviour
+   * is kept.
+   */
+  const mediaBox = frame.aspect
+    ? { className: "relative overflow-hidden rounded-sm w-full", style: { aspectRatio: frame.aspect } }
+    : { className: "relative overflow-hidden rounded-sm h-full", style: undefined };
+
   return (
-    <div ref={containerRef} className={cn(frame.wrapper, className)} style={frame.aspect ? { aspectRatio: frame.aspect } : undefined}>
+    <div ref={containerRef} className={cn(frame.wrapper, className)}>
       {zone === "story-card" && (
         <div className="px-3 pt-3 pb-2 text-[9px] tracking-[0.25em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Sponsored</div>
       )}
 
       {/* GOOGLE (web AdSense) */}
       {c.mode === "google" && publisherId && (
-        <div className={zone === "story-card" ? "h-full" : ""}>
+        <div className={zone === "story-card" ? "w-full" : ""} style={frame.aspect ? { aspectRatio: frame.aspect } : undefined}>
           <AdsenseUnit slotId={c.google.adsense_slot_id} format={zone === "sidebar" ? "vertical" : c.google.adsense_format} publisherId={publisherId} />
         </div>
       )}
@@ -293,13 +324,13 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
       {c.mode === "own" && cr.image_source !== "code" && cr.image_url && (
         cr.click_url ? (
           <a href={cr.click_url} target="_blank" rel="noopener noreferrer" className="block relative" onClick={handleClick}>
-            <div className="relative overflow-hidden rounded-sm h-full">
+            <div className={mediaBox.className} style={mediaBox.style}>
               <img src={cr.image_url} alt={cr.alt_text || "Sponsored"} className={frame.image} loading="lazy" />
               <CreativeOverlay headline={cr.creative_headline} subtext={cr.creative_subtext} cta={cr.creative_cta} />
             </div>
           </a>
         ) : (
-          <div className="relative overflow-hidden rounded-sm h-full">
+          <div className={mediaBox.className} style={mediaBox.style}>
             <img src={cr.image_url} alt={cr.alt_text || "Sponsored"} className={frame.image} loading="lazy" />
             <CreativeOverlay headline={cr.creative_headline} subtext={cr.creative_subtext} cta={cr.creative_cta} />
           </div>

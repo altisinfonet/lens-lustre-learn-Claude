@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { publicUrl, shareLink } from "@/lib/publicUrl";
 import { useNavigate } from "react-router-dom";
 import { Copy, Check, Users, Gift, Share2, Link as LinkIcon, Loader2, UserPlus, DollarSign, Mail, Send } from "lucide-react";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -110,7 +111,7 @@ const Referrals = () => {
   }, [user, authLoading, isAdmin, navigate, fetchData]);
 
   const referralLink = referralCode
-    ? `${window.location.origin}/signup?ref=${referralCode}`
+    ? publicUrl(`/signup?ref=${referralCode}`)
     : "";
 
   const handleCopy = async () => {
@@ -121,14 +122,15 @@ const Referrals = () => {
   };
 
   const handleShare = async () => {
-    if (navigator.share) {
-      await navigator.share({
-        title: "Join me on 50mm Retina World!",
-        text: "Sign up using my referral link and we both earn rewards!",
-        url: referralLink,
-      });
-    } else {
-      handleCopy();
+    const result = await shareLink({
+      title: "Join me on 50mm Retina World!",
+      text: "Sign up using my referral link and we both earn rewards!",
+      url: referralLink,
+    });
+    if (result === "copied") {
+      setCopied(true);
+      toast({ title: t("ref.linkCopied") });
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 

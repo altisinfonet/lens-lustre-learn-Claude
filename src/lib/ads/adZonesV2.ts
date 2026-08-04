@@ -23,6 +23,13 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getSiteSetting } from "@/lib/siteSettingsCache";
 
+/**
+ * Ad settings are the one group an admin edits live and expects members to see
+ * quickly (owner report 2026-08-04: changed in the Admin panel, not reflected
+ * on app/web). Cap staleness at 60s instead of the cache's 10-minute default.
+ */
+const AD_SETTING_MAX_AGE_MS = 60_000;
+
 /* ── Zones & modes ── */
 
 export type AdZoneId =
@@ -239,7 +246,7 @@ export async function fetchAdZones(): Promise<Record<AdZoneId, AdZoneConfig>> {
   try {
     // Batched + cached: <AdZone> mounts once per ad slot and the feed renders
     // several, so a direct query here was 3 requests x every slot on screen.
-    const value = await getSiteSetting(AD_ZONES_KEY);
+    const value = await getSiteSetting(AD_ZONES_KEY, { maxAgeMs: AD_SETTING_MAX_AGE_MS });
     const stored = (value ?? {}) as Record<string, unknown>;
     for (const z of ALL_ZONES) {
       if (stored[z]) out[z] = normalizeZone(stored[z], z);
@@ -252,7 +259,7 @@ export async function fetchAdZones(): Promise<Record<AdZoneId, AdZoneConfig>> {
 
 export async function fetchAdFrequency(): Promise<AdFrequencyConfig> {
   try {
-    return normalizeFrequency(await getSiteSetting(AD_FREQUENCY_KEY));
+    return normalizeFrequency(await getSiteSetting(AD_FREQUENCY_KEY, { maxAgeMs: AD_SETTING_MAX_AGE_MS }));
   } catch {
     return defaultFrequencyConfig();
   }
@@ -261,7 +268,7 @@ export async function fetchAdFrequency(): Promise<AdFrequencyConfig> {
 /** Master flag — while false, v2 stays fully dormant. Defaults to false. */
 export async function fetchAdZonesEnabled(): Promise<boolean> {
   try {
-    return (await getSiteSetting(AD_ZONES_FLAG_KEY)) === true;
+    return (await getSiteSetting(AD_ZONES_FLAG_KEY, { maxAgeMs: AD_SETTING_MAX_AGE_MS })) === true;
   } catch {
     return false;
   }
