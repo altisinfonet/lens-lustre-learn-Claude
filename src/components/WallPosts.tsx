@@ -653,9 +653,12 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                 />
 
               </div>
-              {newContent.length > 0 && (
-                <div className={`text-[10px] mt-1 text-right tabular-nums ${newContent.length > 2200 ? "text-destructive font-semibold" : "text-muted-foreground/60"}`}>
-                  {newContent.length} / 2200{newContent.length > 2200 ? ` · ${newContent.length - 2200} over limit — delete the highlighted text` : ""}
+              {/* No running counter (owner, 2026-08-04: "Don't show it
+                  anywhere"). The line appears ONLY over the limit, where Post
+                  is disabled and the excess text is highlighted. */}
+              {newContent.length > 2200 && (
+                <div className="text-[10px] mt-1 text-right tabular-nums text-destructive font-semibold">
+                  {newContent.length - 2200} over the 2200 limit — delete the highlighted text
                 </div>
               )}
             </div>

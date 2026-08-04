@@ -329,9 +329,20 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
         </button>
       )}
       </div>
-      {value.length > 0 && (
-        <div className={`text-[10px] mt-1 pr-2 text-right tabular-nums ${overLimit ? "text-destructive font-semibold" : "text-muted-foreground/60"}`}>
-          {value.length} / {maxLength}{overLimit ? ` · ${value.length - maxLength} over limit` : ""}
+      {/*
+        NO RUNNING CHARACTER COUNTER — owner instruction, 2026-08-04:
+        "on every text area you are showing 55/2200 … Don't show it anywhere."
+        The big feeds show nothing while you type, and so do we now.
+
+        The ONE exception is deliberate: past the limit the send button is
+        disabled (submitBlocked), and a disabled button with no explanation is
+        a silent dead control — the exact failure mode WORKING_RULES §6 bans.
+        So the line appears ONLY when the member is actually over the limit,
+        and tells them what to do.
+      */}
+      {overLimit && (
+        <div className="text-[10px] mt-1 pr-2 text-right tabular-nums text-destructive font-semibold">
+          {value.length - maxLength} over the {maxLength} limit — shorten to post · {value.length} / {maxLength}
         </div>
       )}
     </div>
