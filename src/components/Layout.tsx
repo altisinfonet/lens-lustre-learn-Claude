@@ -1,5 +1,6 @@
 import { Outlet, useLocation } from "react-router-dom";
 import Navbar from "@/components/Navbar";
+import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
 import GiftCelebrationModal from "@/components/GiftCelebrationModal";
 import AnnouncementBar from "@/components/AnnouncementBar";
 import AskAnything from "@/components/AskAnything";
@@ -155,8 +156,41 @@ const LayoutInner = () => {
           instance across every route.
           The home-only wrapper carries `absolute top-0 left-0 right-0 z-50`
           exactly as before — see the note above about /home and the hero. */}
+      {/*
+        THE HEADER STICKS TO THE TOP WHILE SCROLLING — WEB ONLY.
+        Owner rule, 2026-08-04: "Only for Web: top menu bar will be strict all
+        the time, even on scrolling."
+
+        The <nav> inside already carried `sticky top-0 z-50` and it never
+        worked. Measured on production: the nav's computed position WAS
+        `sticky`, top `0px`, z-index 50 — correct CSS — but after scrolling
+        1400px its top was -1400, i.e. it had scrolled clean off.
+
+        The reason is that `position: sticky` only holds while the element's
+        CONTAINING BLOCK is on screen, and this wrapper is exactly as tall as
+        the bar itself (89px measured). So the nav had 89px of travel and then
+        left with its parent. Sticky has to sit on the element whose parent
+        spans the page — this wrapper, whose parent is the document flow.
+        Verified live before writing it: with sticky moved up here the nav
+        stays at top 0 at 1600px AND 3000px of scroll.
+
+        Because sticky keeps the element in normal flow there is no layout
+        shift and no content-padding to maintain (a `fixed` bar would need it).
+
+        NOT applied inside the installed app, per "Only for Web" — the app's
+        header behaviour is left exactly as it is. The home page keeps its
+        transparent overlay treatment over the hero, unchanged.
+      */}
       {!hideNav && (
-        <div className={isHome ? "absolute top-0 left-0 right-0 z-50" : undefined}>
+        <div
+          className={
+            isHome
+              ? "absolute top-0 left-0 right-0 z-50"
+              : isNativeCapacitorApp()
+                ? undefined
+                : "sticky top-0 z-50"
+          }
+        >
           <AnnouncementBar />
           <Navbar transparent={isHome} />
         </div>
