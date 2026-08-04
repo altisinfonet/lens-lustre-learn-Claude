@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { solidPillClass, BADGE_ICON_SIZE } from "@/lib/badgePalette";
 import { toast } from "@/hooks/core/use-toast";
 import { Plus, Pencil, Trash2, Save, XCircle, Loader2, Award, Shield, Eye, EyeOff, GripVertical } from "lucide-react";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
@@ -10,16 +11,21 @@ import { invalidateRoleDefs } from "@/hooks/profile/useRoleDefinitions";
 const ICON_OPTIONS = ["⭐", "✓", "🔥", "🛡", "🚀", "💎", "🏆", "👑", "🎯", "💫", "🌟", "⚡", "🎖", "📷", "🎓", "⚖", "✎", "🎨", "🎵", "❤️", "👤", "🎁", "🔰", "🏅", "🌈", "✨", "🔱", "🦅"];
 
 const COLOR_PRESETS = [
-  { name: "Amber", badge: "bg-amber-500/15 text-amber-600 border-amber-500/30", ribbon: "bg-gradient-to-r from-amber-500 to-yellow-400 text-white shadow-amber-500/30", dot: "#f59e0b" },
-  { name: "Blue", badge: "bg-blue-500/15 text-blue-600 border-blue-500/30", ribbon: "bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-blue-500/30", dot: "#3b82f6" },
-  { name: "Pink", badge: "bg-pink-500/15 text-pink-600 border-pink-500/30", ribbon: "bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-pink-500/30", dot: "#ec4899" },
-  { name: "Emerald", badge: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30", ribbon: "bg-gradient-to-r from-emerald-500 to-green-400 text-white shadow-emerald-500/30", dot: "#10b981" },
-  { name: "Violet", badge: "bg-violet-500/15 text-violet-600 border-violet-500/30", ribbon: "bg-gradient-to-r from-violet-500 to-purple-400 text-white shadow-violet-500/30", dot: "#8b5cf6" },
-  { name: "Red", badge: "bg-red-500/15 text-red-600 border-red-500/30", ribbon: "bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-red-500/30", dot: "#ef4444" },
-  { name: "Indigo", badge: "bg-indigo-500/15 text-indigo-600 border-indigo-500/30", ribbon: "bg-gradient-to-r from-indigo-500 to-blue-400 text-white shadow-indigo-500/30", dot: "#6366f1" },
-  { name: "Sky", badge: "bg-sky-500/15 text-sky-600 border-sky-500/30", ribbon: "bg-gradient-to-r from-sky-500 to-cyan-400 text-white shadow-sky-500/30", dot: "#0ea5e9" },
-  { name: "Orange", badge: "bg-orange-500/15 text-orange-600 border-orange-500/30", ribbon: "bg-gradient-to-r from-orange-500 to-amber-400 text-white shadow-orange-500/30", dot: "#f97316" },
-  { name: "Teal", badge: "bg-teal-500/15 text-teal-600 border-teal-500/30", ribbon: "bg-gradient-to-r from-teal-500 to-emerald-400 text-white shadow-teal-500/30", dot: "#14b8a6" },
+  // Every preset is a SOLID fill that gives white text >= 4.5:1 (WCAG AA), so a
+  // badge created here is readable in dark AND light mode by construction.
+  // The old presets were 15%-transparent tints with dark text and all ten of
+  // them failed contrast. See src/lib/badgePalette.ts for the measurements.
+  { name: "Violet", badge: "bg-violet-600", ribbon: "bg-gradient-to-r from-violet-600 to-purple-500 text-white shadow-violet-500/30", dot: "#7c3aed" },
+  { name: "Indigo", badge: "bg-indigo-600", ribbon: "bg-gradient-to-r from-indigo-600 to-blue-500 text-white shadow-indigo-500/30", dot: "#4f46e5" },
+  { name: "Blue", badge: "bg-blue-600", ribbon: "bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-blue-500/30", dot: "#2563eb" },
+  { name: "Sky", badge: "bg-sky-700", ribbon: "bg-gradient-to-r from-sky-700 to-cyan-500 text-white shadow-sky-500/30", dot: "#0369a1" },
+  { name: "Teal", badge: "bg-teal-700", ribbon: "bg-gradient-to-r from-teal-700 to-emerald-500 text-white shadow-teal-500/30", dot: "#0f766e" },
+  { name: "Emerald", badge: "bg-emerald-700", ribbon: "bg-gradient-to-r from-emerald-700 to-green-500 text-white shadow-emerald-500/30", dot: "#047857" },
+  { name: "Amber", badge: "bg-amber-700", ribbon: "bg-gradient-to-r from-amber-700 to-yellow-500 text-white shadow-amber-500/30", dot: "#b45309" },
+  { name: "Orange", badge: "bg-orange-700", ribbon: "bg-gradient-to-r from-orange-700 to-amber-500 text-white shadow-orange-500/30", dot: "#c2410c" },
+  { name: "Red", badge: "bg-red-600", ribbon: "bg-gradient-to-r from-red-600 to-rose-500 text-white shadow-red-500/30", dot: "#dc2626" },
+  { name: "Rose", badge: "bg-rose-600", ribbon: "bg-gradient-to-r from-rose-600 to-pink-500 text-white shadow-rose-500/30", dot: "#e11d48" },
+  { name: "Pink", badge: "bg-pink-600", ribbon: "bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-pink-500/30", dot: "#db2777" },
 ];
 
 interface BadgeDef {
@@ -353,7 +359,7 @@ const AdminBadgeRoleDefinitions = () => {
               {/* Preview */}
               <div className="flex items-center gap-3">
                 <span className="text-[9px] tracking-wider uppercase text-muted-foreground shrink-0" style={{ fontFamily: "var(--font-heading)" }}>Preview:</span>
-                <span className={`inline-flex items-center gap-0.5 text-[8px] px-1.5 py-0.5 tracking-[0.06em] uppercase font-semibold rounded-sm border shrink-0 leading-none ${badgeForm.badge_class}`}>
+                <span className={solidPillClass(badgeForm.badge_class, "full")}>
                   <span className="text-[8px]">{badgeForm.icon}</span>
                   {badgeForm.label || "Badge"}
                 </span>
@@ -378,7 +384,7 @@ const AdminBadgeRoleDefinitions = () => {
                 <span className="text-lg shrink-0">{b.icon}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className={`inline-flex items-center gap-0.5 text-[8px] px-1.5 py-0.5 tracking-[0.06em] uppercase font-semibold rounded-sm border leading-none ${b.badge_class}`}>
+                    <span className={solidPillClass(b.badge_class, "full")}>
                       {b.icon} {b.label}
                     </span>
                     <span className="text-[10px] text-muted-foreground font-mono">{b.type_key}</span>
@@ -510,7 +516,7 @@ const AdminBadgeRoleDefinitions = () => {
               {/* Preview */}
               <div className="flex items-center gap-3">
                 <span className="text-[9px] tracking-wider uppercase text-muted-foreground shrink-0" style={{ fontFamily: "var(--font-heading)" }}>Preview:</span>
-                <span className={`inline-flex items-center gap-0.5 text-[8px] px-1.5 py-0.5 tracking-[0.06em] uppercase font-semibold rounded-sm border shrink-0 leading-none ${roleForm.pill_class}`}>
+                <span className={solidPillClass(roleForm.pill_class, "full")}>
                   {roleForm.icon && <span className="text-[8px]">{roleForm.icon}</span>}
                   {roleForm.label || "Role"}
                 </span>
@@ -532,7 +538,7 @@ const AdminBadgeRoleDefinitions = () => {
                 <span className="text-lg shrink-0">{r.icon || "👤"}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className={`inline-flex items-center gap-0.5 text-[8px] px-1.5 py-0.5 tracking-[0.06em] uppercase font-semibold rounded-sm border leading-none ${r.pill_class}`}>
+                    <span className={solidPillClass(r.pill_class, "full")}>
                       {r.icon && <span className="text-[8px]">{r.icon}</span>}
                       {r.label}
                     </span>
