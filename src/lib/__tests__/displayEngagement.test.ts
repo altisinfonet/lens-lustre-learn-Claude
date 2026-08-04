@@ -1,4 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   // The RAW curve. Everything below that asserts the shape of the numbers uses
   // this, because the shape has to be provable at ages inside the 24-hour hold
@@ -66,10 +68,10 @@ describe("displayEngagement — bands", () => {
     }
   });
 
-  it("stays inside the bands at maximum engagement", () => {
+  it("stays inside the bands however it is called", () => {
     for (const id of ids.slice(0, 500)) {
       const { views, reach } = displayEngagement(
-        { id, createdAt: "2025-01-01T00:00:00Z", reactions: 9999, comments: 9999 },
+        { id, createdAt: "2025-01-01T00:00:00Z", reactions: 9999, comments: 9999 } as any,
         T0,
       );
       expect(views).toBeLessThanOrEqual(VIEWS_MAX);
@@ -79,12 +81,12 @@ describe("displayEngagement — bands", () => {
 });
 
 describe("displayEngagement — reach always exceeds views", () => {
-  it("holds for every id, age and engagement level", () => {
+  it("holds for every id and age", () => {
     for (const id of ids) {
       for (const reactions of [0, 3, 40, 5000]) {
         for (const age of [0, 1, 30, 24 * 400]) {
           const { views, reach } = displayEngagement(
-            { id, createdAt: new Date(T0 - age * HOUR).toISOString(), reactions },
+            { id, createdAt: new Date(T0 - age * HOUR).toISOString(), reactions } as any,
             T0,
           );
           expect(reach).toBeGreaterThan(views);
@@ -127,24 +129,93 @@ describe("displayEngagement — growth", () => {
   });
 });
 
-describe("displayEngagement — responds to real engagement", () => {
-  it("a post with reactions reads higher than the same post with none", () => {
-    let higher = 0;
-    for (const id of ids.slice(0, 300)) {
-      const cold = displayEngagement({ id, createdAt: "2026-07-01T00:00:00Z", reactions: 0 }, T0);
-      const warm = displayEngagement({ id, createdAt: "2026-07-01T00:00:00Z", reactions: 30 }, T0);
-      expect(warm.views).toBeGreaterThanOrEqual(cold.views);
-      if (warm.views > cold.views) higher++;
+describe("displayEngagement — NOTHING A MEMBER DOES CAN MOVE IT", () => {
+  /**
+   * Owner report with screenshots, 2026-08-04: tapping Like made the figures
+   * jump in the same frame, and un-tapping made them go DOWN. Both came from
+   * the engagement lift that used to live in this module. It is deleted; these
+   * tests exist so it can never come back.
+   */
+
+  it("reaction and comment counts are not inputs at all", () => {
+    // Passed through `as any` on purpose: the fields are gone from the type,
+    // so this is what a future accidental re-wiring would look like. The
+    // figures must be byte-identical regardless.
+    for (const id of ids.slice(0, 400)) {
+      const base = { id, createdAt: "2026-07-01T00:00:00Z" };
+      const plain = displayEngagement(base, T0);
+      for (const extra of [
+        { reactions: 30, comments: 12 },
+        { reactions: 9999, comments: 9999 },
+        { reactions: 0, comments: 0 },
+        { reactions: -50 },
+      ]) {
+        expect(displayEngagement({ ...base, ...extra } as any, T0)).toEqual(plain);
+      }
     }
-    expect(higher).toBeGreaterThan(280);
   });
 
-  it("counts a comment as worth more than a reaction", () => {
-    const id = ids[11];
-    const base = { id, createdAt: "2026-07-01T00:00:00Z" };
-    const withReactions = displayEngagement({ ...base, reactions: 4 }, T0);
-    const withComments = displayEngagement({ ...base, comments: 4 }, T0);
-    expect(withComments.views).toBeGreaterThan(withReactions.views);
+  it("liking then un-liking leaves the figure exactly where it was", () => {
+    // The precise sequence in the owner's two screenshots.
+    for (const id of ids.slice(0, 200)) {
+      const at = { id, createdAt: "2026-07-01T00:00:00Z" };
+      const before = displayEngagement(at, T0);
+      const liked = displayEngagement({ ...at, reactions: 1 } as any, T0);
+      const unliked = displayEngagement({ ...at, reactions: 0 } as any, T0);
+      expect(liked).toEqual(before);
+      expect(unliked).toEqual(before);
+    }
+  });
+
+  it("the figure can NEVER decrease, at any pair of ages, for any id", () => {
+    // The un-like symptom was a decrease. Age is now the only input, so this
+    // sweep is the whole guarantee: sample every id across four months of
+    // ages and assert the sequence is non-decreasing in both figures.
+    const ages = [24, 25, 30, 40, 60, 90, 120, 200, 400, 800, 1600, 24 * 120];
+    for (const id of ids.slice(0, 400)) {
+      let prevViews = -1;
+      let prevReach = -1;
+      for (const age of ages) {
+        const { views, reach } = displayEngagement(
+          { id, createdAt: new Date(T0 - age * HOUR).toISOString() },
+          T0,
+        );
+        expect(views).toBeGreaterThanOrEqual(prevViews);
+        expect(reach).toBeGreaterThanOrEqual(prevReach);
+        prevViews = views;
+        prevReach = reach;
+      }
+    }
+  });
+
+  it("no call site passes a count into it", () => {
+    // The module cannot be misused if nothing hands it engagement. This reads
+    // the three real call sites rather than trusting the type system, because
+    // an `as any` at a call site would slip past tsc.
+    const files = [
+      "src/components/post/PostCard.tsx",
+      "src/pages/PostDetail.tsx",
+      "src/components/profile/ProfileStories.tsx",
+    ];
+    for (const f of files) {
+      const src = readFileSync(join(process.cwd(), f), "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/^\s*\/\/.*$/gm, "");
+      const call = src.indexOf("displayEngagement({");
+      if (call === -1) continue;
+      const args = src.slice(call, src.indexOf("}", call));
+      expect(args, `${f} must not pass counts into displayEngagement`).not.toMatch(/reactions|comments/);
+    }
+  });
+
+  it("PostCard does not recompute the figure when a count changes", () => {
+    // The memo dependency list is what made the number move in the same frame
+    // as the tap. It must contain the id and the date, and nothing else.
+    const src = readFileSync(join(process.cwd(), "src/components/post/PostCard.tsx"), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+    expect(src).toMatch(/\[post\.id, post\.created_at\],/);
+    expect(src).not.toMatch(/\[post\.id, post\.created_at, post\.like_count/);
   });
 });
 
@@ -192,9 +263,9 @@ describe("displayEngagement — edge cases", () => {
     expect(views).toBeGreaterThanOrEqual(VIEWS_MIN);
   });
 
-  it("ignores negative counts instead of subtracting", () => {
-    const a = displayEngagement({ id: ids[5], createdAt: "2026-07-01T00:00:00Z", reactions: -50 }, T0);
-    const b = displayEngagement({ id: ids[5], createdAt: "2026-07-01T00:00:00Z", reactions: 0 }, T0);
+  it("ignores stray count fields entirely", () => {
+    const a = displayEngagement({ id: ids[5], createdAt: "2026-07-01T00:00:00Z", reactions: -50 } as any, T0);
+    const b = displayEngagement({ id: ids[5], createdAt: "2026-07-01T00:00:00Z", reactions: 0 } as any, T0);
     expect(a).toEqual(b);
   });
 });
