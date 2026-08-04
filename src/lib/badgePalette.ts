@@ -101,19 +101,38 @@ const FALLBACK_FILL = "bg-slate-700"; // #334155 — 10.4:1
  * owner's reference design.
  */
 export const BADGE_PILL_BASE =
-  "inline-flex items-center gap-1 shrink-0 rounded-full border border-white/25 text-white font-bold uppercase leading-[1.35] shadow-sm cursor-default";
+  "inline-flex items-center gap-1 min-w-0 overflow-hidden rounded-full border border-white/25 text-white font-bold uppercase leading-[1.35] shadow-sm cursor-default";
 
 /**
- * 10px, the owner's choice. Was 7px (compact) / 8px (full) — the other half of
- * why these were unreadable. `full` is a touch roomier, not louder.
+ * THE NAME OUTRANKS THE BADGE FOR SPACE. Owner rule, 2026-08-04:
+ * "Name 1st visible then Badge. Here Name is overlapped by Badge."
+ *
+ * In a narrow row (the sidebar's "People you may know" is ~220px) the name and
+ * the badge compete. The pill used to be `shrink-0`, so it took its full width
+ * and the NAME truncated — "Dipannita Sen" became "nni…". Backwards: a member's
+ * name is the point, the badge is decoration.
+ *
+ * `shrink-[9999]` gives the badge an enormous flex-shrink factor next to the
+ * name's default of 1, so essentially ALL the shortfall is taken out of the
+ * badge: it truncates, then shrinks to just its icon, before the name loses a
+ * single character. Deliberately not `hidden md:inline-flex` — that would drop
+ * the badge on every phone, where most members read.
+ */
+export const BADGE_ROW_SHRINK = "min-w-0 shrink-[9999]";
+
+/**
+ * 8.5px (owner revised down from 10px, then 9px, 2026-08-04). Was 7px (compact) / 8px
+ * (full) — the other half of why these were unreadable. The contrast does the
+ * heavy lifting now: white on a solid 4.5:1+ fill is legible at 9px in a way
+ * that dark-on-transparent never was at any size. `full` is a touch roomier.
  */
 export const BADGE_PILL_SIZE = {
-  compact: "text-[10px] px-2 py-[2px] tracking-[0.07em]",
-  full: "text-[10px] px-2.5 py-[3px] tracking-[0.07em]",
+  compact: "text-[8.5px] px-2 py-[2px] tracking-[0.07em]",
+  full: "text-[8.5px] px-2.5 py-[3px] tracking-[0.07em]",
 } as const;
 
-/** The icon sits optically level with 10px caps. */
-export const BADGE_ICON_SIZE = "text-[10px] leading-none";
+/** The icon sits optically level with 8.5px caps, and never shrinks away first. */
+export const BADGE_ICON_SIZE = "text-[9px] leading-none shrink-0";
 
 const HUE_PATTERN = new RegExp(`\\b(${Object.keys(BADGE_FILL).join("|")})-\\d{2,3}\\b`);
 
