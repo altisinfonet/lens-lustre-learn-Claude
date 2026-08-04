@@ -16,6 +16,7 @@ import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import AdZone from "@/components/ads/AdZone";
+import FeedFriendSuggestions from "@/components/feed/FeedFriendSuggestions";
 import { slotForPostIndex, shouldShowFeedAd } from "@/lib/ads/feedAdPlacement";
 import { useT } from "@/i18n/I18nContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -318,6 +319,18 @@ const Feed = () => {
                       onContentChange={handleContentChange}
                     />
                   </motion.div>
+
+                  {/*
+                    FRIEND SUGGESTIONS AFTER THE 10th POST — app only.
+                    Owner, 2026-08-04: "after 10 feed post show this kind of
+                    left to right scrolled for friend suggestion."
+
+                    `i === 9` is the tenth post (zero-based), so the rail sits
+                    directly BELOW it. The component itself returns null on web
+                    and when there is nobody to suggest, so this stays a single
+                    honest condition here rather than three.
+                  */}
+                  {i === 9 && <FeedFriendSuggestions />}
 
                   {(() => {
                     // Picture #N in the Story Card library owns a fixed place:
