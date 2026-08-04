@@ -1,3 +1,14 @@
+Build 1050 — 2026-08-04
+- People you may know now appears in the feed itself, after the tenth post: a
+  row of cards you swipe sideways, each with the photographer's picture, how
+  many friends you have in common, an Add button and an X to hide it.
+  This is app-only — on a computer these already sit in the right column, and
+  until now people using the app never saw suggestions at all.
+- The top menu bar stays put while scrolling on the website (no change in the
+  app).
+- Everything from 1049 and earlier.
+- Web build 2026-08-04-7. PRs #62, #63.
+
 Build 1049 — 2026-08-04
 - The member's name now always wins the space. In narrow places the badge was
   taking room from the name and cutting it short; the badge now shortens itself
