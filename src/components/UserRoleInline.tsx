@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useRoleDefinitions } from "@/hooks/profile/useRoleDefinitions";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { solidPillClass, BADGE_ICON_SIZE } from "@/lib/badgePalette";
 
 interface Props {
   roles: string[];
@@ -31,8 +32,8 @@ const UserRoleInline = ({ roles, size = "compact" }: Props) => {
 
   if (visibleRoles.length === 0) return null;
 
-  const labelSize =
-    size === "compact" ? "text-[7px] px-1 py-px" : "text-[8px] px-1.5 py-0.5";
+  // Same shared pill as badges — "Featured Creator" is a ROLE pill, and it was
+  // failing contrast for exactly the same reason. See src/lib/badgePalette.ts.
 
   return (
     <span className="inline-flex items-center gap-1 align-middle">
@@ -43,10 +44,8 @@ const UserRoleInline = ({ roles, size = "compact" }: Props) => {
         return (
           <Tooltip key={r}>
             <TooltipTrigger asChild>
-              <span
-                className={`inline-flex h-auto items-center gap-0.5 ${labelSize} tracking-[0.06em] uppercase font-semibold rounded-sm border shrink-0 leading-none cursor-default ${cfg.pill_class}`}
-              >
-                {cfg.icon && <span className="text-[8px]">{cfg.icon}</span>}
+              <span className={solidPillClass(cfg.pill_class, size)}>
+                {cfg.icon && <span className={BADGE_ICON_SIZE}>{cfg.icon}</span>}
                 {cfg.label}
               </span>
             </TooltipTrigger>
