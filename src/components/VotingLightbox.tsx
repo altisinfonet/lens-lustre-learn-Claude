@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { publicUrl } from "@/lib/publicUrl";
 import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight, Heart, SkipForward, Copy, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -145,7 +146,7 @@ const VotingLightbox = ({ entries, startIndex, onClose, onVoted, onPhotoChange }
           <div className="flex items-center gap-3">
             <button
               onClick={() => {
-                navigator.clipboard.writeText(`${window.location.origin}/entry/${current.id}`);
+                navigator.clipboard.writeText(publicUrl(`/entry/${current.id}`));
                 toast("Entry link copied!");
               }}
               className="p-1.5 rounded-full hover:bg-white/10 transition-colors"
