@@ -58,8 +58,13 @@ const UserIdentityBlock = ({
   align = "start",
 }: UserIdentityBlockProps) => {
   const displayName = name || "Photographer";
+  /**
+   * `w-full` only when the name is alone on its line. In the stacked layout the
+   * verified tick sits beside it, so the name must be shrinkable — a full-width
+   * name would push the tick out of the card.
+   */
   const resolvedNameClassName =
-    `${nameClassName} block min-w-0 truncate${align === "center" ? " w-full text-center" : ""}`;
+    `${nameClassName} block min-w-0 truncate${align === "center" ? (stack ? " text-center" : " w-full text-center") : ""}`;
 
   const nameEl = linkTo ? (
     <Link to={linkTo} className={resolvedNameClassName}>
@@ -69,9 +74,9 @@ const UserIdentityBlock = ({
     <span className={resolvedNameClassName}>{displayName}</span>
   );
 
-  const badgeEl = (
+  const badgeEl = (only: "all" | "verified" | "pills") => (
     <SafeRender>
-      <AutoBadge userId={userId} size={size} />
+      <AutoBadge userId={userId} size={size} only={only} />
     </SafeRender>
   );
 
@@ -81,16 +86,24 @@ const UserIdentityBlock = ({
     >
       {stack ? (
         <>
-          {nameEl}
-          {/* Own line: the badge no longer competes with the name for width. */}
+          {/*
+            The blue verified tick STAYS with the name. It is a fixed 14px glyph
+            that always fits, and its whole meaning is "this name is the real
+            person" — separated from the name it says nothing. Only the award
+            pills, which are words and need room, move to their own line.
+          */}
+          <div className={`flex min-w-0 max-w-full items-center gap-1 ${align === "center" ? "justify-center w-full" : ""}`}>
+            {nameEl}
+            {badgeEl("verified")}
+          </div>
           <div className={`flex min-w-0 max-w-full items-center ${align === "center" ? "justify-center" : ""}`}>
-            {badgeEl}
+            {badgeEl("pills")}
           </div>
         </>
       ) : (
         <div className="flex min-w-0 max-w-full items-center gap-1 overflow-hidden">
           {nameEl}
-          {badgeEl}
+          {badgeEl("all")}
         </div>
       )}
       <div className="max-w-full">

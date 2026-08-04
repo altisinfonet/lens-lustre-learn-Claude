@@ -14,13 +14,15 @@ export const seedBadgeCache = (_userId: string, _badges: string[]) => {};
 interface AutoBadgeProps {
   userId: string | undefined | null;
   size?: "compact" | "full";
+  /** See UserBadgeInline: "verified" = blue tick only, "pills" = award pills only. */
+  only?: "all" | "verified" | "pills";
 }
 
 /**
  * Drop-in component: place next to any username and it automatically
  * fetches + displays verified badges via the unified profileMap cache.
  */
-const AutoBadge = ({ userId, size = "compact" }: AutoBadgeProps) => {
+const AutoBadge = ({ userId, size = "compact", only = "all" }: AutoBadgeProps) => {
   // Stabilise the array passed to useProfileMap — must be the same reference
   // when userId hasn't changed, otherwise the hook creates a new query key.
   const ids = useMemo(() => (userId ? [userId] : []), [userId]);
@@ -32,7 +34,7 @@ const AutoBadge = ({ userId, size = "compact" }: AutoBadgeProps) => {
   const badges = entry?.badges || [];
 
   if (badges.length === 0) return null;
-  return <UserBadgeInline badges={badges} size={size} />;
+  return <UserBadgeInline badges={badges} size={size} only={only} />;
 };
 
 export default React.memo(AutoBadge);
