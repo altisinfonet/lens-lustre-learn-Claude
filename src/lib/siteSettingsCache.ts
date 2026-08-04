@@ -45,9 +45,10 @@ let pendingTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingResolve: (() => void) | null = null;
 let pendingPromise: Promise<void> | null = null;
 
-function isFresh(c: Cached | undefined, now: number): c is Cached {
+function isFresh(c: Cached | undefined, now: number, maxAgeMs?: number): c is Cached {
   if (!c) return false;
-  return now - c.at < (c.missing ? MISSING_TTL_MS : TTL_MS);
+  const ttl = c.missing ? MISSING_TTL_MS : TTL_MS;
+  return now - c.at < Math.min(ttl, maxAgeMs ?? ttl);
 }
 
 function enqueue(keys: string[]): Promise<void> {
@@ -94,12 +95,12 @@ async function flush(): Promise<void> {
   }
 }
 
-async function load(keys: string[]): Promise<void> {
+async function load(keys: string[], maxAgeMs?: number): Promise<void> {
   const now = Date.now();
   const missing: string[] = [];
   const waits: Promise<void>[] = [];
   for (const k of keys) {
-    if (isFresh(cache.get(k), now)) continue;
+    if (isFresh(cache.get(k), now, maxAgeMs)) continue;
     const pending = inFlight.get(k);
     if (pending) { waits.push(pending); continue; }
     missing.push(k);
@@ -108,17 +109,28 @@ async function load(keys: string[]): Promise<void> {
   if (waits.length > 0) await Promise.all(waits);
 }
 
+interface ReadOpts {
+  /**
+   * Treat a cached value older than this as stale, even inside the normal
+   * 10-minute TTL. For settings an admin edits live and expects members to
+   * see quickly (the ad zones — owner report 2026-08-04: "ad changed from
+   * Admin panel but not updated on the App"). The batching still applies;
+   * this only shortens how long a value may be served from memory.
+   */
+  maxAgeMs?: number;
+}
+
 /** Read one setting. Returns null when unset or unreadable — never throws. */
-export async function getSiteSetting<T = unknown>(key: string): Promise<T | null> {
-  const [v] = await getSiteSettings<T>([key]);
+export async function getSiteSetting<T = unknown>(key: string, opts?: ReadOpts): Promise<T | null> {
+  const [v] = await getSiteSettings<T>([key], opts);
   return v ?? null;
 }
 
 /** Read several settings in ONE round trip. Order matches the input. */
-export async function getSiteSettings<T = unknown>(keys: string[]): Promise<(T | null)[]> {
+export async function getSiteSettings<T = unknown>(keys: string[], opts?: ReadOpts): Promise<(T | null)[]> {
   const unique = [...new Set(keys)];
   if (unique.length === 0) return [];
-  await load(unique);
+  await load(unique, opts?.maxAgeMs);
   return keys.map((k) => (cache.get(k)?.value as T) ?? null);
 }
 

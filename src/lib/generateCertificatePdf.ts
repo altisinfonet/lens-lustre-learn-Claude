@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import { SITE_ORIGIN } from "@/lib/publicUrl";
 import QRCode from "qrcode";
 import { getSiteLogoUrl } from "@/hooks/core/useSiteLogo";
 import { supabase } from "@/integrations/supabase/client";
@@ -409,10 +410,10 @@ export const generateCertificatePdf = async ({
   doc.text(`Certificate ID: ${displayId}`, W / 2, H - 22, { align: "center" });
 
   // --- Verification URL ---
-  const publishedOrigin = "https://50mmretina.com";
-  const origin = window.location.hostname === "localhost" || window.location.hostname.includes("preview")
-    ? publishedOrigin
-    : window.location.origin;
+  // Always the canonical origin — inside the installed app location.origin is
+  // https://localhost, and the old hostname guard was a special case of what
+  // publicUrl.ts now solves for every link that leaves the app.
+  const origin = SITE_ORIGIN;
   const verifyUrl = verificationToken
     ? `${origin}/certificate/${verificationToken}`
     : `${origin}/verify?id=${certificateId}`;
