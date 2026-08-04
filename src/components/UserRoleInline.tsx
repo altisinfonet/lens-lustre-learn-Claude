@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useRoleDefinitions } from "@/hooks/profile/useRoleDefinitions";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { solidPillClass, BADGE_ICON_SIZE } from "@/lib/badgePalette";
+import { solidPillClass, BADGE_ICON_SIZE, BADGE_ROW_SHRINK } from "@/lib/badgePalette";
 
 interface Props {
   roles: string[];
@@ -36,7 +36,7 @@ const UserRoleInline = ({ roles, size = "compact" }: Props) => {
   // failing contrast for exactly the same reason. See src/lib/badgePalette.ts.
 
   return (
-    <span className="inline-flex items-center gap-1 align-middle">
+    <span className={`inline-flex items-center gap-1 align-middle ${BADGE_ROW_SHRINK}`}>
       {visibleRoles.map((r) => {
         const cfg = defs.get(r);
         if (!cfg) return null;
@@ -46,7 +46,7 @@ const UserRoleInline = ({ roles, size = "compact" }: Props) => {
             <TooltipTrigger asChild>
               <span className={solidPillClass(cfg.pill_class, size)}>
                 {cfg.icon && <span className={BADGE_ICON_SIZE}>{cfg.icon}</span>}
-                {cfg.label}
+                <span className="truncate">{cfg.label}</span>
               </span>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs font-medium px-3 py-2 max-w-[240px]">

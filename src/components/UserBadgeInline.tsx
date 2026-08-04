@@ -1,7 +1,7 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { useBadgeDefinitions } from "@/hooks/profile/useBadgeDefinitions";
-import { solidPillClass, BADGE_ICON_SIZE } from "@/lib/badgePalette";
+import { solidPillClass, BADGE_ICON_SIZE, BADGE_ROW_SHRINK } from "@/lib/badgePalette";
 
 interface Props {
   badges: string[];
@@ -36,7 +36,7 @@ const UserBadgeInline = ({ badges, size = "compact" }: Props) => {
   const tickSize = size === "compact" ? "h-3.5 w-3.5" : "h-4 w-4";
 
   return (
-    <span className="inline-flex items-center gap-1 align-middle">
+    <span className={`inline-flex items-center gap-1 align-middle ${BADGE_ROW_SHRINK}`}>
       {isVerified && (
         <Tooltip>
           <TooltipTrigger asChild>
@@ -58,7 +58,7 @@ const UserBadgeInline = ({ badges, size = "compact" }: Props) => {
             <TooltipTrigger asChild>
               <span className={solidPillClass(cfg.badge_class, size)}>
                 <span className={BADGE_ICON_SIZE}>{cfg.icon}</span>
-                {cfg.label}
+                <span className="truncate">{cfg.label}</span>
               </span>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs font-medium px-3 py-2 max-w-[240px]">
