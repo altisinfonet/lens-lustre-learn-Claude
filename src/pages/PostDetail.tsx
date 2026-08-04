@@ -204,12 +204,9 @@ const PostDetail = () => {
   }
 
   const allImages = post.image_urls?.length ? post.image_urls : post.image_url ? [post.image_url] : [];
-  const displayStats = displayEngagement({
-    id: post.id,
-    createdAt: post.created_at,
-    reactions: post.like_count,
-    comments: post.comment_count,
-  });
+  // Id and age only — never reaction/comment counts. Passing those made the
+  // figures jump on Like and fall on un-Like (owner report, 2026-08-04).
+  const displayStats = displayEngagement({ id: post.id, createdAt: post.created_at });
   const ogImage = allImages[0] || undefined;
   const ogDescription = post.content?.slice(0, 160) || "A post on 50mm Retina World";
 
