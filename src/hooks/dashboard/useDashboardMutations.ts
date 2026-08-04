@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { publicUrl } from "@/lib/publicUrl";
 import { supabase } from "@/integrations/supabase/client";
 import { queryKeys } from "@/lib/queryKeys";
 import { toast } from "@/hooks/core/use-toast";
@@ -40,7 +41,7 @@ export function usePasswordReset() {
     mutationFn: async (email: string) => {
       const captchaToken = await getCaptchaToken(); // BUG-043
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: publicUrl("/reset-password"),
         captchaToken,
       });
       if (error) throw error;
