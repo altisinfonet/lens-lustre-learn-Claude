@@ -28,19 +28,17 @@
  *     same post shows the same number on the feed, on the wall, on its detail
  *     page, on a phone, on a laptop, today and next month.
  *
- *  2. IT MOVES, AND ONLY UPWARDS. A frozen counter is the second-most obvious
- *     tell. Each item approaches its own ceiling on its own clock (a decay
- *     constant of 20–60 h drawn from its id), so a fresh post climbs quickly
- *     for a day or two and then settles. Because age only increases and the
- *     curve is monotonic, a displayed figure can never go DOWN between two
- *     page loads — which is what a user would actually notice.
+ *  2. IT MOVES ONLY WITH TIME, AND ONLY UPWARDS. Each item approaches its own
+ *     ceiling on its own clock (a decay constant of 20–60 h drawn from its id),
+ *     so it drifts up over hours and days and then settles. Age is the ONLY
+ *     input that can move it, age only increases, and the curve is monotonic —
+ *     so a displayed figure can never go DOWN between two page loads, and can
+ *     never JUMP in response to something the member just did.
  *
- *  3. IT RESPONDS TO REAL ENGAGEMENT. Reactions and comments — real, measured
- *     numbers — lift an item within its band. A photo with 30 reactions reading
- *     lower than one with none is incoherent, and incoherence is what people
- *     spot. It also means the figure rewards the thing we want rewarded: post
- *     something good, watch it climb. The lift saturates at 25 engagement
- *     points so one popular post cannot pin itself to the ceiling.
+ *  3. NOTHING A MEMBER DOES CHANGES IT. Not liking, not un-liking, not
+ *     commenting, not deleting a comment. See the incident note below: this was
+ *     the exact opposite of the original design and the original design was
+ *     wrong.
  *
  *  4. REACH > VIEWS, ALWAYS, BY A MARGIN. Reach means "how many feeds it was
  *     put in front of", views means "how many looked". Views ≥ reach is
@@ -80,6 +78,34 @@
  * CONSEQUENCE FOR STORIES: a story expires at 24 hours, so under this rule a
  * story never displays these figures at all. That follows from the rule as
  * stated and is intentional, not an oversight.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * INCIDENT, 2026-08-04 — WHY THE ENGAGEMENT LIFT IS GONE
+ *
+ * The original version of this file had a fifth property: "it responds to real
+ * engagement", where reactions + 2×comments lifted the item inside its band.
+ * That was a mistake, and the owner caught it with two screenshots:
+ *
+ *   - Tap Like  → the figures jumped in the SAME frame. The number visibly
+ *     moved because of a button the member had just pressed, which tells
+ *     anyone watching that the number is computed on their own screen.
+ *   - Tap Like again to remove it → the figures went DOWN. Reach and views
+ *     cannot decrease in any real analytics product, ever. A person who has
+ *     already been shown a photo cannot be un-shown it.
+ *
+ * Both symptoms came from the same line. "Only upwards" (property 2) had only
+ * ever been proven with engagement held CONSTANT — the two properties
+ * contradicted each other and the contradiction was never reconciled.
+ *
+ * So the lift is deleted, not softened. The figure is now a function of the
+ * item's id and its age, and NOTHING else. `reactions` and `comments` are not
+ * parameters of this module any more, which is what makes the failure
+ * impossible rather than unlikely: there is no input to re-introduce.
+ *
+ * Accepted cost, stated plainly: a post with 30 reactions no longer reads
+ * higher than one with none. That was the argument for the lift. It loses to
+ * the two symptoms above, which are things a member actually SEES.
+ * ─────────────────────────────────────────────────────────────────────────────
  *
  * HONEST NOTE, LEFT HERE ON PURPOSE: these are large numbers for a platform
  * of this size, and a member who compares them against visible follower counts
@@ -136,12 +162,17 @@ const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 export interface DisplayEngagementInput {
   /** The post / story / image id. The whole figure hangs off this. */
   id: string;
-  /** ISO string or Date. Drives growth over time. Optional — see below. */
+  /** ISO string or Date. The ONLY thing that can move the figure. */
   createdAt?: string | Date | null;
-  /** REAL reaction count, if the surface has it. */
-  reactions?: number | null;
-  /** REAL comment count, if the surface has it. */
-  comments?: number | null;
+  /**
+   * DELIBERATELY NOTHING ELSE.
+   *
+   * There is no `reactions` and no `comments` field, and there must never be
+   * one again. See the 2026-08-04 incident note at the top of this file: an
+   * engagement input is what made the figures jump when a member tapped Like
+   * and fall when they un-tapped it. A parameter that does not exist cannot be
+   * wired up by accident.
+   */
 }
 
 export interface DisplayEngagement {
@@ -207,10 +238,6 @@ export function engagementFigures(
   // ── where this item sits in its band, from its id alone ──────────────────
   const seat = frac(id, "seat");
 
-  // ── real engagement lifts it, with a ceiling on the lift ─────────────────
-  const engagement = Math.max(0, input.reactions ?? 0) + 2 * Math.max(0, input.comments ?? 0);
-  const merit = Math.min(1, engagement / 25);
-
   // ── growth: fast at first, then a long tail ──────────────────────────────
   // Each item gets its own time constant so they do not all move in lockstep.
   const tau = 20 + frac(id, "tau") * 40; // 20–60 hours
@@ -223,12 +250,10 @@ export function engagementFigures(
   const maturity = start + (1 - start) * grown;
 
   // ── views ────────────────────────────────────────────────────────────────
-  // The id alone spans the whole band, so an ordinary post with no reactions
-  // can still land near the top — engagement is a lift, not the entry ticket.
-  // Merit then closes part of the remaining headroom, which keeps the result
-  // inside the band without any clamping sleight of hand.
-  const base = 0.12 + 0.88 * seat;
-  const viewsPos = clamp01(base + (1 - base) * 0.45 * merit);
+  // Position in the band comes from the id and nothing else. Every post gets
+  // the full spread of the band on the strength of its id alone, which is why
+  // removing the engagement lift costs no variety between posts.
+  const viewsPos = clamp01(0.12 + 0.88 * seat);
   const views = Math.round(VIEWS_MIN + (VIEWS_MAX - VIEWS_MIN) * viewsPos * maturity);
 
   // ── reach: correlated with views, plus its own character ─────────────────

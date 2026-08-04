@@ -72,18 +72,18 @@ const PostCard = ({
   const sendFriend = useSendFriendRequest();
   const [friendRequested, setFriendRequested] = useState(false);
 
-  // Reach / Viewed-by. Memoised on the inputs that can change it, so the pair
-  // cannot flicker between renders of the same card.
+  // Reach / Viewed-by.
+  //
+  // The dependency list is EXACTLY [id, created_at] and must stay that way.
+  // It used to include like_count and comment_count, which meant tapping Like
+  // recomputed the figures in the same frame — the number moved because of a
+  // button the member had just pressed, and moved back DOWN when they un-liked.
+  // Owner report with screenshots, 2026-08-04. See src/lib/displayEngagement.ts.
+  //
   // NULL for the first 24 hours after posting — the whole line is then absent.
   const stats = useMemo(
-    () =>
-      displayEngagement({
-        id: post.id,
-        createdAt: post.created_at,
-        reactions: post.like_count,
-        comments: post.comment_count,
-      }),
-    [post.id, post.created_at, post.like_count, post.comment_count],
+    () => displayEngagement({ id: post.id, createdAt: post.created_at }),
+    [post.id, post.created_at],
   );
 
   const handleSaveCaption = async () => {
