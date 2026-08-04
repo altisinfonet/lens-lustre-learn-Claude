@@ -19,6 +19,8 @@ import {
   BADGE_FILL_HEX,
   BADGE_PILL_BASE,
   BADGE_PILL_SIZE,
+  BADGE_ROW_SHRINK,
+  BADGE_ICON_SIZE,
   solidPillFill,
   solidPillClass,
 } from "../badgePalette";
@@ -114,18 +116,19 @@ describe("the pill itself", () => {
     expect(BADGE_PILL_BASE).toMatch(/font-bold/);
   });
 
-  it("is 10px, not the old 7px", () => {
+  it("is 8.5px, not the old 7px", () => {
+    // Owner set 10px, then revised to 9px, then to 8.5px (2026-08-04).
     for (const size of Object.values(BADGE_PILL_SIZE)) {
-      expect(size).toMatch(/text-\[10px\]/);
+      expect(size).toMatch(/text-\[8\.5px\]/);
     }
-    expect(JSON.stringify(BADGE_PILL_SIZE)).not.toMatch(/text-\[[78]px\]/);
+    expect(JSON.stringify(BADGE_PILL_SIZE)).not.toMatch(/text-\[7px\]/);
   });
 
   it("composes into one class string", () => {
     const cls = solidPillClass("bg-amber-500/15 text-amber-600", "compact");
     expect(cls).toContain("bg-amber-700");
     expect(cls).toContain("text-white");
-    expect(cls).toContain("text-[10px]");
+    expect(cls).toContain("text-[8.5px]");
   });
 });
 
@@ -167,5 +170,39 @@ describe("no surface bypasses the shared pill", () => {
     // and the swatch dot must be the real colour, so the admin picks what they see
     const dots = [...block.matchAll(/dot:\s*"([^"]+)"/g)].map((m) => m[1]);
     for (const d of dots) expect(contrast(WHITE, d)).toBeGreaterThanOrEqual(AA_SMALL_TEXT);
+  });
+});
+
+describe("the NAME outranks the badge for space", () => {
+  /**
+   * Owner report, 2026-08-04: "Name 1st visible then Badge. Here Name is
+   * overlapped by Badge." In the ~220px sidebar the pill was `shrink-0`, so it
+   * kept its full width and the NAME truncated to "nni...". My regression - the
+   * bigger pill made an existing weakness visible.
+   *
+   * Verified by rendering at 220 / 280 / 420px: the name stays fully visible at
+   * all three and the BADGE truncates instead.
+   */
+  it("the pill can shrink - it is not shrink-0 any more", () => {
+    expect(BADGE_PILL_BASE).not.toMatch(/shrink-0/);
+    expect(BADGE_PILL_BASE).toMatch(/min-w-0/);
+    expect(BADGE_PILL_BASE).toMatch(/overflow-hidden/);
+  });
+
+  it("the badge row absorbs essentially all of the shortfall", () => {
+    expect(BADGE_ROW_SHRINK).toMatch(/shrink-\[9999\]/);
+    expect(BADGE_ROW_SHRINK).toMatch(/min-w-0/);
+  });
+
+  it("both surfaces apply it, and truncate the LABEL rather than the name", () => {
+    for (const f of ["src/components/UserBadgeInline.tsx", "src/components/UserRoleInline.tsx"]) {
+      const src = readFileSync(join(process.cwd(), f), "utf8");
+      expect(src, `${f} must apply BADGE_ROW_SHRINK to the row`).toContain("BADGE_ROW_SHRINK");
+      expect(src, `${f} must truncate the badge label`).toMatch(/<span className="truncate">\{cfg\.label\}<\/span>/);
+    }
+  });
+
+  it("the icon never disappears before the label does", () => {
+    expect(BADGE_ICON_SIZE).toMatch(/shrink-0/);
   });
 });
