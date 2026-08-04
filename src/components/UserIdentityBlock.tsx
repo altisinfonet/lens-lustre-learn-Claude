@@ -23,6 +23,21 @@ interface UserIdentityBlockProps {
   className?: string;
   /** Text size class for the name */
   nameClassName?: string;
+  /**
+   * Put the badge on its OWN line under the name instead of beside it.
+   *
+   * Owner rule, standing: "on each and every place Name with Badge will show."
+   * The default inline layout honours that wherever there is room. In a narrow
+   * container — the 132px friend-suggestion card is the case that forced this —
+   * there is not: the name truncates and the badge, which by policy yields all
+   * available space to the name (`BADGE_ROW_SHRINK`), gets crushed to nothing.
+   * The member then sees a name and NO badge, which breaks the rule.
+   *
+   * Stacking keeps both visible. Off by default, so no existing surface moves.
+   */
+  stack?: boolean;
+  /** Horizontal alignment. Centre is for card layouts; default matches today. */
+  align?: "start" | "center";
 }
 
 /**
@@ -39,9 +54,12 @@ const UserIdentityBlock = ({
   size = "compact",
   className = "",
   nameClassName = "text-[13px] font-semibold text-foreground hover:underline leading-tight",
+  stack = false,
+  align = "start",
 }: UserIdentityBlockProps) => {
   const displayName = name || "Photographer";
-  const resolvedNameClassName = `${nameClassName} block min-w-0 truncate`;
+  const resolvedNameClassName =
+    `${nameClassName} block min-w-0 truncate${align === "center" ? " w-full text-center" : ""}`;
 
   const nameEl = linkTo ? (
     <Link to={linkTo} className={resolvedNameClassName}>
@@ -51,14 +69,30 @@ const UserIdentityBlock = ({
     <span className={resolvedNameClassName}>{displayName}</span>
   );
 
+  const badgeEl = (
+    <SafeRender>
+      <AutoBadge userId={userId} size={size} />
+    </SafeRender>
+  );
+
   return (
-    <div className={`flex min-w-0 flex-col items-start gap-0.5 ${className}`}>
-      <div className="flex min-w-0 max-w-full items-center gap-1 overflow-hidden">
-        {nameEl}
-        <SafeRender>
-          <AutoBadge userId={userId} size={size} />
-        </SafeRender>
-      </div>
+    <div
+      className={`flex min-w-0 flex-col gap-0.5 ${align === "center" ? "items-center w-full" : "items-start"} ${className}`}
+    >
+      {stack ? (
+        <>
+          {nameEl}
+          {/* Own line: the badge no longer competes with the name for width. */}
+          <div className={`flex min-w-0 max-w-full items-center ${align === "center" ? "justify-center" : ""}`}>
+            {badgeEl}
+          </div>
+        </>
+      ) : (
+        <div className="flex min-w-0 max-w-full items-center gap-1 overflow-hidden">
+          {nameEl}
+          {badgeEl}
+        </div>
+      )}
       <div className="max-w-full">
         <SafeRender>
           <AutoRole userId={userId} size={size} />
