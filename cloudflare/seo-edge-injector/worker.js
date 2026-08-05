@@ -173,6 +173,19 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
+    // 0) ONE ADDRESS: the bare domain permanently forwards to www.
+    //    50mmretina.com and www.50mmretina.com are two separate browser
+    //    origins with separate logins/caches — members opening the bare
+    //    domain saw a logged-out copy of the site "on the same link"
+    //    (owner hit exactly this on 2026-08-05). This edge 301 is the
+    //    proper cure (browsers cache it; crawlers consolidate on www).
+    //    index.html carries a JS fallback hop for whatever this Worker
+    //    doesn't front. Owner approved switching this on, 2026-08-05.
+    if (url.hostname === "50mmretina.com") {
+      url.hostname = "www.50mmretina.com";
+      return Response.redirect(url.toString(), 301);
+    }
+
     // 1) Build origin URL — fetch raw HTML from Lovable backend
     const originUrl = new URL(url.pathname + url.search, `https://${env.ORIGIN_HOST}`);
 
