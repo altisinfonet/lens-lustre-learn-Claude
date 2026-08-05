@@ -192,7 +192,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
 
   const handlePost = async (parentId: string | null = null) => {
     if (!user) return;
-        /**
+    /**
      * The trailing shortcut, converted at submit.
      *
      * Owner, 2026-08-05: emoji must work *"including after the comment text"* —
@@ -201,7 +201,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
      * half that catches it. See src/lib/emoji.ts.
      */
     const text = convertEmojiShortcuts(parentId ? replyText.trim() : newComment.trim());
-if (!text) return;
+    if (!text) return;
     if (text.length > 2000) {
       toast({ title: t("cmt.tooLong"), variant: "destructive" });
       return;
