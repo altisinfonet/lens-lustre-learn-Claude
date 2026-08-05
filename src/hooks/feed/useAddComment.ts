@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 import { toast } from "@/hooks/core/use-toast";
+import { reportClientError, describeThrown } from "@/lib/reportClientError";
 import { useIsBanned } from "@/hooks/core/useIsBanned";
 import { queryKeys } from "@/lib/queryKeys";
 import { isOwnProfilePhoto, isMissingPhotoError, PROFILE_PHOTO_REQUIRED_MESSAGE } from "@/lib/profilePhoto";
@@ -114,13 +115,34 @@ export function useAddComment(
       return { tempId, parentId, snapshot };
     },
 
-    onError: (_err, _vars, context) => {
+    onError: (err, vars, context) => {
       // Rollback to snapshot
       if (context?.snapshot) {
         setComments(context.snapshot);
         onCommentCountChange?.(-1);
       }
-      toast({ title: "Failed to comment", variant: "destructive" });
+      /**
+       * Owner report, 2026-08-05: "people not able to reply freely."
+       *
+       * This handler used to name its error `_err` and never look at it, then
+       * raise a toast with a TITLE AND NOTHING ELSE. So a member whose reply
+       * failed was told "Failed to comment" and given no reason, no next step,
+       * and no way to tell a restriction apart from a dropped connection — and
+       * nothing was recorded anywhere, which is why there was no evidence to
+       * investigate with.
+       *
+       * Both halves are fixed here: say what happened, and count it.
+       */
+      const msg = describeThrown(err);
+      reportClientError("reply", err, {
+        isReply: !!(vars as any)?.parentId,
+      });
+      const isNetwork = /failed to fetch|network|cors|load failed|functionsfetcherror/i.test(msg);
+      toast({
+        title: isNetwork ? "Couldn't send — check your connection" : "Failed to comment",
+        description: msg,
+        variant: "destructive",
+      });
     },
 
     onSuccess: (data, variables) => {
