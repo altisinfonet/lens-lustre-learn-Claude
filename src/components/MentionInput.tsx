@@ -2,6 +2,7 @@ import { useCallback, forwardRef, useRef } from "react";
 import { Send } from "lucide-react";
 import { MentionsInput, Mention, SuggestionDataItem } from "react-mentions";
 import { profilesPublic } from "@/lib/profilesPublic";
+import { convertEmojiShortcutsWhileTyping } from "@/lib/emoji";
 
 interface MentionInputProps {
   value: string;
@@ -144,7 +145,45 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
       <div className="relative">
       <MentionsInput
         value={value}
-        onChange={(_e, newValue) => onChange(newValue)}
+        /**
+         * EMOJI SHORTCUTS, FOR EVERY COMMENT BOX AT ONCE.
+         *
+         * Owner, 2026-08-05: *"If I type `<3`, it remains plain text instead of
+         * being converted into a heart emoji."*
+         *
+         * This is the ONE place it belongs. All seven member-facing comment
+         * inputs — new comment, reply and edit in PostCommentsSection,
+         * CommentsSection and ImageEngagement — render through this component,
+         * so wiring it here fixes the class rather than one box. Wiring it into
+         * each call site instead is how a feature ends up working in three
+         * places and not the fourth.
+         *
+         * Conversion fires only when a boundary (space / newline) has just been
+         * typed, so nothing is substituted while a member is mid-word. The
+         * trailing case — `I love this <3` with nothing after it — has no space
+         * to fire on and is converted at submit, in the insert paths.
+         * See src/lib/emoji.ts.
+         *
+         * The caret is restored by hand because replacing `<3` with a heart
+         * changes the string length; without this the cursor jumps to the end
+         * of the box on every space.
+         */
+        onChange={(e, newValue) => {
+          const el = (e?.target ?? null) as HTMLTextAreaElement | HTMLInputElement | null;
+          const caret =
+            el && typeof el.selectionStart === "number" ? el.selectionStart : newValue.length;
+          const result = convertEmojiShortcutsWhileTyping(newValue, caret);
+          onChange(result.value);
+          if (result.value !== newValue && el) {
+            requestAnimationFrame(() => {
+              try {
+                el.setSelectionRange(result.caret, result.caret);
+              } catch {
+                /* the field may have unmounted; the text is already correct */
+              }
+            });
+          }
+        }}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         disabled={disabled}
