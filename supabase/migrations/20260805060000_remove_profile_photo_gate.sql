@@ -1,0 +1,77 @@
+-- ============================================================================
+-- EVERYONE CAN POST AND COMMENT AGAIN — the profile photo is now a PROMPT,
+-- not a wall.
+--
+-- ─────────────────────────────────────────────────────────────────────────────
+-- OWNER DECISION, 2026-08-05, verbatim:
+--
+--   "Now allow everyone to post and to comment despite DP is there yes / no.
+--    But everytime if DP is not there ask to upload but if everytime ignores,
+--    no issues allow them to start post, comment, to post share all but on next
+--    opening again ask to upload DP.
+--    I step back from my policy but I will again push it once I have 1000
+--    members, I will wait till then."
+--
+-- WHY HE STEPPED BACK — the measurement that prompted it (2026-08-05):
+--
+--   * 83 active members, **32 of them (39%) had no uploaded profile photo** and
+--     were therefore unable to post OR comment at all;
+--   * four of those 32 had been posting BEFORE the rule landed on 2026-08-01 —
+--     Manish Kushari and Kirit Dey (last post 30 Jul), Rajib Mondal (29 Jul),
+--     Samyabrata Chakrabarty (28 Jul). They were not warned; the ability simply
+--     stopped;
+--   * a Google/Apple sign-in picture does not satisfy `has_profile_photo`, which
+--     requires a photo uploaded to our own storage — so members who thought they
+--     had a photo were blocked too;
+--   * until 2026-08-05 the reply path showed them only "Failed to comment" with
+--     no reason at all. See PROFILE_PHOTO_GATE_IMPACT.md.
+--
+-- THE THREE POLICIES DROPPED (all RESTRICTIVE, all `WITH CHECK`, added
+-- 2026-08-01). A RESTRICTIVE policy is ANDed with every permissive one, so each
+-- of these could veto an insert on its own:
+--
+--   posts          "Profile photo required to create posts"
+--   post_comments  "Profile photo required to comment on posts"
+--   comments       "Profile photo required to comment"
+--
+-- WHAT IS DELIBERATELY **NOT** TOUCHED:
+--
+--   * The six `Banned users cannot …` RESTRICTIVE policies stay exactly as they
+--     are. Verified after this migration: 6 present, unchanged. Lifting the
+--     photo rule must not become an amnesty for banned accounts.
+--   * `public.has_profile_photo()` is KEPT. Nothing calls it for enforcement any
+--     more, but the owner intends to reinstate the rule at ~1000 members, and
+--     the prompt still uses the same notion of "has a real photo".
+--   * `PROFILE_PHOTO_REQUIRED_MESSAGE` and `isMissingPhotoError()` stay in
+--     `src/lib/profilePhoto.ts` for the same reason. They are now unreachable,
+--     which is correct and intentional — not dead code to be tidied away.
+--
+-- PROOF TAKEN BEFORE APPLYING (BEGIN … ROLLBACK, against a real blocked member,
+-- Shyama Prasad Chakraborty):
+--
+--   before  INSERT INTO post_comments -> ERROR 42501, "new row violates
+--           row-level security policy 'Profile photo required to comment on
+--           posts'"
+--   after   INSERT INTO post_comments -> 1 row
+--           INSERT INTO posts         -> 1 row
+--
+-- AND AFTER APPLYING, against production:
+--   policies referencing has_profile_photo : 0
+--   "Banned users cannot …" policies       : 6   (unchanged)
+--   members still without a photo          : 32  (now all able to participate)
+--
+-- TO REINSTATE THIS AT ~1000 MEMBERS, re-create the three policies in the shape
+-- they had — for example:
+--
+--   CREATE POLICY "Profile photo required to create posts"
+--     ON public.posts AS RESTRICTIVE FOR INSERT TO public
+--     WITH CHECK (public.has_profile_photo((SELECT auth.uid()))
+--                 OR public.has_role((SELECT auth.uid()), 'admin'::app_role));
+--
+-- …and do it only after checking how many members it would block, the way it
+-- should have been checked the first time.
+-- ============================================================================
+
+DROP POLICY IF EXISTS "Profile photo required to create posts"     ON public.posts;
+DROP POLICY IF EXISTS "Profile photo required to comment on posts" ON public.post_comments;
+DROP POLICY IF EXISTS "Profile photo required to comment"          ON public.comments;
