@@ -33,6 +33,20 @@ const USER_TYPES = [
 
 interface OnboardingModalProps {
   open: boolean;
+  /**
+   * Let the member close this without finishing.
+   *
+   * Owner decision, 2026-08-05: *"allow everyone to post and to comment despite
+   * DP is there yes / no. But everytime if DP is not there ask to upload but if
+   * everytime ignores, no issues allow them to start post, comment, to post
+   * share all but on next opening again ask to upload DP."*
+   *
+   * Set ONLY when the profile photo is the last thing missing. A missing
+   * user_type or username still blocks — those are structural (the username is
+   * in the member's URL), and the owner stepped back on the photo, nothing else.
+   */
+  dismissible?: boolean;
+  onDismiss?: () => void;
   userId: string;
   profile: Record<string, any> | null;
   onComplete: () => void;
@@ -75,7 +89,7 @@ async function isFlatOrBlank(file: File): Promise<boolean> {
   }
 }
 
-const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalProps) => {
+const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = false, onDismiss }: OnboardingModalProps) => {
   const [saving, setSaving] = useState(false);
 
   // Language is chosen HERE, at profile creation (Facebook/Instagram model).
@@ -281,11 +295,11 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
   };
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next && dismissible) onDismiss?.(); }}>
       <DialogContent
-        className="sm:max-w-xl p-0 gap-0 overflow-hidden border-border bg-background [&>button]:hidden max-h-[90vh] overflow-y-auto"
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
+        className={`sm:max-w-xl p-0 gap-0 overflow-hidden border-border bg-background max-h-[90vh] overflow-y-auto${dismissible ? "" : " [&>button]:hidden"}`}
+        onPointerDownOutside={(e) => { if (!dismissible) e.preventDefault(); }}
+        onEscapeKeyDown={(e) => { if (!dismissible) e.preventDefault(); }}
       >
         <div className="h-1 bg-muted sticky top-0 z-10">
           <div className="h-full bg-primary transition-all duration-500 ease-out" style={{ width: "100%" }} />
@@ -526,6 +540,25 @@ const OnboardingModal = ({ open, userId, profile, onComplete }: OnboardingModalP
             >
               {saving ? (<><Loader2 className="h-3.5 w-3.5 animate-spin" />Setting up…</>) : (<><Camera className="h-3.5 w-3.5" />Enter 50mm Retina World</>)}
             </button>
+
+            {/*
+              The way out. It exists ONLY when the photo is the last thing
+              missing — see the `dismissible` prop. Ignoring it costs the member
+              nothing: they can post, comment and share, and they are asked
+              again next time they open the app. That is the owner's decision of
+              2026-08-05, taken after 32 of 83 members turned out to be locked
+              out entirely.
+            */}
+            {dismissible && (
+              <button
+                onClick={() => onDismiss?.()}
+                disabled={saving || uploadingAvatar}
+                className="mt-3 w-full text-[11px] tracking-[0.1em] uppercase px-6 py-2.5 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
+                style={{ fontFamily: "var(--font-heading)" }}
+              >
+                Not now — remind me later
+              </button>
+            )}
           </div>
         </motion.div>
       </DialogContent>

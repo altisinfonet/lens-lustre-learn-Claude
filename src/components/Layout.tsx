@@ -9,6 +9,13 @@ import FeedRightSidebar from "@/components/FeedRightSidebar";
 import FeedLeftSidebar from "@/components/FeedLeftSidebar";
 import ProfileLeftSidebar from "@/components/profile/ProfileLeftSidebar";
 import OnboardingModal from "@/components/OnboardingModal";
+
+/**
+ * Suppresses the "add a profile photo" prompt for the CURRENT session only.
+ * sessionStorage on purpose: the next time the member opens the app they are
+ * asked again, which is exactly what the owner asked for on 2026-08-05.
+ */
+const PHOTO_PROMPT_SNOOZE_KEY = "dp_prompt_snoozed_v1";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
 import SiteFooter from "@/components/SiteFooter";
@@ -67,6 +74,8 @@ const LayoutInner = () => {
   const isSidebarEligibleRoute = !isHome && !isSidebarHiddenRoute;
 
   const [showOnboarding, setShowOnboarding] = useState(false);
+  /** True when the profile photo is the last thing missing — see the effect below. */
+  const [photoPromptOnly, setPhotoPromptOnly] = useState(false);
   const [onboardingProfile, setOnboardingProfile] = useState<Record<string, any> | null>(null);
 
   useEffect(() => {
@@ -137,6 +146,37 @@ const LayoutInner = () => {
       // time, indefinitely. Nothing in the current UI even sets that column.
       // Onboarding is now unskippable: incomplete profile => modal, always.
 
+      /**
+       * THE PHOTO IS A PROMPT NOW, NOT A WALL.
+       *
+       * Owner decision, 2026-08-05: *"allow everyone to post and to comment
+       * despite DP is there yes / no. But everytime if DP is not there ask to
+       * upload but if everytime ignores, no issues allow them ... but on next
+       * opening again ask to upload DP."*
+       *
+       * So when the photo is the ONLY thing missing, the modal becomes
+       * closable. `user_type` and `custom_url` still block, because those are
+       * structural — the username is part of the member's URL — and the owner
+       * stepped back on the photo, nothing else.
+       *
+       * "Ask again on next opening" is implemented with sessionStorage, and
+       * that choice is the whole behaviour: a dismissal lasts exactly as long
+       * as the tab / app session. It does NOT nag on every route change within
+       * one session, and it does NOT persist to localStorage or to a column —
+       * either of those would turn "remind me later" into "never ask again",
+       * which is the loophole that let accounts exist with no photo before
+       * 2026-07-28.
+       */
+      const onlyPhotoMissing =
+        missingAvatar && !missingUserType && !missingUsername && !!profile.onboarding_completed;
+
+      if (onlyPhotoMissing) {
+        try {
+          if (sessionStorage.getItem(PHOTO_PROMPT_SNOOZE_KEY)) return;
+        } catch { /* private mode — just show it */ }
+      }
+
+      setPhotoPromptOnly(onlyPhotoMissing);
       setOnboardingProfile(profile);
       setShowOnboarding(true);
     };
@@ -201,6 +241,12 @@ const LayoutInner = () => {
       {user && showOnboarding && (
         <OnboardingModal
           open={showOnboarding}
+          dismissible={photoPromptOnly}
+          onDismiss={() => {
+            // Session-scoped: quiet for now, asked again on the next opening.
+            try { sessionStorage.setItem(PHOTO_PROMPT_SNOOZE_KEY, "1"); } catch { /* ignore */ }
+            setShowOnboarding(false);
+          }}
           userId={user.id}
           profile={onboardingProfile}
           onComplete={() => {
