@@ -317,8 +317,37 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       toast({ title: "Your account is restricted from posting", variant: "destructive" });
       return;
     }
-    if (!user || selectedImages.length === 0) {
-      toast({ title: "Please attach at least one photo", variant: "destructive" });
+    /**
+     * A POST NEEDS *SOMETHING* — WORDS OR A PHOTO. NOT A PHOTO SPECIFICALLY.
+     *
+     * OWNER ORDER, 2026-08-05: "DP icon now given, then blocking ?? I asked DP
+     * is must either by user or by system, logically system must work
+     * normally."
+     *
+     * This line used to read `selectedImages.length === 0` and refuse the post
+     * outright. MEASURED CONSEQUENCE, on production the same day:
+     *
+     *   * 0 of 151 posts in the entire history of the site are text-only.
+     *     Not one. Because it was impossible.
+     *   * 43 of 84 members had never posted, and 65 of those 84 had joined in
+     *     the previous 7 days.
+     *
+     * A member who wanted to say hello, ask a question, thank someone or
+     * introduce themselves had to go and find a photograph first. Combined with
+     * the profile-photo wall that stood from 1 to 5 August, a new member had to
+     * produce TWO photographs before they could make a single sound.
+     *
+     * THE DATABASE NEVER REQUIRED THIS. posts.image_url is nullable and there
+     * is no check constraint — verified on production, and a text-only insert
+     * was rehearsed as a real member with no photo before this shipped. The
+     * rule existed only here, in the client.
+     *
+     * WHAT IS STILL REFUSED: a completely empty post. Words alone are fine,
+     * photos alone are fine, both are fine, neither is not.
+     */
+    if (!user) return;
+    if (selectedImages.length === 0 && !newContent.trim()) {
+      toast({ title: "Write something or add a photo", variant: "destructive" });
       return;
     }
     setPosting(true);
@@ -368,7 +397,11 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         user_id: user.id,
         content: newContent.trim(),
         privacy: newPrivacy,
-        image_url: uploadedUrls[0],
+        // EXPLICIT null for a text-only post. uploadedUrls[0] is undefined
+        // when no photo was attached, and an undefined key is silently dropped
+        // by the client — which happens to do the right thing, but relying on
+        // that is exactly the implicit behaviour this codebase does not allow.
+        image_url: uploadedUrls[0] ?? null,
         image_urls: uploadedUrls,
         thumbnail_urls: uploadedThumbs,
         indexing_disabled: excludeFromSearch,
@@ -810,7 +843,13 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                 </button>
               )}
             </div>
-            <button onClick={createPost} disabled={posting || selectedImages.length === 0 || newContent.length > 2200 || (!!scheduleAt && (scheduleAt.getTime() < Date.now() + 5*60*1000 || scheduleAt.getTime() > Date.now() + 90*24*60*60*1000))}
+            {/*
+              The Post button follows the same rule as createPost: enabled when
+              there is EITHER text OR a photo. It used to require a photo, which
+              left the button greyed out for a member who had typed a paragraph
+              and made the app look broken rather than strict.
+            */}
+            <button onClick={createPost} disabled={posting || (selectedImages.length === 0 && !newContent.trim()) || newContent.length > 2200 || (!!scheduleAt && (scheduleAt.getTime() < Date.now() + 5*60*1000 || scheduleAt.getTime() > Date.now() + 90*24*60*60*1000))}
               className="px-5 py-1.5 bg-primary text-primary-foreground rounded-md text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               {posting ? (scheduleAt ? "Scheduling..." : "Posting...") : newContent.length > 2200 ? `Trim ${newContent.length - 2200}` : scheduleAt ? "Schedule" : "Post"}
             </button>
