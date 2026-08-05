@@ -79,6 +79,21 @@ const RETRY_DELAYS_MS = [400, 1200];
 /** The query key used to force a fresh request. Stripped before re-adding. */
 const RETRY_PARAM = "__r";
 
+/**
+ * The address with our own retry bookkeeping removed, so a URL can be compared
+ * against data-original-src no matter which attempt it is currently on.
+ */
+function stripRetryParam(url: string): string {
+  if (!url || /^(data|blob):/i.test(url)) return url;
+  try {
+    const u = new URL(url, location.href);
+    u.searchParams.delete(RETRY_PARAM);
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
 function withRetryParam(url: string, attempt: number): string {
   // A data: or blob: URL can never be retried usefully.
   if (/^(data|blob):/i.test(url)) return url;
@@ -112,18 +127,54 @@ export function installImageFallback(): void {
       if (!el || el.tagName !== "IMG") return;
       const img = el as HTMLImageElement;
 
-      // Already given up on this one.
-      if (img.dataset.fallbackApplied === "1") return;
       // Never override an image that already resolved to the placeholder.
       if (img.currentSrc === IMAGE_PLACEHOLDER || img.src === IMAGE_PLACEHOLDER) return;
+
+      /**
+       * THE RETRY STATE BELONGS TO A URL, NOT TO A DOM NODE.
+       *
+       * REGRESSION SHIPPED EARLIER TODAY, reported by the owner within the
+       * hour: "search whatever we have developped all malfucnting, app hang
+       * after a search, backspace not working."
+       *
+       * React REUSES <img> elements. A search box re-renders its result list on
+       * every keystroke and hands the same node a different person's photo.
+       * data-* attributes are not cleared by React, so the retry bookkeeping
+       * from the PREVIOUS occupant survived onto the next one:
+       *
+       *   * fallbackApplied="1" made a healthy new photo skip straight to the
+       *     grey placeholder with no attempt at all;
+       *   * retryCount="2" did the same;
+       *   * and worst, a pending 400ms / 1200ms timer would fire after the node
+       *     had been recycled and overwrite the NEW person's avatar with the OLD
+       *     person's URL — wrong faces, flickering, and on a phone a storm of
+       *     cache-busting requests (__r= deliberately bypasses the cache) with
+       *     every letter typed. That is the hang.
+       *
+       * Resetting whenever the underlying URL changes makes the state follow the
+       * image instead of the element, which is what it always meant.
+       */
+      const liveSrc = stripRetryParam(img.currentSrc || img.src);
+      if (img.dataset.originalSrc && img.dataset.originalSrc !== liveSrc) {
+        delete img.dataset.originalSrc;
+        delete img.dataset.retryCount;
+        delete img.dataset.fallbackApplied;
+      }
+
+      // Already given up on THIS url.
+      if (img.dataset.fallbackApplied === "1") return;
 
       const attempts = Number(img.dataset.retryCount || "0");
 
       if (attempts < MAX_RETRIES) {
         // Remember the ORIGINAL url once, so retry N+1 is built from the clean
         // address rather than from one that already carries a retry param.
+        // Stored WITHOUT any retry parameter so it compares equal to liveSrc on
+        // every later error for this same image. Storing the raw src would make
+        // attempt 2 look like a different photo and reset the counter forever —
+        // an unbounded retry loop.
         if (!img.dataset.originalSrc) {
-          img.dataset.originalSrc = img.currentSrc || img.src;
+          img.dataset.originalSrc = liveSrc;
         }
         const original = img.dataset.originalSrc;
         if (!original || /^data:/i.test(original)) {
@@ -141,6 +192,16 @@ export function installImageFallback(): void {
           // recycles feed rows aggressively during a scroll.
           if (!img.isConnected) return;
           if (img.dataset.fallbackApplied === "1") return;
+          /**
+           * AND IT MAY HAVE BEEN GIVEN A DIFFERENT PHOTO WHILE WE WAITED.
+           *
+           * Without this line the timer wrote the OLD person's URL over the NEW
+           * person's avatar — see the regression note above. Re-reading the
+           * dataset (rather than trusting the original captured in the closure)
+           * is the check: if anything reset or replaced it, this retry is stale
+           * and must be dropped silently.
+           */
+          if (img.dataset.originalSrc !== original) return;
           // `srcset` would win over `src` and re-serve the same failing
           // candidate, so it has to go before the retry can mean anything.
           img.srcset = "";
