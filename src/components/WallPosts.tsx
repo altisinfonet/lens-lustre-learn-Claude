@@ -27,6 +27,7 @@ import PostCardSkeleton from "@/components/post/PostCardSkeleton";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import { useUserPostsQuery, flattenUserPosts } from "@/hooks/feed/useUserPostsQuery";
 import { useFeedRealtime } from "@/hooks/feed/useRealtimeFeed";
+import { reportClientError, describeThrown } from "@/lib/reportClientError";
 import type { ReactionType } from "@/components/ReactionPicker";
 import type { UnifiedPost } from "@/types/post";
 
@@ -422,8 +423,22 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     } catch (err: any) {
       // This catch covers the WHOLE post pipeline (compress → upload → insert),
       // so name the failure truthfully instead of blaming "compression".
-      const msg: string = err?.message || "Unknown error";
-      const isNetwork = /failed to fetch|network|cors|load failed/i.test(msg);
+      //
+      // `err?.message` is EMPTY for exactly the failures that matter: a
+      // FunctionsFetchError from a cold-starting edge worker, a storage object
+      // like { statusCode, error }, an aborted upload DOMException. Those all
+      // used to render as the bare word "Unknown error" — which is what members
+      // saw all day on 2026-08-04 and why nobody, including us, could say what
+      // had actually gone wrong. describeThrown() digs a real sentence out.
+      const msg: string = describeThrown(err);
+      const isNetwork = /failed to fetch|network|cors|load failed|functionsfetcherror/i.test(msg);
+      // Record it. Fire-and-forget, never awaited, never throws — the member's
+      // retry must not wait on logging. See reportClientError.ts.
+      reportClientError("post_create", err, {
+        photos: selectedImages.length,
+        scheduled: !!scheduleAt,
+        privacy: newPrivacy,
+      });
       toast({
         title: isNetwork ? "Upload failed — check your connection" : "Failed to create post",
         description: msg,
