@@ -5,7 +5,6 @@ import { toast } from "@/hooks/core/use-toast";
 import { reportClientError, describeThrown, memberFacingMessage } from "@/lib/reportClientError";
 import { useIsBanned } from "@/hooks/core/useIsBanned";
 import { queryKeys } from "@/lib/queryKeys";
-import { isOwnProfilePhoto, isMissingPhotoError, PROFILE_PHOTO_REQUIRED_MESSAGE } from "@/lib/profilePhoto";
 
 /* ── Minimal comment shape expected by PostCommentsSection ── */
 
@@ -67,12 +66,12 @@ export function useAddComment(
         .select("id")
         .single();
       if (error) {
-        // A RESTRICTIVE policy refuses comments from accounts with no uploaded
-        // profile photo (2026-08-01). Postgres reports it as a bare RLS
-        // violation, so translate it into something a member can act on.
-        if (isMissingPhotoError(error, isOwnProfilePhoto(cached?.avatar_url))) {
-          throw new Error(PROFILE_PHOTO_REQUIRED_MESSAGE);
-        }
+        // NOTHING HERE MAY MENTION A PROFILE PHOTO — see the same note in
+        // src/components/WallPosts.tsx. The photo policies were dropped on
+        // 2026-08-05 and a member with only a system cartoon was rehearsed
+        // commenting successfully on production. Guessing "no photo" from a
+        // bare 42501 would now mislabel a ban, or a comment on a post the
+        // member cannot see, as the wall the owner has removed.
         throw error;
       }
       return data;
@@ -133,11 +132,13 @@ export function useAddComment(
        *
        * Both halves are fixed here: say what happened, and count it.
        */
-      // What the MEMBER reads. The mutation above throws a deliberately
-      // written sentence for the missing-profile-photo case — 32 of 83
-      // members are blocked by that RESTRICTIVE policy, measured 2026-08-05 —
-      // and prefixing it with "Error ·" would spoil the one message the app
-      // already gets right. The LOG still gets the full diagnostic form.
+      // What the MEMBER reads — the plain reason, with no "Error ·" prefix.
+      // The LOG still gets the full diagnostic form.
+      //
+      // This used to say the mutation throws a special sentence for the
+      // missing-profile-photo case. It no longer does, and must not again:
+      // the photo policies were dropped on 2026-08-05 and nothing blocks a
+      // member without a DP.
       const msg = memberFacingMessage(err);
       reportClientError("reply", err, {
         isReply: !!(vars as any)?.parentId,
