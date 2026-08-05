@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 import { toast } from "@/hooks/core/use-toast";
-import { reportClientError, describeThrown } from "@/lib/reportClientError";
+import { reportClientError, describeThrown, memberFacingMessage } from "@/lib/reportClientError";
 import { useIsBanned } from "@/hooks/core/useIsBanned";
 import { queryKeys } from "@/lib/queryKeys";
 import { isOwnProfilePhoto, isMissingPhotoError, PROFILE_PHOTO_REQUIRED_MESSAGE } from "@/lib/profilePhoto";
@@ -133,7 +133,12 @@ export function useAddComment(
        *
        * Both halves are fixed here: say what happened, and count it.
        */
-      const msg = describeThrown(err);
+      // What the MEMBER reads. The mutation above throws a deliberately
+      // written sentence for the missing-profile-photo case — 32 of 83
+      // members are blocked by that RESTRICTIVE policy, measured 2026-08-05 —
+      // and prefixing it with "Error ·" would spoil the one message the app
+      // already gets right. The LOG still gets the full diagnostic form.
+      const msg = memberFacingMessage(err);
       reportClientError("reply", err, {
         isReply: !!(vars as any)?.parentId,
       });
