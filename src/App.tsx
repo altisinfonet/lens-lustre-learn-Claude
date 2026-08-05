@@ -40,10 +40,37 @@ const lazyRetry = (factory: () => Promise<any>) =>
         return m;
       },
       (err) => {
+        /**
+         * RECORD IT BEFORE HEALING IT. Added 2026-08-05.
+         *
+         * This handler has silently reloaded the page since 2026-07-28. When it
+         * works, the member sees a flicker and we learn NOTHING — so a fault
+         * that fires ten times a day looked identical to one that never fires,
+         * and every conversation about blank pages had to start from zero.
+         *
+         * A stale chunk is the textbook cause of "Something went wrong while
+         * loading this page" on WEB right after a deploy: the browser is still
+         * holding an index.html naming hashed chunk files the new build no
+         * longer has. It CANNOT explain a blank page in the INSTALLED APP,
+         * where the chunks ship inside the package — so counting the two
+         * separately is exactly what tells them apart.
+         *
+         * `willReload` distinguishes "healed itself" from "failed twice and the
+         * member actually saw the error screen".
+         */
+        let willReload = false;
         try {
-          if (!sessionStorage.getItem("chunk_reload_v1")) {
+          willReload = !sessionStorage.getItem("chunk_reload_v1");
+        } catch { /* ignore */ }
+        void import("@/lib/reportClientError").then(({ reportClientError }) => {
+          reportClientError("blank_page", err, { cause: "chunk_load", willReload });
+        }).catch(() => { /* reporting must never block healing */ });
+
+        try {
+          if (willReload) {
             sessionStorage.setItem("chunk_reload_v1", "1");
-            window.location.reload();
+            // Give the report a moment to leave the tab before navigating away.
+            window.setTimeout(() => window.location.reload(), 250);
             return new Promise(() => { /* page is reloading */ });
           }
         } catch { /* ignore */ }
