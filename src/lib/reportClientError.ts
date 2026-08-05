@@ -71,6 +71,26 @@ export function describeThrown(err: unknown): string {
 }
 
 /**
+ * The sentence to put in front of a MEMBER, which is not the same thing as the
+ * sentence to put in the log.
+ *
+ * `describeThrown` deliberately prefixes an error's `name`, because "status=546"
+ * and "FunctionsFetchError" are exactly what makes a log row actionable. But a
+ * member reading a toast should not be shown "Error · Please add a profile
+ * photo…" — the diagnostic prefix is noise to them, and on the one path where
+ * the app already knows precisely what to say it actively spoils it.
+ *
+ * So: a real, human-written `message` wins. Everything else falls back to the
+ * diagnostic sentence, because a technical description still beats the words
+ * "Unknown error".
+ */
+export function memberFacingMessage(err: unknown): string {
+  const m = (err as { message?: unknown } | null)?.message;
+  if (typeof m === "string" && m.trim() !== "") return m;
+  return describeThrown(err);
+}
+
+/**
  * Fire-and-forget. Deliberately NOT async from the caller's point of view —
  * see rule 2 above.
  */
