@@ -214,7 +214,11 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
     if (!user || deleting) return;
     setDeleting(true);
     try {
-      await supabase.from("stories" as any).delete().eq("id", storyId);
+      // .select("id") returns the rows actually deleted — a delete matching
+      // nothing must surface as an error, never as a false "Story removed".
+      const { data, error } = await supabase.from("stories" as any).delete().eq("id", storyId).select("id");
+      if (error) throw error;
+      if (!data || (data as any[]).length === 0) throw new Error("Story could not be deleted.");
       setStories(prev => prev.filter(s => s.id !== storyId));
       toast({ title: "Story removed" });
     } catch (err: any) {
@@ -615,4 +619,3 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
 };
 
 export default ProfileStories;
-
