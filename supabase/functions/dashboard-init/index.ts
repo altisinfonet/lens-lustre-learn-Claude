@@ -127,8 +127,10 @@ Deno.serve(async (req) => {
       portfolioReactionsRes,
       // Voting entries: active competitions
       activeCompsRes,
-      // Milestones + birthdays: profiles with dates
+      // Milestones: profiles with dates
       profileDatesRes,
+      // Today's birthdays — its own privacy-aware query, see Q12
+      todaysBirthdaysRes,
     ] = await Promise.all([
       // Q1: Site settings
       admin.from("site_settings").select("key, value").limit(100),
@@ -177,12 +179,29 @@ Deno.serve(async (req) => {
         .not("status", "in", '("archived","completed")')
         .lte("ends_at", nowISO)
         .limit(10),
-      // Q11: Profiles with created_at and date_of_birth (milestones + birthdays)
-      // DOB lives only on the private `profiles` table (service-role read here, RLS bypassed).
+      // Q11: Profiles with created_at (milestones) and the people-suggestion pool.
+      // NOTE: still LIMIT 50, unchanged — the owner scoped today's fix to
+      // birthdays only. Milestones and suggestions have the same weakness and
+      // are recorded as open items, not silently altered here.
       admin.from("profiles")
         .select("id, full_name, avatar_url, created_at, date_of_birth")
         .eq("is_suspended", false)
         .limit(50),
+
+      // Q12: TODAY'S BIRTHDAYS.
+      //
+      // This used to be derived in TypeScript from Q11 — which meant it
+      // inherited that LIMIT 50 and could only ever see the first 50 rows.
+      // Measured 2026-08-04: 82 members, 68 with a date of birth, **28 of them
+      // outside the window** and therefore invisible on their own birthday.
+      //
+      // The RPC also applies each member's own `dob_day_month` privacy choice
+      // (default "friends", which is what Edit Profile shows them), so lifting
+      // the cap does not expose the 18 people who restricted it.
+      // See supabase/migrations/20260804160000_todays_birthdays_rpc.sql.
+      targetUserId
+        ? admin.rpc("get_todays_birthdays", { _viewer: targetUserId })
+        : Promise.resolve({ data: [] as any[] }),
 
     ]);
 
@@ -376,7 +395,17 @@ Deno.serve(async (req) => {
     // ── Milestones + Birthdays ──
     const profileDates = profileDatesRes.data ?? [];
     const milestones: any[] = [];
-    const birthdays: any[] = [];
+
+    /**
+     * Birthdays now come from `get_todays_birthdays`, which has no row limit and
+     * applies each member's own privacy choice. Nothing is computed here any
+     * more — the day rule and the visibility rule live in one place (see
+     * WORKING_RULES §14: a rule the caller has to remember is not a rule).
+     *
+     * Anonymous callers get `{ data: [] }` from Q12 without a query running, so
+     * the SECURITY note below still holds for birthdays too.
+     */
+    const birthdays: any[] = ((todaysBirthdaysRes as any)?.data ?? []) as any[];
 
     // SECURITY (dashboard_init_dob_anon): birthdays + milestones are
     // PII-derived (month+day of birth, account anniversary). Only emit them
@@ -396,16 +425,6 @@ Deno.serve(async (req) => {
               created_at: p.created_at,
               years: now.getFullYear() - created.getFullYear(),
             });
-          }
-        }
-        // Birthdays
-        if (p.date_of_birth) {
-          const parts = String(p.date_of_birth).split("-");
-          if (parts.length >= 3) {
-            const dobMD = `${parts[1]}-${parts[2]}`;
-            if (dobMD === todayMD) {
-              birthdays.push({ id: p.id, full_name: p.full_name, avatar_url: p.avatar_url });
-            }
           }
         }
       });
