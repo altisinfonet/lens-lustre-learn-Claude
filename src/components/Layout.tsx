@@ -133,9 +133,34 @@ const LayoutInner = () => {
       // next visit, web or app, and the modal cannot be dismissed.
       const missingAvatar = !isOwnProfilePhoto(profile.avatar_url);
 
-      // Onboarding is DONE only when completed AND user_type AND username AND
-      // profile photo are all present.
-      if (profile.onboarding_completed && !missingUserType && !missingUsername && !missingAvatar) {
+      /**
+       * ONBOARDING IS DONE WHEN THE STRUCTURAL FIELDS ARE DONE. THE PHOTO IS
+       * NOT ONE OF THEM.
+       *
+       * OWNER'S REVISED ORDER, 2026-08-05, marked FINAL NOTICE:
+       *
+       *   "For DP dont block any users to post anything. But DP will be filled
+       *    up as policy either uploaded by user or filled up by system based on
+       *    the gender. BUt Final Notice : DONT BLOCK ANY USERS for DP to post -
+       *    allow all"
+       *
+       * missingAvatar used to be part of this condition, so a member with no
+       * UPLOADED photo was never considered finished and the modal reopened on
+       * their next action — which is what happened seconds after registering as
+       * "leeza.basu": "1st step done. when trying to post again this pop up
+       * coiming."
+       *
+       * THE PREMISE OF THAT PROMPT NO LONGER HOLDS. Nobody is without a picture
+       * any more: handle_new_user() assigns one at registration and
+       * trg_ensure_member_always_has_picture refuses to let any write blank it.
+       *
+       * missingAvatar is still COMPUTED — isOwnProfilePhoto remains the single
+       * definition of "a photo the member actually uploaded", which is what
+       * gets reinstated at ~1000 members.
+       */
+      void missingAvatar;
+
+      if (profile.onboarding_completed && !missingUserType && !missingUsername) {
         sessionStorage.setItem(cacheKey, "true");
         return;
       }
@@ -167,16 +192,12 @@ const LayoutInner = () => {
        * which is the loophole that let accounts exist with no photo before
        * 2026-07-28.
        */
-      const onlyPhotoMissing =
-        missingAvatar && !missingUserType && !missingUsername && !!profile.onboarding_completed;
-
-      if (onlyPhotoMissing) {
-        try {
-          if (sessionStorage.getItem(PHOTO_PROMPT_SNOOZE_KEY)) return;
-        } catch { /* private mode — just show it */ }
-      }
-
-      setPhotoPromptOnly(onlyPhotoMissing);
+      /**
+       * Reaching here means something STRUCTURAL is missing — a username or a
+       * member type — and those cannot be filled in by the system: the username
+       * is part of the member's public URL and is permanent.
+       */
+      setPhotoPromptOnly(false);
       setOnboardingProfile(profile);
       setShowOnboarding(true);
     };
