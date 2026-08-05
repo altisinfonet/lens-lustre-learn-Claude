@@ -48,6 +48,9 @@ const NOTIF_ICON: Record<string, typeof Heart> = {
   course_published: BookOpen,
   featured_artist: Star,
   post_tag: Tag,
+  // "🎉 Today is <name>'s Birthday". Without an entry here the row falls back to
+  // the generic Bell, which is what every undecided type has always looked like.
+  birthday: Cake,
 };
 
 const NOTIF_CATEGORY: Record<string, string> = {
@@ -76,6 +79,7 @@ const NOTIF_CATEGORY: Record<string, string> = {
   course_published: "Courses",
   featured_artist: "Featured",
   post_tag: "Photo Tags",
+  birthday: "Birthdays",
 };
 
 
