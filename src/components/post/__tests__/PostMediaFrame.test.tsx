@@ -128,63 +128,70 @@ describe("PostMedia — nothing to show", () => {
 });
 
 /**
- * Cloudflare Transformations (2026-08-01).
+ * ═══════════════════════════════════════════════════════════════════════════
+ * REVERSED, 2026-08-05: CDN images must NOT go through /cdn-cgi/image/.
  *
- * Post images live on cdn.50mmretina.com, which the Supabase render endpoint
- * never matched — so every card was downloading the full 2560px original.
- * Measured live: 3,450 KB of visible photos became 383 KB as AVIF at 800px.
+ * The describe that used to live here pinned the OPPOSITE — it protected the
+ * Cloudflare Transformations routing shipped 2026-08-01 ("silently reverting
+ * to full-size originals" was listed as the failure mode to guard against).
  *
- * The two failure modes worth pinning are (a) silently reverting to full-size
- * originals, and (b) the base URL, which MUST be the hard-coded zone origin —
- * location.origin would 404 every image inside the Android app while looking
- * perfect on web.
+ * The real failure mode was the transformer itself. It is zone infrastructure:
+ * it died with no deploy and no code change, and from that day the owner's
+ * feed — web AND app — was a wall of branded placeholders. Measured in his own
+ * browser on 2026-08-05: every /cdn-cgi/image/ request failed while every
+ * direct cdn.50mmretina.com URL returned 200. "Images are not coming. Many
+ * times told" — this was it.
+ *
+ * So the pin now points the other way: a cdn.50mmretina.com image is rendered
+ * by its DIRECT url, no srcset, and nothing may reroute it through an endpoint
+ * that can be switched off outside this repo. Full-size originals in the feed
+ * cost bandwidth; they do not cost the product. See PostMedia.tsx for the
+ * conditions under which a transformer may return.
+ * ═══════════════════════════════════════════════════════════════════════════
  */
 const cdn = (name: string) =>
   `https://cdn.50mmretina.com/post-images/u/posts/1754000000000-abc${name}`;
 
-describe("PostMedia — CDN images go through Cloudflare", () => {
-  it("requests a resized, auto-format variant instead of the original", () => {
-    const { container } = render(<PostMedia urls={[cdn("-w2560h1463.webp")]} />);
-    const img = sharpImg(container)!;
-    expect(img.getAttribute("src")).toContain("/cdn-cgi/image/");
-    expect(img.getAttribute("src")).toContain("width=800");
-    expect(img.getAttribute("src")).toContain("format=auto");
-  });
-
-  it("uses the hard-coded zone origin, never the current origin", () => {
-    // jsdom's location.origin is http://localhost — if that ever leaks into the
-    // URL, every image in the Capacitor app breaks while web looks fine.
+describe("PostMedia — CDN images load DIRECT, never via a transformer", () => {
+  it("renders the original URL, untouched", () => {
     const { container } = render(<PostMedia urls={[cdn("-w2560h1463.webp")]} />);
     const src = sharpImg(container)!.getAttribute("src")!;
-    expect(src.startsWith("https://50mmretina.com/cdn-cgi/image/")).toBe(true);
-    expect(src).not.toContain("localhost/cdn-cgi");
+    expect(src).toBe(cdn("-w2560h1463.webp"));
+    expect(src).not.toContain("/cdn-cgi/image/");
   });
 
-  it("offers a responsive srcset so a phone does not fetch the desktop size", () => {
+  it("no srcset — every candidate would have been a transformer URL", () => {
     const { container } = render(<PostMedia urls={[cdn("-w2560h1463.webp")]} />);
-    const ss = sharpImg(container)!.getAttribute("srcset") || "";
-    expect(ss).toContain("480w");
-    expect(ss).toContain("800w");
-    expect(ss).toContain("1200w");
+    expect(sharpImg(container)!.getAttribute("srcset")).toBeNull();
   });
 
-  it("still uses a 32px backdrop, now via Cloudflare", () => {
+  it("the 32px backdrop also uses the direct URL", () => {
     const { container } = render(<PostMedia urls={[cdn("-w2560h1463.webp")]} />);
     const back = backdropImg(container)!.getAttribute("src")!;
-    expect(back).toContain("/cdn-cgi/image/");
-    expect(back).toContain("width=32");
+    expect(back).not.toContain("/cdn-cgi/image/");
   });
 
-  it("never double-transforms an already-transformed URL", () => {
+  it("an old post whose stored URL is already a transformer URL is left as-is", () => {
+    // Not double-wrapped, not rewritten here — the data is what it is.
     const already = `https://50mmretina.com/cdn-cgi/image/width=800/${cdn(".webp")}`;
     const { container } = render(<PostMedia urls={[already]} />);
     const src = sharpImg(container)!.getAttribute("src")!;
     expect(src.split("/cdn-cgi/image/").length - 1).toBe(1);
   });
 
-  it("leaves a GIF alone so the animation survives", () => {
+  it("a GIF stays untouched so the animation survives", () => {
     const { container } = render(<PostMedia urls={[cdn(".gif")]} />);
     expect(sharpImg(container)!.getAttribute("src")).not.toContain("/cdn-cgi/image/");
+  });
+
+  it("Supabase-hosted images keep their storage-native render endpoint", () => {
+    // That transformer is a different system, predates 2026-08-01, and was
+    // never part of the failure. Losing it would be its own regression.
+    const sb =
+      "https://jtdtehuqtinjxropkkcn.supabase.co/storage/v1/object/public/portfolio-images/g/a.webp";
+    const { container } = render(<PostMedia urls={[sb]} />);
+    const src = sharpImg(container)!.getAttribute("src")!;
+    expect(src).toContain("/storage/v1/render/image/public/");
   });
 });
 
