@@ -4,6 +4,26 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+    <!-- ONE ADDRESS. 50mmretina.com and www.50mmretina.com are two SEPARATE
+         browser origins with separate logins and caches. Members opening the
+         bare domain saw a logged-out copy of the site "on the same link" —
+         the owner hit exactly this on 2026-08-05 (two browsers, same URL, two
+         different headers). Everyone lands on www, always. Runs before the app
+         boots so a bare-domain visit never even flashes the login wall.
+         The edge Worker (cloudflare/seo-edge-injector) additionally answers
+         with a real HTTP 301 once the owner re-deploys it — this inline hop is
+         the code-shipped guarantee that works regardless. -->
+    <script>
+      if (location.hostname === "50mmretina.com") {
+        location.replace(
+          "https://www.50mmretina.com" +
+            location.pathname +
+            location.search +
+            location.hash
+        );
+      }
+    </script>
+
     <!-- Security Headers (meta http-equiv fallbacks) -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
     <meta http-equiv="X-Frame-Options" content="DENY" />
