@@ -27,7 +27,7 @@ import PostCardSkeleton from "@/components/post/PostCardSkeleton";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import { useUserPostsQuery, flattenUserPosts } from "@/hooks/feed/useUserPostsQuery";
 import { useFeedRealtime } from "@/hooks/feed/useRealtimeFeed";
-import { reportClientError, describeThrown } from "@/lib/reportClientError";
+import { reportClientError, memberFacingMessage, describeThrown } from "@/lib/reportClientError";
 import type { ReactionType } from "@/components/ReactionPicker";
 import type { UnifiedPost } from "@/types/post";
 
@@ -430,7 +430,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       // used to render as the bare word "Unknown error" — which is what members
       // saw all day on 2026-08-04 and why nobody, including us, could say what
       // had actually gone wrong. describeThrown() digs a real sentence out.
-      const msg: string = describeThrown(err);
+      const msg: string = memberFacingMessage(err);
       const isNetwork = /failed to fetch|network|cors|load failed|functionsfetcherror/i.test(msg);
       // Record it. Fire-and-forget, never awaited, never throws — the member's
       // retry must not wait on logging. See reportClientError.ts.
