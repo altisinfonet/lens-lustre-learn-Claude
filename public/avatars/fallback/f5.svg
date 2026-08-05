@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="Illustrated avatar">
+  <defs><clipPath id="c"><circle cx="60" cy="60" r="60"/></clipPath></defs>
+  <g clip-path="url(#c)">
+    <rect width="120" height="120" fill="#DFEAF0"/>
+    <path d="M14 120 Q14 82 60 82 Q106 82 106 120 Z" fill="#4F5B7A"/>
+  <path d="M46 82 Q60 92 74 82 L74 120 L46 120 Z" fill="#4F5B7A" opacity=".85"/>
+    <rect x="53" y="62" width="14" height="22" rx="7" fill="#FFD9B8"/>
+    
+  <ellipse cx="60" cy="86" rx="26" ry="10" fill="#FFD9B8" opacity=".0"/>
+  <circle cx="60" cy="52" r="21" fill="#FFD9B8"/>
+  <circle cx="52.5" cy="50" r="2.1" fill="#3A2E28"/>
+  <circle cx="67.5" cy="50" r="2.1" fill="#3A2E28"/>
+  <path d="M53 60 Q60 65.5 67 60" stroke="#3A2E28" stroke-width="1.9" fill="none" stroke-linecap="round"/>
+    <g fill="#2B2118"><circle cx="44" cy="40" r="10"/><circle cx="60" cy="31" r="11"/><circle cx="76" cy="40" r="10"/><circle cx="52" cy="32" r="9"/><circle cx="68" cy="32" r="9"/><circle cx="40" cy="54" r="8"/><circle cx="80" cy="54" r="8"/></g>
+  </g>
+</svg>

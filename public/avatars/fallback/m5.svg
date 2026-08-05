@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="Illustrated avatar">
+  <defs><clipPath id="c"><circle cx="60" cy="60" r="60"/></clipPath></defs>
+  <g clip-path="url(#c)">
+    <rect width="120" height="120" fill="#F5EEDA"/>
+    <path d="M14 120 Q14 82 60 82 Q106 82 106 120 Z" fill="#5B5B8A"/>
+  <path d="M46 82 Q60 92 74 82 L74 120 L46 120 Z" fill="#5B5B8A" opacity=".85"/>
+    <rect x="53" y="62" width="14" height="22" rx="7" fill="#FFD9B8"/>
+    
+  <ellipse cx="60" cy="86" rx="26" ry="10" fill="#FFD9B8" opacity=".0"/>
+  <circle cx="60" cy="52" r="21" fill="#FFD9B8"/>
+  <circle cx="52.5" cy="50" r="2.1" fill="#3A2E28"/>
+  <circle cx="67.5" cy="50" r="2.1" fill="#3A2E28"/>
+  <path d="M53 60 Q60 65.5 67 60" stroke="#3A2E28" stroke-width="1.9" fill="none" stroke-linecap="round"/>
+    <path d="M38 48 Q39 28 60 28 Q81 28 82 48 Q79 36 60 36 Q41 36 38 48 Z" fill="#3C2415"/>
+          <path d="M41 58 Q42 76 60 78 Q78 76 79 58 Q74 70 60 70 Q46 70 41 58 Z" fill="#3C2415" opacity=".95"/>
+  </g>
+</svg>
