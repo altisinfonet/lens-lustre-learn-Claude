@@ -8,6 +8,7 @@ import { compressImage } from "@/lib/imageCompression";
 import { AnimatePresence, motion } from "framer-motion";
 import { displayEngagement, formatEngagementCount } from "@/lib/displayEngagement";
 import { Button } from "@/components/ui/button";
+import { STORY_DISPLAY_MS } from "@/lib/storyTiming";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 
@@ -314,7 +315,7 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
           {/* Add Story button (owner only) */}
           {isOwner && (
             <label className="flex-shrink-0 flex flex-col items-center gap-1.5 cursor-pointer group relative">
-              <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full border-2 border-dashed border-primary/40 group-hover:border-primary flex items-center justify-center transition-colors bg-primary/5">
+              <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full border-2 border-dashed border-primary/40 group-hover:border-primary flex items-center justify-center transition-colors bg-primary/5">
                 {uploading ? (
                   <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                 ) : (
@@ -335,7 +336,7 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
             <div className="flex-shrink-0 flex flex-col items-center gap-1.5 cursor-pointer group"
               onClick={() => highlightInputRef.current?.click()}
             >
-              <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full border-2 border-dashed border-amber-500/60 group-hover:border-amber-500 flex items-center justify-center transition-colors bg-amber-500/5">
+              <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full border-2 border-dashed border-amber-500/60 group-hover:border-amber-500 flex items-center justify-center transition-colors bg-amber-500/5">
                 <div className="flex flex-col items-center">
                   <Star className="h-4 w-4 text-amber-500/70 group-hover:text-amber-500 mb-0.5" />
                   <Plus className="h-3.5 w-3.5 text-amber-500/70 group-hover:text-amber-500" />
@@ -354,7 +355,7 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
               onClick={() => openStoryViewer(stories, i)}
               className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
             >
-              <div className="relative h-16 w-16 sm:h-20 sm:w-20 rounded-full p-0.5 bg-gradient-to-tr from-primary via-primary/60 to-accent">
+              <div className="relative h-20 w-20 sm:h-24 sm:w-24 rounded-full p-0.5 bg-gradient-to-tr from-primary via-primary/60 to-accent">
                 <img loading="lazy" decoding="async" src={story.image_url} alt="Story" className="w-full h-full rounded-full object-cover border-2 border-background" />
                 <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[7px] font-bold px-1.5 py-0.5 rounded-full leading-none">
                   24h
@@ -373,7 +374,7 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
               onClick={() => openHighlightViewer(hl)}
               className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
             >
-              <div className="relative h-16 w-16 sm:h-20 sm:w-20 rounded-full p-0.5 bg-gradient-to-tr from-accent via-accent/60 to-amber-500">
+              <div className="relative h-20 w-20 sm:h-24 sm:w-24 rounded-full p-0.5 bg-gradient-to-tr from-accent via-accent/60 to-amber-500">
                 <div className="w-full h-full rounded-full overflow-hidden border-2 border-background">
                   {hl.cover_url || hl.items[0]?.image_url ? (
                     <img loading="lazy" decoding="async" src={hl.cover_url || hl.items[0]?.image_url} alt={hl.title} className="w-full h-full object-cover" />
@@ -445,7 +446,11 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
         )}
       </AnimatePresence>
 
-      {/* Story/Highlight Viewer Modal */}
+      {/* Story/Highlight Viewer Modal.
+          Owner, 2026-08-05: "When opened stories full page like instagram must
+          be opened" — so STORIES render full-bleed with timed top progress bars
+          (the shared 10s) and tap zones, exactly like the feed viewer.
+          Highlights keep the boxed modal they always had. */}
       <AnimatePresence>
         {viewerOpen && viewerImages.length > 0 && (
           <motion.div
@@ -455,8 +460,34 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
             className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
             onClick={() => setViewerOpen(false)}
           >
+            {/* Instagram-style progress bars — stories only, 10s per story,
+                auto-advances, closes after the last one. */}
+            {currentViewerItem?.type === "story" && (
+              <div className="absolute top-3 left-3 right-3 z-50 flex gap-1">
+                {viewerImages.map((img, i) => (
+                  <div key={img.id} className="flex-1 h-0.5 bg-white/30 rounded-full overflow-hidden">
+                    {i < viewerIdx ? (
+                      <div className="h-full w-full bg-white" />
+                    ) : i === viewerIdx ? (
+                      <motion.div
+                        key={`story-progress-${img.id}`}
+                        className="h-full bg-white"
+                        initial={{ width: "0%" }}
+                        animate={{ width: "100%" }}
+                        transition={{ duration: STORY_DISPLAY_MS / 1000, ease: "linear" }}
+                        onAnimationComplete={() => {
+                          if (viewerIdx < viewerImages.length - 1) setViewerIdx((n) => n + 1);
+                          else setViewerOpen(false);
+                        }}
+                      />
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Top bar: type badge */}
-            <div className="absolute top-4 left-4 z-50">
+            <div className={`absolute ${currentViewerItem?.type === "story" ? "top-6" : "top-4"} left-4 z-50`}>
               {currentViewerItem?.type === "story" ? (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/20 text-primary text-[10px] font-semibold uppercase tracking-wider">
                   <Clock className="h-3 w-3" /> Story · 24h
@@ -468,8 +499,10 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
               )}
             </div>
 
-            {/* Close + Delete — stacked vertically on mobile for no overlap */}
-            <div className="absolute top-4 right-4 z-50 flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+            {/* Close + Delete — stacked vertically on mobile for no overlap.
+                The delete button is here for BOTH stories and highlights, so
+                the owner can delete ANYTIME simply by opening their story. */}
+            <div className={`absolute ${currentViewerItem?.type === "story" ? "top-6" : "top-4"} right-4 z-50 flex flex-col items-end gap-2 sm:flex-row sm:items-center`}>
               {isOwner && currentViewerItem && (
                 <button
                   onClick={(e) => {
@@ -495,53 +528,85 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
 
             {/* Navigation */}
             {viewerIdx > 0 && (
-              <button onClick={(e) => { e.stopPropagation(); setViewerIdx(i => i - 1); }} className="absolute left-4 z-50 text-white/70 hover:text-white">
+              <button onClick={(e) => { e.stopPropagation(); setViewerIdx(i => i - 1); }} className={`absolute left-4 z-50 text-white/70 hover:text-white ${currentViewerItem?.type === "story" ? "hidden sm:block" : ""}`}>
                 <ChevronLeft className="h-8 w-8" />
               </button>
             )}
             {viewerIdx < viewerImages.length - 1 && (
-              <button onClick={(e) => { e.stopPropagation(); setViewerIdx(i => i + 1); }} className="absolute right-4 z-50 text-white/70 hover:text-white mt-16 sm:mt-0">
+              <button onClick={(e) => { e.stopPropagation(); setViewerIdx(i => i + 1); }} className={`absolute right-4 z-50 text-white/70 hover:text-white mt-16 sm:mt-0 ${currentViewerItem?.type === "story" ? "hidden sm:block" : ""}`}>
                 <ChevronRight className="h-8 w-8" />
               </button>
             )}
 
-            <div className="max-w-lg w-full max-h-[85vh] flex flex-col items-center" onClick={e => e.stopPropagation()}>
-              <img loading="lazy" decoding="async" src={viewerImages[viewerIdx].url} alt="Media" className="max-h-[65vh] w-full object-contain rounded-sm" />
-
-              {viewerImages[viewerIdx].caption && (
-                <p className="text-white/80 text-sm mt-3 text-center">{viewerImages[viewerIdx].caption}</p>
-              )}
-
-              {/* Own stories only. Reach and Viewed-by are DISPLAY figures
-                  (src/lib/displayEngagement.ts), stable per story and growing
-                  with its age — not the raw story_views count, which is still
-                  recorded in the database and still owner-only. */}
-              {isOwner && currentDisplay && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-4 mt-3 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm"
-                >
-                  <div className="flex items-center gap-1.5 text-white/80">
-                    <Users className="h-3.5 w-3.5" />
-                    <span className="text-xs font-medium">Reached by</span>
-                    <span className="text-xs font-bold text-white">{formatEngagementCount(currentDisplay.reach)}</span>
+            {currentViewerItem?.type === "story" ? (
+              <>
+                {/* Full-page story, like the feed viewer */}
+                <img
+                  key={viewerImages[viewerIdx].id}
+                  src={viewerImages[viewerIdx].url}
+                  alt="Story"
+                  className="max-h-[92vh] max-w-[100vw] sm:max-w-[440px] object-contain select-none"
+                  draggable={false}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                {viewerImages[viewerIdx].caption && (
+                  <div className="absolute bottom-8 left-4 right-4 z-20 text-center">
+                    <p className="text-white text-sm inline-block bg-black/40 rounded-lg px-3 py-1.5" style={headingFont}>
+                      {viewerImages[viewerIdx].caption}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-1.5 text-white/80">
-                    <Eye className="h-3.5 w-3.5" />
-                    <span className="text-xs font-medium">Viewed by</span>
-                    <span className="text-xs font-bold text-white">{formatEngagementCount(currentDisplay.views)}</span>
-                  </div>
-                </motion.div>
-              )}
+                )}
+                {/* Tap zones: left = back, right = forward */}
+                <button
+                  aria-label="Previous"
+                  onClick={(e) => { e.stopPropagation(); if (viewerIdx > 0) setViewerIdx(i => i - 1); }}
+                  className="absolute left-0 top-16 bottom-0 w-1/3 z-10"
+                />
+                <button
+                  aria-label="Next"
+                  onClick={(e) => { e.stopPropagation(); if (viewerIdx < viewerImages.length - 1) setViewerIdx(i => i + 1); else setViewerOpen(false); }}
+                  className="absolute right-0 top-16 bottom-0 w-1/3 z-10"
+                />
+              </>
+            ) : (
+              <div className="max-w-lg w-full max-h-[85vh] flex flex-col items-center" onClick={e => e.stopPropagation()}>
+                <img loading="lazy" decoding="async" src={viewerImages[viewerIdx].url} alt="Media" className="max-h-[65vh] w-full object-contain rounded-sm" />
 
-              {/* Progress dots */}
-              <div className="flex gap-1.5 mt-3">
-                {viewerImages.map((_, i) => (
-                  <div key={i} className={`h-1 rounded-full transition-all ${i === viewerIdx ? "w-6 bg-white" : "w-1.5 bg-white/30"}`} />
-                ))}
+                {viewerImages[viewerIdx].caption && (
+                  <p className="text-white/80 text-sm mt-3 text-center">{viewerImages[viewerIdx].caption}</p>
+                )}
+
+                {/* Own stories only. Reach and Viewed-by are DISPLAY figures
+                    (src/lib/displayEngagement.ts), stable per story and growing
+                    with its age — not the raw story_views count, which is still
+                    recorded in the database and still owner-only. */}
+                {isOwner && currentDisplay && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-4 mt-3 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm"
+                  >
+                    <div className="flex items-center gap-1.5 text-white/80">
+                      <Users className="h-3.5 w-3.5" />
+                      <span className="text-xs font-medium">Reached by</span>
+                      <span className="text-xs font-bold text-white">{formatEngagementCount(currentDisplay.reach)}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-white/80">
+                      <Eye className="h-3.5 w-3.5" />
+                      <span className="text-xs font-medium">Viewed by</span>
+                      <span className="text-xs font-bold text-white">{formatEngagementCount(currentDisplay.views)}</span>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Progress dots */}
+                <div className="flex gap-1.5 mt-3">
+                  {viewerImages.map((_, i) => (
+                    <div key={i} className={`h-1 rounded-full transition-all ${i === viewerIdx ? "w-6 bg-white" : "w-1.5 bg-white/30"}`} />
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -550,3 +615,4 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
 };
 
 export default ProfileStories;
+
