@@ -64,8 +64,30 @@ export const onRequest = async (context: any) => {
 
   const contentType = res.headers.get("content-type") || "";
   if (!contentType.includes("text/html")) {
-    // A real asset — JS, CSS, a font, an image. Untouched.
-    return res;
+    /**
+     * A real asset — JS, CSS, a font, an image.
+     *
+     * The Cache-Control is REWRITTEN, not passed through, and that is not
+     * cosmetic. Measured on production immediately after this Function first
+     * deployed:
+     *
+     *   Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate,
+     *                  public, max-age=31536000, immutable
+     *
+     * Pages applies the `/*` rule from `public/_headers` to a FUNCTION
+     * response as well as the `/assets/*` rule, and the two were concatenated.
+     * `no-store` comes first and wins, so every member would have re-downloaded
+     * ~1.7 MB of JavaScript on every single page load. A file matched only by
+     * `/*` (favicon.ico) showed one clean header, which is how this was pinned
+     * to the Function rather than to `_headers`.
+     *
+     * Setting it explicitly restores the intended value. It is safe precisely
+     * BECAUSE a missing file now 404s: `immutable` only becomes a trap when a
+     * miss can be cached, and it no longer can.
+     */
+    const out = new Response(res.body, res);
+    out.headers.set("Cache-Control", "public, max-age=31536000, immutable");
+    return out;
   }
 
   // HTML under /assets/ means "this file is gone". Say so, honestly.
