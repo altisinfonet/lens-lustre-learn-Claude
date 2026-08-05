@@ -204,3 +204,35 @@ describe("the database side cannot be abused or read by members", () => {
     expect(sql).toMatch(/cron\.schedule\(\s*'prune-client-errors'/);
   });
 });
+
+describe("the owner can actually SEE it — 'just i cant check is not the soltuion'", () => {
+  const panel = read("src/components/admin/ClientFailuresAudit.tsx");
+  const health = read("src/components/admin/AdminHealth.tsx");
+
+  it("is mounted in Admin Health, where he already looks", () => {
+    expect(health).toContain("<ClientFailuresAudit />");
+    expect(health).toContain('import ClientFailuresAudit from "@/components/admin/ClientFailuresAudit"');
+  });
+
+  it("reads through the admin-gated function, not the raw table", () => {
+    expect(panel).toContain("get_client_error_stats_admin");
+    expect(panel).not.toMatch(/from\("client_errors"\)/);
+  });
+
+  it("says 'no failures' in words rather than showing an empty box", () => {
+    // "Nothing is failing" is a real answer and the one that redirects the
+    // search. A blank panel would repeat the original sin.
+    expect(panel).toContain("No client failures recorded");
+  });
+
+  it("labels each kind in plain words, not our internal names", () => {
+    expect(panel).toContain('post_create: "Could not post"');
+    expect(panel).toContain('blank_page: "Blank page / crash"');
+  });
+
+  it("shows the real message, the count and how many members", () => {
+    expect(panel).toContain("{r.sample}");
+    expect(panel).toContain("{r.occurrences}");
+    expect(panel).toContain("{r.members}");
+  });
+});
