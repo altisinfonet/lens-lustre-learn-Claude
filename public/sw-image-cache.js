@@ -14,7 +14,17 @@
  * thumbnail URLs.
  */
 
-const CACHE_NAME = "gallery-images-v2";
+/**
+ * Bumped v2 -> v3 on 2026-08-05, deliberately.
+ *
+ * The `activate` handler below deletes every cache whose name is not
+ * CACHE_NAME, so renaming purges the entire old image cache exactly once. That
+ * is wanted here: entries stored by the previous version were written by code
+ * that could not distinguish a healthy image from a failed one, and an image
+ * cached under the old rules is never revalidated. Members re-download their
+ * images once and then the cache refills under the corrected code.
+ */
+const CACHE_NAME = "gallery-images-v3";
 const MAX_CACHE_ENTRIES = 200;
 
 const THUMB_BUCKETS = [
@@ -78,18 +88,55 @@ async function handle(request) {
       cache.put(request, response.clone()).then(() => trimCache(cache)).catch(() => {});
     }
     return response;
-  } catch {
-    // Offline fallback — transparent 1x1 GIF
-    return new Response(
-      new Uint8Array([
-        0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00,
-        0x80, 0x00, 0x00, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x21,
-        0xf9, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x2c, 0x00, 0x00,
-        0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x02, 0x02, 0x44,
-        0x01, 0x00, 0x3b,
-      ]),
-      { headers: { "Content-Type": "image/gif" } }
-    );
+  } catch (err) {
+    /**
+     * ───────────────────────────────────────────────────────────────────────
+     * OWNER REPORT, 2026-08-05: "Images are not coming. Many times told, still
+     * you not solved — all time images are not coming."
+     *
+     * THIS IS WHY IT WAS NEVER SOLVED.
+     *
+     * This branch used to return a **transparent 1x1 GIF** as an "offline
+     * fallback". Read what that actually did:
+     *
+     *   * The browser treats a 1x1 GIF as a SUCCESSFUL image load.
+     *   * So `<img onerror>` never fires — no retry anywhere in the app,
+     *     because every retry path in this codebase hangs off onerror.
+     *   * So no error is logged, nothing reaches the console, and nothing
+     *     reaches `client_errors`.
+     *   * The member sees an invisible picture. Permanently, until they
+     *     happen to reload while the network is healthy.
+     *
+     * One dropped packet on mobile data and the photo silently disappeared,
+     * leaving no trace for anyone to debug. That is the exact shape of a bug
+     * that gets reported over and over and never gets found: the fallback was
+     * destroying the evidence.
+     *
+     * A 1x1 GIF is only ever the right answer for a decorative tracking pixel.
+     * For a photography community, where the image IS the product, a failure
+     * must LOOK like a failure.
+     *
+     * ───────────────────────────────────────────────────────────────────────
+     * WHAT IT DOES NOW
+     *
+     * Returns a real error response (504). The browser fires `onerror`, so:
+     *   * `<img>` elements with a fallback show it;
+     *   * the page can retry;
+     *   * and the reporter added in src/lib/reportImageError.ts records the
+     *     EXACT failing URL to `client_errors`, which is how the next report
+     *     of this arrives as a URL instead of a screenshot.
+     *
+     * `Cache-Control: no-store` because a transient network failure must never
+     * be remembered — that would be the /assets blank-page bug all over again.
+     */
+    return new Response("Image fetch failed: " + (err && err.message ? err.message : "network error"), {
+      status: 504,
+      statusText: "Image Fetch Failed",
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+    });
   }
 }
 
