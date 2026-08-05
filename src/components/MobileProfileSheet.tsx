@@ -7,6 +7,7 @@ import { useWalletSummary } from "@/hooks/wallet/useWalletSummary";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
+import AppVersionLabel from "@/components/AppVersionLabel";
 import {
   Drawer, DrawerContent, DrawerHeader, DrawerTitle,
 } from "@/components/ui/drawer";
@@ -242,7 +243,7 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
           </div>
         </div>
 
-        {/* Bottom row: Logout.
+        {/* Bottom row: Logout on the left half, the loaded build on the right.
             The theme button that used to sit here was removed on 2026-08-01:
             the toggle moved up into this sheet's header (swapping places with
             the notification bell, which is now in the top bar), and two theme
@@ -257,6 +258,14 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
               {t("menu.logout")}
             </span>
           </button>
+          {/* Owner, 2026-08-05: "logout button will on the left half of the
+              current size and on the left portion same alignment show app
+              version so that user can understand 1050 (1.2.2) … what is the
+              current app version loaded". Both children are flex-1, so the
+              button is exactly the left half and the version shares its
+              baseline in the right half. When no version is known the label
+              renders nothing and the button quietly keeps the whole row. */}
+          <AppVersionLabel />
         </div>
       </DrawerContent>
     </Drawer>
