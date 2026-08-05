@@ -1,10 +1,54 @@
 // Global image fallback.
 //
-// Some legacy content (seed journal/course/lesson covers) references external
-// image hosts (e.g. images.unsplash.com) that can rate-limit, 503, or be blocked
-// by a network/egress policy. When any <img> fails to load, we swap in a
-// self-hosted, inline-SVG branded placeholder so users never see a broken-image
-// icon. This is a single app-wide safety net — no per-component wiring needed.
+// ─────────────────────────────────────────────────────────────────────────────
+// OWNER REPORT, 2026-08-05, repeated many times before that:
+//
+//   "Images are not coming. Many times told, still you not solved — all time
+//    images are not coming."
+//
+// THIS FILE WAS THE REASON IT LOOKED LIKE THAT, AND THE REASON IT NEVER GOT
+// FIXED. The original version did exactly one thing on an image error: it
+// replaced the <img> with a dark branded placeholder, immediately, permanently,
+// and silently. So:
+//
+//   * ONE dropped packet — a tunnel, a lift, a weak 4G moment, a CDN edge
+//     hiccup — and the photo became a grey box.
+//   * It NEVER retried. The placeholder is a data: URI, so once swapped in
+//     there is no further error and nothing ever tries the real photo again.
+//     The only cure was a full page reload, which most members will not do;
+//     they just see a photography site with no photographs.
+//   * It logged NOTHING, so no report ever carried a URL and there was never
+//     anything to investigate.
+//
+// A placeholder is the right answer for content that is genuinely gone (the
+// legacy external journal/course covers this was written for). It is the wrong
+// answer for a photo that is merely late.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// WHAT IT DOES NOW: RETRY TWICE, THEN GIVE UP VISIBLY.
+//
+//   attempt 1 failed -> wait  400ms -> reload the SAME url with a cache-busting
+//                                      param (so a poisoned cache entry, a 504
+//                                      from the image service worker, or a
+//                                      half-downloaded response is bypassed)
+//   attempt 2 failed -> wait 1200ms -> one more try
+//   attempt 3 failed -> placeholder, and the failure is reported with its URL
+//                       by src/lib/reportImageError.ts
+//
+// The delays are deliberate and small: 400ms is below the threshold where a
+// member reads the gap as "broken", and the total worst case (1.6s) is far less
+// than the time it takes to notice a grey box and complain about it.
+//
+// WHY A CACHE-BUSTING PARAM AND NOT A PLAIN RE-ASSIGNMENT: re-setting `src` to
+// the identical string is a no-op in every browser — the element is already at
+// that URL. Even forcing it would usually be answered from the same broken HTTP
+// cache entry that failed the first time. A unique query string guarantees a
+// genuinely new request. Our image hosts ignore unknown query parameters, and
+// the retry URL is never persisted anywhere.
+//
+// WHAT IS DELIBERATELY UNCHANGED: the placeholder itself, and the fact that a
+// permanently-dead image ends up showing it rather than a broken-image icon.
+// That part was right.
 
 // Neutral dark, brand-tinted 3:2 placeholder (aperture ring + wordmark).
 // Encoded as a data URI so it has ZERO network dependency and always renders.
@@ -28,22 +72,86 @@ const PLACEHOLDER_SVG = `
 export const IMAGE_PLACEHOLDER =
   "data:image/svg+xml," + encodeURIComponent(PLACEHOLDER_SVG);
 
+/** Two retries, then the placeholder. */
+const MAX_RETRIES = 2;
+const RETRY_DELAYS_MS = [400, 1200];
+
+/** The query key used to force a fresh request. Stripped before re-adding. */
+const RETRY_PARAM = "__r";
+
+function withRetryParam(url: string, attempt: number): string {
+  // A data: or blob: URL can never be retried usefully.
+  if (/^(data|blob):/i.test(url)) return url;
+  try {
+    const u = new URL(url, location.href);
+    u.searchParams.set(RETRY_PARAM, String(attempt));
+    return u.toString();
+  } catch {
+    return url + (url.includes("?") ? "&" : "?") + RETRY_PARAM + "=" + attempt;
+  }
+}
+
 /**
- * Install a capture-phase listener that replaces any failed <img> with the
- * branded placeholder. `error` events don't bubble, so capture is required.
- * Idempotent per-image via a data flag to avoid loops.
+ * Install a capture-phase listener that retries a failed <img> and, only after
+ * the retries are exhausted, replaces it with the branded placeholder.
+ *
+ * `error` events from <img> do NOT bubble, so capture is required — a normal
+ * listener would never fire at all.
+ *
+ * NOTE ON ORDER: src/main.tsx installs the error REPORTER before this. Both are
+ * capture listeners on `window` and fire in registration order, so the reporter
+ * still sees the real failing URL rather than the placeholder. Do not reorder.
  */
 export function installImageFallback(): void {
   if (typeof window === "undefined") return;
+
   window.addEventListener(
     "error",
     (event) => {
       const el = event.target as HTMLElement | null;
       if (!el || el.tagName !== "IMG") return;
       const img = el as HTMLImageElement;
+
+      // Already given up on this one.
       if (img.dataset.fallbackApplied === "1") return;
-      // Never override an image that already resolved.
+      // Never override an image that already resolved to the placeholder.
       if (img.currentSrc === IMAGE_PLACEHOLDER || img.src === IMAGE_PLACEHOLDER) return;
+
+      const attempts = Number(img.dataset.retryCount || "0");
+
+      if (attempts < MAX_RETRIES) {
+        // Remember the ORIGINAL url once, so retry N+1 is built from the clean
+        // address rather than from one that already carries a retry param.
+        if (!img.dataset.originalSrc) {
+          img.dataset.originalSrc = img.currentSrc || img.src;
+        }
+        const original = img.dataset.originalSrc;
+        if (!original || /^data:/i.test(original)) {
+          img.dataset.fallbackApplied = "1";
+          img.srcset = "";
+          img.src = IMAGE_PLACEHOLDER;
+          return;
+        }
+
+        const next = attempts + 1;
+        img.dataset.retryCount = String(next);
+
+        window.setTimeout(() => {
+          // The element may have been unmounted while we waited — React
+          // recycles feed rows aggressively during a scroll.
+          if (!img.isConnected) return;
+          if (img.dataset.fallbackApplied === "1") return;
+          // `srcset` would win over `src` and re-serve the same failing
+          // candidate, so it has to go before the retry can mean anything.
+          img.srcset = "";
+          img.src = withRetryParam(original, next);
+        }, RETRY_DELAYS_MS[attempts] ?? 1200);
+
+        return;
+      }
+
+      // Out of retries: this image is genuinely unavailable. Show the
+      // placeholder. The URL has already been recorded by the reporter.
       img.dataset.fallbackApplied = "1";
       img.srcset = "";
       img.src = IMAGE_PLACEHOLDER;
