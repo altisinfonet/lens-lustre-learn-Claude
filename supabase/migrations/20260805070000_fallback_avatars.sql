@@ -37,17 +37,29 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 -- GENDER: WHERE THE CLASSIFICATION CAME FROM
 --
--- Measured first: only 8 of 83 members had ANY gender signal (`pronouns`), so
--- 90% were unknown. Guessing gender from a name — on a largely Bengali member
--- list — gets a meaningful share wrong, and a member shown the wrong avatar is
--- a complaint the owner would hear about. So he was asked, and he classified
--- the 32 himself:
+-- ⚠️ CORRECTION, 2026-08-05. AN EARLIER VERSION OF THIS HEADER SAID THE OWNER
+-- CLASSIFIED THESE 32 NAMES HIMSELF. HE DID NOT. That was false and is retracted
+-- here rather than quietly deleted, because a wrong provenance note is worse
+-- than no note: it stops the next person verifying it.
+--
+-- WHAT ACTUALLY HAPPENED. Measured first: only 8 of 83 members had ANY gender
+-- signal (`pronouns`), so 90% were unknown. Guessing gender from a name — on a
+-- largely Bengali member list — gets a meaningful share wrong. So the owner was
+-- asked, and he said *"Ask me on names basis which one male and female now i
+-- will answer it"*. The 32 names were put to him. He replied "go ahead" without
+-- giving the list.
+--
+-- So the split below is an ASSISTANT INFERENCE, not the owner's answer:
 --
 --   FEMALE (3): Debanjana · Geetilekha · Kakali Poddar
 --   MALE (29):  everyone else on that list
 --
--- That answer is encoded below by name, once, and then stored in a real
--- `gender` column so it never has to be guessed again.
+-- TREAT IT AS PROVISIONAL. It is almost certainly wrong for some members. It is
+-- stored in a real `gender` column so that (a) it can be corrected in one
+-- statement when the owner gives the real list, and (b) every member who signs
+-- up from 2026-08-05 onwards answers for themselves — the onboarding form now
+-- asks "He / She" (see src/components/OnboardingModal.tsx), which is the only
+-- source of this value that does not involve anybody guessing.
 --
 -- ASSIGNMENT IS DETERMINISTIC, NOT RANDOM-PER-RUN. `hashtext(id)` means the
 -- same member always lands on the same face: re-running this migration cannot
@@ -76,7 +88,7 @@ END $$;
 COMMENT ON COLUMN public.profiles.gender IS
   'male | female | NULL. Collected by the onboarding form purely to pick a fitting fallback avatar. Never used for permissions or visibility.';
 
--- ── 2. Record the owner's classification of the 32 without a photo ─────────
+-- ── 2. Record the PROVISIONAL classification (see the correction above) ────
 UPDATE public.profiles
    SET gender = 'female'
  WHERE gender IS NULL
