@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { generateImagePath, uploadImage } from "@/lib/imageUpload";
 import { toast } from "@/hooks/core/use-toast";
 import { compressAvatar } from "@/lib/imageCompression";
+import FallbackAvatarPicker from "@/components/profile/FallbackAvatarPicker";
 import { useUpdateProfile, useUpdateAvatar } from "@/hooks/profile/useProfileMutations";
 import { scanFileWithToast } from "@/lib/fileSecurityScanner";
 import { createProfileUpdatePost } from "@/lib/profilePostHelper";
@@ -78,6 +79,8 @@ const EditProfile = () => {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  // He / She — see the field in the JSX below. Empty string = not answered.
+  const [gender, setGender] = useState<string>("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [customUrl, setCustomUrl] = useState("");
   const [customUrlAvailable, setCustomUrlAvailable] = useState<boolean | null>(null);
@@ -331,6 +334,7 @@ const EditProfile = () => {
         setYoutubeUrl(rawYt.replace(/^https?:\/\/(www\.)?youtube\.com\/@?/i, "").replace(/\/$/, ""));
         setWebsiteUrl((data as any).website_url || "");
         setAvatarUrl(data.avatar_url || null);
+        setGender(((data as any).gender as string) || "");
         setCustomUrl((data as any).custom_url || "");
         setAddressLine1((data as any).address_line1 || "");
         setAddressLine2((data as any).address_line2 || "");
@@ -438,6 +442,9 @@ const EditProfile = () => {
 
   const profileData = {
     avatar_url: avatarUrl,
+    // He / She. NULL when not answered — profiles_gender_check allows only
+    // male, female or NULL, so an empty string must never be sent.
+    gender: gender || null,
     full_name: fullName,
     bio,
     portfolio_url: portfolioUrl,
@@ -643,6 +650,47 @@ const EditProfile = () => {
               </button>
               <p className="text-[10px] text-muted-foreground mt-1" style={{ fontFamily: "var(--font-body)" }}>JPG, PNG or WebP. Max 5MB.</p>
             </div>
+          </div>
+
+          {/*
+            "user can change too" (owner, 2026-08-05). Renders ONLY for members
+            with no uploaded photo — see FallbackAvatarPicker. Choosing one is
+            still not a profile photo, so the prompt keeps asking.
+          */}
+          <FallbackAvatarPicker
+            currentAvatarUrl={avatarUrl}
+            onPicked={(url) => setAvatarUrl(url)}
+          />
+
+          {/*
+            He / She. Same wording as the signup form, same single purpose:
+            choosing a fitting stand-in picture. Never used for permissions.
+            Changing it re-points the stand-in cartoon to the matching set via
+            trg_sync_fallback_avatar_to_gender (migration 20260805120000).
+          */}
+          <div className="space-y-2">
+            <span className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>You are</span>
+            <div className="flex gap-2">
+              {[{ value: "male", label: "He" }, { value: "female", label: "She" }].map((g) => (
+                <button
+                  key={g.value}
+                  type="button"
+                  onClick={() => setGender(gender === g.value ? "" : g.value)}
+                  aria-pressed={gender === g.value}
+                  className={`px-6 py-2 border text-sm transition-all duration-300 ${
+                    gender === g.value
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40"
+                  }`}
+                  style={{ fontFamily: "var(--font-heading)" }}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-snug" style={{ fontFamily: "var(--font-body)" }}>
+              Used only to pick a fitting stand-in picture when you have no photo. Nothing else.
+            </p>
           </div>
 
           {/* Avatar Crop Modal */}
