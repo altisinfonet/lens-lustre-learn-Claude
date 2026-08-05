@@ -11,6 +11,7 @@ import { moderateComment } from "@/lib/commentModeration";
 import { motion, AnimatePresence } from "framer-motion";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
+import { convertEmojiShortcuts } from "@/lib/emoji";
 
 interface Props {
   imageType: "portfolio" | "competition_entry";
@@ -164,7 +165,9 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props)
 
   const submitComment = async (content: string, parentId: string | null = null) => {
     if (!user) { toast({ title: "Please login to comment" }); return; }
-    const trimmed = content.trim();
+    // Trailing emoji shortcut (`... <3` with nothing after it) — the case the
+    // typing-time conversion in MentionInput cannot see. See src/lib/emoji.ts.
+    const trimmed = convertEmojiShortcuts(content.trim());
     if (!trimmed) return;
 
     // Client-side moderation
