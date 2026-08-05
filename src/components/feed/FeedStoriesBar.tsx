@@ -6,9 +6,11 @@ import { toast } from "@/hooks/core/use-toast";
 import { uploadImage } from "@/lib/imageUpload";
 import { compressImage } from "@/lib/imageCompression";
 import { AnimatePresence, motion } from "framer-motion";
+import { STORY_DISPLAY_MS } from "@/lib/storyTiming";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
-const STORY_MS = 5000;
+// Owner, 2026-08-05: "Stories time 5 sec to do it 10 sec to stay."
+const STORY_MS = STORY_DISPLAY_MS;
 
 interface BarUser {
   user_id: string;
@@ -229,9 +231,12 @@ const FeedStoriesBar = () => {
     <>
       <div className="mb-4 md:mb-6">
         <div className="flex items-center gap-3.5 overflow-x-auto pb-2 scrollbar-hide px-1">
-          {/* Your Story */}
+          {/* Your Story.
+              Ring size: owner, 2026-08-05, with an Instagram screenshot —
+              "Stories round will be like this size now it's too small."
+              80px on phones, 96px from sm up (was 64/72). */}
           <button onClick={openOwn} className="flex-shrink-0 flex flex-col items-center gap-1.5 group">
-            <div className={`relative h-16 w-16 sm:h-[72px] sm:w-[72px] rounded-full p-0.5 ${ownStories.length > 0 ? "bg-gradient-to-tr from-primary via-primary/60 to-accent" : "bg-transparent"}`}>
+            <div className={`relative h-20 w-20 sm:h-24 sm:w-24 rounded-full p-[3px] ${ownStories.length > 0 ? "bg-gradient-to-tr from-primary via-primary/60 to-accent" : "bg-transparent"}`}>
               <div className={`w-full h-full rounded-full overflow-hidden border-2 border-background bg-muted flex items-center justify-center ${ownStories.length > 0 ? "" : "border-dashed border-primary/40 group-hover:border-primary"}`}>
                 {uploading ? (
                   <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -250,7 +255,7 @@ const FeedStoriesBar = () => {
                 </span>
               )}
             </div>
-            <span className="text-[9px] tracking-[0.05em] text-muted-foreground truncate max-w-[64px]" style={headingFont}>Your Story</span>
+            <span className="text-[10px] tracking-[0.05em] text-muted-foreground truncate max-w-[80px]" style={headingFont}>Your Story</span>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAddStory} />
           </button>
 
@@ -261,7 +266,7 @@ const FeedStoriesBar = () => {
               onClick={() => openViewer(barGroups, i)}
               className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
             >
-              <div className={`relative h-16 w-16 sm:h-[72px] sm:w-[72px] rounded-full p-0.5 ${b.has_unseen ? "bg-gradient-to-tr from-primary via-accent to-amber-500" : "bg-muted-foreground/25"}`}>
+              <div className={`relative h-20 w-20 sm:h-24 sm:w-24 rounded-full p-[3px] ${b.has_unseen ? "bg-gradient-to-tr from-primary via-accent to-amber-500" : "bg-muted-foreground/25"}`}>
                 <div className="w-full h-full rounded-full overflow-hidden border-2 border-background bg-muted">
                   {b.avatar_url ? (
                     <img loading="lazy" decoding="async" src={b.avatar_url} alt={b.full_name || "Story"} className="w-full h-full object-cover" />
@@ -275,7 +280,7 @@ const FeedStoriesBar = () => {
                   </span>
                 )}
               </div>
-              <span className="text-[9px] tracking-[0.05em] text-muted-foreground truncate max-w-[64px]" style={headingFont}>
+              <span className="text-[10px] tracking-[0.05em] text-muted-foreground truncate max-w-[80px]" style={headingFont}>
                 {b.is_official ? "50mm Retina" : (b.full_name || "Photographer")}
               </span>
             </button>
