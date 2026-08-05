@@ -32,103 +32,139 @@ import AppErrorBoundary from "@/components/AppErrorBoundary";
  * if it still fails, AppErrorBoundary shows a Reload screen instead of blank.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const lazyRetry = (factory: () => Promise<any>) =>
+const lazyRetry = (factory: () => Promise<any>, key: string) =>
   lazy(() =>
     factory().then(
       (m) => {
-        try { sessionStorage.removeItem("chunk_reload_v1"); } catch { /* ignore */ }
+        try { sessionStorage.removeItem("chunk_reload_" + key); } catch { /* ignore */ }
         return m;
       },
-      (err) => {
+      async (err) => {
         /**
-         * RECORD IT BEFORE HEALING IT. Added 2026-08-05.
+         * ROOT CAUSE, finally evidenced 2026-08-05 from the owner's console:
          *
-         * This handler has silently reloaded the page since 2026-07-28. When it
-         * works, the member sees a flicker and we learn NOTHING — so a fault
-         * that fires ten times a day looked identical to one that never fires,
-         * and every conversation about blank pages had to start from zero.
+         *   Failed to load module script: Expected a JavaScript-or-Wasm module
+         *   script but the server responded with a MIME type of "text/html".
+         *   TypeError: Failed to fetch dynamically imported module:
+         *   https://50mmretina.com/assets/AdminPushBroadcast-D_bNnshh.js
          *
-         * A stale chunk is the textbook cause of "Something went wrong while
-         * loading this page" on WEB right after a deploy: the browser is still
-         * holding an index.html naming hashed chunk files the new build no
-         * longer has. It CANNOT explain a blank page in the INSTALLED APP,
-         * where the chunks ship inside the package — so counting the two
-         * separately is exactly what tells them apart.
+         * Measured against production the same hour:
+         *   GET /assets/<a chunk that no longer exists>  ->  200 text/html
          *
-         * `willReload` distinguishes "healed itself" from "failed twice and the
-         * member actually saw the error screen".
+         * The host answers a MISSING asset with the SPA fallback — index.html,
+         * status 200 — instead of 404. And `public/_headers` gives EVERYTHING
+         * under `/assets/*` `Cache-Control: public, max-age=31536000, immutable`.
+         *
+         * So the browser stores that HTML under the .js URL, marked immutable,
+         * FOR A YEAR. Every later attempt is served the poisoned entry from
+         * disk. That is why this has persisted for ~30 days and why reloading
+         * looked like it did nothing.
+         *
+         * Two further faults made it worse:
+         *   1. the retry flag was GLOBAL and only cleared on a successful lazy
+         *      load, so the first failure in a session disarmed the healing for
+         *      every other route — the second failure went straight to the
+         *      error screen. It is now keyed per chunk.
+         *   2. a plain reload re-reads the same poisoned Cache Storage entry.
+         *      We now delete the cached responses first.
+         *
+         * The structural fix belongs in hosting (a missing /assets/* file must
+         * 404, not return HTML). Until that lands, this makes the client
+         * self-heal instead of staying broken for a year.
          */
-        let willReload = false;
-        try {
-          willReload = !sessionStorage.getItem("chunk_reload_v1");
-        } catch { /* ignore */ }
+        const flag = "chunk_reload_" + key;
+        let firstTry = false;
+        try { firstTry = !sessionStorage.getItem(flag); } catch { /* ignore */ }
+
         void import("@/lib/reportClientError").then(({ reportClientError }) => {
-          reportClientError("blank_page", err, { cause: "chunk_load", willReload });
+          reportClientError("blank_page", err, { cause: "chunk_load", chunk: key, firstTry });
         }).catch(() => { /* reporting must never block healing */ });
 
+        if (!firstTry) throw err;
+
+        try { sessionStorage.setItem(flag, "1"); } catch { /* ignore */ }
+
+        // Evict the poisoned HTML-under-a-.js-URL entries before reloading,
+        // otherwise the reload is served the same broken bytes from disk.
         try {
-          if (willReload) {
-            sessionStorage.setItem("chunk_reload_v1", "1");
-            // Give the report a moment to leave the tab before navigating away.
-            window.setTimeout(() => window.location.reload(), 250);
-            return new Promise(() => { /* page is reloading */ });
+          if (typeof caches !== "undefined") {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(async (k) => {
+              const c = await caches.open(k);
+              const reqs = await c.keys();
+              await Promise.all(
+                reqs.filter((r) => r.url.includes("/assets/")).map((r) => c.delete(r)),
+              );
+            }));
           }
-        } catch { /* ignore */ }
-        throw err;
+        } catch { /* best effort */ }
+
+        // `?cb=` defeats any intermediate cache still holding the old
+        // index.html, which is what names the dead chunk in the first place.
+        // stripCacheBusterParam() in main.tsx cleans it out of the address bar.
+        try {
+          const u = new URL(window.location.href);
+          u.searchParams.set("cb", String(Date.now()));
+          window.location.replace(u.toString());
+          return new Promise(() => { /* navigating */ });
+        } catch {
+          window.location.reload();
+          return new Promise(() => { /* navigating */ });
+        }
       },
     ),
   );
 
 /* Lazy-load all pages for faster initial load on non-home routes */
-const Index = lazyRetry(() => import("./pages/Index"));
-const CropTest = lazyRetry(() => import("./pages/CropTest"));
-const Login = lazyRetry(() => import("./pages/Login"));
-const Signup = lazyRetry(() => import("./pages/Signup"));
-const ForgotPassword = lazyRetry(() => import("./pages/ForgotPassword"));
-const ResetPassword = lazyRetry(() => import("./pages/ResetPassword"));
-const Dashboard = lazyRetry(() => import("./pages/Dashboard"));
-const EditProfile = lazyRetry(() => import("./pages/EditProfile"));
-const Profile = lazyRetry(() => import("./pages/Profile"));
-const Competitions = lazyRetry(() => import("./pages/Competitions"));
-const CompetitionDetail = lazyRetry(() => import("./pages/CompetitionDetail"));
-const CompetitionSubmit = lazyRetry(() => import("./pages/CompetitionSubmit"));
-const AdminPanel = lazyRetry(() => import("./pages/AdminPanel"));
-const Journal = lazyRetry(() => import("./pages/Journal"));
-const JournalArticle = lazyRetry(() => import("./pages/JournalArticle"));
-const JournalEditor = lazyRetry(() => import("./pages/JournalEditor"));
-const Courses = lazyRetry(() => import("./pages/Courses"));
-const CourseDetail = lazyRetry(() => import("./pages/CourseDetail"));
-const CourseEditor = lazyRetry(() => import("./pages/CourseEditor"));
-const LessonView = lazyRetry(() => import("./pages/LessonView"));
-const Certificates = lazyRetry(() => import("./pages/Certificates"));
-const VerifyCertificate = lazyRetry(() => import("./pages/VerifyCertificate"));
-const CertificateVerifyByToken = lazyRetry(() => import("./pages/CertificateVerifyByToken"));
-const Winners = lazyRetry(() => import("./pages/Winners"));
-const JudgePanel = lazyRetry(() => import(/* webpackChunkName: "judge-panel", vite: { chunkName: "judge-panel" } */ "./pages/JudgePanel"));
-const Wallet = lazyRetry(() => import("./pages/Wallet"));
-const PublicProfile = lazyRetry(() => import("./pages/PublicProfile"));
-const Friends = lazyRetry(() => import("./pages/Friends"));
-const Feed = lazyRetry(() => import("./pages/Feed"));
-const Discover = lazyRetry(() => import("./pages/Discover"));
-const NotFound = lazyRetry(() => import("./pages/NotFound"));
-const Phase7BadgesQA = lazyRetry(() => import("./pages/dev/Phase7BadgesQA"));
-const FeaturedArtistPage = lazyRetry(() => import("./pages/FeaturedArtistPage"));
-const Referrals = lazyRetry(() => import("./pages/Referrals"));
-const HelpSupport = lazyRetry(() => import("./pages/HelpSupport"));
-const ManagedPageView = lazyRetry(() => import("./pages/ManagedPageView"));
-const SubmissionDetail = lazyRetry(() => import("./pages/SubmissionDetail"));
-const HashtagFeed = lazyRetry(() => import("./pages/HashtagFeed"));
-const PostDetail = lazyRetry(() => import("./pages/PostDetail"));
-const EntryDetail = lazyRetry(() => import("./pages/EntryDetail"));
-const CustomUrlProfile = lazyRetry(() => import("./pages/CustomUrlProfile"));
-const Unsubscribe = lazyRetry(() => import("./pages/Unsubscribe"));
-const MyPhotos = lazyRetry(() => import("./pages/MyPhotos"));
-const CookiePolicy = lazyRetry(() => import("./pages/CookiePolicy"));
-const NotificationSettings = lazyRetry(() => import("./pages/NotificationSettings"));
-const Notifications = lazyRetry(() => import("./pages/Notifications"));
-const WatermarkQAMatrix = lazyRetry(() => import("./pages/qa/WatermarkQAMatrix"));
-const ScheduledPostsPage = lazyRetry(() => import("./pages/ScheduledPosts"));
-const IDVerification = lazyRetry(() => import("./pages/IDVerification"));
+const Index = lazyRetry(() => import("./pages/Index"), "Index");
+const CropTest = lazyRetry(() => import("./pages/CropTest"), "CropTest");
+const Login = lazyRetry(() => import("./pages/Login"), "Login");
+const Signup = lazyRetry(() => import("./pages/Signup"), "Signup");
+const ForgotPassword = lazyRetry(() => import("./pages/ForgotPassword"), "ForgotPassword");
+const ResetPassword = lazyRetry(() => import("./pages/ResetPassword"), "ResetPassword");
+const Dashboard = lazyRetry(() => import("./pages/Dashboard"), "Dashboard");
+const EditProfile = lazyRetry(() => import("./pages/EditProfile"), "EditProfile");
+const Profile = lazyRetry(() => import("./pages/Profile"), "Profile");
+const Competitions = lazyRetry(() => import("./pages/Competitions"), "Competitions");
+const CompetitionDetail = lazyRetry(() => import("./pages/CompetitionDetail"), "CompetitionDetail");
+const CompetitionSubmit = lazyRetry(() => import("./pages/CompetitionSubmit"), "CompetitionSubmit");
+const AdminPanel = lazyRetry(() => import("./pages/AdminPanel"), "AdminPanel");
+const Journal = lazyRetry(() => import("./pages/Journal"), "Journal");
+const JournalArticle = lazyRetry(() => import("./pages/JournalArticle"), "JournalArticle");
+const JournalEditor = lazyRetry(() => import("./pages/JournalEditor"), "JournalEditor");
+const Courses = lazyRetry(() => import("./pages/Courses"), "Courses");
+const CourseDetail = lazyRetry(() => import("./pages/CourseDetail"), "CourseDetail");
+const CourseEditor = lazyRetry(() => import("./pages/CourseEditor"), "CourseEditor");
+const LessonView = lazyRetry(() => import("./pages/LessonView"), "LessonView");
+const Certificates = lazyRetry(() => import("./pages/Certificates"), "Certificates");
+const VerifyCertificate = lazyRetry(() => import("./pages/VerifyCertificate"), "VerifyCertificate");
+const CertificateVerifyByToken = lazyRetry(() => import("./pages/CertificateVerifyByToken"), "CertificateVerifyByToken");
+const Winners = lazyRetry(() => import("./pages/Winners"), "Winners");
+const JudgePanel = lazyRetry(() => import(/* webpackChunkName: "judge-panel", vite: { chunkName: "judge-panel" } */ "./pages/JudgePanel"), "JudgePanel");
+const Wallet = lazyRetry(() => import("./pages/Wallet"), "Wallet");
+const PublicProfile = lazyRetry(() => import("./pages/PublicProfile"), "PublicProfile");
+const Friends = lazyRetry(() => import("./pages/Friends"), "Friends");
+const Feed = lazyRetry(() => import("./pages/Feed"), "Feed");
+const Discover = lazyRetry(() => import("./pages/Discover"), "Discover");
+const NotFound = lazyRetry(() => import("./pages/NotFound"), "NotFound");
+const Phase7BadgesQA = lazyRetry(() => import("./pages/dev/Phase7BadgesQA"), "Phase7BadgesQA");
+const FeaturedArtistPage = lazyRetry(() => import("./pages/FeaturedArtistPage"), "FeaturedArtistPage");
+const Referrals = lazyRetry(() => import("./pages/Referrals"), "Referrals");
+const HelpSupport = lazyRetry(() => import("./pages/HelpSupport"), "HelpSupport");
+const ManagedPageView = lazyRetry(() => import("./pages/ManagedPageView"), "ManagedPageView");
+const SubmissionDetail = lazyRetry(() => import("./pages/SubmissionDetail"), "SubmissionDetail");
+const HashtagFeed = lazyRetry(() => import("./pages/HashtagFeed"), "HashtagFeed");
+const PostDetail = lazyRetry(() => import("./pages/PostDetail"), "PostDetail");
+const EntryDetail = lazyRetry(() => import("./pages/EntryDetail"), "EntryDetail");
+const CustomUrlProfile = lazyRetry(() => import("./pages/CustomUrlProfile"), "CustomUrlProfile");
+const Unsubscribe = lazyRetry(() => import("./pages/Unsubscribe"), "Unsubscribe");
+const MyPhotos = lazyRetry(() => import("./pages/MyPhotos"), "MyPhotos");
+const CookiePolicy = lazyRetry(() => import("./pages/CookiePolicy"), "CookiePolicy");
+const NotificationSettings = lazyRetry(() => import("./pages/NotificationSettings"), "NotificationSettings");
+const Notifications = lazyRetry(() => import("./pages/Notifications"), "Notifications");
+const WatermarkQAMatrix = lazyRetry(() => import("./pages/qa/WatermarkQAMatrix"), "WatermarkQAMatrix");
+const ScheduledPostsPage = lazyRetry(() => import("./pages/ScheduledPosts"), "ScheduledPosts");
+const IDVerification = lazyRetry(() => import("./pages/IDVerification"), "IDVerification");
 
 /**
  * The vanity route `/:customUrl` greedily matches every single-segment path,
