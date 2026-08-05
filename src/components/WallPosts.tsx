@@ -317,36 +317,50 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       return;
     }
     /**
-     * A POST NEEDS *SOMETHING* — WORDS OR A PHOTO. NOT A PHOTO SPECIFICALLY.
+     * ═══════════════════════════════════════════════════════════════════════
+     * A POST IS A PHOTOGRAPH. THE PHOTO IS MANDATORY. THE CAPTION IS OPTIONAL.
+     * DO NOT CHANGE THIS. IT IS NOT A BUG.
+     * ═══════════════════════════════════════════════════════════════════════
      *
-     * OWNER ORDER, 2026-08-05: "DP icon now given, then blocking ?? I asked DP
-     * is must either by user or by system, logically system must work
-     * normally."
+     * OWNER RULING, 2026-08-05, verbatim:
      *
-     * This line used to read `selectedImages.length === 0` and refuse the post
-     * outright. MEASURED CONSEQUENCE, on production the same day:
+     *   "I know project logic was, wihout any photo simple a text as post not
+     *    accepted, Only with a Image text allowed."
+     *   "After proper registration (even without DP), allow evryone to post
+     *    text+image, comment all like normal user (web and app both must work)"
      *
-     *   * 0 of 151 posts in the entire history of the site are text-only.
-     *     Not one. Because it was impossible.
-     *   * 43 of 84 members had never posted, and 65 of those 84 had joined in
-     *     the previous 7 days.
+     * THIS IS THE PRODUCT. It is a photography community, not a message board.
+     * Confirmed against production, 2026-08-05, over the site's entire history
+     * since 2026-03-13:
      *
-     * A member who wanted to say hello, ask a question, thank someone or
-     * introduce themselves had to go and find a photograph first. Combined with
-     * the profile-photo wall that stood from 1 to 5 August, a new member had to
-     * produce TWO photographs before they could make a single sound.
+     *   * 151 posts. 151 of them have an image. ZERO text-only. Ever.
+     *   * 39 of the 151 have an image and NO caption — which is why the caption
+     *     stays optional and only the photo is required.
      *
-     * THE DATABASE NEVER REQUIRED THIS. posts.image_url is nullable and there
-     * is no check constraint — verified on production, and a text-only insert
-     * was rehearsed as a real member with no photo before this shipped. The
-     * rule existed only here, in the client.
+     * ─────────────────────────────────────────────────────────────────────
+     * WHY THIS COMMENT IS SO LOUD — A MISTAKE OF MINE, RECORDED SO IT IS NOT
+     * REPEATED.
      *
-     * WHAT IS STILL REFUSED: a completely empty post. Words alone are fine,
-     * photos alone are fine, both are fine, neither is not.
+     * On 2026-08-05 I relaxed this to "words OR a photo", reasoning that the
+     * photo requirement was suppressing participation. The owner had NOT asked
+     * for it. He had asked for the profile-photo (DP) wall to come down — a
+     * different rule entirely — and I extended it to the post composer on my
+     * own inference. That is guesswork, which is forbidden here, and it changed
+     * what the product IS.
+     *
+     * The DP rule and the post rule are separate and must stay separate:
+     *
+     *   DP (profile picture) : NEVER blocks anything. Assigned by the system if
+     *                          the member does not upload one.
+     *   POST                 : ALWAYS needs a photograph. Independent of the DP.
+     *
+     * A member with no DP of their own can post, comment and react exactly like
+     * anyone else — they just have to attach a photo to the POST, same as every
+     * member always has.
+     * ─────────────────────────────────────────────────────────────────────
      */
-    if (!user) return;
-    if (selectedImages.length === 0 && !newContent.trim()) {
-      toast({ title: "Write something or add a photo", variant: "destructive" });
+    if (!user || selectedImages.length === 0) {
+      toast({ title: "Please attach at least one photo", variant: "destructive" });
       return;
     }
     setPosting(true);
@@ -396,11 +410,9 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         user_id: user.id,
         content: newContent.trim(),
         privacy: newPrivacy,
-        // EXPLICIT null for a text-only post. uploadedUrls[0] is undefined
-        // when no photo was attached, and an undefined key is silently dropped
-        // by the client — which happens to do the right thing, but relying on
-        // that is exactly the implicit behaviour this codebase does not allow.
-        image_url: uploadedUrls[0] ?? null,
+        // Always present: createPost refuses to run without at least one photo
+        // (see the ruling at the top of createPost). This is the first of them.
+        image_url: uploadedUrls[0],
         image_urls: uploadedUrls,
         thumbnail_urls: uploadedThumbs,
         indexing_disabled: excludeFromSearch,
@@ -848,12 +860,12 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
               )}
             </div>
             {/*
-              The Post button follows the same rule as createPost: enabled when
-              there is EITHER text OR a photo. It used to require a photo, which
-              left the button greyed out for a member who had typed a paragraph
-              and made the app look broken rather than strict.
+              The Post button follows createPost EXACTLY: a photo is required,
+              the caption is not. If these two ever disagree the member either
+              gets a dead button or a refusal after they press it. See the
+              ruling at the top of createPost before touching either.
             */}
-            <button onClick={createPost} disabled={posting || (selectedImages.length === 0 && !newContent.trim()) || newContent.length > 2200 || (!!scheduleAt && (scheduleAt.getTime() < Date.now() + 5*60*1000 || scheduleAt.getTime() > Date.now() + 90*24*60*60*1000))}
+            <button onClick={createPost} disabled={posting || selectedImages.length === 0 || newContent.length > 2200 || (!!scheduleAt && (scheduleAt.getTime() < Date.now() + 5*60*1000 || scheduleAt.getTime() > Date.now() + 90*24*60*60*1000))}
               className="px-5 py-1.5 bg-primary text-primary-foreground rounded-md text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               {posting ? (scheduleAt ? "Scheduling..." : "Posting...") : newContent.length > 2200 ? `Trim ${newContent.length - 2200}` : scheduleAt ? "Schedule" : "Post"}
             </button>
