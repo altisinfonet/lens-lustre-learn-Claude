@@ -13,11 +13,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import {
-  isOwnProfilePhoto,
-  isMissingPhotoError,
-  PROFILE_PHOTO_REQUIRED_MESSAGE,
-} from "@/lib/profilePhoto";
+import { readFileSync } from "node:fs";
+import { isOwnProfilePhoto } from "@/lib/profilePhoto";
 
 const CDN = "https://cdn.50mmretina.com/avatars/u/1754000000000-abc.webp";
 const LEGACY =
@@ -79,53 +76,75 @@ describe("isOwnProfilePhoto — what does NOT count", () => {
   });
 });
 
-describe("isMissingPhotoError — the member has to be told WHY", () => {
-  const rls = { code: "42501", message: "new row violates row-level security policy" };
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHAT USED TO BE HERE, AND WHY IT IS GONE.
+ *
+ * A describe block pinned `isMissingPhotoError()` — the helper that turned a
+ * bare Postgres 42501 into "Add a profile photo first". Owner order,
+ * 2026-08-05:
+ *
+ *   "DP issues resolved. remove every block gate..."
+ *   "Even is DP not uplaoded too still users can post antyhing like with DP
+ *    users. simple"
+ *
+ * The helper and its message were deleted, so tests for them were deleted with
+ * them rather than left importing names that no longer exist.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+describe("nothing may refuse a post or comment for a missing photo", () => {
+  const lib = readFileSync("src/lib/profilePhoto.ts", "utf-8");
+  const wall = readFileSync("src/components/WallPosts.tsx", "utf-8");
+  const comment = readFileSync("src/hooks/feed/useAddComment.ts", "utf-8");
 
-  it("recognises the RLS refusal when the account has no own photo", () => {
-    expect(isMissingPhotoError(rls, false)).toBe(true);
+  it("the guess-from-an-RLS-error helper no longer exists", () => {
+    // It matched ANY 42501 on an account with no UPLOADED photo. With the photo
+    // policies dropped, the RESTRICTIVE policies left on posts / post_comments /
+    // post_reactions are the "Banned users cannot …" ones — so this helper would
+    // now tell a banned member to upload a photo, putting the removed wall back
+    // in front of somebody it never applied to.
+    expect(lib).not.toMatch(/export function isMissingPhotoError/);
+    expect(lib).not.toMatch(/export const PROFILE_PHOTO_REQUIRED_MESSAGE/);
   });
 
-  it("does NOT blame the photo when the account HAS one", () => {
-    // A member with a real photo who hits an RLS error is being refused for a
-    // different reason — banned, private post — and must not be told to upload
-    // a photo they already have.
-    expect(isMissingPhotoError(rls, true)).toBe(false);
+  it("neither the composer nor the comment box can name a photo on failure", () => {
+    // The member reads the real reason, whatever it is.
+    expect(wall).not.toMatch(/isMissingPhotoError|PROFILE_PHOTO_REQUIRED_MESSAGE/);
+    expect(wall).not.toMatch(/title: noPhoto \?/);
+    expect(comment).not.toMatch(/isMissingPhotoError|PROFILE_PHOTO_REQUIRED_MESSAGE/);
   });
 
-  it("ignores unrelated errors", () => {
-    expect(isMissingPhotoError({ code: "23505", message: "duplicate key" }, false)).toBe(false);
-    expect(isMissingPhotoError(null, false)).toBe(false);
-    expect(isMissingPhotoError(undefined, false)).toBe(false);
-  });
-
-  it("matches on the message too, in case the code is absent", () => {
-    expect(isMissingPhotoError({ message: "Row-level security policy violated" }, false)).toBe(true);
-  });
-
-  it("has a message that tells the member what to do", () => {
-    expect(PROFILE_PHOTO_REQUIRED_MESSAGE).toMatch(/profile photo/i);
+  it("keeps isOwnProfilePhoto — it is a definition, not a gate", () => {
+    // Used to decide whether to OFFER a stand-in cartoon, and it is what the
+    // rule is rebuilt from at ~1000 members. Deleting it would mean writing
+    // the Google-picture allowlist again from scratch.
+    expect(lib).toMatch(/export function isOwnProfilePhoto/);
   });
 });
 
-describe("the SQL and the TypeScript must agree", () => {
-  it("uses exactly the two patterns the migration uses", async () => {
-    // If these drift apart, the UI lets someone through and the database then
-    // refuses their post with no explanation. Read the migration and assert the
-    // patterns are still the ones this module implements.
-    const fs = await import("node:fs");
-    const sql = fs.readFileSync(
+describe("the gate that was dropped stays dropped", () => {
+  it("the drop migration removes all three RESTRICTIVE photo policies", () => {
+    const created = readFileSync(
       "supabase/migrations/20260801160000_require_own_profile_photo.sql",
       "utf-8",
     );
-    expect(sql).toContain("'https://cdn.50mmretina.com/%'");
-    expect(sql).toContain("'%/storage/v1/object/public/avatars/%'");
-    // And that it is RESTRICTIVE — a PERMISSIVE policy would be ORed with the
-    // existing ones and would enforce nothing at all.
-    // Match the statement form (a line of its own), not the words in the
-    // header comment — the comment explains WHY it is restrictive and would
-    // otherwise inflate the count.
-    expect((sql.match(/^AS RESTRICTIVE$/gm) || []).length).toBe(3);
-    expect((sql.match(/^CREATE POLICY /gm) || []).length).toBe(3);
+    const dropped = readFileSync(
+      "supabase/migrations/20260805060000_remove_profile_photo_gate.sql",
+      "utf-8",
+    );
+    // Three were created…
+    expect((created.match(/^AS RESTRICTIVE$/gm) || []).length).toBe(3);
+    expect((created.match(/^CREATE POLICY /gm) || []).length).toBe(3);
+    // …and all three are dropped again. Verified on production 2026-08-05:
+    // zero policies anywhere reference has_profile_photo or avatar_url.
+    expect((dropped.match(/^DROP POLICY IF EXISTS /gm) || []).length).toBe(3);
+  });
+
+  it("has_profile_photo() itself is kept, unused, for the ~1000-member return", () => {
+    const dropped = readFileSync(
+      "supabase/migrations/20260805060000_remove_profile_photo_gate.sql",
+      "utf-8",
+    );
+    expect(dropped).not.toMatch(/DROP FUNCTION[^\n]*has_profile_photo/);
   });
 });
