@@ -7,6 +7,8 @@
  * • Thumbnails remain unchanged (handled separately).
  */
 
+import { saveBlob } from "@/lib/saveFile";
+
 interface CompressedImage {
   /** WebP blob – used for storage & display */
   webp: Blob;
@@ -230,8 +232,16 @@ export async function compressThumbnail(file: File, baseName?: string): Promise<
 }
 
 /**
- * On-demand client-side conversion: fetch WebP image → convert to JPEG via Canvas → trigger download.
+ * On-demand client-side conversion: fetch WebP image → convert to JPEG via Canvas → save.
  * No server roundtrip, no storage cost.
+ *
+ * OWNER REPORT, 2026-08-05: *"Any images clcked to downalod, not dowandling
+ * only in App."* The last four lines used to build an <a download> and click
+ * it. That is a no-op inside the Android WebView — see src/lib/saveFile.ts for
+ * the full explanation. The conversion above always worked; only the save was
+ * dropped, which is why it failed in complete silence.
+ *
+ * The web path is byte-for-byte what it always was; saveBlob() keeps it.
  */
 export async function downloadImageAsJpeg(imageUrl: string, fileName?: string): Promise<void> {
   const img = await loadImageFromUrl(imageUrl);
@@ -243,12 +253,5 @@ export async function downloadImageAsJpeg(imageUrl: string, fileName?: string): 
   ctx.drawImage(img, 0, 0);
 
   const blob = await canvasToBlob(canvas, "image/jpeg", 0.95);
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName || "photo.jpg";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  await saveBlob(blob, fileName || "photo.jpg");
 }
