@@ -73,4 +73,15 @@ describe("rule 2 — the owner can delete ANYTIME", () => {
     expect(feed).toContain("handleDeleteOwn");
     expect(feed).toContain('supabase.from("stories" as any).delete()');
   });
+
+  it("a delete is VERIFIED (rows returned) and SEEN (state refreshed) — both viewers", () => {
+    // .select("id") after .delete() makes the database return what it deleted;
+    // zero rows must surface as an error, never a false "Story removed".
+    expect(feed).toContain('.delete().eq("id", currentStory.id).select("id")');
+    expect(profile).toContain('.delete().eq("id", storyId).select("id")');
+    // and the feed bar refreshes so the ring disappears without a reload —
+    // the 2026-08-05 "unable to delete" was exactly this missing refresh
+    expect(feed).toContain("setOwnStories((prev) => prev.filter((s) => s.id !== currentStory.id))");
+    expect(feed).toMatch(/closeViewer\(\);\s*loadBar\(\);/);
+  });
 });
