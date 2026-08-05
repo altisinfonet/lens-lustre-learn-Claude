@@ -200,9 +200,20 @@ const FeedStoriesBar = () => {
     if (!user || deleting || !currentStory) return;
     setDeleting(true);
     try {
-      await supabase.from("stories" as any).delete().eq("id", currentStory.id);
+      // .select("id") makes the database return the rows it actually deleted,
+      // so a delete that matched nothing (blocked, already gone) is reported
+      // as the failure it is instead of a false "Story removed".
+      const { data, error } = await supabase.from("stories" as any).delete().eq("id", currentStory.id).select("id");
+      if (error) throw error;
+      if (!data || (data as any[]).length === 0) throw new Error("Story could not be deleted.");
+      // Owner, 2026-08-05: "delete anytime option needed" — and the delete
+      // must be SEEN. Before this fix the row was deleted but the ring and
+      // story stayed on screen until a full reload, which read as "unable to
+      // delete". Drop it from local state and refresh the bar.
+      setOwnStories((prev) => prev.filter((s) => s.id !== currentStory.id));
       toast({ title: "Story removed" });
       closeViewer();
+      loadBar();
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
