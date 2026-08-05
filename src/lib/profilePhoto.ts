@@ -54,26 +54,39 @@ export function isOwnProfilePhoto(url: string | null | undefined): boolean {
 }
 
 /**
- * The message a member sees when the DATABASE refuses a post or comment for a
- * missing photo. Old app builds have no gate, so this is the only explanation
- * they will get — without it the toast reads "new row violates row-level
- * security policy", which tells them nothing.
- */
-export const PROFILE_PHOTO_REQUIRED_MESSAGE =
-  "Please add a profile photo to your account first — it takes a moment and is required to post or comment.";
-
-/**
- * Does this database error mean "you have no profile photo"?
+ * ─────────────────────────────────────────────────────────────────────────────
+ * REMOVED 2026-08-05 — `PROFILE_PHOTO_REQUIRED_MESSAGE` and
+ * `isMissingPhotoError()`. DO NOT BRING THEM BACK.
  *
- * Postgres reports a RESTRICTIVE policy failure as a generic RLS violation
- * (code 42501) with no hint about which policy rejected it, so the only signal
- * available is the code plus the fact that the caller has no own-storage photo.
- * Callers pass `hasPhoto` so a genuinely different RLS failure — a banned
- * account, a private post — is not mislabelled.
+ * OWNER ORDER, verbatim:
+ *
+ *   "DP issues resolved. remove every block gate..."
+ *   "Even is DP not uplaoded too still users can post antyhing like with DP
+ *    users. simple"
+ *
+ * They existed to translate one specific database refusal — the RESTRICTIVE
+ * photo policies of 2026-08-01 — into a sentence a member could act on. Those
+ * policies were dropped on 2026-08-05 and VERIFIED GONE on production: zero
+ * policies anywhere reference has_profile_photo or avatar_url, and a member
+ * whose only picture is a system cartoon was rehearsed (in a rolled-back
+ * transaction, under their own JWT with RLS active) successfully creating a
+ * text-only post, a comment, and a reaction.
+ *
+ * SO THE TRANSLATION HAD NOTHING LEFT TO TRANSLATE — AND HAD TURNED HARMFUL.
+ * `isMissingPhotoError` matched ANY Postgres 42501 on an account with no
+ * UPLOADED photo, because a RESTRICTIVE policy failure carries no hint about
+ * which policy rejected it. With the photo policies gone, the RESTRICTIVE
+ * policies that remain are the "Banned users cannot …" ones. A member who is
+ * banned, or who tries to comment on a post they cannot see, would have been
+ * told to "Add a profile photo first" — the exact wall the owner has removed,
+ * reappearing as a lie in a toast.
+ *
+ * The real error message is now shown as-is. If a refusal ever needs
+ * explaining again, name THAT refusal — never guess it from the member's
+ * avatar.
+ *
+ * `isOwnProfilePhoto` above stays. It is not a gate; it is the one definition
+ * of "a photo the member actually uploaded", used to decide whether to offer a
+ * stand-in cartoon, and it is what the rule is rebuilt from at ~1000 members.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
-export function isMissingPhotoError(error: unknown, hasPhoto: boolean): boolean {
-  if (hasPhoto) return false;
-  const e = error as { code?: string; message?: string } | null;
-  if (!e) return false;
-  return e.code === "42501" || /row-level security/i.test(e.message ?? "");
-}
