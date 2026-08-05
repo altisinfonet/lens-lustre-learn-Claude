@@ -239,15 +239,18 @@ describe("the owner can actually SEE it — 'just i cant check is not the soltui
 
 describe("what the MEMBER reads is not what the LOG gets", () => {
   /**
-   * Measured 2026-08-05: a RESTRICTIVE policy requires an uploaded profile
-   * photo to comment, and **32 of 83 members do not have one** — they cannot
-   * reply at all. The app already throws a deliberately written sentence for
-   * that case (PROFILE_PHOTO_REQUIRED_MESSAGE). Showing it through
-   * describeThrown would render "Error · Please add a profile photo…", so the
-   * one message the app gets right would arrive spoiled.
+   * A sentence written FOR a member must reach them exactly as written.
+   * Passing it through describeThrown would render "Error · Your account is
+   * restricted…", which reads like a crash rather than an explanation.
+   *
+   * The original example here was the missing-profile-photo message. That
+   * message and the helper behind it were deleted on 2026-08-05 — "remove
+   * every block gate", "Even is DP not uplaoded too still users can post
+   * antyhing like with DP users" — so the example is now a restriction that
+   * genuinely still exists. What is being pinned is unchanged: no prefix.
    */
   it("a written message reaches the member unprefixed", () => {
-    const written = "Please add a profile photo to your account first — it takes a moment.";
+    const written = "Your account is restricted from this action";
     expect(memberFacingMessage(new Error(written))).toBe(written);
     expect(memberFacingMessage(new Error(written))).not.toContain("Error ·");
   });
