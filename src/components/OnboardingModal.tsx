@@ -25,6 +25,25 @@ const INTEREST_OPTIONS = [
   "Underwater", "Astrophotography", "Food", "Travel", "Abstract",
 ];
 
+/**
+ * HE / SHE — the wording is the owner's, given 2026-08-05: *"Ask 'He / She' not
+ * Male or Female"*. The label a member reads is therefore "He" and "She".
+ *
+ * The stored value stays `male` / `female` because that is what
+ * `profiles_gender_check` allows and what the fallback-avatar filenames
+ * (`m1..m5`, `f1..f5`) are keyed on. Changing the stored vocabulary would mean
+ * a constraint change, a data migration and renaming ten files, for a word no
+ * member ever sees. The label is the product; the value is plumbing.
+ *
+ * WHAT THIS IS FOR, AND WHAT IT IS NOT FOR: picking a fitting cartoon when a
+ * member has not uploaded a photo. It is not used for permissions, visibility,
+ * ranking or anything else.
+ */
+const GENDER_OPTIONS = [
+  { value: "male", label: "He" },
+  { value: "female", label: "She" },
+];
+
 const USER_TYPES = [
   { value: "student", label: "Student", description: "I'm learning photography", icon: GraduationCap },
   { value: "normal", label: "Enthusiast", description: "Photography is my hobby", icon: User },
@@ -107,6 +126,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
     profile?.date_of_birth ? new Date(profile.date_of_birth + "T00:00:00") : undefined,
   );
   const [dobError, setDobError] = useState("");
+  const [gender, setGender] = useState<string>(profile?.gender || "");
 
   // Mandatory profile photo. It is pre-filled ONLY from a photo the member
   // actually uploaded to our storage — never from an OAuth picture.
@@ -219,7 +239,8 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
 
   const ageOk = !!dateOfBirth && differenceInYears(new Date(), dateOfBirth) >= 18;
   const usernameOk = alreadyClaimed || usernameStatus === "available";
-  const canProceed = ageOk && !!avatarUrl && !!userType && selectedInterests.length > 0 && usernameOk;
+  const canProceed =
+    ageOk && !!avatarUrl && !!userType && !!gender && selectedInterests.length > 0 && usernameOk;
 
   const handleFinish = async () => {
     if (!canProceed) {
@@ -227,6 +248,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
       else if (!ageOk) toast({ title: "You must be at least 18 years old to join", variant: "destructive" });
       else if (!avatarUrl) toast({ title: "Please add a profile photo to continue", variant: "destructive" });
       else if (!usernameOk) toast({ title: "Please choose an available username", variant: "destructive" });
+      else if (!gender) toast({ title: "Please select He or She", variant: "destructive" });
       else if (!userType) toast({ title: "Please select whether you're a Student, Photographer, or Enthusiast", variant: "destructive" });
       else if (selectedInterests.length === 0) toast({ title: "Please select at least one photography interest", variant: "destructive" });
       return;
@@ -255,6 +277,8 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
         user_type: userType,
         date_of_birth: format(dateOfBirth!, "yyyy-MM-dd"),
         avatar_url: avatarUrl,
+        // He / She. Stored as male / female — see GENDER_OPTIONS above.
+        gender,
         // Persist the language code chosen on this screen. Written explicitly
         // here (not left to LanguageAccountSync) so the preference is saved
         // even when the user keeps the pre-selected language and never touches
@@ -472,6 +496,30 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
               {dobError && (
                 <p className="text-[9px] text-destructive tracking-wide" style={{ fontFamily: "var(--font-heading)" }}>{dobError}</p>
               )}
+            </div>
+
+            {/* He / She — owner's wording, 2026-08-05. See GENDER_OPTIONS. */}
+            <div className="space-y-2">
+              <span className="text-[10px] tracking-[0.2em] uppercase text-foreground font-medium block" style={{ fontFamily: "var(--font-heading)" }}>
+                You are <span className="text-destructive">*</span>
+              </span>
+              <RadioGroup value={gender} onValueChange={setGender} className="grid grid-cols-2 gap-2">
+                {GENDER_OPTIONS.map(({ value, label }) => (
+                  <Label
+                    key={value}
+                    htmlFor={`gender-${value}`}
+                    className={`flex items-center justify-center py-3 border cursor-pointer transition-all duration-300 text-center ${
+                      gender === value ? "border-primary bg-primary/5 text-primary" : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    <RadioGroupItem value={value} id={`gender-${value}`} className="sr-only" />
+                    <span className="text-sm font-medium" style={{ fontFamily: "var(--font-heading)" }}>{label}</span>
+                  </Label>
+                ))}
+              </RadioGroup>
+              <p className="text-[9px] text-muted-foreground leading-snug" style={{ fontFamily: "var(--font-body)" }}>
+                Used only to pick a matching avatar if you ever have no photo. Nothing else.
+              </p>
             </div>
 
             {/* Role */}
