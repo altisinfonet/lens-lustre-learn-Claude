@@ -13,6 +13,7 @@ import WalletLedgerV2DiffAudit from "@/components/admin/WalletLedgerV2DiffAudit"
 // UnjudgedParityAudit moved to /admin/competition_health
 // JudgeUIvsDBGateAudit moved to /admin/competition_health
 import NotificationsHealthAudit from "@/components/admin/NotificationsHealthAudit";
+import ClientFailuresAudit from "@/components/admin/ClientFailuresAudit";
 import CacheBusterControl from "@/components/admin/CacheBusterControl";
 
 interface OrphanReport {
@@ -457,6 +458,11 @@ const AdminHealth = ({ user }: { user: User | null }) => {
 
       {/* Phase 4 — Notification Health (compact card → full page) */}
       <NotificationsHealthAudit compact />
+
+      {/* Client-side failures. Placed FIRST among the audits deliberately:
+          when a member says "I cannot post", this is the panel that answers
+          it, and it must not be something to scroll for. */}
+      <ClientFailuresAudit />
 
       {/* Dev/Test — Global Cache-Buster Toggle */}
       <CacheBusterControl />
