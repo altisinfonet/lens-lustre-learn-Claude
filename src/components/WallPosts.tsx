@@ -8,7 +8,6 @@ import { compressImageToFiles } from "@/lib/imageCompression";
 import { scanFileWithToast } from "@/lib/fileSecurityScanner";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
-import { isOwnProfilePhoto, isMissingPhotoError, PROFILE_PHOTO_REQUIRED_MESSAGE } from "@/lib/profilePhoto";
 import { useIsBanned } from "@/hooks/core/useIsBanned";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadImageWithThumbnail } from "@/lib/imageUpload";
@@ -407,15 +406,20 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         indexing_disabled: excludeFromSearch,
       } as any).select("id").single();
       if (error) {
-        // The database refuses a post from an account with no uploaded profile
-        // photo (RESTRICTIVE policy, 2026-08-01). Postgres reports that as a
-        // bare "row-level security" violation, which tells the member nothing —
-        // so name the actual reason. Old app builds have no onboarding gate and
-        // this is the only explanation they will ever see.
-        const noPhoto = isMissingPhotoError(error, isOwnProfilePhoto(currentProfile?.avatar_url));
+        // NOTHING HERE MAY MENTION A PROFILE PHOTO.
+        //
+        // Owner, 2026-08-05: *"Even is DP not uplaoded too still users can post
+        // antyhing like with DP users. simple"*
+        //
+        // This branch used to guess "you have no profile photo" from a bare
+        // 42501, because that is all a RESTRICTIVE policy failure reports. The
+        // photo policies are gone (verified on production). The RESTRICTIVE
+        // policies that remain are the "Banned users cannot …" ones, so that
+        // guess would now put the removed photo wall back in front of a member
+        // it never applied to. Show the real reason instead.
         toast({
-          title: noPhoto ? "Add a profile photo first" : "Failed to post",
-          description: noPhoto ? PROFILE_PHOTO_REQUIRED_MESSAGE : error.message,
+          title: "Failed to post",
+          description: error.message,
           variant: "destructive",
         });
       } else {
