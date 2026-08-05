@@ -1,3 +1,33 @@
+Build 1052 — 2026-08-05
+- Post photos come back everywhere. On 2026-08-01 every feed photo was routed
+  through an image-resizing service that only answers one of the site's two
+  addresses; in the app and on www it failed every single time — an entire feed
+  of grey placeholders on a photography site. Photos now load directly, the way
+  avatars and thumbnails always did (which is why those never broke). This is
+  "images are not coming", ended — measured in the owner's own browser, both
+  addresses, zero placeholders.
+- Saving now works in the app. Tapping download on a photo, or saving a journal
+  or featured-artist article as a PDF, used to show progress and then silently
+  do nothing — the app had no download manager to hand the file to. Files are
+  now written properly and offered through the system Save/Share sheet. This
+  build bundles the file plugin that makes it possible (the workflow change in
+  this same commit).
+- Emoji in comments. Typing <3, :), :(, ;) becomes a real emoji — at the
+  beginning, middle or end of a comment, including a trailing <3 with nothing
+  typed after it. Keyboard emoji were already stored correctly and are left
+  untouched. Web addresses and ordinary text like "(see 8)" are never
+  converted. 21 tests pin the rules.
+- A post is a photograph: posting requires at least one photo and the caption
+  is optional — and nothing ever blocks posting, commenting or reacting over a
+  missing profile picture. Both rules are pinned by tests.
+- You can now SEE which build you are holding: the profile sheet's bottom row
+  shows the loaded version beside Logout — this build reads 1052 (1.2.2).
+- A website update can no longer break a page that is already open (the
+  "Something went wrong" screen right after a deploy). An open page now fetches
+  the new version once, quietly, instead of failing.
+- Everything from 1051 and earlier. Upload 1052 INSTEAD of 1051.
+- Web build 2026-08-05-2.
+
 Build 1051 — 2026-08-05
 - Photos that fail to load now TRY AGAIN. Until now a single dropped packet — a
   tunnel, a lift, one weak moment on mobile data — replaced the photo with the
