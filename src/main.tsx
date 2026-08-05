@@ -3,6 +3,7 @@ import App from "./App.tsx";
 import { startNetworkTrace } from "./lib/networkTracer";
 import { runCacheBuster, stripCacheBusterParam } from "./lib/cacheBuster";
 import { installImageFallback } from "./lib/imageFallback";
+import { installImageErrorReporter } from "./lib/reportImageError";
 import { initNativeAuthDeepLink } from "./lib/native/authDeepLink";
 
 import "./index.css";
@@ -11,13 +12,34 @@ import "./index.css";
 // doesn't update. It is a window side-effect (NOT a bare export, which gets
 // tree-shaken away) so it survives into the bundle and forces a new hashed
 // entry filename, busting year-cached immutable copies of the old bundle.
-(window as any).__APP_BUILD = "2026-08-04-7";
+(window as any).__APP_BUILD = "2026-08-05-1";
 
 startNetworkTrace(8000);
 
 // Inside the installed app only: complete Google/Apple sign-in when the OAuth
 // deep link (app.fiftymmretina://auth-callback) fires. No-op on web/PWA.
 initNativeAuthDeepLink();
+
+/**
+ * ORDER IS LOAD-BEARING — RECORD FIRST, THEN HIDE.
+ *
+ * Owner, 2026-08-05: *"Images are not coming. Many times told, still you not
+ * solved."* Two lines of this file are why it was never solved:
+ *
+ *   * `installImageFallback()` below replaces ANY failed <img> with a dark
+ *     branded "50mm RETINA WORLD" placeholder. So a failed photo does not look
+ *     like an error — it looks like the app decided to show a grey box. That is
+ *     the exact thing he keeps describing, and it swallowed the evidence.
+ *   * Nothing recorded the URL. Chrome's console truncates an image failure to
+ *     `Failed to load resource: … 404 ()` with no address, so even a screenshot
+ *     of the console could not say WHICH image.
+ *
+ * Both listeners are capture-phase on `window` and therefore fire in
+ * REGISTRATION order. The reporter must be registered FIRST so it sees the real
+ * `currentSrc` before the fallback overwrites it with the placeholder data URI.
+ * Swapping these two lines would silently disable the reporting again.
+ */
+installImageErrorReporter();
 
 // Replace any broken <img> (e.g. legacy external cover URLs) with a branded
 // self-hosted placeholder so users never see a broken-image icon.
