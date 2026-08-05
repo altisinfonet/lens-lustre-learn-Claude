@@ -233,6 +233,37 @@ export function useFeedQuery(userId: string | undefined) {
     enabled: !!userId,
     placeholderData,
 
+    /**
+     * THE FEED IS NEVER FRESH. Owner spec, restated 2026-08-05:
+     * "on every refresh changing is must to ensure maximum visibility of all
+     *  posts, not newer one."
+     *
+     * MEASURED ON PRODUCTION, 2026-08-05, and the split matters:
+     *
+     *   * The DATABASE half works. `get_broadcast_feed` is VOLATILE and
+     *     re-deals on every call — three consecutive calls as the same member
+     *     returned 10 posts each and shared only 1, then 0. The 2026-08-04
+     *     reshuffle migration is intact.
+     *   * The CLIENT half was throwing that away. `App.tsx` sets a global
+     *     `staleTime: 5 * 60 * 1000`, and this query never overrode it. So for
+     *     five minutes React Query considered the feed fresh and would not
+     *     refetch — leave /feed for a profile, come back, and you are handed
+     *     the identical deal from cache. The database had already shuffled;
+     *     nobody asked it.
+     *
+     * `staleTime: 0` + `refetchOnMount: "always"` makes returning to the feed
+     * deal a new hand, which is what the owner asked for. Pull-to-refresh
+     * already worked (it calls `refetch()` explicitly) — this fixes every OTHER
+     * way a member arrives at the feed.
+     *
+     * Cost, stated plainly: one extra RPC + enrichment per feed mount. That is
+     * the price of the requirement; the 5-minute cache was buying staleness,
+     * not speed, because `placeholderData` above already gives an instant
+     * first paint from localStorage.
+     */
+    staleTime: 0,
+    refetchOnMount: "always",
+
     queryFn: async ({ pageParam }): Promise<FeedPage> => {
       const pageIndex = (pageParam as number | undefined) ?? 0;
       const isFirstPage = pageIndex === 0;
