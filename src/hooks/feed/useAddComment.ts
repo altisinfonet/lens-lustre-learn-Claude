@@ -5,6 +5,7 @@ import { toast } from "@/hooks/core/use-toast";
 import { reportClientError, describeThrown, memberFacingMessage } from "@/lib/reportClientError";
 import { useIsBanned } from "@/hooks/core/useIsBanned";
 import { queryKeys } from "@/lib/queryKeys";
+import { convertEmojiShortcuts } from "@/lib/emoji";
 
 /* ── Minimal comment shape expected by PostCommentsSection ── */
 
@@ -55,12 +56,23 @@ export function useAddComment(
     mutationFn: async ({ postId, content, parentId }: AddCommentInput) => {
       if (!user) throw new Error("Not authenticated");
       if (isBanned) throw new Error("Your account is restricted from this action");
+      /**
+       * The trailing emoji shortcut, converted at submit.
+       *
+       * Owner, 2026-08-05: emoji must work *"including after the comment
+       * text"* — `I love this <3` with nothing typed after it. The
+       * typing-time conversion in MentionInput fires when a space is typed,
+       * and there is no space in that case, so this is the half that catches
+       * it. Running it again on already-converted text is a no-op — an emoji
+       * is not a shortcut. See src/lib/emoji.ts.
+       */
+      const finalContent = convertEmojiShortcuts(content);
       const { data, error } = await supabase
         .from("post_comments")
         .insert({
           post_id: postId,
           user_id: user.id,
-          content,
+          content: finalContent,
           parent_id: parentId,
         })
         .select("id")
@@ -84,7 +96,10 @@ export function useAddComment(
       const optimistic: OptimisticComment = {
         id: tempId,
         user_id: user.id,
-        content,
+        // The SAME conversion the insert does. Without this the member sees
+        // their comment appear as `<3`, then silently flip to a heart when the
+        // real row loads — the app correcting them a second after the fact.
+        content: convertEmojiShortcuts(content),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         parent_id: parentId,
