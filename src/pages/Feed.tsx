@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import AdZone from "@/components/ads/AdZone";
 import FeedFriendSuggestions from "@/components/feed/FeedFriendSuggestions";
+import TodaysBirthdayStrip from "@/components/feed/TodaysBirthdayStrip";
 import { slotForPostIndex, shouldShowFeedAd } from "@/lib/ads/feedAdPlacement";
 import { useT } from "@/i18n/I18nContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -240,6 +241,14 @@ const Feed = () => {
       <div className="min-w-0">
         {/* Stories bar — everyone's public stories (official first, then followed by recency) */}
         <FeedStoriesBar />
+
+        {/*
+          Today's Birthday on phones, tablets and inside the Android app.
+          The left sidebar that carries it is `hidden xl:block`, so below
+          1280px it was never rendered at all. This is `xl:hidden` — the exact
+          complement — and renders nothing on days with no birthday.
+        */}
+        <TodaysBirthdayStrip />
 
         {/* Header */}
         <div className="flex items-center justify-between mb-4 md:mb-8 px-2 md:px-0">
