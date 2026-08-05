@@ -31,8 +31,22 @@ import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-/** The four things worth counting. Anything else is dropped by the database. */
-export type ClientErrorKind = "post_create" | "reply" | "upload" | "blank_page";
+/**
+ * The things worth counting. Anything else is dropped by the database.
+ *
+ * `image_load` was added 2026-08-05 for the owner's longest-running and least
+ * diagnosable report — "images are not coming", repeated for weeks, always
+ * without a URL because Chrome truncates the console line to `404 ()` and
+ * because the image service worker was answering failures with a transparent
+ * 1x1 GIF that the browser treated as SUCCESS. See
+ * supabase/migrations/20260805090000_client_error_image_load.sql.
+ */
+export type ClientErrorKind =
+  | "post_create"
+  | "reply"
+  | "upload"
+  | "blank_page"
+  | "image_load";
 
 /**
  * Turn ANY thrown value into a sentence.
