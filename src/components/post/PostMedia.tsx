@@ -77,26 +77,52 @@ const PostMedia = ({ urls, onDoubleTapLike }: PostMediaProps) => {
 const SUPABASE_PUBLIC_RE = /\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/;
 const SUPABASE_RENDER_RE = /\/storage\/v1\/render\/image\/public\//;
 
-/* ── Cloudflare Transformations (2026-08-01) ──
- * Post images live on cdn.50mmretina.com (R2), NOT Supabase storage, so the
- * Supabase render endpoint above never matched them and every feed card was
- * downloading the FULL 2560px original. Measured on production: five visible
- * photos = 3,450 KB, every one displayed at 588px.
+/* ── Cloudflare Transformations: SHIPPED 2026-08-01, REMOVED 2026-08-05 ──
  *
- * Cloudflare Transformations is now enabled on the 50mmretina.com zone, so the
- * same five photos come back as AVIF at 800px for 383 KB — 89% less. It also
- * fixes every photo ever posted, retroactively, with no re-upload.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * THIS WAS "IMAGES ARE NOT COMING". Do not route images through
+ * /cdn-cgi/image/ again without reading this.
+ * ═══════════════════════════════════════════════════════════════════════════
  *
- * TWO THINGS THAT WILL BREAK THIS IF CHANGED CARELESSLY:
+ * On 2026-08-01 every cdn.50mmretina.com post image was rerouted through
+ * `https://50mmretina.com/cdn-cgi/image/width=…/<original>` to cut bandwidth
+ * (measured 89% smaller that day — the endpoint really did work when it
+ * shipped). From then on the owner reported, repeatedly: *"Images are not
+ * coming. Many times told, still you not solved — all time images are not
+ * coming."*
  *
- * 1. The base MUST be the hard-coded zone origin, never `location.origin`.
- *    Inside the Android (Capacitor) app the origin is a local scheme, and
- *    `location.origin + "/cdn-cgi/..."` would 404 on every image in the app
- *    while looking perfect on web.
- * 2. /cdn-cgi/image/ responses carry NO CORS headers. That is fine for <img>,
- *    but anything that FETCHES an image — the download button, canvas
- *    re-encoding — must keep using the untransformed URL. It already does.
+ * MEASURED IN THE OWNER'S OWN BROWSER, 2026-08-05 19:0x — the owner himself
+ * supplied the decisive experiment, two windows side by side:
+ *
+ *   page on https://50mmretina.com (apex):
+ *     /cdn-cgi/image/…/post-images/….webp → 200 image/jpeg, photos render
+ *   page on https://www.50mmretina.com (what every member uses):
+ *     the IDENTICAL request → killed at network level ("Failed to fetch",
+ *     even in no-cors mode), every photo → branded placeholder
+ *
+ * The transformer only serves requests initiated from the apex origin. The
+ * site lives on www. The Android app is a third origin (its own scheme), so
+ * builds 1035…1051 — every build cut after 2026-08-01 — show no photos at
+ * all. And any test made from the apex, or of the URL directly, passes —
+ * which is exactly why this survived every earlier check.
+ *
+ * Avatars, journal ads, trending thumbnails and the /login wall never went
+ * through the transformer (direct urls) and loaded fine throughout — that
+ * asymmetry was the fingerprint that found this.
+ *
+ * The transformer is zone infrastructure, not code: its origin rules and
+ * quota live in the Cloudflare dashboard, where no deploy, test or review in
+ * this repo can see them change. Post images therefore load DIRECT from
+ * cdn.50mmretina.com — proven working from every origin — and nothing may
+ * reroute them through an endpoint that can be switched off outside this
+ * repo. If the bandwidth win is ever wanted again it needs (a) the zone rule
+ * verified for www AND the app origin, and (b) an automatic per-image
+ * fallback to the direct URL. Neither existed.
  */
+
+/* The three definitions below are UNUSED since the removal — kept, unchanged,
+   as the exact code that used to run, so the note above stays checkable
+   against it. Safe to delete whenever. */
 const CF_ZONE_ORIGIN = "https://50mmretina.com";
 const CDN_HOST = "cdn.50mmretina.com";
 
@@ -124,11 +150,10 @@ function isTransformable(url: string): boolean {
   if (SUPABASE_RENDER_RE.test(url)) return false; // already transformed
   if (url.indexOf("/cdn-cgi/image/") !== -1) return false; // already transformed
   if (/\.(gif|svg)(\?|$)/i.test(url)) return false; // preserve animation/vector
-  return isCdnImage(url) || SUPABASE_PUBLIC_RE.test(url);
+  return SUPABASE_PUBLIC_RE.test(url);
 }
 
 function buildRenderUrl(url: string, width: number, quality = 70): string {
-  if (isCdnImage(url)) return buildCfUrl(url, width, quality);
   try {
     const u = new URL(url);
     const m = u.pathname.match(SUPABASE_PUBLIC_RE);
