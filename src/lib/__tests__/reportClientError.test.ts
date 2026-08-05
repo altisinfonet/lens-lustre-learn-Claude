@@ -35,7 +35,7 @@ const { rpc } = vi.hoisted(() => ({
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { rpc } }));
 vi.mock("@/lib/native/authDeepLink", () => ({ isNativeCapacitorApp: () => false }));
 
-import { describeThrown, reportClientError } from "../reportClientError";
+import { describeThrown, reportClientError, memberFacingMessage } from "../reportClientError";
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 
@@ -140,7 +140,7 @@ describe("the three places failures actually happen are wired up", () => {
   it("the composer records a failed post, and no longer says 'Unknown error'", () => {
     const src = strip(read("src/components/WallPosts.tsx"));
     expect(src).toContain('reportClientError("post_create"');
-    expect(src).toContain("describeThrown(err)");
+    expect(src).toContain("memberFacingMessage(err)");
     // The literal that hid every real cause for a whole day.
     expect(src).not.toContain('|| "Unknown error"');
   });
@@ -234,5 +234,36 @@ describe("the owner can actually SEE it — 'just i cant check is not the soltui
     expect(panel).toContain("{r.sample}");
     expect(panel).toContain("{r.occurrences}");
     expect(panel).toContain("{r.members}");
+  });
+});
+
+describe("what the MEMBER reads is not what the LOG gets", () => {
+  /**
+   * Measured 2026-08-05: a RESTRICTIVE policy requires an uploaded profile
+   * photo to comment, and **32 of 83 members do not have one** — they cannot
+   * reply at all. The app already throws a deliberately written sentence for
+   * that case (PROFILE_PHOTO_REQUIRED_MESSAGE). Showing it through
+   * describeThrown would render "Error · Please add a profile photo…", so the
+   * one message the app gets right would arrive spoiled.
+   */
+  it("a written message reaches the member unprefixed", () => {
+    const written = "Please add a profile photo to your account first — it takes a moment.";
+    expect(memberFacingMessage(new Error(written))).toBe(written);
+    expect(memberFacingMessage(new Error(written))).not.toContain("Error ·");
+  });
+
+  it("but the log still gets the diagnostic form", () => {
+    expect(describeThrown(new Error("boom"))).toContain("Error");
+  });
+
+  it("a message-less throw still beats 'Unknown error' for the member", () => {
+    const e: any = new Error("");
+    e.name = "FunctionsFetchError";
+    expect(memberFacingMessage(e)).toContain("FunctionsFetchError");
+  });
+
+  it("both toasts use the member-facing form", () => {
+    expect(read("src/hooks/feed/useAddComment.ts")).toContain("memberFacingMessage(err)");
+    expect(read("src/components/WallPosts.tsx")).toContain("memberFacingMessage(err)");
   });
 });
