@@ -19,6 +19,7 @@
 // =====================================================================
 import jsPDF from "jspdf";
 import { loadPdfLogo } from "@/lib/pdfLogo";
+import { saveBlob } from "@/lib/saveFile";
 
 // ------- Article shape the composer needs -----------------------------
 export interface ArticleForPdf {
@@ -980,5 +981,23 @@ export async function generateArticlePdf(args: GenerateArgs): Promise<void> {
     .replace(/[^a-z0-9]+/gi, "-")
     .replace(/^-+|-+$/g, "")
     .toLowerCase();
-  pdf.save(`${safeName || "article"}.pdf`);
+
+  /**
+   * NOT `pdf.save()`.
+   *
+   * OWNER REPORT, 2026-08-05: *"any journal and featured artist any article PDF
+   * showing downlaiding but not dwonalding as PDF docuemnt in mobile."*
+   *
+   * jsPDF's `save()` builds an `<a download>` around a blob URL and dispatches
+   * a click — verified in node_modules/jspdf. Inside the Android WebView that
+   * is a silent no-op: no download manager, no DownloadListener registered.
+   * Every page above rendered correctly, which is exactly why the spinner
+   * completed and the member was told it was downloading. Only this last step
+   * was thrown away.
+   *
+   * `output("blob")` hands us the same bytes without jsPDF's browser-only save
+   * path, and saveBlob() then does the right thing on each platform. See
+   * src/lib/saveFile.ts.
+   */
+  await saveBlob(pdf.output("blob"), `${safeName || "article"}.pdf`);
 }
