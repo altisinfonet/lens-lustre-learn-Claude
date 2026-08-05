@@ -48,6 +48,7 @@ jobs:
           npm install --no-audit --no-fund \
             @capacitor/core @capacitor/cli @capacitor/android \
             @capacitor/share @capacitor/splash-screen \
+            @capacitor/filesystem \
             @capacitor/app @capacitor/browser \
             @capacitor-firebase/messaging \
             @capawesome/capacitor-app-update
