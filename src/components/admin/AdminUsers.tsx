@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { useConfirmAction } from "@/hooks/admin/useConfirmAction";
-import { Search, Ban, ShieldCheck, Trash2, Pencil, XCircle, Loader2, Mail, User, Calendar, Shield, Plus, X, CheckSquare, Square, Award, ExternalLink, Palette, Smile } from "lucide-react";
+import { Search, Ban, ShieldCheck, Trash2, Pencil, XCircle, Loader2, Mail, User, Calendar, Shield, Plus, X, CheckSquare, Square, Award, ExternalLink, Palette, Smile, Clock, Smartphone, Globe } from "lucide-react";
+import { formatLastSeen, isActiveNow } from "@/hooks/core/useLastActive";
 import type { User as AuthUser } from "@supabase/supabase-js";
 import { useBadgeDefinitions, type BadgeDefinition } from "@/hooks/profile/useBadgeDefinitions";
 import { useRoleDefinitions, type RoleDefinition } from "@/hooks/profile/useRoleDefinitions";
@@ -33,6 +34,11 @@ interface UserRow {
   created_at: string;
   roles: string[];
   badges: string[];
+  /** Written every 5 min by useLastActive while a member has the site/app open. */
+  last_active_at: string | null;
+  /** "app" | "web" — where they last signed in from. Recorded from 2026-08-05
+   *  onward only (older logins were never recorded and cannot be back-filled). */
+  last_platform: string | null;
 }
 
 type UserSearchMode = "name" | "email";
@@ -278,9 +284,13 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
       }
 
       const userIds = filtered.map((u: any) => u.id);
-      const [rolesRes, badgesRes] = await Promise.all([
+      // Owner, 2026-08-05: "on the admin users list show last activated time and
+      // login from app or website on the same list nicely show". Fetched here
+      // rather than inside admin_search_users so the SQL function stays untouched.
+      const [rolesRes, badgesRes, activityRes] = await Promise.all([
         supabase.from("user_roles").select("user_id, role").in("user_id", userIds),
         supabase.from("user_badges").select("user_id, badge_type").in("user_id", userIds),
+        supabase.from("profiles").select("id, last_active_at, last_platform" as any).in("id", userIds),
       ]);
       const roleMap = new Map<string, string[]>();
       rolesRes.data?.forEach((r) => {
@@ -294,7 +304,17 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
         existing.push(b.badge_type);
         badgeMap.set(b.user_id, existing);
       });
-      setUsers(filtered.map((u: any) => ({ ...u, roles: roleMap.get(u.id) || [], badges: badgeMap.get(u.id) || [] })));
+      const activityMap = new Map<string, { last_active_at: string | null; last_platform: string | null }>();
+      (activityRes.data as any[])?.forEach((p: any) => {
+        activityMap.set(p.id, { last_active_at: p.last_active_at ?? null, last_platform: p.last_platform ?? null });
+      });
+      setUsers(filtered.map((u: any) => ({
+        ...u,
+        roles: roleMap.get(u.id) || [],
+        badges: badgeMap.get(u.id) || [],
+        last_active_at: activityMap.get(u.id)?.last_active_at ?? null,
+        last_platform: activityMap.get(u.id)?.last_platform ?? null,
+      })));
     } else {
       setUsers([]);
       if (normalizedQuery && !silent) toast({ title: t("au.noUsersFound") });
@@ -828,6 +848,23 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
                       <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1 shrink-0">
                         <Calendar className="h-2.5 w-2.5" /> {new Date(u.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}
                       </span>
+                      {/* Owner: "show last activated time and login from app or
+                          website on the same list nicely show". Green when the
+                          member is on the site right now. The platform pill only
+                          appears once the member has signed in since 2026-08-05 —
+                          origin was never recorded before that and a blank is
+                          honest, an invented value is not. */}
+                      {u.last_active_at && (
+                        <span className={`text-[10px] flex items-center gap-1 shrink-0 ${isActiveNow(u.last_active_at) ? "text-green-600 font-medium" : "text-muted-foreground/60"}`}>
+                          <Clock className="h-2.5 w-2.5" /> {formatLastSeen(u.last_active_at) || "—"}
+                        </span>
+                      )}
+                      {u.last_platform && (
+                        <span className="text-[8px] px-1.5 py-0.5 border border-border rounded-sm uppercase tracking-wider text-muted-foreground shrink-0 flex items-center gap-1">
+                          {u.last_platform === "app" ? <Smartphone className="h-2.5 w-2.5" /> : <Globe className="h-2.5 w-2.5" />}
+                          {u.last_platform === "app" ? "App" : "Website"}
+                        </span>
+                      )}
                     </div>
 
                     {/* Roles + Badges */}
@@ -891,3 +928,4 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
 };
 
 export default AdminUsers;
+
