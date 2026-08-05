@@ -1,3 +1,38 @@
+Build 1051 — 2026-08-05
+- Photos that fail to load now TRY AGAIN. Until now a single dropped packet — a
+  tunnel, a lift, one weak moment on mobile data — replaced the photo with the
+  grey placeholder permanently, and nothing ever retried it. It now waits 0.4s,
+  tries again, waits 1.2s, tries once more, and only then gives up. This is the
+  "images are not coming" report, and it is the main reason to upload this build.
+- The picture cache no longer hides failures. When a photo could not be fetched
+  it used to hand the screen an invisible blank that the phone counted as a
+  SUCCESS — so nothing retried and nothing was ever written down. It now reports
+  a real failure, and the app records exactly which picture died, so the next
+  report arrives as an address instead of a screenshot.
+- Everyone's stored pictures are refreshed once on first open (cache version
+  bumped), so anything saved under the old broken rules is cleared.
+- Today's Birthday now appears IN THE APP, above the feed. It existed only on a
+  wide computer screen before — on every phone and tablet it was not shown at
+  all. It appears only on days when somebody actually has a birthday.
+- The feed opens with the three newest posts at the top, then continues with the
+  wider spread that gives every photograph its turn. Same on refresh, app and
+  website.
+- Signing up now asks He or She. It is used for one thing only: choosing a
+  fitting stand-in picture for members who have not uploaded a photo. It is
+  never used for permissions or for who can see what.
+- Everything from 1050 and earlier. Upload 1051 INSTEAD of 1050.
+- Web build 2026-08-05-1.
+
+Already live for ALL builds (database side, listed here for the record):
+- Today's Birthday no longer misses anyone. It was reading an unordered list
+  capped at 50 members, so 28 of the 68 members with a birthday on file were
+  invisible on their own birthday. That cap is gone.
+- Birthday notification: every accepted friend gets "Today is <name>'s Birthday"
+  at 9:00 IST. Rehearsed against a real member with 21 friends — 21 notices, no
+  duplicates, no email.
+- The About Us page pointed twice at a logo file that does not exist, so it
+  showed the grey placeholder. Corrected.
+
 Build 1050 — 2026-08-04
 - People you may know now appears in the feed itself, after the tenth post: a
   row of cards you swipe sideways, each with the photographer's picture, how
