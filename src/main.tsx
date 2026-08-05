@@ -4,6 +4,7 @@ import { startNetworkTrace } from "./lib/networkTracer";
 import { runCacheBuster, stripCacheBusterParam } from "./lib/cacheBuster";
 import { installImageFallback } from "./lib/imageFallback";
 import { installImageErrorReporter } from "./lib/reportImageError";
+import { installOverlayUnfreeze } from "./lib/unfreezeStuckOverlay";
 import { initNativeAuthDeepLink } from "./lib/native/authDeepLink";
 
 import "./index.css";
@@ -40,6 +41,16 @@ initNativeAuthDeepLink();
  * Swapping these two lines would silently disable the reporting again.
  */
 installImageErrorReporter();
+
+/**
+ * "after just a touch report content entire screen got freezed. until app
+ * restarted nothing working." — owner, 2026-08-05.
+ *
+ * A menu or dialog that dies mid-close leaves pointer-events: none on the body
+ * and the whole page stops responding. This clears that lock, and ONLY when no
+ * overlay is legitimately open. See src/lib/unfreezeStuckOverlay.ts.
+ */
+installOverlayUnfreeze();
 
 // Replace any broken <img> (e.g. legacy external cover URLs) with a branded
 // self-hosted placeholder so users never see a broken-image icon.
