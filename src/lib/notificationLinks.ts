@@ -67,6 +67,11 @@ export function getNotifLink(notif: NotifLinkInput): string {
       return notif.reference_id ? `/courses/${notif.reference_id}` : "/courses";
     case "post_tag":
       return notif.reference_id ? `/post/${notif.reference_id}` : "/feed";
+    // "🎉 Today is <name>'s Birthday" — the whole point is to go and wish them,
+    // so the destination is that person. reference_id is the celebrant, written
+    // by emit_birthday_notifications().
+    case "birthday":
+      return notif.reference_id ? `/profile/${notif.reference_id}` : "/feed";
     default:
       return "/dashboard";
   }
