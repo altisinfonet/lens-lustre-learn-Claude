@@ -27,6 +27,7 @@ import {
   applyCaptionMentions,
   type PickedMention,
 } from "@/lib/captionMentions";
+import { logger } from "@/lib/logger";
 
 export interface MentionSuggestion {
   id: string;
@@ -67,11 +68,35 @@ export function useCaptionMentions({ textareaRef, value, setValue, maxAutoGrowPx
     }
     let cancelled = false;
     const t = setTimeout(async () => {
-      const { data } = await profilesPublic()
+      const startedAt = Date.now();
+      const { data, error } = await profilesPublic()
         .select("id, full_name, avatar_url")
         .ilike("full_name", `%${q}%`)
         .limit(6);
       if (cancelled) return;
+
+      if (error) {
+        // The box must keep working even when the lookup fails: an empty
+        // dropdown is a degraded feature, a thrown error is a broken composer.
+        logger.warn({
+          code: "UI-8002",
+          event: "MENTION_SEARCH_FAILED",
+          fn: "useCaptionMentions.fetchSuggestions",
+          file: "src/hooks/feed/useCaptionMentions.ts",
+          message: "Searching members for a caption @mention.",
+          reason: `The profiles lookup failed: ${error.message}`,
+          expected: "Up to 6 matching members",
+          actual: `error ${(error as any).code ?? "unknown"}`,
+          nextStep:
+            "Check the profiles_public view and the member's connection. The composer stays usable; only the dropdown is empty.",
+          durationMs: Date.now() - startedAt,
+          detail: { queryLength: q.length },
+        });
+        setSuggestions([]);
+        setFocusIdx(0);
+        return;
+      }
+
       setSuggestions(
         ((data as any[]) || []).map((u) => ({
           id: u.id,
@@ -101,6 +126,17 @@ export function useCaptionMentions({ textareaRef, value, setValue, maxAutoGrowPx
       const next = before + inserted + after;
       setValue(next);
       pickedRef.current = [...pickedRef.current, { display: s.display, id: s.id }];
+      logger.debug({
+        code: "UI-8001",
+        event: "CAPTION_MENTION_PICKED",
+        fn: "useCaptionMentions.pick",
+        file: "src/hooks/feed/useCaptionMentions.ts",
+        message: "Member chose someone from the caption @mention list.",
+        reason: "A picked name is the only thing that becomes a real tag.",
+        expected: "The name inserted and its id remembered for conversion",
+        actual: `${pickedRef.current.length} pick(s) held for this caption`,
+        recordId: s.id,
+      });
       setActive(null);
       setSuggestions([]);
       requestAnimationFrame(() => {
