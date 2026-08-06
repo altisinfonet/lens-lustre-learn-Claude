@@ -479,8 +479,13 @@ const HelpSupport = () => {
               </p>
               <p>
                 Lost access to your account? Email{" "}
-                <a href="mailto:altisappdev@gmail.com" className="text-primary underline underline-offset-2">
-                  altisappdev@gmail.com
+                {/* NEVER a personal address here. Owner ruling, 2026-08-06: the
+                    owner's personal gmail must not appear anywhere a member can
+                    read it. Deliberately not repeating it in this comment, so a
+                    grep for it stays clean. The href and the visible text are
+                    two separate places — change both or they disagree. */}
+                <a href="mailto:mail@50mmretina.com" className="text-primary underline underline-offset-2">
+                  mail@50mmretina.com
                 </a>{" "}
                 from your registered email address and we will process the deletion for you.
               </p>
