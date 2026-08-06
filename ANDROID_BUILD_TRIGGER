@@ -1,3 +1,13 @@
+Build 1056 — 2026-08-06
+- The account menu now shows the version on the LEFT and Logout on the RIGHT,
+  and the version reads V1056 (1.2.2). The two swapped sides; each still takes
+  exactly half the row, and both numbers still come from the build itself so
+  the label can never show a version the app is not actually running.
+- EVERYTHING LISTED UNDER BUILD 1055 BELOW IS INCLUDED HERE. Build 1055 was
+  produced but never installed or released, so 1056 is the first build that
+  carries the image-zoom work to a phone. Read the 1055 entry as part of this
+  one.
+
 Build 1055 — 2026-08-06
 - Photographs zoom, and nothing else does. Opening a photograph full screen now
   lets it be pinched, dragged around while enlarged, and double-tapped to zoom
