@@ -32,6 +32,10 @@ import {
   Eye,
 } from "lucide-react";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/components/admin/JudgeUIvsDBGateAudit.tsx";
+
 interface SamplePhoto {
   judge_id: string;
   photo_index: number;
@@ -99,7 +103,15 @@ const JudgeUIvsDBGateAudit = () => {
       if (!cancelled) {
         if (e) {
           // Non-fatal — admin can still type a uuid manually.
-          console.warn("[JudgeUIvsDBGate] competitions list failed:", e.message);
+          logger.warn({
+            code: "ADMIN-8104", event: "ADMIN_GATE_AUDIT_LIST_FAILED",
+            fn: "JudgeUIvsDBGateAudit", file: FILE,
+            message: "The judging gate audit could not list competitions.",
+            reason: e.message,
+            expected: "Every competition, to audit UI against database gates",
+            actual: "The list query failed",
+            nextStep: "THE AUDIT WILL REPORT NOTHING WRONG BECAUSE IT CHECKED NOTHING. Re-run before trusting a clean result.",
+          });
         } else {
           setCompetitions((data || []) as CompetitionOption[]);
         }

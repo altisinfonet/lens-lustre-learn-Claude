@@ -13,6 +13,10 @@ import {
 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/components/admin/AdminPhotoOfDay.tsx";
+
 const MAX_ACTIVE = 20;
 
 const CATEGORIES = [
@@ -166,7 +170,15 @@ export default function AdminPhotoOfDay({ user }: { user: User | null }) {
 
         setUploadProgress((p) => ({ ...p, [key]: { ...p[key], progress: 100, status: "done" } }));
       } catch (err: any) {
-        console.error("Upload error:", err);
+        logger.error({
+          code: "ADMIN-8102", event: "ADMIN_PHOTO_OF_DAY_UPLOAD_FAILED",
+          fn: "AdminPhotoOfDay", file: FILE,
+          message: "An upload for the Curated Wall failed.",
+          reason: err instanceof Error ? err.message : String(err),
+          expected: "The image stored and set as the featured photograph",
+          actual: "The upload threw",
+          nextStep: "Check the bucket policies. A FILE-5002 in the same window means the browser could not decode the file.",
+        });
         toast({ title: `Failed: ${file.name}`, description: err.message, variant: "destructive" });
         setUploadProgress((p) => ({ ...p, [key]: { ...p[key], progress: 100, status: "error" } }));
       }

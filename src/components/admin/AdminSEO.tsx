@@ -9,6 +9,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import CloudflareEdgeChecklist from "@/components/admin/CloudflareEdgeChecklist";
 import type { User } from "@supabase/supabase-js";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/components/admin/AdminSEO.tsx";
+
 interface PageSEO {
   path: string;
   title: string;
@@ -163,8 +167,15 @@ export default function AdminSEO({ user }: { user: User | null }) {
         description: msg,
         variant: "destructive",
       });
-      // eslint-disable-next-line no-console
-      console.error("[CrawlerVerify] failed:", e);
+      logger.warn({
+        code: "ADMIN-8104", event: "ADMIN_CRAWLER_VERIFY_FAILED",
+        fn: "AdminSEO", file: FILE,
+        message: "The crawler verification check could not run.",
+        reason: e?.message ?? String(e),
+        expected: "A verdict on what a crawler sees",
+        actual: "The check threw",
+        nextStep: "No verdict is not a pass. Re-run before assuming the SEO edge worker is serving crawlers correctly.",
+      });
     } finally {
       setVerifyLoading(false);
       setVerifyStage("");
