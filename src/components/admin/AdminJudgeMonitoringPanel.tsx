@@ -5,6 +5,10 @@ import { cachedFetchProfilesByIds } from "@/lib/profileBatch";
 import { resolveJudgeDisplay, useJudgeReveal } from "@/lib/judgeAnonymizer";
 import JudgeRevealToggle from "@/components/admin/JudgeRevealToggle";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/components/admin/AdminJudgeMonitoringPanel.tsx";
+
 interface Props {
   competitionId: string;
 }
@@ -68,7 +72,15 @@ const AdminJudgeMonitoringPanel = ({ competitionId }: Props) => {
           .in("entry_id", entryIds)
           .in("judge_id", judgeIds);
         if (scoreErr) {
-          console.error("[AdminJudgeMonitoringPanel] score fetch failed", scoreErr);
+          logger.error({
+            code: "JUDGE-6105", event: "JUDGE_MONITORING_SCORE_FETCH_FAILED",
+            fn: "AdminJudgeMonitoringPanel", file: FILE,
+            message: "The judge monitoring panel could not load scores.",
+            reason: scoreErr?.message ?? String(scoreErr),
+            expected: "Every judge's progress for this competition",
+            actual: "The query returned an error",
+            nextStep: "The panel will under-report judging progress, which reads as judges being behind when they may not be.",
+          });
         } else {
           scores = scoreRows ?? [];
         }

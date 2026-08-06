@@ -10,6 +10,10 @@ import {
 import { useNavigationMenu, SYSTEM_PAGES, type MenuItem } from "@/hooks/core/useNavigationMenu";
 import type { User } from "@supabase/supabase-js";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/components/admin/AdminMenuBuilder.tsx";
+
 const headingFont = { fontFamily: "var(--font-heading)" } as const;
 const bodyFont = { fontFamily: "var(--font-body)" } as const;
 const displayFont = { fontFamily: "var(--font-display)" } as const;
@@ -147,7 +151,15 @@ export default function AdminMenuBuilder({ user }: { user: User | null }) {
         updated_by: user?.id,
       });
     } catch (e) {
-      console.error("Failed to auto-create managed page:", e);
+      logger.error({
+        code: "ADMIN-8103", event: "ADMIN_MANAGED_PAGE_CREATE_FAILED",
+        fn: "AdminMenuBuilder", file: FILE,
+        message: "A managed page could not be created for a new menu item.",
+        reason: e instanceof Error ? e.message : String(e),
+        expected: "A page behind the new menu entry",
+        actual: "The creation failed",
+        nextStep: "The menu item may exist while its page does not, which sends members to a dead link. Check before publishing the menu.",
+      });
     }
   };
 

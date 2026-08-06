@@ -15,6 +15,10 @@ import {
 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/components/admin/AdminBanners.tsx";
+
 const MAX_BANNERS = 20;
 
 const CATEGORIES = [
@@ -209,7 +213,15 @@ const AdminBanners = ({ user }: { user: User | null }) => {
 
         setUploadProgress((p) => ({ ...p, [key]: { ...p[key], progress: 100, status: "done" } }));
       } catch (err: any) {
-        console.error("Upload error:", err);
+        logger.error({
+          code: "ADMIN-8102", event: "ADMIN_BANNER_UPLOAD_FAILED",
+          fn: "AdminBanners", file: FILE,
+          message: "A banner image upload failed.",
+          reason: err instanceof Error ? err.message : String(err),
+          expected: "The banner image stored",
+          actual: "The upload threw",
+          nextStep: "Check the bucket policies and the file format before retrying.",
+        });
         toast({ title: `Failed: ${file.name}`, description: err.message, variant: "destructive" });
         setUploadProgress((p) => ({ ...p, [key]: { ...p[key], progress: 100, status: "error" } }));
       }
