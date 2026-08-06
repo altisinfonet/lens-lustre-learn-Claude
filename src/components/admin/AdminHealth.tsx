@@ -16,6 +16,10 @@ import NotificationsHealthAudit from "@/components/admin/NotificationsHealthAudi
 import ClientFailuresAudit from "@/components/admin/ClientFailuresAudit";
 import CacheBusterControl from "@/components/admin/CacheBusterControl";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/components/admin/AdminHealth.tsx";
+
 interface OrphanReport {
   scan_timestamp: string;
   summary: {
@@ -111,13 +115,35 @@ const AdminHealth = ({ user }: { user: User | null }) => {
       );
       result.dbConnected = counts.some((c) => c.count >= 0);
       counts.forEach((c) => { result.tableCounts[c.table] = c.count; });
-    } catch (err) { console.error("[AdminHealth] DB check failed:", err); result.dbConnected = false; }
+    } catch (err) {
+      logger.warn({
+        code: "ADMIN-8101", event: "ADMIN_HEALTH_DB_CHECK_FAILED",
+        fn: "runHealthChecks", file: FILE,
+        message: "The admin health screen could not reach the database.",
+        reason: err instanceof Error ? err.message : String(err),
+        expected: "A successful probe read",
+        actual: "The check threw; the screen will show the database as disconnected",
+        nextStep: "A failed CHECK is not a failed SERVICE. Confirm from a second source before treating this as an outage.",
+      });
+      result.dbConnected = false;
+    }
 
     // Auth check
     try {
       const { data } = await supabase.auth.getSession();
       result.authConnected = !!data;
-    } catch (err) { console.error("[AdminHealth] Auth check failed:", err); result.authConnected = false; }
+    } catch (err) {
+      logger.warn({
+        code: "ADMIN-8101", event: "ADMIN_HEALTH_AUTH_CHECK_FAILED",
+        fn: "runHealthChecks", file: FILE,
+        message: "The admin health screen could not reach the auth service.",
+        reason: err instanceof Error ? err.message : String(err),
+        expected: "A successful auth probe",
+        actual: "The check threw; the screen will show auth as disconnected",
+        nextStep: "If members are signing in normally, the CHECK is broken, not auth.",
+      });
+      result.authConnected = false;
+    }
 
     // Storage check
     try {
@@ -126,7 +152,18 @@ const AdminHealth = ({ user }: { user: User | null }) => {
         result.storageConnected = true;
         result.storageBuckets = data.map((b) => ({ name: b.name, public: b.public }));
       }
-    } catch (err) { console.error("[AdminHealth] Storage check failed:", err); result.storageConnected = false; }
+    } catch (err) {
+      logger.warn({
+        code: "ADMIN-8101", event: "ADMIN_HEALTH_STORAGE_CHECK_FAILED",
+        fn: "runHealthChecks", file: FILE,
+        message: "The admin health screen could not reach storage.",
+        reason: err instanceof Error ? err.message : String(err),
+        expected: "A successful storage probe",
+        actual: "The check threw; the screen will show storage as disconnected",
+        nextStep: "If photographs are loading for members, the CHECK is broken, not storage.",
+      });
+      result.storageConnected = false;
+    }
 
     setHealth(result);
     setLoading(false);

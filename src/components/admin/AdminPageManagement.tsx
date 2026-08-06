@@ -22,6 +22,10 @@ import type { Json } from "@/integrations/supabase/types";
 import SidebarSectionsPanel from "./pages/SidebarSectionsPanel";
 import { PAGE_TEMPLATES } from "./pages/PageTemplates";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/components/admin/AdminPageManagement.tsx";
+
 /* ── Types ── */
 export type NavPlacement = "none" | "header" | "footer" | "both";
 
@@ -216,11 +220,27 @@ export default function AdminPageManagement({ user }: { user: User | null }) {
       }, { onConflict: "key" });
 
       if (navError) {
-        console.error("Nav sync failed:", navError.message);
+        logger.error({
+          code: "ADMIN-8103", event: "ADMIN_NAV_SYNC_FAILED",
+          fn: "syncNavigation", file: FILE,
+          message: "The site navigation could not be synchronised after a page change.",
+          reason: navError.message,
+          expected: "The navigation updated to match the pages",
+          actual: "The sync write failed",
+          nextStep: "The admin screen may show the new page while the live menu does not carry it. Check the stored navigation before retrying.",
+        });
         toast({ title: "Page saved but navigation sync failed", description: navError.message, variant: "destructive" });
       }
     } catch (err) {
-      console.error("Nav sync exception:", err);
+      logger.error({
+        code: "ADMIN-8103", event: "ADMIN_NAV_SYNC_THREW",
+        fn: "syncNavigation", file: FILE,
+        message: "Synchronising the site navigation threw.",
+        reason: err instanceof Error ? err.message : String(err),
+        expected: "The navigation updated to match the pages",
+        actual: "The sync threw",
+        nextStep: "Confirm what the live menu currently shows before retrying — the admin screen is not proof of what shipped.",
+      });
     }
 
     queryClient.invalidateQueries({ queryKey: queryKeys.navigationMenu() });

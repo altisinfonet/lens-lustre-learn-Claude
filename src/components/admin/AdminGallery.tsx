@@ -15,6 +15,10 @@ import {
 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/components/admin/AdminGallery.tsx";
+
 const MAX_ACTIVE = 31;
 
 const LAYOUT_OPTIONS = [
@@ -241,7 +245,15 @@ const AdminGallery = ({ user }: { user: User | null }) => {
 
         setUploadProgress((p) => ({ ...p, [key]: { ...p[key], progress: 100, status: "done" } }));
       } catch (err: any) {
-        console.error("Upload error:", err);
+        logger.error({
+          code: "ADMIN-8102", event: "ADMIN_GALLERY_UPLOAD_FAILED",
+          fn: "handleUpload", file: FILE,
+          message: "An upload from the admin gallery failed.",
+          reason: err instanceof Error ? err.message : String(err),
+          expected: "The image stored and listed in the gallery",
+          actual: "The upload threw",
+          nextStep: "Check the bucket policies. A FILE-5002 in the same window means the browser could not decode the file.",
+        });
         toast({ title: `Failed: ${file.name}`, description: err.message, variant: "destructive" });
         setUploadProgress((p) => ({ ...p, [key]: { ...p[key], progress: 100, status: "error" } }));
       }
@@ -425,7 +437,16 @@ const AdminGallery = ({ user }: { user: User | null }) => {
             setImages((prev) => prev.map((p) => p.id === img.id ? { ...p, thumbnail_url: thumbUpload.url } : p));
             done++;
           } catch {
-            console.error(`Thumb generation failed for ${img.title}`);
+            logger.warn({
+              code: "ADMIN-8102", event: "ADMIN_GALLERY_THUMBNAIL_FAILED",
+              fn: "generateThumbnails", file: FILE,
+              message: "A gallery thumbnail could not be generated.",
+              reason: "The thumbnail step returned no result for this image.",
+              expected: "A thumbnail beside the full-size image",
+              actual: "None generated",
+              nextStep: "The image still shows, but every gallery view downloads it full-size. The title is in the detail.",
+              detail: { imageTitle: img.title },
+            });
           }
         }
         setGeneratingThumbs(false);
