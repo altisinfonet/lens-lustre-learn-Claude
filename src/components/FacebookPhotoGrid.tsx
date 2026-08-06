@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useDownloadImage } from "@/hooks/core/useDownloadImage";
 import DownloadButton from "@/components/DownloadButton";
+import ZoomableImage from "@/components/media/ZoomableImage";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface FacebookPhotoGridProps {
@@ -89,6 +90,7 @@ interface PostLightboxProps { urls: string[]; currentIndex: number | null; onClo
 const PostLightbox = ({ urls, currentIndex, onClose, onNavigate }: PostLightboxProps) => {
   const isOpen = currentIndex !== null;
   const { downloading, download } = useDownloadImage();
+  const [zoomed, setZoomed] = useState(false);
 
   const goPrev = useCallback(() => { if (currentIndex === null) return; onNavigate(currentIndex > 0 ? currentIndex - 1 : urls.length - 1); }, [currentIndex, urls.length, onNavigate]);
   const goNext = useCallback(() => { if (currentIndex === null) return; onNavigate(currentIndex < urls.length - 1 ? currentIndex + 1 : 0); }, [currentIndex, urls.length, onNavigate]);
@@ -118,7 +120,7 @@ const PostLightbox = ({ urls, currentIndex, onClose, onNavigate }: PostLightboxP
               <X className="h-5 w-5" />
             </button>
           </div>
-          {urls.length > 1 && (
+          {urls.length > 1 && !zoomed && (
             <>
               <button onClick={(e) => { e.stopPropagation(); goPrev(); }} className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all">
                 <ChevronLeft className="h-6 w-6" />
@@ -128,8 +130,23 @@ const PostLightbox = ({ urls, currentIndex, onClose, onNavigate }: PostLightboxP
               </button>
             </>
           )}
+          {/* BUILD 1055 — the photograph is the only thing that scales.
+              The counter, download, close and arrows above are SIBLINGS of
+              ZoomableImage, never ancestors of it, which is what keeps them
+              still while a member pinches. The arrows step out of the way
+              while zoomed: a chevron floating over a magnified photograph is
+              easy to hit by accident in the middle of a pan.
+              The entry animation is opacity only now — it used to scale the
+              image itself, and a parent-owned scale animation fights the
+              gesture transform for ownership of the same property. */}
           <AnimatePresence mode="wait">
-            <motion.img key={currentIndex} src={urls[currentIndex]} alt="" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.2 }} className="max-w-[95vw] max-h-[92vh] object-contain rounded-sm shadow-2xl" onClick={(e) => e.stopPropagation()} />
+            <motion.div key={currentIndex} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0 flex items-center justify-center">
+              <ZoomableImage
+                src={urls[currentIndex]}
+                className="max-w-[95vw] max-h-[92vh] object-contain rounded-sm shadow-2xl"
+                onZoomChange={setZoomed}
+              />
+            </motion.div>
           </AnimatePresence>
         </motion.div>
       )}

@@ -5,6 +5,7 @@ import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import ImageEngagement from "@/components/ImageEngagement";
 import AdZone from "@/components/ads/AdZone";
 import DownloadButton from "@/components/DownloadButton";
+import ZoomableImage from "@/components/media/ZoomableImage";
 import { useDownloadImage } from "@/hooks/core/useDownloadImage";
 
 interface LightboxProps {
@@ -82,8 +83,20 @@ const Lightbox = memo(({ images, currentIndex, isOpen, onClose, onPrev, onNext, 
           <AnimatePresence mode="wait">
             <motion.div key={currentIndex} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.3 }}
               className="relative max-w-[90vw] max-h-[85vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
-              <img src={current.src} alt={`${current.title} — ${current.category}`} className="max-w-full max-h-[65vh] object-contain rounded-sm shadow-2xl"
-                {...(imageType === "competition_entry" ? { onContextMenu: (e: React.MouseEvent) => e.preventDefault(), draggable: false, style: { pointerEvents: "auto" as const, userSelect: "none" as const } } : {})} />
+              {/* BUILD 1055 — this viewer has a title and an engagement bar
+                  BELOW the photograph, so the pan box hugs the picture instead
+                  of filling the screen. Zoom therefore happens inside the frame
+                  the photograph already occupied and nothing underneath it
+                  shifts. The anti-download guards for competition entries are
+                  passed through, not dropped. */}
+              <ZoomableImage
+                src={current.src}
+                alt={`${current.title} — ${current.category}`}
+                wrapperClassName="max-w-full max-h-[65vh]"
+                className="max-w-full max-h-[65vh] object-contain rounded-sm shadow-2xl select-none"
+                {...(imageType === "competition_entry"
+                  ? { imgProps: { onContextMenu: (e: React.MouseEvent) => e.preventDefault() } }
+                  : {})} />
               <div className="mt-4 text-center">
                 <h3 className="text-2xl md:text-3xl font-light text-foreground" style={{ fontFamily: "var(--font-display)" }}>{current.title}</h3>
               </div>

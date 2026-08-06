@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/core/useAuth";
 import { toast } from "sonner";
 import { useNavigate, useParams } from "react-router-dom";
 import { useCompetitionVoting } from "@/hooks/competition/useCompetitionVoting";
+import ZoomableImage from "@/components/media/ZoomableImage";
 
 interface VotingEntry {
   id: string; // entry_id (multiple photos can share the same entry id)
@@ -174,9 +175,14 @@ const VotingLightbox = ({ entries, startIndex, onClose, onVoted, onPhotoChange }
             </button>
           )}
 
-          <img
+          {/* BUILD 1055 — this viewer carries no watermark and no judging
+              phase, so zoom is unconditional here. The pan box hugs the
+              photograph rather than filling the panel, which keeps the vote
+              controls below and the arrows beside it exactly where they are. */}
+          <ZoomableImage
             src={current.photo_url}
             alt={current.title}
+            wrapperClassName="max-w-full max-h-full"
             className="max-w-full max-h-full object-contain rounded-sm"
           />
 
