@@ -3,6 +3,10 @@ import { AlertTriangle, CheckCircle, Loader2, Trophy, ShieldAlert, RefreshCw, Sc
 import { supabase } from "@/integrations/supabase/client";
 import { useT } from "@/i18n/I18nContext";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/components/judge/CompleteRoundDialog.tsx";
+
 interface CompleteRoundDialogProps {
   roundId: string;
   roundName: string;
@@ -78,7 +82,15 @@ const CompleteRoundDialog = ({ roundId, roundName, competitionId, roundNumber, o
     });
 
     if (error || !data) {
-      console.error("get_round_summary failed:", error);
+      logger.error({
+        code: "JUDGE-6105", event: "JUDGE_ROUND_SUMMARY_RPC_FAILED",
+        fn: "CompleteRoundDialog", file: FILE,
+        message: "The round summary could not be loaded before completing the round.",
+        reason: error.message ?? String(error),
+        expected: "The counts an admin confirms before closing a round",
+        actual: "The database function returned an error",
+        nextStep: "DO NOT COMPLETE THE ROUND ON A BLANK SUMMARY. Completing locks results; the numbers are the only check that it is safe.",
+      });
       setSummary({ total: 0, qualified: 0, rejected: 0, needsReview: 0, pending: 0 });
       setTopEntries([]);
       setLoading(false);
