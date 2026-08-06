@@ -231,6 +231,51 @@ const ZoomableImage = ({ src, alt = "", className, wrapperClassName = "w-full h-
     announceZoom(true);
   }, [scale, x, y, offsetFromCentre, zoomAbout, announceZoom]);
 
+  /**
+   * One tap arms; a second inside the window zooms. A lone tap does nothing at
+   * all — on the photograph it must neither close the viewer nor zoom, because
+   * a member who brushed the picture has not asked for either.
+   */
+  const handleDoubleTapCandidate = useCallback((px: number, py: number) => {
+    const now = Date.now();
+    if (now - lastTapRef.current < DOUBLE_TAP_MS) {
+      lastTapRef.current = 0;
+      handleDoubleTap(px, py);
+      return;
+    }
+    lastTapRef.current = now;
+  }, [handleDoubleTap]);
+
+  /**
+   * ROTATE THE DEVICE WHILE ZOOMED — SPEC §7's twelfth checklist item.
+   *
+   * The pan limits are derived from the laid-out size of the photograph and of
+   * the viewer, and BOTH change when the handset turns. Nothing recomputed
+   * them until the next gesture, so a photograph panned to the right-hand edge
+   * in landscape could sit well outside its own frame in portrait, showing a
+   * band of empty backdrop where the picture should be, until the member
+   * happened to touch it again. Re-clamped on every resize instead.
+   */
+  useEffect(() => {
+    const reclamp = () => {
+      try {
+        const s = scale.get();
+        if (s <= MIN_SCALE) { x.set(0); y.set(0); return; }
+        const { maxX, maxY } = limits(s);
+        x.set(clamp(x.get(), maxX));
+        y.set(clamp(y.get(), maxY));
+      } catch (err) {
+        reportGestureFailure(err, "resize");
+      }
+    };
+    window.addEventListener("resize", reclamp);
+    window.addEventListener("orientationchange", reclamp);
+    return () => {
+      window.removeEventListener("resize", reclamp);
+      window.removeEventListener("orientationchange", reclamp);
+    };
+  }, [scale, x, y, limits, clamp, reportGestureFailure]);
+
   useGesture(
     {
       onPinch: (state) => {
@@ -255,15 +300,28 @@ const ZoomableImage = ({ src, alt = "", className, wrapperClassName = "w-full h-
       },
       onDrag: (state) => {
         try {
-          const { offset: [ox, oy], pinching, cancel, last, tap } = state;
-          // A tap is not a pan. filterTaps keeps them apart, but a two-finger
-          // gesture that starts as a drag must yield to the pinch or the
-          // photograph fights itself.
+          const { offset: [ox, oy], pinching, cancel, last, tap, xy: [px, py] } = state;
+          // A two-finger gesture that starts as a drag must yield to the pinch
+          // or the photograph fights itself.
           if (pinching) return cancel();
-          if (tap) return;
+
+          // THE DOUBLE TAP IS DETECTED HERE, NOT FROM A CLICK EVENT.
+          //
+          // It used to be an onClick handler on the wrapper, and on a
+          // touchscreen that was broken in a way no desktop test would show.
+          // @use-gesture takes pointer capture on its target for the duration
+          // of a gesture, and under pointer capture the browser computes the
+          // click's target from the CAPTURING element — so `e.target` came back
+          // as the wrapper, never the <img>. The wrapper is the whole viewer,
+          // so a tap on the photograph read as "tapped beside it", bubbled to
+          // the backdrop, and CLOSED THE VIEWER. Double-tap zoom could never
+          // have fired at all. Reading the tap off the gesture itself uses the
+          // same event stream that captured the pointer, so there is nothing
+          // left to disagree with.
+          if (tap) { handleDoubleTapCandidate(px, py); return; }
+
           const s = scale.get();
-          // Fitted photograph: nothing to pan. Returning here also leaves the
-          // caller's own tap-to-close behaviour intact.
+          // Fitted photograph: nothing to pan.
           if (s <= MIN_SCALE) return;
           const { maxX, maxY } = limits(s);
           x.set(clamp(ox, maxX));
@@ -275,7 +333,11 @@ const ZoomableImage = ({ src, alt = "", className, wrapperClassName = "w-full h-
       },
     },
     {
-      target: wrapperRef,
+      // TARGET IS THE PHOTOGRAPH, NOT THE WRAPPER. The wrapper spans the whole
+      // viewer because that is what the pan limits are measured against, but
+      // binding gestures to it would make it swallow every touch on the
+      // backdrop too — including the tap that is supposed to close the viewer.
+      target: imgRef,
       eventOptions: { passive: false },
       enabled: !gesturesFailed,
       pinch: { scaleBounds: { min: MIN_SCALE, max: MAX_SCALE }, rubberband: true, from: () => [scale.get(), 0] },
@@ -297,58 +359,39 @@ const ZoomableImage = ({ src, alt = "", className, wrapperClassName = "w-full h-
     announceZoom(false);
   }, [src, scale, x, y, announceZoom]);
 
-  /**
-   * TAP RULES, and they matter more than they look.
-   *
-   * This element fills the whole viewer so that pan limits are measured
-   * against the screen. That means it also covers the dark backdrop, and the
-   * backdrop's job is to close the viewer when a member taps beside the
-   * photograph — every gallery they use behaves that way and this one did too
-   * before 1055. So:
-   *
-   *  · tap ON the photograph      → never closes (it is a double-tap candidate)
-   *  · tap BESIDE it while fitted → bubbles to the backdrop and closes
-   *  · tap BESIDE it while zoomed → swallowed, because at that point the
-   *    "tap" is nearly always the end of a pan that ran past the edge, and
-   *    losing your place mid-zoom is maddening
-   */
-  const onTap = useCallback((e: React.MouseEvent) => {
-    const onPhotograph = e.target === imgRef.current;
-    const zoomed = scale.get() > SNAP_BACK_BELOW;
-    if (onPhotograph || zoomed) e.stopPropagation();
-    if (!onPhotograph) return;
-
-    const now = Date.now();
-    if (now - lastTapRef.current < DOUBLE_TAP_MS) {
-      lastTapRef.current = 0;
-      if (!gesturesFailed) handleDoubleTap(e.clientX, e.clientY);
-      return;
-    }
-    lastTapRef.current = now;
-  }, [gesturesFailed, handleDoubleTap, scale]);
-
   return (
     <div
       ref={wrapperRef}
-      onClick={onTap}
+      // NO onClick HERE, deliberately. This element spans the whole viewer, so
+      // a handler on it would intercept the tap on the dark backdrop that is
+      // supposed to close the viewer. Taps on the photograph are stopped at the
+      // <img> below; everything else bubbles to the caller's backdrop exactly
+      // as it did before 1055.
       className={`relative flex items-center justify-center overflow-hidden ${wrapperClassName}`}
-      style={{
-        // The opt-in. Everything else in the app is pan-x pan-y; this one
-        // element takes the touches itself. When gestures have failed we hand
-        // touch handling straight back to the browser rather than holding on
-        // to events we are no longer processing.
-        touchAction: gesturesFailed ? "pan-x pan-y" : "none",
-      }}
     >
       <motion.img
         ref={imgRef}
         src={src}
         alt={alt}
         className={className}
-        // will-change promotes the photograph to its own layer so a pinch on a
-        // large original does not repaint the whole viewer every frame —
-        // SPEC §1's "no lag on high-resolution photographs".
-        style={{ scale, x, y, willChange: "transform" }}
+        // A tap on the photograph must never reach the backdrop, which closes
+        // the viewer. This is the ONLY place that decision is made, and it is
+        // made on the element the member actually touched.
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          scale,
+          x,
+          y,
+          // will-change promotes the photograph to its own layer so a pinch on
+          // a large original does not repaint the whole viewer every frame —
+          // SPEC §1's "no lag on high-resolution photographs".
+          willChange: "transform",
+          // THE OPT-IN, and it is exactly one photograph wide. Everything else
+          // in the app is pan-x pan-y (inside the installed app) and untouched
+          // on the web. When gestures have failed we hand touch handling back
+          // to the browser rather than keep events we no longer process.
+          touchAction: gesturesFailed ? "auto" : "none",
+        }}
         draggable={false}
         onError={() => {
           try {
