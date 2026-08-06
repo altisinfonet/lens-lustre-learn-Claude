@@ -20,6 +20,7 @@ import {
   Heart, FileText, Globe, BarChart3, Megaphone, Zap, Bell, HeartPulse,
   UserPlus, HelpCircle, Mail, ClipboardList, Database, LogIn,
   ExternalLink, Tag, Gavel, Search, Shield, BookMarked, Wallet, Gift, ShieldCheck,
+  Bug,
 } from "lucide-react";
 
 // ─── Lazy-loaded modules ────────────────────────────────────
@@ -54,6 +55,8 @@ const AdminPushBroadcast = lazy(() => import("@/components/admin/AdminPushBroadc
 const AdminPerformance = lazy(() => import("@/components/admin/AdminPerformance"));
 const AdminAnnouncements = lazy(() => import("@/components/admin/AdminAnnouncements"));
 const AdminHealth = lazy(() => import("@/components/admin/AdminHealth"));
+// The structured application log (owner's logging standard, 2026-08-06).
+const AdminAppEvents = lazy(() => import("@/components/admin/AdminAppEvents"));
 const AdminEngagement = lazy(() => import("@/components/admin/AdminEngagement"));
 const AdminTransactions = lazy(() => import("@/components/admin/AdminTransactions"));
 const AdminReferrals = lazy(() => import("@/components/admin/AdminReferrals"));
@@ -90,7 +93,7 @@ const VALID_ROUTES = new Set([
   "seo", "advertisements", "push_notification", "performance", "announcements", "newsletter_faq", "analytics",
   "page_management", "menu_builder", "redirects",
   "settings", "auth_pages", "email_templates", "database",
-  "health", "activity_logs", "admin_notifications", "notifications_health", "test_agent",
+  "health", "app_events", "activity_logs", "admin_notifications", "notifications_health", "test_agent",
   "support_tickets", "user_guide",
 ]);
 
@@ -105,6 +108,7 @@ const LazyTab = ({ children }: { children: React.ReactNode }) => (
 const tabGroups = [
   { label: "Overview", items: [
     ["health", "Site Health", HeartPulse],
+    ["app_events", "Error Log", Bug],
     ["notifications_health", "Notification Drift", Bell],
     ["test_agent", "Test Agent", HeartPulse],
     ["analytics", "Analytics", BarChart3],
@@ -298,6 +302,22 @@ const AdminPanel = () => {
 
       {/* Overview */}
       {currentRoute === "health" && <LazyTab><AdminHealth user={user} /></LazyTab>}
+      {currentRoute === "app_events" && (
+        <LazyTab>
+          <div className="space-y-4">
+            <header>
+              <h2 className="text-lg font-semibold" style={{ fontFamily: "var(--font-heading)" }}>
+                Error Log
+              </h2>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Every recorded failure, with its code, what was expected, what actually happened,
+                and where to look next. When a member reports a code such as DB-3002, find it here.
+              </p>
+            </header>
+            <AdminAppEvents />
+          </div>
+        </LazyTab>
+      )}
       {currentRoute === "notifications_health" && <LazyTab><AdminNotificationsHealth /></LazyTab>}
       {currentRoute === "test_agent" && <LazyTab><AdminTestAgent /></LazyTab>}
       {currentRoute === "activity_logs" && <LazyTab><AdminActivityLogs /></LazyTab>}
