@@ -69,9 +69,20 @@ if (fs.existsSync("supabase/functions")) {
     // unauthenticated pattern. Missing either produced two false CRITICALs on
     // payment and unsubscribe endpoints that were correctly protected.
     const verifiesCaller = /auth\.getUser\(|auth\.getClaims\(|x-internal-secret|INTERNAL_SECRET|CRON_SECRET|signature|hmac|_tokens'\)|_tokens"\)/i.test(t);
-    if (usesServiceKey && optedOut && !verifiesCaller)
-      add("CRITICAL", "edge-fn-open-with-service-key",
-          "Reachable WITHOUT a JWT (verify_jwt=false) and holds the service-role key, with no signature or secret check", idx);
+    // GRADE BY WHAT IT CAN DO, NOT MERELY BY BEING OPEN. A public read-only
+    // endpoint holding the service key (sitemap, SEO metadata) is a normal,
+    // necessary shape — the protection is its own WHERE clause, and that is a
+    // code-review question, not a pattern one. An open endpoint that WRITES is
+    // a different animal entirely. Grading both CRITICAL made the gate red for
+    // a sitemap that was verified correct, and a permanently red gate is one
+    // nobody reads.
+    const writes = /\.(insert|update|upsert|delete)\s*\(|\.rpc\s*\(/.test(t);
+    if (usesServiceKey && optedOut && !verifiesCaller && writes)
+      add("CRITICAL", "edge-fn-open-and-writes",
+          "Reachable WITHOUT a JWT and holds the service-role key, and it WRITES — no signature or secret check", idx);
+    else if (usesServiceKey && optedOut && !verifiesCaller)
+      add("MEDIUM", "edge-fn-open-read-only",
+          "Public read-only endpoint holding the service-role key. RLS does not protect it, so its own filters are the only protection \u2014 re-read them when it changes", idx);
     else if (usesServiceKey && !verifiesCaller && !optedOut)
       add("LOW", "edge-fn-jwt-only",
           "Uses the service-role key and relies solely on Supabase's default JWT gate — any signed-in member can invoke it", idx);
@@ -136,7 +147,15 @@ for (const f of appFiles) {
 /* 8 — UNSANITISED HTML INJECTION. */
 for (const f of appFiles) {
   const t = read(f);
-  if (/dangerouslySetInnerHTML/.test(t) && !/DOMPurify|sanitiz/i.test(t))
+  // Reviewed exceptions. Written down WITH A REASON rather than quietly
+  // dropped, so the next person can disagree with the judgement instead of
+  // wondering why the rule does not fire. Anything not listed still fails.
+  const HTML_REVIEWED = {
+    "src/components/ui/chart.tsx":
+      "Builds a CSS string from the developer-defined THEMES/chart config; the interpolated id comes from React's useId(). No member input reaches it. Reviewed 2026-08-06.",
+  };
+  const key = f.split(path.sep).join("/");
+  if (/dangerouslySetInnerHTML/.test(t) && !/DOMPurify|sanitiz/i.test(t) && !HTML_REVIEWED[key])
     add("HIGH", "unsanitised-html", "dangerouslySetInnerHTML with no visible sanitisation", f);
   if (/(?<![\w.])eval\s*\(|new\s+Function\s*\(/.test(t))
     add("HIGH", "dynamic-code-execution", "eval() or new Function() executes attacker-controllable strings", f);
