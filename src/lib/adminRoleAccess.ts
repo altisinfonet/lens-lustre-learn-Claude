@@ -10,7 +10,7 @@ export type AdminSubRole = "super_admin" | "moderator" | "finance" | "content_ed
 
 /** Tab keys that exist in AdminPanel */
 export type AdminTab =
-  | "health" | "notifications_health" | "test_agent" | "analytics" | "admin_notifications" | "activity_logs"
+  | "health" | "app_events" | "notifications_health" | "test_agent" | "analytics" | "admin_notifications" | "activity_logs"
   | "banners" | "potd" | "portfolio" | "on_page_images" | "featured_artist"
   | "journal" | "courses" | "certificates" | "excellence"
   | "competitions" | "competition_health" | "entries" | "judging_tags" | "tag_semantics" | "round_visibility" | "judge_monitoring" | "vote_audit" | "judge_activity" | "vote_rewards" | "verification_requests"
