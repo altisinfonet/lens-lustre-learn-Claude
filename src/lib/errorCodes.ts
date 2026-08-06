@@ -521,6 +521,30 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     resolution:
       "Deliberately info, so it is never persisted — crawlers and bots hit 404s constantly and would flood the log. Check the path in the detail against the navigation if a member reports a dead link.",
   },
+  {
+    code: "UI-8007",
+    severity: "warn",
+    description:
+      "A photograph opened fullscreen failed to load, so the member is looking at an empty viewer.",
+    resolution:
+      "The member tapped a photo and got nothing — the thumbnail they tapped came from the same URL, so this is almost never a bad link. Read viewport and device model from the event: a very large original on a low-memory handset is decoded at full size in the viewer where the feed only ever decoded an 800px copy. Check FILE-5xxx in the same correlation window before suspecting storage.",
+  },
+  {
+    code: "UI-8009",
+    severity: "debug",
+    description:
+      "The app-only pinch-zoom lock was evaluated at start-up, and whether it was applied.",
+    resolution:
+      "None on its own. It exists for the same reason ADMIN-8107 does: if the lock silently stops being applied, the app goes back to browser page zoom and nobody finds out until a member reports the whole screen scaling. DEBUG on purpose — it fires once per launch and must never reach the Error Log. `applied:false` on a handset is the finding; `applied:false` on web is correct and expected.",
+  },
+  {
+    code: "UI-8008",
+    severity: "error",
+    description:
+      "Pinch, pan or double-tap handling inside the fullscreen viewer threw.",
+    resolution:
+      "TREAT AS URGENT: gesture code sits on the touch path, and a throw there is how scrolling dies for a member with no visible error at all. The viewer falls back to a plain unzoomable image rather than staying broken. Emitted AT MOST ONCE PER VIEWER MOUNT by design — a pointer handler can fire hundreds of times a second and would otherwise flood this log and the member's data. One row therefore means one broken viewer, not one broken gesture.",
+  },
 
   // ── SYS ───────────────────────────────────────────────────────────────────
   {
