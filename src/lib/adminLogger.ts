@@ -4,6 +4,10 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/lib/adminLogger.ts";
+
 export type LogSeverity = "info" | "warn" | "error" | "critical";
 
 interface AdminLogEntry {
@@ -38,7 +42,19 @@ export async function logAdminAction(
     });
   } catch {
     // Never break admin UX for logging failures
-    console.error("[AdminLogger] Failed to log:", entry.action);
+    logger.warn({
+      code: "ADMIN-8105",
+      event: "ADMIN_AUDIT_WRITE_FAILED",
+      fn: "logAdminAction",
+      file: FILE,
+      message: "An admin action was performed but could not be written to the audit log.",
+      reason: "The activity_logs insert threw and was swallowed so admin work is never blocked by logging.",
+      expected: "One audit row for this action",
+      actual: "No audit row",
+      nextStep:
+        "THE ACTION STILL HAPPENED — only the record of it failed, so the audit trail now has a hole. Note what was done manually and check the activity_logs policies.",
+      detail: { action: entry.action, category: entry.category },
+    });
   }
 }
 

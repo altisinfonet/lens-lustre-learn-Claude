@@ -1,6 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
 import sidebarAdFixed from "@/assets/sidebar-ad-fixed.png";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/lib/adSlots.ts";
+
 export type AdPlacement = "header" | "sidebar" | "in-content" | "between-entries" | "lightbox-overlay" | "above-journal" | "below-journal" | "anchor-bottom";
 export type AdDevice = "desktop" | "mobile" | "tablet";
 export type AdImageSource = "upload" | "url" | "code";
@@ -398,7 +402,21 @@ const isDuplicateImpression = (slotId: string): boolean => {
   try {
     const last = sessionStorage.getItem(key);
     if (last && Date.now() - parseInt(last, 10) < IMPRESSION_DEDUP_MS) {
-      if (import.meta.env.DEV) console.debug(`[AdTrack] BLOCKED duplicate impression for slot=${slotId} (within ${IMPRESSION_DEDUP_MS / 1000}s)`);
+      // Vite strips this whole branch from the production bundle. logger.debug
+      // never prints in production anyway, but emit() would still build and
+      // redact the payload — real work on a scroll-driven hot path, on a phone,
+      // for output nobody can ever see.
+      if (import.meta.env.DEV) {
+        logger.debug({
+          code: "ADS-8201", event: "AD_DUPLICATE_IMPRESSION_SUPPRESSED",
+          fn: "trackImpression", file: FILE,
+          message: "A duplicate advertising impression was suppressed.",
+          reason: "The same slot was already counted inside the dedup window.",
+          expected: "One impression per slot per window",
+          actual: "A second attempt, dropped",
+          detail: { slotId, dedupMs: IMPRESSION_DEDUP_MS },
+        });
+      }
       return true;
     }
     sessionStorage.setItem(key, Date.now().toString());
@@ -412,7 +430,21 @@ const isDuplicateClick = (slotId: string): boolean => {
   try {
     const last = sessionStorage.getItem(key);
     if (last && Date.now() - parseInt(last, 10) < CLICK_DEDUP_MS) {
-      if (import.meta.env.DEV) console.debug(`[AdTrack] BLOCKED duplicate click for slot=${slotId} (within ${CLICK_DEDUP_MS}ms)`);
+      // Vite strips this whole branch from the production bundle. logger.debug
+      // never prints in production anyway, but emit() would still build and
+      // redact the payload — real work on a scroll-driven hot path, on a phone,
+      // for output nobody can ever see.
+      if (import.meta.env.DEV) {
+        logger.debug({
+          code: "ADS-8201", event: "AD_DUPLICATE_CLICK_SUPPRESSED",
+          fn: "trackClick", file: FILE,
+          message: "A duplicate advertising click was suppressed.",
+          reason: "The same slot was already counted inside the dedup window.",
+          expected: "One click per slot per window",
+          actual: "A second attempt, dropped",
+          detail: { slotId, dedupMs: CLICK_DEDUP_MS },
+        });
+      }
       return true;
     }
     sessionStorage.setItem(key, Date.now().toString());
@@ -426,7 +458,21 @@ const isDuplicateConversion = (adId: string, conversionType: string): boolean =>
   try {
     const last = sessionStorage.getItem(key);
     if (last && Date.now() - parseInt(last, 10) < CONV_DEDUP_MS) {
-      if (import.meta.env.DEV) console.debug(`[AdTrack] BLOCKED duplicate conversion: ad=${adId} type=${conversionType} (within ${CONV_DEDUP_MS / 1000}s)`);
+      // Vite strips this whole branch from the production bundle. logger.debug
+      // never prints in production anyway, but emit() would still build and
+      // redact the payload — real work on a scroll-driven hot path, on a phone,
+      // for output nobody can ever see.
+      if (import.meta.env.DEV) {
+        logger.debug({
+          code: "ADS-8201", event: "AD_DUPLICATE_CONVERSION_SUPPRESSED",
+          fn: "trackConversion", file: FILE,
+          message: "A duplicate advertising conversion was suppressed.",
+          reason: "The same ad and conversion type were already counted inside the dedup window.",
+          expected: "One conversion per ad per type per window",
+          actual: "A second attempt, dropped",
+          detail: { adId, conversionType, dedupMs: CONV_DEDUP_MS },
+        });
+      }
       return true;
     }
     sessionStorage.setItem(key, Date.now().toString());
@@ -468,7 +514,21 @@ export const trackAdEvent = async (
     resilientInsert("ad_impressions", row, useBeacon);
 
     if (import.meta.env.DEV && eventType === "click") {
-      console.debug(`[AdTrack] click fired once for slot=${slotId} placement=${placement}`);
+      // Vite strips this whole branch from the production bundle. logger.debug
+      // never prints in production anyway, but emit() would still build and
+      // redact the payload — real work on a scroll-driven hot path, on a phone,
+      // for output nobody can ever see.
+      if (import.meta.env.DEV) {
+        logger.debug({
+          code: "ADS-8202", event: "AD_CLICK_RECORDED",
+          fn: "trackClick", file: FILE,
+          message: "An advertising click was recorded once.",
+          reason: "The once-only guard let exactly one event through.",
+          expected: "Exactly one recorded click",
+          actual: "one",
+          detail: { slotId, placement },
+        });
+      }
     }
   } catch {
     // silent — tracking should never block UX
@@ -518,7 +578,21 @@ export const trackConversion = async (
     resilientInsert("ad_conversions", row, true);
 
     if (import.meta.env.DEV) {
-      console.debug(`[AdTrack] conversion fired once: ad=${adId} type=${conversionType}`);
+      // Vite strips this whole branch from the production bundle. logger.debug
+      // never prints in production anyway, but emit() would still build and
+      // redact the payload — real work on a scroll-driven hot path, on a phone,
+      // for output nobody can ever see.
+      if (import.meta.env.DEV) {
+        logger.debug({
+          code: "ADS-8202", event: "AD_CONVERSION_RECORDED",
+          fn: "trackConversion", file: FILE,
+          message: "An advertising conversion was recorded once.",
+          reason: "The once-only guard let exactly one event through.",
+          expected: "Exactly one recorded conversion",
+          actual: "one",
+          detail: { adId, conversionType },
+        });
+      }
     }
   } catch {
     // silent — conversion tracking should never block UX

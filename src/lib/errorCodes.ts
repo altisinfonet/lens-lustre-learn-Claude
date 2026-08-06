@@ -61,6 +61,7 @@ export interface ErrorCodeEntry {
  *   JUDGE-6100…6199  competition judging, scoring and the judging locks
  *   ADMIN-8100…8199  admin-only screens and tools
  *   NOTIF-7000…7999  notifications and push
+ *   ADS-8200…8299    advertising slots, impressions and conversions
  *   UI-8000…8999     rendering, routing, stuck screens
  *   SYS-9000…9999    anything structural that does not fit above
  *
@@ -219,6 +220,21 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
       "Members still see posts, but the fairness ordering (unseen first, fewest viewers first) is gone until this is fixed. Confirm get_broadcast_feed is still deployed and check the reason for its Postgres message.",
   },
 
+  {
+    code: "DB-3005",
+    severity: "warn",
+    description: "A batch lookup of member names and avatars failed, so fallback identities were rendered.",
+    resolution:
+      "READ THIS ONE CAREFULLY BEFORE PANICKING. When it fires, posts and comments render the generic name 'Photographer' with a letter-placeholder avatar — which is EXACTLY what a deleted account also looks like (see the Bug 1 screenshots, 2026-08-06). One is a lookup that failed; the other is a profile that is gone. Check for this code before concluding an account was deleted.",
+  },
+  {
+    code: "DB-3006",
+    severity: "warn",
+    description: "Public vote tallies could not be loaded, so photographs are shown without their counts.",
+    resolution:
+      "The photographs still display; only the numbers are absent, which reads as 'no votes yet' rather than 'we could not count'. Blank is honest here, but confirm the tallies exist before anyone quotes a result.",
+  },
+
   // ── API ───────────────────────────────────────────────────────────────────
   {
     code: "API-4001",
@@ -277,6 +293,14 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     description: "Listing a storage folder failed, so the caller received an empty list.",
     resolution:
       "This is member-visible as 'there are no photos here', which is indistinguishable from an empty folder. Check the bucket policies before believing the folder is genuinely empty.",
+  },
+
+  {
+    code: "FILE-5008",
+    severity: "warn",
+    description: "Camera details could not be read out of a photograph.",
+    resolution:
+      "The upload is unaffected — only the EXIF panel (camera, lens, aperture) will be empty. Common when a photo has been edited or exported by an app that strips metadata; this is the photographer's own file, not our pipeline.",
   },
 
   // ── STORY ─────────────────────────────────────────────────────────────────
@@ -365,6 +389,25 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
       "App-only. The member will silently receive no pushes — nothing tells them. Check the permission result and whether the device registered a token in push_tokens for this member.",
   },
 
+  // ── ADS ───────────────────────────────────────────────────────────────────
+  //
+  // Both are `debug` and must stay that way. Ad events fire on ordinary
+  // scrolling — at warn, one member browsing the feed would write more rows in a
+  // minute than every real failure writes in a week.
+  {
+    code: "ADS-8201",
+    severity: "debug",
+    description: "A duplicate advertising event was suppressed by the deduplication window.",
+    resolution:
+      "None — this is the guard working. It exists so an advertiser is never billed twice for one member action.",
+  },
+  {
+    code: "ADS-8202",
+    severity: "debug",
+    description: "An advertising click or conversion was recorded once.",
+    resolution: "None — a development marker confirming the once-only guard let exactly one event through.",
+  },
+
   // ── UI ────────────────────────────────────────────────────────────────────
   {
     code: "UI-8001",
@@ -422,11 +465,40 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
       "The admin's screen may still show the change even though it was not stored. The event names what failed — navigation sync or managed-page creation. Confirm the current stored state before retrying.",
   },
   {
+    code: "ADMIN-8105",
+    severity: "warn",
+    description: "An admin action was performed but could not be written to the audit log.",
+    resolution:
+      "THE ACTION STILL HAPPENED — only the record of it failed, so the audit trail now has a hole. Note what was done manually and check the activity_logs policies.",
+  },
+  {
+    code: "ADMIN-8106",
+    severity: "error",
+    description: "An admin action threw part-way through.",
+    resolution:
+      "The action may be half-applied. Confirm the current stored state before retrying — a blind retry can double-apply whatever did succeed.",
+  },
+  {
     code: "ADMIN-8104",
     severity: "warn",
     description: "An admin diagnostic or audit tool could not complete its run.",
     resolution:
       "The tool shows an empty or partial result, which reads as 'nothing wrong found'. It is not the same as a clean run — re-run before trusting the output.",
+  },
+
+  {
+    code: "UI-8005",
+    severity: "warn",
+    description: "A component crashed but was contained, so only that block is missing.",
+    resolution:
+      "Narrower than SYS-9002: the page still works and the member may not notice anything beyond a missing name or badge. Read the reason for which child threw.",
+  },
+  {
+    code: "UI-8006",
+    severity: "info",
+    description: "A member reached a route that does not exist.",
+    resolution:
+      "Deliberately info, so it is never persisted — crawlers and bots hit 404s constantly and would flood the log. Check the path in the detail against the navigation if a member reports a dead link.",
   },
 
   // ── SYS ───────────────────────────────────────────────────────────────────
@@ -499,6 +571,14 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     description: "A single API response was larger than the tracer's payload threshold.",
     resolution:
       "Check the select list on that query — an unbounded select('*') on a wide table is the usual cause, and it costs the member's mobile data.",
+  },
+
+  {
+    code: "SYS-9011",
+    severity: "warn",
+    description: "Site settings could not be loaded, so built-in defaults are in use.",
+    resolution:
+      "THIS CHANGES WHAT MEMBERS SEE without anything on screen saying so — a setting an admin turned off may be back on. Confirm the site_settings read is working before investigating any 'setting did not save' report.",
   },
 
   // ── SYS: the installed app's update flow ──────────────────────────────────
