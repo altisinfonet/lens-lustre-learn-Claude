@@ -63,14 +63,47 @@ describe("ZoomableImage keeps the two structural guarantees", () => {
 
   it("puts the transform on the <img> and not on a wrapper — the UI must stay still", () => {
     // The motion values are applied in exactly one place, on the image.
-    expect(src()).toMatch(/<motion\.img[\s\S]*?style=\{\{ scale, x, y/);
+    expect(src()).toMatch(/<motion\.img[\s\S]*?style=\{\{\s*scale,\s*x,\s*y,/);
     // and nothing else in the file is a motion element that could take them.
     const motionElements = src().match(/<motion\.[a-z]+/g) ?? [];
     expect(motionElements).toEqual(["<motion.img"]);
   });
 
-  it("opts back in to raw touches with touch-action: none", () => {
-    expect(src()).toContain('touchAction: gesturesFailed ? "pan-x pan-y" : "none"');
+  it("opts back in to raw touches with touch-action: none, on the photograph only", () => {
+    expect(src()).toContain('touchAction: gesturesFailed ? "auto" : "none"');
+  });
+
+  /**
+   * These three pin the fix for a defect that shipped in the first cut of 1055
+   * and that no desktop test could have caught.
+   *
+   * The gestures were bound to the WRAPPER, which spans the whole viewer, and
+   * the double tap was read from an onClick on it. @use-gesture takes pointer
+   * capture on its target, and under capture the browser computes a click's
+   * target from the CAPTURING element — so `e.target` was always the wrapper,
+   * never the <img>. On a handset that meant a tap on the photograph read as
+   * "tapped beside it", bubbled to the backdrop and CLOSED THE VIEWER, and
+   * double-tap zoom could never fire at all.
+   */
+  it("binds gestures to the photograph, not to the wrapper", () => {
+    expect(src()).toContain("target: imgRef");
+    expect(src()).not.toContain("target: wrapperRef");
+  });
+
+  it("reads the double tap off the gesture stream, never off a click event", () => {
+    expect(src()).toContain("if (tap) { handleDoubleTapCandidate(px, py); return; }");
+    // An onClick on the wrapper is what broke it. The only onClick left is the
+    // one on the <img> that stops a tap reaching the backdrop.
+    expect(src().match(/onClick=/g) ?? []).toHaveLength(1);
+    expect(src()).toContain("onClick={(e) => e.stopPropagation()}");
+  });
+
+  it("re-clamps the pan when the device rotates", () => {
+    // SPEC §7: "Rotate the device while zoomed → no layout break". Both the
+    // photograph's laid-out size and the viewer's change on rotation, so the
+    // limits computed before the turn no longer hold.
+    expect(src()).toContain('window.addEventListener("orientationchange", reclamp)');
+    expect(src()).toContain('window.addEventListener("resize", reclamp)');
   });
 
   it("logs a gesture failure AT MOST ONCE per mount, or one broken pinch floods the Error Log", () => {
