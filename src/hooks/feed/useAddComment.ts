@@ -6,6 +6,9 @@ import { reportClientError, describeThrown, memberFacingMessage } from "@/lib/re
 import { useIsBanned } from "@/hooks/core/useIsBanned";
 import { queryKeys } from "@/lib/queryKeys";
 import { convertEmojiShortcuts } from "@/lib/emoji";
+import { logger } from "@/lib/logger";
+
+const FILE = "src/hooks/feed/useAddComment.ts";
 
 /* ── Minimal comment shape expected by PostCommentsSection ── */
 
@@ -175,9 +178,38 @@ export function useAddComment(
         supabase.functions.invoke("moderate-comment", {
           body: { comment_id: data.id, type: "post_comment" },
         }).then((res) => {
-          console.log("AI MODERATION RESPONSE:", res);
+          // DEBUG, and the response is NOT logged.
+          //
+          // Until 2026-08-06 this was console.log("AI MODERATION RESPONSE:", res)
+          // — the whole edge-function payload, which echoes the comment back.
+          // Only whether a decision arrived is recorded here; the decision
+          // itself is the edge function's to store.
+          logger.debug({
+            code: "CMNT-2103",
+            event: "AI_MODERATION_DECISION_RECEIVED",
+            fn: "addComment",
+            file: FILE,
+            message: "The AI moderation function answered for a comment that was already posted.",
+            reason: "Moderation runs after the insert and never blocks the member.",
+            expected: "A decision for this comment id",
+            actual: res?.error ? "returned an error field" : "returned a decision",
+            recordId: data.id,
+            detail: { hadErrorField: Boolean(res?.error) },
+          });
         }).catch((err) => {
-          console.error("AI MODERATION ERROR:", err);
+          logger.error({
+            code: "CMNT-2102",
+            event: "AI_MODERATION_CALL_FAILED",
+            fn: "addComment",
+            file: FILE,
+            message: "The AI moderation function could not be reached for a posted comment.",
+            reason: describeThrown(err),
+            expected: "moderate-comment to accept the comment id",
+            actual: "the call threw",
+            nextStep:
+              "The comment IS posted and visible — this only means it was never machine-checked. Check the moderate-comment function's logs for the same minute.",
+            recordId: data.id,
+          });
         });
       }
     },

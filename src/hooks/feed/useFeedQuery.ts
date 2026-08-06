@@ -7,6 +7,10 @@ import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
 import { queryKeys } from "@/lib/queryKeys";
 import type { ReactionType } from "@/components/ReactionPicker";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/hooks/feed/useFeedQuery.ts";
+
 const PAGE_SIZE = 10;
 
 import type { UnifiedPost } from "@/types/post";
@@ -76,7 +80,19 @@ async function fetchBroadcastPage(excludeIds: string[], newestFirst: number): Pr
     _newest_first: newestFirst,
   });
   if (error || !data) {
-    console.error("get_broadcast_feed RPC failed, falling back to chronological:", error);
+    logger.error({
+      code: "DB-3004",
+      event: "FEED_RPC_FELL_BACK_TO_CHRONOLOGICAL",
+      fn: "fetchBroadcastPage",
+      file: FILE,
+      message: "The broadcast feed RPC failed; the feed fell back to plain newest-first.",
+      reason: error ? (error.message ?? String(error)) : "The RPC returned no data",
+      expected: "Fair ordering: unseen first, fewest viewers first, then newest",
+      actual: "Plain chronological order",
+      nextStep:
+        "MEMBERS STILL SEE POSTS, so nobody reports this — but the fairness ordering that equalises reach is gone until it is fixed. Confirm get_broadcast_feed is still deployed.",
+      detail: { excludedCount: excludeIds.length, pageSize: PAGE_SIZE },
+    });
     // Explicit fallback (used only if the DB function is not deployed yet):
     // plain newest-first public posts. RLS still enforces privacy.
     let query = supabase
