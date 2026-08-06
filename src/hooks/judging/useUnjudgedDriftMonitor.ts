@@ -1,6 +1,10 @@
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/hooks/judging/useUnjudgedDriftMonitor.ts";
+
 /**
  * J-03 safety net — dev-only drift detector.
  *
@@ -38,7 +42,15 @@ export function useUnjudgedDriftMonitor(args: {
     lastReportedRef.current = signature;
 
     const delta = filteredCount - unjudgedCount;
-    console.warn("[J-03 drift] sidebar Unjudged ≠ grid count", { unjudgedCount, filteredCount, delta });
+    logger.debug({
+      code: "JUDGE-6107", event: "UNJUDGED_COUNT_DRIFT",
+      fn: "useUnjudgedDriftMonitor", file: FILE,
+      message: "The sidebar's Unjudged count disagrees with the grid.",
+      reason: "Two views of the same set produced different totals.",
+      expected: "The sidebar count to equal the filtered grid count",
+      actual: `sidebar ${unjudgedCount} vs grid ${filteredCount}`,
+      detail: { unjudgedCount, filteredCount, delta },
+    });
     toast.warning("Unjudged counter drift", {
       description: `Sidebar says ${unjudgedCount}, grid shows ${filteredCount} (Δ ${delta > 0 ? "+" : ""}${delta}). Decision/score/tag rule is out of sync.`,
       duration: 8000,

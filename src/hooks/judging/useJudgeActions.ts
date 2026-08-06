@@ -17,6 +17,10 @@ import { tagLabelToDecision } from "./tagLabelToDecision";
 import { probeDecisionParity } from "./decisionParityProbe";
 import { useSystemFlag } from "@/lib/useSystemFlag";
 
+import { logger, newCorrelationId } from "@/lib/logger";
+
+const FILE = "src/hooks/judging/useJudgeActions.ts";
+
 
 
 // Judging v5: Round1/2/3 decision panels were removed (tag-only decisions).
@@ -149,7 +153,20 @@ export function useJudgeActions({
     // [SAVE-LOG] Client-side trace — visible in browser DevTools → Console.
     // Filter the console with the substring `[SAVE-LOG]` to see every save attempt.
     const logKey = `entry=${entryId} photo=${normalizedPI} round=${roundNumber ?? 1} judge=${userId}`;
-    console.log(`[SAVE-LOG] submit:start ${logKey} score=${score} criteria=${options?.criteria ? "yes" : "no"}`);
+    // One id ties every line of THIS save together in the Error Log, so a judge
+    // reporting "my score vanished" can be replayed start → write → verify.
+    const saveCid = newCorrelationId();
+    const judgeCtx = { entryId, photoIndex: normalizedPI, round: roundNumber ?? 1 };
+    logger.debug({
+      code: "JUDGE-6101", event: "JUDGE_SCORE_SUBMIT_STARTED",
+      fn: "submitScore", file: FILE,
+      message: "A judge submitted a score.",
+      reason: "The judge pressed Submit on a photo.",
+      expected: "The score written by the edge function and read back",
+      actual: "starting",
+      correlationId: saveCid, userId, recordId: entryId,
+      detail: { ...judgeCtx, score, hasCriteria: Boolean(options?.criteria) },
+    });
 
     // Canonical path: validated backend function first.
     // Direct table upsert remains only as a fallback when the function fails.
@@ -193,10 +210,30 @@ export function useJudgeActions({
     if (!edgeResult.ok) {
       if (edgeAuthoritative) {
         // F-01 Phase C: flag ON — edge fn is the ONLY allowed writer.
-        console.error(`[SAVE-LOG] edge:FAILED ${logKey} err=${(edgeResult as any).error ?? "unknown"} (flag=edgeAuthoritative, NO fallback)`);
+        logger.error({
+          code: "JUDGE-6102", event: "JUDGE_SCORE_EDGE_FAILED_NO_FALLBACK",
+          fn: "submitScore", file: FILE,
+          message: "The judging edge function refused the score and no fallback is allowed.",
+          reason: (edgeResult as any).error ?? "unknown",
+          expected: "The edge function to accept the score",
+          actual: "It refused; edgeAuthoritative is ON so nothing else may write",
+          nextStep: "THE SCORE IS NOT SAVED. Check the edge function's logs; the judge is told to retry.",
+          correlationId: saveCid, userId, recordId: entryId,
+          detail: { ...judgeCtx, edgeAuthoritative: true },
+        });
         error = { message: (edgeResult as any).error ?? "Edge function failed" };
       } else {
-        console.warn(`[SAVE-LOG] edge:FAILED ${logKey} err=${(edgeResult as any).error ?? "unknown"} → falling back to direct upsert`);
+        logger.warn({
+          code: "JUDGE-6103", event: "JUDGE_SCORE_FELL_BACK_TO_DIRECT_WRITE",
+          fn: "submitScore", file: FILE,
+          message: "The judging edge function failed; writing directly to the table instead.",
+          reason: (edgeResult as any).error ?? "unknown",
+          expected: "The edge function to accept the score",
+          actual: "Falling back to a direct upsert",
+          nextStep: "The save still succeeds by the fallback, so the judge sees nothing wrong — but the authoritative path is broken. Check the edge function's logs.",
+          correlationId: saveCid, userId, recordId: entryId,
+          detail: { ...judgeCtx },
+        });
         writePath = "fallback";
         const fallback = await supabase
           .from("judge_scores")
@@ -204,12 +241,31 @@ export function useJudgeActions({
         error = fallback.error ? { message: fallback.error.message } : null;
       }
     } else {
-      console.log(`[SAVE-LOG] edge:OK ${logKey} db_score=${(edgeResult as any).verification?.score} db_updated_at=${(edgeResult as any).verification?.updated_at}`);
+      logger.debug({
+        code: "JUDGE-6101", event: "JUDGE_SCORE_EDGE_WRITE_OK",
+        fn: "submitScore", file: FILE,
+        message: "The judging edge function accepted the score.",
+        reason: "The authoritative write path succeeded.",
+        expected: "The stored score to match what the judge entered",
+        actual: `stored ${(edgeResult as any).verification?.score}`,
+        correlationId: saveCid, userId, recordId: entryId,
+        detail: { ...judgeCtx, storedScore: (edgeResult as any).verification?.score, storedAt: (edgeResult as any).verification?.updated_at },
+      });
     }
 
 
     if (error) {
-      console.error(`[SAVE-LOG] submit:FAILED ${logKey} path=${writePath} err=${error.message}`);
+      logger.error({
+        code: "JUDGE-6102", event: "JUDGE_SCORE_SAVE_FAILED",
+        fn: "submitScore", file: FILE,
+        message: "A judge's score could not be saved.",
+        reason: error.message,
+        expected: "The score stored against this entry and photo",
+        actual: `the ${writePath} write path failed`,
+        nextStep: "Check the judge is still assigned to this competition and that the round is not locked or already completed.",
+        correlationId: saveCid, userId, recordId: entryId,
+        detail: { ...judgeCtx, writePath },
+      });
       unlockMutation();
       setScoringEntry(null);
       reportSaveError(entryId, normalizedPI, "score", error.message);
@@ -232,7 +288,17 @@ export function useJudgeActions({
       .maybeSingle();
 
     if (verifyErr || !verifyRow) {
-      console.error(`[SAVE-LOG] verify:MISSING ${logKey} path=${writePath} err=${verifyErr?.message ?? "no row"}`);
+      logger.error({
+        code: "JUDGE-6104", event: "JUDGE_SCORE_NOT_READABLE_AFTER_SAVE",
+        fn: "submitScore", file: FILE,
+        message: "The score was written but could not be read back.",
+        reason: verifyErr?.message ?? "the read returned no row",
+        expected: "Exactly one judge_scores row for this judge, entry, round and photo",
+        actual: "no row",
+        nextStep: "TREAT AS DATA LOSS UNTIL PROVEN OTHERWISE. A write that succeeds but cannot be read back is almost always RLS — check the judge_scores policies before suspecting the id.",
+        correlationId: saveCid, userId, recordId: entryId,
+        detail: { ...judgeCtx, writePath },
+      });
       unlockMutation();
       setScoringEntry(null);
       const msg = `Row missing after save. Click Submit again or reload.`;
@@ -248,7 +314,16 @@ export function useJudgeActions({
     }
     // Success — clear any prior error highlight for this slot.
     clearSaveError(entryId, normalizedPI);
-    console.log(`[SAVE-LOG] verify:OK ${logKey} path=${writePath} db_score=${verifyRow.score} db_updated_at=${verifyRow.updated_at}`);
+    logger.debug({
+      code: "JUDGE-6101", event: "JUDGE_SCORE_VERIFIED",
+      fn: "submitScore", file: FILE,
+      message: "The saved score was read back from the database and matches.",
+      reason: "The verification read returned the row.",
+      expected: "The stored score to match what the judge entered",
+      actual: `stored ${verifyRow.score}`,
+      correlationId: saveCid, userId, recordId: entryId,
+      detail: { ...judgeCtx, writePath, storedScore: verifyRow.score, storedAt: verifyRow.updated_at },
+    });
 
     // SOW score-rubric → derived per-photo decision (R2/R3 only).
     // R2: 0 = needs_review, 1-6 = skip, 7-10 = shortlist.
@@ -386,7 +461,15 @@ export function useJudgeActions({
     if (!edgeResult.ok) {
       if (edgeAuthoritative) {
         // F-01 Phase C: flag ON — no fallback allowed.
-        console.error(`[judge-tag] edge failed (flag=edgeAuthoritative, NO fallback):`, edgeResult.error);
+        logger.error({
+          code: "JUDGE-6102", event: "JUDGE_TAG_EDGE_FAILED_NO_FALLBACK",
+          fn: "assignTag", file: FILE,
+          message: "The judging edge function refused an award tag and no fallback is allowed.",
+          reason: String(edgeResult.error),
+          expected: "The tag stored against this entry",
+          actual: "Refused; edgeAuthoritative is ON",
+          nextStep: "THE TAG IS NOT SAVED. Award tags decide who wins — confirm with the judge before closing the round.",
+        });
         unlockMutation();
         setTaggingEntry(null);
         const msg = (edgeResult as any).error ?? "Edge function failed";
@@ -394,7 +477,15 @@ export function useJudgeActions({
         toast({ title: `Failed to save tag — Photo ${normalizedPI + 1}`, description: msg, variant: "destructive" });
         return;
       }
-      console.warn(`[judge-tag] edge failed, falling back to direct write:`, edgeResult.error);
+      logger.warn({
+        code: "JUDGE-6103", event: "JUDGE_TAG_FELL_BACK_TO_DIRECT_WRITE",
+        fn: "assignTag", file: FILE,
+        message: "The judging edge function failed for an award tag; writing directly instead.",
+        reason: String(edgeResult.error),
+        expected: "The edge function to accept the tag",
+        actual: "Falling back to a direct write",
+        nextStep: "The tag is still saved. Check the edge function's logs.",
+      });
 
       if (hasTag) {
         const { error } = await supabase
@@ -535,14 +626,30 @@ export function useJudgeActions({
     } else {
       if (edgeAuthoritative) {
         // F-01 Phase C: flag ON — no fallback allowed.
-        console.error(`[judge-comment] edge failed (flag=edgeAuthoritative, NO fallback):`, edgeResult.error);
+        logger.error({
+          code: "JUDGE-6102", event: "JUDGE_COMMENT_EDGE_FAILED_NO_FALLBACK",
+          fn: "saveJudgeComment", file: FILE,
+          message: "The judging edge function refused a judge's comment and no fallback is allowed.",
+          reason: String(edgeResult.error),
+          expected: "The comment stored against this entry",
+          actual: "Refused; edgeAuthoritative is ON",
+          nextStep: "THE COMMENT IS NOT SAVED. Judges' comments reach entrants on certificates — confirm before the round closes.",
+        });
         unlockMutation();
         const msg = (edgeResult as any).error ?? "Edge function failed";
         reportSaveError(entryId, normalizedPI, "comment", msg);
         toast({ title: `Failed to save comment — Photo ${normalizedPI + 1}`, description: msg, variant: "destructive" });
         throw new Error((edgeResult as any).error ?? "Edge function failed");
       }
-      console.warn(`[judge-comment] edge failed, falling back to direct insert:`, edgeResult.error);
+      logger.warn({
+        code: "JUDGE-6103", event: "JUDGE_COMMENT_FELL_BACK_TO_DIRECT_WRITE",
+        fn: "saveJudgeComment", file: FILE,
+        message: "The judging edge function failed for a comment; writing directly instead.",
+        reason: String(edgeResult.error),
+        expected: "The edge function to accept the comment",
+        actual: "Falling back to a direct insert",
+        nextStep: "The comment is still saved. Check the edge function's logs.",
+      });
 
       const { data, error } = await supabase
         .from("judge_comments")

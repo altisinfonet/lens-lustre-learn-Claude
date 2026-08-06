@@ -17,6 +17,10 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/hooks/judging/decisionParityProbe.ts";
+
 const REFETCH_SETTLE_MS = 2500;
 
 export function probeDecisionParity(args: {
@@ -40,21 +44,40 @@ export function probeDecisionParity(args: {
         .eq("round_number", roundNumber)
         .maybeSingle() as any);
       if (error) {
-        // eslint-disable-next-line no-console
-        console.warn("[decision-parity] probe read failed", { source, error: error.message });
+        logger.debug({
+          code: "JUDGE-6107", event: "DECISION_PARITY_PROBE_READ_FAILED",
+          fn: "probeDecisionParity", file: FILE,
+          message: "The development decision-parity probe could not read its source.",
+          reason: error.message,
+          expected: "A decision row to compare against the UI",
+          actual: "The read failed",
+          detail: { source },
+        });
         return;
       }
       const serverDecision: string = (data?.decision as string) ?? "";
       const expected = optimisticDecision || "";
       if (expected === serverDecision) return; // ✅ in sync
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[decision-parity] DIVERGENCE (${source}) — optimistic="${expected}" server="${serverDecision}"`,
-        { entryId, photoIndex, judgeId, roundNumber },
-      );
+      logger.debug({
+        code: "JUDGE-6107", event: "DECISION_PARITY_DIVERGENCE",
+        fn: "probeDecisionParity", file: FILE,
+        message: "The optimistic decision on screen disagrees with the stored one.",
+        reason: "The probe compared what the UI showed against what the database holds.",
+        expected: `optimistic "${expected}"`,
+        actual: `server "${serverDecision}"`,
+        nextStep: "Development only. The UI is showing a judge something the database does not agree with — fix at the source of the optimistic update, not here.",
+        recordId: entryId,
+        detail: { source, photoIndex, judgeId, roundNumber },
+      });
     } catch (e) {
-      // eslint-disable-next-line no-console
-      console.warn("[decision-parity] probe threw", e);
+      logger.debug({
+        code: "JUDGE-6107", event: "DECISION_PARITY_PROBE_THREW",
+        fn: "probeDecisionParity", file: FILE,
+        message: "The development decision-parity probe threw.",
+        reason: e instanceof Error ? e.message : String(e),
+        expected: "A completed comparison",
+        actual: "The probe threw",
+      });
     }
   }, REFETCH_SETTLE_MS);
 }
