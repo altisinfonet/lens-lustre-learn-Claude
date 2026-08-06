@@ -1,11 +1,63 @@
 /**
- * Runtime Network Tracer — DEBUG ONLY
- * Intercepts all fetch() calls, logs timing/size/duplicates,
- * and prints a forensic report after the initial load window.
+ * Runtime Network Tracer — DEVELOPMENT ONLY.
  *
- * Usage: import and call `startNetworkTrace()` once in main.tsx or a useEffect.
- * Call `stopNetworkTrace()` to print the report early.
+ * Intercepts fetch(), records timing/size/duplicates for API calls, and emits
+ * a structured forensic report once the initial load window closes.
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * OWNER DECISION, 2026-08-06: "Gate to dev AND convert."
+ *
+ * WHAT THIS FILE USED TO DO, AND WHY IT WAS WRONG.
+ * `main.tsx` called `startNetworkTrace(8000)` with no environment guard, so
+ * every one of these ran in PRODUCTION, on every member's phone:
+ *   * window.fetch was replaced for the first 8 seconds of every visit;
+ *   * every API response was `.clone()`d and read to the end just to measure
+ *     its length — real work and real memory on a mobile device;
+ *   * a 22-call console report was printed into the member's console.
+ * None of that is a member feature. It is a developer tool that had escaped.
+ *
+ * THE THREE GUARDS, IN ORDER. Any one of them is enough; all three are here
+ * because this already shipped to members once.
+ *   1. `main.tsx` only calls startNetworkTrace() inside `import.meta.env.DEV`.
+ *      Vite resolves that at build time, so the call disappears from the
+ *      production bundle entirely.
+ *   2. `startNetworkTrace()` and `stopNetworkTrace()` below each return
+ *      immediately outside development, so a future call site added anywhere
+ *      cannot re-open this. Same pattern as decisionParityProbe.ts.
+ *   3. Every log this file emits is `debug`, which logger.ts neither prints in
+ *      production nor ever persists to the database.
+ *
+ * WHAT IS LOGGED, AND WHAT IS NOT.
+ * The tracer logs the ENDPOINT (`table:posts`, `fn:notify`), never the raw
+ * URL. guessEndpoint() drops the query string, and the query string is where
+ * row ids, filters and OAuth parameters live. The raw URL stays on
+ * window.API_TRACE for interactive inspection in devtools, where it never
+ * leaves the machine that produced it.
+ *
+ * Usage: `startNetworkTrace()` once in main.tsx or a useEffect.
+ * `stopNetworkTrace()` reports early. `window.API_TRACE` holds every entry,
+ * untruncated — the logged timeline is capped (see MAX_DETAIL_ENTRIES).
+ * ───────────────────────────────────────────────────────────────────────────
  */
+import { logger } from "@/lib/logger";
+
+const FILE = "src/lib/networkTracer.ts";
+
+/** A call slower than this is worth a developer's attention. */
+const SLOW_MS = 200;
+
+/** A response bigger than this costs the member real mobile data. */
+const LARGE_BYTES = 50_000;
+
+/**
+ * How many timeline rows travel inside a log's `detail`.
+ *
+ * redact() in logger.ts slices arrays at 20 entries, so anything beyond that
+ * would be silently dropped and the log would quietly lie about how much it
+ * carried. The cap is stated here, reported in the log itself as
+ * `timelineTruncated`, and the complete list is always on window.API_TRACE.
+ */
+const MAX_DETAIL_ENTRIES = 20;
 
 interface TraceEntry {
   id: number;
@@ -70,6 +122,10 @@ function guessCaller(): string {
 }
 
 export function startNetworkTrace(windowMs = 8000) {
+  // GUARD 2 of 3 — see the header. Not redundant with main.tsx: this one
+  // protects every future call site, and Vite tree-shakes the branch away.
+  if (!import.meta.env.DEV) return;
+
   if (window.__networkTraceActive) return;
   window.__networkTraceActive = true;
   window.API_TRACE = [];
@@ -116,6 +172,10 @@ export function startNetworkTrace(windowMs = 8000) {
         startMs, endMs, durationMs: endMs - startMs,
         status: 0, sizeBytes: null, caller,
       });
+      // Deliberately NOT logged here. This runs inside every fetch the app
+      // makes; the caller logs its own failure with the code that means
+      // something, and a second line from the interceptor would double every
+      // network incident in the console for no new information.
       throw err;
     }
   };
@@ -124,27 +184,63 @@ export function startNetworkTrace(windowMs = 8000) {
     printNetworkReport();
   }, windowMs);
 
-  console.log(`%c[NetworkTracer] Started — will report in ${windowMs}ms`, "color: #0ea5e9; font-weight: bold");
+  logger.debug({
+    code: "SYS-9003",
+    event: "NETWORK_TRACE_STARTED",
+    fn: "startNetworkTrace",
+    file: FILE,
+    message: "The development network tracer began intercepting fetch().",
+    reason: "startNetworkTrace() was called in a development build.",
+    expected: `A forensic report ${windowMs}ms from now, or sooner if stopNetworkTrace() is called.`,
+    actual: "window.fetch wrapped; API calls are being recorded.",
+    detail: { windowMs, slowThresholdMs: SLOW_MS, largePayloadBytes: LARGE_BYTES },
+  });
 }
 
 export function stopNetworkTrace() {
+  // GUARD 2 of 3, again — stopNetworkTrace is exported and could be called
+  // from anywhere. Outside development there is nothing to stop and nothing
+  // to report.
+  if (!import.meta.env.DEV) return;
+
   if (reportTimer) clearTimeout(reportTimer);
   printNetworkReport();
 }
 
+/**
+ * Emit the report as structured logs.
+ *
+ * Named "print" for continuity with the call sites; nothing here writes to the
+ * console directly any more. One SYS-9004 line carries the whole picture, then
+ * one line per finding a developer can act on — the duplicates, the slow calls
+ * and the large payloads — so each is groupable by code in the Error Log
+ * viewer's filters rather than buried inside one blob.
+ */
 function printNetworkReport() {
   window.__networkTraceActive = false;
   if (originFetch) window.fetch = originFetch;
 
   const trace = window.API_TRACE ?? [];
   if (trace.length === 0) {
-    console.log("%c[NetworkTracer] No API calls captured.", "color: orange");
+    logger.debug({
+      code: "SYS-9004",
+      event: "NETWORK_TRACE_REPORT",
+      fn: "printNetworkReport",
+      file: FILE,
+      message: "The development network tracer window closed with nothing recorded.",
+      reason: "No request matched /rest/v1/, /functions/v1/, /auth/ or /storage/ during the window.",
+      expected: "At least one API call during the initial load.",
+      actual: "0 API calls captured.",
+      nextStep:
+        "Confirm the page under test actually loads data, and that the tracer started before that data was requested.",
+      detail: { totalCalls: 0 },
+    });
     return;
   }
 
   const sorted = [...trace].sort((a, b) => a.startMs - b.startMs);
 
-  // ── Section 1: Summary ──
+  // ── Grouping ──
   const endpoints = new Map<string, TraceEntry[]>();
   sorted.forEach((t) => {
     const list = endpoints.get(t.endpoint) ?? [];
@@ -154,80 +250,131 @@ function printNetworkReport() {
 
   const duplicates = [...endpoints.entries()].filter(([, v]) => v.length > 1);
   const totalSize = sorted.reduce((s, t) => s + (t.sizeBytes ?? 0), 0);
+  const slow = sorted.filter((t) => t.durationMs > SLOW_MS).sort((a, b) => b.durationMs - a.durationMs);
+  const large = sorted
+    .filter((t) => (t.sizeBytes ?? 0) > LARGE_BYTES)
+    .sort((a, b) => (b.sizeBytes ?? 0) - (a.sizeBytes ?? 0));
 
-  console.log(
-    `%c╔══════════════════════════════════════════╗\n` +
-    `║       NETWORK FORENSIC REPORT            ║\n` +
-    `╚══════════════════════════════════════════╝`,
-    "color: #f59e0b; font-weight: bold; font-size: 14px"
-  );
-
-  console.log(`%c📊 SUMMARY`, "color: #10b981; font-weight: bold; font-size: 12px");
-  console.log(`   Total API calls:     ${sorted.length}`);
-  console.log(`   Unique endpoints:    ${endpoints.size}`);
-  console.log(`   Duplicate endpoints: ${duplicates.length}`);
-  console.log(`   Total payload:       ${(totalSize / 1024).toFixed(1)} KB`);
-  console.log(`   Trace window:        ${sorted[sorted.length - 1]?.endMs ?? 0}ms`);
-
-  // ── Section 2: Timeline ──
-  console.log(`\n%c⏱️  TIMELINE`, "color: #10b981; font-weight: bold; font-size: 12px");
-  console.table(
-    sorted.map((t) => ({
-      "#": t.id,
-      "T+ms": t.startMs,
-      endpoint: t.endpoint,
-      method: t.method,
-      duration: `${t.durationMs}ms`,
-      status: t.status,
-      size: t.sizeBytes ? `${(t.sizeBytes / 1024).toFixed(1)}KB` : "—",
-      caller: t.caller,
-    }))
-  );
-
-  // ── Section 3: Duplicates ──
-  if (duplicates.length > 0) {
-    console.log(`\n%c🔴 DUPLICATE REQUESTS`, "color: #ef4444; font-weight: bold; font-size: 12px");
-    duplicates.forEach(([ep, calls]) => {
-      const severity = calls.length > 2 ? "HIGH" : "MEDIUM";
-      console.log(`   [${severity}] ${ep} — called ${calls.length}x`);
-      calls.forEach((c) => console.log(`         T+${c.startMs}ms (${c.durationMs}ms) via ${c.caller}`));
-    });
-  } else {
-    console.log(`\n%c✅ No duplicate requests`, "color: #10b981; font-weight: bold");
-  }
-
-  // ── Section 4: Slow requests ──
-  const slow = sorted.filter((t) => t.durationMs > 200);
-  if (slow.length > 0) {
-    console.log(`\n%c🐢 SLOW REQUESTS (>200ms)`, "color: #f59e0b; font-weight: bold; font-size: 12px");
-    slow.sort((a, b) => b.durationMs - a.durationMs).forEach((t) => {
-      console.log(`   ${t.endpoint} — ${t.durationMs}ms (${t.caller})`);
-    });
-  }
-
-  // ── Section 5: Large payloads ──
-  const large = sorted.filter((t) => (t.sizeBytes ?? 0) > 50_000);
-  if (large.length > 0) {
-    console.log(`\n%c📦 LARGE PAYLOADS (>50KB)`, "color: #f59e0b; font-weight: bold; font-size: 12px");
-    large.sort((a, b) => (b.sizeBytes ?? 0) - (a.sizeBytes ?? 0)).forEach((t) => {
-      console.log(`   ${t.endpoint} — ${((t.sizeBytes ?? 0) / 1024).toFixed(1)}KB (${t.caller})`);
-    });
-  }
-
-  // ── Section 6: Parallel vs Sequential ──
-  console.log(`\n%c⚡ CONCURRENCY ANALYSIS`, "color: #10b981; font-weight: bold; font-size: 12px");
+  // ── Concurrency: how many calls started inside the same 50ms bucket ──
   const buckets = new Map<number, TraceEntry[]>();
   sorted.forEach((t) => {
-    const bucket = Math.floor(t.startMs / 50) * 50; // 50ms buckets
+    const bucket = Math.floor(t.startMs / 50) * 50;
     const list = buckets.get(bucket) ?? [];
     list.push(t);
     buckets.set(bucket, list);
   });
-  [...buckets.entries()].sort((a, b) => a[0] - b[0]).forEach(([ms, entries]) => {
-    if (entries.length > 1) {
-      console.log(`   T+${ms}ms: ${entries.length} parallel → ${entries.map((e) => e.endpoint).join(", ")}`);
-    }
+  const parallelBatches = [...buckets.entries()]
+    .filter(([, entries]) => entries.length > 1)
+    .sort((a, b) => a[0] - b[0])
+    .slice(0, MAX_DETAIL_ENTRIES)
+    .map(([ms, entries]) => ({
+      atMs: ms,
+      count: entries.length,
+      endpoints: entries.map((e) => e.endpoint).join(", "),
+    }));
+
+  // ── Section 1: the whole picture, one groupable line ──
+  logger.debug({
+    code: "SYS-9004",
+    event: "NETWORK_TRACE_REPORT",
+    fn: "printNetworkReport",
+    file: FILE,
+    message: "The development network tracer window closed; here is the forensic report.",
+    reason: "The trace window elapsed, or stopNetworkTrace() was called.",
+    expected: "No duplicate endpoints, and no call over the slow or payload thresholds.",
+    actual: `${sorted.length} calls · ${endpoints.size} unique endpoints · ${duplicates.length} duplicated · ${slow.length} slow · ${large.length} large`,
+    durationMs: sorted[sorted.length - 1]?.endMs ?? 0,
+    nextStep:
+      "Read the SYS-9005 / SYS-9006 / SYS-9007 lines that follow for the individual findings. window.API_TRACE holds every entry untruncated.",
+    detail: {
+      totalCalls: sorted.length,
+      uniqueEndpoints: endpoints.size,
+      duplicateEndpoints: duplicates.length,
+      totalPayloadKb: Number((totalSize / 1024).toFixed(1)),
+      traceWindowMs: sorted[sorted.length - 1]?.endMs ?? 0,
+      parallelBatches,
+      // redact() slices arrays at 20 — say so rather than silently truncate.
+      timelineTruncated: sorted.length > MAX_DETAIL_ENTRIES,
+      timeline: sorted.slice(0, MAX_DETAIL_ENTRIES).map((t) => ({
+        id: t.id,
+        atMs: t.startMs,
+        endpoint: t.endpoint,
+        method: t.method,
+        durationMs: t.durationMs,
+        status: t.status,
+        sizeBytes: t.sizeBytes,
+        caller: t.caller,
+      })),
+    },
   });
 
-  console.log(`\n%c══ END REPORT ══`, "color: #f59e0b; font-weight: bold");
+  // ── Section 2: duplicate endpoints ──
+  duplicates.forEach(([endpoint, calls]) => {
+    logger.debug({
+      code: "SYS-9005",
+      event: "NETWORK_TRACE_DUPLICATE_ENDPOINT",
+      fn: "printNetworkReport",
+      file: FILE,
+      message: `The same endpoint was requested ${calls.length} times during the trace window.`,
+      reason:
+        calls.length > 2
+          ? "Called three or more times — usually a hook running on every render."
+          : "Called twice — usually two components asking for the same data.",
+      expected: "One request per endpoint during the initial load.",
+      actual: `${calls.length} requests to ${endpoint}`,
+      detail: {
+        endpoint,
+        count: calls.length,
+        calls: calls.slice(0, MAX_DETAIL_ENTRIES).map((c) => ({
+          atMs: c.startMs,
+          durationMs: c.durationMs,
+          caller: c.caller,
+        })),
+      },
+    });
+  });
+
+  // ── Section 3: slow requests ──
+  slow.forEach((t) => {
+    logger.debug({
+      code: "SYS-9006",
+      event: "NETWORK_TRACE_SLOW_REQUEST",
+      fn: "printNetworkReport",
+      file: FILE,
+      message: "A single API call was slower than the tracer's threshold.",
+      reason: "Measured wall-clock time from request start to response received.",
+      expected: `${SLOW_MS}ms or less`,
+      actual: `${t.durationMs}ms`,
+      durationMs: t.durationMs,
+      detail: {
+        endpoint: t.endpoint,
+        method: t.method,
+        status: t.status,
+        sizeBytes: t.sizeBytes,
+        caller: t.caller,
+        atMs: t.startMs,
+      },
+    });
+  });
+
+  // ── Section 4: large payloads ──
+  large.forEach((t) => {
+    logger.debug({
+      code: "SYS-9007",
+      event: "NETWORK_TRACE_LARGE_PAYLOAD",
+      fn: "printNetworkReport",
+      file: FILE,
+      message: "A single API response was larger than the tracer's payload threshold.",
+      reason: "Response body length measured from a clone of the response.",
+      expected: `${(LARGE_BYTES / 1024).toFixed(0)}KB or less`,
+      actual: `${((t.sizeBytes ?? 0) / 1024).toFixed(1)}KB`,
+      detail: {
+        endpoint: t.endpoint,
+        method: t.method,
+        sizeBytes: t.sizeBytes,
+        caller: t.caller,
+        atMs: t.startMs,
+      },
+    });
+  });
 }

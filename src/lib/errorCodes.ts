@@ -228,6 +228,61 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     resolution:
       "Read fn and src_file for the origin; this code means the failure was not anticipated by the code that caught it.",
   },
+
+  // SYS-9002 IS DELIBERATELY RESERVED, NOT MISSING.
+  // HANDOFF_2026-08-06 §5 allocates it to "error boundary caught" for
+  // src/components/AppErrorBoundary.tsx, which is still unconverted. A code is
+  // permanent once shipped, so the number is held rather than reused — do not
+  // fill this gap with something else.
+
+  // ── SYS: the development network tracer ───────────────────────────────────
+  //
+  // EVERY ONE OF THESE IS `debug` ON PURPOSE, AND THAT IS NOT LAZINESS.
+  //
+  // Two reasons, both from LOGGING_STANDARD.md rule 2:
+  //   1. `debug` is console-only — it is never written to client_errors. The
+  //      tracer emits one line per duplicate, per slow call and per large
+  //      payload; at `warn` a single developer page load would push dozens of
+  //      rows into the owner's live Error Log and bury the real failures.
+  //   2. `debug` is not even PRINTED in production (see PRINT_FROM_IN_PROD in
+  //      logger.ts). That is the third guard behind the import.meta.env.DEV
+  //      checks in main.tsx and startNetworkTrace(), so a mistake at any one
+  //      call site still cannot reach a member's console.
+  {
+    code: "SYS-9003",
+    severity: "debug",
+    description: "The development network tracer began intercepting fetch().",
+    resolution:
+      "None — a development marker. If this appears in a production console, the import.meta.env.DEV guards in main.tsx and startNetworkTrace() have been removed; restore them.",
+  },
+  {
+    code: "SYS-9004",
+    severity: "debug",
+    description: "The development network tracer finished its window and reported.",
+    resolution:
+      "None — read the detail for call count, unique endpoints, total payload and parallel batches. The full untruncated timeline stays on window.API_TRACE.",
+  },
+  {
+    code: "SYS-9005",
+    severity: "debug",
+    description: "The same endpoint was requested more than once inside the trace window.",
+    resolution:
+      "Look for a hook that runs on every render, or two components fetching the same table. Check the React Query key before changing the fetch itself.",
+  },
+  {
+    code: "SYS-9006",
+    severity: "debug",
+    description: "A single API call took longer than the tracer's slow threshold.",
+    resolution:
+      "Compare the endpoint against the same query in the Supabase dashboard; a slow RPC is a database problem, a slow table read with a small payload is usually a missing index.",
+  },
+  {
+    code: "SYS-9007",
+    severity: "debug",
+    description: "A single API response was larger than the tracer's payload threshold.",
+    resolution:
+      "Check the select list on that query — an unbounded select('*') on a wide table is the usual cause, and it costs the member's mobile data.",
+  },
 ] as const;
 
 /** Fast lookup, built once. */
