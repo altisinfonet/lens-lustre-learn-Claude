@@ -8,6 +8,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useDismissOnRouteChange } from "@/hooks/core/useDismissOnRouteChange";
+import { logger } from "@/lib/logger";
+
+const FILE = "src/components/GlobalSearch.tsx";
 
 interface SearchResult {
   id: string;
@@ -271,7 +274,22 @@ const GlobalSearch = () => {
     setSelectedIndex(-1);
     setLoading(false);
     } catch (err) {
-      console.error("[GlobalSearch] search failed:", err);
+      logger.warn({
+        code: "UI-8003",
+        event: "GLOBAL_SEARCH_FAILED",
+        fn: "runSearch",
+        file: FILE,
+        message: "The global search box could not fetch results.",
+        reason: err instanceof Error ? err.message : String(err),
+        expected: "A result set for the member's query",
+        actual: "The search threw; the box shows nothing",
+        nextStep:
+          "On screen this reads as 'nothing found', not 'it broke' — the member will believe the site has no such content. The query itself is the member's words and is deliberately not logged; its length is enough to tell a stray keystroke from a real search.",
+        // `q` is this call's argument, NOT the `query` state — inside an async
+        // callback the state variable is whatever it was when the callback was
+        // created, which is not necessarily the search that just failed.
+        detail: { queryLength: q.trim().length },
+      });
       if (seq === seqRef.current) {
         setResults([]);
         setLoading(false);
