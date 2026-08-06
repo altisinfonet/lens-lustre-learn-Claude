@@ -24,6 +24,10 @@ import type {
   PhotoStatusMap,
 } from "@/lib/judging/perPhotoStatusTypes";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/hooks/judging/usePhotoPlacements.ts";
+
 export interface PhotoPlacementRow {
   entry_id: string;
   photo_index: number;
@@ -48,7 +52,15 @@ export async function fetchPhotoPlacements(
     p_entry_ids: entryIds,
   });
   if (error) {
-    console.error("[usePhotoPlacements] RPC failed:", error);
+    logger.error({
+      code: "JUDGE-6105", event: "JUDGE_PLACEMENTS_RPC_FAILED",
+      fn: "usePhotoPlacements", file: FILE,
+      message: "The photo placement lookup failed.",
+      reason: error.message ?? String(error),
+      expected: "The stored placements for these photos",
+      actual: "The database function returned an error",
+      nextStep: "The judge sees no placements, which looks identical to none having been set.",
+    });
     return [];
   }
   return (data as PhotoPlacementRow[]) || [];

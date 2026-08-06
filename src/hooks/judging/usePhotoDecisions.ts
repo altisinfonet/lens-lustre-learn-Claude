@@ -25,6 +25,10 @@ import type {
   PhotoStatusMap,
 } from "@/lib/judging/perPhotoStatusTypes";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/hooks/judging/usePhotoDecisions.ts";
+
 // Re-export the union from its single source of truth (Phase 2 / D2).
 // New consumers should import from `@/lib/judging/perPhotoStatusTypes`
 // directly; this re-export preserves the historical import path.
@@ -56,7 +60,15 @@ export async function fetchPhotoConsensus(
     p_entry_ids: entryIds,
   });
   if (error) {
-    console.error("[usePhotoDecisions] RPC failed:", error);
+    logger.error({
+      code: "JUDGE-6105", event: "JUDGE_DECISIONS_RPC_FAILED",
+      fn: "usePhotoDecisions", file: FILE,
+      message: "The per-photo decision lookup failed.",
+      reason: error.message ?? String(error),
+      expected: "The stored shortlist/reject decisions",
+      actual: "The database function returned an error",
+      nextStep: "The grid will show photos as undecided when they may already be decided. A judge could score the same photo twice.",
+    });
     return [];
   }
   return (data as PhotoConsensusRow[]) || [];

@@ -21,6 +21,10 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PARTICIPANT_LABELS } from "@/lib/judging/participantWording";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/hooks/judging/usePhotoR4Award.ts";
+
 export interface PhotoR4AwardRow {
   entry_id: string;
   photo_index: number;
@@ -45,7 +49,15 @@ export async function fetchPhotoR4Awards(
     p_entry_ids: entryIds,
   });
   if (error) {
-    console.error("[usePhotoR4Award] RPC failed:", error);
+    logger.error({
+      code: "JUDGE-6105", event: "JUDGE_R4_AWARD_RPC_FAILED",
+      fn: "usePhotoR4Award", file: FILE,
+      message: "The round-4 award lookup failed.",
+      reason: error.message ?? String(error),
+      expected: "The award tag stored for this photo",
+      actual: "The database function returned an error",
+      nextStep: "Round 4 decides the winners. The judge's screen will show no award where one may exist \u2014 do not close the round on this view.",
+    });
     return [];
   }
   return ((data as PhotoR4AwardRow[]) || []).map((r) => ({
