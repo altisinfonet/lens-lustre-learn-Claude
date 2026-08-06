@@ -93,6 +93,13 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
       "Expected behaviour when the ban is correct. Confirm the ban is intentional before treating this as a bug.",
   },
   {
+    code: "AUTH-1005",
+    severity: "error",
+    description: "A signed-in member's account no longer exists; the session was ended.",
+    resolution:
+      "Expected immediately after an admin deletes an account — the member is signed out and told the account was removed. INVESTIGATE ONLY IF the account still exists in auth.users, which would mean the profile row was lost without the account being deleted, and a live member has just been signed out for no reason.",
+  },
+  {
     code: "AUTH-1004",
     severity: "error",
     description: "Sign-in through the installed app's OAuth deep link failed.",
