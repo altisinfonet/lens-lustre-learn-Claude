@@ -6,6 +6,8 @@ import { ScheduleDateTimePicker } from "@/components/post/ScheduleDateTimePicker
 import { useCreateScheduledPost } from "@/hooks/feed/useScheduledPosts";
 import { compressImageToFiles } from "@/lib/imageCompression";
 import { scanFileWithToast } from "@/lib/fileSecurityScanner";
+import { fileFromDataUrl, isRebuildableDataUrl } from "@/lib/fileFromDataUrl";
+import { deviceContext } from "@/lib/deviceContext";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { useIsBanned } from "@/hooks/core/useIsBanned";
@@ -250,7 +252,40 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           return;
         }
         selectedCountRef.current += 1;
-        setSelectedImages(prev => [...prev, file]);
+
+        // ── READ THE FILE ONCE. NEVER TOUCH THE ORIGINAL HANDLE AGAIN. ─────
+        // Owner instruction, 2026-08-06, after 26 recorded app-only post
+        // failures: read the selected file exactly once and reuse those bytes
+        // for scanning, compression, thumbnailing and upload.
+        //
+        // Before this, the original File was read up to FIVE times — once here,
+        // twice by the security scanner, and again by the compressor for the
+        // full-size and the thumbnail. On Android every one of those re-reads
+        // goes back to a picked-file reference that may no longer be valid. The
+        // read below already succeeded, so from here on we carry bytes, not a
+        // reference, and lifecycle events (backgrounding, rotation, a slow
+        // upload) cannot take them away.
+        //
+        // The owner's own note, and it is the right framing: the stale handle
+        // is a HYPOTHESIS, not a proven cause. This change does not depend on
+        // it being right — reading once is simply the correct architecture, and
+        // it removes the whole class of problem either way.
+        //
+        // MEMORY TRADE-OFF, stated plainly: we now hold the decoded bytes as
+        // well as the data URL used for the preview, so a selected photo costs
+        // roughly 2.3x its size instead of 1.3x. The composer caps at 10
+        // photos. If that ever becomes a problem on low-end devices the fix is
+        // to render previews from an object URL and drop the data URL — which
+        // would use LESS memory than today, at the cost of a revoke lifecycle.
+        let stable = file;
+        try {
+          stable = fileFromDataUrl(dataUrl, file.name, file.type);
+        } catch {
+          // Conversion failed — keep the original so behaviour is never worse
+          // than before. createPost still has its own recovery for this case.
+        }
+
+        setSelectedImages(prev => [...prev, stable]);
         setImagePreviews(prev => [...prev, dataUrl]);
       };
       probe.onerror = () => rejectUnsupported(file);
@@ -422,7 +457,63 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       const uploadedUrls: string[] = [];
       const uploadedThumbs: string[] = [];
       for (let i = 0; i < selectedImages.length; i++) {
-        const safe = await scanFileWithToast(selectedImages[i], toast, { allowedTypes: "image" });
+        // ── THE STALE-HANDLE RECOVERY ───────────────────────────────────────
+        // Measured 2026-08-06: 26 recorded post failures, EVERY ONE from the
+        // installed app and none from the web, across two real members — 23
+        // attempts by one of them in a single morning. The read that fails here
+        // is the security scanner's; the read at SELECTION succeeded, which the
+        // thumbnail in the composer proves.
+        //
+        // A file handle that reads once and then refuses, app-only, is a picked
+        // file whose reference has gone stale between choosing it and pressing
+        // Post. We do not need to know which DOMException it is to survive it:
+        // the preview at this same index is a copy of those exact bytes, taken
+        // at the moment the read demonstrably worked. See fileFromDataUrl.ts.
+        //
+        // selectedImages and imagePreviews are appended, filtered, mapped and
+        // cleared TOGETHER at every call site, so index i is the same photo in
+        // both. If that ever stops being true, this recovery silently uploads
+        // the wrong picture — which is why the guard below re-checks the type.
+        let photo = selectedImages[i];
+        let safe: boolean;
+        try {
+          safe = await scanFileWithToast(photo, toast, { allowedTypes: "image" });
+        } catch (readErr) {
+          const preview = imagePreviews[i];
+          // A cropped photo's preview can be an object URL, which cannot be
+          // decoded back into bytes. Only a data URL is rebuildable.
+          if (!isRebuildableDataUrl(preview)) throw readErr;
+
+          photo = fileFromDataUrl(preview, selectedImages[i].name, selectedImages[i].type);
+
+          logger.warn({
+            code: "FILE-5009",
+            event: "PHOTO_REBUILT_AFTER_STALE_HANDLE",
+            fn: "createPost",
+            file: "src/components/WallPosts.tsx",
+            message: "The device would not re-read a chosen photo; rebuilt it from the copy taken at selection.",
+            reason: readErr instanceof Error ? `${readErr.name}: ${readErr.message}` : String(readErr),
+            expected: "The selected file to be readable a second time",
+            actual: "The read threw; recovered from the preview instead",
+            nextStep:
+              "THE POST SUCCEEDS — this is the recovery working. Rising counts mean the platform behaviour is worsening; the reason field carries the original exception.",
+            correlationId,
+            detail: {
+              stage: "security-scan",
+              index: i,
+              of: selectedImages.length,
+              originalBytes: selectedImages[i]?.size,
+              rebuiltBytes: photo.size,
+              mimeType: photo.type,
+              exceptionName: readErr instanceof Error ? readErr.name : typeof readErr,
+              ...deviceContext(),
+            },
+          });
+
+          // Retry the scan against bytes we know are readable. If THIS throws,
+          // it is a real problem and must surface — no second recovery.
+          safe = await scanFileWithToast(photo, toast, { allowedTypes: "image" });
+        }
         if (!safe) {
           logger.warn({
             code: "FILE-5002",
@@ -435,7 +526,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
             actual: `photo ${i + 1} of ${selectedImages.length} rejected`,
             correlationId,
             // Names only — never the file's contents.
-            detail: { index: i, type: selectedImages[i]?.type, bytes: selectedImages[i]?.size },
+            detail: { stage: "security-scan", index: i, type: photo?.type, bytes: photo?.size, ...deviceContext() },
           });
           setPosting(false);
           return;
@@ -446,7 +537,10 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         const uploadStarted = Date.now();
         const uploadResult = await uploadImageWithThumbnail({
           bucket: "post-images",
-          file: selectedImages[i],
+          // `photo`, NOT selectedImages[i] — if the handle went stale this is
+          // the rebuilt copy, and the original would fail here exactly as it
+          // failed in the scan.
+          file: photo,
           type: "post",
           userId: user.id,
           cacheControl: "3600",
@@ -462,7 +556,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           actual: "url returned",
           durationMs: Date.now() - uploadStarted,
           correlationId,
-          detail: { index: i, of: selectedImages.length, bytes: selectedImages[i]?.size },
+          detail: { stage: "upload", index: i, of: selectedImages.length, bytes: photo?.size, ...deviceContext() },
         });
 
         uploadedUrls.push(uploadResult.url);
@@ -651,7 +745,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           : "Read the reason; the throw came from scan, upload or insert. Compare against the FILE-5003 upload lines with the same correlation id to see how far it got.",
         durationMs: Date.now() - startedAt,
         correlationId,
-        detail: { photos: selectedImages.length, scheduled: !!scheduleAt, privacy: newPrivacy },
+        detail: { stage: "pipeline", photos: selectedImages.length, scheduled: !!scheduleAt, privacy: newPrivacy, ...deviceContext() },
       });
       toast({
         title: isNetwork ? "Upload failed — check your connection" : "Failed to create post",
