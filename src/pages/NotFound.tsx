@@ -4,12 +4,28 @@ import { Link, useLocation } from "react-router-dom";
 import { Aperture, Home, Trophy, Compass, Newspaper, ArrowLeft } from "lucide-react";
 import { useT } from "@/i18n/I18nContext";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/pages/NotFound.tsx";
+
 const NotFound = () => {
   const t = useT();
   const location = useLocation();
 
   useEffect(() => {
-    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
+    logger.info({
+      code: "UI-8006",
+      event: "ROUTE_NOT_FOUND",
+      fn: "NotFound",
+      file: FILE,
+      message: "A member reached a route that does not exist.",
+      reason: "No route matched the requested path.",
+      expected: "A matching route",
+      actual: "404",
+      nextStep:
+        "Deliberately info, so it is never persisted — crawlers hit 404s constantly and would flood the Error Log. Compare the path against the navigation if a member reports a dead link.",
+      detail: { path: location.pathname },
+    });
   }, [location.pathname]);
 
   return (
