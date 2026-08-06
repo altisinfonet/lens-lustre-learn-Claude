@@ -1,5 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getOrCreateAutoAlbum, addPhotoToAlbum } from "@/hooks/profile/useAlbums";
+import { logger } from "@/lib/logger";
+
+const FILE = "src/lib/profilePostHelper.ts";
 
 /**
  * Creates a wall post when a user updates their profile picture or cover photo,
@@ -27,7 +30,22 @@ export async function createProfileUpdatePost(
   }).select("id").single();
 
   if (error) {
-    console.error("Failed to create profile update post:", error.message);
+    logger.error({
+      code: "POST-2006",
+      event: "PROFILE_UPDATE_POST_FAILED",
+      fn: "createProfileUpdatePost",
+      file: FILE,
+      message: "The post announcing a new profile or cover photo could not be created.",
+      reason: error.message,
+      expected: "One wall post announcing the change",
+      actual: "The insert was refused",
+      nextStep:
+        "THE MEMBER'S PHOTO DID CHANGE — only the announcement failed. Do not tell them their photo did not save. Check the posts table policies.",
+      userId,
+      // The caption is the member's own words and is deliberately absent; its
+      // length is enough to tell a plain update from a captioned one.
+      detail: { photoType: type, captionLength: caption?.length ?? 0 },
+    });
     return;
   }
 
@@ -37,6 +55,19 @@ export async function createProfileUpdatePost(
     const albumId = await getOrCreateAutoAlbum(userId, albumType as any);
     await addPhotoToAlbum(albumId, imageUrl, post?.id, caption);
   } catch (albumErr: any) {
-    console.warn("Failed to add to album:", albumErr?.message);
+    logger.warn({
+      code: "POST-2007",
+      event: "AUTO_ALBUM_ADD_FAILED",
+      fn: "createProfileUpdatePost",
+      file: FILE,
+      message: "The new photo was not added to its automatic album.",
+      reason: albumErr?.message ?? String(albumErr),
+      expected: `The photo filed under the ${type === "avatar" ? "profile_pictures" : "cover_photos"} album`,
+      actual: "The album step threw",
+      nextStep:
+        "Cosmetic — the photo and its post are both fine. Check getOrCreateAutoAlbum and the album policies.",
+      userId,
+      detail: { photoType: type },
+    });
   }
 }

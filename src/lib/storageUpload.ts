@@ -1,5 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { isS3Enabled, uploadToS3 } from "@/lib/s3Upload";
+import { logger } from "@/lib/logger";
+
+const FILE = "src/lib/storageUpload.ts";
 
 interface StorageUploadResult {
   url: string;
@@ -73,11 +76,37 @@ export async function storageRemove(bucket: string, paths: string[]): Promise<vo
       body: { paths: s3Paths },
     });
     if (error) {
-      console.error("S3 delete failed:", error);
+      logger.warn({
+        code: "FILE-5005",
+        event: "STORAGE_DELETE_CALL_FAILED",
+        fn: "storageDelete",
+        file: FILE,
+        message: "The delete request for stored files could not be sent.",
+        reason: error.message ?? String(error),
+        expected: `${paths.length} file(s) removed from storage`,
+        actual: "The delete function could not be invoked",
+        nextStep:
+          "Nothing is broken for the member — deletion is best-effort and never blocks them. The files are orphaned and still cost storage; check the s3-delete function's logs.",
+        // Counts and the bucket, never the paths: a path carries the member's
+        // id and the original filename.
+        detail: { bucket, fileCount: paths.length },
+      });
       // Don't throw — deletion is best-effort cleanup
     }
     if (data?.error) {
-      console.error("S3 delete error:", data.error);
+      logger.warn({
+        code: "FILE-5005",
+        event: "STORAGE_DELETE_REFUSED",
+        fn: "storageDelete",
+        file: FILE,
+        message: "The delete function was reached but refused to remove the files.",
+        reason: String(data.error),
+        expected: `${paths.length} file(s) removed from storage`,
+        actual: "The function answered with an error",
+        nextStep:
+          "Reached and refused, so this is a permission or key problem rather than a network one. Check the bucket policies before the function code.",
+        detail: { bucket, fileCount: paths.length },
+      });
     }
     return;
   }
@@ -123,7 +152,19 @@ export async function storageList(
   });
 
   if (error) {
-    console.error("Storage list error:", error);
+    logger.error({
+      code: "FILE-5006",
+      event: "STORAGE_LIST_FAILED",
+      fn: "storageList",
+      file: FILE,
+      message: "Listing a storage folder failed, so an empty list was returned.",
+      reason: error.message ?? String(error),
+      expected: "The files in this folder",
+      actual: "An empty list",
+      nextStep:
+        "THIS IS INDISTINGUISHABLE FROM AN EMPTY FOLDER on screen — the member is told there is nothing here. Check the bucket policies before believing the folder is genuinely empty.",
+      detail: { bucket, folder },
+    });
     return [];
   }
 

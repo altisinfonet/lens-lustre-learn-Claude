@@ -8,6 +8,9 @@
  */
 
 import { saveBlob } from "@/lib/saveFile";
+import { logger } from "@/lib/logger";
+
+const FILE = "src/lib/imageCompression.ts";
 
 interface CompressedImage {
   /** WebP blob – used for storage & display */
@@ -121,7 +124,23 @@ const loadImage = async (file: File | Blob): Promise<CanvasImageSource & { width
   const type = (file as File).type || "";
   const size = (file as File).size ?? 0;
   // The diagnosable half, kept out of the member's view.
-  console.warn("[image] no decoder for this file", { type, size });
+  //
+  // FILE-5002 already means exactly this ("A selected file was rejected as an
+  // unsupported image format") — no new code. A code is permanent, so reusing
+  // the right one beats minting a near-duplicate.
+  logger.warn({
+    code: "FILE-5002",
+    event: "IMAGE_NO_DECODER",
+    fn: "decodeImage",
+    file: FILE,
+    message: "The browser has no decoder for the file the member selected.",
+    reason: "Every decode path was tried and none could read this file.",
+    expected: "A format the browser can decode",
+    actual: type || "(the file carried no type at all)",
+    nextStep:
+      "Expected for HEIC and RAW from some phones, and the member is told so. Investigate only if the type here is one we claim to support.",
+    detail: { fileType: type, fileSizeBytes: size },
+  });
   throw new ImageDecodeError(type, size);
 };
 
