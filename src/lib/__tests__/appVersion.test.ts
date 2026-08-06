@@ -28,22 +28,24 @@ afterEach(() => {
 });
 
 describe("in the app (Capacitor native)", () => {
-  it("shows versionCode (versionName), e.g. 1052 (1.2.2)", async () => {
+  it("shows V + versionCode (versionName), e.g. V1052 (1.2.2)", async () => {
     w.Capacitor = {
       isNativePlatform: () => true,
       Plugins: {
         App: { getInfo: async () => ({ build: "1052", version: "1.2.2" }) },
       },
     };
-    expect(await getAppVersionLabel()).toBe("1052 (1.2.2)");
+    // Owner, 2026-08-06: "version write like V1055(1.1.2.) like so" —
+    // V prefix confirmed with him, existing spacing kept, no trailing dot.
+    expect(await getAppVersionLabel()).toBe("V1052 (1.2.2)");
   });
 
-  it("shows just the build when versionName is missing", async () => {
+  it("shows V + the build when versionName is missing", async () => {
     w.Capacitor = {
       isNativePlatform: () => true,
       Plugins: { App: { getInfo: async () => ({ build: "1052" }) } },
     };
-    expect(await getAppVersionLabel()).toBe("1052");
+    expect(await getAppVersionLabel()).toBe("V1052");
   });
 
   it("shows NOTHING when the App plugin is absent — never a made-up number", async () => {
@@ -67,7 +69,7 @@ describe("in the app (Capacitor native)", () => {
 });
 
 describe("on the web", () => {
-  it("shows the web deploy stamp, not a fake versionCode", async () => {
+  it("shows the web deploy stamp UNPREFIXED — the V belongs to the app build", async () => {
     w.__APP_BUILD = "2026-08-05-1";
     expect(await getAppVersionLabel()).toBe("2026-08-05-1");
   });
