@@ -479,6 +479,13 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
       "The admin's screen may still show the change even though it was not stored. The event names what failed — navigation sync or managed-page creation. Confirm the current stored state before retrying.",
   },
   {
+    code: "ADMIN-8107",
+    severity: "debug",
+    description: "The admin member list loaded on mount, which is what keeps its live updates alive.",
+    resolution:
+      "None. It exists because the list previously loaded ONLY on a click, which left the realtime handler's query ref null and made it discard every live update until the page was reloaded. If this stops firing, live updates die silently again.",
+  },
+  {
     code: "ADMIN-8105",
     severity: "warn",
     description: "An admin action was performed but could not be written to the audit log.",
