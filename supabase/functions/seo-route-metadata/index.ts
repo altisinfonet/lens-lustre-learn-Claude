@@ -112,18 +112,34 @@ function siteSchemas(globals: any[]): object[] {
 
 // --------- Route resolvers ---------
 
+// The only competition statuses a member of the public may see. Copied
+// deliberately from supabase/functions/sitemap/index.ts so the two public
+// endpoints cannot drift apart and quietly disagree about what is public.
+// A DRAFT competition is absent from this list and must stay unreachable.
+const PUBLIC_COMPETITION_STATUSES = [
+  "upcoming", "open", "submission_open", "judging", "result", "closed",
+];
+
 async function resolveCompetition(slugOrId: string, meta: Metadata, global: any) {
-  // Try slug first, then id
+  // SECURITY, 2026-08-06: this endpoint is deliberately public (verify_jwt=false)
+  // and holds the service-role key, so RLS does not protect it — the filter here
+  // IS the protection. Without the status filter, a draft competition's title,
+  // description, cover image and dates were readable by anyone who guessed its
+  // slug. The journal-article path below always filtered correctly; this one did
+  // not, which is exactly the kind of gap that survives because the endpoint
+  // "obviously" only serves public pages.
   let { data } = await supabase
     .from("competitions")
     .select("id, slug, title, description, cover_image_url, category, starts_at, ends_at, status")
     .eq("slug", slugOrId)
+    .in("status", PUBLIC_COMPETITION_STATUSES)
     .maybeSingle();
   if (!data) {
     const r = await supabase
       .from("competitions")
       .select("id, slug, title, description, cover_image_url, category, starts_at, ends_at, status")
       .eq("id", slugOrId)
+      .in("status", PUBLIC_COMPETITION_STATUSES)
       .maybeSingle();
     data = r.data;
   }
