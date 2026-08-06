@@ -18,6 +18,9 @@
 // web/PWA every function here is a silent no-op.
 
 import { supabase } from "@/integrations/supabase/client";
+import { logger } from "@/lib/logger";
+
+const FILE = "src/lib/native/authDeepLink.ts";
 
 /** The custom-scheme URL Supabase redirects back to inside the app. */
 export const NATIVE_OAUTH_REDIRECT = "app.fiftymmretina://auth-callback";
@@ -116,9 +119,33 @@ async function completeNativeOAuth(url: string): Promise<void> {
 
     // Supabase may also return an error description on the fragment.
     const errDesc = fragParams.get("error_description");
-    if (errDesc) console.error("[native-oauth] provider error:", errDesc);
+    if (errDesc) {
+      logger.error({
+        code: "AUTH-1004",
+        event: "NATIVE_OAUTH_PROVIDER_REFUSED",
+        fn: "initNativeAuthDeepLink",
+        file: FILE,
+        message: "The sign-in provider refused the request made from the installed app.",
+        reason: errDesc,
+        expected: "Tokens on the callback fragment",
+        actual: "An error_description on the fragment instead",
+        nextStep:
+          "The provider said no, so this is not our session handling. Confirm app.fiftymmretina://auth-callback is still allow-listed for this provider.",
+      });
+    }
   } catch (err) {
-    console.error("[native-oauth] failed to complete sign-in", err);
+    logger.error({
+      code: "AUTH-1004",
+      event: "NATIVE_OAUTH_SIGN_IN_FAILED",
+      fn: "initNativeAuthDeepLink",
+      file: FILE,
+      message: "Completing sign-in from the app's OAuth deep link failed.",
+      reason: err instanceof Error ? err.message : String(err),
+      expected: "A session built from the returned tokens",
+      actual: "The exchange threw",
+      nextStep:
+        "The member is sent to /login to retry rather than a dead screen, so they see a sign-in page and not an error. App-only — the web flow is unaffected.",
+    });
     // Land the user on /login so they can retry rather than a dead screen.
     window.location.href = "/login";
   }

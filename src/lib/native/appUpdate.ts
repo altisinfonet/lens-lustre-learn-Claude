@@ -8,6 +8,10 @@
 // runtime globals that exist only inside the installed app. On the web/PWA
 // every function here is a silent no-op. (Same pattern as authDeepLink.ts.)
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/lib/native/appUpdate.ts";
+
 type AppUpdatePlugin = {
   getAppUpdateInfo: () => Promise<{
     updateAvailability?: number; // 2 = UPDATE_AVAILABLE (AppUpdateAvailability enum)
@@ -55,7 +59,18 @@ export async function checkForAppUpdate(): Promise<UpdateStatus | null> {
       availableVersion: info.availableVersionName ?? info.availableVersionCode,
     };
   } catch (err) {
-    console.warn("[appUpdate] check failed", err);
+    logger.warn({
+      code: "SYS-9008",
+      event: "APP_UPDATE_CHECK_FAILED",
+      fn: "checkForUpdate",
+      file: FILE,
+      message: "The installed app could not ask Play whether an update exists.",
+      reason: err instanceof Error ? err.message : String(err),
+      expected: "Play to report whether a newer build is available",
+      actual: "The check threw",
+      nextStep:
+        "Harmless once; persistent hits mean members are stranded on an old build, which is how an already-fixed bug keeps being reported.",
+    });
     return null;
   }
 }
@@ -74,11 +89,33 @@ export async function startAppUpdate(immediateAllowed: boolean): Promise<void> {
       return;
     }
   } catch (err) {
-    console.warn("[appUpdate] immediate flow failed, falling back to store", err);
+    logger.warn({
+      code: "SYS-9009",
+      event: "APP_UPDATE_IMMEDIATE_FLOW_FAILED",
+      fn: "startUpdate",
+      file: FILE,
+      message: "The in-app update flow failed; falling back to the store listing.",
+      reason: err instanceof Error ? err.message : String(err),
+      expected: "Play's immediate update flow to run inside the app",
+      actual: "The flow threw; the store listing is the fallback",
+      nextStep:
+        "The member can still update, just with more steps. Only urgent if the store fallback (SYS-9010) also fails.",
+    });
   }
   try {
     await p.openAppStore();
   } catch (err) {
-    console.warn("[appUpdate] openAppStore failed", err);
+    logger.error({
+      code: "SYS-9010",
+      event: "APP_UPDATE_STORE_OPEN_FAILED",
+      fn: "startUpdate",
+      file: FILE,
+      message: "The app could not open the store listing, so the member has no way to update.",
+      reason: err instanceof Error ? err.message : String(err),
+      expected: "The Play listing to open",
+      actual: "Both the in-app flow and the store fallback failed",
+      nextStep:
+        "END OF THE LINE — the member is stuck on their current build and nothing on screen tells them so. Pair this with SYS-9009 in the same correlation window to see the whole flow fail.",
+    });
   }
 }

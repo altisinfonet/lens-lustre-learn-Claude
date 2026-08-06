@@ -12,6 +12,9 @@
 // the installed app. On web every export below is a harmless no-op.
 
 import { supabase } from "@/integrations/supabase/client";
+import { logger } from "@/lib/logger";
+
+const FILE = "src/lib/native/push.ts";
 import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
 
 type PushToken = { token?: string };
@@ -100,7 +103,18 @@ export async function initPushNotifications(
       onOpen?.(notification?.data ?? {});
     });
   } catch (err) {
-    console.error("[push] init failed", err);
+    logger.error({
+      code: "NOTIF-7001",
+      event: "PUSH_INIT_FAILED",
+      fn: "startPush",
+      file: FILE,
+      message: "Push notification setup failed inside the installed app.",
+      reason: err instanceof Error ? err.message : String(err),
+      expected: "Permission granted, a token registered, and listeners attached",
+      actual: "Setup threw part-way through",
+      nextStep:
+        "NOTHING TELLS THE MEMBER — they will simply never receive a push and will assume the app is quiet. Check whether a row exists in push_tokens for them.",
+    });
     started = false;
   }
 }
