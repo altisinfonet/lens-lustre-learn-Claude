@@ -1,5 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/lib/finalVoteTotals.ts";
+
 export interface FinalVoteTotalsResult {
   totals: Record<string, number>;
   perPhoto: Record<string, Record<string, number>>;
@@ -26,7 +30,18 @@ export async function fetchEntryFinalVotes(entryIds: string[]): Promise<FinalVot
   });
 
   if (error) {
-    console.warn("get_public_final_votes failed; showing photos without vote tallies:", error);
+    logger.warn({
+      code: "DB-3006",
+      event: "PUBLIC_VOTE_TALLIES_UNAVAILABLE",
+      fn: "fetchFinalVoteTotals",
+      file: FILE,
+      message: "Public vote tallies could not be loaded.",
+      reason: error?.message ?? String(error),
+      expected: "A vote count for each photograph",
+      actual: "No counts; the photographs render without them",
+      nextStep:
+        "Blank is honest here and the owner's rule is never to invent a figure — but 'no votes yet' and 'we could not count' look identical on screen. Confirm the tallies exist before anyone quotes a result.",
+    });
     return { totals: {}, perPhoto: {} };
   }
 

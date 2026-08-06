@@ -34,6 +34,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { QueryClient } from "@tanstack/react-query";
 import { profilesPublic } from "@/lib/profilesPublic";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/lib/profileMapCache.ts";
+
 export interface ProfileMapEntry {
   id: string;
   full_name: string | null;
@@ -190,7 +194,18 @@ async function flush(): Promise<void> {
   } catch (err) {
     // A failed batch must not poison the cache or hang its waiters. The ids stay
     // uncached, so the next request retries them.
-    console.warn("profileMap batch failed:", err);
+    logger.warn({
+      code: "DB-3005",
+      event: "PROFILE_MAP_BATCH_FAILED",
+      fn: "fetchProfileMap",
+      file: FILE,
+      message: "A batch lookup of member names and avatars failed.",
+      reason: err instanceof Error ? err.message : String(err),
+      expected: "A name, avatar and badges for each member id",
+      actual: "An empty map; callers fall back to generic identities",
+      nextStep:
+        "READ THIS BEFORE CONCLUDING AN ACCOUNT WAS DELETED. When this fires, posts and comments render the generic name 'Photographer' with a letter-placeholder avatar — which is EXACTLY what a deleted account looks like (Bug 1 screenshots, 2026-08-06). One is a lookup that failed; the other is a profile that is gone.",
+    });
   } finally {
     for (const id of ids) inFlight.delete(id);
     resolve?.();

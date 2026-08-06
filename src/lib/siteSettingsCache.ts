@@ -27,6 +27,10 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/lib/siteSettingsCache.ts";
+
 /** Settings change rarely and are read constantly. */
 const TTL_MS = 10 * 60_000;
 /** A key with no row is cached briefly — long enough to stop a render loop
@@ -88,7 +92,18 @@ async function flush(): Promise<void> {
       }
     }
   } catch (err) {
-    console.warn("site_settings batch failed:", err);
+    logger.warn({
+      code: "SYS-9011",
+      event: "SITE_SETTINGS_LOAD_FAILED",
+      fn: "loadSiteSettings",
+      file: FILE,
+      message: "Site settings could not be loaded; built-in defaults are in use.",
+      reason: err instanceof Error ? err.message : String(err),
+      expected: "The stored site settings",
+      actual: "Defaults",
+      nextStep:
+        "THIS CHANGES WHAT MEMBERS SEE with nothing on screen saying so — a setting an admin turned off may be back on. Check this before investigating any 'my setting did not save' report.",
+    });
   } finally {
     for (const k of keys) inFlight.delete(k);
     resolve?.();
