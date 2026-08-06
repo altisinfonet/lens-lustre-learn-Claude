@@ -10,6 +10,10 @@
  */
 import exifr from "exifr";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/lib/exifExtract.ts";
+
 export interface PhotoExif {
   camera?: string;        // "Canon EOS R5"
   make?: string;          // "Canon"
@@ -91,7 +95,18 @@ export async function extractExif(file: File): Promise<ExifReadResult> {
 
     return { exif, exif_available };
   } catch (err) {
-    console.warn("[extractExif] failed:", err);
+    logger.warn({
+      code: "FILE-5008",
+      event: "EXIF_EXTRACTION_FAILED",
+      fn: "extractExif",
+      file: FILE,
+      message: "Camera details could not be read out of a photograph.",
+      reason: err instanceof Error ? err.message : String(err),
+      expected: "Camera, lens and exposure metadata",
+      actual: "None",
+      nextStep:
+        "The upload is unaffected — only the EXIF panel will be empty. Common when a photo has been edited or exported by an app that strips metadata; that is the photographer's own file, not our pipeline.",
+    });
     return { exif: {}, exif_available: false };
   }
 }

@@ -1,5 +1,9 @@
 import { toast } from "@/hooks/core/use-toast";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/lib/safeAdminExecute.ts";
+
 /**
  * Safe execution wrapper for admin actions.
  * Prevents silent failures and ensures proper error reporting.
@@ -32,7 +36,19 @@ export async function safeAdminExecute<T>(
           ? String((err as { message: unknown }).message)
           : "Unknown error";
 
-    console.error(`[AdminAction] ${actionLabel} failed:`, err);
+    logger.error({
+      code: "ADMIN-8106",
+      event: "ADMIN_ACTION_THREW",
+      fn: "safeAdminExecute",
+      file: FILE,
+      message: "An admin action threw part-way through.",
+      reason: message,
+      expected: `${actionLabel} to complete`,
+      actual: "It threw",
+      nextStep:
+        "The action may be HALF-APPLIED. Confirm the current stored state before retrying — a blind retry can double-apply whatever did succeed.",
+      detail: { action: actionLabel },
+    });
 
     toast({
       title: `${actionLabel} failed`,
