@@ -9,6 +9,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { displayEngagement, formatEngagementCount } from "@/lib/displayEngagement";
 import { Button } from "@/components/ui/button";
 import { STORY_DISPLAY_MS } from "@/lib/storyTiming";
+import { logger, newCorrelationId } from "@/lib/logger";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 
@@ -211,16 +212,85 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
   };
 
   const handleDeleteStory = async (storyId: string) => {
-    if (!user || deleting) return;
+    const correlationId = newCorrelationId();
+    const startedAt = Date.now();
+
+    if (!user) {
+      logger.warn({
+        code: "AUTH-1001",
+        event: "STORY_DELETE_WITHOUT_SESSION",
+        fn: "handleDeleteStory",
+        file: "src/components/profile/ProfileStories.tsx",
+        message: "Deleting a story from the profile viewer.",
+        reason: "The delete button was reachable with no signed-in member.",
+        expected: "A signed-in member",
+        actual: "user is null",
+        recordId: storyId,
+        correlationId,
+      });
+      return;
+    }
+    if (deleting) return;
+
     setDeleting(true);
     try {
       // .select("id") returns the rows actually deleted — a delete matching
       // nothing must surface as an error, never as a false "Story removed".
       const { data, error } = await supabase.from("stories" as any).delete().eq("id", storyId).select("id");
-      if (error) throw error;
-      if (!data || (data as any[]).length === 0) throw new Error("Story could not be deleted.");
+
+      if (error) {
+        logger.error({
+          code: "STORY-6002",
+          event: "STORY_DELETE_DB_ERROR",
+          fn: "handleDeleteStory",
+          file: "src/components/profile/ProfileStories.tsx",
+          message: "Deleting a story from the profile viewer.",
+          reason: `The database refused the delete: ${error.message}`,
+          expected: "One row deleted",
+          actual: `error ${(error as any).code ?? "unknown"}`,
+          recordId: storyId,
+          durationMs: Date.now() - startedAt,
+          correlationId,
+          detail: { pgCode: (error as any).code },
+        });
+        throw error;
+      }
+
+      if (!data || (data as any[]).length === 0) {
+        logger.error({
+          code: "STORY-6001",
+          event: "STORY_DELETE_MATCHED_NO_ROWS",
+          fn: "handleDeleteStory",
+          file: "src/components/profile/ProfileStories.tsx",
+          message: "Deleting a story from the profile viewer.",
+          reason: "The delete succeeded but changed zero rows.",
+          expected: "Exactly one story row deleted",
+          actual: "0 rows",
+          nextStep:
+            "Check pg_policies for 'stories' and confirm the signed-in member owns this story.",
+          recordId: storyId,
+          durationMs: Date.now() - startedAt,
+          correlationId,
+        });
+        throw new Error("Story could not be deleted.");
+      }
+
       setStories(prev => prev.filter(s => s.id !== storyId));
       toast({ title: "Story removed" });
+
+      logger.info({
+        code: "STORY-6003",
+        event: "STORY_DELETED",
+        fn: "handleDeleteStory",
+        file: "src/components/profile/ProfileStories.tsx",
+        message: "Deleting a story from the profile viewer.",
+        reason: "The database confirmed one deleted row and it left the screen.",
+        expected: "Exactly one story row deleted",
+        actual: `${(data as any[]).length} row(s)`,
+        recordId: storyId,
+        durationMs: Date.now() - startedAt,
+        correlationId,
+      });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
