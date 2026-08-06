@@ -101,6 +101,16 @@ const CONVERTED_FILES = [
   "components/admin/AdminMenuBuilder.tsx",
   "components/admin/AdminJudgeMonitoringPanel.tsx",
   "components/admin/AdminBanners.tsx",
+  // Group C — misc, converted 2026-08-06. Conversion COMPLETE after these.
+  "lib/adSlots.ts",
+  "lib/adminLogger.ts",
+  "lib/finalVoteTotals.ts",
+  "lib/siteSettingsCache.ts",
+  "lib/profileMapCache.ts",
+  "lib/exifExtract.ts",
+  "lib/safeAdminExecute.ts",
+  "components/UserIdentityBlock.tsx",
+  "pages/NotFound.tsx",
 ];
 
 /** Files that must actually EMIT structured logs, not merely avoid console. */
@@ -146,6 +156,16 @@ const MUST_LOG = [
   "components/admin/AdminMenuBuilder.tsx",
   "components/admin/AdminJudgeMonitoringPanel.tsx",
   "components/admin/AdminBanners.tsx",
+  // Group C — misc, converted 2026-08-06. Conversion COMPLETE after these.
+  "lib/adSlots.ts",
+  "lib/adminLogger.ts",
+  "lib/finalVoteTotals.ts",
+  "lib/siteSettingsCache.ts",
+  "lib/profileMapCache.ts",
+  "lib/exifExtract.ts",
+  "lib/safeAdminExecute.ts",
+  "components/UserIdentityBlock.tsx",
+  "pages/NotFound.tsx",
 ];
 
 describe("rule: nothing sensitive ever leaves the device", () => {
@@ -569,6 +589,31 @@ describe("rule: the converted files really do emit structured logs", () => {
       expect(code, `FILE-5007 must record ${field}`).toContain(field);
     }
     expect(code, "a stage failure must be timed").toMatch(/durationMs:/);
+  });
+
+  /**
+   * GROUP C, 2026-08-06 — the conversion is COMPLETE after this.
+   *
+   * These two pin the decisions that are easy to undo by accident.
+   */
+  it("ad tracking stays behind a DEV guard — it fires on ordinary scrolling", () => {
+    const code = src("lib/adSlots.ts");
+    // logger.debug never PRINTS in production, but emit() would still build and
+    // redact the payload on every scroll event. Vite strips the guarded branch.
+    const adLogs = [...code.matchAll(/logger\.debug\(\{[\s\S]*?code:\s*"(ADS-\d{4})"/g)];
+    expect(adLogs.length, "adSlots should emit ADS-* debug logs").toBeGreaterThanOrEqual(5);
+    // Every ADS log must sit inside an import.meta.env.DEV block.
+    const guards = (code.match(/if\s*\(import\.meta\.env\.DEV\)\s*\{/g) || []).length;
+    expect(guards, "every ADS log must be DEV-guarded").toBeGreaterThanOrEqual(5);
+  });
+
+  it("a failed profile lookup is distinguishable from a deleted account", () => {
+    // Both render "Photographer" + a letter avatar. Bug 1 (2026-08-06) was
+    // reported from exactly that appearance, so the two must never again be
+    // indistinguishable in the log.
+    const code = src("lib/profileMapCache.ts");
+    expect(code).toContain("DB-3005");
+    expect(code).toContain("PROFILE_MAP_BATCH_FAILED");
   });
 
   it("one user action shares one correlation id", () => {
