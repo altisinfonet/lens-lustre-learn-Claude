@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { X, ChevronLeft, ChevronRight, Heart } from "lucide-react";
 import { useDownloadImage } from "@/hooks/core/useDownloadImage";
 import DownloadButton from "@/components/DownloadButton";
+import ZoomableImage from "@/components/media/ZoomableImage";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { frameAspectFor, frameAspectForUrls, parseImageDims } from "@/lib/imageFrame";
 
@@ -274,22 +275,54 @@ const DoubleTapHeart = ({ x, y }: { x: number; y: number }) => (
   </motion.div>
 );
 
-/* ── Double Tap Hook ── */
-function useDoubleTap(onDoubleTap?: (x: number, y: number) => void) {
+/* ── Tap / Double-Tap Hook ──
+ *
+ * BUILD 1055. This used to be `useDoubleTap`: one tap did nothing at all, two
+ * taps liked the post. The owner asked for a feed photograph to open
+ * fullscreen on a tap, so this now has to separate two gestures that begin
+ * identically — and a single tap must NEVER be able to fire a like.
+ *
+ * THE 300ms IS A REAL COST, NOT AN OVERSIGHT. A single tap cannot be resolved
+ * until the double-tap window has passed, because until then it might be the
+ * first half of a like. So opening the viewer is deliberately deferred by
+ * 300ms — the same threshold the double-tap already used before this build.
+ * The alternative, acting on the first tap immediately, would open the viewer
+ * underneath every like a member gives their friends' photographs. Nobody
+ * would call that faster.
+ *
+ * The timer is cleared on unmount: a post scrolled out of the feed inside the
+ * window must not open a viewer for a photograph that is no longer on screen.
+ */
+function useTapOrDoubleTap(
+  onDoubleTap?: (x: number, y: number) => void,
+  onSingleTap?: () => void,
+) {
   const lastTapRef = useRef(0);
+  const pendingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (pendingRef.current) clearTimeout(pendingRef.current); }, []);
+
   const handleTap = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
       const now = Date.now();
       if (now - lastTapRef.current < 300) {
+        // Second tap inside the window — this was a like all along. Cancel the
+        // open that the first tap scheduled.
+        if (pendingRef.current) { clearTimeout(pendingRef.current); pendingRef.current = null; }
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         let clientX: number, clientY: number;
         if ("touches" in e) { clientX = e.changedTouches?.[0]?.clientX ?? 0; clientY = e.changedTouches?.[0]?.clientY ?? 0; }
         else { clientX = e.clientX; clientY = e.clientY; }
         onDoubleTap?.(clientX - rect.left, clientY - rect.top);
         lastTapRef.current = 0;
-      } else { lastTapRef.current = now; }
+        return;
+      }
+      lastTapRef.current = now;
+      if (!onSingleTap) return;
+      if (pendingRef.current) clearTimeout(pendingRef.current);
+      pendingRef.current = setTimeout(() => { pendingRef.current = null; onSingleTap(); }, 300);
     },
-    [onDoubleTap],
+    [onDoubleTap, onSingleTap],
   );
   return handleTap;
 }
@@ -297,23 +330,35 @@ function useDoubleTap(onDoubleTap?: (x: number, y: number) => void) {
 /* ── Single Image ── */
 const SingleImagePost = ({ src, frameAspect, onNaturalSize, onDoubleTapLike }: { src: string; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void }) => {
   const [heart, setHeart] = useState<{ x: number; y: number; id: number } | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const { downloading, download } = useDownloadImage();
 
-  const handleDoubleTap = useDoubleTap((x, y) => {
-    setHeart({ x, y, id: Date.now() });
-    onDoubleTapLike?.();
-  });
+  const handleTap = useTapOrDoubleTap(
+    (x, y) => {
+      setHeart({ x, y, id: Date.now() });
+      onDoubleTapLike?.();
+    },
+    // BUILD 1055 — a single-photo feed post had NO fullscreen viewer at all
+    // before this build. Tapping it did nothing; only a double tap registered.
+    useCallback(() => setLightboxOpen(true), []),
+  );
 
   return (
-    <div className="relative group/img w-full overflow-hidden rounded-sm bg-muted/30" style={{ aspectRatio: String(frameAspect) }} onClick={handleDoubleTap}>
-      <ProgressiveImage src={src} onNaturalSize={onNaturalSize} />
-      <AnimatePresence>{heart && <DoubleTapHeart key={heart.id} x={heart.x} y={heart.y} />}</AnimatePresence>
-      <DownloadButton
-        downloading={downloading === src}
-        onClick={(e) => { e.stopPropagation(); download(src); }}
-        className="absolute bottom-3 right-3 p-2 rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-card shadow-sm"
-      />
-    </div>
+    <>
+      <div className="relative group/img w-full overflow-hidden rounded-sm bg-muted/30 cursor-zoom-in" style={{ aspectRatio: String(frameAspect) }} onClick={handleTap}>
+        <ProgressiveImage src={src} onNaturalSize={onNaturalSize} />
+        <AnimatePresence>{heart && <DoubleTapHeart key={heart.id} x={heart.x} y={heart.y} />}</AnimatePresence>
+        <DownloadButton
+          downloading={downloading === src}
+          onClick={(e) => { e.stopPropagation(); download(src); }}
+          className="absolute bottom-3 right-3 p-2 rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-card shadow-sm"
+        />
+      </div>
+      {/* The viewer is handed the ORIGINAL url, never the 800px render copy
+          the card displays. Zooming a downscaled thumbnail would magnify the
+          downscale, which is the opposite of the point. */}
+      <CarouselLightbox urls={[src]} currentIndex={lightboxOpen ? 0 : null} onClose={() => setLightboxOpen(false)} onNavigate={() => {}} />
+    </>
   );
 };
 
@@ -331,10 +376,23 @@ const AlbumCarousel = ({ urls, frameAspect, onNaturalSize, onDoubleTapLike }: { 
   const [heart, setHeart] = useState<{ x: number; y: number; id: number } | null>(null);
   const { downloading, download } = useDownloadImage();
 
-  const handleDoubleTap = useDoubleTap((x, y) => {
-    setHeart({ x, y, id: Date.now() });
-    onDoubleTapLike?.();
-  });
+  /**
+   * A swipe ends in a click event. Without this the member would flick to the
+   * next photograph and the viewer would open on top of it — the album would
+   * be effectively unswipeable. Set by handleDragEnd, checked by the tap.
+   */
+  const swipedUntilRef = useRef(0);
+
+  const handleTap = useTapOrDoubleTap(
+    (x, y) => {
+      setHeart({ x, y, id: Date.now() });
+      onDoubleTapLike?.();
+    },
+    useCallback(() => {
+      if (Date.now() < swipedUntilRef.current) return;
+      setLightboxOpen(true);
+    }, []),
+  );
 
   useEffect(() => {
     preloadImage(urls[(current + 1) % urls.length]);
@@ -348,6 +406,9 @@ const AlbumCarousel = ({ urls, frameAspect, onNaturalSize, onDoubleTapLike }: { 
 
   const handleDragEnd = useCallback((_: unknown, info: PanInfo) => {
     const { offset, velocity } = info;
+    // Anything past a few pixels was a drag, not a tap — even if it did not
+    // travel far enough to page. The window covers the click that follows.
+    if (Math.abs(offset.x) > 5) swipedUntilRef.current = Date.now() + 400;
     if (Math.abs(offset.x) > SWIPE_THRESHOLD || Math.abs(velocity.x) > SWIPE_VELOCITY) navigate(offset.x < 0 ? 1 : -1);
   }, [navigate]);
 
@@ -359,7 +420,7 @@ const AlbumCarousel = ({ urls, frameAspect, onNaturalSize, onDoubleTapLike }: { 
 
   return (
     <>
-      <div className="relative group/album w-full overflow-hidden rounded-sm bg-muted/30" style={{ aspectRatio: String(frameAspect) }} onClick={handleDoubleTap}>
+      <div className="relative group/album w-full overflow-hidden rounded-sm bg-muted/30 cursor-zoom-in" style={{ aspectRatio: String(frameAspect) }} onClick={handleTap}>
         <AnimatePresence initial={false} custom={direction} mode="popLayout">
           <motion.div key={current} custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3, ease: "easeOut" }} drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.15} onDragEnd={handleDragEnd} className="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing">
             {/* Only slide 0 may set the frame — an album has ONE shape and it
@@ -403,6 +464,7 @@ interface CarouselLightboxProps { urls: string[]; currentIndex: number | null; o
 const CarouselLightbox = ({ urls, currentIndex, onClose, onNavigate }: CarouselLightboxProps) => {
   const isOpen = currentIndex !== null;
   const { downloading, download } = useDownloadImage();
+  const [zoomed, setZoomed] = useState(false);
 
   const goPrev = useCallback(() => { if (currentIndex === null) return; onNavigate(currentIndex > 0 ? currentIndex - 1 : urls.length - 1); }, [currentIndex, urls.length, onNavigate]);
   const goNext = useCallback(() => { if (currentIndex === null) return; onNavigate(currentIndex < urls.length - 1 ? currentIndex + 1 : 0); }, [currentIndex, urls.length, onNavigate]);
@@ -432,7 +494,7 @@ const CarouselLightbox = ({ urls, currentIndex, onClose, onNavigate }: CarouselL
               <X className="h-5 w-5" />
             </button>
           </div>
-          {urls.length > 1 && (
+          {urls.length > 1 && !zoomed && (
             <>
               <button onClick={(e) => { e.stopPropagation(); goPrev(); }} className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all">
                 <ChevronLeft className="h-6 w-6" />
@@ -442,8 +504,18 @@ const CarouselLightbox = ({ urls, currentIndex, onClose, onNavigate }: CarouselL
               </button>
             </>
           )}
+          {/* BUILD 1055 — see the note in FacebookPhotoGrid: the transform
+              lives on the photograph, the chrome above are siblings, and the
+              entry animation is opacity only so nothing competes with the
+              gesture for the scale property. */}
           <AnimatePresence mode="wait">
-            <motion.img key={currentIndex} src={urls[currentIndex]} alt="" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.2 }} className="max-w-[95vw] max-h-[92vh] object-contain rounded-sm shadow-2xl" onClick={(e) => e.stopPropagation()} />
+            <motion.div key={currentIndex} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0 flex items-center justify-center">
+              <ZoomableImage
+                src={urls[currentIndex]}
+                className="max-w-[95vw] max-h-[92vh] object-contain rounded-sm shadow-2xl"
+                onZoomChange={setZoomed}
+              />
+            </motion.div>
           </AnimatePresence>
         </motion.div>
       )}
