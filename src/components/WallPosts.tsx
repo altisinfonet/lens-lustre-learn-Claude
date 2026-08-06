@@ -28,6 +28,7 @@ import { useUserPostsQuery, flattenUserPosts } from "@/hooks/feed/useUserPostsQu
 import { useFeedRealtime } from "@/hooks/feed/useRealtimeFeed";
 import { reportClientError, memberFacingMessage, describeThrown } from "@/lib/reportClientError";
 import { useCaptionMentions } from "@/hooks/feed/useCaptionMentions";
+import { logger, newCorrelationId } from "@/lib/logger";
 import type { ReactionType } from "@/components/ReactionPicker";
 import type { UnifiedPost } from "@/types/post";
 
@@ -320,7 +321,36 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
 
 
   const createPost = async () => {
+    // ONE ACTION, ONE THREAD OF LOGS. Every line below carries this id, so
+    // "show me everything that happened when Neil's post failed at 01:14"
+    // is a single query against client_errors.
+    const correlationId = newCorrelationId();
+    const startedAt = Date.now();
+
+    logger.debug({
+      code: "POST-2004",
+      event: "POST_CREATE_STARTED",
+      fn: "createPost",
+      file: "src/components/WallPosts.tsx",
+      message: "Member pressed Post in the composer.",
+      reason: "Entry point of the post pipeline.",
+      expected: "A photo attached, caption within 2200 characters",
+      actual: `${selectedImages.length} photo(s), caption ${newContent.trim().length} chars, privacy ${newPrivacy}, scheduled ${!!scheduleAt}`,
+      correlationId,
+    });
+
     if (isBanned) {
+      logger.warn({
+        code: "AUTH-1003",
+        event: "POST_BLOCKED_BANNED_MEMBER",
+        fn: "createPost",
+        file: "src/components/WallPosts.tsx",
+        message: "Member pressed Post in the composer.",
+        reason: "The member is banned, so the restrictive database policy would refuse this anyway.",
+        expected: "A member in good standing",
+        actual: "isBanned = true",
+        correlationId,
+      });
       toast({ title: "Your account is restricted from posting", variant: "destructive" });
       return;
     }
@@ -368,6 +398,22 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
      * ─────────────────────────────────────────────────────────────────────
      */
     if (!user || selectedImages.length === 0) {
+      logger.warn({
+        code: !user ? "AUTH-1001" : "POST-2001",
+        event: !user ? "POST_WITHOUT_SESSION" : "POST_WITHOUT_PHOTO",
+        fn: "createPost",
+        file: "src/components/WallPosts.tsx",
+        message: "Member pressed Post in the composer.",
+        reason: !user
+          ? "No signed-in member, so there is no author to attribute the post to."
+          : "A post is a photograph and none was attached (see the ruling above).",
+        expected: !user ? "A signed-in member" : "At least one photo attached",
+        actual: !user ? "user is null" : "0 photos attached",
+        nextStep: !user
+          ? "Check whether the session expired or the app resumed before auth restored."
+          : "Correct by design. Investigate only if the member insists a photo WAS attached — that points at the file picker, not this branch.",
+        correlationId,
+      });
       toast({ title: "Please attach at least one photo", variant: "destructive" });
       return;
     }
@@ -377,7 +423,27 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       const uploadedThumbs: string[] = [];
       for (let i = 0; i < selectedImages.length; i++) {
         const safe = await scanFileWithToast(selectedImages[i], toast, { allowedTypes: "image" });
-        if (!safe) { setPosting(false); return; }
+        if (!safe) {
+          logger.warn({
+            code: "FILE-5002",
+            event: "POST_PHOTO_REJECTED_BY_SCAN",
+            fn: "createPost",
+            file: "src/components/WallPosts.tsx",
+            message: "Scanning an attached photo before upload.",
+            reason: "The file security scan rejected this photo, so the whole post was abandoned.",
+            expected: "A scannable image file",
+            actual: `photo ${i + 1} of ${selectedImages.length} rejected`,
+            correlationId,
+            // Names only — never the file's contents.
+            detail: { index: i, type: selectedImages[i]?.type, bytes: selectedImages[i]?.size },
+          });
+          setPosting(false);
+          return;
+        }
+
+        // Timed: uploads are the slowest step and the one that fails on a bad
+        // connection, so the duration is the number worth having.
+        const uploadStarted = Date.now();
         const uploadResult = await uploadImageWithThumbnail({
           bucket: "post-images",
           file: selectedImages[i],
@@ -385,6 +451,20 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           userId: user.id,
           cacheControl: "3600",
         });
+        logger.info({
+          code: "FILE-5003",
+          event: "POST_PHOTO_UPLOADED",
+          fn: "createPost",
+          file: "src/components/WallPosts.tsx",
+          message: "Uploading an attached photo to storage.",
+          reason: "Storage accepted the file and returned a URL.",
+          expected: "A URL for the stored photo",
+          actual: "url returned",
+          durationMs: Date.now() - uploadStarted,
+          correlationId,
+          detail: { index: i, of: selectedImages.length, bytes: selectedImages[i]?.size },
+        });
+
         uploadedUrls.push(uploadResult.url);
         uploadedThumbs.push(uploadResult.thumbnailUrl);
       }
@@ -441,6 +521,27 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         // policies that remain are the "Banned users cannot …" ones, so that
         // guess would now put the removed photo wall back in front of a member
         // it never applied to. Show the real reason instead.
+        logger.error({
+          code: "POST-2002",
+          event: "POST_INSERT_REFUSED",
+          fn: "createPost",
+          file: "src/components/WallPosts.tsx",
+          message: "Inserting the post row after the photos uploaded.",
+          reason: `The database refused the insert: ${error.message}`,
+          expected: "One post row created",
+          actual: `error ${(error as any).code ?? "unknown"}`,
+          nextStep:
+            (error as any).code === "42501"
+              ? "42501 means a RESTRICTIVE policy blocked it — check the member's banned state first, NOT the profile photo (that wall was removed on 2026-08-05)."
+              : "Read the Postgres message above and confirm the posts table policies.",
+          durationMs: Date.now() - startedAt,
+          correlationId,
+          detail: {
+            pgCode: (error as any).code,
+            photos: uploadedUrls.length,
+            privacy: newPrivacy,
+          },
+        });
         toast({
           title: "Failed to post",
           description: error.message,
@@ -459,6 +560,19 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           }));
           const { error: tagError } = await supabase.from("post_tags").insert(tagRows as any);
           if (tagError) {
+            logger.warn({
+              code: "POST-2005",
+              event: "POST_TAGS_INSERT_FAILED",
+              fn: "createPost",
+              file: "src/components/WallPosts.tsx",
+              message: "Saving the photo tags attached to a new post.",
+              reason: `The post was created but the tags were refused: ${tagError.message}`,
+              expected: `${pendingTags.length} tag row(s) created`,
+              actual: `error ${(tagError as any).code ?? "unknown"}`,
+              recordId: newPost?.id ?? null,
+              correlationId,
+              detail: { pgCode: (tagError as any).code, tagCount: pendingTags.length },
+            });
             toast({
               title: "Post created, but some tags failed",
               description: tagError.message,
@@ -481,6 +595,24 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         // default OFF) and frequency-capped by the governor, so this is a
         // no-op until an admin explicitly turns it on.
         requestInterstitial("after_post");
+
+        // Exit log. The duration here is the whole pipeline — scan, upload,
+        // insert, tags — so a member reporting "posting is slow" becomes a
+        // number instead of an opinion.
+        logger.info({
+          code: "POST-2004",
+          event: "POST_CREATED",
+          fn: "createPost",
+          file: "src/components/WallPosts.tsx",
+          message: "Member pressed Post in the composer.",
+          reason: "The post row was created and the feed caches were refreshed.",
+          expected: "One post row created",
+          actual: "created",
+          recordId: newPost?.id ?? null,
+          durationMs: Date.now() - startedAt,
+          correlationId,
+          detail: { photos: uploadedUrls.length, privacy: newPrivacy, tags: pendingTags.length },
+        });
       }
     } catch (err: any) {
       // This catch covers the WHOLE post pipeline (compress → upload → insert),
@@ -500,6 +632,26 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         photos: selectedImages.length,
         scheduled: !!scheduleAt,
         privacy: newPrivacy,
+      });
+
+      // The structured twin of the line above. reportClientError stays for the
+      // hourly stats view that already reads it; this one carries the code and
+      // the investigation, which is what turns a report into a fix.
+      logger.error({
+        code: "POST-2003",
+        event: "POST_PIPELINE_THREW",
+        fn: "createPost",
+        file: "src/components/WallPosts.tsx",
+        message: "Member pressed Post in the composer.",
+        reason: msg,
+        expected: "Scan, upload, insert and tags all complete",
+        actual: `threw after ${Date.now() - startedAt}ms`,
+        nextStep: isNetwork
+          ? "Network signature — the member's connection or a cold edge worker, not our logic. Confirm the same member succeeds on a good connection before changing code."
+          : "Read the reason; the throw came from scan, upload or insert. Compare against the FILE-5003 upload lines with the same correlation id to see how far it got.",
+        durationMs: Date.now() - startedAt,
+        correlationId,
+        detail: { photos: selectedImages.length, scheduled: !!scheduleAt, privacy: newPrivacy },
       });
       toast({
         title: isNetwork ? "Upload failed — check your connection" : "Failed to create post",
