@@ -3,12 +3,28 @@ import AutoBadge from "@/components/AutoBadge";
 import AutoRole from "@/components/AutoRole";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/components/UserIdentityBlock.tsx";
+
 /** Silent error boundary — renders nothing on crash instead of breaking siblings */
 class SafeRender extends Component<{ children: ReactNode }, { hasError: boolean }> {
   state = { hasError: false };
   static getDerivedStateFromError() { return { hasError: true }; }
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.warn("[SafeRender] child crashed:", error.message);
+    logger.warn({
+      code: "UI-8005",
+      event: "IDENTITY_BLOCK_CHILD_CRASHED",
+      fn: "SafeRender.componentDidCatch",
+      file: FILE,
+      message: "A child of the member identity block crashed and was rendered as nothing.",
+      reason: error.message,
+      expected: "The member's name and badge",
+      actual: `${error.name} escaped the child; the block renders empty`,
+      nextStep:
+        "Narrower than SYS-9002 — the page still works and the member may only notice a missing name or badge. The owner's rule is name first, then a VISIBLE badge, so a silent empty block breaks it.",
+      detail: { componentStack: (info.componentStack || "").slice(0, 400) },
+    });
   }
   render() { return this.state.hasError ? null : this.props.children; }
 }
