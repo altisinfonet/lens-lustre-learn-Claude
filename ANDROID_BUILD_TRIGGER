@@ -1,3 +1,40 @@
+Build 1053 — 2026-08-06
+- Stories are the size they should be. The round story pictures on the feed and
+  on a profile were noticeably smaller than the ones people are used to
+  everywhere else; they are now 80 points across on a phone and 96 on a wider
+  screen, the size the owner marked on a reference screenshot.
+- A story now opens FULL PAGE. Opening a story from a profile used to put it in
+  a small box in the middle of the screen with no timer, while the same story
+  opened from the feed filled the screen — two different experiences for the
+  same photograph. Profile stories now fill the screen, with the thin progress
+  bars along the top, tap the left third to go back and the right third to go
+  forward, and automatic advance to the next story.
+- A story stays on screen for 10 seconds, not 5. One shared setting now drives
+  both places a story can be opened, so the two can never disagree again.
+- You can delete your own story at any time, and you SEE it go. The delete
+  button was always there and the deletion was really happening in the
+  database — but the ring and the picture stayed on screen until the whole page
+  was reloaded, so it looked as though nothing had happened. The story now
+  disappears the moment it is deleted. And if a deletion ever genuinely fails,
+  it now says so instead of falsely reporting success.
+- You can tag a member in a post caption. Type @ and the first letters of a
+  name while writing a post: a short list of members appears under the box with
+  their picture, choose one, and their name becomes a link that opens their
+  profile — the same as tagging in a comment. Only a name you actually chose
+  from the list becomes a tag; a name merely typed by hand stays ordinary text,
+  because tagging the wrong person is worse than tagging nobody.
+- For the owner only: the members list in the admin area now shows, for each
+  member, when they were last active and whether they were last on the app or
+  the website. Recording started on 2026-08-05, so members who have not opened
+  the site since then show a blank — a blank means "not recorded yet", never a
+  guess. The app can only report itself from THIS build onward, so app members
+  begin appearing after they update.
+- The website address settled: 50mmretina.com now sends you to
+  www.50mmretina.com, so one link no longer behaves like two different sites
+  with two different sign-ins.
+- Everything from 1052 and earlier. Upload 1053 INSTEAD of 1052.
+- Web build 2026-08-06-1.
+
 Build 1052 — 2026-08-05
 - Post photos come back everywhere. On 2026-08-01 every feed photo was routed
   through an image-resizing service that only answers one of the site's two
