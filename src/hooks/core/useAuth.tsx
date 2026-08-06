@@ -7,6 +7,7 @@ import { getStoredReferralCode, clearStoredReferralCode } from "@/hooks/notifica
 import { logAuthEvent } from "@/lib/activityLog";
 import { normalizeFullName } from "@/lib/nameNormalize";
 import { logDeviceSignIn } from "@/hooks/profile/useUserDevices";
+import { logger, setLogUser } from "@/lib/logger";
 
 interface AuthContextType {
   session: Session | null;
@@ -31,6 +32,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [accountRestricted, setAccountRestricted] = useState(false);
   const signOutTriggeredRef = useRef(false);
   const hasInitializedRef = useRef(false);
+
+  /**
+   * TELL THE LOGGER WHO IS SIGNED IN.
+   *
+   * Owner standard, 2026-08-06: every log must answer "which user?". Passing
+   * the member through hundreds of call sites would guarantee that some of
+   * them forget, so the logger keeps one ambient value and this is the single
+   * place that sets it. Cleared on sign-out, so a log written after signing
+   * out can never be attributed to the member who just left.
+   *
+   * The id only. Never the e-mail — see the redaction rule in src/lib/logger.ts.
+   */
+  useEffect(() => {
+    setLogUser(user?.id ?? null);
+  }, [user?.id]);
 
   // Effect: sign out once when account is restricted
   useEffect(() => {
@@ -142,7 +158,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log("AUTH EVENT:", _event, session ? "session-exists" : "no-session");
+      // Was `console.log("AUTH EVENT:", …)` until 2026-08-06 — untraceable in
+      // production, unfilterable, and it named nothing that could be searched.
+      // Debug level, so it prints in development and is never persisted: a
+      // session change is not a failure and 84 members' sign-ins would bury
+      // the failures that are.
+      logger.debug({
+        code: "AUTH-1001",
+        event: "AUTH_STATE_CHANGED",
+        fn: "AuthProvider.onAuthStateChange",
+        file: "src/hooks/core/useAuth.tsx",
+        message: "Supabase reported an authentication state change.",
+        reason: `Auth event: ${_event}`,
+        expected: "A session for every event except SIGNED_OUT",
+        actual: session ? "session present" : "no session",
+        detail: { authEvent: _event, mounted: isMounted },
+      });
       if (!isMounted) return;
 
       setSession(session);
@@ -222,7 +253,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           data: { session },
           error,
         } = await supabase.auth.getSession();
-        console.log("INITIAL SESSION:", session ? "exists" : "null", error ? `error: ${error.message}` : "no-error");
+        // A FAILED session restore is a real problem — it is the difference
+        // between "signed out" and "the app could not tell", and it is the
+        // shape behind blank-page-at-boot reports. So the error branch WARNS
+        // (and is persisted), while the healthy branch only traces.
+        if (error) {
+          logger.warn({
+            code: "AUTH-1001",
+            event: "SESSION_RESTORE_FAILED",
+            fn: "AuthProvider.restoreSession",
+            file: "src/hooks/core/useAuth.tsx",
+            message: "Restoring the member's session at app start.",
+            reason: `getSession failed: ${error.message}`,
+            expected: "A session, or a clean null for a signed-out visitor",
+            actual: `error on attempt ${attempt} of ${maxAttempts}`,
+            nextStep:
+              "If this repeats at boot, suspect stored-token corruption or clock skew on the device before suspecting the server.",
+            detail: { attempt, maxAttempts },
+          });
+        } else {
+          logger.trace({
+            code: "AUTH-1001",
+            event: "SESSION_RESTORED",
+            fn: "AuthProvider.restoreSession",
+            file: "src/hooks/core/useAuth.tsx",
+            message: "Restoring the member's session at app start.",
+            reason: "getSession returned without error.",
+            expected: "A session, or a clean null for a signed-out visitor",
+            actual: session ? "session present" : "no session",
+            detail: { attempt },
+          });
+        }
 
         if (!error) {
           // If onAuthStateChange(INITIAL_SESSION) already ran the first-time
