@@ -89,8 +89,66 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .eq("id", u.id)
         .maybeSingle();
 
-      // If query fails or no data, do NOT logout — keep user logged in
-      if (error || !data) return false;
+      // ─────────────────────────────────────────────────────────────────────
+      // TWO OPPOSITE CONDITIONS. CONFLATING THEM IS WHAT LET A DELETED ACCOUNT
+      // KEEP USING THE APP.
+      //
+      // Until 2026-08-06 this was one line — `if (error || !data) return false;`
+      // — and the comment said "do NOT logout, keep user logged in". That is
+      // right for ONE of the two cases and badly wrong for the other:
+      //
+      //   error          → the LOOKUP failed. Transient (connection, RLS hiccup).
+      //                    Signing the member out over a dropped request would
+      //                    be its own bug. Keep them in.
+      //
+      //   !data && !error → the ROW IS GONE. maybeSingle() returns null with no
+      //                    error when the profile does not exist. That is not
+      //                    transient — the account has been deleted, and every
+      //                    app open was answering "nothing wrong here".
+      //
+      // Owner report, 2026-08-06: an admin deleted an account and the person
+      // stayed signed in, kept browsing, and typed a comment. Measured against
+      // production: auth.users and profiles both returned 0 rows for that
+      // e-mail, and NOTHING they typed was ever written. The account really was
+      // gone; only the session did not know.
+      // ─────────────────────────────────────────────────────────────────────
+      if (error) {
+        logger.warn({
+          code: "DB-3001",
+          event: "RESTRICTION_CHECK_LOOKUP_FAILED",
+          fn: "checkRestricted",
+          file: "src/hooks/core/useAuth.tsx",
+          message: "Could not read the member's profile to check for a ban or suspension.",
+          reason: error.message,
+          expected: "The member's restriction flags",
+          actual: "The query returned an error",
+          nextStep:
+            "Deliberately keeps the member signed in — a dropped request must never sign anyone out. If this repeats for one member, check the profiles policies.",
+          userId: u.id,
+        });
+        return false;
+      }
+
+      if (!data) {
+        logger.error({
+          code: "AUTH-1005",
+          event: "ACCOUNT_NO_LONGER_EXISTS",
+          fn: "checkRestricted",
+          file: "src/hooks/core/useAuth.tsx",
+          message: "A signed-in member has no profile row; the account has been removed.",
+          reason: "maybeSingle() returned no row and no error, so the profile does not exist.",
+          expected: "One profile row for the signed-in member",
+          actual: "No row",
+          nextStep:
+            "Expected right after an admin deletes an account. INVESTIGATE ONLY IF the account still exists in auth.users — that would mean a live member was signed out for no reason.",
+          userId: u.id,
+        });
+        sessionStorage.setItem(
+          "suspension_message",
+          "This account has been removed. Please contact us if you believe this is a mistake.",
+        );
+        return true;
+      }
 
       // Auto-lift expired suspension
       if (data.is_suspended && data.suspended_until && new Date(data.suspended_until) < new Date()) {
@@ -130,12 +188,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .on(
           "postgres_changes",
           {
-            event: "UPDATE",
+            // "*" NOT "UPDATE" — and the difference is the whole bug.
+            //
+            // This channel exists to eject a member the moment an admin acts on
+            // them. Until 2026-08-06 it listened for UPDATE only, so it caught a
+            // ban and a suspension — and was completely BLIND to a DELETE, the
+            // most severe action an admin can take. The one mechanism built for
+            // instant ejection could not see the one event that matters most.
+            //
+            // Verified against production before making this change:
+            //   * supabase_realtime has pubdelete = true and publishes profiles,
+            //     so a DELETE does reach the client.
+            //   * profiles has REPLICA IDENTITY FULL, so payload.old carries
+            //     every column on a DELETE and the id filter below still
+            //     matches. (With the default replica identity it would not
+            //     reliably, and this fix would have silently done nothing.)
+            event: "*",
             schema: "public",
             table: "profiles",
             filter: `id=eq.${userId}`,
           },
           (payload) => {
+            // The account itself is gone. Nothing to evaluate — end the session.
+            if (payload.eventType === "DELETE") {
+              logger.error({
+                code: "AUTH-1005",
+                event: "ACCOUNT_DELETED_WHILE_SIGNED_IN",
+                fn: "setupRealtimeGuard",
+                file: "src/hooks/core/useAuth.tsx",
+                message: "The member's profile was deleted while they were using the app.",
+                reason: "A realtime DELETE arrived for this member's own profile row.",
+                expected: "The account to exist for as long as the session does",
+                actual: "The row was deleted; signing out now",
+                nextStep:
+                  "This is the instant sign-out the owner asked for. If it fires for a member nobody deleted, check what else deletes profile rows.",
+                userId,
+              });
+              sessionStorage.setItem(
+                "suspension_message",
+                "This account has been removed. Please contact us if you believe this is a mistake.",
+              );
+              setAccountRestricted(true);
+              return;
+            }
+
+            // Everything below is the original ban/suspension handling, which
+            // only makes sense for an UPDATE. An INSERT has no prior state to
+            // compare against.
+            if (payload.eventType !== "UPDATE") return;
+
             const updated = payload.new as any;
             // Only trigger restriction if BOTH the flag is set AND the value actually changed
             const wasRestricted = (payload.old as any)?.is_suspended || (payload.old as any)?.is_banned;
