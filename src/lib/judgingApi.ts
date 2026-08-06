@@ -14,6 +14,10 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/lib/judgingApi.ts";
+
 export interface DecisionPayload {
   entry_id: string;
   photo_index: number;
@@ -43,7 +47,16 @@ async function callEdge(name: string, body: unknown): Promise<DualWriteResult> {
   try {
     const { data, error } = await supabase.functions.invoke(name, { body });
     if (error) {
-      console.warn(`[judgingApi:${name}] edge error`, error);
+      logger.warn({
+        code: "JUDGE-6103", event: "JUDGING_EDGE_FUNCTION_ERROR",
+        fn: "callJudgingEdge", file: FILE,
+        message: "A judging edge function returned an error.",
+        reason: error?.message ?? String(error),
+        expected: `${name} to answer successfully`,
+        actual: "It returned an error",
+        nextStep: "The caller decides whether to fall back. Check this function's logs in the Supabase dashboard for the same minute.",
+        detail: { functionName: name },
+      });
       return { ok: false, source: "edge-error", error: String(error.message ?? error) };
     }
     if (data && (data as any).ok === false) {
@@ -51,7 +64,16 @@ async function callEdge(name: string, body: unknown): Promise<DualWriteResult> {
     }
     return { ok: true, source: "edge", data };
   } catch (e: any) {
-    console.warn(`[judgingApi:${name}] threw`, e);
+    logger.warn({
+      code: "JUDGE-6103", event: "JUDGING_EDGE_FUNCTION_THREW",
+      fn: "callJudgingEdge", file: FILE,
+      message: "A judging edge function could not be reached.",
+      reason: e instanceof Error ? e.message : String(e),
+      expected: `${name} to answer`,
+      actual: "The call threw",
+      nextStep: "A throw with no message is usually a cold start or the member's connection, not the function's logic.",
+      detail: { functionName: name },
+    });
     return { ok: false, source: "edge-error", error: e?.message ?? String(e) };
   }
 }

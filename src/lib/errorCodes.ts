@@ -58,6 +58,8 @@ export interface ErrorCodeEntry {
  *   API-4000…4999    edge functions and outside services
  *   FILE-5000…5999   upload, download, storage
  *   STORY-6000…6999  stories and highlights
+ *   JUDGE-6100…6199  competition judging, scoring and the judging locks
+ *   ADMIN-8100…8199  admin-only screens and tools
  *   NOTIF-7000…7999  notifications and push
  *   UI-8000…8999     rendering, routing, stuck screens
  *   SYS-9000…9999    anything structural that does not fit above
@@ -291,6 +293,62 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     resolution: "None — success marker for the owner's 'delete anytime' rule.",
   },
 
+  // ── JUDGE ─────────────────────────────────────────────────────────────────
+  //
+  // Judging is not member-facing, but it is the least forgiving thing here: a
+  // lost or wrong score changes who wins a competition, and unlike a failed
+  // upload nobody notices at the time. The bias in these codes is therefore
+  // towards recording enough to RECONSTRUCT a save, not just to know it failed.
+  {
+    code: "JUDGE-6101",
+    severity: "debug",
+    description: "A marker in the judging save path — started, written, or verified.",
+    resolution:
+      "None on its own. Follow one correlation id to replay a single save end to end. Deliberately debug: it fires on every score a judge enters, and at warn a judging session would bury every real failure in the Error Log.",
+  },
+  {
+    code: "JUDGE-6102",
+    severity: "error",
+    description: "A judge's score, tag or comment could not be saved.",
+    resolution:
+      "Read writePath in the detail: 'edge' means the function refused, 'direct' means the table write did. Check the judge is still assigned to the competition and that the round is not already locked or completed.",
+  },
+  {
+    code: "JUDGE-6103",
+    severity: "warn",
+    description: "The judging edge function failed and the direct database write was used instead.",
+    resolution:
+      "The save SUCCEEDED by the fallback path, so nothing is lost — but the edge function is the authoritative path and is failing. Check its logs. When the edgeAuthoritative flag is on there is NO fallback and this becomes JUDGE-6102.",
+  },
+  {
+    code: "JUDGE-6104",
+    severity: "error",
+    description: "A judging value was written but could not be read back from the database.",
+    resolution:
+      "TREAT THIS AS DATA LOSS UNTIL PROVEN OTHERWISE. A write that reports success but cannot be read back is almost always RLS — the row exists but the policy does not match the reader. Check the judging table policies before suspecting the id.",
+  },
+  {
+    code: "JUDGE-6105",
+    severity: "error",
+    description: "A judging database function returned an error.",
+    resolution:
+      "The event names which one. The judge's screen will show empty or stale data with no explanation, so they may keep working from a wrong picture — check the function is deployed before assuming the round is genuinely empty.",
+  },
+  {
+    code: "JUDGE-6106",
+    severity: "warn",
+    description: "The judging lock could not be acquired.",
+    resolution:
+      "Usually correct behaviour — another judge holds the round. Investigate only if the same judge is blocked repeatedly, which would mean a stale lock rather than a busy one.",
+  },
+  {
+    code: "JUDGE-6107",
+    severity: "debug",
+    description: "A development-only judging consistency probe reported a mismatch.",
+    resolution:
+      "Development only — decisionParityProbe and useUnjudgedDriftMonitor both return early outside DEV, so this can never reach a production console. It flags UI and database disagreeing about judging state; investigate at the source, not here.",
+  },
+
   // ── NOTIF ─────────────────────────────────────────────────────────────────
   {
     code: "NOTIF-7001",
@@ -328,6 +386,40 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     description: "A section of the logged-out home page failed to load.",
     resolution:
       "The page still renders; the failed section is simply absent, which a visitor cannot tell from 'there is nothing here yet'. The event names which section. This is the first thing a new visitor sees — treat repeated hits as urgent.",
+  },
+
+  // ── ADMIN ─────────────────────────────────────────────────────────────────
+  //
+  // Only the owner and admins ever see these screens, so nothing here is a
+  // member incident. They are still worth codes: an admin tool that fails
+  // quietly is how a wrong number reaches a decision.
+  {
+    code: "ADMIN-8101",
+    severity: "warn",
+    description: "An admin health check could not reach one of its subsystems.",
+    resolution:
+      "The Health screen shows that subsystem as disconnected. Confirm from a second source before acting — a failed CHECK is not the same as a failed SERVICE, and treating it as an outage is how a healthy system gets 'fixed'.",
+  },
+  {
+    code: "ADMIN-8102",
+    severity: "error",
+    description: "An upload from an admin screen failed.",
+    resolution:
+      "The event names the screen (gallery, photo of the day, banners). Check the bucket policies and the file's format; FILE-5002 in the same correlation window means the browser could not decode it.",
+  },
+  {
+    code: "ADMIN-8103",
+    severity: "error",
+    description: "An admin change could not be saved.",
+    resolution:
+      "The admin's screen may still show the change even though it was not stored. The event names what failed — navigation sync or managed-page creation. Confirm the current stored state before retrying.",
+  },
+  {
+    code: "ADMIN-8104",
+    severity: "warn",
+    description: "An admin diagnostic or audit tool could not complete its run.",
+    resolution:
+      "The tool shows an empty or partial result, which reads as 'nothing wrong found'. It is not the same as a clean run — re-run before trusting the output.",
   },
 
   // ── SYS ───────────────────────────────────────────────────────────────────
