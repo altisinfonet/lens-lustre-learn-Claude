@@ -23,6 +23,9 @@ import { useTopContributors } from "@/hooks/useTopContributors";
 import { toast } from "@/hooks/core/use-toast";
 import { fireConversion } from "@/lib/adConversionContext";
 import { useT } from "@/i18n/I18nContext";
+import { logger } from "@/lib/logger";
+
+const FILE = "src/pages/Index.tsx";
 
 /* Classic easing — gentle, cinematic transitions */
 const classicEase = [0.4, 0, 0.2, 1] as const;
@@ -453,15 +456,47 @@ const Index = () => {
               created_at: post.created_at,
               badges: authorEntry?.badges || [],
             });
-          } catch (e) { console.warn("Latest post author resolution failed:", e); }
+          } catch (e) {
+            logger.warn({
+              code: "UI-8004",
+              event: "HOME_LATEST_POST_AUTHOR_UNRESOLVED",
+              fn: "fetchData",
+              file: FILE,
+              message: "The newest photograph loaded, but its author could not be resolved.",
+              reason: e instanceof Error ? e.message : String(e),
+              expected: "The author's name, avatar and badges",
+              actual: "The section was left out entirely",
+              nextStep: "Check fetchProfileMap and the profiles_public view; the post itself was fine.",
+            });
+          }
         } else if (postRes.status === "rejected") {
-          console.warn("Latest post fetch failed:", postRes.reason);
+          logger.warn({
+            code: "UI-8004",
+            event: "HOME_LATEST_POST_FETCH_FAILED",
+            fn: "fetchData",
+            file: FILE,
+            message: "The newest photograph could not be fetched for the logged-out home page.",
+            reason: String(postRes.reason),
+            expected: "The most recent public post",
+            actual: "The section is absent",
+            nextStep: "A visitor cannot tell this from 'nobody has posted yet'. This is the first thing a new visitor sees — treat repeated hits as urgent.",
+          });
         }
 
         if (membersRes.status === "fulfilled" && membersRes.value.data && membersRes.value.data.length > 0) {
           setRecentMembers(membersRes.value.data.map((m: any) => ({ id: m.id, full_name: m.full_name, avatar_url: m.avatar_url })));
         } else if (membersRes.status === "rejected") {
-          console.warn("Recent members fetch failed:", membersRes.reason);
+          logger.warn({
+            code: "UI-8004",
+            event: "HOME_RECENT_MEMBERS_FETCH_FAILED",
+            fn: "fetchData",
+            file: FILE,
+            message: "The recent-members strip could not be fetched for the logged-out home page.",
+            reason: String(membersRes.reason),
+            expected: "The newest members",
+            actual: "The strip is absent",
+            nextStep: "Reads to a visitor as an empty community. Check the profiles_public view.",
+          });
         }
 
         setCommunityStats({
@@ -469,7 +504,19 @@ const Index = () => {
           followers: totalFollowsRes.status === "fulfilled" ? (totalFollowsRes.value.count || 0) : 0,
           posts: totalPostsRes.status === "fulfilled" ? (totalPostsRes.value.count || 0) : 0,
         });
-      } catch (err) { console.error("Failed to load showcase data:", err); }
+      } catch (err) {
+        logger.error({
+          code: "UI-8004",
+          event: "HOME_SHOWCASE_LOAD_FAILED",
+          fn: "fetchData",
+          file: FILE,
+          message: "The whole logged-out home page showcase failed to load.",
+          reason: err instanceof Error ? err.message : String(err),
+          expected: "The newest photograph, recent members and the community counts",
+          actual: "None of it — every section is empty",
+          nextStep: "This is the entire block, not one section, so suspect the connection or a broken import before any single query. It is the first impression the site makes.",
+        });
+      }
       finally { window.clearTimeout(safety); if (isActive) setDataLoading(false); }
     };
     fetchData();
