@@ -13,9 +13,22 @@ import "./index.css";
 // doesn't update. It is a window side-effect (NOT a bare export, which gets
 // tree-shaken away) so it survives into the bundle and forces a new hashed
 // entry filename, busting year-cached immutable copies of the old bundle.
-(window as any).__APP_BUILD = "2026-08-06-1";
+(window as any).__APP_BUILD = "2026-08-06-2";
 
-startNetworkTrace(8000);
+// DEVELOPMENT ONLY — owner decision, 2026-08-06.
+//
+// Until today this line ran UNCONDITIONALLY. The tracer wraps window.fetch,
+// clones and fully reads the body of every API response to measure its size,
+// and then prints a forensic report — on every member's phone, in production.
+// The owner ruled: gate it to development AND convert it to the logger.
+//
+// The guard is duplicated inside startNetworkTrace() itself (same pattern as
+// decisionParityProbe.ts), so a future call site cannot re-open this by
+// accident. Vite evaluates import.meta.env.DEV at build time, so the whole
+// branch is removed from the production bundle.
+if (import.meta.env.DEV) {
+  startNetworkTrace(8000);
+}
 
 // Inside the installed app only: complete Google/Apple sign-in when the OAuth
 // deep link (app.fiftymmretina://auth-callback) fires. No-op on web/PWA.
