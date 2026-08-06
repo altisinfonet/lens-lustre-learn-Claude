@@ -6,6 +6,7 @@ import { installImageFallback } from "./lib/imageFallback";
 import { installImageErrorReporter } from "./lib/reportImageError";
 import { installOverlayUnfreeze } from "./lib/unfreezeStuckOverlay";
 import { initNativeAuthDeepLink } from "./lib/native/authDeepLink";
+import { installZoomPolicy } from "./lib/native/zoomPolicy";
 
 import "./index.css";
 
@@ -13,7 +14,7 @@ import "./index.css";
 // doesn't update. It is a window side-effect (NOT a bare export, which gets
 // tree-shaken away) so it survives into the bundle and forces a new hashed
 // entry filename, busting year-cached immutable copies of the old bundle.
-(window as any).__APP_BUILD = "2026-08-06-8";
+(window as any).__APP_BUILD = "2026-08-06-9";
 
 // DEVELOPMENT ONLY — owner decision, 2026-08-06.
 //
@@ -33,6 +34,14 @@ if (import.meta.env.DEV) {
 // Inside the installed app only: complete Google/Apple sign-in when the OAuth
 // deep link (app.fiftymmretina://auth-callback) fires. No-op on web/PWA.
 initNativeAuthDeepLink();
+
+// Inside the installed app only: lock browser pinch-zoom and double-tap zoom.
+// No-op on web and desktop, where a visitor's zoom is their own accessibility
+// control. Runs before React mounts so the very first frame is already locked
+// — a member cannot pinch a screen that has not painted yet, and that is the
+// point. See src/lib/native/zoomPolicy.ts for why this is a class and not the
+// viewport meta tag.
+installZoomPolicy();
 
 /**
  * ORDER IS LOAD-BEARING — RECORD FIRST, THEN HIDE.

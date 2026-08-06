@@ -211,6 +211,32 @@
     text-size-adjust: 100%;
   }
 
+  /* ── BUILD 1055 · the app-only pinch-zoom lock ──────────────────────────
+   *
+   * Owner, 2026-08-06: no pinch zoom, no double-tap zoom and no accidental
+   * zoom while scrolling inside the Android app — and desktop and mobile web
+   * left completely alone.
+   *
+   * THE CLASS IS ADDED AT RUNTIME, ONLY INSIDE THE INSTALLED APP, by
+   * src/lib/native/zoomPolicy.ts. It is never present on the web, which is
+   * what keeps a visitor's own zoom — an accessibility control — untouched.
+   * Do not move this rule onto bare `html`.
+   *
+   * `pan-x pan-y` removes pinch and double-tap zoom while leaving every
+   * scroll in the product working. It is on <html> because touch-action is
+   * intersected from the touched element up to the root, and this app renders
+   * its fullscreen viewers through createPortal into document.body — a rule
+   * scoped to #root would have missed all of them.
+   *
+   * The fullscreen photo viewer sets `touch-action: none` on the photograph
+   * itself so the raw touches reach its own pinch handling. That narrows this
+   * rule rather than widening it, which is the only direction the browser
+   * allows.
+   */
+  html.app-zoom-locked {
+    touch-action: pan-x pan-y;
+  }
+
   h1 {
     font-family: var(--font-display);
     font-weight: 700;
