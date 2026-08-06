@@ -9,10 +9,19 @@
  * from quietly disagreeing.
  */
 import { writeFileSync } from "fs";
-import { join } from "path";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 import { renderCatalogMarkdown, ERROR_CATALOG } from "../src/lib/errorCodes";
 
-const target = join(__dirname, "..", "docs", "error-codes.md");
+// package.json declares "type": "module", so this file is an ES module and
+// __dirname does not exist in it. Until 2026-08-06 line 15 used __dirname and
+// the documented command above ALWAYS threw
+// "ReferenceError: __dirname is not defined in ES module scope" — reproduced on
+// main at d82f0ca before this change. docs/error-codes.md could only ever have
+// been written by hand, which is exactly what the header forbids.
+const here = dirname(fileURLToPath(import.meta.url));
+
+const target = join(here, "..", "docs", "error-codes.md");
 writeFileSync(target, renderCatalogMarkdown(), "utf8");
 // eslint-disable-next-line no-console -- a build script's output IS its interface
 console.log(`docs/error-codes.md written — ${ERROR_CATALOG.length} codes.`);
