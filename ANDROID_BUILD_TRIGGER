@@ -1,3 +1,43 @@
+Build 1054 — 2026-08-06
+- Deleting an account now signs that person out. This is the headline fix. When
+  an admin deleted an account, the person kept using the app as though nothing
+  had happened. Two things were wrong. The check that runs when the app opens
+  read the member's profile, and when the profile was GONE it treated that the
+  same as a lookup that had merely failed — and deliberately kept them signed
+  in. And the live guard that ejects a banned or suspended member listened only
+  for a profile being CHANGED, so it was completely blind to one being DELETED.
+  Both are fixed: a deletion now ends the session on the spot if the app is
+  open, and on next open otherwise, and the person is told the account has been
+  removed rather than being dumped out with no explanation.
+- Photographs are read once, and only once. Members were hitting "Failed to
+  create post" and could not publish at all. Every recorded failure came from
+  the installed app and none from the website. The pipeline was going back to
+  the phone's file up to five separate times — once to show the preview, twice
+  to security-scan it, and twice more to make the full-size and the thumbnail.
+  Now the photograph is read a single time when it is chosen, and every step
+  after that works from that one copy. If the phone ever does refuse to hand a
+  photograph over again, the post recovers from the copy instead of failing.
+- When something does go wrong, it now says what. Failures used to reach members
+  as unreadable text like `non-Error thrown: {"isTrusted":true}`. Every failure
+  in the app now carries a code, the stage it happened at, the file type and
+  size, the Android version and the device — so a problem reported once can
+  actually be found and fixed instead of guessed at.
+- Members' own words are never recorded. Comment moderation used to print the
+  actual text of a comment into the phone's log every time one was blocked, and
+  the moderation reply — which repeats the comment back — was logged too. Both
+  now record only the length and which rule matched. Search terms and captions
+  are treated the same way.
+- The diagnostic tool that was running on every member's phone is gone. A
+  developer tool intercepted every network request for the first eight seconds
+  of every visit, read every response in full just to measure it, and printed a
+  report into the phone's console. It now runs only during development.
+- A page that fails to load now reports itself. When a screen crashed, members
+  saw the reload screen and nobody was told. That crash is now recorded with the
+  highest severity, naming the page that died.
+- Quieter, faster, and more honest throughout. 68 distinct conditions across the
+  app now identify themselves precisely instead of failing silently — covering
+  uploads, comments, sign-in, notifications, judging and the admin tools.
+
 Build 1053 — 2026-08-06
 - Stories are the size they should be. The round story pictures on the feed and
   on a profile were noticeably smaller than the ones people are used to
