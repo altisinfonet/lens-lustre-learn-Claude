@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { logger } from "@/lib/logger";
 import { toast } from "@/hooks/core/use-toast";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { useConfirmAction } from "@/hooks/admin/useConfirmAction";
@@ -325,6 +326,39 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
   fetchUsersRef.current = fetchUsers;
 
   useEffect(() => {
+    // ── LOAD ON MOUNT, AND WHY THAT IS THE WHOLE BUG ────────────────────────
+    // Owner, 2026-08-06: *"instantly user list is not updateing (without a
+    // refresh the page) who is active from where logged in"*.
+    //
+    // The realtime subscription below was already correct — it listens to
+    // profiles, user_roles and user_badges. What killed it is the guard in
+    // scheduleRefresh: it returns early when activeQueryRef is null, and
+    // activeQueryRef is ONLY set inside fetchUsers (line ~220). fetchUsers, in
+    // turn, was only ever called from a click or the Enter key — there was no
+    // load on mount at all.
+    //
+    // So on a freshly opened screen the ref was null, and EVERY live update was
+    // silently discarded. A member signing in wrote their row, the event
+    // arrived, and the handler dropped it on the floor. The only way to see the
+    // change was to reload the page, which is exactly what was reported.
+    //
+    // Loading here fixes both halves at once: the list populates without a
+    // click, and activeQueryRef is set, so from that moment every realtime
+    // event repaints the table.
+    if (!activeQueryRef.current) {
+      logger.debug({
+        code: "ADMIN-8107",
+        event: "ADMIN_USERS_INITIAL_LOAD",
+        fn: "AdminUsers.useEffect",
+        file: "src/components/admin/AdminUsers.tsx",
+        message: "Loading the member list on mount so live updates are not discarded.",
+        reason: "activeQueryRef is null until a query has run, and the realtime handler bails on a null ref.",
+        expected: "A populated list and a live subscription that repaints it",
+        actual: "loading",
+      });
+      void fetchUsersRef.current?.();
+    }
+
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
     const scheduleRefresh = () => {
