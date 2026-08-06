@@ -265,6 +265,13 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
       "Best-effort cleanup that never blocks the member, so nothing is broken for them — but the file is now orphaned and still costs storage. Check the s3-delete function's logs and the bucket policies.",
   },
   {
+    code: "FILE-5007",
+    severity: "error",
+    description: "The device refused to hand over a file the member had already chosen.",
+    resolution:
+      "Read exceptionName in the detail — it is the root cause, and until 2026-08-06 it was being thrown away. NotReadableError or NotFoundError means the file moved, was deleted, or its permission lapsed between choosing and posting (common with cloud photo pickers on Android, where the picker returns a reference that must be re-fetched). SecurityError means the origin lost permission. EncodingError means the bytes are damaged. Ask the member to re-pick the photo from local storage before changing any code.",
+  },
+  {
     code: "FILE-5006",
     severity: "error",
     description: "Listing a storage folder failed, so the caller received an empty list.",

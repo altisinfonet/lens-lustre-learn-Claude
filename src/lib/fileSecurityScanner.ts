@@ -7,7 +7,85 @@
  * 3. File size limits
  * 4. Embedded script/malware pattern detection
  * 5. Filename sanitization
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * 2026-08-06 — THIS FILE PRODUCED THE "Failed to create post" REPORT.
+ *
+ * The member saw: `Failed to create post — non-Error thrown: {"isTrusted":true}`
+ *
+ * `{"isTrusted":true}` is what JSON.stringify() makes of a DOM Event: an Event's
+ * properties live on its prototype and are not own-enumerable, so `isTrusted` is
+ * the only one that survives. It reached the member because both readers below
+ * were written as `reader.onerror = reject`, which hands the FileReader's ERROR
+ * EVENT to reject instead of an Error.
+ *
+ * Two things were wrong with that, and the second is the expensive one:
+ *   1. describeThrown() finds no name/message/status/code on an Event, so it
+ *      falls through to printing the raw shape — the gibberish above.
+ *   2. **It threw away `reader.error`** — a DOMException whose `.name` is the
+ *      actual root cause (NotReadableError, NotFoundError, SecurityError,
+ *      EncodingError). The one fact needed to explain the failure was the one
+ *      fact being discarded, which is why the failure could not be diagnosed
+ *      from the logs at all.
+ *
+ * Both readers now reject with a real Error carrying `reader.error.name`, and
+ * log FILE-5007 with the file's size, type, the exception name and the browser.
+ * Pinned by "a FileReader failure must never reject with a raw Event" in
+ * src/lib/__tests__/loggingStandard.test.ts.
+ * ───────────────────────────────────────────────────────────────────────────
  */
+import { logger } from "@/lib/logger";
+
+const FILE = "src/lib/fileSecurityScanner.ts";
+
+/**
+ * Turn a FileReader failure into something that names itself.
+ *
+ * `reader.error` is a DOMException — NotReadableError, NotFoundError,
+ * SecurityError, EncodingError. That name IS the root cause, so it goes into
+ * the log, into the Error's name and into its message.
+ */
+function readerFailure(
+  reader: FileReader,
+  file: File,
+  fn: string,
+  bytesRequested: number,
+  startedAt: number,
+): Error {
+  const domErr = reader.error;
+  const exceptionName = domErr?.name || "UnknownReaderError";
+
+  logger.error({
+    code: "FILE-5007",
+    event: "FILE_UNREADABLE_FROM_DEVICE",
+    fn,
+    file: FILE,
+    message: "The device refused to hand over a file the member had already chosen.",
+    reason: domErr?.message || `FileReader failed with ${exceptionName} and gave no message.`,
+    expected: `${bytesRequested} byte(s) readable from the selected file`,
+    actual: exceptionName,
+    nextStep:
+      "NotReadableError / NotFoundError means the file moved, was deleted, or its permission lapsed between choosing it and pressing Post — common with cloud photo pickers on Android. Ask the member to re-pick the photo from local storage before changing code.",
+    durationMs: Date.now() - startedAt,
+    detail: {
+      stage: "security-scan",
+      exceptionName,
+      // Name and size only — never the file's contents.
+      fileName: file.name,
+      fileSizeBytes: file.size,
+      mimeType: file.type || "(none reported)",
+      bytesRequested,
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 180) : null,
+    },
+  });
+
+  const e = new Error(
+    `Could not read "${file.name}" from this device (${exceptionName}). ` +
+      "The photo may have moved or its permission expired — please pick it again.",
+  );
+  e.name = exceptionName;
+  return e;
+}
 
 interface ScanResult {
   safe: boolean;
@@ -72,10 +150,13 @@ const MAX_SCAN_BYTES = 64 * 1024; // Scan first 64KB for patterns
  * Read the first N bytes of a file as a Uint8Array.
  */
 function readFileBytes(file: File, numBytes: number): Promise<Uint8Array> {
+  const startedAt = Date.now();
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
-    reader.onerror = reject;
+    // NOT `reader.onerror = reject` — that hands over the Event and discards
+    // reader.error, which is the only thing that names the cause.
+    reader.onerror = () => reject(readerFailure(reader, file, "readFileBytes", numBytes, startedAt));
     reader.readAsArrayBuffer(file.slice(0, numBytes));
   });
 }
@@ -84,10 +165,11 @@ function readFileBytes(file: File, numBytes: number): Promise<Uint8Array> {
  * Read a portion of a file as text for pattern scanning.
  */
 function readFileText(file: File, numBytes: number): Promise<string> {
+  const startedAt = Date.now();
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
+    reader.onerror = () => reject(readerFailure(reader, file, "readFileText", numBytes, startedAt));
     reader.readAsText(file.slice(0, numBytes));
   });
 }
