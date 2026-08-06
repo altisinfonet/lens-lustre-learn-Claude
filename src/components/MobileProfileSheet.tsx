@@ -243,29 +243,30 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
           </div>
         </div>
 
-        {/* Bottom row: Logout on the left half, the loaded build on the right.
+        {/* Bottom row: the loaded build on the LEFT, Logout on the RIGHT.
             The theme button that used to sit here was removed on 2026-08-01:
             the toggle moved up into this sheet's header (swapping places with
             the notification bell, which is now in the top bar), and two theme
-            buttons in one sheet is one too many. */}
+            buttons in one sheet is one too many.
+
+            SIDES SWAPPED 2026-08-06 on the owner's instruction, from a
+            screenshot of the live sheet: "logout will be right and Version
+            will be left". Both children stay flex-1, so each still occupies
+            exactly half the row and the version keeps the button's baseline —
+            only the order changed. When no version is known the label renders
+            nothing and the button quietly keeps the whole row, exactly as
+            before; a wrong number on screen is worse than none. */}
         <div className="px-4 pb-6 pt-2 flex items-center gap-2 border-t border-border/40">
+          <AppVersionLabel />
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-destructive hover:bg-destructive/90 transition-colors flex-1"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-destructive hover:bg-destructive/90 transition-colors flex-1"
           >
             <LogOut className="h-4 w-4 text-destructive-foreground" />
             <span className="text-[9px] tracking-[0.1em] uppercase text-destructive-foreground font-semibold" style={headingFont}>
               {t("menu.logout")}
             </span>
           </button>
-          {/* Owner, 2026-08-05: "logout button will on the left half of the
-              current size and on the left portion same alignment show app
-              version so that user can understand 1050 (1.2.2) … what is the
-              current app version loaded". Both children are flex-1, so the
-              button is exactly the left half and the version shares its
-              baseline in the right half. When no version is known the label
-              renders nothing and the button quietly keeps the whole row. */}
-          <AppVersionLabel />
         </div>
       </DrawerContent>
     </Drawer>
