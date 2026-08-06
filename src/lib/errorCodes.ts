@@ -53,6 +53,7 @@ export interface ErrorCodeEntry {
  *   AUTH-1000…1999   sign-in, session, permission
  *   VAL-2000…2999    input the member gave us
  *   POST-2000…2999   creating and editing posts (the composer)
+ *   CMNT-2100…2199   comments and comment moderation
  *   DB-3000…3999     database reads and writes
  *   API-4000…4999    edge functions and outside services
  *   FILE-5000…5999   upload, download, storage
@@ -60,6 +61,10 @@ export interface ErrorCodeEntry {
  *   NOTIF-7000…7999  notifications and push
  *   UI-8000…8999     rendering, routing, stuck screens
  *   SYS-9000…9999    anything structural that does not fit above
+ *
+ * The prefix is part of the code, so CMNT-2101 and POST-2101 could never be
+ * confused. The ranges exist so two features added on the same day cannot
+ * collide, not because the numbers alone must be unique.
  */
 export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
   // ── AUTH ──────────────────────────────────────────────────────────────────
@@ -83,6 +88,13 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     description: "A banned member attempted an action that bans forbid.",
     resolution:
       "Expected behaviour when the ban is correct. Confirm the ban is intentional before treating this as a bug.",
+  },
+  {
+    code: "AUTH-1004",
+    severity: "error",
+    description: "Sign-in through the installed app's OAuth deep link failed.",
+    resolution:
+      "App-only. Confirm app.fiftymmretina://auth-callback is still registered for the provider, then read the reason — a provider error_description means the provider refused, anything else means the session exchange failed on our side. The member is sent to /login rather than a dead screen.",
   },
 
   // ── VAL ───────────────────────────────────────────────────────────────────
@@ -130,6 +142,50 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
       "The post is fine; check post_tags RLS and whether the tagged member is still a friend.",
   },
 
+  {
+    code: "POST-2006",
+    severity: "error",
+    description: "The automatic post announcing a new profile or cover photo failed.",
+    resolution:
+      "The member's photo DID change — only the announcement post failed. Read the reason for the Postgres message and check the posts table policies before telling them anything is wrong with their photo.",
+  },
+  {
+    code: "POST-2007",
+    severity: "warn",
+    description: "A profile or cover photo was not added to its automatic album.",
+    resolution:
+      "Cosmetic and best-effort — the photo and its post are fine. Check getOrCreateAutoAlbum and the album_photos policies.",
+  },
+
+  // ── CMNT ──────────────────────────────────────────────────────────────────
+  //
+  // CMNT-2101 CARRIES A HARD RULE: NEVER LOG THE COMMENT TEXT.
+  // Until 2026-08-06 commentModeration.ts printed `content: text` — the
+  // member's actual words — straight to the console on every block. What the
+  // owner needs to investigate a false positive is the LENGTH, the word that
+  // matched and which matcher fired. None of that requires the sentence.
+  {
+    code: "CMNT-2101",
+    severity: "warn",
+    description: "A comment was blocked by keyword, variant or fuzzy moderation.",
+    resolution:
+      "The detail carries the matched word and which matcher fired, never the comment itself. A short comment blocked by 'variant' or 'fuzzy' is the likeliest false positive — check KNOWN_VARIANTS and hasFuzzyMatch in commentModeration.ts before changing PROFANITY_LIST.",
+  },
+  {
+    code: "CMNT-2102",
+    severity: "error",
+    description: "The AI moderation edge function could not be reached.",
+    resolution:
+      "The comment was already posted — moderation runs after the fact and does not block it. Check the moderate-comment function's logs in the Supabase dashboard for the same minute; a cold start shows as a fetch failure with no message.",
+  },
+  {
+    code: "CMNT-2103",
+    severity: "debug",
+    description: "The AI moderation function returned a decision.",
+    resolution:
+      "None — a development marker. Deliberately debug: it fires on every comment, so persisting it would bury the failures and burn the free-tier quota.",
+  },
+
   // ── DB ────────────────────────────────────────────────────────────────────
   {
     code: "DB-3001",
@@ -151,6 +207,14 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     description: "A write reported success but changed zero rows.",
     resolution:
       "Almost always RLS: the row exists but the policy did not match. Check the table's policies for the operation before suspecting the id.",
+  },
+
+  {
+    code: "DB-3004",
+    severity: "error",
+    description: "The broadcast feed RPC failed and the feed fell back to plain chronological order.",
+    resolution:
+      "Members still see posts, but the fairness ordering (unseen first, fewest viewers first) is gone until this is fixed. Confirm get_broadcast_feed is still deployed and check the reason for its Postgres message.",
   },
 
   // ── API ───────────────────────────────────────────────────────────────────
@@ -184,6 +248,28 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     resolution: "None — success marker carrying the upload duration.",
   },
 
+  {
+    code: "FILE-5004",
+    severity: "warn",
+    description: "Image compression fell back to the original file.",
+    resolution:
+      "The upload SUCCEEDED — only the smaller encode did not. The member is unaffected apart from a larger download. The event says whether it was the full-res encode or the thumbnail; check the format in the detail against what the browser's encoder supports.",
+  },
+  {
+    code: "FILE-5005",
+    severity: "warn",
+    description: "Deleting a file from storage failed.",
+    resolution:
+      "Best-effort cleanup that never blocks the member, so nothing is broken for them — but the file is now orphaned and still costs storage. Check the s3-delete function's logs and the bucket policies.",
+  },
+  {
+    code: "FILE-5006",
+    severity: "error",
+    description: "Listing a storage folder failed, so the caller received an empty list.",
+    resolution:
+      "This is member-visible as 'there are no photos here', which is indistinguishable from an empty folder. Check the bucket policies before believing the folder is genuinely empty.",
+  },
+
   // ── STORY ─────────────────────────────────────────────────────────────────
   {
     code: "STORY-6001",
@@ -205,6 +291,15 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     resolution: "None — success marker for the owner's 'delete anytime' rule.",
   },
 
+  // ── NOTIF ─────────────────────────────────────────────────────────────────
+  {
+    code: "NOTIF-7001",
+    severity: "error",
+    description: "Push notification setup failed inside the installed app.",
+    resolution:
+      "App-only. The member will silently receive no pushes — nothing tells them. Check the permission result and whether the device registered a token in push_tokens for this member.",
+  },
+
   // ── UI ────────────────────────────────────────────────────────────────────
   {
     code: "UI-8001",
@@ -220,6 +315,21 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
       "Check the profiles_public view and the member's connection; the dropdown degrades to empty rather than breaking the box.",
   },
 
+  {
+    code: "UI-8003",
+    severity: "warn",
+    description: "The global search box failed to return results.",
+    resolution:
+      "The box shows an empty result set, which reads to the member as 'nothing found' rather than 'it broke'. Check the member's connection and the search RPCs before assuming the query was genuinely empty.",
+  },
+  {
+    code: "UI-8004",
+    severity: "warn",
+    description: "A section of the logged-out home page failed to load.",
+    resolution:
+      "The page still renders; the failed section is simply absent, which a visitor cannot tell from 'there is nothing here yet'. The event names which section. This is the first thing a new visitor sees — treat repeated hits as urgent.",
+  },
+
   // ── SYS ───────────────────────────────────────────────────────────────────
   {
     code: "SYS-9001",
@@ -229,11 +339,19 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
       "Read fn and src_file for the origin; this code means the failure was not anticipated by the code that caught it.",
   },
 
-  // SYS-9002 IS DELIBERATELY RESERVED, NOT MISSING.
-  // HANDOFF_2026-08-06 §5 allocates it to "error boundary caught" for
-  // src/components/AppErrorBoundary.tsx, which is still unconverted. A code is
-  // permanent once shipped, so the number is held rather than reused — do not
-  // fill this gap with something else.
+  // SYS-9002 was held empty from earlier on 2026-08-06 for exactly this, and is
+  // now filled by AppErrorBoundary. It is FATAL rather than ERROR on purpose:
+  // every other code here means something failed while the member kept using
+  // the site. This one means the member is looking at a dead screen. It is the
+  // 30-day blank-page report (BLANK_PAGE_ROOT_CAUSE.md) finally getting a code,
+  // and it must never be filtered out as ordinary noise.
+  {
+    code: "SYS-9002",
+    severity: "fatal",
+    description: "A route crashed and the last-resort error boundary caught it — the member sees a dead screen.",
+    resolution:
+      "Read the component stack in the detail: its first frames name the route that died. Check BLANK_PAGE_ROOT_CAUSE.md first — a missing /assets/* chunk returns 200 text/html and is cached immutable for a year, which produces exactly this. Get the PAGE NAME from the member if you can.",
+  },
 
   // ── SYS: the development network tracer ───────────────────────────────────
   //
@@ -282,6 +400,29 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     description: "A single API response was larger than the tracer's payload threshold.",
     resolution:
       "Check the select list on that query — an unbounded select('*') on a wide table is the usual cause, and it costs the member's mobile data.",
+  },
+
+  // ── SYS: the installed app's update flow ──────────────────────────────────
+  {
+    code: "SYS-9008",
+    severity: "warn",
+    description: "The installed app could not check whether an update is available.",
+    resolution:
+      "App-only, and harmless on its own — the member simply is not offered the update. Persistent hits mean members are stranded on an old build, which is how a fixed bug keeps getting reported.",
+  },
+  {
+    code: "SYS-9009",
+    severity: "warn",
+    description: "The in-app update flow failed, so the member was sent to the store listing instead.",
+    resolution:
+      "App-only. The member can still update, just with more steps. Check the Play in-app-update plugin before treating this as urgent.",
+  },
+  {
+    code: "SYS-9010",
+    severity: "error",
+    description: "The app could not open the store listing, so the member has no way to update.",
+    resolution:
+      "App-only, and this is the end of the line — both the in-app flow and the store fallback failed, so the member is stuck on their current build with nothing telling them so.",
   },
 ] as const;
 

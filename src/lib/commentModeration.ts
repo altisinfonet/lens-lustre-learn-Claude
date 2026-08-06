@@ -1,5 +1,29 @@
 // Client-side comment moderation: PREVIEW ONLY (instant feedback)
 // The edge function "moderate-comment" is the single source of truth for flagging.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// NEVER LOG THE COMMENT TEXT. NOT IN THE CONSOLE, NOT IN THE DATABASE.
+//
+// Until 2026-08-06 all three blocks below ran
+//   console.log("MODERATION RESULT", { content: text, ... })
+// which printed the member's actual words into the console of whatever device
+// they were typing on. A member who is told "your comment contains
+// inappropriate language" has already had a bad moment; recording the sentence
+// itself adds nothing an investigation needs and everything a leak needs.
+//
+// What an investigation ACTUALLY needs, and all that is logged now:
+//   * how long the text was    (a false positive on a short comment is likely)
+//   * which word matched       (ours, from PROFANITY_LIST — not the member's)
+//   * which matcher fired      (keyword / variant / fuzzy)
+//
+// `redact()` in logger.ts would NOT have saved us here: it drops keys that look
+// like secrets, and "content" does not. The only safe rule is not to pass it.
+// Pinned by "member comment text can never reach a log" in
+// src/lib/__tests__/loggingStandard.test.ts.
+// ─────────────────────────────────────────────────────────────────────────────
+import { logger } from "@/lib/logger";
+
+const FILE = "src/lib/commentModeration.ts";
 
 const PROFANITY_LIST = [
   "fuck", "shit", "ass", "bitch", "damn", "dick", "cock", "pussy", "bastard",
@@ -122,7 +146,18 @@ export function moderateComment(text: string): ModerationResult {
     const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const regex = new RegExp(`\\b${escaped}\\b`, "i");
     if (regex.test(lower)) {
-      console.log("MODERATION RESULT", { content: text, normalized: lower, matchedWord: word, method: "keyword" });
+      logger.warn({
+        code: "CMNT-2101",
+        event: "COMMENT_BLOCKED_BY_MODERATION",
+        fn: "checkComment",
+        file: FILE,
+        message: "A comment was blocked before it was posted.",
+        reason: "A word from PROFANITY_LIST matched on a word boundary.",
+        expected: "No banned word in the comment",
+        actual: `matched "${word}" by keyword`,
+        // textLength, never text — see the rule at the top of this file.
+        detail: { matcher: "keyword", matchedWord: word, textLength: text.length },
+      });
       return { allowed: false, reason: "Comment contains inappropriate language", flagType: "profanity" };
     }
   }
@@ -132,7 +167,20 @@ export function moderateComment(text: string): ModerationResult {
   if (normalized.length <= 20) {
     for (const variant of KNOWN_VARIANTS) {
       if (normalized.includes(variant)) {
-        console.log("MODERATION RESULT", { content: text, normalized, matchedWord: variant, method: "variant" });
+        logger.warn({
+          code: "CMNT-2101",
+          event: "COMMENT_BLOCKED_BY_MODERATION",
+          fn: "checkComment",
+          file: FILE,
+          message: "A comment was blocked before it was posted.",
+          reason: "A known misspelling variant was found in the normalised text.",
+          expected: "No banned variant in the comment",
+          actual: `matched "${variant}" by variant`,
+          // Variant matching only runs on inputs of 20 characters or fewer, so
+          // this is the likeliest false positive of the three. The length is
+          // the useful signal; the words are not.
+          detail: { matcher: "variant", matchedWord: variant, textLength: text.length },
+        });
         return { allowed: false, reason: "Comment contains inappropriate language", flagType: "profanity" };
       }
     }
@@ -140,7 +188,19 @@ export function moderateComment(text: string): ModerationResult {
 
   // Fuzzy matching on tokenized words (not full normalized string)
   if (hasFuzzyMatch(text)) {
-    console.log("MODERATION RESULT", { content: text, normalized, matchedWord: "fuzzy-match", method: "fuzzy" });
+    logger.warn({
+      code: "CMNT-2101",
+      event: "COMMENT_BLOCKED_BY_MODERATION",
+      fn: "checkComment",
+      file: FILE,
+      message: "A comment was blocked before it was posted.",
+      reason: "A tokenised word was within the fuzzy distance of a FUZZY_TARGETS entry.",
+      expected: "No token close enough to a banned word",
+      actual: "matched by fuzzy distance",
+      nextStep:
+        "Fuzzy is the loosest matcher and names no specific word. If the member insists their comment was clean, check hasFuzzyMatch and FUZZY_TARGETS before touching PROFANITY_LIST.",
+      detail: { matcher: "fuzzy", textLength: text.length },
+    });
     return { allowed: false, reason: "Comment contains inappropriate language", flagType: "profanity" };
   }
 

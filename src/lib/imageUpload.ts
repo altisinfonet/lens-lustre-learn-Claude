@@ -2,6 +2,9 @@ import { storageUpload } from "@/lib/storageUpload";
 import { isS3Enabled, uploadPairToS3 } from "@/lib/s3Upload";
 import { compressThumbnail, compressImageToFiles } from "@/lib/imageCompression";
 import { dimsSuffix } from "@/lib/imageFrame";
+import { logger } from "@/lib/logger";
+
+const FILE = "src/lib/imageUpload.ts";
 
 const PRIVATE_BUCKETS = new Set(["national-ids", "support-attachments"]);
 
@@ -268,7 +271,19 @@ export async function uploadImageWithThumbnail(
     fullResFile = webpFile;
     encodedDims = { width, height };
   } catch (err) {
-    console.warn("Full-res WebP encoding failed, uploading original:", err);
+    logger.warn({
+      code: "FILE-5004",
+      event: "FULL_RES_ENCODE_FELL_BACK",
+      fn: "uploadImage",
+      file: FILE,
+      message: "WebP encoding of the full-size photograph failed; the original is being uploaded instead.",
+      reason: err instanceof Error ? err.message : String(err),
+      expected: "A WebP encode of the selected file",
+      actual: "The original file, unconverted",
+      nextStep:
+        "The member's upload still SUCCEEDS — it is only larger. Check the file type in the detail against what the browser's encoder accepts before treating this as a failure.",
+      detail: { fileType: file.type, fileSizeBytes: file.size },
+    });
     fullResFile = file;
   }
 
@@ -299,7 +314,19 @@ export async function uploadImageWithThumbnail(
     const { webpFile } = await compressThumbnail(file, baseName);
     thumbnailFile = webpFile;
   } catch (err) {
-    console.warn("Thumbnail generation failed, using full-res as fallback:", err);
+    logger.warn({
+      code: "FILE-5004",
+      event: "THUMBNAIL_FELL_BACK",
+      fn: "uploadImage",
+      file: FILE,
+      message: "Thumbnail generation failed; the full-size photograph will be served in its place.",
+      reason: err instanceof Error ? err.message : String(err),
+      expected: "A small thumbnail beside the full-size upload",
+      actual: "One full-size file used for both",
+      nextStep:
+        "Nothing is broken for the member, but every grid and feed showing this photo now downloads the full-size file. Repeated hits are a real cost on mobile data.",
+      detail: { fileType: file.type, fileSizeBytes: file.size },
+    });
     // Upload full-res only, return same URL for both
     const fullResult = await storageUpload(bucket, fullPath, fullResFile, {
       upsert,
