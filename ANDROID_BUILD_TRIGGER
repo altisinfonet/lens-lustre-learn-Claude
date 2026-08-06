@@ -1,3 +1,48 @@
+Build 1055 — 2026-08-06
+- Photographs zoom, and nothing else does. Opening a photograph full screen now
+  lets it be pinched, dragged around while enlarged, and double-tapped to zoom
+  in and back out. Only the photograph moves: the close button, the counter, the
+  arrows and the download control stay exactly where they are. Closing and
+  reopening always starts back at the full picture, and moving to the next
+  photograph in an album starts that one unzoomed too.
+- The rest of the app can no longer be zoomed by accident. Pinching the feed,
+  the comments, or any other screen used to zoom the whole page — every button
+  and every piece of text with it — and it was easy to trigger while scrolling.
+  That is now switched off inside the app. Scrolling is untouched. The website
+  is deliberately NOT affected: zooming a web page is an accessibility control
+  that belongs to the person reading it, and it has been left alone.
+- Tapping a photograph in the feed opens it full screen. It never did before.
+  A single photograph had no full-screen view at all, and the one built for
+  albums could not be opened by anything — the code to open it was never
+  written. Double-tap still likes the post, and a single tap can never like
+  something by mistake: the two are told apart before either happens. Swiping
+  through an album no longer opens the photograph you just swiped past.
+- Zoom reaches every photograph a member can open — the feed, a post's own page,
+  a hashtag page, a competition entry, the photographs featured on a profile,
+  the voting screen and My Photos. All seven go through one piece of code, so
+  they behave identically rather than drifting apart.
+- Competition entries under judging stay exactly as they were. While judging is
+  running, an entry carries a "Judging in Progress" notice, and that notice does
+  not move with the picture — so magnifying the picture underneath it would have
+  quietly made the notice cover less of the entry. Zoom is therefore switched
+  off on those photographs for as long as judging lasts, and on again afterwards.
+- Cropping a photograph is unchanged. The crop screen used when posting or when
+  changing a profile picture was checked against the new zoom rules and needed
+  no alteration; dragging the crop box behaves as it always has.
+- If a gesture ever fails, the photograph still works. Gesture handling sits
+  directly on the touch path, and a fault there is how scrolling dies with
+  nothing on screen to explain it. A failure now switches that photograph back
+  to a plain, unzoomable picture that can still be viewed and closed, and
+  records itself once — once, not on every touch — so the log stays readable.
+- A photograph that fails to load full screen now says so. Tapping a photo and
+  getting an empty screen used to leave no trace at all. It is now recorded with
+  the device, the screen size and the stage it failed at.
+- The support address for account recovery is the official one. A personal
+  address was reachable on the Help & Support screen; it now shows the site's
+  own support address instead.
+- Three more conditions in the app identify themselves precisely, bringing the
+  total to 72.
+
 Build 1054 — 2026-08-06
 - Deleting an account now signs that person out. This is the headline fix. When
   an admin deleted an account, the person kept using the app as though nothing
