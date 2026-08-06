@@ -45,8 +45,17 @@ export async function getAppVersionLabel(): Promise<string> {
     if (isNativeCapacitorApp()) {
       const info = await appPlugin()?.getInfo?.();
       if (!info?.build) return "";
-      return info.version ? `${info.build} (${info.version})` : String(info.build);
+      // "V1056 (1.2.2)". Owner, 2026-08-06: "version write like V1055(1.1.2.)
+      // like so" — the V prefix confirmed with him, the spacing kept as it
+      // already was, and no trailing dot. BOTH numbers still come from the
+      // build itself (versionCode and versionName, stamped by
+      // .github/workflows/android-build.yml); the V is decoration in front of
+      // a real number and nothing here invents a value.
+      return info.version ? `V${info.build} (${info.version})` : `V${info.build}`;
     }
+    // The website has no versionCode — it shows its own deploy stamp, e.g.
+    // "2026-08-06-11". Deliberately NOT prefixed: "V2026-08-06-11" reads as a
+    // version number that does not exist. The V belongs to the app's build.
     return (window as unknown as { __APP_BUILD?: string }).__APP_BUILD ?? "";
   } catch {
     return "";
