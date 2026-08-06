@@ -65,6 +65,20 @@ const CONVERTED_FILES = [
   "hooks/feed/useCaptionMentions.ts",
   "hooks/core/useAuth.tsx",
   "lib/networkTracer.ts",
+  // Group A — member-facing, converted 2026-08-06
+  "lib/imageUpload.ts",
+  "lib/storageUpload.ts",
+  "lib/imageCompression.ts",
+  "lib/commentModeration.ts",
+  "lib/profilePostHelper.ts",
+  "lib/native/push.ts",
+  "lib/native/appUpdate.ts",
+  "lib/native/authDeepLink.ts",
+  "hooks/feed/useAddComment.ts",
+  "hooks/feed/useFeedQuery.ts",
+  "pages/Index.tsx",
+  "components/AppErrorBoundary.tsx",
+  "components/GlobalSearch.tsx",
 ];
 
 /** Files that must actually EMIT structured logs, not merely avoid console. */
@@ -75,6 +89,19 @@ const MUST_LOG = [
   "hooks/feed/useCaptionMentions.ts",
   "hooks/core/useAuth.tsx",
   "lib/networkTracer.ts",
+  "lib/imageUpload.ts",
+  "lib/storageUpload.ts",
+  "lib/imageCompression.ts",
+  "lib/commentModeration.ts",
+  "lib/profilePostHelper.ts",
+  "lib/native/push.ts",
+  "lib/native/appUpdate.ts",
+  "lib/native/authDeepLink.ts",
+  "hooks/feed/useAddComment.ts",
+  "hooks/feed/useFeedQuery.ts",
+  "pages/Index.tsx",
+  "components/AppErrorBoundary.tsx",
+  "components/GlobalSearch.tsx",
 ];
 
 describe("rule: nothing sensitive ever leaves the device", () => {
@@ -371,6 +398,62 @@ describe("rule: the converted files really do emit structured logs", () => {
     for (const l of logs) {
       expect(l, "a tracer log carries the raw url").not.toMatch(/(^|[^.\w])url:/m);
     }
+  });
+
+  /**
+   * WHAT A MEMBER WROTE IS NOT DIAGNOSTIC DATA.
+   *
+   * Until 2026-08-06 three call sites in commentModeration.ts ran
+   * `console.log("MODERATION RESULT", { content: text, ... })` — the member's
+   * actual sentence — and useAddComment.ts logged the entire moderation
+   * response, which echoes it back. Being told your comment was rejected is
+   * already a bad moment; recording the words adds nothing an investigation
+   * needs.
+   *
+   * redact() does NOT protect against this: it drops keys that LOOK like
+   * secrets, and "content" does not. The only rule that works is not passing
+   * the text. These pins fail against main at f11eec1.
+   */
+  it("the member's comment text can never reach a log", () => {
+    const code = src("lib/commentModeration.ts");
+    expect(code, "the moderation log carries the comment itself").not.toMatch(/content:\s*text/);
+    expect(code, "the moderation log carries the normalised comment").not.toMatch(
+      /normalized:\s*(lower|normalized)\b/,
+    );
+    // What it must carry instead: the length, never the words.
+    expect(code, "the moderation log should carry the text LENGTH").toMatch(/textLength:\s*text\.length/);
+  });
+
+  it("the AI moderation response is never logged — it echoes the comment back", () => {
+    const code = src("hooks/feed/useAddComment.ts");
+    expect(code).not.toMatch(/AI MODERATION RESPONSE/);
+    // Only whether a decision arrived, never the decision payload.
+    expect(code).toContain("CMNT-2103");
+    // `res` must never be passed as a VALUE. A boolean derived from it —
+    // Boolean(res?.error) — is fine and is the point: it says whether the
+    // function objected without repeating what the member wrote.
+    expect(code, "the raw response object must not travel in a log").not.toMatch(/:\s*res\s*[,}]/);
+    expect(code, "the raw response object must not be the whole detail").not.toMatch(
+      /detail:\s*res\b/,
+    );
+  });
+
+  it("the global search box never logs what the member typed", () => {
+    const code = src("components/GlobalSearch.tsx");
+    expect(code).toContain("UI-8003");
+    expect(code, "the search term must not be logged").not.toMatch(/(query|term|q):\s*q\b/);
+    expect(code, "log the length instead").toMatch(/queryLength/);
+  });
+
+  it("a crashed route is FATAL and keeps BOTH sinks", () => {
+    const code = src("components/AppErrorBoundary.tsx");
+    // SYS-9002 was reserved for this earlier the same day.
+    expect(code).toContain("SYS-9002");
+    expect(code, "a dead screen is the most severe client event").toMatch(/logger\.fatal\(/);
+    // The older Health screen the owner already reads must keep working.
+    expect(code, "reportClientError must not be replaced by the logger").toContain(
+      'reportClientError("blank_page"',
+    );
   });
 
   it("one user action shares one correlation id", () => {
