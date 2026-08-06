@@ -303,6 +303,13 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
   },
 
   {
+    code: "FILE-5009",
+    severity: "warn",
+    description: "The device refused to re-read a chosen photo, so it was rebuilt from the copy taken when it was selected.",
+    resolution:
+      "THE MEMBER'S POST SUCCEEDS — this is the recovery working, not a failure. It means the file handle went stale between choosing the photo and pressing Post, which was making posts fail outright from the installed app until 2026-08-06. Count these: a rising number means the underlying platform behaviour is getting worse, and the detail carries the exception that triggered it.",
+  },
+  {
     code: "FILE-5008",
     severity: "warn",
     description: "Camera details could not be read out of a photograph.",
