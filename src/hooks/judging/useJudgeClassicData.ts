@@ -14,6 +14,10 @@ import type {
   PhotoScoreData, PhotoTagData, JudgeComment, JudgingRound,
 } from "./types";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/hooks/judging/useJudgeClassicData.ts";
+
 /* ── Auto-resume helpers ── */
 const getResumeKey = (compId: string, roundId: string) => `judge_resume_${compId}_${roundId}`;
 export const saveResumePosition = (compId: string, roundId: string, photoKey: string) => {
@@ -210,7 +214,15 @@ export function useJudgeClassicData({
         { _competition_id: compId, _round_number: roundNumber },
       );
       if (eligibleErr) {
-        console.error("[judge] get_round_eligible_photos failed", eligibleErr);
+        logger.error({
+          code: "JUDGE-6105", event: "JUDGE_ELIGIBLE_PHOTOS_RPC_FAILED",
+          fn: "useJudgeClassicData", file: FILE,
+          message: "The eligible-photos lookup for this round failed.",
+          reason: eligibleErr?.message ?? String(eligibleErr),
+          expected: "The photos this judge may score in this round",
+          actual: "The database function returned an error",
+          nextStep: "AN EMPTY ROUND AND A BROKEN QUERY LOOK THE SAME on screen. Confirm the round genuinely has no eligible photos before telling anyone it is done.",
+        });
       }
       const rows: { entry_id: string; photo_index: number }[] = eligibleRows ?? [];
       nextEligibleKeys = new Set(rows.map((r) => `${r.entry_id}::${r.photo_index}`));

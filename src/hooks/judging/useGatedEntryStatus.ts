@@ -21,6 +21,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { participantStageLabel, PARTICIPANT_R4_TAG_TO_KEY, normalizePlacementKey } from "@/lib/judging/participantStageLabels";
 import { queryKeys } from "@/lib/queryKeys";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/hooks/judging/useGatedEntryStatus.ts";
+
 export interface GatedEntryStatusRow {
   entry_id: string;
   competition_id: string;
@@ -55,7 +59,15 @@ export function useGatedEntryStatus(entryIds: string[]) {
         p_entry_ids: sortedIds,
       });
       if (error) {
-        console.error("[useGatedEntryStatus] RPC failed", error);
+        logger.error({
+          code: "JUDGE-6105", event: "JUDGE_GATED_ENTRY_STATUS_RPC_FAILED",
+          fn: "useGatedEntryStatus", file: FILE,
+          message: "The gated entry status lookup failed.",
+          reason: error.message ?? String(error),
+          expected: "Whether this entry is gated for the current round",
+          actual: "The database function returned an error",
+          nextStep: "The gate state is unknown, so the screen may let a judge act on an entry that should be closed.",
+        });
         return {};
       }
       const map: GatedEntryStatusMap = {};

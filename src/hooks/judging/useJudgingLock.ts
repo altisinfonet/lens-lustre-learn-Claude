@@ -1,6 +1,10 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+import { logger } from "@/lib/logger";
+
+const FILE = "src/hooks/judging/useJudgingLock.ts";
+
 const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
 const LOCK_TTL_MINUTES = 5;
 
@@ -74,7 +78,15 @@ export function useJudgingLock(
       });
 
       if (error) {
-        console.warn("[JudgingLock] acquire error:", error.message);
+        logger.warn({
+          code: "JUDGE-6106", event: "JUDGING_LOCK_NOT_ACQUIRED",
+          fn: "useJudgingLock", file: FILE,
+          message: "The judging lock could not be acquired.",
+          reason: error.message,
+          expected: "An exclusive lock on this round",
+          actual: "The lock was refused",
+          nextStep: "Usually correct \u2014 another judge holds the round. Investigate only if the same judge is blocked repeatedly, which means a stale lock rather than a busy one.",
+        });
         setLockState(IDLE);
         return;
       }
