@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronLeft, ChevronRight, Heart, AlertTriangle, Copy } from "lucide-react";
 import ImageEngagement from "@/components/ImageEngagement";
 import PhaseWatermark from "@/components/competition/PhaseWatermark";
+import ZoomableImage from "@/components/media/ZoomableImage";
 import { toast } from "@/hooks/core/use-toast";
 import { buildCompetitionPhotoUrl, type CompetitionVotingPhoto } from "@/lib/competitionVotingPhotos";
 
@@ -140,13 +141,46 @@ const CompetitionLightbox = memo(({
                 >
                   {/* Image */}
                   <div className="relative flex-1 flex items-center justify-center min-h-0 w-full max-w-4xl">
-                    <img
-                      src={current.photoUrl}
-                      alt={`${current.entryTitle} — photo ${current.photoIndex + 1}`}
-                      className="max-w-full max-h-[55vh] lg:max-h-[70vh] object-contain rounded-md shadow-2xl select-none"
-                      onContextMenu={(e) => e.preventDefault()}
-                      draggable={false}
-                    />
+                    {/* ── BUILD 1055 · ZOOM IS OFF DURING JUDGING, ON PURPOSE ──
+                     *
+                     * PhaseWatermark is a SIBLING of the photograph and a
+                     * single centred label (`absolute inset-0`, one line of
+                     * text), not a tiled overlay. It does not move with the
+                     * picture. Magnify the photograph four times and pan it
+                     * and that one label covers a quarter of what it used to —
+                     * which is a quiet weakening of the only thing standing
+                     * between an unjudged entry and a clean copy of it.
+                     *
+                     * So during the judging phase this photograph behaves
+                     * EXACTLY as it did before 1055: no pinch, no pan, no
+                     * double-tap. Outside judging there is no watermark to
+                     * weaken and zoom is free. Judges and admins are not
+                     * special-cased here even though they bypass the
+                     * watermark — they have the cinema viewer, which has had
+                     * its own zoom since long before this build.
+                     *
+                     * If the owner would rather have zoom during judging, the
+                     * honest fix is a watermark that tiles and transforms with
+                     * the photograph. That is a change to competition
+                     * integrity and is his call, not this file's.
+                     */}
+                    {competitionPhase === "judging" ? (
+                      <img
+                        src={current.photoUrl}
+                        alt={`${current.entryTitle} — photo ${current.photoIndex + 1}`}
+                        className="max-w-full max-h-[55vh] lg:max-h-[70vh] object-contain rounded-md shadow-2xl select-none"
+                        onContextMenu={(e) => e.preventDefault()}
+                        draggable={false}
+                      />
+                    ) : (
+                      <ZoomableImage
+                        src={current.photoUrl}
+                        alt={`${current.entryTitle} — photo ${current.photoIndex + 1}`}
+                        wrapperClassName="max-w-full max-h-[55vh] lg:max-h-[70vh]"
+                        className="max-w-full max-h-[55vh] lg:max-h-[70vh] object-contain rounded-md shadow-2xl select-none"
+                        imgProps={{ onContextMenu: (e: React.MouseEvent) => e.preventDefault() }}
+                      />
+                    )}
                     {/* Step 20: Judging-phase watermark (renders only when phase==="judging"). */}
                     <PhaseWatermark
                       phase={competitionPhase}
