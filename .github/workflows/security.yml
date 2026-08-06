@@ -1,0 +1,69 @@
+name: Security
+
+# THE STANDING GATE. Owner instruction, 2026-08-06:
+#   "i need a permanent solution, system made scanner to constant investigate
+#    after the changes you done but before publishing."
+#
+# Runs on every push and every pull request to main. Two halves, because the
+# generic tools would never have caught the bug that actually bit this project
+# (a deleted member keeping write access) — that was a policy and logic fault,
+# not a pattern.
+#
+#   1. project-rules  — scripts/security-audit.mjs, THIS project's own rules.
+#                       Fails on any CRITICAL or HIGH.
+#   2. secrets        — full git history, not just the current tree. A key that
+#                       was committed and later deleted is still exposed.
+#   3. dependencies   — production dependencies only. The dev-tooling noise
+#                       (vite, vitest, eslint) never reaches a member's phone
+#                       and must not be allowed to bury a real finding.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  project-rules:
+    name: This project's own security rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # No install needed: the script uses only Node built-ins, so it cannot be
+      # broken by a dependency problem — which is exactly when you most want a
+      # security gate to still run.
+      - name: Run the security gate
+        run: node scripts/security-audit.mjs
+
+  secrets:
+    name: Secret scan (full history)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the whole history — a deleted secret is still leaked
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dependencies:
+    name: Dependency vulnerabilities (production only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci || npm install --no-audit --no-fund
+      # Report everything for the record, then fail only on what ships to a
+      # member. `|| true` on the first line is deliberate: it is the report,
+      # not the gate.
+      - name: Report (all dependencies)
+        run: npm audit || true
+      - name: Gate (production dependencies, high and above)
+        run: npm audit --omit=dev --audit-level=high
