@@ -79,6 +79,28 @@ const CONVERTED_FILES = [
   "pages/Index.tsx",
   "components/AppErrorBoundary.tsx",
   "components/GlobalSearch.tsx",
+  "lib/fileSecurityScanner.ts",
+  // Group B — judging and admin, converted 2026-08-06
+  "hooks/judging/useJudgeActions.ts",
+  "hooks/judging/decisionParityProbe.ts",
+  "hooks/judging/useUnjudgedDriftMonitor.ts",
+  "hooks/judging/usePhotoR4Award.ts",
+  "hooks/judging/usePhotoPlacements.ts",
+  "hooks/judging/usePhotoDecisions.ts",
+  "hooks/judging/useJudgingLock.ts",
+  "hooks/judging/useJudgeClassicData.ts",
+  "hooks/judging/useGatedEntryStatus.ts",
+  "lib/judgingApi.ts",
+  "components/judge/CompleteRoundDialog.tsx",
+  "components/admin/AdminHealth.tsx",
+  "components/admin/AdminPageManagement.tsx",
+  "components/admin/AdminGallery.tsx",
+  "components/admin/JudgeUIvsDBGateAudit.tsx",
+  "components/admin/AdminSEO.tsx",
+  "components/admin/AdminPhotoOfDay.tsx",
+  "components/admin/AdminMenuBuilder.tsx",
+  "components/admin/AdminJudgeMonitoringPanel.tsx",
+  "components/admin/AdminBanners.tsx",
 ];
 
 /** Files that must actually EMIT structured logs, not merely avoid console. */
@@ -102,6 +124,28 @@ const MUST_LOG = [
   "pages/Index.tsx",
   "components/AppErrorBoundary.tsx",
   "components/GlobalSearch.tsx",
+  "lib/fileSecurityScanner.ts",
+  // Group B — judging and admin, converted 2026-08-06
+  "hooks/judging/useJudgeActions.ts",
+  "hooks/judging/decisionParityProbe.ts",
+  "hooks/judging/useUnjudgedDriftMonitor.ts",
+  "hooks/judging/usePhotoR4Award.ts",
+  "hooks/judging/usePhotoPlacements.ts",
+  "hooks/judging/usePhotoDecisions.ts",
+  "hooks/judging/useJudgingLock.ts",
+  "hooks/judging/useJudgeClassicData.ts",
+  "hooks/judging/useGatedEntryStatus.ts",
+  "lib/judgingApi.ts",
+  "components/judge/CompleteRoundDialog.tsx",
+  "components/admin/AdminHealth.tsx",
+  "components/admin/AdminPageManagement.tsx",
+  "components/admin/AdminGallery.tsx",
+  "components/admin/JudgeUIvsDBGateAudit.tsx",
+  "components/admin/AdminSEO.tsx",
+  "components/admin/AdminPhotoOfDay.tsx",
+  "components/admin/AdminMenuBuilder.tsx",
+  "components/admin/AdminJudgeMonitoringPanel.tsx",
+  "components/admin/AdminBanners.tsx",
 ];
 
 describe("rule: nothing sensitive ever leaves the device", () => {
@@ -454,6 +498,77 @@ describe("rule: the converted files really do emit structured logs", () => {
     expect(code, "reportClientError must not be replaced by the logger").toContain(
       'reportClientError("blank_page"',
     );
+  });
+
+  /**
+   * GROUP B, 2026-08-06 — judging and admin.
+   *
+   * Judging is not member-facing, but it is the least forgiving area here: a
+   * lost or wrong score changes who wins, and unlike a failed upload nobody
+   * notices at the time. These pin the two decisions that make the judging
+   * logs worth having. Both fail against main at eb4743c.
+   */
+  it("a judge's whole save can be replayed from one correlation id", () => {
+    const code = src("hooks/judging/useJudgeActions.ts");
+    expect(code).toContain("newCorrelationId()");
+    // Start, edge-write, failure, verify-missing and verify-ok must ALL carry
+    // it, or "my score vanished" cannot be reconstructed.
+    const logs = code.match(/logger\.\w+\(\{[\s\S]*?\n\s*\}\);/g) || [];
+    const inSubmit = logs.filter((l) => l.includes('fn: "submitScore"'));
+    expect(inSubmit.length, "submitScore should log start, write, failure and verify").toBeGreaterThanOrEqual(5);
+    for (const l of inSubmit) {
+      expect(l, "a submitScore log is missing correlationId").toContain("correlationId: saveCid");
+    }
+    // A write that cannot be read back is its own code — never folded into a
+    // generic save failure.
+    expect(code).toContain("JUDGE-6104");
+    expect(code).toContain("JUDGE_SCORE_NOT_READABLE_AFTER_SAVE");
+  });
+
+  it("dev-only judging probes stay at debug and never reach the Error Log", () => {
+    // Both files return early outside DEV. Their findings are developer
+    // signals, not member incidents: at warn they would persist to
+    // client_errors and bury real failures.
+    for (const rel of [
+      "hooks/judging/decisionParityProbe.ts",
+      "hooks/judging/useUnjudgedDriftMonitor.ts",
+    ]) {
+      const code = src(rel);
+      expect(code, `${rel} must keep its DEV guard`).toMatch(/import\.meta\.env\.DEV/);
+      const levels = [...code.matchAll(/logger\.(\w+)\s*\(/g)].map((m) => m[1]);
+      expect(levels.length, `${rel} emits no log`).toBeGreaterThan(0);
+      expect([...new Set(levels)], `${rel} must only log at debug`).toEqual(["debug"]);
+    }
+  });
+
+  /**
+   * THE "Failed to create post" REPORT, 2026-08-06.
+   *
+   * A member saw `non-Error thrown: {"isTrusted":true}`. That is JSON.stringify
+   * of a DOM Event, and it reached them because `reader.onerror = reject` hands
+   * reject the ERROR EVENT — discarding `reader.error`, the DOMException whose
+   * name is the actual cause. Fails against main at 8eaed75.
+   */
+  it("a FileReader failure must never reject with a raw Event", () => {
+    const code = src("lib/fileSecurityScanner.ts");
+    // The bare form throws away the only fact that explains the failure.
+    expect(code, "reader.onerror = reject discards reader.error").not.toMatch(
+      /reader\.onerror\s*=\s*reject\s*;/,
+    );
+    // It must reject with something that names itself, and log the exception.
+    expect(code).toContain("FILE-5007");
+    expect(code).toContain("reader.error");
+    expect(code, "the exception name is the root cause and must be logged").toMatch(
+      /exceptionName/,
+    );
+  });
+
+  it("the file-read failure log carries what an investigation needs", () => {
+    const code = src("lib/fileSecurityScanner.ts");
+    for (const field of ["stage", "fileName", "fileSizeBytes", "mimeType", "userAgent"]) {
+      expect(code, `FILE-5007 must record ${field}`).toContain(field);
+    }
+    expect(code, "a stage failure must be timed").toMatch(/durationMs:/);
   });
 
   it("one user action shares one correlation id", () => {
