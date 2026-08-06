@@ -7,6 +7,7 @@ import { uploadImage } from "@/lib/imageUpload";
 import { compressImage } from "@/lib/imageCompression";
 import { AnimatePresence, motion } from "framer-motion";
 import { STORY_DISPLAY_MS } from "@/lib/storyTiming";
+import { logger, newCorrelationId } from "@/lib/logger";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 // Owner, 2026-08-05: "Stories time 5 sec to do it 10 sec to stay."
@@ -197,15 +198,90 @@ const FeedStoriesBar = () => {
   }, [storyIdx, groupIdx]);
 
   const handleDeleteOwn = async () => {
-    if (!user || deleting || !currentStory) return;
+    const correlationId = newCorrelationId();
+    const startedAt = Date.now();
+    const storyId = currentStory?.id ?? null;
+
+    if (!user) {
+      logger.warn({
+        code: "AUTH-1001",
+        event: "STORY_DELETE_WITHOUT_SESSION",
+        fn: "handleDeleteOwn",
+        file: "src/components/feed/FeedStoriesBar.tsx",
+        message: "Deleting the member's own story from the feed viewer.",
+        reason: "The delete button was reachable with no signed-in member.",
+        expected: "A signed-in member",
+        actual: "user is null",
+        recordId: storyId,
+        correlationId,
+      });
+      return;
+    }
+    if (deleting || !currentStory) {
+      // Not a failure: the guard against a double-tap while a delete is in
+      // flight. Traced, not warned, so it never becomes noise.
+      logger.trace({
+        code: "STORY-6003",
+        event: "STORY_DELETE_IGNORED_DUPLICATE",
+        fn: "handleDeleteOwn",
+        file: "src/components/feed/FeedStoriesBar.tsx",
+        message: "Ignoring a repeat delete tap.",
+        reason: deleting ? "A delete is already in flight." : "No story is on screen.",
+        expected: "One delete per story",
+        actual: deleting ? "second tap while deleting" : "currentStory is undefined",
+        correlationId,
+      });
+      return;
+    }
+
     setDeleting(true);
     try {
       // .select("id") makes the database return the rows it actually deleted,
       // so a delete that matched nothing (blocked, already gone) is reported
       // as the failure it is instead of a false "Story removed".
       const { data, error } = await supabase.from("stories" as any).delete().eq("id", currentStory.id).select("id");
-      if (error) throw error;
-      if (!data || (data as any[]).length === 0) throw new Error("Story could not be deleted.");
+
+      if (error) {
+        logger.error({
+          code: "STORY-6002",
+          event: "STORY_DELETE_DB_ERROR",
+          fn: "handleDeleteOwn",
+          file: "src/components/feed/FeedStoriesBar.tsx",
+          message: "Deleting the member's own story from the feed viewer.",
+          reason: `The database refused the delete: ${error.message}`,
+          expected: "One row deleted",
+          actual: `error ${(error as any).code ?? "unknown"}`,
+          recordId: currentStory.id,
+          durationMs: Date.now() - startedAt,
+          correlationId,
+          detail: { pgCode: (error as any).code, hint: (error as any).hint },
+        });
+        throw error;
+      }
+
+      if (!data || (data as any[]).length === 0) {
+        // THE FAILURE MODE THIS WHOLE CODE PATH EXISTS FOR. A delete that
+        // matches nothing is almost always RLS, not a missing row — and
+        // before 2026-08-06 it was invisible, which is why the owner reported
+        // "unable to delete" for a delete that was in fact succeeding.
+        logger.error({
+          code: "STORY-6001",
+          event: "STORY_DELETE_MATCHED_NO_ROWS",
+          fn: "handleDeleteOwn",
+          file: "src/components/feed/FeedStoriesBar.tsx",
+          message: "Deleting the member's own story from the feed viewer.",
+          reason: "The delete succeeded but changed zero rows.",
+          expected: "Exactly one story row deleted",
+          actual: "0 rows",
+          nextStep:
+            "Check pg_policies for 'stories' (a DELETE policy must match user_id = auth.uid()) and confirm the story still existed.",
+          recordId: currentStory.id,
+          durationMs: Date.now() - startedAt,
+          correlationId,
+        });
+        throw new Error("Story could not be deleted.");
+      }
+
       // Owner, 2026-08-05: "delete anytime option needed" — and the delete
       // must be SEEN. Before this fix the row was deleted but the ring and
       // story stayed on screen until a full reload, which read as "unable to
@@ -214,6 +290,20 @@ const FeedStoriesBar = () => {
       toast({ title: "Story removed" });
       closeViewer();
       loadBar();
+
+      logger.info({
+        code: "STORY-6003",
+        event: "STORY_DELETED",
+        fn: "handleDeleteOwn",
+        file: "src/components/feed/FeedStoriesBar.tsx",
+        message: "Deleting the member's own story from the feed viewer.",
+        reason: "The database confirmed one deleted row and the bar was refreshed.",
+        expected: "Exactly one story row deleted",
+        actual: `${(data as any[]).length} row(s)`,
+        recordId: currentStory.id,
+        durationMs: Date.now() - startedAt,
+        correlationId,
+      });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
