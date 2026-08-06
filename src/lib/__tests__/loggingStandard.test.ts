@@ -64,6 +64,7 @@ const CONVERTED_FILES = [
   "components/WallPosts.tsx",
   "hooks/feed/useCaptionMentions.ts",
   "hooks/core/useAuth.tsx",
+  "lib/networkTracer.ts",
 ];
 
 /** Files that must actually EMIT structured logs, not merely avoid console. */
@@ -73,6 +74,7 @@ const MUST_LOG = [
   "components/WallPosts.tsx",
   "hooks/feed/useCaptionMentions.ts",
   "hooks/core/useAuth.tsx",
+  "lib/networkTracer.ts",
 ];
 
 describe("rule: nothing sensitive ever leaves the device", () => {
@@ -319,6 +321,56 @@ describe("rule: the converted files really do emit structured logs", () => {
     expect(code).toContain("POST-2003"); // pipeline threw
     expect(code).toContain("POST_CREATED"); // success + duration
     expect(code).toMatch(/durationMs:/);
+  });
+
+  /**
+   * OWNER DECISION, 2026-08-06: the network tracer is DEVELOPMENT ONLY.
+   *
+   * It shipped to production unguarded: it wrapped window.fetch, read every
+   * API response body to the end just to measure it, and printed a 22-call
+   * report into every member's console. The owner ruled "gate to dev AND
+   * convert". These pins fail if any guard is removed.
+   *
+   * Verified as a real regression test: on main at d82f0ca — before the fix —
+   * the first two of these fail, because main.tsx called startNetworkTrace()
+   * bare and the file held no import.meta.env.DEV at all.
+   */
+  it("the network tracer is never started outside development", () => {
+    const main = src("main.tsx");
+    // Column 0 = module top level = nothing wraps it. An indented call is
+    // inside a block, and the second assertion proves which block.
+    expect(main, "main.tsx must not call startNetworkTrace() at module top level").not.toMatch(
+      /^startNetworkTrace\s*\(/m,
+    );
+    expect(main, "main.tsx must gate startNetworkTrace() behind import.meta.env.DEV").toMatch(
+      /import\.meta\.env\.DEV[\s\S]{0,200}startNetworkTrace\s*\(/,
+    );
+  });
+
+  it("the tracer guards itself too, so a future call site cannot re-open it", () => {
+    const code = src("lib/networkTracer.ts");
+    // Both exported entry points return early outside development.
+    const guards = code.match(/if\s*\(\s*!import\.meta\.env\.DEV\s*\)\s*return\s*;/g) || [];
+    expect(guards.length, "startNetworkTrace and stopNetworkTrace must each guard").toBe(2);
+  });
+
+  it("the tracer only ever logs at debug, so it cannot reach the owner's Error Log", () => {
+    const code = src("lib/networkTracer.ts");
+    const levels = [...code.matchAll(/logger\.(\w+)\s*\(/g)].map((m) => m[1]);
+    expect(levels.length, "the tracer emits no logs").toBeGreaterThan(0);
+    expect([...new Set(levels)]).toEqual(["debug"]);
+  });
+
+  it("the tracer logs the endpoint, never the raw URL with its query string", () => {
+    const code = src("lib/networkTracer.ts");
+    // `url` is kept on window.API_TRACE for devtools, but must not travel in
+    // a log's detail: the query string is where row ids and OAuth parameters
+    // live.
+    const logs = code.match(/logger\.debug\(\{[\s\S]*?\n  \}\);/g) || [];
+    expect(logs.length).toBeGreaterThan(0);
+    for (const l of logs) {
+      expect(l, "a tracer log carries the raw url").not.toMatch(/(^|[^.\w])url:/m);
+    }
   });
 
   it("one user action shares one correlation id", () => {
