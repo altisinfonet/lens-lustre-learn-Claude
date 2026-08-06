@@ -27,6 +27,7 @@ import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import { useUserPostsQuery, flattenUserPosts } from "@/hooks/feed/useUserPostsQuery";
 import { useFeedRealtime } from "@/hooks/feed/useRealtimeFeed";
 import { reportClientError, memberFacingMessage, describeThrown } from "@/lib/reportClientError";
+import { useCaptionMentions } from "@/hooks/feed/useCaptionMentions";
 import type { ReactionType } from "@/components/ReactionPicker";
 import type { UnifiedPost } from "@/types/post";
 
@@ -194,6 +195,13 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   // Phase 3B — optional scheduling (null = post now, Date = schedule)
   const [scheduleAt, setScheduleAt] = useState<Date | null>(null);
   const [showSchedule, setShowSchedule] = useState(false);
+  // Mentions in the caption — 1053 headline item. See the hook's header for
+  // why the plain <Textarea> stays and mentions layer on top of it.
+  const captionMentions = useCaptionMentions({
+    textareaRef,
+    value: newContent,
+    setValue: setNewContent,
+  });
   const createScheduled = useCreateScheduledPost();
   // Infinite scroll handled by <InfiniteScrollSentinel /> below.
 
@@ -386,7 +394,9 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         const iso = scheduleAt.toISOString();
         try {
           await createScheduled.mutateAsync({
-            content: newContent.trim(),
+            // Picked @mentions become @[Name](id) markup — the same format
+            // comments store, rendered by RichContentRenderer.
+            content: captionMentions.convert(newContent.trim()),
             image_urls: uploadedUrls,
             image_url: uploadedUrls[0],
             tagged_user_ids: pendingTags.map((t) => t.taggedUserId),
@@ -396,6 +406,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           });
           toast({ title: "Post scheduled", description: `Will publish at ${scheduleAt.toLocaleString()}` });
           setNewContent("");
+          captionMentions.reset();
           setExcludeFromSearch(false);
           setScheduleAt(null);
           setShowSchedule(false);
@@ -408,7 +419,8 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       }
       const { data: newPost, error } = await supabase.from("posts").insert({
         user_id: user.id,
-        content: newContent.trim(),
+        // Picked @mentions become @[Name](id) markup (see useCaptionMentions).
+        content: captionMentions.convert(newContent.trim()),
         privacy: newPrivacy,
         // Always present: createPost refuses to run without at least one photo
         // (see the ruling at the top of createPost). This is the first of them.
@@ -457,6 +469,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           }
         }
         setNewContent("");
+        captionMentions.reset();
         setExcludeFromSearch(false);
         clearAllImages();
         await refetch();
@@ -710,12 +723,48 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                     const el = e.currentTarget;
                     el.style.height = "auto";
                     el.style.height = Math.min(el.scrollHeight, 440) + "px";
+                    captionMentions.refresh();
                   }}
+                  // Caret can move without the text changing (clicks, arrow
+                  // keys) — the @-dropdown must follow the caret, not the text.
+                  onClick={captionMentions.refresh}
+                  onKeyUp={captionMentions.refresh}
+                  onKeyDown={captionMentions.onKeyDown}
                   placeholder={t("composer.placeholder")}
                   className={`relative rounded-2xl px-4 py-2.5 resize-none min-h-[40px] max-h-[440px] border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm placeholder:text-muted-foreground/60 overflow-y-auto ${newContent.length > 2200 ? "bg-transparent" : "bg-muted/50"}`}
                   rows={1}
                 />
 
+                {/* @mention dropdown — Instagram places caption suggestions in
+                    a list under the text box, so we do too. Buttons use
+                    onPointerDown (not onClick): a tap must win the race with
+                    the textarea's blur, the same Android-WebView rule already
+                    recorded in MentionInput.tsx and GlobalSearch.tsx. */}
+                {captionMentions.open && (
+                  <div className="absolute top-full left-0 right-0 mt-1 z-30 rounded-lg border border-border bg-popover shadow-lg overflow-hidden">
+                    {captionMentions.suggestions.map((s, i) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                          captionMentions.pick(s);
+                        }}
+                        onMouseEnter={() => captionMentions.setFocusIdx(i)}
+                        className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm ${i === captionMentions.focusIdx ? "bg-accent" : ""}`}
+                      >
+                        {s.avatar_url ? (
+                          <img src={s.avatar_url} alt="" loading="lazy" className="h-7 w-7 rounded-full object-cover" />
+                        ) : (
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                            {(s.display || "?")[0]?.toUpperCase()}
+                          </div>
+                        )}
+                        <span className="font-medium">{s.display}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               {/* No running counter (owner, 2026-08-04: "Don't show it
                   anywhere"). The line appears ONLY over the limit, where Post
