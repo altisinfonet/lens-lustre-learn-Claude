@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/core/useAuth";
 import { toast } from "@/hooks/core/use-toast";
 import { uploadImageWithThumbnail } from "@/lib/imageUpload";
 import { AnimatePresence, motion } from "framer-motion";
+import ZoomableImage from "@/components/media/ZoomableImage";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 
@@ -138,7 +139,16 @@ const FeaturedPhotos = ({ userId, isOwner }: Props) => {
             className="fixed inset-0 z-50 bg-background/95 backdrop-blur-md flex items-center justify-center p-6 cursor-pointer"
             onClick={() => setLightbox(null)}
           >
-            <img loading="lazy" decoding="async" src={lightbox} alt="Featured" className="max-w-4xl w-full max-h-[80vh] object-contain" />
+            {/* BUILD 1055 — the photograph pans against the whole overlay, so
+                the wrapper is stretched to it rather than hugging the picture.
+                The close button below is a sibling and stays put. */}
+            <ZoomableImage
+              src={lightbox}
+              alt="Featured"
+              wrapperClassName="absolute inset-0"
+              className="max-w-4xl w-full max-h-[80vh] object-contain"
+              imgProps={{ decoding: "async" }}
+            />
             <button onClick={() => setLightbox(null)} className="absolute top-6 right-6 text-muted-foreground hover:text-foreground">
               <X className="h-6 w-6" />
             </button>
