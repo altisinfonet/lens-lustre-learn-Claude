@@ -8,6 +8,14 @@ import { frameAspectFor, frameAspectForUrls, parseImageDims } from "@/lib/imageF
 
 interface PostMediaProps {
   urls: string[];
+  /**
+   * The STORED thumbnail for each slide, straight from posts.thumbnail_urls —
+   * aligned with `urls` by index. Optional because older posts have none and
+   * some paths (realtime inserts) may not carry it. See the note above
+   * ProgressiveImage: the feed shows the stored thumbnail when it has one and
+   * NEVER GUESSES a thumbnail address again.
+   */
+  thumbUrls?: (string | null | undefined)[];
   onDoubleTapLike?: () => void;
 }
 
@@ -34,7 +42,7 @@ interface PostMediaProps {
  * A photo WITH dimensions in its name is never measured, so new posts still
  * have zero reflow.
  */
-const PostMedia = ({ urls, onDoubleTapLike }: PostMediaProps) => {
+const PostMedia = ({ urls, thumbUrls, onDoubleTapLike }: PostMediaProps) => {
   const first = urls[0];
   // One frame per card, taken from the first photo — see src/lib/imageFrame.ts.
   // An album must not resize between slides: the buttons would move under the
@@ -60,9 +68,9 @@ const PostMedia = ({ urls, onDoubleTapLike }: PostMediaProps) => {
 
   const frameAspect = measuredAspect ?? declaredAspect;
   if (urls.length === 1) {
-    return <SingleImagePost src={first} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} />;
+    return <SingleImagePost src={first} thumb={thumbUrls?.[0]} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} />;
   }
-  return <AlbumCarousel urls={urls} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} />;
+  return <AlbumCarousel urls={urls} thumbUrls={thumbUrls} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} />;
 };
 
 /* ── Supabase render-endpoint helpers ──
@@ -173,40 +181,37 @@ function buildLqipUrl(url: string): string {
   return buildRenderUrl(url, 32, 30);
 }
 
-/* ── CDN thumbnail derivation. PERF, 2026-08-07. ──
+/* ── STORED thumbnails, never GUESSED ones. 2026-08-07, second attempt. ──
  *
- * Post images live on cdn.50mmretina.com (R2) since S3 upload went on. The
- * upload pipeline (src/lib/imageUpload.ts) ALREADY creates a 600px WebP
- * thumbnail beside every full-size original — `<path>-thumb.<ext>` — uploads it,
- * and stores it in posts.thumbnail_urls. NOTHING was reading it: the feed showed
- * the full 2560px original in a ~600px card, so on a slow connection a feed
- * screen was 3-5 MB that should have been a few hundred KB.
+ * The upload pipeline creates a 600px WebP thumbnail beside every full-size
+ * original and records its address in posts.thumbnail_urls. The first attempt
+ * at using it (shipped earlier today) did not read that column — it DERIVED the
+ * thumb address from the original by string rule (`<path>-thumb.<ext>` on the
+ * CDN host), assuming the two always live side by side.
  *
- * This derives the thumb URL from the original by the same string rule the
- * uploader uses, so the feed can show the small copy WITHOUT touching the feed
- * RPC (flagged in-repo as the riskiest) and WITHOUT any Cloudflare transform
- * endpoint (the /cdn-cgi/ transform broke builds 1035-1051 — see the note above).
+ * THEY DO NOT. Measured 2026-08-07 against production data: for the posts from
+ * roughly before the R2 migration, the original lives on cdn.50mmretina.com but
+ * the stored thumbnail lives on SUPABASE STORAGE — the derived CDN address
+ * simply does not exist. That alone should have degraded to the original via
+ * onError; instead the global retrier in src/lib/imageFallback.ts captured the
+ * dead derived URL, kept re-writing it over the component's fallback, and after
+ * two rounds planted the permanent branded placeholder. Owner report, with
+ * screenshots: "some images are not loading - image broken - happened with many
+ * profile." Both halves are fixed: imageFallback now drops a retry when the
+ * element has moved to a different address, and this file now uses ONLY the
+ * stored thumbnail_urls value — the address the uploader actually wrote,
+ * whichever host it is on. No thumbnail on record → the original is shown, the
+ * pre-2026-08-07 behaviour: heavier, never broken.
  *
- * It is a plain CDN URL. When it does not exist — a post from before the
- * thumbnail migration, or one whose thumbnail generation fell back to full-res —
- * it 404s and ProgressiveImage's existing onError falls the layer back to the
- * original. Nothing breaks; those posts just stay heavy as they are today.
- *
+ * GIF/SVG originals never swap to a thumbnail (it would freeze the animation).
  * The lightbox is unaffected: it receives the original `urls` prop directly.
  */
-function buildCdnThumb(url: string): string | null {
-  if (!isCdnImage(url)) return null;
-  if (/\.(gif|svg)(\?|$)/i.test(url)) return null; // never thumbnail animation/vector
-  if (/-thumb\.[a-z0-9]+(\?|$)/i.test(url)) return url; // already a thumb
-  try {
-    const u = new URL(url);
-    const m = u.pathname.match(/\.([a-z0-9]+)$/i);
-    if (!m) return null;
-    u.pathname = u.pathname.replace(/\.([a-z0-9]+)$/i, `-thumb.$1`);
-    return u.toString();
-  } catch {
-    return null;
-  }
+function usableThumb(thumb: string | null | undefined, original: string): string | null {
+  if (!thumb || typeof thumb !== "string") return null;
+  if (!/^https?:\/\//i.test(thumb)) return null;
+  if (/\.(gif|svg)(\?|$)/i.test(original)) return null; // preserve animation/vector
+  if (thumb === original) return null; // nothing to gain
+  return thumb;
 }
 
 function buildSrcSet(url: string): string | undefined {
@@ -250,10 +255,13 @@ const FEED_SIZES = "(max-width: 768px) 100vw, 600px";
  */
 const ProgressiveImage = ({
   src,
+  thumb: thumbProp,
   className,
   onNaturalSize,
 }: {
   src: string;
+  /** The STORED thumbnail address for this photo (posts.thumbnail_urls), if any. */
+  thumb?: string | null;
   className?: string;
   /** Reports the intrinsic size of the backdrop copy — see PostMedia's header. */
   onNaturalSize?: (width: number, height: number) => void;
@@ -262,15 +270,16 @@ const ProgressiveImage = ({
   const [failed, setFailed] = useState(false);
   const [backdropFailed, setBackdropFailed] = useState(false);
   const transformable = isTransformable(src);
-  // PERF 2026-08-07: for CDN-hosted originals, show the 600px thumbnail that
-  // already exists rather than the full 2560px original. `failed` (set by the
-  // sharp layer's onError) falls everything back to the original, so a missing
-  // thumb degrades to today's behaviour instead of breaking.
-  const cdnThumb = !transformable && !failed ? buildCdnThumb(src) : null;
+  // PERF 2026-08-07: show the 600px thumbnail the uploader STORED for this
+  // photo rather than the full 2560px original. `failed` (set by the sharp
+  // layer's onError) falls everything back to the original, so a dead thumbnail
+  // degrades to the pre-thumbnail behaviour instead of breaking. See the note
+  // above usableThumb — the address is never guessed, only read.
+  const thumb = !transformable && !failed ? usableThumb(thumbProp, src) : null;
   const lqip = transformable && !backdropFailed
     ? buildLqipUrl(src)
-    : (!backdropFailed && cdnThumb) ? cdnThumb : src;
-  const sharpSrc = transformable ? buildRenderUrl(src, 800) : (cdnThumb ?? src);
+    : (!backdropFailed && thumb) ? thumb : src;
+  const sharpSrc = transformable ? buildRenderUrl(src, 800) : (thumb ?? src);
   const srcSet = buildSrcSet(src);
 
   return (
@@ -371,7 +380,7 @@ function useTapOrDoubleTap(
 }
 
 /* ── Single Image ── */
-const SingleImagePost = ({ src, frameAspect, onNaturalSize, onDoubleTapLike }: { src: string; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void }) => {
+const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLike }: { src: string; thumb?: string | null; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void }) => {
   const [heart, setHeart] = useState<{ x: number; y: number; id: number } | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const { downloading, download } = useDownloadImage();
@@ -389,7 +398,7 @@ const SingleImagePost = ({ src, frameAspect, onNaturalSize, onDoubleTapLike }: {
   return (
     <>
       <div className="relative group/img w-full overflow-hidden rounded-sm bg-muted/30 cursor-zoom-in" style={{ aspectRatio: String(frameAspect) }} onClick={handleTap}>
-        <ProgressiveImage src={src} onNaturalSize={onNaturalSize} />
+        <ProgressiveImage src={src} thumb={thumb} onNaturalSize={onNaturalSize} />
         <AnimatePresence>{heart && <DoubleTapHeart key={heart.id} x={heart.x} y={heart.y} />}</AnimatePresence>
         <DownloadButton
           downloading={downloading === src}
@@ -412,7 +421,7 @@ function preloadImage(url: string | undefined) { if (!url) return; const img = n
 const SWIPE_THRESHOLD = 50;
 const SWIPE_VELOCITY = 300;
 
-const AlbumCarousel = ({ urls, frameAspect, onNaturalSize, onDoubleTapLike }: { urls: string[]; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void }) => {
+const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTapLike }: { urls: string[]; thumbUrls?: (string | null | undefined)[]; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void }) => {
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -468,7 +477,7 @@ const AlbumCarousel = ({ urls, frameAspect, onNaturalSize, onDoubleTapLike }: { 
           <motion.div key={current} custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3, ease: "easeOut" }} drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.15} onDragEnd={handleDragEnd} className="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing">
             {/* Only slide 0 may set the frame — an album has ONE shape and it
                 belongs to the first photo. Swiping must never resize the card. */}
-            <ProgressiveImage src={urls[current]} onNaturalSize={current === 0 ? onNaturalSize : undefined} />
+            <ProgressiveImage src={urls[current]} thumb={thumbUrls?.[current]} onNaturalSize={current === 0 ? onNaturalSize : undefined} />
           </motion.div>
         </AnimatePresence>
         <AnimatePresence>{heart && <DoubleTapHeart key={heart.id} x={heart.x} y={heart.y} />}</AnimatePresence>

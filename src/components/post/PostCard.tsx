@@ -109,6 +109,14 @@ const PostCard = ({
   };
 
   const imageUrls = post.image_urls.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
+  // Stored thumbnails ride along ONLY when they align one-to-one with the
+  // images. A mismatched array (single-image fallback path, partial uploads)
+  // must not put photo 1's thumbnail under photo 2 — no thumbs is merely
+  // heavier, wrong thumbs is wrong.
+  const thumbUrls =
+    post.thumbnail_urls && post.thumbnail_urls.length === imageUrls.length
+      ? post.thumbnail_urls
+      : undefined;
 
   const handleDelete = async () => {
     if (!currentUserId) return;
@@ -343,6 +351,7 @@ const PostCard = ({
         <div className="px-0">
           <PostMedia
             urls={imageUrls}
+            thumbUrls={thumbUrls}
             onDoubleTapLike={() => {
               if (currentUserId && !post.user_reaction) onReact(post.id, "like");
             }}
