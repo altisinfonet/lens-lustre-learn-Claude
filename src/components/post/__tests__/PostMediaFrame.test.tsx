@@ -144,23 +144,37 @@ describe("PostMedia — nothing to show", () => {
  *
  * So the pin now points the other way: a cdn.50mmretina.com image is rendered
  * by its DIRECT url, no srcset, and nothing may reroute it through an endpoint
- * that can be switched off outside this repo. Full-size originals in the feed
- * cost bandwidth; they do not cost the product. See PostMedia.tsx for the
- * conditions under which a transformer may return.
+ * that can be switched off outside this repo.
+ *
+ * PERF, 2026-08-07: the feed now shows the 600px `-thumb.webp` that the upload
+ * pipeline already creates and stores, INSTEAD of the full 2560px original —
+ * still a DIRECT cdn.50mmretina.com url, still no transformer. The full original
+ * costs bandwidth the feed does not need; the thumbnail is a plain sibling file
+ * on the same host, and a missing one falls back to the original via onError.
+ * The safety invariant these tests exist to protect — never /cdn-cgi/image/ —
+ * is unchanged.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 const cdn = (name: string) =>
   `https://cdn.50mmretina.com/post-images/u/posts/1754000000000-abc${name}`;
 
 describe("PostMedia — CDN images load DIRECT, never via a transformer", () => {
-  it("renders the original URL, untouched", () => {
+  it("renders the 600px thumbnail, DIRECT, never through a transformer", () => {
     const { container } = render(<PostMedia urls={[cdn("-w2560h1463.webp")]} />);
     const src = sharpImg(container)!.getAttribute("src")!;
-    expect(src).toBe(cdn("-w2560h1463.webp"));
+    // The small sibling file, derived by the same rule imageUpload.ts uses.
+    expect(src).toBe(cdn("-w2560h1463-thumb.webp"));
+    // The invariant that actually matters: still a plain CDN url, no transformer.
+    expect(src).toContain("cdn.50mmretina.com");
     expect(src).not.toContain("/cdn-cgi/image/");
   });
 
-  it("no srcset — every candidate would have been a transformer URL", () => {
+  it("a thumbnail already stored as -thumb is not double-suffixed", () => {
+    const { container } = render(<PostMedia urls={[cdn("-w2560h1463-thumb.webp")]} />);
+    expect(sharpImg(container)!.getAttribute("src")).toBe(cdn("-w2560h1463-thumb.webp"));
+  });
+
+  it("no srcset — the thumbnail is a single fixed-size file", () => {
     const { container } = render(<PostMedia urls={[cdn("-w2560h1463.webp")]} />);
     expect(sharpImg(container)!.getAttribute("srcset")).toBeNull();
   });
