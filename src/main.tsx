@@ -14,7 +14,7 @@ import "./index.css";
 // doesn't update. It is a window side-effect (NOT a bare export, which gets
 // tree-shaken away) so it survives into the bundle and forces a new hashed
 // entry filename, busting year-cached immutable copies of the old bundle.
-(window as any).__APP_BUILD = "2026-08-07-2";
+(window as any).__APP_BUILD = "2026-08-07-3";
 
 // DEVELOPMENT ONLY — owner decision, 2026-08-06.
 //
