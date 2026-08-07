@@ -1,3 +1,31 @@
+Build 1057 — 2026-08-07
+- SPEED. This build is about the app feeling fast, the way people expect after
+  using Instagram. Nothing about how the app looks or works changes — the same
+  screens, the same buttons — they just arrive quicker.
+- The feed now loads the small version of each photo first (the 600px thumbnail
+  that already existed), not the full-size original. A typical feed image drops
+  from around 87 KB to about 20 KB, so pictures appear far sooner on a slow
+  phone connection. The full image is still there if anything needs it.
+- Nothing can hang forever anymore. A request that stalls now gives up after 25
+  seconds and shows an error instead of a skeleton that never fills in. Photo
+  and file uploads are deliberately exempt — they are allowed to take as long
+  as they need.
+- Opening someone's profile is fast again. It used to fire ten separate lookups
+  one after another and could take minutes on a weak connection; it now fires
+  them together as one cached request.
+- "Ask anything" and the footer menu now appear on the Home page only, and are
+  hidden on every other page — so the pages you tap into are lighter and load
+  quicker. The bottom tab bar is unchanged; it stays on every page.
+- The app starts up lighter. The navigation no longer drags in the entire icon
+  library, and the six non-English dictionaries (Hindi, Bengali, Marathi,
+  Gujarati, Tamil, Telugu) are now loaded only when someone actually picks that
+  language, instead of on every launch for everyone. The startup bundle is
+  roughly half the size it was.
+- Fonts no longer block the first paint. Text now appears immediately in the
+  system font and the web font settles in a moment later, instead of the screen
+  waiting on a download from Google before showing anything.
+- EVERYTHING LISTED UNDER BUILD 1056 AND 1055 BELOW IS INCLUDED HERE.
+
 Build 1056 — 2026-08-06
 - The account menu now shows the version on the LEFT and Logout on the RIGHT,
   and the version reads V1056 (1.2.2). The two swapped sides; each still takes
