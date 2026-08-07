@@ -202,6 +202,24 @@ export function installImageFallback(): void {
            * and must be dropped silently.
            */
           if (img.dataset.originalSrc !== original) return;
+          /**
+           * AND THE COMPONENT ITSELF MAY HAVE MOVED ON.
+           *
+           * "IMAGE BROKEN" INCIDENT, 2026-08-07 (owner screenshots: many posts
+           * showing the branded placeholder). A component-level fallback — like
+           * ProgressiveImage swapping a failed thumbnail for the original — sets
+           * a NEW src on this same element via React. The dataset check above
+           * cannot see that: the dataset was written by US for the OLD url, and
+           * React setting `src` clears nothing. So the timer fired, overwrote
+           * React's healthy fallback url with the dead one it was retrying, the
+           * dead url failed again, and after two rounds this handler planted the
+           * permanent placeholder — even though the component had a working url
+           * on screen the whole time. The retry may only proceed if the element
+           * is still actually showing the url it is a retry OF; if anything gave
+           * the element a different address, that address wins and this retry is
+           * stale.
+           */
+          if (stripRetryParam(img.currentSrc || img.src) !== original) return;
           // `srcset` would win over `src` and re-serve the same failing
           // candidate, so it has to go before the retry can mean anything.
           img.srcset = "";
