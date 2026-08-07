@@ -112,6 +112,9 @@ async function fetchAndEnrich(
       content: p.content || "",
       image_url: p.image_url || null,
       image_urls: imageUrls,
+      // Stored thumbnails (posts.thumbnail_urls) — the select("*") above
+      // already fetches them; the card shows the small copy when they align.
+      thumbnail_urls: p.thumbnail_urls ?? null,
       privacy: p.privacy || "public",
       created_at: p.created_at,
       author_name: resolveName(p.user_id, profileMap.get(p.user_id)?.full_name ?? null, adminIds),

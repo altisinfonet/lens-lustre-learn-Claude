@@ -97,7 +97,7 @@ async function fetchBroadcastPage(excludeIds: string[], newestFirst: number): Pr
     // plain newest-first public posts. RLS still enforces privacy.
     let query = supabase
       .from("posts")
-      .select("id, user_id, content, image_url, image_urls, privacy, created_at, likes_count, comments_count, shares_count")
+      .select("id, user_id, content, image_url, image_urls, thumbnail_urls, privacy, created_at, likes_count, comments_count, shares_count")
       .order("created_at", { ascending: false })
       .limit(PAGE_SIZE);
     if (excludeIds.length > 0) {
@@ -123,7 +123,7 @@ async function enrichPosts(
   // 3 queries instead of 4: merge reaction queries into ONE, filter user reactions client-side
   // Plus one small query for friendship state, so the "Add friend" button is
   // never offered for someone a friendship row already exists with.
-  const [profileMapRes, allReactionsRes, adminIds, friendshipsRes, viewCountsRes] =
+  const [profileMapRes, allReactionsRes, adminIds, friendshipsRes, viewCountsRes, thumbsRes] =
     await Promise.all([
       fetchProfileMap(authorIds),
       supabase.from("post_reactions").select("post_id, reaction_type, user_id").in("post_id", postIds),
@@ -135,7 +135,17 @@ async function enrichPosts(
       // REAL view counts (distinct viewers from feed_events, author excluded).
       // Replaces the simulated 2K-100K figures removed on 2026-07-31.
       supabase.rpc("get_post_view_counts" as never, { _post_ids: postIds } as never),
+      // STORED thumbnails (posts.thumbnail_urls). The broadcast-feed RPC does
+      // not return this column and is flagged do-not-touch, so it is
+      // batch-fetched here — one query per page, rides the same Promise.all.
+      // RLS applies as normal; a post the RPC returned is a post this member
+      // can read. If this query fails the feed simply shows originals.
+      supabase.from("posts").select("id, thumbnail_urls").in("id", postIds),
     ]);
+
+  const thumbsMap = new Map<string, (string | null)[] | null>();
+  ((thumbsRes as { data?: { id: string; thumbnail_urls: (string | null)[] | null }[] })?.data || [])
+    .forEach((r) => thumbsMap.set(r.id, r.thumbnail_urls ?? null));
 
     const viewCountMap = new Map<string, number>();
     ((viewCountsRes as { data?: { post_id: string; views: number }[] })?.data || [])
@@ -176,6 +186,7 @@ async function enrichPosts(
     return {
       ...p,
       image_urls: imageUrls,
+      thumbnail_urls: p.thumbnail_urls ?? thumbsMap.get(p.id) ?? null,
       author_name: resolveName(
         p.user_id,
         profileMap.get(p.user_id)?.full_name ?? null,
