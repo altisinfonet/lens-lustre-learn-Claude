@@ -21,6 +21,8 @@
 
 import { describe, it, expect, vi } from "vitest";
 import { render, fireEvent } from "@testing-library/react";
+import fs from "node:fs";
+import path from "node:path";
 import PostMedia from "@/components/post/PostMedia";
 
 vi.mock("@/hooks/core/useDownloadImage", () => ({
@@ -146,36 +148,59 @@ describe("PostMedia — nothing to show", () => {
  * by its DIRECT url, no srcset, and nothing may reroute it through an endpoint
  * that can be switched off outside this repo.
  *
- * PERF, 2026-08-07: the feed now shows the 600px `-thumb.webp` that the upload
- * pipeline already creates and stores, INSTEAD of the full 2560px original —
- * still a DIRECT cdn.50mmretina.com url, still no transformer. The full original
- * costs bandwidth the feed does not need; the thumbnail is a plain sibling file
- * on the same host, and a missing one falls back to the original via onError.
- * The safety invariant these tests exist to protect — never /cdn-cgi/image/ —
- * is unchanged.
+ * PERF, 2026-08-07, SECOND ATTEMPT — the "image broken" incident, same day:
+ * the first attempt DERIVED `-thumb.webp` from the original's address by string
+ * rule. Measured against production data: for posts from before the R2
+ * migration the original lives on cdn.50mmretina.com but the STORED thumbnail
+ * (posts.thumbnail_urls) lives on Supabase storage — the derived address does
+ * not exist, and the dead URL ended in the permanent branded placeholder via
+ * the global image retrier. Owner screenshots, many profiles affected.
+ *
+ * So the contract now: the card shows the STORED thumbnail passed in via the
+ * `thumbUrls` prop when there is one, the ORIGINAL when there is not, and it
+ * NEVER invents an address. The safety invariant these tests exist to protect
+ * — never /cdn-cgi/image/ — is unchanged.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 const cdn = (name: string) =>
   `https://cdn.50mmretina.com/post-images/u/posts/1754000000000-abc${name}`;
+const sbThumb =
+  "https://jtdtehuqtinjxropkkcn.supabase.co/storage/v1/object/public/post-images/u/1754000000000-abc-thumb.webp";
+const POSTMEDIA_SRC = fs.readFileSync(
+  path.resolve(process.cwd(), "src/components/post/PostMedia.tsx"),
+  "utf8",
+);
 
 describe("PostMedia — CDN images load DIRECT, never via a transformer", () => {
-  it("renders the 600px thumbnail, DIRECT, never through a transformer", () => {
-    const { container } = render(<PostMedia urls={[cdn("-w2560h1463.webp")]} />);
+  it("shows the STORED thumbnail when the post has one — wherever it is hosted", () => {
+    // An old post: CDN original, Supabase-hosted thumbnail. The stored address
+    // is used verbatim — this is the case the derived address got wrong.
+    const { container } = render(
+      <PostMedia urls={[cdn("-w2560h1463.webp")]} thumbUrls={[sbThumb]} />,
+    );
     const src = sharpImg(container)!.getAttribute("src")!;
-    // The small sibling file, derived by the same rule imageUpload.ts uses.
-    expect(src).toBe(cdn("-w2560h1463-thumb.webp"));
-    // The invariant that actually matters: still a plain CDN url, no transformer.
-    expect(src).toContain("cdn.50mmretina.com");
+    expect(src).toBe(sbThumb);
     expect(src).not.toContain("/cdn-cgi/image/");
   });
 
-  it("a thumbnail already stored as -thumb is not double-suffixed", () => {
-    const { container } = render(<PostMedia urls={[cdn("-w2560h1463-thumb.webp")]} />);
-    expect(sharpImg(container)!.getAttribute("src")).toBe(cdn("-w2560h1463-thumb.webp"));
+  it("shows the ORIGINAL, untouched, when no thumbnail is on record — never a guess", () => {
+    const { container } = render(<PostMedia urls={[cdn("-w2560h1463.webp")]} />);
+    const src = sharpImg(container)!.getAttribute("src")!;
+    // Exactly the stored original: no derived "-thumb" suffix, no transformer.
+    expect(src).toBe(cdn("-w2560h1463.webp"));
+    expect(src).not.toContain("/cdn-cgi/image/");
+  });
+
+  it("never derives a thumbnail address by string rule", () => {
+    // The address-guessing helper must stay gone from the source.
+    expect(POSTMEDIA_SRC).not.toContain("buildCdnThumb");
+    expect(POSTMEDIA_SRC).not.toMatch(/-thumb\.\$1/);
   });
 
   it("no srcset — the thumbnail is a single fixed-size file", () => {
-    const { container } = render(<PostMedia urls={[cdn("-w2560h1463.webp")]} />);
+    const { container } = render(
+      <PostMedia urls={[cdn("-w2560h1463.webp")]} thumbUrls={[cdn("-w2560h1463-thumb.webp")]} />,
+    );
     expect(sharpImg(container)!.getAttribute("srcset")).toBeNull();
   });
 
@@ -193,9 +218,12 @@ describe("PostMedia — CDN images load DIRECT, never via a transformer", () => 
     expect(src.split("/cdn-cgi/image/").length - 1).toBe(1);
   });
 
-  it("a GIF stays untouched so the animation survives", () => {
-    const { container } = render(<PostMedia urls={[cdn(".gif")]} />);
-    expect(sharpImg(container)!.getAttribute("src")).not.toContain("/cdn-cgi/image/");
+  it("a GIF stays untouched so the animation survives — even with a stored thumb", () => {
+    const { container } = render(
+      <PostMedia urls={[cdn(".gif")]} thumbUrls={[cdn("-thumb.webp")]} />,
+    );
+    // The static thumbnail would freeze the animation; the original wins.
+    expect(sharpImg(container)!.getAttribute("src")).toBe(cdn(".gif"));
   });
 
   it("Supabase-hosted images keep their storage-native render endpoint", () => {
