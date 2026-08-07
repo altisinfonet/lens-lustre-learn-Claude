@@ -44,15 +44,20 @@ const detectInitialLang = (): Lang => {
   return matchBrowserLang() ?? "en";
 };
 
+type Dict = Record<string, string>;
+
 /**
  * Look a key up in one language, across both dictionaries.
- * `homeTranslations` holds the landing-page strings (kept in their own file so
- * `translations.ts` stays a manageable size); `translations` holds everything
- * else. The two key sets do not overlap, so the order here is only a
- * preference, not a behaviour change for existing keys.
+ * `homeTranslations` (eager, small) holds the landing-page strings; `dicts`
+ * holds everything else — English always present, and any non-English language
+ * merged in once its lazy chunk has loaded (see below). The two key sets do not
+ * overlap, so the order here is only a preference, not a behaviour change.
  */
-const lookup = (l: Lang, key: string): string | undefined =>
-  homeTranslations[l]?.[key] ?? translations[l]?.[key];
+const lookupIn = (
+  dicts: Partial<Record<Lang, Dict>>,
+  l: Lang,
+  key: string,
+): string | undefined => homeTranslations[l]?.[key] ?? dicts[l]?.[key];
 
 interface I18nValue {
   lang: Lang;
@@ -69,6 +74,16 @@ const I18nContext = createContext<I18nValue>({
 export const I18nProvider = ({ children }: { children: ReactNode }) => {
   const [lang, setLangState] = useState<Lang>(detectInitialLang);
 
+  // English ships in the boot chunk; the six Indic dictionaries are lazy —
+  // pulled in only when a non-English language is actually chosen (PERF,
+  // 2026-08-07: keeps ~322 KB of translations out of every English visitor's
+  // boot bundle). Until a language's chunk arrives, `t` transparently returns
+  // the English string — the same fallback used for any missing key — so text
+  // is never blank, it just sharpens into the chosen language a beat later.
+  const [dicts, setDicts] = useState<Partial<Record<Lang, Dict>>>(
+    () => ({ ...translations }),
+  );
+
   const setLang = useCallback((l: Lang) => {
     setLangState(l);
     try { localStorage.setItem(STORAGE_KEY, l); } catch { /* ignore */ }
@@ -79,10 +94,24 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
     try { document.documentElement.lang = lang; } catch { /* ignore */ }
   }, [lang]);
 
+  // Load the non-English dictionaries on demand. Runs whenever a non-English
+  // language is active and its dictionary is not loaded yet; English needs
+  // nothing (it is already present).
+  useEffect(() => {
+    if (lang === "en" || dicts[lang]) return;
+    let cancelled = false;
+    import("./translations.rest")
+      .then((m) => {
+        if (!cancelled) setDicts((prev) => ({ ...m.rest, ...prev }));
+      })
+      .catch(() => { /* stay on the English fallback if the chunk fails */ });
+    return () => { cancelled = true; };
+  }, [lang, dicts]);
+
   const t = useCallback(
     (key: string, fallback?: string): string =>
-      lookup(lang, key) ?? lookup("en", key) ?? fallback ?? key,
-    [lang],
+      lookupIn(dicts, lang, key) ?? lookupIn(dicts, "en", key) ?? fallback ?? key,
+    [dicts, lang],
   );
 
   const value = useMemo(() => ({ lang, setLang, t }), [lang, setLang, t]);
