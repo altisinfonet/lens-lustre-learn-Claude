@@ -2,7 +2,33 @@ import { useState, useEffect, useRef } from "react";
 import { useSiteLogo } from "@/hooks/core/useSiteLogo";
 import { Link, useLocation } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
-import { Menu, X, Sun, Moon, ChevronDown } from "lucide-react";
+import {
+  Menu, X, Sun, Moon, ChevronDown,
+  // ── Curated nav-icon set. PERF, 2026-08-07. ──
+  // The admin nav menu references icons by NAME. Importing the whole
+  // lucide-react namespace to resolve them dragged all ~1,500 icons (~500 KB)
+  // into the entry chunk. These are the icons actually configured live
+  // (12, measured from site_settings) plus a generous set of common ones an
+  // admin might pick; anything unmapped falls back to Circle. Adding a name
+  // here is how you support a new admin icon — a few hundred bytes each, versus
+  // half a megabyte for the namespace.
+  Award, BookOpen, Compass, FileCheck, HelpCircle, Home, LogIn, Newspaper,
+  Rss, Trophy, UserPlus, Users, Circle,
+  Camera, Image, Video, Star, Heart, Bell, Search, Settings, Mail,
+  MessageCircle, Calendar, Clock, Globe, Info, Link2, MapPin, Bookmark,
+  FileText, Folder, Grid3x3, Shield, Gift, Flag, Tag, Zap, Trophy as Medal,
+  ShoppingBag, User, Eye, Download, Upload, Play, Music, ExternalLink,
+  type LucideIcon,
+} from "lucide-react";
+
+/** Only the icons the admin nav menu can reference — NOT the whole library. */
+const NAV_ICONS: Record<string, LucideIcon> = {
+  Award, BookOpen, Compass, FileCheck, HelpCircle, Home, LogIn, Newspaper,
+  Rss, Trophy, UserPlus, Users, Camera, Image, Video, Star, Heart, Bell,
+  Search, Settings, Mail, MessageCircle, Calendar, Clock, Globe, Info, Link2,
+  MapPin, Bookmark, FileText, Folder, Grid3x3, Shield, Gift, Flag, Tag, Zap,
+  Medal, ShoppingBag, User, Eye, Download, Upload, Play, Music,
+};
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/hooks/core/useAuth";
 import GlobalSearch from "@/components/GlobalSearch";
@@ -13,17 +39,17 @@ import { useT } from "@/i18n/I18nContext";
 import { navKeyForLabel } from "@/i18n/translations";
 import { useNavigationMenu, type MenuTree } from "@/hooks/core/useNavigationMenu";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
-import * as LucideIcons from "lucide-react";
 import { useDismissOnRouteChange } from "@/hooks/core/useDismissOnRouteChange";
 
 interface NavbarProps {
   transparent?: boolean;
 }
 
-/** Dynamically resolve a lucide icon by name */
+/** Resolve a nav icon by name from the curated map; Circle is the safe fallback
+ *  so an unmapped admin-configured name shows a neutral icon, never nothing. */
 const DynIcon = ({ name, className }: { name: string; className?: string }) => {
-  const Icon = (LucideIcons as any)[name];
-  return Icon ? <Icon className={className} /> : null;
+  const Icon = NAV_ICONS[name] ?? Circle;
+  return <Icon className={className} />;
 };
 
 /** Check visibility rule */
@@ -172,7 +198,7 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
                             )}
                           </div>
                           {child.type === "external" && (
-                            <LucideIcons.ExternalLink className="h-3 w-3 text-muted-foreground shrink-0 mt-1" />
+                            <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0 mt-1" />
                           )}
                         </NavLink>
                       );
