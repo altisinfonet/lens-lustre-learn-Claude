@@ -40,6 +40,25 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Fonts load NON-blocking (PERF, 2026-08-07). The three render-blocking
+         @import lines that used to sit at the top of src/index.css delayed first
+         paint behind a Google round-trip. This one request (Inter + Space Mono,
+         display=swap) is fetched as media="print" so it never blocks rendering,
+         then flipped to media="all" onload. The system fallback in the --font-*
+         stacks paints instantly; the web font swaps in when it arrives. Lora was
+         dropped — it was loaded every page and used nowhere. -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+      />
+    </noscript>
     <link rel="preconnect" href="https://jtdtehuqtinjxropkkcn.supabase.co" />
     <link rel="dns-prefetch" href="https://jtdtehuqtinjxropkkcn.supabase.co" />
     <title>50mm Retina World — Competitions, Education & Journal for Photographers</title>
