@@ -173,6 +173,42 @@ function buildLqipUrl(url: string): string {
   return buildRenderUrl(url, 32, 30);
 }
 
+/* ── CDN thumbnail derivation. PERF, 2026-08-07. ──
+ *
+ * Post images live on cdn.50mmretina.com (R2) since S3 upload went on. The
+ * upload pipeline (src/lib/imageUpload.ts) ALREADY creates a 600px WebP
+ * thumbnail beside every full-size original — `<path>-thumb.<ext>` — uploads it,
+ * and stores it in posts.thumbnail_urls. NOTHING was reading it: the feed showed
+ * the full 2560px original in a ~600px card, so on a slow connection a feed
+ * screen was 3-5 MB that should have been a few hundred KB.
+ *
+ * This derives the thumb URL from the original by the same string rule the
+ * uploader uses, so the feed can show the small copy WITHOUT touching the feed
+ * RPC (flagged in-repo as the riskiest) and WITHOUT any Cloudflare transform
+ * endpoint (the /cdn-cgi/ transform broke builds 1035-1051 — see the note above).
+ *
+ * It is a plain CDN URL. When it does not exist — a post from before the
+ * thumbnail migration, or one whose thumbnail generation fell back to full-res —
+ * it 404s and ProgressiveImage's existing onError falls the layer back to the
+ * original. Nothing breaks; those posts just stay heavy as they are today.
+ *
+ * The lightbox is unaffected: it receives the original `urls` prop directly.
+ */
+function buildCdnThumb(url: string): string | null {
+  if (!isCdnImage(url)) return null;
+  if (/\.(gif|svg)(\?|$)/i.test(url)) return null; // never thumbnail animation/vector
+  if (/-thumb\.[a-z0-9]+(\?|$)/i.test(url)) return url; // already a thumb
+  try {
+    const u = new URL(url);
+    const m = u.pathname.match(/\.([a-z0-9]+)$/i);
+    if (!m) return null;
+    u.pathname = u.pathname.replace(/\.([a-z0-9]+)$/i, `-thumb.$1`);
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
 function buildSrcSet(url: string): string | undefined {
   if (!isTransformable(url)) return undefined;
   return [480, 800, 1200].map((w) => `${buildRenderUrl(url, w)} ${w}w`).join(", ");
@@ -226,8 +262,15 @@ const ProgressiveImage = ({
   const [failed, setFailed] = useState(false);
   const [backdropFailed, setBackdropFailed] = useState(false);
   const transformable = isTransformable(src);
-  const lqip = transformable && !backdropFailed ? buildLqipUrl(src) : src;
-  const sharpSrc = transformable ? buildRenderUrl(src, 800) : src;
+  // PERF 2026-08-07: for CDN-hosted originals, show the 600px thumbnail that
+  // already exists rather than the full 2560px original. `failed` (set by the
+  // sharp layer's onError) falls everything back to the original, so a missing
+  // thumb degrades to today's behaviour instead of breaking.
+  const cdnThumb = !transformable && !failed ? buildCdnThumb(src) : null;
+  const lqip = transformable && !backdropFailed
+    ? buildLqipUrl(src)
+    : (!backdropFailed && cdnThumb) ? cdnThumb : src;
+  const sharpSrc = transformable ? buildRenderUrl(src, 800) : (cdnThumb ?? src);
   const srcSet = buildSrcSet(src);
 
   return (
