@@ -314,14 +314,21 @@ const LayoutInner = () => {
         )}
       </div>
 
-      {/* Site Footer — shows managed pages with footer placement */}
-      {!hideNav && <SiteFooter />}
+      {/* Site Footer — the policy/links footer.
+          Owner, 2026-08-07: inside the installed APP the footer menu belongs on
+          the home page only; every other page stays clean, Instagram-style. On
+          the WEB it is unchanged (shows on every page as before). The bottom
+          tab bar below is separate — it is primary navigation and always shows. */}
+      {!hideNav && (isHome || !isNativeCapacitorApp()) && <SiteFooter />}
 
-      {/* Mobile bottom navigation */}
+      {/* Mobile bottom navigation — primary nav, untouched. */}
       <MobileBottomNav />
       <CookieConsentBanner />
 
-      {!hideNav && <AskAnything />}
+      {/* "Ask anything" — home page only, on BOTH app and web (owner, 2026-08-07).
+          A support-chat bubble floating over every screen is clutter the feed,
+          profile and journal pages do not need. */}
+      {isHome && !hideNav && <AskAnything />}
     </>
   );
 };
