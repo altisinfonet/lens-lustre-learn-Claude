@@ -10,6 +10,16 @@ export interface UnifiedPost {
   content: string;
   image_url: string | null;
   image_urls: string[];
+  /**
+   * The 600px thumbnails the uploader stored beside each image, aligned with
+   * image_urls by index (posts.thumbnail_urls). Optional: older posts have
+   * none, and the feed RPC does not return it (it is batch-fetched after).
+   * The feed card shows this small copy when present; NEVER derive a thumbnail
+   * address by string rule — that broke many old posts on 2026-08-07, because
+   * their originals live on the CDN but their thumbnails live on Supabase
+   * storage. Read the note in PostMedia.tsx before changing this.
+   */
+  thumbnail_urls?: (string | null)[] | null;
   privacy: string;
   created_at: string;
   author_name: string | null;
