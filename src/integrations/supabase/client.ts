@@ -8,10 +8,73 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+/* ── REQUEST TIMEOUT. PERF, 2026-08-07. ──
+ *
+ * Owner report, 2026-08-07: pages open with skeletons that never resolve. On a
+ * bad connection a request's socket can stall mid-flight — the response never
+ * arrives and it never errors. React Query then sits in `pending` forever and
+ * the skeleton is permanent, with nothing on screen to say anything went wrong.
+ *
+ * This bounds every REST/auth/RPC request: if no response arrives in time, the
+ * request is aborted, which surfaces as an error → React Query's `retry: 1` →
+ * a visible error state the member can act on, instead of an eternal skeleton.
+ *
+ * ⚠️ UPLOADS ARE DELIBERATELY EXEMPT. A member posting a photo on a slow link
+ * can legitimately take far longer than any read, and aborting that would turn
+ * "slow post" into "failed post" — the exact regression build 1054 just fixed.
+ * So storage object writes (POST/PUT/PATCH to /storage/v1/object/) carry no
+ * timeout; only reads, which are small and fast, are bounded.
+ *
+ * A caller-supplied AbortSignal (React Query cancels queries on unmount /
+ * key-change) is still honoured — whichever fires first wins.
+ */
+const READ_TIMEOUT_MS = 25_000;
+
+function urlOf(input: RequestInfo | URL): string {
+  if (typeof input === "string") return input;
+  if (input instanceof URL) return input.href;
+  return input.url;
+}
+
+function isUpload(input: RequestInfo | URL, init?: RequestInit): boolean {
+  const method = (init?.method ?? "GET").toUpperCase();
+  if (method === "GET" || method === "HEAD") return false;
+  return /\/storage\/v1\/object\//.test(urlOf(input));
+}
+
+const timeoutFetch: typeof fetch = (input, init) => {
+  // Never bound an upload — a slow photo post must not become a failed post.
+  if (isUpload(input, init)) return fetch(input, init);
+
+  const controller = new AbortController();
+  const abortForTimeout = () => {
+    try {
+      controller.abort(new DOMException("Request timed out", "TimeoutError"));
+    } catch {
+      controller.abort();
+    }
+  };
+  const timer = setTimeout(abortForTimeout, READ_TIMEOUT_MS);
+
+  // Honour React Query's own cancellation signal — first abort wins.
+  const caller = init?.signal;
+  if (caller) {
+    if (caller.aborted) controller.abort((caller as AbortSignal).reason);
+    else caller.addEventListener("abort", () => {
+      try { controller.abort((caller as AbortSignal).reason); } catch { controller.abort(); }
+    }, { once: true });
+  }
+
+  return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+};
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-  }
+  },
+  global: {
+    fetch: timeoutFetch,
+  },
 });
