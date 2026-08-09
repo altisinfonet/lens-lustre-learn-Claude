@@ -7,17 +7,62 @@
  *   - The label/markup for a round changed unexpectedly.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render } from "@testing-library/react";
 import PhaseWatermark from "@/components/competition/PhaseWatermark";
 
+/**
+ * WHY THIS MOCK EXISTS — 18 failing tests, repaired 2026-08-09.
+ *
+ * These tests were red for weeks and were written off as "stale tests pinning
+ * rules that were deliberately removed". They were nothing of the sort. Every
+ * assertion below still describes behaviour the app is supposed to have.
+ *
+ * What actually happened: Step 23 gave PhaseWatermark a role-based bypass, so
+ * the component now calls useCanBypassWatermark → useUserRoles → useQueryClient.
+ * These tests render it bare, with no QueryClientProvider above it, so React
+ * Query threw "No QueryClient set" before a single assertion could run. The
+ * COMPONENT was fine; the HARNESS had not kept up.
+ *
+ * The role lookup is mocked rather than wrapped in a real provider because
+ * these tests are about the watermark's rendering contract, not about how roles
+ * are fetched — and a mock lets the bypass itself be tested in both states,
+ * which a bare render never could.
+ */
+const roles = vi.hoisted(() => ({ canBypass: false }));
+
+vi.mock("@/hooks/competition/useCanBypassWatermark", () => ({
+  useCanBypassWatermark: () => ({ canBypass: roles.canBypass, loading: false }),
+}));
+
+beforeEach(() => {
+  // Default viewer is the public/entry owner — the audience the watermark is
+  // FOR. Individual tests opt into the privileged case explicitly.
+  roles.canBypass = false;
+});
+
 const SURFACES = ["card", "lightbox", "cinema"] as const;
+/**
+ * THE LABEL IS ALWAYS GENERIC — and that is the point, not an oversight.
+ *
+ * These cases used to assert a per-round label ("Round 1 · Scoring", …). That
+ * rule was deliberately removed on 2026-05-02 and the tests were never updated,
+ * which is why they sat red: `competitions.current_round` advances the moment
+ * judges OPEN the next round, which is BEFORE results are declared. Rendering
+ * it painted unpublished round names onto the participant gallery — the "fake
+ * update" the owner reported.
+ *
+ * So the assertion is inverted. Instead of checking WHICH round is shown, each
+ * case now proves the round is NOT leaked, whatever it is set to. That is the
+ * rule the app actually has to keep, and nothing was testing it before.
+ */
+const GENERIC_LABEL = "Judging in Progress";
 const ROUNDS = [
-  { round: "1", label: "Round 1 · Scoring" },
-  { round: "2", label: "Round 2 · Shortlisting" },
-  { round: "3", label: "Round 3 · Finals" },
-  { round: "4", label: "Round 4 · Winners" },
-  { round: null, label: "Judging in Progress" },
+  { round: "1", mustNotLeak: ["Round 1", "Scoring"] },
+  { round: "2", mustNotLeak: ["Round 2", "Shortlisting"] },
+  { round: "3", mustNotLeak: ["Round 3", "Finals"] },
+  { round: "4", mustNotLeak: ["Round 4", "Winners"] },
+  { round: null, mustNotLeak: [] },
 ] as const;
 
 describe("PhaseWatermark — judging-phase contract", () => {
@@ -37,8 +82,8 @@ describe("PhaseWatermark — judging-phase contract", () => {
 
   for (const surface of SURFACES) {
     describe(`surface="${surface}"`, () => {
-      for (const { round, label } of ROUNDS) {
-        it(`renders watermark with label "${label}" for round=${round}`, () => {
+      for (const { round, mustNotLeak } of ROUNDS) {
+        it(`shows the generic label and never leaks round=${round}`, () => {
           const { container, getByText } = render(
             <PhaseWatermark
               phase="judging"
@@ -46,7 +91,17 @@ describe("PhaseWatermark — judging-phase contract", () => {
               surface={surface}
             />,
           );
-          expect(getByText(label)).toBeInTheDocument();
+          expect(getByText(GENERIC_LABEL)).toBeInTheDocument();
+
+          // THE RULE: an unpublished round name must never reach a participant.
+          const rendered = container.textContent ?? "";
+          for (const leak of mustNotLeak) {
+            expect(
+              rendered,
+              `round label "${leak}" leaked onto the participant gallery`,
+            ).not.toContain(leak);
+          }
+
           // pointer-events guard — must never block UI
           const overlay = container.querySelector("div");
           expect(overlay?.className).toContain("pointer-events-none");
@@ -75,11 +130,39 @@ describe("PhaseWatermark — judging-phase contract", () => {
             data-surface="cinema"
             style="font-family: var(--font-display); text-shadow: 0 1px 2px rgba(0,0,0,0.1);"
           >
-            Round 1 · Scoring
+            Judging in Progress
           </span>
         </div>
       </div>
     `);
+  });
+});
+
+/**
+ * THE BYPASS ITSELF — the behaviour that broke these tests, now pinned.
+ *
+ * Policy locked 2026-04-18 (see useCanBypassWatermark): judges and admins
+ * evaluate clean imagery; the public and the entry owner see the watermark.
+ * Nothing tested this at the component level, which is precisely why adding it
+ * could silently take 18 tests down without anybody noticing what it changed.
+ */
+describe("PhaseWatermark — role-based bypass", () => {
+  it("shows the watermark to an ordinary viewer during judging", () => {
+    roles.canBypass = false;
+    const { container } = render(<PhaseWatermark phase="judging" currentRound="1" />);
+    expect(container.firstChild).not.toBeNull();
+  });
+
+  it("renders nothing for a judge or admin — they must see clean imagery", () => {
+    roles.canBypass = true;
+    const { container } = render(<PhaseWatermark phase="judging" currentRound="1" />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("the bypass cannot resurrect the watermark outside the judging phase", () => {
+    roles.canBypass = false;
+    const { container } = render(<PhaseWatermark phase="result" currentRound="4" />);
+    expect(container.firstChild).toBeNull();
   });
 });
 
