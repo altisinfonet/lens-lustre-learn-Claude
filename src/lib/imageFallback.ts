@@ -79,6 +79,105 @@ const RETRY_DELAYS_MS = [400, 1200];
 /** The query key used to force a fresh request. Stripped before re-adding. */
 const RETRY_PARAM = "__r";
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * THE RETRY MUST BE BOUNDED. Added 2026-08-07, after the owner asked the right
+ * question: *"if same issues happens again and again then no point of solving
+ * the issues from root level."*
+ *
+ * He was right. Twice now the SAME visible failure — "search hangs, backspace
+ * does nothing, the app freezes" — has been produced by two DIFFERENT image
+ * bugs (2026-08-05 recycled nodes; 2026-08-07 a guessed thumbnail address).
+ * Each time the trigger was fixed and the AMPLIFIER was left alone, so the next
+ * image mistake re-created the identical symptom.
+ *
+ * The amplifier is this file. Per failed image it fired up to 2 extra requests,
+ * each carrying a cache-busting `__r=` parameter that DELIBERATELY defeats every
+ * cache. Nothing limited how many of those could be in flight at once. So one
+ * bad address applied to a whole feed became hundreds of simultaneous
+ * uncacheable requests — and on a phone that saturates the connection and
+ * starves the main thread. That is the freeze. Search is simply where it is felt
+ * first, because it re-renders (and re-fails) on every keystroke.
+ *
+ * Two bounds, so an image problem can never again become an app problem:
+ *
+ *   1. CONCURRENCY CAP — at most MAX_CONCURRENT_RETRIES retry requests are ever
+ *      in flight. The rest wait their turn. Recovery still happens; the flood
+ *      does not. This alone is what keeps typing responsive.
+ *
+ *   2. CIRCUIT BREAKER — if STORM_THRESHOLD images fail inside STORM_WINDOW_MS,
+ *      the failure is systemic (a bad deploy, a dead CDN, no connectivity).
+ *      Retrying cannot fix any of those and makes all of them worse, so retries
+ *      stand down for STORM_COOLDOWN_MS and failures go straight to the
+ *      placeholder. Members see the same grey box they would have seen anyway —
+ *      but the app keeps working, and search keeps typing.
+ *
+ * Deliberately NOT changed: a single failed image on a healthy app still gets
+ * its two cache-busting retries. That behaviour is correct and is what rescues
+ * a photo lost to one dropped packet.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/** Never more than this many retry requests in flight at once. */
+const MAX_CONCURRENT_RETRIES = 3;
+/** Beyond this many queued retries, drop the extras — recovery is not worth memory. */
+const MAX_QUEUED_RETRIES = 60;
+/** This many failures inside the window means the problem is systemic. */
+const STORM_THRESHOLD = 10;
+const STORM_WINDOW_MS = 10_000;
+/** How long retries stand down once a storm is detected. */
+const STORM_COOLDOWN_MS = 60_000;
+
+let retriesInFlight = 0;
+const retryQueue: (() => void)[] = [];
+const recentFailures: number[] = [];
+let stormUntil = 0;
+
+/**
+ * Record a failure and report whether retrying is currently suspended.
+ * Exported state is intentionally module-local: this is a process-wide budget,
+ * not a per-image one, which is the entire point.
+ */
+function retriesSuspended(now: number): boolean {
+  if (now < stormUntil) return true;
+  while (recentFailures.length && now - recentFailures[0] > STORM_WINDOW_MS) {
+    recentFailures.shift();
+  }
+  recentFailures.push(now);
+  if (recentFailures.length >= STORM_THRESHOLD) {
+    stormUntil = now + STORM_COOLDOWN_MS;
+    recentFailures.length = 0;
+    return true;
+  }
+  return false;
+}
+
+/** Run a retry now if there is room, otherwise queue it behind the ones ahead. */
+function scheduleRetry(run: () => void): void {
+  if (retriesInFlight < MAX_CONCURRENT_RETRIES) {
+    retriesInFlight++;
+    run();
+    return;
+  }
+  if (retryQueue.length < MAX_QUEUED_RETRIES) retryQueue.push(run);
+}
+
+/** A retry finished (either way) — release its slot and start the next. */
+function releaseRetrySlot(): void {
+  retriesInFlight = Math.max(0, retriesInFlight - 1);
+  const next = retryQueue.shift();
+  if (next) {
+    retriesInFlight++;
+    next();
+  }
+}
+
+/** Test seam — resets the process-wide budget between cases. */
+export function __resetRetryBudgetForTests(): void {
+  retriesInFlight = 0;
+  retryQueue.length = 0;
+  recentFailures.length = 0;
+  stormUntil = 0;
+}
+
 /**
  * The address with our own retry bookkeeping removed, so a URL can be compared
  * against data-original-src no matter which attempt it is currently on.
@@ -166,7 +265,20 @@ export function installImageFallback(): void {
 
       const attempts = Number(img.dataset.retryCount || "0");
 
-      if (attempts < MAX_RETRIES) {
+      /**
+       * THE CIRCUIT BREAKER — see the block comment above the constants.
+       *
+       * Counted BEFORE the retry decision and only once per failing image, so a
+       * whole feed of broken photos trips it within one screen. While it is
+       * tripped nothing is retried at all: mass failure is systemic, retrying
+       * cannot cure it, and the flood of cache-busting requests is precisely
+       * what freezes search and swallows keystrokes. Fall through to the
+       * placeholder instead — the same thing the member would have ended up
+       * seeing, reached without taking the app down on the way.
+       */
+      const stormed = retriesSuspended(Date.now());
+
+      if (!stormed && attempts < MAX_RETRIES) {
         // Remember the ORIGINAL url once, so retry N+1 is built from the clean
         // address rather than from one that already carries a retry param.
         // Stored WITHOUT any retry parameter so it compares equal to liveSrc on
@@ -188,10 +300,18 @@ export function installImageFallback(): void {
         img.dataset.retryCount = String(next);
 
         window.setTimeout(() => {
+          /**
+           * THE CONCURRENCY CAP — see the block comment above the constants.
+           * Everything below runs through scheduleRetry, so at most
+           * MAX_CONCURRENT_RETRIES of these requests exist at any moment and the
+           * rest wait. Every path out of here MUST release its slot, or the
+           * budget leaks and retries stop happening at all.
+           */
+          scheduleRetry(() => {
           // The element may have been unmounted while we waited — React
           // recycles feed rows aggressively during a scroll.
-          if (!img.isConnected) return;
-          if (img.dataset.fallbackApplied === "1") return;
+          if (!img.isConnected) return releaseRetrySlot();
+          if (img.dataset.fallbackApplied === "1") return releaseRetrySlot();
           /**
            * AND IT MAY HAVE BEEN GIVEN A DIFFERENT PHOTO WHILE WE WAITED.
            *
@@ -201,7 +321,7 @@ export function installImageFallback(): void {
            * is the check: if anything reset or replaced it, this retry is stale
            * and must be dropped silently.
            */
-          if (img.dataset.originalSrc !== original) return;
+          if (img.dataset.originalSrc !== original) return releaseRetrySlot();
           /**
            * AND THE COMPONENT ITSELF MAY HAVE MOVED ON.
            *
@@ -219,17 +339,32 @@ export function installImageFallback(): void {
            * the element a different address, that address wins and this retry is
            * stale.
            */
-          if (stripRetryParam(img.currentSrc || img.src) !== original) return;
+          if (stripRetryParam(img.currentSrc || img.src) !== original)
+            return releaseRetrySlot();
+
+          // The slot is held until this attempt actually settles, so the cap
+          // counts requests IN FLIGHT rather than merely started. Both handlers
+          // are once-only; whichever fires first frees the slot for the queue.
+          const settle = () => {
+            img.removeEventListener("load", settle);
+            img.removeEventListener("error", settle);
+            releaseRetrySlot();
+          };
+          img.addEventListener("load", settle, { once: true });
+          img.addEventListener("error", settle, { once: true });
+
           // `srcset` would win over `src` and re-serve the same failing
           // candidate, so it has to go before the retry can mean anything.
           img.srcset = "";
           img.src = withRetryParam(original, next);
+          });
         }, RETRY_DELAYS_MS[attempts] ?? 1200);
 
         return;
       }
 
-      // Out of retries: this image is genuinely unavailable. Show the
+      // Out of retries — or retries are suspended because the whole app is
+      // failing at once. Either way this image is not going to arrive. Show the
       // placeholder. The URL has already been recorded by the reporter.
       img.dataset.fallbackApplied = "1";
       img.srcset = "";
