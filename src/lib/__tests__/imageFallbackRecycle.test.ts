@@ -57,7 +57,11 @@ describe("retry state follows the IMAGE, not the element", () => {
   it("a pending retry is dropped if the node was recycled while it waited", () => {
     // This is the line that stops the old person's photo overwriting the new
     // person's. It must re-read the dataset, not trust the closure.
-    expect(src).toMatch(/if \(img\.dataset\.originalSrc !== original\) return;/);
+    // The `return` may also release the concurrency slot added 2026-08-07 —
+    // what must hold is that the guard exists and bails out, not how it bails.
+    expect(src).toMatch(
+      /if \(img\.dataset\.originalSrc !== original\)\s*return[^;]*;/,
+    );
   });
 
   it("still gives up after a bounded number of attempts", () => {
@@ -81,12 +85,14 @@ describe("retry state follows the IMAGE, not the element", () => {
    */
   it("a pending retry is dropped if the COMPONENT moved the element to a new url", () => {
     expect(src).toMatch(
-      /if \(stripRetryParam\(img\.currentSrc \|\| img\.src\) !== original\) return;/,
+      /if \(stripRetryParam\(img\.currentSrc \|\| img\.src\) !== original\)\s*return[^;]*;/,
     );
     // And it must sit inside the timer callback, after the dataset check.
-    const datasetCheck = src.indexOf("if (img.dataset.originalSrc !== original) return;");
+    // Matched on the stable condition text, so releasing the retry slot on the
+    // way out (added 2026-08-07) does not break the ordering assertion.
+    const datasetCheck = src.indexOf("if (img.dataset.originalSrc !== original)");
     const liveCheck = src.indexOf(
-      "if (stripRetryParam(img.currentSrc || img.src) !== original) return;",
+      "if (stripRetryParam(img.currentSrc || img.src) !== original)",
     );
     expect(datasetCheck).toBeGreaterThan(-1);
     expect(liveCheck).toBeGreaterThan(datasetCheck);
