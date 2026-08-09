@@ -60,11 +60,48 @@
  * wolf — which is the one thing that makes it useless.
  */
 
+import { readFileSync } from "node:fs";
+
 const SUPABASE_URL = "https://jtdtehuqtinjxropkkcn.supabase.co";
-/** The PUBLIC anon key — the same one shipped in every browser bundle. Not a secret. */
-const ANON =
-  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0ZHRlaHVxdGluanhyb3Bra2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzI3MjEsImV4cCI6MjA5OTE0ODcyMX0.qY8BI5LXb6uLzTwbpf8AleZ6UZyfeaOA0q4_TC5CEpo";
+
+/**
+ * The Supabase ANON key — public by design (it ships inside every browser
+ * bundle and is what enforces row-level security, not what bypasses it).
+ *
+ * It is nevertheless NOT written literally in this file. The first version of
+ * this script pasted it in, and the repository's own secret scanner (gitleaks,
+ * .github/workflows/security.yml) failed the build on it — correctly. A JWT
+ * literal in source is exactly the pattern that gate exists to catch, and the
+ * scanner cannot be expected to know which JWTs are harmless. Weakening the
+ * gate to accommodate one convenient paste is how a real key gets through
+ * later, so the key is read at runtime instead:
+ *
+ *   1. SUPABASE_ANON_KEY / VITE_SUPABASE_PUBLISHABLE_KEY in the environment
+ *   2. otherwise the repo's own .env, when running from a checkout (CI)
+ *
+ * (Caught by the health check itself, on its first CI run — the watchdog's
+ * first real find was a problem its own author had just introduced.)
+ */
+function readAnonKey() {
+  const fromEnv =
+    process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (fromEnv) return fromEnv.trim();
+  try {
+    const env = readFileSync(new URL("../.env", import.meta.url), "utf8");
+    const m = env.match(/VITE_SUPABASE_PUBLISHABLE_KEY\s*=\s*"?([^"\n\r]+)"?/);
+    if (m) return m[1].trim();
+  } catch {
+    /* not running from a checkout */
+  }
+  console.log(
+    "CANNOT RUN — no Supabase key available.\n" +
+      "  Set SUPABASE_ANON_KEY, or run from a repository checkout so .env can be read.\n" +
+      "  (This is the PUBLIC anon key, the one already in the browser bundle.)",
+  );
+  process.exit(2);
+}
+
+const ANON = readAnonKey();
 const REPO = "altisinfonet/lens-lustre-learn-Claude";
 
 const H = { apikey: ANON, Authorization: `Bearer ${ANON}` };
