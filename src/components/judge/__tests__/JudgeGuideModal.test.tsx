@@ -78,7 +78,11 @@ describe("JudgeGuideModal — Spec v3 / v6 contract", () => {
     switchTab(/Round 4/i);
     const body = document.body.textContent ?? "";
     expect(body).toMatch(/winner.*mandatory/i);
-    expect(body).toMatch(/runner up.*optional/i);
+    // "Runner-Up" is hyphenated in the guide copy ("1st Runner-Up — optional").
+    // This assertion demanded a space and so had been failing on wording, not
+    // on behaviour — the rule it guards (runner-ups are optional) has held the
+    // whole time. Accept either form so a copy edit cannot fake a regression.
+    expect(body).toMatch(/runner[-\s]?up.*optional/i);
     expect(body).toMatch(/locking.*declaring/i);
   });
 
