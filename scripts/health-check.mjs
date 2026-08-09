@@ -264,11 +264,42 @@ async function checkCI() {
   }
   const { workflow_runs = [] } = await r.json();
   const finished = workflow_runs.filter((w) => w.status === "completed");
-  const failed = finished.filter((w) => w.conclusion === "failure");
-  notes.push(`recent CI runs: ${finished.length}, failed: ${failed.length}`);
-  for (const w of failed.slice(0, 3)) {
+
+  /**
+   * ONLY THE LATEST RUN OF EACH WORKFLOW COUNTS.
+   *
+   * The first version flagged ANY failure in the recent window, which was wrong
+   * twice over — caught on this check's own second CI run, 2026-08-09:
+   *
+   *   1. It reported failures that had ALREADY BEEN FIXED by a later green run.
+   *      A build that broke and was repaired an hour ago is history, not a
+   *      problem, and reporting it is exactly the crying-wolf behaviour that
+   *      makes a watchdog worth ignoring.
+   *   2. Worse, it counted ITSELF. One red Health run put "Health failed" into
+   *      the window, so the next Health run failed because of it, forever — an
+   *      alarm that could never switch off once it had gone off once.
+   *
+   * So: group by workflow, keep the newest run of each, and report only those
+   * whose newest run failed. Health is excluded outright — a monitor must never
+   * be its own input.
+   */
+  const latestByWorkflow = new Map();
+  for (const w of finished) {
+    if (w.name === "Health") continue;
+    const prev = latestByWorkflow.get(w.name);
+    if (!prev || Date.parse(w.created_at) > Date.parse(prev.created_at)) {
+      latestByWorkflow.set(w.name, w);
+    }
+  }
+  const currentlyRed = [...latestByWorkflow.values()].filter(
+    (w) => w.conclusion === "failure",
+  );
+  notes.push(
+    `workflows checked: ${latestByWorkflow.size} (latest run of each), currently red: ${currentlyRed.length}`,
+  );
+  for (const w of currentlyRed) {
     fail(
-      `CI failed: ${w.name} #${w.run_number}`,
+      `${w.name} is currently failing (run #${w.run_number})`,
       `${(w.head_commit?.message || "").split("\n")[0]} — ${w.html_url}`,
     );
   }
