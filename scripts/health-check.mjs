@@ -29,20 +29,35 @@
  *     https://cdn.50mmretina.com/...                      403  ✗
  *     https://www.50mmretina.com/                         403  ✗
  *
- * Cloudflare rejects datacenter IPs, so ANY server-side checker — this one, a
- * GitHub Action, an uptime service on a cheap VPS — is structurally unable to
- * fetch the website or the image CDN. Do not "fix" that by disabling the
- * protection; it is doing its job. A 403 from here means nothing about whether
- * a real member can load the site, which is why this script never reports one.
+ * THE FIRST DIAGNOSIS OF THAT 403 WAS WRONG — corrected 2026-08-09.
  *
- * The consequence: the deep live check (does the feed actually paint? does
- * search respond? do CDN photos load?) needs a real browser on a real
- * connection. That is run from the owner's Chrome — see the DEEP CHECK note at
- * the bottom of this file.
+ * It was recorded here as "Cloudflare rejects datacenter IPs, so no server-side
+ * checker can ever reach the site". That was a conclusion drawn from a status
+ * code without checking it — the same mistake that caused the outage this
+ * script exists to catch. Re-measured with full headers:
  *
- * What is checked here is still the sharp end: the last two outages were both
- * visible in the DATA (thumbnails that do not line up with their images) or in
- * CI, and both would have been caught by this within an hour instead of hours.
+ *     supabase.co        →  HTTP/1.1 200 Connection Established  (proxy tunnel)
+ *     www.50mmretina.com →  HTTP/1.1 403, Content-Length: 36, NO cf-* headers
+ *     example.com        →  connection failure
+ *     cloudflare.com     →  connection failure
+ *
+ * A Cloudflare block carries cf-ray/server headers and a challenge body. This
+ * has neither, refuses the CONNECT itself, and blocks example.com too — so it
+ * is the SANDBOX's own egress allowlist, not the site's protection. Confirmed
+ * from the owner's Cloudflare dashboard the same day: of 3,560 requests in 24h,
+ * exactly 11 were mitigated. Cloudflare is not blocking monitoring.
+ *
+ * CONSEQUENCE: the full live check IS possible from any runner with open
+ * internet — GitHub Actions, a VPS, an uptime service. Only the Cowork sandbox
+ * cannot reach the site. So the live checks are gated on DEEP rather than
+ * abandoned:
+ *
+ *     DEEP=1 node scripts/health-check.mjs   ← CI / anywhere with open internet
+ *     node scripts/health-check.mjs          ← sandbox; skips the live checks
+ *
+ * Unreached is NOT reported as down. "I could not reach it" and "it is broken"
+ * are different claims, and conflating them is how a watchdog starts crying
+ * wolf — which is the one thing that makes it useless.
  */
 
 const SUPABASE_URL = "https://jtdtehuqtinjxropkkcn.supabase.co";
@@ -222,6 +237,53 @@ async function checkCI() {
   }
 }
 
+/* ── CHECK 5 — the live site and real member photos (DEEP only) ─────────────
+ * Everything above infers health from the database. This is the only check that
+ * asks the question a member would ask: does the page come back, and do the
+ * photographs actually arrive? It needs open internet (see the header), so it
+ * runs in CI and is skipped — never failed — in the sandbox.
+ */
+async function checkLiveSite(withImages) {
+  if (!process.env.DEEP) {
+    notes.push("live site + CDN checks skipped (set DEEP=1 on a runner with open internet)");
+    return;
+  }
+
+  // 1. The website itself.
+  for (const url of ["https://www.50mmretina.com/", "https://www.50mmretina.com/feed"]) {
+    try {
+      const r = await fetch(url, { redirect: "follow" });
+      const body = r.ok ? await r.text() : "";
+      if (!r.ok) {
+        fail(`The website returned HTTP ${r.status}`, url);
+      } else if (!body.includes("<div id=\"root\">")) {
+        fail("The website loaded but the app shell is missing", `${url} — the page came back without its root element, which means members would see a blank page.`);
+      }
+    } catch (e) {
+      fail("The website could not be loaded at all", `${url} — ${String(e).slice(0, 120)}`);
+    }
+  }
+
+  // 2. Real member photographs, straight off the CDN — the exact thing that
+  //    broke on 2026-08-07 and that nothing else here can see.
+  const cdn = withImages
+    .flatMap((p) => [(p.thumbnail_urls || [])[0], (p.image_urls || [])[0]])
+    .filter((u) => typeof u === "string" && u.includes("cdn.50mmretina.com"));
+  const sample = [...new Set(cdn)].slice(0, 30);
+  if (sample.length) {
+    const results = await Promise.all(sample.map(imageLoads));
+    const broken = results.filter((ok) => !ok).length;
+    notes.push(`CDN photos sampled: ${sample.length}, broken: ${broken}`);
+    if (broken > Math.max(1, Math.floor(sample.length * 0.1))) {
+      fail(
+        `${broken} of ${sample.length} real member photographs did not load from the CDN`,
+        "This is the 2026-08-07 failure shape. Check whether the app is asking " +
+          "for addresses that do not exist, and whether search has also slowed down.",
+      );
+    }
+  }
+}
+
 /* ── Run ─────────────────────────────────────────────────────────────────── */
 const run = async (name, fn) => {
   try {
@@ -236,6 +298,7 @@ const withImages = (await run("thumbnail contract", checkThumbnailContract)) || 
 await run("images load", () => checkImagesLoad(withImages));
 await run("member activity", checkActivity);
 await run("CI health", checkCI);
+await run("live site", () => checkLiveSite(withImages));
 
 const stamp = new Date().toISOString().replace("T", " ").slice(0, 16);
 if (problems.length === 0) {
