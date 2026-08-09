@@ -1,3 +1,27 @@
+Build 1058 — 2026-08-07
+- PHOTOGRAPHS ARE BACK, AND SEARCH WORKS AGAIN. Build 1057 shipped with a fault
+  of ours: the app worked out where each photo's small preview lived by guessing
+  its address, instead of reading the address that was actually recorded when the
+  photo was uploaded. For roughly one post in three — the older ones — the guess
+  pointed at a file that does not exist, so the photograph never arrived and the
+  card showed the grey "50mm Retina World" panel instead.
+- That same fault is why SEARCH FROZE and why the backspace key stopped
+  responding. It was never a separate problem. Each missing photograph made the
+  app ask for it again, twice, in a way that deliberately bypasses the phone's
+  cache — so a screen full of missing photographs became a flood of requests that
+  starved everything else, and typing was the first thing to suffer.
+- The app now reads the recorded address and never guesses. Checked against every
+  post on the live site before this build: 178 of 178 previews load, none fail.
+- AND THE FLOOD ITSELF IS NOW CAPPED, which matters more than the fix above. Only
+  a few retries may ever be in flight at once, and if a large number of images
+  fail together the app stops retrying altogether for a minute — because when
+  everything is failing at once the cause is never something a retry can mend,
+  and the retrying is what freezes the screen. A missing photograph is now just a
+  missing photograph: it can no longer take search, typing or the rest of the app
+  down with it. A single photo lost to a weak signal is still quietly re-fetched,
+  exactly as before.
+- EVERYTHING LISTED UNDER BUILD 1057 AND EARLIER BELOW IS INCLUDED HERE.
+
 Build 1057 — 2026-08-07
 - SPEED. This build is about the app feeling fast, the way people expect after
   using Instagram. Nothing about how the app looks or works changes — the same
