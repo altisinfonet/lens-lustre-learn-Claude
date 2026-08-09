@@ -70,4 +70,25 @@ describe("retry state follows the IMAGE, not the element", () => {
     expect(resetAt).toBeGreaterThan(-1);
     expect(giveUpAt).toBeGreaterThan(resetAt);
   });
+
+  /**
+   * "IMAGE BROKEN" INCIDENT, 2026-08-07. ProgressiveImage fell back from a dead
+   * thumbnail to the original by setting a NEW src via React — and the pending
+   * retry timer overwrote it with the dead url it was retrying, then planted
+   * the permanent placeholder. The dataset check above cannot catch this: the
+   * dataset was written by the retrier itself for the old url. The timer must
+   * ALSO verify the element is still showing the url it is a retry of.
+   */
+  it("a pending retry is dropped if the COMPONENT moved the element to a new url", () => {
+    expect(src).toMatch(
+      /if \(stripRetryParam\(img\.currentSrc \|\| img\.src\) !== original\) return;/,
+    );
+    // And it must sit inside the timer callback, after the dataset check.
+    const datasetCheck = src.indexOf("if (img.dataset.originalSrc !== original) return;");
+    const liveCheck = src.indexOf(
+      "if (stripRetryParam(img.currentSrc || img.src) !== original) return;",
+    );
+    expect(datasetCheck).toBeGreaterThan(-1);
+    expect(liveCheck).toBeGreaterThan(datasetCheck);
+  });
 });
