@@ -1,0 +1,58 @@
+# Is the live site actually working, right now?
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# WHY THIS RUNS HERE AND NOT SOMEWHERE ELSE
+#
+# Owner, 2026-08-09: "this is a live site, even i can't find all issues too."
+# Every outage in this project's history was found by him, on his phone, after
+# members were already affected.
+#
+# The health check was first wired into a Cowork scheduled task, but that
+# sandbox has an egress allowlist and cannot reach 50mmretina.com at all — so
+# it could only ever infer health from the database. GitHub's runners have open
+# internet, so THIS is the place that can ask the question that actually
+# matters: does the page come back, and do the photographs load?
+#
+# (For the record, because it was misdiagnosed once: Cloudflare is NOT blocking
+# monitoring. Measured from the owner's own dashboard on 2026-08-09 — of 3,560
+# requests in 24 hours, 11 were mitigated. The sandbox 403s were the sandbox's
+# own proxy, which also blocks example.com.)
+#
+# WHEN THIS GOES RED, GitHub emails the repo owner. That is the entire point:
+# the notification arrives before the complaint does.
+name: Health
+
+on:
+  schedule:
+    # Every 2 hours. GitHub may delay scheduled runs under load, which is fine —
+    # this is a safety net, not a stopwatch.
+    - cron: "0 */2 * * *"
+  # So it can be run on demand from the Actions tab, e.g. straight after a
+  # release, which is exactly when a mistake is most likely to be live.
+  workflow_dispatch:
+
+# A late scheduled run must never queue up behind an earlier one.
+concurrency:
+  group: health
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Is the live site healthy?
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # DEEP=1 enables the live website + CDN photo checks. Without it the
+      # script only inspects the database (see the header of health-check.mjs).
+      # No dependencies are installed on purpose: the script uses only built-in
+      # fetch, so a broken lockfile can never stop the alarm from ringing.
+      - name: Run the health check
+        env:
+          DEEP: "1"
+        run: node scripts/health-check.mjs
