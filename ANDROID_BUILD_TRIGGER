@@ -805,3 +805,7 @@ Speed, and photos the way you shot them:
 - Very wide or very tall photos get a soft blurred edge instead of being cut.
 - Reach and Viewed-by now appear on every post, on the same line as reactions.
 - Consistent spacing under the name on every card, with or without a caption.
+1063 — Instagram shape: no box anywhere (posts, composer, ad, people-you-may-know),
+       no feed title, no refresh button, one icon row with the counts beside the
+       icons, caption under it with the name in front, icons-only bottom bar,
+       sponsored card full width at its real 4:5 size.
