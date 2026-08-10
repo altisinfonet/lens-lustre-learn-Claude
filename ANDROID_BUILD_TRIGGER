@@ -819,3 +819,6 @@ Speed, and photos the way you shot them:
        21px, 23px, 34px and once MINUS 1px on the live feed because it was
        whatever the last element's padding happened to be. Thumbs-up now
        carries the same 1.75 stroke as the comment and share icons.
+1067 — The sponsored card is a post now: avatar, name and 'Sponsored' beneath,
+       using the same header as every other post. Gap between all posts
+       measured on the live feed as exactly 16px, every time.
