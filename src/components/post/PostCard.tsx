@@ -12,6 +12,7 @@ import ReactionPicker from "@/components/ReactionPicker";
 import ReactionSummaryTooltip from "@/components/ReactionSummaryTooltip";
 import ShareSummaryTooltip from "@/components/ShareSummaryTooltip";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
+import TaggedPeople from "@/components/post/TaggedPeople";
 import PostMedia from "@/components/post/PostMedia";
 import Caption from "@/components/post/Caption";
 import PostCommentsSection from "@/components/PostCommentsSection";
@@ -197,12 +198,21 @@ const PostCard = ({
           </span>
         </Link>
         <div className="flex-1 min-w-0">
-          <UserIdentityBlock
-            userId={post.user_id}
-            name={post.author_name || "Photographer"}
-            linkTo={`/profile/${post.user_id}`}
-            nameClassName="text-sm font-light hover:text-primary transition-colors truncate [font-family:var(--font-heading)]"
-          />
+          {/* Name, then "with <tagged people>" on the same line — the Instagram
+              shape the owner asked for on 2026-08-10. `flex-wrap` lets the tag
+              phrase drop to a second line on a narrow phone instead of pushing
+              the name into an ellipsis; UserIdentityBlock keeps its own
+              truncation for the name itself. Renders nothing when the post has
+              no approved tags. */}
+          <div className="flex flex-wrap items-center min-w-0 text-sm">
+            <UserIdentityBlock
+              userId={post.user_id}
+              name={post.author_name || "Photographer"}
+              linkTo={`/profile/${post.user_id}`}
+              nameClassName="text-sm font-light hover:text-primary transition-colors truncate [font-family:var(--font-heading)]"
+            />
+            <TaggedPeople people={post.tagged_people ?? []} />
+          </div>
           <div className="flex items-center gap-2 text-[9px] text-muted-foreground" style={headingFont}>
             <span>{timeAgo(post.created_at)}</span>
             <span className="inline-flex items-center gap-1">{privacyIcon(post.privacy)}</span>
@@ -428,16 +438,23 @@ const PostCard = ({
       </div>
 
       {/* ── Action Bar ── */}
-      {/* TAP TARGETS, owner 2026-08-10: "too small / hard to tap".
-          Was `py-2` around a 20px icon — a 36px button, under Android's 48dp
-          minimum and iOS's 44pt, crammed to the left with `justify-start`.
-          Now every button is `flex-1` with `min-h-[48px]` and a 24px icon, so
-          the three targets divide the full width evenly. The icon itself is
-          bigger, not just the invisible hit area — the owner called an
-          invisible-only tap zone "fraud" on 2026-08-03, and he was right:
-          a fix you cannot see is indistinguishable from no fix. */}
+      {/* THE ACTION ROW — ICONS ONLY, LEFT ALIGNED.
+          Owner, 2026-08-10, with an Instagram screenshot: "After Like Comment
+          and Share icon dont write the text, and the icons will be all in left
+          allignment with nice space like instagram".
+
+          This replaces the equal-thirds row from earlier the same day. That was
+          the fix for a different complaint — the buttons were 36px, under
+          Android's 48dp minimum, and unhittable. **The 48px target survives
+          here**: the buttons are still min-h/min-w 48px, they are simply sized
+          to the icon and grouped on the left instead of stretched across the
+          width. Words are gone at every screen size, as asked.
+
+          The icon is 24px, not 20px, because a fix you cannot SEE is
+          indistinguishable from no fix — the owner's ruling of 2026-08-03 on an
+          invisible-only tap zone. */}
       <div className="mx-2.5 border-t border-border select-none">
-        <div className="flex justify-stretch gap-0">
+        <div className="flex justify-start gap-1">
           <ReactionPicker
             currentReaction={post.user_reaction}
             onReact={(type) => onReact(post.id, type)}
@@ -446,15 +463,17 @@ const PostCard = ({
           />
           <button onClick={() => setCommentsExpanded(!commentsExpanded)}
             aria-label={t("post.comment")}
-            className="basis-1/3 grow min-h-[48px] flex items-center justify-center md:gap-2 py-2 px-3 md:px-0 rounded-md my-1 text-sm font-semibold text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
-            <MessageCircle className="h-6 w-6 md:h-5 md:w-5" /> <span className="hidden md:inline">{t("post.comment")}</span>
+            title={t("post.comment")}
+            className="min-h-[48px] min-w-[48px] flex items-center justify-center rounded-md my-1 text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
+            <MessageCircle className="h-6 w-6" />
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 aria-label={t("post.share")}
-                className="basis-1/3 grow min-h-[48px] flex items-center justify-center md:gap-2 py-2 px-3 md:px-0 rounded-md my-1 text-sm font-semibold text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
-                <Share2 className="h-6 w-6 md:h-5 md:w-5" /> <span className="hidden md:inline">{t("post.share")}</span>
+                title={t("post.share")}
+                className="min-h-[48px] min-w-[48px] flex items-center justify-center rounded-md my-1 text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
+                <Share2 className="h-6 w-6" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
