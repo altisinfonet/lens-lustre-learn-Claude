@@ -13,7 +13,7 @@ const FILE = "src/hooks/feed/useFeedQuery.ts";
 
 const PAGE_SIZE = 10;
 
-import type { UnifiedPost } from "@/types/post";
+import type { UnifiedPost, TaggedPerson } from "@/types/post";
 
 export type FeedPost = UnifiedPost & { is_suggested: boolean };
 
@@ -141,15 +141,17 @@ async function enrichPosts(
       // RLS applies as normal; a post the RPC returned is a post this member
       // can read. If this query fails the feed simply shows originals.
       supabase.from("posts").select("id, thumbnail_urls").in("id", postIds),
-      // APPROVED tags only — see the note on UnifiedPost.tagged_people. A
-      // pending tag has not been agreed to and a declined one was refused;
-      // rendering either would put a member's name on a post against their
-      // wish. One query per page, rides the same Promise.all.
+      // Owner ruling, 2026-08-10 (his second, final answer): "Show immediately
+      // to public, but tagged person only can remove my Tag anytime." So a
+      // pending tag is public the moment it is made, and the tagged member has
+      // a Remove control on the post itself — see PostCard's menu.
+      // `declined` and `removed` are refusals and are NEVER selected, by anyone.
+      // One query per page, rides the same Promise.all.
       supabase
         .from("post_tags")
-        .select("post_id, tagged_user_id")
+        .select("post_id, tagged_user_id, status")
         .in("post_id", postIds)
-        .eq("status", "approved"),
+        .in("status", ["pending", "approved"]),
     ]);
 
   /**
@@ -163,8 +165,8 @@ async function enrichPosts(
    * elsewhere are served from cache rather than refetched.
    */
   const tagRows =
-    ((tagsRes as { data?: { post_id: string; tagged_user_id: string }[] })?.data) || [];
-  const taggedMap = new Map<string, { id: string; name: string }[]>();
+    ((tagsRes as { data?: { post_id: string; tagged_user_id: string; status: string }[] })?.data) || [];
+  const taggedMap = new Map<string, TaggedPerson[]>();
   if (tagRows.length > 0) {
     const taggedIds = [...new Set(tagRows.map((r) => r.tagged_user_id))];
     const tagProfiles = await fetchProfileMap(taggedIds);
@@ -178,6 +180,7 @@ async function enrichPosts(
           tagProfiles.get(r.tagged_user_id)?.full_name ?? null,
           adminIds,
         ),
+        pending: r.status === "pending",
       });
       taggedMap.set(r.post_id, list);
     }

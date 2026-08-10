@@ -3,7 +3,7 @@ import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
-import type { UnifiedPost } from "@/types/post";
+import type { UnifiedPost, TaggedPerson } from "@/types/post";
 import type { ReactionType } from "@/components/ReactionPicker";
 
 const PAGE_SIZE = 10;
@@ -85,13 +85,14 @@ async function fetchAndEnrich(
     fetchProfileMap(authorIds),
     getAdminIds(),
     supabase.from("post_reactions").select("post_id, reaction_type, user_id").in("post_id", postIds),
-    // APPROVED tags only, exactly as the feed does — see UnifiedPost.tagged_people.
-    // A pending tag has not been agreed to and a declined one was refused.
+    // Same rule as the feed — pending and approved are both public; declined
+    // and removed never are. The wall and the feed must never disagree about
+    // the same post.
     supabase
-      .from("post_tags")
-      .select("post_id, tagged_user_id")
-      .in("post_id", postIds)
-      .eq("status", "approved"),
+        .from("post_tags")
+        .select("post_id, tagged_user_id, status")
+        .in("post_id", postIds)
+        .in("status", ["pending", "approved"]),
   ]);
 
   /**
@@ -103,8 +104,8 @@ async function fetchAndEnrich(
    * The extra profile fetch happens ONLY when the page actually has a tag.
    */
   const tagRows =
-    ((tagsRes as { data?: { post_id: string; tagged_user_id: string }[] })?.data) || [];
-  const taggedMap = new Map<string, { id: string; name: string }[]>();
+    ((tagsRes as { data?: { post_id: string; tagged_user_id: string; status: string }[] })?.data) || [];
+  const taggedMap = new Map<string, TaggedPerson[]>();
   if (tagRows.length > 0) {
     const tagProfiles = await fetchProfileMap([...new Set(tagRows.map((r) => r.tagged_user_id))]);
     for (const r of tagRows) {
@@ -116,6 +117,7 @@ async function fetchAndEnrich(
           tagProfiles.get(r.tagged_user_id)?.full_name ?? null,
           adminIds,
         ),
+        pending: r.status === "pending",
       });
       taggedMap.set(r.post_id, list);
     }
