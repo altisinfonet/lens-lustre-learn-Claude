@@ -92,7 +92,7 @@
     },
     {
       "file": "src/components/admin/AdminAnnouncements.tsx",
-      "line": 65,
+      "line": 66,
       "excerpt": "{ key: \"announcements\", value: items as any, updated_at: new Date().toISOString(), updated_by: user.id },",
       "subsystem": "admin-ui",
       "severity_sprint_0a": "MEDIUM"
@@ -148,42 +148,42 @@
     },
     {
       "file": "src/components/admin/AdminEngagement.tsx",
-      "line": 189,
+      "line": 190,
       "excerpt": "await supabase.from(table).update({ is_pinned: !img.is_pinned } as any).eq(\"id\", img.id);",
       "subsystem": "admin-ui",
       "severity_sprint_0a": "MEDIUM"
     },
     {
       "file": "src/components/admin/AdminEngagement.tsx",
-      "line": 198,
+      "line": 199,
       "excerpt": "await supabase.from(table).update({ is_trending: !img.is_trending } as any).eq(\"id\", img.id);",
       "subsystem": "admin-ui",
       "severity_sprint_0a": "MEDIUM"
     },
     {
       "file": "src/components/admin/AdminEngagement.tsx",
-      "line": 207,
+      "line": 208,
       "excerpt": "await supabase.from(table).update({ view_count: count } as any).eq(\"id\", img.id);",
       "subsystem": "admin-ui",
       "severity_sprint_0a": "MEDIUM"
     },
     {
       "file": "src/components/admin/AdminEngagement.tsx",
-      "line": 243,
+      "line": 244,
       "excerpt": "const { error } = await supabase.from(\"scheduled_boosts\").insert({",
       "subsystem": "admin-ui",
       "severity_sprint_0a": "MEDIUM"
     },
     {
       "file": "src/components/admin/AdminEngagement.tsx",
-      "line": 263,
+      "line": 264,
       "excerpt": "await supabase.from(\"scheduled_boosts\").update({ status: newStatus, updated_at: new Date().toISOString() } as any).eq(\"id\", boost.id);",
       "subsystem": "admin-ui",
       "severity_sprint_0a": "MEDIUM"
     },
     {
       "file": "src/components/admin/AdminEngagement.tsx",
-      "line": 410,
+      "line": 411,
       "excerpt": "<select value={seedImageType} onChange={e => setSeedImageType(e.target.value as any)}",
       "subsystem": "admin-ui",
       "severity_sprint_0a": "MEDIUM"
@@ -330,7 +330,7 @@
     },
     {
       "file": "src/components/admin/AdminMenuBuilder.tsx",
-      "line": 145,
+      "line": 146,
       "excerpt": "value: [...existingPages, newPage] as any,",
       "subsystem": "admin-ui",
       "severity_sprint_0a": "MEDIUM"
@@ -1499,7 +1499,7 @@
     },
     {
       "file": "src/lib/adSlots.ts",
-      "line": 336,
+      "line": 337,
       "excerpt": "supabase.from(table as any).insert(row as any).then(() => {}, () => {});",
       "subsystem": "lib",
       "severity_sprint_0a": "MEDIUM"
