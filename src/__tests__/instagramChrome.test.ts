@@ -143,21 +143,61 @@ describe("nothing in the feed is drawn as an inset box", () => {
     // The tick is drawn ONLY in the ours branch. This is the assertion that
     // matters: a tick over a third party's ad is the harm.
     expect(block).toMatch(/\{!advertiser && \(\s*<span className="inline-flex shrink-0">\s*<VerifiedBadge/);
-    // And the site logo is not put above someone else's ad either.
-    expect(block).toContain("{advertiser ? (");
+    // And the site logo is not put above someone else's ad either — the avatar
+    // branches on the advertiser before it ever reaches the site logo.
+    expect(block).toContain("{advertiser && advertiserLogo ? (");
+    expect(block).toContain(") : advertiser ? (");
     // Existing rows have NULL and must keep behaving exactly as before.
     const creatives = code("src/lib/ads/adCreatives.ts");
-    expect(creatives).toContain("advertiser_name, sort_order");
+    expect(creatives).toContain("advertiser_name, advertiser_logo_url, sort_order");
     expect(creatives, "NULL must be coalesced once, not tested for everywhere")
       .toContain('advertiser_name: (r.advertiser_name ?? "") as string');
     // The single-image path has no creative row and is ours by definition.
-    expect(adZone).toContain('{ ...c.own, advertiser_name: "" }');
+    expect(adZone).toContain('{ ...c.own, advertiser_name: "", advertiser_logo_url: "" }');
   });
 
-  it("lets an admin type the advertiser in", () => {
+  it("gives each picture its own publisher, name AND logo", () => {
+    // Owner, 2026-08-10: "story feed have 16 ads then 16 publishers name will
+    // have with logo". Both fields are on ad_creatives, which is one row per
+    // picture — so sixteen pictures carry sixteen independent publishers.
     const lib = code("src/components/admin/ads/AdCreativeLibrary.tsx");
-    expect(lib).toContain("Advertiser name — leave empty if this ad is ours");
+    expect(lib).toContain("Publisher name — leave empty if this ad is ours");
     expect(lib).toContain("advertiser_name: e.target.value.trim()");
+    expect(lib, "no way to upload a logo").toContain("Add publisher logo");
+    expect(lib).toContain("advertiser_logo_url: url");
+    expect(lib, "an admin who uploads the wrong logo must be able to clear it")
+      .toContain('advertiser_logo_url: ""');
+    // A logo drawn at 32px must not be stored at 1600px.
+    expect(lib).toContain('compressImageToFiles(file, `ad-logo-${zone}`, { maxDimension: 256 })');
+  });
+
+  it("LOADS the publisher fields, not just saves them", () => {
+    // The bug this pins actually shipped in 1070: the form was given an
+    // advertiser box before the query that fills the form was given the column,
+    // so the box saved correctly and then always redrew EMPTY. An admin could
+    // not see what was set, and could blank it by accident.
+    const lib = code("src/components/admin/ads/AdCreativeLibrary.tsx");
+    expect(lib).toContain(
+      '.select("id, zone, image_url, click_url, alt_text, advertiser_name, advertiser_logo_url, is_active, sort_order")',
+    );
+    // And the row type has to carry them, or the next person hits the same wall.
+    const rowType = lib.slice(lib.indexOf("interface Row {"), lib.indexOf("const hFont"));
+    expect(rowType).toContain("advertiser_name: string;");
+    expect(rowType).toContain("advertiser_logo_url: string;");
+  });
+
+  it("draws the publisher's logo, then a letter, then ours — in that order", () => {
+    const header = adZone.slice(adZone.indexOf('{zone === "story-card" && ('));
+    const block = header.slice(0, header.indexOf("{/* GOOGLE"));
+    expect(adZone).toContain('const advertiserLogo = (cr.advertiser_logo_url || "").trim();');
+    expect(block).toContain("{advertiser && advertiserLogo ? (");
+    expect(block).toContain("src={advertiserLogo}");
+    expect(block).toContain(") : advertiser ? (");
+    // Instagram's shape: a 32px round avatar, the same element a member gets.
+    expect(block).toContain('className="w-8 h-8 rounded-full object-cover"');
+    const creatives = code("src/lib/ads/adCreatives.ts");
+    expect(creatives).toContain("advertiser_name, advertiser_logo_url, sort_order");
+    expect(creatives).toContain('advertiser_logo_url: (r.advertiser_logo_url ?? "") as string');
   });
 
   it("keeps the 4:5 crop the admin guidance promises", () => {
