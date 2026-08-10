@@ -61,7 +61,15 @@ const ZONE_FRAME: Record<InlineZone, { wrapper: string; image: string; aspect?: 
     // overflow-hidden, visibly smaller than every 4:5 post photo (475px)
     // around it. A post card is header + full 4:5 media; the ad must be
     // label + full 4:5 media the same way.
-    wrapper: "w-full overflow-hidden rounded-sm border border-border bg-card/50",
+    // NO FRAME. Owner, 2026-08-10, pointing at the sponsored block in his
+    // feed: "Spoensored Ads are coming lower size, that not fixed... show it
+    // fullview without border." It was `rounded-sm border border-border
+    // bg-card/50` inside a column that `.container` narrows to 90%, so the ad
+    // sat inset with a visible box while the posts above and below it ran to
+    // both edges — which is exactly why it looked smaller than everything else.
+    // `bleed-phone` gives it the same full-device width as PostCard, and the
+    // hairline underneath is the same separator posts use.
+    wrapper: "bleed-phone w-full overflow-hidden border-b border-border",
     image: "w-full h-full object-cover",
     aspect: "4 / 5",
   },
@@ -304,13 +312,16 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
    * is kept.
    */
   const mediaBox = frame.aspect
-    ? { className: "relative overflow-hidden rounded-sm w-full", style: { aspectRatio: frame.aspect } }
+    ? { className: "relative overflow-hidden w-full", style: { aspectRatio: frame.aspect } }
     : { className: "relative overflow-hidden rounded-sm h-full", style: undefined };
 
   return (
     <div ref={containerRef} className={cn(frame.wrapper, className)}>
+      {/* Instagram writes "Sponsored" as quiet small text, not as a spaced-out
+          capital banner. The pixel size is unchanged — the capitals and the
+          0.25em tracking were what made it loud. */}
       {zone === "story-card" && (
-        <div className="px-3 pt-3 pb-2 text-[9px] tracking-[0.25em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Sponsored</div>
+        <div className="px-3 pt-2.5 pb-2 text-xs text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Sponsored</div>
       )}
 
       {/* GOOGLE (web AdSense) */}
