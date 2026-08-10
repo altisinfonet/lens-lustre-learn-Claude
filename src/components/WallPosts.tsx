@@ -939,7 +939,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           once already, and vitest does not catch it because only `vite build`
           runs esbuild over the JSX. */}
       {isOwnWall && user && (
-        <div className="bleed-phone mb-0 overflow-hidden">
+        <div className="bleed-phone mb-4 overflow-hidden">
           <div className="flex items-start gap-3 p-3 pb-0">
             <Avatar src={currentProfile?.avatar_url || null} name={currentProfile?.full_name} size="md" />
             <div className="flex-1 min-w-0">

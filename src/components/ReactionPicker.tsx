@@ -205,7 +205,7 @@ const ReactionPicker = ({ currentReaction, onReact, onUnreact, disabled }: React
         {currentReaction && activeReaction ? (
           <span className="h-6 w-6 flex items-center justify-center text-[20px] leading-none">{activeReaction.emoji}</span>
         ) : (
-          <ThumbsUp className="h-6 w-6" />
+          <ThumbsUp className="h-6 w-6" strokeWidth={1.75} />
         )}
       </button>
     </div>
