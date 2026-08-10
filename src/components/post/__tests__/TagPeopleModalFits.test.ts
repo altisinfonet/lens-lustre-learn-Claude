@@ -105,10 +105,96 @@ describe("the fix does not move anybody's pins", () => {
     expect(CODE).toContain("setSearchOpen(true)");
   });
 
-  it("the picker still offers accepted friends only", () => {
-    // The privacy rule this screen exists to honour; a layout fix must not
-    // quietly widen who can be tagged.
-    expect(CODE).toContain('.from("friendships")');
-    expect(CODE).toMatch(/\.eq\("status", "accepted"\)/);
+  it("the picker is anchored to the pin, not parked at the bottom of the dialog", () => {
+    // Owner, 2026-08-10: "dont open the search box below of it, open the search
+    // box small (now tooo big) but exactly where pointer marked". The old
+    // full-width panel slid up from the dialog's foot — far from the pin, and
+    // tall enough to push the dialog off the screen again.
+    expect(CODE).toMatch(/left: `clamp\([^`]*\$\{pendingPin\.x\}%/);
+    expect(CODE).toMatch(/top: `\$\{pendingPin\.y\}%`/);
+  });
+
+  it("clamps the picker inside the photo so an edge tap cannot push it off", () => {
+    expect(CODE).toMatch(/clamp\(120px, .*calc\(100% - 120px\)\)/);
+  });
+
+  it("flips upward for a pin low in the frame", () => {
+    expect(CODE).toMatch(/pendingPin\.y > 58/);
+    expect(CODE).toMatch(/translate\(-50%, calc\(-100% - 16px\)\)/);
+  });
+
+  it("stops clicks inside the picker from moving the pin out from under you", () => {
+    // Without this, every tap in the popover also reaches the photo's own
+    // click handler and re-pins.
+    expect(CODE).toMatch(/onClick=\{\(e\) => e\.stopPropagation\(\)\}\s*\n\s*className="absolute z-30 w-\[230px\]/);
+  });
+});
+
+/**
+ * ANYONE MAY TAG ANYONE — owner decision, 2026-08-10:
+ * *"anyone tag anyone. not block it by ONLY friends"*.
+ *
+ * The danger in a change like this is deleting the consent step along with the
+ * friendship requirement. These pin the two halves separately: the picker must
+ * offer every member, AND the database must still refuse to publish a tag the
+ * tagged person has not approved.
+ */
+describe("the picker offers every member, not only friends", () => {
+  it("searches profiles, not the friendships table", () => {
+    expect(CODE).toContain('.from("profiles_public_data")');
+    expect(CODE).not.toContain('.from("friendships")');
+    expect(CODE).not.toMatch(/\.eq\("status", "accepted"\)/);
+  });
+
+  it("never offers you yourself", () => {
+    // post_tags_no_self_tag would refuse it anyway; failing in the picker is
+    // kinder than failing after the member has pressed Done.
+    expect(CODE).toMatch(/\.neq\("id", user\.id\)/);
+  });
+
+  it("filters server-side and bounds the result set", () => {
+    // The member list only grows; shipping all of it to every phone does not.
+    expect(CODE).toMatch(/\.ilike\("full_name", `%\$\{q\}%`\)/);
+    expect(CODE).toMatch(/\.limit\(\d+\)/);
+  });
+});
+
+describe("consent survived the change — the database still gates publication", () => {
+  const SQL = fs.readFileSync(
+    path.resolve(
+      process.cwd(),
+      "supabase/migrations/20260810120000_tag_anyone_not_only_friends.sql",
+    ),
+    "utf8",
+  );
+  /** Comments quote the rule being removed; they must not count as code. */
+  const STATEMENTS = SQL.replace(/^\s*--.*$/gm, "");
+
+  it("drops the friendship requirement", () => {
+    expect(STATEMENTS).not.toMatch(/are_friends/);
+    expect(STATEMENTS).not.toMatch(/You can only tag accepted friends/);
+  });
+
+  it("keeps the permanent decline — the anti-harassment rule", () => {
+    // This matters MORE once any member may tag any other, not less.
+    expect(STATEMENTS).toMatch(/status = 'declined'/);
+    expect(STATEMENTS).toMatch(/previously declined your tag/);
+  });
+
+  it("keeps tag-as-yourself-only and the 20-per-post cap", () => {
+    expect(STATEMENTS).toMatch(/new\.tagger_id <> auth\.uid\(\)/);
+    expect(STATEMENTS).toMatch(/_tag_count >= 20/);
+  });
+
+  it("does not touch any SELECT policy — pending tags stay private", () => {
+    // "Anyone views approved tags" is what keeps an unapproved tag invisible.
+    // If a future edit drops or rewrites it, tagging becomes publishing.
+    expect(STATEMENTS).not.toMatch(/policy[\s\S]{0,80}for select/i);
+    expect(STATEMENTS).not.toMatch(/Anyone views approved tags/);
+  });
+
+  it("runs as one transaction so the insert path is never left half-defined", () => {
+    expect(STATEMENTS).toMatch(/^begin;/m);
+    expect(STATEMENTS).toMatch(/^commit;/m);
   });
 });
