@@ -124,9 +124,12 @@ const ReactionPicker = ({ currentReaction, onReact, onUnreact, disabled }: React
       ref={containerRef}
       // Sized to the icon, not stretched. Owner, 2026-08-10: the action icons
       // are left-aligned with even spacing, Instagram-style, and carry no text
-      // label. The 48px tap target lives on the button below and is NOT
-      // negotiable — it is the fix for "too small / hard to tap" from earlier
-      // the same day, and shrinking the row must not undo it.
+      // label. The button below is 48px TALL and 44px wide (24px icon + px-2.5)
+      // — comfortably above the 36px that he reported as "too small / hard to
+      // tap" earlier the same day, and it must not shrink below that again.
+      // It stopped being a 48x48 square when he said the icons looked oversized
+      // next to Instagram's; the height, which is what the thumb actually
+      // needs in a horizontal row, is unchanged.
       className="relative select-none"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -177,14 +180,30 @@ const ReactionPicker = ({ currentReaction, onReact, onUnreact, disabled }: React
         onTouchMove={handleTouchMove}
         onContextMenu={(e) => e.preventDefault()}
         disabled={disabled}
-        className={`min-h-[48px] min-w-[48px] flex items-center justify-center rounded-md my-1 select-none touch-manipulation transition-colors ${
+        className={`h-12 px-2.5 flex items-center justify-center rounded-md select-none touch-manipulation transition-colors ${
           currentReaction
             ? `${activeReaction?.color || "text-primary"} hover:bg-primary/5`
             : "text-muted-foreground hover:bg-muted/50"
         } disabled:opacity-40`}
       >
+        {/*
+          THE EMOJI SITS IN THE SAME 24px BOX AS THE OUTLINE ICON.
+
+          Owner, 2026-08-10, looking at the build: "icons are big unparral,
+          match the icon size instagram". Both halves of that were true and they
+          had the same cause. `text-2xl` gave the emoji a 24px FONT SIZE, and a
+          colour-emoji glyph paints well outside its em box — it rendered around
+          30px, so a post you had reacted to showed a noticeably larger, higher
+          symbol than the comment and share icons beside it. That is the
+          "unparallel".
+
+          A fixed h-6 w-6 box with the glyph centred inside at 20px makes the
+          reacted and un-reacted states occupy the identical 24px square, and
+          matches MessageCircle / Share2 exactly. Do not go back to sizing an
+          emoji by font-size alone.
+        */}
         {currentReaction && activeReaction ? (
-          <span className="text-2xl leading-none">{activeReaction.emoji}</span>
+          <span className="h-6 w-6 flex items-center justify-center text-[20px] leading-none">{activeReaction.emoji}</span>
         ) : (
           <ThumbsUp className="h-6 w-6" />
         )}

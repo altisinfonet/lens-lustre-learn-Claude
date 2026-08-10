@@ -924,7 +924,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   return (
     // space-y-0 on phones so posts stack flush and the hairline between them is
     // the only separator — a 16px gap plus no border read as floating text.
-    <div className="space-y-0 md:space-y-4">
+    <div className="space-y-0">
       {/* ── Compose Box ── */}
       {/* Compose box — same shape as a post: edge to edge on phones, card from md up. */}
       {isOwnWall && user && (

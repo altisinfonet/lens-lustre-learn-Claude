@@ -6,7 +6,6 @@ import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import MobileProfileSheet from "@/components/MobileProfileSheet";
 import { profilesPublic } from "@/lib/profilesPublic";
-import { useT } from "@/i18n/I18nContext";
 
 type Tab = {
   path: string;
@@ -21,7 +20,6 @@ type Tab = {
 
 const MobileBottomNav = () => {
   const { user } = useAuth();
-  const t = useT();
   const { pathname } = useLocation();
   const siteLogo = useSiteLogo();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -76,7 +74,13 @@ const MobileBottomNav = () => {
         className="fixed bottom-0 left-0 right-0 z-50 bg-card/60 backdrop-blur-2xl backdrop-saturate-150 border-t border-border/40 lg:hidden safe-area-bottom"
         style={{ fontFamily: "var(--font-heading)" }}
       >
-        <div className="flex items-end justify-around h-14 px-1 relative">
+        {/* ICONS ONLY — no captions. Owner, 2026-08-10, choosing between the
+            two: Instagram's bar has no words under the icons, and the words
+            here were 9px uppercase raised to 12px by the readability floor,
+            which made the bar look heavy. `items-end` existed to hang the
+            icon above its caption; with the caption gone the icons centre.
+            The elevated Home button keeps its own -mt-4 lift. */}
+        <div className="flex items-center justify-around h-14 px-1 relative">
           {visibleTabs.map((tab) => {
             const active = isActive(tab.path, tab.isCenter);
 
@@ -147,18 +151,15 @@ const MobileBottomNav = () => {
                     <img loading="lazy" decoding="async"
                       src={profileData.avatar_url}
                       alt=""
-                      className={`h-6 w-6 rounded-full object-cover ${active || sheetOpen ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : "ring-1 ring-border"}`}
+                      className={`h-7 w-7 rounded-full object-cover ${active || sheetOpen ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : "ring-1 ring-border"}`}
                     />
                   ) : initials ? (
-                    <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[9px] font-bold ${active || sheetOpen ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                    <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[9px] font-bold ${active || sheetOpen ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
                       {initials}
                     </div>
                   ) : (
-                    <User className={`h-5 w-5 ${active ? "stroke-[2.5]" : "stroke-[1.5]"}`} />
+                    <User className={`h-6 w-6 ${active ? "stroke-[2.25]" : "stroke-[1.5]"}`} />
                   )}
-                  <span className={`text-[9px] tracking-[0.1em] uppercase ${active ? "font-semibold" : "font-normal"}`}>
-                    {t("nav.profile")}
-                  </span>
                 </button>
               );
             }
@@ -179,10 +180,7 @@ const MobileBottomNav = () => {
                     transition={{ type: "spring", stiffness: 500, damping: 30 }}
                   />
                 )}
-                <tab.icon className={`h-5 w-5 ${active ? "stroke-[2.5]" : "stroke-[1.5]"}`} />
-                <span className={`text-[9px] tracking-[0.1em] uppercase ${active ? "font-semibold" : "font-normal"}`}>
-                  {tab.labelKey ? t(tab.labelKey) : tab.label}
-                </span>
+                <tab.icon className={`h-6 w-6 ${active ? "stroke-[2.25]" : "stroke-[1.5]"}`} />
               </Link>
             );
           })}
