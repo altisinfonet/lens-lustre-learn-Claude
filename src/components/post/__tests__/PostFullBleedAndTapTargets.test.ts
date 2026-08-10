@@ -116,15 +116,25 @@ describe("a post reaches both edges of the phone", () => {
     expect(skeleton, "the loading placeholder must match").not.toMatch(/border/);
   });
 
-  it("stacks posts flush, with the next post's header as the only gap", () => {
-    // Nothing separates two posts now except the 12px of `p-3` at the top of
-    // the next one. That is what Instagram does and it is why no border is
-    // needed: a name and clear space sit between one photograph and the next.
-    expect(postCardRoot).toContain("mb-0");
-    expect(postCardRoot, "a gap with no border reads as floating text").not.toContain("md:mb-4");
+  it("separates posts by ONE fixed gap, defined in ONE place", () => {
+    // With no border, the gap IS the separator, so it has to be the same after
+    // every post. Measured on the live feed while it was not: the space between
+    // the last text of one post and the first of the next came out at 21px,
+    // 23px, 34px and once at MINUS 1px, because it was whatever the last
+    // element's own padding happened to be. Owner: "After removing the thin
+    // border line between two post gap also maintain exactly like Instagram."
+    //
+    // Now: `mb-4` on the card and nothing else. Caption carries no bottom
+    // padding, so a post that ends in a caption and one that ends in the icon
+    // row leave the same 16px.
+    expect(postCardRoot).toContain("mb-4");
+    expect(postCardRoot, "a second source of spacing is how it drifted before").not.toContain("mb-0");
+    expect(postCardRoot).not.toContain("md:mb-4");
+    const caption = read("src/components/post/Caption.tsx");
+    expect(caption, "the caption must not add its own bottom padding").toContain('<div className="px-3">');
     expect(wall).toContain('className="space-y-0"');
-    expect(wall, "the wall must not reintroduce the desktop gap").not.toContain("md:space-y-4");
-    expect(postCard, "the header's padding is the separator now").toContain("flex items-center gap-2.5 p-3 pb-2");
+    expect(wall, "list spacing on top of the card margin doubles the gap").not.toContain("md:space-y-4");
+    expect(postCard, "the header's top padding is the other half of the gap").toContain("flex items-center gap-2.5 p-3 pb-2");
   });
 });
 
@@ -188,6 +198,10 @@ describe("react, comment and share are thumb-sized", () => {
     const grown = actionButtons.match(/className="h-6 w-6"/g) ?? [];
     expect(grown.length).toBe(2);
     expect(picker).toContain('className="h-6 w-6"');
+    // Same stroke as the two beside it. Lucide defaults to 2, and a single
+    // heavier glyph in a row of three is visible immediately — measured on
+    // the live site as stroke-width 2 next to two at 1.75.
+    expect(picker).toMatch(/<ThumbsUp className="h-6 w-6" strokeWidth=\{1\.75\} \/>/);
   });
 
   it("uses Instagram's paper plane for share, and its lighter stroke", () => {
