@@ -93,20 +93,72 @@ describe("the tagged-people line on a post header", () => {
   });
 });
 
-describe("only tags the member AGREED to are ever shown", () => {
+describe("a tag is public the moment it is made, and removable for ever", () => {
   /**
-   * This one is a source check on purpose: the filter is in the data layer, not
-   * in the component, and it is the rule with the worst failure mode. A pending
-   * tag is a request nobody has answered and a declined tag is a refusal —
-   * rendering either puts a person's name on a stranger's photo against their
-   * wish, which is the entire reason the accept/decline flow exists.
+   * Owner ruling, 2026-08-10 — his SECOND answer, which replaced the first:
+   *
+   *   "Show immediately to public, but tagged person only can remove my Tag
+   *    anytime."
+   *
+   * The two halves have to ship together. Publishing pending tags WITHOUT the
+   * remove control would put a member's name on a stranger's photo with no way
+   * to take it off — anyone may tag anyone. These pin both halves.
    */
-  it("the feed asks the database for approved tags only", () => {
-    const src = readSource("src/hooks/feed/useFeedQuery.ts");
-    const at = src.indexOf('.from("post_tags")');
-    expect(at, "the feed no longer loads post_tags — did the query move?").toBeGreaterThan(-1);
-    const query = src.slice(at, at + 260);
-    expect(query).toMatch(/\.eq\("status",\s*"approved"\)/);
+  const feed = readSource("src/hooks/feed/useFeedQuery.ts");
+  const wall = readSource("src/hooks/feed/useUserPostsQuery.ts");
+  const card = readSource("src/components/post/PostCard.tsx");
+  const policy = readSource("supabase/migrations/20260810180000_pending_tags_are_public.sql")
+    .replace(/^\s*--.*$/gm, "");
+
+  for (const [label, src] of [["feed", feed], ["wall", wall]] as const) {
+    it(`${label}: reads pending AND approved tags`, () => {
+      const at = src.indexOf('.from("post_tags")');
+      expect(at, `${label} no longer loads post_tags — did the query move?`).toBeGreaterThan(-1);
+      const q = src.slice(at, at + 400);
+      expect(q).toMatch(/\.in\("status",\s*\["pending",\s*"approved"\]\)/);
+    });
+
+    it(`${label}: never reads a declined or removed tag`, () => {
+      // Those two are refusals, and the accept/decline flow exists so a refusal
+      // sticks. This is the assertion that must never be relaxed.
+      const at = src.indexOf('.from("post_tags")');
+      const q = src.slice(at, at + 400);
+      expect(q).not.toContain("declined");
+      expect(q).not.toContain("removed");
+    });
+  }
+
+  it("the database policy publishes pending, and still hides refusals", () => {
+    expect(policy).toMatch(/USING \(status IN \('approved', 'pending'\)\)/);
+    expect(policy, "a blanket USING (true) would expose refusals").not.toMatch(/USING \(true\)/);
+    expect(policy).not.toMatch(/'declined'/);
+    expect(policy).not.toMatch(/'removed'/);
+  });
+
+  it("a tagged member can remove their own tag, on any status", () => {
+    // No .eq("status", ...) on the update: the whole point is that removal
+    // works after acceptance too, not only while the tag is pending.
+    const at = card.indexOf("const removeMyTag");
+    expect(at, "removeMyTag is gone — the owner's rule needs it").toBeGreaterThan(-1);
+    const fn = card.slice(at, at + 900);
+    expect(fn).toMatch(/\.update\(\{ status: "removed" \}\)/);
+    expect(fn).toMatch(/\.eq\("tagged_user_id", currentUserId\)/);
+    expect(fn, "removal must not be limited to pending tags").not.toMatch(/\.eq\("status"/);
+  });
+
+  it("tells the member when a removal changed nothing", () => {
+    // A write that succeeds but changes zero rows is the signature of an RLS
+    // refusal. Silence there would look like success while the name stayed put.
+    const at = card.indexOf("const removeMyTag");
+    const fn = card.slice(at, at + 1400);
+    expect(fn).toMatch(/data\.length === 0/);
+  });
+
+  it("offers the control only to someone actually tagged", () => {
+    expect(card).toMatch(/const viewerIsTagged = Boolean\(/);
+    // Signed out there is no id, and an undefined id must not match anything.
+    expect(card).toMatch(/currentUserId && \(post\.tagged_people \?\? \[\]\)\.some/);
+    expect(card).toContain("Remove tag of me");
   });
 });
 
