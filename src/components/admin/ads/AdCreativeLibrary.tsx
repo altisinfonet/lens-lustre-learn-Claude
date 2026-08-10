@@ -33,6 +33,18 @@ interface Row {
   image_url: string;
   click_url: string;
   alt_text: string;
+  /**
+   * THE PUBLISHER OF THIS ONE PICTURE. Owner, 2026-08-10: "story feed have 16
+   * ads then 16 publishers name will have with logo" — so both of these live on
+   * the PICTURE, not on the zone. Sixteen pictures, sixteen publishers.
+   *
+   * These two fields must stay in the `select` in `load()` below. They were
+   * added to the form before they were added to the query, and the effect was
+   * a box that saved correctly but always redrew EMPTY, so an admin could not
+   * see what was set and could blank it by accident.
+   */
+  advertiser_name: string;
+  advertiser_logo_url: string;
   is_active: boolean;
   sort_order: number;
 }
@@ -51,7 +63,7 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
   const load = useCallback(async () => {
     const { data, error } = await supabase
       .from("ad_creatives" as never)
-      .select("id, zone, image_url, click_url, alt_text, is_active, sort_order")
+      .select("id, zone, image_url, click_url, alt_text, advertiser_name, advertiser_logo_url, is_active, sort_order")
       .eq("zone", zone)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true });
@@ -122,6 +134,40 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
       toast({ title: "Nothing was added", description: failed[0] ? `Failed: ${failed[0]}` : undefined, variant: "destructive" });
     }
     if (skipped) toast({ title: `${skipped} file${skipped === 1 ? "" : "s"} skipped (not a picture)` });
+  };
+
+  /**
+   * ONE PUBLISHER LOGO, FOR ONE PICTURE.
+   *
+   * Same compress-and-upload path the ad pictures use, at a much smaller
+   * maxDimension because this is drawn at 32px: a 1600px logo would cost a
+   * member bandwidth to render a thumbnail. 256 is generous for a 32px circle
+   * even on a 3x screen.
+   */
+  const [logoBusy, setLogoBusy] = useState<string | null>(null);
+
+  const onLogo = async (rowId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = (e.target.files || [])[0];
+    if (e.target) e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Please choose an image (jpg / png / webp)", variant: "destructive" });
+      return;
+    }
+    setLogoBusy(rowId);
+    try {
+      const { webpFile } = await compressImageToFiles(file, `ad-logo-${zone}`, { maxDimension: 256 });
+      const path = generateImagePath({ type: "ad", ext: "webp" });
+      const { url } = await uploadImage({
+        bucket: "journal-images", file: webpFile, path, type: "ad", fileName: `ad-logo-${zone}.webp`,
+      });
+      await patch(rowId, { advertiser_logo_url: url });
+      toast({ title: "Publisher logo added ✅" });
+    } catch {
+      toast({ title: "Could not upload that logo", variant: "destructive" });
+    } finally {
+      setLogoBusy(null);
+    }
   };
 
   const patch = async (id: string, values: Partial<Row>) => {
@@ -228,9 +274,33 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
                   className={input}
                   style={bFont}
                   defaultValue={r.advertiser_name || ""}
-                  placeholder="Advertiser name — leave empty if this ad is ours"
+                  placeholder="Publisher name — leave empty if this ad is ours"
                   onBlur={(e) => { if (e.target.value !== (r.advertiser_name || "")) void patch(r.id, { advertiser_name: e.target.value.trim() }); }}
                 />
+                {/* THE PUBLISHER'S LOGO, shown as the round avatar on the feed
+                    card exactly where Instagram puts the advertiser's picture.
+                    Round here too, at the size it will actually be drawn, so
+                    what the admin sees is what a member sees. */}
+                <div className="flex items-center gap-2">
+                  {r.advertiser_logo_url ? (
+                    <img src={r.advertiser_logo_url} alt="" className="h-8 w-8 rounded-full object-cover border border-border shrink-0" />
+                  ) : (
+                    <span className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-[11px] text-primary" style={hFont}>
+                      {(r.advertiser_name || "").trim()[0]?.toUpperCase() || "—"}
+                    </span>
+                  )}
+                  <label className="text-[10px] text-primary hover:underline cursor-pointer" style={bFont}>
+                    {logoBusy === r.id ? "Uploading…" : r.advertiser_logo_url ? "Change logo" : "Add publisher logo"}
+                    <input type="file" accept="image/*" className="hidden" disabled={logoBusy === r.id}
+                      onChange={(e) => void onLogo(r.id, e)} />
+                  </label>
+                  {r.advertiser_logo_url && (
+                    <button type="button" onClick={() => void patch(r.id, { advertiser_logo_url: "" })}
+                      className="text-[10px] text-muted-foreground hover:text-destructive" style={bFont}>
+                      Remove
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
