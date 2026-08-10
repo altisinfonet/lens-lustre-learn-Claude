@@ -69,7 +69,7 @@ const ZONE_FRAME: Record<InlineZone, { wrapper: string; image: string; aspect?: 
     // both edges — which is exactly why it looked smaller than everything else.
     // `bleed-phone` gives it the same full-device width as PostCard, and the
     // hairline underneath is the same separator posts use.
-    wrapper: "bleed-phone w-full overflow-hidden border-b border-border",
+    wrapper: "bleed-phone w-full overflow-hidden",
     image: "w-full h-full object-cover",
     aspect: "4 / 5",
   },
