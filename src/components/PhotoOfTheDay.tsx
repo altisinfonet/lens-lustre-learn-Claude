@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { cdnResized, cdnSrcSet, originalOnError } from "@/lib/cdnImage";
 import { AnimatePresence, motion } from "framer-motion";
 import { Star, Camera, Calendar, ImageOff } from "lucide-react";
 
@@ -83,6 +84,15 @@ export default function PhotoOfTheDay() {
 
   const potd = photos[current];
 
+  /**
+   * The full-resolution photograph is the base for the Curated Wall, NOT the
+   * 600px thumbnail that used to be preferred here — that thumbnail is what
+   * made this square soft (see the note on the <img> below). The thumbnail is
+   * kept only as a last resort for a record that has no original at all, where
+   * a soft picture still beats an empty square.
+   */
+  const base = potd.image_url || potd.thumbnail_url || "";
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}
@@ -99,12 +109,47 @@ export default function PhotoOfTheDay() {
         </span>
       </div>
 
+      {/*
+        The ORIGINAL is the base, deliberately — not `thumbnail_url || image_url`
+        as before. The 600px thumbnail is what made this soft; it stays unused
+        here. If a record somehow has no original, the thumbnail is still better
+        than a blank square.
+      */}
       {/* Image with fade transition */}
       <div className="group relative overflow-hidden rounded-sm aspect-square bg-muted mb-4 cursor-pointer">
         <AnimatePresence mode="wait">
+          {/*
+            THE CURATED WALL WAS EXTREMELY SOFT, AND THE STORED THUMBNAIL WAS WHY.
+            Owner, 2026-08-10: "Curated Wall Image Softness extreme."
+
+            Measured on the live home page:
+              slot            739 x 739 css px, and it is `aspect-square object-cover`
+              served          the 600 x 338 thumbnail
+              original        2560 x 1440, sitting unused beside it
+
+            A 600x338 landscape inside a SQUARE cover box is scaled until its
+            SHORT side fills the slot: 739/338 = 2.19x. So roughly 338 real
+            pixels were being stretched across 739 — a 2.2x upscale, which is
+            why this looked far worse than a plain "600 in an 831 slot".
+
+            Now: the original is the base, and `srcset` lets the browser choose
+            a resized copy that matches the real slot and screen density. The
+            900px variant of this photograph is ~40 KB against 535 KB for the
+            full original, so it is both sharper AND lighter than shipping the
+            original — and dramatically sharper than the thumbnail.
+
+            `onError` is not optional here. Read the history in lib/cdnImage.ts:
+            this endpoint is Cloudflare zone configuration, it broke the site in
+            August, and the origin it accepts has already changed once. If it
+            ever refuses, this image drops back to the untransformed original by
+            itself — heavier, never missing.
+          */}
           <motion.img
             key={potd.id}
-            src={potd.thumbnail_url || potd.image_url}
+            src={cdnResized(base, 900)}
+            srcSet={cdnSrcSet(base, [480, 640, 900, 1200, 1600])}
+            sizes="(min-width: 1280px) 420px, (min-width: 768px) 45vw, 100vw"
+            onError={originalOnError(base)}
             alt={potd.title}
             className="absolute inset-0 w-full h-full object-cover"
             initial={{ opacity: 0 }}
