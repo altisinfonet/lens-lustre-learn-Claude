@@ -18,6 +18,15 @@ export interface GroupedRow {
   actor_ids?: string[] | null;
   actor_names?: string[] | null;
   actor_usernames?: string[] | null;
+  /**
+   * Positionally aligned with actor_ids. FALSE = that profile is gone.
+   *
+   * Only `get_my_unread_notifications_grouped()` (the bell) returns this. The
+   * history RPC does not, so it arrives as undefined there and the wording is
+   * unchanged — which is deliberate: undefined means "we did not look", and
+   * that is a different sentence from "we looked and they are gone".
+   */
+  actor_known?: (boolean | null)[] | null;
   actor_count?: number | null;
   event_count?: number | null;
   message?: string | null;
@@ -49,6 +58,9 @@ export function subjectFromGroup(row: GroupedRow, adminIds?: Set<string>): Notif
     // letting `""` travel any further.
     fullName: row.actor_names?.[i]?.trim() || null,
     username: row.actor_usernames?.[i]?.trim() || null,
+    // `?? undefined` on purpose. A null here means the row came from a query
+    // that does not answer the question; only a real `false` means deleted.
+    known: row.actor_known?.[i] ?? undefined,
     isAdmin: adminIds ? adminIds.has(id) : false,
   }));
 
