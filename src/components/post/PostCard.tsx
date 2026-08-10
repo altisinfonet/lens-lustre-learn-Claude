@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import { publicUrl } from "@/lib/publicUrl";
 import { Link } from "react-router-dom";
-import { MessageCircle, Share2, Copy, MoreHorizontal, Trash2, Flag, Heart, Eye, Pencil, UserPlus, UserMinus, Users } from "lucide-react";
+import { MessageCircle, Share2, Send, Copy, MoreHorizontal, Trash2, Flag, Eye, Pencil, UserPlus, UserMinus, Users } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import { isActiveNow } from "@/hooks/core/useLastActive";
-import { REACTION_EMOJI_MAP, type ReactionType } from "@/components/ReactionPicker";
+import { type ReactionType } from "@/components/ReactionPicker";
 import ReactionPicker from "@/components/ReactionPicker";
 import ReactionSummaryTooltip from "@/components/ReactionSummaryTooltip";
 import ShareSummaryTooltip from "@/components/ShareSummaryTooltip";
@@ -231,17 +231,24 @@ const PostCard = ({
     }
   };
 
-  // NO BOX. ANYWHERE. Owner, 2026-08-10, after seeing the build: "I told No
-  // border anything to anywhere, example like Instagram, didnt do it it."
+  // NO BORDER AT ALL. NOT EVEN BETWEEN POSTS.
   //
-  // The earlier version kept `md:border` and `md:mb-4`, so on desktop each post
-  // was still a bordered card floating in the column. That is gone: phone and
-  // desktop now render the same shape — edge to edge, no border, no radius, no
-  // gap, and ONE hairline separating one post from the next. That hairline is
-  // the only border left on this component and it is what Instagram uses too;
-  // without it consecutive photos touch and read as a single image.
+  // Owner, 2026-08-10, twice. First: "I told No border anything to anywhere,
+  // example like Instagram, didnt do it it" — which removed `md:border` and the
+  // desktop card. Then, looking at the result: "between two posts there is
+  // line, but instagram has no border, why kept ??"
+  //
+  // So the separating hairline is gone too. It was kept on the argument that
+  // without it consecutive photos touch and read as one image; that is not what
+  // happens, because the NEXT post opens with its header at `p-3`, which puts
+  // 12px of clear space and a name between one photograph and the next. This
+  // component now draws no border on any edge, at any screen size.
+  //
+  // If a separator is ever wanted back it belongs BETWEEN cards, in the list
+  // that renders them — not as a bottom border on the card, which also drew a
+  // line under the very last post in the feed.
   return (
-    <div className="bleed-phone border-b border-border mb-0 overflow-hidden">
+    <div className="bleed-phone mb-0 overflow-hidden">
       {/* ── Header ── */}
       {/* Header. `pb-2` is load-bearing: it is the ONLY thing standing between
           the header and the media on a post with no caption. Until 2026-08-01
@@ -499,14 +506,14 @@ const PostCard = ({
             />
             {post.like_count > 0 && (
               <ReactionSummaryTooltip reactionCounts={post.reaction_counts} totalCount={post.like_count} postId={post.id}>
-                <span className="inline-flex items-center gap-1 pr-2 cursor-pointer text-sm font-semibold text-foreground">
-                  {post.top_reactions.length > 0 ? (
-                    post.top_reactions.slice(0, 2).map((type) => (
-                      <span key={type} className="text-[15px] leading-none">{REACTION_EMOJI_MAP[type] || "👍"}</span>
-                    ))
-                  ) : (
-                    <Heart className="h-4 w-4 text-rose-500" />
-                  )}
+                {/* JUST THE NUMBER. Instagram writes "50.9K" beside the heart
+                    and nothing else; this used to print the two most-used
+                    emoji in front of the count, which put two coloured faces
+                    between the like button and the comment button and broke the
+                    even spacing of the row. The breakdown by emoji is not lost
+                    — it is what this tooltip opens, and the picker button
+                    itself still shows the reaction the viewer chose. */}
+                <span className="pr-2 cursor-pointer text-sm font-semibold text-foreground">
                   {formatNumber(post.like_count)}
                 </span>
               </ReactionSummaryTooltip>
@@ -518,7 +525,7 @@ const PostCard = ({
             aria-label={t("post.comment")}
             title={t("post.comment")}
             className="h-12 px-2.5 flex items-center gap-1.5 rounded-md text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
-            <MessageCircle className="h-6 w-6" />
+            <MessageCircle className="h-6 w-6" strokeWidth={1.75} />
             {post.comment_count > 0 && (
               <span className="text-sm font-semibold text-foreground">{formatNumber(post.comment_count)}</span>
             )}
@@ -532,7 +539,7 @@ const PostCard = ({
                   aria-label={t("post.share")}
                   title={t("post.share")}
                   className="h-12 px-2.5 flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
-                  <Share2 className="h-6 w-6" />
+                  <Send className="h-6 w-6" strokeWidth={1.75} />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52">
