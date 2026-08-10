@@ -299,8 +299,24 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
         creative_headline: chosen.headline,
         creative_subtext: chosen.subtext,
         creative_cta: chosen.cta,
+        advertiser_name: chosen.advertiser_name || "",
       }
-    : c.own;
+    : { ...c.own, advertiser_name: "" };
+
+  /**
+   * WHOSE NAME GOES ON THE AD.
+   *
+   * Empty — which is every creative today, and the whole single-image path —
+   * means the ad is the platform's own, and the header keeps the site logo,
+   * the site name and the verified tick.
+   *
+   * Anything else names a real third party. Their card gets a plain letter
+   * avatar and NO TICK: a tick asserts "this account is verified", and we have
+   * verified nothing about an outside advertiser. Putting the platform's
+   * verified identity above someone else's ad would be a false claim twice
+   * over, which is why this exists at all.
+   */
+  const advertiser = (cr.advertiser_name || "").trim();
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
@@ -346,15 +362,26 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
       {zone === "story-card" && (
         <div className="flex items-center gap-2.5 p-3 pb-2">
           <span className="shrink-0 inline-block w-8 h-8">
-            <img
-              src={siteLogo}
-              alt=""
-              width={32}
-              height={32}
-              loading="lazy"
-              decoding="async"
-              className="w-8 h-8 rounded-full object-cover"
-            />
+            {advertiser ? (
+              // A third party gets a neutral letter avatar — the same shape a
+              // member with no photograph gets. The site logo above someone
+              // else's ad would read as our endorsement of it.
+              <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <span className="text-xs text-primary" style={{ fontFamily: "var(--font-display)" }}>
+                  {advertiser[0]?.toUpperCase()}
+                </span>
+              </span>
+            ) : (
+              <img
+                src={siteLogo}
+                alt=""
+                width={32}
+                height={32}
+                loading="lazy"
+                decoding="async"
+                className="w-8 h-8 rounded-full object-cover"
+              />
+            )}
           </span>
           <div className="flex-1 min-w-0">
             {/* THE BLUE TICK BELONGS HERE TOO.
@@ -374,11 +401,13 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
                 that can place a creative in this system. */}
             <div className="flex min-w-0 items-center gap-1">
               <span className="text-sm font-semibold truncate" style={{ fontFamily: "var(--font-heading)" }}>
-                50mm Retina World
+                {advertiser || "50mm Retina World"}
               </span>
-              <span className="inline-flex shrink-0">
-                <VerifiedBadge className="h-3.5 w-3.5" />
-              </span>
+              {!advertiser && (
+                <span className="inline-flex shrink-0">
+                  <VerifiedBadge className="h-3.5 w-3.5" />
+                </span>
+              )}
             </div>
             <div className="text-xs text-muted-foreground">Sponsored</div>
           </div>
