@@ -52,7 +52,11 @@ describe("the story-card ad picture gets the full 4:5, like a post photo", () =>
     expect(adZone).not.toMatch(/frame\.wrapper, className\)\} style=\{frame\.aspect/);
     // The media box carries it instead, and drops h-full (which resolved to
     // auto inside the anchor and let the natural-height image be clipped).
-    expect(adZone).toContain('? { className: "relative overflow-hidden rounded-sm w-full", style: { aspectRatio: frame.aspect } }');
+    expect(adZone).toContain('? { className: "relative overflow-hidden w-full", style: { aspectRatio: frame.aspect } }');
+    // No radius on the media box. The story card is full-bleed since
+    // 2026-08-10 ("show it fullview without border"), and a rounded corner at
+    // the screen edge is exactly the inset look he was pointing at.
+    expect(adZone).not.toContain('"relative overflow-hidden rounded-sm w-full"');
   });
 
   it("both own-image paths render through the shared media box", () => {
