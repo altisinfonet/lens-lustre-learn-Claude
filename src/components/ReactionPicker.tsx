@@ -122,10 +122,12 @@ const ReactionPicker = ({ currentReaction, onReact, onUnreact, disabled }: React
   return (
     <div
       ref={containerRef}
-      // flex-1 on phones too (owner, 2026-08-10: the action buttons were
-      // "too small / hard to tap"). It used to be md:flex-1, so on a phone the
-      // three buttons shrank to their content and huddled on the left.
-      className="relative basis-1/3 grow select-none"
+      // Sized to the icon, not stretched. Owner, 2026-08-10: the action icons
+      // are left-aligned with even spacing, Instagram-style, and carry no text
+      // label. The 48px tap target lives on the button below and is NOT
+      // negotiable — it is the fix for "too small / hard to tap" from earlier
+      // the same day, and shrinking the row must not undo it.
+      className="relative select-none"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -175,18 +177,17 @@ const ReactionPicker = ({ currentReaction, onReact, onUnreact, disabled }: React
         onTouchMove={handleTouchMove}
         onContextMenu={(e) => e.preventDefault()}
         disabled={disabled}
-        className={`w-full min-h-[48px] flex items-center justify-center md:gap-2 py-2 px-3 md:px-0 rounded-md my-1 text-sm font-semibold select-none touch-manipulation transition-colors ${
+        className={`min-h-[48px] min-w-[48px] flex items-center justify-center rounded-md my-1 select-none touch-manipulation transition-colors ${
           currentReaction
             ? `${activeReaction?.color || "text-primary"} hover:bg-primary/5`
             : "text-muted-foreground hover:bg-muted/50"
         } disabled:opacity-40`}
       >
         {currentReaction && activeReaction ? (
-          <span className="text-2xl md:text-lg leading-none">{activeReaction.emoji}</span>
+          <span className="text-2xl leading-none">{activeReaction.emoji}</span>
         ) : (
-          <ThumbsUp className="h-6 w-6 md:h-5 md:w-5" />
+          <ThumbsUp className="h-6 w-6" />
         )}
-        <span className="hidden md:inline">{activeReaction?.label || "Like"}</span>
       </button>
     </div>
   );
