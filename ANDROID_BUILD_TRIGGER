@@ -1,3 +1,41 @@
+Build 1059 — 2026-08-10
+- SIGNING IN WORKS AGAIN ON OLDER PHONES. This is the most important line in
+  this build. On any phone whose Android System WebView had not been updated,
+  the LOGIN SCREEN ITSELF crashed and showed a dead page — so those members
+  could not get in at all. They would close the app, try again, sometimes land
+  on a cached screen that worked, and it looked random. It was not random. The
+  app asked Android for a random ID number using a function that only exists in
+  newer versions; on older ones the request threw and took the whole screen with
+  it. The app now generates that number itself when Android cannot, and a check
+  in our build now refuses any future code that makes the same assumption.
+- SEARCH CAN NO LONGER FREEZE THE APP. The search panel covered the whole screen
+  and was waiting for a closing animation before it would go away. On Android
+  that animation may never finish, leaving an invisible full-screen sheet on top
+  of everything, swallowing every tap. The panel now simply closes.
+- TAGGING WORKS. It never did. The tagging window opened taller than the screen
+  — 1020 pixels tall on a 710 pixel screen — so the box for choosing a person
+  opened 45 pixels below the bottom edge, where nobody could see or reach it, in
+  a window that could not be scrolled. Tapping a photo looked like it did
+  nothing. Nothing was ever refused; nobody could get far enough to save a tag.
+- AND THE PICKER NOW OPENS WHERE YOU TAP, small, instead of as a large panel at
+  the bottom. It stays inside the photo however close to an edge you tap, and
+  opens upward when you tag near the bottom.
+- YOU CAN NOW TAG ANY MEMBER, not only accepted friends. Being tagged still
+  needs the other person's approval: a new tag is private until they accept it,
+  only they can accept it, and once they decline you can never tag them on that
+  post again. So anyone may ask; nobody's name appears on a photo without them
+  agreeing.
+- PHOTO QUALITY RESTORED. Build 1057 made the feed show the 600-pixel preview of
+  every photograph on every device. A phone screen needs roughly three times
+  that, so photographs were being stretched — which is why they looked soft.
+  Nothing was ever lost from your uploads: the full-size originals were on the
+  server the whole time, untouched. The app now offers the phone both sizes and
+  lets it take the one your screen can actually show. Small thumbnails still
+  load the small file, so opening the feed stays quick.
+- Notifications that read "A member started following you" were people who had
+  since deleted their accounts. Their records have been corrected.
+- EVERYTHING LISTED UNDER BUILD 1058 AND EARLIER BELOW IS INCLUDED HERE.
+
 Build 1058 — 2026-08-07
 - PHOTOGRAPHS ARE BACK, AND SEARCH WORKS AGAIN. Build 1057 shipped with a fault
   of ours: the app worked out where each photo's small preview lived by guessing
