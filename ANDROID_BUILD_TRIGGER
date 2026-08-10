@@ -809,3 +809,6 @@ Speed, and photos the way you shot them:
        no feed title, no refresh button, one icon row with the counts beside the
        icons, caption under it with the name in front, icons-only bottom bar,
        sponsored card full width at its real 4:5 size.
+1064 — Instagram type as well: no CAPITALS and no wide letter-spacing anywhere
+       on the site or in the app. Sizes are unchanged and nothing drops below
+       12px; the capitals were what made 12px read like 16px.
