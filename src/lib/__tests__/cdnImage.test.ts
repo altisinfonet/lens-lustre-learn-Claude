@@ -119,34 +119,34 @@ describe("rule 2 — a picture can always get back to the original", () => {
   });
 });
 
-describe("the Curated Wall uses the original, not the soft thumbnail", () => {
+describe("the Curated Wall shows the original, not the soft thumbnail", () => {
   const src = readSource("src/components/PhotoOfTheDay.tsx");
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
 
-  it("no longer prefers thumbnail_url for the big square", () => {
+  it("no longer prefers the 600px thumbnail for the big square", () => {
     // `thumbnail_url || image_url` is what made it extremely soft: a 600x338
-    // thumbnail inside a 739x739 `object-cover` square is upscaled 2.19x.
-    const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+    // thumbnail inside a 663x663 object-cover square, at dpr 1.25, is a 2.45x
+    // upscale of only 338 real pixels.
     expect(code).not.toContain("potd.thumbnail_url || potd.image_url");
     expect(code).toMatch(/const base = potd\.image_url \|\| potd\.thumbnail_url/);
+    expect(code).toMatch(/src=\{base\}/);
   });
 
-  it("declares a slot size that is not smaller than the real square", () => {
-    // `sizes` is a promise about the slot. Under-declare it and the browser
-    // picks a smaller file ON PURPOSE. The first attempt said 420px for a
-    // square measured at 663px, and a 420px image was served into it — still
-    // soft, for a completely different reason from the thumbnail.
-    const m = src.match(/sizes="\(min-width: 1280px\) (\d+)px/);
-    expect(m, "the desktop slot declaration is gone — update this test").not.toBeNull();
-    expect(Number(m![1])).toBeGreaterThanOrEqual(660);
-  });
-
-  it("ships a srcset and a fallback together — never one without the other", () => {
-    const code = src.replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
-    expect(code).toContain("cdnSrcSet(base");
-    expect(code).toContain("sizes=");
-    expect(code, "a srcset without onError is exactly the August failure").toContain(
-      "originalOnError(base)",
-    );
+  it("does NOT put a cdn-cgi srcset on the carousel", () => {
+    /**
+     * This is a regression guard with a specific story. A /cdn-cgi/image/
+     * srcset was shipped here and the square rendered EMPTY: the component
+     * swaps photo every 5s and `key={potd.id}` unmounts the <img>, so a size
+     * Cloudflare had never generated never finished loading before it was
+     * destroyed — and a stalled request fires no error event, so the fallback
+     * never ran either.
+     *
+     * The URLs were fine (81-272ms measured). The carousel was the problem.
+     * Anyone re-adding this must first warm the derivatives or hold each photo
+     * until its image has decoded.
+     */
+    expect(code).not.toContain("cdnSrcSet");
+    expect(code).not.toContain("cdn-cgi");
   });
 });
 
