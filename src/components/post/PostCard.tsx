@@ -169,8 +169,11 @@ const PostCard = ({
     }
   };
 
+  // Phones: edge to edge, no box around it, one hairline between posts — the
+  // Instagram shape the owner asked for on 2026-08-10, with his screenshot.
+  // `md` and up is unchanged: a bordered card in the centred 590px column.
   return (
-    <div className="border border-border mb-2 md:mb-4 rounded-xl md:rounded-none overflow-hidden">
+    <div className="bleed-phone border-b border-border md:border mb-0 md:mb-4 overflow-hidden">
       {/* ── Header ── */}
       {/* Header. `pb-2` is load-bearing: it is the ONLY thing standing between
           the header and the media on a post with no caption. Until 2026-08-01
@@ -425,8 +428,16 @@ const PostCard = ({
       </div>
 
       {/* ── Action Bar ── */}
+      {/* TAP TARGETS, owner 2026-08-10: "too small / hard to tap".
+          Was `py-2` around a 20px icon — a 36px button, under Android's 48dp
+          minimum and iOS's 44pt, crammed to the left with `justify-start`.
+          Now every button is `flex-1` with `min-h-[48px]` and a 24px icon, so
+          the three targets divide the full width evenly. The icon itself is
+          bigger, not just the invisible hit area — the owner called an
+          invisible-only tap zone "fraud" on 2026-08-03, and he was right:
+          a fix you cannot see is indistinguishable from no fix. */}
       <div className="mx-2.5 border-t border-border select-none">
-        <div className="flex justify-start md:justify-stretch gap-1 md:gap-0">
+        <div className="flex justify-stretch gap-0">
           <ReactionPicker
             currentReaction={post.user_reaction}
             onReact={(type) => onReact(post.id, type)}
@@ -434,13 +445,16 @@ const PostCard = ({
             disabled={!currentUserId}
           />
           <button onClick={() => setCommentsExpanded(!commentsExpanded)}
-            className="md:flex-1 flex items-center justify-center md:gap-2 py-2 px-3 md:px-0 rounded-md my-1 text-sm font-semibold text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
-            <MessageCircle className="h-5 w-5" /> <span className="hidden md:inline">{t("post.comment")}</span>
+            aria-label={t("post.comment")}
+            className="basis-1/3 grow min-h-[48px] flex items-center justify-center md:gap-2 py-2 px-3 md:px-0 rounded-md my-1 text-sm font-semibold text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
+            <MessageCircle className="h-6 w-6 md:h-5 md:w-5" /> <span className="hidden md:inline">{t("post.comment")}</span>
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="md:flex-1 flex items-center justify-center md:gap-2 py-2 px-3 md:px-0 rounded-md my-1 text-sm font-semibold text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
-                <Share2 className="h-5 w-5" /> <span className="hidden md:inline">{t("post.share")}</span>
+              <button
+                aria-label={t("post.share")}
+                className="basis-1/3 grow min-h-[48px] flex items-center justify-center md:gap-2 py-2 px-3 md:px-0 rounded-md my-1 text-sm font-semibold text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
+                <Share2 className="h-6 w-6 md:h-5 md:w-5" /> <span className="hidden md:inline">{t("post.share")}</span>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
