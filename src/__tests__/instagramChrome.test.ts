@@ -155,3 +155,58 @@ describe("the admin is told the size the feed ad is actually cropped to", () => 
     expect(guide.toLowerCase()).toContain("no border");
   });
 });
+
+describe("nothing on the site is set in capitals or stretched apart", () => {
+  const raw = readFileSync(join(process.cwd(), "src/index.css"), "utf8");
+  /**
+   * lastIndexOf, not indexOf: the phrase "INSTAGRAM TYPE" also appears earlier
+   * in the file, in the comment that points at this block. And the comments are
+   * stripped before anything is asserted, because the block's own prose names
+   * `tracking-tight` and quotes font sizes — a source-scanning test that reads
+   * its own documentation is the trap this project has fallen into three times.
+   */
+  const block = raw
+    .slice(raw.lastIndexOf("INSTAGRAM TYPE"))
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^[\s\S]*?═══ \*\//, "");
+
+  it("exists at all", () => {
+    expect(raw, "the INSTAGRAM TYPE block is gone from src/index.css").toContain("INSTAGRAM TYPE");
+  });
+
+  it("turns off uppercase wherever it is applied", () => {
+    // `uppercase` appears 1,637 times in src/. This is the one place it can be
+    // switched off without touching any of them.
+    expect(block).toMatch(/\[class\*="uppercase"\]\s*\{\s*text-transform:\s*none;/);
+  });
+
+  it("removes wide letter-spacing, including every arbitrary value", () => {
+    // tracking-[0.15em] alone is used 534 times; an enumerated list would go
+    // stale the first time somebody writes a new value.
+    expect(block).toContain('[class*="tracking-["]');
+    for (const named of [".tracking-wide", ".tracking-wider", ".tracking-widest"]) {
+      expect(block).toContain(named);
+    }
+    expect(block).toMatch(/letter-spacing:\s*normal;/);
+  });
+
+  it("leaves the NEGATIVE tracking on display headings alone", () => {
+    // tracking-tight and tracking-tighter pull letters together; they are part
+    // of the headline style and were never what made text look big.
+    expect(block).not.toContain("tracking-tight");
+    expect(block).not.toContain("tracking-tighter");
+  });
+
+  it("changes no font size, so the readability floor still stands", () => {
+    // The owner asked for smaller-LOOKING text on the same day he asked that
+    // nothing render under 12px. Both hold only because this block touches
+    // casing and spacing and nothing else.
+    expect(block).not.toMatch(/font-size/);
+    expect(raw).toMatch(/font-size:\s*12px/);
+  });
+
+  it("also drops the 0.02em that was added to all small text", () => {
+    const baseRule = raw.slice(raw.indexOf("small, label, .text-xs"));
+    expect(baseRule.slice(0, 200)).toMatch(/letter-spacing:\s*normal;/);
+  });
+});
