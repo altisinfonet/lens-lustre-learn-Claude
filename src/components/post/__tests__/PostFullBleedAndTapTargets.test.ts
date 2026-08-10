@@ -213,11 +213,19 @@ describe("react, comment and share are thumb-sized", () => {
     expect(actionButtons).toMatch(/<MessageCircle className="h-6 w-6" strokeWidth=\{1\.75\} \/>/);
   });
 
-  it("writes the like count as a plain number, with no emoji in front of it", () => {
-    // Two coloured faces used to sit between the like button and the comment
-    // button, which is what broke the even spacing of the row. The breakdown by
-    // emoji still exists — it is what ReactionSummaryTooltip opens.
-    expect(actionButtons, "the emoji cluster is back in the row").not.toContain("REACTION_EMOJI_MAP");
+  it("shows WHICH reactions a post got, at the same size as the number", () => {
+    // I removed the emoji faces from the row to fix its spacing, and the owner
+    // had them put back on 2026-08-10: he had already said to KEEP the emoji
+    // reactions, so removing them from the feed was more than he asked for.
+    //
+    // They are 13px — the same as the number beside them, not larger — capped
+    // at the two most-used. That is what makes them fit; going back to 15px is
+    // what made the row uneven in the first place.
+    expect(actionButtons, "the emoji summary is gone from the row again").toContain("REACTION_EMOJI_MAP");
+    expect(actionButtons).toContain('className="text-[13px] leading-none"');
+    expect(actionButtons, "more than two faces will not fit").toContain("post.top_reactions.slice(0, 2)");
+    expect(actionButtons, "a post with reactions but no known type still needs a mark")
+      .toContain('<Heart className="h-3.5 w-3.5 text-rose-500" />');
     expect(actionButtons).toContain("ReactionSummaryTooltip");
   });
 
@@ -274,6 +282,23 @@ describe("the card is laid out in Instagram's order", () => {
     expect(actionButtons).toContain("post.like_count > 0");
     expect(actionButtons).toContain("post.comment_count > 0");
     expect(actionButtons).toContain("post.share_count > 0");
+  });
+
+  it("edits the caption in the SAME PLACE it is read", () => {
+    // When the caption moved below the action row the edit box was left where
+    // the caption used to be — above the photograph — so tapping "Edit caption"
+    // made the text jump the height of the picture. Owner had it corrected on
+    // 2026-08-10. They are now the two halves of one ternary, so the editor
+    // cannot be left behind if the caption ever moves again.
+    const captionBlock = postCard.slice(postCard.indexOf(CAPTION_ANCHOR), postCard.indexOf(COMMENTS_ANCHOR));
+    expect(captionBlock, "the editor is not in the caption's slot").toContain("{isEditing ? (");
+    expect(captionBlock).toContain("<Textarea");
+    expect(captionBlock).toContain("handleSaveCaption");
+    expect(captionBlock).toContain(") : (");
+    expect(captionBlock).toContain("<Caption");
+    // And nothing that edits a caption may sit above the photo any more.
+    const beforeMedia = postCard.slice(0, postCard.indexOf(MEDIA_ANCHOR));
+    expect(beforeMedia, "an edit box above the photo is the bug that was fixed").not.toContain("<Textarea");
   });
 
   it("writes the author's name in front of the caption, inside the clamp", () => {
