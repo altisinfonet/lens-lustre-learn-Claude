@@ -140,7 +140,7 @@ const FeedFriendSuggestions = () => {
       // `.container`'s 90% width with its own border and radius, so it was one
       // of the inset panels in his screenshot while the posts around it ran to
       // both edges. `bleed-phone` matches PostCard exactly.
-      className="bleed-phone border-b border-border overflow-hidden"
+      className="bleed-phone overflow-hidden"
       aria-label={t("sidebar.peopleYouMayKnow", "People you may know")}
     >
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
