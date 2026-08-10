@@ -62,10 +62,11 @@ export interface UnifiedPost {
    * "50mm Retina World with Avijit Sheel" (owner, 2026-08-10, with an
    * Instagram screenshot showing "vineet_vohra and ifp.festival").
    *
-   * ONLY status = 'approved' rows ever appear here. A pending tag is a request
-   * the tagged person has not answered, and a declined one is a refusal —
-   * showing either would put somebody's name on a post against their wish,
-   * which is the whole point of the accept/decline flow.
+   * 'approved' rows appear for everyone. 'pending' rows appear ONLY for the
+   * member who created the tag, flagged with `pending: true` — that is the
+   * owner's ruling of 2026-08-10. A 'declined' or 'removed' row NEVER appears
+   * for anybody: those are refusals, and the accept/decline flow exists exactly
+   * so that a refusal is honoured.
    *
    * Empty or absent = nothing is rendered. Names go through resolveName(), so
    * a tagged admin shows as the brand exactly like an author does.
@@ -73,8 +74,19 @@ export interface UnifiedPost {
   tagged_people?: TaggedPerson[];
 }
 
-/** One approved tag, already name-resolved for display. */
+/** One tag, already name-resolved for display. */
 export interface TaggedPerson {
   id: string;
   name: string;
+  /**
+   * TRUE when the tagged person has not accepted yet.
+   *
+   * A pending tag is shown ONLY to the member who created it (owner decision,
+   * 2026-08-10: "Show immediately, but only to me until accepted"), so that
+   * tagging visibly works straight away without putting a stranger's name on a
+   * photo before they have agreed. It is rendered differently — see
+   * TaggedPeople.tsx — because a name that looks public but is not would be a
+   * worse lie than showing nothing.
+   */
+  pending?: boolean;
 }
