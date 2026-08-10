@@ -922,10 +922,13 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
 
 
   return (
-    <div className="space-y-4">
+    // space-y-0 on phones so posts stack flush and the hairline between them is
+    // the only separator — a 16px gap plus no border read as floating text.
+    <div className="space-y-0 md:space-y-4">
       {/* ── Compose Box ── */}
+      {/* Compose box — same shape as a post: edge to edge on phones, card from md up. */}
       {isOwnWall && user && (
-        <div className="border border-border mb-2 md:mb-4 rounded-xl md:rounded-none overflow-hidden">
+        <div className="bleed-phone border-b border-border md:border mb-2 md:mb-4 overflow-hidden">
           <div className="flex items-start gap-3 p-3 pb-0">
             <Avatar src={currentProfile?.avatar_url || null} name={currentProfile?.full_name} size="md" />
             <div className="flex-1 min-w-0">
