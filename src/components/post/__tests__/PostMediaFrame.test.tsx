@@ -172,15 +172,24 @@ const POSTMEDIA_SRC = fs.readFileSync(
 );
 
 describe("PostMedia — CDN images load DIRECT, never via a transformer", () => {
-  it("shows the STORED thumbnail when the post has one — wherever it is hosted", () => {
-    // An old post: CDN original, Supabase-hosted thumbnail. The stored address
-    // is used verbatim — this is the case the derived address got wrong.
+  it("uses the STORED thumbnail address verbatim, never a derived one", () => {
+    // REWRITTEN 2026-08-10. This case used to assert that the stored thumbnail
+    // was the SHARP image. That was the photo-quality bug: a 600px file
+    // stretched across a full-width slot on every device. The rule it was
+    // really written to protect is different and still holds — when a thumbnail
+    // IS used, its address comes from `thumbUrls` verbatim and is never derived
+    // by string rule. So the assertion moved to the srcset, which is where the
+    // stored thumbnail now appears.
     const { container } = render(
       <PostMedia urls={[cdn("-w2560h1463.webp")]} thumbUrls={[sbThumb]} />,
     );
-    const src = sharpImg(container)!.getAttribute("src")!;
-    expect(src).toBe(sbThumb);
+    const img = sharpImg(container)!;
+    const src = img.getAttribute("src")!;
+    // The sharp layer is the ORIGINAL — full resolution, exactly as stored.
+    expect(src).toBe(cdn("-w2560h1463.webp"));
     expect(src).not.toContain("/cdn-cgi/image/");
+    // …and the stored thumbnail is offered beside it, byte-for-byte as given.
+    expect(img.getAttribute("srcset")).toContain(sbThumb);
   });
 
   it("shows the ORIGINAL, untouched, when no thumbnail is on record — never a guess", () => {
@@ -197,11 +206,43 @@ describe("PostMedia — CDN images load DIRECT, never via a transformer", () => 
     expect(POSTMEDIA_SRC).not.toMatch(/-thumb\.\$1/);
   });
 
-  it("no srcset — the thumbnail is a single fixed-size file", () => {
+  it("offers BOTH copies with true widths so the browser can pick", () => {
+    // REPLACES "no srcset — the thumbnail is a single fixed-size file"
+    // (2026-08-10). Having no srcset is exactly what forced every device onto
+    // the 600px copy: measured live, a 588px slot at DPR 1.125 needed 662
+    // device pixels and received 600. A phone at DPR 3 needed ~1,760.
+    //
+    // Device pixel ratio is the one input we cannot read at render time, so the
+    // choice belongs to the browser. Both addresses are stored; neither is
+    // derived.
     const { container } = render(
       <PostMedia urls={[cdn("-w2560h1463.webp")]} thumbUrls={[cdn("-w2560h1463-thumb.webp")]} />,
     );
+    const srcset = sharpImg(container)!.getAttribute("srcset")!;
+    expect(srcset).toBe(
+      `${cdn("-w2560h1463-thumb.webp")} 600w, ${cdn("-w2560h1463.webp")} 2560w`,
+    );
+  });
+
+  it("gives a PORTRAIT thumbnail its real width, not a flat 600", () => {
+    // The thumbnail is capped on its LONG edge, so a 1080x1350 portrait is 480
+    // wide. Declaring 600w would make the browser skip the original at exactly
+    // the sizes where it is needed — the upscaling this suite now guards.
+    const { container } = render(
+      <PostMedia urls={[cdn("-w1080h1350.webp")]} thumbUrls={[cdn("-w1080h1350-thumb.webp")]} />,
+    );
+    expect(sharpImg(container)!.getAttribute("srcset")).toBe(
+      `${cdn("-w1080h1350-thumb.webp")} 480w, ${cdn("-w1080h1350.webp")} 1080w`,
+    );
+  });
+
+  it("offers no srcset when the filename carries no dimensions to declare", () => {
+    // Rather than invent a width descriptor. A legacy filename has none.
+    const { container } = render(
+      <PostMedia urls={[cdn(".webp")]} thumbUrls={[cdn("-thumb.webp")]} />,
+    );
     expect(sharpImg(container)!.getAttribute("srcset")).toBeNull();
+    expect(sharpImg(container)!.getAttribute("src")).toBe(cdn(".webp"));
   });
 
   it("the 32px backdrop also uses the direct URL", () => {
