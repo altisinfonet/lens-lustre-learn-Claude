@@ -24,6 +24,7 @@ import { compressImageToFiles } from "@/lib/imageCompression";
 import { extractExif } from "@/lib/exifExtract";
 import { useAuth } from "@/hooks/core/useAuth";
 import { toast } from "sonner";
+import { safeRandomUUID } from "@/lib/safeUuid";
 
 interface EditEntryDialogProps {
   entryId: string;
@@ -153,7 +154,7 @@ export default function EditEntryDialog({ entryId, open, onOpenChange, onSaved }
     setReplacingIndex(i);
     try {
       const { exif, exif_available } = await extractExif(file);
-      const baseName = crypto.randomUUID();
+      const baseName = safeRandomUUID();
       const { webpFile } = await compressImageToFiles(file, baseName);
       const uploadResult = await uploadImageWithThumbnail({
         bucket: "competition-photos",
