@@ -36,6 +36,7 @@ import { scanFileWithToast } from "@/lib/fileSecurityScanner";
 import { extractExif, summarizeExif, type PhotoExif } from "@/lib/exifExtract";
 import { computeImageHash, type ImageHash } from "@/lib/imageHash";
 import { useT } from "@/i18n/I18nContext";
+import { safeRandomUUID } from "@/lib/safeUuid";
 
 interface PhotoCard {
   url: string;
@@ -149,7 +150,7 @@ const CompetitionSubmit = () => {
         let image_hash: ImageHash | null = null;
         try { image_hash = await computeImageHash(file); } catch { image_hash = null; }
 
-        const baseName = crypto.randomUUID();
+        const baseName = safeRandomUUID();
         const { webpFile } = await compressImageToFiles(file, baseName);
 
         const uploadResult = await uploadImageWithThumbnail({
