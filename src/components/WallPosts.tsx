@@ -925,10 +925,21 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     // space-y-0 on phones so posts stack flush and the hairline between them is
     // the only separator — a 16px gap plus no border read as floating text.
     <div className="space-y-0">
-      {/* ── Compose Box ── */}
-      {/* Compose box — same shape as a post: edge to edge on phones, card from md up. */}
+      {/* ── Compose Box ──
+          The composer wears the same shape as a post: full width, one hairline,
+          no box. Owner, 2026-08-10: "No border anything to anywhere". This was
+          the last `md:border` left in the feed — it drew a four-sided card
+          around "What's on your mind?" on every screen 768px and up, measured
+          live at 0.8px on all four sides while the posts under it had only
+          their bottom hairline.
+
+          This comment sits ABOVE the conditional deliberately. A {/* … *​/}
+          comment placed as the FIRST thing inside `{cond && ( … )}` is a second
+          JSX child and esbuild rejects the file — it broke this exact build
+          once already, and vitest does not catch it because only `vite build`
+          runs esbuild over the JSX. */}
       {isOwnWall && user && (
-        <div className="bleed-phone border-b border-border md:border mb-2 md:mb-4 overflow-hidden">
+        <div className="bleed-phone border-b border-border mb-0 overflow-hidden">
           <div className="flex items-start gap-3 p-3 pb-0">
             <Avatar src={currentProfile?.avatar_url || null} name={currentProfile?.full_name} size="md" />
             <div className="flex-1 min-w-0">
