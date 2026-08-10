@@ -78,8 +78,8 @@ describe("nothing in the feed is drawn as an inset box", () => {
     expect(frame, "the ad's own border is what made it look smaller than a post")
       .not.toMatch(/border border-border/);
     expect(frame).not.toMatch(/rounded/);
-    // The hairline under it is the same separator posts use.
-    expect(frame).toContain("border-b border-border");
+    // And no hairline either — "instagram has no border, why kept ??"
+    expect(frame).not.toMatch(/border/);
   });
 
   it("keeps the 4:5 crop the admin guidance promises", () => {
@@ -95,7 +95,7 @@ describe("nothing in the feed is drawn as an inset box", () => {
     const section = suggestions.slice(suggestions.indexOf("<section"), suggestions.indexOf("</section>"));
     expect(section.slice(0, 400)).toContain("bleed-phone");
     const opening = section.slice(0, section.indexOf(">") + 1);
-    expect(opening).not.toMatch(/border border-border/);
+    expect(opening).not.toMatch(/border/);
     expect(opening).not.toMatch(/rounded/);
   });
 });
@@ -107,7 +107,7 @@ describe("the composer is shaped like a post", () => {
     // Measured live on 2026-08-10 AFTER the posts were fixed: the composer was
     // still 0.8px on all four sides while every post under it had only its
     // bottom hairline. It was the last `md:border` left in the feed.
-    expect(wall).toContain('className="bleed-phone border-b border-border mb-0 overflow-hidden"');
+    expect(wall).toContain('className="bleed-phone mb-0 overflow-hidden"');
     expect(wall, "the composer's desktop card is back").not.toContain("md:border");
   });
 });
