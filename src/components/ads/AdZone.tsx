@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import DOMPurify from "dompurify";
 import { cn } from "@/lib/utils";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
+import { useSiteLogo } from "@/hooks/core/useSiteLogo";
 import {
   type AdZoneId,
   type AdZoneConfig,
@@ -135,6 +136,7 @@ const CreativeOverlay = ({ headline, subtext, cta }: { headline: string; subtext
 
 const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
   const { isAdmin } = useIsAdmin();
+  const siteLogo = useSiteLogo();
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [config, setConfig] = useState<AdZoneConfig | null>(null);
   const [creatives, setCreatives] = useState<AdCreative[] | null>(null);
@@ -317,11 +319,49 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
 
   return (
     <div ref={containerRef} className={cn(frame.wrapper, className)}>
-      {/* Instagram writes "Sponsored" as quiet small text, not as a spaced-out
-          capital banner. The pixel size is unchanged — the capitals and the
-          0.25em tracking were what made it loud. */}
+      {/* ── THE AD HAS A POST HEADER, BECAUSE INSTAGRAM'S DOES ──
+
+          Owner, 2026-08-10, with our feed beside Instagram's: "our site vs
+          Instagram.... see space between posts inclusing spoesnored posts too".
+
+          His screenshot showed the difference exactly. On Instagram an ad is a
+          post: a 32px avatar, the advertiser's name in bold, and the word "Ad"
+          on the line beneath — then the picture. Ours printed the single word
+          "Sponsored" hard against the previous post's caption, with no avatar
+          and no name, so it read as a stray banner dropped into the feed rather
+          than the next post.
+
+          The markup below is PostCard's header, copied deliberately:
+          `gap-2.5 p-3 pb-2`, a `w-8 h-8` round avatar, the name at
+          `text-sm font-semibold` and the second line at `text-xs` muted. Same
+          numbers, so the ad and the posts around it start at the same height
+          and the eye reads one rhythm. If PostCard's header ever changes, this
+          has to change with it.
+
+          The advertiser is the site itself — every creative in this system is
+          placed by an admin from the Advertisements panel, so the site logo and
+          name are the honest attribution. There is no per-advertiser identity
+          field on a creative; if one is ever added, it belongs here. */}
       {zone === "story-card" && (
-        <div className="px-3 pt-2.5 pb-2 text-xs text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>Sponsored</div>
+        <div className="flex items-center gap-2.5 p-3 pb-2">
+          <span className="shrink-0 inline-block w-8 h-8">
+            <img
+              src={siteLogo}
+              alt=""
+              width={32}
+              height={32}
+              loading="lazy"
+              decoding="async"
+              className="w-8 h-8 rounded-full object-cover"
+            />
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold truncate" style={{ fontFamily: "var(--font-heading)" }}>
+              50mm Retina World
+            </div>
+            <div className="text-xs text-muted-foreground">Sponsored</div>
+          </div>
+        </div>
       )}
 
       {/* GOOGLE (web AdSense) */}
