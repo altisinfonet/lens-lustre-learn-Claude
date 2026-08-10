@@ -1,4 +1,5 @@
 import { trackConversion, type ConversionType } from "@/lib/adSlots";
+import { safeRandomUUID } from "@/lib/safeUuid";
 
 const STORAGE_KEY = "ad_click_context";
 
@@ -14,7 +15,7 @@ interface AdClickContext {
 
 /** Generate a unique click ID */
 const generateClickId = (): string =>
-  `clk_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
+  `clk_${Date.now()}_${safeRandomUUID().slice(0, 8)}`;
 
 /** Append ad attribution query params to a URL */
 export const appendAdParams = (url: string, adId: string, clickId: string): string => {

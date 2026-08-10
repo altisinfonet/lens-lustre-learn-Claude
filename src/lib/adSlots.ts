@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import sidebarAdFixed from "@/assets/sidebar-ad-fixed.png";
 
 import { logger } from "@/lib/logger";
+import { safeRandomUUID } from "@/lib/safeUuid";
 
 const FILE = "src/lib/adSlots.ts";
 
@@ -115,7 +116,7 @@ const normalizeSlot = (raw: unknown): AdSlot | null => {
   const imageUrl = AD_IMAGE_FALLBACKS[rawImageUrl] ?? rawImageUrl;
 
   return {
-    id: asText(slot.id) || crypto.randomUUID(),
+    id: asText(slot.id) || safeRandomUUID(),
     name: asText(slot.name),
     placement,
     devices: asDevices(slot.devices),
@@ -187,7 +188,7 @@ const getAbSessionId = (): string => {
   const key = "ab_session_id";
   let id = sessionStorage.getItem(key);
   if (id) return id;
-  id = crypto.randomUUID();
+  id = safeRandomUUID();
   sessionStorage.setItem(key, id);
   return id;
 };
