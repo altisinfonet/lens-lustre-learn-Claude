@@ -23,7 +23,42 @@ on:
       - "ANDROID_BUILD_TRIGGER"
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # P11 — NOTHING IS BUILT UNTIL THIS PASSES.
+  #
+  # Owner requirement: an Android build must not be produced, signed, or uploaded
+  # to Play while this project's own security rules are failing. `build-aab`
+  # below carries `needs: security-gate`, so a red gate means the build job never
+  # starts — no .aab exists to upload by accident.
+  #
+  # WHY THIS RUNS `scripts/security-audit.mjs` AND NOTHING ELSE:
+  #   * It uses only Node built-ins, so a broken or unfetchable dependency cannot
+  #     stop it running — which is exactly when a security gate matters most.
+  #   * It is the ratchet that was tuned by hand until it stopped crying wolf:
+  #     the first run reported 14 blocking findings and the real number was 3.
+  #     A gate that is red every day is a gate nobody reads.
+  #   * Secrets-over-full-history and the production dependency audit already run
+  #     on EVERY push to main in `security.yml`. Repeating them here would add
+  #     minutes to every build and gate the phone release on a threshold that is
+  #     still being ratcheted down.
+  #
+  # It fails on CRITICAL or HIGH only. Measured 2026-08-10 on this commit:
+  # CRITICAL 0 · HIGH 0 · MEDIUM 2 · LOW 2 — PASS.
+  # ---------------------------------------------------------------------------
+  security-gate:
+    name: Security gate (blocks the build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: This project's own security rules
+        run: node scripts/security-audit.mjs
+
   build-aab:
+    needs: security-gate
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
