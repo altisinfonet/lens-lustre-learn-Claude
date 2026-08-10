@@ -123,8 +123,28 @@ Deno.serve(async (req) => {
     await adminClient.from("role_applications").update({ reviewed_by: null }).eq("reviewed_by", user_id);
     await adminClient.from("verification_requests").update({ reviewed_by: null }).eq("reviewed_by", user_id);
     await adminClient.from("withdrawal_requests").update({ reviewed_by: null }).eq("reviewed_by", user_id);
-    // BUG-050: anonymize the deleted user as an actor in other users' notifications
-    await adminClient.from("user_notifications").update({ actor_id: null }).eq("actor_id", user_id);
+
+    // ── actor_id is deliberately NOT nulled here. ──────────────────────────
+    // Owner chose option C on 2026-08-10: keep the id, let the profile go,
+    // and let the display say "A deleted account".
+    //
+    // Nulling it looked like anonymisation and was not. The row's
+    // reference_id still pointed at the same person, so the identity was
+    // recoverable anyway — while the bell lost the ONE fact it needed and
+    // read "A member started following you", which is the wording for a
+    // present member who has set no name. Two different facts, one sentence.
+    // Thirty-five live rows were in that state.
+    //
+    // Verified on production before this line was removed, because the whole
+    // change is pointless if something else nulls it anyway:
+    //   * user_notifications has ZERO foreign keys, so no ON DELETE SET NULL
+    //     and no constraint that could block the profile being deleted;
+    //   * no database function sets actor_id — admin_purge_orphan_user_data,
+    //     the only purge routine, does not touch it.
+    // These two edge functions were the only thing doing it.
+    //
+    // THE PROFILE BEING GONE IS THE ANONYMISATION. No name, no avatar, and
+    // nothing revealed that reference_id did not already carry.
 
     // BUG-111: purge the remaining user-referencing tables that were still orphaning
     // after BUG-050 (feed_events, ai_chat_usage, raw_commitments (PII), judge_* work +
