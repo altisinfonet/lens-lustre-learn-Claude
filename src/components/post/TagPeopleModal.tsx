@@ -186,8 +186,48 @@ export default function TagPeopleModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-3xl p-0 overflow-hidden bg-background">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+      {/**
+       * THE MODAL MUST FIT ON THE SCREEN. Owner report, 2026-08-09:
+       * *"Tag is not working on web and App on any post."*
+       *
+       * MEASURED on the live site, 2026-08-10, Chrome at a 710px viewport,
+       * with a photo attached and the photo tapped:
+       *
+       *   viewport height   710
+       *   dialog height    1020
+       *   dialog top       -155   ← above the top of the screen
+       *   dialog bottom     865   ← below the bottom of the screen
+       *   "Search friends" input top   755   ← 45px BELOW the screen edge
+       *   computed overflow-y   hidden
+       *   computed max-height   none
+       *
+       * The friend picker opened correctly — it just opened where nobody can
+       * see or reach it, and `overflow-hidden` meant it could not be scrolled
+       * to. Tapping the photo therefore looked like it did nothing. Tagging
+       * was not refused by anything; it was **impossible on any screen shorter
+       * than the dialog**, which is every laptop and every phone.
+       *
+       * (This is why the Error Log holds ZERO `POST-2005` tag-insert failures
+       * in 30 days. Nothing was ever refused, because nobody could ever get
+       * far enough to save a tag.)
+       *
+       * THREE THINGS KEEP IT ON SCREEN, and all three are load-bearing:
+       *   1. `max-h-[92vh]` — the base DialogContent ships `max-height: none`.
+       *   2. `flex flex-col` + a `flex-1 min-h-0 overflow-y-auto` body — so
+       *      anything that still does not fit can be scrolled to. `min-h-0`
+       *      is required: a flex child defaults to min-height:auto and will
+       *      refuse to shrink, which silently re-creates this bug.
+       *   3. the photo box is capped (see below), so the picker is reachable
+       *      without scrolling at all in the normal case.
+       *
+       * `vh` NOT `dvh`, deliberately. `dvh` needs Chromium 108+. The members
+       * hitting this are on old Android System WebViews — the same phones that
+       * lack `crypto.randomUUID` (Chromium 92). An unsupported unit is dropped
+       * silently, `max-height` returns to `none`, and the bug comes back on
+       * exactly the devices it hurts most.
+       */}
+      <DialogContent className="max-w-3xl p-0 overflow-hidden bg-background max-h-[92vh] flex flex-col">
+        <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-border">
           <button
             onClick={onClose}
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -205,12 +245,25 @@ export default function TagPeopleModal({
           </button>
         </div>
 
+        {/**
+         * The scrollable body. `min-h-0` is not decoration — without it this
+         * flex child keeps its content height and pushes the picker back off
+         * the screen, which is the whole bug.
+         */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
         {/* Photo + pin overlay */}
         <div className="relative bg-black">
+          {/**
+           * STILL SQUARE — on purpose. A pin is stored as a percentage of THIS
+           * box (see handlePhotoClick), so changing its shape would move every
+           * pin relative to the photo. `max-w-[60vh]` bounds the square by
+           * height without changing its aspect, which leaves the coordinate
+           * system exactly as it was and still leaves room for the picker.
+           */}
           <div
             ref={photoRef}
             onClick={handlePhotoClick}
-            className="relative w-full aspect-square cursor-crosshair select-none"
+            className="relative w-full max-w-[60vh] mx-auto aspect-square cursor-crosshair select-none"
           >
             <img
               src={imagePreviews[activePhotoIndex]}
@@ -354,6 +407,7 @@ export default function TagPeopleModal({
             </motion.div>
           )}
         </AnimatePresence>
+        </div>
       </DialogContent>
     </Dialog>
   );
