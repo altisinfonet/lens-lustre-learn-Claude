@@ -96,6 +96,11 @@ describe("nothing in the feed is drawn as an inset box", () => {
       .toContain('className="flex items-center gap-2.5 p-3 pb-2"');
     expect(block).toContain('className="w-8 h-8 rounded-full object-cover"');
     expect(block).toContain('className="text-sm font-semibold truncate"');
+    // The blue tick. Owner: "after 50mm retina world why verified blue tick
+    // missing here ??" — every other post by this same account carries it, and
+    // a name verified on one card but not the next reads as a different
+    // account. Same glyph and same 14px size UserBadgeInline uses.
+    expect(block, "the ad header lost its verified tick").toContain('<VerifiedBadge className="h-3.5 w-3.5" />');
     expect(block).toContain('className="text-xs text-muted-foreground"');
     expect(block).toContain("Sponsored");
     expect(block, "the bare one-word label is back").not.toMatch(
