@@ -27,7 +27,7 @@ interface TagPeopleModalProps {
   onConfirm: (tags: PendingTag[]) => void;
 }
 
-interface FriendOption {
+interface PersonOption {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
@@ -38,7 +38,7 @@ const MAX_TAGS = 20;
 /**
  * Instagram-style after-upload tagging modal.
  * - Tap photo to drop a pin
- * - Search friends to assign to that pin
+ * - Search any member to assign to that pin (consent is the pending→approved step)
  * - Tags are stored as drafts; persisted by parent on post insert
  */
 export default function TagPeopleModal({
@@ -54,8 +54,8 @@ export default function TagPeopleModal({
   const [pendingPin, setPendingPin] = useState<{ x: number; y: number } | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [friends, setFriends] = useState<FriendOption[]>([]);
-  const [loadingFriends, setLoadingFriends] = useState(false);
+  const [people, setPeople] = useState<PersonOption[]>([]);
+  const [loadingPeople, setLoadingPeople] = useState(false);
   const photoRef = useRef<HTMLDivElement>(null);
 
   // Reset state when modal opens
@@ -70,58 +70,76 @@ export default function TagPeopleModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Load accepted friends once when search panel opens
+  /**
+   * ANYONE CAN TAG ANYONE — owner decision, 2026-08-10:
+   * *"anyone tag anyone. not block it by ONLY friends"*.
+   *
+   * This used to read `friendships` (status = 'accepted') and look up only
+   * those profiles, so the picker was empty for anybody without an accepted
+   * friend — the owner's own account included. It now searches every member.
+   *
+   * CONSENT IS NOT LOST BY THIS. It moved, it did not disappear:
+   *   * a new tag is created `status = 'pending'`;
+   *   * the RLS policy "Anyone views approved tags" means a pending tag is
+   *     visible ONLY to the tagger, the tagged member and the post owner;
+   *   * only the tagged member can move it to 'approved' (validate_post_tag_update);
+   *   * once they decline, the tagger can never re-tag them on that post;
+   *   * no self-tagging, and 20 tags per post maximum.
+   * So being tagged still requires the tagged person to say yes before anyone
+   * else sees it. Removing the friend gate widens who may ASK, not who appears.
+   *
+   * The matching database change is
+   * `supabase/migrations/20260810120000_tag_anyone_not_only_friends.sql` —
+   * the `validate_post_tag_insert` trigger raised
+   * *"You can only tag accepted friends"* and would have refused every tag
+   * this picker now offers. Both halves are required; neither works alone.
+   *
+   * SEARCHED SERVER-SIDE, not filtered in the browser: the member list only
+   * grows, and shipping all of it to every phone to filter locally is the kind
+   * of thing that is fine at 90 members and painful at 9,000.
+   */
   useEffect(() => {
-    if (!searchOpen || !user || friends.length > 0) return;
+    if (!searchOpen || !user) return;
     let active = true;
-    setLoadingFriends(true);
-    (async () => {
-      const { data, error } = await supabase
-        .from("friendships")
-        .select("requester_id, addressee_id, status")
-        .eq("status", "accepted")
-        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
+    const q = searchTerm.trim();
+    // Debounced so a fast typist does not fire a request per keystroke.
+    const timer = setTimeout(() => {
+      setLoadingPeople(true);
+      void (async () => {
+        // Filters first, then modifiers — that is the order the generated
+        // PostgREST types expect, and it keeps this free of `as any`.
+        let filtered = supabase
+          .from("profiles_public_data")
+          .select("id, full_name, avatar_url")
+          .neq("id", user.id);
+        if (q) filtered = filtered.ilike("full_name", `%${q}%`);
 
-      if (!active) return;
-      if (error) {
-        toast({ title: "Couldn't load friends", description: error.message, variant: "destructive" });
-        setLoadingFriends(false);
-        return;
-      }
-
-      const friendIds = (data || [])
-        .map((f) => (f.requester_id === user.id ? f.addressee_id : f.requester_id))
-        .filter(Boolean);
-
-      if (friendIds.length === 0) {
-        setFriends([]);
-        setLoadingFriends(false);
-        return;
-      }
-
-      const { data: profiles } = await supabase
-        .from("profiles_public_data")
-        .select("id, full_name, avatar_url")
-        .in("id", friendIds);
-
-      if (!active) return;
-      setFriends((profiles || []) as FriendOption[]);
-      setLoadingFriends(false);
-    })();
+        const { data, error } = await filtered
+          .order("full_name", { ascending: true })
+          .limit(30);
+        if (!active) return;
+        if (error) {
+          toast({ title: "Couldn't load people", description: error.message, variant: "destructive" });
+          setLoadingPeople(false);
+          return;
+        }
+        setPeople((data || []) as PersonOption[]);
+        setLoadingPeople(false);
+      })();
+    }, q ? 200 : 0);
     return () => {
       active = false;
+      clearTimeout(timer);
     };
-  }, [searchOpen, user, friends.length]);
+  }, [searchOpen, user, searchTerm]);
 
-  const filteredFriends = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    const tagsOnThisPhoto = tags.filter((t) => t.photoIndex === activePhotoIndex);
-    const usedIds = new Set(tagsOnThisPhoto.map((t) => t.taggedUserId));
-    return friends
-      .filter((f) => !usedIds.has(f.id))
-      .filter((f) => !q || (f.full_name || "").toLowerCase().includes(q))
-      .slice(0, 50);
-  }, [friends, searchTerm, tags, activePhotoIndex]);
+  /** Only hide people already pinned on THIS photo; the name filter is server-side. */
+  const visiblePeople = useMemo(() => {
+    const usedIds = new Set(
+      tags.filter((t) => t.photoIndex === activePhotoIndex).map((t) => t.taggedUserId),
+    );
+    return people.filter((p) => !usedIds.has(p.id));
+  }, [people, tags, activePhotoIndex]);
 
   const tagsForCurrentPhoto = useMemo(
     () => tags.filter((t) => t.photoIndex === activePhotoIndex),
@@ -147,8 +165,8 @@ export default function TagPeopleModal({
     [tags.length]
   );
 
-  const handleSelectFriend = useCallback(
-    (friend: FriendOption) => {
+  const handleSelectPerson = useCallback(
+    (friend: PersonOption) => {
       if (!pendingPin) return;
       setTags((prev) => [
         ...prev,
@@ -310,6 +328,100 @@ export default function TagPeopleModal({
                 <div className="w-4 h-4 bg-primary rounded-full ring-2 ring-background shadow-lg animate-pulse" />
               </motion.div>
             )}
+
+            {/**
+             * THE PICKER OPENS AT THE PIN — owner instruction, 2026-08-10:
+             * *"dont open the search box below of it, open the search box small
+             * (now tooo big) but exactly where pointer marked, same for App."*
+             *
+             * It used to be a full-width panel that slid up from the bottom of
+             * the dialog. Two things were wrong with that: it was far from the
+             * pin you had just placed, and it made the dialog tall enough to
+             * run off the screen entirely (see the header of this file for the
+             * measurements). Anchoring it to the pin fixes both at once — the
+             * choice happens where you are looking, and the dialog stops
+             * growing when you tap.
+             *
+             * STAYING INSIDE THE PHOTO, on a phone as well as a desktop:
+             *   * `clamp(120px, x%, calc(100% - 120px))` keeps a 230px-wide
+             *     popover fully inside the photo however close to an edge you
+             *     tap. 120px is half its width plus a small gutter. `clamp()`
+             *     is Chromium 79 — older than the WebViews these members run
+             *     (see the `vh` note in the header; same reasoning).
+             *   * Below 58% of the height it opens UPWARD, so a tag near the
+             *     bottom of the photo does not push the list out of sight.
+             *
+             * `stopPropagation` is load-bearing: without it every tap inside
+             * the popover reaches the photo's own click handler and moves the
+             * pin out from under you.
+             */}
+            {pendingPin && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="absolute z-30 w-[230px] rounded-lg border border-border bg-popover shadow-xl overflow-hidden"
+                style={{
+                  left: `clamp(120px, ${pendingPin.x}%, calc(100% - 120px))`,
+                  top: `${pendingPin.y}%`,
+                  transform:
+                    pendingPin.y > 58
+                      ? "translate(-50%, calc(-100% - 16px))"
+                      : "translate(-50%, 16px)",
+                }}
+              >
+                <div className="flex items-center gap-1 p-1.5 border-b border-border">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                    <input
+                      autoFocus
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Search people…"
+                      className="w-full pl-7 pr-2 py-1 text-xs bg-muted rounded border border-border focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <button
+                    onClick={handleCancelPin}
+                    className="p-1 text-muted-foreground hover:text-foreground shrink-0"
+                    aria-label="Cancel this tag"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                <div className="max-h-[168px] overflow-y-auto overscroll-contain">
+                  {loadingPeople ? (
+                    <p className="text-[11px] text-muted-foreground px-2 py-3 text-center">Searching…</p>
+                  ) : visiblePeople.length === 0 ? (
+                    <p className="text-[11px] leading-snug text-muted-foreground px-2 py-3 text-center">
+                      {searchTerm.trim() ? "Nobody by that name." : "No members to tag yet."}
+                    </p>
+                  ) : (
+                    visiblePeople.map((f) => (
+                      <button
+                        key={f.id}
+                        onClick={() => handleSelectPerson(f)}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-muted transition-colors text-left"
+                      >
+                        {f.avatar_url ? (
+                          <img
+                            src={f.avatar_url}
+                            alt=""
+                            className="w-6 h-6 rounded-full object-cover shrink-0"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] text-primary shrink-0">
+                            {(f.full_name || "?")[0]?.toUpperCase()}
+                          </div>
+                        )}
+                        <span className="text-xs truncate">{f.full_name || "Unknown"}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Photo navigation dots (multi-image posts) */}
@@ -340,73 +452,6 @@ export default function TagPeopleModal({
           </span>
         </div>
 
-        {/* Friend search panel (slides up when pin placed) */}
-        <AnimatePresence>
-          {searchOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="border-t border-border overflow-hidden"
-            >
-              <div className="p-3">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <input
-                      autoFocus
-                      type="text"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="Search friends..."
-                      className="w-full pl-8 pr-3 py-2 text-sm bg-muted rounded-md border border-border focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-                  <button
-                    onClick={handleCancelPin}
-                    className="text-xs text-muted-foreground hover:text-foreground px-2"
-                  >
-                    Cancel
-                  </button>
-                </div>
-
-                <div className="max-h-56 overflow-y-auto -mx-1">
-                  {loadingFriends ? (
-                    <p className="text-xs text-muted-foreground px-3 py-4 text-center">Loading friends…</p>
-                  ) : filteredFriends.length === 0 ? (
-                    <p className="text-xs text-muted-foreground px-3 py-4 text-center">
-                      {friends.length === 0
-                        ? "You can only tag accepted friends. Add some friends first."
-                        : "No matching friends."}
-                    </p>
-                  ) : (
-                    filteredFriends.map((f) => (
-                      <button
-                        key={f.id}
-                        onClick={() => handleSelectFriend(f)}
-                        className="w-full flex items-center gap-3 px-3 py-2 hover:bg-muted rounded-md transition-colors text-left"
-                      >
-                        {f.avatar_url ? (
-                          <img
-                            src={f.avatar_url}
-                            alt=""
-                            className="w-8 h-8 rounded-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs text-primary">
-                            {(f.full_name || "?")[0]?.toUpperCase()}
-                          </div>
-                        )}
-                        <span className="text-sm">{f.full_name || "Unknown"}</span>
-                      </button>
-                    ))
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
         </div>
       </DialogContent>
     </Dialog>
