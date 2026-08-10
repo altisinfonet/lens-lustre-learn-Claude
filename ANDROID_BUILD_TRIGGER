@@ -815,3 +815,7 @@ Speed, and photos the way you shot them:
 1065 — No border anywhere at all, including the line between two posts.
        Share is Instagram's paper plane, icons at a lighter 1.75 stroke, and
        the like count is a plain number with no emoji in front of it.
+1066 — One fixed 16px gap between every post, defined in one place. The gap was
+       21px, 23px, 34px and once MINUS 1px on the live feed because it was
+       whatever the last element's padding happened to be. Thumbs-up now
+       carries the same 1.75 stroke as the comment and share icons.
