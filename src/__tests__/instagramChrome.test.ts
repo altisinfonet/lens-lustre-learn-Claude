@@ -82,6 +82,30 @@ describe("nothing in the feed is drawn as an inset box", () => {
     expect(frame).not.toMatch(/border/);
   });
 
+  it("gives the sponsored card a post header — avatar, name, and Sponsored", () => {
+    // Owner, 2026-08-10, with our feed beside Instagram's: "our site vs
+    // Instagram.... see space between posts inclusing spoesnored posts too".
+    // On Instagram an ad IS a post — 32px avatar, advertiser name in bold, "Ad"
+    // beneath. Ours printed the bare word "Sponsored" with no avatar and no
+    // name, hard against the previous post's caption.
+    const header = adZone.slice(adZone.indexOf('{zone === "story-card" && ('));
+    const block = header.slice(0, header.indexOf("{/* GOOGLE"));
+    // The numbers are PostCard's header, copied so both start at the same
+    // height and the feed reads as one rhythm.
+    expect(block, "the ad header must match the post header exactly")
+      .toContain('className="flex items-center gap-2.5 p-3 pb-2"');
+    expect(block).toContain('className="w-8 h-8 rounded-full object-cover"');
+    expect(block).toContain('className="text-sm font-semibold truncate"');
+    expect(block).toContain('className="text-xs text-muted-foreground"');
+    expect(block).toContain("Sponsored");
+    expect(block, "the bare one-word label is back").not.toMatch(
+      /<div className="px-3 pt-2\.5 pb-2 text-xs text-muted-foreground"/,
+    );
+    const post = code("src/components/post/PostCard.tsx");
+    expect(post, "PostCard's header moved — the ad header has to follow it")
+      .toContain('className="flex items-center gap-2.5 p-3 pb-2"');
+  });
+
   it("keeps the 4:5 crop the admin guidance promises", () => {
     expect(adZone).toMatch(/aspect: "4 \/ 5"/);
   });
