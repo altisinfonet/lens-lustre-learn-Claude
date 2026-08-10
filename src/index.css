@@ -301,6 +301,45 @@
   padding-right: 0 !important;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * POSTS RUN EDGE TO EDGE ON PHONES.        (owner, 2026-08-10, with a
+ *                                           side-by-side Instagram screenshot)
+ *
+ * WHAT WAS WRONG, measured — not guessed
+ *   `.container` above sets `width: 90% !important`, so every page column sits
+ *   5% in from each screen edge. On a 400px phone that is a 20px dead strip
+ *   down both sides of every photograph. The comment on that rule says
+ *   "Enforce full-bleed containers site-wide", which is the opposite of what
+ *   `width: 90%` does — it has read as intentional ever since.
+ *
+ * WHY THE 90% IS NOT SIMPLY CHANGED
+ *   `.container` is used in 150 places — the navbar, the footer, Journal,
+ *   Dashboard, Friends, Certificates and more. On those pages the 5% IS the
+ *   page gutter, and text would run into the screen edge without it. Changing
+ *   one number would have "fixed" the feed and broken everything else.
+ *
+ * WHAT THIS DOES INSTEAD
+ *   A post opts OUT of its parent's width, by itself, on phones only.
+ *   `margin-left: calc(50% - 50vw)` — the 50% resolves against the parent, the
+ *   50vw against the screen — pulls each edge out to the viewport exactly,
+ *   whatever the parent happens to be. No magic numbers, nothing to keep in
+ *   sync with `.container`, and no other page is touched.
+ *
+ *   `body { overflow-x: hidden }` (App.css) is what keeps this from creating a
+ *   sideways scrollbar. Do not remove it.
+ *
+ * ONLY BELOW 768px. From `md` up the post is a bordered card in a centred
+ * 590px column, exactly as before — that layout was never the complaint.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 767.98px) {
+  .bleed-phone {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    border-radius: 0;
+  }
+}
+
 /* Webkit backdrop-blur fallback */
 @supports not (backdrop-filter: blur(1px)) {
   .backdrop-blur-sm,
