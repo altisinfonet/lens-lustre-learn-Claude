@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { publicUrl } from "@/lib/publicUrl";
 import { Link } from "react-router-dom";
-import { MessageCircle, Share2, Copy, MoreHorizontal, Trash2, Flag, Heart, Repeat, Eye, Pencil, UserPlus, Users } from "lucide-react";
+import { MessageCircle, Share2, Copy, MoreHorizontal, Trash2, Flag, Heart, Repeat, Eye, Pencil, UserPlus, UserMinus, Users } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +23,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import type { UnifiedPost } from "@/types/post";
 import { useT } from "@/i18n/I18nContext";
 import { useSendFriendRequest } from "@/hooks/social/useFriendshipMutations";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
 
 const displayFont = { fontFamily: "var(--font-display)" };
 const headingFont = { fontFamily: "var(--font-heading)" };
@@ -62,6 +64,7 @@ const PostCard = ({
   onContentChange,
 }: PostCardProps) => {
   const t = useT();
+  const queryClient = useQueryClient();
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [reportingOpen, setReportingOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
@@ -109,6 +112,15 @@ const PostCard = ({
     toast({ title: "Caption updated" });
   };
 
+  /**
+   * Is the person looking at this post tagged in it? Drives the Remove control.
+   * Signed-out visitors have no id, so `currentUserId &&` is load-bearing —
+   * without it an undefined id could match an undefined tag id.
+   */
+  const viewerIsTagged = Boolean(
+    currentUserId && (post.tagged_people ?? []).some((t) => t.id === currentUserId),
+  );
+
   const imageUrls = post.image_urls.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
   // Stored thumbnails ride along ONLY when they align one-to-one with the
   // images. A mismatched array (single-image fallback path, partial uploads)
@@ -141,6 +153,55 @@ const PostCard = ({
     setReportingOpen(false);
     setReportReason("");
     setActionLoading(false);
+  };
+
+  /**
+   * REMOVE MY OWN TAG — available to the tagged member at ANY time.
+   *
+   * Owner ruling, 2026-08-10: "Show immediately to public, but tagged person
+   * only can remove my Tag anytime." Making a pending tag public without this
+   * control would have been the harmful half of that sentence on its own:
+   * anyone may tag anyone (shipped the same day), so a member could have had
+   * their name on a stranger's photo with no way to take it off. Accept/Decline
+   * on the bell notification only ever worked while the tag was still pending
+   * and only until the notification was dismissed.
+   *
+   * The database already allowed this and nothing here weakens it: the policy
+   * "Tagged user updates tag status" is USING (auth.uid() = tagged_user_id)
+   * with NO status condition, and validate_post_tag_update() refuses to let any
+   * column but `status`/`responded_at` change and refuses the update outright
+   * unless auth.uid() is the tagged user. So this can only ever remove YOUR OWN
+   * tag, on any status, and cannot touch the post or anybody else's tag.
+   */
+  const removeMyTag = async () => {
+    if (!currentUserId || actionLoading) return;
+    setActionLoading(true);
+    const { data, error } = await supabase
+      .from("post_tags")
+      .update({ status: "removed" })
+      .eq("post_id", post.id)
+      .eq("tagged_user_id", currentUserId)
+      .select("id");
+    setActionLoading(false);
+    if (error) {
+      toast({ title: "Couldn't remove the tag", description: error.message, variant: "destructive" });
+      return;
+    }
+    // A write that succeeds but changes ZERO rows is the signature of an RLS
+    // refusal, and it would otherwise look like success while the name stayed
+    // on the photo. Say so instead of lying.
+    if (!data || data.length === 0) {
+      toast({
+        title: "Tag not removed",
+        description: "The tag could not be found, or it is not yours to remove.",
+        variant: "destructive",
+      });
+      return;
+    }
+    toast({ title: "Tag removed", description: "Your name no longer appears on this post." });
+    // Both surfaces read tags, so both have to be refreshed.
+    queryClient.invalidateQueries({ queryKey: queryKeys.feed() });
+    queryClient.invalidateQueries({ queryKey: ["user-wall-posts"] });
   };
 
   const copyLink = () => {
@@ -268,12 +329,30 @@ const PostCard = ({
                   >
                     <Pencil className="h-4 w-4 mr-2.5" /> Edit caption
                   </DropdownMenuItem>
+                  {viewerIsTagged && (
+                    <DropdownMenuItem
+                      onClick={removeMyTag}
+                      disabled={actionLoading}
+                      className="py-2.5"
+                    >
+                      <UserMinus className="h-4 w-4 mr-2.5" /> Remove tag of me
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={handleDelete} disabled={actionLoading} className="text-destructive focus:text-destructive py-2.5">
                     <Trash2 className="h-4 w-4 mr-2.5" /> Move to trash
                   </DropdownMenuItem>
                 </>
               ) : (
                 <>
+                  {viewerIsTagged && (
+                    <DropdownMenuItem
+                      onClick={removeMyTag}
+                      disabled={actionLoading}
+                      className="text-destructive focus:text-destructive py-2.5"
+                    >
+                      <UserMinus className="h-4 w-4 mr-2.5" /> Remove tag of me
+                    </DropdownMenuItem>
+                  )}
                   {onRemoveShare && post.is_reshare && (
                     <DropdownMenuItem
                       onClick={() => onRemoveShare(post.id)}

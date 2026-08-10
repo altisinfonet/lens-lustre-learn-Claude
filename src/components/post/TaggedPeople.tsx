@@ -31,8 +31,22 @@ import type { TaggedPerson } from "@/types/post";
  * promises 19 more people and a list of 19 would be a different set from the 20
  * who are actually tagged.
  *
- * Only APPROVED tags ever reach here — that filter lives in the feed query, so
- * a pending request or a refusal can never put someone's name on a post.
+ * WHO SEES WHAT — owner ruling, 2026-08-10. He was asked, answered, and then
+ * REPLACED his answer within the hour with:
+ *
+ *   "Show immediately to public, but tagged person only can remove my Tag
+ *    anytime. This is my updated answer"
+ *
+ *   * PENDING and ACCEPTED -> everybody sees the name, in the same type. There
+ *     is deliberately NO visual difference: under this rule a pending tag is
+ *     just as public as an accepted one, so marking it "not accepted yet" would
+ *     be a lie in the opposite direction.
+ *   * DECLINED / REMOVED   -> nobody ever sees it. A refusal is a refusal.
+ *
+ * What makes publishing a pending tag safe is the other half of his sentence:
+ * a tagged member can remove their own tag at ANY time from the post menu
+ * ("Remove tag of me" in PostCard). Publishing without that control would have
+ * put a member's name on a stranger's photo with no way to take it off.
  */
 
 interface Props {
