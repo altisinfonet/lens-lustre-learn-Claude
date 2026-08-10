@@ -824,3 +824,8 @@ Speed, and photos the way you shot them:
        measured on the live feed as exactly 16px, every time.
 1068 — The sponsored header carries the verified tick, the same one every other
        post by that account shows.
+1069 — Three things I got wrong in 1068, fixed:
+       * a computer could no longer refresh the feed at all (pull-to-refresh is
+         touch-only) — overscrolling upward with the wheel now does it;
+       * the emoji summary is back beside the like count, at 13px;
+       * Edit caption opens where the caption is, not above the photograph.
