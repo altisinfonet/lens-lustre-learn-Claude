@@ -103,22 +103,28 @@ describe("a post reaches both edges of the phone", () => {
     expect(read("src/App.css")).toMatch(/overflow-x:\s*hidden/);
   });
 
-  it("has NO box drawn around it — on a phone or on a desktop", () => {
-    // "I told No border anything to anywhere, example like Instagram." A
-    // hairline BETWEEN posts is the separator and stays; a four-sided border is
-    // the box he asked to remove, and `md:border` used to restore that box on
-    // every screen 768px and up.
-    expect(postCardRoot).toContain("border-b");
+  it("draws NO border on any edge, at any screen size", () => {
+    // Two instructions, both his, both on 2026-08-10. First "I told No border
+    // anything to anywhere, example like Instagram", which took away
+    // `md:border` and the desktop card. Then, looking at the result: "between
+    // two posts there is line, but instagram has no border, why kept ??" — so
+    // the separating hairline went as well.
+    expect(postCardRoot, "the separator between posts is back").not.toContain("border-b");
     expect(postCardRoot, "md:border puts the desktop card back").not.toContain("md:border");
-    expect(postCardRoot).not.toMatch(/(^|\s)border\s/);
+    expect(postCardRoot).not.toMatch(/border/);
     expect(postCardRoot, "rounded corners at a screen edge look broken").not.toMatch(/rounded/);
+    expect(skeleton, "the loading placeholder must match").not.toMatch(/border/);
   });
 
-  it("stacks posts flush so the hairline is the only separator", () => {
+  it("stacks posts flush, with the next post's header as the only gap", () => {
+    // Nothing separates two posts now except the 12px of `p-3` at the top of
+    // the next one. That is what Instagram does and it is why no border is
+    // needed: a name and clear space sit between one photograph and the next.
     expect(postCardRoot).toContain("mb-0");
     expect(postCardRoot, "a gap with no border reads as floating text").not.toContain("md:mb-4");
     expect(wall).toContain('className="space-y-0"');
     expect(wall, "the wall must not reintroduce the desktop gap").not.toContain("md:space-y-4");
+    expect(postCard, "the header's padding is the separator now").toContain("flex items-center gap-2.5 p-3 pb-2");
   });
 });
 
@@ -182,6 +188,23 @@ describe("react, comment and share are thumb-sized", () => {
     const grown = actionButtons.match(/className="h-6 w-6"/g) ?? [];
     expect(grown.length).toBe(2);
     expect(picker).toContain('className="h-6 w-6"');
+  });
+
+  it("uses Instagram's paper plane for share, and its lighter stroke", () => {
+    // Share2 is a three-node network glyph — heavier than anything in
+    // Instagram's row and not the shape anyone recognises as "send". Lucide's
+    // default stroke is 2; Instagram's outline icons are visibly thinner.
+    expect(actionButtons, "the network-nodes glyph is back").not.toMatch(/<Share2 className="h-6 w-6"/);
+    expect(actionButtons).toMatch(/<Send className="h-6 w-6" strokeWidth=\{1\.75\} \/>/);
+    expect(actionButtons).toMatch(/<MessageCircle className="h-6 w-6" strokeWidth=\{1\.75\} \/>/);
+  });
+
+  it("writes the like count as a plain number, with no emoji in front of it", () => {
+    // Two coloured faces used to sit between the like button and the comment
+    // button, which is what broke the even spacing of the row. The breakdown by
+    // emoji still exists — it is what ReactionSummaryTooltip opens.
+    expect(actionButtons, "the emoji cluster is back in the row").not.toContain("REACTION_EMOJI_MAP");
+    expect(actionButtons).toContain("ReactionSummaryTooltip");
   });
 
   it("renders the chosen reaction in the SAME 24px box as the outline icons", () => {
