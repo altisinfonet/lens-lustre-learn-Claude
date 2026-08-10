@@ -123,7 +123,7 @@ async function enrichPosts(
   // 3 queries instead of 4: merge reaction queries into ONE, filter user reactions client-side
   // Plus one small query for friendship state, so the "Add friend" button is
   // never offered for someone a friendship row already exists with.
-  const [profileMapRes, allReactionsRes, adminIds, friendshipsRes, viewCountsRes, thumbsRes] =
+  const [profileMapRes, allReactionsRes, adminIds, friendshipsRes, viewCountsRes, thumbsRes, tagsRes] =
     await Promise.all([
       fetchProfileMap(authorIds),
       supabase.from("post_reactions").select("post_id, reaction_type, user_id").in("post_id", postIds),
@@ -141,7 +141,47 @@ async function enrichPosts(
       // RLS applies as normal; a post the RPC returned is a post this member
       // can read. If this query fails the feed simply shows originals.
       supabase.from("posts").select("id, thumbnail_urls").in("id", postIds),
+      // APPROVED tags only — see the note on UnifiedPost.tagged_people. A
+      // pending tag has not been agreed to and a declined one was refused;
+      // rendering either would put a member's name on a post against their
+      // wish. One query per page, rides the same Promise.all.
+      supabase
+        .from("post_tags")
+        .select("post_id, tagged_user_id")
+        .in("post_id", postIds)
+        .eq("status", "approved"),
     ]);
+
+  /**
+   * post_id -> approved tags, name-resolved.
+   *
+   * The tagged people are usually NOT the post authors, so their names are not
+   * in `profileMap` (which was built from authorIds). One extra profile fetch
+   * is made, and ONLY when at least one approved tag exists on the page — a
+   * feed with no tags costs nothing extra. fetchProfileMap is the same
+   * entity-cached path the rest of the app uses, so names already on screen
+   * elsewhere are served from cache rather than refetched.
+   */
+  const tagRows =
+    ((tagsRes as { data?: { post_id: string; tagged_user_id: string }[] })?.data) || [];
+  const taggedMap = new Map<string, { id: string; name: string }[]>();
+  if (tagRows.length > 0) {
+    const taggedIds = [...new Set(tagRows.map((r) => r.tagged_user_id))];
+    const tagProfiles = await fetchProfileMap(taggedIds);
+    for (const r of tagRows) {
+      const list = taggedMap.get(r.post_id) || [];
+      list.push({
+        id: r.tagged_user_id,
+        // Same rule as the author line: an admin is the brand, never a real name.
+        name: resolveName(
+          r.tagged_user_id,
+          tagProfiles.get(r.tagged_user_id)?.full_name ?? null,
+          adminIds,
+        ),
+      });
+      taggedMap.set(r.post_id, list);
+    }
+  }
 
   const thumbsMap = new Map<string, (string | null)[] | null>();
   ((thumbsRes as { data?: { id: string; thumbnail_urls: (string | null)[] | null }[] })?.data || [])
@@ -214,6 +254,7 @@ async function enrichPosts(
         ? ("unavailable" as const)
         : (friendStateMap.get(p.user_id) ?? "none"),
       views: viewCountMap.get(p.id) ?? 0,
+      tagged_people: taggedMap.get(p.id) ?? [],
     };
   });
 }

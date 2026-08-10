@@ -81,11 +81,45 @@ async function fetchAndEnrich(
   const postIds = postsData.map((p) => p.id);
 
   // Merge reaction queries into ONE — filter user reactions client-side
-  const [profileMap, adminIds, allReactionsRes] = await Promise.all([
+  const [profileMap, adminIds, allReactionsRes, tagsRes] = await Promise.all([
     fetchProfileMap(authorIds),
     getAdminIds(),
     supabase.from("post_reactions").select("post_id, reaction_type, user_id").in("post_id", postIds),
+    // APPROVED tags only, exactly as the feed does — see UnifiedPost.tagged_people.
+    // A pending tag has not been agreed to and a declined one was refused.
+    supabase
+      .from("post_tags")
+      .select("post_id, tagged_user_id")
+      .in("post_id", postIds)
+      .eq("status", "approved"),
   ]);
+
+  /**
+   * post_id -> approved tags, name-resolved. The wall must say the same thing
+   * as the feed about the same post; a header that reads "with Avijit Sheel"
+   * in one place and nothing in the other is the class of split-brain bug
+   * describeNotification exists to prevent.
+   *
+   * The extra profile fetch happens ONLY when the page actually has a tag.
+   */
+  const tagRows =
+    ((tagsRes as { data?: { post_id: string; tagged_user_id: string }[] })?.data) || [];
+  const taggedMap = new Map<string, { id: string; name: string }[]>();
+  if (tagRows.length > 0) {
+    const tagProfiles = await fetchProfileMap([...new Set(tagRows.map((r) => r.tagged_user_id))]);
+    for (const r of tagRows) {
+      const list = taggedMap.get(r.post_id) || [];
+      list.push({
+        id: r.tagged_user_id,
+        name: resolveName(
+          r.tagged_user_id,
+          tagProfiles.get(r.tagged_user_id)?.full_name ?? null,
+          adminIds,
+        ),
+      });
+      taggedMap.set(r.post_id, list);
+    }
+  }
 
   const reactionTypeCounts: Record<string, Record<string, number>> = {};
   const userReactionMap = new Map<string, string>();
@@ -131,6 +165,7 @@ async function fetchAndEnrich(
       // Carried through from the merge above — without this the flag is dropped
       // here and the wall can never tell a reshare from an own post.
       is_reshare: !!p.is_reshare,
+      tagged_people: taggedMap.get(p.id) ?? [],
     };
   });
 
