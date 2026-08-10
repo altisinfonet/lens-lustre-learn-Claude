@@ -120,6 +120,57 @@ describe('the word "Someone" is gone, and the states it hid are separated', () =
     expect(describeNotification(subject, NOW).actorText).toBe("A deleted account");
   });
 
+  /**
+   * N4 part 2, 2026-08-10. The three above have held for a single row since
+   * 2026-08-01. A GROUPED row could not reach "A deleted account" at all,
+   * because the RPC coalesced a missing name to "" and the client could not
+   * tell "" from "gone". 35 follow notifications on production read
+   * "A member started following you." when the member is not a member any more.
+   *
+   * The first and third of these FAIL on 23a5018 — that is what makes them
+   * regression tests. The second passes there and is here to stay passing:
+   * the history page must keep its wording, because its RPC does not answer
+   * this question and undefined must never be read as false.
+   */
+  it("says so when a GROUPED row's profile is gone", () => {
+    const subject = subjectFromGroup(
+      groupRow({
+        type: "new_follower",
+        actor_names: [""],
+        actor_usernames: [""],
+        actor_known: [false],
+      }),
+    );
+    expect(describeNotification(subject, NOW).text).toBe(
+      "A deleted account started following you.",
+    );
+  });
+
+  it('still says "A member" when nobody looked — undefined is not false', () => {
+    // The history RPC returns no actor_known at all. A nameless but PRESENT
+    // member must not be accused of having deleted their account.
+    const subject = subjectFromGroup(groupRow({ actor_names: [""], actor_usernames: [""] }));
+    expect(describeNotification(subject, NOW).text).toBe("A member commented on your photo.");
+  });
+
+  it("lines actor_known up with actor_ids, position by position", () => {
+    // Two people in one group, the second one gone. If the arrays ever drift
+    // apart, this names the wrong person as deleted — which is worse than the
+    // bug it fixes.
+    const subject = subjectFromGroup(
+      groupRow({
+        actor_ids: ["a1", "a2"],
+        actor_names: ["Partha Dalal", ""],
+        actor_usernames: ["parthad", ""],
+        actor_known: [true, false],
+        actor_count: 2,
+      }),
+    );
+    expect(describeNotification(subject, NOW).actorText).toBe(
+      "Partha Dalal and A deleted account",
+    );
+  });
+
   it("puts no name at all on a notification with no human actor", () => {
     // A competition result happened TO you. There is nobody to name.
     const subject = subjectFromGroup(
