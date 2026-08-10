@@ -18,6 +18,7 @@ import DOMPurify from "dompurify";
 import { cn } from "@/lib/utils";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { useSiteLogo } from "@/hooks/core/useSiteLogo";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import {
   type AdZoneId,
   type AdZoneConfig,
@@ -356,8 +357,28 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
             />
           </span>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold truncate" style={{ fontFamily: "var(--font-heading)" }}>
-              50mm Retina World
+            {/* THE BLUE TICK BELONGS HERE TOO.
+
+                Owner, 2026-08-10, pointing at the new ad header: "after 50mm
+                retina world why verified blue tick missing here ??" — and he is
+                right, because every OTHER post by this same account carries it.
+                A name that is verified on one card and not on the next reads as
+                a different, unverified account.
+
+                On a post the tick comes from AutoBadge, which looks a member's
+                badges up by their user id. An ad creative has no user id — so
+                the same glyph component is rendered directly, at the same
+                `h-3.5 w-3.5` UserBadgeInline uses in its compact size. This is
+                truthful rather than decorative: the advertiser named here IS
+                the platform's own verified account, which is the only account
+                that can place a creative in this system. */}
+            <div className="flex min-w-0 items-center gap-1">
+              <span className="text-sm font-semibold truncate" style={{ fontFamily: "var(--font-heading)" }}>
+                50mm Retina World
+              </span>
+              <span className="inline-flex shrink-0">
+                <VerifiedBadge className="h-3.5 w-3.5" />
+              </span>
             </div>
             <div className="text-xs text-muted-foreground">Sponsored</div>
           </div>
