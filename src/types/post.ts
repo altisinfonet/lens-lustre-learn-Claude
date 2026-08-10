@@ -57,4 +57,24 @@ export interface UnifiedPost {
    * card offered nothing but "Report content".
    */
   is_reshare?: boolean;
+  /**
+   * People tagged in this post's photos, for the header line
+   * "50mm Retina World with Avijit Sheel" (owner, 2026-08-10, with an
+   * Instagram screenshot showing "vineet_vohra and ifp.festival").
+   *
+   * ONLY status = 'approved' rows ever appear here. A pending tag is a request
+   * the tagged person has not answered, and a declined one is a refusal —
+   * showing either would put somebody's name on a post against their wish,
+   * which is the whole point of the accept/decline flow.
+   *
+   * Empty or absent = nothing is rendered. Names go through resolveName(), so
+   * a tagged admin shows as the brand exactly like an author does.
+   */
+  tagged_people?: TaggedPerson[];
+}
+
+/** One approved tag, already name-resolved for display. */
+export interface TaggedPerson {
+  id: string;
+  name: string;
 }
