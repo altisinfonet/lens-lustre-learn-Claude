@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { queryKeys } from "@/lib/queryKeys";
+import { safeRandomUUID } from "@/lib/safeUuid";
 
 export interface MenuItem {
   id: string;
@@ -81,7 +82,7 @@ async function fetchMenuItems(): Promise<MenuItem[]> {
   // Initialize with system pages
   return SYSTEM_PAGES.map((sp, i) => ({
     ...sp,
-    id: crypto.randomUUID(),
+    id: safeRandomUUID(),
     sort_order: i,
   }));
 }

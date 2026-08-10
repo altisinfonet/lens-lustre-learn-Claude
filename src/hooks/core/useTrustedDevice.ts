@@ -1,9 +1,10 @@
+import { safeRandomUUID } from "@/lib/safeUuid";
 const TRUST_KEY = "50mmretina_trusted_devices";
 
 const getDeviceId = (): string => {
   let id = localStorage.getItem("50mmretina_device_id");
   if (!id) {
-    id = crypto.randomUUID();
+    id = safeRandomUUID();
     localStorage.setItem("50mmretina_device_id", id);
   }
   return id;
