@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { cdnResized, cdnSrcSet, originalOnError } from "@/lib/cdnImage";
 import { AnimatePresence, motion } from "framer-motion";
 import { Star, Camera, Calendar, ImageOff } from "lucide-react";
 
@@ -123,41 +122,46 @@ export default function PhotoOfTheDay() {
             Owner, 2026-08-10: "Curated Wall Image Softness extreme."
 
             Measured on the live home page:
-              slot            739 x 739 css px, and it is `aspect-square object-cover`
-              served          the 600 x 338 thumbnail
-              original        2560 x 1440, sitting unused beside it
+              slot        663 x 663 css px at dpr 1.25 -> 828 real pixels needed,
+                          and the box is `aspect-square object-cover`
+              served      the 600 x 338 thumbnail
+              original    2560 x 1440, sitting unused beside it
 
-            A 600x338 landscape inside a SQUARE cover box is scaled until its
-            SHORT side fills the slot: 739/338 = 2.19x. So roughly 338 real
-            pixels were being stretched across 739 — a 2.2x upscale, which is
-            why this looked far worse than a plain "600 in an 831 slot".
+            A 600x338 LANDSCAPE inside a SQUARE cover box is scaled until its
+            SHORT side fills the slot: 828/338 = 2.45x. So ~338 real pixels were
+            stretched across 828 — which is why this looked far worse than the
+            "600 into 828" the numbers first suggested.
 
-            Now: the original is the base, and `srcset` lets the browser choose
-            a resized copy that matches the real slot and screen density. The
-            900px variant of this photograph is ~40 KB against 535 KB for the
-            full original, so it is both sharper AND lighter than shipping the
-            original — and dramatically sharper than the thumbnail.
+            ── WHY THIS IS THE PLAIN ORIGINAL AND NOT A RESIZED COPY ──
 
-            `onError` is not optional here. Read the history in lib/cdnImage.ts:
-            this endpoint is Cloudflare zone configuration, it broke the site in
-            August, and the origin it accepts has already changed once. If it
-            ever refuses, this image drops back to the untransformed original by
-            itself — heavier, never missing.
+            The first attempt put a /cdn-cgi/image/ `srcset` here. Every URL was
+            correct — measured 81-272ms each, straight from this page — and the
+            square STILL rendered empty, with `complete === false` for over a
+            minute and no error event at all.
+
+            The cause is this component, not the CDN: it cycles to the next
+            photograph every CYCLE_MS (5s) and `key={potd.id}` unmounts the
+            <img> when it does. A size Cloudflare has never generated before
+            takes long enough on its first request that the element is destroyed
+            before the load finishes — and then the next photo starts the same
+            race. Nothing ever completes, so nothing is ever cached, so it never
+            recovers. `onError` cannot save it either: a stalled request fires no
+            event, which is also why the fallback in lib/cdnImage.ts did not
+            trigger.
+
+            The ORIGINAL is already warm on the CDN — measured 81ms — so it wins
+            the 5-second race every time. It is heavier (535 KB against ~40 KB
+            for a 900px copy) and that is a real cost, accepted deliberately:
+            a sharp photograph that arrives beats a light one that never does.
+
+            To take the bandwidth win later, the derivatives must be warmed
+            BEFORE they are put in front of a 5-second carousel, or the carousel
+            must hold each photo until its image has decoded. Do not simply put
+            the srcset back.
           */}
           <motion.img
             key={potd.id}
-            src={cdnResized(base, 900)}
-            srcSet={cdnSrcSet(base, [480, 640, 900, 1200, 1600])}
-            /* MEASURED, NOT GUESSED. The first version of this line declared
-               420px for wide screens; the square actually measures 663px on a
-               1707px viewport and 739px on a 1536px one. `sizes` is a PROMISE
-               to the browser about how big the slot is, and under-declaring it
-               makes the browser deliberately choose a smaller file — it served
-               a 420px image into a 663px square and the picture was still soft.
-               700px is the measured width rounded up, so the browser lands on
-               the 900px candidate at this density instead of the 640px one. */
-            sizes="(min-width: 1280px) 700px, (min-width: 768px) 50vw, 100vw"
-            onError={originalOnError(base)}
+            src={base}
             alt={potd.title}
             className="absolute inset-0 w-full h-full object-cover"
             initial={{ opacity: 0 }}
