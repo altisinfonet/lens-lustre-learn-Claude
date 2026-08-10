@@ -107,7 +107,7 @@ describe("the composer is shaped like a post", () => {
     // Measured live on 2026-08-10 AFTER the posts were fixed: the composer was
     // still 0.8px on all four sides while every post under it had only its
     // bottom hairline. It was the last `md:border` left in the feed.
-    expect(wall).toContain('className="bleed-phone mb-0 overflow-hidden"');
+    expect(wall).toContain('className="bleed-phone mb-4 overflow-hidden"');
     expect(wall, "the composer's desktop card is back").not.toContain("md:border");
   });
 });
