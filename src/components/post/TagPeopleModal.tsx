@@ -448,7 +448,7 @@ export default function TagPeopleModal({
         {/* Hint / status bar */}
         <div className="px-4 py-2 border-t border-border bg-muted/30 text-xs text-muted-foreground flex items-center justify-between">
           <span>
-            Tap photo to tag a friend · {tagsForCurrentPhoto.length} on this photo · {tags.length}/{MAX_TAGS} total
+            Tap photo to tag a member · {tagsForCurrentPhoto.length} on this photo · {tags.length}/{MAX_TAGS} total
           </span>
         </div>
 
