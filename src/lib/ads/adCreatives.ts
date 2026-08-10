@@ -44,6 +44,8 @@ export interface AdCreative {
    * below coalesces, so callers never have to think about null.
    */
   advertiser_name: string;
+  /** The advertiser's own logo. Empty falls back to a letter avatar, then to the site logo. */
+  advertiser_logo_url: string;
   sort_order: number;
 }
 
@@ -74,7 +76,7 @@ export const fetchAdCreatives = async (zone: AdZoneId): Promise<AdCreative[]> =>
     try {
       const { data, error } = await supabase
         .from("ad_creatives" as never)
-        .select("id, zone, image_url, click_url, alt_text, headline, subtext, cta, advertiser_name, sort_order")
+        .select("id, zone, image_url, click_url, alt_text, headline, subtext, cta, advertiser_name, advertiser_logo_url, sort_order")
         .eq("zone", zone)
         .eq("is_active", true)
         .order("sort_order", { ascending: true })
@@ -83,7 +85,11 @@ export const fetchAdCreatives = async (zone: AdZoneId): Promise<AdCreative[]> =>
       const rows = ((data as unknown as AdCreative[]) || [])
         .filter((r) => typeof r?.image_url === "string" && r.image_url.trim().length > 0)
         // NULL becomes "" here, once, so every caller can just test truthiness.
-        .map((r) => ({ ...r, advertiser_name: (r.advertiser_name ?? "") as string }));
+        .map((r) => ({
+          ...r,
+          advertiser_name: (r.advertiser_name ?? "") as string,
+          advertiser_logo_url: (r.advertiser_logo_url ?? "") as string,
+        }));
       cache.set(zone, { at: Date.now(), rows });
       return rows;
     } catch {
