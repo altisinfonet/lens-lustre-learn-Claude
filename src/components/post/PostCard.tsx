@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import { publicUrl } from "@/lib/publicUrl";
 import { Link } from "react-router-dom";
-import { MessageCircle, Share2, Send, Copy, MoreHorizontal, Trash2, Flag, Eye, Pencil, UserPlus, UserMinus, Users } from "lucide-react";
+import { MessageCircle, Share2, Send, Copy, MoreHorizontal, Trash2, Flag, Heart, Eye, Pencil, UserPlus, UserMinus, Users } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import { isActiveNow } from "@/hooks/core/useLastActive";
-import { type ReactionType } from "@/components/ReactionPicker";
+import { REACTION_EMOJI_MAP, type ReactionType } from "@/components/ReactionPicker";
 import ReactionPicker from "@/components/ReactionPicker";
 import ReactionSummaryTooltip from "@/components/ReactionSummaryTooltip";
 import ShareSummaryTooltip from "@/components/ShareSummaryTooltip";
@@ -419,49 +419,6 @@ const PostCard = ({
         </motion.div>
       )}
 
-      {/* ── Caption editor ──
-          Only the EDITOR lives here, above the photo, because that is where the
-          caption used to be and an author who taps "Edit caption" expects the
-          box where the text was. The READ-ONLY caption is rendered below the
-          action row instead — see the note down there. */}
-      {isEditing ? (
-        <div className="px-3 pb-2 space-y-2">
-          <Textarea
-            value={editDraft}
-            onChange={(e) => setEditDraft(e.target.value)}
-            placeholder="Write a caption..."
-            className="text-[13px] min-h-[80px] resize-none"
-            autoFocus
-          />
-          {/* No running counter (owner, 2026-08-04: "Don't show it anywhere").
-              The line appears ONLY over the limit, where Save is disabled and
-              silence would leave a dead button unexplained. */}
-          {editDraft.length > 2200 && (
-            <div className="text-[10px] text-right tabular-nums text-destructive font-semibold">
-              {editDraft.length - 2200} over the 2200 limit — shorten to save
-            </div>
-          )}
-          <div className="flex items-center justify-end gap-2">
-            <button
-              onClick={() => { setIsEditing(false); setEditDraft(post.content || ""); }}
-              disabled={savingEdit}
-              className="text-[11px] px-3 py-1.5 border border-border rounded-md text-muted-foreground hover:border-foreground/40 transition-all uppercase tracking-wider disabled:opacity-50"
-              style={headingFont}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSaveCaption}
-              disabled={savingEdit || editDraft.length > 2200}
-              className="text-[11px] px-4 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all uppercase tracking-wider font-medium"
-              style={headingFont}
-            >
-              {savingEdit ? "Saving..." : editDraft.length > 2200 ? `Trim ${editDraft.length - 2200}` : "Save"}
-            </button>
-          </div>
-        </div>
-      ) : null}
-
       {/* ── Media ── */}
       {imageUrls.length > 0 && (
         <div className="px-0">
@@ -506,15 +463,29 @@ const PostCard = ({
             />
             {post.like_count > 0 && (
               <ReactionSummaryTooltip reactionCounts={post.reaction_counts} totalCount={post.like_count} postId={post.id}>
-                {/* JUST THE NUMBER. Instagram writes "50.9K" beside the heart
-                    and nothing else; this used to print the two most-used
-                    emoji in front of the count, which put two coloured faces
-                    between the like button and the comment button and broke the
-                    even spacing of the row. The breakdown by emoji is not lost
-                    — it is what this tooltip opens, and the picker button
-                    itself still shows the reaction the viewer chose. */}
-                <span className="pr-2 cursor-pointer text-sm font-semibold text-foreground">
-                  {formatNumber(post.like_count)}
+                {/* THE EMOJI COME BACK, SIZED SO THEY DO NOT BREAK THE ROW.
+
+                    I had removed them: Instagram writes "50.9K" beside the
+                    heart and nothing else, and two coloured faces at 15px
+                    between the like button and the comment button were what
+                    made the spacing uneven. The owner had asked to KEEP the
+                    emoji reactions, so removing them from the row was more than
+                    he asked for and he had it put back on 2026-08-10.
+
+                    They are now 13px — the same as the number they sit with,
+                    rather than larger than it — capped at the two most-used,
+                    and packed with a 0.5 gap. A member can see at a glance
+                    WHICH reactions a post got without opening the tooltip,
+                    which is the whole point of an emoji summary. */}
+                <span className="inline-flex items-center gap-0.5 pr-2 cursor-pointer text-sm font-semibold text-foreground">
+                  {post.top_reactions.length > 0 ? (
+                    post.top_reactions.slice(0, 2).map((type) => (
+                      <span key={type} className="text-[13px] leading-none">{REACTION_EMOJI_MAP[type] || "👍"}</span>
+                    ))
+                  ) : (
+                    <Heart className="h-3.5 w-3.5 text-rose-500" />
+                  )}
+                  <span className="ml-0.5">{formatNumber(post.like_count)}</span>
                 </span>
               </ReactionSummaryTooltip>
             )}
@@ -597,8 +568,52 @@ const PostCard = ({
           shown both: photo, then the icon row, then "<name> caption", then the
           comments. The name is passed as `prefix` so it sits INSIDE the clamped
           paragraph — put above it and it would survive on its own line while
-          the sentence it introduces was collapsed. */}
-      {!isEditing && (
+          the sentence it introduces was collapsed.
+
+          THE EDITOR IS IN THE SAME SLOT, deliberately. When the caption moved
+          below the action row the edit box was left where the caption used to
+          be, above the photograph — so tapping "Edit caption" made the text
+          jump the height of the picture and reappear somewhere else. The owner
+          had that corrected on 2026-08-10. Reading and editing must happen in
+          the same place; if the caption ever moves again, the editor moves with
+          it because they are now the two halves of one ternary. */}
+      {isEditing ? (
+        <div className="px-3 pb-2 space-y-2">
+          <Textarea
+            value={editDraft}
+            onChange={(e) => setEditDraft(e.target.value)}
+            placeholder="Write a caption..."
+            className="text-[13px] min-h-[80px] resize-none"
+            autoFocus
+          />
+          {/* No running counter (owner, 2026-08-04: "Don't show it anywhere").
+              The line appears ONLY over the limit, where Save is disabled and
+              silence would leave a dead button unexplained. */}
+          {editDraft.length > 2200 && (
+            <div className="text-[10px] text-right tabular-nums text-destructive font-semibold">
+              {editDraft.length - 2200} over the 2200 limit — shorten to save
+            </div>
+          )}
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={() => { setIsEditing(false); setEditDraft(post.content || ""); }}
+              disabled={savingEdit}
+              className="text-[11px] px-3 py-1.5 border border-border rounded-md text-muted-foreground hover:border-foreground/40 transition-all uppercase tracking-wider disabled:opacity-50"
+              style={headingFont}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveCaption}
+              disabled={savingEdit || editDraft.length > 2200}
+              className="text-[11px] px-4 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all uppercase tracking-wider font-medium"
+              style={headingFont}
+            >
+              {savingEdit ? "Saving..." : editDraft.length > 2200 ? `Trim ${editDraft.length - 2200}` : "Save"}
+            </button>
+          </div>
+        </div>
+      ) : (
         <Caption
           content={post.content}
           prefix={
