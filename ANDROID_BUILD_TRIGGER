@@ -812,3 +812,6 @@ Speed, and photos the way you shot them:
 1064 — Instagram type as well: no CAPITALS and no wide letter-spacing anywhere
        on the site or in the app. Sizes are unchanged and nothing drops below
        12px; the capitals were what made 12px read like 16px.
+1065 — No border anywhere at all, including the line between two posts.
+       Share is Instagram's paper plane, icons at a lighter 1.75 stroke, and
+       the like count is a plain number with no emoji in front of it.
