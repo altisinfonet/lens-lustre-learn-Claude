@@ -135,18 +135,23 @@ const FeedFriendSuggestions = () => {
 
   return (
     <section
-      className="mb-4 border border-border bg-card/50 rounded-sm overflow-hidden"
+      // Full width, one hairline, no box. Owner, 2026-08-10: "I told No border
+      // anything to anywhere, example like Instagram". This block sat inside
+      // `.container`'s 90% width with its own border and radius, so it was one
+      // of the inset panels in his screenshot while the posts around it ran to
+      // both edges. `bleed-phone` matches PostCard exactly.
+      className="bleed-phone border-b border-border overflow-hidden"
       aria-label={t("sidebar.peopleYouMayKnow", "People you may know")}
     >
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
         <div className="min-w-0">
           <h2
-            className="text-[9px] tracking-[0.3em] uppercase text-primary"
+            className="text-xs font-semibold text-foreground"
             style={{ fontFamily: "var(--font-heading)" }}
           >
             {t("sidebar.peopleYouMayKnow", "People you may know")}
           </h2>
-          <p className="text-[10px] text-muted-foreground mt-0.5" style={{ fontFamily: "var(--font-body)" }}>
+          <p className="text-xs text-muted-foreground mt-0.5" style={{ fontFamily: "var(--font-body)" }}>
             {t("feedSuggest.subtitle", "Photographers you might want to connect with")}
           </p>
         </div>
@@ -183,7 +188,7 @@ const FeedFriendSuggestions = () => {
           return (
             <div
               key={s.id}
-              className="relative snap-start shrink-0 w-[132px] rounded-sm border border-border bg-background/40 p-3 pt-4 flex flex-col items-center text-center"
+              className="relative snap-start shrink-0 w-[132px] border border-border bg-background/40 p-3 pt-4 flex flex-col items-center text-center"
             >
               <button
                 type="button"
