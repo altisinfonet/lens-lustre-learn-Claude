@@ -1,3 +1,29 @@
+Build 1061 — 2026-08-10
+NOTE: build 1060 was cut but never published, so this build carries ITS four
+fixes as well as the five below. Everything listed under 1060 reaches members
+here for the first time.
+- YOU CAN SEE WHO IS TAGGED IN A PHOTO. Tagging has saved correctly since 1059,
+  but the post never said so out loud, so from the outside a tag looked like it
+  had not happened. A post now reads "50mm Retina World with Avijit Sheel" in
+  its header. Tag twenty people and it reads "with Avijit Sheel and 19 others";
+  tap the "19 others" and the full list of all twenty opens.
+- ANYONE TAGGED CAN TAKE THEIR OWN NAME OFF, AT ANY TIME. "Remove tag of me" is
+  in the post menu for anybody tagged in it. This did not exist before: the only
+  control was Accept or Decline on the notification, which worked only while the
+  tag was unanswered and only until that notification was dismissed. Since
+  anyone may tag anyone, a name could previously have stayed on a stranger's
+  photograph with no way to remove it.
+- THE LIKE, COMMENT AND SHARE BUTTONS ARE ICONS ONLY NOW, grouped on the left
+  with even spacing, as on Instagram. The words are gone. They stay 48 pixels
+  tall so they are still easy to hit with a thumb.
+- THE CURATED WALL IS SHARP AGAIN. The square was being filled with the small
+  600-pixel preview copy of the photograph. Because that preview is a landscape
+  picture and the square crops it, only about a third of it was actually used
+  and then stretched two and a half times across the slot. The full-size
+  photograph is used now.
+- The bell now says "A deleted account" rather than "A member" for the
+  thirty-eight notifications from people who have since deleted their accounts.
+
 Build 1060 — 2026-08-10
 - PHOTOS NOW FILL THE SCREEN. Every photo in the feed and on your wall had a
   dead strip down both sides — about 20 pixels of empty background on each edge
