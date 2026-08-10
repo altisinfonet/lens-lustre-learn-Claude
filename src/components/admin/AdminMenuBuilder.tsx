@@ -11,6 +11,7 @@ import { useNavigationMenu, SYSTEM_PAGES, type MenuItem } from "@/hooks/core/use
 import type { User } from "@supabase/supabase-js";
 
 import { logger } from "@/lib/logger";
+import { safeRandomUUID } from "@/lib/safeUuid";
 
 const FILE = "src/components/admin/AdminMenuBuilder.tsx";
 
@@ -52,7 +53,7 @@ export default function AdminMenuBuilder({ user }: { user: User | null }) {
     } else {
       const initial: MenuItem[] = SYSTEM_PAGES.map((sp, i) => ({
         ...sp,
-        id: crypto.randomUUID(),
+        id: safeRandomUUID(),
         sort_order: i,
       }));
       setItems(initial);
@@ -74,7 +75,7 @@ export default function AdminMenuBuilder({ user }: { user: User | null }) {
 
   const addExternalLink = () => {
     const newItem: MenuItem = {
-      id: crypto.randomUUID(),
+      id: safeRandomUUID(),
       label: "New Link",
       path: "https://",
       icon: "ExternalLink",
@@ -97,7 +98,7 @@ export default function AdminMenuBuilder({ user }: { user: User | null }) {
   const addManagedPage = async () => {
     const slug = "new-page-" + Date.now();
     const newItem: MenuItem = {
-      id: crypto.randomUUID(),
+      id: safeRandomUUID(),
       label: "New Page",
       path: `/page/${slug}`,
       icon: "FileText",

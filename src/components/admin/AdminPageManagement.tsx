@@ -23,6 +23,7 @@ import SidebarSectionsPanel from "./pages/SidebarSectionsPanel";
 import { PAGE_TEMPLATES } from "./pages/PageTemplates";
 
 import { logger } from "@/lib/logger";
+import { safeRandomUUID } from "@/lib/safeUuid";
 
 const FILE = "src/components/admin/AdminPageManagement.tsx";
 
@@ -259,7 +260,7 @@ export default function AdminPageManagement({ user }: { user: User | null }) {
     setSelectedTemplate("blank");
     const newPage: ManagedPage = {
       ...emptyPage,
-      id: crypto.randomUUID(),
+      id: safeRandomUUID(),
       sort_order: pages.length,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -668,7 +669,7 @@ export default function AdminPageManagement({ user }: { user: User | null }) {
               const exists = pages.some((p) => p.slug === generateSlug(tmpl.label));
               return (
                 <button key={tmpl.key} disabled={exists} onClick={() => {
-                  const newPage: ManagedPage = { ...emptyPage, id: crypto.randomUUID(), title: tmpl.label, slug: generateSlug(tmpl.label), content: tmpl.content, template: tmpl.key, sort_order: pages.length, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+                  const newPage: ManagedPage = { ...emptyPage, id: safeRandomUUID(), title: tmpl.label, slug: generateSlug(tmpl.label), content: tmpl.content, template: tmpl.key, sort_order: pages.length, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
                   setEditingPage(newPage);
                   setSelectedTemplate(tmpl.key);
                   setEditorMode("visual");

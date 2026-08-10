@@ -5,6 +5,7 @@ import { cachedFetchProfilesByIds } from "@/lib/profileBatch";
 import { toast } from "@/hooks/core/use-toast";
 import { Search, ThumbsUp, Heart, Vote, Plus, Minus, Loader2, Image as ImageIcon, Eye, Pin, TrendingUp, Clock, MessageCircle, Zap, Calendar } from "lucide-react";
 import { User } from "@supabase/supabase-js";
+import { safeRandomUUID } from "@/lib/safeUuid";
 
 interface Props {
   user: User | null;
@@ -157,7 +158,7 @@ const AdminEngagement = ({ user }: Props) => {
       const promises = [];
       for (let i = 0; i < delta; i++) {
         promises.push(supabase.from("image_reactions").insert({
-          image_id: imageId, image_type: imageType, reaction_type: reactionType, user_id: crypto.randomUUID(),
+          image_id: imageId, image_type: imageType, reaction_type: reactionType, user_id: safeRandomUUID(),
         }));
       }
       await Promise.all(promises);

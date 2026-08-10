@@ -5,6 +5,7 @@ import { toast } from "@/hooks/core/use-toast";
 import { Loader2, Save, Plus, Trash2, ArrowRight, ExternalLink } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import type { Json } from "@/integrations/supabase/types";
+import { safeRandomUUID } from "@/lib/safeUuid";
 
 interface Redirect {
   id: string;
@@ -82,7 +83,7 @@ export default function AdminRedirects({ user }: { user: User | null }) {
     setRedirects((prev) => [
       ...prev,
       {
-        id: crypto.randomUUID(),
+        id: safeRandomUUID(),
         from_path: "/old-page",
         to_path: "/new-page",
         type: "301",

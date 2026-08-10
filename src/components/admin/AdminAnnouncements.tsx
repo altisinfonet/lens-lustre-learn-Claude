@@ -7,6 +7,7 @@ import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { useConfirmAction } from "@/hooks/admin/useConfirmAction";
 import { Switch } from "@/components/ui/switch";
 import { User } from "@supabase/supabase-js";
+import { safeRandomUUID } from "@/lib/safeUuid";
 
 interface Announcement {
   id: string;
@@ -77,7 +78,7 @@ const AdminAnnouncements = ({ user }: { user: User | null }) => {
   };
 
   const openNew = () => {
-    setEditing({ ...defaultAnnouncement, id: crypto.randomUUID() } as Announcement);
+    setEditing({ ...defaultAnnouncement, id: safeRandomUUID() } as Announcement);
     setShowForm(true);
   };
 
