@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { publicUrl } from "@/lib/publicUrl";
 import { Link } from "react-router-dom";
-import { MessageCircle, Share2, Copy, MoreHorizontal, Trash2, Flag, Heart, Repeat, Eye, Pencil, UserPlus, UserMinus, Users } from "lucide-react";
+import { MessageCircle, Share2, Copy, MoreHorizontal, Trash2, Flag, Heart, Eye, Pencil, UserPlus, UserMinus, Users } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -231,11 +231,17 @@ const PostCard = ({
     }
   };
 
-  // Phones: edge to edge, no box around it, one hairline between posts — the
-  // Instagram shape the owner asked for on 2026-08-10, with his screenshot.
-  // `md` and up is unchanged: a bordered card in the centred 590px column.
+  // NO BOX. ANYWHERE. Owner, 2026-08-10, after seeing the build: "I told No
+  // border anything to anywhere, example like Instagram, didnt do it it."
+  //
+  // The earlier version kept `md:border` and `md:mb-4`, so on desktop each post
+  // was still a bordered card floating in the column. That is gone: phone and
+  // desktop now render the same shape — edge to edge, no border, no radius, no
+  // gap, and ONE hairline separating one post from the next. That hairline is
+  // the only border left on this component and it is what Instagram uses too;
+  // without it consecutive photos touch and read as a single image.
   return (
-    <div className="bleed-phone border-b border-border md:border mb-0 md:mb-4 overflow-hidden">
+    <div className="bleed-phone border-b border-border mb-0 overflow-hidden">
       {/* ── Header ── */}
       {/* Header. `pb-2` is load-bearing: it is the ONLY thing standing between
           the header and the media on a post with no caption. Until 2026-08-01
@@ -270,15 +276,24 @@ const PostCard = ({
               userId={post.user_id}
               name={post.author_name || "Photographer"}
               linkTo={`/profile/${post.user_id}`}
-              nameClassName="text-sm font-light hover:text-primary transition-colors truncate [font-family:var(--font-heading)]"
+              nameClassName="text-sm font-semibold hover:text-primary transition-colors truncate [font-family:var(--font-heading)]"
             />
             <TaggedPeople people={post.tagged_people ?? []} />
           </div>
-          <div className="flex items-center gap-2 text-[9px] text-muted-foreground" style={headingFont}>
+          {/* THE SECOND LINE IS QUIET ON PURPOSE.
+              Owner, 2026-08-10: "Entire App fonts are extremely big. Match with
+              Instagram exactly." The sizes here were already 8-9px, but a
+              readability rule he asked for earlier the same day raises anything
+              under 12px to 12px — so uppercase text at 0.1em letter-spacing was
+              being rendered at 12px and SHOUTED. Instagram sets no meta line in
+              capitals and adds no tracking to it. Dropping the capitals and the
+              tracking is what makes this read small; the pixel size is
+              unchanged and the readability floor is untouched. */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground" style={headingFont}>
             <span>{timeAgo(post.created_at)}</span>
             <span className="inline-flex items-center gap-1">{privacyIcon(post.privacy)}</span>
             {post.is_suggested && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground text-[8px] tracking-[0.1em] uppercase font-medium">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground text-xs font-medium">
                 Suggested
               </span>
             )}
@@ -307,7 +322,7 @@ const PostCard = ({
               sendFriend.mutate(post.user_id, { onSuccess: () => setFriendRequested(true) });
             }}
             disabled={friendRequested || sendFriend.isPending}
-            className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-primary/40 text-primary text-[9px] tracking-[0.1em] uppercase hover:bg-primary hover:text-primary-foreground transition-colors disabled:opacity-60"
+            className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-primary/40 text-primary text-xs font-medium hover:bg-primary hover:text-primary-foreground transition-colors disabled:opacity-60"
             style={headingFont}
           >
             <UserPlus className="h-3 w-3" /> {friendRequested ? "Requested" : "Add friend"}
@@ -397,7 +412,11 @@ const PostCard = ({
         </motion.div>
       )}
 
-      {/* ── Caption ── */}
+      {/* ── Caption editor ──
+          Only the EDITOR lives here, above the photo, because that is where the
+          caption used to be and an author who taps "Edit caption" expects the
+          box where the text was. The READ-ONLY caption is rendered below the
+          action row instead — see the note down there. */}
       {isEditing ? (
         <div className="px-3 pb-2 space-y-2">
           <Textarea
@@ -434,9 +453,7 @@ const PostCard = ({
             </button>
           </div>
         </div>
-      ) : (
-        <Caption content={post.content} />
-      )}
+      ) : null}
 
       {/* ── Media ── */}
       {imageUrls.length > 0 && (
@@ -451,121 +468,142 @@ const PostCard = ({
         </div>
       )}
 
-      {/* ── Reactions Row ──
-          Reach / Viewed-by share this line, pushed to the right edge with
-          `ml-auto` (owner instruction 2026-08-01). They were a second row until
-          then, which cost a whole line of card height for two small numbers. */}
-      <div className="flex items-center gap-4 px-3 py-1.5 text-sm text-muted-foreground" style={headingFont}>
-        {post.like_count > 0 && (
-          <ReactionSummaryTooltip reactionCounts={post.reaction_counts} totalCount={post.like_count} postId={post.id}>
-            <span className="inline-flex items-center gap-1 cursor-pointer">
-              {post.top_reactions.length > 0 ? (
-                post.top_reactions.map((type) => (
-                  <span key={type} className="text-base">{REACTION_EMOJI_MAP[type] || "👍"}</span>
-                ))
-              ) : (
-                <Heart className="h-4 w-4 text-rose-500" />
-              )}
-              <span className="text-sm font-semibold">{formatNumber(post.like_count)}</span>
-            </span>
-          </ReactionSummaryTooltip>
-        )}
-        {post.comment_count > 0 && (
-          <button onClick={() => setCommentsExpanded(!commentsExpanded)} className="inline-flex items-center gap-1 hover:text-foreground transition-colors">
-            <MessageCircle className="h-4 w-4" />
-            <span className="text-sm font-semibold">{formatNumber(post.comment_count)}</span>
-          </button>
-        )}
-        {post.share_count > 0 && (
-          <ShareSummaryTooltip shareCount={post.share_count} postId={post.id}>
-            <span className="inline-flex items-center gap-1 hover:text-foreground transition-colors">
-              <Repeat className="h-4 w-4" />
-              <span className="text-sm font-semibold">{formatNumber(post.share_count)}</span>
-            </span>
-          </ShareSummaryTooltip>
-        )}
+      {/* ── ACTION ROW — ICONS WITH THEIR COUNTS BESIDE THEM ──
 
-        {/* Reach and Viewed-by. DISPLAY figures from `displayEngagement`, not
-            measurements. The real distinct-viewer count (`post.views`, from
-            get_post_view_counts) is still collected and still on the object — it
-            is simply not what this renders. Everything about why, and the four
-            properties that keep the pair internally consistent, is documented in
-            src/lib/displayEngagement.ts. Every other number here is real.
-            `ml-auto` is what holds it against the right edge even when the post
-            has no reactions, comments or shares at all.
-            `stats` is null for the first 24 hours after posting — the line is
-            then absent entirely, which is the owner's rule. */}
-        {stats && (
-          <motion.div
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25 }}
-            className="ml-auto flex items-center gap-3 text-xs whitespace-nowrap"
-          >
-            <span className="inline-flex items-center gap-1">
-              <Users className="h-3 w-3" />
-              <span className="font-medium text-foreground/80">{formatEngagementCount(stats.reach)}</span>
-              <span>reached</span>
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Eye className="h-3 w-3" />
-              <span className="font-medium text-foreground/80">{formatEngagementCount(stats.views)}</span>
-              <span>viewed</span>
-            </span>
-          </motion.div>
-        )}
-      </div>
+          This is ONE row where there used to be two. Owner, 2026-08-10, with an
+          Instagram screenshot of exactly this: a heart with 50.9K next to it, a
+          speech bubble with 656, a repost arrow with 2,085, a paper plane with
+          43.1K — all on the same line, all pushed left.
 
-      {/* ── Action Bar ── */}
-      {/* THE ACTION ROW — ICONS ONLY, LEFT ALIGNED.
-          Owner, 2026-08-10, with an Instagram screenshot: "After Like Comment
-          and Share icon dont write the text, and the icons will be all in left
-          allignment with nice space like instagram".
+          What was here before: a counts row (emoji + number, then reach/viewed)
+          and, under a horizontal rule, a second row of bare icons. Two rows for
+          the same three facts, and a divider Instagram does not draw. The rule
+          is gone with everything else he called a border, and each number now
+          sits beside the icon it belongs to.
 
-          This replaces the equal-thirds row from earlier the same day. That was
-          the fix for a different complaint — the buttons were 36px, under
-          Android's 48dp minimum, and unhittable. **The 48px target survives
-          here**: the buttons are still min-h/min-w 48px, they are simply sized
-          to the icon and grouped on the left instead of stretched across the
-          width. Words are gone at every screen size, as asked.
+          Nothing lost a tooltip. The like number is still wrapped in
+          ReactionSummaryTooltip and the share number in ShareSummaryTooltip —
+          they moved, they were not deleted. The counts still disappear at zero,
+          so a fresh post shows three clean icons.
 
-          The icon is 24px, not 20px, because a fix you cannot SEE is
-          indistinguishable from no fix — the owner's ruling of 2026-08-03 on an
-          invisible-only tap zone. */}
-      <div className="mx-2.5 border-t border-border select-none">
-        <div className="flex justify-start gap-1">
-          <ReactionPicker
-            currentReaction={post.user_reaction}
-            onReact={(type) => onReact(post.id, type)}
-            onUnreact={() => onUnreact(post.id)}
-            disabled={!currentUserId}
-          />
+          Icon size is 24px, the same as Instagram's, in a 44x48 tap area. */}
+      <div className="select-none px-1.5">
+        <div className="flex items-center">
+          {/* Like — the picker owns the button, the count sits beside it */}
+          <div className="flex items-center">
+            <ReactionPicker
+              currentReaction={post.user_reaction}
+              onReact={(type) => onReact(post.id, type)}
+              onUnreact={() => onUnreact(post.id)}
+              disabled={!currentUserId}
+            />
+            {post.like_count > 0 && (
+              <ReactionSummaryTooltip reactionCounts={post.reaction_counts} totalCount={post.like_count} postId={post.id}>
+                <span className="inline-flex items-center gap-1 pr-2 cursor-pointer text-sm font-semibold text-foreground">
+                  {post.top_reactions.length > 0 ? (
+                    post.top_reactions.slice(0, 2).map((type) => (
+                      <span key={type} className="text-[15px] leading-none">{REACTION_EMOJI_MAP[type] || "👍"}</span>
+                    ))
+                  ) : (
+                    <Heart className="h-4 w-4 text-rose-500" />
+                  )}
+                  {formatNumber(post.like_count)}
+                </span>
+              </ReactionSummaryTooltip>
+            )}
+          </div>
+
+          {/* Comment */}
           <button onClick={() => setCommentsExpanded(!commentsExpanded)}
             aria-label={t("post.comment")}
             title={t("post.comment")}
-            className="min-h-[48px] min-w-[48px] flex items-center justify-center rounded-md my-1 text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
+            className="h-12 px-2.5 flex items-center gap-1.5 rounded-md text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
             <MessageCircle className="h-6 w-6" />
+            {post.comment_count > 0 && (
+              <span className="text-sm font-semibold text-foreground">{formatNumber(post.comment_count)}</span>
+            )}
           </button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                aria-label={t("post.share")}
-                title={t("post.share")}
-                className="min-h-[48px] min-w-[48px] flex items-center justify-center rounded-md my-1 text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
-                <Share2 className="h-6 w-6" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem onClick={shareToWall} className="py-2.5 cursor-pointer">
-                <Share2 className="h-4 w-4 mr-2.5" /> Share to your wall
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={copyLink} className="py-2.5 cursor-pointer">
-                <Copy className="h-4 w-4 mr-2.5" /> Copy link
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+
+          {/* Share */}
+          <div className="flex items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  aria-label={t("post.share")}
+                  title={t("post.share")}
+                  className="h-12 px-2.5 flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
+                  <Share2 className="h-6 w-6" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem onClick={shareToWall} className="py-2.5 cursor-pointer">
+                  <Share2 className="h-4 w-4 mr-2.5" /> Share to your wall
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={copyLink} className="py-2.5 cursor-pointer">
+                  <Copy className="h-4 w-4 mr-2.5" /> Copy link
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {post.share_count > 0 && (
+              <ShareSummaryTooltip shareCount={post.share_count} postId={post.id}>
+                <span className="pr-2 cursor-pointer text-sm font-semibold text-foreground">{formatNumber(post.share_count)}</span>
+              </ShareSummaryTooltip>
+            )}
+          </div>
+
+          {/* Reach and Viewed-by. DISPLAY figures from `displayEngagement`, not
+              measurements. The real distinct-viewer count (`post.views`, from
+              get_post_view_counts) is still collected and still on the object —
+              it is simply not what this renders. Everything about why, and the
+              four properties that keep the pair internally consistent, is
+              documented in src/lib/displayEngagement.ts. Every other number
+              here is real.
+              Kept at the owner's explicit instruction on 2026-08-10 when he was
+              offered its removal. `ml-auto` holds it against the right edge
+              even on a post with no reactions, comments or shares at all.
+              `stats` is null for the first 24 hours after posting — the pair is
+              then absent entirely, which is his rule. */}
+          {stats && (
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25 }}
+              className="ml-auto flex items-center gap-3 pr-1.5 text-xs text-muted-foreground whitespace-nowrap"
+            >
+              <span className="inline-flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                <span className="font-medium text-foreground/80">{formatEngagementCount(stats.reach)}</span>
+                <span>reached</span>
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Eye className="h-3 w-3" />
+                <span className="font-medium text-foreground/80">{formatEngagementCount(stats.views)}</span>
+                <span>viewed</span>
+              </span>
+            </motion.div>
+          )}
         </div>
       </div>
+
+      {/* ── Caption, UNDER the actions, with the name in front of it ──
+          Instagram's order, which the owner chose on 2026-08-10 when he was
+          shown both: photo, then the icon row, then "<name> caption", then the
+          comments. The name is passed as `prefix` so it sits INSIDE the clamped
+          paragraph — put above it and it would survive on its own line while
+          the sentence it introduces was collapsed. */}
+      {!isEditing && (
+        <Caption
+          content={post.content}
+          prefix={
+            <Link
+              to={`/profile/${post.user_id}`}
+              className="font-semibold text-foreground hover:text-primary transition-colors mr-1.5"
+            >
+              {post.author_name || "Photographer"}
+            </Link>
+          }
+        />
+      )}
 
       {/* ── Comments ── */}
       <AnimatePresence>

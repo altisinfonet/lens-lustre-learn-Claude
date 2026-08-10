@@ -1,10 +1,19 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import RichContentRenderer from "@/components/RichContentRenderer";
 import TranslateBar from "@/components/post/TranslateBar";
 
 interface CaptionProps {
   content: string;
   maxLines?: number;
+  /**
+   * Rendered INSIDE the clamped paragraph, immediately before the text.
+   * PostCard passes the author's name here so the caption reads
+   * "<name> the caption text", which is how Instagram writes it. It has to be
+   * inside the clamp, not above it, or the name would survive on its own line
+   * while the text it belongs to is collapsed.
+   * Omitted by every other caller, and then nothing is rendered.
+   */
+  prefix?: ReactNode;
 }
 
 /**
@@ -23,7 +32,7 @@ const CLAMP: Record<number, string> = {
   6: "line-clamp-6",
 };
 
-const Caption = ({ content, maxLines = 2 }: CaptionProps) => {
+const Caption = ({ content, maxLines = 2, prefix }: CaptionProps) => {
   const [expanded, setExpanded] = useState(false);
   const [overflowing, setOverflowing] = useState(false);
   const clampRef = useRef<HTMLDivElement>(null);
@@ -76,12 +85,14 @@ const Caption = ({ content, maxLines = 2 }: CaptionProps) => {
   if (!content) return null;
 
   return (
-    // No top padding: the post header supplies the gap above this text, so a
-    // post with a caption and one without keep the SAME spacing above the media.
-    // Adding `pt` back here would silently push captioned posts down again.
+    // No top padding. In PostCard the caption now sits directly under the
+    // action row, which supplies the gap above it; on every other surface the
+    // post header does. Either way a post with a caption and one without keep
+    // the SAME spacing, and adding `pt` here would push captioned posts down.
     <div className="px-3 pb-2">
       <div ref={clampRef} className={expanded ? "" : CLAMP[maxLines] || CLAMP[2]}>
         <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ fontFamily: "var(--font-body)" }}>
+          {prefix}
           <RichContentRenderer content={content} />
         </p>
       </div>
