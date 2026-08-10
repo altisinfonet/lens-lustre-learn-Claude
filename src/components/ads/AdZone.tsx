@@ -300,8 +300,9 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
         creative_subtext: chosen.subtext,
         creative_cta: chosen.cta,
         advertiser_name: chosen.advertiser_name || "",
+        advertiser_logo_url: chosen.advertiser_logo_url || "",
       }
-    : { ...c.own, advertiser_name: "" };
+    : { ...c.own, advertiser_name: "", advertiser_logo_url: "" };
 
   /**
    * WHOSE NAME GOES ON THE AD.
@@ -317,6 +318,7 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
    * over, which is why this exists at all.
    */
   const advertiser = (cr.advertiser_name || "").trim();
+  const advertiserLogo = (cr.advertiser_logo_url || "").trim();
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
@@ -362,10 +364,23 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
       {zone === "story-card" && (
         <div className="flex items-center gap-2.5 p-3 pb-2">
           <span className="shrink-0 inline-block w-8 h-8">
-            {advertiser ? (
-              // A third party gets a neutral letter avatar — the same shape a
-              // member with no photograph gets. The site logo above someone
-              // else's ad would read as our endorsement of it.
+            {advertiser && advertiserLogo ? (
+              // The publisher's own logo, round and 32px — Instagram's shape,
+              // and the same element a member's avatar uses on a normal post.
+              <img
+                src={advertiserLogo}
+                alt=""
+                width={32}
+                height={32}
+                loading="lazy"
+                decoding="async"
+                className="w-8 h-8 rounded-full object-cover"
+              />
+            ) : advertiser ? (
+              // Named but no logo yet: a neutral letter avatar, the same shape a
+              // member with no photograph gets. The SITE logo above someone
+              // else's ad would read as our endorsement of it, so it is not
+              // used as the fallback here.
               <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                 <span className="text-xs text-primary" style={{ fontFamily: "var(--font-display)" }}>
                   {advertiser[0]?.toUpperCase()}
