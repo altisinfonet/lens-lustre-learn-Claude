@@ -208,7 +208,13 @@
     font-family: var(--font-body);
     font-weight: 400;
     font-size: 14px;
-    line-height: 1.34;
+    /* P8, owner-approved 2026-08-10. Was 1.34 — measured on the live feed and
+     * tighter than every platform this product is compared to (Instagram and
+     * LinkedIn both sit at 1.4-1.5). Lines that close together are harder to
+     * read even at a comfortable size, so the size floor below is only half
+     * the fix. HEADINGS ARE DELIBERATELY NOT CHANGED: they stay at 1.2, where
+     * tight leading is correct. */
+    line-height: 1.45;
     transition: background-color 0.3s ease, color 0.3s ease;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -524,4 +530,56 @@
 .mention-input-wrapper textarea::placeholder {
   color: hsl(var(--muted-foreground));
   opacity: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * P8 — THE READABILITY FLOOR. NO TEXT ON THIS SITE IS SMALLER THAN 12px.
+ * Owner approved 2026-08-10: "nothing below 12px".
+ *
+ * WHAT WAS MEASURED
+ *   On the live feed (2026-08-03): of 168 visible text elements, 70 — 42% —
+ *   rendered below 12px. Forty-one at 9px. Six at 7px.
+ *   In the source (2026-08-10, counted by property, not by hand):
+ *     10px ×1137 · 9px ×928 · 11px ×277 · 8px ×203 · 7px ×39 · 8.5px ×3
+ *     10.5px ×2 · 6px ×2      = 2,591 places across 246 files.
+ *   iOS asks for 11pt minimum; Android Material's smallest body style is 12sp.
+ *   Six pixels is not small type, it is decoration that happens to be words.
+ *
+ * WHY THIS IS ONE BLOCK AND NOT 2,591 EDITS
+ *   Rewriting 2,591 class names in 246 files is exactly the bulk modification
+ *   this project forbids, and every one of those files would have to be
+ *   re-verified by hand. This is ONE rule, in ONE file, and undoing it is
+ *   deleting this block — nothing else in the codebase has to change back.
+ *
+ *   It is a FLOOR, not a rename. `text-[9px]` still means "the smallest this
+ *   may be"; the product now says the smallest is 12px. A class written
+ *   tomorrow at 9px is caught automatically instead of shipping unreadable —
+ *   and `src/__tests__/textSizeFloor.test.ts` fails the build if a size
+ *   appears in the source that this block does not cover.
+ *
+ * WHY IT IS SAFE TO PLACE HERE
+ *   Every responsive pair in the codebase that starts below 12px also ENDS
+ *   below 12px (`text-[9px] md:text-[10px]`, `text-[10px] sm:text-[11px]`) —
+ *   checked, all 15 variant font-size classes. Nothing here can shrink text
+ *   that was deliberately made larger at a wider screen. The only variants
+ *   above the floor (md:text-[13px], md:text-[40px], lg:text-[28px],
+ *   lg:text-[42px]) sit on base classes that are already 12px or more and are
+ *   not touched.
+ *
+ * WHAT TO WATCH AFTER DEPLOY
+ *   Badges, tab labels and counters get bigger. Anything that was fitted to
+ *   the pixel may now wrap to a second line. That is a layout fix in the
+ *   component, NOT a reason to lower the floor again.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.text-\[6px\],
+.text-\[7px\],
+.text-\[8px\],
+.text-\[8\.5px\],
+.text-\[9px\],
+.text-\[10px\],
+.text-\[10\.5px\],
+.text-\[11px\],
+.sm\:text-\[11px\],
+.md\:text-\[10px\] {
+  font-size: 12px;
 }
