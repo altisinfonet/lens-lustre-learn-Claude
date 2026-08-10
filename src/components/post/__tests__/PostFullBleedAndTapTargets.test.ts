@@ -1,44 +1,50 @@
 /**
- * A POST FILLS THE PHONE, AND ITS THREE BUTTONS CAN BE HIT WITH A THUMB.
+ * A POST IS SHAPED LIKE AN INSTAGRAM POST: NO BOX, ONE ICON ROW, CAPTION UNDER IT.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * WHAT WAS WRONG, measured 2026-08-10 from the owner's own screenshot
- *
- * He sent a screenshot of his feed beside one of Instagram and said the posts
- * were "not coming with 100% and without any border", and that the buttons
- * were "too small / hard to tap".
+ * THE HISTORY THIS FILE GUARDS — all of it from the owner, all on 2026-08-10,
+ * each instruction arriving after he looked at the previous one on his phone.
  *
  * 1. THE WIDTH. `src/index.css` sets `.container { width: 90% !important }`
- *    — under a comment that reads "Enforce full-bleed containers site-wide",
- *    which is the opposite of what it does. Every page column therefore sits
- *    5% in from each screen edge: a ~20px dead strip down both sides of every
- *    photograph on a 400px phone. That matched the screenshot exactly.
+ *    — under a comment reading "Enforce full-bleed containers site-wide", which
+ *    is the opposite of what it does. Every column sat 5% in from each screen
+ *    edge: a ~20px dead strip down both sides of every photograph.
  *
  *    It could NOT be fixed by changing the 90%. `.container` is used in 150
- *    places — navbar, footer, Journal, Dashboard, Friends, Certificates — and
- *    on those the 5% IS the page gutter. So a post now opts out of its parent
- *    width by itself, on phones only, with `margin-left: calc(50% - 50vw)`.
+ *    places — navbar, footer, Journal, Dashboard, Friends — and on those the 5%
+ *    IS the page gutter. A post opts out by itself with
+ *    `margin-left: calc(50% - 50vw)`, phones only.
  *
- * 2. THE BORDER. The card was `border border-border rounded-xl`. Instagram has
- *    no box around a post — one hairline between posts, nothing else.
+ * 2. THE BUTTONS were `py-2` around a 20px icon — a 36px target, under
+ *    Android's 48dp minimum — and were made 48×48.
  *
- * 3. THE BUTTONS. React / comment / share were `py-2` around a 20px icon —
- *    a 36px target, under Android's 48dp minimum and iOS's 44pt, and the row
- *    was `justify-start md:justify-stretch`, so on a phone all three huddled
- *    against the left edge instead of dividing the width.
+ * 3. THEN HE SAW 48×48 NEXT TO INSTAGRAM: "icons are big unparral, match the
+ *    icon size instagram". So the squares became 44 wide × 48 TALL — height is
+ *    what a thumb needs in a horizontal row, and it is unchanged. The width is
+ *    the icon plus px-2.5, which is what Instagram looks like. **Anything that
+ *    reduces the 48px height puts back the bug he reported at 36px.**
+ *
+ * 4. "I told No border anything to anywhere, example like Instagram, didnt do
+ *    it it." `md:border` and `md:mb-4` are therefore gone: phone and desktop
+ *    render the same shape, and the hairline between posts is the only border
+ *    left on the component.
+ *
+ * 5. Shown Instagram's order and asked to choose, he took it exactly: photo →
+ *    icon row with the counts beside the icons → "<name> caption" → comments.
+ *    That collapsed TWO rows (a counts row, then a divider, then a bare icon
+ *    row) into one, and moved the caption below the actions.
  *
  * WHY THE ICON GREW AND NOT JUST THE HIT AREA
  *   On 2026-08-03 the owner called an invisible-only 44px tap zone "fraud —
- *   button same size as before". He was right, and it is now a working rule:
- *   a fix you cannot see is indistinguishable from no fix. So the icons went
- *   20px → 24px on phones as well as the target going 36px → 48px.
- * ─────────────────────────────────────────────────────────────────────────────
+ *   button same size as before". A fix you cannot see is indistinguishable from
+ *   no fix. The icons are 24px, the same as Instagram's.
  *
- * These read the source rather than rendering. That is deliberate and it is the
- * same reason SendButtonTapTarget.test.ts gives: jsdom has no layout engine and
- * reports every element as 0 x 0, so a rendered assertion about size or width
- * would pass no matter how small the button got. The real geometry was checked
- * in Chromium against the production bundle before this shipped.
+ * These read the SOURCE rather than rendering, for the reason
+ * SendButtonTapTarget.test.ts gives: jsdom has no layout engine and reports
+ * every element as 0 × 0, so a rendered assertion about size or width would
+ * pass no matter how small the button got. Real geometry is measured in
+ * Chromium against the production bundle before shipping.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import { describe, it, expect } from "vitest";
@@ -50,7 +56,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 const postCard = read("src/components/post/PostCard.tsx");
 /**
  * ReactionPicker with its comments stripped. The prose in that file explains
- * what `md:flex-1` used to do, and a naive substring search matched the
+ * what the old sizes used to be, and a naive substring search matched the
  * explanation instead of the code — the same trap the mojibake scan fell into
  * when it flagged its own documentation. Check the code, never the commentary.
  */
@@ -97,57 +103,69 @@ describe("a post reaches both edges of the phone", () => {
     expect(read("src/App.css")).toMatch(/overflow-x:\s*hidden/);
   });
 
-  it("has no box drawn around it on a phone", () => {
-    // A hairline BETWEEN posts is the separator; a four-sided border is the box
-    // the owner asked to remove. `md:border` restores the card on desktop.
+  it("has NO box drawn around it — on a phone or on a desktop", () => {
+    // "I told No border anything to anywhere, example like Instagram." A
+    // hairline BETWEEN posts is the separator and stays; a four-sided border is
+    // the box he asked to remove, and `md:border` used to restore that box on
+    // every screen 768px and up.
     expect(postCardRoot).toContain("border-b");
-    expect(postCardRoot).toContain("md:border");
+    expect(postCardRoot, "md:border puts the desktop card back").not.toContain("md:border");
     expect(postCardRoot).not.toMatch(/(^|\s)border\s/);
-    expect(postCardRoot, "rounded corners at a screen edge look broken").not.toContain("rounded-xl");
+    expect(postCardRoot, "rounded corners at a screen edge look broken").not.toMatch(/rounded/);
   });
 
   it("stacks posts flush so the hairline is the only separator", () => {
     expect(postCardRoot).toContain("mb-0");
-    expect(postCardRoot).toContain("md:mb-4");
-    expect(wall, "a 16px gap with no border reads as floating text").toContain(
-      'className="space-y-0 md:space-y-4"',
-    );
+    expect(postCardRoot, "a gap with no border reads as floating text").not.toContain("md:mb-4");
+    expect(wall).toContain('className="space-y-0"');
+    expect(wall, "the wall must not reintroduce the desktop gap").not.toContain("md:space-y-4");
   });
 });
 
-describe("react, comment and share are thumb-sized", () => {
-  /** Every action-bar button's opening tag, comments stripped. */
-  const actionButtons = (() => {
-    const start = postCard.indexOf("── Action Bar ──");
-    expect(start, "the action bar moved — update this test").toBeGreaterThan(-1);
-    const block = postCard.slice(start, postCard.indexOf("── Comments ──", start));
-    return block.replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
-  })();
+/* ─────────────────────────────────────────────────────────────────────────
+   The action row. Sliced from its own banner to the caption that follows it,
+   so a change to either boundary fails loudly instead of silently widening
+   what these assertions look at.
+   ───────────────────────────────────────────────────────────────────────── */
+const ACTION_ANCHOR = "── ACTION ROW — ICONS WITH THEIR COUNTS BESIDE THEM ──";
+const CAPTION_ANCHOR = "── Caption, UNDER the actions";
+const COMMENTS_ANCHOR = "── Comments ──";
+const MEDIA_ANCHOR = "── Media ──";
 
-  it("gives each button the 48px Android minimum", () => {
-    const targets = actionButtons.match(/min-h-\[48px\]/g) ?? [];
+const actionButtons = (() => {
+  const start = postCard.indexOf(ACTION_ANCHOR);
+  expect(start, "the action row moved — update this test").toBeGreaterThan(-1);
+  const end = postCard.indexOf(CAPTION_ANCHOR, start);
+  expect(end, "the caption no longer follows the action row").toBeGreaterThan(start);
+  return postCard.slice(start, end).replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+})();
+
+describe("react, comment and share are thumb-sized", () => {
+  it("keeps the 48px height that fixed 'too small / hard to tap'", () => {
+    // h-12 IS 48px. It replaced min-h-[48px] when the square became a
+    // rectangle; the height is the same number and must stay that way.
+    const targets = actionButtons.match(/h-12 px-2\.5/g) ?? [];
     // comment + share here; the react button lives in ReactionPicker.
     expect(targets.length).toBe(2);
-    expect(picker).toContain("min-h-[48px]");
+    expect(picker).toContain("h-12 px-2.5");
   });
 
   it("groups the icons on the LEFT, Instagram-style", () => {
-    // Owner, 2026-08-10, second instruction of the day, with an Instagram
-    // screenshot: "the icons will be all in left allignment with nice space".
-    // This replaced an equal-thirds row shipped earlier the same day; the note
-    // in PostCard explains why both were right at the time.
-    expect(actionButtons).toContain("justify-start");
+    // Owner, with an Instagram screenshot: "the icons will be all in left
+    // allignment with nice space". A flex row with no justify- rule and no
+    // grow on the children is left-aligned by default; what must never come
+    // back is anything that stretches them across the width.
     expect(actionButtons).not.toContain("basis-1/3");
     expect(picker).not.toContain("basis-1/3");
     expect(actionButtons, "the buttons must not stretch across the row").not.toContain("flex-1");
+    expect(actionButtons).not.toContain("justify-around");
+    expect(actionButtons).not.toContain("justify-between");
   });
 
-  it("keeps the 48px target even though the buttons no longer stretch", () => {
-    // The regression risk in shrinking a row is that the tap target shrinks
-    // with it — undoing the "too small / hard to tap" fix from the same day.
-    const wide = actionButtons.match(/min-w-\[48px\]/g) ?? [];
-    expect(wide.length).toBe(2);
-    expect(picker).toContain("min-w-[48px]");
+  it("draws no rule above the icons", () => {
+    // Instagram has no divider there. It was `mx-2.5 border-t border-border`.
+    expect(actionButtons, "a divider above the icons is one of the borders he removed")
+      .not.toContain("border-t");
   });
 
   it("carries NO text label at any screen size", () => {
@@ -160,11 +178,19 @@ describe("react, comment and share are thumb-sized", () => {
 
   it("makes the icons visibly bigger, not just the invisible hit area", () => {
     // Owner, 2026-08-03: an invisible-only tap zone is "fraud — button same
-    // size as before". Icons are 24px everywhere now.
+    // size as before". Icons are 24px everywhere now — Instagram's size.
     const grown = actionButtons.match(/className="h-6 w-6"/g) ?? [];
     expect(grown.length).toBe(2);
     expect(picker).toContain('className="h-6 w-6"');
-    expect(picker, "the chosen-reaction emoji has to match").toContain("text-2xl");
+  });
+
+  it("renders the chosen reaction in the SAME 24px box as the outline icons", () => {
+    // "icons are big unparral". A colour emoji at text-2xl paints well outside
+    // its em box and rendered around 30px, so a post you had reacted to showed
+    // a bigger, higher symbol than the two icons beside it.
+    expect(picker, "sizing an emoji by font-size alone is what made it unparallel")
+      .not.toContain("text-2xl");
+    expect(picker).toMatch(/h-6 w-6 flex items-center justify-center text-\[20px\] leading-none/);
   });
 
   it("names each icon-only button for screen readers", () => {
@@ -174,5 +200,63 @@ describe("react, comment and share are thumb-sized", () => {
     expect(actionButtons).toMatch(/aria-label=\{t\("post\.share"\)\}/);
     expect(actionButtons).toMatch(/title=\{t\("post\.comment"\)\}/);
     expect(actionButtons).toMatch(/title=\{t\("post\.share"\)\}/);
+  });
+});
+
+describe("the card is laid out in Instagram's order", () => {
+  it("puts the photo first, then the icons, then the caption, then the comments", () => {
+    const media = postCard.indexOf(MEDIA_ANCHOR);
+    const actions = postCard.indexOf(ACTION_ANCHOR);
+    const caption = postCard.indexOf(CAPTION_ANCHOR);
+    const comments = postCard.indexOf(COMMENTS_ANCHOR);
+    for (const [name, at] of [["media", media], ["actions", actions], ["caption", caption], ["comments", comments]] as const) {
+      expect(at, `the ${name} section is missing`).toBeGreaterThan(-1);
+    }
+    expect(actions, "the icon row must come after the photo").toBeGreaterThan(media);
+    expect(caption, "the caption must come after the icon row").toBeGreaterThan(actions);
+    expect(comments, "the comments must come last").toBeGreaterThan(caption);
+  });
+
+  it("shows each count beside its own icon instead of on a separate row", () => {
+    // The old shape was: a counts row, a horizontal rule, then a row of bare
+    // icons — two rows for the same three facts.
+    expect(postCard, "the separate counts row is back").not.toContain("── Reactions Row ──");
+    expect(actionButtons).toContain("formatNumber(post.like_count)");
+    expect(actionButtons).toContain("formatNumber(post.comment_count)");
+    expect(actionButtons).toContain("formatNumber(post.share_count)");
+  });
+
+  it("keeps every count's tooltip when the count moves", () => {
+    // Moving a number is not an excuse to drop what it opens.
+    expect(actionButtons).toContain("ReactionSummaryTooltip");
+    expect(actionButtons).toContain("ShareSummaryTooltip");
+  });
+
+  it("keeps a count hidden while it is zero", () => {
+    // A fresh post shows three clean icons and no zeros, as on Instagram.
+    expect(actionButtons).toContain("post.like_count > 0");
+    expect(actionButtons).toContain("post.comment_count > 0");
+    expect(actionButtons).toContain("post.share_count > 0");
+  });
+
+  it("writes the author's name in front of the caption, inside the clamp", () => {
+    // Instagram's "<name> caption". Passed as Caption's `prefix` so it sits
+    // INSIDE the clamped paragraph — above it, the name would survive on its
+    // own line while the sentence it introduces was collapsed.
+    const captionBlock = postCard.slice(postCard.indexOf(CAPTION_ANCHOR), postCard.indexOf(COMMENTS_ANCHOR));
+    expect(captionBlock).toContain("prefix={");
+    expect(captionBlock).toContain("post.author_name");
+    const caption = read("src/components/post/Caption.tsx");
+    expect(caption, "the prefix must render inside the clamped <p>").toMatch(
+      /\{prefix\}\s*\n\s*<RichContentRenderer/,
+    );
+  });
+
+  it("keeps reach and viewed, which he was offered the chance to remove", () => {
+    // Asked on 2026-08-10 which of three details to drop from the card, he
+    // answered "Nothing — keep all three".
+    expect(actionButtons).toContain("reached");
+    expect(actionButtons).toContain("viewed");
+    expect(postCard, "the Suggested pill was kept too").toContain("Suggested");
   });
 });
