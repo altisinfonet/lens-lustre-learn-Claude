@@ -130,6 +130,16 @@ describe("the Curated Wall uses the original, not the soft thumbnail", () => {
     expect(code).toMatch(/const base = potd\.image_url \|\| potd\.thumbnail_url/);
   });
 
+  it("declares a slot size that is not smaller than the real square", () => {
+    // `sizes` is a promise about the slot. Under-declare it and the browser
+    // picks a smaller file ON PURPOSE. The first attempt said 420px for a
+    // square measured at 663px, and a 420px image was served into it — still
+    // soft, for a completely different reason from the thumbnail.
+    const m = src.match(/sizes="\(min-width: 1280px\) (\d+)px/);
+    expect(m, "the desktop slot declaration is gone — update this test").not.toBeNull();
+    expect(Number(m![1])).toBeGreaterThanOrEqual(660);
+  });
+
   it("ships a srcset and a fallback together — never one without the other", () => {
     const code = src.replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
     expect(code).toContain("cdnSrcSet(base");
