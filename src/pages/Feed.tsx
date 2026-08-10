@@ -5,7 +5,7 @@ import { useFeedRealtime } from "@/hooks/feed/useRealtimeFeed";
 import { useNewPostsBanner } from "@/hooks/feed/useNewPostsBanner";
 import { useFeedEventTracker } from "@/hooks/feed/useFeedEventTracker";
 import { Link, useNavigate } from "react-router-dom";
-import { Rss, RefreshCw, ArrowUp } from "lucide-react";
+import { Rss, ArrowUp } from "lucide-react";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import PullToRefresh from "@/components/PullToRefresh";
 import FeedStoriesBar from "@/components/feed/FeedStoriesBar";
@@ -32,7 +32,6 @@ import type { UnifiedPost } from "@/types/post";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
-const displayFont = { fontFamily: "var(--font-display)" };
 
 const Feed = () => {
   const { user, loading: authLoading } = useAuth();
@@ -51,7 +50,6 @@ const Feed = () => {
     hasNextPage: hasMore,
     fetchNextPage,
     refetch,
-    isRefetching: refreshing,
   } = useFeedQuery(user?.id);
 
   const posts = useMemo(() => flattenFeedPages(data?.pages), [data?.pages]);
@@ -250,27 +248,23 @@ const Feed = () => {
         */}
         <TodaysBirthdayStrip />
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4 md:mb-8 px-2 md:px-0">
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <div className="w-10 h-px bg-primary" />
-              <span className="text-[9px] tracking-[0.3em] uppercase text-primary" style={headingFont}>
-                <Rss className="h-3 w-3 inline mr-1.5" />{t("feed.newsFeed")}
-              </span>
-            </div>
-            <h1 className="text-lg md:text-2xl font-light tracking-tight" style={displayFont}>
-              {t("feed.yourFeed")}
-            </h1>
-          </div>
-          <button
-            onClick={() => refetch()}
-            disabled={refreshing}
-            className="p-2 text-muted-foreground hover:text-primary transition-colors disabled:animate-spin"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </button>
-        </div>
+        {/*
+          NO HEADING AND NO REFRESH BUTTON. Owner, 2026-08-10, after seeing the
+          build on his phone: "Dont Wrote News feed, your feed etc on the Top,
+          refresh icon It must be like Instagram" — and, asked whether he meant
+          the app only: "Dont show it anywhere neither on Web nor in App".
+
+          What used to be here: a "NEWS FEED" eyebrow, a "Your Feed" h1 at
+          text-lg/2xl, and a RefreshCw button.
+
+          Nothing is lost by removing the button. This whole screen is already
+          wrapped in <PullToRefresh onRefresh={refetch}> a few lines above, so
+          pulling down still refreshes — which is exactly how Instagram does it
+          and is why the button was redundant. `refetch` is also still called by
+          the realtime handler.
+
+          Do not put a title back. Instagram's feed starts at the first post.
+        */}
 
         {/* Composer — same as My Wall, posts go to posts table → appear on Wall + Feed */}
         <WallPosts targetUserId={user.id} isOwnWall composerOnly />
@@ -349,7 +343,7 @@ const Feed = () => {
                     const slot = slotForPostIndex(i);
                     if (slot === null || !shouldShowFeedAd(i, posts.length)) return null;
                     return (
-                      <div key={`feed-ad-${slot}`} className="mb-4">
+                      <div key={`feed-ad-${slot}`}>
                         <AdZone zone="story-card" slotIndex={slot} />
                       </div>
                     );
