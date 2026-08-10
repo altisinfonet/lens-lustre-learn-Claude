@@ -36,6 +36,14 @@ export interface AdCreative {
   headline: string;
   subtext: string;
   cta: string;
+  /**
+   * Who is advertising. EMPTY means "this ad is the platform's own", and only
+   * then does the feed header draw the site name and its verified tick — see
+   * the column comment in supabase/migrations/20260810230000_ad_creative_advertiser.sql.
+   * Never optional in the type even though the column is nullable: the select
+   * below coalesces, so callers never have to think about null.
+   */
+  advertiser_name: string;
   sort_order: number;
 }
 
@@ -66,15 +74,16 @@ export const fetchAdCreatives = async (zone: AdZoneId): Promise<AdCreative[]> =>
     try {
       const { data, error } = await supabase
         .from("ad_creatives" as never)
-        .select("id, zone, image_url, click_url, alt_text, headline, subtext, cta, sort_order")
+        .select("id, zone, image_url, click_url, alt_text, headline, subtext, cta, advertiser_name, sort_order")
         .eq("zone", zone)
         .eq("is_active", true)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true });
       if (error) throw error;
-      const rows = ((data as unknown as AdCreative[]) || []).filter(
-        (r) => typeof r?.image_url === "string" && r.image_url.trim().length > 0,
-      );
+      const rows = ((data as unknown as AdCreative[]) || [])
+        .filter((r) => typeof r?.image_url === "string" && r.image_url.trim().length > 0)
+        // NULL becomes "" here, once, so every caller can just test truthiness.
+        .map((r) => ({ ...r, advertiser_name: (r.advertiser_name ?? "") as string }));
       cache.set(zone, { at: Date.now(), rows });
       return rows;
     } catch {
