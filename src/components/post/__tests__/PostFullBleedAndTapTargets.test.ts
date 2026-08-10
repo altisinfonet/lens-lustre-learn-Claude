@@ -131,36 +131,48 @@ describe("react, comment and share are thumb-sized", () => {
     expect(picker).toContain("min-h-[48px]");
   });
 
-  it("divides the full width into three EQUAL thirds", () => {
-    // Two bugs here, not one.
-    //   `md:flex-1` meant that on a phone the buttons shrank to their icons and
-    //   huddled left under `justify-start`.
-    //   Plain `flex-1` (flex-basis 0) then made them UNEQUAL — measured in
-    //   Chromium at 390px: 107 / 131 / 131, because the react button sits in a
-    //   wrapper with no padding while the other two carry px-3. `basis-1/3` is
-    //   a percentage of the row, so border-box padding is inside it and all
-    //   three come out identical. Re-measured: 123 / 123 / 123.
-    expect(actionButtons).not.toContain("md:flex-1");
-    expect(picker).not.toContain("md:flex-1");
-    const thirds = actionButtons.match(/basis-1\/3 grow/g) ?? [];
-    expect(thirds.length).toBe(2);
-    expect(picker).toContain("basis-1/3 grow");
-    expect(actionButtons).not.toContain("justify-start");
+  it("groups the icons on the LEFT, Instagram-style", () => {
+    // Owner, 2026-08-10, second instruction of the day, with an Instagram
+    // screenshot: "the icons will be all in left allignment with nice space".
+    // This replaced an equal-thirds row shipped earlier the same day; the note
+    // in PostCard explains why both were right at the time.
+    expect(actionButtons).toContain("justify-start");
+    expect(actionButtons).not.toContain("basis-1/3");
+    expect(picker).not.toContain("basis-1/3");
+    expect(actionButtons, "the buttons must not stretch across the row").not.toContain("flex-1");
+  });
+
+  it("keeps the 48px target even though the buttons no longer stretch", () => {
+    // The regression risk in shrinking a row is that the tap target shrinks
+    // with it — undoing the "too small / hard to tap" fix from the same day.
+    const wide = actionButtons.match(/min-w-\[48px\]/g) ?? [];
+    expect(wide.length).toBe(2);
+    expect(picker).toContain("min-w-[48px]");
+  });
+
+  it("carries NO text label at any screen size", () => {
+    // "After Like Comment and Share icon dont write the text" — so `hidden
+    // md:inline` is not enough; the words are gone entirely.
+    expect(actionButtons).not.toContain("post.comment\")}</span>");
+    expect(actionButtons).not.toMatch(/<span className="hidden md:inline">/);
+    expect(picker).not.toMatch(/<span className="hidden md:inline">/);
   });
 
   it("makes the icons visibly bigger, not just the invisible hit area", () => {
     // Owner, 2026-08-03: an invisible-only tap zone is "fraud — button same
-    // size as before". Both icons go 20px -> 24px on phones.
-    const grown = actionButtons.match(/h-6 w-6 md:h-5 md:w-5/g) ?? [];
+    // size as before". Icons are 24px everywhere now.
+    const grown = actionButtons.match(/className="h-6 w-6"/g) ?? [];
     expect(grown.length).toBe(2);
-    expect(picker).toContain("h-6 w-6 md:h-5 md:w-5");
-    expect(picker, "the chosen-reaction emoji has to grow with them").toContain("text-2xl md:text-lg");
+    expect(picker).toContain('className="h-6 w-6"');
+    expect(picker, "the chosen-reaction emoji has to match").toContain("text-2xl");
   });
 
-  it("still names each button for screen readers once the label is hidden", () => {
-    // The text label is `hidden md:inline`, so on a phone the button is an icon
-    // with no accessible name unless one is given.
+  it("names each icon-only button for screen readers", () => {
+    // With the words gone the button has no accessible name unless given one,
+    // and a sighted member gets no tooltip either.
     expect(actionButtons).toMatch(/aria-label=\{t\("post\.comment"\)\}/);
     expect(actionButtons).toMatch(/aria-label=\{t\("post\.share"\)\}/);
+    expect(actionButtons).toMatch(/title=\{t\("post\.comment"\)\}/);
+    expect(actionButtons).toMatch(/title=\{t\("post\.share"\)\}/);
   });
 });
