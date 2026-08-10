@@ -221,6 +221,65 @@ function buildSrcSet(url: string): string | undefined {
 
 const FEED_SIZES = "(max-width: 768px) 100vw, 600px";
 
+const THUMB_LONG_EDGE = 600;
+
+/**
+ * PHOTO QUALITY — owner report, 2026-08-09: *"Photos are uploading with
+ * extremely low reducing size so that images value quality getting very poor."*
+ *
+ * MEASURED on the live feed, 2026-08-10, before this fix:
+ *
+ *   slot 588 CSS px × DPR 1.125  =  662 device px needed
+ *   delivered                    =  600 × 400   (and 480 × 600 for portraits)
+ *   srcset                       =  none
+ *
+ * The browser was upscaling. On a phone at DPR 3 the same slot needs ~1,760
+ * device pixels and still got 600 — three times too few. That is the softness.
+ *
+ * NOTHING IS WRONG WITH THE UPLOAD. The stored originals measure 1920×1280,
+ * 1080×1350, 2560×1165. Not one pixel is lost at upload; the wrong copy was
+ * being displayed.
+ *
+ * WHY, EXACTLY — and it was my change of 2026-08-07. `isTransformable()`
+ * requires the URL to match `/storage/v1/object/public/…`, but every stored
+ * address is `https://cdn.50mmretina.com/…`, the custom CDN domain. So
+ * `transformable` was ALWAYS false, `buildSrcSet()` ALWAYS returned undefined,
+ * and the sharp layer fell to `thumb ?? src` — the 600px thumbnail, on every
+ * device, forever.
+ *
+ * THE FIX IS NOT TO THROW THE THUMBNAIL AWAY. It is genuinely the right file
+ * for a small slot, and it is what makes the first paint fast. It is now
+ * offered ALONGSIDE the original with width descriptors, and the browser picks
+ * — by slot size and by device pixel ratio, which is the one thing we cannot
+ * measure at render time. A phone gets the original; a small grid cell on a
+ * 1× screen still gets the 600px copy.
+ */
+function intrinsicFromName(url: string): { w: number; h: number } | null {
+  // The uploader bakes the size into the filename: `…-w1920h1280.webp`, and
+  // `…-w1920h1280-thumb.webp` for its 600px copy. Without those numbers there
+  // are no width descriptors and srcset cannot be built at all.
+  const m = url.match(/-w(\d+)h(\d+)(?:-thumb)?\.[a-z0-9]+(?:[?#]|$)/i);
+  if (!m) return null;
+  const w = Number(m[1]);
+  const h = Number(m[2]);
+  return w > 0 && h > 0 ? { w, h } : null;
+}
+
+/** `thumb 600w, original 1920w` — never a guess, both addresses are stored. */
+function buildThumbFirstSrcSet(thumb: string | null, original: string): string | undefined {
+  if (!thumb) return undefined;
+  const dim = intrinsicFromName(original) ?? intrinsicFromName(thumb);
+  if (!dim || dim.w <= THUMB_LONG_EDGE) return undefined;
+  // The thumbnail is capped on its LONG edge, so a portrait's width is smaller
+  // than 600. Declaring 600w for a 480px-wide file would make the browser skip
+  // the original when it should not.
+  const thumbW =
+    dim.w >= dim.h ? THUMB_LONG_EDGE : Math.max(1, Math.round((THUMB_LONG_EDGE * dim.w) / dim.h));
+  if (thumbW >= dim.w) return undefined;
+  return `${thumb} ${thumbW}w, ${original} ${dim.w}w`;
+}
+
+
 /* ── Progressive Image ──
  * Two layers, and the back one now does two jobs.
  *
@@ -279,8 +338,11 @@ const ProgressiveImage = ({
   const lqip = transformable && !backdropFailed
     ? buildLqipUrl(src)
     : (!backdropFailed && thumb) ? thumb : src;
-  const sharpSrc = transformable ? buildRenderUrl(src, 800) : (thumb ?? src);
-  const srcSet = buildSrcSet(src);
+  // The sharp layer is the ORIGINAL again. The thumbnail has not been dropped —
+  // it still paints the backdrop instantly, and it is the small end of the
+  // srcset below, so a slot that only needs 600px still downloads only 600px.
+  const sharpSrc = transformable ? buildRenderUrl(src, 800) : src;
+  const srcSet = transformable ? buildSrcSet(src) : buildThumbFirstSrcSet(thumb, src);
 
   return (
     <>
