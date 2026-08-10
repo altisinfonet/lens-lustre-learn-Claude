@@ -69,6 +69,24 @@ describe("the feed starts at the first post", () => {
     // goes, a member has no way to refresh at all.
     expect(feed).toMatch(/<PullToRefresh onRefresh=\{async \(\) => \{ await refetch\(\); \}\}>/);
   });
+
+  it("refreshes on a COMPUTER too, where there is no finger to pull with", () => {
+    // The mistake this pins: PullToRefresh listened to onTouchStart/Move/End and
+    // nothing else, so on a desktop it did nothing at all. That was invisible
+    // while the feed still had a refresh button — and when the button was
+    // removed, a desktop member was left with no way to refresh but reloading
+    // the page. Overscrolling upward with the wheel is the desktop equivalent
+    // and adds no control to the screen, which is what the owner asked for.
+    const ptr = code("src/components/PullToRefresh.tsx");
+    expect(ptr, "the wheel handler is gone — desktop cannot refresh again").toContain("onWheel={handleWheel}");
+    expect(ptr).toContain("WHEEL_THRESHOLD");
+    // It may only arm at the very top, and only while scrolling UP.
+    expect(ptr).toContain("window.scrollY > 0");
+    expect(ptr).toContain("e.deltaY >= 0");
+    // Nothing may preventDefault: the page must scroll and select exactly as
+    // before, and the worst case of a false trigger is one extra fetch.
+    expect(ptr, "preventDefault here would break normal scrolling").not.toContain("preventDefault");
+  });
 });
 
 describe("nothing in the feed is drawn as an inset box", () => {
