@@ -4,7 +4,10 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/core/useAuth";
 import { Search, Trophy, BookOpen, Newspaper, X, ArrowLeft, User, Layers, UserRound, MessageSquare, Clock, Hash } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { AnimatePresence, motion } from "framer-motion";
+// `motion` only — AnimatePresence is deliberately NOT imported here, so the
+// banned pattern cannot be reintroduced by autocomplete. See the block comment
+// above the panel for why it froze the whole app.
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useDismissOnRouteChange } from "@/hooks/core/useDismissOnRouteChange";
@@ -503,15 +506,46 @@ const GlobalSearch = () => {
 
       {/* Panel — full-screen sheet on mobile (portaled to body, see comment
           at panelRef), anchored dropdown rendered in place on md+ */}
+      {/* ═══════════════════════════════════════════════════════════════════
+          NO <AnimatePresence>, NO `exit` — AND THIS IS LOAD-BEARING.
+
+          OWNER REPORT, build 1058, 2026-08-09: "search on app still not
+          working. entire app is freezing and hanging, even not a click or
+          touch working." Restarting the app was the only cure.
+
+          This is the SAME defect that was diagnosed and fixed in
+          NotificationBell on 2026-08-01, and the reasoning there applies here
+          word for word: AnimatePresence keeps an exiting child MOUNTED until
+          its animation reports completion. On the Android webview that
+          completion may never arrive — the panel stayed in the DOM at
+          opacity 0 with the closing transform applied, an invisible rectangle
+          that swallowed every tap until a full reload.
+
+          NotificationBell's stranded panel was 304x456, in one corner. THIS
+          panel is `fixed inset-0` — the whole screen. So the identical failure
+          does not swallow some taps, it swallows ALL of them, which is exactly
+          why the owner experienced it as the entire app freezing rather than
+          as a search bug.
+
+          It also explains why build 1058 did not fix it. The freeze was
+          attributed to the image retry storm; images ARE fixed and the retry
+          IS capped, and the freeze remained — because it never had anything to
+          do with the network. It is an unmount that never happens.
+
+          The panel is now removed by plain React reconciliation, which cannot
+          fail to run. The ENTRANCE animation stays (it does not gate unmount);
+          the 200ms fade-out is gone, and as recorded for NotificationBell that
+          is the right price. GlobalSearchDismiss.test.tsx fails the build if
+          AnimatePresence or an `exit` prop comes back.
+          ═══════════════════════════════════════════════════════════════════ */}
       {(() => {
         const panel = (
-      <AnimatePresence>
+      <>
         {open && (
           <motion.div
             ref={panelRef}
             initial={{ opacity: 0, y: -8, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.97 }}
             transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
             className="fixed inset-0 z-[80] flex flex-col bg-card overflow-hidden md:absolute md:inset-auto md:right-0 md:top-full md:mt-2 md:block md:w-[420px] md:max-w-[92vw] md:border md:border-border md:rounded-lg md:shadow-2xl"
           >
@@ -775,7 +809,7 @@ const GlobalSearch = () => {
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </>
         );
         return isDesktop ? panel : createPortal(panel, document.body);
       })()}
