@@ -177,12 +177,40 @@ const CustomUrlOrIdVerification = () => {
   if (customUrl && /^IDverification=/i.test(customUrl)) return <IDVerification />;
   return <CustomUrlProfile />;
 };
+/**
+ * P7 — "everything feels delayed, instantly nothing happening".
+ *
+ * Owner report, 2026-08-06: *"like comments anything coming delay, instantly
+ * nothing happening, delay is there"*. It was located precisely to these
+ * settings on the same day and deliberately NOT changed, because it alters
+ * fetch behaviour for every member on every screen against a free-tier
+ * database and that session had no capacity left to watch it or revert.
+ *
+ * WHAT IT IS NOT. Likes and comments are not slow: both already apply
+ * optimistically before the server answers (`usePostReactionMutations` has
+ * onMutate with an onError rollback, and `useAddComment` has its own). The
+ * WRITE is instant. It is the READ that never happened again.
+ *
+ * With `refetchOnWindowFocus: false`, returning to the app or switching back to
+ * the tab refreshed nothing at all — so something done on another device, or by
+ * another member, stayed invisible until an action happened to force a refetch.
+ * That is exactly what "instantly nothing happening" describes.
+ *
+ * WHY THIS IS SAFER THAN IT SOUNDS, and why staleTime is deliberately NOT
+ * touched in the same change: a focus refetch RESPECTS staleTime. React Query
+ * only refetches queries whose data is already stale, so this cannot produce a
+ * request storm on a free tier — data less than five minutes old is still
+ * served from cache exactly as before. One setting, one revert point.
+ *
+ * IF REQUEST VOLUME LOOKS WRONG: set this back to false. It is one line, and
+ * nothing else depends on it. Watch Admin -> Error Log and the feed.
+ */
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000, // 5 min
       gcTime: 10 * 60 * 1000,   // 10 min
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: true,
       retry: 1,
     },
   },
