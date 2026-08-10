@@ -72,6 +72,15 @@ export interface UserNotificationGroup extends NotificationGroup {
    * not the number of events inside them. This is the badge.
    */
   total_unread: number;
+  /**
+   * Positionally aligned with actor_ids. FALSE = that profile no longer exists,
+   * which is what lets the bell say "A deleted account" rather than "A member".
+   *
+   * Optional, and deliberately NOT added to the shared NotificationGroup: the
+   * history RPC does not return it, and a field that is present on one surface
+   * and absent on the other should say so in the type rather than pretend.
+   */
+  actor_known?: (boolean | null)[] | null;
 }
 
 interface NotificationsData {
