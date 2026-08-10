@@ -129,6 +129,37 @@ describe("nothing in the feed is drawn as an inset box", () => {
       .toContain('className="flex items-center gap-2.5 p-3 pb-2"');
   });
 
+  it("only claims OUR identity when the ad is actually ours", () => {
+    // The header I built hardcoded the site name and the blue tick, because a
+    // creative had no identity to draw on. Correct while every ad is placed by
+    // the platform for itself; a false claim of identity AND of verification
+    // the first time a slot is sold. `advertiser_name` (migration
+    // 20260810230000) is the fix.
+    const header = adZone.slice(adZone.indexOf('{zone === "story-card" && ('));
+    const block = header.slice(0, header.indexOf("{/* GOOGLE"));
+    expect(adZone).toContain('const advertiser = (cr.advertiser_name || "").trim();');
+    // The name is theirs when set, ours when not.
+    expect(block).toContain('{advertiser || "50mm Retina World"}');
+    // The tick is drawn ONLY in the ours branch. This is the assertion that
+    // matters: a tick over a third party's ad is the harm.
+    expect(block).toMatch(/\{!advertiser && \(\s*<span className="inline-flex shrink-0">\s*<VerifiedBadge/);
+    // And the site logo is not put above someone else's ad either.
+    expect(block).toContain("{advertiser ? (");
+    // Existing rows have NULL and must keep behaving exactly as before.
+    const creatives = code("src/lib/ads/adCreatives.ts");
+    expect(creatives).toContain("advertiser_name, sort_order");
+    expect(creatives, "NULL must be coalesced once, not tested for everywhere")
+      .toContain('advertiser_name: (r.advertiser_name ?? "") as string');
+    // The single-image path has no creative row and is ours by definition.
+    expect(adZone).toContain('{ ...c.own, advertiser_name: "" }');
+  });
+
+  it("lets an admin type the advertiser in", () => {
+    const lib = code("src/components/admin/ads/AdCreativeLibrary.tsx");
+    expect(lib).toContain("Advertiser name — leave empty if this ad is ours");
+    expect(lib).toContain("advertiser_name: e.target.value.trim()");
+  });
+
   it("keeps the 4:5 crop the admin guidance promises", () => {
     expect(adZone).toMatch(/aspect: "4 \/ 5"/);
   });
