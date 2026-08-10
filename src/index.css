@@ -276,8 +276,10 @@
     line-height: 1.2;
   }
 
+  /* Was `letter-spacing: 0.02em`. Removed together with the capitals — see
+     the INSTAGRAM TYPE block at the end of this file. */
   small, label, .text-xs, .text-\[10px\], .text-\[11px\] {
-    letter-spacing: 0.02em;
+    letter-spacing: normal;
   }
 }
 
@@ -621,4 +623,56 @@
 .sm\:text-\[11px\],
 .md\:text-\[10px\] {
   font-size: 12px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * INSTAGRAM TYPE — NO CAPITALS, NO WIDE LETTER-SPACING, ANYWHERE.
+ *
+ * Owner's decision, 2026-08-10, chosen from three options after he said twice
+ * that "Entire App and website both fonts are extremely big. Match with
+ * Instagram exactly."
+ *
+ * WHAT WAS MEASURED, on the live feed, BEFORE he was asked
+ *   186 pieces of visible text. 110 of them — 59% — render at exactly 12px,
+ *   because they are written at 9, 10 and 11px and the readability floor above
+ *   raises everything under 12px to 12px. Twenty-five of those 110 are CAPITALS
+ *   carrying 0.1em to 0.35em of extra letter-spacing.
+ *
+ *   That combination is the whole complaint. Instagram's body text is 14px and
+ *   its small text is 12px — the same numbers this site already uses — but
+ *   Instagram sets nothing in capitals and adds letter-spacing nowhere. A
+ *   capital is as tall as the font's cap height rather than its x-height, so
+ *   12px of capitals carries the visual weight of roughly 16px of normal text,
+ *   and 0.3em of tracking then stretches it about a third wider again. The
+ *   pixel size was never the problem, which is why two rounds of shrinking
+ *   individual components had not fixed it.
+ *
+ * WHY THIS IS ONE BLOCK AND NOT ~3,300 EDITS
+ *   `uppercase` appears 1,637 times in src/, and the wide-tracking utilities
+ *   about 1,700 times more, across most of the codebase. Rewriting those is the
+ *   bulk modification this project forbids, and every touched file would need
+ *   re-verifying by hand. This is one block in one file, and undoing it is
+ *   deleting the block — nothing else in the codebase has to change back.
+ *
+ * WHAT IT DELIBERATELY DOES NOT TOUCH
+ *   `tracking-tight` and `tracking-tighter` are NEGATIVE and belong to the
+ *   display headings; they are left alone. No font size changes, and the 12px
+ *   readability floor above is untouched. That is the point: this makes text
+ *   read smaller without making any of it harder to see, which is the only way
+ *   both of the owner's instructions from today can be true at once.
+ *
+ * WHAT TO EXPECT
+ *   Every capitalised label now shows the casing actually written in the
+ *   source: "Suggested", "Add friend", "Submit report". Text gets NARROWER,
+ *   never wider, so nothing that fitted before can overflow.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+[class*="uppercase"] {
+  text-transform: none;
+}
+
+[class*="tracking-["],
+.tracking-wide,
+.tracking-wider,
+.tracking-widest {
+  letter-spacing: normal;
 }
