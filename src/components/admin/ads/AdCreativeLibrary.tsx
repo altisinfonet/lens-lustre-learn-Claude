@@ -217,6 +217,20 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
                   placeholder="Website to open when clicked (optional)"
                   onBlur={(e) => { if (e.target.value !== r.click_url) void patch(r.id, { click_url: e.target.value.trim() }); }}
                 />
+                {/* WHO IS ADVERTISING.
+                    Leave it empty and the feed card is headed by the site logo,
+                    "50mm Retina World" and its blue verified tick — right while
+                    the ad is our own. Type a company in and the card is headed
+                    by THEIR name with a plain letter avatar and NO tick, because
+                    a tick means "this account is verified" and we have verified
+                    nothing about them. */}
+                <input
+                  className={input}
+                  style={bFont}
+                  defaultValue={r.advertiser_name || ""}
+                  placeholder="Advertiser name — leave empty if this ad is ours"
+                  onBlur={(e) => { if (e.target.value !== (r.advertiser_name || "")) void patch(r.id, { advertiser_name: e.target.value.trim() }); }}
+                />
               </div>
             </div>
           ))}
