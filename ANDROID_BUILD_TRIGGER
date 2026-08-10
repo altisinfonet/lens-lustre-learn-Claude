@@ -1,3 +1,28 @@
+Build 1060 — 2026-08-10
+- PHOTOS NOW FILL THE SCREEN. Every photo in the feed and on your wall had a
+  dead strip down both sides — about 20 pixels of empty background on each edge
+  of every picture — and sat inside a drawn box with rounded corners. The cause
+  was one line in the stylesheet setting every page column to 90% of the screen
+  width, under a comment claiming it did the opposite. Posts now run edge to
+  edge, with a single hairline between them, the way Instagram does it. On a
+  desktop the layout is unchanged.
+- THE LIKE, COMMENT AND SHARE BUTTONS CAN BE HIT WITH A THUMB. They were 36
+  pixels tall — under the 48 that Android asks for — and all three were bunched
+  against the left edge instead of sharing the width. They are now 48 pixels
+  tall, the icons are a quarter larger, and the three divide the row into equal
+  thirds. The icons themselves are bigger, not just an invisible tap area.
+- ALL TEXT IS NOW READABLE. Forty-two per cent of the writing in this app was
+  smaller than 12 pixels: 928 places at 9px, 203 at 8px, 39 at 7px. Seven pixels
+  is not small type, it is decoration that happens to be words. Nothing is now
+  smaller than 12 pixels, which is the minimum Android itself recommends, and
+  lines have been given more space between them so blocks of text no longer
+  crowd together.
+- THE BELL NO LONGER CALLS A DELETED ACCOUNT "A MEMBER". Thirty-eight
+  notifications came from people who have since deleted their accounts, and all
+  of them read "A member started following you." "A member" means something
+  different — a real person here now who simply has not set a name. Those now
+  read "A deleted account", which is the truth.
+
 Build 1059 — 2026-08-10
 - SIGNING IN WORKS AGAIN ON OLDER PHONES. This is the most important line in
   this build. On any phone whose Android System WebView had not been updated,
