@@ -1,5 +1,5 @@
 const PostCardSkeleton = () => (
-  <div className="bleed-phone p-4 space-y-3 animate-pulse">
+  <div className="bleed-phone mb-4 p-4 space-y-3 animate-pulse">
     <div className="flex items-center gap-3">
       <div className="h-8 w-8 rounded-full bg-muted" />
       <div className="space-y-1.5 flex-1">

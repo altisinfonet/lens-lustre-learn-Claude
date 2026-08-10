@@ -85,11 +85,19 @@ const Caption = ({ content, maxLines = 2, prefix }: CaptionProps) => {
   if (!content) return null;
 
   return (
-    // No top padding. In PostCard the caption now sits directly under the
-    // action row, which supplies the gap above it; on every other surface the
-    // post header does. Either way a post with a caption and one without keep
-    // the SAME spacing, and adding `pt` here would push captioned posts down.
-    <div className="px-3 pb-2">
+    // No padding above OR below.
+    //
+    // Above: the action row supplies the gap, so a post with a caption and one
+    // without keep the same spacing — adding `pt` here pushes captioned posts
+    // down and nothing else.
+    //
+    // Below: the 16px gap between one post and the next lives in ONE place,
+    // PostCard's `mb-4`. It used to be `pb-2` here plus whatever the last
+    // element happened to be, which is why the measured gap between posts came
+    // out at 21px, 23px, 34px and once at MINUS 1px on the live feed. Owner,
+    // 2026-08-10: "After removing the thin border line between two post gap
+    // also maintain exactly like Instagram."
+    <div className="px-3">
       <div ref={clampRef} className={expanded ? "" : CLAMP[maxLines] || CLAMP[2]}>
         <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ fontFamily: "var(--font-body)" }}>
           {prefix}
