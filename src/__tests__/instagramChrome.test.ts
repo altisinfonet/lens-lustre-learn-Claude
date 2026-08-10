@@ -100,6 +100,18 @@ describe("nothing in the feed is drawn as an inset box", () => {
   });
 });
 
+describe("the composer is shaped like a post", () => {
+  const wall = code("src/components/WallPosts.tsx");
+
+  it("wears one hairline and no box, on every screen size", () => {
+    // Measured live on 2026-08-10 AFTER the posts were fixed: the composer was
+    // still 0.8px on all four sides while every post under it had only its
+    // bottom hairline. It was the last `md:border` left in the feed.
+    expect(wall).toContain('className="bleed-phone border-b border-border mb-0 overflow-hidden"');
+    expect(wall, "the composer's desktop card is back").not.toContain("md:border");
+  });
+});
+
 describe("the bottom bar is icons only", () => {
   it("writes no word under any icon", () => {
     expect(nav, "the tab captions are back").not.toContain("tab.labelKey ? t(tab.labelKey) : tab.label");
