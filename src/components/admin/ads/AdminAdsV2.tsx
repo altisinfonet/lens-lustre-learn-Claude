@@ -71,9 +71,23 @@ const ZONE_GUIDE: Record<AdZoneId, { where: string; size: string; shape: string;
     where: "On the right side of the feed — only on computers.",
     size: "600 × 600", shape: "square", tip: "A square logo or banner works best.",
   },
+  /**
+   * The Story Card fills the WHOLE width of the phone — no border, no rounded
+   * corners, no gap at the sides — exactly like a post. Owner, 2026-08-10:
+   * "Spoensored Ads are coming lower size, that not fixed. For this update
+   * required in the Admin Ad section too, mention correct size there."
+   *
+   * The picture is cropped to 4:5 (`aspect: "4 / 5"` in AdZone's ZONE_FRAME),
+   * so 1080 × 1350 is exactly right and anything of a different shape gets its
+   * edges cut off. That is what the wording below has to make unmissable —
+   * before, it said "tall (like a phone photo)", which invited 1080 × 1920 and
+   * lost a third of the picture. Keep this text and AdZone's aspect in step:
+   * change one and you must change the other.
+   */
   "story-card": {
-    where: "Inside the feed, like a normal post. This is the main one phone users see.",
-    size: "1080 × 1350", shape: "tall (like a phone photo)", tip: "Make it tall, not wide.",
+    where: "Inside the feed, like a normal post. This is the main one phone users see. It fills the whole width of the phone, edge to edge, with no border.",
+    size: "1080 × 1350", shape: "4:5 — exactly this shape",
+    tip: "The picture is cropped to 4:5, so send it at 1080 × 1350. A taller picture (1080 × 1920) loses its top and bottom, and a square one loses its sides.",
   },
   lightbox: {
     where: "Under a big photo, when someone opens a picture full-screen.",
