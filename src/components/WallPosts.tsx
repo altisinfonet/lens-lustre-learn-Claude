@@ -1133,7 +1133,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                 <button
                   onClick={() => setTagModalOpen(true)}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
-                  title="Tag friends in this photo"
+                  title="Tag people in this photo"
                 >
                   <Tag className="h-4 w-4 text-secondary" />
                   <span className="hidden sm:inline">
