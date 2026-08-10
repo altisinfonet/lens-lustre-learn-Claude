@@ -829,3 +829,9 @@ Speed, and photos the way you shot them:
          touch-only) — overscrolling upward with the wheel now does it;
        * the emoji summary is back beside the like count, at 13px;
        * Edit caption opens where the caption is, not above the photograph.
+1070 — The three open risks from the 1069 audit, closed:
+       * an ad only carries our name and blue tick when the ad is OURS. A
+         named advertiser gets their own name, a letter avatar and no tick;
+       * the no-capitals rule audited across 11 pages / ~570 labels — 16 read
+         lowercase, all admin and wallet chrome, none broken;
+       * refetch-on-focus measured: two leave-and-return cycles, 0 requests.
