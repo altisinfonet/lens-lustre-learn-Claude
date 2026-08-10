@@ -148,7 +148,15 @@ export default function PhotoOfTheDay() {
             key={potd.id}
             src={cdnResized(base, 900)}
             srcSet={cdnSrcSet(base, [480, 640, 900, 1200, 1600])}
-            sizes="(min-width: 1280px) 420px, (min-width: 768px) 45vw, 100vw"
+            /* MEASURED, NOT GUESSED. The first version of this line declared
+               420px for wide screens; the square actually measures 663px on a
+               1707px viewport and 739px on a 1536px one. `sizes` is a PROMISE
+               to the browser about how big the slot is, and under-declaring it
+               makes the browser deliberately choose a smaller file — it served
+               a 420px image into a 663px square and the picture was still soft.
+               700px is the measured width rounded up, so the browser lands on
+               the 900px candidate at this density instead of the 640px one. */
+            sizes="(min-width: 1280px) 700px, (min-width: 768px) 50vw, 100vw"
             onError={originalOnError(base)}
             alt={potd.title}
             className="absolute inset-0 w-full h-full object-cover"
