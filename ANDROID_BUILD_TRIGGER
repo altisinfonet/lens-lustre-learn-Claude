@@ -835,3 +835,8 @@ Speed, and photos the way you shot them:
        * the no-capitals rule audited across 11 pages / ~570 labels — 16 read
          lowercase, all admin and wallet chrome, none broken;
        * refetch-on-focus measured: two leave-and-return cycles, 0 requests.
+1071 — Every ad picture carries its OWN publisher: name and logo. 16 pictures in
+       the Story Card library means 16 independent publishers. The logo is a
+       round 32px avatar, Instagram's shape.
+       Also fixes a bug shipped in 1070: the admin form saved the publisher
+       name but never LOADED it back, so the box always redrew empty.
