@@ -858,3 +858,17 @@ Speed, and photos the way you shot them:
 
        ADMIN: every ad picture now shows its own page link, with copy and
        open buttons, in the Story Card library.
+1073 — 1072 was cut minutes before three fixes landed, so this replaces it.
+
+       THE SPACE AFTER THE VERIFIED TICK IS BACK. The header read
+       "50mm Retina World(tick)with AVIJIT SHEEL" with the words jammed
+       together. The space had been written as a text node, and the header is
+       a flex row, so CSS collapsed it. It is the container's gap now.
+       Horizontal only, so a tag phrase that wraps keeps its line spacing.
+
+       A HIDDEN AD IS NO LONGER A PUBLIC PAGE. Switching an ad picture to
+       Hidden took it out of the feed but left /ad/<id> serving it to anyone
+       with the link. Admins still preview it.
+
+       A SCREEN OF ADS IS ONE REQUEST. Each ad card was asking about itself,
+       so a feed with 16 ads fired 16 queries. They are batched now.
