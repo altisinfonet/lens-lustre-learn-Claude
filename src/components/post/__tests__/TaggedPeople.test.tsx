@@ -170,3 +170,40 @@ function readSource(p: string): string {
   const { join } = require("node:path") as typeof import("node:path");
   return readFileSync(join(process.cwd(), p), "utf8");
 }
+
+/**
+ * THE SPACE BEFORE "with" IS A FLEX GAP, NOT A TEXT NODE.
+ *
+ * Owner, 2026-08-11, with a Facebook post beside ours: "After verification tick
+ * check the space, while FB reference is also given nicely line space
+ * maintained. you did wrong". The header read
+ * "50mm Retina World(tick)with AVIJIT SHEEL".
+ *
+ * TaggedPeople DID open with a {" "} for exactly this. It never rendered,
+ * because PostCard's header is a flex container and that space was the first
+ * thing inside its own flex item, where CSS collapses it. A text node cannot
+ * carry spacing across a flex boundary.
+ *
+ * If someone "tidies up" gap-x-1 out of that container, the names run into the
+ * tick again and this fails.
+ */
+describe("the header breathes between the tick and the tag phrase", () => {
+  const card = readFileSync(join(process.cwd(), "src/components/post/PostCard.tsx"), "utf8")
+    .split("\n")
+    .filter((l) => !l.trim().startsWith("//") && !l.trim().startsWith("*"))
+    .join("\n");
+  const tagged = readFileSync(join(process.cwd(), "src/components/post/TaggedPeople.tsx"), "utf8");
+
+  it("spaces the name block from the tag phrase with a horizontal gap", () => {
+    expect(card).toContain('className="flex flex-wrap items-center gap-x-1 min-w-0 text-sm"');
+  });
+
+  it("uses gap-x only, so a wrapped tag phrase does not change line spacing", () => {
+    expect(card).not.toContain("flex flex-wrap items-center gap-1 min-w-0 text-sm");
+  });
+
+  it("no longer relies on a leading space that CSS throws away", () => {
+    expect(tagged).not.toContain('{" "}with{" "}');
+    expect(tagged).toContain('with{" "}');
+  });
+});
