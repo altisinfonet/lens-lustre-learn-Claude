@@ -67,14 +67,11 @@ describe("the badge itself", () => {
     expect(src).toContain("observer.disconnect()");
   });
 
-  it("does not try to animate in a hidden tab", () => {
-    // Found on production: IntersectionObserver fires in a background tab but
-    // requestAnimationFrame does not, so the badge froze at 0 permanently.
-    expect(src).toContain('document.visibilityState !== "visible"');
-  });
-
-  it("has a fallback that lands on the real value if frames stall", () => {
-    // A public score stuck at a wrong number is worse than a clipped animation.
+  it("has a timer fallback that lands on the real value if frames stall", () => {
+    // requestAnimationFrame does not run in a hidden tab. If the tab is hidden
+    // between the observer firing and the frames running, the count would stop
+    // partway and `animated` is already true, so nothing restarts it. A public
+    // score stuck at a wrong number is worse than a clipped animation.
     expect(src).toContain("setTimeout(() => setShown(score)");
   });
 
