@@ -24,7 +24,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   ACTION_CATALOG,
@@ -59,9 +59,45 @@ function functionBody(name: string): string {
   return code.slice(open + 4, close);
 }
 
+/**
+ * The catalog function is the one thing here that gets EDITED over time — a new
+ * notification type means a new WHEN line. When that happens it is redefined in
+ * a fresh migration, so pinning this test to one filename would quietly compare
+ * the app against a superseded copy and pass while production says something
+ * else. (That is exactly how the reaction/comment triggers drifted: the repo
+ * still carries the 2026-03 sync versions that production replaced.)
+ *
+ * So: find every migration that defines `notif_action_phrase` and use the LAST
+ * one by filename. Migration names are date-prefixed, so last-by-name is
+ * last-applied. Everything else in this file still reads the 2026-08-02
+ * migration, because nothing else here has been redefined since.
+ */
+const MIGRATIONS_DIR = join(process.cwd(), "supabase/migrations");
+
+function latestCatalogSql(): string {
+  const defining = readdirSync(MIGRATIONS_DIR)
+    .filter((f) => f.endsWith(".sql"))
+    .filter((f) =>
+      readFileSync(join(MIGRATIONS_DIR, f), "utf8").includes(
+        "CREATE OR REPLACE FUNCTION public.notif_action_phrase",
+      ),
+    )
+    .sort();
+  expect(defining.length, "no migration defines notif_action_phrase").toBeGreaterThan(0);
+  return readFileSync(join(MIGRATIONS_DIR, defining[defining.length - 1]), "utf8")
+    .split("\n")
+    .map((line) => line.replace(/--.*$/, ""))
+    .join("\n");
+}
+
 /** { type -> phrase } as the DATABASE would answer it. */
 function sqlPhrases(): Record<string, string> {
-  const body = functionBody("notif_action_phrase");
+  const catalogCode = latestCatalogSql();
+  const start = catalogCode.indexOf("CREATE OR REPLACE FUNCTION public.notif_action_phrase");
+  const open = catalogCode.indexOf("$fn$", start);
+  const close = catalogCode.indexOf("$fn$", open + 4);
+  expect(close).toBeGreaterThan(open);
+  const body = catalogCode.slice(open + 4, close);
   const out: Record<string, string> = {};
   for (const m of body.matchAll(/WHEN\s+'([a-z_]+)'\s+THEN\s+'([^']*)'/g)) {
     out[m[1]] = m[2];
