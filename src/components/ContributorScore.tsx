@@ -100,19 +100,6 @@ const ContributorScore = ({ userId }: Props) => {
         animated.current = true;
         observer.disconnect();
 
-        // A HIDDEN TAB MUST NOT ANIMATE, AND THAT IS NOT A DETAIL.
-        //
-        // Found on production 2026-08-11: IntersectionObserver DOES fire in a
-        // background tab, but requestAnimationFrame does NOT. So the callback
-        // marked itself done, disconnected, queued a frame that never ran — and
-        // because it was already marked done, returning to the tab never
-        // restarted it. Every badge sat at ✦0 forever. A member who opens the
-        // feed in a background tab would have seen the whole feed scored zero.
-        if (document.visibilityState !== "visible") {
-          setShown(score);
-          return;
-        }
-
         const start = performance.now();
         const tick = (now: number) => {
           const t = Math.min(1, (now - start) / DURATION_MS);
@@ -123,10 +110,21 @@ const ContributorScore = ({ userId }: Props) => {
         };
         raf = requestAnimationFrame(tick);
 
-        // Belt and braces: whatever stalls the frames — the tab being hidden
-        // mid-count, a throttled webview, a device asleep — the number lands on
-        // the real value shortly after. A public score frozen at a wrong number
-        // is far worse than an animation that gets cut short.
+        // WHY A PLAIN TIMER BACKS UP THE ANIMATION FRAMES.
+        //
+        // requestAnimationFrame does not run while a tab is hidden. That is
+        // usually harmless here, because the observer above does not fire in a
+        // hidden tab either — measured on production 2026-08-11: an element
+        // sitting well inside the viewport of a background tab produced no
+        // callback in 2.5 seconds. So the ordinary case is that nothing happens
+        // until somebody actually looks, which is exactly right.
+        //
+        // The gap is the race. If the tab is hidden in the moment between the
+        // observer firing and the frames running, the count stops partway, and
+        // `animated` is already true so nothing ever restarts it. A timer still
+        // fires when hidden (throttled, which is fine), so the real value lands
+        // regardless. A public score frozen at a wrong number is far worse than
+        // an animation that gets cut short.
         safety = window.setTimeout(() => setShown(score), DURATION_MS + 400);
       },
       { threshold: 0.1 },
