@@ -23,6 +23,7 @@ import PageTransition from "@/components/PageTransition";
 import { isOwnProfilePhoto } from "@/lib/profilePhoto";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useLastActive } from "@/hooks/core/useLastActive";
+import { useEngagementHeartbeat } from "@/hooks/core/useEngagementHeartbeat";
 import { DashboardProvider, useDashboardContext } from "@/hooks/core/DashboardContext";
 
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
@@ -54,6 +55,9 @@ const LayoutInner = () => {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
   useLastActive();
+  // Phase 2a — Active Engagement collector. Collect only: nothing scored,
+  // nothing displayed. Signed-out visitors are never touched.
+  useEngagementHeartbeat();
   useGlobalConversionTracker();
 
   // Dashboard context — SINGLE SOURCE OF TRUTH for sidebar + settings
