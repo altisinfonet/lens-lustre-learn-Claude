@@ -155,6 +155,7 @@ const ManagedPageView = lazyRetry(() => import("./pages/ManagedPageView"), "Mana
 const SubmissionDetail = lazyRetry(() => import("./pages/SubmissionDetail"), "SubmissionDetail");
 const HashtagFeed = lazyRetry(() => import("./pages/HashtagFeed"), "HashtagFeed");
 const PostDetail = lazyRetry(() => import("./pages/PostDetail"), "PostDetail");
+const AdDetail = lazyRetry(() => import("./pages/AdDetail"), "AdDetail");
 const EntryDetail = lazyRetry(() => import("./pages/EntryDetail"), "EntryDetail");
 const CustomUrlProfile = lazyRetry(() => import("./pages/CustomUrlProfile"), "CustomUrlProfile");
 const Unsubscribe = lazyRetry(() => import("./pages/Unsubscribe"), "Unsubscribe");
@@ -415,6 +416,9 @@ const App = () => {
                 <Route path="/dashboard/submission/:competitionId/entry/:entryId/photo/:photoIndex" element={<SubmissionDetail />} />
                 <Route path="/hashtag/:tag" element={<HashtagFeed />} />
                 <Route path="/post/:postId" element={<PostDetail />} />
+                {/* A sponsored ad on a page of its own. Added 2026-08-11 so an ad
+                    can be shared and so a reply notification has somewhere to open. */}
+                <Route path="/ad/:creativeId" element={<AdDetail />} />
                 <Route path="/unsubscribe" element={<Unsubscribe />} />
                 <Route path="/cookie-policy" element={<CookiePolicy />} />
                 <Route path="/settings/notifications" element={<NotificationSettings />} />
