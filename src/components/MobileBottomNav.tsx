@@ -71,16 +71,24 @@ const MobileBottomNav = () => {
   return (
     <>
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 bg-card/60 backdrop-blur-2xl backdrop-saturate-150 border-t border-border/40 lg:hidden safe-area-bottom"
+        className="fixed bottom-0 left-0 right-0 z-50 bg-card/60 backdrop-blur-2xl backdrop-saturate-150 border-t border-border/25 lg:hidden safe-area-bottom"
         style={{ fontFamily: "var(--font-heading)" }}
       >
-        {/* ICONS ONLY — no captions. Owner, 2026-08-10, choosing between the
-            two: Instagram's bar has no words under the icons, and the words
-            here were 9px uppercase raised to 12px by the readability floor,
-            which made the bar look heavy. `items-end` existed to hang the
-            icon above its caption; with the caption gone the icons centre.
-            The elevated Home button keeps its own -mt-4 lift. */}
-        <div className="flex items-center justify-around h-14 px-1 relative">
+        {/* ICONS ONLY, ON A SLIM RIBBON.
+            Owner, 2026-08-10, choosing between the two: Instagram's bar has no
+            words under the icons, and the words here were 9px uppercase raised
+            to 12px by the readability floor, which made the bar look heavy.
+            `items-end` existed to hang the icon above its caption; with the
+            caption gone the icons centre.
+
+            Then, looking at it on his phone: "from Footer icons are okay but
+            the ribbon will be a bit slick." So the bar came down from 56px to
+            48px — Instagram's own height — and the hairline above it from
+            border/40 to border/25. The icons are untouched at 24px, which is
+            what he said was already right; only the strip they sit on is
+            thinner. The elevated Home button keeps its own -mt-4 lift and is
+            unaffected, because it is positioned from the bar's top edge. */}
+        <div className="flex items-center justify-around h-12 px-1 relative">
           {visibleTabs.map((tab) => {
             const active = isActive(tab.path, tab.isCenter);
 
@@ -93,7 +101,7 @@ const MobileBottomNav = () => {
                   className="flex flex-col items-center justify-end flex-1 relative -mt-4 group"
                   aria-label="Home — 50mm Retina World"
                 >
-                  <div className="relative h-14 w-14 flex items-center justify-center">
+                  <div className="relative h-12 w-12 flex items-center justify-center">
                     {/* Soft glow halo — breathes in sync */}
                     <motion.span
                       aria-hidden
