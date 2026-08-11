@@ -240,6 +240,28 @@ describe("the ad has a page, and everything points at it", () => {
   });
 });
 
+describe("the admin can get an ad's URL where they upload it", () => {
+  const panel = stripJsComments(read("src/components/admin/ads/AdCreativeLibrary.tsx"));
+
+  it("shows the permalink for every creative, with copy and open", () => {
+    // Owner, 2026-08-11: "For each Advertisement, each Ad page link how can i
+    // get URL during posting time admin panel ??"
+    expect(panel).toContain("value={publicUrl(adPath(r.id))}");
+    expect(panel).toMatch(/aria-label="Copy this ad's page link"/);
+    expect(panel).toMatch(/aria-label="Open this ad's page"/);
+  });
+
+  it("builds it from adPath, never by hand", () => {
+    // Three places render this URL (the feed card's share, the page itself,
+    // and this panel). Assembling it by hand in any of them is how they drift,
+    // so the panel must import the one definition and must not concatenate or
+    // interpolate a path of its own.
+    expect(panel).toContain('import { adPath } from "@/lib/ads/adEngagement"');
+    expect(panel).not.toContain("`/ad/${");
+    expect(panel).not.toContain('"/ad/" +');
+  });
+});
+
 describe("nothing is invented when the viewer is signed out", () => {
   it("starts every count at a real zero", () => {
     const e = emptyEngagement("x");
