@@ -840,3 +840,21 @@ Speed, and photos the way you shot them:
        round 32px avatar, Instagram's shape.
        Also fixes a bug shipped in 1070: the admin form saved the publisher
        name but never LOADED it back, so the box always redrew empty.
+1072 — Three things, all shipped to the web and the database first and
+       verified there before this build was cut.
+
+       TAGGED MEMBERS NOW GET THE POST'S NOTIFICATIONS. Everyone tagged in a
+       photo receives its likes and comments, in-app and by push, for as long
+       as their tag is on it. "Remove tag of me" stops them that instant. No
+       email for these, on the owner's instruction: 19 tags on a busy post
+       would otherwise have sent up to 480 emails from one photo.
+
+       SPONSORED ADS ARE POSTS NOW. Like, comment and share on every ad in
+       the feed, and a page of its own at /ad/<id> so an ad can be opened and
+       shared. Comments run through the same keyword blocklist and the same
+       admin review queue as post comments. Share deliberately does NOT offer
+       "share to your wall" — that would put an advertisement on a member's
+       own profile under their name.
+
+       ADMIN: every ad picture now shows its own page link, with copy and
+       open buttons, in the Story Card library.
