@@ -53,6 +53,8 @@ const NOTIF_ICON: Record<string, typeof Heart> = {
   // sentence is what tells you whose photo it was.
   tagged_post_reaction: Heart,
   tagged_post_comment: MessageCircle,
+  // A reply on a sponsored ad. Same speech bubble as every other reply.
+  ad_comment_reply: MessageCircle,
   // "🎉 Today is <name>'s Birthday". Without an entry here the row falls back to
   // the generic Bell, which is what every undecided type has always looked like.
   birthday: Cake,
@@ -89,6 +91,7 @@ const NOTIF_CATEGORY: Record<string, string> = {
   // tell the two apart at a glance.
   tagged_post_reaction: "Photo Tags",
   tagged_post_comment: "Photo Tags",
+  ad_comment_reply: "Replies",
   birthday: "Birthdays",
 };
 
