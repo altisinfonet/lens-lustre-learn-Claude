@@ -1046,12 +1046,16 @@ const Index = () => {
                     <Trophy className="h-4 w-4 text-primary" />
                   </div>
                   <h3 className="text-sm font-medium tracking-tight" style={{ fontFamily: "var(--font-heading)" }}>{t("home.topContributors", "Top Contributors")}</h3>
-                  <span className="ml-auto text-[8px] tracking-[0.1em] uppercase text-muted-foreground/60" style={{ fontFamily: "var(--font-heading)" }}>{t("home.thisMonth", "This Month")}</span>
+                  {/* The window is a rolling 30 UTC days, not a calendar month —
+                      "This Month" was wrong before this line changed. */}
+                  <span className="ml-auto text-[8px] tracking-[0.1em] uppercase text-muted-foreground/60" style={{ fontFamily: "var(--font-heading)" }}>{t("home.last30Days", "Last 30 Days")}</span>
                 </div>
                 <div className="space-y-2">
                   {topContributors.length > 0 ? topContributors.map((c, i) => {
                     const medals = ["🥇", "🥈", "🥉"];
-                    const barWidth = topContributors[0]?.score ? Math.round((c.score / topContributors[0].score) * 100) : 0;
+                    const barWidth = topContributors[0]?.contributor_score
+                      ? Math.round((c.contributor_score / topContributors[0].contributor_score) * 100)
+                      : 0;
                     return (
                       <motion.div
                         key={c.id}
@@ -1076,8 +1080,15 @@ const Index = () => {
                             name={c.full_name || t("home.photographer", "Photographer")}
                             nameClassName="text-xs truncate [font-family:var(--font-body)]"
                           />
+                          {/* THE CONTRIBUTOR SCORE, UNDER THE NAME.
+                              Owner, 2026-08-11: the old "15 posts / 34 posts" sat
+                              to the right of the name and confused members, who
+                              read it as a ranking. This is the score itself.
+                              tabular-nums so the digits do not shift width. */}
+                          <div className="text-[9px] text-muted-foreground/60 tabular-nums" style={{ fontFamily: "var(--font-heading)" }}>
+                            ✦ {c.contributor_score.toLocaleString()}
+                          </div>
                         </div>
-                        <span className="text-[9px] text-muted-foreground/60 shrink-0 relative z-10" style={{ fontFamily: "var(--font-heading)" }}>{c.posts_count} {t("home.postsSuffix", "posts")}</span>
                       </motion.div>
                     );
                   }) : (
