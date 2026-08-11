@@ -194,6 +194,21 @@ export const ACTION_CATALOG: Readonly<Record<string, ActionEntry>> = {
   friend_request: { one: "sent you a friend request." },
   friend_accepted: { one: "accepted your friend request." },
   post_tag: { one: "tagged you in a photo." },
+  // Owner, 2026-08-11: "All tagged person will get all notification untill
+  // bering removed the tag." These two are the fan-out to people tagged in
+  // someone else's photo. They are deliberately NOT worded "your photo" — it
+  // is not their photo, and reusing post_reaction/post_comment would have made
+  // the app say so. "you are tagged in", not "you're": the SQL twin of this
+  // catalog is a single-quoted string literal and pushCatalogParity extracts it
+  // with a regex that stops at the first quote.
+  tagged_post_reaction: {
+    one: "reacted to a photo you are tagged in.",
+    many: (n) => `reacted ${n} times to a photo you are tagged in.`,
+  },
+  tagged_post_comment: {
+    one: "commented on a photo you are tagged in.",
+    many: (n) => `left ${n} comments on a photo you are tagged in.`,
+  },
 };
 
 /** The verb half. Plural forms use the REAL event count, never an estimate. */
