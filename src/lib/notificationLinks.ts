@@ -74,6 +74,10 @@ export function getNotifLink(notif: NotifLinkInput): string {
       return notif.reference_id ? `/courses/${notif.reference_id}` : "/courses";
     case "post_tag":
       return notif.reference_id ? `/post/${notif.reference_id}` : "/feed";
+    // A reply on a sponsored ad. reference_id is the ad_creatives row, which
+    // has its own page — an ad is not a post, so /post/<id> would 404.
+    case "ad_comment_reply":
+      return notif.reference_id ? `/ad/${notif.reference_id}` : "/feed";
     // "🎉 Today is <name>'s Birthday" — the whole point is to go and wish them,
     // so the destination is that person. reference_id is the celebrant, written
     // by emit_birthday_notifications().
