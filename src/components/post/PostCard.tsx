@@ -278,7 +278,17 @@ const PostCard = ({
               the name into an ellipsis; UserIdentityBlock keeps its own
               truncation for the name itself. Renders nothing when the post has
               no approved tags. */}
-          <div className="flex flex-wrap items-center min-w-0 text-sm">
+          {/* gap-x-1 IS THE SPACE BEFORE "with", AND IT HAS TO BE A GAP.
+              Owner, 2026-08-11, with a Facebook post beside ours: "After
+              verification tick check the space ... you did wrong". Ours read
+              "50mm Retina World(tick)with AVIJIT SHEEL" with the words jammed
+              together. TaggedPeople opened with a {" "} exactly for this, but
+              this container is a FLEX box, so that leading space sits at the
+              start of its own flex item and CSS collapses it to nothing. Text
+              spacing cannot be written as a text node across a flex boundary;
+              it has to be the container's gap. Vertical spacing is unchanged
+              (gap-x only), so a wrapped tag phrase keeps the same line height. */}
+          <div className="flex flex-wrap items-center gap-x-1 min-w-0 text-sm">
             <UserIdentityBlock
               userId={post.user_id}
               name={post.author_name || "Photographer"}
