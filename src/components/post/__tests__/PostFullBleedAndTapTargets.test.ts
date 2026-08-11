@@ -213,20 +213,42 @@ describe("react, comment and share are thumb-sized", () => {
     expect(actionButtons).toMatch(/<MessageCircle className="h-6 w-6" strokeWidth=\{1\.75\} \/>/);
   });
 
-  it("shows WHICH reactions a post got, at the same size as the number", () => {
-    // I removed the emoji faces from the row to fix its spacing, and the owner
-    // had them put back on 2026-08-10: he had already said to KEEP the emoji
-    // reactions, so removing them from the feed was more than he asked for.
+  it("writes a plain number in the row, and keeps the break-up one tap away", () => {
+    // Owner, 2026-08-10, with Instagram open beside this: "Like count exactly
+    // show like Instagram but when All likes will see then love and wow break
+    // up will show. Same for Comment and Share."
     //
-    // They are 13px — the same as the number beside them, not larger — capped
-    // at the two most-used. That is what makes them fit; going back to 15px is
-    // what made the row uneven in the first place.
-    expect(actionButtons, "the emoji summary is gone from the row again").toContain("REACTION_EMOJI_MAP");
-    expect(actionButtons).toContain('className="text-[13px] leading-none"');
-    expect(actionButtons, "more than two faces will not fit").toContain("post.top_reactions.slice(0, 2)");
-    expect(actionButtons, "a post with reactions but no known type still needs a mark")
-      .toContain('<Heart className="h-3.5 w-3.5 text-rose-500" />');
+    // So the row is a number, exactly as Instagram writes "50.9K", and the
+    // per-emoji break-up belongs to the panel the number opens. This test would
+    // be a lie without the second half, so both are asserted: no emoji in the
+    // row, AND a summary component that really does list them.
+    expect(actionButtons, "the emoji faces are back in the row").not.toContain("REACTION_EMOJI_MAP");
+    expect(actionButtons).toContain("formatNumber(post.like_count)");
     expect(actionButtons).toContain("ReactionSummaryTooltip");
+    expect(actionButtons, "comment and share are numbers too").toContain("formatNumber(post.comment_count)");
+    expect(actionButtons).toContain("formatNumber(post.share_count)");
+    expect(actionButtons).toContain("ShareSummaryTooltip");
+
+    // The break-up itself. If this ever stops listing each reaction with its
+    // own count, the row's plain number becomes a loss of information rather
+    // than a tidier way to show the same thing.
+    const summary = read("src/components/ReactionSummaryTooltip.tsx");
+    expect(summary).toContain("reaction.emoji");
+    expect(summary).toContain("reaction.label");
+    expect(summary, "the panel must show a count per reaction").toMatch(/breakdown\.map\(\(\{ emoji, label, count \}\)/);
+  });
+
+  it("offers Add friend as an icon, at the same size as the other icons", () => {
+    // Owner, 2026-08-10: "Dont shoe the text Add friend, Show only the icon,
+    // icon size same size like Like and Comment icons."
+    const header = postCard.slice(0, postCard.indexOf(MEDIA_ANCHOR));
+    expect(header, "the words are back on the button").not.toContain('{friendRequested ? "Requested" : "Add friend"}');
+    expect(header).toMatch(/<UserPlus className="h-6 w-6" strokeWidth=\{1\.75\} \/>/);
+    // A wordless control still has to say what it is, and its two states have
+    // to be tellable apart without words.
+    expect(header).toMatch(/<UserCheck className="h-6 w-6" strokeWidth=\{1\.75\} \/>/);
+    expect(header).toContain('aria-label={friendRequested ? "Friend request sent" : "Add friend"}');
+    expect(header).toContain('title={friendRequested ? "Friend request sent" : "Add friend"}');
   });
 
   it("renders the chosen reaction in the SAME 24px box as the outline icons", () => {
