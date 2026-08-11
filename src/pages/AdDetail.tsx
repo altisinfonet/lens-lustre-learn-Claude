@@ -31,6 +31,7 @@ import { useParams, Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSiteLogo } from "@/hooks/core/useSiteLogo";
+import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import AdEngagementBar from "@/components/ads/AdEngagementBar";
 import PageSEO from "@/components/PageSEO";
@@ -51,6 +52,7 @@ interface Creative {
 const AdDetail = () => {
   const { creativeId } = useParams<{ creativeId: string }>();
   const siteLogo = useSiteLogo();
+  const { isAdmin } = useIsAdmin();
   const [creative, setCreative] = useState<Creative | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -95,7 +97,14 @@ const AdDetail = () => {
     return <div className="container py-10 text-sm text-muted-foreground">Loading…</div>;
   }
 
-  if (!creative) {
+  // A HIDDEN AD IS NOT A PUBLIC PAGE.
+  //
+  // Fixed 2026-08-11, same day it shipped. `is_active` was selected and then
+  // never read, so switching a picture to "Hidden" in the admin panel took it
+  // out of the feed and left this page serving it to anyone holding the link.
+  // Admins still see it, because previewing a paused creative before switching
+  // it back on is the reason to open this page at all.
+  if (!creative || (!creative.is_active && !isAdmin)) {
     return (
       <div className="container py-10 space-y-3">
         <p className="text-sm text-muted-foreground">This sponsored post is no longer available.</p>
