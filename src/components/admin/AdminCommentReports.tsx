@@ -15,10 +15,23 @@ interface Props {
   user: User | null;
 }
 
+/** What each report is about, in words. One map, two badges. */
+const SOURCE_LABEL: Record<"image_comment" | "post_comment" | "ad_comment", string> = {
+  image_comment: "image comment",
+  post_comment: "post comment",
+  ad_comment: "ad comment",
+};
+
 interface Report {
   id: string;
   comment_id: string | null;
   post_comment_id: string | null;
+  /**
+   * A report about a comment on a sponsored ad. Added 2026-08-11 with the ad
+   * comment threads: the flag trigger files them into THIS table, so the panel
+   * has to know how to read them or they arrive as rows with no text.
+   */
+  ad_comment_id: string | null;
   reporter_id: string;
   reason: string;
   details: string | null;
@@ -31,7 +44,7 @@ interface Report {
   reporter_name: string | null;
   is_flagged: boolean;
   flag_reason: string | null;
-  source_type: "image_comment" | "post_comment";
+  source_type: "image_comment" | "post_comment" | "ad_comment";
   effective_comment_id: string;
   context_title: string | null;
   context_link: string | null;
@@ -84,19 +97,24 @@ const AdminCommentReports = ({ user }: Props) => {
     if (reportsRes.data && reportsRes.data.length > 0) {
       const imageCommentIds = [...new Set(reportsRes.data.filter(r => r.comment_id).map(r => r.comment_id!))] as string[];
       const postCommentIds = [...new Set(reportsRes.data.filter(r => r.post_comment_id).map(r => r.post_comment_id!))] as string[];
+      const adCommentIds = [...new Set(reportsRes.data.filter((r: any) => r.ad_comment_id).map((r: any) => r.ad_comment_id))] as string[];
       const reporterIds = [...new Set(reportsRes.data.map(r => r.reporter_id))];
 
-      const [imageCommentsRes, postCommentsRes] = await Promise.all([
+      const [imageCommentsRes, postCommentsRes, adCommentsRes] = await Promise.all([
         imageCommentIds.length > 0
           ? supabase.from("image_comments").select("id, content, user_id, is_flagged, flag_reason, image_type, image_id").in("id", imageCommentIds)
           : { data: [] },
         postCommentIds.length > 0
           ? supabase.from("post_comments").select("id, content, user_id, post_id").in("id", postCommentIds)
           : { data: [] },
+        adCommentIds.length > 0
+          ? supabase.from("ad_creative_comments" as any).select("id, content, user_id, creative_id").in("id", adCommentIds)
+          : { data: [] },
       ]);
 
       const imageCommentMap = new Map((imageCommentsRes.data || []).map((c: any) => [c.id, c]));
       const postCommentMap = new Map((postCommentsRes.data || []).map((c: any) => [c.id, c]));
+      const adCommentMap = new Map(((adCommentsRes.data as any[]) || []).map((c: any) => [c.id, c]));
 
       const postIds = [...new Set((postCommentsRes.data || []).map((c: any) => c.post_id).filter(Boolean))] as string[];
       const postContextMap = new Map<string, { content: string; user_id: string }>();
@@ -126,6 +144,7 @@ const AdminCommentReports = ({ user }: Props) => {
       const commentUserIds = [
         ...(imageCommentsRes.data || []).map((c: any) => c.user_id),
         ...(postCommentsRes.data || []).map((c: any) => c.user_id),
+        ...(((adCommentsRes.data as any[]) || []).map((c: any) => c.user_id)),
       ];
       const allUserIds = [...new Set([...reporterIds, ...commentUserIds, ...postAuthorIds])];
       const profileMap = await cachedFetchProfilesByIds(allUserIds);
@@ -133,11 +152,20 @@ const AdminCommentReports = ({ user }: Props) => {
       enrichedReports = reportsRes.data.map(r => {
         let comment: any = null;
         let sourceType: "image_comment" | "post_comment" = "image_comment";
-        let effectiveId = r.comment_id || r.post_comment_id || "";
+        let effectiveId = r.comment_id || r.post_comment_id || (r as any).ad_comment_id || "";
         let contextTitle: string | null = null;
         let contextLink: string | null = null;
 
-        if (r.post_comment_id && postCommentMap.has(r.post_comment_id)) {
+        const adCommentId = (r as any).ad_comment_id as string | null;
+        if (adCommentId && adCommentMap.has(adCommentId)) {
+          // A comment on a sponsored ad. It has no post and no owner, so the
+          // context is the ad's own page rather than somebody's feed.
+          comment = adCommentMap.get(adCommentId);
+          sourceType = "ad_comment";
+          effectiveId = adCommentId;
+          contextTitle = "Sponsored ad";
+          contextLink = comment?.creative_id ? `/ad/${comment.creative_id}` : null;
+        } else if (r.post_comment_id && postCommentMap.has(r.post_comment_id)) {
           comment = postCommentMap.get(r.post_comment_id);
           sourceType = "post_comment";
           effectiveId = r.post_comment_id;
@@ -235,7 +263,12 @@ const AdminCommentReports = ({ user }: Props) => {
     if (!user) return;
     setProcessing(report.id);
     const { source_type, effective_comment_id, comment_user_id } = report;
-    const table = source_type === "post_comment" ? "post_comments" : "image_comments";
+    const table =
+      source_type === "ad_comment"
+        ? "ad_creative_comments"
+        : source_type === "post_comment"
+          ? "post_comments"
+          : "image_comments";
 
     try {
       if (action === "remove_comment") {
@@ -493,7 +526,7 @@ const AdminCommentReports = ({ user }: Props) => {
                           }`}>{r.status}</span>
                           <span className={`text-[8px] px-1.5 py-0.5 border rounded-sm uppercase tracking-wider ${
                             r.source_type === "post_comment" ? "border-accent/40 text-accent-foreground bg-accent/10" : "border-muted-foreground/30 text-muted-foreground"
-                          }`}>{r.source_type === "post_comment" ? "post comment" : "image comment"}</span>
+                          }`}>{SOURCE_LABEL[r.source_type]}</span>
                           <span className="text-[9px] text-muted-foreground">
                             Reported by: {r.reporter_name ? (
                               <Link to={`/profile/${r.reporter_id}`} className="text-primary hover:underline">{r.reporter_name}</Link>
@@ -618,7 +651,7 @@ const AdminCommentReports = ({ user }: Props) => {
                         <span className="text-[8px] px-1.5 py-0.5 border border-destructive/40 bg-destructive/10 text-destructive rounded-sm uppercase tracking-wider font-bold">AI Flagged</span>
                         <span className={`text-[8px] px-1.5 py-0.5 border rounded-sm uppercase tracking-wider ${
                           r.source_type === "post_comment" ? "border-accent/40 text-accent-foreground bg-accent/10" : "border-muted-foreground/30 text-muted-foreground"
-                        }`}>{r.source_type === "post_comment" ? "post comment" : "image comment"}</span>
+                        }`}>{SOURCE_LABEL[r.source_type]}</span>
                         <span className="text-[9px] text-muted-foreground">
                           By: {r.comment_user_id ? (
                             <Link to={`/profile/${r.comment_user_id}`} className="text-primary hover:underline">{r.comment_user_name || "Unknown"}</Link>
