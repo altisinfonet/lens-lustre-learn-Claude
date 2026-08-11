@@ -60,10 +60,22 @@ describe("the badge itself", () => {
     expect(src).toContain("prefers-reduced-motion: reduce");
   });
 
-  it("cancels its animation frame and observer on unmount", () => {
+  it("cancels its animation frame, timer and observer on unmount", () => {
     // A feed unmounts cards constantly; a leaked rAF per card would be real.
     expect(src).toContain("cancelAnimationFrame");
+    expect(src).toContain("clearTimeout");
     expect(src).toContain("observer.disconnect()");
+  });
+
+  it("does not try to animate in a hidden tab", () => {
+    // Found on production: IntersectionObserver fires in a background tab but
+    // requestAnimationFrame does not, so the badge froze at 0 permanently.
+    expect(src).toContain('document.visibilityState !== "visible"');
+  });
+
+  it("has a fallback that lands on the real value if frames stall", () => {
+    // A public score stuck at a wrong number is worse than a clipped animation.
+    expect(src).toContain("setTimeout(() => setShown(score)");
   });
 
   it("uses tabular numerals so the row does not twitch while counting", () => {
