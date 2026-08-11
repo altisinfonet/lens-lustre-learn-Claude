@@ -48,6 +48,11 @@ const NOTIF_ICON: Record<string, typeof Heart> = {
   course_published: BookOpen,
   featured_artist: Star,
   post_tag: Tag,
+  // Added 2026-08-11. Activity on a photo you are TAGGED in. Same icons as the
+  // equivalent activity on your own photo, because it is the same event — the
+  // sentence is what tells you whose photo it was.
+  tagged_post_reaction: Heart,
+  tagged_post_comment: MessageCircle,
   // "🎉 Today is <name>'s Birthday". Without an entry here the row falls back to
   // the generic Bell, which is what every undecided type has always looked like.
   birthday: Cake,
@@ -79,6 +84,11 @@ const NOTIF_CATEGORY: Record<string, string> = {
   course_published: "Courses",
   featured_artist: "Featured",
   post_tag: "Photo Tags",
+  // Their own category rather than "Reactions"/"Comments": these are about
+  // someone else's photo, and a member filtering their bell should be able to
+  // tell the two apart at a glance.
+  tagged_post_reaction: "Photo Tags",
+  tagged_post_comment: "Photo Tags",
   birthday: "Birthdays",
 };
 
