@@ -1080,15 +1080,15 @@ const Index = () => {
                             name={c.full_name || t("home.photographer", "Photographer")}
                             nameClassName="text-xs truncate [font-family:var(--font-body)]"
                           />
-                          {/* THE CONTRIBUTOR SCORE, UNDER THE NAME.
-                              Owner, 2026-08-11: the old "15 posts / 34 posts" sat
-                              to the right of the name and confused members, who
-                              read it as a ranking. This is the score itself.
-                              tabular-nums so the digits do not shift width. */}
-                          <div className="text-[9px] text-muted-foreground/60 tabular-nums" style={{ fontFamily: "var(--font-heading)" }}>
-                            ✦ {c.contributor_score.toLocaleString()}
-                          </div>
                         </div>
+                        {/* SCORE ON THE RIGHT, ON THE NAME'S OWN LINE.
+                            It briefly sat under the name; owner, 2026-08-11:
+                            "on the Home Page you Placed Score just below the
+                            Name : it will one line right side socre left side
+                            names as now." Under-the-name is the FEED and WALL
+                            treatment (see PostCard) — not this list, where the
+                            old post count sat here and the shape was right. */}
+                        <span className="text-[9px] text-muted-foreground/60 shrink-0 relative z-10 tabular-nums" style={{ fontFamily: "var(--font-heading)" }}>✦ {c.contributor_score.toLocaleString()}</span>
                       </motion.div>
                     );
                   }) : (

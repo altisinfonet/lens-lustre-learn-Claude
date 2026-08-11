@@ -60,14 +60,14 @@ const SidebarTopContributors = () => {
               name={c.full_name || "Photographer"}
               nameClassName="text-xs truncate group-hover:text-primary transition-colors [font-family:var(--font-body)]"
             />
-            {/* Same treatment as the Home page card — the Contributor Score sits
-                under the name, not the post count that used to be to the right
-                of it. This block renders for SIGNED-OUT visitors only (see
-                FeedRightSidebar), so it must not drift from Index.tsx. */}
-            <div className="text-[9px] text-muted-foreground tabular-nums" style={{ fontFamily: "var(--font-heading)" }}>
-              ✦ {c.contributor_score.toLocaleString()}
-            </div>
           </div>
+          {/* Same shape as the Home page card: score on the right, name on the
+              left, one line. Under-the-name is the feed/wall treatment, not
+              this one. This block renders for SIGNED-OUT visitors only (see
+              FeedRightSidebar), so it must not drift from Index.tsx. */}
+          <span className="text-[9px] text-muted-foreground shrink-0 tabular-nums" style={{ fontFamily: "var(--font-heading)" }}>
+            ✦ {c.contributor_score.toLocaleString()}
+          </span>
         </Link>
       ))}
     </div>

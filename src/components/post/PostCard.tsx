@@ -12,6 +12,7 @@ import ReactionPicker from "@/components/ReactionPicker";
 import ReactionSummaryTooltip from "@/components/ReactionSummaryTooltip";
 import ShareSummaryTooltip from "@/components/ShareSummaryTooltip";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
+import ContributorScore from "@/components/ContributorScore";
 import TaggedPeople from "@/components/post/TaggedPeople";
 import PostMedia from "@/components/post/PostMedia";
 import Caption from "@/components/post/Caption";
@@ -307,6 +308,11 @@ const PostCard = ({
               tracking is what makes this read small; the pixel size is
               unchanged and the readability floor is untouched. */}
           <div className="flex items-center gap-2 text-xs text-muted-foreground" style={headingFont}>
+            {/* The Contributor Score sits at the FRONT of this line, so it reads
+                as "just below the name" without the card growing a third line.
+                Renders nothing for an admin, a suspended or deleted account, or
+                a score of zero. */}
+            <ContributorScore userId={post.user_id} />
             <span>{timeAgo(post.created_at)}</span>
             <span className="inline-flex items-center gap-1">{privacyIcon(post.privacy)}</span>
             {post.is_suggested && (
