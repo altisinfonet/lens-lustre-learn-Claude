@@ -18,12 +18,14 @@
  * working.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Upload, Trash2, ImageOff } from "lucide-react";
+import { Loader2, Upload, Trash2, ImageOff, Copy, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import { compressImageToFiles } from "@/lib/imageCompression";
 import { generateImagePath, uploadImage } from "@/lib/imageUpload";
 import { invalidateAdCreatives } from "@/lib/ads/adCreatives";
+import { adPath } from "@/lib/ads/adEngagement";
+import { publicUrl } from "@/lib/publicUrl";
 import { feedAdSlotLabel } from "@/lib/ads/feedAdPlacement";
 import type { AdZoneId } from "@/lib/ads/adZonesV2";
 
@@ -263,6 +265,64 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
                   placeholder="Website to open when clicked (optional)"
                   onBlur={(e) => { if (e.target.value !== r.click_url) void patch(r.id, { click_url: e.target.value.trim() }); }}
                 />
+                {/* THE AD'S OWN PAGE, READY TO COPY.
+
+                    Owner, 2026-08-11: "For each Advertisement, each Ad page
+                    link how can i get URL during posting time admin panel ??"
+
+                    Every creative in this library has a page of its own at
+                    /ad/<id> — the one a member reaches from the Share button on
+                    the feed card, and the one a reply notification opens. This
+                    is that link, spelled out under the picture it belongs to,
+                    with one tap to copy and one to open it.
+
+                    It appears the moment the picture is uploaded, because the
+                    row (and therefore the id) is created by the upload itself —
+                    there is no draft state to wait through.
+
+                    Built from adPath(), the same single definition the feed
+                    card and the page use, so these three can never disagree
+                    about what an ad's URL is. Do not hand-write "/ad/" here. */}
+                <div className="flex items-center gap-1.5">
+                  <input
+                    readOnly
+                    className={`${input} text-muted-foreground cursor-text`}
+                    style={bFont}
+                    value={publicUrl(adPath(r.id))}
+                    onFocus={(e) => e.currentTarget.select()}
+                    aria-label="This ad's page link"
+                  />
+                  <button
+                    type="button"
+                    title="Copy this ad's page link"
+                    aria-label="Copy this ad's page link"
+                    onClick={async () => {
+                      const url = publicUrl(adPath(r.id));
+                      try {
+                        await navigator.clipboard.writeText(url);
+                        toast({ title: "Ad link copied", description: url });
+                      } catch {
+                        // Refused in some embedded webviews. The field beside
+                        // this button holds the URL and selects on focus, so
+                        // say what happened rather than claiming success.
+                        toast({ title: "Could not copy — select the link and copy it", description: url });
+                      }
+                    }}
+                    className="shrink-0 text-muted-foreground hover:text-primary"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                  <a
+                    href={adPath(r.id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Open this ad's page"
+                    aria-label="Open this ad's page"
+                    className="shrink-0 text-muted-foreground hover:text-primary"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                </div>
                 {/* WHO IS ADVERTISING.
                     Leave it empty and the feed card is headed by the site logo,
                     "50mm Retina World" and its blue verified tick — right while
