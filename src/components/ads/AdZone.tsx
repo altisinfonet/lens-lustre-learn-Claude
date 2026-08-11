@@ -30,6 +30,7 @@ import {
 } from "@/lib/ads/adZonesV2";
 import { detectDevice, trackZoneEvent } from "@/lib/ads/adTrackV2";
 import { type AdCreative, fetchAdCreatives, pickCreativeForSlot } from "@/lib/ads/adCreatives";
+import AdEngagementBar from "@/components/ads/AdEngagementBar";
 
 /** Only the inline zones are valid here. */
 type InlineZone = Extract<AdZoneId, "sidebar" | "story-card" | "lightbox">;
@@ -452,6 +453,23 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
           </div>
         )
       )}
+
+      {/* ── LIKE · COMMENT · SHARE, BECAUSE AN AD IS A POST NOW ──
+
+          Owner, 2026-08-11: "For All sponsored Ad, Like Comment share is
+          required like a normal post."
+
+          `chosen` is the guard, and it is not a shortcut. Engagement is keyed to
+          an ad_creatives row; the older single-image-per-zone path (`!chosen`)
+          has no id of any kind, so there is nothing to hang a like or a comment
+          thread on. Rendering the row there would have meant inventing a
+          synthetic id and silently merging every zone's legacy image into one
+          shared thread. Move the picture into the library from
+          /admin/advertisements and the row appears.
+
+          Only the story card gets it: the sidebar and lightbox zones are small
+          banners beside content, not posts in a feed. */}
+      {zone === "story-card" && chosen && <AdEngagementBar creativeId={chosen.id} />}
 
       {/* OWN — raw sanitized HTML (single-image path only; libraries are pictures) */}
       {c.mode === "own" && !chosen && c.own.image_source === "code" && c.own.ad_code && (
