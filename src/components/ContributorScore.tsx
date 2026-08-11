@@ -93,11 +93,25 @@ const ContributorScore = ({ userId }: Props) => {
     }
 
     let raf = 0;
+    let safety = 0;
     const observer = new IntersectionObserver(
       (entries) => {
         if (!entries.some((e) => e.isIntersecting) || animated.current) return;
         animated.current = true;
         observer.disconnect();
+
+        // A HIDDEN TAB MUST NOT ANIMATE, AND THAT IS NOT A DETAIL.
+        //
+        // Found on production 2026-08-11: IntersectionObserver DOES fire in a
+        // background tab, but requestAnimationFrame does NOT. So the callback
+        // marked itself done, disconnected, queued a frame that never ran — and
+        // because it was already marked done, returning to the tab never
+        // restarted it. Every badge sat at ✦0 forever. A member who opens the
+        // feed in a background tab would have seen the whole feed scored zero.
+        if (document.visibilityState !== "visible") {
+          setShown(score);
+          return;
+        }
 
         const start = performance.now();
         const tick = (now: number) => {
@@ -108,6 +122,12 @@ const ContributorScore = ({ userId }: Props) => {
           if (t < 1) raf = requestAnimationFrame(tick);
         };
         raf = requestAnimationFrame(tick);
+
+        // Belt and braces: whatever stalls the frames — the tab being hidden
+        // mid-count, a throttled webview, a device asleep — the number lands on
+        // the real value shortly after. A public score frozen at a wrong number
+        // is far worse than an animation that gets cut short.
+        safety = window.setTimeout(() => setShown(score), DURATION_MS + 400);
       },
       { threshold: 0.1 },
     );
@@ -116,6 +136,7 @@ const ContributorScore = ({ userId }: Props) => {
     return () => {
       observer.disconnect();
       if (raf) cancelAnimationFrame(raf);
+      if (safety) clearTimeout(safety);
     };
   }, [score]);
 
