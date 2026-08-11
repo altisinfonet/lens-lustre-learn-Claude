@@ -66,7 +66,11 @@ const TaggedPeople = ({ people }: Props) => {
       {/* `with` is deliberately not bold: the NAMES are the information, and the
           author's own name above already carries the heading weight. */}
       <span className="text-muted-foreground">
-        {" "}with{" "}
+        {/* No leading {" "} here any more. It was collapsed by the flex parent
+            and read as if it had been forgotten; the space before "with" is now
+            that container's gap-x-1. The one before the NAME stays, because it
+            is inside this same inline run. */}
+        with{" "}
         <Link
           to={`/profile/${first.id}`}
           className="font-medium text-foreground hover:text-primary transition-colors"
