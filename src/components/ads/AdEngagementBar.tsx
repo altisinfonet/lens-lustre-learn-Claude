@@ -31,7 +31,6 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { MessageCircle, Send, Copy } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/core/use-toast";
 import { useAuth } from "@/hooks/core/useAuth";
 import { publicUrl } from "@/lib/publicUrl";
@@ -62,13 +61,10 @@ interface Props {
    * `commentsAlwaysOpen` and the comment button scrolls rather than collapses.
    */
   commentsAlwaysOpen?: boolean;
-  /** The page opens the thread in place; the card links to the page instead. */
-  linkToPage?: boolean;
 }
 
-const AdEngagementBar = ({ creativeId, commentsAlwaysOpen = false, linkToPage = false }: Props) => {
+const AdEngagementBar = ({ creativeId, commentsAlwaysOpen = false }: Props) => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [eng, setEng] = useState<AdEngagement>(() => emptyEngagement(creativeId));
   const [open, setOpen] = useState(commentsAlwaysOpen);
   const [busy, setBusy] = useState(false);
@@ -135,13 +131,11 @@ const AdEngagementBar = ({ creativeId, commentsAlwaysOpen = false, linkToPage = 
     }
   };
 
-  const onCommentClick = () => {
-    if (linkToPage) {
-      navigate(adPath(creativeId));
-      return;
-    }
-    setOpen((v) => !v);
-  };
+  // Removed 2026-08-11: a `linkToPage` prop that navigated to /ad/<id> instead
+  // of expanding. No caller ever passed it, and an unused branch in a component
+  // this small is just a lie about how it behaves. The card expands; the page
+  // opens the thread already.
+  const onCommentClick = () => setOpen((v) => !v);
 
   return (
     <>
