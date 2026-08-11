@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import { publicUrl } from "@/lib/publicUrl";
 import { Link } from "react-router-dom";
-import { MessageCircle, Share2, Send, Copy, MoreHorizontal, Trash2, Flag, Heart, Eye, Pencil, UserPlus, UserMinus, Users } from "lucide-react";
+import { MessageCircle, Share2, Send, Copy, MoreHorizontal, Trash2, Flag, Eye, Pencil, UserPlus, UserCheck, UserMinus, Users } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import { isActiveNow } from "@/hooks/core/useLastActive";
-import { REACTION_EMOJI_MAP, type ReactionType } from "@/components/ReactionPicker";
+import { type ReactionType } from "@/components/ReactionPicker";
 import ReactionPicker from "@/components/ReactionPicker";
 import ReactionSummaryTooltip from "@/components/ReactionSummaryTooltip";
 import ShareSummaryTooltip from "@/components/ShareSummaryTooltip";
@@ -323,16 +323,31 @@ const PostCard = ({
         */}
         {currentUserId && post.is_suggested && currentUserId !== post.user_id
           && post.friend_state === "none" && (
+          /* THE ICON, AND NOTHING ELSE. Owner, 2026-08-10: "Dont shoe the text
+             Add friend, Show only the icon, icon size same size like Like and
+             Comment icons."
+
+             So: 24px, the same as MessageCircle and Send in the action row, and
+             the same 1.75 stroke. The bordered pill and the words are gone.
+
+             A wordless control has to say what it is some other way, which is
+             what `aria-label` and `title` are for — a screen reader announces
+             it and a hover shows it. And the two STATES have to be tellable
+             apart without words, so a sent request switches to UserCheck; the
+             disabled look alone would read as broken. */
           <button
             onClick={() => {
               if (friendRequested || sendFriend.isPending) return;
               sendFriend.mutate(post.user_id, { onSuccess: () => setFriendRequested(true) });
             }}
             disabled={friendRequested || sendFriend.isPending}
-            className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-primary/40 text-primary text-xs font-medium hover:bg-primary hover:text-primary-foreground transition-colors disabled:opacity-60"
-            style={headingFont}
+            aria-label={friendRequested ? "Friend request sent" : "Add friend"}
+            title={friendRequested ? "Friend request sent" : "Add friend"}
+            className="shrink-0 p-2 rounded-full text-primary hover:bg-primary/10 transition-colors disabled:opacity-60"
           >
-            <UserPlus className="h-3 w-3" /> {friendRequested ? "Requested" : "Add friend"}
+            {friendRequested
+              ? <UserCheck className="h-6 w-6" strokeWidth={1.75} />
+              : <UserPlus className="h-6 w-6" strokeWidth={1.75} />}
           </button>
         )}
         {currentUserId && (
@@ -463,29 +478,25 @@ const PostCard = ({
             />
             {post.like_count > 0 && (
               <ReactionSummaryTooltip reactionCounts={post.reaction_counts} totalCount={post.like_count} postId={post.id}>
-                {/* THE EMOJI COME BACK, SIZED SO THEY DO NOT BREAK THE ROW.
+                {/* JUST THE NUMBER IN THE ROW. THE BREAK-UP IS ONE TAP AWAY.
 
-                    I had removed them: Instagram writes "50.9K" beside the
-                    heart and nothing else, and two coloured faces at 15px
-                    between the like button and the comment button were what
-                    made the spacing uneven. The owner had asked to KEEP the
-                    emoji reactions, so removing them from the row was more than
-                    he asked for and he had it put back on 2026-08-10.
+                    Owner, 2026-08-10, with Instagram open beside this: "Like
+                    count exactly show like Instagram but when All likes will
+                    see then love and wow break up will show. Same for Comment
+                    and Share."
 
-                    They are now 13px — the same as the number they sit with,
-                    rather than larger than it — capped at the two most-used,
-                    and packed with a 0.5 gap. A member can see at a glance
-                    WHICH reactions a post got without opening the tooltip,
-                    which is the whole point of an emoji summary. */}
-                <span className="inline-flex items-center gap-0.5 pr-2 cursor-pointer text-sm font-semibold text-foreground">
-                  {post.top_reactions.length > 0 ? (
-                    post.top_reactions.slice(0, 2).map((type) => (
-                      <span key={type} className="text-[13px] leading-none">{REACTION_EMOJI_MAP[type] || "👍"}</span>
-                    ))
-                  ) : (
-                    <Heart className="h-3.5 w-3.5 text-rose-500" />
-                  )}
-                  <span className="ml-0.5">{formatNumber(post.like_count)}</span>
+                    Instagram writes "50.9K" beside the heart and nothing else,
+                    and that is what this is. Nothing is lost: this span is the
+                    trigger for ReactionSummaryTooltip, which lists every
+                    reaction with its own emoji, its name and its count, and
+                    then every member who left one. Comment and Share behave the
+                    same way — a plain number that opens the detail.
+
+                    The two emoji faces that used to sit here were also what
+                    made the row's spacing uneven, because they were wider than
+                    the number they preceded. */}
+                <span className="pr-2 cursor-pointer text-sm font-semibold text-foreground">
+                  {formatNumber(post.like_count)}
                 </span>
               </ReactionSummaryTooltip>
             )}
