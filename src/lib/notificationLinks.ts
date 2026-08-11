@@ -14,6 +14,13 @@ export function getNotifLink(notif: NotifLinkInput): string {
     // 2026-07-31: "clicking the notification doesn't take me to the comment").
     case "post_reaction":
     case "post_comment":
+    // Added 2026-08-11. The fan-out to people tagged in someone else's photo
+    // carries the SAME reference_id — the post — because the thing you are
+    // being told about is activity on that post. Without these two cases they
+    // would fall through to the default and land the member on /dashboard,
+    // which is the exact bug new_post_from_following had.
+    case "tagged_post_reaction":
+    case "tagged_post_comment":
       return notif.reference_id ? `/post/${notif.reference_id}` : "/feed";
     // A reply to a comment. Measured on production 2026-08-02: of 11 rows,
     // 9 reference_ids are live posts, 2 are posts that have since been deleted,
