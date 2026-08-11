@@ -209,6 +209,14 @@ export const ACTION_CATALOG: Readonly<Record<string, ActionEntry>> = {
     one: "commented on a photo you are tagged in.",
     many: (n) => `left ${n} comments on a photo you are tagged in.`,
   },
+  // A reply to your comment on a sponsored ad. Nobody OWNS an ad, so there is
+  // no owner notification for ads at all — but a reply still has to reach the
+  // person it answers, exactly as it does on a post. "sponsored post" and not
+  // "ad", because that is the word the card itself uses.
+  ad_comment_reply: {
+    one: "replied to your comment on a sponsored post.",
+    many: (n) => `replied ${n} times to your comment on a sponsored post.`,
+  },
 };
 
 /** The verb half. Plural forms use the REAL event count, never an estimate. */
