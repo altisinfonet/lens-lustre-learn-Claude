@@ -57,10 +57,27 @@ export const emptyEngagement = (creativeId: string): AdEngagement => ({
  * does not know about are simply absent — the caller falls back to
  * emptyEngagement, which is also what an anonymous visitor gets.
  */
-export const fetchAdEngagement = async (
-  creativeIds: string[],
-): Promise<Map<string, AdEngagement>> => {
-  const ids = [...new Set(creativeIds.filter(Boolean))];
+/**
+ * THE BATCH IS COALESCED, NOT MERELY POSSIBLE.
+ *
+ * Fixed 2026-08-11, hours after this file shipped. The RPC always accepted an
+ * array, and the comment above promised "one round trip, not sixty-four" — but
+ * every caller is one ad card asking about itself, so a feed with 16 ads fired
+ * 16 requests and the promise was fiction.
+ *
+ * Rather than thread a batch down through Feed -> AdZone -> the bar (which
+ * would have to know every ad on screen before any of them renders), ids
+ * requested inside the same microtask are collected here and sent as ONE query.
+ * Each caller still awaits its own answer and does not know this happened.
+ *
+ * The window is a microtask, not a timer: React renders a screen's worth of
+ * cards synchronously, so they all land in the same pending batch without
+ * adding a single millisecond of delay to a lone request.
+ */
+let pendingIds: string[] = [];
+let pendingFlight: Promise<Map<string, AdEngagement>> | null = null;
+
+const runBatch = async (ids: string[]): Promise<Map<string, AdEngagement>> => {
   const out = new Map<string, AdEngagement>();
   if (ids.length === 0) return out;
 
@@ -84,6 +101,25 @@ export const fetchAdEngagement = async (
     });
   }
   return out;
+};
+
+export const fetchAdEngagement = (
+  creativeIds: string[],
+): Promise<Map<string, AdEngagement>> => {
+  const ids = creativeIds.filter(Boolean);
+  if (ids.length === 0) return Promise.resolve(new Map());
+
+  for (const id of ids) if (!pendingIds.includes(id)) pendingIds.push(id);
+
+  if (!pendingFlight) {
+    pendingFlight = Promise.resolve().then(() => {
+      const batch = pendingIds;
+      pendingIds = [];
+      pendingFlight = null;
+      return runBatch(batch);
+    });
+  }
+  return pendingFlight;
 };
 
 /**
