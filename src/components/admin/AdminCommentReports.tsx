@@ -151,7 +151,10 @@ const AdminCommentReports = ({ user }: Props) => {
 
       enrichedReports = reportsRes.data.map(r => {
         let comment: any = null;
-        let sourceType: "image_comment" | "post_comment" = "image_comment";
+        // "ad_comment" belongs here too — the branch below assigns it, and Report
+        // has always declared the three-way union. Missing it here was a
+        // typecheck failure on main from 2026-08-11 until this line was fixed.
+        let sourceType: "image_comment" | "post_comment" | "ad_comment" = "image_comment";
         let effectiveId = r.comment_id || r.post_comment_id || (r as any).ad_comment_id || "";
         let contextTitle: string | null = null;
         let contextLink: string | null = null;
@@ -194,6 +197,11 @@ const AdminCommentReports = ({ user }: Props) => {
 
         return {
           ...r,
+          // Spread from a row whose GENERATED type has no ad_comment_id — the
+          // column postdates src/integrations/supabase/types.ts. Report requires
+          // it, so it is read off the row explicitly rather than arriving via
+          // the spread.
+          ad_comment_id: ((r as any).ad_comment_id as string | null) ?? null,
           comment_content: comment?.content || "[deleted]",
           comment_user_id: comment?.user_id || null,
           comment_user_name: comment?.user_id ? profileMap.get(comment.user_id) || null : null,
@@ -263,6 +271,10 @@ const AdminCommentReports = ({ user }: Props) => {
     if (!user) return;
     setProcessing(report.id);
     const { source_type, effective_comment_id, comment_user_id } = report;
+    // ad_creative_comments postdates the generated Supabase types, so every
+    // .from(table) below is cast — the same `as any` already used throughout
+    // src/lib/ads/adEngagement.ts. Regenerating types.ts would remove the need
+    // for all of them; that is a separate job.
     const table =
       source_type === "ad_comment"
         ? "ad_creative_comments"
@@ -272,18 +284,18 @@ const AdminCommentReports = ({ user }: Props) => {
 
     try {
       if (action === "remove_comment") {
-        await supabase.from(table).delete().eq("id", effective_comment_id);
+        await supabase.from(table as any).delete().eq("id", effective_comment_id);
         toast({ title: "Comment removed" });
       } else if (action === "remove_thread") {
-        await supabase.from(table).delete().eq("parent_id", effective_comment_id);
-        await supabase.from(table).delete().eq("id", effective_comment_id);
+        await supabase.from(table as any).delete().eq("parent_id", effective_comment_id);
+        await supabase.from(table as any).delete().eq("id", effective_comment_id);
         toast({ title: "Thread removed" });
       } else if (action === "ban_user" && comment_user_id) {
         await supabase.from("profiles").update({
           is_suspended: true,
           suspension_reason: "Banned for inappropriate comments",
         }).eq("id", comment_user_id);
-        await supabase.from(table).delete().eq("id", effective_comment_id);
+        await supabase.from(table as any).delete().eq("id", effective_comment_id);
         toast({ title: "User banned & comment removed" });
       } else if (action === "dismiss") {
         toast({ title: "Report dismissed" });
