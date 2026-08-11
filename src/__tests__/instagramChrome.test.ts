@@ -238,10 +238,16 @@ describe("the bottom bar is icons only", () => {
       .not.toMatch(/text-\[9px\] tracking-\[0\.1em\] uppercase/);
   });
 
-  it("centres the icons now that they have nothing to sit above", () => {
-    // `items-end` existed to hang each icon above its caption.
-    expect(nav).toContain("flex items-center justify-around h-14");
-    expect(nav).not.toContain("flex items-end justify-around h-14");
+  it("centres the icons on a slim ribbon", () => {
+    // `items-end` existed to hang each icon above its caption. And owner,
+    // 2026-08-10: "from Footer icons are okay but the ribbon will be a bit
+    // slick" — so the bar came down from 56px to 48px, Instagram's height,
+    // while the 24px icons he said were already right stayed exactly as they
+    // were. Only the strip is thinner.
+    expect(nav).toContain("flex items-center justify-around h-12");
+    expect(nav, "the 56px bar is back").not.toContain("justify-around h-14");
+    expect(nav).not.toContain("flex items-end justify-around");
+    expect(nav, "the hairline was lightened with it").toContain("border-t border-border/25");
   });
 
   it("uses Instagram's 24px icon", () => {
