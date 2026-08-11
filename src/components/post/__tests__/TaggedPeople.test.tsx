@@ -32,6 +32,12 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { describe, it, expect } from "vitest";
+// Top-level, because the spacing suite at the bottom of this file reads two
+// source files. An older suite here does its own require("node:fs") inside its
+// callback, which is why a "does this file mention node:fs?" check was not
+// enough to tell whether these were in scope.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import TaggedPeople from "@/components/post/TaggedPeople";
