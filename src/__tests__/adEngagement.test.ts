@@ -262,6 +262,50 @@ describe("the admin can get an ad's URL where they upload it", () => {
   });
 });
 
+describe("the three defects found and fixed on 2026-08-11", () => {
+  const detail = stripJsComments(read("src/pages/AdDetail.tsx"));
+  const lib = stripJsComments(read("src/lib/ads/adEngagement.ts"));
+  const bar = stripJsComments(read("src/components/ads/AdEngagementBar.tsx"));
+  const reports = stripJsComments(read("src/components/admin/AdminCommentReports.tsx"));
+
+  it("a hidden ad is not a public page", () => {
+    // It shipped selecting is_active and never reading it, so switching a
+    // creative to Hidden removed it from the feed and left /ad/<id> serving it
+    // to anyone with the link.
+    expect(detail).toMatch(/!creative \|\| \(!creative\.is_active && !isAdmin\)/);
+    expect(detail).toContain("useIsAdmin");
+  });
+
+  it("a screen of ads is ONE request, not one per card", () => {
+    // Assert on the EXPORTED function's own body, not on the file. A weaker
+    // check (does the file mention "pendingIds"?) survives renaming the
+    // variable, which is exactly the mutation that must fail here.
+    const body = lib.slice(lib.indexOf("export const fetchAdEngagement"));
+    expect(body).toContain("pendingIds.includes(id)");
+    expect(body).toContain("pendingIds.push(id)");
+    expect(body).toContain("Promise.resolve().then(");
+    expect(body).toContain("return pendingFlight;");
+    // It must delegate. A direct rpc call here is the old one-per-card path.
+    expect(body).not.toContain("supabase.rpc");
+    expect(lib).toContain("const runBatch");
+  });
+
+  it("has no unused linkToPage branch pretending to be behaviour", () => {
+    expect(bar).not.toContain("linkToPage");
+    expect(bar).not.toContain("useNavigate");
+  });
+
+  it("shows a flagged ad comment in the admin queue instead of a blank row", () => {
+    expect(reports).toContain("ad_comment_id");
+    expect(reports).toContain('supabase.from("ad_creative_comments" as any)');
+    expect(reports).toContain('sourceType = "ad_comment"');
+    // Deleting one has to hit the right table, or the admin presses delete and
+    // nothing happens.
+    expect(reports).toContain('? "ad_creative_comments"');
+    expect(reports).toContain("SOURCE_LABEL[r.source_type]");
+  });
+});
+
 describe("nothing is invented when the viewer is signed out", () => {
   it("starts every count at a real zero", () => {
     const e = emptyEngagement("x");
