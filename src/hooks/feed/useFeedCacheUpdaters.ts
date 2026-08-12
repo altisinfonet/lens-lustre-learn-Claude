@@ -31,15 +31,62 @@ interface InfiniteData {
  */
 export function useFeedCacheUpdaters() {
   const queryClient = useQueryClient();
-  const key = queryKeys.feed();
+  /**
+   * ⚠ THIS USED TO BE A SINGLE EXACT KEY, AND THAT BREAKS SILENTLY.
+   *
+   * `queryKeys.feed()` is now `["feed", null]`, so writing to one fixed key
+   * would update the "All" cache only. Every category feed the member has
+   * visited would keep its stale copy: a deleted post would linger there, and
+   * a realtime arrival would never show. Nothing would error — the feed would
+   * simply stop reacting on those tabs.
+   *
+   * `invalidateQueries` is prefix-based and was never at risk. `setQueryData`
+   * is exact, and was.
+   *
+   * So updates fan out across every cached feed variant. `insertPost` is the
+   * one that also has to care about WHICH variant: a Landscape post belongs in
+   * the All feed and in the Landscape feed, and nowhere else.
+   */
+  const feedPrefix = queryKeys.feedAll();
 
-  /** Queue a batched updater against the feed cache. */
+  /**
+   * Queue a batched updater against EVERY cached feed variant.
+   *
+   * `getQueryCache().findAll({ queryKey: ["feed"] })` matches by prefix, so it
+   * finds `["feed", null]` and every `["feed", [...slugs]]` the member has
+   * opened this session. Each gets its own batched update under its own exact
+   * key — which is what `queueCacheUpdate` needs.
+   *
+   * `only` narrows the fan-out: pass a predicate to skip variants a change
+   * does not belong in. Removals and counter updates apply everywhere (a
+   * deleted post must vanish from all of them); an INSERT does not.
+   */
   const enqueue = useCallback(
-    (updater: (old: InfiniteData) => InfiniteData) => {
-      queueCacheUpdate<InfiniteData>(queryClient, key, updater);
+    (
+      updater: (old: InfiniteData) => InfiniteData,
+      only?: (categories: string[] | null) => boolean,
+    ) => {
+      const entries = queryClient.getQueryCache().findAll({ queryKey: feedPrefix });
+      for (const entry of entries) {
+        const cats = (entry.queryKey[1] ?? null) as string[] | null;
+        if (only && !only(cats)) continue;
+        queueCacheUpdate<InfiniteData>(queryClient, entry.queryKey, updater);
+      }
     },
-    [queryClient, key],
+    [queryClient, feedPrefix],
   );
+
+  /**
+   * Does a post belong in the feed variant filtered to `cats`?
+   * `null` is "All" and takes everything. Otherwise the post must carry at
+   * least one of the selected slugs — the client-side mirror of the `&&`
+   * operator the RPC uses, so a Landscape post never appears under Portrait.
+   */
+  const belongsIn = (post: FeedPost, cats: string[] | null): boolean => {
+    if (!cats || cats.length === 0) return true;
+    const own = ((post as unknown as { categories?: string[] }).categories) ?? [];
+    return own.some((c) => cats.includes(c));
+  };
 
   /** Insert a new post if not already present; maintain sort order. */
   const insertPost = useCallback(
@@ -56,7 +103,12 @@ export function useFeedCacheUpdaters() {
             ...old.pages.slice(1),
           ],
         };
-      });
+      },
+      // A realtime arrival belongs in "All" and in the category feeds it was
+      // filed under — nowhere else. Without this guard a Landscape post would
+      // pop into the Portrait feed, which is exactly the confusion the whole
+      // feature is meant to remove.
+      (cats) => belongsIn(post, cats));
     },
     [enqueue],
   );
@@ -120,24 +172,34 @@ export function useFeedCacheUpdaters() {
 
   /** Map over every post via a mapper function.
    *  Used by optimistic mutations — flushes pending batched updates first
-   *  so the mapper sees the latest state. */
+   *  so the mapper sees the latest state.
+   *
+   *  This one deliberately does NOT go through `enqueue`: an optimistic
+   *  mutation must land in the same tick the member clicked, not 150ms later.
+   *  It still has to fan out, though — the same post is in the All cache and
+   *  in every category cache the member has opened, and a like that appears on
+   *  one tab but not another is the exact class of bug the fan-out exists for. */
   const mapPosts = useCallback(
     (mapper: (post: FeedPost) => FeedPost) => {
-      // Flush any pending realtime updates before applying optimistic mutation
-      flushCacheUpdates<InfiniteData>(queryClient, key);
+      const entries = queryClient.getQueryCache().findAll({ queryKey: feedPrefix });
+      for (const entry of entries) {
+        const key = entry.queryKey;
+        // Flush any pending realtime updates before applying optimistic mutation
+        flushCacheUpdates<InfiniteData>(queryClient, key);
 
-      queryClient.setQueryData<InfiniteData>(key, (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page) => ({
-            ...page,
-            posts: page.posts.map(mapper),
-          })),
-        };
-      });
+        queryClient.setQueryData<InfiniteData>(key, (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              posts: page.posts.map(mapper),
+            })),
+          };
+        });
+      }
     },
-    [queryClient, key],
+    [queryClient, feedPrefix],
   );
 
   return { insertPost, replacePost, patchPost, removePost, mapPosts };

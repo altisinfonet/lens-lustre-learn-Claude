@@ -9,6 +9,8 @@ import DiscoverCard from "@/components/discover/DiscoverCard";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/I18nContext";
+import { useCategories } from "@/hooks/useCategories";
+import { categoryLabelKey, legacyLabelForSlug } from "@/lib/categories";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -16,11 +18,11 @@ const displayFont = { fontFamily: "var(--font-display)" };
 
 const PAGE_SIZE = 10;
 
-const INTEREST_OPTIONS = [
-  "Wildlife", "Street", "Portrait", "Aerial", "Documentary",
-  "Landscape", "Architecture", "Macro", "Sports", "Fashion",
-  "Underwater", "Astrophotography", "Food", "Travel", "Abstract",
-];
+/**
+ * Photography categories come from `public.categories` now — the single source
+ * of truth. This array used to be duplicated verbatim here, in
+ * OnboardingModal.tsx and in EditProfile.tsx.
+ */
 
 type SortOption = "newest" | "name";
 
@@ -45,6 +47,7 @@ const Discover = () => {
   const [hasMore, setHasMore] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const { data: categories = [] } = useCategories();
   const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [showFilters, setShowFilters] = useState(false);
   const [hiddenIds, setHiddenIds] = useState<string[] | null>(null); // null = not yet loaded
@@ -88,7 +91,21 @@ const Discover = () => {
     }
 
     if (selectedInterests.length > 0) {
-      query = query.overlaps("photography_interests", selectedInterests);
+      /**
+       * Match BOTH shapes. `photography_interests` stored English display
+       * labels until 2026-08-12 and stores slugs after it, and a migration and
+       * a deploy cannot land in the same instant. Asking for the slug AND its
+       * old label means this filter keeps working whichever side of the
+       * migration a given row is on — instead of silently returning nobody.
+       *
+       * Once every row is migrated the extra values simply never match, so
+       * this costs nothing and can be dropped later.
+       */
+      const withLegacy = selectedInterests.flatMap((slug) => {
+        const legacy = legacyLabelForSlug(slug);
+        return legacy ? [slug, legacy] : [slug];
+      });
+      query = query.overlaps("photography_interests", withLegacy);
     }
 
     if (sortBy === "newest") {
@@ -241,18 +258,19 @@ const Discover = () => {
                     )}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {INTEREST_OPTIONS.map((interest) => (
+                    {categories.map((cat) => (
                       <button
-                        key={interest}
-                        onClick={() => toggleInterest(interest)}
+                        key={cat.slug}
+                        onClick={() => toggleInterest(cat.slug)}
                         className={`text-[10px] tracking-[0.08em] uppercase px-3 py-1.5 border transition-all duration-300 ${
-                          selectedInterests.includes(interest)
+                          selectedInterests.includes(cat.slug)
                             ? "border-primary bg-primary/10 text-primary"
                             : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
                         }`}
                         style={headingFont}
                       >
-                        {interest}
+                        {/* Slug stored and queried, translated name shown. */}
+                        {t(categoryLabelKey(cat.slug), cat.name)}
                       </button>
                     ))}
                   </div>

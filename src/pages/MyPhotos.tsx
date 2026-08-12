@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import PageSEO from "@/components/PageSEO";
 import { toast } from "@/hooks/core/use-toast";
 import { uploadImageWithThumbnail } from "@/lib/imageUpload";
+import { queryKeys } from "@/lib/queryKeys";
 import Lightbox from "@/components/Lightbox";
 import ImageEngagement from "@/components/ImageEngagement";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
@@ -350,22 +351,31 @@ const AlbumDetailView = ({ album, onBack, isOwner }: { album: PhotoAlbum; onBack
       // Create a wall post with all uploaded images
       if (uploadedUrls.length > 0) {
         const postContent = `added ${uploadedUrls.length} photo${uploadedUrls.length > 1 ? "s" : ""} to the album "${album.name}".`;
-        const { data: post } = await supabase.from("posts").insert({
-          user_id: userId,
-          content: postContent,
-          image_url: uploadedUrls[0],
-          image_urls: uploadedUrls,
-          thumbnail_urls: uploadedThumbs,
-          privacy: "public",
-        } as any).select("id").single();
+        // ⚠ SYSTEM POST — see the same note in src/lib/profilePostHelper.ts.
+        // "added 3 photos to the album X." is written by the app, not composed
+        // by the member, so no human ever chose a category for it. Phase B's
+        // trigger would reject a direct client insert with POST-CAT-002.
+        // create_system_post() is the only path that may declare post_kind.
+        const { data: postId } = await (
+          supabase.rpc as unknown as (
+            fn: string,
+            args: Record<string, unknown>,
+          ) => Promise<{ data: string | null; error: { message: string } | null }>
+        )("create_system_post", {
+          _content: postContent,
+          _image_url: uploadedUrls[0],
+          _image_urls: uploadedUrls,
+          _thumbnail_urls: uploadedThumbs,
+        });
 
         // Add each photo to the album, linking to the post
         for (let i = 0; i < uploadedUrls.length; i++) {
-          await addPhotoToAlbum(album.id, uploadedUrls[i], post?.id);
+          await addPhotoToAlbum(album.id, uploadedUrls[i], postId ?? undefined);
         }
 
-        // Invalidate feed so the post appears
-        qc.invalidateQueries({ queryKey: ["feed"] });
+        // Invalidate feed so the post appears — prefix key, so EVERY category
+        // variant of the feed cache is refetched, not just "All".
+        qc.invalidateQueries({ queryKey: queryKeys.feedAll() });
       }
 
       qc.invalidateQueries({ queryKey: ["album-photos", album.id] });

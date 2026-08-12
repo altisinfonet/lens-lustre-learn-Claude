@@ -33,6 +33,16 @@ export interface ScheduledPost {
   published_post_id: string | null;
   created_at: string;
   updated_at: string;
+  /**
+   * Phase B — copied onto posts.categories by the publisher.
+   *
+   * OPTIONAL, and deliberately so until Phase B is applied to production. The
+   * column does not exist on the live database yet, so the generated
+   * `types.ts` does not carry it; declaring it required would make the casts
+   * below fail to compile against reality rather than against intent. It
+   * becomes required when the migration lands and the types are regenerated.
+   */
+  categories?: string[];
 }
 
 export function useScheduledPosts() {
@@ -59,6 +69,19 @@ export interface CreateScheduledPostInput {
   scheduled_for: string; // ISO UTC
   privacy?: string; // BUG-024: carry the composer's privacy choice
   indexing_disabled?: boolean; // BUG-024: carry the SEO opt-out choice
+  /**
+   * Phase B: the category slugs chosen at COMPOSE time.
+   *
+   * A scheduled post is an ordinary member post that happens to be published
+   * later, so it needs its 1–5 categories like any other. They have to be
+   * stored on `scheduled_posts` at compose time because the publisher runs
+   * hours later with no member and no UI — there is nobody to ask then.
+   *
+   * Optional here only because the Create UI that fills it is Phase C. Until
+   * that ships this stays empty, which is exactly why Phase B's minimum cannot
+   * be enabled before Phase C — see the migration header.
+   */
+  categories?: string[];
 }
 
 export function useCreateScheduledPost() {
@@ -79,6 +102,7 @@ export function useCreateScheduledPost() {
           original_scheduled_for: input.scheduled_for,
           privacy: input.privacy ?? "public",
           indexing_disabled: input.indexing_disabled ?? false,
+          categories: input.categories ?? [],
         } as any)
         .select("*")
         .single();

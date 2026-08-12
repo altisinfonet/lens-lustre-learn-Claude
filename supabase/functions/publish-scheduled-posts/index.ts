@@ -43,6 +43,12 @@ interface ScheduledRow {
   status: string;
   attempt_count: number;
   shifted_count: number;
+  /**
+   * Phase B (2026-08-12) — the category slugs the member chose when they
+   * composed the post. The publisher runs hours later with no member and no
+   * UI, so there is nobody to ask: the choice has to travel on the row.
+   */
+  categories: string[] | null;
 }
 
 function json(body: unknown, status = 200) {
@@ -225,6 +231,17 @@ Deno.serve(async (req) => {
           // scheduling (stored on scheduled_posts) instead of forcing public.
           privacy: row.privacy ?? "public",
           indexing_disabled: row.indexing_disabled ?? false,
+          // Phase B: a scheduled post is a MEMBER post, so it carries the
+          // categories chosen at compose time. It is deliberately NOT a system
+          // post — a human did choose these.
+          //
+          // This client is service_role, so enforce_post_categories() sees
+          // current_user = 'service_role', leaves post_kind alone (default
+          // 'member'), and then applies the 1-5 rule to it exactly as it would
+          // to an immediate post. An empty array here is therefore a REJECTED
+          // insert, handled by the `insErr` branch below as a normal failure —
+          // it does not publish an uncategorised post by accident.
+          categories: row.categories ?? [],
         })
         .select("id")
         .single();
@@ -238,6 +255,11 @@ Deno.serve(async (req) => {
           await shift(admin, row, `race_duplicate: ${msg}`, summary);
         } else if (/restricted content/i.test(msg)) {
           await fail(admin, row, `trigger_moderation: ${msg}`, summary);
+        } else if (/POST-CAT-\d+/.test(msg)) {
+          // Named explicitly so the failure reads as "this row's categories are
+          // wrong" in the admin list, not as an opaque insert_error. A row that
+          // was scheduled before the Create UI carried categories lands here.
+          await fail(admin, row, `categories_rejected: ${msg}`, summary);
         } else {
           await fail(admin, row, `insert_error: ${msg}`, summary);
         }

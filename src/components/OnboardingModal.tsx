@@ -18,12 +18,17 @@ import { isOwnProfilePhoto } from "@/lib/profilePhoto";
 import { scanFileWithToast } from "@/lib/fileSecurityScanner";
 import { useI18n } from "@/i18n/I18nContext";
 import { LANGS } from "@/i18n/translations";
+import { useT } from "@/i18n/I18nContext";
+import { useCategories } from "@/hooks/useCategories";
+import { categoryLabelKey, normaliseInterests } from "@/lib/categories";
 
-const INTEREST_OPTIONS = [
-  "Wildlife", "Street", "Portrait", "Aerial", "Documentary",
-  "Landscape", "Architecture", "Macro", "Sports", "Fashion",
-  "Underwater", "Astrophotography", "Food", "Travel", "Abstract",
-];
+/**
+ * The photography categories come from the database now — `public.categories`
+ * is the single source of truth for the list, its order and its labels. The
+ * hard-coded array that used to sit here was duplicated verbatim in
+ * EditProfile.tsx and Discover.tsx, so adding or renaming one meant editing
+ * three files in lockstep and a rename silently orphaned stored rows.
+ */
 
 /**
  * HE / SHE — the wording is the owner's, given 2026-08-05: *"Ask 'He / She' not
@@ -110,6 +115,10 @@ async function isFlatOrBlank(file: File): Promise<boolean> {
 
 const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = false, onDismiss }: OnboardingModalProps) => {
   const [saving, setSaving] = useState(false);
+  const t = useT();
+  // The 46 master categories, from the database. One cached fetch, shared with
+  // the feed strip and the Create picker.
+  const { data: categories = [] } = useCategories();
 
   // Language is chosen HERE, at profile creation (Facebook/Instagram model).
   // `lang` already holds the account's saved preference if it has one
@@ -120,7 +129,12 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
   const { lang, setLang } = useI18n();
 
   // Form state
-  const [selectedInterests, setSelectedInterests] = useState<string[]>(profile?.photography_interests || []);
+  // Read through the legacy fallback: this column held English display labels
+  // until 2026-08-12, so a member whose row has not been migrated yet still
+  // sees their own choices selected instead of an empty picker.
+  const [selectedInterests, setSelectedInterests] = useState<string[]>(
+    normaliseInterests(profile?.photography_interests),
+  );
   const [userType, setUserType] = useState(profile?.user_type || "");
   const [dateOfBirth, setDateOfBirth] = useState<Date | undefined>(
     profile?.date_of_birth ? new Date(profile.date_of_birth + "T00:00:00") : undefined,
@@ -659,18 +673,20 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
                 )}
               </div>
               <div className="flex flex-wrap gap-1.5 justify-center">
-                {INTEREST_OPTIONS.map((interest) => {
-                  const selected = selectedInterests.includes(interest);
+                {categories.map((cat) => {
+                  const selected = selectedInterests.includes(cat.slug);
                   return (
                     <button
-                      key={interest}
-                      onClick={() => toggleInterest(interest)}
+                      key={cat.slug}
+                      onClick={() => toggleInterest(cat.slug)}
                       className={`text-[10px] tracking-[0.08em] px-3 py-1.5 border rounded-sm transition-all duration-300 ${
                         selected ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/50"
                       }`}
                       style={{ fontFamily: "var(--font-heading)" }}
                     >
-                      {interest}
+                      {/* The SLUG is stored; the translated NAME is shown. A slug
+                          is never rendered and a display name is never stored. */}
+                      {t(categoryLabelKey(cat.slug), cat.name)}
                     </button>
                   );
                 })}

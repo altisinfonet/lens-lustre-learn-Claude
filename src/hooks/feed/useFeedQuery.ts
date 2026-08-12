@@ -73,11 +73,25 @@ async function fetchRelevantUsers(userId: string): Promise<string[]> {
  */
 const NEWEST_PINNED_ON_FIRST_PAGE = 3;
 
-async function fetchBroadcastPage(excludeIds: string[], newestFirst: number): Promise<any[]> {
+async function fetchBroadcastPage(
+  excludeIds: string[],
+  newestFirst: number,
+  categories: string[] | null,
+): Promise<any[]> {
+  /**
+   * `_categories: null` is "All" — the RPC then applies no category predicate
+   * at all, which is exactly what keeps posts created before this feature
+   * visible. A category filter uses `&&`, which an empty array never matches.
+   *
+   * The 4-argument overload is called by name. The 3-argument one still exists
+   * and still works, so an installed Android build carrying the old bundle is
+   * unaffected until it is rebuilt.
+   */
   const { data, error } = await supabase.rpc("get_broadcast_feed" as any, {
     _exclude_ids: excludeIds,
     _limit: PAGE_SIZE,
     _newest_first: newestFirst,
+    _categories: categories,
   });
   if (error || !data) {
     logger.error({
@@ -102,6 +116,13 @@ async function fetchBroadcastPage(excludeIds: string[], newestFirst: number): Pr
       .limit(PAGE_SIZE);
     if (excludeIds.length > 0) {
       query = query.not("id", "in", `(${excludeIds.join(",")})`);
+    }
+    // The fallback must respect the filter as well. Without this, an RPC
+    // failure while a category is selected would quietly serve posts from
+    // every category under that category's heading — the fallback is already
+    // invisible to members, so a wrong-content version of it would be too.
+    if (categories && categories.length > 0) {
+      query = query.overlaps("categories", categories);
     }
     const { data: fallback } = await query;
     return fallback || [];
@@ -294,7 +315,17 @@ interface FeedPage {
   networkIds: string[];
 }
 
-export function useFeedQuery(userId: string | undefined) {
+/**
+ * @param categories  Selected category slugs, or null/undefined for "All".
+ *                    Phase B always passes null — the category strip that will
+ *                    supply this is Phase D. It is threaded through now so the
+ *                    cache key is correct from the first day rather than
+ *                    retro-fitted onto a live cache.
+ */
+export function useFeedQuery(userId: string | undefined, categories?: string[] | null) {
+  // Normalised once: sorted, empty treated as null, so the key and the RPC
+  // argument can never disagree about what "no filter" means.
+  const cats = categories && categories.length ? [...categories].sort() : null;
   const networkIdsRef = useRef<string[]>([]);
   // Snapshot of delivered post ids BEFORE each page, keyed by page index.
   // Makes React Query page refetches deterministic (a refetch of page N
@@ -320,7 +351,7 @@ export function useFeedQuery(userId: string | undefined) {
   }, [userId]);
 
   return useInfiniteQuery<FeedPage, Error>({
-    queryKey: queryKeys.feed(),
+    queryKey: queryKeys.feed(cats),
     enabled: !!userId,
     placeholderData,
 
@@ -373,6 +404,7 @@ export function useFeedQuery(userId: string | undefined) {
       const rawPosts = await fetchBroadcastPage(
         excludeIds,
         isFirstPage ? NEWEST_PINNED_ON_FIRST_PAGE : 0,
+        cats,
       );
 
       if (rawPosts.length === 0) {

@@ -683,7 +683,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         await refetch();
         // Keep the FEED in sync too: realtime inserts it instantly when the
         // feed is mounted; invalidation covers navigation + flaky sockets.
-        queryClient.invalidateQueries({ queryKey: queryKeys.feed() });
+        queryClient.invalidateQueries({ queryKey: queryKeys.feedAll() });
         // Ad Zones v2: full-screen interstitial after a successful publish.
         // Double-gated (master flag + interstitial_after_post toggle, both
         // default OFF) and frequency-capped by the governor, so this is a
@@ -778,7 +778,13 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       queryClient.invalidateQueries({ queryKey: ["user-wall-posts", targetUserId] });
       // Remove instantly from the FEED cache as well (deletes made on the wall
       // previously lingered in the feed until a manual refresh).
-      queryClient.setQueryData<any>(queryKeys.feed(), (old: any) => {
+      // Fan across EVERY cached feed variant, not just "All". queryKeys.feed()
+      // is now ["feed", null]; writing to that one key alone would leave the
+      // deleted post sitting in any category feed the member had opened —
+      // silently, with no error. invalidateQueries below is prefix-based and
+      // was never the problem; this exact-key write was.
+      for (const entry of queryClient.getQueryCache().findAll({ queryKey: queryKeys.feedAll() })) {
+      queryClient.setQueryData<any>(entry.queryKey, (old: any) => {
         if (!old?.pages) return old;
         return {
           ...old,
@@ -788,7 +794,8 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           })),
         };
       });
-      queryClient.invalidateQueries({ queryKey: queryKeys.feed() });
+      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.feedAll() });
     }
   }, [user, targetUserId, queryClient]);
 
@@ -827,7 +834,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     });
     queryClient.invalidateQueries({ queryKey: ["user-wall-posts", targetUserId] });
     // The author's share count drops too; refresh the feed so it is not stale.
-    queryClient.invalidateQueries({ queryKey: queryKeys.feed() });
+    queryClient.invalidateQueries({ queryKey: queryKeys.feedAll() });
     toast({ title: "Removed from your wall" });
   }, [user, targetUserId, queryClient]);
 
