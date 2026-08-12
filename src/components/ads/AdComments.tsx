@@ -230,6 +230,27 @@ const AdComments = ({ creativeId, onCountChange }: Props) => {
               <input
                 value={editInput}
                 onChange={(e) => setEditInput(e.target.value)}
+                /**
+                 * CARET TO THE END, NOT THE FRONT.
+                 *
+                 * `autoFocus` focuses this field but leaves the caret at index
+                 * 0, and this box opens PRE-FILLED with the existing comment —
+                 * so without this every character the member types is inserted
+                 * in front of their own text. The reply box below opens empty,
+                 * where 0 and "end" are the same spot, which is why only Edit
+                 * showed the fault. Same fix as MentionInput.tsx; see the long
+                 * note there for the full reasoning.
+                 *
+                 * `onFocus` and not a mount effect because a raw input focused
+                 * by `autoFocus` fires focus synchronously with its value
+                 * already on the node — there is nothing to wait for.
+                 */
+                onFocus={(e) => {
+                  const end = e.currentTarget.value.length;
+                  if (end > 0 && e.currentTarget.selectionStart === 0) {
+                    e.currentTarget.setSelectionRange(end, end);
+                  }
+                }}
                 className="flex-1 bg-muted/40 rounded-full px-3 py-1.5 text-sm outline-none"
                 autoFocus
               />
