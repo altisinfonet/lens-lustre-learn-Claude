@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { AuthPageConfig, AuthPageSettings } from "@/hooks/core/useAuthPageSettings";
-import { DEFAULT_AUTH_SETTINGS } from "@/hooks/core/useAuthPageSettings";
+import { DEFAULT_AUTH_SETTINGS, APPLE_SIGN_IN_ENABLED } from "@/hooks/core/useAuthPageSettings";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 
@@ -106,9 +106,33 @@ function PageConfigEditor({
           <span className="text-xs text-muted-foreground">Google Sign In</span>
           <Switch checked={config.show_google} onCheckedChange={(v) => update({ show_google: v })} />
         </div>
+        {/*
+          THE APPLE SWITCH IS OFF AND LOCKED, AND IT SAYS WHY.
+
+          Apple sign-in has no backend yet (owner, 2026-08-12). The hook forces
+          `show_apple` to false for Login and Signup, so a switch left live here
+          would be a control that changes nothing — the exact silent-dead-control
+          failure this project bans. So it is disabled and labelled instead of
+          hidden: an admin who looks for Apple finds it, greyed, with the reason.
+
+          When Apple is built, flip APPLE_SIGN_IN_ENABLED in
+          hooks/core/useAuthPageSettings.ts and this row goes live again with
+          whatever value is already stored — nothing here needs editing.
+        */}
         <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">Apple Sign In</span>
-          <Switch checked={config.show_apple} onCheckedChange={(v) => update({ show_apple: v })} />
+          <span className="text-xs text-muted-foreground">
+            Apple Sign In
+            {!APPLE_SIGN_IN_ENABLED && (
+              <span className="block text-[10px] text-muted-foreground/70">
+                Not available yet — sign-in with Apple has not been built. Hidden on Login and Signup.
+              </span>
+            )}
+          </span>
+          <Switch
+            checked={APPLE_SIGN_IN_ENABLED && config.show_apple}
+            disabled={!APPLE_SIGN_IN_ENABLED}
+            onCheckedChange={(v) => update({ show_apple: v })}
+          />
         </div>
       </div>
 
