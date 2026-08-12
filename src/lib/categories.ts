@@ -108,3 +108,84 @@ export const categoryLabelKey = (slug: string): string => `cat.${slug}`;
 /** 1–5 categories per post. The database enforces this too — see Phase B. */
 export const MIN_POST_CATEGORIES = 1;
 export const MAX_POST_CATEGORIES = 5;
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * THE LEGACY FALLBACK
+ *
+ * Until 2026-08-12 `profiles.photography_interests` stored ENGLISH DISPLAY
+ * LABELS, because the label was the key: 'Wildlife', 'Astrophotography'. The
+ * migration rewrites those rows to slugs.
+ *
+ * A migration and a deploy cannot happen in the same instant, so for a short
+ * window one of two things is true: either the database still holds labels
+ * while this build expects slugs, or the database holds slugs while an older
+ * build is still writing labels back. Without a fallback the member's saved
+ * interests would silently render as unselected, and a save would then wipe
+ * them — the member would never know.
+ *
+ * So every read goes through `normaliseInterests`, which accepts BOTH shapes
+ * and always yields slugs. That makes the migration and the deploy safe in
+ * either order, with no window at all.
+ *
+ * This map is deliberately frozen at the fifteen labels that were actually in
+ * production on 2026-08-12 (verified against the live database, not guessed).
+ * It is not a general-purpose label parser and must not grow: anything new is
+ * a slug already.
+ * ────────────────────────────────────────────────────────────────────────── */
+const LEGACY_LABEL_TO_SLUG: Readonly<Record<string, string>> = {
+  wildlife: "wildlife",
+  street: "street",
+  portrait: "portrait",
+  aerial: "aerial",
+  documentary: "documentary",
+  landscape: "landscape",
+  architecture: "architecture",
+  macro: "macro",
+  sports: "sports",
+  fashion: "fashion",
+  underwater: "underwater",
+  // The one that is not a straight lower-casing, and the whole reason the
+  // interests column had to be migrated rather than left alone.
+  astrophotography: "astro",
+  food: "food",
+  travel: "travel",
+  abstract: "abstract",
+};
+
+/**
+ * The legacy label for a slug, if one existed. Used to query tolerantly while
+ * the database may still hold either shape — see `Discover`.
+ */
+export const legacyLabelForSlug = (slug: string): string | null => {
+  const entry = Object.entries(LEGACY_LABEL_TO_SLUG).find(([, s]) => s === slug);
+  if (!entry) return null;
+  const [label] = entry;
+  return label.charAt(0).toUpperCase() + label.slice(1);
+};
+
+/**
+ * Normalise one stored value — a slug or a legacy label — to a slug.
+ * Returns null for anything the taxonomy does not recognise, so an unknown
+ * value is dropped rather than silently rendered as a category that is not one.
+ */
+export const toCategorySlug = (value: string): string | null => {
+  const key = value.trim().toLowerCase();
+  if (!key) return null;
+  return LEGACY_LABEL_TO_SLUG[key] ?? (/^[a-z0-9]+(-[a-z0-9]+)*$/.test(key) ? key : null);
+};
+
+/**
+ * Normalise a whole stored interests array to slugs, de-duplicated and with
+ * unrecognised values dropped. Order is preserved.
+ */
+export const normaliseInterests = (
+  values: readonly string[] | null | undefined,
+): string[] => {
+  if (!Array.isArray(values)) return [];
+  const out: string[] = [];
+  for (const v of values) {
+    const slug = toCategorySlug(v);
+    if (slug && !out.includes(slug)) out.push(slug);
+  }
+  return out;
+};
