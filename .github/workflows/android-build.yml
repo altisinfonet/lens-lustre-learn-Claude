@@ -83,7 +83,7 @@ jobs:
           npm install --no-audit --no-fund \
             @capacitor/core @capacitor/cli @capacitor/android \
             @capacitor/share @capacitor/splash-screen \
-            @capacitor/filesystem \
+            @capacitor/filesystem @capacitor/camera \
             @capacitor/app @capacitor/browser \
             @capacitor-firebase/messaging \
             @capawesome/capacitor-app-update
@@ -327,6 +327,38 @@ jobs:
           PY
           echo "--- drawable files carrying the icon ---"
           unzip -l "$AAB" | grep -i ic_notification || echo "(paths renamed by resource optimisation; the resources.pb match above is the proof)"
+
+      # -------------------------------------------------------------------
+      # AN APK YOU CAN ACTUALLY PUT ON A PHONE.
+      #
+      # `bundleRelease` above produces an .aab, and an AAB CANNOT BE
+      # SIDELOADED — it is a publishing format Play unpacks into per-device
+      # APKs. So for "let me check it on my phone without the Play Store"
+      # the AAB is useless, which is why this step exists.
+      #
+      # It builds the DEBUG variant on purpose. A release APK is unsigned
+      # unless the keystore secrets are present, and Android refuses to
+      # install an unsigned APK; the debug variant is self-signed with the
+      # standard debug key and installs on any phone with "install unknown
+      # apps" enabled. It is for testing only and must never go to Play.
+      #
+      # `continue-on-error` so a debug-variant problem can never block the
+      # real release bundle that was already built and verified above.
+      # -------------------------------------------------------------------
+      - name: Build sideloadable debug APK (phone testing only)
+        continue-on-error: true
+        run: |
+          cd android
+          ./gradlew assembleDebug --no-daemon --stacktrace
+          ls -la app/build/outputs/apk/debug/ || true
+
+      - name: Upload debug APK artifact
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk-SIDELOAD-THIS
+          path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 14
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
