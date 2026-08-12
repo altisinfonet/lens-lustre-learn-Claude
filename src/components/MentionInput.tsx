@@ -1,4 +1,4 @@
-import { useCallback, forwardRef, useRef } from "react";
+import { useCallback, useEffect, forwardRef, useRef } from "react";
 import { Send } from "lucide-react";
 import { MentionsInput, Mention, SuggestionDataItem } from "react-mentions";
 import { profilesPublic } from "@/lib/profilesPublic";
@@ -51,6 +51,53 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
     },
     []
   );
+
+  /**
+   * AUTOFOCUS PUTS THE CARET AT 0 — WHICH MEANS TYPING PREPENDS.
+   *
+   * Reported by the owner on 2026-08-12: "on reply comment edit ... cursor is
+   * moving front not end". This is NOT the remount bug that reversed characters
+   * in the comment list (that one is fixed; the deployed bundle was checked).
+   * It is a second, narrower fault that only shows on a box that opens with
+   * text ALREADY IN IT — i.e. Edit.
+   *
+   * The browser's `autofocus` gives an element focus but does not place the
+   * caret; for a pre-filled field it lands at index 0. The new-comment and
+   * reply boxes open empty, so 0 and "end" are the same position and nobody
+   * ever saw it. Open Edit on an existing comment and every character you type
+   * is inserted in FRONT of the text that was already there.
+   *
+   * So: whenever this field is the one taking focus, put the caret after the
+   * last character, the way every editor on earth behaves.
+   *
+   * WHY A FRAME LATER, NOT SYNCHRONOUSLY: react-mentions renders the textarea
+   * and writes `value` onto the DOM node in its own commit. Setting the range
+   * in the same tick reads value.length as 0 and does nothing. One animation
+   * frame after mount the node is populated, so `el.value.length` is the real
+   * end of the text.
+   *
+   * Depending on `value` here would be wrong — it would drag the caret to the
+   * end on every keystroke, which is the same disease with the sign flipped.
+   * The effect must run for the FOCUS event only, so `autoFocus` is the only
+   * dependency.
+   */
+  useEffect(() => {
+    if (!autoFocus) return;
+    let frame = 0;
+    frame = requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el || typeof el.setSelectionRange !== "function") return;
+      // Do not steal the caret from a member who has already clicked into the
+      // middle of the text before this frame ran.
+      if (document.activeElement !== el) return;
+      const end = el.value.length;
+      if (el.selectionStart === 0 && el.selectionEnd === 0 && end > 0) {
+        el.setSelectionRange(end, end);
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoFocus]);
 
   const overLimit = value.length > maxLength;
   const submitBlocked = disabled || overLimit;
