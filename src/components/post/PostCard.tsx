@@ -201,7 +201,7 @@ const PostCard = ({
     }
     toast({ title: "Tag removed", description: "Your name no longer appears on this post." });
     // Both surfaces read tags, so both have to be refreshed.
-    queryClient.invalidateQueries({ queryKey: queryKeys.feed() });
+    queryClient.invalidateQueries({ queryKey: queryKeys.feedAll() });
     queryClient.invalidateQueries({ queryKey: ["user-wall-posts"] });
   };
 
