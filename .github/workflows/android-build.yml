@@ -266,6 +266,42 @@ jobs:
       - name: Sync web build into native project
         run: npx cap sync android
 
+      # -------------------------------------------------------------------
+      # PROVE THE BUNDLE CARRIES TODAY'S APP — not a stale one.
+      #
+      # Owner requirement (2026-08-12): before any build is handed over,
+      # confirm the merged work is actually inside it — Top Contributor
+      # score, the 46-category strip, and the comment fixes. Every string
+      # below was verified present in a real production build of current
+      # main before this step was written; each one survives minification
+      # because it is either user-facing text or a DOM dataset key.
+      #
+      # The reversed-typing fix itself cannot be string-checked (the
+      # function name is minified away) — it is guarded instead by the
+      # noComponentDefinedInRender test, which runs in the blocking test
+      # suite earlier in this same job.
+      # -------------------------------------------------------------------
+      - name: Prove the synced app is TODAY'S app (contributor score, categories, comment fixes)
+        run: |
+          set -euo pipefail
+          PUB="android/app/src/main/assets/public"
+          test -d "$PUB/assets" || { echo "::error::No synced web assets at $PUB — cap sync did not run?"; exit 1; }
+          check () {
+            if grep -rqlF "$1" "$PUB"/assets/*.js; then
+              echo "OK   $2"
+            else
+              echo "::error::MISSING from bundle: $2 (marker '$1'). This AAB would NOT contain that feature. Refusing to build."
+              exit 1
+            fi
+          }
+          check "get_contributor_scores" "Top Contributor score wiring"
+          check "Top Contributor"        "Top Contributor UI"
+          check "All categories"         "Category strip grid modal"
+          check "Photojournalism"        "Full 46-category list"
+          check "Pinned comment"         "Comments UI"
+          check "caretPlaced"            "Edit-caret fix (2026-08-12)"
+          echo "All feature proofs passed — this bundle is current main."
+
       - name: Install monochrome notification icon and manifest meta-data
         run: |
           set -euo pipefail
@@ -366,12 +402,113 @@ jobs:
       - name: Configure release signing (only if keystore secret is set)
         env:
           KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           if [ -z "$KS_B64" ]; then
             echo "::notice::No ANDROID_KEYSTORE_BASE64 secret set — building UNSIGNED. Add the keystore + password secrets to auto-sign."
             exit 0
           fi
           echo "$KS_B64" | base64 -d > android/app/release.keystore
+
+          # ---------------------------------------------------------------
+          # THE KEYSTORE IS THE SOURCE OF TRUTH FOR THE ALIAS — NOT A SECRET.
+          #
+          # History, so this is never re-broken: builds up to #75 signed
+          # fine with the alias hardcoded to "upload". Build #76 "fixed"
+          # signing to prefer the ANDROID_KEY_ALIAS secret — and #76, #77,
+          # #78 and #79 all died at :app:signReleaseBundle with "No key
+          # with alias '***' found", because the secret's value is not an
+          # alias that exists in this keystore. A secret can be typed
+          # wrong; the keystore cannot lie about its own contents. So:
+          # ask the keystore what aliases it actually holds, use the
+          # secret only if it names one of them, and fall back to the
+          # store's own single alias otherwise. Alias names are printed
+          # (they are not secret material); passwords never are.
+          # ---------------------------------------------------------------
+          ALIASES=$(keytool -list -keystore android/app/release.keystore \
+                    -storepass "$KEYSTORE_PASSWORD" 2>/dev/null \
+                    | sed -n 's/^\(.*\), [A-Z][a-z]* [0-9].*, PrivateKeyEntry,.*$/\1/p')
+          if [ -z "$ALIASES" ]; then
+            # Fallback parse for keytool output variations: lines end with
+            # "PrivateKeyEntry," and start with the alias before the first comma.
+            ALIASES=$(keytool -list -keystore android/app/release.keystore \
+                      -storepass "$KEYSTORE_PASSWORD" 2>/dev/null \
+                      | grep -i "PrivateKeyEntry" | cut -d, -f1)
+          fi
+          if [ -z "$ALIASES" ]; then
+            echo "::error::Could not read any private-key alias from the keystore. Either ANDROID_KEYSTORE_PASSWORD is wrong or the keystore file is not a keystore."
+            exit 1
+          fi
+          COUNT=$(echo "$ALIASES" | grep -c .)
+          echo "Keystore holds $COUNT private-key alias(es): $ALIASES"
+
+          WANT=$(printf '%s' "${KEY_ALIAS:-}" | tr -d '[:space:]')
+          RESOLVED=""
+          if [ -n "$WANT" ] && echo "$ALIASES" | grep -qxF "$WANT"; then
+            RESOLVED="$WANT"
+            echo "ANDROID_KEY_ALIAS matches a real alias in the keystore — using it."
+          elif [ "$COUNT" -eq 1 ]; then
+            RESOLVED=$(echo "$ALIASES" | head -1)
+            if [ -n "$WANT" ]; then
+              echo "::warning::ANDROID_KEY_ALIAS does not name any alias in the keystore. Using the keystore's own single alias '$RESOLVED' instead — this is what builds <=75 effectively did. Fix the secret at your convenience; the build no longer depends on it."
+            else
+              echo "No ANDROID_KEY_ALIAS secret — using the keystore's single alias '$RESOLVED'."
+            fi
+          else
+            echo "::error::ANDROID_KEY_ALIAS matches nothing and the keystore holds $COUNT aliases, so there is no safe automatic choice. Real aliases are: $ALIASES"
+            exit 1
+          fi
+          echo "RESOLVED_KEY_ALIAS=$RESOLVED" >> "$GITHUB_ENV"
+
+          # ---------------------------------------------------------------
+          # PROVE THE KEY PASSWORD BEFORE GRADLE EVER RUNS.
+          #
+          # The verification differs by keystore TYPE, and this was tested
+          # against real keystores of both types before shipping:
+          #
+          #   PKCS12  the key password IS the store password by definition,
+          #           and keytool silently IGNORES a wrong -keypass — so a
+          #           certreq "test" would bless a wrong secret. No test is
+          #           possible or needed: the store password (which already
+          #           opened the store above) is the key password.
+          #   JKS     keytool -certreq needs the PRIVATE key, so it fails
+          #           on a wrong key password (verified: wrong → exit 1,
+          #           right → exit 0). A one-second test that replaces a
+          #           six-minute Gradle run ending in the same discovery.
+          #
+          # Only the NAME of the working source is exported; the password
+          # value itself never leaves the secrets context.
+          # ---------------------------------------------------------------
+          STORETYPE=$(keytool -list -keystore android/app/release.keystore \
+                      -storepass "$KEYSTORE_PASSWORD" 2>/dev/null \
+                      | sed -n 's/^Keystore type: *//p' | head -1)
+          echo "Keystore type: ${STORETYPE:-unknown}"
+          KEYPASS_SOURCE=""
+          if [ "$STORETYPE" = "PKCS12" ]; then
+            KEYPASS_SOURCE="store"
+            echo "PKCS12 keystore — the key password is the store password by definition. Using it."
+          elif [ -n "${KEY_PASSWORD:-}" ] && keytool -certreq -alias "$RESOLVED" \
+               -keystore android/app/release.keystore \
+               -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" \
+               -file /dev/null >/dev/null 2>&1; then
+            KEYPASS_SOURCE="key"
+            echo "ANDROID_KEY_PASSWORD unlocks the key '$RESOLVED' — verified with keytool."
+          elif keytool -certreq -alias "$RESOLVED" \
+               -keystore android/app/release.keystore \
+               -storepass "$KEYSTORE_PASSWORD" -keypass "$KEYSTORE_PASSWORD" \
+               -file /dev/null >/dev/null 2>&1; then
+            KEYPASS_SOURCE="store"
+            echo "Key '$RESOLVED' uses the STORE password (as builds <=75 assumed) — verified with keytool."
+            if [ -n "${KEY_PASSWORD:-}" ]; then
+              echo "::warning::ANDROID_KEY_PASSWORD does not unlock this key; the store password does. Fix the secret at your convenience; the build no longer depends on it."
+            fi
+          else
+            echo "::error::Neither ANDROID_KEY_PASSWORD nor ANDROID_KEYSTORE_PASSWORD unlocks the key '$RESOLVED'. Signing is impossible until the correct key password is in the secrets."
+            exit 1
+          fi
+          echo "KEYPASS_SOURCE=$KEYPASS_SOURCE" >> "$GITHUB_ENV"
           python3 - <<'PY'
           import re
           p = "android/app/build.gradle"
@@ -393,8 +530,13 @@ jobs:
                   # with "No key with alias 'upload' found". The Groovy elvis
                   # defaults keep the old behaviour when those optional secrets
                   # are absent.
-                  "            keyAlias System.getenv(\"KEY_ALIAS\") ?: \"upload\"\n"
-                  "            keyPassword System.getenv(\"KEY_PASSWORD\") ?: System.getenv(\"KEYSTORE_PASSWORD\")\n"
+                  # RESOLVED_KEY_ALIAS was verified against the keystore's
+                  # real contents in the shell above; EFFECTIVE_KEY_PASSWORD
+                  # is the password keytool PROVED unlocks that key. Gradle
+                  # gets only verified values now — it can no longer be the
+                  # place where a wrong secret is first discovered.
+                  "            keyAlias System.getenv(\"RESOLVED_KEY_ALIAS\")\n"
+                  "            keyPassword System.getenv(\"EFFECTIVE_KEY_PASSWORD\")\n"
                   "        }\n"
                   "    }\n"
               )
@@ -408,9 +550,18 @@ jobs:
       - name: Build release bundle
         env:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          # KEYPASS_SOURCE says which password keytool PROVED works for the
+          # resolved alias (set in the signing step above). Hand Gradle that
+          # one, under a name the injected config reads. When no keystore
+          # secret is set, KEYPASS_SOURCE is empty and the build is unsigned,
+          # exactly as before.
+          if [ "${KEYPASS_SOURCE:-}" = "key" ]; then
+            export EFFECTIVE_KEY_PASSWORD="$KEY_PASSWORD"
+          elif [ "${KEYPASS_SOURCE:-}" = "store" ]; then
+            export EFFECTIVE_KEY_PASSWORD="$KEYSTORE_PASSWORD"
+          fi
           cd android
           chmod +x gradlew
           ./gradlew bundleRelease --no-daemon --stacktrace
