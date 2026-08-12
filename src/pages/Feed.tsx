@@ -249,6 +249,21 @@ const Feed = () => {
     <PullToRefresh onRefresh={async () => { await refetch(); }}>
     <div className="py-3 md:py-14">
       <div className="min-w-0">
+        {/* Stage D — the category strip.
+
+            ⚠ IT SITS ABOVE THE STORIES ROW. Owner's app mock, 2026-08-12:
+            Create header → category strip → Your Story → posts. It shipped
+            BELOW the stories bar first; that is the order this replaces. The
+            filter is what the whole feed obeys, so it reads before the thing
+            it filters, not after it.
+
+            Sticky, so it stays reachable while scrolling a long feed. "All" is
+            the default and applies no predicate, which is what keeps the posts
+            created before categories existed visible. */}
+        <div className="sticky top-0 z-20 -mx-4 mb-3">
+          <CategoryStrip value={activeCategory} onChange={setActiveCategory} />
+        </div>
+
         {/* Stories bar — everyone's public stories (official first, then followed by recency) */}
         <FeedStoriesBar />
 
@@ -277,13 +292,6 @@ const Feed = () => {
 
           Do not put a title back. Instagram's feed starts at the first post.
         */}
-
-        {/* Stage D — the category strip. Sticky, so the filter stays reachable
-            while scrolling a long feed. "All" is the default and applies no
-            predicate, which is what keeps pre-existing posts visible. */}
-        <div className="sticky top-0 z-20 -mx-4 mb-3">
-          <CategoryStrip value={activeCategory} onChange={setActiveCategory} />
-        </div>
 
         {/* Composer — same as My Wall, posts go to posts table → appear on Wall + Feed */}
         <WallPosts targetUserId={user.id} isOwnWall composerOnly />
