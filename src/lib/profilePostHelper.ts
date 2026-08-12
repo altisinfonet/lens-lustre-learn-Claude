@@ -20,14 +20,31 @@ export async function createProfileUpdatePost(
       : "updated their cover photo.";
   const content = caption ? `${defaultText}\n\n${caption}` : defaultText;
 
-  // 1. Create the wall post
-  const { data: post, error } = await supabase.from("posts").insert({
-    user_id: userId,
-    content,
-    image_url: imageUrl,
-    image_urls: [imageUrl],
-    privacy: "public",
-  }).select("id").single();
+  // 1. Create the wall post.
+  //
+  // ⚠ THIS IS A **SYSTEM** POST AND MUST GO THROUGH create_system_post().
+  //
+  // Phase B (2026-08-12) requires 1–5 categories on every MEMBER post. Nobody
+  // picked a category here — the member changed their profile photo, they did
+  // not compose anything. A direct `.from("posts").insert(...)` runs as
+  // `authenticated`, so the trigger pins post_kind to 'member' and then refuses
+  // the row with POST-CAT-002. The announcement would silently stop appearing.
+  //
+  // `create_system_post` is SECURITY DEFINER, takes no post_kind and no
+  // categories parameter, and always writes user_id = auth.uid() — so there is
+  // nothing here for a caller to forge. It is the ONLY way to make a system post.
+  const { data: postId, error } = await (
+    supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: string | null; error: { message: string } | null }>
+  )("create_system_post", {
+    _content: content,
+    _image_url: imageUrl,
+    _image_urls: [imageUrl],
+    _thumbnail_urls: null,
+  });
+  const post = postId ? { id: postId } : null;
 
   if (error) {
     logger.error({

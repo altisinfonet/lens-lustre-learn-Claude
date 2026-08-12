@@ -58,7 +58,31 @@ export const queryKeys = {
     ["all-competition-judges", sortedIds] as const,
 
   /* ── Feed ── */
-  feed: () => ["feed"] as const,
+  /**
+   * The feed, optionally filtered to a set of category slugs.
+   *
+   * ⚠ THE PARAMETER IS NOT OPTIONAL DECORATION. React Query caches by key, so
+   * if every selection shared `["feed"]` then tapping Portrait would hit the
+   * cache entry All had just filled and render All's posts as Portrait — worse
+   * than stale, silently wrong.
+   *
+   * `null` is the "All" filter: no predicate, every post, including the ones
+   * created before categories existed.
+   *
+   * Slugs are sorted so ["portrait","street"] and ["street","portrait"] are the
+   * same cache entry rather than two.
+   *
+   * NOTE the prefix shape is unchanged, so every existing
+   * `invalidateQueries({ queryKey: queryKeys.feed() })` still matches all
+   * category variants — React Query invalidation is prefix-based. Exact-key
+   * WRITES (`setQueryData`) are the ones that had to change; see
+   * useFeedCacheUpdaters.ts.
+   */
+  feed: (categories?: string[] | null) =>
+    ["feed", categories && categories.length ? [...categories].sort() : null] as const,
+
+  /** Prefix for every feed cache entry, whatever the category. */
+  feedAll: () => ["feed"] as const,
   userWallPosts: (userId: string) => ["user-wall-posts", userId] as const,
 
   /* ── Notifications ── */
