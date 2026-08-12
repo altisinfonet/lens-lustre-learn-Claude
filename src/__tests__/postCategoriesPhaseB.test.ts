@@ -462,7 +462,12 @@ describe("Stage C HAS shipped — the tripwire has flipped", () => {
     // branch both carry the member's choice, in the same statement as the post
     // itself. Nothing is written in two steps.
     const composer = code("src/components/WallPosts.tsx");
-    expect((composer.match(/categories: postCategories/g) ?? []).length).toBe(2);
+    // Three sites now: the immediate posts insert, the scheduled_posts branch,
+    // and the draft row. All three carry the member's choice in the same
+    // statement as the thing being written.
+    expect((composer.match(/categories: postCategories/g) ?? []).length).toBe(3);
+    // The two that reach `posts` are the ones that matter for the feed.
+    expect(composer).toContain("categories: postCategories,");
   });
 
   it("the composer refuses to post without one, in BOTH places", () => {
