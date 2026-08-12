@@ -313,13 +313,43 @@ const PostCommentsSection = ({ postId, postOwnerId, expanded, onCommentCountChan
 
   const isEdited = (c: PostComment) => c.updated_at && c.updated_at !== c.created_at && new Date(c.updated_at).getTime() - new Date(c.created_at).getTime() > 2000;
 
-  const CommentItem = ({ comment, depth = 0 }: { comment: PostComment; depth?: number }) => {
+  /**
+   * ⚠ RENDERED BY CALLING IT, NOT AS <CommentItem />. THAT IS THE WHOLE POINT.
+   *
+   * Owner, 2026-08-12: *"In Comment Reply : I am typing 'Thanks' its typing as
+   * 'sknaht'. Text pointer atomically coming front after typing"*.
+   *
+   * This function is DEFINED INSIDE the parent's render. Written as a JSX
+   * element (`<CommentItem ... />`) that makes it a brand-new component TYPE on
+   * every parent render — and the reply text lives in parent state, so every
+   * keystroke re-rendered the parent, React saw an unfamiliar type, and it
+   * unmounted and rebuilt the entire subtree. The real DOM <input> was
+   * destroyed and recreated per letter, so the caret snapped back to 0 and the
+   * next character landed in FRONT of the previous one. "Thanks" → "sknaht".
+   *
+   * Calling it as a plain function splices its output into the PARENT's
+   * element tree, so there is no new component type, nothing remounts, and the
+   * caret stays where the member put it.
+   *
+   * ⚠ THE `key` LIVES ON THE RETURNED ROOT ELEMENT, not on a call site — a
+   * function call cannot carry one.
+   *
+   * ⚠ NEVER CALL A REACT HOOK IN HERE. As a function call it shares the
+   * parent's hook slots, so a conditional `useState` here would corrupt the
+   * parent's hook order. It uses none today, and it must stay that way.
+   * If you ever need one, hoist this to a real component at module scope with
+   * explicit props instead of putting `<CommentItem />` back.
+   */
+  const renderComment = (comment: PostComment, depth = 0) => {
     const isOwn = user?.id === comment.user_id;
     const canPin = isAdmin || user?.id === postOwnerId;
     const canDelete = isOwn || isAdmin;
 
     return (
-      <div className={depth > 0 ? "ml-10" : ""}>
+      // The key belongs HERE now: the call sites are function calls and a
+      // call cannot carry a key. Without it React re-uses the wrong node
+      // when a comment is deleted mid-list.
+      <div key={comment.id} className={depth > 0 ? "ml-10" : ""}>
         <div className="flex gap-2 group/comment py-0.5">
           <Link to={`/profile/${comment.user_id}`} className="shrink-0 mt-0.5">
             <Avatar src={comment.author_avatar} name={comment.author_name} size={depth > 0 ? "xs" : "sm"} lastActiveAt={comment.author_last_active} />
@@ -493,7 +523,7 @@ const PostCommentsSection = ({ postId, postOwnerId, expanded, onCommentCountChan
 
         {/* Replies */}
         {comment.replies.map((reply) => (
-          <CommentItem key={reply.id} comment={reply} depth={depth + 1} />
+          renderComment(reply, depth + 1)
         ))}
       </div>
     );
@@ -538,7 +568,7 @@ const PostCommentsSection = ({ postId, postOwnerId, expanded, onCommentCountChan
         ) : (
           <div className="space-y-0.5">
             {sortedComments.map((c) => (
-              <CommentItem key={c.id} comment={c} />
+              renderComment(c)
             ))}
           </div>
         )}
