@@ -172,8 +172,13 @@ jobs:
         run: |
           VC=$(( 1000 + ${{ github.run_number }} ))
           sed -i "s/versionCode 1/versionCode ${VC}/" android/app/build.gradle
-          sed -i 's/versionName "1.0"/versionName "1.2.2"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.2"
+          # ⚠ MUST DIFFER FROM WHAT IS LIVE. Play production is on 1073 (1.2.2)
+          # as of 2026-08-12. Shipping a second release also called "1.2.2"
+          # makes the Console, the crash reports and the user's About screen
+          # ambiguous — two different builds wearing one name. Bump it every
+          # time the store gets a new build.
+          sed -i 's/versionName "1.0"/versionName "1.2.3"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.3 (live production is 1073 / 1.2.2)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
@@ -297,6 +302,62 @@ jobs:
           ls -1 android/app/src/main/res/drawable-*/ic_notification.png
           echo "--- manifest meta-data lines ---"
           grep -c default_notification android/app/src/main/AndroidManifest.xml
+
+      # -------------------------------------------------------------------
+      # PLAY RECOMMENDATION 1 of 2 — "Improve your app's performance with
+      # bitmap image optimization".
+      #
+      # Play flags PNG/JPEG drawables that would be smaller as WebP. Every
+      # drawable here is GENERATED (launcher icons, splash screens, the
+      # notification icon), so converting them costs nothing at authoring time
+      # and shrinks the download for all 85 installs.
+      #
+      # LOSSLESS, deliberately. These are logos and flat-colour icons; lossy
+      # WebP puts visible fringing on hard edges and a fuzzy app icon is worse
+      # than a slightly larger one.
+      #
+      # ⚠ NINE-PATCH FILES ARE EXCLUDED. `*.9.png` carries its stretch markers
+      # in a 1px border that cwebp does not understand — converting one
+      # silently produces an image Android then stretches wrongly.
+      #
+      # The resource NAME is unchanged (ic_notification.png → ic_notification
+      # .webp is still @drawable/ic_notification), so the notification-icon
+      # proof step above and the manifest references keep working.
+      #
+      # Play's OTHER recommendation — R8 full mode — is deliberately NOT done
+      # here. Owner's call, 2026-08-12: full mode strips by reflection
+      # assumptions, Capacitor reaches plugins by reflection, and the only
+      # build that would expose a breakage is the release AAB — debug APKs do
+      # not run R8 at all, so the sideload build cannot validate it. It ships
+      # alone in a later release where a crash has an obvious cause.
+      # -------------------------------------------------------------------
+      - name: Convert generated PNGs to WebP (Play bitmap recommendation)
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq webp
+          RES=android/app/src/main/res
+          before=$(du -sk "$RES" | cut -f1)
+          converted=0; skipped=0
+          # -print0/read -d handles the spaces Capacitor's generator can emit.
+          while IFS= read -r -d '' f; do
+            case "$f" in
+              *.9.png) skipped=$((skipped+1)); continue ;;
+            esac
+            if cwebp -quiet -lossless "$f" -o "${f%.png}.webp"; then
+              rm "$f"
+              converted=$((converted+1))
+            else
+              echo "::warning::cwebp failed on $f — leaving the PNG in place"
+              rm -f "${f%.png}.webp"
+            fi
+          done < <(find "$RES" -type f -name '*.png' -print0)
+          after=$(du -sk "$RES" | cut -f1)
+          echo "converted=$converted  skipped_ninepatch=$skipped"
+          echo "res/ ${before}KB -> ${after}KB"
+          echo "--- notification drawable survives under its resource name ---"
+          ls -1 "$RES"/drawable-*/ic_notification.* || true
+          # A launcher icon must still exist, whatever its extension.
+          ls "$RES"/mipmap-*/ic_launcher.* >/dev/null
 
       # -------------------------------------------------------------------
       # OPTIONAL SIGNING — only runs if you've added the keystore secret.
