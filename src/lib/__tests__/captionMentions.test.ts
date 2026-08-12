@@ -110,10 +110,13 @@ describe("the composer is wired, the textarea is kept", () => {
     "utf8",
   );
 
-  it("WallPosts uses the hook and converts at BOTH submit sites (post + schedule)", () => {
+  it("WallPosts converts at EVERY submit site (post + schedule + save draft)", () => {
+    // Was two — post and schedule. Stage C added a third: saving a draft must
+    // store the SAME @[Name](id) markup, or a mention typed before saving would
+    // come back as plain text on resume and publish without its link.
     expect(wall).toContain("useCaptionMentions");
     const conversions = wall.match(/captionMentions\.convert\(newContent\.trim\(\)\)/g) || [];
-    expect(conversions.length).toBe(2);
+    expect(conversions.length).toBe(3);
   });
 
   it("the plain Textarea (with its over-limit overlay) survives — mentions did not replace it", () => {
