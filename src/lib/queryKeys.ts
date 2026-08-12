@@ -85,6 +85,13 @@ export const queryKeys = {
   feedAll: () => ["feed"] as const,
   userWallPosts: (userId: string) => ["user-wall-posts", userId] as const,
 
+  /* ── Post drafts (Stage C) ──
+   * Scoped by member: a draft is private, and two accounts on one device must
+   * never share a cache entry. RLS already stops the fetch, but a shared key
+   * would let the previous member's drafts flash on screen before it does. */
+  postDrafts: (userId: string) => ["post-drafts", userId] as const,
+  postDraftsAll: () => ["post-drafts"] as const,
+
   /* ── Notifications ── */
   notifications: (userId: string) => ["notifications", userId] as const,
 
