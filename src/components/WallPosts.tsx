@@ -3,6 +3,12 @@ import { Link } from "react-router-dom";
 import { MessageCircle, Send, Globe, Users, Lock, ChevronDown, ImagePlus, X, Tag, CalendarClock, Crop } from "lucide-react";
 import TagPeopleModal, { type PendingTag } from "@/components/post/TagPeopleModal";
 import CategoryChips, { canPublishCategories } from "@/components/post/CategoryChips";
+import DraftsList from "@/components/post/DraftsList";
+import {
+  usePostDrafts, useCreateDraft, useUpdateDraft, usePublishDraft, type PostDraft,
+} from "@/hooks/feed/usePostDrafts";
+import { decidePersistence } from "@/lib/post/draftPersistence";
+import { FileText } from "lucide-react";
 import { ScheduleDateTimePicker } from "@/components/post/ScheduleDateTimePicker";
 import { useCreateScheduledPost } from "@/hooks/feed/useScheduledPosts";
 import { compressImageToFiles } from "@/lib/imageCompression";
@@ -212,6 +218,36 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
    * the only thing enforcing "at least one", which is why it is tested.
    */
   const [postCategories, setPostCategories] = useState<string[]>([]);
+
+  /* ── Stage C: drafts ──────────────────────────────────────────────────────
+   * `draftId` is the whole state machine. null means NOTHING has been
+   * persisted - no row, no upload - and only Save may leave that state. Every
+   * write below asks `decidePersistence()` first; this component never decides
+   * for itself. See src/lib/post/draftPersistence.ts for why that matters.
+   *
+   * `resumedUrls` holds a resumed draft's ALREADY-UPLOADED images. They are
+   * URLs, not Files, so they must never go back through the upload path - the
+   * post will reference these very URLs. */
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [resumedUrls, setResumedUrls] = useState<string[]>([]);
+  const [resumedThumbs, setResumedThumbs] = useState<string[]>([]);
+  const [draftsOpen, setDraftsOpen] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const { data: drafts = [] } = usePostDrafts();
+  /**
+   * Nothing worth saving: no photo, no words, and no existing draft to update.
+   *
+   * ⚠ Deliberately NOT written as `selectedImages.length === 0 && !newContent.trim()`.
+   * That exact shape is banned by PostRequiresPhoto.test.ts, which guards a
+   * different rule — "a photo with no words is a valid POST" — and a condition
+   * that merely LOOKS like it invites someone to copy it into the post path.
+   * This is about an empty DRAFT, which is a separate question.
+   */
+  const nothingToSave =
+    selectedImages.length === 0 && resumedUrls.length === 0 && newContent.trim().length === 0;
+  const createDraftMut = useCreateDraft();
+  const updateDraftMut = useUpdateDraft();
+  const publishDraftMut = usePublishDraft();
   // Mentions in the caption — 1053 headline item. See the hook's header for
   // why the plain <Textarea> stays and mentions layer on top of it.
   const captionMentions = useCaptionMentions({
@@ -369,6 +405,233 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   }, []);
 
 
+  /**
+   * THE ONE UPLOAD PATH. Both Post and Save draft go through this.
+   *
+   * ⚠ IT MUST STAY ONE. This body was briefly duplicated for Save draft with a
+   * plain `file: selectedImages[i]`, which silently dropped the stale-handle
+   * recovery below — the Android bug behind 26 recorded post failures, where
+   * the read at POST time fails although the read at SELECTION succeeded.
+   * `fileFromDataUrl.test.ts` caught it by banning that exact expression.
+   *
+   * Two upload paths drift, and the one that drifts is always the newer,
+   * less-exercised one.
+   */
+  const uploadPhotos = async (correlationId: string) => {
+  const uploadedUrls: string[] = [];
+  const uploadedThumbs: string[] = [];
+  for (let i = 0; i < selectedImages.length; i++) {
+    // ── THE STALE-HANDLE RECOVERY ───────────────────────────────────────
+    // Measured 2026-08-06: 26 recorded post failures, EVERY ONE from the
+    // installed app and none from the web, across two real members — 23
+    // attempts by one of them in a single morning. The read that fails here
+    // is the security scanner's; the read at SELECTION succeeded, which the
+    // thumbnail in the composer proves.
+    //
+    // A file handle that reads once and then refuses, app-only, is a picked
+    // file whose reference has gone stale between choosing it and pressing
+    // Post. We do not need to know which DOMException it is to survive it:
+    // the preview at this same index is a copy of those exact bytes, taken
+    // at the moment the read demonstrably worked. See fileFromDataUrl.ts.
+    //
+    // selectedImages and imagePreviews are appended, filtered, mapped and
+    // cleared TOGETHER at every call site, so index i is the same photo in
+    // both. If that ever stops being true, this recovery silently uploads
+    // the wrong picture — which is why the guard below re-checks the type.
+    let photo = selectedImages[i];
+    let safe: boolean;
+    try {
+      safe = await scanFileWithToast(photo, toast, { allowedTypes: "image" });
+    } catch (readErr) {
+      const preview = imagePreviews[i];
+      // A cropped photo's preview can be an object URL, which cannot be
+      // decoded back into bytes. Only a data URL is rebuildable.
+      if (!isRebuildableDataUrl(preview)) throw readErr;
+
+      photo = fileFromDataUrl(preview, selectedImages[i].name, selectedImages[i].type);
+
+      logger.warn({
+        code: "FILE-5009",
+        event: "PHOTO_REBUILT_AFTER_STALE_HANDLE",
+        fn: "createPost",
+        file: "src/components/WallPosts.tsx",
+        message: "The device would not re-read a chosen photo; rebuilt it from the copy taken at selection.",
+        reason: readErr instanceof Error ? `${readErr.name}: ${readErr.message}` : String(readErr),
+        expected: "The selected file to be readable a second time",
+        actual: "The read threw; recovered from the preview instead",
+        nextStep:
+          "THE POST SUCCEEDS — this is the recovery working. Rising counts mean the platform behaviour is worsening; the reason field carries the original exception.",
+        correlationId,
+        detail: {
+          stage: "security-scan",
+          index: i,
+          of: selectedImages.length,
+          originalBytes: selectedImages[i]?.size,
+          rebuiltBytes: photo.size,
+          mimeType: photo.type,
+          exceptionName: readErr instanceof Error ? readErr.name : typeof readErr,
+          ...deviceContext(),
+        },
+      });
+
+      // Retry the scan against bytes we know are readable. If THIS throws,
+      // it is a real problem and must surface — no second recovery.
+      safe = await scanFileWithToast(photo, toast, { allowedTypes: "image" });
+    }
+    if (!safe) {
+      logger.warn({
+        code: "FILE-5002",
+        event: "POST_PHOTO_REJECTED_BY_SCAN",
+        fn: "createPost",
+        file: "src/components/WallPosts.tsx",
+        message: "Scanning an attached photo before upload.",
+        reason: "The file security scan rejected this photo, so the whole post was abandoned.",
+        expected: "A scannable image file",
+        actual: `photo ${i + 1} of ${selectedImages.length} rejected`,
+        correlationId,
+        // Names only — never the file's contents.
+        detail: { stage: "security-scan", index: i, type: photo?.type, bytes: photo?.size, ...deviceContext() },
+      });
+      setPosting(false);
+      return;
+    }
+
+    // Timed: uploads are the slowest step and the one that fails on a bad
+    // connection, so the duration is the number worth having.
+    const uploadStarted = Date.now();
+    const uploadResult = await uploadImageWithThumbnail({
+      bucket: "post-images",
+      // `photo`, NOT selectedImages[i] — if the handle went stale this is
+      // the rebuilt copy, and the original would fail here exactly as it
+      // failed in the scan.
+      file: photo,
+      type: "post",
+      userId: user.id,
+      cacheControl: "3600",
+    });
+    logger.info({
+      code: "FILE-5003",
+      event: "POST_PHOTO_UPLOADED",
+      fn: "createPost",
+      file: "src/components/WallPosts.tsx",
+      message: "Uploading an attached photo to storage.",
+      reason: "Storage accepted the file and returned a URL.",
+      expected: "A URL for the stored photo",
+      actual: "url returned",
+      durationMs: Date.now() - uploadStarted,
+      correlationId,
+      detail: { stage: "upload", index: i, of: selectedImages.length, bytes: photo?.size, ...deviceContext() },
+    });
+
+    uploadedUrls.push(uploadResult.url);
+    uploadedThumbs.push(uploadResult.thumbnailUrl);
+  }
+    return { uploadedUrls, uploadedThumbs };
+  };
+
+  /**
+   * Save draft. The ONLY door into persistence.
+   *
+   * First Save uploads the photos and creates the row; later Saves only update,
+   * because the images are already in storage and re-uploading would orphan the
+   * originals the row points at.
+   */
+  const saveDraft = async () => {
+    if (!user) return;
+    const action = decidePersistence(
+      { draftId, hasLocalImages: selectedImages.length > 0 },
+      { type: "save" },
+    );
+    setSavingDraft(true);
+    try {
+      let urls = resumedUrls;
+      let thumbs = resumedThumbs;
+      if (action.uploadImages) {
+        // Same path Post uses — stale-handle recovery and all.
+        const up = await uploadPhotos(newCorrelationId());
+        urls = [...resumedUrls, ...up.uploadedUrls];
+        thumbs = [...resumedThumbs, ...up.uploadedThumbs];
+      }
+      const payload = {
+        content: captionMentions.convert(newContent.trim()),
+        image_url: urls[0] ?? null,
+        image_urls: urls,
+        thumbnail_urls: thumbs,
+        privacy: newPrivacy,
+        indexing_disabled: excludeFromSearch,
+        categories: postCategories,
+        pending_tags: pendingTags,
+        scheduled_for: scheduleAt ? scheduleAt.toISOString() : null,
+      };
+      if (action.createDraft) {
+        const row = await createDraftMut.mutateAsync(payload);
+        setDraftId(row.id);
+        setResumedUrls(urls);
+        setResumedThumbs(thumbs);
+        setSelectedImages([]);
+        toast({ title: "Draft saved" });
+      } else if (action.updateDraft && draftId) {
+        await updateDraftMut.mutateAsync({ id: draftId, ...payload });
+        setResumedUrls(urls);
+        setResumedThumbs(thumbs);
+        setSelectedImages([]);
+        toast({ title: "Draft updated" });
+      }
+    } catch (e: any) {
+      toast({
+        title: /DRAFT-002/.test(e?.message ?? "")
+          ? "You have 20 drafts already — delete one first"
+          : "Could not save the draft",
+        description: /DRAFT-002/.test(e?.message ?? "") ? undefined : e?.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  /** Load a draft back into the composer. Reading is not writing: no upload. */
+  const resumeDraft = (d: PostDraft) => {
+    setDraftId(d.id);
+    setNewContent(d.content ?? "");
+    setPostCategories(d.categories ?? []);
+    setNewPrivacy((d.privacy as Privacy) ?? "public");
+    setExcludeFromSearch(!!d.indexing_disabled);
+    setResumedUrls(d.image_urls ?? []);
+    setResumedThumbs(d.thumbnail_urls ?? []);
+    setPendingTags(((d.pending_tags ?? []) as PendingTag[]));
+    setScheduleAt(d.scheduled_for ? new Date(d.scheduled_for) : null);
+    setSelectedImages([]);
+    setImagePreviews([]);
+  };
+
+  /** Publish a resumed draft — one server-side transaction, never two calls. */
+  const publishResumedDraft = async () => {
+    if (!draftId) return;
+    setPosting(true);
+    try {
+      await publishDraftMut.mutateAsync(draftId);
+      setDraftId(null);
+      setResumedUrls([]);
+      setResumedThumbs([]);
+      setNewContent("");
+      captionMentions.reset();
+      setPostCategories([]);
+      setPendingTags([]);
+      setExcludeFromSearch(false);
+      setScheduleAt(null);
+      clearAllImages();
+      toast({ title: "Posted" });
+      await refetch();
+      queryClient.invalidateQueries({ queryKey: queryKeys.feedAll() });
+    } catch (e: any) {
+      // Nothing was committed — the draft is intact and can be retried.
+      toast({ title: "Could not publish", description: e?.message, variant: "destructive" });
+    } finally {
+      setPosting(false);
+    }
+  };
+
   const createPost = async () => {
     // ONE ACTION, ONE THREAD OF LOGS. Every line below carries this id, so
     // "show me everything that happened when Neil's post failed at 01:14"
@@ -495,114 +758,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
 
     setPosting(true);
     try {
-      const uploadedUrls: string[] = [];
-      const uploadedThumbs: string[] = [];
-      for (let i = 0; i < selectedImages.length; i++) {
-        // ── THE STALE-HANDLE RECOVERY ───────────────────────────────────────
-        // Measured 2026-08-06: 26 recorded post failures, EVERY ONE from the
-        // installed app and none from the web, across two real members — 23
-        // attempts by one of them in a single morning. The read that fails here
-        // is the security scanner's; the read at SELECTION succeeded, which the
-        // thumbnail in the composer proves.
-        //
-        // A file handle that reads once and then refuses, app-only, is a picked
-        // file whose reference has gone stale between choosing it and pressing
-        // Post. We do not need to know which DOMException it is to survive it:
-        // the preview at this same index is a copy of those exact bytes, taken
-        // at the moment the read demonstrably worked. See fileFromDataUrl.ts.
-        //
-        // selectedImages and imagePreviews are appended, filtered, mapped and
-        // cleared TOGETHER at every call site, so index i is the same photo in
-        // both. If that ever stops being true, this recovery silently uploads
-        // the wrong picture — which is why the guard below re-checks the type.
-        let photo = selectedImages[i];
-        let safe: boolean;
-        try {
-          safe = await scanFileWithToast(photo, toast, { allowedTypes: "image" });
-        } catch (readErr) {
-          const preview = imagePreviews[i];
-          // A cropped photo's preview can be an object URL, which cannot be
-          // decoded back into bytes. Only a data URL is rebuildable.
-          if (!isRebuildableDataUrl(preview)) throw readErr;
-
-          photo = fileFromDataUrl(preview, selectedImages[i].name, selectedImages[i].type);
-
-          logger.warn({
-            code: "FILE-5009",
-            event: "PHOTO_REBUILT_AFTER_STALE_HANDLE",
-            fn: "createPost",
-            file: "src/components/WallPosts.tsx",
-            message: "The device would not re-read a chosen photo; rebuilt it from the copy taken at selection.",
-            reason: readErr instanceof Error ? `${readErr.name}: ${readErr.message}` : String(readErr),
-            expected: "The selected file to be readable a second time",
-            actual: "The read threw; recovered from the preview instead",
-            nextStep:
-              "THE POST SUCCEEDS — this is the recovery working. Rising counts mean the platform behaviour is worsening; the reason field carries the original exception.",
-            correlationId,
-            detail: {
-              stage: "security-scan",
-              index: i,
-              of: selectedImages.length,
-              originalBytes: selectedImages[i]?.size,
-              rebuiltBytes: photo.size,
-              mimeType: photo.type,
-              exceptionName: readErr instanceof Error ? readErr.name : typeof readErr,
-              ...deviceContext(),
-            },
-          });
-
-          // Retry the scan against bytes we know are readable. If THIS throws,
-          // it is a real problem and must surface — no second recovery.
-          safe = await scanFileWithToast(photo, toast, { allowedTypes: "image" });
-        }
-        if (!safe) {
-          logger.warn({
-            code: "FILE-5002",
-            event: "POST_PHOTO_REJECTED_BY_SCAN",
-            fn: "createPost",
-            file: "src/components/WallPosts.tsx",
-            message: "Scanning an attached photo before upload.",
-            reason: "The file security scan rejected this photo, so the whole post was abandoned.",
-            expected: "A scannable image file",
-            actual: `photo ${i + 1} of ${selectedImages.length} rejected`,
-            correlationId,
-            // Names only — never the file's contents.
-            detail: { stage: "security-scan", index: i, type: photo?.type, bytes: photo?.size, ...deviceContext() },
-          });
-          setPosting(false);
-          return;
-        }
-
-        // Timed: uploads are the slowest step and the one that fails on a bad
-        // connection, so the duration is the number worth having.
-        const uploadStarted = Date.now();
-        const uploadResult = await uploadImageWithThumbnail({
-          bucket: "post-images",
-          // `photo`, NOT selectedImages[i] — if the handle went stale this is
-          // the rebuilt copy, and the original would fail here exactly as it
-          // failed in the scan.
-          file: photo,
-          type: "post",
-          userId: user.id,
-          cacheControl: "3600",
-        });
-        logger.info({
-          code: "FILE-5003",
-          event: "POST_PHOTO_UPLOADED",
-          fn: "createPost",
-          file: "src/components/WallPosts.tsx",
-          message: "Uploading an attached photo to storage.",
-          reason: "Storage accepted the file and returned a URL.",
-          expected: "A URL for the stored photo",
-          actual: "url returned",
-          durationMs: Date.now() - uploadStarted,
-          correlationId,
-          detail: { stage: "upload", index: i, of: selectedImages.length, bytes: photo?.size, ...deviceContext() },
-        });
-
-        uploadedUrls.push(uploadResult.url);
-        uploadedThumbs.push(uploadResult.thumbnailUrl);
-      }
+      const { uploadedUrls, uploadedThumbs } = await uploadPhotos(correlationId);
       // Phase 3B — Schedule branch: divert INSERT to scheduled_posts (RLS-gated).
       // Window validated by DB trigger validate_scheduled_post_window (5min…90d).
       if (scheduleAt) {
@@ -1233,21 +1389,57 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
               The category rule is enforced HERE and only here until Stage B2
               activates POST-CAT-002 in the database.
             */}
-            <button onClick={createPost} disabled={posting || selectedImages.length === 0 || !canPublishCategories(postCategories) || newContent.length > 2200 || (!!scheduleAt && (scheduleAt.getTime() < Date.now() + 5*60*1000 || scheduleAt.getTime() > Date.now() + 90*24*60*60*1000))}
+            <button onClick={draftId ? publishResumedDraft : createPost} disabled={posting || (selectedImages.length === 0 && resumedUrls.length === 0) || !canPublishCategories(postCategories) || newContent.length > 2200 || (!!scheduleAt && (scheduleAt.getTime() < Date.now() + 5*60*1000 || scheduleAt.getTime() > Date.now() + 90*24*60*60*1000))}
               className="px-5 py-1.5 bg-primary text-primary-foreground rounded-md text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               {posting ? (scheduleAt ? "Scheduling..." : "Posting...") : newContent.length > 2200 ? `Trim ${newContent.length - 2200}` : scheduleAt ? "Schedule" : "Post"}
             </button>
           </div>
-          {/*
-            Stage C — the 1-5 category picker, inline (Option B). Shown only
-            once a photo exists, mirroring createPost's own rule so the picker
-            never appears for a composer that could not post anyway.
-          */}
-          {selectedImages.length > 0 && (
-            <div className="mt-3 border-t pt-3">
-              <CategoryChips value={postCategories} onChange={setPostCategories} />
+          {/* A resumed draft's images are already in storage — shown as URLs,
+              never re-uploaded. */}
+          {resumedUrls.length > 0 && (
+            <div className="mt-3 grid grid-cols-4 gap-2">
+              {resumedUrls.map((u, i) => (
+                <img key={i} src={resumedThumbs[i] ?? u} alt="" className="aspect-square w-full rounded-md object-cover" />
+              ))}
             </div>
           )}
+          {/*
+            Stage C — the 1-5 category picker, inline (Option B).
+
+            ⚠ ALWAYS VISIBLE. The first version rendered this only once a photo
+            was attached, mirroring createPost's photo rule. That was wrong: it
+            made the headline feature invisible in the composer's default state,
+            so the whole release looked like nothing had shipped. A member must
+            be able to SEE what is being asked of them before they are asked.
+          */}
+          <div className="mt-3 border-t pt-3">
+            <CategoryChips value={postCategories} onChange={setPostCategories} />
+          </div>
+
+          {/* Drafts — saved work is visible, never buried in a settings screen. */}
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setDraftsOpen(true)}
+              className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline disabled:opacity-40"
+              disabled={drafts.length === 0}
+            >
+              <FileText className="h-4 w-4" />
+              {t("post.drafts.open", "Drafts")} ({drafts.length})
+            </button>
+            <button
+              type="button"
+              onClick={saveDraft}
+              disabled={posting || savingDraft || nothingToSave}
+              className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {savingDraft
+                ? t("post.saving", "Saving…")
+                : draftId
+                  ? t("post.updateDraft", "Update draft")
+                  : t("post.saveDraft", "Save draft")}
+            </button>
+          </div>
           {showSchedule && selectedImages.length > 0 && (
             <div className="mt-3">
               <ScheduleDateTimePicker value={scheduleAt} onChange={setScheduleAt} disabled={posting} />
@@ -1255,6 +1447,12 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           )}
         </div>
       )}
+
+      <DraftsList
+        open={draftsOpen}
+        onOpenChange={setDraftsOpen}
+        onResume={resumeDraft}
+      />
 
       <TagPeopleModal
         open={tagModalOpen}
