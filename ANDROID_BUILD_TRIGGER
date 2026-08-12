@@ -1,3 +1,24 @@
+Build 1078 — 2026-08-12 (versionName 1.2.3; live Play production is 1073 / 1.2.2)
+Cut from main @ 4cfb53a. Gates that had to pass before this build existed:
+typecheck clean, security gate PASS (0 critical / 0 high), 1305 tests green,
+production web build clean.
+- TYPING NO LONGER RUNS BACKWARDS IN COMMENTS. "Thanks" was arriving as
+  "sknaht" on post comments, ad comments and journal/competition comments.
+  A component was being declared inside the render body, so React threw the
+  whole subtree away and rebuilt it on every keystroke, destroying the real
+  DOM input and resetting the caret to 0. The rows are rendered by a plain
+  function call now. A test guards the whole codebase against the pattern
+  coming back.
+- EDITING A COMMENT NO LONGER TYPES INTO THE FRONT OF IT. The edit box opens
+  pre-filled and autofocused, and autofocus leaves the caret at position 0,
+  so every character went in ahead of the existing text. The caret is placed
+  at the end now — once, on that first focus only, so clicking back into the
+  middle of your own sentence still puts the caret where you clicked.
+- SIGN IN WITH APPLE IS HIDDEN. It was never built, so the button could not
+  work. Login, Signup and the admin preview no longer draw it, and the admin
+  switch is greyed with the reason instead of silently doing nothing. One
+  constant turns it all back on the day the backend exists.
+
 Build 1061 — 2026-08-10
 NOTE: build 1060 was cut but never published, so this build carries ITS four
 fixes as well as the five below. Everything listed under 1060 reaches members
