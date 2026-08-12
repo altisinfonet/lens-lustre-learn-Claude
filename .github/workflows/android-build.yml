@@ -382,13 +382,17 @@ jobs:
                   "        release {\n"
                   "            storeFile file(\"release.keystore\")\n"
                   "            storePassword System.getenv(\"KEYSTORE_PASSWORD\")\n"
-                  // The alias and key password come from the secrets the header
-                  // advertises. The old version hardcoded the alias "upload" and
-                  // reused the STORE password as the KEY password — so a keystore
-                  // whose alias is anything else, or whose key password differs,
-                  // failed the build with "No key with alias 'upload' found".
-                  // Elvis-defaults keep the previous behaviour when the optional
-                  // secrets are absent.
+                  # ⚠ THIS IS PYTHON. Comments are `#`, not `//`. Build #77 died
+                  # here with a SyntaxError because these seven lines were
+                  # written as `//` — inside a heredoc that Python parses.
+                  #
+                  # The alias and key password come from the secrets the header
+                  # advertises. The old version hardcoded the alias "upload" and
+                  # reused the STORE password as the KEY password, so a keystore
+                  # whose alias differs, or whose key password differs, failed
+                  # with "No key with alias 'upload' found". The Groovy elvis
+                  # defaults keep the old behaviour when those optional secrets
+                  # are absent.
                   "            keyAlias System.getenv(\"KEY_ALIAS\") ?: \"upload\"\n"
                   "            keyPassword System.getenv(\"KEY_PASSWORD\") ?: System.getenv(\"KEYSTORE_PASSWORD\")\n"
                   "        }\n"
