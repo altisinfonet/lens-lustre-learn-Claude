@@ -244,12 +244,22 @@ const AdComments = ({ creativeId, onCountChange }: Props) => {
                  * `onFocus` and not a mount effect because a raw input focused
                  * by `autoFocus` fires focus synchronously with its value
                  * already on the node — there is nothing to wait for.
+                 *
+                 * IT MUST RUN ONCE, ON THE AUTOFOCUS ONLY. Chrome fires `focus`
+                 * BEFORE it applies the selection from a mouse click, so a
+                 * handler that ran on every focus would drag the caret to the
+                 * end each time a member clicked back into the middle of their
+                 * own text — trading the reported bug for an equally annoying
+                 * one. The flag on the node marks the first focus as handled
+                 * and every later focus is left completely alone. It lives on
+                 * the element, not in state, so it cannot cause a re-render.
                  */
                 onFocus={(e) => {
-                  const end = e.currentTarget.value.length;
-                  if (end > 0 && e.currentTarget.selectionStart === 0) {
-                    e.currentTarget.setSelectionRange(end, end);
-                  }
+                  const el = e.currentTarget;
+                  if (el.dataset.caretPlaced) return;
+                  el.dataset.caretPlaced = "1";
+                  const end = el.value.length;
+                  if (end > 0) el.setSelectionRange(end, end);
                 }}
                 className="flex-1 bg-muted/40 rounded-full px-3 py-1.5 text-sm outline-none"
                 autoFocus
