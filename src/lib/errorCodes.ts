@@ -166,6 +166,27 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     resolution:
       "Cosmetic and best-effort — the photo and its post are fine. Check getOrCreateAutoAlbum and the album_photos policies.",
   },
+  {
+    code: "POST-2008",
+    severity: "warn",
+    description: "Post refused in the composer because no category was chosen.",
+    resolution:
+      "Correct by design — the Post button is disabled in this state, so reaching this branch means the button and createPost's guard disagreed. Check both; they are meant to carry the same three conditions. Until Stage B2 activates POST-CAT-002 this guard is the only thing enforcing the 1-5 rule.",
+  },
+  {
+    code: "DRAFT-2001",
+    severity: "warn",
+    description: "Saving a post draft was refused.",
+    resolution:
+      "If the reason mentions DRAFT-002 the member is at the 20-draft cap and simply needs to delete one — that is not a fault. Otherwise check the post_drafts policies and that the Stage C migration is applied to this environment.",
+  },
+  {
+    code: "DRAFT-2002",
+    severity: "error",
+    description: "Publishing a draft failed; neither the post nor the deletion happened.",
+    resolution:
+      "THE DRAFT IS INTACT and the member has lost nothing — publish_post_draft() is one transaction, so a failure commits neither half. Read the Postgres message: the rate-limit, duplicate-detection and moderation triggers all fire inside it.",
+  },
 
   // ── CMNT ──────────────────────────────────────────────────────────────────
   //

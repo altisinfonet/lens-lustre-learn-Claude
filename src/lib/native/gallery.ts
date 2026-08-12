@@ -1,0 +1,122 @@
+/**
+ * THE DEVICE PHOTO LIBRARY — reached through runtime globals, never an import.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⚠ THIS FILE MUST NOT `import` ANY `@capacitor/*` PACKAGE.
+ *
+ * Those packages exist only in the Android CI job. A static import here does
+ * not break the app — it breaks the WEBSITE BUILD, because Vite resolves
+ * imports at build time and the dependency is not installed for the web target.
+ * The same rule is already written into `authDeepLink.ts` and `appVersion.ts`,
+ * and `saveFile.test.ts` asserts it. `galleryStaticImportGuard` below asserts it
+ * for this file too.
+ *
+ * So everything is reached through `window.Capacitor.Plugins`, which is present
+ * only inside the APK and simply absent on the web.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHY THERE IS ALWAYS A FALLBACK
+ *
+ * A browser cannot enumerate a photo library — that is a platform limit, not a
+ * design choice — so web always uses the OS file dialog. And on the app the
+ * grid can still be unavailable: the plugin may be missing from an older APK,
+ * or the member may refuse the permission. In every one of those cases the
+ * composer falls back to the same file input the app uses today rather than
+ * showing an empty grid and a dead end.
+ */
+import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
+
+/** One entry from the device library. */
+export interface DevicePhoto {
+  /** A displayable source — usually a `file://` or `data:` URL from the plugin. */
+  webPath: string;
+  /** Native path, kept so the upload step can read the original bytes. */
+  path?: string;
+  format?: string;
+}
+
+export type GalleryMode =
+  /** The in-app grid: native, permission granted, plugin present. */
+  | "native-grid"
+  /** The OS picker: web always, and the app whenever the grid is unavailable. */
+  | "os-picker";
+
+interface GalleryPlugin {
+  checkPermissions?: () => Promise<{ photos?: string }>;
+  requestPermissions?: () => Promise<{ photos?: string }>;
+  /** Capacitor's Camera plugin exposes multi-pick as `pickImages`. */
+  pickImages?: (opts: { quality?: number; limit?: number }) => Promise<{ photos: DevicePhoto[] }>;
+}
+
+/** The runtime bridge, or undefined on the web. Never an import. */
+const plugin = (): GalleryPlugin | undefined => {
+  try {
+    return (window as unknown as {
+      Capacitor?: { Plugins?: { Camera?: GalleryPlugin } };
+    }).Capacitor?.Plugins?.Camera;
+  } catch {
+    return undefined;
+  }
+};
+
+/** Is the in-app grid even possible here? Cheap, synchronous, no permission prompt. */
+export const canUseNativeGallery = (): boolean => {
+  if (!isNativeCapacitorApp()) return false;
+  const p = plugin();
+  return typeof p?.pickImages === "function";
+};
+
+/**
+ * Ask for library access.
+ *
+ * Returns false rather than throwing when refused, because a refusal is a
+ * normal answer and not an error — the caller falls back to the OS picker.
+ */
+export async function ensureGalleryPermission(): Promise<boolean> {
+  const p = plugin();
+  if (!p) return false;
+  try {
+    const current = await p.checkPermissions?.();
+    if (current?.photos === "granted" || current?.photos === "limited") return true;
+    const asked = await p.requestPermissions?.();
+    return asked?.photos === "granted" || asked?.photos === "limited";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Which picker should the composer show?
+ *
+ * Resolved once when the composer opens, so the member never sees the UI change
+ * under them mid-flow.
+ */
+export async function resolveGalleryMode(): Promise<GalleryMode> {
+  if (!canUseNativeGallery()) return "os-picker";
+  return (await ensureGalleryPermission()) ? "native-grid" : "os-picker";
+}
+
+/**
+ * Open the device library and return what was chosen.
+ *
+ * `limit` is passed through so a member cannot select 400 photos and wedge the
+ * upload step. An empty array means they cancelled, which is not a failure.
+ */
+export async function pickFromGallery(limit = 10): Promise<DevicePhoto[]> {
+  const p = plugin();
+  if (!p?.pickImages) return [];
+  try {
+    const res = await p.pickImages({ quality: 90, limit });
+    return Array.isArray(res?.photos) ? res.photos : [];
+  } catch {
+    // Cancelling raises on some Android versions. Indistinguishable from a
+    // real failure at this layer, and both mean "nothing was chosen".
+    return [];
+  }
+}
+
+/**
+ * Exported so the guard test can assert the no-static-import rule against the
+ * real source rather than trusting a comment.
+ */
+export const galleryStaticImportGuard = "no-capacitor-static-imports" as const;

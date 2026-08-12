@@ -2,6 +2,7 @@ import { Fragment, useEffect, useLayoutEffect, useState, useCallback, useRef, us
 import { Link } from "react-router-dom";
 import { MessageCircle, Send, Globe, Users, Lock, ChevronDown, ImagePlus, X, Tag, CalendarClock, Crop } from "lucide-react";
 import TagPeopleModal, { type PendingTag } from "@/components/post/TagPeopleModal";
+import CategoryChips, { canPublishCategories } from "@/components/post/CategoryChips";
 import { ScheduleDateTimePicker } from "@/components/post/ScheduleDateTimePicker";
 import { useCreateScheduledPost } from "@/hooks/feed/useScheduledPosts";
 import { compressImageToFiles } from "@/lib/imageCompression";
@@ -198,6 +199,19 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   // Phase 3B — optional scheduling (null = post now, Date = schedule)
   const [scheduleAt, setScheduleAt] = useState<Date | null>(null);
   const [showSchedule, setShowSchedule] = useState(false);
+  /**
+   * Stage C — the 1–5 categories for this post.
+   *
+   * Carried into BOTH insert paths below: the immediate `posts` insert and the
+   * `scheduled_posts` branch. Same statement in each case, so a post and its
+   * categories can never be written separately — the atomicity ruling from the
+   * original architecture decision.
+   *
+   * The database minimum (`POST-CAT-002`) is deliberately still OFF; Stage B2
+   * turns it on after the adoption gate. Until then the disabled Post button is
+   * the only thing enforcing "at least one", which is why it is tested.
+   */
+  const [postCategories, setPostCategories] = useState<string[]>([]);
   // Mentions in the caption — 1053 headline item. See the hook's header for
   // why the plain <Textarea> stays and mentions layer on top of it.
   const captionMentions = useCaptionMentions({
@@ -452,6 +466,33 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       toast({ title: "Please attach at least one photo", variant: "destructive" });
       return;
     }
+
+    // ── STAGE C: 1-5 CATEGORIES ────────────────────────────────────────────
+    // This guard exists so createPost and the Post button AGREE. The button is
+    // already disabled without categories; if only the button knew the rule,
+    // the two would have drifted and `PostRequiresPhoto.test.ts` would be
+    // asserting a lie — it caught exactly that when this was added.
+    //
+    // It is also the last line of defence until Stage B2 activates
+    // POST-CAT-002: the database currently accepts an uncategorised post.
+    if (!canPublishCategories(postCategories)) {
+      logger.warn({
+        code: "POST-2008",
+        event: "POST_WITHOUT_CATEGORY",
+        fn: "createPost",
+        file: "src/components/WallPosts.tsx",
+        message: "Member pressed Post in the composer.",
+        reason: "A post needs between 1 and 5 categories and none was chosen.",
+        expected: "1 to 5 categories",
+        actual: `${postCategories.length} chosen`,
+        nextStep:
+          "Correct by design — the Post button is disabled in this state, so reaching here means the button and this guard disagreed. Check both.",
+        correlationId,
+      });
+      toast({ title: "Choose at least one category", variant: "destructive" });
+      return;
+    }
+
     setPosting(true);
     try {
       const uploadedUrls: string[] = [];
@@ -577,6 +618,9 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
             scheduled_for: iso,
             privacy: newPrivacy,
             indexing_disabled: excludeFromSearch,
+            // Stage C: the choice travels on the scheduled row, because the
+            // publisher runs hours later with no member and no UI to ask.
+            categories: postCategories,
           });
           toast({ title: "Post scheduled", description: `Will publish at ${scheduleAt.toLocaleString()}` });
           setNewContent("");
@@ -584,6 +628,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           setExcludeFromSearch(false);
           setScheduleAt(null);
           setShowSchedule(false);
+          setPostCategories([]);
           clearAllImages();
         } catch (e: any) {
           toast({ title: "Failed to schedule", description: e.message, variant: "destructive" });
@@ -602,6 +647,8 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         image_urls: uploadedUrls,
         thumbnail_urls: uploadedThumbs,
         indexing_disabled: excludeFromSearch,
+        // Stage C: same INSERT as the post itself. Never a second statement.
+        categories: postCategories,
       } as any).select("id").single();
       if (error) {
         // NOTHING HERE MAY MENTION A PROFILE PHOTO.
@@ -679,6 +726,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         setNewContent("");
         captionMentions.reset();
         setExcludeFromSearch(false);
+        setPostCategories([]);
         clearAllImages();
         await refetch();
         // Keep the FEED in sync too: realtime inserts it instantly when the
@@ -1177,15 +1225,29 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
             </div>
             {/*
               The Post button follows createPost EXACTLY: a photo is required,
-              the caption is not. If these two ever disagree the member either
-              gets a dead button or a refusal after they press it. See the
-              ruling at the top of createPost before touching either.
+              the caption is not, and Stage C adds 1-5 categories. If these ever
+              disagree the member either gets a dead button or a refusal after
+              they press it. See the ruling at the top of createPost before
+              touching either.
+
+              The category rule is enforced HERE and only here until Stage B2
+              activates POST-CAT-002 in the database.
             */}
-            <button onClick={createPost} disabled={posting || selectedImages.length === 0 || newContent.length > 2200 || (!!scheduleAt && (scheduleAt.getTime() < Date.now() + 5*60*1000 || scheduleAt.getTime() > Date.now() + 90*24*60*60*1000))}
+            <button onClick={createPost} disabled={posting || selectedImages.length === 0 || !canPublishCategories(postCategories) || newContent.length > 2200 || (!!scheduleAt && (scheduleAt.getTime() < Date.now() + 5*60*1000 || scheduleAt.getTime() > Date.now() + 90*24*60*60*1000))}
               className="px-5 py-1.5 bg-primary text-primary-foreground rounded-md text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               {posting ? (scheduleAt ? "Scheduling..." : "Posting...") : newContent.length > 2200 ? `Trim ${newContent.length - 2200}` : scheduleAt ? "Schedule" : "Post"}
             </button>
           </div>
+          {/*
+            Stage C — the 1-5 category picker, inline (Option B). Shown only
+            once a photo exists, mirroring createPost's own rule so the picker
+            never appears for a composer that could not post anyway.
+          */}
+          {selectedImages.length > 0 && (
+            <div className="mt-3 border-t pt-3">
+              <CategoryChips value={postCategories} onChange={setPostCategories} />
+            </div>
+          )}
           {showSchedule && selectedImages.length > 0 && (
             <div className="mt-3">
               <ScheduleDateTimePicker value={scheduleAt} onChange={setScheduleAt} disabled={posting} />

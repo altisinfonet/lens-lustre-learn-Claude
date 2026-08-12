@@ -63,9 +63,15 @@ describe("a post always needs a photograph", () => {
   it("the Post button agrees with createPost, so the button is never a lie", () => {
     // If the two disagree the member gets either a dead button or a refusal
     // after they press it.
+    //
+    // Stage C added a third requirement — 1 to 5 categories — and this test
+    // CAUGHT the moment the button knew about it and createPost did not. Both
+    // now carry the same three conditions, in the same order.
     expect(wall).toMatch(
-      /disabled=\{posting \|\| selectedImages\.length === 0 \|\| newContent\.length > 2200/,
+      /disabled=\{posting \|\| selectedImages\.length === 0 \|\| !canPublishCategories\(postCategories\) \|\| newContent\.length > 2200/,
     );
+    // …and the guard inside createPost that mirrors it.
+    expect(wall).toMatch(/if \(!canPublishCategories\(postCategories\)\) \{/);
   });
 
   it("the row always carries the first uploaded photo", () => {
