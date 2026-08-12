@@ -25,12 +25,14 @@ import { normalizeFullName } from "@/lib/nameNormalize";
 import { getCaptchaToken } from "@/lib/turnstile";
 import { useT, useI18n } from "@/i18n/I18nContext";
 import { LANGS } from "@/i18n/translations";
+import { useCategories } from "@/hooks/useCategories";
+import { categoryLabelKey, normaliseInterests } from "@/lib/categories";
 
-const INTEREST_OPTIONS = [
-  "Wildlife", "Street", "Portrait", "Aerial", "Documentary",
-  "Landscape", "Architecture", "Macro", "Sports", "Fashion",
-  "Underwater", "Astrophotography", "Food", "Travel", "Abstract",
-];
+/**
+ * Photography categories come from `public.categories` now — the single source
+ * of truth. This array used to be duplicated verbatim here, in
+ * OnboardingModal.tsx and in Discover.tsx.
+ */
 
 const labelCls = "block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2";
 const inputCls = "w-full bg-transparent border-b border-border focus:border-primary outline-none py-3 text-sm transition-colors duration-500";
@@ -73,6 +75,7 @@ const EditProfile = () => {
   const [bio, setBio] = useState("");
   const [portfolioUrl, setPortfolioUrl] = useState("");
   const [interests, setInterests] = useState<string[]>([]);
+  const { data: categories = [] } = useCategories();
   const [facebookUrl, setFacebookUrl] = useState(""); // stores username only
   const [instagramUrl, setInstagramUrl] = useState(""); // stores username only
   const [twitterUrl, setTwitterUrl] = useState("");
@@ -323,7 +326,11 @@ const EditProfile = () => {
         setFullName(data.full_name || "");
         setBio(data.bio || "");
         setPortfolioUrl(data.portfolio_url || "");
-        setInterests(data.photography_interests || []);
+        // Legacy fallback: this column held English display labels until
+        // 2026-08-12, so an unmigrated row still shows the member's own
+        // choices as selected rather than an empty picker they would then
+        // unknowingly save over.
+        setInterests(normaliseInterests(data.photography_interests));
         const rawFb = (data as any).facebook_url || "";
         setFacebookUrl(rawFb.replace(/^https?:\/\/(www\.)?facebook\.com\//i, "").replace(/\/$/, ""));
         const rawIg = (data as any).instagram_url || "";
@@ -1294,14 +1301,15 @@ const EditProfile = () => {
               <PrivacyToggle value={privacySettings.interests || "public"} onChange={(v) => setFieldPrivacy("interests", v)} />
             </div>
             <div className="flex flex-wrap gap-2">
-              {INTEREST_OPTIONS.map((interest) => {
-                const selected = interests.includes(interest);
+              {categories.map((cat) => {
+                const selected = interests.includes(cat.slug);
                 return (
-                  <button key={interest} type="button" onClick={() => toggleInterest(interest)}
+                  <button key={cat.slug} type="button" onClick={() => toggleInterest(cat.slug)}
                     className={`text-[11px] tracking-[0.1em] px-4 py-2 border transition-all duration-500 ${
                       selected ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-foreground/50"
                     }`} style={{ fontFamily: "var(--font-heading)" }}>
-                    {interest}
+                    {/* Slug stored, translated name shown. */}
+                    {t(categoryLabelKey(cat.slug), cat.name)}
                     {selected && <X className="inline h-3 w-3 ml-1.5 -mr-1" />}
                   </button>
                 );
