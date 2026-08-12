@@ -174,12 +174,40 @@ const AdComments = ({ creativeId, onCountChange }: Props) => {
     onCountChange?.();
   };
 
-  const Row = ({ c, isReply }: { c: AdComment; isReply: boolean }) => {
+  /**
+   * ⚠ RENDERED BY CALLING IT, NOT AS <Row />. THAT IS THE WHOLE POINT.
+   *
+   * Owner, 2026-08-12: *"In Comment Reply : I am typing 'Thanks' its typing as
+   * 'sknaht'. Text pointer atomically coming front after typing"*.
+   *
+   * This function is DEFINED INSIDE the parent's render. Written as a JSX
+   * element (`<Row ... />`) that makes it a brand-new component TYPE on
+   * every parent render — and the reply text lives in parent state, so every
+   * keystroke re-rendered the parent, React saw an unfamiliar type, and it
+   * unmounted and rebuilt the entire subtree. The real DOM <input> was
+   * destroyed and recreated per letter, so the caret snapped back to 0 and the
+   * next character landed in FRONT of the previous one. "Thanks" → "sknaht".
+   *
+   * Calling it as a plain function splices its output into the PARENT's
+   * element tree, so there is no new component type, nothing remounts, and the
+   * caret stays where the member put it.
+   *
+   * ⚠ THE `key` LIVES ON THE RETURNED ROOT ELEMENT, not on a call site — a
+   * function call cannot carry one.
+   *
+   * ⚠ NEVER CALL A REACT HOOK IN HERE. As a function call it shares the
+   * parent's hook slots, so a conditional `useState` here would corrupt the
+   * parent's hook order. It uses none today, and it must stay that way.
+   * If you ever need one, hoist this to a real component at module scope with
+   * explicit props instead of putting `<Row />` back.
+   */
+  const renderRow = (c: AdComment, isReply: boolean) => {
     const p = profileMap[c.user_id];
     const name = p?.full_name || "A member";
     const mine = user?.id === c.user_id;
     return (
-      <div className={`flex gap-2.5 ${isReply ? "pl-10" : ""}`}>
+      // Key moved here — see the note above renderRow.
+      <div key={c.id} className={`flex gap-2.5 ${isReply ? "pl-10" : ""}`}>
         <Link to={`/profile/${c.user_id}`}>
           <Avatar src={p?.avatar_url ?? null} name={name} />
         </Link>
@@ -312,9 +340,9 @@ const AdComments = ({ creativeId, onCountChange }: Props) => {
 
       {threaded.map(({ comment, replies }) => (
         <div key={comment.id} className="space-y-2">
-          <Row c={comment} isReply={false} />
+          renderRow(comment, false)
           {replies.map((r) => (
-            <Row key={r.id} c={r} isReply />
+            renderRow(r, true)
           ))}
         </div>
       ))}
