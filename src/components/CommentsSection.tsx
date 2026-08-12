@@ -346,12 +346,40 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
 
   const totalCount = comments.reduce((acc, c) => acc + 1 + c.replies.length, 0);
 
-  const CommentItem = ({ comment, depth = 0 }: { comment: Comment; depth?: number }) => {
+  /**
+   * ⚠ RENDERED BY CALLING IT, NOT AS <CommentItem />. THAT IS THE WHOLE POINT.
+   *
+   * Owner, 2026-08-12: *"In Comment Reply : I am typing 'Thanks' its typing as
+   * 'sknaht'. Text pointer atomically coming front after typing"*.
+   *
+   * This function is DEFINED INSIDE the parent's render. Written as a JSX
+   * element (`<CommentItem ... />`) that makes it a brand-new component TYPE on
+   * every parent render — and the reply text lives in parent state, so every
+   * keystroke re-rendered the parent, React saw an unfamiliar type, and it
+   * unmounted and rebuilt the entire subtree. The real DOM <input> was
+   * destroyed and recreated per letter, so the caret snapped back to 0 and the
+   * next character landed in FRONT of the previous one. "Thanks" → "sknaht".
+   *
+   * Calling it as a plain function splices its output into the PARENT's
+   * element tree, so there is no new component type, nothing remounts, and the
+   * caret stays where the member put it.
+   *
+   * ⚠ THE `key` LIVES ON THE RETURNED ROOT ELEMENT, not on a call site — a
+   * function call cannot carry one.
+   *
+   * ⚠ NEVER CALL A REACT HOOK IN HERE. As a function call it shares the
+   * parent's hook slots, so a conditional `useState` here would corrupt the
+   * parent's hook order. It uses none today, and it must stay that way.
+   * If you ever need one, hoist this to a real component at module scope with
+   * explicit props instead of putting `<CommentItem />` back.
+   */
+  const renderComment = (comment: Comment, depth = 0) => {
     const isOwn = user?.id === comment.user_id;
     const canDelete = isOwn || isAdmin;
 
     return (
-      <div className={`${depth > 0 ? "ml-10" : ""}`}>
+      // Key moved here — see the note above renderComment.
+      <div key={comment.id} className={`${depth > 0 ? "ml-10" : ""}`}>
         <div className="flex gap-2 group/comment py-0.5">
           <Link to={`/profile/${comment.user_id}`} className="shrink-0 mt-0.5">
             <Avatar src={comment.profile?.avatar_url} name={comment.profile?.full_name} size={depth > 0 ? "xs" : "sm"} lastActiveAt={comment.last_active} />
@@ -516,7 +544,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
         </div>
 
         {comment.replies.map((reply) => (
-          <CommentItem key={reply.id} comment={reply} depth={depth + 1} />
+          renderComment(reply, depth + 1)
         ))}
       </div>
     );
@@ -607,7 +635,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
         ) : (
           <div className="space-y-0.5">
             {sortedComments.map((comment) => (
-              <CommentItem key={comment.id} comment={comment} />
+              renderComment(comment)
             ))}
           </div>
         )}
