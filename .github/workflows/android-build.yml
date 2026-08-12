@@ -321,8 +321,15 @@ jobs:
                   "        release {\n"
                   "            storeFile file(\"release.keystore\")\n"
                   "            storePassword System.getenv(\"KEYSTORE_PASSWORD\")\n"
-                  "            keyAlias \"upload\"\n"
-                  "            keyPassword System.getenv(\"KEYSTORE_PASSWORD\")\n"
+                  // The alias and key password come from the secrets the header
+                  // advertises. The old version hardcoded the alias "upload" and
+                  // reused the STORE password as the KEY password — so a keystore
+                  // whose alias is anything else, or whose key password differs,
+                  // failed the build with "No key with alias 'upload' found".
+                  // Elvis-defaults keep the previous behaviour when the optional
+                  // secrets are absent.
+                  "            keyAlias System.getenv(\"KEY_ALIAS\") ?: \"upload\"\n"
+                  "            keyPassword System.getenv(\"KEY_PASSWORD\") ?: System.getenv(\"KEYSTORE_PASSWORD\")\n"
                   "        }\n"
                   "    }\n"
               )
@@ -420,6 +427,28 @@ jobs:
           path: android/app/build/outputs/apk/debug/*.apk
           retention-days: 14
 
+      # An unsigned AAB is rejected by Play with a message that does not say
+      # "unsigned". If the keystore secret IS set, the bundle must come out
+      # signed — assert it here rather than discovering it in the Play Console.
+      - name: Prove the release bundle is signed (only when a keystore is set)
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          AAB=android/app/build/outputs/bundle/release/app-release.aab
+          if [ -z "$KS_B64" ]; then
+            echo "::warning::No keystore secret — this AAB is UNSIGNED and Play will reject it."
+            echo "Add ANDROID_KEYSTORE_BASE64 + ANDROID_KEYSTORE_PASSWORD (+ ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD) to publish."
+            exit 0
+          fi
+          if unzip -l "$AAB" | grep -qE "META-INF/.*\.(RSA|DSA|EC)"; then
+            echo "OK: the release bundle carries a signature block"
+          else
+            echo "::error::Keystore secret is set but the AAB came out UNSIGNED."
+            unzip -l "$AAB" | head -30
+            exit 1
+          fi
+
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
@@ -432,14 +461,29 @@ jobs:
       # is set (and the build is signed). Pushes to the Internal testing track
       # as a DRAFT; you then review + roll out in the Play Console.
       # -------------------------------------------------------------------
-      - name: Upload to Google Play (internal, draft) — only if Play secret is set
+      # ---------------------------------------------------------------------
+      # PUBLISH TO PLAY — PRODUCTION track, as a DRAFT.
+      #
+      # Owner chose Production over Internal testing on 2026-08-12: he wants the
+      # real app on the store, not a test build.
+      #
+      # ⚠ `status: draft` IS THE SAFETY CATCH AND MUST STAY. The release lands in
+      # the Production track but is NOT live: nothing reaches a single user until
+      # a human opens the Play Console and presses "Review release" → "Roll out".
+      # Changing this to `completed` would make every merge an instant public
+      # release with no one looking at it. Do not.
+      #
+      # Runs only when PLAY_SERVICE_ACCOUNT_JSON is set, so a repo without the
+      # secret builds and uploads nothing.
+      # ---------------------------------------------------------------------
+      - name: Upload to Google Play (production, draft) — only if Play secret is set
         if: ${{ env.PLAY_SA != '' }}
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.fiftymmretina.app
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
-          track: internal
+          track: production
           status: draft
 
       - name: Upload debug info on failure
