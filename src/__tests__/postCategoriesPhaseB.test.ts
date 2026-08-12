@@ -454,18 +454,29 @@ describe("B2 turns on the minimum and changes NOTHING else", () => {
   });
 });
 
-describe("Stage C has not happened yet — the tripwire", () => {
-  it("the composer still sends no categories", () => {
-    // This documents the CURRENT, INTENDED state. When Stage C lands and the
-    // composer sends categories, THIS TEST SHOULD FAIL — and that failure is
-    // the signal that B2's first release gate is met. Flip it then; do not
-    // delete it.
+describe("Stage C HAS shipped — the tripwire has flipped", () => {
+  it("the composer now sends categories on both insert paths", () => {
+    // This test used to assert the OPPOSITE: that the composer sent nothing,
+    // as the tripwire for Stage C. Stage C has landed, so it now asserts the
+    // new truth — the immediate `posts` insert and the `scheduled_posts`
+    // branch both carry the member's choice, in the same statement as the post
+    // itself. Nothing is written in two steps.
     const composer = code("src/components/WallPosts.tsx");
-    const insert = composer.slice(composer.indexOf('from("posts").insert('));
-    expect(
-      insert.slice(0, 600),
-      "the composer now sends categories — Stage C has shipped, so update this " +
-        "test and re-check B2's remaining release gates",
-    ).not.toContain("categories");
+    expect((composer.match(/categories: postCategories/g) ?? []).length).toBe(2);
+  });
+
+  it("the composer refuses to post without one, in BOTH places", () => {
+    // The button and createPost must agree, or the member gets a dead button
+    // or a refusal after pressing it.
+    const composer = code("src/components/WallPosts.tsx");
+    expect(composer).toContain("!canPublishCategories(postCategories) ||");
+    expect(composer).toContain("if (!canPublishCategories(postCategories)) {");
+  });
+
+  it("but the DATABASE minimum is still off — B2 has not run", () => {
+    // Stage C enforces 1-5 in the UI only. POST-CAT-002 stays inactive until
+    // the adoption gate is met, so this must remain absent from live code.
+    const sql = read(MIGRATION);
+    expect(bodyOf(sql)).not.toContain("POST-CAT-002");
   });
 });
