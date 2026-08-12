@@ -144,6 +144,27 @@ CREATE POLICY "Admins manage categories"
 GRANT SELECT ON public.categories TO anon, authenticated;
 GRANT ALL    ON public.categories TO service_role;
 
+-- ⚠ AND THE REVOKE THAT MAKES THE GRANT ABOVE MEAN SOMETHING.
+--
+-- Supabase ships an ALTER DEFAULT PRIVILEGES rule that grants INSERT, UPDATE and
+-- DELETE on every NEW table in `public` to anon and authenticated. So the GRANT
+-- above does not narrow anything — the roles already hold everything, and the
+-- table is left protected by RLS alone.
+--
+-- This was found on production 2026-08-12, AFTER a preflight on a throwaway
+-- PostgreSQL had reported "SELECT only". The throwaway database had no default
+-- privileges configured, so it could not reproduce the problem. The behaviour
+-- was correct either way — RLS did hold, and a non-admin UPDATE touched 0 rows —
+-- but one layer was doing the work of two.
+--
+-- Owner, 2026-08-12: "If this table is supposed to be read-only for users, don't
+-- grant them write privileges in the first place."
+--
+-- With this, a member's write now fails with a hard `42501 permission denied`
+-- instead of succeeding with zero rows changed — which is the far safer failure,
+-- because a silent zero-row write is indistinguishable from one that worked.
+REVOKE INSERT, UPDATE, DELETE ON public.categories FROM anon, authenticated;
+
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 4a. THE AUDIT TABLE — created before section 4 needs it
