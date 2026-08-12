@@ -9,6 +9,8 @@ import {
   usePostDrafts, useCreateDraft, useUpdateDraft, usePublishDraft, type PostDraft,
 } from "@/hooks/feed/usePostDrafts";
 import { decidePersistence } from "@/lib/post/draftPersistence";
+import { canUseNativeGallery, pickGalleryFiles } from "@/lib/native/gallery";
+import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
 import { FileText } from "lucide-react";
 import { ScheduleDateTimePicker } from "@/components/post/ScheduleDateTimePicker";
 import { useCreateScheduledPost } from "@/hooks/feed/useScheduledPosts";
@@ -268,6 +270,59 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   const closeComposer = () => {
     setComposerOpen(false);
     setComposerStep("compose");
+  };
+
+  /* ── THE APP TAKES A DIFFERENT ROUTE ─────────────────────────────────────
+   * Owner's mock is TWO screens on Android, not three:
+   *
+   *   1  Android's own photo picker      2  New post — caption, tags,
+   *      (their UI, not ours)               audience, scheduling, the
+   *                                         category chips, Share
+   *
+   * Owner chose this over drawing our own gallery grid (2026-08-12). It is the
+   * route Google recommends: on Android 13+ the system Photo Picker needs NO
+   * permission at all and no Play declaration, where enumerating the library
+   * ourselves would need READ_MEDIA_IMAGES plus a justification form.
+   *
+   * The trade is honest and was made with eyes open: screen 1 is Android's UI,
+   * so there is no Recents ▾ album dropdown. Drafts moved onto the feed row and
+   * screen 2, which is why `Drafts (n)` sits under the composer row rather than
+   * beside a gallery tab.
+   *
+   * ⚠ THIS PRODUCT HAS NO REELS AND NO LIVE. Owner, 2026-08-12: *"LIVE REEL is
+   * not relavant with us, dont write this options on anywhere"*. The mock was a
+   * screenshot of another app and carried its mode strip; do not copy it in.
+   * Photos and Stories are the whole surface.
+   *
+   * `appFlow` is false on the website, where none of this exists and the
+   * three-step modal is unchanged. */
+  const appFlow = isNativeCapacitorApp();
+
+  /**
+   * Add photos. Android gets its picker; everything else gets the file input.
+   *
+   * Returns how many were added so the caller can decide whether to advance —
+   * cancelling the picker must not strand the member on an empty details
+   * screen. Returns -1 for the web path, where the answer arrives later on the
+   * input's change event and there is nothing to wait for here.
+   */
+  const pickPhotos = async (): Promise<number> => {
+    if (!canUseNativeGallery()) {
+      fileInputRef.current?.click();
+      return -1;
+    }
+    const files = await pickGalleryFiles(10);
+    files.forEach(processFile);
+    return files.length;
+  };
+
+  /** The app's whole entry point: picker first, details screen second. */
+  const startAppPost = async () => {
+    const added = await pickPhotos();
+    // Cancelled. Nothing opens — no half-composer left on screen.
+    if (added <= 0) return;
+    setComposerStep("settings");
+    setComposerOpen(true);
   };
   /**
    * Nothing worth saving: no photo, no words, and no existing draft to update.
@@ -1204,14 +1259,14 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
               <Avatar src={currentProfile?.avatar_url || null} name={currentProfile?.full_name} size="md" />
               <button
                 type="button"
-                onClick={() => openComposer()}
+                onClick={() => (appFlow ? void startAppPost() : openComposer())}
                 className="min-w-0 flex-1 truncate rounded-full bg-muted/50 px-4 py-2.5 text-left text-sm text-muted-foreground/70 transition-colors hover:bg-muted"
               >
                 {t("composer.placeholder")}
               </button>
               <button
                 type="button"
-                onClick={() => openComposer(true)}
+                onClick={() => (appFlow ? void startAppPost() : openComposer(true))}
                 aria-label={t("composer.addPhoto")}
                 className="shrink-0 rounded-full p-2 transition-colors hover:bg-muted/50"
               >
@@ -1261,9 +1316,11 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                   <span className="w-8" />
                 )}
                 <DialogTitle className="flex-1 text-center text-base font-semibold">
-                  {composerStep === "settings"
-                    ? t("post.settings.title", "Post settings")
-                    : t("post.create.title", "Create post")}
+                  {appFlow
+                    ? t("post.new.title", "New post")
+                    : composerStep === "settings"
+                      ? t("post.settings.title", "Post settings")
+                      : t("post.create.title", "Create post")}
                 </DialogTitle>
                 {/* DialogContent renders its own close button at top-right. */}
                 <span className="w-8" />
@@ -1462,7 +1519,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                       <span className="flex-1 pl-1 text-sm font-medium">
                         {t("post.create.addTo", "Add to your post")}
                       </span>
-                      <button type="button" onClick={() => fileInputRef.current?.click()} aria-label={t("composer.addPhoto")} className="rounded-full p-2 hover:bg-muted/50">
+                      <button type="button" onClick={() => void pickPhotos()} aria-label={t("composer.addPhoto")} className="rounded-full p-2 hover:bg-muted/50">
                         <ImagePlus className="h-5 w-5 text-emerald-500" />
                       </button>
                       <button
@@ -1484,21 +1541,89 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
 
                 {composerStep === "settings" && (
                   <>
-                    <div className="pb-3">
-                      <p className="pb-2 text-sm font-semibold">{t("post.preview", "Post preview")}</p>
-                      <div className="flex items-start gap-3">
-                        {(imagePreviews[0] || resumedThumbs[0] || resumedUrls[0]) && (
-                          <img
-                            src={imagePreviews[0] || resumedThumbs[0] || resumedUrls[0]}
-                            alt=""
-                            className="h-20 w-20 shrink-0 rounded-md object-cover"
-                          />
+                    {/*
+                      TWO SHAPES, ONE STEP.
+
+                      Web arrives here having already written the caption on the
+                      previous screen, so this is a PREVIEW — thumbnail plus the
+                      text, read-only.
+
+                      The app arrives here straight from Android's picker and has
+                      never seen a caption box, so this is where it lives. Owner's
+                      screen 2: photo centred, "Add a caption…" under it, then the
+                      rows. Rendering a read-only preview on the app would leave
+                      no way to write a caption at all.
+                    */}
+                    {appFlow ? (
+                      <>
+                        <div className="grid place-items-center pb-3 pt-1">
+                          {(imagePreviews[0] || resumedThumbs[0] || resumedUrls[0]) && (
+                            <img
+                              src={imagePreviews[0] || resumedThumbs[0] || resumedUrls[0]}
+                              alt=""
+                              className="h-40 w-40 rounded-md object-cover"
+                            />
+                          )}
+                        </div>
+                        {imagePreviews.length > 1 && (
+                          <p className="pb-2 text-center text-xs text-muted-foreground">
+                            {imagePreviews.length} {t("post.drafts.photos", "photos")}
+                          </p>
                         )}
-                        <p className="line-clamp-4 min-w-0 text-sm text-muted-foreground">{newContent}</p>
+                        <Textarea
+                          value={newContent}
+                          onChange={(e) => {
+                            setNewContent(e.target.value);
+                            captionMentions.refresh();
+                          }}
+                          onClick={captionMentions.refresh}
+                          onKeyUp={captionMentions.refresh}
+                          onKeyDown={captionMentions.onKeyDown}
+                          placeholder={t("post.caption", "Add a caption…")}
+                          className="min-h-[72px] resize-none border-0 bg-transparent px-0 text-base focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
+                          rows={2}
+                        />
+                        {newContent.length > 2200 && (
+                          <div className="pb-1 text-right text-[10px] font-semibold tabular-nums text-destructive">
+                            {newContent.length - 2200} over the 2200 limit
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="pb-3">
+                        <p className="pb-2 text-sm font-semibold">{t("post.preview", "Post preview")}</p>
+                        <div className="flex items-start gap-3">
+                          {(imagePreviews[0] || resumedThumbs[0] || resumedUrls[0]) && (
+                            <img
+                              src={imagePreviews[0] || resumedThumbs[0] || resumedUrls[0]}
+                              alt=""
+                              className="h-20 w-20 shrink-0 rounded-md object-cover"
+                            />
+                          )}
+                          <p className="line-clamp-4 min-w-0 text-sm text-muted-foreground">{newContent}</p>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     <div className="divide-y divide-border border-y border-border">
+                      {/* App only — web tags people on the compose screen. */}
+                      {appFlow && (
+                        <button
+                          type="button"
+                          onClick={() => setTagModalOpen(true)}
+                          disabled={imagePreviews.length === 0}
+                          className="flex w-full items-center gap-3 px-1 py-3 text-left hover:bg-muted/40 disabled:opacity-40"
+                        >
+                          <Tag className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                          <span className="flex-1">
+                            <span className="block text-sm font-medium">{t("post.tagPeople", "Tag people")}</span>
+                            {pendingTags.length > 0 && (
+                              <span className="block text-xs text-muted-foreground">{pendingTags.length}</span>
+                            )}
+                          </span>
+                          <span aria-hidden="true" className="text-muted-foreground">›</span>
+                        </button>
+                      )}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button type="button" className="flex w-full items-center gap-3 px-1 py-3 text-left hover:bg-muted/40">
@@ -1586,12 +1711,17 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                     {t("post.next", "Next")}
                   </button>
                 ) : (
-                  <div className="flex gap-2">
+                  // Owner's screen 2 ends in ONE full-width Share. Save draft
+                  // stays — drafts are on both surfaces — but as a quiet line
+                  // above it rather than competing for the same row.
+                  <div className={appFlow ? "space-y-2" : "flex gap-2"}>
                     <button
                       type="button"
                       onClick={saveDraft}
                       disabled={posting || savingDraft || nothingToSave}
-                      className="flex-1 rounded-md border border-border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+                      className={appFlow
+                        ? "w-full py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                        : "flex-1 rounded-md border border-border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"}
                     >
                       {savingDraft
                         ? t("post.saving", "Saving…")
@@ -1610,8 +1740,14 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                       activates POST-CAT-002 in the database.
                     */}
                     <button onClick={draftId ? publishResumedDraft : createPost} disabled={posting || (selectedImages.length === 0 && resumedUrls.length === 0) || !canPublishCategories(postCategories) || newContent.length > 2200 || (!!scheduleAt && (scheduleAt.getTime() < Date.now() + 5*60*1000 || scheduleAt.getTime() > Date.now() + 90*24*60*60*1000))}
-                      className="flex-1 rounded-md bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40">
-                      {posting ? (scheduleAt ? "Scheduling..." : "Posting...") : newContent.length > 2200 ? `Trim ${newContent.length - 2200}` : scheduleAt ? "Schedule" : "Post"}
+                      className={`rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40 ${appFlow ? "w-full" : "flex-1"}`}>
+                      {posting
+                        ? (scheduleAt ? "Scheduling..." : "Posting...")
+                        : newContent.length > 2200
+                          ? `Trim ${newContent.length - 2200}`
+                          : scheduleAt
+                            ? "Schedule"
+                            : appFlow ? t("post.share", "Share") : "Post"}
                     </button>
                   </div>
                 )}
