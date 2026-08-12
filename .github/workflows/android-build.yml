@@ -78,6 +78,28 @@ jobs:
       - name: Install web dependencies
         run: npm ci || npm install --no-audit --no-fund
 
+      # -------------------------------------------------------------------
+      # NO ERRORS ARE CARRIED INTO THE BUILD.
+      #
+      # Owner, 2026-08-12: *"App needs to be perfect, no errors needs to be
+      # carried out on the build"*.
+      #
+      # Until now this job compiled an APK without ever running the type
+      # checker or a single one of the 1,299 tests — only `security-audit.mjs`
+      # gated it. A component could be broken, or deleted, or (as happened
+      # twice in Stage C) imported by nothing at all, and the build would still
+      # come out green and installable.
+      #
+      # These two steps are the gate. They run BEFORE `npx cap add android`, so
+      # a failure costs seconds instead of a 20-minute Gradle run, and no
+      # artifact is produced at all.
+      # -------------------------------------------------------------------
+      - name: Typecheck (blocks the build)
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Test suite (blocks the build)
+        run: npm test
+
       - name: Install Capacitor + native plugins
         run: |
           npm install --no-audit --no-fund \
@@ -93,6 +115,23 @@ jobs:
 
       - name: Add Android platform
         run: npx cap add android
+
+      # `npm install @capacitor/camera` succeeding proves only that npm found a
+      # tarball. What matters is that `cap add android` DETECTED it and wired it
+      # into the Gradle build — if it did not, `window.Capacitor.Plugins.Camera`
+      # is undefined at runtime and the in-app photo picker silently falls back
+      # to the WebView file input. That is exactly the failure that shipped in
+      # every APK before build #75, unnoticed, because nothing asserted it.
+      - name: Prove the Camera plugin is wired into the native project
+        run: |
+          set -euo pipefail
+          echo "--- capacitor.settings.gradle ---"
+          cat android/capacitor.settings.gradle
+          echo "--- app/capacitor.build.gradle ---"
+          cat android/app/capacitor.build.gradle
+          grep -q "capacitor-camera" android/capacitor.settings.gradle
+          grep -q "capacitor-camera" android/app/capacitor.build.gradle
+          echo "OK: capacitor-camera is in both Gradle files"
 
       - name: Enable edge-to-edge (clears both Play user-experience recommendations)
         run: |
@@ -351,6 +390,27 @@ jobs:
           cd android
           ./gradlew assembleDebug --no-daemon --stacktrace
           ls -la app/build/outputs/apk/debug/ || true
+
+      # An APK that builds is not an APK that works. Prove the two things that
+      # would make it a brick: the web bundle, and the camera plugin classes.
+      - name: Prove the debug APK carries the app and the plugin
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          APK=$(ls android/app/build/outputs/apk/debug/*.apk | head -1)
+          echo "APK: $APK  ($(du -h "$APK" | cut -f1))"
+          unzip -l "$APK" | grep -q "assets/public/index.html"
+          echo "OK: the web build is inside the APK"
+          unzip -l "$APK" | grep -c "classes.*\.dex"
+          # Plugin classes live in the dex; search the raw bytes for the package.
+          if unzip -p "$APK" classes.dex | grep -a -q "com/capacitorjs/plugins/camera"; then
+            echo "OK: camera plugin classes found in classes.dex"
+          elif unzip -p "$APK" classes2.dex 2>/dev/null | grep -a -q "com/capacitorjs/plugins/camera"; then
+            echo "OK: camera plugin classes found in classes2.dex"
+          else
+            echo "WARNING: camera plugin classes not located by raw dex scan"
+            echo "(the Gradle assertion above is the authoritative check)"
+          fi
 
       - name: Upload debug APK artifact
         continue-on-error: true
