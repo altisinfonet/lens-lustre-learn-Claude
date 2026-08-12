@@ -27,6 +27,8 @@ import { useFeedCacheUpdaters } from "@/hooks/feed/useFeedCacheUpdaters";
 import PostCard from "@/components/post/PostCard";
 import PostCardSkeleton from "@/components/post/PostCardSkeleton";
 import WallPosts from "@/components/WallPosts";
+import CategoryStrip from "@/components/feed/CategoryStrip";
+import { ALL_FILTER } from "@/lib/categories";
 import type { ReactionType } from "@/components/ReactionPicker";
 import type { UnifiedPost } from "@/types/post";
 
@@ -43,6 +45,16 @@ const Feed = () => {
   const { insertPost, replacePost, patchPost, removePost } = useFeedCacheUpdaters();
   const { bufferedCount, bufferPost, flushBuffer } = useNewPostsBanner();
   const { trackViewStart, trackViewEnd, trackAction } = useFeedEventTracker(user?.id);
+  /**
+   * Stage D — the selected category strip chip.
+   *
+   * ALL_FILTER means no predicate at all, which is why it is translated to
+   * `null` rather than an empty array: `null` skips the filter entirely in the
+   * RPC and keeps every uncategorised post visible, while `[]` would match
+   * nothing. The distinction is the whole reason old posts still appear.
+   */
+  const [activeCategory, setActiveCategory] = useState<string>(ALL_FILTER);
+
   const {
     data,
     isLoading: loading,
@@ -50,7 +62,7 @@ const Feed = () => {
     hasNextPage: hasMore,
     fetchNextPage,
     refetch,
-  } = useFeedQuery(user?.id);
+  } = useFeedQuery(user?.id, activeCategory === ALL_FILTER ? null : [activeCategory]);
 
   const posts = useMemo(() => flattenFeedPages(data?.pages), [data?.pages]);
   const relevantUserIds = useMemo(() => getNetworkIds(data?.pages), [data?.pages]);
@@ -265,6 +277,13 @@ const Feed = () => {
 
           Do not put a title back. Instagram's feed starts at the first post.
         */}
+
+        {/* Stage D — the category strip. Sticky, so the filter stays reachable
+            while scrolling a long feed. "All" is the default and applies no
+            predicate, which is what keeps pre-existing posts visible. */}
+        <div className="sticky top-0 z-20 -mx-4 mb-3">
+          <CategoryStrip value={activeCategory} onChange={setActiveCategory} />
+        </div>
 
         {/* Composer — same as My Wall, posts go to posts table → appear on Wall + Feed */}
         <WallPosts targetUserId={user.id} isOwnWall composerOnly />
