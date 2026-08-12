@@ -67,9 +67,15 @@ describe("a post always needs a photograph", () => {
     // Stage C added a third requirement — 1 to 5 categories — and this test
     // CAUGHT the moment the button knew about it and createPost did not. Both
     // now carry the same three conditions, in the same order.
+    // Stage C added a second handler: a RESUMED DRAFT publishes through
+    // publish_post_draft() and its photos are already in storage, so the photo
+    // requirement is satisfied by `resumedUrls` instead of `selectedImages`.
+    // createPost is only reachable when there is no draft, and in that state
+    // resumedUrls is empty — so the two still agree exactly.
     expect(wall).toMatch(
-      /disabled=\{posting \|\| selectedImages\.length === 0 \|\| !canPublishCategories\(postCategories\) \|\| newContent\.length > 2200/,
+      /disabled=\{posting \|\| \(selectedImages\.length === 0 && resumedUrls\.length === 0\) \|\| !canPublishCategories\(postCategories\) \|\| newContent\.length > 2200/,
     );
+    expect(wall).toMatch(/onClick=\{draftId \? publishResumedDraft : createPost\}/);
     // …and the guard inside createPost that mirrors it.
     expect(wall).toMatch(/if \(!canPublishCategories\(postCategories\)\) \{/);
   });
