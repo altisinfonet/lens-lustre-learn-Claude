@@ -116,6 +116,76 @@ export async function pickFromGallery(limit = 10): Promise<DevicePhoto[]> {
 }
 
 /**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * FROM A PICKED PHOTO TO SOMETHING THE UPLOAD PATH CAN ACTUALLY USE.
+ *
+ * `pickImages` hands back a `webPath` — a `capacitor://localhost/_capacitor_file_…`
+ * URL the WebView can fetch, NOT bytes and NOT a File. Every existing step of
+ * the composer (the compressor, the security scanner, `uploadPhotos`) takes a
+ * `File`. So this is the adapter, and it is deliberately the ONLY place the two
+ * worlds meet.
+ *
+ * ⚠ THE FILENAME IS NOT COSMETIC. `processFile()` in WallPosts rejects anything
+ * whose name fails `SUPPORTED_IMAGE_RE` — a File called "photo" with no
+ * extension is dropped silently, which would read as "the picker did nothing".
+ * The extension is derived from the blob's real MIME type first and the
+ * plugin's `format` only as a fallback, because the plugin reports `format` from
+ * the file name it was given and that is exactly the thing we cannot trust.
+ *
+ * `fetchImpl` is injectable so the test can prove the naming and the failure
+ * handling without a WebView.
+ */
+const EXT_BY_MIME: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/bmp": "bmp",
+  "image/avif": "avif",
+};
+
+export async function devicePhotosToFiles(
+  photos: DevicePhoto[],
+  fetchImpl: typeof fetch = fetch,
+): Promise<File[]> {
+  const out: File[] = [];
+  for (let i = 0; i < photos.length; i++) {
+    const p = photos[i];
+    if (!p?.webPath) continue;
+    try {
+      const res = await fetchImpl(p.webPath);
+      const blob = await res.blob();
+      const type = blob.type || (p.format ? `image/${p.format}` : "image/jpeg");
+      // MIME first, plugin `format` second, jpg last. See the ruling above.
+      const ext = EXT_BY_MIME[type] ?? (p.format || "jpg").toLowerCase();
+      out.push(
+        new File([blob], `photo-${i + 1}.${ext}`, {
+          type,
+          lastModified: 0,
+        }),
+      );
+    } catch {
+      // One unreadable photo must not lose the other nine. A member who picked
+      // ten and got nine is annoyed; one who picked ten and got zero is blocked.
+      continue;
+    }
+  }
+  return out;
+}
+
+/**
+ * The whole app-side pick, in one call: open Android's picker, read what came
+ * back, hand the composer real Files. Returns an empty array when the member
+ * cancels — which is not a failure and must not raise.
+ */
+export async function pickGalleryFiles(limit = 10): Promise<File[]> {
+  const photos = await pickFromGallery(limit);
+  if (!photos.length) return [];
+  return devicePhotosToFiles(photos);
+}
+
+/**
  * Exported so the guard test can assert the no-static-import rule against the
  * real source rather than trusting a comment.
  */
