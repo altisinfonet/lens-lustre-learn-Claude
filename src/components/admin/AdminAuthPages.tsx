@@ -168,7 +168,15 @@ function PageConfigEditor({
               {config.show_google && (
                 <div className="text-[7px] bg-foreground text-background py-1 rounded-sm text-center">Google</div>
               )}
-              {config.show_apple && (
+              {/*
+                The preview must show what members actually see. `config` here
+                is the admin's local copy of the STORED value, not the live
+                `useAuthPageSettings` result, so without this gate a stored
+                `true` would draw an Apple chip in the preview while the real
+                Login and Signup pages hide it — a preview that lies is worse
+                than no preview.
+              */}
+              {APPLE_SIGN_IN_ENABLED && config.show_apple && (
                 <div className="text-[7px] border border-foreground/30 py-1 rounded-sm text-center">Apple</div>
               )}
             </div>
