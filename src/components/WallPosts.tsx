@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { MessageCircle, Send, Globe, Users, Lock, ChevronDown, ImagePlus, X, Tag, CalendarClock, Crop } from "lucide-react";
+import { MessageCircle, Send, Globe, Users, Lock, ChevronDown, ImagePlus, X, Tag, CalendarClock, Crop, ArrowLeft } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import TagPeopleModal, { type PendingTag } from "@/components/post/TagPeopleModal";
 import CategoryChips, { canPublishCategories } from "@/components/post/CategoryChips";
 import DraftsList from "@/components/post/DraftsList";
@@ -234,6 +235,40 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   const [draftsOpen, setDraftsOpen] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const { data: drafts = [] } = usePostDrafts();
+
+  /* ── THE COMPOSER IS A MODAL ─────────────────────────────────────────────
+   * Owner's design, 2026-08-12, three screenshots: "Create post" (caption +
+   * Add to your post + Next), "Create post" with a photo (Next enabled), and
+   * "Post settings" (preview, Post audience, Scheduling options, THE
+   * CATEGORIES, Save / Post).
+   *
+   * ⚠ WHAT THIS REPLACES. Stage C first shipped the 46-chip category picker
+   * INLINE in this composer, on the feed page, under the Post button. The
+   * three-step modal existed as src/components/post/CreatePostModal.tsx but
+   * was imported by nothing, so Vite tree-shook it out and it never reached
+   * the bundle. The feed showed a wall of chips instead of a Create screen.
+   * Do not put a picker back on the feed page. */
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [composerStep, setComposerStep] = useState<"compose" | "settings">("compose");
+
+  const openComposer = (pickPhotos = false) => {
+    setComposerStep("compose");
+    setComposerOpen(true);
+    // The file input lives OUTSIDE the dialog precisely so this works on the
+    // very first open, before the dialog's own subtree has mounted.
+    if (pickPhotos) setTimeout(() => fileInputRef.current?.click(), 0);
+  };
+
+  /**
+   * ⚠ CLOSING WRITES NOTHING — no draft row, no upload. `decidePersistence`
+   * returns an empty action for `close` and this handler does nothing but
+   * reset the step. Never add an autosave-on-close: it would turn every
+   * abandoned compose session into a stored draft with uploaded photos.
+   */
+  const closeComposer = () => {
+    setComposerOpen(false);
+    setComposerStep("compose");
+  };
   /**
    * Nothing worth saving: no photo, no words, and no existing draft to update.
    *
@@ -569,12 +604,14 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         setResumedUrls(urls);
         setResumedThumbs(thumbs);
         setSelectedImages([]);
+        closeComposer();
         toast({ title: "Draft saved" });
       } else if (action.updateDraft && draftId) {
         await updateDraftMut.mutateAsync({ id: draftId, ...payload });
         setResumedUrls(urls);
         setResumedThumbs(thumbs);
         setSelectedImages([]);
+        closeComposer();
         toast({ title: "Draft updated" });
       }
     } catch (e: any) {
@@ -621,6 +658,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       setExcludeFromSearch(false);
       setScheduleAt(null);
       clearAllImages();
+      closeComposer();
       toast({ title: "Posted" });
       await refetch();
       queryClient.invalidateQueries({ queryKey: queryKeys.feedAll() });
@@ -786,6 +824,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           setShowSchedule(false);
           setPostCategories([]);
           clearAllImages();
+          closeComposer();
         } catch (e: any) {
           toast({ title: "Failed to schedule", description: e.message, variant: "destructive" });
         }
@@ -884,6 +923,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         setExcludeFromSearch(false);
         setPostCategories([]);
         clearAllImages();
+        closeComposer();
         await refetch();
         // Keep the FEED in sync too: realtime inserts it instantly when the
         // feed is mounted; invalidation covers navigation + flaky sockets.
@@ -1150,105 +1190,52 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           once already, and vitest does not catch it because only `vite build`
           runs esbuild over the JSX. */}
       {isOwnWall && user && (
-        <div className="bleed-phone mb-4 overflow-hidden">
-          <div className="flex items-start gap-3 p-3 pb-0">
-            <Avatar src={currentProfile?.avatar_url || null} name={currentProfile?.full_name} size="md" />
-            <div className="flex-1 min-w-0">
-              <div className="relative">
-                {/* Highlight overlay — paints yellow behind chars beyond 2200.
-                    Font metrics MUST exactly match the Textarea (font-family,
-                    size, line-height, letter-spacing, padding, border) or the
-                    highlight drifts off the lines. aria-hidden +
-                    pointer-events-none so it never blocks typing. */}
-                {newContent.length > 2200 && (
-                  <div
-                    ref={highlightRef}
-                    aria-hidden="true"
-                    className="absolute inset-0 rounded-2xl pointer-events-none overflow-hidden text-transparent bg-muted/50"
-                    // All text metrics (font, line-height, padding, border,
-                    // word-break, width, height) are copied at runtime from
-                    // the live Textarea by the sync effect above — that's the
-                    // only way coverage stays exact across browsers + zoom.
-                  >
-                    <span>{newContent.slice(0, 2200)}</span>
-                    <span
-                      style={{
-                        backgroundColor: "hsl(54 95% 62% / 0.55)",
-                        borderRadius: "2px",
-                        boxDecorationBreak: "clone",
-                        WebkitBoxDecorationBreak: "clone",
-                      } as React.CSSProperties}
-                    >
-                      {newContent.slice(2200)}
-                    </span>
-                    {/* Trailing newline mirrors textarea's own phantom line
-                        so the highlight's last line wraps identically. */}
-                    {"\n"}
-                  </div>
-                )}
-                <Textarea
-                  ref={textareaRef}
-                  value={newContent}
-                  onChange={(e) => {
-                    setNewContent(e.target.value);
-                    const el = e.currentTarget;
-                    el.style.height = "auto";
-                    el.style.height = Math.min(el.scrollHeight, 440) + "px";
-                    captionMentions.refresh();
-                  }}
-                  // Caret can move without the text changing (clicks, arrow
-                  // keys) — the @-dropdown must follow the caret, not the text.
-                  onClick={captionMentions.refresh}
-                  onKeyUp={captionMentions.refresh}
-                  onKeyDown={captionMentions.onKeyDown}
-                  placeholder={t("composer.placeholder")}
-                  className={`relative rounded-2xl px-4 py-2.5 resize-none min-h-[40px] max-h-[440px] border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm placeholder:text-muted-foreground/60 overflow-y-auto ${newContent.length > 2200 ? "bg-transparent" : "bg-muted/50"}`}
-                  rows={1}
-                />
+        <>
+          {/* ── THE COLLAPSED ROW ──
+              This is ALL the feed shows. Tapping it opens the Create post
+              modal; everything else — caption, photos, audience, schedule and
+              the 46 category chips — lives inside that modal.
 
-                {/* @mention dropdown — Instagram places caption suggestions in
-                    a list under the text box, so we do too. Buttons use
-                    onPointerDown (not onClick): a tap must win the race with
-                    the textarea's blur, the same Android-WebView rule already
-                    recorded in MentionInput.tsx and GlobalSearch.tsx. */}
-                {captionMentions.open && (
-                  <div className="absolute top-full left-0 right-0 mt-1 z-30 rounded-lg border border-border bg-popover shadow-lg overflow-hidden">
-                    {captionMentions.suggestions.map((s, i) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onPointerDown={(e) => {
-                          e.preventDefault();
-                          captionMentions.pick(s);
-                        }}
-                        onMouseEnter={() => captionMentions.setFocusIdx(i)}
-                        className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm ${i === captionMentions.focusIdx ? "bg-accent" : ""}`}
-                      >
-                        {s.avatar_url ? (
-                          <img src={s.avatar_url} alt="" loading="lazy" className="h-7 w-7 rounded-full object-cover" />
-                        ) : (
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-                            {(s.display || "?")[0]?.toUpperCase()}
-                          </div>
-                        )}
-                        <span className="font-medium">{s.display}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {/* No running counter (owner, 2026-08-04: "Don't show it
-                  anywhere"). The line appears ONLY over the limit, where Post
-                  is disabled and the excess text is highlighted. */}
-              {newContent.length > 2200 && (
-                <div className="text-[10px] mt-1 text-right tabular-nums text-destructive font-semibold">
-                  {newContent.length - 2200} over the 2200 limit — delete the highlighted text
-                </div>
-              )}
+              Owner, 2026-08-12, on the previous build: the chips were rendered
+              here, inline, under the Post button, which put a 46-chip grid on
+              the feed page. That is what this row replaces. */}
+          <div className="bleed-phone mb-4 overflow-hidden">
+            <div className="flex items-center gap-3 p-3">
+              <Avatar src={currentProfile?.avatar_url || null} name={currentProfile?.full_name} size="md" />
+              <button
+                type="button"
+                onClick={() => openComposer()}
+                className="min-w-0 flex-1 truncate rounded-full bg-muted/50 px-4 py-2.5 text-left text-sm text-muted-foreground/70 transition-colors hover:bg-muted"
+              >
+                {t("composer.placeholder")}
+              </button>
+              <button
+                type="button"
+                onClick={() => openComposer(true)}
+                aria-label={t("composer.addPhoto")}
+                className="shrink-0 rounded-full p-2 transition-colors hover:bg-muted/50"
+              >
+                <ImagePlus className="h-5 w-5 text-emerald-500" />
+              </button>
             </div>
+
+            {/* Drafts are visible, never buried in a settings screen. */}
+            {drafts.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setDraftsOpen(true)}
+                className="mx-3 mb-3 inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+              >
+                <FileText className="h-4 w-4" />
+                {t("post.drafts.open", "Drafts")} ({drafts.length})
+              </button>
+            )}
           </div>
 
+          {/* Mounted OUTSIDE the dialog so `openComposer(true)` can click it on
+              the very first open, before the dialog subtree exists. */}
           <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageSelect} className="hidden" />
+
           {cropIndex !== null && imagePreviews[cropIndex] && (
             <ImageCropModal
               key={`crop-${cropIndex}-${imagePreviews[cropIndex].slice(-24)}`}
@@ -1257,201 +1244,387 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
               onCancel={handleCropCancel}
             />
           )}
-          {imagePreviews.length > 0 && (
-            <div
-              className={`mx-3 mt-3 space-y-2 rounded-lg transition-all ${isDragOver ? "ring-2 ring-primary bg-primary/5 p-2" : ""}`}
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={() => setIsDragOver(false)}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
-                  {imagePreviews.length} photo{imagePreviews.length > 1 ? "s" : ""} selected{isDragOver ? " · drop to add more" : ""}
-                </span>
-                <button onClick={clearAllImages} className="text-xs text-destructive hover:underline">Remove all</button>
-              </div>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
-                {imagePreviews.map((preview, idx) => (
-                  <div key={idx} className="relative aspect-square rounded-md overflow-hidden border border-border">
-                    <img decoding="async" src={preview} alt="" className="w-full h-full object-contain bg-muted/40" />
-                    <button onClick={() => clearImage(idx)}
-                      className="absolute top-1 right-1 p-1 bg-card/90 backdrop-blur-sm rounded-full text-muted-foreground hover:text-destructive hover:bg-card transition-all shadow-sm">
-                      <X className="h-3 w-3" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCropIndex(idx)}
-                      title="Crop this photo"
-                      className="absolute bottom-1 left-1 inline-flex items-center gap-1 px-1.5 py-1 bg-card/90 backdrop-blur-sm rounded-full text-[10px] text-muted-foreground hover:text-foreground hover:bg-card transition-all shadow-sm"
-                    >
-                      <Crop className="h-3 w-3" />
-                      Crop
-                    </button>
-                  </div>
-                ))}
-                {imagePreviews.length < 10 && (
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    onDrop={handleDrop}
-                    onDragOver={handleDragOver}
-                    onDragLeave={() => setIsDragOver(false)}
-                    className={`aspect-square rounded-md border border-dashed flex items-center justify-center cursor-pointer transition-colors ${isDragOver ? "border-primary bg-primary/10" : "border-border hover:bg-muted/30"}`}
+
+          <Dialog open={composerOpen} onOpenChange={(o) => (o ? setComposerOpen(true) : closeComposer())}>
+            <DialogContent className="flex max-h-[92dvh] max-w-lg flex-col gap-0 p-0">
+              <header className="flex items-center gap-2 border-b border-border px-4 py-3">
+                {composerStep === "settings" ? (
+                  <button
+                    type="button"
+                    onClick={() => setComposerStep("compose")}
+                    aria-label={t("common.back", "Back")}
+                    className="rounded-full p-1.5 hover:bg-muted"
                   >
-                    <ImagePlus className={`h-5 w-5 ${isDragOver ? "text-primary" : "text-muted-foreground"}`} />
-                  </div>
+                    <ArrowLeft className="h-5 w-5" />
+                  </button>
+                ) : (
+                  <span className="w-8" />
+                )}
+                <DialogTitle className="flex-1 text-center text-base font-semibold">
+                  {composerStep === "settings"
+                    ? t("post.settings.title", "Post settings")
+                    : t("post.create.title", "Create post")}
+                </DialogTitle>
+                {/* DialogContent renders its own close button at top-right. */}
+                <span className="w-8" />
+              </header>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+                {composerStep === "compose" && (
+                  <>
+                    {/* Who is posting, and to whom. */}
+                    <div className="flex items-center gap-3 pb-2">
+                      <Avatar src={currentProfile?.avatar_url || null} name={currentProfile?.full_name} size="md" />
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold">{currentProfile?.full_name || "You"}</div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="mt-0.5 flex items-center gap-1.5 rounded-md border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/50">
+                              {privacyIcon(newPrivacy)}
+                              <span>{PRIVACY_OPTIONS.find((o) => o.value === newPrivacy)?.label || "Public"}</span>
+                              <ChevronDown className="h-3 w-3 opacity-50" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="min-w-[180px]">
+                            {PRIVACY_OPTIONS.map((opt) => (
+                              <DropdownMenuItem key={opt.value} onClick={() => setNewPrivacy(opt.value)} className="flex items-center gap-2.5 py-2">
+                                {opt.icon}
+                                <div>
+                                  <div className="text-sm font-medium">{opt.label}</div>
+                                  {opt.value === "private" && <div className="text-xs text-muted-foreground">Only you can see this</div>}
+                                  {opt.value === "friends" && <div className="text-xs text-muted-foreground">Your friends</div>}
+                                  {opt.value === "public" && <div className="text-xs text-muted-foreground">Anyone can see</div>}
+                                </div>
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      {/* Highlight overlay — paints yellow behind chars beyond 2200.
+                          Font metrics MUST exactly match the Textarea (font-family,
+                          size, line-height, letter-spacing, padding, border) or the
+                          highlight drifts off the lines. aria-hidden +
+                          pointer-events-none so it never blocks typing. */}
+                      {newContent.length > 2200 && (
+                        <div
+                          ref={highlightRef}
+                          aria-hidden="true"
+                          className="absolute inset-0 rounded-2xl pointer-events-none overflow-hidden text-transparent bg-muted/50"
+                        >
+                          <span>{newContent.slice(0, 2200)}</span>
+                          <span
+                            style={{
+                              backgroundColor: "hsl(54 95% 62% / 0.55)",
+                              borderRadius: "2px",
+                              boxDecorationBreak: "clone",
+                              WebkitBoxDecorationBreak: "clone",
+                            } as React.CSSProperties}
+                          >
+                            {newContent.slice(2200)}
+                          </span>
+                          {"\n"}
+                        </div>
+                      )}
+                      <Textarea
+                        ref={textareaRef}
+                        value={newContent}
+                        onChange={(e) => {
+                          setNewContent(e.target.value);
+                          const el = e.currentTarget;
+                          el.style.height = "auto";
+                          el.style.height = Math.min(el.scrollHeight, 440) + "px";
+                          captionMentions.refresh();
+                        }}
+                        // Caret can move without the text changing (clicks, arrow
+                        // keys) — the @-dropdown must follow the caret, not the text.
+                        onClick={captionMentions.refresh}
+                        onKeyUp={captionMentions.refresh}
+                        onKeyDown={captionMentions.onKeyDown}
+                        placeholder={t("composer.placeholder")}
+                        className={`relative resize-none rounded-2xl border-0 px-3 py-2.5 text-base focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60 min-h-[120px] max-h-[280px] overflow-y-auto ${newContent.length > 2200 ? "bg-transparent" : "bg-transparent"}`}
+                        rows={3}
+                      />
+
+                      {/* @mention dropdown — Instagram places caption suggestions in
+                          a list under the text box, so we do too. Buttons use
+                          onPointerDown (not onClick): a tap must win the race with
+                          the textarea's blur, the same Android-WebView rule already
+                          recorded in MentionInput.tsx and GlobalSearch.tsx. */}
+                      {captionMentions.open && (
+                        <div className="absolute top-full left-0 right-0 mt-1 z-30 rounded-lg border border-border bg-popover shadow-lg overflow-hidden">
+                          {captionMentions.suggestions.map((s, i) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onPointerDown={(e) => {
+                                e.preventDefault();
+                                captionMentions.pick(s);
+                              }}
+                              onMouseEnter={() => captionMentions.setFocusIdx(i)}
+                              className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm ${i === captionMentions.focusIdx ? "bg-accent" : ""}`}
+                            >
+                              {s.avatar_url ? (
+                                <img src={s.avatar_url} alt="" loading="lazy" className="h-7 w-7 rounded-full object-cover" />
+                              ) : (
+                                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                                  {(s.display || "?")[0]?.toUpperCase()}
+                                </div>
+                              )}
+                              <span className="font-medium">{s.display}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* No running counter (owner, 2026-08-04: "Don't show it
+                        anywhere"). The line appears ONLY over the limit, where Post
+                        is disabled and the excess text is highlighted. */}
+                    {newContent.length > 2200 && (
+                      <div className="mt-1 text-right text-[10px] font-semibold tabular-nums text-destructive">
+                        {newContent.length - 2200} over the 2200 limit — delete the highlighted text
+                      </div>
+                    )}
+
+                    {imagePreviews.length > 0 && (
+                      <div
+                        className={`mt-3 space-y-2 rounded-lg transition-all ${isDragOver ? "ring-2 ring-primary bg-primary/5 p-2" : ""}`}
+                        onDrop={handleDrop}
+                        onDragOver={handleDragOver}
+                        onDragLeave={() => setIsDragOver(false)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            {imagePreviews.length} photo{imagePreviews.length > 1 ? "s" : ""} selected{isDragOver ? " · drop to add more" : ""}
+                          </span>
+                          <button onClick={clearAllImages} className="text-xs text-destructive hover:underline">Remove all</button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+                          {imagePreviews.map((preview, idx) => (
+                            <div key={idx} className="relative aspect-square overflow-hidden rounded-md border border-border">
+                              <img decoding="async" src={preview} alt="" className="h-full w-full bg-muted/40 object-contain" />
+                              <button onClick={() => clearImage(idx)}
+                                className="absolute right-1 top-1 rounded-full bg-card/90 p-1 text-muted-foreground shadow-sm backdrop-blur-sm transition-all hover:bg-card hover:text-destructive">
+                                <X className="h-3 w-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setCropIndex(idx)}
+                                title="Crop this photo"
+                                className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded-full bg-card/90 px-1.5 py-1 text-[10px] text-muted-foreground shadow-sm backdrop-blur-sm transition-all hover:bg-card hover:text-foreground"
+                              >
+                                <Crop className="h-3 w-3" />
+                                Edit
+                              </button>
+                            </div>
+                          ))}
+                          {imagePreviews.length < 10 && (
+                            <div
+                              onClick={() => fileInputRef.current?.click()}
+                              onDrop={handleDrop}
+                              onDragOver={handleDragOver}
+                              onDragLeave={() => setIsDragOver(false)}
+                              className={`flex aspect-square cursor-pointer items-center justify-center rounded-md border border-dashed transition-colors ${isDragOver ? "border-primary bg-primary/10" : "border-border hover:bg-muted/30"}`}
+                            >
+                              <ImagePlus className={`h-5 w-5 ${isDragOver ? "text-primary" : "text-muted-foreground"}`} />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* A resumed draft's images are already in storage — shown as
+                        URLs, never re-uploaded. */}
+                    {resumedUrls.length > 0 && (
+                      <div className="mt-3 grid grid-cols-4 gap-2">
+                        {resumedUrls.map((u, i) => (
+                          <img key={i} src={resumedThumbs[i] ?? u} alt="" className="aspect-square w-full rounded-md object-cover" />
+                        ))}
+                      </div>
+                    )}
+
+                    {imagePreviews.length === 0 && resumedUrls.length === 0 && (
+                      <div onClick={() => fileInputRef.current?.click()} onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={() => setIsDragOver(false)}
+                        className={`mt-3 flex cursor-pointer flex-col items-center gap-1.5 rounded-lg border border-dashed py-6 transition-all ${isDragOver ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/50 hover:bg-muted/30"}`}>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                          <ImagePlus className={`h-5 w-5 ${isDragOver ? "text-primary" : "text-muted-foreground"}`} />
+                        </div>
+                        <span className="text-sm font-medium text-foreground">{t("composer.addPhoto")}</span>
+                        <span className="text-xs text-muted-foreground">{t("composer.dragDrop")}</span>
+                      </div>
+                    )}
+
+                    {/* "Add to your post" — the owner's bar. */}
+                    <div className="mt-4 flex items-center gap-1 rounded-lg border border-border p-2">
+                      <span className="flex-1 pl-1 text-sm font-medium">
+                        {t("post.create.addTo", "Add to your post")}
+                      </span>
+                      <button type="button" onClick={() => fileInputRef.current?.click()} aria-label={t("composer.addPhoto")} className="rounded-full p-2 hover:bg-muted/50">
+                        <ImagePlus className="h-5 w-5 text-emerald-500" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTagModalOpen(true)}
+                        disabled={imagePreviews.length === 0}
+                        title="Tag people in this photo"
+                        aria-label="Tag people"
+                        className="rounded-full p-2 hover:bg-muted/50 disabled:opacity-40"
+                      >
+                        <Tag className="h-5 w-5 text-sky-500" />
+                      </button>
+                      {pendingTags.length > 0 && (
+                        <span className="pr-1 text-xs text-muted-foreground">{pendingTags.length}</span>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {composerStep === "settings" && (
+                  <>
+                    <div className="pb-3">
+                      <p className="pb-2 text-sm font-semibold">{t("post.preview", "Post preview")}</p>
+                      <div className="flex items-start gap-3">
+                        {(imagePreviews[0] || resumedThumbs[0] || resumedUrls[0]) && (
+                          <img
+                            src={imagePreviews[0] || resumedThumbs[0] || resumedUrls[0]}
+                            alt=""
+                            className="h-20 w-20 shrink-0 rounded-md object-cover"
+                          />
+                        )}
+                        <p className="line-clamp-4 min-w-0 text-sm text-muted-foreground">{newContent}</p>
+                      </div>
+                    </div>
+
+                    <div className="divide-y divide-border border-y border-border">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button type="button" className="flex w-full items-center gap-3 px-1 py-3 text-left hover:bg-muted/40">
+                            <Globe className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                            <span className="flex-1">
+                              <span className="block text-sm font-medium">{t("post.audience", "Post audience")}</span>
+                              <span className="block text-xs text-muted-foreground">
+                                {PRIVACY_OPTIONS.find((o) => o.value === newPrivacy)?.label || "Public"}
+                              </span>
+                            </span>
+                            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="min-w-[180px]">
+                          {PRIVACY_OPTIONS.map((opt) => (
+                            <DropdownMenuItem key={opt.value} onClick={() => setNewPrivacy(opt.value)} className="flex items-center gap-2.5 py-2">
+                              {opt.icon}
+                              <div>
+                                <div className="text-sm font-medium">{opt.label}</div>
+                                {opt.value === "private" && <div className="text-xs text-muted-foreground">Only you can see this</div>}
+                                {opt.value === "friends" && <div className="text-xs text-muted-foreground">Your friends</div>}
+                                {opt.value === "public" && <div className="text-xs text-muted-foreground">Anyone can see</div>}
+                              </div>
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => setShowSchedule((v) => !v)}
+                          className="flex w-full items-center gap-3 px-1 py-3 text-left hover:bg-muted/40"
+                        >
+                          <CalendarClock className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                          <span className="flex-1">
+                            <span className="block text-sm font-medium">{t("post.scheduling", "Scheduling options")}</span>
+                            <span className="block text-xs text-muted-foreground">
+                              {scheduleAt ? scheduleAt.toLocaleString() : t("post.publishNow", "Publish now")}
+                            </span>
+                          </span>
+                          <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${showSchedule ? "rotate-180" : ""}`} />
+                        </button>
+                        {showSchedule && (
+                          <div className="pb-3">
+                            <ScheduleDateTimePicker value={scheduleAt} onChange={setScheduleAt} disabled={posting} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/*
+                      Stage C — the 1-5 category picker. THIS is where the owner's
+                      design puts it: inside Post settings, under the audience and
+                      scheduling rows. Never on the feed page.
+                    */}
+                    <div className="pt-4">
+                      <CategoryChips value={postCategories} onChange={setPostCategories} />
+                    </div>
+
+                    {/* SOW §5.2 — Search engine opt-out (only meaningful for public posts) */}
+                    {newPrivacy === "public" && (
+                      <label className="mt-4 flex cursor-pointer items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground">
+                        <input
+                          type="checkbox"
+                          checked={excludeFromSearch}
+                          onChange={(e) => setExcludeFromSearch(e.target.checked)}
+                          className="h-3.5 w-3.5 cursor-pointer accent-primary"
+                        />
+                        <span>{t("composer.excludeSearch")}</span>
+                      </label>
+                    )}
+                  </>
                 )}
               </div>
-            </div>
-          )}
 
-          {imagePreviews.length === 0 && (
-            <div onClick={() => fileInputRef.current?.click()} onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={() => setIsDragOver(false)}
-              className={`mx-3 mt-3 border border-dashed rounded-lg py-6 flex flex-col items-center gap-1.5 cursor-pointer transition-all ${isDragOver ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/50 hover:bg-muted/30"}`}>
-              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                <ImagePlus className={`h-5 w-5 ${isDragOver ? "text-primary" : "text-muted-foreground"}`} />
-              </div>
-              <span className="text-sm font-medium text-foreground">{t("composer.addPhoto")}</span>
-              <span className="text-xs text-muted-foreground">{t("composer.dragDrop")}</span>
-            </div>
-          )}
-
-          <div className="mx-3 mt-3 border-t border-border" />
-
-          {/* SOW §5.2 — Search engine opt-out (only meaningful for public posts) */}
-          {newPrivacy === "public" && (
-            <label className="flex items-center gap-2 px-3 pt-2.5 cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors">
-              <input
-                type="checkbox"
-                checked={excludeFromSearch}
-                onChange={(e) => setExcludeFromSearch(e.target.checked)}
-                className="w-3.5 h-3.5 accent-primary cursor-pointer"
-              />
-              <span>{t("composer.excludeSearch")}</span>
-            </label>
-          )}
-
-          <div className="flex items-center justify-between px-3 py-2.5">
-            <div className="flex items-center gap-1">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors">
-                    {privacyIcon(newPrivacy)}
-                    <span className="hidden sm:inline">{PRIVACY_OPTIONS.find((o) => o.value === newPrivacy)?.label || "Public"}</span>
-                    <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+              <footer className="border-t border-border px-4 py-3">
+                {composerStep === "compose" ? (
+                  <button
+                    type="button"
+                    onClick={() => setComposerStep("settings")}
+                    disabled={newContent.trim().length === 0 && imagePreviews.length === 0 && resumedUrls.length === 0}
+                    className="w-full rounded-md bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {t("post.next", "Next")}
                   </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="min-w-[180px]">
-                  {PRIVACY_OPTIONS.map((opt) => (
-                    <DropdownMenuItem key={opt.value} onClick={() => setNewPrivacy(opt.value)} className="flex items-center gap-2.5 py-2">
-                      {opt.icon}
-                      <div>
-                        <div className="text-sm font-medium">{opt.label}</div>
-                        {opt.value === "private" && <div className="text-xs text-muted-foreground">Only you can see this</div>}
-                        {opt.value === "friends" && <div className="text-xs text-muted-foreground">Your friends</div>}
-                        {opt.value === "public" && <div className="text-xs text-muted-foreground">Anyone can see</div>}
-                      </div>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {selectedImages.length > 0 && (
-                <button
-                  onClick={() => setTagModalOpen(true)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
-                  title="Tag people in this photo"
-                >
-                  <Tag className="h-4 w-4 text-secondary" />
-                  <span className="hidden sm:inline">
-                    Tag {pendingTags.length > 0 ? `(${pendingTags.length})` : "People"}
-                  </span>
-                </button>
-              )}
-              {selectedImages.length > 0 && (
-                <button
-                  onClick={() => setShowSchedule((v) => !v)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${showSchedule || scheduleAt ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"}`}
-                  title="Schedule this post"
-                >
-                  <CalendarClock className="h-4 w-4" />
-                  <span className="hidden sm:inline">
-                    {scheduleAt ? "Scheduled" : "Schedule"}
-                  </span>
-                </button>
-              )}
-            </div>
-            {/*
-              The Post button follows createPost EXACTLY: a photo is required,
-              the caption is not, and Stage C adds 1-5 categories. If these ever
-              disagree the member either gets a dead button or a refusal after
-              they press it. See the ruling at the top of createPost before
-              touching either.
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={saveDraft}
+                      disabled={posting || savingDraft || nothingToSave}
+                      className="flex-1 rounded-md border border-border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {savingDraft
+                        ? t("post.saving", "Saving…")
+                        : draftId
+                          ? t("post.updateDraft", "Update draft")
+                          : t("post.saveDraft", "Save")}
+                    </button>
+                    {/*
+                      The Post button follows createPost EXACTLY: a photo is required,
+                      the caption is not, and Stage C adds 1-5 categories. If these ever
+                      disagree the member either gets a dead button or a refusal after
+                      they press it. See the ruling at the top of createPost before
+                      touching either.
 
-              The category rule is enforced HERE and only here until Stage B2
-              activates POST-CAT-002 in the database.
-            */}
-            <button onClick={draftId ? publishResumedDraft : createPost} disabled={posting || (selectedImages.length === 0 && resumedUrls.length === 0) || !canPublishCategories(postCategories) || newContent.length > 2200 || (!!scheduleAt && (scheduleAt.getTime() < Date.now() + 5*60*1000 || scheduleAt.getTime() > Date.now() + 90*24*60*60*1000))}
-              className="px-5 py-1.5 bg-primary text-primary-foreground rounded-md text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-              {posting ? (scheduleAt ? "Scheduling..." : "Posting...") : newContent.length > 2200 ? `Trim ${newContent.length - 2200}` : scheduleAt ? "Schedule" : "Post"}
-            </button>
-          </div>
-          {/* A resumed draft's images are already in storage — shown as URLs,
-              never re-uploaded. */}
-          {resumedUrls.length > 0 && (
-            <div className="mt-3 grid grid-cols-4 gap-2">
-              {resumedUrls.map((u, i) => (
-                <img key={i} src={resumedThumbs[i] ?? u} alt="" className="aspect-square w-full rounded-md object-cover" />
-              ))}
-            </div>
-          )}
-          {/*
-            Stage C — the 1-5 category picker, inline (Option B).
-
-            ⚠ ALWAYS VISIBLE. The first version rendered this only once a photo
-            was attached, mirroring createPost's photo rule. That was wrong: it
-            made the headline feature invisible in the composer's default state,
-            so the whole release looked like nothing had shipped. A member must
-            be able to SEE what is being asked of them before they are asked.
-          */}
-          <div className="mt-3 border-t pt-3">
-            <CategoryChips value={postCategories} onChange={setPostCategories} />
-          </div>
-
-          {/* Drafts — saved work is visible, never buried in a settings screen. */}
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={() => setDraftsOpen(true)}
-              className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline disabled:opacity-40"
-              disabled={drafts.length === 0}
-            >
-              <FileText className="h-4 w-4" />
-              {t("post.drafts.open", "Drafts")} ({drafts.length})
-            </button>
-            <button
-              type="button"
-              onClick={saveDraft}
-              disabled={posting || savingDraft || nothingToSave}
-              className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {savingDraft
-                ? t("post.saving", "Saving…")
-                : draftId
-                  ? t("post.updateDraft", "Update draft")
-                  : t("post.saveDraft", "Save draft")}
-            </button>
-          </div>
-          {showSchedule && selectedImages.length > 0 && (
-            <div className="mt-3">
-              <ScheduleDateTimePicker value={scheduleAt} onChange={setScheduleAt} disabled={posting} />
-            </div>
-          )}
-        </div>
+                      The category rule is enforced HERE and only here until Stage B2
+                      activates POST-CAT-002 in the database.
+                    */}
+                    <button onClick={draftId ? publishResumedDraft : createPost} disabled={posting || (selectedImages.length === 0 && resumedUrls.length === 0) || !canPublishCategories(postCategories) || newContent.length > 2200 || (!!scheduleAt && (scheduleAt.getTime() < Date.now() + 5*60*1000 || scheduleAt.getTime() > Date.now() + 90*24*60*60*1000))}
+                      className="flex-1 rounded-md bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40">
+                      {posting ? (scheduleAt ? "Scheduling..." : "Posting...") : newContent.length > 2200 ? `Trim ${newContent.length - 2200}` : scheduleAt ? "Schedule" : "Post"}
+                    </button>
+                  </div>
+                )}
+              </footer>
+            </DialogContent>
+          </Dialog>
+        </>
       )}
 
       <DraftsList
         open={draftsOpen}
         onOpenChange={setDraftsOpen}
-        onResume={resumeDraft}
+        onResume={(d) => { resumeDraft(d); openComposer(); }}
       />
 
       <TagPeopleModal
