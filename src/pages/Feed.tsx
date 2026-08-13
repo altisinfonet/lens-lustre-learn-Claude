@@ -28,6 +28,7 @@ import PostCard from "@/components/post/PostCard";
 import PostCardSkeleton from "@/components/post/PostCardSkeleton";
 import WallPosts from "@/components/WallPosts";
 import CategoryStrip from "@/components/feed/CategoryStrip";
+import FeedCardWindow, { EAGER_CARDS } from "@/components/feed/FeedCardWindow";
 import { ALL_FILTER } from "@/lib/categories";
 import type { ReactionType } from "@/components/ReactionPicker";
 import type { UnifiedPost } from "@/types/post";
@@ -398,6 +399,14 @@ const Feed = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.35, delay: Math.min(i, 5) * 0.03 }}
                   >
+                  {/* ⚠ THE WINDOW GOES INSIDE THE motion.div, NOT AROUND IT.
+                      Put it outside and the motion.div unmounts with the card,
+                      so its entry animation REPLAYS every time a member scrolls
+                      back up — every card fading in again on the way up reads
+                      as the feed reloading itself. Inside, the motion.div stays
+                      mounted for the life of the post and only its contents
+                      come and go. */}
+                  <FeedCardWindow eager={i < EAGER_CARDS}>
                     <PostCard
                       post={post}
                       currentUserId={user.id}
@@ -409,6 +418,7 @@ const Feed = () => {
                       onShareCountChange={handleShareCountChange}
                       onContentChange={handleContentChange}
                     />
+                  </FeedCardWindow>
                   </motion.div>
 
                   {/*
