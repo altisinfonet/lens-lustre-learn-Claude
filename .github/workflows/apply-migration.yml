@@ -1,0 +1,166 @@
+name: Apply a database migration
+
+# ═══════════════════════════════════════════════════════════════════════════
+# THE ONLY SANCTIONED WAY TO RUN SQL AGAINST PRODUCTION FROM THIS REPOSITORY.
+#
+# Owner, 2026-08-13: *"you run"* — asking Claude to apply the feed migration
+# itself. It could not, and the reason is worth writing down rather than
+# working around: applying a migration requires the production database
+# credential, and an assistant should never hold that. Same rule as the
+# upload keystore and the Play service-account JSON.
+#
+# This workflow is the way out. The credential lives in GitHub's secret store,
+# where nobody reading this file and nothing running in it can print it. What
+# it buys, beyond "somebody can run the SQL":
+#
+#   * an audit trail — who dispatched it, when, against which file
+#   * the exact SQL echoed into the log BEFORE it runs
+#   * ON_ERROR_STOP, so a failure stops at the first error instead of
+#     half-applying and leaving the schema somewhere nobody designed
+#   * one file per run, named explicitly — never "apply everything pending"
+#
+# ───────────────────────────────────────────────────────────────────────────
+# ⚠ ONE-TIME SETUP, AND IT IS THE OWNER'S HANDS ONLY.
+#
+#   Supabase dashboard → Project Settings → Database → Connection string →
+#   URI. Copy it. Then GitHub → Settings → Secrets and variables → Actions →
+#   New repository secret:
+#
+#       Name:   SUPABASE_DB_URL
+#       Value:  postgresql://postgres:<password>@db.<ref>.supabase.co:5432/postgres
+#
+#   Use the SESSION connection string (port 5432), not the transaction pooler
+#   (6543). The pooler does not support the multi-statement transactions these
+#   migrations depend on, and a migration that silently loses its BEGIN is
+#   exactly the failure this whole design exists to prevent.
+#
+#   Until that secret exists this workflow refuses to run and says so. It
+#   cannot half-work.
+#
+# ⚠ RECOMMENDED, NOT REQUIRED: bind this to a GitHub Environment with a
+#   required reviewer (Settings → Environments → new environment "production"
+#   → Required reviewers → you). Then every dispatch waits for your approval
+#   before touching the database, even one dispatched by someone else.
+#   To enable, uncomment the `environment:` line in the job below.
+#
+# ───────────────────────────────────────────────────────────────────────────
+# ⚠ MANUAL DISPATCH ONLY. There is deliberately no `push:` trigger.
+#
+# A migration must never run because someone merged something. The blast
+# radius of "the schema changed itself" on a live app is unbounded, and the
+# person best placed to decide when it happens is the person watching it.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_dispatch:
+    inputs:
+      migration:
+        description: "Path under supabase/migrations/ or supabase/rollback/ — e.g. supabase/migrations/20260813120000_feed_author_identity.sql"
+        required: true
+        type: string
+      confirm:
+        description: "Type the SAME path again. A mis-click cannot fire this."
+        required: true
+        type: string
+
+# Two dispatches must never overlap on the same database.
+concurrency:
+  group: apply-migration
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: Apply SQL to production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Uncomment to require a human approval on every run (see the header):
+    # environment: production
+    env:
+      DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # The secret is checked FIRST so a missing one costs two seconds and says
+      # plainly what to do, rather than failing later inside psql with
+      # "connection to server failed", which reads like an outage.
+      - name: Refuse to start without the database credential
+        run: |
+          if [ -z "$DB_URL" ]; then
+            echo "::error::SUPABASE_DB_URL is not set. See the header of this file for the one-time setup — it takes about a minute and only the owner can do it."
+            exit 1
+          fi
+          echo "Credential present. Its value is never printed by this workflow."
+
+      # ⚠ PATH VALIDATION IS A SECURITY CONTROL, NOT TIDINESS.
+      #
+      # `migration` is free text typed into a dispatch box. Without these
+      # checks it could name any file in the repository — or, with `..`, any
+      # file on the runner — and this job would feed it to psql as SQL against
+      # production. The allowlist is the two directories that exist to hold
+      # reviewed SQL, and nothing else is reachable.
+      - name: Validate the requested file
+        run: |
+          set -euo pipefail
+          FILE='${{ inputs.migration }}'
+          CONFIRM='${{ inputs.confirm }}'
+
+          if [ "$FILE" != "$CONFIRM" ]; then
+            echo "::error::The two inputs do not match. Nothing was run."
+            echo "  migration: $FILE"
+            echo "  confirm:   $CONFIRM"
+            exit 1
+          fi
+
+          case "$FILE" in
+            supabase/migrations/*.sql|supabase/rollback/*.sql) : ;;
+            *) echo "::error::Only files under supabase/migrations/ or supabase/rollback/ ending in .sql may be run. Got: $FILE"; exit 1 ;;
+          esac
+
+          case "$FILE" in
+            *..*) echo "::error::Path traversal refused: $FILE"; exit 1 ;;
+          esac
+
+          if [ ! -f "$FILE" ]; then
+            echo "::error::No such file on this commit: $FILE"
+            echo "Files available:"
+            ls -1 supabase/migrations/*.sql supabase/rollback/*.sql 2>/dev/null | tail -20
+            exit 1
+          fi
+
+          echo "Will run: $FILE ($(wc -l < "$FILE") lines)"
+
+      # Echoed in full BEFORE anything is executed, so the log is a record of
+      # exactly what ran — not of what the file happened to say afterwards.
+      - name: Show the SQL that is about to run
+        run: |
+          echo "───────────────────────────────────────────────────────────"
+          cat '${{ inputs.migration }}'
+          echo "───────────────────────────────────────────────────────────"
+
+      - name: Install psql
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+          psql --version
+
+      # ⚠ ON_ERROR_STOP=1 IS LOAD-BEARING.
+      #
+      # Without it psql reports an error and CARRIES ON to the next statement.
+      # A migration that half-applies to a live database leaves the schema in a
+      # state nobody designed and no rollback file anticipates. With it, the
+      # first error stops the run — and because these migrations wrap
+      # themselves in BEGIN/COMMIT, the transaction rolls back and the database
+      # is left exactly as it was.
+      - name: Run it
+        run: |
+          set -euo pipefail
+          psql "$DB_URL" \
+            --set ON_ERROR_STOP=1 \
+            --echo-errors \
+            --no-psqlrc \
+            -f '${{ inputs.migration }}'
+
+      - name: Confirm
+        run: |
+          echo "✅ Applied: ${{ inputs.migration }}"
+          echo "Verify from the app, not only from SQL — that is the check that counts."
