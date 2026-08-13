@@ -61,15 +61,38 @@ export function useCategories() {
         .eq("is_active", true)
         .order("sort_order", { ascending: true });
 
-      if (error || !Array.isArray(data)) return [];
+      /**
+       * ⚠ A FAILED FETCH MUST THROW, NOT RETURN AN EMPTY LIST.
+       *
+       * Owner, 2026-08-12: "on a bit slow network … top categories are not
+       * visible, only All is showing". This was the cause, and it was mine.
+       *
+       * Returning `[]` here reports the failure to React Query as a SUCCESS
+       * whose value happens to be empty. Combined with `staleTime: Infinity`
+       * below, that empty list is then treated as fresh, correct data for the
+       * rest of the session — so one dropped request on a weak signal removed
+       * all 46 categories until the app was restarted. "All" survived only
+       * because it is hard-coded in the strip, never fetched.
+       *
+       * Throwing lets React Query see a real error: it retries, it does not
+       * cache the failure as truth, and the strip fills in as soon as the
+       * network recovers.
+       */
+      if (error) throw error;
+      if (!Array.isArray(data)) throw new Error("categories: unexpected payload shape");
       return data as Category[];
     },
     // The taxonomy is a fixed admin-managed list. Refetching it on every mount
     // would be pure waste; an admin edit reaches members on their next load.
+    // Infinity is safe ONLY because a failure now throws instead of being
+    // cached as an empty success (see the queryFn). A cached ERROR is retried;
+    // a cached empty SUCCESS never is — that was the bug.
     staleTime: Infinity,
     gcTime: 60 * 60_000,
-    // A category strip that briefly renders empty is better than one that
-    // blocks the feed behind a retry storm.
-    retry: 1,
+    // Three attempts with backoff, because the failure this recovers from is a
+    // weak mobile signal, not a broken endpoint. Still bounded so a genuinely
+    // dead table cannot spin forever.
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
   });
 }
