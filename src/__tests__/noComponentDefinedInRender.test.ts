@@ -77,28 +77,58 @@ const code = (src: string) =>
   src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
 
 describe("no component is declared in render and then used as an element", () => {
-  const offenders: string[] = [];
-
-  /** Body of `const Name = (…) => { … }`, by brace matching from the arrow. */
+  /**
+   * The body of `const Name = (…) => …`, whichever shape it is written in.
+   *
+   * ⚠ BOTH SHAPES, AND THAT IS A BUG FIX (2026-08-13).
+   *
+   * This used to jump to the first `{` after the arrow and brace-match from
+   * there. That reads a block body correctly:
+   *
+   *     const Foo = (p) => { return <input onChange={f} /> }   ✔ body found
+   *
+   * but on a CONCISE body it lands on the first JSX expression container
+   * instead of the function body:
+   *
+   *     const Foo = (p) => ( <input value={v} onChange={f} /> )
+   *                                        ↑ matched `{v}` and stopped
+   *
+   * so `bodyOf` returned the two characters `{v`, the `<input` test failed, and
+   * the offender was waved through. Half the components in this codebase are
+   * written the concise way — including `Toggle` in AdminPerformance, which the
+   * guard had never once looked inside. The guard was reporting on a subset of
+   * the code while reading as if it covered all of it.
+   *
+   * Now the delimiter is whatever actually follows the arrow, and the matching
+   * counts that delimiter's own pairs.
+   */
   function bodyOf(src: string, at: number): string {
-    const brace = src.indexOf("{", src.indexOf("=>", at));
-    if (brace === -1) return "";
+    const arrow = src.indexOf("=>", at);
+    if (arrow === -1) return "";
+    let i = arrow + 2;
+    while (i < src.length && /\s/.test(src[i])) i++;
+    const open = src[i];
+    const close = open === "{" ? "}" : open === "(" ? ")" : "";
+    // A concise body with no delimiter at all — `(p) => <input …/>` — has no
+    // closing token to match, so take the rest of the statement.
+    if (!close) return src.slice(i, src.indexOf("\n;", i) + 1 || undefined);
+
     let depth = 0;
-    for (let i = brace; i < src.length; i++) {
-      if (src[i] === "{") depth++;
-      else if (src[i] === "}") {
+    for (let j = i; j < src.length; j++) {
+      if (src[j] === open) depth++;
+      else if (src[j] === close) {
         depth--;
-        if (depth === 0) return src.slice(brace, i);
+        if (depth === 0) return src.slice(i, j);
       }
     }
-    return src.slice(brace);
+    return src.slice(i);
   }
 
   const INPUT = /<(MentionInput|Textarea|Input|input|textarea)\b/;
 
-  for (const file of tsxFiles()) {
-    const src = code(read(file));
-
+  /** Offending component names inside one already-comment-stripped source. */
+  function scan(src: string): string[] {
+    const found: string[] = [];
     // `  const Foo = (` indented ⇒ declared inside a function body.
     // Module-scope declarations start at column 0 and are perfectly fine.
     for (const m of src.matchAll(/^[ \t]+const ([A-Z][A-Za-z0-9]*)\s*=\s*\(/gm)) {
@@ -115,29 +145,32 @@ describe("no component is declared in render and then used as an element", () =>
       const body = bodyOf(src, m.index ?? 0);
       if (!INPUT.test(body) || !/\bonChange=/.test(body)) continue;
 
-      offenders.push(`${file}: <${name} />`);
+      found.push(name);
     }
+    return found;
+  }
+
+  const offenders: string[] = [];
+  for (const file of tsxFiles()) {
+    for (const name of scan(code(read(file)))) offenders.push(`${file}: <${name} />`);
   }
 
   /**
-   * ⚠ KNOWN, TRACKED, NOT HIDDEN.
+   * ⚠ THE ALLOWLIST IS EMPTY, AND IT IS MEANT TO STAY THAT WAY.
    *
-   * `CriteriaSliders` in the judge panel is the same defect — declared in
-   * render, used as an element, and it owns a controlled numeric <Input>. A
-   * judge typing a score fights the same caret reset.
+   * It used to carry one entry: `CriteriaSliders` in the judge panel, the last
+   * component in the codebase declared in render and rendered as an element
+   * while owning a controlled numeric <Input>. It was tracked rather than fixed
+   * because it calls `useState` — a render-function shares the parent's hook
+   * slots and it is rendered conditionally, so converting it to a call would
+   * have reordered the parent's hooks, which is a worse bug than the one being
+   * fixed. It has since been hoisted to module scope with explicit props
+   * (2026-08-13), which is the correct fix, so the entry is gone.
    *
-   * It is NOT fixed the same way because it calls `useState`. A render-function
-   * shares the parent's hook slots, and this one is rendered CONDITIONALLY
-   * (`showCriteria ? … : …`), so turning it into a call would change the
-   * parent's hook order between renders — a far worse bug than the one being
-   * fixed. It needs hoisting to module scope with explicit props, which is a
-   * real refactor of judging code and does not belong in a release that is
-   * already changing the whole posting flow.
-   *
-   * Listed here so it stays VISIBLE rather than quietly passing. Delete the
-   * entry when it is hoisted. A NEW offender still fails this test.
+   * Do not add to this list to make a build green. An entry here is a promise
+   * to come back, and this one took a release to honour.
    */
-  const KNOWN = ["src/components/judge/MobileJudgeView.tsx: <CriteriaSliders />"];
+  const KNOWN: string[] = [];
 
   it("has no offender that is not already tracked", () => {
     expect(
@@ -149,11 +182,42 @@ describe("no component is declared in render and then used as an element", () =>
     ).toEqual(KNOWN.filter((k) => offenders.includes(k)));
   });
 
-  it("still sees the tracked one — so the guard has not gone blind", () => {
-    // If this fails because CriteriaSliders was fixed: delete it from KNOWN.
-    // If it fails because the DETECTION broke, that is far more serious — the
-    // whole test would be passing vacuously.
-    expect(offenders).toEqual(expect.arrayContaining(KNOWN));
+  /**
+   * ⚠ THE GUARD MUST BE PROVED, NOT ASSUMED.
+   *
+   * While the allowlist held a real offender, that entry doubled as proof the
+   * detector still worked: if the regex ever broke, the tracked file would stop
+   * being reported and the test would fail loudly. With the list empty that
+   * proof is gone, and a silently broken detector would make every run above
+   * pass VACUOUSLY — the most dangerous state a guard can be in, because it
+   * looks exactly like success.
+   *
+   * So the detector is now run against a fixture that IS the bug, plus one that
+   * is the accepted fix. Both directions matter: a guard that flags everything
+   * is as useless as one that flags nothing.
+   */
+  it("still detects the pattern — so the guard has not gone blind", () => {
+    const bug = [
+      "const Parent = () => {",
+      "  const CommentItem = ({ v, on }) => (",
+      "    <div><input value={v} onChange={on} /></div>",
+      "  );",
+      "  return <CommentItem v={x} on={f} />;",
+      "};",
+    ].join("\n");
+    expect(scan(bug)).toEqual(["CommentItem"]);
+  });
+
+  it("does not flag the render-function form that replaced it", () => {
+    const fixed = [
+      "const Parent = () => {",
+      "  const renderComment = (c) => (",
+      "    <div><input value={c.v} onChange={f} /></div>",
+      "  );",
+      "  return renderComment(x);",
+      "};",
+    ].join("\n");
+    expect(scan(fixed)).toEqual([]);
   });
 });
 

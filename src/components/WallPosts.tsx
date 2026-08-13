@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { MessageCircle, Send, Globe, Users, Lock, ChevronDown, ImagePlus, X, Tag, CalendarClock, Crop, ArrowLeft } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import TagPeopleModal, { type PendingTag } from "@/components/post/TagPeopleModal";
@@ -43,6 +43,7 @@ import { useCaptionMentions } from "@/hooks/feed/useCaptionMentions";
 import { logger, newCorrelationId } from "@/lib/logger";
 import type { ReactionType } from "@/components/ReactionPicker";
 import type { UnifiedPost } from "@/types/post";
+import { avatarInitial } from "@/lib/displayName";
 
 type Privacy = "public" | "friends" | "private";
 
@@ -65,7 +66,7 @@ const Avatar = ({ src, name, size = "md" }: { src: string | null; name: string |
   }
   return (
     <div className={`${sizeClasses[size]} rounded-full bg-primary/10 flex items-center justify-center`}>
-      <span className="text-xs text-primary" style={{ fontFamily: "var(--font-display)" }}>{(name || "?")[0]?.toUpperCase()}</span>
+      <span className="text-xs text-primary" style={{ fontFamily: "var(--font-display)" }}>{avatarInitial(name)}</span>
     </div>
   );
 };
@@ -324,6 +325,43 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     setComposerStep("settings");
     setComposerOpen(true);
   };
+
+  /**
+   * THE "+ CREATE" BUTTON IN THE TOP BAR REACHES THIS COMPONENT VIA `?compose=1`.
+   *
+   * Navbar and WallPosts are far apart in the tree and share no state, so the
+   * button navigates to `/feed?compose=1` instead. A URL is the right carrier
+   * here precisely because it is EXPLICIT and inspectable — a global event bus
+   * would fire invisibly and be impossible to reason about later. It also means
+   * the button works from any screen: navigating to /feed happens first, this
+   * component mounts, and the flag is already waiting for it.
+   *
+   * `handledRef` is what stops a loop. Opening the Android picker suspends this
+   * WebView; when it returns, React may re-run effects, and without the latch a
+   * second picker would open on top of the first. The flag is consumed exactly
+   * once and stripped from the URL with `replace` so the Back button does not
+   * land on a URL that re-opens the composer.
+   */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const composeHandledRef = useRef(false);
+  useEffect(() => {
+    if (searchParams.get("compose") !== "1") {
+      // Reset once the flag is gone, so a SECOND press of Create still works.
+      composeHandledRef.current = false;
+      return;
+    }
+    if (composeHandledRef.current) return;
+    composeHandledRef.current = true;
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("compose");
+    setSearchParams(next, { replace: true });
+
+    if (appFlow) void startAppPost();
+    else openComposer();
+    // startAppPost/openComposer are stable for this component's lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, appFlow]);
   /**
    * Nothing worth saving: no photo, no words, and no existing draft to update.
    *
@@ -1254,25 +1292,49 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
               Owner, 2026-08-12, on the previous build: the chips were rendered
               here, inline, under the Post button, which put a 46-chip grid on
               the feed page. That is what this row replaces. */}
+          {/* ⚠ THE WRAPPER ITSELF IS CONDITIONAL, NOT JUST ITS CONTENTS.
+              In the app the composer row below is gone, so with no saved drafts
+              this container would render as an EMPTY div that still carries
+              `mb-4` — 16px of dead white between the stories and the first post,
+              on every app screen, for no reason anyone could see in the markup.
+              An empty box with a margin is still a box. It is rendered only
+              when it will actually contain something. */}
+          {(!appFlow || drafts.length > 0) && (
           <div className="bleed-phone mb-4 overflow-hidden">
-            <div className="flex items-center gap-3 p-3">
-              <Avatar src={currentProfile?.avatar_url || null} name={currentProfile?.full_name} size="md" />
-              <button
-                type="button"
-                onClick={() => (appFlow ? void startAppPost() : openComposer())}
-                className="min-w-0 flex-1 truncate rounded-full bg-muted/50 px-4 py-2.5 text-left text-sm text-muted-foreground/70 transition-colors hover:bg-muted"
-              >
-                {t("composer.placeholder")}
-              </button>
-              <button
-                type="button"
-                onClick={() => (appFlow ? void startAppPost() : openComposer(true))}
-                aria-label={t("composer.addPhoto")}
-                className="shrink-0 rounded-full p-2 transition-colors hover:bg-muted/50"
-              >
-                <ImagePlus className="h-5 w-5 text-emerald-500" />
-              </button>
-            </div>
+            {/* ⚠ THE APP HAS NO "WHAT'S ON YOUR MIND?" ROW.
+                Owner, 2026-08-12, with the reference screenshot for the third
+                time: *"i want create post will be according to the sample …
+                no facebook style (only in app) what's in your mind will show"*.
+
+                His design is Instagram-shaped: you post from the **+ Create**
+                button in the top bar, and the feed goes straight from the
+                category strip to the stories to the posts. The Facebook-style
+                composer bar is a WEB-only affordance now.
+
+                `appFlow` is the only gate — the website is untouched and keeps
+                the row exactly as it was. The Create button lives in Navbar.tsx
+                and reaches this component through `?compose=1`; see the effect
+                near the top of this file. */}
+            {!appFlow && (
+              <div className="flex items-center gap-3 p-3">
+                <Avatar src={currentProfile?.avatar_url || null} name={currentProfile?.full_name} size="md" />
+                <button
+                  type="button"
+                  onClick={() => openComposer()}
+                  className="min-w-0 flex-1 truncate rounded-full bg-muted/50 px-4 py-2.5 text-left text-sm text-muted-foreground/70 transition-colors hover:bg-muted"
+                >
+                  {t("composer.placeholder")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openComposer(true)}
+                  aria-label={t("composer.addPhoto")}
+                  className="shrink-0 rounded-full p-2 transition-colors hover:bg-muted/50"
+                >
+                  <ImagePlus className="h-5 w-5 text-emerald-500" />
+                </button>
+              </div>
+            )}
 
             {/* Drafts are visible, never buried in a settings screen. */}
             {drafts.length > 0 && (
@@ -1286,6 +1348,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
               </button>
             )}
           </div>
+          )}
 
           {/* Mounted OUTSIDE the dialog so `openComposer(true)` can click it on
               the very first open, before the dialog subtree exists. */}

@@ -40,17 +40,34 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import TaggedPeople from "@/components/post/TaggedPeople";
 import type { TaggedPerson } from "@/types/post";
 
 const people = (n: number): TaggedPerson[] =>
   Array.from({ length: n }, (_, i) => ({ id: `u${i}`, name: `Person ${i}` }));
 
+/**
+ * A QueryClientProvider is required as of 2026-08-13.
+ *
+ * The tagged name now carries the verified tick (owner's standing rule: the
+ * badge shows with the name everywhere), and the tick comes from `AutoBadge`,
+ * which reads the shared profile cache through React Query. Without a provider
+ * the component throws "No QueryClient set" before it renders a single name.
+ *
+ * `retry: false` so a lookup that cannot resolve in the test environment fails
+ * immediately instead of holding the render open through three backoffs. The
+ * assertions below are about the NAMES and the COUNT, which do not depend on
+ * the badge resolving at all — an unresolved AutoBadge renders nothing, which
+ * is exactly what an unbadged member looks like.
+ */
 const show = (list: TaggedPerson[]) =>
   render(
-    <MemoryRouter>
-      <TaggedPeople people={list} />
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter>
+        <TaggedPeople people={list} />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 
 describe("the tagged-people line on a post header", () => {

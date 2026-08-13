@@ -26,6 +26,7 @@ import { useT } from "@/i18n/I18nContext";
 import { useSendFriendRequest } from "@/hooks/social/useFriendshipMutations";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
+import { avatarInitial } from "@/lib/displayName";
 
 const displayFont = { fontFamily: "var(--font-display)" };
 const headingFont = { fontFamily: "var(--font-heading)" };
@@ -264,7 +265,7 @@ const PostCard = ({
               <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={post.author_avatar} alt="" className="w-8 h-8 rounded-full object-cover" />
             ) : (
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-xs text-primary" style={displayFont}>{(post.author_name || "?")[0]?.toUpperCase()}</span>
+                <span className="text-xs text-primary" style={displayFont}>{avatarInitial(post.author_name)}</span>
               </div>
             )}
             {isActiveNow(post.author_last_active) && (

@@ -21,6 +21,7 @@ import { useReactToPost, useUnreactToPost } from "@/hooks/feed/usePostReactionMu
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import PageSEO from "@/components/PageSEO";
 import { displayEngagement, formatEngagementCount } from "@/lib/displayEngagement";
+import { avatarInitial } from "@/lib/displayName";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -233,7 +234,7 @@ const PostDetail = () => {
                 <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={post.author_avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
               ) : (
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-sm text-primary" style={displayFont}>{(post.author_name || "?")[0]?.toUpperCase()}</span>
+                  <span className="text-sm text-primary" style={displayFont}>{avatarInitial(post.author_name)}</span>
                 </div>
               )}
             </Link>

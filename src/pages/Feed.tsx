@@ -5,7 +5,7 @@ import { useFeedRealtime } from "@/hooks/feed/useRealtimeFeed";
 import { useNewPostsBanner } from "@/hooks/feed/useNewPostsBanner";
 import { useFeedEventTracker } from "@/hooks/feed/useFeedEventTracker";
 import { Link, useNavigate } from "react-router-dom";
-import { Rss, ArrowUp } from "lucide-react";
+import { Rss, ArrowUp, WifiOff } from "lucide-react";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import PullToRefresh from "@/components/PullToRefresh";
 import FeedStoriesBar from "@/components/feed/FeedStoriesBar";
@@ -62,6 +62,10 @@ const Feed = () => {
     hasNextPage: hasMore,
     fetchNextPage,
     refetch,
+    // The feed can FAIL, and until 2026-08-13 this page had no idea that was
+    // possible — see the error branch below.
+    isError,
+    isFetching,
   } = useFeedQuery(user?.id, activeCategory === ALL_FILTER ? null : [activeCategory]);
 
   const posts = useMemo(() => flattenFeedPages(data?.pages), [data?.pages]);
@@ -301,6 +305,42 @@ const Feed = () => {
           <div className="space-y-4">
             {[1, 2, 3].map((i) => <PostCardSkeleton key={i} />)}
           </div>
+        ) : isError && posts.length === 0 ? (
+          /**
+           * ⚠ "COULDN'T LOAD" IS NOT "NOTHING TO SHOW".
+           *
+           * Owner, 2026-08-12: *"when a bit slow network … 50mm retina posts
+           * not showing"*. Until this branch existed, a failed feed fell
+           * straight through to the empty state below and the app announced
+           * "No posts yet — Be the first to share something" to a member
+           * looking at a platform with hundreds of posts on it. That reads as
+           * a dead product, and it is the single most damaging thing a feed
+           * can say when the only real problem is a dropped request.
+           *
+           * The distinction is now made on screen, in the member's words: the
+           * network failed, and here is the button that tries again. React
+           * Query has already retried three times with backoff by the time
+           * anyone sees this, so the button is for the case where the signal
+           * came back after we stopped asking.
+           */
+          <div className="border border-dashed border-border p-12 text-center">
+            <WifiOff className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground mb-2" style={bodyFont}>
+              {t("feed.error.title", "Couldn't load your feed")}
+            </p>
+            <p className="text-xs text-muted-foreground" style={bodyFont}>
+              {t("feed.error.body", "This looks like a connection problem, not an empty feed. Your posts are safe.")}
+            </p>
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+              className="inline-block mt-4 text-[10px] tracking-[0.15em] uppercase text-primary hover:underline disabled:opacity-50"
+              style={headingFont}
+            >
+              {isFetching ? t("common.loading", "Loading…") : t("common.tryAgain", "Try again")}
+            </button>
+          </div>
         ) : posts.length === 0 ? (
           <div className="border border-dashed border-border p-12 text-center">
             <Rss className="h-8 w-8 text-muted-foreground/20 mx-auto mb-3" />
@@ -312,6 +352,27 @@ const Feed = () => {
           </div>
         ) : (
           <>
+            {/* THE OTHER HALF OF THE SAME FIX.
+                We have posts — from the localStorage cache — but the refresh
+                failed. Showing them silently would present a stale deal as if
+                it were live; showing the error page instead would throw away
+                content we already have. So: keep the posts, and say plainly
+                that they are the saved ones. */}
+            {isError && (
+              <button
+                type="button"
+                onClick={() => void refetch()}
+                disabled={isFetching}
+                className="w-full mb-3 py-2 px-4 rounded-lg bg-muted/60 border border-border text-muted-foreground text-xs flex items-center justify-center gap-2 hover:bg-muted disabled:opacity-50"
+                style={bodyFont}
+              >
+                <WifiOff className="h-3.5 w-3.5 shrink-0" />
+                {isFetching
+                  ? t("common.loading", "Loading…")
+                  : t("feed.error.stale", "Showing saved posts — tap to try again")}
+              </button>
+            )}
+
             {/* New posts available banner */}
             <AnimatePresence>
               {bufferedCount > 0 && (

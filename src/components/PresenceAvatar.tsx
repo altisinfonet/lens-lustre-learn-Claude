@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { isActiveNow } from "@/hooks/core/useLastActive";
+import { avatarInitial } from "@/lib/displayName";
 
 interface PresenceAvatarProps {
   src?: string | null;
@@ -60,7 +61,7 @@ export default function PresenceAvatar({
       style={dim}
       className={`rounded-full bg-primary/10 flex items-center justify-center font-semibold text-muted-foreground ${ringClass} ${className}`}
     >
-      {(name || "?")[0]?.toUpperCase()}
+      {avatarInitial(name)}
     </div>
   );
 

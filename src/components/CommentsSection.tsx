@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useT } from "@/i18n/I18nContext";
 import { convertEmojiShortcuts } from "@/lib/emoji";
+import { avatarInitial } from "@/lib/displayName";
 
 interface Comment {
   id: string;
@@ -56,7 +57,7 @@ const Avatar = ({ src, name, size = "sm", lastActiveAt }: { src: string | null |
         <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={src} alt="" className={`${cls} rounded-full object-cover`} />
       ) : (
         <div className={`${cls} rounded-full bg-muted flex items-center justify-center font-semibold text-muted-foreground`}>
-          {(name || "?")[0]?.toUpperCase()}
+          {avatarInitial(name)}
         </div>
       )}
       {online && (

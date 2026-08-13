@@ -94,6 +94,58 @@ const cacheDurations: { value: string; label: string }[] = [
   { value: "31536000", label: "1 year" },
 ];
 
+const headingFont = { fontFamily: "var(--font-heading)" } as const;
+const bodyFont = { fontFamily: "var(--font-body)" } as const;
+const labelClass = "block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2";
+const inputClass = "w-full bg-transparent border-b border-border focus:border-primary outline-none py-2.5 text-sm transition-colors duration-500";
+
+/**
+ * ONE SETTING ROW. AT MODULE SCOPE, DELIBERATELY.
+ *
+ * This was declared inside AdminPerformance's render body, which makes it a new
+ * function object — and therefore a new element TYPE — on every render. React
+ * responds by unmounting all 18 of these rows and mounting 18 fresh ones each
+ * time any setting changes, discarding their DOM nodes, their focus and their
+ * transitions. It is the same defect class that reversed typing in the comment
+ * box; it is milder here only because a switch holds no state of its own, so
+ * there was nothing for React to throw away except the animation and the
+ * keyboard focus.
+ *
+ * "Milder" is not "fine", and leaving one instance of a pattern in place is how
+ * it gets copied. The row now takes everything it needs as props and closes
+ * over nothing — `bodyFont` moved to module scope with it, along with the other
+ * style constants that were being rebuilt on every render for no reason.
+ */
+const Toggle = ({
+  checked,
+  onChange,
+  label,
+  description,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+  description: string;
+}) => (
+  <label className="flex items-center justify-between py-3 px-4 border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer">
+    <div>
+      <span className="text-sm font-medium text-foreground" style={bodyFont}>{label}</span>
+      <p className="text-[10px] text-muted-foreground mt-0.5" style={bodyFont}>{description}</p>
+    </div>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        checked ? "bg-primary" : "bg-muted"
+      }`}
+    >
+      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow-lg ring-0 transition duration-200 ${checked ? "translate-x-5" : "translate-x-0"}`} />
+    </button>
+  </label>
+);
+
 export default function AdminPerformance({ user }: { user: User | null }) {
   const qc = useQueryClient();
   const [lazyLoad, setLazyLoad] = useState<LazyLoadSettings>(defaultLazyLoad);
@@ -148,30 +200,7 @@ export default function AdminPerformance({ user }: { user: User | null }) {
     );
   }
 
-  const headingFont = { fontFamily: "var(--font-heading)" } as const;
-  const bodyFont = { fontFamily: "var(--font-body)" } as const;
-  const labelClass = "block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-2";
-  const inputClass = "w-full bg-transparent border-b border-border focus:border-primary outline-none py-2.5 text-sm transition-colors duration-500";
 
-  const Toggle = ({ checked, onChange, label, description }: { checked: boolean; onChange: () => void; label: string; description: string }) => (
-    <label className="flex items-center justify-between py-3 px-4 border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer">
-      <div>
-        <span className="text-sm font-medium text-foreground" style={bodyFont}>{label}</span>
-        <p className="text-[10px] text-muted-foreground mt-0.5" style={bodyFont}>{description}</p>
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={onChange}
-        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-          checked ? "bg-primary" : "bg-muted"
-        }`}
-      >
-        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow-lg ring-0 transition duration-200 ${checked ? "translate-x-5" : "translate-x-0"}`} />
-      </button>
-    </label>
-  );
 
   return (
     <div>

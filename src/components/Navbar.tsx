@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useSiteLogo } from "@/hooks/core/useSiteLogo";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
 import { NavLink } from "@/components/NavLink";
 import {
-  Menu, X, Sun, Moon, ChevronDown,
+  Menu, X, Sun, Moon, ChevronDown, Plus,
   // ── Curated nav-icon set. PERF, 2026-08-07. ──
   // The admin nav menu references icons by NAME. Importing the whole
   // lucide-react namespace to resolve them dragged all ~1,500 icons (~500 KB)
@@ -72,6 +73,7 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
   const siteLogo = useSiteLogo();
   const { isAdmin } = useIsAdmin();
   const location = useLocation();
+  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const { menuTree, loading } = useNavigationMenu();
@@ -243,6 +245,37 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
               </span>
             )}
           </Link>
+
+          {/* "+ CREATE" — THE APP'S ONLY WAY TO START A POST.
+              Owner, 2026-08-12, with the reference screenshot: the app is
+              Instagram-shaped, so posting starts from a Create control in the
+              top bar and the Facebook-style "What's on your mind?" row is gone
+              from the app entirely (see WallPosts.tsx).
+
+              It navigates to `/feed?compose=1` rather than calling into the
+              composer directly, because the composer lives inside WallPosts on
+              the feed page and this bar is mounted far above it. Going through
+              the URL also makes it work from ANY screen — Journal, Profile,
+              Competitions — not only when the feed is already open.
+
+              APP ONLY, and both halves of that matter: `lg:hidden` keeps it off
+              desktop, and `isNativeCapacitorApp()` keeps it off the mobile
+              WEBSITE, which still posts from its own composer row. */}
+          {!transparent && user && isNativeCapacitorApp() && (
+            <button
+              type="button"
+              onClick={() => navigate("/feed?compose=1")}
+              className="lg:hidden relative z-10 flex shrink-0 flex-col items-center gap-0.5 text-muted-foreground transition-colors hover:text-foreground"
+              aria-label={t("composer.create", "Create post")}
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-md border border-foreground/30">
+                <Plus className="h-4 w-4" />
+              </span>
+              <span className="text-[9px] leading-none tracking-wide">
+                {t("composer.create", "Create")}
+              </span>
+            </button>
+          )}
 
           {/* App/mobile top bar: the wordmark, as text, centred in the bar, no
               logo — owner, 2026-08-12: "50mm Retina World written in text placed

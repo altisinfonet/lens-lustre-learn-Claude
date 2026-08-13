@@ -124,7 +124,33 @@ async function fetchBroadcastPage(
     if (categories && categories.length > 0) {
       query = query.overlaps("categories", categories);
     }
-    const { data: fallback } = await query;
+    const { data: fallback, error: fallbackError } = await query;
+
+    /**
+     * ⚠ IF THE FALLBACK FAILS TOO, THROW. DO NOT RETURN [].
+     *
+     * Owner, 2026-08-12: *"when a bit slow network Facebook opening, reel
+     * playing from youtube but 50mm retina posts not showing"*. This line was
+     * the cause and it was mine.
+     *
+     * On a weak signal BOTH the RPC and this fallback time out. The old
+     * `return fallback || []` turned that double failure into a perfectly
+     * ordinary empty page — so the query resolved SUCCESSFULLY with zero posts
+     * and the feed rendered "No posts yet. Be the first to share something."
+     * The app told the member the platform was empty when the truth was that
+     * one request had dropped. Nothing retried, because nothing had failed as
+     * far as React Query could tell.
+     *
+     * Throwing is what makes the difference visible: React Query retries with
+     * backoff, the cached first page stays on screen meanwhile, and if it still
+     * cannot load, Feed.tsx shows "couldn't load — Try again" instead of a lie
+     * about the content.
+     *
+     * An empty array is still returned when the query SUCCEEDS and there is
+     * genuinely nothing there. "No posts" and "no answer" are different facts
+     * and this is the line that stopped confusing them.
+     */
+    if (fallbackError) throw fallbackError;
     return fallback || [];
   }
   return data as any[];
@@ -385,6 +411,22 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
      */
     staleTime: 0,
     refetchOnMount: "always",
+
+    /**
+     * THREE ATTEMPTS, BACKING OFF — because the failure being recovered from is
+     * a weak mobile signal, not a broken endpoint.
+     *
+     * `App.tsx` sets a global `retry: 1`, which on a bad connection means one
+     * immediate re-attempt over the same dead radio and then giving up. That is
+     * barely a retry at all. The delays here (2s, 4s, 8s) are long enough for a
+     * phone to actually reacquire a signal, which is the scenario the owner
+     * reported.
+     *
+     * Still bounded. A genuinely dead RPC must fail and be SEEN, not hammered
+     * forever behind a spinner.
+     */
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
 
     queryFn: async ({ pageParam }): Promise<FeedPage> => {
       const pageIndex = (pageParam as number | undefined) ?? 0;

@@ -245,6 +245,41 @@ export function clearProfileEntityCache(userId?: string) {
 }
 
 /**
+ * Run a Supabase query up to `attempts` times, backing off, until it comes back
+ * without an error.
+ *
+ * Takes a FACTORY, not a promise: a supabase-js query builder is a one-shot
+ * thenable, so re-awaiting the same object replays the settled result instead
+ * of issuing a second request. Calling this with `withRetry(builder)` rather
+ * than `withRetry(() => builder)` would silently do nothing at all, which is
+ * the failure mode this comment exists to prevent.
+ *
+ * A rejected promise is caught and reshaped into the `{ data, error }` result
+ * supabase-js would have returned, so callers keep one shape to handle. The
+ * last attempt's failure is the one returned — this never throws.
+ */
+async function withRetry<T extends { error: unknown }>(
+  run: () => PromiseLike<T>,
+  attempts = 3,
+): Promise<T> {
+  let last: T | undefined;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      last = await run();
+      if (!last?.error) return last;
+    } catch (err) {
+      last = { data: null, error: err } as unknown as T;
+    }
+    // 250ms, 500ms. Short on purpose: a member is looking at a "P" circle while
+    // this runs, so the recovery has to feel like a late paint, not a reload.
+    if (i < attempts - 1) {
+      await new Promise((r) => setTimeout(r, 250 * 2 ** i));
+    }
+  }
+  return last as T;
+}
+
+/**
  * Returns the assembled map AND the set of ids the profiles query actually
  * returned a row for. The caller needs the difference to know which entries are
  * real and which are placeholders — see NEGATIVE_TTL_MS.
@@ -255,7 +290,27 @@ async function rawFetchProfileMap(
   if (sortedIds.length === 0) return { map: new Map(), found: new Set(), failed: false };
 
   const [profilesRes, badgesRes, rolesRes, presenceRes] = await Promise.all([
-    profilesPublic().select("id, full_name, avatar_url").in("id", sortedIds),
+    /**
+     * ⚠ THIS ONE RETRIES. THE OTHER THREE DO NOT, AND THAT ASYMMETRY IS THE FIX.
+     *
+     * Owner, 2026-08-12: *"Very often every names are showing as ? then coming
+     * to names automatically."*
+     *
+     * This is the query that supplies the NAME. When it dropped on a weak
+     * signal the whole batch returned placeholders, every author on screen
+     * became "Photographer" with a "?" circle, and it stayed that way until the
+     * 30-second negative TTL expired and something happened to ask again —
+     * which is exactly the "then coming to names automatically" half of his
+     * sentence. One dropped request, thirty seconds of a feed full of question
+     * marks.
+     *
+     * Badges, roles and presence are decorations: if one of them blips the
+     * member sees a missing tick or a missing green dot for a moment, and
+     * retrying all four would triple the traffic of the app's single busiest
+     * lookup to protect things nobody notices. The name is not a decoration.
+     * It gets three attempts; the rest get one.
+     */
+    withRetry(() => profilesPublic().select("id, full_name, avatar_url").in("id", sortedIds)),
     supabase.from("user_badges").select("user_id, badge_type").in("user_id", sortedIds),
     // F2: anon-safe RPC; returns only registered_photographer/student/content_editor
     supabase.rpc("get_public_roles_for_users", { _user_ids: sortedIds } as any),

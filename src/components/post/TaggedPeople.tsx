@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import AutoBadge from "@/components/AutoBadge";
 import type { TaggedPerson } from "@/types/post";
 
 /**
@@ -71,13 +72,32 @@ const TaggedPeople = ({ people }: Props) => {
             that container's gap-x-1. The one before the NAME stays, because it
             is inside this same inline run. */}
         with{" "}
-        <Link
-          to={`/profile/${first.id}`}
-          className="font-medium text-foreground hover:text-primary transition-colors"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {first.name}
-        </Link>
+        {/* ⚠ THE BLUE TICK BELONGS TO THE NAME, NOT TO THE AUTHOR SLOT.
+            Owner's standing rule: *"on each and every place Name with Badge
+            will show."* This line was the exception nobody had noticed — the
+            post's own author got the tick from UserIdentityBlock, but the
+            person tagged BESIDE him, rendered by this file, got a bare name.
+            So "50mm Retina World ✓ with Sophia Agarcia" showed a verified
+            author standing next to an apparently unverified member who is in
+            fact verified. A badge that appears in some places and not others
+            does not read as an oversight; it reads as a claim about the person
+            who is missing it.
+
+            `inline-flex` on the wrapper, not on the Link, so the tick tracks
+            the name as one unit while the run around it stays ordinary text —
+            the `{" and "}` below is a real text node and keeps its spaces.
+            AutoBadge costs no extra request: enrichPosts already pulled every
+            tagged profile into the same entity cache it reads from. */}
+        <span className="inline-flex items-center gap-1 align-middle">
+          <Link
+            to={`/profile/${first.id}`}
+            className="font-medium text-foreground hover:text-primary transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {first.name}
+          </Link>
+          <AutoBadge userId={first.id} size="compact" only="verified" />
+        </span>
         {others > 0 && (
           <>
             {" and "}
@@ -120,7 +140,14 @@ const TaggedPeople = ({ people }: Props) => {
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-3 rounded-md px-2 py-2.5 hover:bg-muted/50 transition-colors"
               >
-                <span className="text-sm">{p.name}</span>
+                {/* The same rule inside the list. Someone opening "and 19
+                    others" is reading a roster of people; a tick present on the
+                    header name and absent here would contradict itself two taps
+                    apart. */}
+                <span className="flex min-w-0 items-center gap-1">
+                  <span className="truncate text-sm">{p.name}</span>
+                  <AutoBadge userId={p.id} size="compact" only="verified" />
+                </span>
               </Link>
             ))}
           </div>

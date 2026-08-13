@@ -33,6 +33,155 @@ interface Competition { id: string; title: string; category: string; status: str
 interface JudgingTag { id: string; label: string; color: string; icon?: string | null; image_url?: string | null; visible_in_round?: number[]; }
 interface FlatPhoto { entryId: string; photoUrl: string; photoThumbUrl: string; photoIndex: number; entry: any; }
 
+/**
+ * THE 10-CRITERIA EDITOR. AT MODULE SCOPE, AND THAT IS THE ENTIRE POINT.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHY THIS MOVED OUT OF THE RENDER BODY
+ *
+ * It used to be declared INSIDE MobileJudgeView's render as
+ * `const CriteriaSliders = ({ photo, evaluation }) => { … }`. Every render of
+ * the parent produced a brand-new function object, so React saw a new element
+ * TYPE, so it unmounted the old subtree and mounted a fresh one — throwing away
+ * every DOM node and every piece of state underneath.
+ *
+ * This is the same defect that reversed typing in the comment box ("Thanks" →
+ * "sknaht"): the input was destroyed and recreated between keystrokes and the
+ * caret fell back to position 0. Here the casualty is `localCriteria`: its
+ * `useState` initialiser re-ran on every parent render, so a judge dragging the
+ * Composition slider had their ten scores silently reset to the last SAVED
+ * evaluation the moment anything else on the screen changed. Scores a judge
+ * believed they had entered were not there.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * EVERYTHING IT USED TO CLOSE OVER IS NOW AN EXPLICIT PROP
+ *
+ * The panel's open/closed state stays in the PARENT on purpose — it is shared
+ * with the rest of that screen and must survive this component being keyed off
+ * and back on when the judge moves to another photo.
+ *
+ * ⚠ Render it with a `key` that includes the photo, so switching photos DOES
+ * reset the local scores. Now that the component is stable, React would
+ * otherwise keep one photo's in-progress scores on screen for the next one —
+ * the opposite mistake, and a worse one.
+ */
+const CriteriaSliders = ({
+  photo,
+  evaluation,
+  open,
+  onToggle,
+  isRoundLocked,
+  onQuickScore,
+  onDirty,
+  onClean,
+}: {
+  photo: FlatPhoto;
+  evaluation: PhotoEvaluation;
+  open: boolean;
+  onToggle: () => void;
+  isRoundLocked?: boolean;
+  onQuickScore: (
+    entryId: string,
+    photoIndex: number,
+    score: number,
+    options?: { silent?: boolean; skipAdvance?: boolean; criteria?: CriteriaScores },
+  ) => void;
+  onDirty: () => void;
+  onClean: () => void;
+}) => {
+  const [localCriteria, setLocalCriteria] = useState<CriteriaScores>(() => {
+    const c = evaluation.criteria;
+    return { ...DEFAULT_CRITERIA, ...c };
+  });
+
+  const handleCriteriaChange = (key: keyof CriteriaScores, val: number) => {
+    setLocalCriteria(prev => ({ ...prev, [key]: val }));
+    onDirty();
+  };
+
+  const scoredKeys = CRITERIA_KEYS.filter(k => (localCriteria[k as keyof CriteriaScores] ?? 0) > 0);
+  const avg = scoredKeys.length > 0
+    ? Math.round(scoredKeys.reduce((sum, k) => sum + (localCriteria[k as keyof CriteriaScores] ?? 0), 0) / scoredKeys.length)
+    : 0;
+
+  const saveCriteria = () => {
+    onQuickScore(photo.entryId, photo.photoIndex, avg, { criteria: localCriteria });
+    onClean();
+  };
+
+  return (
+    <div className="space-y-2">
+      {/* Phase 10: min-h-[44px] for mobile touch target parity. */}
+      <button
+        onClick={() => onToggle()}
+        aria-expanded={open}
+        aria-label="Toggle 10-criteria evaluation panel"
+        className="w-full flex items-center justify-between px-3 py-2 min-h-[44px] bg-muted/30 rounded-lg text-[10px] font-bold uppercase tracking-wider text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        style={f}
+      >
+        <span className="flex items-center gap-1.5">
+          <Star className="h-3.5 w-3.5" /> 10-Criteria Evaluation
+        </span>
+        <div className="flex items-center gap-2">
+          {avg > 0 && (
+            <span className="px-1.5 py-0.5 rounded text-white text-[9px]" style={SCORE_BG_STYLE[Math.min(10, avg)]}>
+              Avg: {avg}
+            </span>
+          )}
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
+        </div>
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden space-y-2"
+          >
+            {/* Phase 10: each row ≥44px so slider thumb + number input are reachable on 390px viewport. */}
+            {CRITERIA_KEYS.map(key => (
+              <div key={key} className="flex items-center gap-2 px-1 min-h-[44px]">
+                <span className="text-[9px] text-muted-foreground w-16 shrink-0 truncate" style={f}>
+                  {CRITERIA_LABELS[key]}
+                </span>
+                <Slider
+                  min={0} max={10} step={1}
+                  value={[localCriteria[key as keyof CriteriaScores] ?? 0]}
+                  onValueChange={([v]) => handleCriteriaChange(key as keyof CriteriaScores, v)}
+                  disabled={isRoundLocked}
+                  aria-label={`${CRITERIA_LABELS[key]} score`}
+                  className="flex-1"
+                />
+                <Input
+                  type="number" min={0} max={10}
+                  value={localCriteria[key as keyof CriteriaScores] ?? 0}
+                  onChange={e => {
+                    const v = Math.max(0, Math.min(10, Number(e.target.value) || 0));
+                    handleCriteriaChange(key as keyof CriteriaScores, v);
+                  }}
+                  disabled={isRoundLocked}
+                  aria-label={`${CRITERIA_LABELS[key]} numeric input`}
+                  className="w-12 h-11 text-center text-xs px-1"
+                />
+              </div>
+            ))}
+            <button
+              onClick={saveCriteria}
+              disabled={isRoundLocked}
+              className="w-full min-h-[44px] py-3 bg-primary text-primary-foreground text-[11px] font-bold uppercase tracking-wider rounded-lg disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              style={f}
+            >
+              Save Score (Avg: {avg}/10)
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 interface Props {
   competitions: Competition[];
   selectedCompId: string | null;
@@ -170,101 +319,6 @@ export default function MobileJudgeView({
 
   const displayIdx = activePhotoIdx >= 0 ? activePhotoIdx : 0;
   const displayTotal = activePhotoList.length;
-
-  /** Inline 10-criteria editor for a photo */
-  const CriteriaSliders = ({ photo, evaluation }: { photo: FlatPhoto; evaluation: PhotoEvaluation }) => {
-    const [localCriteria, setLocalCriteria] = useState<CriteriaScores>(() => {
-      const c = evaluation.criteria;
-      return { ...DEFAULT_CRITERIA, ...c };
-    });
-
-    const handleCriteriaChange = (key: keyof CriteriaScores, val: number) => {
-      setLocalCriteria(prev => ({ ...prev, [key]: val }));
-      mobileGuard.markDirty();
-    };
-
-    const scoredKeys = CRITERIA_KEYS.filter(k => (localCriteria[k as keyof CriteriaScores] ?? 0) > 0);
-    const avg = scoredKeys.length > 0
-      ? Math.round(scoredKeys.reduce((sum, k) => sum + (localCriteria[k as keyof CriteriaScores] ?? 0), 0) / scoredKeys.length)
-      : 0;
-
-    const saveCriteria = () => {
-      handleQuickScore(photo.entryId, photo.photoIndex, avg, { criteria: localCriteria });
-      mobileGuard.markClean();
-    };
-
-    return (
-      <div className="space-y-2">
-        {/* Phase 10: min-h-[44px] for mobile touch target parity. */}
-        <button
-          onClick={() => setCriteriaOpen(!criteriaOpen)}
-          aria-expanded={criteriaOpen}
-          aria-label="Toggle 10-criteria evaluation panel"
-          className="w-full flex items-center justify-between px-3 py-2 min-h-[44px] bg-muted/30 rounded-lg text-[10px] font-bold uppercase tracking-wider text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          style={f}
-        >
-          <span className="flex items-center gap-1.5">
-            <Star className="h-3.5 w-3.5" /> 10-Criteria Evaluation
-          </span>
-          <div className="flex items-center gap-2">
-            {avg > 0 && (
-              <span className="px-1.5 py-0.5 rounded text-white text-[9px]" style={SCORE_BG_STYLE[Math.min(10, avg)]}>
-                Avg: {avg}
-              </span>
-            )}
-            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${criteriaOpen ? "rotate-180" : ""}`} />
-          </div>
-        </button>
-
-        <AnimatePresence>
-          {criteriaOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden space-y-2"
-            >
-              {/* Phase 10: each row ≥44px so slider thumb + number input are reachable on 390px viewport. */}
-              {CRITERIA_KEYS.map(key => (
-                <div key={key} className="flex items-center gap-2 px-1 min-h-[44px]">
-                  <span className="text-[9px] text-muted-foreground w-16 shrink-0 truncate" style={f}>
-                    {CRITERIA_LABELS[key]}
-                  </span>
-                  <Slider
-                    min={0} max={10} step={1}
-                    value={[localCriteria[key as keyof CriteriaScores] ?? 0]}
-                    onValueChange={([v]) => handleCriteriaChange(key as keyof CriteriaScores, v)}
-                    disabled={isRoundLocked}
-                    aria-label={`${CRITERIA_LABELS[key]} score`}
-                    className="flex-1"
-                  />
-                  <Input
-                    type="number" min={0} max={10}
-                    value={localCriteria[key as keyof CriteriaScores] ?? 0}
-                    onChange={e => {
-                      const v = Math.max(0, Math.min(10, Number(e.target.value) || 0));
-                      handleCriteriaChange(key as keyof CriteriaScores, v);
-                    }}
-                    disabled={isRoundLocked}
-                    aria-label={`${CRITERIA_LABELS[key]} numeric input`}
-                    className="w-12 h-11 text-center text-xs px-1"
-                  />
-                </div>
-              ))}
-              <button
-                onClick={saveCriteria}
-                disabled={isRoundLocked}
-                className="w-full min-h-[44px] py-3 bg-primary text-primary-foreground text-[11px] font-bold uppercase tracking-wider rounded-lg disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                style={f}
-              >
-                Save Score (Avg: {avg}/10)
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    );
-  };
 
   return (
     <div className="md:hidden flex flex-col min-h-screen bg-background">
@@ -627,7 +681,20 @@ export default function MobileJudgeView({
                           {!isR1DecisionMode && roundMode === "scoring" && (
                             <>
                               {showCriteria ? (
-                                <CriteriaSliders photo={photo} evaluation={evaluation} />
+                                <CriteriaSliders
+                                  /* Keyed by photo: the component is stable
+                                     now, so without this the previous photo's
+                                     unsaved scores would carry over. */
+                                  key={`crit-${photo.entryId}-${photo.photoIndex}`}
+                                  photo={photo}
+                                  evaluation={evaluation}
+                                  open={criteriaOpen}
+                                  onToggle={() => setCriteriaOpen(!criteriaOpen)}
+                                  isRoundLocked={isRoundLocked}
+                                  onQuickScore={handleQuickScore}
+                                  onDirty={mobileGuard.markDirty}
+                                  onClean={mobileGuard.markClean}
+                                />
                               ) : (
                                 <div>
                                   <span className="text-[9px] tracking-wider uppercase text-muted-foreground flex items-center gap-1 mb-1.5" style={f}>

@@ -110,11 +110,52 @@ export function usePostDrafts() {
       const { data, error } = await from("post_drafts")
         .select("*")
         .order("updated_at", { ascending: false });
-      if (error || !Array.isArray(data)) return [];
+
+      /**
+       * ⚠ A FAILED FETCH MUST THROW. AN ABSENT TABLE MUST NOT.
+       *
+       * This line used to be `if (error || !Array.isArray(data)) return [];`,
+       * which is the same defect that removed all 46 categories on a weak
+       * signal (see useCategories.ts): returning `[]` reports the failure to
+       * React Query as a SUCCESS whose value happens to be empty. Nothing
+       * retries a success. The member opens Drafts, sees nothing, and concludes
+       * the work they saved is gone — the single most alarming thing this app
+       * can do, because a draft is content they typed and cannot get back.
+       *
+       * The one case that is NOT a failure is the table not existing. The
+       * Stage C migration is not applied to production yet, and until it is,
+       * "there is no post_drafts table" genuinely means "this member has no
+       * drafts". That is a real answer and is cached as one. Every OTHER
+       * error — timeout, dropped connection, RLS, a typo in a column — throws,
+       * so React Query retries it and shows an error rather than a lie.
+       */
+      if (error) {
+        if (isMissingRelation(error)) return [];
+        throw error;
+      }
+      if (!Array.isArray(data)) throw new Error("post_drafts: unexpected payload shape");
       return data as PostDraft[];
     },
     staleTime: 30_000,
+    // Bounded retry, because the failure this recovers from is a weak mobile
+    // signal. A genuinely broken table cannot spin forever.
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
   });
+}
+
+/**
+ * Is this error "that table isn't there", as opposed to "the request failed"?
+ *
+ * PostgREST reports an unknown table as PGRST205; Postgres itself uses SQLSTATE
+ * 42P01. Both are checked because the error can surface from either layer
+ * depending on whether the schema cache has been reloaded. The message test is
+ * a last resort for clients that forward neither code.
+ */
+function isMissingRelation(error: { message?: string; code?: string } | null): boolean {
+  if (!error) return false;
+  if (error.code === "PGRST205" || error.code === "42P01") return true;
+  return /does not exist|could not find the table/i.test(error.message ?? "");
 }
 
 export function useCreateDraft() {
