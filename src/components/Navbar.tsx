@@ -222,19 +222,42 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
         }`}
         aria-label="Main navigation"
       >
-        <div className="container mx-auto py-3 md:py-5 flex items-center justify-between">
+        <div className="container mx-auto py-3 md:py-5 flex items-center justify-between relative">
           {/* Logo */}
           <Link to={logoHref} className="flex items-center gap-2 md:gap-3 shrink-0 relative z-10" aria-label="50mm Retina World Home">
-            <img src={siteLogo} alt="50mm Retina World" className={`${transparent ? "h-14 w-14 md:h-20 md:w-20" : "h-8 w-8 md:h-12 md:w-12"} object-contain`} />
+            {/* The small logo is DESKTOP-ONLY in the normal bar. On the app top
+                bar the owner wants the name as centred text with no logo
+                (2026-08-12), so the image is hidden below lg here. The homepage
+                hero (transparent) still shows the big logo on every width. */}
+            <img
+              src={siteLogo}
+              alt="50mm Retina World"
+              className={`${transparent ? "h-14 w-14 md:h-20 md:w-20" : "hidden lg:block h-8 w-8 md:h-12 md:w-12"} object-contain`}
+            />
             {!transparent && (
               <span
-                className="text-[11px] md:text-sm font-semibold tracking-[0.2em] uppercase"
+                className="hidden lg:inline-block text-[11px] md:text-sm font-semibold tracking-[0.2em] uppercase"
                 style={{ fontFamily: "var(--font-heading)" }}
               >
                 50mm Retina World
               </span>
             )}
           </Link>
+
+          {/* App/mobile top bar: the wordmark, as text, centred in the bar, no
+              logo — owner, 2026-08-12: "50mm Retina World written in text placed
+              in middle having no smaller logo." Absolute so it is centred on the
+              WHOLE bar, not shoved by the actions on the right. pointer-events
+              off so it can never sit over and block the bell or search. Shown
+              only below lg and only on the normal (non-hero) bar. */}
+          {!transparent && (
+            <span
+              className="lg:hidden pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-sm font-semibold tracking-[0.2em] uppercase"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              50mm Retina World
+            </span>
+          )}
 
           {/* Desktop links */}
           <div

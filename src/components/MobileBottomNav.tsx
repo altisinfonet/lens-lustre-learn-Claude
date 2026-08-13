@@ -27,8 +27,11 @@ const MobileBottomNav = () => {
 
   // Build tabs — Wall route depends on user.id, Home is the elevated center
   const tabs: Tab[] = [
-    { path: "/feed", icon: Newspaper, label: "Feed", labelKey: "nav.feed", auth: true },
-    { path: user ? `/profile/${user.id}?section=wall` : "/login", icon: Rss, label: "Wall", labelKey: "nav.wall", auth: true },
+    // Feed carries the RSS mark (the universal "feed" symbol); the personal
+    // Wall carries the Newspaper. They were the wrong way round — owner,
+    // 2026-08-12: "Feed and Wall icons are exchanged … correct them."
+    { path: "/feed", icon: Rss, label: "Feed", labelKey: "nav.feed", auth: true },
+    { path: user ? `/profile/${user.id}?section=wall` : "/login", icon: Newspaper, label: "Wall", labelKey: "nav.wall", auth: true },
     { path: "/courses", icon: BookOpen, label: "Courses", labelKey: "nav.courses", guest: true },
     { path: "/journal", icon: FileText, label: "Journal", labelKey: "nav.journal", guest: true },
     { path: user ? "/home" : "/", icon: Home, label: "Home", labelKey: "nav.home", isCenter: true },
