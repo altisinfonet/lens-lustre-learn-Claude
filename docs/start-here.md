@@ -3,7 +3,8 @@
 **50mm Retina World** — a photography social platform. This is a **LIVE site and
 a LIVE Android app**. Read this file before doing anything else.
 
-`origin/main` = `eb12243` (2026-08-13). Working tree clean, nothing half-done.
+Last code commit: `eb12243` (2026-08-13). These five docs landed on top of it.
+Working tree clean, nothing half-done.
 
 ---
 
