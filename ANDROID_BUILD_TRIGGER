@@ -1,3 +1,15 @@
+Build 1082 - 2026-08-13 (versionName 1.2.3) - FOUR REPORTED BUGS FIXED
+Cut from main @ a264bb8. typecheck clean, security PASS, 1305 tests green.
+- CATEGORIES NO LONGER VANISH ON A WEAK SIGNAL. Owner: "only All is showing".
+  My bug: useCategories returned an EMPTY LIST on a failed fetch, React Query
+  recorded that as SUCCESS, and staleTime:Infinity cached the emptiness as
+  truth for the session. It throws now, so it retries and is never cached.
+- THE ANDROID BACK BUTTON WORKS. There was no backButton listener at all.
+  Order now: close an open sheet, else go back one screen, else exit the app.
+- THE ALL-CATEGORIES SHEET IS NO LONGER SLICED BY THE FOOTER (z-index+height).
+- THE THEME TOGGLE STOPS FLYING OFF THE EDGE on a long name (own line above).
+STILL PENDING: the + Create button and the in-app photo grid picker.
+
 Build 1081 — 2026-08-12 (versionName 1.2.3)
 - App top bar: the site name now shows as centred TEXT in the middle of the
   bar with NO small logo (owner request). Desktop keeps its logo.
