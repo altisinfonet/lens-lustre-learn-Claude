@@ -162,6 +162,30 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
         <DrawerHeader className="pb-2">
           <DrawerTitle className="sr-only">{t("msheet.profileMenu")}</DrawerTitle>
 
+          {/* THE THEME TOGGLE SITS ON ITS OWN LINE, ABOVE THE NAME.
+              Owner, 2026-08-12: "After clicking profile, dark and light mode
+              moved extremely right when the name is big. Shift the toggle one
+              line upper of the name line."
+
+              It used to be the third child of the name ROW. A long name — his
+              own account reads "Sri Venkata Ramasubramania Narayanasw" — grew
+              that row until the button was pushed against, and partly past, the
+              right edge. Truncation could not save it: the avatar and the button
+              are fixed width, so anything the name does happens between them.
+
+              Putting the button on its own line above removes the competition
+              entirely. Its position is now the same whether the name is four
+              characters or forty. */}
+          <div className="flex justify-end -mt-1 mb-1">
+            <button
+              onClick={toggleTheme}
+              className="shrink-0 p-2 rounded-full border border-border hover:border-primary transition-colors"
+              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4 text-primary" /> : <Moon className="h-4 w-4 text-primary" />}
+            </button>
+          </div>
+
           {/* Avatar + Name */}
           <div className="flex items-center gap-3">
             <Avatar className="h-14 w-14 ring-2 ring-primary/20">
@@ -176,18 +200,6 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
               />
               <span className="text-[9px] text-muted-foreground truncate block mt-0.5">{user.email}</span>
             </div>
-            {/* SWAPPED 2026-08-01 (owner): the dark/light toggle now sits here,
-                where the notification bell used to be, and the bell moved to the
-                mobile top bar. The ping ring went with the bell — it was there to
-                draw the eye to unread notifications and means nothing on a theme
-                switch. */}
-            <button
-              onClick={toggleTheme}
-              className="shrink-0 p-2 rounded-full border border-border hover:border-primary transition-colors"
-              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-            >
-              {theme === "dark" ? <Sun className="h-4 w-4 text-primary" /> : <Moon className="h-4 w-4 text-primary" />}
-            </button>
           </div>
         </DrawerHeader>
 
