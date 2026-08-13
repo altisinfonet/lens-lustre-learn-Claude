@@ -55,7 +55,26 @@ describe("the sharp layer shows the original, not the thumbnail", () => {
 
   it("still paints the thumbnail as the instant backdrop", () => {
     // Losing this would trade one complaint (soft) for another (slow).
-    expect(CODE).toMatch(/backdropFailed && thumb\) \? thumb : src/);
+    // The expression moved on 2026-08-13; what must survive is that a stored
+    // thumbnail is still what paints the backdrop.
+    expect(CODE).toMatch(/const lqip = backdropFailed[\s\S]{0,160}?thumb \?\? null/);
+  });
+
+  it("⚠ the backdrop can NEVER fall through to the full-resolution original", () => {
+    /**
+     * The single most expensive line this file has ever contained was the tail
+     * of the old LQIP expression: `: src`. With no stored thumbnail it fetched
+     * the 2560px original, eagerly, to blur it into mush — ~14.7 MB of decoded
+     * bitmap per card, on a feed that mounts every card ever scrolled past.
+     *
+     * Asserted on the SOURCE and not on a render, because the danger is someone
+     * reinstating it to fix "blank bars" without knowing what it costs. If that
+     * is ever the right trade again, it needs a conversation, not a one-line
+     * edit that passes the suite.
+     */
+    expect(CODE).not.toMatch(/lqip[\s\S]{0,120}?:\s*src\b/);
+    expect(CODE).toMatch(/\{lqip && \(/);      // rendered conditionally
+    expect(CODE).toMatch(/fetchPriority="low"/); // and never competes with the photo
   });
 });
 

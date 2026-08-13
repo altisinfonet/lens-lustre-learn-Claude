@@ -335,9 +335,37 @@ const ProgressiveImage = ({
   // degrades to the pre-thumbnail behaviour instead of breaking. See the note
   // above usableThumb — the address is never guessed, only read.
   const thumb = !transformable && !failed ? usableThumb(thumbProp, src) : null;
-  const lqip = transformable && !backdropFailed
-    ? buildLqipUrl(src)
-    : (!backdropFailed && thumb) ? thumb : src;
+  /**
+   * ⚠ THE BACKDROP NEVER LOADS THE FULL-RESOLUTION ORIGINAL. EVER.
+   *
+   * This used to end `: src` — so when a post had no usable stored thumbnail,
+   * the blurred decorative layer below fetched the **2560px original**, with
+   * `loading="eager"`, ignoring the viewport entirely. A decoded 2560×1440
+   * bitmap is roughly **14.7 MB of RAM**, and the feed mounts every card it has
+   * ever scrolled past. That combination is the out-of-memory crash on a
+   * mid-range Android phone, and this single expression was the largest part
+   * of it.
+   *
+   * What makes it indefensible rather than merely expensive: the image is
+   * `scale-125 blur-2xl brightness-[0.8]` with `imageRendering: pixelated`. It
+   * is blurred into unrecognisable mush. Fourteen megabytes were being spent on
+   * pixels that are deliberately destroyed before anyone sees them.
+   *
+   * Three thumbnail-less paths reach here routinely, so this was not an edge
+   * case: realtime-inserted posts (Feed.tsx never sets `thumbnail_urls` on
+   * them), any post where the thumbnail array length does not match the image
+   * array, and every scheduled post (`scheduled_posts` has no thumbnail column
+   * at all).
+   *
+   * `null` now means "no cheap source exists" — and the backdrop is simply not
+   * rendered. A flat card background behind a letterboxed photo is a rounding
+   * error next to a 14.7 MB decode.
+   */
+  const lqip = backdropFailed
+    ? null
+    : transformable
+      ? buildLqipUrl(src)
+      : thumb ?? null;
   // The sharp layer is the ORIGINAL again. The thumbnail has not been dropped —
   // it still paints the backdrop instantly, and it is the small end of the
   // srcset below, so a slot that only needs 600px still downloads only 600px.
@@ -346,20 +374,31 @@ const ProgressiveImage = ({
 
   return (
     <>
-      <img
-        src={lqip}
-        alt=""
-        aria-hidden="true"
-        className={`absolute inset-0 w-full h-full object-cover scale-125 blur-2xl brightness-[0.8] ${className ?? ""}`}
-        loading="eager"
-        decoding="async"
-        style={{ imageRendering: "pixelated" }}
-        onLoad={(e) => {
-          const img = e.currentTarget;
-          onNaturalSize?.(img.naturalWidth, img.naturalHeight);
-        }}
-        onError={() => setBackdropFailed(true)}
-      />
+      {/* Rendered ONLY when a cheap source exists — see the note on `lqip`.
+          `fetchPriority="low"` because this is decoration competing with the
+          real photo for the same connection. */}
+      {lqip && (
+        <img
+          src={lqip}
+          alt=""
+          aria-hidden="true"
+          className={`absolute inset-0 w-full h-full object-cover scale-125 blur-2xl brightness-[0.8] ${className ?? ""}`}
+          loading="eager"
+          fetchPriority="low"
+          decoding="async"
+          style={{ imageRendering: "pixelated" }}
+          onLoad={(e) => {
+            // Still measured here when it exists — this layer is EAGER and the
+            // sharp one is lazy, so for a legacy photo with no dimensions in
+            // its filename this is what keeps the frame from reflowing late.
+            // `handleNaturalSize` takes the first answer and ignores the rest,
+            // so reporting from both layers is idempotent by construction.
+            const img = e.currentTarget;
+            onNaturalSize?.(img.naturalWidth, img.naturalHeight);
+          }}
+          onError={() => setBackdropFailed(true)}
+        />
+      )}
       <img
         src={failed ? src : sharpSrc}
         srcSet={failed ? undefined : srcSet}
@@ -368,7 +407,23 @@ const ProgressiveImage = ({
         className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"} ${className ?? ""}`}
         loading="lazy"
         decoding="async"
-        onLoad={() => setLoaded(true)}
+        onLoad={(e) => {
+          setLoaded(true);
+          /**
+           * ⚠ MEASUREMENT MOVED HERE FROM THE BACKDROP (2026-08-13).
+           *
+           * The backdrop used to report the intrinsic size, which made a
+           * DECORATIVE layer load-bearing — it is now conditional, so it can be
+           * absent entirely. This layer always renders, so the measurement can
+           * never go missing.
+           *
+           * The ratio is what is used (`frameAspectFor(w / h)`), and every
+           * transform in this file preserves aspect, so measuring the resized
+           * variant gives the identical frame as measuring the original.
+           */
+          const img = e.currentTarget;
+          onNaturalSize?.(img.naturalWidth, img.naturalHeight);
+        }}
         onError={() => {
           // On the free Cloudflare plan, exceeding 5,000 unique transformations
           // in a month makes the transform endpoint return an error instead of

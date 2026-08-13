@@ -541,6 +541,37 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
       };
     },
 
+    /**
+     * ⚠ THE FEED KEEPS FIVE PAGES. IT USED TO KEEP ALL OF THEM, FOREVER.
+     *
+     * Without `maxPages`, React Query retains every page it has ever fetched
+     * for the life of the cache entry, and `flattenFeedPages` concatenates all
+     * of them into one array on every render. Ten scroll-loads meant **100 live
+     * PostCards** in the DOM — each with two or three `<img>`, a Radix dropdown
+     * menu, an IntersectionObserver and framer-motion nodes — and not one of
+     * them was ever released. Combined with the decoded bitmaps those images
+     * hold, that is the out-of-memory crash on a mid-range Android phone.
+     *
+     * Five pages is 50 posts: comfortably more than fits on any screen, so
+     * nothing a member can see is ever dropped, and scrolling back up re-reads
+     * from cache without a request in the overwhelming majority of cases.
+     *
+     * ⚠ THIS IS NOT VIRTUALIZATION AND MUST NOT BE MISTAKEN FOR IT. It bounds
+     * how many pages are RETAINED; it does not stop the 50 that remain from all
+     * being mounted at once. Windowing the rendered list is still the real fix
+     * and is still outstanding. This is the one-line half that can ship today
+     * without touching how the feed renders.
+     *
+     * ⚠ It also bounds nothing on the SERVER. `excludeByPageRef` still grows
+     * without limit and still uploads every delivered id with each request —
+     * page 20 sends 200 UUIDs. That is a separate defect with a separate fix
+     * (keyset pagination), and dropping pages here does not touch it: the refs
+     * are keyed by page index and are deliberately never trimmed, because a
+     * dropped page that is re-fetched must be handed exactly the exclude list
+     * it was originally fetched with or the feed would repeat posts.
+     */
+    maxPages: 5,
+
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     initialPageParam: 0,
   });

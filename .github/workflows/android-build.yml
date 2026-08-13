@@ -100,15 +100,77 @@ jobs:
       - name: Test suite (blocks the build)
         run: npm test
 
-      - name: Install Capacitor + native plugins
+      # ⚠ EVERY VERSION IS PINNED. THE BUILD MUST NOT DEPEND ON WHAT DAY IT IS.
+      #
+      # This step used to install these eleven packages with NO version at all:
+      #
+      #     npm install @capacitor/core @capacitor/cli @capacitor/android …
+      #
+      # Because `android/` is generated fresh by `npx cap add android` below and
+      # is never committed, that made the ENTIRE native layer of this app float.
+      # Whatever npm happened to publish that morning went into the AAB, with no
+      # pull request, no diff and nobody's review. A Capacitor major release
+      # would have landed in a Play production build silently, and the first
+      # signal would have been crash reports.
+      #
+      # Two builds of the same commit could differ. That is the definition of a
+      # non-reproducible build, and it was the single largest uncontrolled risk
+      # in this repository.
+      #
+      # These exact versions are the ones CI was already resolving on
+      # 2026-08-13, so pinning them changes NOTHING about today's output — it
+      # only stops tomorrow from being different. Verified as a mutually
+      # compatible set with `npm install --strict-peer-deps` (clean, 0 peer
+      # conflicts) before being written down.
+      #
+      # ⚠ WHY NOT package.json + package-lock.json, which would be tidier:
+      # adding them there requires regenerating the lockfile, and doing that
+      # against this repo's caret ranges pulled in 414 new packages, removed 122
+      # and changed 193 — a mass upgrade of the whole dependency tree of a LIVE
+      # site, riding along with a Capacitor pin. That deserves its own change,
+      # its own review and its own build. Pinning here buys the determinism
+      # today for a four-line diff and touches nothing the website ships.
+      #
+      # TO UPGRADE: change a number here, in a pull request, and read the build.
+      # That is the whole point — an upgrade should be a decision, not a date.
+      - name: Install Capacitor + native plugins (pinned)
         run: |
           npm install --no-audit --no-fund \
-            @capacitor/core @capacitor/cli @capacitor/android \
-            @capacitor/share @capacitor/splash-screen \
-            @capacitor/filesystem @capacitor/camera \
-            @capacitor/app @capacitor/browser \
-            @capacitor-firebase/messaging \
-            @capawesome/capacitor-app-update
+            @capacitor/core@8.5.0 @capacitor/cli@8.5.0 @capacitor/android@8.5.0 \
+            @capacitor/share@8.0.1 @capacitor/splash-screen@8.0.2 \
+            @capacitor/filesystem@8.1.2 @capacitor/camera@8.2.2 \
+            @capacitor/app@8.1.1 @capacitor/browser@8.0.4 \
+            @capacitor-firebase/messaging@8.4.0 \
+            @capawesome/capacitor-app-update@8.0.3
+
+      # Proves the pin actually took. `npm install` can silently resolve
+      # something else when a transitive peer forces its hand, and a pin that
+      # did not apply is worse than no pin: it reads as deterministic while
+      # floating. Fails the build rather than shipping a surprise.
+      - name: Prove the pinned Capacitor versions are what got installed
+        run: |
+          set -e
+          check() {
+            actual=$(node -p "require('./node_modules/$1/package.json').version")
+            if [ "$actual" != "$2" ]; then
+              echo "::error::$1 resolved to $actual but this workflow pins $2"
+              exit 1
+            fi
+            echo "  ok  $1@$actual"
+          }
+          echo "Verifying pinned native dependency versions:"
+          check @capacitor/core 8.5.0
+          check @capacitor/cli 8.5.0
+          check @capacitor/android 8.5.0
+          check @capacitor/share 8.0.1
+          check @capacitor/splash-screen 8.0.2
+          check @capacitor/filesystem 8.1.2
+          check @capacitor/camera 8.2.2
+          check @capacitor/app 8.1.1
+          check @capacitor/browser 8.0.4
+          check @capacitor-firebase/messaging 8.4.0
+          check @capawesome/capacitor-app-update 8.0.3
+          echo "All native dependencies match the pin."
 
       - name: Build web app
         run: npm run build
@@ -256,7 +318,7 @@ jobs:
 
       - name: Generate icons and splash screens
         run: |
-          npm install --no-audit --no-fund -D @capacitor/assets
+          npm install --no-audit --no-fund -D @capacitor/assets@3.0.5
           npx capacitor-assets generate --android \
             --iconBackgroundColor '#0f172a' --splashBackgroundColor '#0f172a' || true
 

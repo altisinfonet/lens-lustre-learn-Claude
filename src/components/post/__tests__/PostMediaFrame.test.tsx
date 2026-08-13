@@ -245,10 +245,46 @@ describe("PostMedia — CDN images load DIRECT, never via a transformer", () => 
     expect(sharpImg(container)!.getAttribute("src")).toBe(cdn(".webp"));
   });
 
-  it("the 32px backdrop also uses the direct URL", () => {
-    const { container } = render(<PostMedia urls={[cdn("-w2560h1463.webp")]} />);
+  it("the backdrop also uses the direct URL", () => {
+    // Given a stored thumbnail there IS a backdrop, and it must still never be
+    // routed through the transformer — that is what broke every www and
+    // Android user for four days in the 2026-08-01 incident.
+    const { container } = render(
+      <PostMedia urls={[cdn("-w2560h1463.webp")]} thumbUrls={[cdn("-thumb.webp")]} />,
+    );
     const back = backdropImg(container)!.getAttribute("src")!;
     expect(back).not.toContain("/cdn-cgi/image/");
+    expect(back).toBe(cdn("-thumb.webp"));
+  });
+
+  it("renders NO backdrop at all when there is no cheap source for it", () => {
+    /**
+     * The memory fix, asserted on the rendered output rather than the source.
+     *
+     * A CDN url with no stored thumbnail cannot be transformed, so there is no
+     * 32px LQIP and no 600px thumb. This used to fall through to the FULL
+     * 2560px original with `loading="eager"` — roughly 14.7 MB of decoded
+     * bitmap, per card, to paint a layer that is then blurred into mush.
+     *
+     * The correct answer is nothing. A flat card background behind a
+     * letterboxed photo costs nobody anything.
+     */
+    const { container } = render(<PostMedia urls={[cdn("-w2560h1463.webp")]} />);
+    expect(backdropImg(container)).toBeNull();
+  });
+
+  it("never points the backdrop at the full-resolution original", () => {
+    // The specific regression this guards: any backdrop that renders must be a
+    // thumbnail or an LQIP, never the same address as the sharp layer.
+    const original = cdn("-w2560h1463.webp");
+    for (const thumbs of [undefined, [cdn("-thumb.webp")]]) {
+      const { container, unmount } = render(
+        <PostMedia urls={[original]} thumbUrls={thumbs} />,
+      );
+      const back = backdropImg(container);
+      if (back) expect(back.getAttribute("src")).not.toBe(original);
+      unmount();
+    }
   });
 
   it("an old post whose stored URL is already a transformer URL is left as-is", () => {
@@ -346,14 +382,26 @@ describe("PostMedia — the blurred padding has to be visible", () => {
     expect(Number(m![1])).toBeGreaterThanOrEqual(0.75);
   });
 
-  it("falls back to the original when the 32px transform fails", () => {
-    // The backdrop had no error handler at all: a failed transform rendered an
-    // empty layer, and the bars really were blank.
+  it("drops the backdrop when the 32px transform fails — it does NOT escalate to the original", () => {
+    /**
+     * ⚠ THIS ASSERTION WAS DELIBERATELY INVERTED ON 2026-08-13.
+     *
+     * It used to require that a failed 32px transform fall back to `url` — the
+     * full-resolution original — so the letterbox bars were never blank. The
+     * intent was right and the cost was not understood: that fallback is the
+     * eager 2560px fetch, ~14.7 MB of decoded bitmap per card, and it is the
+     * out-of-memory crash on a mid-range Android phone.
+     *
+     * A blurred decorative layer is not worth 14.7 MB. When the cheap source
+     * fails there is no cheap source left, so the backdrop is dropped and the
+     * bars fall back to the card background. Blank bars are a cosmetic
+     * disappointment; the alternative crashed the app.
+     */
     const url = photo("-w4200h1400.webp");
     const { container } = render(<PostMedia urls={[url]} />);
     const back = backdropImg(container)!;
     expect(back.getAttribute("src")).toContain("width=32");
     fireEvent.error(back);
-    expect(backdropImg(container)!.getAttribute("src")).toBe(url);
+    expect(backdropImg(container)).toBeNull();
   });
 });
