@@ -1,3 +1,9 @@
+Build 1081 — 2026-08-12 (versionName 1.2.3)
+- App top bar: the site name now shows as centred TEXT in the middle of the
+  bar with NO small logo (owner request). Desktop keeps its logo.
+- Bottom footer: the Feed and Wall icons were swapped — corrected. Feed now
+  carries the RSS (feed) mark; the personal Wall carries the Newspaper.
+
 Build 1078 — 2026-08-12 (versionName 1.2.3; live Play production is 1073 / 1.2.2)
 Cut from main @ 4cfb53a. Gates that had to pass before this build existed:
 typecheck clean, security gate PASS (0 critical / 0 high), 1305 tests green,
