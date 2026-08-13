@@ -167,6 +167,31 @@ async function enrichPosts(
   const authorIds = [...new Set(postsData.map((p) => p.user_id))];
   const postIds = postsData.map((p) => p.id);
 
+  /**
+   * ⚠ DOES THIS PAYLOAD CARRY THE AUTHOR'S IDENTITY?
+   *
+   * Owner, 2026-08-13: *"Why we cant show the names like FB and Insta ??"*
+   *
+   * Migration 20260813120000 made `get_broadcast_feed` return `author_name`,
+   * `author_avatar`, `thumbnail_urls` and `categories`, so identity now arrives
+   * WELDED to the post. Instagram and Facebook have always worked this way, and
+   * it is the reason a post can never appear there without a name: there is no
+   * second request to fail.
+   *
+   * Detected from the SHAPE of the row, not from a version constant. `"key" in
+   * obj` is true when the column came back NULL, and false only when the
+   * column does not exist — which is exactly the distinction needed. That makes
+   * this file correct against the old RPC and the new one simultaneously, so
+   * the migration and the bundle can ship in either order with no flag day.
+   *
+   * The fallback below is not decoration: `fetchBroadcastPage` has a
+   * chronological fallback query that does NOT select these columns, so a page
+   * served by it still resolves names the old way.
+   */
+  const first = postsData[0] ?? {};
+  const rpcHasIdentity = "author_name" in first;
+  const rpcHasThumbs = "thumbnail_urls" in first;
+
   // 3 queries instead of 4: merge reaction queries into ONE, filter user reactions client-side
   // Plus one small query for friendship state, so the "Add friend" button is
   // never offered for someone a friendship row already exists with.
@@ -187,7 +212,19 @@ async function enrichPosts(
       // batch-fetched here — one query per page, rides the same Promise.all.
       // RLS applies as normal; a post the RPC returned is a post this member
       // can read. If this query fails the feed simply shows originals.
-      supabase.from("posts").select("id, thumbnail_urls").in("id", postIds),
+      /**
+       * ⚠ SKIPPED ENTIRELY once the RPC returns `thumbnail_urls` itself.
+       *
+       * As of migration 20260813120000 the feed RPC returns the column, so
+       * asking `posts` for the same ten rows we were just handed is a wasted
+       * round trip. `rpcHasThumbs` is decided from the payload rather than from
+       * a version flag, so this works against BOTH definitions with no
+       * coordination: an installed APK on the old bundle keeps making this
+       * query, a new one never does, and neither knows about the other.
+       */
+      rpcHasThumbs
+        ? Promise.resolve({ data: [] as { id: string; thumbnail_urls: (string | null)[] | null }[] })
+        : supabase.from("posts").select("id, thumbnail_urls").in("id", postIds),
       // Owner ruling, 2026-08-10 (his second, final answer): "Show immediately
       // to public, but tagged person only can remove my Tag anytime." So a
       // pending tag is public the moment it is made, and the tagged member has
@@ -277,12 +314,31 @@ async function enrichPosts(
       ...p,
       image_urls: imageUrls,
       thumbnail_urls: p.thumbnail_urls ?? thumbsMap.get(p.id) ?? null,
+      /**
+       * THE NAME COMES FROM THE POST'S OWN ROW FIRST.
+       *
+       * `p.author_name` was fetched in the same statement as the post, so it
+       * cannot be missing while the post exists. The `profileMap` lookup is
+       * kept only as the fallback for the chronological-fallback path and for
+       * any installed build still on the 11-column RPC.
+       *
+       * `resolveName` still wraps it, and must: the rule that the official
+       * account renders as the brand rather than a person's name lives in
+       * adminBrand.ts and is deliberately NOT in SQL — the database would have
+       * to know who the admins are, which is a second lookup and a second place
+       * for that policy to drift.
+       */
       author_name: resolveName(
         p.user_id,
-        profileMap.get(p.user_id)?.full_name ?? null,
+        (rpcHasIdentity ? p.author_name : null) ??
+          profileMap.get(p.user_id)?.full_name ??
+          null,
         adminIds,
       ),
-      author_avatar: profileMap.get(p.user_id)?.avatar_url || null,
+      author_avatar:
+        (rpcHasIdentity ? p.author_avatar : null) ??
+        profileMap.get(p.user_id)?.avatar_url ??
+        null,
       author_last_active: profileMap.get(p.user_id)?.last_active_at ?? null,
       author_badges: resolveBadges(
         p.user_id,

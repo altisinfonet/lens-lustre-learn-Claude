@@ -22,14 +22,44 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 const hook = read("src/hooks/feed/useFeedQuery.ts");
 const app = read("src/App.tsx");
-const sql = read("supabase/migrations/20260805040000_broadcast_feed_null_exclude_guard.sql")
-  .replace(/^\s*--.*$/gm, "");
+/**
+ * ⚠ THE LATEST DEFINITION, FOUND AT RUN TIME. NEVER A HARDCODED PATH.
+ *
+ * This line used to read `20260805040000_broadcast_feed_null_exclude_guard.sql`
+ * by name. That file is the one that ADDED the COALESCE guard, so the assertion
+ * below passed forever — while BOTH later definitions of the function
+ * (`20260805100000_feed_newest_first.sql` and `20260812070000_post_categories.sql`)
+ * silently reverted to a bare `ANY(_exclude_ids)`.
+ *
+ * The guard was therefore absent from production from 2026-08-05 to 2026-08-13
+ * with this test green the whole time. A test pinned to a superseded file is
+ * not a weak test, it is a FALSE one: it reports on a definition nobody runs.
+ *
+ * Now it sorts the migrations directory and reads whichever file most recently
+ * defines the function. A future migration that reverts the guard again fails
+ * here on the day it is written.
+ */
+const migrationsDir = "supabase/migrations";
+const latestFeedMigration = readdirSync(join(process.cwd(), migrationsDir))
+  .filter((f) => f.endsWith(".sql"))
+  .sort()
+  .filter((f) =>
+    readFileSync(join(process.cwd(), migrationsDir, f), "utf8").includes(
+      "CREATE FUNCTION public.get_broadcast_feed",
+    ) ||
+    readFileSync(join(process.cwd(), migrationsDir, f), "utf8").includes(
+      "CREATE OR REPLACE FUNCTION public.get_broadcast_feed",
+    ),
+  )
+  .pop();
+
+const sql = read(`${migrationsDir}/${latestFeedMigration}`).replace(/^\s*--.*$/gm, "");
 
 describe("the client asks again every time it mounts", () => {
   it("the feed query is never considered fresh", () => {
