@@ -30,6 +30,7 @@ import WallPosts from "@/components/WallPosts";
 import CategoryStrip from "@/components/feed/CategoryStrip";
 import FeedCardWindow, { EAGER_CARDS } from "@/components/feed/FeedCardWindow";
 import { ALL_FILTER } from "@/lib/categories";
+import { mapServerCounts, applyReactionDelta } from "@/lib/feed/realtimeCounts";
 import type { ReactionType } from "@/components/ReactionPicker";
 import type { UnifiedPost } from "@/types/post";
 
@@ -119,51 +120,48 @@ const Feed = () => {
     }
   }, [relevantUserIds, bufferPost, insertPost, refetch, user?.id]);
 
-  const handleUpdatePost = useCallback((rawPost: any) => {
-    patchPost(rawPost.id, (current) => ({
-      ...current,
-      ...rawPost,
-      image_urls: rawPost.image_urls?.length > 0 ? rawPost.image_urls : rawPost.image_url ? [rawPost.image_url] : [],
-    }));
+  /**
+   * A realtime `posts` UPDATE is now the ONLY writer of the three counters.
+   *
+   * `mapServerCounts` exists because the table spells them `likes_count` /
+   * `comments_count` / `shares_count` and this type spells them `like_count` /
+   * `comment_count` / `share_count`. The old plain spread therefore dropped
+   * every authoritative count on the floor — see realtimeCounts.ts.
+   *
+   * For your OWN post only the counters are taken. The content is whatever you
+   * just typed; a server row arriving mid-edit must not overwrite it.
+   */
+  const handleUpdatePost = useCallback((rawPost: any, isOwnPost: boolean) => {
+    patchPost(rawPost.id, (current) =>
+      isOwnPost
+        ? mapServerCounts(rawPost)
+        : {
+            ...current,
+            ...rawPost,
+            ...mapServerCounts(rawPost),
+            image_urls: rawPost.image_urls?.length > 0 ? rawPost.image_urls : rawPost.image_url ? [rawPost.image_url] : [],
+          },
+    );
   }, [patchPost]);
 
   const handleDeletePost = useCallback((postId: string) => {
     removePost(postId);
   }, [removePost]);
 
+  /**
+   * ⚠ THIS NO LONGER TOUCHES `like_count`, AND THAT IS THE POINT.
+   *
+   * One reaction fires TWO events: this delta, and a `posts` UPDATE carrying
+   * the absolute count (trg_update_post_likes_count writes it). Applying both
+   * makes the number wrong by one whenever the absolute lands first. The
+   * absolute wins; this keeps only the per-type breakdown, which `posts` does
+   * not carry. Guarded by realtimeCounts.test.ts.
+   */
   const handleReactionChange = useCallback((postId: string, event: "INSERT" | "DELETE", reaction: any) => {
-    const delta = event === "INSERT" ? 1 : -1;
     const reactionType = reaction?.reaction_type as string | undefined;
-    patchPost(postId, (current) => {
-      const newCounts = { ...current.reaction_counts };
-      if (reactionType) {
-        newCounts[reactionType] = Math.max(0, (newCounts[reactionType] || 0) + delta);
-      }
-      const topReactions = Object.entries(newCounts)
-        .filter(([, c]) => c > 0)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([type]) => type);
-      return {
-        like_count: Math.max(0, current.like_count + delta),
-        reaction_counts: newCounts,
-        top_reactions: topReactions,
-      };
-    });
-  }, [patchPost]);
-
-  const handleCommentChange = useCallback((postId: string, event: "INSERT" | "DELETE", _comment: any) => {
-    const delta = event === "INSERT" ? 1 : -1;
-    patchPost(postId, (current) => ({
-      comment_count: Math.max(0, current.comment_count + delta),
-    }));
-  }, [patchPost]);
-
-  const handleShareChange = useCallback((postId: string, event: "INSERT" | "DELETE") => {
-    const delta = event === "INSERT" ? 1 : -1;
-    patchPost(postId, (current) => ({
-      share_count: Math.max(0, (current.share_count || 0) + delta),
-    }));
+    patchPost(postId, (current) =>
+      applyReactionDelta(current.reaction_counts, reactionType, event),
+    );
   }, [patchPost]);
 
   useFeedRealtime({
@@ -173,8 +171,6 @@ const Feed = () => {
     onUpdatePost: handleUpdatePost,
     onDeletePost: handleDeletePost,
     onReactionChange: handleReactionChange,
-    onCommentChange: handleCommentChange,
-    onShareChange: handleShareChange,
   });
 
   const handleShowNewPosts = useCallback(() => {

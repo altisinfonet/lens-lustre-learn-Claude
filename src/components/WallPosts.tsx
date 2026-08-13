@@ -44,6 +44,7 @@ import { logger, newCorrelationId } from "@/lib/logger";
 import type { ReactionType } from "@/components/ReactionPicker";
 import type { UnifiedPost } from "@/types/post";
 import { avatarInitial } from "@/lib/displayName";
+import { mapServerCounts, applyReactionDelta } from "@/lib/feed/realtimeCounts";
 
 type Privacy = "public" | "friends" | "private";
 
@@ -129,31 +130,20 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   }, [queryClient, targetUserId]);
 
   // ── Realtime handlers for wall ──
+  /**
+   * ⚠ NO `like_count` HERE — the absolute count owns that field.
+   *
+   * One reaction fires this delta AND a `posts` UPDATE carrying the true total
+   * (trg_update_post_likes_count). Applying both is off by one whenever the
+   * absolute arrives first. Only the per-type breakdown lives on this path,
+   * because `posts` does not carry it. Same rule as Feed.tsx — the two must
+   * stay identical, which is why the logic is shared in realtimeCounts.ts.
+   */
   const handleWallReactionChange = useCallback((postId: string, event: "INSERT" | "DELETE", reaction: any) => {
-    const delta = event === "INSERT" ? 1 : -1;
     const reactionType = reaction?.reaction_type as string | undefined;
-    patchWallPost(postId, (current) => {
-      const newCounts = { ...current.reaction_counts };
-      if (reactionType) {
-        newCounts[reactionType] = Math.max(0, (newCounts[reactionType] || 0) + delta);
-      }
-      const topReactions = Object.entries(newCounts)
-        .filter(([, c]) => c > 0)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([type]) => type);
-      return { like_count: Math.max(0, current.like_count + delta), reaction_counts: newCounts, top_reactions: topReactions };
-    });
-  }, [patchWallPost]);
-
-  const handleWallCommentChange = useCallback((postId: string, event: "INSERT" | "DELETE") => {
-    const delta = event === "INSERT" ? 1 : -1;
-    patchWallPost(postId, (current) => ({ comment_count: Math.max(0, current.comment_count + delta) }));
-  }, [patchWallPost]);
-
-  const handleWallShareChange = useCallback((postId: string, event: "INSERT" | "DELETE") => {
-    const delta = event === "INSERT" ? 1 : -1;
-    patchWallPost(postId, (current) => ({ share_count: Math.max(0, (current.share_count || 0) + delta) }));
+    patchWallPost(postId, (current) =>
+      applyReactionDelta(current.reaction_counts, reactionType, event),
+    );
   }, [patchWallPost]);
 
   // Wire realtime to wall posts
@@ -161,14 +151,22 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     userId: user?.id,
     relevantUserIds: useMemo(() => [targetUserId], [targetUserId]),
     onNewPost: useCallback(() => { refetch(); }, [refetch]),
-    onUpdatePost: useCallback((rawPost: any) => {
-      patchWallPost(rawPost.id, (current) => ({
-        ...current,
-        content: rawPost.content ?? current.content,
-        image_url: rawPost.image_url ?? current.image_url,
-        image_urls: rawPost.image_urls ?? current.image_urls,
-        privacy: rawPost.privacy ?? current.privacy,
-      }));
+    // Counters always (the `posts` row is authoritative and is now their only
+    // writer); content only for someone else's post, so a server row arriving
+    // mid-edit cannot overwrite what the member just typed.
+    onUpdatePost: useCallback((rawPost: any, isOwnPost: boolean) => {
+      patchWallPost(rawPost.id, (current) =>
+        isOwnPost
+          ? mapServerCounts(rawPost)
+          : {
+              ...current,
+              content: rawPost.content ?? current.content,
+              image_url: rawPost.image_url ?? current.image_url,
+              image_urls: rawPost.image_urls ?? current.image_urls,
+              privacy: rawPost.privacy ?? current.privacy,
+              ...mapServerCounts(rawPost),
+            },
+      );
     }, [patchWallPost]),
     onDeletePost: useCallback((postId: string) => {
       queryClient.setQueryData<any>(["user-wall-posts", targetUserId], (old: any) => {
@@ -177,8 +175,6 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       });
     }, [queryClient, targetUserId]),
     onReactionChange: handleWallReactionChange,
-    onCommentChange: handleWallCommentChange,
-    onShareChange: handleWallShareChange,
   });
 
   const reactMutation = useReactToPost<UnifiedPost>(wallCacheMapper);

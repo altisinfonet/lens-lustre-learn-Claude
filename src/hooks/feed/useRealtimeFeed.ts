@@ -3,8 +3,38 @@ import { supabase } from "@/integrations/supabase/client";
 import { useIsPrimaryInstance } from "@/hooks/core/useIsPrimaryInstance";
 
 /**
- * Subscribes to realtime changes on posts, post_reactions, and post_comments.
- * Uses refs for all handlers so the channel is stable — only re-subscribes when userId changes.
+ * Realtime for the feed and the wall.
+ *
+ * Uses refs for all handlers so the channel is stable — only re-subscribes when
+ * userId changes.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⚠ FOUR BINDINGS WERE REMOVED ON 2026-08-13, AND WHY THAT IS SAFE
+ *
+ * This channel carried NINE bindings: `posts` INSERT/UPDATE/DELETE, plus
+ * INSERT/DELETE on each of `post_reactions`, `post_comments` and `post_shares`
+ * — the four busiest tables in the product, with no server-side filter. Every
+ * write anywhere on the platform was broadcast to every connected client and
+ * then discarded in JavaScript. At 500 concurrent members one reaction became
+ * 500 messages so that 499 could `return`.
+ *
+ * The `post_comments` and `post_shares` bindings existed only to keep two
+ * counters moving. They are gone, because those counters already arrive on the
+ * `posts` UPDATE — verified against production, not assumed:
+ *
+ *     post_comments  → trg_update_post_comments_count → posts.comments_count
+ *     post_shares    → trg_update_post_shares_count   → posts.shares_count
+ *     post_reactions → trg_update_post_likes_count    → posts.likes_count
+ *
+ * The reason they were load-bearing anyway was a field-name mismatch on the
+ * consumer side, described in full in `src/lib/feed/realtimeCounts.ts`.
+ *
+ * `post_reactions` STAYS. It is the one child table carrying something `posts`
+ * does not: the per-reaction-type breakdown behind the emoji cluster. There is
+ * no absolute source for that, so it keeps its delta path.
+ *
+ * ⚠ Do not "finish the job" by removing `post_reactions` too without replacing
+ * the breakdown — the emoji cluster on every card is fed by it.
  */
 export function useFeedRealtime({
   userId,
@@ -13,21 +43,18 @@ export function useFeedRealtime({
   onUpdatePost,
   onDeletePost,
   onReactionChange,
-  onCommentChange,
-  onShareChange,
 }: {
   userId: string | undefined;
   relevantUserIds: string[];
   onNewPost: (post: any) => void;
-  onUpdatePost: (post: any) => void;
+  /** `isOwnPost` lets a consumer take the counters but keep its own local content edit. */
+  onUpdatePost: (post: any, isOwnPost: boolean) => void;
   onDeletePost: (postId: string) => void;
   onReactionChange: (postId: string, event: "INSERT" | "DELETE", reaction: any) => void;
-  onCommentChange: (postId: string, event: "INSERT" | "DELETE", comment: any) => void;
-  onShareChange?: (postId: string, event: "INSERT" | "DELETE") => void;
 }) {
   // Store handlers + data in refs so channel callbacks always see latest values
-  const handlersRef = useRef({ onNewPost, onUpdatePost, onDeletePost, onReactionChange, onCommentChange, onShareChange });
-  handlersRef.current = { onNewPost, onUpdatePost, onDeletePost, onReactionChange, onCommentChange, onShareChange };
+  const handlersRef = useRef({ onNewPost, onUpdatePost, onDeletePost, onReactionChange });
+  handlersRef.current = { onNewPost, onUpdatePost, onDeletePost, onReactionChange };
 
   const relevantIdsRef = useRef(relevantUserIds);
   relevantIdsRef.current = relevantUserIds;
@@ -60,10 +87,25 @@ export function useFeedRealtime({
         { event: "UPDATE", schema: "public", table: "posts" },
         (payload) => {
           const p = payload.new as any;
-          // Skip own post edits — already applied locally
-          if (p.user_id === userIdRef.current) return;
-          if (p.privacy === "public" || relevantIdsRef.current.includes(p.user_id)) {
-            handlersRef.current.onUpdatePost(p);
+          /**
+           * ⚠ OWN POSTS ARE NO LONGER DROPPED HERE.
+           *
+           * This used to `return` outright for your own posts, on the reasoning
+           * that an edit you made is already applied locally. True for CONTENT
+           * — and it also silently threw away every COUNTER change on your own
+           * posts. Somebody liking your photo produced a `posts` UPDATE that
+           * this line discarded, so the count only moved because a separate
+           * `post_reactions` binding happened to catch it. Remove that binding
+           * (as 2026-08-13 did for comments and shares) and the counts on your
+           * own posts would quietly stop moving.
+           *
+           * The flag is passed on instead of decided here: the consumer knows
+           * whether it has a local edit worth protecting. See
+           * `src/lib/feed/realtimeCounts.ts`.
+           */
+          const isOwnPost = p.user_id === userIdRef.current;
+          if (isOwnPost || p.privacy === "public" || relevantIdsRef.current.includes(p.user_id)) {
+            handlersRef.current.onUpdatePost(p, isOwnPost);
           }
         }
       )
@@ -95,44 +137,6 @@ export function useFeedRealtime({
           // Skip own reaction removals — already handled optimistically
           if (r.user_id === userIdRef.current) return;
           handlersRef.current.onReactionChange(r.post_id, "DELETE", r);
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "post_comments" },
-        (payload) => {
-          const c = payload.new as any;
-          // Skip own comments — already counted locally
-          if (c.user_id === userIdRef.current) return;
-          handlersRef.current.onCommentChange(c.post_id, "INSERT", c);
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "post_comments" },
-        (payload) => {
-          const c = payload.old as any;
-          // Skip own comment deletions — already counted locally
-          if (c.user_id === userIdRef.current) return;
-          handlersRef.current.onCommentChange(c.post_id, "DELETE", c);
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "post_shares" },
-        (payload) => {
-          const s = payload.new as any;
-          if (s.user_id === userIdRef.current) return;
-          handlersRef.current.onShareChange?.(s.post_id, "INSERT");
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "post_shares" },
-        (payload) => {
-          const s = payload.old as any;
-          if (s.user_id === userIdRef.current) return;
-          handlersRef.current.onShareChange?.(s.post_id, "DELETE");
         }
       )
       .subscribe();
