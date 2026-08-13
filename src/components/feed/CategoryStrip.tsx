@@ -194,8 +194,20 @@ export default function CategoryStrip({ value, onChange, className }: CategorySt
 
       {gridOpen && (
         <>
+          {/* ⚠ THIS SHEET MUST OUTRANK THE BOTTOM NAV, AND CLEAR IT.
+              MobileBottomNav is `fixed bottom-0 z-50` and 48px tall. This sheet
+              was ALSO `bottom-0 z-50`, so on a phone the nav painted over its
+              first row of chips — the owner's screenshot shows the camera/"All"
+              chip sliced in half by the ribbon.
+
+              Two separate defects, two separate fixes, both needed:
+                • z-[60] / z-[55] — win the stacking contest against the nav.
+                • pb-20 below md   — 48px of nav + breathing room, so the LAST
+                                     row of chips is reachable, not just visible.
+              Desktop is unaffected: the sheet is centred there and never meets
+              the nav, which is `lg:hidden`. */}
           <div
-            className="fixed inset-0 z-40 bg-black/60"
+            className="fixed inset-0 z-[55] bg-black/60"
             onClick={() => setGridOpen(false)}
             aria-hidden="true"
           />
@@ -203,9 +215,9 @@ export default function CategoryStrip({ value, onChange, className }: CategorySt
             role="dialog"
             aria-label={t("feed.allCategories", "All categories")}
             className={cn(
-              "fixed inset-x-0 bottom-0 z-50 max-h-[75dvh] overflow-y-auto rounded-t-2xl border-t border-border bg-card p-4",
+              "fixed inset-x-0 bottom-0 z-[60] max-h-[75dvh] overflow-y-auto rounded-t-2xl border-t border-border bg-card p-4 pb-20",
               "md:inset-x-auto md:bottom-auto md:left-1/2 md:top-1/2 md:w-[640px] md:max-w-[92vw]",
-              "md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:border",
+              "md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:border md:pb-4",
             )}
           >
             <div className="mb-3 flex items-center justify-between">
