@@ -13,6 +13,7 @@ import { HelmetProvider } from "react-helmet-async";
 import { lazy, Suspense, useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import RedirectHandler from "@/components/RedirectHandler";
+import { AndroidBackButton } from "@/hooks/core/useAndroidBackButton";
 import BrandLoader from "@/components/BrandLoader";
 import DynamicFavicon from "@/components/DynamicFavicon";
 import SplashScreen from "@/components/SplashScreen";
@@ -356,6 +357,10 @@ const App = () => {
           <CookieConsentProvider>
           <GoogleAnalytics />
           <RedirectHandler />
+          {/* Android hardware Back. Inside the Router because it navigates.
+              No-op on the web. See useAndroidBackButton.ts for the priority
+              order (close overlay -> go back -> exit app). */}
+          <AndroidBackButton />
           <LanguageAccountSync />
           <PushNotificationsGate />
           <AdFullscreenProvider>
