@@ -1,82 +1,71 @@
-Build 1.2.4 - 2026-08-14 - CRASH, MEMORY AND AUTHOR-NAME FIXES
-Cut from main @ 8259c5b. typecheck clean, 1335 tests green, build clean,
-security audit 0 critical / 0 high. Capacitor versions pinned, Node 22.
+Build 1.2.5 - 2026-08-14 - THE TWO DEFECTS REPORTED ON 1086, PLUS 1086's BATCH
+Cut from main @ f8c1985. typecheck clean, 1345 tests green, build clean,
+security audit 0 critical / 0 high.
 
-WHY THIS BUILD EXISTS
-This batch is complete. It carries one crash fix, two memory fixes and the
-real fix for the "names show as ?" complaint. None of those should wait
-behind the multi-week image and upload work that is still open.
+⚠ 1086 WAS HALTED IN PLAY. Do not ship 1086. This build replaces it and
+carries everything 1086 carried.
 
-WHAT A MEMBER WILL NOTICE
+FIXED IN THIS BUILD - the two things reported on 1086
 
-- THE FEED NO LONGER RUNS OUT OF MEMORY ON A LONG SCROLL.
-  Every card ever scrolled past stayed mounted. Ten scroll-loads meant 100
-  live PostCards, each with 2-3 <img>, a Radix dropdown, an
-  IntersectionObserver and framer-motion nodes, and nothing was ever
-  unmounted. FeedCardWindow now unmounts a card about two screens away and
-  leaves a placeholder of the measured height, so scroll position never
-  jumps. It fails open: if IntersectionObserver is missing, everything
-  renders as before.
+- "+ CREATE" IS IN THE LEFT CORNER, AND IT IS AN ICON WITH NO CAPTION.
+  On 1086 it sat in the MIDDLE of the top bar, on top of the centred
+  wordmark. The cause was layout, not a coordinate: the bar is
+  `justify-between`, and in the app the logo <Link> collapses to ZERO width
+  because its image and its wordmark are both `hidden lg:*`. Three flex
+  children with a zero-width first one spread as [nothing] ... [+ Create]
+  ... [actions], which parks the button in the centre. The logo and the
+  button now share ONE wrapper, so they are ONE flex item and sit at the
+  left edge. Measured in a headless render before shipping: the button
+  starts 24px from the bar edge and ends at 61px; the wordmark starts at
+  69px. On 1086 it started at 125px and overlapped. The "Create" caption is
+  gone - the name is on aria-label, and the box is 36px so the tap target
+  stays finger-sized without it.
 
-- A BLURRED DECORATIVE LAYER WAS DOWNLOADING 14.7 MB.
-  When a post had no stored thumbnail the backdrop fell back to the full
-  2560px original with loading="eager", ignoring the viewport, to blur it
-  into mush. A decoded 2560x1440 bitmap is ~14.7 MB of RAM. The backdrop is
-  now conditional and low priority, and the LQIP no longer falls through to
-  the original.
+- A VERIFIED TAGGED MEMBER NOW SHOWS THE BLUE TICK. So does a verified
+  AUTHOR, which was the same bug.
+  Checked against production first: the badge row exists, RLS is "Anyone can
+  view badges" USING (true), and a real anonymous REST call returns it. The
+  data was always reachable and the component was always correct - what
+  failed was the lookup between them. The tick came from a SECOND, per-name
+  request fired at render time, while the query that built that very line had
+  already fetched those profiles WITH their badges and thrown the badges
+  away. Author and tagged name go through the identical path, so this was
+  never tagged-only: `author_badges` has been computed by every feed, wall
+  and hashtag query for months and no caller ever read it.
+  Badges now travel WITH the post - the same correction as the author-name
+  fix. "Name visible, badge missing" is no longer a state this app can be in.
 
-- REACT QUERY STOPS RETAINING EVERY PAGE EVER FETCHED. maxPages: 5.
+ALSO IN THIS BUILD - everything from 1086
 
-- AUTHOR NAMES AND AVATARS ARRIVE WITH THE POST.
-  get_broadcast_feed returns 15 columns instead of 11 - author_name,
-  author_avatar, thumbnail_urls and categories travel WITH the post. The
-  migration is already applied to production; this build is the client half.
-  Previously the post came from one request and the name from a second
-  independent one, so "post visible, name missing" was a state the system
-  could be in and the client had to invent a placeholder. It no longer can.
-  The client detects the RPC shape, so it is safe against either signature.
-
-- REALTIME TRAFFIC HALVED, AND COUNTERS CAN NO LONGER DRIFT.
-  The feed-live channel had 9 unfiltered bindings on the four busiest
-  tables; post_comments and post_shares are gone entirely (9 -> 5). One
-  writer per field: counters come from the posts UPDATE as absolute values,
-  only the per-type reaction breakdown comes from post_reactions. Mixing an
-  absolute total with a +1 delta double-counted every like whenever the
-  absolute landed first.
-
-- A WEAK SIGNAL NO LONGER LOOKS LIKE AN EMPTY APP.
-  The feed said "No posts yet" and drafts said "you have no drafts" when the
-  real problem was a dropped request. Returning [] on error reports failure
-  to React Query as a SUCCESS whose value happens to be empty, and with
-  staleTime it caches as truth. Both throw now, so both retry.
-
-- TYPING IN A COMMENT EDIT NO LONGER REVERSES THE TEXT.
-  "Thanks" produced "sknaht". Two components were declared inside a render
-  body, so React saw a new element type every render, unmounted the subtree,
-  destroyed the <input> and returned the caret to 0. Both are hoisted, and a
-  test with an EMPTY allowlist keeps them out.
-
-- + Create posts from the top bar in the App. Blue tick shows with the name
-  everywhere, including "with X". Judge scoring no longer loses in-progress
-  scores.
+- The feed no longer runs out of memory on a long scroll. Cards unmount about
+  two screens away; 100 mounted cards was the crash on a mid-range Android.
+- The blurred backdrop no longer downloads the 2560px original (14.7 MB of
+  RAM once decoded), and the LQIP no longer falls through to it.
+- React Query stops retaining every page ever fetched (maxPages: 5).
+- Author names and avatars arrive WITH the post - get_broadcast_feed returns
+  15 columns instead of 11.
+- Realtime traffic halved (9 bindings -> 5) and counters can no longer drift:
+  one writer per field, absolute totals from `posts`.
+- A weak signal no longer looks like an empty app - the feed and drafts throw
+  and retry instead of caching an empty success as truth.
+- Typing in a comment edit no longer reverses the text.
+- Blue tick shows with the name everywhere, including "with X".
 
 BUILD SYSTEM
-All 11 Capacitor packages are pinned, with a step that FAILS the build if a
-pin did not take. This is not housekeeping: @capacitor/cli raised its Node
-floor to 22 and the unpinned install broke the Android build with nobody
-having changed a line of code. Node is now 22. An upgrade should be a
-decision, not a date.
+All 11 Capacitor packages pinned, with a step that FAILS the build if a pin
+did not take. Node 22.
 
 WHAT IS *NOT* IN THIS BUILD - do not expect it
-- The Instagram-style in-app photo picker. The picker screens are unchanged.
-- The image derivative pipeline. Phones still download originals, so
-  bandwidth is unchanged.
-- Resumable / chunked uploads. A failed multi-photo upload still orphans
-  bytes in R2.
+- The Instagram-style in-app photo picker. Picker screens are unchanged.
+- The image derivative pipeline. Phones still download originals.
+- Resumable / chunked uploads.
 
 BEFORE PROMOTING TO PRODUCTION
-Install the debug APK this run produces and scroll the feed hard for a few
-minutes. FeedCardWindow is new hand-rolled code and a green test suite
-proves a module works, not that it renders correctly. Check: no blank
-cards, no scroll jump, comment typing, categories, and the contributor
-score. Then promote the AAB.
+Sideload the debug APK this run produces and check, in this order:
+  1. The + Create icon is in the LEFT corner and does not touch the wordmark.
+  2. A verified member shows the blue tick - as the post author AND as a
+     tagged name in "with X".
+  3. Scroll the feed hard and back: no blank cards, no scroll jump.
+  4. Type and edit a comment; categories and contributor score still render.
+  5. Like a post - the count moves by exactly one.
+Then promote the AAB.
