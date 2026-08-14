@@ -263,8 +263,8 @@ jobs:
           # and if it did, reusing it would put two different builds under one
           # version string. Skipping a name costs nothing; reusing one costs
           # clarity in the Console, in crash reports and on the About screen.
-          sed -i 's/versionName "1.0"/versionName "1.2.4"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.4 (live production is 1073 / 1.2.2)"
+          sed -i 's/versionName "1.0"/versionName "1.2.5"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.5 (live production is 1073 / 1.2.2)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
