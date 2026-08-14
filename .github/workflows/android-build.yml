@@ -257,8 +257,14 @@ jobs:
           # makes the Console, the crash reports and the user's About screen
           # ambiguous — two different builds wearing one name. Bump it every
           # time the store gets a new build.
-          sed -i 's/versionName "1.0"/versionName "1.2.3"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.3 (live production is 1073 / 1.2.2)"
+          # 2026-08-14: bumped 1.2.3 -> 1.2.4. Build 1082 was cut as 1.2.3; I do
+          # not know whether the owner promoted it to the store. Bumping is
+          # correct either way — if 1.2.3 never shipped we simply skip a name,
+          # and if it did, reusing it would put two different builds under one
+          # version string. Skipping a name costs nothing; reusing one costs
+          # clarity in the Console, in crash reports and on the About screen.
+          sed -i 's/versionName "1.0"/versionName "1.2.4"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.4 (live production is 1073 / 1.2.2)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
