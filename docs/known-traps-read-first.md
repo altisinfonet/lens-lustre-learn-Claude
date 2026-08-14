@@ -115,3 +115,62 @@ and imported by **nothing**. Vite tree-shook them out of the bundle.
 
 ➡ A green suite proves a module works, not that anything renders it.
 `nativeGalleryWired.test.ts` now asserts a non-test importer exists.
+
+## 12. A zero-width flex child moves its neighbour to the middle of the bar
+
+Build 1086 shipped the app's `+ Create` button sitting **in the centre of the
+top bar, on top of the wordmark**. Nothing set its position.
+
+The bar is `justify-between`. In the app the logo `<Link>` collapses to **zero
+width** — its `<img>` and its wordmark are both `hidden lg:*`. Three flex
+children with a zero-width first one spread as
+`[nothing] … [+ Create] … [actions]`.
+
+➡ Group things that belong together in **one wrapper** so they are one flex
+item. Guarded by `NavbarCreateButtonPlacement.test.ts`.
+
+➡ **A layout claim needs a measurement.** The fix was verified in a headless
+render before shipping: button 24px→61px, wordmark starts at 69px. "It looks
+right in the markup" is what shipped 1086.
+
+## 13. A second lookup for data you already fetched
+
+A verified member's blue tick was missing. The badge row existed, RLS was
+`USING (true)`, and a real anonymous REST call returned it — the data was
+never the problem.
+
+The tick came from a **second, per-name request fired at render time**, while
+the query that built that line had already fetched those profiles *with their
+badges* and discarded them. `author_badges` had been computed by every feed,
+wall and hashtag query for months and **no caller ever read it**.
+
+➡ **If you already have it, carry it.** Badges now travel on the post, like
+`author_name`. Two requests for one line of text means one of them can fail,
+race, or return empty on its own.
+
+➡ Same shape as the "names showing as ?" bug. When a value can be missing while
+the thing next to it is present, ask what **second** request it came from.
+
+## 14. A test that cannot fail is worse than no test
+
+The tagged-name tick was reported as done. Its test asserted the names and the
+count and said so in its own comment: the assertions *"do not depend on the
+badge resolving at all"*. A verified member and a completely broken tick
+produced the **same DOM**, and the suite was green either way.
+
+➡ Assert **the claim**, not the neighbourhood of the claim. `TaggedPeopleVerifiedTick.test.tsx`
+now checks the tick in the DOM, including one case with the lookup **forced to
+return nothing**.
+
+➡ Note this is trap #8 again in a new costume. It is the most expensive habit
+in this repository.
+
+## 15. Radix `Tooltip` throws without a `TooltipProvider`
+
+It does not degrade to a plain glyph — it throws
+``` `Tooltip` must be used within `TooltipProvider` ```
+and takes the subtree with it. The app supplies one high in the tree, so this
+only bites in tests and in any subtree rendered outside it.
+
+➡ A render test touching a badge, tick or tooltip needs `<TooltipProvider>` or
+it is testing its own harness.

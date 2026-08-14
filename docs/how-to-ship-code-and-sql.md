@@ -36,6 +36,29 @@ It has caught **seven real corruptions** across sessions — a single character
 silently altered mid-transfer, with the correct length. Without the hash those
 would have been committed as valid-looking code.
 
+### Transporting many files at once — send a DIFF, not the files
+
+Nine changed files were ~120 KB of content but only a **24 KB unified diff**
+(38 groups instead of 170). The browser fetches each old file from
+`raw.githubusercontent.com/<owner>/<repo>/<base-sha>/<path>`, applies the diff,
+and checks **every** resulting file's SHA-256 against the local one before
+anything is staged.
+
+Prove the applier locally first — run it against `git show <base>:<path>` and
+compare hashes — so a patch bug fails on your machine, not in a commit. Two
+real bugs were caught that way: `@@ -0,0` on a new file yields a start index of
+-1, and a new file has no trailing empty element from `split("\n")`, so its
+final newline is lost.
+
+### ⚠ The upload page silently drops paths starting with a dot-directory
+
+`new File([content], "src/components/Navbar.tsx")` works — nested paths are
+created. `.github/workflows/android-build.yml` is **dropped with no error**:
+nine files staged, eight uploaded, no message.
+
+➡ Count the staged files against what you dropped, every time. Upload anything
+under `.github/` from `/upload/main/.github/workflows` instead.
+
 ### Two more quirks
 
 - **GitHub swallows the first click or keypress after a navigation.** If a
@@ -87,6 +110,13 @@ the full test suite before any native work.
 - Output is an AAB artifact. **Only the owner uploads builds to Play.**
 - ⚠ The owner's standing instruction: **do not cut a build until the batch of
   work is actually complete.** No part-done builds.
+- ⚠ **A version bump and a trigger note are two commits, and both fire a
+  build.** `.github/workflows/android-build.yml` and `ANDROID_BUILD_TRIGGER`
+  are both trigger paths, and the upload page cannot commit them together
+  (see the dot-directory quirk above). Push the **trigger first**, then the
+  workflow — the second run then carries both — and **cancel the first run**
+  so only one artifact exists. Its versionCode is `1000 + run_number`, so the
+  later run is also the higher one, which is what Play requires.
 
 ---
 
@@ -94,7 +124,7 @@ the full test suite before any native work.
 
 ```bash
 npx tsc --noEmit
-npx vitest run                  # 1,335 tests, 1 skipped
+npx vitest run                  # 1,345 tests, 1 skipped
 npm run build
 node scripts/security-audit.mjs # must be 0 critical / 0 high
 ```

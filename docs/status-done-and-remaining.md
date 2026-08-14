@@ -1,6 +1,23 @@
 # Status — what is done, what is left
 
-As of `origin/main` = `eb12243`, 2026-08-13.
+As of `origin/main` = **`c7c591b`**, 2026-08-14.
+
+## ⚠ Read this first — where the Android app actually is
+
+| Build | Version | State |
+|---|---|---|
+| 1073 | 1.2.2 | **What users have now** — live in Play |
+| 1086 | 1.2.4 | **HALTED in Play. Do not ship.** `+ Create` sat in the middle of the top bar over the wordmark; verified members showed no blue tick. |
+| **1088** | **1.2.5** | **Green, artifacts ready, waiting for the owner to upload.** Fixes both 1086 defects and carries everything 1086 carried. |
+
+Run #88 · commit `c7c591b` ·
+https://github.com/altisinfonet/lens-lustre-learn-Claude/actions/runs/31772341968
+Artifacts: `app-debug-apk-SIDELOAD-THIS` (13.85 MB), `app-release-aab` (8.42 MB).
+
+**Before promoting 1088, check on the phone:** `+ Create` in the left corner
+clear of the wordmark · the tick on a verified member **as author AND as a
+tagged name** in "with X" · hard scroll and back with no blank cards or scroll
+jump · comment typing · a like moving by exactly one.
 
 ---
 
@@ -27,6 +44,8 @@ Rollback: `supabase/rollback/20260813120000_feed_author_identity_ROLLBACK.sql`
 
 | Fix | What it means for a member |
 |---|---|
+| **`+ Create` in the left corner** | It was dead centre on top of the wordmark in 1086. Icon only now, no caption. Measured: 24px from the edge, 8px clear of the title. |
+| **The blue tick appears for verified members** | Tagged names *and* post authors. The badge now travels with the post instead of a second lookup that could come back empty. |
 | **Feed windowing** | Cards unmount ~2 screens away. 100 mounted cards used to be the out-of-memory crash on a mid-range Android. |
 | **14.7 MB backdrop removed** | A blurred decorative layer was downloading the full 2560px original. |
 | **`maxPages: 5`** | React Query stops retaining every page ever fetched. |
@@ -38,7 +57,7 @@ Rollback: `supabase/rollback/20260813120000_feed_author_identity_ROLLBACK.sql`
 | **Blue tick on tagged names** | The badge now shows with the name everywhere, including "with X". |
 | **Two in-render components hoisted** | Judge scoring no longer loses in-progress scores. |
 
-Gates on every commit: typecheck clean · **1,335 tests** · build clean ·
+Gates on every commit: typecheck clean · **1,345 tests** · build clean ·
 security audit 0 critical / 0 high. Android build green, 36/36 steps.
 
 ---
@@ -96,5 +115,9 @@ the thumbnails are generated and uploaded, then orphaned.
    Harmless since CI resolves both from the keystore itself; fix at leisure.
 7. **Verify on a real device** after the next Play rollout — contributor score,
    categories, comment typing, and the windowed feed under a long scroll.
+8. **Retire the per-name badge lookup entirely.** `AutoBadge` is still the
+   fallback in `TaggedPeople` and `UserIdentityBlock` for callers that do not
+   pass `badges`. Migrate the remaining producers, then delete the fallback —
+   while it exists, a caller can quietly go back to the slow, failable path.
 
 Nothing in this list is on fire. Nothing is half-done.

@@ -3,8 +3,12 @@
 **50mm Retina World** — a photography social platform. This is a **LIVE site and
 a LIVE Android app**. Read this file before doing anything else.
 
-Last code commit: `eb12243` (2026-08-13). These five docs landed on top of it.
-Working tree clean, nothing half-done.
+`origin/main` = **`c7c591b`** (2026-08-14). Working tree clean, nothing
+half-done.
+
+⚠ **Build 1088 / v1.2.5 is cut, green and waiting for the owner to upload.**
+Build 1086 was **halted in Play** — do not ship it. See
+`status-done-and-remaining.md`.
 
 ---
 
@@ -41,10 +45,14 @@ project doc disagree, these win.
   "I do not know".
 - ❌ **No REELS and no LIVE anywhere in this product.** Written into
   `WallPosts.tsx` because it has been re-suggested more than once.
+- ❌ **Never report something as done because the code changed.** Twice now a
+  change was reported as shipped on the strength of a green suite that did not
+  assert the thing claimed. Check the rendered result, the live row, or the
+  real request — then say what you checked.
 - 🔒 **Never handle the upload keystore, its passwords, or the Play
   service-account JSON.** Those are the owner's alone.
 - 🧪 **Every change passes the full gate before it ships**: `npx tsc --noEmit`,
-  `npx vitest run` (1,335 tests), `npm run build`, and
+  `npx vitest run` (1,345 tests), `npm run build`, and
   `node scripts/security-audit.mjs` (must be 0 critical / 0 high).
 - 📝 **Comment the WHY, not the what.** This codebase explains the reasoning and
   the incident behind non-obvious code. Match that. A future reader must be able
