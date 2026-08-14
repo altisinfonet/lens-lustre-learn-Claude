@@ -89,4 +89,23 @@ export interface TaggedPerson {
    * worse lie than showing nothing.
    */
   pending?: boolean;
+  /**
+   * The tagged member's badges, CARRIED WITH THE POST.
+   *
+   * Owner, 2026-08-14, with a screenshot of "Sophia Agarcia with 50mm Retina
+   * World" and no tick, on an account that is verified in the database.
+   *
+   * The tick used to come from a SECOND, independent lookup (`AutoBadge` ->
+   * `useProfileMap`) fired per name at render time, even though every query
+   * that builds this list — useFeedQuery, useUserPostsQuery, HashtagFeed —
+   * had already fetched these exact profiles, badges included, and thrown the
+   * badges away. Two requests for one line of text, and the one that mattered
+   * could fail, race or come back empty on its own.
+   *
+   * This is the same correction as the "names showing as ?" fix: if the post
+   * and the name arrive together, "name visible, badge missing" stops being a
+   * state the app can be in. Optional, so a caller that has not been migrated
+   * still falls back to the lookup rather than silently losing the tick.
+   */
+  badges?: string[];
 }

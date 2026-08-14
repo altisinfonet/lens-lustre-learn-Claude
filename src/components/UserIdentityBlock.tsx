@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import AutoBadge from "@/components/AutoBadge";
+import UserBadgeInline from "@/components/UserBadgeInline";
 import AutoRole from "@/components/AutoRole";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
@@ -32,6 +33,20 @@ class SafeRender extends Component<{ children: ReactNode }, { hasError: boolean 
 interface UserIdentityBlockProps {
   userId: string;
   name: string | null | undefined;
+  /**
+   * Badges that arrived WITH the surrounding record — pass them whenever the
+   * caller already has them.
+   *
+   * Every feed/wall/hashtag query computes `author_badges` and, until
+   * 2026-08-14, no caller passed it: the tick came from `AutoBadge`, a second
+   * per-name lookup at render time. Owner screenshot that day showed a verified
+   * account with no tick beside its name. Same correction as the "names showing
+   * as ?" fix — if the name and the badge arrive together, "name visible, badge
+   * missing" stops being a reachable state.
+   *
+   * Optional so unmigrated callers keep the lookup rather than lose the tick.
+   */
+  badges?: string[];
   /** If provided, the name becomes a link to this path */
   linkTo?: string;
   size?: "compact" | "full";
@@ -66,6 +81,7 @@ interface UserIdentityBlockProps {
 const UserIdentityBlock = ({
   userId,
   name,
+  badges,
   linkTo,
   size = "compact",
   className = "",
@@ -90,9 +106,15 @@ const UserIdentityBlock = ({
     <span className={resolvedNameClassName}>{displayName}</span>
   );
 
+  // Carried badges win over the lookup. SafeRender stays on BOTH paths: it is
+  // what stops a badge problem from taking the whole name block down with it.
   const badgeEl = (only: "all" | "verified" | "pills") => (
     <SafeRender>
-      <AutoBadge userId={userId} size={size} only={only} />
+      {badges ? (
+        <UserBadgeInline badges={badges} size={size} only={only} />
+      ) : (
+        <AutoBadge userId={userId} size={size} only={only} />
+      )}
     </SafeRender>
   );
 

@@ -265,6 +265,14 @@ async function enrichPosts(
           adminIds,
         ),
         pending: r.status === "pending",
+        // Already in `tagProfiles` — it used to be dropped here and re-fetched
+        // per name at render time, which is how a verified tagged member ended
+        // up with no tick. Carried now, same as the author line.
+        badges: resolveBadges(
+          r.tagged_user_id,
+          tagProfiles.get(r.tagged_user_id)?.badges || [],
+          adminIds,
+        ),
       });
       taggedMap.set(r.post_id, list);
     }

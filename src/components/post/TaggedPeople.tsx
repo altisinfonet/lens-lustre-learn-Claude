@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import AutoBadge from "@/components/AutoBadge";
+import UserBadgeInline from "@/components/UserBadgeInline";
 import type { TaggedPerson } from "@/types/post";
 
 /**
@@ -50,6 +51,31 @@ import type { TaggedPerson } from "@/types/post";
  * put a member's name on a stranger's photo with no way to take it off.
  */
 
+/**
+ * The tick for one tagged name.
+ *
+ * ⚠ PREFER THE BADGES THAT CAME WITH THE POST. Owner, 2026-08-14, with a
+ * screenshot of "Sophia Agarcia with 50mm Retina World" and no tick, on an
+ * account that IS verified in the database. The tick used to come only from
+ * `AutoBadge`, a second lookup fired per name at render time — while the query
+ * that produced this very list had already fetched the same profiles, badges
+ * included, and discarded them. One line of text, two requests, and the second
+ * one is the one that could come back empty.
+ *
+ * `person.badges` is optional on purpose: a caller that has not been migrated
+ * yet keeps the old lookup instead of silently losing the tick. Delete the
+ * fallback only once every producer of TaggedPerson sets `badges`.
+ *
+ * ⚠ This component is declared at MODULE level, not inside TaggedPeople's
+ * render body. A component defined during render is a new element type every
+ * pass and React remounts its subtree — trap #2, the bug that made typing in a
+ * comment come out backwards. `noComponentDefinedInRender` guards it.
+ */
+const TagBadge = ({ person }: { person: TaggedPerson }) =>
+  person.badges
+    ? <UserBadgeInline badges={person.badges} size="compact" only="verified" />
+    : <AutoBadge userId={person.id} size="compact" only="verified" />;
+
 interface Props {
   people: TaggedPerson[];
 }
@@ -96,7 +122,7 @@ const TaggedPeople = ({ people }: Props) => {
           >
             {first.name}
           </Link>
-          <AutoBadge userId={first.id} size="compact" only="verified" />
+          <TagBadge person={first} />
         </span>
         {others > 0 && (
           <>
@@ -146,7 +172,7 @@ const TaggedPeople = ({ people }: Props) => {
                     apart. */}
                 <span className="flex min-w-0 items-center gap-1">
                   <span className="truncate text-sm">{p.name}</span>
-                  <AutoBadge userId={p.id} size="compact" only="verified" />
+                  <TagBadge person={p} />
                 </span>
               </Link>
             ))}

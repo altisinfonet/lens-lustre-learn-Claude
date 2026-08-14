@@ -294,6 +294,13 @@ const PostCard = ({
             <UserIdentityBlock
               userId={post.user_id}
               name={post.author_name || "Photographer"}
+              // ⚠ PASS THE BADGES THE QUERY ALREADY FETCHED. Every feed/wall/
+              // hashtag query has computed `author_badges` for months and no
+              // caller read it, so the tick fell back to a second per-name
+              // lookup at render time — and a verified author showed with no
+              // tick (owner, 2026-08-14). The name and the badge now travel
+              // together, exactly like author_name itself.
+              badges={post.author_badges}
               linkTo={`/profile/${post.user_id}`}
               nameClassName="text-sm font-semibold hover:text-primary transition-colors truncate [font-family:var(--font-heading)]"
             />

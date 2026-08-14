@@ -225,8 +225,18 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
         aria-label="Main navigation"
       >
         <div className="container mx-auto py-3 md:py-5 flex items-center justify-between relative">
-          {/* Logo */}
-          <Link to={logoHref} className="flex items-center gap-2 md:gap-3 shrink-0 relative z-10" aria-label="50mm Retina World Home">
+          {/* ── THE LEFT-HAND GROUP: logo, then "+ Create" ──
+              ⚠ THESE TWO MUST STAY IN ONE WRAPPER. The bar is
+              `justify-between`, and on the app the <Link> below collapses to
+              ZERO width (its logo and wordmark are both `hidden lg:*`). As
+              separate flex children, `justify-between` therefore spread them as
+              [0-width Link] … [+ Create] … [actions] and parked + Create in the
+              MIDDLE of the bar, on top of the absolutely-centred wordmark.
+              That shipped in build 1086 and the owner saw it overlapping the
+              title. One wrapper = one flex item = pinned to the left corner,
+              which is where he asked for it. Do not split them again. */}
+          <div className="flex items-center gap-2 md:gap-3 shrink-0 relative z-10">
+          <Link to={logoHref} className="flex items-center gap-2 md:gap-3 shrink-0" aria-label="50mm Retina World Home">
             {/* The small logo is DESKTOP-ONLY in the normal bar. On the app top
                 bar the owner wants the name as centred text with no logo
                 (2026-08-12), so the image is hidden below lg here. The homepage
@@ -265,17 +275,20 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
             <button
               type="button"
               onClick={() => navigate("/feed?compose=1")}
-              className="lg:hidden relative z-10 flex shrink-0 flex-col items-center gap-0.5 text-muted-foreground transition-colors hover:text-foreground"
+              className="lg:hidden relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-foreground/30 text-muted-foreground transition-colors hover:text-foreground"
               aria-label={t("composer.create", "Create post")}
             >
-              <span className="flex h-7 w-7 items-center justify-center rounded-md border border-foreground/30">
-                <Plus className="h-4 w-4" />
-              </span>
-              <span className="text-[9px] leading-none tracking-wide">
-                {t("composer.create", "Create")}
-              </span>
+              {/* ⚠ ICON ONLY — NO VISIBLE "Create" LABEL. Owner, 2026-08-14.
+                  The label is on `aria-label` instead, so screen readers still
+                  announce it and the button keeps its accessible name. Do not
+                  re-add a text span here: the caption is what made this control
+                  two lines tall and pushed it into the centred wordmark. The
+                  box is 36px so the tap target stays finger-sized without it. */}
+              <Plus className="h-5 w-5" />
             </button>
           )}
+          </div>
+          {/* ── end of the left-hand group ── */}
 
           {/* App/mobile top bar: the wordmark, as text, centred in the bar, no
               logo — owner, 2026-08-12: "50mm Retina World written in text placed

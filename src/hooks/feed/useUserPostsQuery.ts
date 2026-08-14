@@ -118,6 +118,14 @@ async function fetchAndEnrich(
           adminIds,
         ),
         pending: r.status === "pending",
+        // The badges were already in `tagProfiles`; they used to be dropped
+        // here and re-fetched per name at render time. Carry them. Same
+        // resolveBadges as the author line, so an admin keeps the tick.
+        badges: resolveBadges(
+          r.tagged_user_id,
+          tagProfiles.get(r.tagged_user_id)?.badges || [],
+          adminIds,
+        ),
       });
       taggedMap.set(r.post_id, list);
     }
