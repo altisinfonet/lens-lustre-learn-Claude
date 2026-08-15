@@ -62,8 +62,29 @@ export function useFeedRealtime({
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
 
+  /**
+   * ⚠ THE SAME DEFECT THE BELL ALREADY FIXED, ON A SECOND HOOK.
+   *
+   * `/feed` mounts this hook TWICE: `Feed.tsx:167` directly, and again through
+   * `Feed.tsx:298`, which renders `<WallPosts composerOnly>` — and `composerOnly`
+   * gates only the JSX at `WallPosts.tsx:1834`, never the hook at
+   * `WallPosts.tsx:150`.
+   *
+   * The channel name is the fixed string "feed-live", so supabase-js created two
+   * channel objects on ONE topic. Every `posts` and `post_reactions` event was
+   * delivered and processed twice, and — the dangerous half —
+   * `removeChannel` on either one tears down the topic the other is still
+   * using, so unmounting the composer could silence the live feed.
+   *
+   * `useIsPrimaryInstance` was written for exactly this and applied to
+   * `useNotificationRealtime` below; it was never carried across to this hook.
+   * The key is per-user so signing out and in as somebody else starts a new
+   * group rather than inheriting a half-torn-down one.
+   */
+  const isPrimary = useIsPrimaryInstance(userId ? `feed-realtime:${userId}` : "");
+
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !isPrimary) return;
 
     const channel = supabase
       .channel("feed-live")
@@ -144,7 +165,7 @@ export function useFeedRealtime({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId]); // Only re-subscribe when userId changes
+  }, [userId, isPrimary]); // Re-subscribe when the user changes, or when this instance is promoted
 }
 
 /**

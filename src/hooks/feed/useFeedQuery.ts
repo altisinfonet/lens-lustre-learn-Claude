@@ -172,7 +172,7 @@ async function enrichPosts(
    *
    * Owner, 2026-08-13: *"Why we cant show the names like FB and Insta ??"*
    *
-   * Migration 20260813120000 made `get_broadcast_feed` return `author_name`,
+   * Migration 20260813171159 made `get_broadcast_feed` return `author_name`,
    * `author_avatar`, `thumbnail_urls` and `categories`, so identity now arrives
    * WELDED to the post. Instagram and Facebook have always worked this way, and
    * it is the reason a post can never appear there without a name: there is no
@@ -215,7 +215,7 @@ async function enrichPosts(
       /**
        * ⚠ SKIPPED ENTIRELY once the RPC returns `thumbnail_urls` itself.
        *
-       * As of migration 20260813120000 the feed RPC returns the column, so
+       * As of migration 20260813171159 the feed RPC returns the column, so
        * asking `posts` for the same ten rows we were just handed is a wasted
        * round trip. `rpcHasThumbs` is decided from the payload rather than from
        * a version flag, so this works against BOTH definitions with no

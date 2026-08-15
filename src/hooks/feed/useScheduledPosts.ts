@@ -21,6 +21,13 @@ export interface ScheduledPost {
   user_id: string;
   content: string | null;
   image_urls: string[];
+  /**
+   * B3c. NULL on rows scheduled before 2026-08-14. Optional (not just
+   * nullable) because the generated DB types lag the migration until the
+   * column is applied and types are regenerated — consumers must handle
+   * absence either way.
+   */
+  thumbnail_urls?: string[] | null;
   image_url: string | null;
   tagged_user_ids: string[];
   scheduled_for: string;
@@ -64,6 +71,14 @@ export function useScheduledPosts() {
 export interface CreateScheduledPostInput {
   content: string;
   image_urls: string[];
+  /**
+   * B3c: thumbnails are GENERATED at compose time (the upload path writes a
+   * `-thumb.webp` beside every original) but were thrown away here because
+   * scheduled_posts had no column for them. The publisher then inserted posts
+   * with no thumbnails, and 9 production posts ended up serving a full-size
+   * original wherever a thumbnail belongs. Index-aligned with image_urls.
+   */
+  thumbnail_urls?: string[];
   image_url: string | null;
   tagged_user_ids?: string[];
   scheduled_for: string; // ISO UTC
@@ -96,6 +111,7 @@ export function useCreateScheduledPost() {
           user_id: user.id,
           content: input.content,
           image_urls: input.image_urls,
+          thumbnail_urls: input.thumbnail_urls ?? [],
           image_url: input.image_url,
           tagged_user_ids: input.tagged_user_ids ?? [],
           scheduled_for: input.scheduled_for,
