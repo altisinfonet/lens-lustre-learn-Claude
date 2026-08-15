@@ -323,7 +323,8 @@ const CinemaJudgeView = (props: CinemaJudgeViewProps) => {
   const wasPhotoOpenRef = useRef(false);
   const gridScrollRef = useRef<HTMLDivElement>(null);
   const savedScrollTop = useRef(0);
-  const navTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  // React 19 types require an initial value for useRef.
+  const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // Ref to CinemaFullView's guardedExit — replaces event-based cinema-request-exit
   const fullViewGuardedExitRef = useRef<(() => void) | null>(null);
   // Pending action to run after full view exit completes (e.g. minimize, support, logout)
