@@ -47,7 +47,7 @@
  */
 
 import { memo, useState } from "react";
-import { ChevronLeft, ChevronRight, Crop, ImagePlus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Crop, ImageOff, ImagePlus, X } from "lucide-react";
 import { FRAME_DEFAULT_ASPECT, frameAspectFor } from "@/lib/imageFrame";
 
 /** Instagram allows 10; so does this app's existing composer. */
@@ -100,6 +100,13 @@ const Thumb = memo(function Thumb({
 }) {
   const canLeft = moveTarget(index, -1, count) !== null;
   const canRight = moveTarget(index, 1, count) !== null;
+  /**
+   * A thumbnail whose URL will not load. Same reason as the big preview, and
+   * found the same way — by looking: Chromium draws its OWN broken-image glyph,
+   * a torn blue page, which on a photography app reads as "your photograph is
+   * corrupt". It is not; the object URL was revoked. Draw our own mark instead.
+   */
+  const [failed, setFailed] = useState(false);
 
   return (
     <div className="relative shrink-0">
@@ -114,7 +121,19 @@ const Thumb = memo(function Thumb({
       >
         {/* object-contain, not cover: a thumbnail that crops is the thing this
             component exists to stop the member being surprised by. */}
-        <img src={src} alt="" decoding="async" className="h-full w-full bg-muted/40 object-contain" />
+        {failed ? (
+          <span className="flex h-full w-full items-center justify-center bg-muted/40">
+            <ImageOff className="h-5 w-5 text-muted-foreground" />
+          </span>
+        ) : (
+          <img
+            src={src}
+            alt=""
+            decoding="async"
+            onError={() => setFailed(true)}
+            className="h-full w-full bg-muted/40 object-contain"
+          />
+        )}
         {/* The cover photo decides the frame for the whole album, so say so. */}
         {index === 0 && (
           <span className="absolute inset-x-0 bottom-0 bg-black/60 py-0.5 text-[9px] font-medium uppercase tracking-wide text-white">
@@ -123,15 +142,24 @@ const Thumb = memo(function Thumb({
         )}
       </button>
 
-      {/* 44px tap targets: the screenshot sweep fails the run below that, and
-          these sit close together where a miss is most likely. */}
+      {/**
+       * REMOVE. 44px tap target, and it sits INSIDE the tile — which is the
+       * whole point.
+       *
+       * The first version placed it at `-right-1 -top-1`, so the visible circle
+       * was 20px but the invisible 44px hit area hung over the NEXT thumbnail.
+       * Caught by looking at the screenshot: tapping the left edge of one photo
+       * would have deleted the photo before it. An accidental delete in a
+       * composer is unrecoverable — the file is gone from the selection and the
+       * member has to find it in their gallery again.
+       */}
       <button
         type="button"
         onClick={onRemove}
         aria-label={`Remove photo ${index + 1}`}
-        className="absolute -right-1 -top-1 flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors hover:text-destructive"
+        className="absolute right-0 top-0 flex h-11 w-11 items-start justify-end p-1 text-muted-foreground transition-colors hover:text-destructive"
       >
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-card shadow-sm">
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-card/95 shadow-sm backdrop-blur-sm">
           <X className="h-3 w-3" />
         </span>
       </button>
@@ -169,7 +197,20 @@ const PostComposerPreview = ({
    * to a photo that has not been uploaded yet.
    */
   const [aspect, setAspect] = useState<number>(FRAME_DEFAULT_ASPECT);
+  /**
+   * A preview URL that will not load. Caught by the capture sweep: the frame
+   * simply rendered EMPTY, which tells a member their photograph is broken when
+   * the far likelier truth is that the object URL was revoked. Say what
+   * happened instead of showing a hole.
+   *
+   * WHY THE FAILED *URL* AND NOT A BOOLEAN: a boolean would stay true after the
+   * member taps a different, perfectly good thumbnail — one broken photo would
+   * make the whole album look broken until something happened to reset it.
+   * Storing which url failed makes the reset automatic and needs no effect.
+   */
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const active = previews[activeIndex] ?? previews[0] ?? null;
+  const previewFailed = active !== null && failedSrc === active;
 
   if (!active) return null;
 
@@ -179,35 +220,63 @@ const PostComposerPreview = ({
         className="relative w-full overflow-hidden rounded-lg bg-muted/30"
         style={{ aspectRatio: String(aspect) }}
       >
-        <img
-          key={active}
-          src={active}
-          alt=""
-          decoding="async"
-          onLoad={(e) => {
-            const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
-            if (w && h) setAspect(frameAspectFor(w / h));
-          }}
-          className="absolute inset-0 h-full w-full object-contain"
-        />
+        {/**
+         * THE BROKEN IMG IS REMOVED, NOT COVERED. First attempt laid the
+         * message over a translucent panel and left the <img> in place;
+         * the screenshot showed Chromium's own torn-page glyph poking out of
+         * the top-left corner, above our message. On a photography app that
+         * glyph is the single most alarming thing that can appear. If the
+         * photo cannot be shown, show the explanation and nothing else.
+         */}
+        {previewFailed ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-muted/30 px-4 text-center">
+            <ImageOff className="h-6 w-6 text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">
+              This photo could not be previewed. Remove it and choose it again.
+            </p>
+          </div>
+        ) : (
+          <>
+            <img
+              key={active}
+              src={active}
+              alt=""
+              decoding="async"
+              onLoad={(e) => {
+                const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+                if (w && h) setAspect(frameAspectFor(w / h));
+              }}
+              onError={() => setFailedSrc(active)}
+              className="absolute inset-0 h-full w-full object-contain"
+            />
 
-        {/* THE RULE-OF-THIRDS GUIDE. Decoration only: not in the upload, not in
-            the tab order, and invisible to a screen reader. */}
-        <div aria-hidden className="pointer-events-none absolute inset-0" data-testid="thirds-guide">
-          <div className="absolute inset-y-0 left-1/3 w-px bg-white/25" />
-          <div className="absolute inset-y-0 left-2/3 w-px bg-white/25" />
-          <div className="absolute inset-x-0 top-1/3 h-px bg-white/25" />
-          <div className="absolute inset-x-0 top-2/3 h-px bg-white/25" />
-        </div>
+            {/* THE RULE-OF-THIRDS GUIDE. Decoration only: not in the upload,
+                not in the tab order, and invisible to a screen reader. It is
+                inside this branch because composition lines drawn across an
+                error message guide nothing — there is no photograph to
+                compose. */}
+            <div aria-hidden className="pointer-events-none absolute inset-0" data-testid="thirds-guide">
+              <div className="absolute inset-y-0 left-1/3 w-px bg-white/25" />
+              <div className="absolute inset-y-0 left-2/3 w-px bg-white/25" />
+              <div className="absolute inset-x-0 top-1/3 h-px bg-white/25" />
+              <div className="absolute inset-x-0 top-2/3 h-px bg-white/25" />
+            </div>
+          </>
+        )}
 
-        <button
-          type="button"
-          onClick={() => onCrop(activeIndex)}
-          className="absolute bottom-2 left-2 inline-flex min-h-11 items-center gap-1.5 rounded-full bg-card/90 px-3 text-xs font-medium text-foreground shadow-sm backdrop-blur-sm"
-        >
-          <Crop className="h-3.5 w-3.5" />
-          Crop
-        </button>
+        {/* No Crop on a photo that would not load: the crop editor reads the
+            same url, so the button can only lead to a second failure. A control
+            that cannot work should not be offered. */}
+        {!previewFailed && (
+          <button
+            type="button"
+            onClick={() => onCrop(activeIndex)}
+            className="absolute bottom-2 left-2 inline-flex min-h-11 items-center gap-1.5 rounded-full bg-card/90 px-3 text-xs font-medium text-foreground shadow-sm backdrop-blur-sm"
+          >
+            <Crop className="h-3.5 w-3.5" />
+            Crop
+          </button>
+        )}
 
         {previews.length > 1 && (
           <span className="absolute right-2 top-2 rounded-full bg-black/55 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
