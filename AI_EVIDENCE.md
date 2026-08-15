@@ -904,3 +904,85 @@ passing** · build 0 · 24 screenshots, 0 problems.
 from a command that checks nothing is indistinguishable from a green result from
 a command that checks everything. The only defence is to prove the check can
 FAIL.
+
+---
+
+## 2026-08-15 — The composer, put through the visual checker
+
+Written because I had promised the owner, in his words, that the app must not
+be built "with 3000 bugs visually", and because I had just admitted the
+composer had never been looked at. This is what looking found.
+
+**First sweep: 42 screenshots, 7 problems.** Three distinct causes, each
+triaged by opening the PNG rather than by reasoning about the code.
+
+1. **A real bug: the remove button could delete the WRONG photo.**
+   `PostComposerPreview` placed the ✕ at `-right-1 -top-1`. The visible circle
+   is 20px; the tap target is 44px, so the invisible half of it hung over the
+   NEXT thumbnail in the strip. Tapping the left edge of one photo would have
+   removed the photo before it. In a composer that is unrecoverable — the file
+   leaves the selection and the member has to find it in their gallery again.
+   Fixed by moving the button inside the tile (`right-0 top-0`, `p-1`).
+   *No unit test could have found this. It is a coordinate, not a value.*
+
+2. **A real bug: a preview that fails renders a hole.** A revoked object URL
+   left an empty rectangle where a photograph should be. Fixed with an explicit
+   fallback.
+
+3. **A false alarm in the checker itself**, which matters as much: 26 controls
+   inside the `overflow-x-auto` thumbnail strip were reported as "off-screen".
+   They are reached by swiping — the standard mobile pattern, and the whole
+   point of the strip. `tools/uishot/capture.mjs` now walks the ancestors and
+   asks whether anything can actually scroll the element into view.
+   *A checker that cries wolf is a checker nobody reads.*
+
+**Second sweep: 3 problems, all in `composer-broken-src`** — and looking at
+that screenshot found the fix for (2) was itself half wrong. The message sat on
+a translucent panel over the still-present `<img>`, so **Chromium drew its own
+torn-page glyph on top of everything**, in the corner. On a photography app
+that glyph says "your photograph is corrupt" when the truth is "the browser
+released the temporary url". Three corrections:
+
+- The broken `<img>` is **removed**, not covered — the message and the image
+  are two branches of one ternary and can never both be on screen.
+- The failure is keyed on **which url failed**, not a boolean. A boolean
+  survives the member tapping a different, perfectly good photo: one bad file
+  would make the whole album look broken.
+- **Crop is hidden**, because the crop editor reads the same url and could only
+  fail a second time. And the rule-of-thirds guide is hidden, because there is
+  no photograph to compose.
+- The **thumbnail** got the same treatment; it was drawing the browser's glyph
+  too, at 20px, where it reads as a smudge.
+
+A pleasing consequence: `composer-broken-src` is now self-checking. The scene
+reports zero problems **only while the fallback works** — if a refactor puts
+the broken `<img>` back, the sweep sees an unrendered image and fails.
+
+**Third sweep: 42 screenshots, 0 problems.**
+
+**Alarms added** — 5 new tests in `postComposerPreview.test.ts` (24 total),
+each mutation-tested:
+
+| mutation | caught |
+|---|---|
+| M1 put the `<img>` back in the failure branch | ✅ |
+| M2 `failedSrc === active` → `failedSrc !== null` (the boolean bug) | ✅ |
+| M3 draw the thirds guide over the error message | ✅ |
+| M4 drop the `!previewFailed` guard on Crop | ✅ |
+| M5 remove the thumbnail's `onError` | ✅ |
+
+**A mistake inside the alarms, caught before commit:** my first version of M1's
+test sliced `SRC.indexOf("previewFailed ? (")` to `SRC.indexOf(") : (")` — and
+the *thumbnail's* ternary appears earlier in the file, so the slice was the
+empty string and the assertion examined nothing. It failed loudly only because
+I also asserted the text was present. It now searches from the ternary's own
+index and asserts the slice is non-empty. Same failure mode as the vacuous
+typecheck, one day later, in the test I wrote to prevent it.
+
+**Gates, real exit codes:** `npm run typecheck` 0 · `npx vitest run` 0,
+**1,767 passing, 1 skipped** · `npm run build` 0 · `npm run ui:shot` 0,
+**42 screenshots, 0 problems**.
+
+**Still not done, and not claimed:** the six harness scenes are the composer
+only. The real screens — wall, feed, login, post detail, settings — are not in
+the checker yet. No build until they are.
