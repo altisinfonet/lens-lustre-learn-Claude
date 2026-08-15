@@ -1118,3 +1118,71 @@ from the Cloudflare side.
 instead of measuring the running system, in a session whose entire subject was
 that a green result from a check that measures nothing is worthless. Thirty
 seconds of `fetch` would have told me the truth before I said a word.
+
+---
+
+## 2026-08-15 — THE WEBSITE STOPPED DEPLOYING, AND IT WAS MY REACT 19 UPGRADE
+
+The owner told me to stop asking and look. Looking took two minutes: the commit's
+own status checks on GitHub read
+
+    ✗ Cloudflare Pages — Building
+    ✗ Security / Dependency vulnerabilities (production only) — Failing after 12s
+    ✗ Typecheck / typecheck — Failing after 11s
+
+**Root cause, from the failing job's log:**
+
+    npm error code ERESOLVE
+    npm error While resolving: react-day-picker@8.10.1
+    npm error Found: react@19.2.8
+    npm error   peer react@"^16.8.0 || ^17.0.0 || ^18.0.0" from react-day-picker@8.10.1
+
+The React 18 → 19 upgrade left `react-day-picker` at v8, whose peer range stops
+at React 18. **Every clean install has failed since.** Reproduced exactly by
+checking out `origin/main`'s `package.json` + `package-lock.json` into an empty
+directory: `npm ci` exits non-zero.
+
+**What it broke, all of it silent:**
+- **Cloudflare Pages** — the website build. `www.50mmretina.com` and
+  `lens-lustre-learn-claude.pages.dev` have both been serving the same stale
+  `index-D5FF94je.js` ever since.
+- **Typecheck** and **Security** in Actions, red on every push since.
+- **The Android build**, which also begins `npm ci` — it would have failed the
+  moment it was triggered. The build was on hold, so nobody found out.
+
+**Why my gates never saw it.** `npm run typecheck`, `npx vitest run` and
+`npm run build` all ran against a `node_modules` that was already on disk. They
+were green, and they were green about a tree `npm ci` can no longer produce.
+**A gate that runs after installation cannot see an installation failure.** This
+is the same shape as the vacuous typecheck, one day later: the command was real,
+the thing it measured was not the thing at risk.
+
+**And I made it worse before I made it better.** Asked why the site had not
+changed, I quoted a stale line from my own runbook — "auto-deploys via Lovable" —
+as a diagnosis, while the commit page said "Cloudflare Pages ✗" in plain sight.
+
+**The fix, and why this one:** `.npmrc` with `legacy-peer-deps=true`.
+- `npm ci` now exits 0 from a clean checkout — verified twice, including with
+  `origin/main`'s untouched manifest and lock.
+- **Measured alternative, rejected:** an `overrides` block also fixes the
+  install, but it makes npm reclassify **141 packages from dev to production**
+  in the lockfile — and `security.yml` runs `npm audit --omit=dev
+  --audit-level=critical`, so it would quietly change what the security gate is
+  looking at. `.npmrc` leaves `package.json` and `package-lock.json` byte-for-byte
+  untouched and installs the same 1,010 packages.
+- `@testing-library/{dom,jest-dom,react}` all present afterwards — checked,
+  because a past `--legacy-peer-deps` install silently dropped one of them.
+
+**It is a hold, not the cure.** The cure is react-day-picker **v9**, which
+supports React 19; it renames props on the Calendar component, so it is a small
+migration with visible UI that should go through the screenshot harness first.
+
+**Alarms:** 6 tests in `src/__tests__/cleanInstallResolves.test.ts` — the flag is
+committed, `.npmrc` explains itself and says it is temporary, the manifest and
+lock are NOT quietly edited instead, react-day-picker is still v8 (so the test
+fails loudly the day it is upgraded, which is when the question should be
+asked), and a **census** of every package whose React peer range would break the
+same way. Three mutations run, three caught.
+
+**Gates:** typecheck 0 · vitest 0, **1,811 passing** · build 0 · and the one
+that actually mattered: **`npm ci` from a clean checkout, 0.**
