@@ -18,6 +18,17 @@ interface PostMediaProps {
    */
   thumbUrls?: (string | null | undefined)[];
   onDoubleTapLike?: () => void;
+  /**
+   * FIRST TAP ON THE PHOTOGRAPH, on a touch screen.
+   *
+   * Owner's decision, 2026-08-15, from three options: the first tap reveals
+   * the reach/viewed figures and does NOTHING ELSE; a second tap opens the
+   * photograph as it always did. Return `true` to say "I consumed this tap" —
+   * the viewer then stays shut. Returning false (or omitting the prop) leaves
+   * the old behaviour exactly as it was, which is what the web pointer path
+   * uses, because there the figures appear on hover and never steal a click.
+   */
+  interceptFirstTap?: () => boolean;
 }
 
 /**
@@ -43,7 +54,7 @@ interface PostMediaProps {
  * A photo WITH dimensions in its name is never measured, so new posts still
  * have zero reflow.
  */
-const PostMedia = ({ urls, thumbUrls, onDoubleTapLike }: PostMediaProps) => {
+const PostMedia = ({ urls, thumbUrls, onDoubleTapLike, interceptFirstTap }: PostMediaProps) => {
   const first = urls[0];
   // One frame per card, taken from the first photo — see src/lib/imageFrame.ts.
   // An album must not resize between slides: the buttons would move under the
@@ -69,9 +80,9 @@ const PostMedia = ({ urls, thumbUrls, onDoubleTapLike }: PostMediaProps) => {
 
   const frameAspect = measuredAspect ?? declaredAspect;
   if (urls.length === 1) {
-    return <SingleImagePost src={first} thumb={thumbUrls?.[0]} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} />;
+    return <SingleImagePost src={first} thumb={thumbUrls?.[0]} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} />;
   }
-  return <AlbumCarousel urls={urls} thumbUrls={thumbUrls} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} />;
+  return <AlbumCarousel urls={urls} thumbUrls={thumbUrls} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} />;
 };
 
 /* ── Supabase render-endpoint helpers ──
@@ -516,7 +527,7 @@ function useTapOrDoubleTap(
 }
 
 /* ── Single Image ── */
-const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLike }: { src: string; thumb?: string | null; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void }) => {
+const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLike, interceptFirstTap }: { src: string; thumb?: string | null; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean }) => {
   const [heart, setHeart] = useState<{ x: number; y: number; id: number } | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const { downloading, download } = useDownloadImage();
@@ -528,7 +539,12 @@ const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLi
     },
     // BUILD 1055 — a single-photo feed post had NO fullscreen viewer at all
     // before this build. Tapping it did nothing; only a double tap registered.
-    useCallback(() => setLightboxOpen(true), []),
+    useCallback(() => {
+      // The first tap belongs to the figures, not the viewer. See
+      // `interceptFirstTap` on PostMediaProps.
+      if (interceptFirstTap?.()) return;
+      setLightboxOpen(true);
+    }, [interceptFirstTap]),
   );
 
   return (
@@ -557,7 +573,7 @@ function preloadImage(url: string | undefined) { if (!url) return; const img = n
 const SWIPE_THRESHOLD = 50;
 const SWIPE_VELOCITY = 300;
 
-const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTapLike }: { urls: string[]; thumbUrls?: (string | null | undefined)[]; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void }) => {
+const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTapLike, interceptFirstTap }: { urls: string[]; thumbUrls?: (string | null | undefined)[]; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean }) => {
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -578,8 +594,12 @@ const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTa
     },
     useCallback(() => {
       if (Date.now() < swipedUntilRef.current) return;
+      // The first tap belongs to the figures, not the viewer — but only after
+      // the swipe guard above, or a member paging through an album would have
+      // their swipe counted as the "reveal" tap.
+      if (interceptFirstTap?.()) return;
       setLightboxOpen(true);
-    }, []),
+    }, [interceptFirstTap]),
   );
 
   useEffect(() => {

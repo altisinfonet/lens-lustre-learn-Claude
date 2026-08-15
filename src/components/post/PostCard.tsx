@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import { isActiveNow } from "@/hooks/core/useLastActive";
-import { type ReactionType } from "@/components/ReactionPicker";
+import { REACTIONS, type ReactionType } from "@/components/ReactionPicker";
 import ReactionPicker from "@/components/ReactionPicker";
 import ReactionSummaryTooltip from "@/components/ReactionSummaryTooltip";
 import ShareSummaryTooltip from "@/components/ShareSummaryTooltip";
@@ -87,6 +87,34 @@ const PostCard = ({
   // Owner report with screenshots, 2026-08-04. See src/lib/displayEngagement.ts.
   //
   // NULL for the first 24 hours after posting — the whole line is then absent.
+  /**
+   * Whether the reach/views chip over the photograph is showing.
+   *
+   * Touch only. On a pointer device `group-hover/media` handles it in CSS and
+   * this stays false for ever — a hover state must not be something React has
+   * to re-render for, sixty times a second, on every card in a feed.
+   */
+  const [statsRevealed, setStatsRevealed] = useState(false);
+
+  /**
+   * Which reactions this post actually received, biggest first, with the
+   * emoji the picker uses so the row and the picker can never disagree.
+   * Capped at four: a 360px row has to hold the three action controls too.
+   */
+  const breakdown = useMemo(
+    () =>
+      Object.entries(post.reaction_counts ?? {})
+        .filter(([, n]) => (n ?? 0) > 0)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4)
+        .map(([type, count]) => ({
+          type,
+          count,
+          emoji: REACTIONS.find((r) => r.type === type)?.emoji ?? "👍",
+        })),
+    [post.reaction_counts],
+  );
+
   const stats = useMemo(
     () => displayEngagement({ id: post.id, createdAt: post.created_at }),
     [post.id, post.created_at],
@@ -458,16 +486,60 @@ const PostCard = ({
         </motion.div>
       )}
 
-      {/* ── Media ── */}
+      {/* ── Media ──
+          REACH AND VIEWS LIVE HERE NOW, OVER THE PHOTOGRAPH.
+
+          Owner, 2026-08-15: *"Viewed by and reached by will show on mouse over
+          or on 1st touch on the image and emoji will show on the right side
+          where now viewed by and rached by showinw... web and app both."*
+
+          Two things drove it. The row was CUT IN HALF at 360px on a busy post
+          — "943 reached (eye) 66" — and, worse, the figures arrive after the
+          card has already painted, so the whole action row SHIFTED under the
+          member's thumb as they went to tap it. Moving them out of the row
+          removes both faults at once: the row is now a fixed set of controls
+          that never reflows.
+
+          • Web: `group-hover/media`, pure CSS, no JavaScript and no click stolen.
+          • App: the FIRST tap reveals them and opens nothing; the second opens
+            the photograph, exactly as it always did. See `interceptFirstTap`. */}
       {imageUrls.length > 0 && (
-        <div className="px-0">
+        <div className="relative group/media px-0">
           <PostMedia
             urls={imageUrls}
             thumbUrls={thumbUrls}
             onDoubleTapLike={() => {
               if (currentUserId && !post.user_reaction) onReact(post.id, "like");
             }}
+            interceptFirstTap={() => {
+              // Only ever consumes ONE tap, and only when there is something to
+              // show: a post under 24 hours old has no figures yet, and eating
+              // a tap to reveal nothing would just feel broken.
+              if (!stats || statsRevealed) return false;
+              setStatsRevealed(true);
+              return true;
+            }}
           />
+
+          {stats && (
+            <div
+              data-testid="post-reach-views"
+              className={`pointer-events-none absolute right-2 top-2 z-10 flex items-center gap-3 rounded-full bg-black/65 px-3 py-1.5 text-xs text-white backdrop-blur-sm transition-opacity duration-200 group-hover/media:opacity-100 ${
+                statsRevealed ? "opacity-100" : "opacity-0"
+              }`}
+            >
+              <span className="inline-flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                <span className="font-medium">{formatEngagementCount(stats.reach)}</span>
+                <span className="text-white/75">reached</span>
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Eye className="h-3 w-3" />
+                <span className="font-medium">{formatEngagementCount(stats.views)}</span>
+                <span className="text-white/75">viewed</span>
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -576,41 +648,43 @@ const PostCard = ({
               even on a post with no reactions, comments or shares at all.
               `stats` is null for the first 24 hours after posting — the pair is
               then absent entirely, which is his rule. */}
-          {stats && (
-            <motion.div
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25 }}
-              className="ml-auto flex items-center gap-3 pr-1.5 text-xs text-muted-foreground whitespace-nowrap"
-            >
-              {/**
-               * THE WORDS GO AWAY ON A PHONE. THE NUMBERS NEVER DO.
-               *
-               * Measured in the screenshot harness on the real feed at 360px:
-               * on a post with 12.8K reactions, 312 comments and 41 shares,
-               * this row ran past the right edge and the view count was sliced
-               * through the middle — "943 reached 👁 66". A number cut in half
-               * is worse than no number: it reads as a smaller figure.
-               *
-               * Owner's decision, 2026-08-15, from four options: show the icon
-               * and the figure on phones and keep the words from `sm` up. The
-               * icon already carries the meaning — it is what Instagram does
-               * with a crowded row — and no figure is lost at any width.
-               *
-               * `hidden sm:inline`, not a media query in JS: the row must be
-               * right on the first paint, before any measurement could run.
-               */}
-              <span className="inline-flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                <span className="font-medium text-foreground/80">{formatEngagementCount(stats.reach)}</span>
-                <span className="hidden sm:inline">reached</span>
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <Eye className="h-3 w-3" />
-                <span className="font-medium text-foreground/80">{formatEngagementCount(stats.views)}</span>
-                <span className="hidden sm:inline">viewed</span>
-              </span>
-            </motion.div>
+          {/* ── THE REACTION BREAKDOWN, ON THE RIGHT ──
+
+              Owner, 2026-08-15: *"emoji mean love and like icons of likes post
+              posts like fb"*, with *"Icons + a count per reaction, total
+              reaction on left side as per FB current style"*.
+
+              So the total stays where it always was — beside the thumb on the
+              left, which is Facebook's own arrangement — and the right-hand
+              side, which used to hold the reach/views figures that were being
+              sliced off at 360px, now carries each reaction that the post
+              actually received with its own count.
+
+              It is derived from `reaction_counts`, which arrives WITH the post,
+              so unlike the figures it replaced this cannot appear late and
+              shift the row. Zero-count reactions are dropped rather than shown
+              as "0" — an emoji nobody chose is noise. `ml-auto` holds the group
+              right even on a post with no reactions at all.
+
+              It opens the same ReactionSummaryTooltip as the total does, so
+              tapping any of it still lists every member who reacted. */}
+          {breakdown.length > 0 && (
+            /* `ml-auto` sits on a wrapper OUTSIDE the tooltip, not on the row
+               itself: the tooltip renders its own element around the trigger,
+               so a margin on the child never reaches the flex parent and the
+               group drifted in from the right edge. Measured in the harness. */
+            <div className="ml-auto">
+            <ReactionSummaryTooltip reactionCounts={post.reaction_counts} totalCount={post.like_count} postId={post.id}>
+              <div className="flex cursor-pointer items-center gap-2.5 pr-1.5 text-xs text-muted-foreground">
+                {breakdown.map(({ type, emoji, count }) => (
+                  <span key={type} className="inline-flex items-center gap-1" title={type}>
+                    <span aria-hidden className="text-[13px] leading-none">{emoji}</span>
+                    <span className="font-medium text-foreground/80">{formatNumber(count)}</span>
+                  </span>
+                ))}
+              </div>
+            </ReactionSummaryTooltip>
+            </div>
           )}
         </div>
       </div>
