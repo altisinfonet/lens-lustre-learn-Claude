@@ -89,15 +89,28 @@ The guard behaved correctly in all ten cases. This was my first hypothesis and t
 
 ### Remaining candidates, none yet confirmed
 
-1. **The 25-second request timeout is applied to token refresh.** `src/integrations/supabase/client.ts` wraps every request in a 25s abort. It carefully exempts uploads — *"a slow photo post must not become a failed post"* — but **not** `/auth/v1/token`. On a poor connection a stalled refresh is aborted, and a failed refresh can end the session. This fits "random", and fits "worse while doing something".
-2. **`src/lib/s3Upload.ts:77` signs the member out** after a persistent auth failure during upload. Correct in intent, but it is a sign-out triggered by a network condition.
-3. **WebView storage loss.** The session lives in `localStorage`. Android reclaiming the WebView, or clearing app storage, drops it.
+1. ~~**The 25-second request timeout is applied to token refresh.**~~ **DISPROVEN, 2026-08-15 — and it was my own hypothesis.**
+   The claim was that our 25s abort kills a stalled refresh and a failed refresh ends the session. The library source says otherwise, and it was read rather than assumed:
+   * `@supabase/auth-js/lib/fetch.js` — a fetch that THROWS (exactly what our abort does) is caught and re-thrown as **`AuthRetryableFetchError`**.
+   * `@supabase/auth-js/GoTrueClient.js` — the session is removed on a refresh failure **only** `if (!isAuthRetryableFetchError(error))`.
+
+   Our abort is retryable, so the session is **not** removed; the refresh is simply retried on the next tick. **The timeout cannot sign a member out.**
+
+   And removing it would be *worse*: auth-js holds `refreshingDeferred` while a refresh is in flight, so one hung refresh with no bound would block every later refresh for the life of the page. The abort is what releases it. The upload exemption is justified by SIZE; a token refresh is a tiny request that is only ever slow because the network is bad — the exact case the abort exists for. Pinned by `src/__tests__/authTimeoutNotExempt.test.ts` so it is not "fixed" later.
+
+2. ~~**Refresh-token reuse.**~~ **NO EVIDENCE, measured on production 2026-08-15.** The classic Supabase sign-out is a rotated refresh token being replayed, which revokes the whole session. Checked: **118 live sessions, every one holding exactly ONE usable refresh token. Zero locked out. Zero holding multiple usable tokens.** Also zero sessions carry a hard expiry, so nothing is being timeboxed out either.
+3. **`src/lib/s3Upload.ts` signs the member out** after a persistent auth failure during upload. Correct in intent, but it is a sign-out triggered by a network condition. It now declares itself to the recorder, so it can be confirmed or cleared from real data rather than argued about.
+4. **WebView storage loss — now the leading suspect, by elimination.** auth-js removes a session when a stored session fails `_isValidSession`. Android reclaiming the WebView, or storage being cleared or corrupted, produces exactly that. This is what `storedSessionPresent` in the session-loss recorder measures.
 
 ### Why I am not guessing between them
 
 Nothing currently records **why** a session ended. `SIGNED_OUT` is handled but its cause is never captured, so every one of these looks identical afterwards: the member is simply logged out.
 
-**The next step is instrumentation, not a fix.** Record, on every session loss: the event, whether a refresh had just failed, the last request status, platform, and whether the app had been backgrounded. Ship it, wait for real occurrences, and let the data name the cause — the same method that has just ruled out two wrong answers here.
+**The next step is instrumentation, not a fix.** Record, on every session loss: the event, whether a refresh had just failed, the last request status, platform, and whether the app had been backgrounded. Ship it, wait for real occurrences, and let the data name the cause.
+
+**SHIPPED 2026-08-15** as `src/lib/sessionLossRecorder.ts` + AUTH-1010, with seven sign-out paths declaring themselves so that anything left undeclared is the bug. Two of those paths — `Login.tsx` and `ResetPassword.tsx` — were found by its own test to be signing members out silently, and would have been filed as this very bug.
+
+**Four hypotheses have now been tested and discarded** — the deleted-account guard, the login-count "crisis", the 25-second abort, and refresh-token reuse. Three of the four were mine. What is left is WebView storage loss, and it is left standing by elimination and measurement rather than by being the last idea anybody had.
 
 Fixing a random bug by guessing produces a build that seems better for a week.
 
@@ -110,7 +123,7 @@ Fixing a random bug by guessing produces a build that seems better for a week.
 | 1 | **Session-loss instrumentation** — records the cause of every sign-out | nothing; build now |
 | 2 | ~~**Back button fix**~~ — **DONE 2026-08-15**, covers gesture back too | 12 tests, 6/6 mutations caught; device confirmation still owed |
 | 3 | **Stop the `activity_logs` flood** — one row per real sign-in | nothing |
-| 4 | **Exempt token refresh from the 25s abort** | worth doing regardless of whether it is the cause; the reasoning that exempts uploads applies more strongly to auth |
+| 4 | ~~**Exempt token refresh from the 25s abort**~~ — **INVESTIGATED, AND DELIBERATELY NOT DONE** | The library treats our abort as retryable and does not end the session, so the change would fix nothing; and removing the bound would let one hung refresh block every later one. Written up above and pinned by a test |
 | 5 | **Root-cause 2 & 3 from the instrumentation data** | needs (1) shipped in a build, then real occurrences |
 
 Items 1–4 ship together. Item 5 closes it permanently, and only after the data says which cause it was.
