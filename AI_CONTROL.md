@@ -9,7 +9,7 @@ state: DEPLOYED          # DESIGN|APPROVED|IMPLEMENTING|LOCAL_VERIFICATION|READY
 base_commit: bf0f6b6         # origin/main after the 26 web commits that carried this cycle
 rollback_required_from: 20260813000000  # mandate start; older migrations out of scope
 db_migration: 20260815041256 # newest APPLIED production migration
-last_cycle: C_DELETION_AUDIT  # P0 finding: 41 tables survive account deletion
+last_cycle: C_DELETION_GATE  # forward gate shipped; historical 41 await decision
 next_action: OWNER_DECISION   # deletion categories; then B5-5 needs deploys+build
 approved_hash: null          # consumed by 20260814104119
 blocked_reason: null
