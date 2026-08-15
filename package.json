@@ -14,7 +14,9 @@
     "vocab:generate": "node scripts/generate-vocabulary.mjs",
     "vocab:check": "node scripts/generate-vocabulary.mjs --check",
     "vocab:snapshot": "node scripts/snapshot-vocabulary.mjs",
-    "postinstall": "node -e \"try{require('@swc/core')}catch(e){}\""
+    "postinstall": "node -e \"try{require('@swc/core')}catch(e){}\"",
+    "ui:harness": "vite --host 127.0.0.1 --port 5199 --strictPort",
+    "ui:shot": "node tools/uishot/capture.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -102,6 +104,7 @@
     "globals": "^15.15.0",
     "jsdom": "^20.0.3",
     "lovable-tagger": "^1.1.13",
+    "playwright": "^1.62.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",

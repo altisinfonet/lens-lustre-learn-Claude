@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>UI harness — dev only</title>
+  </head>
+  <body>
+    <!--
+      DEV-ONLY SCREENSHOT HARNESS.
+
+      This file is NOT part of the production bundle. Vite's default build input
+      is index.html alone, and vite.config.ts overrides only rollupOptions.OUTPUT
+      (manualChunks), never .input — so nothing here is ever compiled into a
+      release. `src/uiharness/main.tsx` additionally refuses to run unless
+      import.meta.env.DEV, so even a future config change that swept extra HTML
+      entries into the build could not put a harness screen in front of a member.
+
+      WHY IT EXISTS: UI was being written and shipped without anybody looking at
+      it. This page mounts one component at a time, at a fixed phone viewport,
+      with fixed mock data and no network and no auth — so a screenshot of it is
+      deterministic and can be inspected before the code goes anywhere.
+    -->
+    <div id="harness-root"></div>
+    <script type="module" src="/src/uiharness/main.tsx"></script>
+  </body>
+</html>

@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 *.tsbuildinfo
+
+# Screenshots produced by tools/uishot/capture.mjs — build output, not source.
+/ui-shots/
