@@ -17,12 +17,13 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { stripComments } from "@/test-utils/sourceText";
 
 const read = (p: string) =>
-  readFileSync(join(process.cwd(), p), "utf8")
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/^\s*\/\/.*$/gm, "");
+  // stripComments, not a hand-rolled regex: `accept="image/*"` in this very
+  // file opened a fake block comment that swallowed 400 lines of real code,
+  // and the assertions below then ran against source that was not there.
+  stripComments(readFileSync(join(process.cwd(), p), "utf8"));
 
 describe("no running character counter while typing", () => {
   it("MentionInput shows its limit line only when over the limit", () => {

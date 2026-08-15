@@ -35,14 +35,15 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { stripComments } from "@/test-utils/sourceText";
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
-/** Comments are stripped: a source-pin test once passed by matching its own explanation. */
-const stripComments = (s: string) =>
-  s
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/^\s*\/\/.*$/gm, "");
+/**
+ * Comments are stripped: a source-pin test once passed by matching its own
+ * explanation. The shared helper, not a local regex — the local one treated
+ * `accept="image/*"` in WallPosts.tsx as the start of a comment and deleted
+ * 400 lines of the file it was about to assert on.
+ */
 
 const wall = stripComments(read("src/components/WallPosts.tsx"));
 const layout = stripComments(read("src/components/Layout.tsx"));
