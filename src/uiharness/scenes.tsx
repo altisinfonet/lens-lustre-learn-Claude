@@ -14,6 +14,7 @@
 
 import { useState, type JSX } from "react";
 import ProfilePostGrid from "@/components/profile/ProfilePostGrid";
+import PostComposerPreview from "@/components/post/PostComposerPreview";
 import WallViewToggle, { type WallView } from "@/components/profile/WallViewToggle";
 import type { UnifiedPost } from "@/types/post";
 
@@ -137,7 +138,65 @@ const SHAPE_POSTS: UnifiedPost[] = [
   post(59, { image_urls: [TALL], thumbnail_urls: [TALL], content: "9:16 — whole, bars at the sides" }),
 ];
 
+/**
+ * The composer takes object/data URLs for photos the member has just chosen —
+ * so, unlike the wall, its previews carry no dimensions in a filename and their
+ * shape can only be measured on load. The fixtures below are the four shapes
+ * that matter, and the point of these scenes is to see what the preview does
+ * with each BEFORE a member does.
+ */
+function ComposerHarness({ srcs }: { srcs: string[] }) {
+  const [order, setOrder] = useState(srcs);
+  const [active, setActive] = useState(0);
+  return (
+    <div className="min-h-screen bg-background p-3">
+      <PostComposerPreview
+        previews={order}
+        activeIndex={Math.min(active, Math.max(0, order.length - 1))}
+        onActiveChange={setActive}
+        onMove={(from, to) => {
+          setOrder((prev) => {
+            const next = [...prev];
+            const [m] = next.splice(from, 1);
+            next.splice(to, 0, m);
+            return next;
+          });
+          setActive(to);
+        }}
+        onRemove={(i) => setOrder((prev) => prev.filter((_, n) => n !== i))}
+        onCrop={() => {}}
+        onAddMore={order.length < 10 ? () => {} : undefined}
+      />
+    </div>
+  );
+}
+
 export const SCENES: Record<string, () => JSX.Element> = {
+  /** One photo: no reorder arrows can do anything, and there is no cover choice. */
+  "composer-single": () => <ComposerHarness srcs={[LAND]} />,
+
+  /** The everyday case — several photos, arrows live, cover badge on the first. */
+  "composer-album": () => <ComposerHarness srcs={[LAND, PORT, PANO, TALL, swatch(3, "5")]} />,
+
+  /** A PORTRAIT cover. The tallest frame the feed allows, so the tallest this
+   *  preview can be — the case most likely to push the strip off-screen. */
+  "composer-portrait-cover": () => <ComposerHarness srcs={[TALL, LAND, PANO]} />,
+
+  /** A PANORAMA cover: the shortest frame, and the widest photo. */
+  "composer-pano-cover": () => <ComposerHarness srcs={[PANO, LAND, PORT]} />,
+
+  /** The limit: ten photos, so the "add more" tile must be gone and the strip
+   *  must scroll rather than wrap or overflow the page. */
+  "composer-full": () => (
+    <ComposerHarness srcs={[LAND, PORT, PANO, TALL, swatch(1), swatch(2), swatch(3), swatch(4), swatch(5), swatch(6)]} />
+  ),
+
+  /** A preview whose URL does not load. A composer that renders a hole here
+   *  tells the member their photo is broken when it is not. */
+  "composer-broken-src": () => (
+    <ComposerHarness srcs={["/harness-this-preview-does-not-exist.jpg", LAND]} />
+  ),
+
   /**
    * Twenty-one posts = two full blocks and a bit, so the nine-then-one rhythm
    * can be seen repeating rather than reasoned about.
