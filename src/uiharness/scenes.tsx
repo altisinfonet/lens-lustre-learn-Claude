@@ -12,7 +12,10 @@
  *    screenshots worth looking at.
  */
 
-import type { JSX } from "react";
+import { useState, type JSX } from "react";
+import ProfilePostGrid from "@/components/profile/ProfilePostGrid";
+import WallViewToggle, { type WallView } from "@/components/profile/WallViewToggle";
+import type { UnifiedPost } from "@/types/post";
 
 /** A deterministic stand-in image, so a scene never depends on the network. */
 export function swatch(seed: number, label = ""): string {
@@ -29,7 +32,93 @@ export function swatch(seed: number, label = ""): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+/**
+ * A wall post shaped exactly like the real one, with only the fields the grid
+ * reads filled in honestly. `overrides` is where each scene states the ONE
+ * thing it is testing, so a reader can see the difference rather than diff two
+ * literals.
+ */
+function post(i: number, overrides: Partial<UnifiedPost> = {}): UnifiedPost {
+  const url = swatch(i, String(i + 1));
+  return {
+    id: `post-${i}`,
+    user_id: "u1",
+    content: "",
+    image_url: url,
+    image_urls: [url],
+    thumbnail_urls: [url],
+    privacy: "public",
+    created_at: "2026-08-01T09:00:00.000Z",
+    author_name: "Avijit Sheel",
+    author_avatar: null,
+    like_count: 0,
+    comment_count: 3,
+    share_count: 0,
+    is_liked: false,
+    user_reaction: null,
+    top_reactions: [],
+    reaction_counts: { like: 12 },
+    ...overrides,
+  };
+}
+
+/** The states measured on production, not the pretty one. */
+const GRID_POSTS: UnifiedPost[] = [
+  ...Array.from({ length: 5 }, (_, i) => post(i)),
+  // 24 of 210 production posts hold more than one photograph — the tile must
+  // say so, or a quarter of the work is invisible.
+  post(5, { image_urls: [swatch(5, "6"), swatch(9), swatch(10), swatch(11), swatch(12), swatch(13)] }),
+  // 9 production posts predate the thumbnail writer: no thumbnail at all.
+  post(6, { thumbnail_urls: null }),
+  // A thumbnail address that 404s. The tile must fall back to the original,
+  // ALONE — one bad tile must never blank the other eight.
+  post(7, { thumbnail_urls: ["/harness-this-thumbnail-does-not-exist.jpg"] }),
+  // No photograph at all. Rare, but a hole in the grid is a visible bug.
+  post(8, { image_urls: [], image_url: null, thumbnail_urls: null }),
+  // The longest caption on production is far shorter than this; the caption is
+  // the tile's accessible label, and a runaway label must not affect layout.
+  post(9, { content: "Morning mist over the Teesta, shot on a 50mm at f/1.8 — ".repeat(6) }),
+  ...Array.from({ length: 2 }, (_, i) => post(10 + i)),
+];
+
 export const SCENES: Record<string, () => JSX.Element> = {
+  /** Twelve tiles: the default view of a wall with a body of work behind it. */
+  "profile-grid": () => (
+    <div className="min-h-screen bg-background">
+      <ProfilePostGrid posts={GRID_POSTS} />
+    </div>
+  ),
+
+  /** One photograph. A three-column grid with one item is where naive grid CSS
+   *  stretches the single tile across the full width. */
+  "profile-grid-single": () => (
+    <div className="min-h-screen bg-background">
+      <ProfilePostGrid posts={[post(3)]} />
+    </div>
+  ),
+
+  /** Two tiles — an incomplete final row, the other common stretch bug. */
+  "profile-grid-partial-row": () => (
+    <div className="min-h-screen bg-background">
+      <ProfilePostGrid posts={[post(1), post(2)]} />
+    </div>
+  ),
+
+  /** The switch itself, in both positions, driven for real. */
+  "wall-view-toggle": () => {
+    const Demo = () => {
+      const [view, setView] = useState<WallView>("grid");
+      return (
+        <div className="min-h-screen bg-background">
+          <WallViewToggle value={view} onChange={setView} />
+          <p className="p-4 text-sm text-muted-foreground">Selected: {view}</p>
+          <WallViewToggle value="feed" onChange={() => {}} />
+        </div>
+      );
+    };
+    return <Demo />;
+  },
+
   /**
    * Proves the harness itself renders the app's real styling — Tailwind
    * tokens, the dark theme, the font — rather than a bare white page that
