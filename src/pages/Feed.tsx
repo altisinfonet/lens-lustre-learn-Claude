@@ -387,8 +387,25 @@ const Feed = () => {
               )}
             </AnimatePresence>
 
-            <AnimatePresence mode="popLayout">
-              {posts.map((post, i) => (
+            {/**
+              * NO `AnimatePresence` HERE — and that is the fix, not an omission.
+              *
+              * It used to wrap this list, and it did two things: nothing, and
+              * harm. Nothing, because `AnimatePresence` exists to run `exit`
+              * animations and not one of the cards below has an `exit` prop —
+              * their `initial`/`animate` entry animation works without it.
+              * Harm, because `AnimatePresence` attaches a ref to each child to
+              * measure it, each child here is a `<Fragment>` (it groups the
+              * card with the friend rail and the ad slot), and a Fragment
+              * cannot hold a ref. React 19 logged
+              *   "Invalid prop `ref` supplied to `React.Fragment`"
+              * once per post, every render, on every member's feed.
+              *
+              * Found by rendering the real feed in the screenshot harness and
+              * reading the console. Removing the wrapper changes no pixel — it
+              * removes an error and a measurement that was never used.
+              */}
+            {posts.map((post, i) => (
                 <Fragment key={post.id}>
                   <motion.div
                     initial={{ opacity: 0, y: 12 }}
@@ -442,9 +459,8 @@ const Feed = () => {
                       </div>
                     );
                   })()}
-                </Fragment>
-              ))}
-            </AnimatePresence>
+              </Fragment>
+            ))}
 
             {/* Infinite scroll sentinel */}
             <InfiniteScrollSentinel
