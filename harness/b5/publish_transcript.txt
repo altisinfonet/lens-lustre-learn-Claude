@@ -1,0 +1,108 @@
+
+── setup: three READY photos for member A, one for member B
+BEGIN
+SET
+ media_mark_verified 
+---------------------
+ 
+
+ media_mark_ready 
+------------------
+ 
+
+ media_mark_verified 
+---------------------
+ 
+
+ media_mark_ready 
+------------------
+ 
+
+ media_mark_verified 
+---------------------
+ 
+
+ media_mark_ready 
+------------------
+ 
+
+SET
+ media_mark_verified 
+---------------------
+ 
+
+ media_mark_ready 
+------------------
+ 
+
+COMMIT
+   setup committed
+
+── P1 (positive control): member A publishes 3 photos — EXPECT a post id, 3 refs, ords 0,1,2
+BEGIN
+SET
+  check  | count |  ords   
+---------+-------+---------
+ P1 refs |     3 | {0,1,2}
+
+     check      | count 
+----------------+-------
+ P1 post exists |     1
+
+ROLLBACK
+
+── P2: one photo still PENDING — EXPECT refusal, and NO post left behind
+BEGIN
+SET
+psql:/tmp/b5/02_publish_probes.sql:38: ERROR:  1 of 2 photographs are not yours, do not exist, or are not finished uploading
+CONTEXT:  PL/pgSQL function post_publish_with_media(uuid[],text,text,text[],boolean,text) line 49 at RAISE
+ROLLBACK
+                 check                 | count 
+---------------------------------------+-------
+ P2 posts with that caption (expect 0) |     0
+
+
+── P3: attaching ANOTHER member's photo — EXPECT refusal
+BEGIN
+SET
+psql:/tmp/b5/02_publish_probes.sql:46: ERROR:  1 of 2 photographs are not yours, do not exist, or are not finished uploading
+CONTEXT:  PL/pgSQL function post_publish_with_media(uuid[],text,text,text[],boolean,text) line 49 at RAISE
+ROLLBACK
+
+── P4: the same photo twice — EXPECT refusal (no duplicate reference)
+BEGIN
+SET
+psql:/tmp/b5/02_publish_probes.sql:53: ERROR:  the same photograph appears more than once in this post
+CONTEXT:  PL/pgSQL function post_publish_with_media(uuid[],text,text,text[],boolean,text) line 38 at RAISE
+ROLLBACK
+
+── P5: empty photo list — EXPECT refusal
+BEGIN
+SET
+psql:/tmp/b5/02_publish_probes.sql:60: ERROR:  a post must carry at least one photograph
+CONTEXT:  PL/pgSQL function post_publish_with_media(uuid[],text,text,text[],boolean,text) line 14 at RAISE
+ROLLBACK
+
+── P6: unauthenticated caller — EXPECT refusal
+BEGIN
+psql:/tmp/b5/02_publish_probes.sql:66: ERROR:  publishing requires an authenticated caller
+CONTEXT:  PL/pgSQL function post_publish_with_media(uuid[],text,text,text[],boolean,text) line 10 at RAISE
+ROLLBACK
+
+── P7 IDEMPOTENCY: same key twice — EXPECT the SAME post id, and only ONE post
+BEGIN
+SET
+        check        | identical | posts_created 
+---------------------+-----------+---------------
+ P7 same id returned | t         |             1
+
+ROLLBACK
+
+── P8: a nonexistent media id — EXPECT refusal
+BEGIN
+SET
+psql:/tmp/b5/02_publish_probes.sql:83: ERROR:  1 of 1 photographs are not yours, do not exist, or are not finished uploading
+CONTEXT:  PL/pgSQL function post_publish_with_media(uuid[],text,text,text[],boolean,text) line 49 at RAISE
+ROLLBACK
+
+════ B5-1 PROBES COMPLETE ════
