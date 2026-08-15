@@ -218,3 +218,23 @@ export async function readS3ObjectHead(
   }
   return new Uint8Array(await res.arrayBuffer());
 }
+
+/**
+ * Read an object WHOLE. Used by the media backfill, which must hash the real
+ * bytes — a fingerprint over the first 64 KiB would collide across every
+ * photograph sharing a header, which is most of them.
+ *
+ * Returns null on 404 (the row points at something the store no longer has —
+ * the caller reports that as a skip rather than inventing a hash).
+ */
+export async function readS3Object(s3: S3Settings, key: string): Promise<Uint8Array | null> {
+  const { baseUrl } = s3Endpoint(s3);
+  const res = await s3SignedFetch(
+    s3, "GET", `${baseUrl}/${key.split("/").map(encodeURIComponent).join("/")}`, new Uint8Array(0),
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new Error(`S3 read of ${key} failed: ${res.status} ${await res.text()}`);
+  }
+  return new Uint8Array(await res.arrayBuffer());
+}
