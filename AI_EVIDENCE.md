@@ -486,3 +486,59 @@ Format: `date | cycle | check | command | result`
   cell runs instead of reusing them, so every edited row lost its font size and colour — a table of small
   grey cells with a dozen large black ones in it. Found only by converting to PDF and looking at page 8.
   Rebuilt from the original with the first run reused.
+
+## 2026-08-15 — My Wall layout, three rounds
+
+The owner rejected two builds before approving the third. Recorded because the
+rejections are the design:
+
+1. Plain Instagram grid → *"that will be copy of instagram"*.
+2. Three squares + one full-width photo AT ITS OWN SHAPE → *"not approved as long
+   vertical block found. only horizontal block after three samll block is approved"*.
+   A portrait photograph at its own shape is a tall block; that was the fault.
+3. FINAL: *"1-2-3 then 3:2 style is final"* — a fixed 3:2 horizontal band, every time.
+
+- Production measurement that shaped round 2 and then made round 3 obviously right:
+  `129 of 210` posts carry no `-w<W>h<H>` in the first image's filename, and
+  `0` of those are rescued by their thumbnail. A self-sizing band would have had to
+  guess or reflow for 61% of the wall. A fixed band has nothing to look up.
+- 16 assertions in `src/components/profile/__tests__/profilePostGrid.test.ts`.
+  Mutations, each applied as a real edit then reverted:
+  M8 legacy measurement disabled → 1 failed · M9 measurement non-idempotent → 1 ·
+  M10 backdrop lazy → 1 · M11 sharp image aria-hidden → 1 · M12 band becomes 4:5
+  (the rejected design) → 1 · M13 band stops using the constant → 1 · M14 a
+  measurement creeps back → 1 · M15b grid rendered outside the `composerOnly`
+  guard → 1 · M16 feed stops being composer-only → 1. All caught.
+- MY OWN MISTAKE, and it nearly published a false claim: the first mutation harness
+  for this file was a shell function that never passed its arguments to python, so
+  every mutation silently applied NOTHING and all seven "runs" reported 17/17
+  passing. That would have been reported as "all mutations caught". It was noticed
+  only because python printed an IndexError next to a green result. The harness now
+  prints `mutated ok` per mutation and asserts the target string exists.
+- MISTAKE 2, caught by the sweep: `fetchPriority` is a React 19 prop. On React 18
+  it produces a console warning on every showcase and the attribute never reaches
+  the DOM. Removed here. **The same call exists in `src/components/post/PostMedia.tsx`
+  and is warning in the feed today — reported, not quietly changed.**
+- MISTAKE 3, caught by the sweep: the showcase's blurred backdrop had no `onError`,
+  so a 404 thumbnail left a permanently broken `<img>`. Invisible in a screenshot
+  because the layer is blurred and `aria-hidden` — which is exactly why it had to go.
+
+### Two faults in the CHECKER itself, both fixed and both positive-controlled
+
+- **Clipped-content used the wrong ruler.** It compared `scrollWidth` with
+  `clientWidth`; a deliberately `scale-125` decorative layer contributes its
+  transformed box to the scrollable overflow area, so every showcase was reported
+  as "clipped content +45px" with no text cut at all. Now measured with a `Range`
+  over the element's OWN text nodes.
+- **Lazy images were judged before they could load.** `fullPage: true` photographs
+  the whole page but never triggers `loading="lazy"` below the fold, so 15 perfectly
+  good photographs were reported as "not rendered". The sweep now scrolls the page,
+  returns to the top and waits for images to settle, bounded at 8s.
+- POSITIVE CONTROL for both, because a checker that stops complaining is
+  indistinguishable from a checker that has gone blind: a scene was planted with
+  (a) an unbroken 47-character word in a 120px box and (b) a missing image 4,000px
+  below the fold. Both were reported at all three widths. Scene removed.
+
+Gates: typecheck clean · `1,672` passing, 1 skipped · production build clean,
+`dist/` holds one HTML file and no harness or fixture · `npm run ui:shot`
+21 screenshots, 0 problems, and the screenshots were looked at.
