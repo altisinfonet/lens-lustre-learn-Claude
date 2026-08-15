@@ -6,11 +6,11 @@ schema: 1
 project: 50mm Retina
 phase: B
 state: DEPLOYED          # DESIGN|APPROVED|IMPLEMENTING|LOCAL_VERIFICATION|READY_FOR_REVIEW|APPROVED_FOR_PRODUCTION|DEPLOYED|POST_DEPLOY_VERIFICATION|CLOSED|BLOCKED
-base_commit: f781c1d         # origin/main after the announcements switch shipped
+base_commit: 3dcd44d         # origin/main after the query-ceilings cycle
 rollback_required_from: 20260813000000  # mandate start; older migrations out of scope
 db_migration: 20260815064043 # newest APPLIED production migration
-last_cycle: C_QUERY_CEILINGS  # 3 queries with no ceiling; scanner was wrong 4x first
-next_action: NEXT_PLAN_ITEM   # C: realtime firehose, CDN economics, backup/RESTORE proof
+last_cycle: C_REALTIME        # 13 subscriptions cannot fire; D1 awaits owner
+next_action: OWNER_DECISION   # D1 realtime publish-or-delete; then CDN economics
 approved_hash: null          # consumed by 20260815064043
 blocked_reason: null
 ---
