@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import { useT } from "@/i18n/I18nContext";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
-import {
 import { declareSignOut } from "@/lib/sessionLossRecorder";
+import {
   validatePasswordStrength,
   isPasswordReused,
   recordPasswordUsage,

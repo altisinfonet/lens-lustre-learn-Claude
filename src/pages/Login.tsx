@@ -12,8 +12,8 @@ import SimpleCaptcha from "@/components/SimpleCaptcha";
 import { useTrustedDevice } from "@/hooks/core/useTrustedDevice";
 import { useAuthPageSettings } from "@/hooks/core/useAuthPageSettings";
 import { getCaptchaToken } from "@/lib/turnstile";
-import {
 import { declareSignOut } from "@/lib/sessionLossRecorder";
+import {
   getLockedOutSeconds,
   getFailedAttempts,
   recordFailedAttempt,
