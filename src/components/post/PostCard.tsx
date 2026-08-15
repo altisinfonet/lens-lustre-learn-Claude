@@ -583,15 +583,32 @@ const PostCard = ({
               transition={{ duration: 0.25 }}
               className="ml-auto flex items-center gap-3 pr-1.5 text-xs text-muted-foreground whitespace-nowrap"
             >
+              {/**
+               * THE WORDS GO AWAY ON A PHONE. THE NUMBERS NEVER DO.
+               *
+               * Measured in the screenshot harness on the real feed at 360px:
+               * on a post with 12.8K reactions, 312 comments and 41 shares,
+               * this row ran past the right edge and the view count was sliced
+               * through the middle — "943 reached 👁 66". A number cut in half
+               * is worse than no number: it reads as a smaller figure.
+               *
+               * Owner's decision, 2026-08-15, from four options: show the icon
+               * and the figure on phones and keep the words from `sm` up. The
+               * icon already carries the meaning — it is what Instagram does
+               * with a crowded row — and no figure is lost at any width.
+               *
+               * `hidden sm:inline`, not a media query in JS: the row must be
+               * right on the first paint, before any measurement could run.
+               */}
               <span className="inline-flex items-center gap-1">
                 <Users className="h-3 w-3" />
                 <span className="font-medium text-foreground/80">{formatEngagementCount(stats.reach)}</span>
-                <span>reached</span>
+                <span className="hidden sm:inline">reached</span>
               </span>
               <span className="inline-flex items-center gap-1">
                 <Eye className="h-3 w-3" />
                 <span className="font-medium text-foreground/80">{formatEngagementCount(stats.views)}</span>
-                <span>viewed</span>
+                <span className="hidden sm:inline">viewed</span>
               </span>
             </motion.div>
           )}

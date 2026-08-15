@@ -99,7 +99,22 @@ const Caption = ({ content, maxLines = 2, prefix }: CaptionProps) => {
     // also maintain exactly like Instagram."
     <div className="px-3">
       <div ref={clampRef} className={expanded ? "" : CLAMP[maxLines] || CLAMP[2]}>
-        <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ fontFamily: "var(--font-body)" }}>
+        {/**
+         * `break-words` IS LOAD-BEARING, not tidiness.
+         *
+         * `whitespace-pre-wrap` keeps the author's own line breaks, but it
+         * cannot break a WORD — and a caption is often not prose. Measured on
+         * the real feed at 360px, in the screenshot harness: a caption of
+         * "Untitled_series_seventeen_finalexport_v3_lightroom_classic…"
+         * (one token, no spaces — a filename, and a pasted url behaves the
+         * same) ran 178px past the card and was sliced off by the card's
+         * `overflow-hidden`. No ellipsis, no "See more" — the text simply
+         * stopped mid-word at the edge of the screen.
+         *
+         * `ScheduledPostsList` already pairs the two classes; this was the one
+         * place that did not.
+         */}
+        <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words" style={{ fontFamily: "var(--font-body)" }}>
           {prefix}
           <RichContentRenderer content={content} />
         </p>
