@@ -112,6 +112,11 @@ for (const scene of scenes) {
       errors.push(`${m.type()}: ${t.slice(0, 220)}`);
     });
     page.on("pageerror", (e) => errors.push(`pageerror: ${e.message.slice(0, 220)}`));
+    // A bare "404 (Not Found)" in the console names nothing. Record the URL, or
+    // the next one is a mystery that gets shrugged at.
+    page.on("response", (r) => {
+      if (r.status() >= 400) errors.push(`http ${r.status()}: ${r.url().slice(0, 160)}`);
+    });
 
     const file = join(OUT, `${scene}--${vp.name}.png`);
     await page
@@ -123,12 +128,77 @@ for (const scene of scenes) {
     // reducedMotion stops most of it; this covers a mount transition.
     await page.waitForTimeout(700);
 
-    // A layout fault the eye misses in a screenshot but the DOM knows about:
-    // anything wider than the viewport means a horizontal scrollbar on a phone.
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    );
-    if (overflow > 0) errors.push(`layout: content overflows the viewport by ${overflow}px`);
+    // ── The visual-defect sweep ───────────────────────────────────────────
+    // These are the faults a screenshot contains but the eye slides over, and
+    // they are the ones that accumulate into "the build has 3000 visual bugs".
+    // Each is measured from the live DOM, not guessed from the code.
+    const faults = await page.evaluate((isMobile) => {
+      const out = [];
+      const vw = document.documentElement.clientWidth;
+      const path = (el) => {
+        const id = el.id ? `#${el.id}` : "";
+        const cls = (el.className && typeof el.className === "string")
+          ? "." + el.className.trim().split(/\s+/).slice(0, 2).join(".") : "";
+        return `${el.tagName.toLowerCase()}${id}${cls}`.slice(0, 70);
+      };
+      const visible = (el) => {
+        const s = getComputedStyle(el);
+        if (s.display === "none" || s.visibility === "hidden" || Number(s.opacity) === 0) return false;
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      };
+
+      // 1. Anything wider than the screen — the sideways-scroll wobble.
+      const over = document.documentElement.scrollWidth - vw;
+      if (over > 0) out.push(`overflow: page is ${over}px wider than the ${vw}px viewport`);
+
+      // 2. Tap targets too small to hit reliably. 44px is Apple's minimum and
+      //    Material's 48dp rounds to the same place; below it, fingers miss.
+      if (isMobile) {
+        const small = [];
+        for (const el of document.querySelectorAll('button,a[href],[role="button"],input,select,summary')) {
+          if (!visible(el)) continue;
+          const r = el.getBoundingClientRect();
+          if (r.width < 44 || r.height < 44) small.push(`${path(el)} ${Math.round(r.width)}x${Math.round(r.height)}`);
+        }
+        if (small.length) out.push(`tap targets under 44px (${small.length}): ${small.slice(0, 6).join(", ")}`);
+      }
+
+      // 3. Text cut off by its own container — the classic "…" that is not an
+      //    ellipsis but a genuinely unreadable label.
+      const clipped = [];
+      for (const el of document.querySelectorAll("*")) {
+        if (!visible(el)) continue;
+        const s = getComputedStyle(el);
+        if (s.overflow !== "hidden" && s.overflowX !== "hidden") continue;
+        if (s.textOverflow === "ellipsis" || s.whiteSpace === "nowrap") continue; // deliberate
+        if (el.scrollWidth > el.clientWidth + 1 && el.textContent?.trim()) {
+          clipped.push(`${path(el)} +${el.scrollWidth - el.clientWidth}px`);
+        }
+      }
+      if (clipped.length) out.push(`clipped content (${clipped.length}): ${clipped.slice(0, 5).join(", ")}`);
+
+      // 4. Interactive things pushed off the side of the screen — present in
+      //    the DOM, unreachable with a thumb.
+      const off = [];
+      for (const el of document.querySelectorAll('button,a[href],[role="button"],input')) {
+        if (!visible(el)) continue;
+        const r = el.getBoundingClientRect();
+        if (r.right < 1 || r.left > vw - 1) off.push(path(el));
+      }
+      if (off.length) out.push(`off-screen controls (${off.length}): ${off.slice(0, 5).join(", ")}`);
+
+      // 5. Images that did not load. A broken photograph on a photography
+      //    platform is the worst possible visual bug.
+      const broken = [];
+      for (const img of document.querySelectorAll("img")) {
+        if (!img.complete || img.naturalWidth === 0) broken.push((img.getAttribute("src") || "(no src)").slice(0, 80));
+      }
+      if (broken.length) out.push(`images not rendered (${broken.length}): ${broken.slice(0, 4).join(", ")}`);
+
+      return out;
+    }, vp.mobile);
+    errors.push(...faults.map((f) => `layout: ${f}`));
 
     await page.screenshot({ path: file, fullPage: true });
     if (errors.length) problems += errors.length;
