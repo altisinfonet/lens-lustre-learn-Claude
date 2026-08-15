@@ -1,16 +1,18 @@
 /**
  * ALARMS FOR THE WALL RHYTHM.
  *
- * Owner, 2026-08-15, final wording after two rejected builds:
- * *"1-2-3 then 3:2 style is final. 1-2-3 then 3:2 4-5-6 then 3:2 7-6-9 then 3:2
- * like soo"*, having ruled out the previous attempt with *"this style not
- * approved as long vertical block found. only horizontal block after three
- * samll block is approved."*
+ * Owner, 2026-08-15, settled after FOUR rounds. The last two rulings are the
+ * ones this file guards:
+ *   • *"this style not approved as long vertical block found. only horizontal
+ *     block after three samll block is approved"* → the band is fixed at 3:2.
+ *   • *"the layout what ever you showed me that is wrong. I want this style"*,
+ *     sent as a PICTURE showing three full rows of squares before the band →
+ *     nine squares per block, not three.
  *
- * Two claims are made by that layout and both are testable:
- *   1. The rhythm is exactly three-then-one, forever, from the first post.
- *   2. The showcase band is ALWAYS 3:2 — horizontal, same height every time —
- *      and the photograph inside it is never cropped to fill it.
+ * Three claims are made by that layout and all three are testable:
+ *   1. Nine squares — three whole rows — then one band, forever.
+ *   2. The band is ALWAYS 3:2: horizontal, and the same height every time.
+ *   3. The photograph inside it is never cropped to fill it.
  *
  * The rhythm is asserted on the arithmetic, not on rendered nodes: a test that
  * counts `<img>` elements passes just as happily when every tile is a showcase.
@@ -19,7 +21,9 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BLOCK, SHOWCASE_ASPECT, isShowcase, tileSrc } from "@/components/profile/ProfilePostGrid";
+import {
+  BLOCK, SQUARES_PER_BLOCK, SHOWCASE_ASPECT, isShowcase, tileSrc,
+} from "@/components/profile/ProfilePostGrid";
 import type { UnifiedPost } from "@/types/post";
 
 const GRID = readFileSync(
@@ -57,30 +61,37 @@ function showcaseImage(marker: string): string {
   return hits[0];
 }
 
-describe("the three-then-one rhythm", () => {
-  it("puts the showcase at the 4th post, and every 4th after that", () => {
-    const pattern = Array.from({ length: 13 }, (_, i) => (isShowcase(i) ? "F" : "s"));
-    // s s s F  s s s F  s s s F  s   — three small, then one full, forever.
-    expect(pattern.join("")).toBe("sssFsssFsssFs");
+describe("the nine-then-one rhythm", () => {
+  it("is nine squares — three full rows — then the band", () => {
+    // The owner sent a picture rather than a sentence, and the picture shows
+    // THREE rows of three before the band, not one. This is that picture.
+    expect(SQUARES_PER_BLOCK).toBe(9);
+    expect(BLOCK).toBe(10);
+    const pattern = Array.from({ length: 21 }, (_, i) => (isShowcase(i) ? "F" : "s"));
+    expect(pattern.join("")).toBe("sssssssssFsssssssssFs");
   });
 
-  it("never opens with a showcase — the owner asked for 3 columns FIRST", () => {
-    expect(isShowcase(0)).toBe(false);
-    expect(isShowcase(1)).toBe(false);
-    expect(isShowcase(2)).toBe(false);
-    expect(isShowcase(3)).toBe(true);
+  it("never opens with a showcase — the squares come FIRST", () => {
+    for (let i = 0; i < 9; i++) expect(isShowcase(i)).toBe(false);
+    expect(isShowcase(9)).toBe(true);
   });
 
-  it("leaves exactly three small tiles between showcases", () => {
+  it("the band always lands at the END of a row, never mid-row", () => {
+    // A band that started in column 2 would leave a hole in the grid. The
+    // squares before each band must be a whole number of 3-wide rows.
+    expect(SQUARES_PER_BLOCK % 3).toBe(0);
+  });
+
+  it("leaves exactly nine small tiles between showcases", () => {
     const shows = Array.from({ length: 200 }, (_, i) => i).filter(isShowcase);
     for (let i = 1; i < shows.length; i++) {
       expect(shows[i] - shows[i - 1]).toBe(BLOCK);
     }
-    expect(shows.length).toBe(50); // 200 posts / one showcase per 4
+    expect(shows.length).toBe(20); // 200 posts / one showcase per 10
   });
 
-  it("a short wall still renders — fewer than four posts means no showcase", () => {
-    expect([0, 1, 2].some(isShowcase)).toBe(false);
+  it("a short wall still renders — fewer than ten posts means no showcase", () => {
+    expect(Array.from({ length: 9 }, (_, i) => i).some(isShowcase)).toBe(false);
   });
 });
 
@@ -114,7 +125,7 @@ describe("the showcase shows the whole photograph", () => {
   });
 
   it("is ALWAYS 3:2 — horizontal, and the same height every time", () => {
-    // Owner ruling, after two rejections: "1-2-3 then 3:2 style is final".
+    // Owner ruling: "1-2-3 then 3:2 style is final" — 3:2, fixed.
     expect(SHOWCASE_ASPECT).toBeCloseTo(1.5, 10);
     // Horizontal is the part that was explicitly rejected when it failed:
     // "not approved as long vertical block found".
