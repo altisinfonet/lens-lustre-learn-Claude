@@ -62,30 +62,107 @@ function post(i: number, overrides: Partial<UnifiedPost> = {}): UnifiedPost {
   };
 }
 
+/**
+ * Fixtures whose FILENAMES carry real dimensions, because that is where the
+ * showcase frame comes from — see src/lib/imageFrame.ts. `swatch()` above
+ * returns a `data:` URI, which can carry no `-w<W>h<H>` suffix, so every
+ * showcase built from a swatch silently falls back to 4:5 and the one thing
+ * these scenes exist to check would never be exercised.
+ *
+ * Referenced as literal dev-server paths rather than imported: an import would
+ * put them in the module graph, and these must stay as un-shippable as the rest
+ * of src/uiharness. If a path is ever wrong the image simply fails to render,
+ * which the capture sweep reports — so this cannot rot silently.
+ */
+const FIX = "/src/uiharness/fixtures";
+/** 3:2 — inside the 4:5 … 1.91:1 range, so it fills the frame with NO bars. */
+const LAND = `${FIX}/land-w1500h1000.svg`;
+/** 4:5 — the tallest allowed frame, exactly. Also no bars. */
+const PORT = `${FIX}/port-w1000h1250.svg`;
+/** 6:1 — outside the range. Clamped to 1.91:1, blurred bars top and bottom. */
+const PANO = `${FIX}/pano-w6000h1000.svg`;
+/** 9:16 — outside the range. Clamped to 4:5, blurred bars left and right. */
+const TALL = `${FIX}/tall-w900h1600.svg`;
+
 /** The states measured on production, not the pretty one. */
 const GRID_POSTS: UnifiedPost[] = [
-  ...Array.from({ length: 5 }, (_, i) => post(i)),
+  post(0),
+  post(1),
+  post(2),
+  // ── index 3: SHOWCASE. A 3:2 landscape — inside the range, so it must fill
+  //    the full width edge to edge with no bars at all.
+  // The band is a fixed 3:2, so a 3:2 photograph is the one case that fills it
+  // edge to edge with no bars at all.
+  post(3, { image_urls: [LAND], thumbnail_urls: [LAND] }),
+  post(4),
   // 24 of 210 production posts hold more than one photograph — the tile must
   // say so, or a quarter of the work is invisible.
   post(5, { image_urls: [swatch(5, "6"), swatch(9), swatch(10), swatch(11), swatch(12), swatch(13)] }),
   // 9 production posts predate the thumbnail writer: no thumbnail at all.
   post(6, { thumbnail_urls: null }),
-  // A thumbnail address that 404s. The tile must fall back to the original,
-  // ALONE — one bad tile must never blank the other eight.
-  post(7, { thumbnail_urls: ["/harness-this-thumbnail-does-not-exist.jpg"] }),
+  // ── index 7: SHOWCASE holding a PORTRAIT photograph, with a 404 thumbnail
+  //    on top. Two checks in one: a portrait must be shown whole and centred
+  //    inside the 3:2 band rather than cropped to fill it, and the missing bar
+  //    filler must simply be absent rather than a broken box.
+  post(7, { image_urls: [TALL], thumbnail_urls: ["/harness-this-thumbnail-does-not-exist.jpg"] }),
   // No photograph at all. Rare, but a hole in the grid is a visible bug.
   post(8, { image_urls: [], image_url: null, thumbnail_urls: null }),
   // The longest caption on production is far shorter than this; the caption is
   // the tile's accessible label, and a runaway label must not affect layout.
   post(9, { content: "Morning mist over the Teesta, shot on a 50mm at f/1.8 — ".repeat(6) }),
-  ...Array.from({ length: 2 }, (_, i) => post(10 + i)),
+  post(10),
+  // ── index 11: SHOWCASE. A 6:1 panorama — wider than the band, so it sits
+  //    letterboxed inside it. Whole, never cropped.
+  post(11, { image_urls: [PANO], thumbnail_urls: [PANO] }),
+];
+
+/** Every shape a showcase can be handed, each in showcase position. */
+const SHAPE_POSTS: UnifiedPost[] = [
+  post(20), post(21), post(22),
+  post(23, { image_urls: [LAND], thumbnail_urls: [LAND], content: "3:2 — the one shape that fills the band" }),
+  post(24), post(25), post(26),
+  post(27, { image_urls: [PORT], thumbnail_urls: [PORT], content: "4:5 portrait — whole, bars at the sides" }),
+  post(28), post(29), post(30),
+  post(31, { image_urls: [PANO], thumbnail_urls: [PANO], content: "6:1 panorama — whole, bars top and bottom" }),
+  post(32), post(33), post(34),
+  post(35, { image_urls: [TALL], thumbnail_urls: [TALL], content: "9:16 — whole, bars at the sides" }),
+  // A post with NO dimensions in its filename: 129 of the 210 on production.
+  // With a fixed band this is a non-event, and that is the point — it is here
+  // so that a future change reintroducing a measured frame gets caught.
+  post(36), post(37), post(38),
+  post(39, { content: "no dimensions in the filename — the band does not care" }),
 ];
 
 export const SCENES: Record<string, () => JSX.Element> = {
-  /** Twelve tiles: the default view of a wall with a body of work behind it. */
+  /**
+   * Twelve posts = three full blocks, so the three-then-one rhythm repeats
+   * three times and can be seen rather than reasoned about.
+   */
   "profile-grid": () => (
     <div className="min-h-screen bg-background">
       <ProfilePostGrid posts={GRID_POSTS} />
+    </div>
+  ),
+
+  /**
+   * Every shape a showcase can be handed, in showcase position: the two that
+   * fill exactly, the two that get clamped and blurred bars, and the legacy
+   * post whose filename carries no dimensions at all.
+   */
+  "profile-grid-shapes": () => (
+    <div className="min-h-screen bg-background">
+      <ProfilePostGrid posts={SHAPE_POSTS} />
+    </div>
+  ),
+
+  /**
+   * Four posts exactly — the shortest wall that reaches a showcase. Checks that
+   * the block completes cleanly rather than leaving a gap where the 3-column
+   * row ends.
+   */
+  "profile-grid-one-block": () => (
+    <div className="min-h-screen bg-background">
+      <ProfilePostGrid posts={GRID_POSTS.slice(0, 4)} />
     </div>
   ),
 
