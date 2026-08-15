@@ -37,6 +37,8 @@ import ImageCropModal from "@/components/admin/ImageCropModal";
 import PostCardSkeleton from "@/components/post/PostCardSkeleton";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import { useUserPostsQuery, flattenUserPosts } from "@/hooks/feed/useUserPostsQuery";
+import ProfilePostGrid from "@/components/profile/ProfilePostGrid";
+import WallViewToggle, { type WallView } from "@/components/profile/WallViewToggle";
 import { useFeedRealtime } from "@/hooks/feed/useRealtimeFeed";
 import { reportClientError, memberFacingMessage, describeThrown } from "@/lib/reportClientError";
 import { useCaptionMentions } from "@/hooks/feed/useCaptionMentions";
@@ -98,6 +100,14 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   } = useUserPostsQuery(targetUserId, user?.id);
 
   const posts = useMemo(() => flattenUserPosts(data?.pages), [data?.pages]);
+
+  /**
+   * Grid or feed. GRID IS THE DEFAULT because every one of the 210 posts on
+   * production is a photograph — see the header of ProfilePostGrid.tsx for the
+   * measurement. Component state, not storage: the reason is written in
+   * WallViewToggle.tsx.
+   */
+  const [wallView, setWallView] = useState<WallView>("grid");
 
   // Wall-specific cache updater — immediate setQueryData for wall posts
   const patchWallPost = useCallback((postId: string, updater: (current: UnifiedPost) => Partial<UnifiedPost>) => {
@@ -1905,6 +1915,13 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
             </div>
           ) : (
             <>
+              {/* Grid ⇄ feed. Above the photographs, exactly where Instagram
+                  puts it, so it needs no explaining. */}
+              <WallViewToggle value={wallView} onChange={setWallView} className="mb-1" />
+
+              {wallView === "grid" ? (
+                <ProfilePostGrid posts={posts} />
+              ) : (
               <AnimatePresence mode="popLayout">
                 {posts.map((post, i) => (
                   <Fragment key={post.id}>
@@ -1933,6 +1950,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                   </Fragment>
                 ))}
               </AnimatePresence>
+              )}
 
               {loadingMore && (
                 <div className="space-y-4 py-2">
