@@ -36,6 +36,8 @@ interface ScheduledRow {
   user_id: string;
   content: string | null;
   image_urls: string[];
+  /** B3c: thumbnails stored at compose time. NULL on pre-2026-08-14 rows. */
+  thumbnail_urls: string[] | null;
   image_url: string | null;
   tagged_user_ids: string[];
   scheduled_for: string;
@@ -226,6 +228,12 @@ Deno.serve(async (req) => {
           user_id: row.user_id,
           content: contentStr,
           image_urls: row.image_urls ?? [],
+          // B3c: this line is the fix for "scheduled posts publish without
+          // thumbnails and serve a full-size original wherever a thumbnail
+          // belongs" — 9 production posts were in that state. NULL (a
+          // pre-B3c row) inserts as an empty array, and backfill-thumbnails
+          // repairs the published result.
+          thumbnail_urls: row.thumbnail_urls ?? [],
           image_url: row.image_url,
           // BUG-024: honor the privacy + SEO choice the user picked when
           // scheduling (stored on scheduled_posts) instead of forcing public.
