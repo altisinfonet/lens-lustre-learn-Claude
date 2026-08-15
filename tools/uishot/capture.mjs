@@ -213,11 +213,36 @@ for (const scene of scenes) {
         if (s.overflow !== "hidden" && s.overflowX !== "hidden") continue;
         if (s.textOverflow === "ellipsis" || s.whiteSpace === "nowrap") continue; // deliberate
 
-        // Only this element's OWN text, not a descendant's — a descendant with
-        // hidden overflow gets examined on its own turn.
-        const own = Array.from(el.childNodes).filter(
-          (n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim(),
-        );
+        /**
+         * EVERY TEXT NODE INSIDE THE CLIPPER, not only its direct children.
+         *
+         * ⚠ THIS USED TO LOOK AT DIRECT CHILDREN ONLY, AND THAT MISSED REAL
+         * BUGS. Measured 2026-08-15 on the real feed at 360px: the engagement
+         * row renders "943 reached 👁 66…" with the view count sliced off at
+         * the right edge. Every one of those figures lives in a `<span>`, so
+         * the clipping row had no text node of its own and was never examined.
+         * The screenshot showed the fault plainly; the checker reported none.
+         *
+         * Walking descendants is safe from the `scale-125` false alarm that
+         * caused the direct-children rule in the first place, because a Range
+         * over TEXT measures glyphs — a transformed image contributes nothing
+         * to it. What must still be excluded is text that is MEANT to be cut:
+         * a descendant with `text-overflow: ellipsis` or `white-space: nowrap`
+         * is a deliberate truncation, so it is skipped along with its subtree.
+         */
+        const own = [];
+        {
+          const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+          for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+            if (!n.textContent.trim()) continue;
+            let deliberate = false;
+            for (let a = n.parentElement; a && a !== el.parentElement; a = a.parentElement) {
+              const as = getComputedStyle(a);
+              if (as.textOverflow === "ellipsis" || as.whiteSpace === "nowrap") { deliberate = true; break; }
+            }
+            if (!deliberate) own.push(n);
+          }
+        }
         if (own.length === 0) continue;
 
         const box = el.getBoundingClientRect();
