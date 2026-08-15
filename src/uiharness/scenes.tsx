@@ -17,6 +17,7 @@ import ProfilePostGrid from "@/components/profile/ProfilePostGrid";
 import PostComposerPreview from "@/components/post/PostComposerPreview";
 import WallViewToggle, { type WallView } from "@/components/profile/WallViewToggle";
 import type { UnifiedPost } from "@/types/post";
+import { REAL_SCREENS } from "./realScreens";
 
 /** A deterministic stand-in image, so a scene never depends on the network. */
 export function swatch(seed: number, label = ""): string {
@@ -172,6 +173,13 @@ function ComposerHarness({ srcs }: { srcs: string[] }) {
 }
 
 export const SCENES: Record<string, () => JSX.Element> = {
+  /**
+   * THE REAL SCREENS come first, because they are the ones that answer the
+   * owner's question. The component scenes below them isolate faults once a
+   * screen scene has found one.
+   */
+  ...REAL_SCREENS,
+
   /** One photo: no reorder arrows can do anything, and there is no cover choice. */
   "composer-single": () => <ComposerHarness srcs={[LAND]} />,
 

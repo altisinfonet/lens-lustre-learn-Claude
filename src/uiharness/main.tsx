@@ -37,7 +37,9 @@ import { createRoot } from "react-dom/client";
 import { StrictMode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { SCENES } from "./scenes";
+import { installFakeBackend } from "./fakeBackend";
+import { fixtureRoutes } from "./fixtureRoutes";
+import { isSignedOutScene, providesOwnShell } from "./sceneConfig";
 import "../index.css";
 
 if (!import.meta.env.DEV) {
@@ -46,6 +48,25 @@ if (!import.meta.env.DEV) {
 
 const params = new URLSearchParams(window.location.search);
 const name = params.get("scene") ?? "";
+
+/**
+ * ORDER MATTERS MORE THAN ANYTHING ELSE IN THIS FILE.
+ *
+ * `installFakeBackend` must run BEFORE a single app module is evaluated,
+ * because `src/integrations/supabase/client.ts` creates its client at module
+ * scope — the client captures `fetch` and reads the session out of
+ * localStorage right there. An ordinary `import { SCENES } from "./scenes"`
+ * would be HOISTED above this call by the module loader, the client would be
+ * built against the real `window.fetch`, and every real-screen scene would sit
+ * in a loading state for ever while trying to reach a host this container
+ * cannot route to.
+ *
+ * Hence the dynamic import below. The three static imports above are safe
+ * precisely because none of them touches app code.
+ */
+installFakeBackend({ routes: fixtureRoutes, signedIn: !isSignedOutScene(name) });
+
+const { SCENES } = await import("./scenes");
 const scene = SCENES[name];
 
 /** Retries and refetching would make two runs of the same scene differ. */
@@ -76,7 +97,18 @@ function Index() {
   );
 }
 
+/**
+ * A `screen-` scene brings its own router, auth, theme and query client (see
+ * AppShell.tsx), so wrapping it again throws "You cannot render a <Router>
+ * inside another <Router>" and photographs as a blank page — which is exactly
+ * what the first run of the real screens did.
+ */
+const ownShell = providesOwnShell(name);
+
 createRoot(document.getElementById("harness-root")!).render(
+  ownShell && scene ? (
+    <StrictMode>{scene()}</StrictMode>
+  ) : (
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       {/* MemoryRouter: components that use navigate()/Link must mount, but a
@@ -91,5 +123,6 @@ createRoot(document.getElementById("harness-root")!).render(
         {scene ? scene() : <Index />}
       </MemoryRouter>
     </QueryClientProvider>
-  </StrictMode>,
+  </StrictMode>
+  ),
 );
