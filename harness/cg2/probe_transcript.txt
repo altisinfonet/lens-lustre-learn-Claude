@@ -1,0 +1,201 @@
+
+════ FAMILY A — JUDGE AUTHORIZATION ════
+
+── A1: plain member (no judge role) inserts a score as themselves — EXPECT: RLS denial
+BEGIN
+SET
+SET
+psql:02_probes.sql:24: ERROR:  new row violates row-level security policy for table "judge_scores"
+ROLLBACK
+
+── A2: judge_a (comp1 judge) scores entry e2 in comp2 — EXPECT: RLS denial (not that competition's judge)
+BEGIN
+SET
+SET
+psql:02_probes.sql:33: ERROR:  new row violates row-level security policy for table "judge_scores"
+ROLLBACK
+
+── A3: judge_a forges judge_id = judge_b on own comp's entry — EXPECT: RLS denial (judge_id must equal auth.uid())
+BEGIN
+SET
+SET
+psql:02_probes.sql:42: ERROR:  new row violates row-level security policy for table "judge_scores"
+ROLLBACK
+
+── A4a: judge_b in DISTRIBUTED comp2, entry e2 NOT assigned to them — EXPECT: RLS denial
+BEGIN
+SET
+SET
+psql:02_probes.sql:51: ERROR:  new row violates row-level security policy for table "judge_scores"
+ROLLBACK
+
+── A4b: [SUPERUSER] assign e2 to judge_b, then same insert — EXPECT: INSERT 0 1
+INSERT 0 1
+BEGIN
+SET
+SET
+INSERT 0 1
+ROLLBACK
+
+── A5 (positive control): judge_a scores e1 in comp1, round 1 open — EXPECT: INSERT 0 1, COMMITTED
+BEGIN
+SET
+SET
+INSERT 0 1
+COMMIT
+       check       | count 
+-------------------+-------
+ A5 committed rows |     1
+
+
+════ FAMILY B — PARTICIPANT ISOLATION (judge who is also a participant) ════
+
+── B1: judge_p scores THEIR OWN entry ep — policy reading predicts ALLOWED (no self-exclusion anywhere). Outcome decides the finding.
+BEGIN
+SET
+SET
+INSERT 0 1
+                 check                 | count 
+---------------------------------------+-------
+ B1 self-score rows visible to judge_p |     1
+
+ROLLBACK
+
+── B2: judge_p R4-award-tags THEIR OWN entry ep (Winner) — same prediction: ALLOWED
+BEGIN
+SET
+SET
+INSERT 0 1
+                   check                   | count 
+-------------------------------------------+-------
+ B2 own-entry award rows (definer-written) |     1
+
+ROLLBACK
+
+════ FAMILY C — AWARD WRITE PATH + STACKING ════
+
+── C0: judge_a INSERTs judge_award_tags DIRECTLY — EXPECT: RLS denial (mirror is the only write path)
+BEGIN
+SET
+SET
+psql:02_probes.sql:110: ERROR:  new row violates row-level security policy for table "judge_award_tags"
+ROLLBACK
+
+── C1: STACKING — judge_a assigns Winner THEN 1st Runner-Up to the SAME entry/photo (R4).
+       DB constraints permit both (unique key includes tag_id / stage_key). Outcome decides the finding.
+BEGIN
+SET
+SET
+INSERT 0 1
+INSERT 0 1
+RESET
+            check             |   stage_key    | decision_token 
+------------------------------+----------------+----------------
+ C1 award rows for e1/judge_a | r4_runner_up_1 | runner_up_1
+ C1 award rows for e1/judge_a | r4_winner      | winner
+
+                check                 |  decision   |   stage_key    
+--------------------------------------+-------------+----------------
+ C1 final decision (last-write-wins?) | runner_up_1 | r4_runner_up_1
+
+ROLLBACK
+
+── C2: TWO Winners in ONE competition — judge_a Winner on e1; judge_p Winner on ep. Outcome decides the finding.
+BEGIN
+SET
+SET
+INSERT 0 1
+SET
+INSERT 0 1
+RESET
+             check             |               entry_id               |               judge_id               
+-------------------------------+--------------------------------------+--------------------------------------
+ C2 Winner award rows in comp1 | 00000000-0000-0000-0000-0000000000e1 | 00000000-0000-0000-0000-0000000000a2
+ C2 Winner award rows in comp1 | 00000000-0000-0000-0000-0000000000e5 | 00000000-0000-0000-0000-0000000000a5
+
+ROLLBACK
+
+── C3: FAIL-LOUD CHECK — uncatalogued tag mirrors to NOTHING but logs noop_alias_miss
+BEGIN
+SET
+SET
+INSERT 0 1
+RESET
+     check     |     action      |              error_message               
+---------------+-----------------+------------------------------------------
+ C3 mirror log | noop_alias_miss | no direct catalog hit and no alias entry
+
+              check               | count 
+----------------------------------+-------
+ C3 award rows created (expect 0) |     0
+
+              check              | count 
+---------------------------------+-------
+ C3 decisions created (expect 0) |     0
+
+ROLLBACK
+
+════ FAMILY D — ROUND-ROW PROTECTION + ROUND LOCK ════
+
+── D1: judge_a UPDATEs judging_rounds status — EXPECT: UPDATE 0 (RLS filters all rows)
+BEGIN
+SET
+SET
+UPDATE 0
+ROLLBACK
+
+── D2: judge_a INSERTs a judging_rounds row — EXPECT: RLS denial
+BEGIN
+SET
+SET
+psql:02_probes.sql:184: ERROR:  new row violates row-level security policy for table "judging_rounds"
+ROLLBACK
+
+── D3: member_m UPDATEs competition_round_publish.published_at — EXPECT: UPDATE 0 (DENY-only probe, see fidelity ledger #4)
+BEGIN
+SET
+SET
+UPDATE 0
+ROLLBACK
+
+── D4: [SUPERUSER] complete comp1 round 1, then:
+UPDATE 1
+   D4a: judge_a UPDATEs their committed A5 score — EXPECT: UPDATE 0 (policy qual now false)
+BEGIN
+SET
+SET
+UPDATE 0
+ROLLBACK
+   D4b: judge_a INSERTs a new R1 score — EXPECT: RLS denial (WITH CHECK fails)
+BEGIN
+SET
+SET
+psql:02_probes.sql:214: ERROR:  This round has been completed. Scoring is locked.
+CONTEXT:  PL/pgSQL function enforce_round_lock() line 48 at RAISE
+ROLLBACK
+   D4c: SUPERUSER (bypasses RLS) updates the same score — EXPECT: trigger exception 'Scoring is locked.' (defense in depth)
+BEGIN
+psql:02_probes.sql:220: ERROR:  This round has been completed. Scoring is locked.
+CONTEXT:  PL/pgSQL function enforce_round_lock() line 48 at RAISE
+ROLLBACK
+
+── D5a: judge_a sets app.bypass_round_lock=on THEMSELVES, retries D4b insert — EXPECT: STILL RLS denial (policy does not honor the GUC)
+BEGIN
+SET
+SET
+SET
+psql:02_probes.sql:230: ERROR:  new row violates row-level security policy for table "judge_scores"
+ROLLBACK
+── D5b: SUPERUSER with the GUC — EXPECT: UPDATE 1 (documents the bypass is real for trusted definer paths only)
+BEGIN
+SET
+UPDATE 1
+ROLLBACK
+
+── E1: needs_review decision at round 2 — EXPECT: guard exception (Spec V3, R1 only) even for SUPERUSER
+BEGIN
+psql:02_probes.sql:244: ERROR:  "Needs Review" decisions are only permitted in Round 1 (Spec V3). Got round_number=2
+CONTEXT:  PL/pgSQL function guard_needs_review_round1_only() line 4 at RAISE
+ROLLBACK
+
+════ CG-2 PROBES COMPLETE ════

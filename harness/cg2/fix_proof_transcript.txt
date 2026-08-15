@@ -1,0 +1,33 @@
+CREATE FUNCTION
+
+── P1: B1 replay — judge_p scores OWN entry (round 4, OPEN — so denial is attributable to ownership, not the round lock) — EXPECT NOW: RLS denial
+BEGIN
+SET
+SET
+psql:03_fix_proof.sql:51: ERROR:  new row violates row-level security policy for table "judge_scores"
+ROLLBACK
+
+── P2: B2 replay — judge_p award-tags OWN entry — EXPECT NOW: RLS denial
+BEGIN
+SET
+SET
+psql:03_fix_proof.sql:60: ERROR:  new row violates row-level security policy for table "judge_tag_assignments"
+ROLLBACK
+
+── P3: A5-shape replay — judge_p scores member's entry e1 (round 4 open) — EXPECT: INSERT 0 1 (legitimate judging intact)
+BEGIN
+SET
+SET
+INSERT 0 1
+ROLLBACK
+
+── P4: A4b replay — judge_b, distributed comp2, assigned entry e2 — EXPECT: INSERT 0 1
+BEGIN
+SET
+SET
+INSERT 0 1
+ROLLBACK
+
+── restore harness to production-faithful function (proof done)
+CREATE FUNCTION
+════ F1 FIX PROOF COMPLETE ════
