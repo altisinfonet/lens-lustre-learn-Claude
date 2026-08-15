@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/core/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { declareSignOut } from "@/lib/sessionLossRecorder";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -98,6 +99,9 @@ export default function ActiveDevices({ userId }: { userId: string }) {
         }
       }
       // Global sign out
+      // Declared: the member chose to sign out everywhere. Anything the
+      // recorder sees UNdeclared is the random sign-out being hunted.
+      declareSignOut("sign_out_everywhere", "ActiveDevices");
       await supabase.auth.signOut({ scope: "global" });
       navigate("/login", { replace: true });
     } catch {
