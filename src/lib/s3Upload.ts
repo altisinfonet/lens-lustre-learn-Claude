@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { declareSignOut } from "@/lib/sessionLossRecorder";
 
 interface S3UploadResult {
   url: string;
@@ -74,6 +75,12 @@ async function invokePresignWithRetry(body: Record<string, unknown>) {
         // Last resort on persistent auth failure: sign out so the user gets a
         // clean login instead of every subsequent upload silently 401-ing.
         if (isAuth && didRefresh) {
+          // Declared, and worth watching: this is a sign-out triggered by a
+          // NETWORK condition during an upload, which is one of the three
+          // open suspects for the owner's "during commenting logging off".
+          // Declaring it means the recorder can tell it apart from the
+          // others instead of lumping them together as "involuntary".
+          declareSignOut("upload_auth_failure", "s3Upload");
           try { await supabase.auth.signOut(); } catch { /* ignore */ }
           throw new Error("Your session expired. Please sign in again and retry the upload.");
         }

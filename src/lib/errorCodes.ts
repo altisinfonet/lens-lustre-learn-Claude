@@ -100,6 +100,13 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
       "Expected immediately after an admin deletes an account — the member is signed out and told the account was removed. INVESTIGATE ONLY IF the account still exists in auth.users, which would mean the profile row was lost without the account being deleted, and a live member has just been signed out for no reason.",
   },
   {
+    code: "AUTH-1010",
+    severity: "error",
+    description: "A member's session ended and nothing in the app asked for it.",
+    resolution:
+      "This is the random sign-out the owner reported on 2026-08-15. Read the detail payload: refreshFailuresInARow above zero means the token refresh was already failing; lastRequestWasTimeout true means our own 25-second abort killed the request, which is a different bug from the server refusing it; storedSessionPresent false means the WebView dropped the saved session; wasHiddenRecently true means the app had just returned from the background. A session that ended for any DECLARED reason is logged at debug and never appears here, so every row under this code is one nobody asked for.",
+  },
+  {
     code: "AUTH-1004",
     severity: "error",
     description: "Sign-in through the installed app's OAuth deep link failed.",
