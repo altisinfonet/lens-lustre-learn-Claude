@@ -240,11 +240,29 @@ for (const scene of scenes) {
 
       // 4. Interactive things pushed off the side of the screen — present in
       //    the DOM, unreachable with a thumb.
+      //
+      //    ⚠ A CONTROL INSIDE A HORIZONTALLY SCROLLABLE STRIP IS NOT
+      //    UNREACHABLE. Measured 2026-08-15: the composer's thumbnail strip is
+      //    `overflow-x-auto`, so the photos past the edge are reached by
+      //    swiping — the standard mobile pattern, and exactly what the strip is
+      //    for. Reporting 26 of them as defects is how a checker teaches people
+      //    to ignore it. So walk up the ancestors and ask whether something can
+      //    actually scroll this element into view; only then is it lost.
+      const scrollableX = (el) => {
+        for (let n = el.parentElement; n; n = n.parentElement) {
+          const s = getComputedStyle(n);
+          if (/(auto|scroll)/.test(s.overflowX) && n.scrollWidth > n.clientWidth + 1) return true;
+        }
+        return false;
+      };
       const off = [];
       for (const el of document.querySelectorAll('button,a[href],[role="button"],input')) {
         if (!visible(el)) continue;
         const r = el.getBoundingClientRect();
-        if (r.right < 1 || r.left > vw - 1) off.push(path(el));
+        if (r.right < 1 || r.left > vw - 1) {
+          if (scrollableX(el)) continue; // reachable by swiping
+          off.push(path(el));
+        }
       }
       if (off.length) out.push(`off-screen controls (${off.length}): ${off.slice(0, 5).join(", ")}`);
 
