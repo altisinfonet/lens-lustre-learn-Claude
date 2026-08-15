@@ -48,7 +48,10 @@ export const SCENES: Record<string, () => JSX.Element> = {
           <img key={i} src={swatch(i, String(i + 1))} alt="" className="aspect-square w-full object-cover" />
         ))}
       </div>
-      <button className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
+      {/* min-h-11 = 44px. The first capture run flagged this button at 36px
+          tall — below the tap-target floor — which is exactly the class of
+          defect the sweep exists to catch, and it caught it on itself. */}
+      <button className="mt-4 min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
         Primary button
       </button>
     </div>
