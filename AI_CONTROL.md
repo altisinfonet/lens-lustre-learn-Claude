@@ -9,8 +9,8 @@ state: DEPLOYED          # DESIGN|APPROVED|IMPLEMENTING|LOCAL_VERIFICATION|READY
 base_commit: bf0f6b6         # origin/main after the 26 web commits that carried this cycle
 rollback_required_from: 20260813000000  # mandate start; older migrations out of scope
 db_migration: 20260815041256 # newest APPLIED production migration
-last_cycle: B5_1_ATOMIC_PUBLISH # publish is all-or-nothing; R15 closed
-next_action: B5_2_BACKFILL   # guarded resumable backfill of 210 posts
+last_cycle: B5_2_BACKFILL_BUILT # built+locked; NOT yet deployed or run
+next_action: B5_2_DEPLOY     # deploy from disk, then the real dry run (194 posts)
 approved_hash: null          # consumed by 20260814104119
 blocked_reason: null
 ---
