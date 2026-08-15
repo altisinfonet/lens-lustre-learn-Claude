@@ -838,3 +838,69 @@ behaviour cannot be dodged by spelling. Re-running M39 against the tightened
 test fails it, as it must. M40 (timeout removed entirely) was caught by both.
 
 **Gates:** typecheck clean · **1,734 passing**, 1 skipped.
+
+## 2026-08-15 — MY TYPECHECK HAD BEEN CHECKING NOTHING ALL DAY
+
+The worst self-caught mistake of this program so far, and it invalidated
+earlier claims rather than merely being a near-miss.
+
+**What happened.** All day I ran `npx tsc --noEmit` and reported "typecheck
+clean". The root `tsconfig.json` has `"files": []` and only project
+*references*, and plain `tsc` does not follow references without `--build`.
+**That command compiled ZERO files and could not have failed.** Every "0 type
+errors" I reported was a measurement of nothing. CI has always run the correct
+command (`tsc --noEmit -p tsconfig.app.json`); only my local gate was blind.
+
+**Compounding it:** I also checked the production build with
+`npm run build 2>&1 | grep "built in"` and read an empty result as success, then
+confirmed with `ls dist/*.html` — which listed a file left over from an EARLIER
+build. And `echo "EXIT=$?"` after a pipe reports the exit status of `head`, not
+of `tsc`. Three habits, one failure mode: **checking a proxy instead of the
+result.**
+
+**What it hid — found only when a real build finally failed:**
+
+1. **A broken import in THREE files.** My "insert the import after the last line
+   starting with `import `" heuristic put the new line INSIDE a multi-line
+   import statement in `Login.tsx`, `ResetPassword.tsx` and
+   `DeleteAccountSection.tsx`. All three were committed AND transported to
+   GitHub in that state.
+2. **Five real React 19 type errors**, in an upgrade I reported as needing
+   "zero source changes":
+   - `useRef<T>()` with no argument — React 19's types require one
+     (`Navbar.tsx`, `CinemaJudgeView.tsx`).
+   - The **global `JSX` namespace was removed** in React 19
+     (`ScheduledPostsList.tsx`).
+   - Two `never[]` inferences in `loggingStandard.test.ts`.
+
+**Which gate catches what — measured, by deliberately re-breaking a file:**
+
+| gate | caught the broken import? |
+|---|---|
+| `npx tsc --noEmit` (root config) | **NO** — compiles nothing |
+| `npx vitest run` | **NO** — the file is imported by no test |
+| `npm run build` | **YES** |
+| `npm run typecheck` (app config) | **YES** |
+
+**Fixed:**
+- All three imports repaired; **all 766 source files re-parsed**, not just the
+  ones I remembered touching.
+- All five type errors fixed.
+- `npm run typecheck` and `npm run gate` added to package.json so the wrong
+  command cannot be run by habit again.
+- `src/__tests__/typecheckIsNotVacuous.test.ts`: 9 assertions that the
+  typecheck script names a project config, that the root config really is the
+  empty one, that CI and the script agree, and — closing the gap the table above
+  exposes — that **every source file parses**, inside the fast test gate.
+  Positive-controlled: re-breaking the import fails it with 5 diagnostics.
+- The parse gate uses TypeScript's `createSourceFile` rather than esbuild
+  (jsdom's `TextEncoder` breaks esbuild) or `transpileModule` (which reported an
+  EMIT failure as if it were a syntax error).
+
+**Gates, re-run with real exit codes:** typecheck 0 · vitest 0, **1,743
+passing** · build 0 · 24 screenshots, 0 problems.
+
+**The lesson, which is the one this project keeps relearning:** a green result
+from a command that checks nothing is indistinguishable from a green result from
+a command that checks everything. The only defence is to prove the check can
+FAIL.
