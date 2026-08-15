@@ -78,18 +78,88 @@ describe("AnimatePresence is never handed a Fragment", () => {
   });
 });
 
-describe("the reach/views row fits a 360px screen", () => {
-  it("the words are hidden on phones; the numbers never are", () => {
-    // Owner's decision, 2026-08-15: icon plus figure on a phone, words from
-    // `sm` up. A number cut through the middle reads as a smaller number,
-    // which is worse than no number at all.
-    const start = CARD.indexOf('<Users className="h-3 w-3" />');
-    const row = CARD.slice(start, CARD.indexOf("stats.views", start) + 300);
-    expect(start).toBeGreaterThan(0);
-    expect(row).toMatch(/<span className="hidden sm:inline">reached<\/span>/);
-    expect(row).toMatch(/<span className="hidden sm:inline">viewed<\/span>/);
-    // The figures themselves carry no responsive class — they must always show.
-    expect(row).toMatch(/font-medium text-foreground\/80">\{formatEngagementCount\(stats\.reach\)\}/);
-    expect(row).toMatch(/font-medium text-foreground\/80">\{formatEngagementCount\(stats\.views\)\}/);
+describe("reach and views moved off the action row entirely", () => {
+  /**
+   * SUPERSEDES the `hidden sm:inline` fix that shipped hours earlier. That one
+   * stopped the figures being SLICED at 360px, and it worked — but the owner
+   * then reported the second half of the problem, which no width could fix:
+   *
+   *   "on post reactions shifting"
+   *
+   * The figures come from `displayEngagement`, which resolves AFTER the card
+   * has painted, so the whole action row reflowed under the member's thumb as
+   * they reached for it. His instruction:
+   *
+   *   "Viewed by and reached by will show on mouse over or on 1st touch on the
+   *    image and emoji will show on the right side… web and app both."
+   */
+  it("the action row no longer contains the reach/views figures", () => {
+    // This is what stops the row shifting: everything left in it arrives with
+    // the post, so nothing in it can appear late.
+    const row = CARD.slice(CARD.indexOf("── ACTION ROW"), CARD.indexOf("── Caption"));
+    expect(row).not.toMatch(/stats\.reach/);
+    expect(row).not.toMatch(/stats\.views/);
+  });
+
+  it("they render over the photograph instead", () => {
+    const media = CARD.slice(CARD.indexOf("{imageUrls.length > 0 && ("));
+    expect(media).toMatch(/data-testid="post-reach-views"/);
+    expect(media).toMatch(/stats\.reach/);
+    expect(media).toMatch(/stats\.views/);
+  });
+
+  it("web reveals them on hover, with no JavaScript in the path", () => {
+    // A hover state React has to re-render for, on every card in a feed, is a
+    // scroll-jank machine. CSS only.
+    expect(CARD).toMatch(/group\/media/);
+    expect(CARD).toMatch(/group-hover\/media:opacity-100/);
+  });
+
+  it("touch reveals them on the FIRST tap, and that tap opens nothing", () => {
+    // Owner's choice, 2026-08-15, from three options.
+    expect(CARD).toMatch(/interceptFirstTap=\{\(\) => \{/);
+    const fn = CARD.slice(CARD.indexOf("interceptFirstTap={() => {"), CARD.indexOf("interceptFirstTap={() => {") + 400);
+    expect(fn).toMatch(/setStatsRevealed\(true\)/);
+    expect(fn).toMatch(/return true;/);
+    // ...and it must NOT eat a tap when there is nothing to reveal.
+    expect(fn).toMatch(/if \(!stats \|\| statsRevealed\) return false;/);
+  });
+
+  it("PostMedia only skips the viewer when the tap was actually consumed", () => {
+    const MEDIA = read("src/components/post/PostMedia.tsx");
+    expect(MEDIA).toMatch(/interceptFirstTap\?: \(\) => boolean/);
+    // Both renderers — a single photograph and an album — or half the feed
+    // keeps the old behaviour and the two feel different.
+    expect((MEDIA.match(/if \(interceptFirstTap\?\.\(\)\) return;/g) ?? []).length).toBe(2);
+  });
+});
+
+describe("the right of the row carries the reactions, Facebook-style", () => {
+  it("each reaction shows its own emoji and its own count", () => {
+    // Owner: "Icons + a count per reaction, total reaction on left side as per
+    // FB current style."
+    expect(CARD).toMatch(/breakdown\.map\(\(\{ type, emoji, count \}\)/);
+    expect(CARD).toMatch(/formatNumber\(count\)/);
+  });
+
+  it("the total stays on the LEFT, beside the thumb, where it was", () => {
+    const row = CARD.slice(CARD.indexOf("── ACTION ROW"), CARD.indexOf("── Caption"));
+    expect(row.indexOf("formatNumber(post.like_count)")).toBeGreaterThan(0);
+    expect(row.indexOf("formatNumber(post.like_count)")).toBeLessThan(row.indexOf("breakdown.map"));
+  });
+
+  it("a reaction nobody chose is not drawn as a zero", () => {
+    expect(CARD).toMatch(/\.filter\(\(\[, n\]\) => \(n \?\? 0\) > 0\)/);
+  });
+
+  it("it is derived from data that arrives WITH the post, so it cannot shift", () => {
+    // The whole point of the change. reaction_counts is on the post row.
+    expect(CARD).toMatch(/Object\.entries\(post\.reaction_counts \?\? \{\}\)/);
+  });
+
+  it("`ml-auto` is outside the tooltip, or the group drifts off the edge", () => {
+    // Measured in the harness: a margin on the tooltip's CHILD never reaches
+    // the flex parent.
+    expect(CARD).toMatch(/<div className="ml-auto">\s*\n\s*<ReactionSummaryTooltip/);
   });
 });

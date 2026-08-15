@@ -338,9 +338,16 @@ describe("the card is laid out in Instagram's order", () => {
 
   it("keeps reach and viewed, which he was offered the chance to remove", () => {
     // Asked on 2026-08-10 which of three details to drop from the card, he
-    // answered "Nothing — keep all three".
-    expect(actionButtons).toContain("reached");
-    expect(actionButtons).toContain("viewed");
+    // answered "Nothing — keep all three". They are still here.
+    //
+    // ⚠ THEY ARE NO LONGER IN THE ACTION ROW, and this assertion was narrowed
+    // to the card for that reason, not to make it pass. On 2026-08-15 the
+    // owner reported "on post reactions shifting": the figures resolve AFTER
+    // the card paints, so the row reflowed under his thumb. They moved onto
+    // the photograph — hover on web, first tap in the app — which is what
+    // stops the row shifting. Kept, as he asked. Moved, as he asked.
+    expect(postCard).toContain("reached");
+    expect(postCard).toContain("viewed");
     expect(postCard, "the Suggested pill was kept too").toContain("Suggested");
   });
 });
