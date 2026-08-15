@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/core/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
-import { Bell, Mail, MessageSquare, Heart, Users, Trophy, Gift, GraduationCap, Award, Shield, Volume2, Smartphone } from "lucide-react";
+import { Bell, Mail, MessageSquare, Heart, Users, Trophy, Gift, GraduationCap, Award, Shield, Volume2, Smartphone, Megaphone } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNotificationPreferences, type NotificationPreferences } from "@/hooks/notifications/useNotificationPreferences";
@@ -288,6 +288,19 @@ const NotificationSettings = () => {
                 description={t("notif.pushNewPostsDesc", "The most frequent alert on the platform. Turn it off and everything else still reaches you.")}
                 checked={preferences.push_new_posts}
                 onCheckedChange={toggle("push_new_posts")}
+                disabled={!preferences.push_enabled}
+              />
+              {/* ADDED 2026-08-15. New Journal articles and new courses are
+                  written to EVERY member, and are deliberately barred from
+                  email under BUG-038. Until migration 20260815999999 they were
+                  pushed to every device regardless, and the only way to stop
+                  them was to switch off push entirely. */}
+              <ToggleRow
+                icon={<Megaphone className="w-4 h-4" />}
+                label={t("notif.pushAnnouncements", "Announcements from 50mm Retina World")}
+                description={t("notif.pushAnnouncementsDesc", "New Journal articles and new courses. Turn it off and the people you follow still reach you.")}
+                checked={preferences.push_announcements}
+                onCheckedChange={toggle("push_announcements")}
                 disabled={!preferences.push_enabled}
               />
 
