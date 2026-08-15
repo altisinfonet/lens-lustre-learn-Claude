@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { MessageCircle, Send, Globe, Users, Lock, ChevronDown, ImagePlus, X, Tag, CalendarClock, Crop, ArrowLeft } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -1942,13 +1942,30 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
               ) : (
               <AnimatePresence mode="popLayout">
                 {posts.map((post, i) => (
-                  <Fragment key={post.id}>
-                    <motion.div
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -12 }}
-                      transition={{ duration: 0.3, delay: Math.min(i, 5) * 0.03 }}
-                    >
+                  /**
+                   * THE KEY BELONGS ON THE motion.div, NOT ON A FRAGMENT.
+                   *
+                   * This used to be `<Fragment key={post.id}><motion.div …>`,
+                   * with the Fragment wrapping one single child — so it added
+                   * nothing, and it broke the animation it was standing in
+                   * front of. `AnimatePresence` attaches a ref to each of its
+                   * children to measure them, and a Fragment cannot hold a
+                   * ref: React 19 logged
+                   *   "Invalid prop `ref` supplied to `React.Fragment`"
+                   * once per card, and the `exit` animation below never ran,
+                   * so a deleted post vanished instantly instead of fading.
+                   *
+                   * Found by rendering the real wall in the screenshot harness
+                   * and reading the console — the error is invisible on a
+                   * phone, which is why it survived this long.
+                   */
+                  <motion.div
+                    key={post.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -12 }}
+                    transition={{ duration: 0.3, delay: Math.min(i, 5) * 0.03 }}
+                  >
                         <PostCard
                           post={post}
                           currentUserId={user?.id}
@@ -1964,8 +1981,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                           onShareCountChange={handleShareCountChange}
                           onContentChange={handleContentChange}
                         />
-                    </motion.div>
-                  </Fragment>
+                  </motion.div>
                 ))}
               </AnimatePresence>
               )}
