@@ -254,15 +254,14 @@ const ShowcaseTile = memo(function ShowcaseTile({ post }: { post: UnifiedPost })
               src={thumb}
               alt=""
               aria-hidden
-              // EAGER, and only here: this small copy is what measures a legacy
-              // photo's shape before the big one arrives. See the note above.
               loading="lazy"
-              // NO fetchPriority. React 18 does not know that prop — it is
-              // React 19 — and passing it produces a console warning on every
-              // showcase while the attribute never reaches the DOM at all.
-              // Caught by the capture sweep, 2026-08-15. The same call exists
-              // in PostMedia.tsx and is warning in the feed today; that is
-              // reported, not quietly changed here.
+              // `fetchPriority` was REMOVED from here on 2026-08-15 because it
+              // was a React 19 property and this app was on React 18: it warned
+              // on every showcase and the attribute never reached the DOM. The
+              // app moved to React 19 the same day, so it works now and is back.
+              // It matters: this layer is decoration competing with the real
+              // photograph for the same connection, and the photograph wins.
+              fetchPriority="low"
               decoding="async"
               onError={() => setBackdropFailed(true)}
               className="absolute inset-0 h-full w-full scale-125 object-cover blur-2xl brightness-[0.8]"
