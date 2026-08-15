@@ -6,7 +6,7 @@ schema: 1
 project: 50mm Retina
 phase: B
 state: DEPLOYED          # DESIGN|APPROVED|IMPLEMENTING|LOCAL_VERIFICATION|READY_FOR_REVIEW|APPROVED_FOR_PRODUCTION|DEPLOYED|POST_DEPLOY_VERIFICATION|CLOSED|BLOCKED
-base_commit: 6cb095d         # origin/main this work is measured against
+base_commit: bf0f6b6         # origin/main after the 26 web commits that carried this cycle
 rollback_required_from: 20260813000000  # mandate start; older migrations out of scope
 db_migration: 20260814234206 # newest APPLIED production migration
 last_cycle: B4_ATOMICITY_MATRIX # 20 rows; 2 defects fixed; R15 -> B5
