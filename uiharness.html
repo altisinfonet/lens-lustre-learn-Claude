@@ -3,6 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Declared for one reason: without an icon link Chromium auto-requests
+         /favicon.ico, which this project does not have (index.html declares
+         favicon.png), and every capture run reported a 404 that had nothing to
+         do with the UI. A permanent warning is one nobody reads. -->
+    <link rel="icon" href="/favicon.png?v=2" type="image/png" sizes="any" />
     <title>UI harness — dev only</title>
   </head>
   <body>
@@ -22,6 +27,84 @@
       deterministic and can be inspected before the code goes anywhere.
     -->
     <div id="harness-root"></div>
+
+    <!--
+      NATIVE MODE, installed BEFORE the module script so the app sees it.
+
+      The app decides it is "in the APK" with
+          window.Capacitor.isNativePlatform() === true
+      (src/lib/native/authDeepLink.ts). In an ordinary browser that is absent,
+      so every native-only branch takes its web fallback and the app-only
+      screens can never be looked at. This stub flips that switch, so
+      `?native=1` renders what an Android member sees rather than what a
+      website visitor sees.
+
+      IT IS A STUB, NOT AN EMULATOR, and the difference is the whole point of
+      the checking policy in docs/ui-checking-policy.md: it proves the app-only
+      LAYOUT, and proves nothing about whether the real plugin works on a real
+      phone. That still needs a device.
+
+      An inline script, not a module import, because ES module imports are
+      hoisted — any `import` of app code would read window.Capacitor before a
+      module-level assignment could run.
+    -->
+    <script>
+      (function () {
+        var q = new URLSearchParams(location.search);
+        if (q.get("native") !== "1") return;
+        var noop = function () { return Promise.resolve({}); };
+        window.Capacitor = {
+          isNativePlatform: function () { return true; },
+          getPlatform: function () { return q.get("platform") || "android"; },
+          Plugins: {
+            // Deterministic: the same two photographs every run, so two
+            // screenshots of the same scene are comparable.
+            Camera: {
+              pickImages: function () {
+                return Promise.resolve({ photos: [
+                  { webPath: "/placeholder.svg", format: "png" },
+                  { webPath: "/placeholder.svg", format: "png" },
+                ] });
+              },
+              checkPermissions: function () { return Promise.resolve({ photos: "granted" }); },
+              requestPermissions: function () { return Promise.resolve({ photos: "granted" }); },
+            },
+            FirebaseMessaging: {
+              requestPermissions: function () { return Promise.resolve({ receive: "granted" }); },
+              getToken: function () { return Promise.resolve({ token: "harness-token" }); },
+              addListener: noop, removeAllListeners: noop, deleteToken: noop,
+            },
+            App: { addListener: noop, removeAllListeners: noop },
+            Browser: { open: noop },
+            Share: { share: noop },
+            Filesystem: { writeFile: noop },
+          },
+        };
+      })();
+    </script>
+
+    <!--
+      NOTCH SIMULATION. env(safe-area-inset-*) cannot be assigned from CSS, and
+      a desktop Chromium reports 0 for all four — so a phone-only layout fault
+      (a bar sitting under the status bar, a button under the home indicator)
+      is invisible here by default. `?safearea=1` paints the two insets the app
+      actually uses so they can at least be SEEN in a screenshot.
+    -->
+    <script>
+      (function () {
+        if (new URLSearchParams(location.search).get("safearea") !== "1") return;
+        var s = document.createElement("style");
+        s.textContent =
+          ":root{--harness-safe-top:44px;--harness-safe-bottom:34px}" +
+          "body::before,body::after{content:'';position:fixed;left:0;right:0;z-index:99999;" +
+          "background:repeating-linear-gradient(45deg,rgba(255,0,90,.28) 0 8px,transparent 8px 16px);" +
+          "pointer-events:none}" +
+          "body::before{top:0;height:var(--harness-safe-top)}" +
+          "body::after{bottom:0;height:var(--harness-safe-bottom)}";
+        document.head.appendChild(s);
+      })();
+    </script>
+
     <script type="module" src="/src/uiharness/main.tsx"></script>
   </body>
 </html>
