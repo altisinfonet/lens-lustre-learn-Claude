@@ -6,11 +6,11 @@ schema: 1
 project: 50mm Retina
 phase: B
 state: DEPLOYED          # DESIGN|APPROVED|IMPLEMENTING|LOCAL_VERIFICATION|READY_FOR_REVIEW|APPROVED_FOR_PRODUCTION|DEPLOYED|POST_DEPLOY_VERIFICATION|CLOSED|BLOCKED
-base_commit: 76b6b9e         # origin/main after the grid + back-button transport
+base_commit: f6645ba         # origin/main after the grid + back-button transport
 rollback_required_from: 20260813000000  # mandate start; older migrations out of scope
 db_migration: 20260815075857 # newest APPLIED production migration
-last_cycle: D_NAMES_JUDGE     # name casing + one-judge rule applied and verified
-next_action: NEXT_PLAN_ITEM   # Instagram grid: multi-select picker + 3-col profile
+last_cycle: F_GRID_AND_BACK    # 3-col profile grid + back button/gesture, both transported
+next_action: NEXT_PLAN_ITEM   # F: session-loss instrumentation, then activity_logs flood + token-refresh timeout
 approved_hash: null          # consumed by 20260815064043
 blocked_reason: null
 ---
