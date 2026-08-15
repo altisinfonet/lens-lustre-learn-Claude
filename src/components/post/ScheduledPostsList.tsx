@@ -135,6 +135,9 @@ export default function ScheduledPostsList() {
       await duplicate.mutateAsync({
         content: p.content ?? "",
         image_urls: p.image_urls ?? [],
+        // B3c: a duplicate reuses the SAME objects, so it reuses their
+        // thumbnails too — otherwise the copy publishes heavy.
+        thumbnail_urls: p.thumbnail_urls ?? [],
         image_url: p.image_url,
         tagged_user_ids: p.tagged_user_ids ?? [],
         scheduled_for: next.toISOString(),

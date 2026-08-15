@@ -5,6 +5,7 @@ import DownloadButton from "@/components/DownloadButton";
 import ZoomableImage from "@/components/media/ZoomableImage";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { frameAspectFor, frameAspectForUrls, parseImageDims } from "@/lib/imageFrame";
+import { hasLadderMarker, rungPath, rungPlan, rungWidthFor } from "@/lib/imageLadder";
 
 interface PostMediaProps {
   urls: string[];
@@ -258,14 +259,22 @@ function intrinsicFromName(url: string): { w: number; h: number } | null {
   // The uploader bakes the size into the filename: `…-w1920h1280.webp`, and
   // `…-w1920h1280-thumb.webp` for its 600px copy. Without those numbers there
   // are no width descriptors and srcset cannot be built at all.
-  const m = url.match(/-w(\d+)h(\d+)(?:-thumb)?\.[a-z0-9]+(?:[?#]|$)/i);
+  const m = url.match(/-w(\d+)h(\d+)(?:-l3)?(?:-thumb)?\.[a-z0-9]+(?:[?#]|$)/i);
   if (!m) return null;
   const w = Number(m[1]);
   const h = Number(m[2]);
   return w > 0 && h > 0 ? { w, h } : null;
 }
 
-/** `thumb 600w, original 1920w` — never a guess, both addresses are stored. */
+/**
+ * `thumb 600w[, rung 1080w[, rung 1440w]], original 1920w` — never a guess:
+ * every address offered is a STORED file.
+ *
+ * Rungs are offered ONLY when the filename carries the `-l3` marker (B3d-1) —
+ * a legacy URL gets exactly the thumb+original pair it always got, because
+ * offering a rung that was never uploaded would 404-then-fallback on first
+ * paint for every old photo.
+ */
 function buildThumbFirstSrcSet(thumb: string | null, original: string): string | undefined {
   if (!thumb) return undefined;
   const dim = intrinsicFromName(original) ?? intrinsicFromName(thumb);
@@ -276,7 +285,17 @@ function buildThumbFirstSrcSet(thumb: string | null, original: string): string |
   const thumbW =
     dim.w >= dim.h ? THUMB_LONG_EDGE : Math.max(1, Math.round((THUMB_LONG_EDGE * dim.w) / dim.h));
   if (thumbW >= dim.w) return undefined;
-  return `${thumb} ${thumbW}w, ${original} ${dim.w}w`;
+  const parts = [`${thumb} ${thumbW}w`];
+  if (hasLadderMarker(original)) {
+    for (const rung of rungPlan(dim.w, dim.h)) {
+      const rw = rungWidthFor(rung, dim.w, dim.h);
+      // Skip a rung whose declared width would not beat the original's — the
+      // no-upscale rule seen from the renderer's side.
+      if (rw < dim.w) parts.push(`${rungPath(original, rung)} ${rw}w`);
+    }
+  }
+  parts.push(`${original} ${dim.w}w`);
+  return parts.join(", ");
 }
 
 
