@@ -781,3 +781,60 @@ rollback coverage 19/19.
 **What this does NOT do:** it does not delete the 5,702 historical rows, and it
 does not fix the random sign-outs. It makes the audit trail trustworthy from
 today, so the recorder's evidence has a clean table to sit beside.
+
+## 2026-08-15 — Item 4 investigated, and deliberately NOT done
+
+The plan's item 4 was *"exempt token refresh from the 25s abort — worth doing
+regardless of whether it is the cause"*. It was my own suspect #1 for the
+owner's random sign-outs. **It is wrong, and the change was not made.**
+
+**Read the library rather than assuming** (`node_modules/@supabase/auth-js`):
+- `lib/fetch.js` — a fetch that THROWS, which is exactly what our 25s abort
+  does, is caught and re-thrown as **`AuthRetryableFetchError`**.
+- `GoTrueClient.js` — a refresh failure removes the session **only**
+  `if (!isAuthRetryableFetchError(error))`.
+
+Our abort is retryable ⇒ the session is **not** removed; the refresh is retried
+on the next tick. **The timeout cannot sign a member out.**
+
+**And removing it would be worse.** auth-js holds `refreshingDeferred` while a
+refresh is in flight, so one hung refresh with no bound would block every later
+refresh for the life of the page. The abort is what releases it. The upload
+exemption is justified by SIZE; a token refresh is a tiny request that is only
+slow when the network is bad — the exact case the abort exists for.
+
+**A neighbouring suspect ruled out at the same time, on production data.**
+Refresh-token reuse is the classic Supabase sign-out: a rotated token replayed,
+revoking the session. Measured:
+
+```
+live sessions 118 · sessions with NO usable refresh token 0
+sessions holding MULTIPLE usable tokens 0 · sessions with a hard expiry 0
+avg tokens per session 6.2 · max 101
+```
+
+Every live session holds exactly one usable token. No reuse, no lock-out, no
+timeboxing.
+
+**Four hypotheses now tested and discarded — three of them mine:** the
+deleted-account guard, the login-count "crisis", the 25-second abort, and
+refresh-token reuse. What remains is a stored session failing
+`_isValidSession` — **WebView storage loss** — which is what
+`storedSessionPresent` in the recorder measures. It is the leading suspect by
+elimination and measurement, not because it is the last idea anybody had.
+
+**Pinned by `src/__tests__/authTimeoutNotExempt.test.ts`** so the plausible
+"fix" is not applied later by someone reading the old plan — including me. It
+asserts the conclusion AND the library behaviour it rests on, so a future
+`@supabase/auth-js` upgrade that reclassifies a thrown fetch fails the test and
+forces the reasoning to be redone.
+
+**A MUTATION ESCAPED, and the escape is the lesson.** M39 added exactly the
+exemption this file forbids, written as the regex `/\/auth\/v1\/token/`. The
+first version of the test grepped for the words `auth/v1/token` — which the
+ESCAPED source text does not contain — so the test passed while the forbidden
+change sat in the file. Rewritten to COUNT the unbounded early-returns instead:
+behaviour cannot be dodged by spelling. Re-running M39 against the tightened
+test fails it, as it must. M40 (timeout removed entirely) was caught by both.
+
+**Gates:** typecheck clean · **1,734 passing**, 1 skipped.

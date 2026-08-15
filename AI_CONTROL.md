@@ -6,10 +6,10 @@ schema: 1
 project: 50mm Retina
 phase: B
 state: DEPLOYED          # DESIGN|APPROVED|IMPLEMENTING|LOCAL_VERIFICATION|READY_FOR_REVIEW|APPROVED_FOR_PRODUCTION|DEPLOYED|POST_DEPLOY_VERIFICATION|CLOSED|BLOCKED
-base_commit: 5586a22         # origin/main after the session-loss recorder
+base_commit: 383954f         # origin/main before this cycle
 rollback_required_from: 20260813000000  # mandate start; older migrations out of scope
 db_migration: 20260815124734 # newest APPLIED production migration
-last_cycle: F_SESSION_RECORDER  # AUTH-1010; 7 sign-out paths declare themselves
+last_cycle: F_FLOOD_AND_TIMEOUT  # activity flood fixed; item 4 disproven, not done
 next_action: NEXT_PLAN_ITEM   # F: activity_logs flood, token-refresh timeout, composer; BUILD ON HOLD by owner
 approved_hash: null          # consumed by 20260815064043
 blocked_reason: null
