@@ -6,6 +6,8 @@
 // Row actions: Edit time, Edit caption, Duplicate, Cancel, View published.
 // Realtime: server-side filter user_id=eq.<uid>, invalidates query on change.
 
+// React 19 removed the GLOBAL JSX namespace; it now comes from react.
+import type { JSX } from "react";
 import * as React from "react";
 import { format } from "date-fns";
 import {
