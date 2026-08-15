@@ -95,8 +95,11 @@ describe("the browser is given both copies, with honest widths", () => {
     expect(CODE).toMatch(/dim\.w >= dim\.h \? THUMB_LONG_EDGE : .*Math\.round\(\(THUMB_LONG_EDGE \* dim\.w\) \/ dim\.h\)/);
   });
 
-  it("offers the thumbnail first and the original second, both with descriptors", () => {
-    expect(CODE).toMatch(/`\$\{thumb\} \$\{thumbW\}w, \$\{original\} \$\{dim\.w\}w`/);
+  it("offers the thumbnail first and the original last, both with descriptors", () => {
+    // B3d-1 rebuilt the pair as an ordered list so stored rungs can sit
+    // between them: thumb first, original always last, descriptors intact.
+    expect(CODE).toMatch(/const parts = \[`\$\{thumb\} \$\{thumbW\}w`\];/);
+    expect(CODE).toMatch(/parts\.push\(`\$\{original\} \$\{dim\.w\}w`\);/);
   });
 
   it("skips the srcset entirely when it would be a lie", () => {
