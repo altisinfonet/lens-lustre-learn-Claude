@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import { scanFileWithToast, type AllowedFileType } from "@/lib/fileSecurityScanner";
 import { compressImageToFiles } from "@/lib/imageCompression";
+import { GpsPrivacyError, guardOriginalUpload } from "@/lib/gpsGuard";
 import { uploadImage } from "@/lib/imageUpload";
 import { storageList, storageGetPublicUrl } from "@/lib/storageUpload";
 
@@ -97,13 +98,29 @@ const FileUploadDropZone = ({
         }
       }
 
-      // Non-image or compression failed
+      // Non-image or compression failed — this is a RAW upload: no canvas
+      // re-encode, so the file's metadata (including GPS) survives to storage.
+      // Every image through here gets the same gate as the post pipeline's
+      // FILE-5004 fallback: clean files pass, strippable JPEGs are spliced
+      // clean, and a GPS-carrying file we cannot clean is REFUSED rather than
+      // stored with the uploader's location. This covers BOTH raw modes at one
+      // choke point: compressImages={false} consumers (AdminSEO → PUBLIC
+      // site-assets; HelpSupport → private support-attachments) and the
+      // compression-failure fallback above. Non-images (PDF/doc) are out of
+      // the guard's scope and upload as before.
+      let toStore = file;
+      if (isImage) toStore = await guardOriginalUpload(file);
       const ext = file.name.split(".").pop() || "bin";
       const uploadPath = `${folder}/${baseName}.${ext}`;
-      const result = await uploadImage({ bucket, file, path: uploadPath, type: "inline", fileName: file.name });
+      const result = await uploadImage({ bucket, file: toStore, path: uploadPath, type: "inline", fileName: file.name });
       onFileUploaded({ url: result.url, name: file.name, type: file.type, size: file.size });
     } catch (err: any) {
-      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+      // GpsPrivacyError carries member-readable copy explaining the refusal.
+      toast({
+        title: err instanceof GpsPrivacyError ? "Photo not uploaded" : "Upload failed",
+        description: err.message,
+        variant: "destructive",
+      });
     }
   }, [bucket, folder, allowedTypes, maxSize, compressImages, onFileUploaded]);
 

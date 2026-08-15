@@ -264,9 +264,31 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
    * reset the step. Never add an autosave-on-close: it would turn every
    * abandoned compose session into a stored draft with uploaded photos.
    */
+  /**
+   * B4 RESUME — photos already in storage for THIS composition.
+   *
+   * Keyed by the File object itself, never by index. The composer appends,
+   * removes and crops photos, so index 2 is not a stable identity: removing
+   * photo 1 would make a stale entry serve the wrong picture. Object identity
+   * self-invalidates exactly right — cropping REPLACES the File (a new object,
+   * so no entry, so it uploads), removing one leaves the others' identities
+   * untouched, and an appended photo has no entry at all.
+   *
+   * Why it exists: before this, a post that failed on photo 3 of 5 threw the
+   * whole attempt away. The member pressed Post again and photos 1 and 2 were
+   * uploaded a SECOND time under fresh names (keys are time+random), leaving
+   * the first pair referenced by nothing — orphaned bytes the 30-day sweep
+   * eventually collects, paid for by the member's data allowance twice. The
+   * B4 gate is explicit: no orphans, no duplicate objects.
+   */
+  const uploadedPhotoCache = useRef(new Map<File, { url: string; thumbnailUrl: string }>());
+
   const closeComposer = () => {
     setComposerOpen(false);
     setComposerStep("compose");
+    // The composition is over — whether it posted, saved or was abandoned.
+    // Anything still cached belongs to a composition that no longer exists.
+    uploadedPhotoCache.current.clear();
   };
 
   /* ── THE APP TAKES A DIFFERENT ROUTE ─────────────────────────────────────
@@ -545,6 +567,29 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   const uploadedUrls: string[] = [];
   const uploadedThumbs: string[] = [];
   for (let i = 0; i < selectedImages.length; i++) {
+    // ── B4 RESUME: already uploaded in an earlier attempt at THIS post ──
+    // Checked before the scan, because a photo whose bytes are already in
+    // storage has nothing left to scan. Re-uploading it would orphan the copy
+    // that is already there.
+    const already = uploadedPhotoCache.current.get(selectedImages[i]);
+    if (already) {
+      logger.info({
+        code: "FILE-5010",
+        event: "POST_PHOTO_RESUMED",
+        fn: "createPost",
+        file: "src/components/WallPosts.tsx",
+        message: "Reusing a photo this composition already uploaded.",
+        reason: "An earlier attempt at this same post uploaded these bytes; the stored copy is reused instead of uploading again.",
+        expected: "No second upload of bytes already in storage",
+        actual: "resumed from the first attempt",
+        correlationId,
+        detail: { stage: "resume", index: i, of: selectedImages.length, ...deviceContext() },
+      });
+      uploadedUrls.push(already.url);
+      uploadedThumbs.push(already.thumbnailUrl);
+      continue;
+    }
+
     // ── THE STALE-HANDLE RECOVERY ───────────────────────────────────────
     // Measured 2026-08-06: 26 recorded post failures, EVERY ONE from the
     // installed app and none from the web, across two real members — 23
@@ -645,6 +690,13 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       durationMs: Date.now() - uploadStarted,
       correlationId,
       detail: { stage: "upload", index: i, of: selectedImages.length, bytes: photo?.size, ...deviceContext() },
+    });
+
+    // Remember it against the ORIGINAL File — `photo` may be the rebuilt copy
+    // from the stale-handle recovery, and the retry will look up the original.
+    uploadedPhotoCache.current.set(selectedImages[i], {
+      url: uploadResult.url,
+      thumbnailUrl: uploadResult.thumbnailUrl,
     });
 
     uploadedUrls.push(uploadResult.url);
@@ -896,6 +948,11 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
             // comments store, rendered by RichContentRenderer.
             content: captionMentions.convert(newContent.trim()),
             image_urls: uploadedUrls,
+            // B3c: the thumbnails were ALWAYS generated right here and then
+            // thrown away — scheduled_posts had no column for them, so the
+            // publisher inserted posts that serve a full-size original
+            // wherever a thumbnail belongs. Now they travel with the row.
+            thumbnail_urls: uploadedThumbs,
             image_url: uploadedUrls[0],
             tagged_user_ids: pendingTags.map((t) => t.taggedUserId),
             scheduled_for: iso,
