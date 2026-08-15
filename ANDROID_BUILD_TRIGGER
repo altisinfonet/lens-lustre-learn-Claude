@@ -1,71 +1,72 @@
-Build 1.2.5 - 2026-08-14 - THE TWO DEFECTS REPORTED ON 1086, PLUS 1086's BATCH
-Cut from main @ f8c1985. typecheck clean, 1345 tests green, build clean,
-security audit 0 critical / 0 high.
+Build 1.2.5 - 2026-08-15 - THE DAY'S BATCH, AND THE DEPLOY THAT WAS BROKEN
 
-⚠ 1086 WAS HALTED IN PLAY. Do not ship 1086. This build replaces it and
-carries everything 1086 carried.
+Cut from main. typecheck clean, 1,815 tests green, production build clean,
+`npm ci` clean from an empty checkout, 57 harness screenshots taken and looked
+at before this file was written.
 
-FIXED IN THIS BUILD - the two things reported on 1086
+⚠ READ THIS FIRST, BEFORE INSTALLING
 
-- "+ CREATE" IS IN THE LEFT CORNER, AND IT IS AN ICON WITH NO CAPTION.
-  On 1086 it sat in the MIDDLE of the top bar, on top of the centred
-  wordmark. The cause was layout, not a coordinate: the bar is
-  `justify-between`, and in the app the logo <Link> collapses to ZERO width
-  because its image and its wordmark are both `hidden lg:*`. Three flex
-  children with a zero-width first one spread as [nothing] ... [+ Create]
-  ... [actions], which parks the button in the centre. The logo and the
-  button now share ONE wrapper, so they are ONE flex item and sit at the
-  left edge. Measured in a headless render before shipping: the button
-  starts 24px from the bar edge and ends at 61px; the wordmark starts at
-  69px. On 1086 it started at 125px and overlapped. The "Create" caption is
-  gone - the name is on aria-label, and the box is 36px so the tap target
-  stays finger-sized without it.
+**The Android build has not run since the React 18 -> 19 upgrade, and it would
+have FAILED if it had.** Every clean install died at the first step:
 
-- A VERIFIED TAGGED MEMBER NOW SHOWS THE BLUE TICK. So does a verified
-  AUTHOR, which was the same bug.
-  Checked against production first: the badge row exists, RLS is "Anyone can
-  view badges" USING (true), and a real anonymous REST call returns it. The
-  data was always reachable and the component was always correct - what
-  failed was the lookup between them. The tick came from a SECOND, per-name
-  request fired at render time, while the query that built that very line had
-  already fetched those profiles WITH their badges and thrown the badges
-  away. Author and tagged name go through the identical path, so this was
-  never tagged-only: `author_badges` has been computed by every feed, wall
-  and hashtag query for months and no caller ever read it.
-  Badges now travel WITH the post - the same correction as the author-name
-  fix. "Name visible, badge missing" is no longer a state this app can be in.
+    npm error code ERESOLVE
+    npm error While resolving: react-day-picker@8.10.1
+    npm error Found: react@19.2.8
 
-ALSO IN THIS BUILD - everything from 1086
+`npm ci` is the first line of this workflow, so this build is ALSO the first
+proof that the fix (`.npmrc`, `legacy-peer-deps=true`) works here. If the job
+fails at "Install dependencies", that is why, and the log will say so plainly.
 
-- The feed no longer runs out of memory on a long scroll. Cards unmount about
-  two screens away; 100 mounted cards was the crash on a mid-range Android.
-- The blurred backdrop no longer downloads the 2560px original (14.7 MB of
-  RAM once decoded), and the LQIP no longer falls through to it.
-- React Query stops retaining every page ever fetched (maxPages: 5).
-- Author names and avatars arrive WITH the post - get_broadcast_feed returns
-  15 columns instead of 11.
-- Realtime traffic halved (9 bindings -> 5) and counters can no longer drift:
-  one writer per field, absolute totals from `posts`.
-- A weak signal no longer looks like an empty app - the feed and drafts throw
-  and retry instead of caching an empty success as truth.
-- Typing in a comment edit no longer reverses the text.
-- Blue tick shows with the name everywhere, including "with X".
+The same breakage stopped the WEBSITE deploying for nine hours today, through a
+second stale lockfile: Cloudflare Pages installs with `bun`, and `bun.lock`
+still pinned React 18. Both lockfiles are now correct and the website is live
+and verified.
 
-BUILD SYSTEM
-All 11 Capacitor packages pinned, with a step that FAILS the build if a pin
-did not take. Node 22.
+WHAT IS IN THIS BUILD
 
-WHAT IS *NOT* IN THIS BUILD - do not expect it
-- The Instagram-style in-app photo picker. Picker screens are unchanged.
-- The image derivative pipeline. Phones still download originals.
-- Resumable / chunked uploads.
+THE UPLOAD COMPOSER, rebuilt
+- A true preview at the frame the post will actually get, `object-contain`, so
+  nothing is cropped away silently.
+- A rule-of-thirds guide over it. Decoration only: not in the upload, not in
+  the tab order, invisible to a screen reader.
+- Reorder by arrows, a "Cover" badge on the first photo, an n/N counter.
+- The remove button no longer overlaps the NEXT thumbnail. Its 44px target used
+  to hang over its neighbour, so tapping one photo's left edge deleted the photo
+  before it. Unrecoverable in a composer.
+- A photo that will not preview says so, instead of leaving a hole with
+  Chromium's own torn-page glyph in the corner.
 
-BEFORE PROMOTING TO PRODUCTION
-Sideload the debug APK this run produces and check, in this order:
-  1. The + Create icon is in the LEFT corner and does not touch the wordmark.
-  2. A verified member shows the blue tick - as the post author AND as a
-     tagged name in "with X".
-  3. Scroll the feed hard and back: no blank cards, no scroll jump.
-  4. Type and edit a comment; categories and contributor score still render.
-  5. Like a post - the count moves by exactly one.
+THE POST CARD
+- Reach and Viewed moved OFF the action row and onto the photograph: hover on
+  web, FIRST TAP in the app (second tap opens the photo, as always). They are
+  computed after the card paints, so in the row they made it reflow under your
+  thumb - that is the "reactions shifting" you reported.
+- The right of the row now carries each reaction with its own count, Facebook
+  style; the total stays on the left beside the thumb.
+- A caption that is one long word (a filename, a pasted url) no longer runs off
+  the card and gets sliced mid-word.
+
+THE WALL
+- Deleting a post fades it out. That animation never ran: it was keyed on a
+  Fragment, which cannot hold the reference the animation needs, and React
+  logged an error for every post on every render.
+
+WHAT TO CHECK ON THE PHONE - only your device can answer these
+
+  1. Post a photo. Reorder it, crop it, remove one. The preview must match what
+     is published.
+  2. Tap a photo in the feed ONCE: the reach/viewed chip appears and NOTHING
+     opens. Tap again: it opens.
+  3. Double-tap a photo: it likes, and the viewer does NOT open.
+  4. Delete one of your own posts on your wall: it fades, it does not vanish.
+  5. Scroll the feed hard and back: no blank cards, no jump, no row shifting
+     under your thumb as you reach for it.
+  6. A post with a very long one-word caption: "See more" appears, nothing is
+     cut off at the edge.
+
+NOT DONE, AND NOT CLAIMED
+- 12 findings from the screenshot sweep are still open: controls under the 44px
+  tap minimum on the feed, wall, post and settings screens, and one avatar that
+  does not decode. They are in this build.
+- The plain-language test worksheet is still not written.
 Then promote the AAB.
