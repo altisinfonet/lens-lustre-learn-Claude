@@ -11,7 +11,8 @@ import { toast } from "@/hooks/core/use-toast";
 import RichContentRenderer from "@/components/RichContentRenderer";
 import TranslateBar from "@/components/post/TranslateBar";
 import PostCommentsSection from "@/components/PostCommentsSection";
-import EngagementFooter from "@/components/EngagementFooter";
+import PostCard from "@/components/post/PostCard";
+import type { UnifiedPost } from "@/types/post";
 import FacebookPhotoGrid from "@/components/FacebookPhotoGrid";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import ReactionPicker, { ReactionType, REACTION_EMOJI_MAP } from "@/components/ReactionPicker";
@@ -207,7 +208,17 @@ const PostDetail = () => {
   const allImages = post.image_urls?.length ? post.image_urls : post.image_url ? [post.image_url] : [];
   // Id and age only — never reaction/comment counts. Passing those made the
   // figures jump on Like and fall on un-Like (owner report, 2026-08-04).
-  const displayStats = displayEngagement({ id: post.id, createdAt: post.created_at });
+  /**
+   * The page's own row shape, mapped onto the one the card component takes.
+   * `thumbnail_urls` is empty because this page fetches originals — the card
+   * falls back to the full image, which is what this screen showed anyway.
+   */
+  const unifiedPost: UnifiedPost = {
+    ...post,
+    image_url: post.image_url ?? "",
+    thumbnail_urls: [],
+    is_liked: post.user_reaction !== null,
+  };
   const ogImage = allImages[0] || undefined;
   const ogDescription = post.content?.slice(0, 160) || "A post on 50mm Retina World";
 
@@ -226,167 +237,63 @@ const PostDetail = () => {
           <ArrowLeft className="h-3.5 w-3.5" /> Back
         </button>
 
-        <div className="border border-border rounded-xl md:rounded-none overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center gap-2.5 p-3 pb-0">
-            <Link to={`/profile/${post.user_id}`} className="shrink-0">
-              {post.author_avatar ? (
-                <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={post.author_avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-sm text-primary" style={displayFont}>{avatarInitial(post.author_name)}</span>
-                </div>
-              )}
-            </Link>
-            <div className="flex-1 min-w-0">
-              <UserIdentityBlock
-                userId={post.user_id}
-                name={post.author_name || "Photographer"}
-                linkTo={`/profile/${post.user_id}`}
-                nameClassName="text-sm font-light hover:text-primary transition-colors truncate [font-family:var(--font-heading)]"
-              />
-              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
-                <span>{timeAgo(post.created_at)}</span>
-                <span>·</span>
-                {privacyIcon(post.privacy)}
-              </div>
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="p-1.5 text-muted-foreground hover:text-foreground transition-colors">
-                  <MoreHorizontal className="h-4 w-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={copyLink}>
-                  <Copy className="h-3.5 w-3.5 mr-2" /> Copy Link
-                </DropdownMenuItem>
-                {user && post && user.id !== post.user_id && (
-                  <DropdownMenuItem onClick={async () => {
-                    const { error } = await supabase.from("post_reports").insert({ post_id: post.id, reporter_id: user.id, reason: "inappropriate" });
-                    if (error && error.code === "23505") {
-                      toast({ title: "You have already reported this post" });
-                    } else if (error) {
-                      toast({ title: "Failed to report", variant: "destructive" });
-                    } else {
-                      toast({ title: "Report submitted" });
-                    }
-                  }}>
-                    <Flag className="h-3.5 w-3.5 mr-2" /> Report Post
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+        {/**
+         * NO BOX AROUND THE CARD.
+         *
+         * This wrapper used to draw a border and clip its contents. Both are
+         * wrong now that the card itself is rendered here: PostCard breaks out
+         * to the full screen width on a phone (`bleed-phone`), so the
+         * `overflow-hidden` sliced 16px off its left edge — visible in the
+         * harness screenshot, the member's own name cut in half. And the owner
+         * removed borders from the post card on 2026-08-10: "I told No border
+         * anything to anywhere, example like Instagram". A border here put one
+         * back on the same post, on a different screen. Same rule, one place.
+         */}
+        <div>
+          {/**
+           * ONE FUNNEL. THIS PAGE RENDERS THE SAME CARD THE FEED DOES.
+           *
+           * ─────────────────────────────────────────────────────────────────
+           * OWNER, 2026-08-15, after opening a post from his wall and finding
+           * the old layout on a post whose feed card had already changed:
+           *
+           *   "you are not maintaing one funnel - that is again creating
+           *    issues multi funnel for same result... Again damaging rule
+           *    established."
+           *
+           * He was right, and the duplication was not small. Everything
+           * between this comment and the comments below used to be a SECOND,
+           * hand-written copy of PostCard: its own header, its own media, its
+           * own counts row, its own ReactionPicker, its own displayEngagement
+           * call, its own caption. ~150 lines rendering the same post a second
+           * way.
+           *
+           * The cost is not tidiness. It is that every change had to be made
+           * TWICE and, when it was not, the same post read one way in the feed
+           * and another way here — which is exactly how he found it. The
+           * caption here never even got `break-words`; a one-word caption was
+           * still being sliced off the edge on this screen after it had been
+           * fixed in the feed.
+           *
+           * So this page is now page CHROME (the back bar above) plus the one
+           * card component. There is no second implementation to keep in step,
+           * because there is no second implementation.
+           * ─────────────────────────────────────────────────────────────────
+           */}
+          <PostCard
+            post={unifiedPost}
+            currentUserId={user?.id}
+            onReact={(_, type) => handleReact(type)}
+            onUnreact={() => handleUnreact()}
+            onCommentCountChange={(_, delta) =>
+              setPost((p) => (p ? { ...p, comment_count: Math.max(0, p.comment_count + delta) } : p))
+            }
+            onShareCountChange={(_, delta) =>
+              setPost((p) => (p ? { ...p, share_count: Math.max(0, p.share_count + delta) } : p))
+            }
+            onContentChange={(_, content) => setPost((p) => (p ? { ...p, content } : p))}
+          />
 
-          {/* Content */}
-          {post.content && (
-            <div className="px-3 py-2">
-              <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={bodyFont}>
-                <RichContentRenderer content={post.content} />
-              </p>
-              <TranslateBar text={post.content} />
-            </div>
-          )}
-
-          {/* Images */}
-          {allImages.length > 0 && (
-            <div className="mt-1">
-              {allImages.length === 1 ? (
-                <div className="relative group/img">
-                  <img src={allImages[0]} alt="" className="w-full" loading="lazy" />
-                  <DownloadButton
-                    downloading={downloading === allImages[0]}
-                    onClick={(e) => { e.stopPropagation(); downloadImg(allImages[0]); }}
-                    className="absolute bottom-3 right-3 p-2 rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-card shadow-sm disabled:opacity-60"
-                  />
-                </div>
-              ) : (
-                <FacebookPhotoGrid urls={allImages} />
-              )}
-            </div>
-          )}
-
-          {/* Counts + Engagement Stats */}
-          <div className="flex items-center gap-3 px-3 pb-1.5 pt-2 text-[10px] text-muted-foreground" style={headingFont}>
-            {post.like_count > 0 && (
-              <ReactionSummaryTooltip reactionCounts={post.reaction_counts} totalCount={post.like_count} postId={post.id}>
-                <span className="inline-flex items-center gap-1 cursor-pointer">
-                  {(post.top_reactions.length > 0 ? post.top_reactions : ["like"]).map((type) => (
-                    <span key={type} className="text-sm">{REACTION_EMOJI_MAP[type] || "👍"}</span>
-                  ))}
-                  {post.like_count}
-                </span>
-              </ReactionSummaryTooltip>
-            )}
-            {post.comment_count > 0 && (
-              <button onClick={() => setShowComments(!showComments)} className="hover:text-foreground transition-colors">
-                {post.comment_count} {post.comment_count === 1 ? "comment" : "comments"}
-              </button>
-            )}
-            {post.share_count > 0 && (
-              <ShareSummaryTooltip shareCount={post.share_count} postId={post.id}>
-                <span className="hover:text-foreground transition-colors">
-                  {post.share_count} {post.share_count === 1 ? "share" : "shares"}
-                </span>
-              </ShareSummaryTooltip>
-            )}
-            <div className="flex-1" />
-
-            {/* Reach / Viewed-by, right-aligned on the same line as the counts —
-                the same layout as the feed card, and the same source, so a post
-                cannot read one way in the feed and another way here. Null for
-                the first 24 hours after posting, exactly as in the feed. See
-                src/lib/displayEngagement.ts. */}
-            {displayStats && (
-              <>
-                <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                  <Users className="h-3 w-3" />
-                  <span className="font-medium text-foreground/80">{formatEngagementCount(displayStats.reach)}</span>
-                  <span>reached</span>
-                </span>
-                <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                  <Eye className="h-3 w-3" />
-                  <span className="font-medium text-foreground/80">{formatEngagementCount(displayStats.views)}</span>
-                  <span>viewed</span>
-                </span>
-              </>
-            )}
-          </div>
-
-          {/* Actions */}
-          <div className="mx-2.5 border-t border-border select-none">
-            <div className="flex">
-              <ReactionPicker
-                currentReaction={post.user_reaction}
-                onReact={(type) => handleReact(type)}
-                onUnreact={handleUnreact}
-                disabled={!user}
-              />
-              <button
-                onClick={() => setShowComments(!showComments)}
-                className="flex-1 flex items-center justify-center gap-2 py-2 rounded-md my-1 text-sm font-semibold text-muted-foreground hover:bg-muted/50 transition-colors"
-              >
-                <MessageCircle className="h-5 w-5" /> Comment
-              </button>
-              <button
-                onClick={copyLink}
-                className="flex-1 flex items-center justify-center gap-2 py-2 rounded-md my-1 text-sm font-semibold text-muted-foreground hover:bg-muted/50 transition-colors"
-              >
-                <Share2 className="h-5 w-5" /> Share
-              </button>
-            </div>
-          </div>
-
-          {/* Comments */}
-          {showComments && (
-            <PostCommentsSection
-              postId={post.id}
-              postOwnerId={post.user_id}
-              expanded={showComments}
-              onCommentCountChange={(delta) => setPost((p) => p ? { ...p, comment_count: Math.max(0, p.comment_count + delta) } : p)}
-            />
-          )}
         </div>
       </div>
     </>
