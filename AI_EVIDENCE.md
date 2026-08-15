@@ -1069,3 +1069,52 @@ not because the harness is broken.
 
 **No build was triggered:** none of these files matches the Android workflow's
 `paths` filter.
+
+---
+
+## 2026-08-15 — I told the owner the web deploy runs "via Lovable". It does not.
+
+He said so plainly: *"here lovable has no role, your reading is gone iether or
+kept wrong record."* He is right on both counts.
+
+**Where the wrong record came from, which does not excuse it:**
+`ANDROID_RELEASE_RUNBOOK.md` §6 said "Pushing to `main` auto-deploys the web app
+(via Lovable)". I read that line and repeated it to him **as a diagnosis**, in a
+message about why his site had not changed. A stale sentence in a document I
+wrote is not evidence, and I presented it as though it were. The line is now
+corrected, with the correction marked.
+
+**What is actually true, measured, not read:**
+- The web app is **Cloudflare Pages** — project `lens-lustre-learn-claude`,
+  origin `lens-lustre-learn-claude.pages.dev`, fronted by the SEO Worker on
+  `www.50mmretina.com`. The repo carries `public/_headers`, `public/_redirects`
+  and seven Pages Functions; `docs/architecture-and-cto-verdict.md` said so all
+  along.
+- **There is no GitHub Actions workflow for the web build.** Only Typecheck,
+  Security, Health, Android and Apply-migration run there. So a Pages build that
+  never starts is invisible from the Actions tab — it looks identical to
+  "nothing happened", which is exactly how this went unnoticed.
+
+**The measurement, three independent ways, cache disabled every time:**
+1. On the live feed, caption paragraphs render
+   `text-[13px] leading-relaxed whitespace-pre-wrap` — **without `break-words`**.
+   That class was added hours ago.
+2. The served chunks `WallPosts-CR41UJCA.js` and `PostCommentsSection-3ZMdUEhY.js`
+   contain the old Caption, and **no chunk contains `thirds-guide`** — so the
+   new composer is not live either.
+3. `lens-lustre-learn-claude.pages.dev` serves the **same** `index-D5FF94je.js`
+   as `www`. Identical on origin and custom domain means this is **not** the
+   Worker and **not** a cache: **Cloudflare Pages never built the new commits.**
+
+So the running site predates everything from today. Every file is on `main` and
+byte-identical there — and none of it is in front of a member.
+
+**What I cannot do, stated rather than worked around:** I have no Cloudflare
+dashboard access, and deploying with `wrangler` needs an API token. Handling that
+token is not something I will do. The build has to be started, or reconnected,
+from the Cloudflare side.
+
+**The lesson, and it is the same one again:** I reported a cause from a document
+instead of measuring the running system, in a session whose entire subject was
+that a green result from a check that measures nothing is worthless. Thirty
+seconds of `fetch` would have told me the truth before I said a word.

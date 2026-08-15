@@ -108,8 +108,28 @@ CI **signs automatically**. Details:
 
 ## 6. GitHub / CI
 - **Remote:** `github.com/altisinfonet/lens-lustre-learn-Claude`, account **altisinfonet**.
-- Pushing to `main` auto-deploys the **web app** (via Lovable); touching `ANDROID_BUILD_TRIGGER`
-  or the workflow fires the **Android** build.
+- Pushing to `main` is meant to auto-deploy the **web app** via **Cloudflare Pages**
+  (project `lens-lustre-learn-claude`, served at `lens-lustre-learn-claude.pages.dev`
+  and fronted by the SEO Worker on `www.50mmretina.com`). Touching
+  `ANDROID_BUILD_TRIGGER` or the workflow fires the **Android** build.
+
+  ⚠ **CORRECTED 2026-08-15.** This line used to say the web app deploys "via
+  Lovable". That is wrong, and I repeated it to the owner as fact instead of
+  checking — he was right to call it out. Lovable has no role in serving the
+  site. The web build is Cloudflare Pages, and there is **no GitHub Actions
+  workflow for it**, so a failed or disconnected Pages build is invisible from
+  the Actions tab and looks exactly like "nothing happened".
+
+  **How to tell, in thirty seconds, whether main is actually live** — open the
+  site and look for a string only the new code contains, e.g.
+
+      [...document.querySelectorAll('p')]
+        .filter(p => /text-\[13px\]/.test(p.className))[0].className
+
+  If that caption paragraph lacks `break-words`, the running build predates
+  2026-08-15. Check `pages.dev` as well as `www`: identical bundle names on both
+  means Pages never built, while a fresh `pages.dev` and a stale `www` means the
+  Worker or the cache in front of the custom domain.
 - **Workflows:** `.github/workflows/android-build.yml`, `.github/workflows/typecheck.yml`
 - **Firebase:** `google-services.json` committed at repo root; workflow copies it into `android/app/`.
 - Editing repo files from a read-only AI session: use GitHub's web **"Upload files"** UI to
