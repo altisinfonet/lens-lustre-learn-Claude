@@ -647,3 +647,76 @@ every feed card and never reached the DOM. It now works, with no code change.
 **Still DEVICE-open:** React 19 has been proven to compile, test, build and
 render here. Whether the Android WebView behaves identically is a question only
 the owner's phone can answer, and it stays open until it does.
+
+## 2026-08-15 — The session-loss recorder (owner bugs 2 and 3)
+
+The investigation stopped on 2026-08-15 for one reason: **nothing recorded WHY a
+session ended.** Two hypotheses had been tested against production and both were
+wrong, and there was no third measurement to make. This is that measurement.
+
+**What it answers, at the moment a session ends:** did the member ask for this ·
+had a token refresh just failed, with what status, and how many times in a row ·
+did OUR OWN 25-second abort kill the last request · had the app just returned
+from the background · is the saved session still in localStorage.
+
+**Verified on production before writing a line:** `log_app_event` is
+`SECURITY DEFINER` and `anon` may EXECUTE it. That is the property the whole
+design rests on — the recorder has to write at the exact moment the member no
+longer has a session.
+
+**Four constraints, each with a reason:**
+1. `src/lib/sessionLossRecorder.ts` **imports nothing at all.** The Supabase
+   client imports it, and the logger imports that client; one import here closes
+   a cycle. The consumer reads facts and does the logging.
+2. It **writes nothing to storage.** WebView storage loss is one of the three
+   suspects — adding our own writes to the store under investigation would
+   contaminate the experiment.
+3. It **records once per session**, so a retry loop cannot turn one lost session
+   into hundreds of rows, and re-arms on `SIGNED_IN` so a repeat victim is visible.
+4. An **involuntary** loss is `logger.error` (persisted, AUTH-1010). A declared
+   one is `logger.debug` (not persisted) — persisting 84 members' logouts would
+   bury the handful that are bugs.
+
+**Seven sign-out sites now declare themselves**, so what is left over is the bug:
+`useAuth.signOut`, `useAuth.checkRestricted`, `ActiveDevices`,
+`DeleteAccountSection`, `s3Upload`, `Login` (×2), `ResetPassword`.
+
+### THREE THINGS MY OWN TESTS CAUGHT, IN ORDER
+
+1. **Two sign-out paths I had missed entirely.** The invariant test flagged
+   `src/pages/Login.tsx` and `src/pages/ResetPassword.tsx`. Both were signing
+   members out with nothing declared, so both would have been filed as the
+   owner's random sign-out. Found by the alarm, not by reading.
+2. **I nearly fixed the alarm instead of the bug.** The first version kept an
+   ALLOWLIST of known files. The tempting fix was to add the two offenders to
+   the list — which would have turned the test green while both files still
+   signed members out silently. Rewritten as a behavioural invariant: a file
+   that calls `signOut` must declare why.
+3. **The invariant was still too weak, and a mutation proved it.** M32 deleted
+   ONE of `Login.tsx`'s two declarations and the suite stayed green, because the
+   test only asked "does this file declare anywhere?". Declarations are now
+   COUNTED against sign-out calls. Re-running M32 against the tightened test
+   fails it, as it must.
+
+**A fourth catch, by a guard I did not write:** I added AUTH-1010 to
+`docs/error-codes.md` by hand. That file is GENERATED, and
+`errorCatalog.test.ts` failed immediately. Added to `src/lib/errorCodes.ts` and
+regenerated with `npx tsx scripts/generate-error-codes.ts` — 79 codes.
+
+**Mutations, each applied as a real edit then reverted — 8 of 8 caught:**
+M25 a stale declaration never expires (would launder a real bug as a logout) ·
+M26 refresh failures accumulate instead of counting consecutively ·
+M27 our own timeout reported as a network failure ·
+M28 unreadable storage reported as "gone" (would manufacture the finding) ·
+M29 it records every time instead of once ·
+M30 an involuntary loss downgraded to debug, so it is never persisted ·
+M31 the fetch wrapper stops reporting failures ·
+M32 one of two declarations in a file deleted — **escaped first, caught after
+the test was tightened.**
+
+**Gates:** typecheck clean · **1,712 passing**, 1 skipped · production build
+clean, one HTML file in `dist/` · `npm run ui:shot` 24 screenshots, 0 problems.
+
+**Still open, and only real members can close it:** this records the cause; it
+does not fix anything. The cause is named the first time a member is signed out
+with this build on their phone.
