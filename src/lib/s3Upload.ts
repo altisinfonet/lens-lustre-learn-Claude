@@ -103,6 +103,67 @@ async function invokePresignWithRetry(body: Record<string, unknown>) {
  *
  * @param isPrivate - if true, the returned URL will be the storage key (no public URL)
  */
+
+/**
+ * B4 slice 1 — the PUT itself retries. (Documented defect F3, first half.)
+ *
+ * Until 2026-08-14 the presign call retried but the UPLOAD did not: one
+ * dropped packet on a phone leaving wifi threw immediately, and because the
+ * platform's object keys are Date.now()+random, the member's next attempt
+ * re-uploaded EVERYTHING under new names — stranding the previous bytes as
+ * unreclaimable orphans (F3 + F2 compounding).
+ *
+ * Retrying the SAME presigned URL is exactly idempotent: same key, same
+ * bytes — success after a retry is indistinguishable from success on the
+ * first try, and creates nothing extra. Three shapes are retried:
+ *   - network failure (fetch TypeError): the classic mid-transfer drop;
+ *   - 5xx / 429: R2's problem, not the member's;
+ *   - 403 ONCE via `onExpired`: the presign is 300s and a slow photo on slow
+ *     cellular can outlive it — the caller re-presigns the SAME path and the
+ *     retry PUTs to the same key.
+ * 4xx other than 403/429 are NOT retried: the request itself is wrong, and
+ * repeating it just repeats the mistake.
+ */
+async function putWithRetry(
+  uploadUrl: string,
+  file: File | Blob,
+  contentType: string,
+  label: string,
+  onExpired?: () => Promise<string>,
+): Promise<void> {
+  let url = uploadUrl;
+  let refreshed = false;
+  let lastErr: Error | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, attempt === 1 ? 400 : 1200));
+    try {
+      const res = await fetch(url, { method: "PUT", body: file, headers: { "Content-Type": contentType } });
+      if (res.ok) return;
+      if (res.status === 403 && onExpired && !refreshed) {
+        // Presign likely outlived by the transfer. One fresh URL, same path.
+        refreshed = true;
+        url = await onExpired();
+        lastErr = new Error(`${label} upload got 403; re-presigned and retrying`);
+        continue;
+      }
+      if (res.status >= 500 || res.status === 429) {
+        lastErr = new Error(`${label} upload failed (${res.status}); retrying`);
+        continue;
+      }
+      const text = await res.text().catch(() => "");
+      throw new Error(`${label} upload failed (${res.status}): ${text.slice(0, 200)}`);
+    } catch (e) {
+      if (e instanceof TypeError) {
+        // Network drop mid-transfer — the retryable case this exists for.
+        lastErr = e;
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw lastErr ?? new Error(`${label} upload failed after retries`);
+}
+
 export async function uploadToS3(
   file: File | Blob,
   path: string,
@@ -121,16 +182,10 @@ export async function uploadToS3(
   const publicUrl: string | null = data.publicUrl;
   const key: string = data.key;
 
-  const putRes = await fetch(uploadUrl, {
-    method: "PUT",
-    body: file,
-    headers: { "Content-Type": contentType },
+  await putWithRetry(uploadUrl, file, contentType, "Storage", async () => {
+    const fresh = await invokePresignWithRetry({ path, contentType, size, private: isPrivate });
+    return fresh.uploadUrl as string;
   });
-
-  if (!putRes.ok) {
-    const text = await putRes.text().catch(() => "");
-    throw new Error(`Storage upload failed (${putRes.status}): ${text.slice(0, 200)}`);
-  }
 
   return { url: isPrivate ? key : (publicUrl || uploadUrl.split("?")[0]), key };
 }
@@ -162,19 +217,26 @@ export async function uploadPairToS3(
 
   if (!data?.pair) throw new Error("Presign did not return pair URLs");
 
-  const [fullPut, thumbPut] = await Promise.all([
-    fetch(data.uploadUrl, { method: "PUT", body: fullFile, headers: { "Content-Type": fullCT } }),
-    fetch(data.pair.uploadUrl, { method: "PUT", body: thumbFile, headers: { "Content-Type": thumbCT } }),
+  // Each side retries independently; a re-presign refreshes BOTH URLs but
+  // each retry PUTs only its own file to its own unchanged key.
+  const represign = async () => {
+    const fresh = await invokePresignWithRetry({
+      path: fullPath, contentType: fullCT, size: fullSize, private: isPrivate,
+      pair: { path: thumbPath, contentType: thumbCT, size: thumbSize },
+    });
+    return fresh as typeof data;
+  };
+  let freshData: typeof data | null = null;
+  await Promise.all([
+    putWithRetry(data.uploadUrl, fullFile, fullCT, "Full-res", async () => {
+      freshData = freshData ?? (await represign());
+      return freshData.uploadUrl as string;
+    }),
+    putWithRetry(data.pair.uploadUrl, thumbFile, thumbCT, "Thumbnail", async () => {
+      freshData = freshData ?? (await represign());
+      return freshData.pair.uploadUrl as string;
+    }),
   ]);
-
-  if (!fullPut.ok) {
-    const t = await fullPut.text().catch(() => "");
-    throw new Error(`Full-res upload failed (${fullPut.status}): ${t.slice(0, 200)}`);
-  }
-  if (!thumbPut.ok) {
-    const t = await thumbPut.text().catch(() => "");
-    throw new Error(`Thumbnail upload failed (${thumbPut.status}): ${t.slice(0, 200)}`);
-  }
 
   return {
     full: {

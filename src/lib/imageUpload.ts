@@ -1,6 +1,8 @@
 import { storageUpload } from "@/lib/storageUpload";
 import { isS3Enabled, uploadPairToS3 } from "@/lib/s3Upload";
 import { compressThumbnail, compressImageToFiles } from "@/lib/imageCompression";
+import { guardOriginalUpload } from "@/lib/gpsGuard";
+import { LADDER_MARKER, RUNG_QUALITY, rungPath, rungPlan } from "@/lib/imageLadder";
 import { dimsSuffix } from "@/lib/imageFrame";
 import { logger } from "@/lib/logger";
 
@@ -238,7 +240,8 @@ interface UploadWithThumbnailResult {
 /**
  * Upload a full-resolution image AND a 600px thumbnail in parallel.
  *
- * • Full-res: original resolution, WebP at 0.92 quality.
+ * • Full-res: original resolution, WebP at 0.92 quality (zoom/download master).
+ * • Rungs (1080/1440, posts): WebP at RUNG_QUALITY 0.82 — the display tier (B3d-4).
  * • Thumbnail: max 600px dimension, WebP at 0.7 quality.
  * • Both paths share the same unique segment to keep them paired.
  * • If thumbnail generation fails, falls back to full-res URL for both
@@ -284,7 +287,14 @@ export async function uploadImageWithThumbnail(
         "The member's upload still SUCCEEDS — it is only larger. Check the file type in the detail against what the browser's encoder accepts before treating this as a failure.",
       detail: { fileType: file.type, fileSizeBytes: file.size },
     });
-    fullResFile = file;
+    // ⚠ THE ONE DOOR GPS COULD STILL WALK THROUGH. Every successful upload is
+    // canvas-re-encoded, which strips metadata as a side effect — so the ONLY
+    // files that reach the CDN with their metadata intact are exactly the ones
+    // that land in this fallback. Gate them: clean JPEGs pass, strippable ones
+    // are spliced, and a GPS-carrying file we cannot clean is REFUSED rather
+    // than published with the member's location. Throws GpsPrivacyError with
+    // member-readable copy; callers surface it like any upload failure.
+    fullResFile = await guardOriginalUpload(file);
   }
 
   // ── Dimensions in the filename (posts only, 2026-08-01) ──
@@ -298,11 +308,21 @@ export async function uploadImageWithThumbnail(
   // card falls back to 4:5, exactly as every pre-2026-08-01 post does.
   // Path generation must therefore happen AFTER encoding, not before.
   const basePath = generateImagePath({ userId, type, ext, subPath });
+  // B3d-1: which stored rungs this image honestly supports (no upscaling —
+  // an image narrower than a rung has no honest derivative at that rung).
+  // Rungs are a POST feature: they exist for the feed ladder. Other types
+  // keep their existing single-file behaviour.
+  const plannedRungs = type === "post" && encodedDims ? rungPlan(encodedDims.width, encodedDims.height) : [];
   const fullPath =
     type === "post" && encodedDims
       ? basePath.replace(
           new RegExp(`\\.${ext}$`),
-          `${dimsSuffix(encodedDims.width, encodedDims.height)}.${ext}`,
+          // The `-l3` marker is a PROMISE that rung files exist beside this
+          // one — the renderer offers rung URLs purely from the name. It is
+          // only added when rungs are planned, and the upload code below
+          // falls back to an unmarked name if rung upload fails, so the
+          // promise is never published unkept.
+          `${dimsSuffix(encodedDims.width, encodedDims.height)}${plannedRungs.length > 0 ? LADDER_MARKER : ""}.${ext}`,
         )
       : basePath;
   // Thumbnail path mirrors full path with "-thumb" suffix before extension
@@ -327,8 +347,12 @@ export async function uploadImageWithThumbnail(
         "Nothing is broken for the member, but every grid and feed showing this photo now downloads the full-size file. Repeated hits are a real cost on mobile data.",
       detail: { fileType: file.type, fileSizeBytes: file.size },
     });
-    // Upload full-res only, return same URL for both
-    const fullResult = await storageUpload(bucket, fullPath, fullResFile, {
+    // Upload full-res only, return same URL for both.
+    // ⚠ The ladder marker is a promise of rung files; this path uploads NO
+    // rungs (thumbnail generation failed, so rung generation is not trusted
+    // either). Strip the marker so the published name promises nothing.
+    const unmarkedFullPath = fullPath.replace(`${LADDER_MARKER}.${ext}`, `.${ext}`);
+    const fullResult = await storageUpload(bucket, unmarkedFullPath, fullResFile, {
       upsert,
       cacheControl,
       fileName: fullResFile.name,
@@ -341,6 +365,44 @@ export async function uploadImageWithThumbnail(
     };
   }
 
+  // ── B3d-1: generate the stored rungs (1080/1440) the plan promised. ──
+  // Each is one more canvas export of pixels we already decoded. A rung that
+  // fails to ENCODE is dropped from the plan (and if all drop, the marker is
+  // removed below); a rung that fails to UPLOAD falls back the same way — the
+  // `-l3` name is only ever published with its files actually in the store.
+  const rungFiles: { rung: number; file: File }[] = [];
+  for (const rung of plannedRungs) {
+    try {
+      // B3d-4: rungs are display copies — encode at the measured display
+      // quality (RUNG_QUALITY), not the 0.92 master default, or each rung
+      // ships ~2× the bytes the ladder was sized around.
+      const { webpFile } = await compressImageToFiles(file, `${baseName}-r${rung}`, {
+        maxDimension: rung,
+        webpQuality: RUNG_QUALITY,
+      });
+      rungFiles.push({ rung, file: webpFile });
+    } catch (err) {
+      logger.warn({
+        code: "FILE-5011",
+        event: "RUNG_ENCODE_FELL_BACK",
+        fn: "uploadImage",
+        file: FILE,
+        message: `The ${rung}px rung failed to encode; this photo ships without it.`,
+        reason: err instanceof Error ? err.message : String(err),
+        expected: `A ${rung}px WebP beside the original`,
+        actual: "No rung at this size",
+        nextStep:
+          "The member's post still succeeds; screens that wanted this size use the next larger file. Investigate only if this fires broadly.",
+        detail: { fileType: file.type, rung },
+      });
+    }
+  }
+  // Publishing a marker whose files failed would 404 every feed render of
+  // this post. Strip the promise instead — the post simply behaves legacy.
+  const publishMarker = plannedRungs.length > 0 && rungFiles.length === plannedRungs.length;
+  const finalFullPath = publishMarker ? fullPath : fullPath.replace(`${LADDER_MARKER}.${ext}`, `.${ext}`);
+  const finalThumbPath = publishMarker ? thumbPath : thumbPath.replace(`${LADDER_MARKER}-thumb.${ext}`, `-thumb.${ext}`);
+
   // Upload full-res and thumbnail. When S3 is enabled, use a SINGLE presign
   // call for both files (halves edge worker pressure → no FunctionsFetchError).
   // When S3 is disabled, fall back to parallel Supabase storage uploads.
@@ -348,8 +410,63 @@ export async function uploadImageWithThumbnail(
 
   if (useS3) {
     const isPrivate = PRIVATE_BUCKETS.has(bucket);
-    const s3FullPath = `${bucket}/${fullPath}`;
-    const s3ThumbPath = `${bucket}/${thumbPath}`;
+    // Rungs go FIRST: if they cannot land, the marker comes off and the
+    // full+thumb upload proceeds under the unmarked (legacy) name — a kept
+    // promise or no promise, never a broken one. The existing pair-presign is
+    // reused (two rungs = one pair), so no edge-function change is needed.
+    let s3FullPath = `${bucket}/${publishMarker ? fullPath : finalFullPath}`;
+    let s3ThumbPath = `${bucket}/${publishMarker ? thumbPath : finalThumbPath}`;
+    let markerKept = publishMarker;
+    if (publishMarker && rungFiles.length === 2) {
+      try {
+        await uploadPairToS3(
+          rungFiles[0].file,
+          rungFiles[1].file,
+          rungPath(s3FullPath, rungFiles[0].rung),
+          rungPath(s3FullPath, rungFiles[1].rung),
+          isPrivate,
+        );
+      } catch (err) {
+        logger.warn({
+          code: "FILE-5012",
+          event: "RUNG_UPLOAD_FELL_BACK",
+          fn: "uploadImage",
+          file: FILE,
+          message: "Rung upload failed; publishing under the unmarked name instead.",
+          reason: err instanceof Error ? err.message : String(err),
+          expected: "Both rungs stored beside the original",
+          actual: "No rungs stored; legacy naming used",
+          nextStep: "The member's post succeeds without rungs. Broad recurrence means presign or R2 trouble — check s3-presign-upload logs.",
+          detail: { fileType: file.type },
+        });
+        markerKept = false;
+        s3FullPath = `${bucket}/${fullPath.replace(`${LADDER_MARKER}.${ext}`, `.${ext}`)}`;
+        s3ThumbPath = `${bucket}/${thumbPath.replace(`${LADDER_MARKER}-thumb.${ext}`, `-thumb.${ext}`)}`;
+      }
+    } else if (publishMarker && rungFiles.length === 1) {
+      // One-rung plans (width between 1080 and 1440) still promise via the
+      // marker; a single rung uploads alone.
+      try {
+        const { uploadToS3 } = await import("@/lib/s3Upload");
+        await uploadToS3(rungFiles[0].file, rungPath(s3FullPath, rungFiles[0].rung), rungFiles[0].file.name, isPrivate);
+      } catch (err) {
+        markerKept = false;
+        s3FullPath = `${bucket}/${fullPath.replace(`${LADDER_MARKER}.${ext}`, `.${ext}`)}`;
+        s3ThumbPath = `${bucket}/${thumbPath.replace(`${LADDER_MARKER}-thumb.${ext}`, `-thumb.${ext}`)}`;
+        logger.warn({
+          code: "FILE-5012",
+          event: "RUNG_UPLOAD_FELL_BACK",
+          fn: "uploadImage",
+          file: FILE,
+          message: "Single-rung upload failed; publishing under the unmarked name instead.",
+          reason: err instanceof Error ? err.message : String(err),
+          expected: "The rung stored beside the original",
+          actual: "No rung stored; legacy naming used",
+          nextStep: "See FILE-5012 above.",
+          detail: { fileType: file.type },
+        });
+      }
+    }
     const { full, thumb } = await uploadPairToS3(
       fullResFile,
       thumbnailFile,
@@ -357,6 +474,7 @@ export async function uploadImageWithThumbnail(
       s3ThumbPath,
       isPrivate,
     );
+    void markerKept;
     return {
       url: isPrivate ? s3FullPath : full.url,
       path: full.key,
@@ -365,13 +483,30 @@ export async function uploadImageWithThumbnail(
     };
   }
 
+  // Supabase-storage path (S3 disabled): same promise rule.
+  let fbFullPath = finalFullPath;
+  let fbThumbPath = finalThumbPath;
+  if (publishMarker) {
+    try {
+      await Promise.all(
+        rungFiles.map(({ rung, file: rf }) =>
+          storageUpload(bucket, rungPath(fullPath, rung), rf, { upsert, cacheControl, fileName: rf.name }),
+        ),
+      );
+      fbFullPath = fullPath;
+      fbThumbPath = thumbPath;
+    } catch {
+      fbFullPath = fullPath.replace(`${LADDER_MARKER}.${ext}`, `.${ext}`);
+      fbThumbPath = thumbPath.replace(`${LADDER_MARKER}-thumb.${ext}`, `-thumb.${ext}`);
+    }
+  }
   const [fullResult, thumbResult] = await Promise.all([
-    storageUpload(bucket, fullPath, fullResFile, {
+    storageUpload(bucket, fbFullPath, fullResFile, {
       upsert,
       cacheControl,
       fileName: fullResFile.name,
     }),
-    storageUpload(bucket, thumbPath, thumbnailFile, {
+    storageUpload(bucket, fbThumbPath, thumbnailFile, {
       upsert,
       cacheControl,
       fileName: thumbnailFile.name,

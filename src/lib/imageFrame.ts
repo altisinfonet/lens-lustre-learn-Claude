@@ -61,7 +61,9 @@ export interface ImageDims {
  * Matches the `-w<W>h<H>` segment written by generateImagePath, with or without
  * the `-thumb` suffix that the thumbnail variant appends after it.
  */
-const DIMS_RE = /-w(\d{1,6})h(\d{1,6})(?:-thumb)?\.[a-z0-9]+$/i;
+// `-l3` is the B3d ladder marker (see imageLadder.ts); it sits between the
+// dims and the optional `-thumb`, and parsing must tolerate all four forms.
+const DIMS_RE = /-w(\d{1,6})h(\d{1,6})(?:-l3)?(?:-thumb)?\.[a-z0-9]+$/i;
 
 /** Upper bound on a plausible photo edge. Guards against a garbage filename. */
 const MAX_EDGE = 100_000;

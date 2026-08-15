@@ -337,6 +337,27 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     resolution:
       "The upload is unaffected — only the EXIF panel (camera, lens, aperture) will be empty. Common when a photo has been edited or exported by an app that strips metadata; this is the photographer's own file, not our pipeline.",
   },
+  {
+    code: "FILE-5010",
+    severity: "info",
+    description: "A photo this composition had already uploaded was reused instead of uploaded again.",
+    resolution:
+      "NOTHING IS WRONG — this is the B4 resume working. It means an earlier attempt at the same post failed partway and the member tried again; the photos that did upload were reused rather than sent a second time under new names. Every one of these is an orphaned file and a wasted upload that did NOT happen. What matters is what appears BESIDE it: read the FILE-5007/5009 or upload error from the failed attempt to learn why the first attempt stopped.",
+  },
+  {
+    code: "FILE-5011",
+    severity: "warn",
+    description: "One size in the stored image ladder could not be encoded, so the photo ships without that size.",
+    resolution:
+      "The member's post SUCCEEDS. Screens that wanted the missing size fall back to the next larger file, so the only cost is bytes. Investigate only if this fires broadly — one photo failing is usually an unusual source file, many photos failing means the browser's WebP encoder is unavailable on that platform.",
+  },
+  {
+    code: "FILE-5012",
+    severity: "warn",
+    description: "A size in the stored image ladder failed to upload, so the photo was published without the ladder.",
+    resolution:
+      "The member's post SUCCEEDS and renders correctly — the filename marker promising the extra sizes is stripped, so the renderer never asks for a file that is not there. The post simply behaves like a legacy one. Check storage reachability if this is not isolated.",
+  },
 
   // ── STORY ─────────────────────────────────────────────────────────────────
   {

@@ -258,7 +258,15 @@ export function clearProfileEntityCache(userId?: string) {
  * supabase-js would have returned, so callers keep one shape to handle. The
  * last attempt's failure is the one returned — this never throws.
  */
-async function withRetry<T extends { error: unknown }>(
+/**
+ * The constraint carries `data` as well as `error` because the catch branch
+ * below synthesises `{ data: null, error }`. Without it the inferred `T` narrows
+ * to `{ error: unknown }`, `.data` disappears from the result, and every caller
+ * has to cast — which is what the two-year-old `as any` at the call sites was
+ * papering over. `npx tsc -b` reported this as TS2339; it had never been caught
+ * because CI's typecheck ran `-p tsconfig.json`, which compiles zero files.
+ */
+async function withRetry<T extends { data: unknown; error: unknown }>(
   run: () => PromiseLike<T>,
   attempts = 3,
 ): Promise<T> {
