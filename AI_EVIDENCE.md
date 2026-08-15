@@ -720,3 +720,64 @@ clean, one HTML file in `dist/` · `npm run ui:shot` 24 screenshots, 0 problems.
 **Still open, and only real members can close it:** this records the cause; it
 does not fix anything. The cause is named the first time a member is signed out
 with this build on their phone.
+
+## 2026-08-15 — The activity_logs flood: 5,702 rows for 685 sign-ins
+
+**Measured on production before touching anything**, because the previous
+attempt to reason about this table produced a crisis that did not exist:
+
+```
+login rows 5,702 · members 90 · 2026-07-09 → 2026-08-15
+within 10s of the previous row 3,136 · within 30 minutes 5,017
+median gap between one member's consecutive login rows: 2.0 s
+```
+
+Grouped into bursts more than 30 minutes apart: **685 bursts — 685 real
+sign-ins, 8.3 rows written for each. The worst single sign-in wrote 233 rows.**
+237 bursts were already a single clean row.
+
+**Cause:** Supabase's `SIGNED_IN` fires on tab focus, resume, token refresh and
+every provider remount — far more often than a person signs in — and the client
+wrote a row every time.
+
+**Fixed in two halves, because either alone is insufficient:**
+
+1. **`20260815124734_one_activity_row_per_sign_in`** — a UNIQUE index on
+   `(user_id, metadata->>'sign_in_at')`, PARTIAL so it only covers rows that
+   carry that key. This is the guarantee: a second row for the same sign-in is
+   unrepresentable for any client, any version, any retry loop.
+   REHEARSED first, inside a transaction that raised so it all rolled back:
+   `existing_rows=8119 duplicate_rejected=true rows_added=2` (the two DISTINCT
+   sign-ins). Verified live after apply — the index exists with the expected
+   definition.
+2. **The client stops sending it.** The index would reject the row anyway, but
+   233 rejected requests still cost the member 233 round-trips of mobile data.
+   `useAuth` compares `last_sign_in_at` against the last one logged.
+
+**Why PARTIAL is the whole reason this was safe on a live table:** not one of
+the 5,702 existing rows carries `sign_in_at`, so none is indexed and none can
+conflict. Without that clause the migration would have had to DELETE 5,017 live
+rows first, which would have invoked the Deletion Protocol for what is a
+logging bug. **No row was deleted, updated or rewritten.** The historical noise
+stays — it is a record of what happened, and rewriting history to make a chart
+look better is not something this project does.
+
+**Identity, not a time window.** Keying on "one row per member per 30 minutes"
+would silently discard a member's genuine second sign-in inside that window.
+`last_sign_in_at` changes only when somebody actually authenticates.
+
+**Alarms:** `src/lib/__tests__/activityLogFlood.test.ts`, 15 assertions,
+including a small arithmetic model driven by the REAL measured numbers — the
+233-event burst collapses to 1, and 685 sign-ins × 8 events collapses 5,480 to
+685. Six mutations, all caught:
+M33 index not unique · M34 index no longer partial (would have needed 5,017
+deletions) · M35 identity becomes `new Date()` so every duplicate looks new ·
+M36 client guard removed · M37 guard never remembers · M38 metadata stops
+carrying the identity.
+
+**Gates:** typecheck clean · **1,727 passing**, 1 skipped · build clean ·
+rollback coverage 19/19.
+
+**What this does NOT do:** it does not delete the 5,702 historical rows, and it
+does not fix the random sign-outs. It makes the audit trail trustworthy from
+today, so the recorder's evidence has a clean table to sit beside.

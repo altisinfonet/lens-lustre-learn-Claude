@@ -6,11 +6,11 @@ schema: 1
 project: 50mm Retina
 phase: B
 state: DEPLOYED          # DESIGN|APPROVED|IMPLEMENTING|LOCAL_VERIFICATION|READY_FOR_REVIEW|APPROVED_FOR_PRODUCTION|DEPLOYED|POST_DEPLOY_VERIFICATION|CLOSED|BLOCKED
-base_commit: 5f0143c         # origin/main after React 19
+base_commit: 5586a22         # origin/main after the session-loss recorder
 rollback_required_from: 20260813000000  # mandate start; older migrations out of scope
-db_migration: 20260815075857 # newest APPLIED production migration
-last_cycle: REACT_19_UPGRADE    # react 18 -> 19, 1,692 tests green
-next_action: NEXT_PLAN_ITEM   # F: session-loss recorder, then activity_logs, token refresh, composer, build
+db_migration: 20260815124734 # newest APPLIED production migration
+last_cycle: F_SESSION_RECORDER  # AUTH-1010; 7 sign-out paths declare themselves
+next_action: NEXT_PLAN_ITEM   # F: activity_logs flood, token-refresh timeout, composer; BUILD ON HOLD by owner
 approved_hash: null          # consumed by 20260815064043
 blocked_reason: null
 ---
