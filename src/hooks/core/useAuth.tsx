@@ -8,6 +8,12 @@ import { logAuthEvent } from "@/lib/activityLog";
 import { normalizeFullName } from "@/lib/nameNormalize";
 import { logDeviceSignIn } from "@/hooks/profile/useUserDevices";
 import { logger, setLogUser } from "@/lib/logger";
+import {
+  claimSessionLoss,
+  declareSignOut,
+  installVisibilityObserver,
+  resetForNewSession,
+} from "@/lib/sessionLossRecorder";
 
 interface AuthContextType {
   session: Session | null;
@@ -52,6 +58,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (accountRestricted && session && !signOutTriggeredRef.current) {
       signOutTriggeredRef.current = true;
+      // Declared, so the recorder does not report this as a mystery. This guard
+      // was the FIRST hypothesis for the owner's random sign-outs and the data
+      // cleared it — all ten firings were genuinely deleted accounts. It stays
+      // declared so it can be cleared again without re-running that analysis.
+      declareSignOut("account_deleted", "useAuth.checkRestricted");
       void supabase.auth.signOut();
     }
   }, [accountRestricted, session]);
@@ -256,6 +267,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .subscribe();
     };
 
+    // Backgrounding is one of the three suspects for the owner's random
+    // sign-outs (an Android WebView can be reclaimed while hidden), so start
+    // watching it here — the same place the auth subscription lives, mounted
+    // once, high in the tree.
+    installVisibilityObserver();
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -288,6 +305,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const isInitialEvent = _event === "INITIAL_SESSION";
       const alreadyInitialized = hasInitializedRef.current;
 
+      if (_event === "SIGNED_OUT") {
+        /**
+         * THE SESSION JUST ENDED. Write down why, before the evidence is gone.
+         *
+         * Owner, 2026-08-15: *"dont know sometimes logged off home screen
+         * opening automatically"* and *"during commenting logging off"*. Until
+         * now this branch knew only THAT a session ended, never why, so a
+         * stalled token refresh, a WebView dropping localStorage, and the
+         * member tapping Log out all left identical evidence: none.
+         *
+         * `claimSessionLoss()` returns the facts once and null forever after,
+         * so a retry loop cannot turn one lost session into hundreds of rows.
+         *
+         * The level is deliberate. A deliberate sign-out is DEBUG — it is not a
+         * fault, and persisting 84 members' logouts would bury the ones that
+         * matter. An undeclared one is ERROR, because nobody asked for it.
+         * `log_app_event` is callable by `anon` (verified on production
+         * 2026-08-15), which is what lets this reach the database at the one
+         * moment the member no longer has a session.
+         */
+        const facts = claimSessionLoss();
+        if (facts) {
+          const involuntary = facts.cause === "involuntary";
+          const line = {
+            code: "AUTH-1010",
+            event: "SESSION_ENDED",
+            fn: "AuthProvider.onAuthStateChange",
+            file: "src/hooks/core/useAuth.tsx",
+            message: involuntary
+              ? "A member's session ended and nothing in the app asked for it."
+              : `A member's session ended because ${facts.cause}.`,
+            reason: involuntary
+              ? "No sign-out was declared within 5s of the session ending."
+              : `Declared by ${facts.declaredBy}.`,
+            expected: "Every session ends because something asked it to.",
+            actual: facts.cause,
+            nextStep: involuntary
+              ? "Read refreshFailuresInARow, lastRequestWasTimeout and storedSessionPresent in detail: a failed refresh, our own 25s abort, and lost WebView storage are the three open suspects."
+              : "None — this is the app working.",
+            detail: facts as unknown as Record<string, unknown>,
+          };
+          if (involuntary) logger.error(line);
+          else logger.debug(line);
+        }
+      }
+
       if (session?.user) {
         if (!(isInitialEvent && alreadyInitialized)) {
           hasInitializedRef.current = true;
@@ -298,6 +361,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         if (_event === "SIGNED_IN") {
+          // A new session means the NEXT loss is a new event. Without this, a
+          // member signed out twice reports once — and "it keeps happening to
+          // the same person" is the pattern most worth seeing.
+          resetForNewSession();
           // Reset restriction flag on fresh sign-in
           signOutTriggeredRef.current = false;
           setAccountRestricted(false);
@@ -441,6 +508,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signOut = async () => {
+    // The member asked for this. Everything NOT declared is the bug.
+    declareSignOut("member_action", "useAuth.signOut");
     if (user) logAuthEvent(user.id, "logout");
     resetDashboardBootstrap();
     clearFeedCache();
