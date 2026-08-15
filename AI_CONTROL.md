@@ -6,11 +6,11 @@ schema: 1
 project: 50mm Retina
 phase: B
 state: DEPLOYED          # DESIGN|APPROVED|IMPLEMENTING|LOCAL_VERIFICATION|READY_FOR_REVIEW|APPROVED_FOR_PRODUCTION|DEPLOYED|POST_DEPLOY_VERIFICATION|CLOSED|BLOCKED
-base_commit: 3dcd44d         # origin/main after the query-ceilings cycle
+base_commit: c9e07eb         # origin/main after the realtime cycle
 rollback_required_from: 20260813000000  # mandate start; older migrations out of scope
-db_migration: 20260815064043 # newest APPLIED production migration
-last_cycle: C_REALTIME        # 13 subscriptions cannot fire; D1 awaits owner
-next_action: OWNER_DECISION   # D1 realtime publish-or-delete; then CDN economics
+db_migration: 20260815075857 # newest APPLIED production migration
+last_cycle: D_NAMES_JUDGE     # name casing + one-judge rule applied and verified
+next_action: NEXT_PLAN_ITEM   # Instagram grid: multi-select picker + 3-col profile
 approved_hash: null          # consumed by 20260815064043
 blocked_reason: null
 ---
