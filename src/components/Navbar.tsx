@@ -78,7 +78,9 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
   const { theme, toggleTheme } = useTheme();
   const { menuTree, loading } = useNavigationMenu();
   const [openMegaId, setOpenMegaId] = useState<string | null>(null);
-  const megaTimeout = useRef<ReturnType<typeof setTimeout>>();
+  // React 19 types require an initial value for useRef — an empty call is an
+  // error, not a defaulted undefined. Same change in CinemaJudgeView.
+  const megaTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const logoHref = user ? "/home" : "/";
 
   // Filter nav items

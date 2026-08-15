@@ -34,6 +34,7 @@ import { useAdFullscreen } from "@/components/ads/AdFullscreenProvider";
 import { useT } from "@/i18n/I18nContext";
 import PostCard from "@/components/post/PostCard";
 import ImageCropModal from "@/components/admin/ImageCropModal";
+import PostComposerPreview, { reorder } from "@/components/post/PostComposerPreview";
 import PostCardSkeleton from "@/components/post/PostCardSkeleton";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import { useUserPostsQuery, flattenUserPosts } from "@/hooks/feed/useUserPostsQuery";
@@ -197,6 +198,11 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   // Index of the photo whose Crop dialog is open, or null. Cropping is now an
   // explicit per-photo action rather than a gate every upload must pass.
   const [cropIndex, setCropIndex] = useState<number | null>(null);
+  /**
+   * Which chosen photo the big composer preview is showing. Not the same thing
+   * as cropIndex: this is "what am I looking at", that is "what am I editing".
+   */
+  const [previewIndex, setPreviewIndex] = useState(0);
   // Synchronous mirror of selectedImages.length. Dropping several files at once
   // fires one async FileReader per file, so the closure's view of the state is
   // stale by the time each callback runs — the 10-photo cap has to be counted
@@ -526,6 +532,13 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     selectedCountRef.current = Math.max(0, selectedCountRef.current - 1);
     setSelectedImages(prev => prev.filter((_, i) => i !== index));
     setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    // Keep the preview pointing at a photo that still exists. Removing the one
+    // being previewed, or anything before it, shifts every later index down.
+    setPreviewIndex(prev => {
+      const remaining = Math.max(0, imagePreviews.length - 1);
+      const next = index < prev ? prev - 1 : prev;
+      return Math.min(Math.max(0, next), Math.max(0, remaining - 1));
+    });
     // Removing a photo shifts every later index; a stale cropIndex would then
     // point at the wrong photo, so close the dialog rather than guess.
     setCropIndex(null);
@@ -535,10 +548,30 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     selectedCountRef.current = 0;
     setSelectedImages([]);
     setImagePreviews([]);
+    setPreviewIndex(0);
     setCropIndex(null);
     setPendingTags([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
+
+  /**
+   * Move a photo in the post's order.
+   *
+   * BOTH ARRAYS MOVE TOGETHER OR NEITHER DOES. `selectedImages` (the files that
+   * get uploaded) and `imagePreviews` (what the member sees) are aligned by
+   * index everywhere in this file — the upload loop reads
+   * `imagePreviews[i]` for `selectedImages[i]`. Reordering one and not the
+   * other would upload a member's photos under each other's previews, and
+   * nothing on screen would look wrong until after it posted.
+   */
+  const movePhoto = useCallback((from: number, to: number) => {
+    setSelectedImages(prev => reorder(prev, from, to));
+    setImagePreviews(prev => reorder(prev, from, to));
+    setPreviewIndex(to);
+    // The crop dialog is keyed to an index that has just moved. Close it rather
+    // than edit the wrong photo — the same rule clearImage follows.
+    setCropIndex(null);
+  }, []);
 
   // Cropping REPLACES the photo in place. Cancelling changes nothing at all —
   // the original stays selected, which is the whole point of the new default.
@@ -1585,37 +1618,22 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                           </span>
                           <button onClick={clearAllImages} className="text-xs text-destructive hover:underline">Remove all</button>
                         </div>
-                        <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
-                          {imagePreviews.map((preview, idx) => (
-                            <div key={idx} className="relative aspect-square overflow-hidden rounded-md border border-border">
-                              <img decoding="async" src={preview} alt="" className="h-full w-full bg-muted/40 object-contain" />
-                              <button onClick={() => clearImage(idx)}
-                                className="absolute right-1 top-1 rounded-full bg-card/90 p-1 text-muted-foreground shadow-sm backdrop-blur-sm transition-all hover:bg-card hover:text-destructive">
-                                <X className="h-3 w-3" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setCropIndex(idx)}
-                                title="Crop this photo"
-                                className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded-full bg-card/90 px-1.5 py-1 text-[10px] text-muted-foreground shadow-sm backdrop-blur-sm transition-all hover:bg-card hover:text-foreground"
-                              >
-                                <Crop className="h-3 w-3" />
-                                Edit
-                              </button>
-                            </div>
-                          ))}
-                          {imagePreviews.length < 10 && (
-                            <div
-                              onClick={() => fileInputRef.current?.click()}
-                              onDrop={handleDrop}
-                              onDragOver={handleDragOver}
-                              onDragLeave={() => setIsDragOver(false)}
-                              className={`flex aspect-square cursor-pointer items-center justify-center rounded-md border border-dashed transition-colors ${isDragOver ? "border-primary bg-primary/10" : "border-border hover:bg-muted/30"}`}
-                            >
-                              <ImagePlus className={`h-5 w-5 ${isDragOver ? "text-primary" : "text-muted-foreground"}`} />
-                            </div>
-                          )}
-                        </div>
+                        {/* THE COMPOSER. Replaced a grid of small squares on
+                            2026-08-15: on a photography platform a composer
+                            that shows thumbnails only lets a member discover
+                            their own framing AFTER posting. This shows the post
+                            as it will appear, with a rule-of-thirds guide, and
+                            lets the order be changed — the first photo is the
+                            cover and sets the frame for the whole album. */}
+                        <PostComposerPreview
+                          previews={imagePreviews}
+                          activeIndex={Math.min(previewIndex, Math.max(0, imagePreviews.length - 1))}
+                          onActiveChange={setPreviewIndex}
+                          onMove={movePhoto}
+                          onRemove={clearImage}
+                          onCrop={setCropIndex}
+                          onAddMore={imagePreviews.length < 10 ? () => fileInputRef.current?.click() : undefined}
+                        />
                       </div>
                     )}
 
