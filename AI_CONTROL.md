@@ -6,12 +6,12 @@ schema: 1
 project: 50mm Retina
 phase: B
 state: DEPLOYED          # DESIGN|APPROVED|IMPLEMENTING|LOCAL_VERIFICATION|READY_FOR_REVIEW|APPROVED_FOR_PRODUCTION|DEPLOYED|POST_DEPLOY_VERIFICATION|CLOSED|BLOCKED
-base_commit: 318240f         # origin/main after the abuse-audit cycle closed
+base_commit: e798f18         # origin/main after the notification matrix closed
 rollback_required_from: 20260813000000  # mandate start; older migrations out of scope
-db_migration: 20260815041256 # newest APPLIED production migration
-last_cycle: C_NOTIF_MATRIX    # recipient integrity sound; 5 dead switches await owner
-next_action: OWNER_DECISION   # deletion categories; then B5-5 needs deploys+build
-approved_hash: null          # consumed by 20260814104119
+db_migration: 20260815064043 # newest APPLIED production migration
+last_cycle: C_PUSH_ANNOUNCE   # applied + verified live; 1/0/0/2 on the applied fn
+next_action: NEXT_PLAN_ITEM   # C: backup/RESTORE proof, realtime firehose, CDN economics
+approved_hash: null          # consumed by 20260815064043
 blocked_reason: null
 ---
 
