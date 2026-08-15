@@ -110,8 +110,10 @@ describe("⚠ it fails open — every one of these must keep the card on screen"
     // Old WebView, jsdom, anything unexpected: behave exactly as before this
     // component existed.
     vi.unstubAllGlobals();
-    // @ts-expect-error deliberately removing the API
-    delete globalThis.IntersectionObserver;
+    // Deliberately removing the API. `delete` on an optional global is legal
+    // here, so the previous `@ts-expect-error` was itself the error (TS2578) —
+    // masked for as long as CI type-checked zero files.
+    delete (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver;
     stubHeight(600);
     render(<FeedCardWindow><p>post body</p></FeedCardWindow>);
     expect(screen.getByText("post body")).toBeInTheDocument();
