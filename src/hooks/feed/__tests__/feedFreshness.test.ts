@@ -91,12 +91,63 @@ describe("the database half must stay volatile", () => {
     expect(sql).not.toMatch(/\bSTABLE\b/);
   });
 
+  /**
+   * ⚠ THESE TWO ASSERTIONS WERE RE-POINTED ON 2026-08-14, NOT RELAXED.
+   *
+   * They used to match the literal `random() * 6.0 ASC`. That expression is
+   * gone: 20260814080000 replaced the per-call `random()` with
+   * `feed_rank_score(id, bucket, seed)` — a deterministic hash of the post and a
+   * session seed — because non-deterministic ordering makes a keyset cursor
+   * impossible, forces the unbounded `_exclude_ids` array, and forecloses
+   * caching, read replicas and fan-out permanently.
+   *
+   * The guard fired on that change, which is exactly what it is for. It is
+   * updated because the ranking change is deliberate and was measured, not
+   * because it was inconvenient:
+   *
+   *   Spearman(viewer_bucket, rank position), 1M-post harness
+   *     old  random() * 6.0        +0.9231
+   *     new  feed_rank_score(...)  +0.9192      delta 0.0039
+   *
+   * Low-viewer posts still surface first, to within 0.4%. The property these
+   * tests protect — jitter, no recency term in the unseen tier, oldest-seen-day
+   * first in the recycled tier — is unchanged, so they now assert the property
+   * AND pin the new expression, which is strictly more than they asserted
+   * before.
+   */
   it("still ranks with jitter and no recency term", () => {
-    expect(sql).toMatch(/random\(\) \* 6\.0 ASC/);
+    // Jitter is now deterministic-per-seed rather than per-call.
+    expect(sql).toMatch(/feed_rank_score\(v\.id, v\.bucket, \(SELECT s FROM seed\)\) ASC/);
+    // The jitter must still be seeded, or every viewer sees one global order.
+    expect(sql).toMatch(/to_char\(now\(\), 'YYYYMMDDHH24'\) \|\| coalesce\(auth\.uid\(\)::text, 'anon'\)/);
+    // No recency term may creep into the unseen tier — that is what makes new
+    // posts crowd out everything else.
+    //
+    // ⚠ The slice end is `,\n  seen_ranked AS`, NOT `seen_ranked AS`.
+    // `indexOf("seen_ranked AS")` matches inside `unseen_ranked AS`, so the
+    // slice came back empty and the assertion passed against nothing. Caught by
+    // mutating the ORDER BY and watching this test stay green — trap #14 again,
+    // this time in the guard itself.
+    const from = sql.indexOf("unseen_ranked AS");
+    const to = sql.indexOf("seen_ranked AS", from + "unseen_ranked AS".length);
+    expect(from, "unseen_ranked CTE not found").toBeGreaterThan(-1);
+    expect(to, "seen_ranked CTE not found after unseen_ranked").toBeGreaterThan(from);
+    const unseen = sql.slice(from, to);
+    expect(unseen.length, "the unseen_ranked slice is empty, so this asserts nothing")
+      .toBeGreaterThan(100);
+    expect(unseen).not.toMatch(/created_at/);
   });
 
   it("recycles seen posts oldest-seen-day first, shuffled within the day", () => {
-    expect(sql).toMatch(/86400\.0\) DESC,\s*[\s\S]{0,40}?random\(\)/);
+    expect(sql).toMatch(/86400\.0\) DESC,\s*[\s\S]{0,80}?feed_rank_score/);
+  });
+
+  it("ranks over a BOUNDED candidate pool, not every visible post", () => {
+    // The reason this migration exists. Measured at 1M posts: 4,836,645 buffers
+    // and 9,489 ms scanning everything, against 1,656 buffers and 8 ms here.
+    expect(sql).toMatch(/feed_candidates\(/);
+    // The count(DISTINCT) LATERAL was 97% of the cost. It must not come back.
+    expect(sql).not.toMatch(/count\(DISTINCT fe\.user_id\)/);
   });
 });
 
