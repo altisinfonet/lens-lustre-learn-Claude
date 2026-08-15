@@ -34,6 +34,7 @@ Every run reports, and any finding fails the run:
 
 1. **Console errors and warnings**, with only two filtered and both named in the source with a reason.
 2. **Failed network responses**, with the URL. A bare "404" that names nothing is a mystery that gets shrugged at.
+   **Known blind spot, measured 2026-08-15:** the Vite dev server answers *any* unmatched path with `200 text/html` (its single-page-app fallback). Verified with `curl`: a deliberately missing `.jpg` returned `200 text/html`, not 404. So a missing image is **never** caught by this check in the harness — it is caught by check 7 below, which asks the browser whether the picture actually decoded. Check 7 was positive-controlled the same day (an invalid image was planted, the sweep reported it, the scene was removed).
 3. **Horizontal overflow** — measured from the page. Anything wider than the screen is the sideways wobble that makes an app feel unfinished.
 4. **Tap targets under 44 px.** Apple's minimum; Material's 48dp rounds to the same place. Below it, thumbs miss.
 5. **Clipped content** — text cut off by its own container, excluding deliberate ellipsis.
