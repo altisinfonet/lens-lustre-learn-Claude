@@ -59,7 +59,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm ci || npm install --no-audit --no-fund
+      - run: npm ci --no-audit --no-fund
       # Report everything for the record, then fail only on what ships to a
       # member. `|| true` on the first line is deliberate: it is the report,
       # not the gate.

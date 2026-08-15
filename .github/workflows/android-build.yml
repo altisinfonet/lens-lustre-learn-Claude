@@ -94,7 +94,12 @@ jobs:
           java-version: 21
 
       - name: Install web dependencies
-        run: npm ci || npm install --no-audit --no-fund
+        # ⚠ NO `|| npm install` FALLBACK. Any npm ci failure — lock/manifest
+        # desync, a registry 5xx, an integrity mismatch — used to degrade
+        # silently to range re-resolution across 88 caret-ranged deps, with a
+        # green step and nothing asserting which path ran. A failed install must
+        # fail the build.
+        run: npm ci --no-audit --no-fund
 
       # -------------------------------------------------------------------
       # NO ERRORS ARE CARRIED INTO THE BUILD.
@@ -113,7 +118,11 @@ jobs:
       # artifact is produced at all.
       # -------------------------------------------------------------------
       - name: Typecheck (blocks the build)
-        run: npx tsc --noEmit -p tsconfig.json
+        # ⚠ `-p tsconfig.json` compiled ZERO files. tsconfig.json is a solution
+        # file (`files: []` + `references`), and without `-b` tsc ignores the
+        # references entirely and exits 0 having checked nothing. Proved with
+        # `--listFiles`: 0 lines. It had been hiding two real errors.
+        run: npx tsc -b tsconfig.json
 
       - name: Test suite (blocks the build)
         run: npm test
@@ -651,6 +660,41 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew bundleRelease --no-daemon --stacktrace
+
+      # ═══════════════════════════════════════════════════════════════════
+      # BLOCKING. THIS IS THE ONE THAT SHIPS.
+      #
+      # Until 2026-08-14 the ONLY check that `assets/public/index.html` existed
+      # ran against the DEBUG APK inside a `continue-on-error: true` step. An
+      # AAB containing no web bundle at all would have uploaded green, and the
+      # first person to find out would have been a member with a white screen.
+      #
+      # `bundleRelease` is what goes to Play, so it is what gets asserted, with
+      # no continue-on-error. The index.html check is exact; the JS-asset check
+      # is a count rather than a named file because Vite hashes the names.
+      # ═══════════════════════════════════════════════════════════════════
+      - name: Prove the web bundle is inside the RELEASE bundle (blocking)
+        run: |
+          set -euo pipefail
+          AAB=android/app/build/outputs/bundle/release/app-release.aab
+          test -f "$AAB" || { echo "::error::no release AAB was produced"; exit 1; }
+
+          if ! unzip -l "$AAB" | grep -q "base/assets/public/index.html"; then
+            echo "::error::base/assets/public/index.html is NOT in the AAB — the app would open to a white screen"
+            unzip -l "$AAB" | grep -c "base/assets/" || true
+            exit 1
+          fi
+          echo "OK: base/assets/public/index.html present"
+
+          JS=$(unzip -l "$AAB" | grep -c "base/assets/public/assets/.*\.js" || true)
+          if [ "$JS" -lt 1 ]; then
+            echo "::error::no JavaScript assets under base/assets/public/assets — the bundle is empty"
+            exit 1
+          fi
+          echo "OK: $JS JavaScript asset(s) inside the AAB"
+
+          CSS=$(unzip -l "$AAB" | grep -c "base/assets/public/assets/.*\.css" || true)
+          echo "CSS assets inside the AAB: $CSS"
 
       - name: Prove the notification icon is actually inside the bundle
         run: |
