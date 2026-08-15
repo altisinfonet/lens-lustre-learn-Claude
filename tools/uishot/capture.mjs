@@ -128,6 +128,33 @@ for (const scene of scenes) {
     // reducedMotion stops most of it; this covers a mount transition.
     await page.waitForTimeout(700);
 
+    // ── Make lazy images real before judging them ─────────────────────────
+    // WHY, measured 2026-08-15: `fullPage: true` photographs the whole page,
+    // but `loading="lazy"` images below the fold are never fetched, so
+    // `naturalWidth === 0` and the sweep reported perfectly good photographs
+    // as "not rendered" — 15 of them on one scene, every single one a false
+    // alarm. A checker that cries wolf is a checker nobody reads.
+    // Scroll to the bottom to trigger them, return to the top so the
+    // screenshot is taken from the same place every run, then wait for every
+    // <img> to settle. The wait is bounded: a genuinely broken image must
+    // still be REPORTED, not waited for forever.
+    await page.evaluate(async () => {
+      const step = window.innerHeight;
+      for (let y = 0; y < document.body.scrollHeight; y += step) {
+        window.scrollTo(0, y);
+        await new Promise((r) => setTimeout(r, 60));
+      }
+      window.scrollTo(0, 0);
+    });
+    await page
+      .waitForFunction(
+        () => Array.from(document.images).every((i) => i.complete),
+        null,
+        { timeout: 8000 },
+      )
+      .catch(() => { /* something never settled — the image checks below say so */ });
+    await page.waitForTimeout(200);
+
     // ── The visual-defect sweep ───────────────────────────────────────────
     // These are the faults a screenshot contains but the eye slides over, and
     // they are the ones that accumulate into "the build has 3000 visual bugs".
@@ -164,17 +191,50 @@ for (const scene of scenes) {
         if (small.length) out.push(`tap targets under 44px (${small.length}): ${small.slice(0, 6).join(", ")}`);
       }
 
-      // 3. Text cut off by its own container — the classic "…" that is not an
+      // 3. TEXT cut off by its own container — the classic "…" that is not an
       //    ellipsis but a genuinely unreadable label.
+      //
+      //    ⚠ THIS USED TO MEASURE scrollWidth, AND scrollWidth WAS THE WRONG
+      //    RULER. Measured 2026-08-15: a deliberately scaled decorative layer
+      //    (`scale-125` on a blurred backdrop, the technique PostMedia uses to
+      //    hide a blur's soft edge) contributes its transformed box to the
+      //    scrollable overflow area. Every showcase tile was reported as
+      //    "clipped content +45px" although not one character of text was cut.
+      //    The container had `overflow: hidden` precisely so that scaling would
+      //    be invisible — which is the design working, reported as a defect.
+      //
+      //    So measure the TEXT, and only the text: lay a Range over the
+      //    element's own direct text nodes and compare that rectangle with the
+      //    element's client box. A transformed image contributes nothing to it.
       const clipped = [];
       for (const el of document.querySelectorAll("*")) {
         if (!visible(el)) continue;
         const s = getComputedStyle(el);
         if (s.overflow !== "hidden" && s.overflowX !== "hidden") continue;
         if (s.textOverflow === "ellipsis" || s.whiteSpace === "nowrap") continue; // deliberate
-        if (el.scrollWidth > el.clientWidth + 1 && el.textContent?.trim()) {
-          clipped.push(`${path(el)} +${el.scrollWidth - el.clientWidth}px`);
+
+        // Only this element's OWN text, not a descendant's — a descendant with
+        // hidden overflow gets examined on its own turn.
+        const own = Array.from(el.childNodes).filter(
+          (n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim(),
+        );
+        if (own.length === 0) continue;
+
+        const box = el.getBoundingClientRect();
+        let overflowPx = 0;
+        for (const node of own) {
+          const r = document.createRange();
+          r.selectNodeContents(node);
+          for (const rect of r.getClientRects()) {
+            overflowPx = Math.max(
+              overflowPx,
+              Math.round(rect.right - box.right),
+              Math.round(box.left - rect.left),
+            );
+          }
+          r.detach?.();
         }
+        if (overflowPx > 1) clipped.push(`${path(el)} +${overflowPx}px`);
       }
       if (clipped.length) out.push(`clipped content (${clipped.length}): ${clipped.slice(0, 5).join(", ")}`);
 
