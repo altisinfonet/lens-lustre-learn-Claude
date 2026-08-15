@@ -27,7 +27,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 const read = (p: string) =>
@@ -58,6 +58,17 @@ const HONOURED = [
   "push_new_followers",
   "push_competition_updates",
   "push_new_posts",
+  /**
+   * `push_announcements` joined this list on 2026-08-15, for the same reason
+   * `push_new_posts` did in August: the two platform broadcasts
+   * (`journal_published`, `course_published`) fell through the trigger's CASE
+   * to `ELSE true`, so they reached every registered device and the only way
+   * to stop them was to kill every push. Both are deliberately barred from
+   * EMAIL under BUG-038 — a type kept out of the inbox was arriving on the
+   * phone. The switch was held off the screen until migration
+   * 20260815999999 taught the trigger to read the column.
+   */
+  "push_announcements",
 ];
 
 describe("the preferences hook carries the push switches", () => {
@@ -104,6 +115,59 @@ describe("no switch that does nothing", () => {
     .split("\n")
     .map((l) => l.replace(/--.*$/, ""))
     .join("\n");
+
+  /**
+   * Same contract as the new-posts toggle above: the announcements switch is
+   * allowed on screen only while a migration demonstrably teaches the trigger
+   * to read its column. Resolved by CONTENT, not by filename, so renaming the
+   * migration after a connector version drift cannot silently void it.
+   */
+  const announcementsMigration = readdirSync(join(process.cwd(), "supabase/migrations"))
+    .filter((f) => f.endsWith(".sql"))
+    .map((f) =>
+      readFileSync(join(process.cwd(), "supabase/migrations", f), "utf8")
+        .split("\n")
+        .map((l) => l.replace(/--.*$/, ""))
+        .join("\n"),
+    )
+    .find((sql) => /THEN\s+np\.push_announcements/.test(sql));
+
+  it("only offers the announcements toggle because a migration makes the trigger read it", () => {
+    expect(
+      announcementsMigration,
+      "no migration teaches push_on_notification() to read np.push_announcements, " +
+        "so the switch on screen would do nothing",
+    ).toBeDefined();
+    expect(announcementsMigration!).toMatch(
+      /WHEN NEW\.type IN \('journal_published','course_published'\)\s+THEN np\.push_announcements/,
+    );
+    expect(page).toContain("push_announcements");
+  });
+
+  it("keeps the master switch ahead of the announcements branch too", () => {
+    const block = announcementsMigration!.slice(
+      announcementsMigration!.indexOf("SELECT CASE"),
+      announcementsMigration!.indexOf("INTO _allow"),
+    );
+    expect(block.indexOf("push_enabled = false")).toBeLessThan(
+      block.indexOf("np.push_announcements"),
+    );
+  });
+
+  it("does not let the announcements branch shadow an earlier category", () => {
+    // The branch must sit BELOW the specific category branches, or it could
+    // swallow a type that already has its own switch. `new_competition` is the
+    // one that matters: it is also a broadcast, and it already has a switch
+    // members understand.
+    const block = announcementsMigration!.slice(
+      announcementsMigration!.indexOf("SELECT CASE"),
+      announcementsMigration!.indexOf("INTO _allow"),
+    );
+    expect(block.indexOf("np.push_competition_updates")).toBeLessThan(
+      block.indexOf("np.push_announcements"),
+    );
+    expect(block.indexOf("np.push_announcements")).toBeLessThan(block.indexOf("ELSE true"));
+  });
 
   it("only offers the new-posts toggle because the trigger reads that column", () => {
     expect(trigger).toMatch(
