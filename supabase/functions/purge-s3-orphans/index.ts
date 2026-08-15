@@ -1,157 +1,69 @@
 /**
- * One-time admin sweep: deletes S3 objects under `competition-photos/` whose
- * top-level prefix (the competition_id or entry_id folder) no longer exists in
- * the database. Use after `hard-delete-competition` is hardened to clean up
- * residue from older deletions.
+ * Admin sweep: deletes R2/S3 objects under `competition-photos/` whose
+ * top-level UUID folder (competition_id or entry_id) no longer exists in the
+ * database.
  *
- * POST { dry_run: boolean } — defaults to dry_run=true.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * THIS FUNCTION RUNS UNDER THE DELETION PROTOCOL (AI_CONTROL.md, 2026-08-14).
+ *
+ *   dry-run → expected count → sample review → maximum-deletion threshold
+ *          → execute → post-delete verification
+ *
+ * The 2026-08-14 hardening fixed three protocol violations that were live in
+ * this file — the DELETING file — and each one is the same defect class that
+ * nearly caused the 263-file loss in detect-orphan-files:
+ *
+ * 1. ERROR MEANT EMPTY. `const { data: comps } = await ...select("id")`
+ *    ignored the error. A transient failure reading `competitions` yielded an
+ *    EMPTY live-id set, which classifies EVERY uuid folder in the store as an
+ *    orphan. On a non-dry run that is the whole competition archive, gone.
+ *
+ * 2. THE LIVE-ID READ WAS SILENTLY TRUNCATED. PostgREST caps un-ranged
+ *    selects (default 1000 rows). Past 1000 entries, every additional entry's
+ *    folder would be "not live" — deleted. The platform has not crossed 1000
+ *    yet, which is the only reason this was survivable. Same bug class as
+ *    BUG-071. Now paginated AND fail-loud.
+ *
+ * 3. NO CAP, NO EXPECTATION, NO VERIFICATION. One bad run could delete an
+ *    unbounded number of objects, the caller never had to state what they
+ *    expected, and nothing checked the store afterwards.
+ *
+ * EXECUTE CONTRACT (dry_run=false) now requires BOTH:
+ *   - expected_count: the orphan count from a PRIOR dry run. If the store or
+ *     DB changed in between and the count differs, the run aborts — the
+ *     operator is looking at stale information.
+ *   - orphan count <= max_delete (default 200, hard ceiling 1000). Bigger
+ *     cleanups happen in deliberate, repeated, verified passes.
+ * ═══════════════════════════════════════════════════════════════════════════
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { deleteS3Objects, getS3Settings, listAllS3Objects } from "../_shared/s3.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface S3Settings {
-  enabled: boolean;
-  bucket_name: string;
-  region: string;
-  access_key_id: string;
-  secret_access_key: string;
-  endpoint?: string;
-  path_prefix?: string;
-}
+/**
+ * Deletion Protocol: threshold. A run finding more than this aborts rather
+ * than deleting, no matter what the caller asked for. HARD_MAX_DELETE exists
+ * so a typo in the request body cannot raise the cap arbitrarily.
+ */
+const DEFAULT_MAX_DELETE = 200;
+const HARD_MAX_DELETE = 1000;
 
-function toHex(buffer: ArrayBuffer): string {
-  return [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-async function hmacSha256(key: ArrayBuffer | Uint8Array, message: string): Promise<ArrayBuffer> {
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    key instanceof Uint8Array ? key : new Uint8Array(key),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  return crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(message));
-}
-
-async function sha256(data: Uint8Array): Promise<string> {
-  return toHex(await crypto.subtle.digest("SHA-256", data));
-}
-
-async function getSignatureKey(key: string, dateStamp: string, region: string): Promise<ArrayBuffer> {
-  const kDate = await hmacSha256(new TextEncoder().encode("AWS4" + key), dateStamp);
-  const kRegion = await hmacSha256(kDate, region);
-  const kService = await hmacSha256(kRegion, "s3");
-  return hmacSha256(kService, "aws4_request");
-}
-
-function s3Endpoint(s3: S3Settings) {
-  const host = s3.endpoint
-    ? s3.endpoint.replace(/^https?:\/\//, "").replace(/\/+$/, "")
-    : `${s3.bucket_name}.s3.${s3.region}.amazonaws.com`;
-  const baseUrl = s3.endpoint
-    ? `${s3.endpoint.replace(/\/+$/, "")}/${s3.bucket_name}`
-    : `https://${host}`;
-  return { host, baseUrl };
-}
-
-async function s3SignedFetch(
-  s3: S3Settings,
-  method: "GET" | "DELETE" | "POST",
-  url: string,
-  body: Uint8Array = new Uint8Array(0),
-  extraHeaders: Record<string, string> = {},
-): Promise<Response> {
-  const u = new URL(url);
-  const now = new Date();
-  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
-  const dateStamp = amzDate.slice(0, 8);
-  const payloadHash = await sha256(body);
-  const scope = `${dateStamp}/${s3.region}/s3/aws4_request`;
-
-  const baseHeaders: Record<string, string> = {
-    host: u.host,
-    "x-amz-content-sha256": payloadHash,
-    "x-amz-date": amzDate,
-    ...Object.fromEntries(Object.entries(extraHeaders).map(([k, v]) => [k.toLowerCase(), v])),
-  };
-
-  const sortedKeys = Object.keys(baseHeaders).sort();
-  const canonicalHeaders = sortedKeys.map((k) => `${k}:${baseHeaders[k]}\n`).join("");
-  const signedHeaders = sortedKeys.join(";");
-
-  const params = [...u.searchParams.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-  const canonicalQuery = params
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-    .join("&");
-
-  const canonicalRequest = [method, u.pathname, canonicalQuery, canonicalHeaders, signedHeaders, payloadHash].join("\n");
-  const stringToSign = ["AWS4-HMAC-SHA256", amzDate, scope, await sha256(new TextEncoder().encode(canonicalRequest))].join("\n");
-  const signature = toHex(await hmacSha256(await getSignatureKey(s3.secret_access_key, dateStamp, s3.region), stringToSign));
-
-  const headers: Record<string, string> = { ...baseHeaders };
-  delete headers.host;
-  headers["Authorization"] = `AWS4-HMAC-SHA256 Credential=${s3.access_key_id}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
-
-  return fetch(url, { method, headers, body: method === "GET" || method === "DELETE" ? undefined : body });
-}
-
-async function listAllS3Keys(s3: S3Settings, prefix: string): Promise<string[]> {
-  const { baseUrl } = s3Endpoint(s3);
-  const out: string[] = [];
-  let continuationToken: string | null = null;
-  do {
-    const url = new URL(baseUrl + "/");
-    url.searchParams.set("list-type", "2");
-    url.searchParams.set("prefix", prefix);
-    url.searchParams.set("max-keys", "1000");
-    if (continuationToken) url.searchParams.set("continuation-token", continuationToken);
-    const res = await s3SignedFetch(s3, "GET", url.toString());
-    if (!res.ok) throw new Error(`S3 list failed: ${res.status} ${await res.text()}`);
-    const xml = await res.text();
-    const keys = [...xml.matchAll(/<Key>([^<]+)<\/Key>/g)].map((m) => m[1]);
-    out.push(...keys);
-    const nextMatch = xml.match(/<NextContinuationToken>([^<]+)<\/NextContinuationToken>/);
-    const truncated = /<IsTruncated>true<\/IsTruncated>/.test(xml);
-    continuationToken = truncated && nextMatch ? nextMatch[1] : null;
-  } while (continuationToken);
-  return out;
-}
-
-async function deleteS3Keys(s3: S3Settings, keys: string[]): Promise<number> {
-  if (keys.length === 0) return 0;
-  const { baseUrl } = s3Endpoint(s3);
-  let deleted = 0;
-  for (let i = 0; i < keys.length; i += 1000) {
-    const batch = keys.slice(i, i + 1000);
-    const xmlBody =
-      `<?xml version="1.0" encoding="UTF-8"?><Delete>${batch
-        .map((k) => `<Object><Key>${k.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</Key></Object>`)
-        .join("")}<Quiet>true</Quiet></Delete>`;
-    const body = new TextEncoder().encode(xmlBody);
-    const url = `${baseUrl}/?delete=`;
-    const res = await s3SignedFetch(s3, "POST", url, body, { "Content-Type": "application/xml" });
-    if (!res.ok) {
-      console.error("S3 batch delete failed", res.status, await res.text());
-    } else {
-      deleted += batch.length;
-    }
-  }
-  return deleted;
-}
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
-    }
+    if (!authHeader) return json({ error: "Unauthorized" }, 401);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -161,9 +73,7 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user: caller } } = await callerClient.auth.getUser();
-    if (!caller) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
-    }
+    if (!caller) return json({ error: "Unauthorized" }, 401);
 
     const adminClient = createClient(supabaseUrl, serviceKey);
     const { data: adminRole } = await adminClient
@@ -172,69 +82,138 @@ Deno.serve(async (req) => {
       .eq("user_id", caller.id)
       .eq("role", "admin")
       .maybeSingle();
-    if (!adminRole) {
-      return new Response(JSON.stringify({ error: "Admin only" }), { status: 403, headers: corsHeaders });
-    }
+    if (!adminRole) return json({ error: "Admin only" }, 403);
 
+    // ── Request. dry_run defaults TRUE; execution is the explicit path.
     let dryRun = true;
+    let expectedCount: number | null = null;
+    let maxDelete = DEFAULT_MAX_DELETE;
     try {
       const body = await req.json();
       if (typeof body?.dry_run === "boolean") dryRun = body.dry_run;
+      if (Number.isInteger(body?.expected_count)) expectedCount = body.expected_count;
+      if (Number.isInteger(body?.max_delete) && body.max_delete > 0) {
+        maxDelete = Math.min(body.max_delete, HARD_MAX_DELETE);
+      }
     } catch (_) {
-      // empty body — keep default dry_run=true
+      // empty body — keep defaults (dry run)
     }
 
-    const { data: s3Row } = await adminClient.from("site_settings").select("value").eq("key", "s3_storage_settings").maybeSingle();
-    const s3 = (s3Row?.value as S3Settings | null) ?? null;
-    if (!s3?.enabled) {
-      return new Response(JSON.stringify({ error: "S3 storage not configured/enabled" }), { status: 400, headers: corsHeaders });
+    const s3 = await getS3Settings(adminClient);
+    if (!s3) return json({ error: "S3 storage not configured/enabled" }, 400);
+
+    // ── Live-id set. Paginated AND fail-loud: an error or a truncated read
+    //    here is what turns a cleanup into a massacre (violations 1 and 2).
+    const liveIds = new Set<string>();
+    const collectIds = async (table: string) => {
+      const PAGE = 1000;
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await adminClient
+          .from(table)
+          .select("id")
+          .range(from, from + PAGE - 1);
+        if (error) {
+          throw new Error(
+            `live-id read failed on ${table} at offset ${from}: ${error.message} — ` +
+              `aborting: an incomplete live-id set classifies live folders as orphans`,
+          );
+        }
+        if (!data || data.length === 0) break;
+        for (const r of data as { id: string }[]) liveIds.add(r.id);
+        if (data.length < PAGE) break;
+      }
+    };
+    await collectIds("competitions");
+    await collectIds("competition_entries");
+
+    // Refuse to run against an implausibly empty database. Production has
+    // competitions and entries; an empty set here means we are looking at the
+    // wrong project or a broken read that somehow did not throw. Either way,
+    // deleting on that basis is the 263-file near-miss with a worse ending.
+    if (liveIds.size === 0) {
+      return json({
+        error: "SAFETY ABORT: live-id set is empty. Refusing to classify anything as an orphan.",
+      }, 500);
     }
 
-    // Live competition + entry id sets
-    const { data: comps } = await adminClient.from("competitions").select("id");
-    const { data: entries } = await adminClient.from("competition_entries").select("id");
-    const liveIds = new Set<string>([
-      ...(comps || []).map((r: { id: string }) => r.id),
-      ...(entries || []).map((r: { id: string }) => r.id),
-    ]);
-
-    // List every key under competition-photos/
+    // ── Enumerate the store (throws on partial listing).
     const basePrefix = (s3.path_prefix ? `${s3.path_prefix.replace(/\/+$/, "")}/` : "") + "competition-photos/";
-    const allKeys = await listAllS3Keys(s3, basePrefix);
+    const allObjects = await listAllS3Objects(s3, basePrefix);
 
     const orphanKeys: string[] = [];
-    for (const key of allKeys) {
-      // Strip the basePrefix and take first path segment as id-folder
-      const rest = key.startsWith(basePrefix) ? key.slice(basePrefix.length) : key;
+    for (const obj of allObjects) {
+      const rest = obj.key.startsWith(basePrefix) ? obj.key.slice(basePrefix.length) : obj.key;
       const segs = rest.split("/").filter(Boolean);
       if (segs.length === 0) continue;
       const idFolder = segs[0];
-      // UUIDs only — anything else (e.g. "covers/") we leave alone for safety
+      // UUIDs only — anything else (e.g. "covers/") is left alone for safety.
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idFolder)) continue;
-      if (!liveIds.has(idFolder)) orphanKeys.push(key);
+      if (!liveIds.has(idFolder)) orphanKeys.push(obj.key);
     }
 
-    let deleted = 0;
-    if (!dryRun && orphanKeys.length > 0) {
-      deleted = await deleteS3Keys(s3, orphanKeys);
+    const report = {
+      dry_run: dryRun,
+      total_listed: allObjects.length,
+      live_ids: liveIds.size,
+      orphan_keys_found: orphanKeys.length,
+      max_delete: maxDelete,
+      sample_orphans: orphanKeys.slice(0, 10),
+    };
+
+    if (dryRun) {
+      return json({
+        ...report,
+        deleted: 0,
+        next_step:
+          `To execute: POST { "dry_run": false, "expected_count": ${orphanKeys.length} }` +
+          ` — the count must still match at execution time.`,
+      });
     }
 
-    return new Response(
-      JSON.stringify({
-        dry_run: dryRun,
-        total_listed: allKeys.length,
-        live_ids: liveIds.size,
-        orphan_keys_found: orphanKeys.length,
-        deleted,
-        sample_orphans: orphanKeys.slice(0, 10),
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    // ── EXECUTE. Deletion Protocol gates, in order.
+    if (expectedCount === null) {
+      return json({
+        ...report,
+        error: "PROTOCOL ABORT: execution requires expected_count from a prior dry run. " +
+          "Run dry_run:true first and pass its orphan_keys_found back.",
+      }, 400);
+    }
+    if (expectedCount !== orphanKeys.length) {
+      return json({
+        ...report,
+        error: `PROTOCOL ABORT: expected_count ${expectedCount} != found ${orphanKeys.length}. ` +
+          "The store or database changed since the dry run. Re-run the dry run and re-review.",
+      }, 409);
+    }
+    if (orphanKeys.length > maxDelete) {
+      return json({
+        ...report,
+        error: `PROTOCOL ABORT: ${orphanKeys.length} orphans exceeds max_delete ${maxDelete}. ` +
+          `Review the sample, then run again with an explicit higher max_delete (hard ceiling ${HARD_MAX_DELETE}) ` +
+          "or clean up in deliberate passes.",
+      }, 400);
+    }
+
+    const deleted = await deleteS3Objects(s3, orphanKeys);
+
+    // ── Post-delete verification: re-list and confirm the orphans are gone.
+    //    A residue count is reported, never assumed to be zero.
+    const afterObjects = await listAllS3Objects(s3, basePrefix);
+    const afterKeys = new Set(afterObjects.map((o) => o.key));
+    const residue = orphanKeys.filter((k) => afterKeys.has(k));
+
+    return json({
+      ...report,
+      deleted,
+      post_delete_verification: {
+        remaining_after: afterObjects.length,
+        residue_count: residue.length,
+        residue_sample: residue.slice(0, 10),
+        verified_clean: residue.length === 0,
+      },
+    });
   } catch (err) {
     console.error("purge-s3-orphans error:", err);
-    return new Response(
-      JSON.stringify({ error: (err as Error).message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return json({ error: (err as Error).message }, 500);
   }
 });
