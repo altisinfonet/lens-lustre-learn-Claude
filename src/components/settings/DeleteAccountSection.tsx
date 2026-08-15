@@ -7,6 +7,7 @@ import { toast } from "@/hooks/core/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+import { declareSignOut } from "@/lib/sessionLossRecorder";
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 
@@ -40,6 +41,9 @@ const DeleteAccountSection = () => {
       }
       toast({ title: "Account deleted", description: "Your account and all data have been permanently removed." });
       // Clear the session locally and leave the app.
+      // Declared BEFORE the sign-out: this session is ending because the
+      // member deleted their own account, not because anything broke.
+      declareSignOut("delete_account", "DeleteAccountSection");
       try { await signOut(); } catch { /* session already gone with the user row */ }
       navigate("/", { replace: true });
     } catch (e) {
