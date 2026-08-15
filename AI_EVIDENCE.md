@@ -458,3 +458,31 @@ Format: `date | cycle | check | command | result`
 2026-08-15 | D-JUDGE | rehearsed on production, rolled back | DO block + RAISE EXCEPTION | first judge ACCEPTED · second DIFFERENT judge REFUSED with "This competition already has a judge assigned..." · remove-then-add ACCEPTED, so reassignment stays possible and is deliberately two steps. Safe to apply at this moment specifically: 0 competitions, 0 competition_judges rows, 0 competitions with more than one judge — the same change after a season would have needed a decision per competition. Verified after apply: index live, both triggers live, 0 rows disturbed.
 2026-08-15 | D-JUDGE | migration version drift #15 and #16 | claimed 20260815999998/999999, connector assigned 20260815075500/20260815075526 (+075857 for the correction) | all repo and rollback files renamed to match. git hash-object unchanged by the rename: judge 4921a5141039c9b3929495f3d67694b7b4b8f99b, names 3fb31aeee9bce53a0fced813b9fd831eef811d25.
 2026-08-15 | C-NOTIF | FOUND WHILE MEASURING SOMETHING ELSE: notify_featured_artist has NEVER fired | profiles JOIN featured_artists ON artist_name = full_name -> 0 matches; 1 featured artist exists; 0 'featured_artist' notifications ever created | it identifies the member by matching a DISPLAY STRING: `SELECT id FROM profiles WHERE full_name = NEW.artist_name`. The one featured row is "SOMNATH PAL - AFIAP, AFIP, EFIP" and the profile is "SOMNATH PAL", so it cannot match. There IS a NULL guard, so it fails SILENTLY — the photographer is featured on the platform and is never told. Matching a person by their rendered name is the defect regardless of casing: names are neither unique nor stable, which is what ids are for. NOT fixed in this cycle — it needs a schema decision (add featured_artists.user_id) and was found inside a cycle approved for something else.
+
+## 2026-08-15 — 3-column profile grid + back button/gesture
+
+- `npx vitest run` → 1,656 passed, 1 skipped (134 files). Was 1,449 at the 14 Aug plan cut.
+- `npm run build` → succeeded; `ls dist/*.html` = `dist/index.html` only; `grep -rl harness dist/` = nothing. The harness still cannot ship.
+- Back-button mutations, each run as a real edit then reverted:
+  M1 restore the old swallow → 3 failed · M2 ignore the refusal signal → 1 failed ·
+  M3 drop the re-check during the grace → 1 failed · M4 back to the WebView history length → 1 failed ·
+  M5 stop remembering the orphan → 3 failed · M6 grace drifts from unfreezeStuckOverlay → 1 failed.
+  6/6 caught.
+- `npm run ui:shot` → 15 screenshots (5 scenes × 3 widths), **0 problems**. Screenshots were looked at,
+  not just counted: single-tile and two-tile grids do not stretch, the multi-photo marker sits on the
+  right tile, the missing-thumbnail tile fell back to its original, and the toggle is icon-only at 360px.
+- POSITIVE CONTROL for the sweep's broken-image check: a scene with `src="data:image/png;base64,zzzz"`
+  was planted → reported `images not rendered (1)` at all three widths → scene removed. Without this the
+  grid's clean run would have been indistinguishable from a blind checker.
+- MEASURED LIMITATION, recorded in docs/ui-checking-policy.md:
+  `curl -o /dev/null -w "%{http_code} %{content_type}" http://127.0.0.1:5199/harness-this-thumbnail-does-not-exist.jpg`
+  → `200 text/html`. Vite dev answers any unmatched path with the SPA fallback, so a missing asset can
+  never surface as a 404 in the harness. Only the broken-image check catches it.
+- Transport: git push refused (403, repo not in the session's authorised set). 8 files uploaded through
+  the GitHub web page in 6 commits; origin/main a046574 → 76b6b9e. Every file then compared with
+  `git hash-object` against `git rev-parse origin/main:<path>` — 8/8 identical, `git diff HEAD origin/main`
+  empty.
+- MISTAKE, caught by rendering the document: the first pass of the plan-document update replaced table
+  cell runs instead of reusing them, so every edited row lost its font size and colour — a table of small
+  grey cells with a dozen large black ones in it. Found only by converting to PDF and looking at page 8.
+  Rebuilt from the original with the first run reused.
