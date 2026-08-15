@@ -36,6 +36,17 @@ export interface NotificationPreferences {
   push_new_followers: boolean;
   push_competition_updates: boolean;
   push_new_posts: boolean;
+  /**
+   * ADDED 2026-08-15. `journal_published` and `course_published` are the two
+   * platform broadcasts: one notification row per member. Both are deliberately
+   * barred from EMAIL under BUG-038 ("mass broadcast types never email the
+   * whole base") and both used to fall through `push_on_notification`'s CASE to
+   * `ELSE true`, so they reached every registered device with no way out short
+   * of `push_enabled: false`. Migration 20260815999999 added the branch that
+   * reads this column. Defaults ON: the reach is wanted, the opt-out was what
+   * was missing.
+   */
+  push_announcements: boolean;
 }
 
 const DEFAULTS: NotificationPreferences = {
@@ -62,6 +73,7 @@ const DEFAULTS: NotificationPreferences = {
   push_new_followers: true,
   push_competition_updates: true,
   push_new_posts: true,
+  push_announcements: true,
 };
 
 export function useNotificationPreferences() {
@@ -105,6 +117,7 @@ export function useNotificationPreferences() {
         push_new_followers: (data as any).push_new_followers ?? true,
         push_competition_updates: (data as any).push_competition_updates ?? true,
         push_new_posts: (data as any).push_new_posts ?? true,
+        push_announcements: (data as any).push_announcements ?? true,
       };
     },
     enabled: !!user,
