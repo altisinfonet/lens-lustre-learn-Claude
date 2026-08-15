@@ -13,6 +13,7 @@ import { useTrustedDevice } from "@/hooks/core/useTrustedDevice";
 import { useAuthPageSettings } from "@/hooks/core/useAuthPageSettings";
 import { getCaptchaToken } from "@/lib/turnstile";
 import {
+import { declareSignOut } from "@/lib/sessionLossRecorder";
   getLockedOutSeconds,
   getFailedAttempts,
   recordFailedAttempt,
@@ -122,6 +123,10 @@ const Login = () => {
     setLoading(provider);
     try {
       try {
+        // Not a session LOSS — this clears a stale local session a moment
+        // before signing IN. Declared so the recorder cannot file the
+        // sign-in flow itself as one of the owner's random sign-outs.
+        declareSignOut("member_action", "Login.handleOAuth");
         await supabase.auth.signOut({ scope: 'local' });
       } catch {
         // Ignore
@@ -163,6 +168,10 @@ const Login = () => {
     setLoading("email");
 
     try {
+      // Not a session LOSS — this clears a stale local session a moment
+      // before signing IN. Declared so the recorder cannot file the
+      // sign-in flow itself as one of the owner's random sign-outs.
+      declareSignOut("member_action", "Login.handleEmailSignIn");
       await supabase.auth.signOut({ scope: 'local' });
     } catch {
       // Ignore

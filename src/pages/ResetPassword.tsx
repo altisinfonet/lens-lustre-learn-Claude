@@ -5,6 +5,7 @@ import { useT } from "@/i18n/I18nContext";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import {
+import { declareSignOut } from "@/lib/sessionLossRecorder";
   validatePasswordStrength,
   isPasswordReused,
   recordPasswordUsage,
@@ -209,6 +210,9 @@ const ResetPassword = () => {
 
     const handleGlobalSignOut = async () => {
       setSigningOut(true);
+      // The member chose this after resetting their password — a deliberate
+      // sign-out everywhere, not one of the losses being investigated.
+      declareSignOut("sign_out_everywhere", "ResetPassword.handleGlobalSignOut");
       await supabase.auth.signOut({ scope: "global" });
       navigate("/login", { replace: true });
     };
