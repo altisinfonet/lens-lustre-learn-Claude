@@ -1,0 +1,234 @@
+
+════ REGIME 2 — MEDIA ENGINE (built, empty until B5) ════
+
+── R7: post_media may reference only READY media — pending refused
+BEGIN
+SET
+INSERT 0 1
+psql:/tmp/b4/02_matrix.sql:23: ERROR:  post_media: media 20ea7810-fbc9-4918-a0ca-2868d6ad0b9e is in state pending, only ready may be referenced
+CONTEXT:  PL/pgSQL function tg_post_media_requires_ready() line 6 at RAISE
+ROLLBACK
+
+── R8a: illegal transition pending -> ready (skipping verification) refused
+BEGIN
+SET
+psql:/tmp/b4/02_matrix.sql:31: ERROR:  illegal media state transition pending -> ready (legal: pending->verified->ready, any->quarantined)
+CONTEXT:  PL/pgSQL function tg_media_state_transition() line 16 at RAISE
+ROLLBACK
+
+── R8b: legal chain pending -> verified -> ready, then post_media accepts it
+BEGIN
+SET
+ media_mark_verified 
+---------------------
+ 
+
+ media_mark_ready 
+------------------
+ 
+
+INSERT 0 1
+INSERT 0 1
+  check   | count 
+----------+-------
+ R8b refs |     1
+
+ROLLBACK
+
+── R8c: ready -> verified (backwards) refused; ready -> quarantined allowed
+BEGIN
+SET
+ media_mark_verified 
+---------------------
+ 
+
+ media_mark_ready 
+------------------
+ 
+
+psql:/tmp/b4/02_matrix.sql:54: ERROR:  illegal media state transition ready -> verified (legal: pending->verified->ready, any->quarantined)
+CONTEXT:  PL/pgSQL function tg_media_state_transition() line 16 at RAISE
+ROLLBACK
+BEGIN
+SET
+ media_mark_verified 
+---------------------
+ 
+
+ media_mark_ready 
+------------------
+ 
+
+ media_quarantine 
+------------------
+ 
+
+           check           |    state    
+---------------------------+-------------
+ R8c quarantine from ready | quarantined
+
+ROLLBACK
+
+── R9: same bytes twice, same owner — ONE object, same id (no duplicate object)
+BEGIN
+SET
+        check        | identical | rows 
+---------------------+-----------+------
+ R9 same id returned | t         |    1
+
+ROLLBACK
+
+── R11: a quarantined object is never handed back (no upload/refuse loop)
+BEGIN
+SET
+ media_quarantine 
+------------------
+ 
+
+psql:/tmp/b4/02_matrix.sql:81: ERROR:  this image was rejected by content verification and cannot be re-uploaded
+CONTEXT:  PL/pgSQL function media_begin_upload(bytea,integer,integer,bigint,text) line 40 at RAISE
+ROLLBACK
+
+── R12: media still referenced cannot be deleted (ON DELETE RESTRICT)
+BEGIN
+SET
+ media_mark_verified 
+---------------------
+ 
+
+ media_mark_ready 
+------------------
+ 
+
+INSERT 0 1
+INSERT 0 1
+psql:/tmp/b4/02_matrix.sql:94: ERROR:  update or delete on table "media_objects" violates foreign key constraint "post_media_media_id_fkey" on table "post_media"
+DETAIL:  Key (id)=(daee083e-ea41-487c-a52b-b1a5ae7a9ede) is still referenced from table "post_media".
+ROLLBACK
+
+── R13: deleting the POST cascades its refs; the media row SURVIVES (sweep territory)
+BEGIN
+SET
+ media_mark_verified 
+---------------------
+ 
+
+ media_mark_ready 
+------------------
+ 
+
+INSERT 0 1
+INSERT 0 1
+DELETE 1
+           check            | count 
+----------------------------+-------
+ R13 refs after post delete |     0
+
+         check          | count 
+------------------------+-------
+ R13 media row survives |     1
+
+ROLLBACK
+
+── R14: in-flight cap — the 51st never-completed upload is refused
+BEGIN
+SET
+DO
+     check     | count 
+---------------+-------
+ R14 in flight |    50
+
+psql:/tmp/b4/02_matrix.sql:124: ERROR:  too many uploads in flight (50); finish or abandon them before starting more
+CONTEXT:  PL/pgSQL function media_begin_upload(bytea,integer,integer,bigint,text) line 30 at RAISE
+ROLLBACK
+
+── R15: PARTIAL post_media set — is a 2-of-3 photo post refused anywhere?
+        (design step 7 says publish requires every ord; probe finds out)
+BEGIN
+SET
+ media_mark_verified 
+---------------------
+ 
+
+ media_mark_ready 
+------------------
+ 
+
+ media_mark_verified 
+---------------------
+ 
+
+ media_mark_ready 
+------------------
+ 
+
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+                check                 | ords  
+--------------------------------------+-------
+ R15 post exists with a HOLE at ord=1 | {0,2}
+
+ROLLBACK
+
+── R16: duplicate REFERENCE — same media twice in one post at different ord
+BEGIN
+SET
+ media_mark_verified 
+---------------------
+ 
+
+ media_mark_ready 
+------------------
+ 
+
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+           check            | count 
+----------------------------+-------
+ R16 same media at two ords |     2
+
+ROLLBACK
+
+════ REGIME 1 — TODAY (posts.image_urls array) ════
+
+── R4: identical repost INSIDE the 10-minute window — refused by content_hash
+BEGIN
+SET
+INSERT 0 1
+psql:/tmp/b4/02_matrix.sql:167: ERROR:  Duplicate post detected. Please wait before posting similar content.
+CONTEXT:  PL/pgSQL function detect_duplicate_post() line 19 at RAISE
+ROLLBACK
+
+── R4b: same caption, DIFFERENT photos — allowed (hash covers the urls)
+BEGIN
+SET
+INSERT 0 1
+INSERT 0 1
+       check       | count 
+-------------------+-------
+ R4b posts created |     2
+
+ROLLBACK
+
+── R6: author cannot swap the photos of an existing post (media immutable after publish)
+BEGIN
+SET
+INSERT 0 1
+psql:/tmp/b4/02_matrix.sql:187: ERROR:  Only the caption can be edited
+CONTEXT:  PL/pgSQL function enforce_post_caption_only_update() line 15 at RAISE
+ROLLBACK
+
+── R6b: caption-only edit IS allowed (positive control — R6 is not vacuous)
+BEGIN
+SET
+INSERT 0 1
+UPDATE 1
+        check        |    content     
+---------------------+----------------
+ R6b caption updated | edited caption
+
+ROLLBACK
+
+════ MATRIX (single-session) COMPLETE ════

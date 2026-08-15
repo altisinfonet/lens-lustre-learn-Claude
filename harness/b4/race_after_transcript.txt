@@ -1,0 +1,36 @@
+
+── RACE-1: two identical submits at once (double-tap / two devices)
+   A checks for a duplicate, B checks before A commits. Contract: ONE post.
+   session A: committed
+   session B: ERROR:  Duplicate post detected. Please wait before posting similar content.
+   RESULT posts with that content_hash:      1
+
+
+── RACE-1b: SEQUENTIAL repeat of the same two submits (control — proves
+   the guard works when the writes do not overlap)
+   second insert: ERROR:  Duplicate post detected. Please wait before posting similar content.
+   RESULT rows:      1
+
+
+── RACE-2: two concurrent media_begin_upload for the SAME bytes
+   Contract: both callers converge on ONE object.
+   A returned: b4bdcff7-d932-451d-9da8-961e5c19244f
+   B returned: b4bdcff7-d932-451d-9da8-961e5c19244f
+   RESULT media rows for those bytes:      1
+
+
+── RACE-3: publish racing a QUARANTINE (takedown lands mid-publish)
+   Contract question: can a live post end up referencing quarantined bytes?
+   publish session: committed
+   quarantine:      committed
+   RESULT live refs pointing at quarantined media:      0
+
+
+── RACE-4: deleting media while a publish referencing it is in flight
+   Contract: RESTRICT must win; the delete waits and then fails.
+   publish: committed
+   delete:  ERROR:  update or delete on table "media_objects" violates foreign key constraint "post_media_media_id_fkey" on table "post_media"
+   RESULT dangling refs:      0
+
+
+════ RACES COMPLETE ════
