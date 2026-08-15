@@ -986,3 +986,86 @@ typecheck, one day later, in the test I wrote to prevent it.
 **Still not done, and not claimed:** the six harness scenes are the composer
 only. The real screens — wall, feed, login, post detail, settings — are not in
 the checker yet. No build until they are.
+
+---
+
+## 2026-08-15 — The REAL screens in the visual checker
+
+Owner: *"gap if found then why kept ?? solve like the pro product"*. Fair. The
+gap was kept because I stopped to report, not because it was hard. Closed here.
+
+**What was built.** A deterministic fake backend (`src/uiharness/fakeBackend.ts`)
+that replaces `fetch` and `WebSocket` before any app module is evaluated, and a
+provider shell (`AppShell.tsx`) that mounts the REAL pages inside the REAL
+`Layout`. Five screens now photograph at 360/390/1280: **login, feed, my wall,
+post detail, notification settings** — 57 screenshots per sweep, up from 42.
+
+**The rule that makes it honest.** An unmatched request is LOUD: it prints
+`[harness] NO FIXTURE for …` (which the sweep counts as a failure) and paints a
+red banner into the picture. A table is either fixtured with rows, or listed in
+`EMPTY_BY_DESIGN` **with a written reason**, or reported. Answering `[]` quietly
+is the one thing this harness must never do, because a data-starved screen
+renders its empty state, an empty state looks tidy, and a tidy screenshot reads
+as "checked".
+
+**AND IT DID EXACTLY THAT, WITHIN THE HOUR.** My write rule matched
+`POST /rest/v1/…`; a Supabase RPC *is* a POST to `/rest/v1/rpc/<name>`. So the
+feed's own RPC was answered with `[]`, the feed rendered "No posts yet", and the
+sweep reported **zero problems**. Caught by looking at the picture and thinking
+"that should have three posts in it". RPC is now matched first, by name, and an
+unknown RPC reaches the loud path. The test for it **runs the routes** rather
+than grepping them — the grep version let the `() => []` mutation escape.
+
+### Three real product faults, all live for weeks, none findable by a unit test
+
+1. **A caption could not break a word.** `Caption.tsx` had
+   `whitespace-pre-wrap` without `break-words`. A one-token caption — a
+   filename, or a pasted url — ran **178px past the card** at 360px and was
+   sliced mid-word by the card's `overflow-hidden`: no ellipsis, no "See more".
+2. **`AnimatePresence` was being handed `<Fragment>` children.** It attaches a
+   ref to each child to measure it; a Fragment cannot hold one, so React 19
+   logged *"Invalid prop `ref` supplied to `React.Fragment`"* once per post per
+   render. On the **wall** that meant the `exit` animation never ran — a deleted
+   post vanished instead of fading. On the **feed** the wrapper was pure cost:
+   not one card has an `exit` prop. Wall: key moved to the `motion.div`. Feed:
+   wrapper removed; the two blocks that DO animate out are untouched.
+3. **The reach/views row was cut in half at 360px.** On a post with 12.8K
+   reactions it rendered `943 reached 👁 66` — the view count sliced through the
+   middle, which reads as a smaller number. Owner chose, from four options:
+   icon + figure on phones, words from `sm` up.
+
+### A fourth fault, in the tests themselves
+
+Two long-green source-pin tests went red naming code plainly present in the
+file. Their comment stripper was `/\/\*[\s\S]*?\*\//g`, and `WallPosts.tsx`
+contains `accept="image/*"` — treated as the start of a block comment, deleting
+**~400 lines**, including the gate both tests assert on. They went red only
+because an unrelated comment elsewhere changed which `*/` closed the fake
+comment; for weeks they had been passing for a reason unconnected to their
+claim. `src/test-utils/sourceText.ts` now requires a real `/*` to follow
+whitespace or `{ ( , ; =`, and its own test **proves the naive version fails on
+the same input**. ⚠ About thirty other test files still carry a local copy of
+the naive stripper — they are not yet migrated, and that is open work, not a
+finished job.
+
+### Checker improvements, each positive-controlled
+- Clipped text is now measured across **descendant** text nodes, not only an
+  element's own — the engagement row's figures live in `<span>`s, so the row was
+  never examined and the fault above went unreported. Text deliberately
+  truncated (`ellipsis`/`nowrap`) is still skipped.
+- Router future flags in `AppShell`, after all five screens reported two
+  warnings at three widths.
+
+**Alarms:** 25 in `harnessHonesty.test.ts`, 6 in `feedScreenFindings.test.ts`,
+8 in `sourceText.test.ts`. Six mutations run, six caught (one escaped first —
+the grep-based feed-RPC test — and was rewritten to call the routes).
+
+**Gates, real exit codes:** typecheck 0 · vitest 0, **1,805 passing, 1 skipped**
+· build 0 · `ui:shot` **1 — and deliberately so**: 57 screenshots, 12 problems,
+every one a genuine finding on a real screen (tap targets under 44px on feed,
+wall, post detail and settings; one base64 avatar that does not decode). They
+are **not yet triaged and not yet fixed**. The gate is red because the app is,
+not because the harness is broken.
+
+**No build was triggered:** none of these files matches the Android workflow's
+`paths` filter.
