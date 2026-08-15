@@ -1,36 +1,41 @@
 /**
- * THE PROFILE WALL — three across, then one full-width showcase, repeating.
+ * THE PROFILE WALL — a 3×3 block of squares, then one full-width 3:2 band.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * OWNER REQUEST, 2026-08-15, in two steps.
+ * OWNER REQUEST, 2026-08-15. It took four rounds, and every rejection is kept
+ * here because the rejections ARE the specification.
  *
- * First: an Instagram-style grid, because "People are loosing interest from
- * 50mm for multiple loop whole and not like experince like Instagram".
+ * 1. *"People are loosing interest from 50mm … not like experince like
+ *    Instagram"* → a plain Instagram grid was built: identical squares forever.
+ * 2. REJECTED — *"that will be copy of instagram, i want fix 3grid will be for
+ *    3 column and after that 1 column full image again 3 column three grid
+ *    style after 1 clumn view"*.
+ * 3. REJECTED — the big photo was shown at its own real shape, and a portrait
+ *    photograph at its own shape is a TALL block: *"this style not approved as
+ *    long vertical block found. only horizontal block after three samll block
+ *    is approved"*. Answered by fixing the band at 3:2 (see SHOWCASE_ASPECT).
+ * 4. REJECTED — the band was arriving after ONE row of three. The owner sent a
+ *    picture of the layout he wants and said *"the layout what ever you showed
+ *    me that is wrong. I want this style"*. The picture shows **three full rows
+ *    of squares, then the band**. His earlier "1-2-3 then 3:2" was numbering the
+ *    COLUMNS, not counting the rows. The picture is what is built:
  *
- * Then, having seen it: *"that will be copy of instagram, i want fix 3grid will
- * be for 3 column and after that 1 column full image again 3 column three grid
- * style after 1 clumn view"*.
- *
- * Then, having seen THAT: *"this style not approved as long vertical block
- * found. only horizontal block after three samll block is approved"*, and
- * finally *"1-2-3 then 3:2 style is final. 1-2-3 then 3:2 4-5-6 then 3:2 7-6-9
- * then 3:2 like soo"*.
- *
- * So this is NOT Instagram's grid. Instagram's profile is an unbroken wall of
- * identical squares. Here the rhythm breaks every fourth post to give one
- * photograph the full width, in a band that is ALWAYS 3:2:
- *
- *      ▢ ▢ ▢          1 2 3      three square tiles — for scanning a body of work
- *      ▛▀▀▀▀▀▀▀▜      4          one showcase, 3:2, every time
- *      ▢ ▢ ▢          5 6 7
- *      ▛▀▀▀▀▀▀▀▜      8
+ *      ▢ ▢ ▢          1  2  3
+ *      ▢ ▢ ▢          4  5  6        nine squares — a real block of work
+ *      ▢ ▢ ▢          7  8  9
+ *      ▛▀▀▀▀▀▀▀▀▀▜    10             one showcase, 3:2, always horizontal
+ *      ▢ ▢ ▢          11 12 13
+ *      ▢ ▢ ▢          14 15 16
+ *      ▢ ▢ ▢          17 18 19
+ *      ▛▀▀▀▀▀▀▀▀▀▜    20
  *
  * WHY BREAK THE GRID AT ALL, and it is a measurement not a preference: every
  * one of the 210 posts on production carries a photograph. A pure square grid
  * crops all 210 of them; on a photography platform that crop is the product
- * silently recomposing the member's frame. The showcase gives every fourth
- * photograph room to be seen whole, without giving up the density that made the
- * grid worth having in the first place.
+ * silently recomposing the member's frame. The showcase gives one photograph in
+ * ten room to be seen whole, without giving up the density that made the grid
+ * worth having in the first place. At one band per FOUR posts the wall was
+ * mostly band; at one per ten it reads as a grid with a punctuation mark.
  *
  * The fixed 3:2 band, and what it costs, is spelled out at SHOWCASE_ASPECT.
  *
@@ -56,16 +61,19 @@ interface Props {
   posts: UnifiedPost[];
 }
 
+/** Squares per block: three rows of three, exactly as in the owner's picture. */
+export const SQUARES_PER_BLOCK = 9;
+
 /**
- * The repeating block: three square tiles, then one showcase.
+ * The repeating block: nine square tiles, then one showcase. Ten posts.
  *
  * Exported because the tests assert the rhythm arithmetic directly rather than
  * counting rendered nodes — a test that counts `<img>` elements passes just as
  * happily when every tile is a showcase.
  */
-export const BLOCK = 4;
+export const BLOCK = SQUARES_PER_BLOCK + 1;
 
-/** Is the post at this index the full-width one? Position 4 of every block. */
+/** Is the post at this index the full-width one? The 10th of every block. */
 export function isShowcase(index: number): boolean {
   return index % BLOCK === BLOCK - 1;
 }
