@@ -37,6 +37,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [accountRestricted, setAccountRestricted] = useState(false);
   const signOutTriggeredRef = useRef(false);
+  /** The last sign-in already written to activity_logs. See the login branch. */
+  const lastLoggedSignInRef = useRef<string | null>(null);
   const hasInitializedRef = useRef(false);
 
   /**
@@ -393,7 +395,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }, 200);
           }
           setTimeout(() => linkReferral(session.user), 100);
-          setTimeout(() => logAuthEvent(session.user.id, "login"), 0);
+          /**
+           * Only for a sign-in we have not already logged. `last_sign_in_at`
+           * changes when somebody actually authenticates and stays put through
+           * every tab focus, resume and token refresh — the events that turned
+           * 685 real sign-ins into 5,702 rows. The database index makes the
+           * duplicate row impossible; this ref stops us spending the member's
+           * data asking for it.
+           */
+          const signInAt = session.user.last_sign_in_at ?? null;
+          if (signInAt !== lastLoggedSignInRef.current) {
+            lastLoggedSignInRef.current = signInAt;
+            setTimeout(() => logAuthEvent(session.user.id, "login", signInAt), 0);
+          }
           setTimeout(() => logDeviceSignIn(session.user.id), 50);
         }
         if (_event === "USER_UPDATED") {
