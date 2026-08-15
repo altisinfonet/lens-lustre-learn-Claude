@@ -8,9 +8,9 @@ phase: B
 state: DEPLOYED          # DESIGN|APPROVED|IMPLEMENTING|LOCAL_VERIFICATION|READY_FOR_REVIEW|APPROVED_FOR_PRODUCTION|DEPLOYED|POST_DEPLOY_VERIFICATION|CLOSED|BLOCKED
 base_commit: bf0f6b6         # origin/main after the 26 web commits that carried this cycle
 rollback_required_from: 20260813000000  # mandate start; older migrations out of scope
-db_migration: 20260814234206 # newest APPLIED production migration
-last_cycle: B4_ATOMICITY_MATRIX # 20 rows; 2 defects fixed; R15 -> B5
-next_action: OWNER_QUEUE      # B5 needs design decisions; build+bugs+repo+creds pending
+db_migration: 20260815041256 # newest APPLIED production migration
+last_cycle: B5_1_ATOMIC_PUBLISH # publish is all-or-nothing; R15 closed
+next_action: B5_2_BACKFILL   # guarded resumable backfill of 210 posts
 approved_hash: null          # consumed by 20260814104119
 blocked_reason: null
 ---
