@@ -217,6 +217,9 @@ const AdminHealth = ({ user }: { user: User | null }) => {
     return "bad";
   };
 
+  const [maintenanceLoading, setMaintenanceLoading] = useState<string | null>(null);
+  const [maintenanceResult, setMaintenanceResult] = useState<{ kind: string; data: unknown } | null>(null);
+
   const runOrphanScan = async () => {
     setOrphanLoading(true);
     setOrphanError(null);
@@ -228,6 +231,42 @@ const AdminHealth = ({ user }: { user: User | null }) => {
       setOrphanError(err.message || "Scan failed");
     } finally {
       setOrphanLoading(false);
+    }
+  };
+
+  /**
+   * B3b/B3d-2 maintenance actions. BOTH ARE READ-ONLY AS WIRED HERE:
+   * purge-s3-orphans defaults to dry_run (and its execute path demands an
+   * expected_count this button never sends), and backfill-image-dims likewise
+   * only reports its plan. Executing either is a deliberate second step made
+   * from the report, not a button — a button that deletes is how 263-file
+   * near-misses become incidents.
+   */
+  const runPurgeDryRun = async () => {
+    setMaintenanceLoading("purge");
+    setMaintenanceResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("purge-s3-orphans", { body: { dry_run: true } });
+      if (error) throw error;
+      setMaintenanceResult({ kind: "Purge dry run", data });
+    } catch (err: any) {
+      setMaintenanceResult({ kind: "Purge dry run", data: { error: err.message || "failed" } });
+    } finally {
+      setMaintenanceLoading(null);
+    }
+  };
+
+  const runDimsBackfillDryRun = async () => {
+    setMaintenanceLoading("dims");
+    setMaintenanceResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("backfill-image-dims", { body: { dry_run: true } });
+      if (error) throw error;
+      setMaintenanceResult({ kind: "Dims backfill dry run", data });
+    } catch (err: any) {
+      setMaintenanceResult({ kind: "Dims backfill dry run", data: { error: err.message || "failed" } });
+    } finally {
+      setMaintenanceLoading(null);
     }
   };
 
@@ -299,8 +338,37 @@ const AdminHealth = ({ user }: { user: User | null }) => {
               <Search className={`h-3 w-3 ${orphanLoading ? "animate-spin" : ""}`} />
               {orphanLoading ? "Scanning…" : "Run Scan"}
             </button>
+            <button
+              onClick={runPurgeDryRun}
+              disabled={maintenanceLoading !== null}
+              title="READ-ONLY: reports what the purge WOULD delete. Executing is a deliberate separate step."
+              className="inline-flex items-center gap-1.5 text-[10px] tracking-[0.1em] uppercase px-3 py-1.5 border border-border hover:bg-muted disabled:opacity-50 transition-colors"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              {maintenanceLoading === "purge" ? "Running…" : "Purge Dry Run"}
+            </button>
+            <button
+              onClick={runDimsBackfillDryRun}
+              disabled={maintenanceLoading !== null}
+              title="READ-ONLY: plans dimension recovery for slides with no size in their filename."
+              className="inline-flex items-center gap-1.5 text-[10px] tracking-[0.1em] uppercase px-3 py-1.5 border border-border hover:bg-muted disabled:opacity-50 transition-colors"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              {maintenanceLoading === "dims" ? "Running…" : "Dims Backfill Dry Run"}
+            </button>
           </div>
         </div>
+
+        {maintenanceResult && (
+          <div className="border border-border bg-muted/30 p-3 mb-3">
+            <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-2" style={{ fontFamily: "var(--font-heading)" }}>
+              {maintenanceResult.kind} — read-only report
+            </p>
+            <pre className="text-[10px] leading-relaxed overflow-x-auto max-h-64 whitespace-pre-wrap">
+              {JSON.stringify(maintenanceResult.data, null, 2)}
+            </pre>
+          </div>
+        )}
 
         {orphanError && (
           <div className="border border-destructive/30 bg-destructive/5 p-3 mb-3">
