@@ -28,11 +28,15 @@
  * of opening the commit's own status checks, which said "Cloudflare Pages —
  * Building ✗" in plain sight.
  *
- * THE FIX is an npm `overrides` block pinning react-day-picker's react peers to
- * the versions the project actually uses. The LESSON is that a gate which runs
- * against an existing `node_modules` cannot see a resolution failure, so the
- * manifest has to be checked directly — which is what this file does, in the
- * fast test run, without a network call.
+ * THE FIX is `.npmrc` with `legacy-peer-deps=true`, which changes the resolver
+ * and nothing else. An `overrides` block was tried first and REJECTED on
+ * measurement: it makes npm reclassify 141 packages from dev to production in
+ * the lockfile, and `security.yml` runs `npm audit --omit=dev`, so it would
+ * quietly change what the security gate inspects.
+ *
+ * THE LESSON is that a gate which runs against an existing `node_modules`
+ * cannot see a resolution failure, so the manifest has to be checked directly —
+ * which is what this file does, in the fast test run, without a network call.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
