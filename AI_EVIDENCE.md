@@ -542,3 +542,51 @@ rejections are the design:
 Gates: typecheck clean · `1,672` passing, 1 skipped · production build clean,
 `dist/` holds one HTML file and no harness or fixture · `npm run ui:shot`
 21 screenshots, 0 problems, and the screenshots were looked at.
+
+## 2026-08-15 — My Wall rhythm corrected: NINE squares before the band, not three
+
+Fourth round. The owner replied to the shipped layout with a PICTURE and
+*"the layout what ever you showed me that is wrong. I want this style"*. The
+picture shows **three full rows of squares, then the band**. His earlier
+*"1-2-3 then 3:2 4-5-6 then 3:2"* was numbering the COLUMNS, not counting rows —
+I read it as one row of three and built that. The picture settled it.
+
+- `SQUARES_PER_BLOCK = 9`, `BLOCK = 10`. Band at index 9, 19, 29 …
+- A test asserts `SQUARES_PER_BLOCK % 3 === 0`, because a block that is not a
+  whole number of 3-wide rows puts the band mid-row and leaves a hole.
+- Mutations, each applied as a real edit then reverted:
+  M17 back to 3 squares (the rejected build) → 4 failed ·
+  M18 8 squares, so the band lands mid-row → 5 failed ·
+  M19 the wall opens with a band → 3 failed. All caught.
+- Harness: `profile-grid` now carries 21 posts (two whole blocks plus one), and
+  two new scenes cover the shortest wall that reaches a band (10 posts) and the
+  wall that is one post short of one (9 posts).
+- `npm run ui:shot` → **24 screenshots, 0 problems**, and the screenshots were
+  looked at: three rows, band, three rows, band, exactly as in the picture.
+- Gates: typecheck clean · **1,673 passing**, 1 skipped · production build clean,
+  `dist/` holds one HTML file.
+
+### React 19 — asked for, assessed, NOT started
+
+Owner: *"update my react version from react 18 to react 19. ix all issues
+accordingly."* Measured before answering, rather than guessing at the risk:
+
+- **Our own source uses none of the APIs React 19 removes** — 0 hits for
+  `findDOMNode`, `ReactDOM.render`, `ReactDOM.hydrate`, `unmountComponentAtNode`,
+  `createFactory`, `defaultProps`, `propTypes`, or string refs. (The 8 apparent
+  `ref="` hits were `href="`.)
+- **`react-mentions@4.4.10` does NOT call `findDOMNode`** — checked inside the
+  package, not assumed from its age. It carries `propTypes` ×7 and one
+  `defaultProps`, both of which React 19 ignores rather than crashes on.
+- Every other React-coupled dependency declares React 19 in its peer range at
+  its latest version: Radix ×27, framer-motion, react-router, TanStack Query,
+  testing-library/react, vaul, cmdk, embla, recharts, react-day-picker,
+  react-helmet-async, react-resizable-panels.
+
+So the upgrade is tractable, and the residual risk sits in the React 19 TYPE
+changes and in behaviour only a real device can show. It is deliberately NOT
+folded into the pending showroom build: that build carries the session-loss
+recorder, whose entire purpose is to produce clean data about why members are
+being signed out. Adding a framework upgrade to the same release adds a second
+variable to the one experiment we are running, and if the app then misbehaves on
+the owner's phone nothing tells us which change did it.
