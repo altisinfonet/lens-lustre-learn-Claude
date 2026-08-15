@@ -590,3 +590,60 @@ recorder, whose entire purpose is to produce clean data about why members are
 being signed out. Adding a framework upgrade to the same release adds a second
 variable to the one experiment we are running, and if the app then misbehaves on
 the owner's phone nothing tells us which change did it.
+
+## 2026-08-15 — React 18 → React 19
+
+Owner: *"update my react version from react 18 to react 19. ix all issues
+accordingly."* He also chose the ordering: React 19 first, build after.
+
+**Installed:** react + react-dom `19.2.8`, `@types/react` 19, `@types/react-dom` 19,
+`@testing-library/react` 16.3.2, `@testing-library/dom` (see below), plus
+`vaul` 0.9.9 → 1.1.2 and `next-themes` 0.3 → 0.4.6, which were the only two
+packages whose peer range hard-excluded React 19.
+
+**Gates, all green on 19:**
+- `npx tsc --noEmit` → **0 errors**. Not one type change was needed in `src/`.
+- `npx vitest run` → **1,692 passing**, 1 skipped (137 files).
+- `npm run build` → clean; `dist/` holds one HTML file.
+- `npm run ui:shot` → **24 screenshots, 0 problems** — the runtime check that
+  matters, because React 19's removals fail at RUN time, not compile time.
+
+**Measured before starting, so the risk was known rather than feared:**
+- Our own source uses **none** of the APIs React 19 removes: 0 hits for
+  `findDOMNode`, `ReactDOM.render`, `ReactDOM.hydrate`, `unmountComponentAtNode`,
+  `createFactory`, `defaultProps`, `propTypes`, or string refs.
+- `react-mentions@4.4.10` — the package most likely to break, given its age —
+  was opened and read rather than judged by its version: **0 uses of
+  `findDOMNode`**. Its `propTypes` ×7 and one `defaultProps` are ignored by
+  React 19, not fatal.
+
+**ONE package deliberately left behind, and it was checked, not assumed:**
+`react-day-picker` stays on **8.10.1**. Its bundle contains zero uses of anything
+React 19 removed, so the stale peer range is a packaging fact and not a runtime
+one. v9/v10 rename exactly the pieces this app uses — `components.IconLeft` /
+`IconRight` became one `Chevron`, and the classNames keys changed — so upgrading
+means rewriting `src/components/ui/calendar.tsx`, which is the **post
+scheduler**. That belongs in its own cycle with its own screenshots, not bolted
+onto an upgrade whose whole value is that nothing else moved.
+
+**A failure worth recording:** installing the React 19 types with
+`--legacy-peer-deps` silently removed `@testing-library/dom`, which v16 of
+`@testing-library/react` expects as a peer instead of bundling. Sixteen test
+files then failed with `Cannot find module '@testing-library/dom'`. The suite
+caught it immediately; a project without one would have shipped it.
+
+**New gate:** `src/__tests__/reactVersion.test.ts`, 19 assertions. It checks what
+is **installed on disk**, not what `package.json` asks for — a later `npm
+install` can quietly pull React 18 back under a stale peer range and everything
+would still compile. Mutations, all caught:
+M20 package.json back to React 18 → 1 failed · M21 types drift from the runtime →
+1 · M22 next-themes reverts → 1 · M23 a source file reintroduces `findDOMNode` →
+1 · M24 a source file reintroduces a string ref → 1.
+
+**A small thing the upgrade fixed for free:** `fetchPriority` in
+`src/components/post/PostMedia.tsx` is a React 19 property. On 18 it warned on
+every feed card and never reached the DOM. It now works, with no code change.
+
+**Still DEVICE-open:** React 19 has been proven to compile, test, build and
+render here. Whether the Android WebView behaves identically is a question only
+the owner's phone can answer, and it stays open until it does.
