@@ -533,7 +533,7 @@ describe("rule: the converted files really do emit structured logs", () => {
     expect(code).toContain("newCorrelationId()");
     // Start, edge-write, failure, verify-missing and verify-ok must ALL carry
     // it, or "my score vanished" cannot be reconstructed.
-    const logs = code.match(/logger\.\w+\(\{[\s\S]*?\n\s*\}\);/g) || [];
+    const logs: string[] = code.match(/logger\.\w+\(\{[\s\S]*?\n\s*\}\);/g) ?? [];
     const inSubmit = logs.filter((l) => l.includes('fn: "submitScore"'));
     expect(inSubmit.length, "submitScore should log start, write, failure and verify").toBeGreaterThanOrEqual(5);
     for (const l of inSubmit) {
@@ -620,7 +620,7 @@ describe("rule: the converted files really do emit structured logs", () => {
     const code = src("components/WallPosts.tsx");
     expect(code).toContain("newCorrelationId()");
     // every log in createPost passes it
-    const logs = code.match(/logger\.\w+\(\{[\s\S]*?\}\);/g) || [];
+    const logs: string[] = code.match(/logger\.\w+\(\{[\s\S]*?\}\);/g) ?? [];
     const inCreatePost = logs.filter((l) => l.includes("fn: \"createPost\""));
     expect(inCreatePost.length).toBeGreaterThanOrEqual(5);
     for (const l of inCreatePost) {
