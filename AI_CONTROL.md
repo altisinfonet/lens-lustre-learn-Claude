@@ -6,11 +6,11 @@ schema: 1
 project: 50mm Retina
 phase: B
 state: DEPLOYED          # DESIGN|APPROVED|IMPLEMENTING|LOCAL_VERIFICATION|READY_FOR_REVIEW|APPROVED_FOR_PRODUCTION|DEPLOYED|POST_DEPLOY_VERIFICATION|CLOSED|BLOCKED
-base_commit: f6645ba         # origin/main after the grid + back-button transport
+base_commit: 5d53483         # origin/main after the 3:2 wall band
 rollback_required_from: 20260813000000  # mandate start; older migrations out of scope
 db_migration: 20260815075857 # newest APPLIED production migration
-last_cycle: F_GRID_AND_BACK    # 3-col profile grid + back button/gesture, both transported
-next_action: NEXT_PLAN_ITEM   # F: session-loss instrumentation, then activity_logs flood + token-refresh timeout
+last_cycle: F_WALL_3TO2_BAND   # wall layout final on the third attempt
+next_action: NEXT_PLAN_ITEM   # F: session-loss recorder, then activity_logs, token refresh, composer, build
 approved_hash: null          # consumed by 20260815064043
 blocked_reason: null
 ---
