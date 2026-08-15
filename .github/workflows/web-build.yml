@@ -1,0 +1,59 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# THE WEB BUILD, RUN WHERE IT CAN BE SEEN.
+#
+# The website is built and served by Cloudflare Pages, and Pages runs its build
+# on Cloudflare's own infrastructure — nothing about it appears in this repo's
+# Actions tab. On 2026-08-15 that turned a broken build into a silent one:
+# `npm ci` had been failing since the React 19 upgrade, Pages had stopped
+# deploying, `www.50mmretina.com` quietly served a stale bundle for hours, and
+# every check on this page stayed green because none of them built the site.
+# The owner found it before any of the tooling did.
+#
+# This workflow runs the SAME two commands Pages runs — a clean install and a
+# production build — on every push. It cannot make Pages succeed. What it does
+# is make a web-build failure LOUD and readable here, next to the code that
+# caused it, instead of only inside a dashboard.
+#
+# NODE VERSION IS READ FROM `.node-version`, deliberately, so this job and
+# Cloudflare Pages cannot drift apart: Pages reads that same file. Vite 7
+# requires Node ^20.19 || >=22.12 and the repo previously pinned nothing at all,
+# which left the website's build depending on whatever default its host happened
+# to choose.
+# ─────────────────────────────────────────────────────────────────────────────
+name: Web build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      # ⚠ `npm ci`, never `npm install`, and NO `|| true` fallback. The whole
+      # point is that a resolution failure fails this job — that is the exact
+      # failure that went unnoticed.
+      - name: Clean install (what Pages does first)
+        run: npm ci --no-audit --no-fund
+
+      - name: Production build (what Pages does second)
+        run: npm run build
+
+      # A build that "succeeds" but emits nothing is the same class of lie as a
+      # typecheck that compiles nothing. Prove the artefact exists.
+      - name: The build actually produced a site
+        run: |
+          set -euo pipefail
+          test -f dist/index.html
+          test -d dist/assets
+          count=$(find dist/assets -name '*.js' | wc -l)
+          echo "dist/assets carries $count JavaScript chunks"
+          test "$count" -gt 0
