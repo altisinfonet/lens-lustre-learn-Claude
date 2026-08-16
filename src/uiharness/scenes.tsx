@@ -14,6 +14,7 @@
 
 import { useState, type JSX } from "react";
 import ProfilePostGrid from "@/components/profile/ProfilePostGrid";
+import ImageCropModal from "@/components/admin/ImageCropModal";
 import PostComposerPreview from "@/components/post/PostComposerPreview";
 import WallViewToggle, { type WallView } from "@/components/profile/WallViewToggle";
 import { Calendar } from "@/components/ui/calendar";
@@ -220,6 +221,52 @@ export const SCENES: Record<string, () => JSX.Element> = {
         month={new Date(1994, 4, 1)}
         selected={new Date(1994, 4, 17)}
         onSelect={() => {}}
+      />
+    </div>
+  ),
+
+  /**
+   * THE CROP DIALOG — added 2026-08-16, and its absence is why every fault the
+   * owner found in it shipped.
+   *
+   * `ImageCropModal` is mounted from NINE places, including the member post
+   * flow and the avatar picker on Edit Profile. It had no scene, so the sweep
+   * had never rendered it at 360px, and the 44px tap-target rule — which this
+   * harness already enforces on every other screen — had never once been
+   * applied to its toolbars.
+   *
+   * TALL is deliberate. It is 9:16, the shape a phone actually shoots, and the
+   * one shape where the image's own `max-height` clamps the element box away
+   * from the painted picture. A landscape fixture would photograph clean and
+   * certify nothing.
+   */
+  "crop-modal-tall": () => (
+    <div className="min-h-screen bg-background">
+      <ImageCropModal imageSrc={TALL} onCropComplete={() => {}} onCancel={() => {}} />
+    </div>
+  ),
+
+  /** The same dialog with a LANDSCAPE source — the case that has always worked,
+   *  kept beside the tall one so the difference is visible rather than argued. */
+  "crop-modal-wide": () => (
+    <div className="min-h-screen bg-background">
+      <ImageCropModal imageSrc={LAND} onCropComplete={() => {}} onCancel={() => {}} />
+    </div>
+  ),
+
+  /** The AVATAR shape: aspect locked, circular overlay, fixed output size. A
+   *  different code path through the same dialog — `isLocked` hides the aspect
+   *  row entirely, so its layout is not covered by the two scenes above. */
+  "crop-modal-avatar": () => (
+    <div className="min-h-screen bg-background">
+      <ImageCropModal
+        imageSrc={PORT}
+        forcedAspect={1}
+        circularCrop
+        targetWidth={512}
+        targetHeight={512}
+        onCropComplete={() => {}}
+        onCancel={() => {}}
       />
     </div>
   ),

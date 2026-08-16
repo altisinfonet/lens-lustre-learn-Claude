@@ -37,6 +37,7 @@ const Profile = lazy(() => import("@/pages/Profile"));
 const PostDetail = lazy(() => import("@/pages/PostDetail"));
 const NotificationSettings = lazy(() => import("@/pages/NotificationSettings"));
 const PublicProfile = lazy(() => import("@/pages/PublicProfile"));
+const MobileProfileSheet = lazy(() => import("@/components/MobileProfileSheet"));
 
 function Loading() {
   return (
@@ -133,6 +134,21 @@ export const REAL_SCREENS: Record<string, () => JSX.Element> = {
    *  renders its not-found state and photographs as a tidy empty screen. */
   "screen-post-detail": () =>
     screen(<PostDetail />, `/post/${posts[0].id}`, "/post/:postId"),
+
+  /**
+   * THE ACCOUNT SHEET, OPEN — added 2026-08-16.
+   *
+   * Owner, from live members: "the log out screen are not coming perfectly and
+   * huge space water in top." Both halves of that are layout, both are provable
+   * in a photograph, and neither had ever been photographed: this sheet is an
+   * overlay, so no page scene renders it, and it had no scene of its own.
+   *
+   * It is the single most crowded surface in the product — twenty-one actions
+   * plus a header plus a footer — and it is the one screen where being cut off
+   * at the bottom means a member cannot LOG OUT.
+   */
+  "screen-account-sheet": () =>
+    screen(<MobileProfileSheet open onOpenChange={() => {}} />, "/feed", "/feed"),
 
   /** Settings — long forms, switches, and the tap-target rule. */
   "screen-notification-settings": () =>
