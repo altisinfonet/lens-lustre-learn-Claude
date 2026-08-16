@@ -314,7 +314,7 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
                  The + is also a wider glyph (20px) than the magnifier (16px), so
                  centring it in an equal box does not give an equal margin.
                  6px back closes it exactly. */
-              className="lg:hidden relative z-10 -ml-1.5 grid h-11 w-8 shrink-0 place-items-center text-muted-foreground transition-colors hover:text-foreground"
+              className="lg:hidden relative z-10 -ml-2.5 grid h-11 w-11 shrink-0 place-items-center text-muted-foreground transition-colors hover:text-foreground"
               aria-label={t("composer.create", "Create post")}
             >
               {/* ⚠ ICON ONLY — NO VISIBLE "Create" LABEL. Owner, 2026-08-14.
@@ -323,7 +323,11 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
                   re-add a text span here: the caption is what made this control
                   two lines tall and pushed it into the centred wordmark. The
                   box is 36px so the tap target stays finger-sized without it. */}
-              <Plus className="h-5 w-5" />
+              {/* 24px, matching Search and the Bell. Owner, 2026-08-16: the
+                  three top-bar icons were 20 / 16 / 16 — three different sizes
+                  sitting in a row, which is most of why the bar read as
+                  "too small" rather than any one icon being wrong. */}
+              <Plus className="h-6 w-6" />
             </button>
           )}
           </div>

@@ -1700,19 +1700,61 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                     */}
                     {appFlow ? (
                       <>
-                        <div className="grid place-items-center pb-3 pt-1">
-                          {(imagePreviews[0] || resumedThumbs[0] || resumedUrls[0]) && (
+                        {/**
+                         * THE APP GETS THE REAL COMPOSER — 2026-08-16.
+                         *
+                         * Owner, with the web composer open beside his phone:
+                         * *"this page must come afte image pic king"*.
+                         *
+                         * WHAT WAS HERE: a 160x160 thumbnail. No Crop, no
+                         * cover choice, no reorder, no rule-of-thirds, no sight
+                         * of how the post would actually be framed. On a
+                         * PHOTOGRAPHY platform that is the one screen that
+                         * matters, and the phone — the only place most members
+                         * ever post from — was the one place it was missing.
+                         *
+                         * WHY IT WAS MISSING, honestly: the owner chose a
+                         * two-screen Android flow on 2026-08-12 to avoid us
+                         * drawing our own gallery grid, which was the right
+                         * call. Collapsing screen 2 to a thumbnail was NOT
+                         * part of that decision — it was my shortcut, and it
+                         * quietly cost the app its framing step.
+                         *
+                         * `PostComposerPreview` is the exact component the web
+                         * renders. Not a copy of it — the same one. That is the
+                         * one-funnel rule the owner set on 2026-08-15 after a
+                         * post rendered two different ways: if the app and the
+                         * web draw the same thing, they draw it with the same
+                         * code or they will drift apart again.
+                         *
+                         * The caption box below stays. The app arrives here
+                         * straight from Android's picker and has never seen
+                         * one, so removing it would leave no way to write a
+                         * caption at all.
+                         */}
+                        {imagePreviews.length > 0 && (
+                          <div className="pb-3 pt-1">
+                            <PostComposerPreview
+                              previews={imagePreviews}
+                              activeIndex={Math.min(previewIndex, Math.max(0, imagePreviews.length - 1))}
+                              onActiveChange={setPreviewIndex}
+                              onMove={movePhoto}
+                              onRemove={clearImage}
+                              onCrop={setCropIndex}
+                              onAddMore={imagePreviews.length < 10 ? () => fileInputRef.current?.click() : undefined}
+                            />
+                          </div>
+                        )}
+                        {/* A resumed draft has no local File objects to preview,
+                            so it keeps the thumbnail it always had. */}
+                        {imagePreviews.length === 0 && (resumedThumbs[0] || resumedUrls[0]) && (
+                          <div className="grid place-items-center pb-3 pt-1">
                             <img
-                              src={imagePreviews[0] || resumedThumbs[0] || resumedUrls[0]}
+                              src={resumedThumbs[0] || resumedUrls[0]}
                               alt=""
                               className="h-40 w-40 rounded-md object-cover"
                             />
-                          )}
-                        </div>
-                        {imagePreviews.length > 1 && (
-                          <p className="pb-2 text-center text-xs text-muted-foreground">
-                            {imagePreviews.length} {t("post.drafts.photos", "photos")}
-                          </p>
+                          </div>
                         )}
                         <Textarea
                           value={newContent}

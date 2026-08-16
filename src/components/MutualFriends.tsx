@@ -30,7 +30,15 @@ const MutualFriends = ({ targetUserId }: Props) => {
         supabase.rpc("mutual_friend_ids" as any, { _user_a: user.id, _user_b: targetUserId, _limit: 5 }),
       ]);
 
-      const total = (countRes.data as number) ?? 0;
+      /**
+       * COERCED, not trusted. `?? 0` only catches null/undefined — an RPC that
+       * answers with an array or a string sails through, `count === 0` is
+       * false, and the component renders the words "mutual friends" with no
+       * number in front of them. Caught the first time the visitor wall was
+       * photographed, 2026-08-16.
+       */
+      const raw = countRes.data as unknown;
+      const total = typeof raw === "number" && Number.isFinite(raw) ? raw : Number(raw) || 0;
       setCount(total);
       if (total === 0) return;
 

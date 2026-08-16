@@ -345,13 +345,13 @@ const NotificationBell = () => {
          * The glyph is unchanged. What went is the border and the rounded
          * outline, not the button.
          */
-        className="relative grid h-11 w-8 place-items-center text-muted-foreground hover:text-primary transition-colors duration-300"
+        className="relative grid h-11 w-11 place-items-center text-muted-foreground hover:text-primary transition-colors duration-300"
         aria-label="Notifications"
         aria-expanded={open}
         aria-controls="notification-panel"
         aria-haspopup="dialog"
       >
-        <Bell className="h-4 w-4" />
+        <Bell className="h-6 w-6" />
         {totalCount > 0 && (
           <span className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[9px] font-bold leading-none">
             {totalCount > 99 ? "99+" : totalCount}
