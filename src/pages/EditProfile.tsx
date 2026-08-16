@@ -909,10 +909,14 @@ const EditProfile = () => {
                     selected={dateOfBirth}
                     onSelect={setDateOfBirth}
                     disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                    captionLayout="dropdown-buttons"
-                    fromYear={1940}
-                    toYear={new Date().getFullYear()}
-                    initialFocus
+                    // react-day-picker v10 renames — see OnboardingModal for the
+                    // full note. `endMonth` is December of the current year
+                    // because `disabled` below is what forbids a future date;
+                    // the dropdown range only decides what can be SCROLLED to.
+                    captionLayout="dropdown"
+                    startMonth={new Date(1940, 0)}
+                    endMonth={new Date(new Date().getFullYear(), 11)}
+                    autoFocus
                     className={cn("p-3 pointer-events-auto")}
                   />
                   <div className="flex justify-end px-3 pb-3">
