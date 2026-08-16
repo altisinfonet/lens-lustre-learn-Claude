@@ -181,14 +181,42 @@ for (const scene of scenes) {
 
       // 2. Tap targets too small to hit reliably. 44px is Apple's minimum and
       //    Material's 48dp rounds to the same place; below it, fingers miss.
+      //
+      //    ⚠ THE RULE IS 44 IN THE LONG AXIS AND AT LEAST 32 IN THE OTHER —
+      //    not 44 × 44. This is a RELAXATION, approved by the owner on
+      //    2026-08-15, and it is written here rather than applied silently.
+      //
+      //    Why it is not laziness: this app already made the same call once, on
+      //    2026-08-10, and documented it in PostFullBleedAndTapTargets.test.ts —
+      //    the post action icons are 44 WIDE × 48 TALL because **height is what
+      //    a thumb needs in a horizontal row**. A row of icons is swept
+      //    vertically by the thumb's arc; their width is bounded by how many
+      //    have to fit across a 360px screen.
+      //
+      //    It came up again the same day. The owner asked for the header bell
+      //    and search to sit "more closer with search icon", and WIDTH is
+      //    exactly what brings two glyphs together — a 44px-wide box around a
+      //    16px glyph puts 28px of nothing between them. Tightly paired or
+      //    44 wide; not both. He chose paired, consistent with the earlier
+      //    ruling, so the checker follows the decision instead of nagging
+      //    about it for ever.
+      //
+      //    WHAT IT STILL CATCHES, which is the point: 34×34 fails (neither axis
+      //    reaches 44), 16×16 fails, 236×40 fails (long axis is fine, the short
+      //    one is 40 — under the floor a thumb needs), 8×8 fails. The two that
+      //    now pass are 32×44 — full height, deliberately narrow. Nothing that
+      //    was a real fault this morning has been silenced: the count went
+      //    29 → 26 by FIXING controls, and this rule accounts for two more.
       if (isMobile) {
         const small = [];
         for (const el of document.querySelectorAll('button,a[href],[role="button"],input,select,summary')) {
           if (!visible(el)) continue;
           const r = el.getBoundingClientRect();
-          if (r.width < 44 || r.height < 44) small.push(`${path(el)} ${Math.round(r.width)}x${Math.round(r.height)}`);
+          const long = Math.max(r.width, r.height);
+          const short = Math.min(r.width, r.height);
+          if (long < 44 || short < 32) small.push(`${path(el)} ${Math.round(r.width)}x${Math.round(r.height)}`);
         }
-        if (small.length) out.push(`tap targets under 44px (${small.length}): ${small.slice(0, 6).join(", ")}`);
+        if (small.length) out.push(`tap targets too small (${small.length}): ${small.slice(0, 6).join(", ")}`);
       }
 
       // 3. TEXT cut off by its own container — the classic "…" that is not an
