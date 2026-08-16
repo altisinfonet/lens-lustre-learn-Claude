@@ -24,7 +24,7 @@
  * If you delete a feature on purpose, delete its entry below too — that is the
  * moment to notice the module is now dead and should go.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { devicePhotosToFiles } from "@/lib/native/gallery";
@@ -174,5 +174,131 @@ describe("a picked photo becomes a File the composer accepts", () => {
 
   it("returns nothing when the member cancels", async () => {
     expect(await devicePhotosToFiles([], fakeFetch("image/jpeg"))).toEqual([]);
+  });
+});
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * A FAILURE MUST NOT LOOK LIKE A CANCELLATION.
+ *
+ * Owner, 2026-08-16: "Create Post : Many times not working."
+ *
+ * `pickGalleryFiles` used to return `File[]`. Both of these came back as `[]`:
+ *
+ *   • the member backed out of Android's picker          — say nothing
+ *   • they chose four photos and none could be read      — say something
+ *
+ * and the composer's answer to `[]` is to return without opening anything. So
+ * a total read failure was indistinguishable, on screen, from the Create
+ * button doing nothing — which is exactly the report.
+ *
+ * These pin the distinction itself. They cannot prove a photo reads on a real
+ * device; they prove the caller is TOLD which of the two happened, which is
+ * what makes the difference between a bug someone can report and a bug they
+ * conclude is "the app being broken".
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+describe("cancelled and failed are not the same answer", () => {
+  const photo = (n: number) => ({ webPath: `capacitor://localhost/_capacitor_file_/p${n}.jpg` });
+
+  /** Installs a fake Camera plugin that hands back `n` photos. */
+  const withPicker = (n: number) => {
+    (globalThis as unknown as { window: Window }).window = globalThis.window ?? ({} as Window);
+    (window as unknown as { Capacitor?: unknown }).Capacitor = {
+      isNativePlatform: () => true,
+      getPlatform: () => "android",
+      Plugins: {
+        Camera: {
+          pickImages: async () => ({ photos: Array.from({ length: n }, (_, i) => photo(i)) }),
+        },
+      },
+    };
+  };
+
+  afterEach(() => {
+    delete (window as unknown as { Capacitor?: unknown }).Capacitor;
+    vi.unstubAllGlobals();
+  });
+
+  it("reports a cancellation as picked: 0, so the caller stays silent", async () => {
+    withPicker(0);
+    const { pickGalleryFiles } = await import("@/lib/native/gallery");
+    const r = await pickGalleryFiles(10);
+    expect(r).toEqual({ files: [], picked: 0, unreadable: 0 });
+  });
+
+  it("reports a TOTAL read failure as picked > 0 with no files — the silent dead end", async () => {
+    withPicker(4);
+    vi.stubGlobal("fetch", async () => { throw new Error("capacitor path revoked"); });
+    const { pickGalleryFiles } = await import("@/lib/native/gallery");
+    const r = await pickGalleryFiles(10);
+    expect(r.picked, "the member did choose photos").toBe(4);
+    expect(r.files.length, "and none of them survived").toBe(0);
+    expect(r.unreadable).toBe(4);
+    // The distinction the whole fix rests on: this is NOT a cancellation.
+    expect(r.picked > 0 && r.files.length === 0).toBe(true);
+  });
+
+  it("reports a PARTIAL loss so the post still opens with what survived", async () => {
+    withPicker(3);
+    let call = 0;
+    vi.stubGlobal("fetch", async () => {
+      call += 1;
+      if (call === 2) throw new Error("one bad photo");
+      return { blob: async () => new Blob(["x"], { type: "image/jpeg" }) } as unknown as Response;
+    });
+    const { pickGalleryFiles } = await import("@/lib/native/gallery");
+    const r = await pickGalleryFiles(10);
+    expect(r.picked).toBe(3);
+    expect(r.files.length, "two of three is better than none").toBe(2);
+    expect(r.unreadable).toBe(1);
+  });
+});
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * "(A) NOTHING OPENS AT ALL" — the owner's own answer, 2026-08-16, when asked
+ * which of three shapes the Create Post failure takes.
+ *
+ * The Camera plugin REJECTS both when the member backs out and when the picker
+ * cannot open. The old `catch` returned `[]` for both, the composer's answer to
+ * `[]` is to close, and so a picker that failed to open was a Create button
+ * that did nothing and said nothing.
+ *
+ * The default matters and is deliberately the unforgiving one: only a message
+ * that actually says "cancel" counts as a cancellation. Anything unrecognised
+ * is treated as a fault, because guessing "cancelled" restores the silence this
+ * exists to remove.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+describe("a picker that cannot open is not a member changing their mind", () => {
+  const withThrowingPicker = (message: string) => {
+    (window as unknown as { Capacitor?: unknown }).Capacitor = {
+      isNativePlatform: () => true,
+      getPlatform: () => "android",
+      Plugins: { Camera: { pickImages: async () => { throw new Error(message); } } },
+    };
+  };
+
+  afterEach(() => { delete (window as unknown as { Capacitor?: unknown }).Capacitor; });
+
+  it.each([
+    "User cancelled photos app",
+    "canceled",
+    "Activity cancelled by user",
+  ])("treats %j as a cancellation and stays silent", async (msg) => {
+    withThrowingPicker(msg);
+    const { pickFromGallery } = await import("@/lib/native/gallery");
+    await expect(pickFromGallery(10)).resolves.toEqual([]);
+  });
+
+  it.each([
+    "Unable to resolve activity",
+    "Permission denied",
+    "",
+  ])("treats %j as a FAILURE and raises so the member is told", async (msg) => {
+    withThrowingPicker(msg);
+    const { pickFromGallery, GalleryPickerError } = await import("@/lib/native/gallery");
+    await expect(pickFromGallery(10)).rejects.toBeInstanceOf(GalleryPickerError);
   });
 });
