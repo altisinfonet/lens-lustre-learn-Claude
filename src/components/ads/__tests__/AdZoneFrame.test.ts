@@ -29,11 +29,9 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { stripComments } from "@/test-utils/sourceText";
 
-const read = (p: string) =>
-  readFileSync(join(process.cwd(), p), "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/^\s*\/\/.*$/gm, "")
+const read = (p: string) => stripComments(readFileSync(join(process.cwd(), p), "utf8"))
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
 
 const adZone = read("src/components/ads/AdZone.tsx");
