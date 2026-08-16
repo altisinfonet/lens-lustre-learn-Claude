@@ -15,13 +15,12 @@ import PostCard from "@/components/post/PostCard";
 import type { UnifiedPost } from "@/types/post";
 import FacebookPhotoGrid from "@/components/FacebookPhotoGrid";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
-import ReactionPicker, { ReactionType, REACTION_EMOJI_MAP } from "@/components/ReactionPicker";
+import type { ReactionType } from "@/components/ReactionPicker";
 import ReactionSummaryTooltip from "@/components/ReactionSummaryTooltip";
 import ShareSummaryTooltip from "@/components/ShareSummaryTooltip";
 import { useReactToPost, useUnreactToPost } from "@/hooks/feed/usePostReactionMutations";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import PageSEO from "@/components/PageSEO";
-import { displayEngagement, formatEngagementCount } from "@/lib/displayEngagement";
 import { avatarInitial } from "@/lib/displayName";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
