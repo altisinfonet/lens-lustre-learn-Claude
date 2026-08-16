@@ -36,6 +36,25 @@ const VIEWPORTS = [
   { name: "android-360", width: 360, height: 800, mobile: true },
   { name: "iphone-390", width: 390, height: 844, mobile: true },
   { name: "desktop-1280", width: 1280, height: 900, mobile: false },
+  /**
+   * THE APP. Not a fourth screen size — a fourth PRODUCT.
+   *
+   * Added 2026-08-16 after the owner found three faults in two minutes that
+   * this sweep had reported clean the same morning. Every one of them was on
+   * the `isNativeCapacitorApp()` path: the composer's missing preview screen,
+   * the wall grid's invisible like/comment counts, a blank gap in the feed.
+   *
+   * The app is NOT the website at a phone width. It takes deliberately
+   * different routes — a two-screen composer instead of three, its own top
+   * bar, tap where the web hovers — and none of that had ever been rendered
+   * here, because nothing set `window.Capacitor`. 63 screenshots, all of them
+   * the website.
+   *
+   * 360 is the width used, because that is the one that breaks things and the
+   * app is phone-only. `native: true` appends `&native=1`, which installs the
+   * Capacitor stub in the harness entry BEFORE any app module loads.
+   */
+  { name: "app-360", width: 360, height: 800, mobile: true, native: true },
 ];
 
 /**
@@ -119,8 +138,11 @@ for (const scene of scenes) {
     });
 
     const file = join(OUT, `${scene}--${vp.name}.png`);
+    // `&native=1` makes the harness install the Capacitor stub, so the page
+    // renders the APP's code path rather than the website's. See VIEWPORTS.
+    const nativeParam = vp.native ? "&native=1" : "";
     await page
-      .goto(`${BASE}/uiharness.html?scene=${encodeURIComponent(scene)}`, {
+      .goto(`${BASE}/uiharness.html?scene=${encodeURIComponent(scene)}${nativeParam}`, {
         waitUntil: "networkidle",
         timeout: 45000,
       })
@@ -416,6 +438,67 @@ for (const scene of scenes) {
       }
       if (off.length) out.push(`off-screen controls (${off.length}): ${off.slice(0, 5).join(", ")}`);
 
+      /**
+       * 4b. DOES A FIXED BAR ACTUALLY COVER CONTENT?
+       *
+       * WHY THIS EXISTS, 2026-08-16. The owner looked at an app-mode
+       * screenshot and said the footer was overlapping the page. He was
+       * reading the image correctly — and the image was lying. A `position:
+       * fixed` bar is painted ONCE in a full-page capture, at wherever the
+       * screen fold happened to be, so it appears to sit on top of content
+       * halfway down every tall screenshot. Measured: at the true bottom of
+       * that page the bar covered nothing at all.
+       *
+       * So the picture cannot answer the question and never could. This
+       * measures it instead: scroll to the bottom, where a fixed bar really
+       * would cover something if the page lacked the padding to clear it, and
+       * ask what is underneath its rectangle.
+       *
+       * `Layout.tsx` reserves `pb-12` (48px) for a 49px bar, so this is a real
+       * risk, not a hypothetical — and it is invisible to every other check.
+       */
+      /**
+       * SCROLLED TO THE BOTTOM, DELIBERATELY, AND RESTORED AFTERWARDS.
+       *
+       * The checks around this one run with the page at the TOP, because the
+       * screenshot is taken from there. Measuring a bottom-anchored bar at the
+       * top of a long page reports every element near the fold as "buried" —
+       * the check would fire on every screen in the app and mean nothing.
+       * Reserved space only runs out at the END of the page, so that is the
+       * one place worth measuring. Scroll position is restored so the
+       * screenshot is still taken from the same place every run.
+       */
+      const scrollBefore = window.scrollY;
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      void document.body.offsetHeight; // force layout so the rects are current
+
+      const fixedBars = [...document.querySelectorAll("*")].filter((el) => {
+        const cs = getComputedStyle(el);
+        if (cs.position !== "fixed" || cs.display === "none" || cs.visibility === "hidden") return false;
+        const r = el.getBoundingClientRect();
+        // bottom-anchored, full-width, and actually on screen
+        return r.height > 8 && r.width > vw * 0.6 && Math.abs(r.bottom - window.innerHeight) < 4;
+      });
+      const buried = [];
+      for (const bar of fixedBars) {
+        const nb = bar.getBoundingClientRect();
+        for (const el of document.querySelectorAll("p,span,h1,h2,h3,button,a,img,input,textarea")) {
+          if (bar.contains(el) || !visible(el)) continue;
+          const r = el.getBoundingClientRect();
+          if (r.width < 8 || r.height < 8) continue;
+          const oy = Math.min(r.bottom, nb.bottom) - Math.max(r.top, nb.top);
+          const ox = Math.min(r.right, nb.right) - Math.max(r.left, nb.left);
+          // >6px of genuine two-axis overlap; a 1px kiss is not a defect.
+          if (oy > 6 && ox > 6) {
+            buried.push(`${path(el)} under the fixed bar by ${Math.round(oy)}px`);
+          }
+        }
+      }
+      window.scrollTo(0, scrollBefore);
+      if (buried.length) {
+        out.push(`content hidden behind a fixed bar (${buried.length}): ${buried.slice(0, 4).join(", ")}`);
+      }
+
       // 5. Images that did not load. A broken photograph on a photography
       //    platform is the worst possible visual bug.
       const broken = [];
@@ -446,6 +529,67 @@ for (const scene of scenes) {
     }, vp.mobile);
     errors.push(...faults.map((f) => `layout: ${f}`));
 
+    /**
+     * PIN BOTTOM-FIXED BARS TO THE END OF THE PAGE BEFORE PHOTOGRAPHING IT.
+     *
+     * WHY, 2026-08-16, and this one cost the owner's trust twice. A
+     * `position: fixed` bar is painted ONCE in a full-page capture, at
+     * whatever height the screen fold happened to be. On a tall screen that
+     * lands it in the MIDDLE of the image, sitting on top of content — so
+     * every screenshot of a screen with a bottom nav looks like the footer is
+     * eating the page. The owner read exactly that, twice, and said so. He was
+     * reading the image correctly; the image was wrong.
+     *
+     * Measuring proved the layout was fine (see the fixed-bar check above,
+     * which scrolls to the bottom where reserved space actually runs out).
+     * But a checker whose PICTURES lie is worthless even when its numbers are
+     * right, because the picture is the thing a human looks at.
+     *
+     * `absolute` + `bottom: 0` puts the bar where it truly ends up once the
+     * page is scrolled to the end — the honest single position for it in a
+     * one-shot image of the whole document. Only bottom-anchored, full-width
+     * bars are touched; a fixed side rail or modal is left exactly as it is.
+     * This runs immediately before the capture and the page is discarded
+     * afterwards, so nothing else can be affected by it.
+     */
+    await page.evaluate(() => {
+      const vw = window.innerWidth;
+      const bars = [];
+      for (const el of document.querySelectorAll("*")) {
+        const cs = getComputedStyle(el);
+        if (cs.position !== "fixed") continue;
+        const r = el.getBoundingClientRect();
+        const bottomAnchored = Math.abs(r.bottom - window.innerHeight) < 4;
+        if (!bottomAnchored || r.width < vw * 0.6 || r.height < 8) continue;
+        bars.push({ el, h: r.height });
+      }
+      /**
+       * REPARENTED TO <body>, AND POSITIONED IN PAGE COORDINATES.
+       *
+       * The first attempt at this just set `position: absolute; bottom: 0` and
+       * it did NOT work — the bar landed in the middle of the document again,
+       * and the owner saw the same false overlap a second time. `absolute`
+       * resolves against the nearest POSITIONED ANCESTOR, not the page, and
+       * the nav sits inside a wrapper that ends well above the document
+       * bottom. So "bottom: 0" meant the bottom of that wrapper.
+       *
+       * Appending to <body> first guarantees the containing block is the page,
+       * and `top` is then set explicitly from the document height rather than
+       * trusting `bottom` to mean what it looks like it means. The height is
+       * measured BEFORE the move, because moving it changes the layout.
+       */
+      const docH = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+      for (const { el, h } of bars) {
+        const s = /** @type {HTMLElement} */ (el).style;
+        document.body.appendChild(el);
+        s.position = "absolute";
+        s.bottom = "auto";
+        s.top = `${Math.max(0, docH - h)}px`;
+        s.left = "0";
+        s.right = "0";
+        s.width = "100%";
+      }
+    });
     await page.screenshot({ path: file, fullPage: true });
     if (errors.length) problems += errors.length;
     rows.push({ scene, viewport: vp.name, file, errors });
