@@ -207,10 +207,50 @@ for (const scene of scenes) {
       //    now pass are 32×44 — full height, deliberately narrow. Nothing that
       //    was a real fault this morning has been silenced: the count went
       //    29 → 26 by FIXING controls, and this rule accounts for two more.
+      //
+      //    A LINK INSIDE A SENTENCE IS NOT A BUTTON, and judging it as one was
+      //    the single biggest source of noise in this check. Measured
+      //    2026-08-15: most of what survived the rule above was a member's
+      //    name in a caption, "See more", "Cookie Policy" — text, 15 to 20px
+      //    tall, sitting in running prose. Making those 44px would wreck the
+      //    typography, so the report could only ever be ignored, and a report
+      //    that is always ignored hides the real ones underneath it.
+      //
+      //    The test is the element's own COMPUTED DISPLAY. An anchor that is
+      //    `inline` IS text — the browser flows it with the words around it.
+      //    Anything a designer built as a control is `inline-flex`, `block`,
+      //    `flex` or `grid`, and those are all still judged. So the avatar link
+      //    (`display: flex`, 32x37) is still reported and the name beside it is
+      //    not, which is exactly the distinction a thumb makes.
+      //
+      //    Buttons are NEVER skipped, whatever their display: a <button> is a
+      //    control by definition.
       if (isMobile) {
         const small = [];
+        /**
+         * Is this anchor a LINE OF TEXT rather than a control?
+         *
+         * First attempt tested `display: inline` and barely helped: a member's
+         * name is styled `block` so it can truncate, and it is still text.
+         * The honest test is the shape — an anchor that holds only words, and
+         * whose box is exactly one line high, has no padding around it. It IS
+         * the text. Give it 44px and the sentence it sits in falls apart.
+         *
+         * An anchor holding an image or an icon (the avatar, 32x37) has a box
+         * taller than its line box and is still judged, which is right: that is
+         * a thing you aim at, not a word you read.
+         */
+        const isFlowedText = (el) => {
+          if (el.tagName !== "A") return false;
+          if (el.querySelector("svg,img,video")) return false;
+          const cs = getComputedStyle(el);
+          const line = parseFloat(cs.lineHeight);
+          if (!Number.isFinite(line)) return false;
+          return Math.abs(el.getBoundingClientRect().height - line) <= 4;
+        };
         for (const el of document.querySelectorAll('button,a[href],[role="button"],input,select,summary')) {
           if (!visible(el)) continue;
+          if (isFlowedText(el)) continue;
           const r = el.getBoundingClientRect();
           const long = Math.max(r.width, r.height);
           const short = Math.min(r.width, r.height);
