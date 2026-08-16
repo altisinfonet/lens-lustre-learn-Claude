@@ -28,11 +28,21 @@
  * of opening the commit's own status checks, which said "Cloudflare Pages —
  * Building ✗" in plain sight.
  *
- * THE FIX is `.npmrc` with `legacy-peer-deps=true`, which changes the resolver
- * and nothing else. An `overrides` block was tried first and REJECTED on
- * measurement: it makes npm reclassify 141 packages from dev to production in
- * the lockfile, and `security.yml` runs `npm audit --omit=dev`, so it would
- * quietly change what the security gate inspects.
+ * THE FIRST FIX was `.npmrc` with `legacy-peer-deps=true`, which changes the
+ * resolver and nothing else. An `overrides` block was tried before it and
+ * REJECTED on measurement: it makes npm reclassify 141 packages from dev to
+ * production in the lockfile, and `security.yml` runs `npm audit --omit=dev`,
+ * so it would quietly change what the security gate inspects.
+ *
+ * THE REAL FIX LANDED 2026-08-16 (PATCHWORK_AUDIT item 3): react-day-picker
+ * v8.10.1 → v10.0.1, whose peer range is `react: >=16.8.0`. `.npmrc` IS NOW
+ * DELETED, and the tests below flipped from "the hold is committed" to "the
+ * hold is gone and cannot come back" — because a resolver flag left lying
+ * around is how the NEXT stale peer range hides for nine hours.
+ *
+ * Verified, not assumed: package.json + package-lock.json were copied to an
+ * empty directory with NO .npmrc and `npm ci` was run there. Exit 0, zero
+ * ERESOLVE.
  *
  * THE LESSON is that a gate which runs against an existing `node_modules`
  * cannot see a resolution failure, so the manifest has to be checked directly —
@@ -51,19 +61,40 @@ const lock = JSON.parse(readFileSync(join(root, "package-lock.json"), "utf8"));
 const majorOf = (range: string) => Number(String(range).replace(/^[^\d]*/, "").split(".")[0]);
 
 describe("nothing in the manifest can block a clean install", () => {
-  it("the resolver setting that makes `npm ci` succeed is committed", () => {
-    // Without this, `npm ci` exits non-zero and NO build gets past its first
-    // step — not the website, not the Android app, not CI.
-    const npmrc = readFileSync(join(root, ".npmrc"), "utf8");
-    expect(npmrc).toMatch(/^legacy-peer-deps\s*=\s*true$/m);
+  it("the legacy-peer-deps hold is GONE — the peer ranges are honest now", () => {
+    // `legacy-peer-deps=true` tells npm to ignore peer conflicts entirely. It
+    // kept the site deployable while react-day-picker was stuck on v8, and it
+    // also blinded the resolver to EVERY other conflict. With v10 in place it
+    // is not needed, and leaving it would mean the next stale peer range hides
+    // exactly the way this one did.
+    let npmrc: string | null = null;
+    try {
+      npmrc = readFileSync(join(root, ".npmrc"), "utf8");
+    } catch {
+      npmrc = null; // the expected state
+    }
+    expect(
+      npmrc,
+      ".npmrc is back. If a package needs it again, fix the package — and if " +
+        "the hold is genuinely unavoidable, say so here with the package name " +
+        "and the date rather than deleting this test.",
+    ).toBeNull();
   });
 
-  it(".npmrc explains itself, because a bare flag invites deletion", () => {
-    const npmrc = readFileSync(join(root, ".npmrc"), "utf8");
-    expect(npmrc).toMatch(/react-day-picker/);
-    expect(npmrc).toMatch(/ERESOLVE/);
-    // And it must say plainly that it is temporary, or it becomes permanent.
-    expect(npmrc).toMatch(/HOLD, NOT THE CURE/);
+  it("no other npm config file smuggles the same flag back in", () => {
+    // .npmrc is the obvious one. These are the ones a "quick fix" reaches for
+    // when the test above starts failing.
+    for (const f of [".npmrc", ".yarnrc", ".yarnrc.yml", "bunfig.toml"]) {
+      let body = "";
+      try {
+        body = readFileSync(join(root, f), "utf8");
+      } catch {
+        continue;
+      }
+      expect(body, `${f} disables peer-dependency resolution`).not.toMatch(
+        /legacy-peer-deps|strict-peer-dependencies\s*=\s*false/,
+      );
+    }
   });
 
   it("the manifest and lockfile are NOT edited to work around it", () => {
@@ -76,12 +107,12 @@ describe("nothing in the manifest can block a clean install", () => {
     expect(lock.packages?.[""]?.overrides).toBeUndefined();
   });
 
-  it("react-day-picker is still the one that needs the real fix", () => {
-    // When it goes to v9 (React 19-ready), .npmrc should be revisited. This
-    // test is the reminder, and it fails loudly the day someone upgrades it —
-    // which is exactly when the question should be asked.
+  it("react-day-picker is on the major that fixed it", () => {
+    // v8 is what caused the outage. Pinning the major here means a downgrade —
+    // by a revert, a merge, or a "that version worked" hunch — fails in
+    // seconds instead of taking the website down again.
     const range = pkg.dependencies["react-day-picker"];
-    expect(majorOf(range)).toBe(8);
+    expect(majorOf(range)).toBeGreaterThanOrEqual(10);
   });
 
   it("every package that peers on React is either React 19-ready or known", () => {
@@ -93,10 +124,11 @@ describe("nothing in the manifest can block a clean install", () => {
     const reactMajor = majorOf(pkg.dependencies.react);
     expect(reactMajor).toBe(19);
 
-    // Named, with the reason, rather than pattern-matched away.
-    const KNOWN: Record<string, string> = {
-      "react-day-picker": "v8 peers on React <=18; held by .npmrc until v9",
-    };
+    // Named, with the reason, rather than pattern-matched away. EMPTY as of
+    // 2026-08-16: react-day-picker was the last entry and v10 removed the
+    // need for it. An entry added here must carry a package name, a reason
+    // and a date — an exemption without one is how the last outage started.
+    const KNOWN: Record<string, string> = {};
 
     const offenders: string[] = [];
     for (const [name, entry] of Object.entries<Record<string, unknown>>(lock.packages ?? {})) {

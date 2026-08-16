@@ -109,30 +109,45 @@ describe("no source file uses an API React 19 removed", () => {
   }
 });
 
-describe("the one package deliberately left on a React 18 peer range", () => {
+describe("no package is left on a React 18 peer range any more", () => {
   /**
-   * react-day-picker@8 declares `^16.8 || ^17 || ^18`, so npm warns. It was
-   * NOT upgraded, and the reason is recorded here rather than left as a
-   * mystery for the next person:
+   * HISTORY, kept because the shape of the bug matters more than the fix.
    *
-   *  • It was CHECKED, not assumed: v8's bundle contains zero uses of
-   *    findDOMNode, ReactDOM.render, createFactory, defaultProps, propTypes or
-   *    string refs — nothing React 19 removed. The stale peer range is a
-   *    packaging fact, not a runtime one.
-   *  • v9/v10 rename the pieces this app actually uses — `components.IconLeft`
-   *    and `IconRight` became a single `Chevron`, and the classNames keys
-   *    changed — so upgrading rewrites src/components/ui/calendar.tsx.
-   *  • That calendar is the post SCHEDULER. Rewriting it belongs in its own
-   *    cycle with its own screenshots, not bolted onto a framework upgrade
-   *    whose whole point is that nothing else changes.
+   * The React 18 → 19 upgrade (2026-08-15) left react-day-picker on v8, whose
+   * peer range stops at React 18. Nothing on a populated machine noticed —
+   * typecheck, tests and build all stayed green — but every clean checkout
+   * died on ERESOLVE, which meant Cloudflare Pages, both GitHub Actions
+   * workflows, and the Android build. The website silently stopped updating
+   * for nine hours and the OWNER found it, not me.
+   *
+   * `.npmrc legacy-peer-deps=true` was the hold. This is the cure: v10.0.1,
+   * whose peer range is `react: >=16.8.0`. Verified by running `npm ci` from
+   * a copy of package.json + package-lock.json with NO .npmrc present —
+   * exit 0, no ERESOLVE. The .npmrc is deleted; `cleanInstallResolves.test.ts`
+   * asserts it stays deleted.
+   *
+   * v9 was the other candidate and was rejected on measurement, not taste:
+   * 9.14 hard-depends on date-fns-jalali AND a hijri converter; v10 carries
+   * only date-fns + @date-fns/tz.
    */
-  it("is react-day-picker, still on v8, and this is on purpose", () => {
-    expect(installed("react-day-picker")).toMatch(/^8\./);
+  it("react-day-picker is on v10 — the version that peers on React 19", () => {
+    expect(installed("react-day-picker")).toMatch(/^10\./);
   });
 
-  it("v8 still uses none of the APIs React 19 removed", () => {
+  it("its declared peer range actually admits React 19", () => {
+    // The whole point of the upgrade. Asserting the VERSION alone would pass
+    // against a hypothetical v10 that still capped at React 18 — read the
+    // range and check it, rather than trusting the number.
+    const peers = JSON.parse(
+      readFileSync(join(root, "node_modules/react-day-picker/package.json"), "utf8"),
+    ).peerDependencies as Record<string, string>;
+    expect(peers.react).toBe(">=16.8.0");
+    expect(peers.react).not.toMatch(/\^18|<\s*19/);
+  });
+
+  it("uses none of the APIs React 19 removed", () => {
     const bundle = readFileSync(
-      join(root, "node_modules/react-day-picker/dist/index.js"),
+      join(root, "node_modules/react-day-picker/dist/cjs/index.js"),
       "utf8",
     );
     for (const banned of ["findDOMNode", "createFactory", "ReactDOM.render"]) {
