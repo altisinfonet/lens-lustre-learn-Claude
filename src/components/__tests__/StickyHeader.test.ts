@@ -79,9 +79,17 @@ describe("the header sticks on web", () => {
 describe("the nav keeps its own appearance", () => {
   const navbar = readFileSync(join(process.cwd(), "src/components/Navbar.tsx"), "utf8");
 
-  it("still paints a background and border when not transparent", () => {
-    // Without these the sticky bar would show page content straight through it.
-    expect(navbar).toMatch(/border-b border-border/);
+  it("still paints a background when not transparent", () => {
+    // Without this the sticky bar would show page content straight through it.
+    //
+    // ⚠ THE BORDER ASSERTION WAS REMOVED ON PURPOSE, 2026-08-15, not to make a
+    // test pass. The owner asked for it gone — "I want line be remove one top
+    // menus" — which is the same instruction he gave for the post card on
+    // 2026-08-10: "I told No border anything to anywhere, example like
+    // Instagram". The blur and the translucent background are what separate the
+    // bar from the page now, and BOTH are still asserted below, so the original
+    // worry (page content showing straight through) is still covered.
+    expect(navbar).not.toMatch(/border-b border-border/);
     expect(navbar).toMatch(/bg-background\/80/);
     expect(navbar).toMatch(/backdrop-blur/);
   });
