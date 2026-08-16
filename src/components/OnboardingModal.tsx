@@ -598,10 +598,16 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
                       if (d) setDobError(differenceInYears(new Date(), d) < 18 ? "You must be at least 18 years old" : "");
                     }}
                     disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                    captionLayout="dropdown-buttons"
-                    fromYear={1940}
-                    toYear={new Date().getFullYear() - 18}
-                    initialFocus
+                    // react-day-picker v10: `dropdown-buttons` is gone —
+                    // `dropdown` draws BOTH dropdowns and keeps the arrows.
+                    // `fromYear`/`toYear` became `startMonth`/`endMonth` and
+                    // take Dates, not numbers. Kept as January of 1940 and
+                    // December of the newest year a member may claim, so the
+                    // 18-year floor below is still the only age rule.
+                    captionLayout="dropdown"
+                    startMonth={new Date(1940, 0)}
+                    endMonth={new Date(new Date().getFullYear() - 18, 11)}
+                    autoFocus
                     className={cn("p-3 pointer-events-auto")}
                   />
                 </PopoverContent>
