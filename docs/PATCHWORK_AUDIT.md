@@ -51,14 +51,55 @@ computed AFTER the card paints, so it reflowed under the member's thumb — whic
 is what he reported hours later as "reactions shifting". Moving them off the row
 entirely was the design fix; the width fix only made the symptom smaller.
 
-## 4. `.npmrc legacy-peer-deps=true` — a hold, not a cure. OPEN.
+## 4. `.npmrc legacy-peer-deps=true` — a hold, not a cure. CLOSED 2026-08-16.
+
+> **Numbering note.** In conversation with the owner this was **"item 3"** and
+> §6 below was **"item 5"** — the spoken list skipped the already-closed
+> entries. Same work, two numbers. Recorded so neither list reads as a
+> different job.
 
 `react-day-picker@8` peers on React ≤18, so every clean install failed after the
-React 19 upgrade. The flag makes the resolver permit it. The cure is
-**react-day-picker v9**, which supports React 19 — a small migration on the
-Calendar component, with visible UI that should go through the screenshot
-harness. The `.npmrc` says so in its own comment and a test asserts the package
-is still v8, so the day someone upgrades it, the question gets asked.
+React 19 upgrade. The flag made the resolver permit it.
+
+**The cure, applied: react-day-picker 8.10.1 → 10.0.1**, whose peer range is
+`react: >=16.8.0`. **`.npmrc` is deleted.**
+
+- **v9 was rejected on measurement, not taste.** 9.14 hard-depends on
+  `date-fns-jalali` *and* a hijri converter; v10 carries only `date-fns` +
+  `@date-fns/tz`. Fewer bytes to a member on mobile data.
+- **Proved, not assumed:** `package.json` + `package-lock.json` copied to an
+  empty directory with **no `.npmrc`**, `npm ci` run there → exit 0, zero
+  ERESOLVE.
+- **Bundle cost: none.** 439.44 kB gzip before → 439.42 kB after.
+- **`security.yml` still passes.** Its gate is
+  `npm audit --omit=dev --audit-level=critical`; re-run after the upgrade → exit 0.
+- **Both lockfiles regenerated** — `package-lock.json` *and* `bun.lock`, the one
+  Cloudflare actually installs from. §5's whole lesson.
+
+**The trap this migration walked into, and why the harness earned its keep.**
+v9 renamed *every* `classNames` key and moved the DOM the classes land on.
+`classNames` is a partial record, so a key that is not renamed does not throw
+and does not fail typecheck — it is silently ignored and that part of the
+calendar renders as unstyled browser default. Typecheck passed on the first
+attempt. **The screenshot did not:** month/year dropdowns gone, both nav arrows
+stacked in the top-left corner, the selected day unhighlighted. Two harness
+scenes (`calendar-plain`, `calendar-dob`) were added *before* the upgrade so
+the before and after could be compared as pixels.
+
+The one structural change worth knowing: in v8 the state class (`day_selected`,
+`day_today`) landed on the **button**; in v10 it lands on the **cell**, and the
+button is a separate child. `[&>button]:…` is how the cell reaches its button.
+
+Two lockfile lessons banked on the way:
+- Regenerating `package-lock.json` from scratch **dropped 103 entries** — every
+  one a per-platform optional binary (`@esbuild/*`, `@img/sharp-*`, rollup) —
+  making the lockfile machine-specific. Reverted; a targeted
+  `npm install react-day-picker@10.0.1` changed **2 entries and removed none**.
+- `svgo` is absent from both lockfiles (an *optional* peer of
+  `vite-plugin-image-optimizer`), so SVGs ship unoptimised. **Pre-existing, not
+  caused by this change** — the build warns and exits 0. Left alone deliberately:
+  adding a dependency days before an Android build is the kind of quiet change
+  that causes the next outage. Logged here so it is not lost.
 
 ## 5. One upgrade, two lockfiles, neither updated. FIXED, but no process exists.
 
@@ -67,18 +108,38 @@ The React 18 → 19 upgrade changed `package.json` and updated **neither**
 React 18. npm's failure broke CI and the Android build; bun's broke the WEBSITE,
 which stopped deploying for nine hours without anyone noticing.
 
-Fixed, but **OPEN as a process**: nothing checks that every lockfile in the repo
-agrees with the manifest. `src/__tests__/cleanInstallResolves.test.ts` covers
-npm only. It should cover `bun.lock` too.
+**CLOSED 2026-08-16 as a process too.** `cleanInstallResolves.test.ts` now
+covers **both** lockfiles: it parses `bun.lock` (stripping its trailing commas)
+and fails if any manifest range disagrees, in either direction. A third
+lockfile appearing in the repo also fails the test, because an unchecked
+lockfile is exactly how the website went dark. Proved by the v10 upgrade above:
+the test caught `bun.lock` still pinning v8 before it could reach Cloudflare.
 
-## 6. The comment stripper — fixed in 3 files, left in ~30. OPEN.
+## 6. The comment stripper — fixed in 3 files, left in ~30. CLOSED 2026-08-16.
+
+> Called **"item 5"** in conversation with the owner. See the numbering note in §4.
 
 `src/test-utils/sourceText.ts` exists because a naive regex treated
 `accept="image/*"` as the start of a block comment and deleted ~400 lines of the
 file two tests then asserted against. I migrated the two that were failing and
-one of mine. **About thirty other test files still carry their own copy of the
-broken regex.** They are green today for the same reason those two were green
-for weeks: luck about which `*/` comes next.
+one of mine. **About thirty other test files still carried their own copy of the
+broken regex.** They were green for the same reason those two were green for
+weeks: luck about which `*/` came next.
+
+**Done: 41 chain sites across 33 files** now call `stripComments()`. Landed in
+nine commits (`test: use the safe comment stripper (1/9)` … `(9/9)`) and every
+file verified with `git hash-object` against `git rev-parse origin/main:<path>`.
+
+Two things worth recording, because both were mistakes:
+- **Automating this failed twice.** A first pass deleted the chain outright; a
+  second wrapped it with a regex and broke four files. The third used a
+  backward bracket-balancing parser and four files still needed hand-fixing —
+  two imports landed *inside* a multi-line import block, one `return` was
+  swallowed, one file had a local `stripComments` the insert shadowed.
+- **Green is not proof.** Two migrated tests were mutated destructively
+  (`WallPosts` `space-y-0`→`space-y-4`; `Navbar` `bg-background/80`→`/10`) to
+  confirm the alarms still fire. Both caught. A migration that silences a test
+  looks identical to one that works.
 
 ## 7. Surfaces that draw engagement outside `PostCard`. CLOSED — ruled 2026-08-15.
 
