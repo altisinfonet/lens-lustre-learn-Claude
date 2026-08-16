@@ -57,9 +57,16 @@ const SiteFooter = () => {
           Cookie Policy
         </Link>
 
+        {/* min-h-11 = 44px. This was 59x17 and it is the ONE control in this
+            footer — every other item here is a <Link>, which the sweep treats
+            as flowing text because it is. A button is a control by definition,
+            it opens the cookie preferences dialog, and it was reported on
+            EVERY screen in the app because this footer is shared. The height
+            is on the tap area only: `py-0 leading-none` keeps the row from
+            growing, so the footer looks identical. */}
         <button
           onClick={() => setShowPreferences(true)}
-          className="inline-flex items-center gap-1 hover:text-primary transition-colors"
+          className="inline-flex min-h-11 items-center gap-1 py-0 leading-none hover:text-primary transition-colors"
         >
           <Cookie className="w-3 h-3" />
           Cookies
