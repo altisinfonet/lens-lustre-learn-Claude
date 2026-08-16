@@ -101,7 +101,35 @@ if (params.get("native") === "1") {
   (window as unknown as { Capacitor?: unknown }).Capacitor = {
     isNativePlatform: () => true,
     getPlatform: () => "android",
-    Plugins: {},
+    Plugins: {
+      /**
+       * THE BUILD LABEL BESIDE LOGOUT — stubbed 2026-08-16, and the owner had
+       * to ask twice before I checked instead of asserting.
+       *
+       * He looked at a screenshot of the account sheet and said: "Where is app
+       * version before logout button ?? like now ??" I told him it was still
+       * there and that the harness simply could not resolve a version. That
+       * was TRUE and it was not good enough — "trust me, it appears on your
+       * phone" is exactly the kind of claim this whole harness exists to stop
+       * anyone making.
+       *
+       * `getAppVersionLabel()` reads `Capacitor.Plugins.App.getInfo()` and
+       * returns "" when there is no App plugin, and `AppVersionLabel` renders
+       * nothing for "". The stub's `Plugins` bag was empty, so the label was
+       * absent from every app-mode screenshot ever taken — and its LAYOUT, a
+       * `flex-1` sharing the footer row with Logout, had therefore never been
+       * photographed either. That is a real blind spot, not just a missing
+       * decoration: the row looks completely different with it.
+       *
+       * The numbers are the ones the workflow stamps for this build. They are
+       * fixed so two runs produce identical pixels (the scene rule), and this
+       * remains a STUB, not an emulator — nothing here proves the plugin works
+       * on a device, only that the row is drawn correctly when it answers.
+       */
+      App: {
+        getInfo: async () => ({ build: "1095", version: "1.2.7" }),
+      },
+    },
   };
 }
 
