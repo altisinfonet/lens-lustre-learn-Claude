@@ -86,25 +86,33 @@ describe("the website's build cannot be broken by this", () => {
   });
 
   /**
-   * ⚠ NOT ASSERTED HERE, DELIBERATELY, AND IT MUST NOT BE FORGOTTEN.
+   * THE LINE HAS LANDED — THIS IS NOW A REAL ASSERTION. 2026-08-16.
    *
-   * The app half of this fix also needs `@capacitor/filesystem` added to the
-   * plugin install step in `.github/workflows/android-build.yml`.
+   * It was held back on purpose. `.github/workflows/android-build.yml` is one
+   * of the two BUILD TRIGGERS (`on.push.paths`), so editing it starts an
+   * Android build the moment it merges, and the owner's standing rule is that
+   * a build is cut only when he asks. Rather than ship a knowingly-red test to
+   * main, the placeholder below documented which of the two states we were in
+   * and said plainly that it would become an assertion the day the line
+   * landed. That day is today: the plugin is installed AND version-checked in
+   * the workflow, so the promise is kept rather than quietly forgotten.
    *
-   * That file is ONE OF THE TWO BUILD TRIGGERS (`on.push.paths`), so editing it
-   * starts an Android build the moment it merges. The owner's standing rule is
-   * that a build is cut only when he asks — so the one-line workflow change is
-   * held back and goes in WITH the build he asks for, not before it.
-   *
-   * Asserting it here would mean shipping a knowingly-red test to main, which
-   * is its own bad habit. It is asserted the moment that line lands; until
-   * then this comment is the record. Reference so it is not lost:
-   * `workflow` is read above and is ready for the assertion.
+   * Without this plugin the app's saveBlob() falls through to
+   * SAVE_NEEDS_UPDATE_MESSAGE and NOTHING downloads on a phone — which is the
+   * exact bug this whole file exists for. A silent drop from the install list
+   * would bring it back with no test failing anywhere else.
    */
-  it("records that the plugin install is still pending the build", () => {
-    // Green either way — it documents which of the two states we are in, and
-    // becomes a real assertion when the workflow line lands.
-    const installed = /@capacitor\/filesystem/.test(workflow);
-    expect(typeof installed).toBe("boolean");
+  it("the Android build installs @capacitor/filesystem — saving depends on it", () => {
+    expect(workflow).toMatch(/@capacitor\/filesystem@\d+\.\d+\.\d+/);
+  });
+
+  it("...and pins its version, so a floating range cannot change the app silently", () => {
+    // Every other plugin in that step is pinned exactly. An unpinned one would
+    // mean two builds from the same commit could contain different code.
+    const pinned = workflow.match(/@capacitor\/filesystem@(\d+\.\d+\.\d+)/);
+    expect(pinned, "@capacitor/filesystem must be pinned to an exact version").not.toBeNull();
+    // and the version-check step must verify the same plugin, or the pin is
+    // decorative — nothing would notice if npm resolved something else.
+    expect(workflow).toMatch(new RegExp(`check @capacitor/filesystem ${pinned![1].replace(/\./g, "\\.")}`));
   });
 });
