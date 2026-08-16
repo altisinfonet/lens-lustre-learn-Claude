@@ -66,6 +66,45 @@ const name = params.get("scene") ?? "";
  */
 installFakeBackend({ routes: fixtureRoutes, signedIn: !isSignedOutScene(name) });
 
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * `?native=1` — PHOTOGRAPH THE APP, NOT JUST THE WEBSITE.
+ *
+ * THE HOLE THIS FILLS, and it is the reason the owner kept finding faults the
+ * sweep had just called clean. 2026-08-16, in about two minutes on his phone,
+ * he found three: the composer had no preview/crop screen, the wall grid's
+ * like and comment counts were invisible, and a blank gap sat in the feed. The
+ * sweep had reported "63 screenshots, 0 problems" the same morning.
+ *
+ * All three live behind `isNativeCapacitorApp()`. That reads
+ * `window.Capacitor.isNativePlatform()`, and NOTHING in this harness ever set
+ * `window.Capacitor` — so it returned false on every run since the harness was
+ * written. `appFlow` was false in all 63 screenshots. The app's own code path
+ * had never been rendered ONCE, let alone looked at.
+ *
+ * A checker that silently tests only half the product is worse than no checker,
+ * because it issues a clean bill of health for the half it never opened.
+ *
+ * This must run BEFORE the dynamic import below, for the same reason the fake
+ * backend does: app modules read this at module scope, and an import hoisted
+ * above it would see the website again.
+ *
+ * The stub is deliberately MINIMAL — `isNativePlatform` and an empty `Plugins`
+ * bag. It is not a Capacitor emulator and must not grow into one: anything that
+ * genuinely needs a native plugin (the camera, the share sheet) cannot be
+ * proven here and must still be tested on a real device. What it DOES prove is
+ * every layout decision the app makes differently from the web, which is where
+ * all three of those faults were.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+if (params.get("native") === "1") {
+  (window as unknown as { Capacitor?: unknown }).Capacitor = {
+    isNativePlatform: () => true,
+    getPlatform: () => "android",
+    Plugins: {},
+  };
+}
+
 const { SCENES } = await import("./scenes");
 const scene = SCENES[name];
 

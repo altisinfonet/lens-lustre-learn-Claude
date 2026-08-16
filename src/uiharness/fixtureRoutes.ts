@@ -22,6 +22,7 @@
 
 import type { FakeRoute } from "./fakeBackend";
 import {
+  HARNESS_USER_ID,
   adCreatives, categories, certificates, dashboardInit, follows, posts,
   postComments, postReactions, profiles, profilesPublicData, siteSettings, userRoles,
 } from "./fixtures";
@@ -39,6 +40,16 @@ const TABLES: Record<string, unknown[]> = {
   follows,
   post_reactions: postReactions,
   ad_creatives: adCreatives,
+  /**
+   * The profile header's follower/following counts, added 2026-08-16 with the
+   * Instagram-style header. Deliberately FOUR-DIGIT and uneven: a fixture of
+   * 0 and 0 would photograph as "0 0" and prove nothing about whether the row
+   * still aligns once real numbers arrive. 1,204 is wide enough to push the
+   * columns apart and to exercise `toLocaleString`'s separator.
+   */
+  profile_stats: [
+    { user_id: HARNESS_USER_ID, followers_count: 1204, following_count: 87, friends_count: 41 },
+  ],
 };
 
 /**

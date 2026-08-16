@@ -22,7 +22,7 @@
 
 import { Suspense, lazy, type JSX } from "react";
 import AppShell from "./AppShell";
-import { posts } from "./fixtures";
+import { posts, HARNESS_USER_ID } from "./fixtures";
 import { unmatched } from "./fakeBackend";
 
 /**
@@ -36,6 +36,7 @@ const Feed = lazy(() => import("@/pages/Feed"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const PostDetail = lazy(() => import("@/pages/PostDetail"));
 const NotificationSettings = lazy(() => import("@/pages/NotificationSettings"));
+const PublicProfile = lazy(() => import("@/pages/PublicProfile"));
 
 function Loading() {
   return (
@@ -93,8 +94,40 @@ export const REAL_SCREENS: Record<string, () => JSX.Element> = {
   /** The main feed, signed in, with the awkward fixture set. */
   "screen-feed": () => screen(<Feed />, "/feed", "/feed"),
 
-  /** My Wall — the grid the owner redesigned across four rounds. */
+  /** The ACCOUNT screen — About | Settings. Not the wall; see below. */
   "screen-profile": () => screen(<Profile />, "/profile", "/profile"),
+
+  /**
+   * THE WALL — Wall | Works | About, the photo grid, the Grid/Feed toggle.
+   *
+   * ADDED 2026-08-16, and its absence was a real hole. The owner sent a
+   * screenshot of this page asking for the Instagram header, and I changed
+   * `Profile.tsx` instead — the account screen, which shares neither its tabs
+   * nor its content. Nothing caught that, because THIS PAGE HAD NO SCENE: the
+   * sweep had never rendered it, on any width, in any mode.
+   *
+   * `screen-profile` being named "My Wall" in its old comment is very likely
+   * how I talked myself into it. The two names are now accurate.
+   */
+  "screen-wall": () =>
+    screen(<PublicProfile />, `/profile/${HARNESS_USER_ID}`, "/profile/:userId"),
+
+  /**
+   * SOMEONE ELSE'S WALL — the visitor view, and the ONLY place the Follow /
+   * Add Friend / Message row exists.
+   *
+   * ADDED 2026-08-16 because the owner asked "Where is add frind Follow
+   * button ??" and neither of us could answer from a screenshot: every wall
+   * scene so far has been HIS OWN profile, where `isOwner` hides that entire
+   * row. So the row had never been photographed once, and it was still
+   * wearing 9px uppercase tracked text in a bordered pill.
+   *
+   * A second user id is all it takes. The lesson is the same one the app-mode
+   * gap taught: a scene that only covers the happy path you happen to be
+   * standing in is a scene that certifies half the screen.
+   */
+  "screen-wall-visitor": () =>
+    screen(<PublicProfile />, "/profile/22222222-2222-4222-8222-222222222222", "/profile/:userId"),
 
   /** One post, open, with comments. `path` carries the id or the page
    *  renders its not-found state and photographs as a tidy empty screen. */
