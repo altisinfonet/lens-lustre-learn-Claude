@@ -30,6 +30,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { stripComments } from "@/test-utils/sourceText";
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 const layout = read("src/components/Layout.tsx");
@@ -83,9 +84,7 @@ describe("the modal asks, and takes no for an answer", () => {
  * search matches the EXPLANATION and reports the gate as present when it is
  * not. Same trap the mojibake scan fell into against its own documentation.
  */
-const layoutCode = layout
-  .replace(/\/\*[\s\S]*?\*\//g, "")
-  .replace(/^\s*\/\/.*$/gm, "");
+const layoutCode = stripComments(layout);
 
 /**
  * THE PROMPT WENT FURTHER THAN "DISMISSIBLE" — IT WENT AWAY.
@@ -170,9 +169,7 @@ describe("the photo prompt is gone, and the gate must never come back", () => {
     // Comments stripped again: profilePhoto.ts names both symbols in a
     // "REMOVED 2026-08-05 — DO NOT BRING THEM BACK" note, and asserting on the
     // raw file matched that warning instead of real code.
-    const profilePhotoCode = read("src/lib/profilePhoto.ts")
-      .replace(/\/\*[\s\S]*?\*\//g, "")
-      .replace(/^\s*\/\/.*$/gm, "");
+    const profilePhotoCode = stripComments(read("src/lib/profilePhoto.ts"));
     expect(profilePhotoCode).not.toContain("PROFILE_PHOTO_REQUIRED_MESSAGE");
     expect(profilePhotoCode).not.toContain("isMissingPhotoError");
   });

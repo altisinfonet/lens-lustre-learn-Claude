@@ -40,6 +40,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { stripComments } from "@/test-utils/sourceText";
 
 const src = readFileSync(join(process.cwd(), "src/components/MentionInput.tsx"), "utf8");
 
@@ -47,10 +48,7 @@ const src = readFileSync(join(process.cwd(), "src/components/MentionInput.tsx"),
 const buttonJsx = (() => {
   const start = src.indexOf("showSendButton && value.trim()");
   expect(start, "the send button block moved — update this test").toBeGreaterThan(-1);
-  return src
-    .slice(start, src.indexOf("</button>", start))
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/\/\/.*$/gm, "");
+  return stripComments(src.slice(start, src.indexOf("</button>", start)));
 })();
 
 /** Tailwind h-11/w-11 = 2.75rem = 44px. h-4/w-4 = 1rem = 16px. */
@@ -98,7 +96,7 @@ describe("the comment send button is reachable with a thumb", () => {
   it("cannot post the same comment twice when both events arrive", () => {
     // The two handlers must share a guard. Without it, pointerdown + click on a
     // desktop browser would post a comment twice.
-    const body = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    const body = stripComments(src).replace(/\/\/.*$/gm, "");
     expect(body).toMatch(/sentRef/);
     expect(body).toMatch(/onSubmit\(\)/);
   });
@@ -121,7 +119,7 @@ describe("the box is multi-line, the way Instagram's is", () => {
     // react-mentions renders <input type="text"> when `singleLine` is set and
     // <textarea> when it is not. Instagram, Facebook and WhatsApp all use a
     // textarea for comments. Owner's decision, 2026-08-03.
-    const body = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    const body = stripComments(src).replace(/\/\/.*$/gm, "");
     expect(body).not.toMatch(/^\s*singleLine\s*$/m);
   });
 
@@ -172,7 +170,7 @@ describe("the box is multi-line, the way Instagram's is", () => {
     //
     // The fix is a `relative` div wrapping ONLY the field. These assertions pin
     // that structure.
-    const body = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    const body = stripComments(src).replace(/\/\/.*$/gm, "");
 
     // the outer wrapper must NOT be the positioning context
     expect(body).toMatch(/className=\{`flex-1 mention-input-wrapper \$\{className\}`\}/);
@@ -198,7 +196,7 @@ describe("the keyboard behaves like Instagram's", () => {
     // Deliberate reversal, 2026-08-03. enterKeyHint="send" was correct while
     // the box was single-line and the 24px button was unusable. Now Enter
     // inserts a new line on touch, so a key labelled "Send" would lie.
-    const body = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    const body = stripComments(src).replace(/\/\/.*$/gm, "");
     expect(body).not.toMatch(/enterKeyHint/);
   });
 
@@ -209,7 +207,7 @@ describe("the keyboard behaves like Instagram's", () => {
   it("only submits on Enter when the pointer is not a finger", () => {
     // Phones have no Shift key. If Enter posted on touch, a member could never
     // write a second line — which would defeat the whole point of the change.
-    const body = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    const body = stripComments(src).replace(/\/\/.*$/gm, "");
     expect(body).toMatch(/\(pointer:\s*coarse\)/);
     expect(body).toMatch(/if\s*\(isTouch\(\)\)\s*return/);
     expect(body).toMatch(/if\s*\(e\.shiftKey\)\s*return/);

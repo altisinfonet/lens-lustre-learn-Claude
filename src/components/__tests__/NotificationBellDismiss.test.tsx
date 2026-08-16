@@ -46,6 +46,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter, useNavigate } from "react-router-dom";
 import { readFileSync } from "node:fs";
 import NotificationBell from "@/components/NotificationBell";
+import { stripComments } from "@/test-utils/sourceText";
 
 /* ── hermetic mocks: no network, no auth, no sound ───────────────────────────
    NOTE the omission: framer-motion is NOT mocked. That is the point of this
@@ -234,9 +235,7 @@ describe("the architectural decision is pinned, not just the behaviour", () => {
     // constructs are gone, and that explanation must not be what trips the
     // assertion — a test that fails because of its own documentation is worse
     // than no test.
-    const src = raw
-      .replace(/\/\*[\s\S]*?\*\//g, "")
-      .replace(/^\s*\/\/.*$/gm, "");
+    const src = stripComments(raw);
 
     expect(
       src.includes("AnimatePresence"),

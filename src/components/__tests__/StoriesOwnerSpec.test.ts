@@ -15,11 +15,9 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { STORY_DISPLAY_MS } from "@/lib/storyTiming";
+import { stripComments } from "@/test-utils/sourceText";
 
-const read = (rel: string) =>
-  readFileSync(join(__dirname, "..", "..", "..", "src", rel), "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/^\s*\/\/.*$/gm, "")
+const read = (rel: string) => stripComments(readFileSync(join(__dirname, "..", "..", "..", "src", rel), "utf8"))
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
 
 const feed = read("components/feed/FeedStoriesBar.tsx");

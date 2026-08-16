@@ -20,12 +20,11 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { stripComments } from "@/test-utils/sourceText";
 
 const read = (rel: string) =>
   readFileSync(join(__dirname, "..", "..", "..", "src", rel), "utf8")
-    // strip block + line comments so pins match code, not prose
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/^\s*\/\/.*$/gm, "");
+    // strip block + line comments so pins match code, stripComments(not prose);
 
 describe("useLastActive writes the origin, not just the time", () => {
   const src = read("hooks/core/useLastActive.ts");

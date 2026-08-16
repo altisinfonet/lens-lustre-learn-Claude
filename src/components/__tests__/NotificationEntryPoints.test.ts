@@ -20,6 +20,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { stripComments } from "@/test-utils/sourceText";
 
 /** Every source file under src/, excluding tests. */
 function sourceFiles(dir: string, out: string[] = []): string[] {
@@ -41,11 +42,10 @@ const files = sourceFiles(ROOT);
 /** Files that link to /notifications, ignoring the route definition itself. */
 const linkers = files.filter((f) => {
   if (f.endsWith(join("src", "App.tsx"))) return false; // the <Route>, not a link
-  const src = readFileSync(f, "utf8")
+  const src = stripComments(readFileSync(f, "utf8")
     .split("\n")
     .map((l) => l.replace(/\/\/.*$/, ""))
-    .join("\n")
-    .replace(/\/\*[\s\S]*?\*\//g, "");
+    .join("\n"));
   return /["'`]\/notifications["'`]/.test(src);
 });
 

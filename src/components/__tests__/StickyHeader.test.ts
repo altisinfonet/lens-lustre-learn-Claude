@@ -27,13 +27,11 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { stripComments } from "@/test-utils/sourceText";
 
 const layout = readFileSync(join(process.cwd(), "src/components/Layout.tsx"), "utf8");
 /** Comments stripped — a source-pin test must never match its own explanation. */
-const body = layout
-  .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
-  .replace(/\/\*[\s\S]*?\*\//g, "")
-  .replace(/^\s*\/\/.*$/gm, "");
+const body = stripComments(layout);
 
 /** The header wrapper's className expression. */
 const headerBlock = (() => {

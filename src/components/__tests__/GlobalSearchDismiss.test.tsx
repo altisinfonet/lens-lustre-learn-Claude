@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { stripComments } from "@/test-utils/sourceText";
 
 /**
  * SEARCH MUST NOT BE ABLE TO FREEZE THE WHOLE APP.
@@ -45,7 +46,7 @@ const SRC = fs.readFileSync(
 );
 
 /** Comments explain WHY the pattern is banned; they must not count as usage. */
-const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+const CODE = stripComments(SRC);
 
 describe("the search panel unmounts without waiting for an animation", () => {
   it("does not import AnimatePresence", () => {
