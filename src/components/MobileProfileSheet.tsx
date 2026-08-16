@@ -195,38 +195,50 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
         overflow silently returns.
       */}
       <DrawerContent className="max-h-[85vh] bg-card backdrop-blur-2xl border-border">
-        <DrawerHeader className="shrink-0 relative pt-2 pb-3">
+        <DrawerHeader className="shrink-0 relative pt-1 pb-2">
           <DrawerTitle className="sr-only">{t("msheet.profileMenu")}</DrawerTitle>
 
-          {/* THE THEME TOGGLE IS PINNED TO THE HEADER'S TOP-RIGHT CORNER.
+          {/* THE THEME TOGGLE IS BACK ON ITS OWN LINE, ABOVE THE NAME.
+              ─────────────────────────────────────────────────────────────────
               Owner, 2026-08-12: "After clicking profile, dark and light mode
               moved extremely right when the name is big. Shift the toggle one
               line upper of the name line."
 
-              His rule was that the NAME MUST NEVER PUSH THIS BUTTON — his own
-              account reads "Sri Venkata Ramasubramania Narayanasw", and as the
-              third child of a flex row it drove the button off the edge.
+              Owner, 2026-08-16, with a photograph of his own account showing
+              the sun icon sitting ON TOP of the last letters of his name:
+              "light toggle icon will be one lone upper from the name line as
+              overlapping".
 
-              A whole line of its own honoured that rule and cost 40px of empty
-              sheet at the top of the most crowded screen in the product — 56 to
-              64px measured between the drag handle and the avatar, which is the
-              "huge space water in top" members are complaining about.
+              HIS ORIGINAL RULE WAS RIGHT AND I OVERRODE IT. Earlier today I
+              pinned this button to the corner instead, to reclaim 40px, and
+              argued the rule was still honoured "a stronger way" because an
+              absolutely positioned element cannot be pushed by a sibling. That
+              was true and irrelevant: it cannot be pushed, so the NAME RUNS
+              UNDERNEATH IT instead. `pr-12` was supposed to reserve the corner
+              and does not, because the name renders inside UserIdentityBlock
+              and never gets the constraint. His account —
+              "Sri Venkata Ramasubramania Narayanasw" — is the exact case his
+              rule was written for, and it broke in exactly the way he said.
 
-              Taking it OUT of the flow honours the same rule for the same
-              reason — an absolutely positioned element cannot be pushed by a
-              sibling at all — and costs nothing. `pr-12` on the name column
-              reserves the corner so a long name cannot run underneath it.
-              44x44 as well; it photographed at 34x34, under the tap floor. */}
-          <button
-            onClick={toggleTheme}
-            className="absolute right-3 top-1 z-10 flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-primary/10"
-            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-          >
-            {theme === "dark" ? <Sun className="h-5 w-5 text-primary" /> : <Moon className="h-5 w-5 text-primary" />}
-          </button>
+              So it goes back where he put it. The 40px is affordable now for a
+              reason that did not exist this morning: the action tiles were
+              tightened, and every action fits without scrolling at 640 and
+              above either way. Nothing is lost by giving the line back.
+
+              A pinned rule of his does not get overridden by my judgement. It
+              gets overridden by him. */}
+          <div className="mb-1 flex justify-end">
+            <button
+              onClick={toggleTheme}
+              className="flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-primary/10"
+              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            >
+              {theme === "dark" ? <Sun className="h-5 w-5 text-primary" /> : <Moon className="h-5 w-5 text-primary" />}
+            </button>
+          </div>
 
           {/* Avatar + Name */}
-          <div className="flex items-center gap-3 pr-12">
+          <div className="flex items-center gap-3">
             <Avatar className="h-12 w-12 ring-2 ring-primary/20">
               <AvatarImage src={avatarUrl} alt={fullName} />
               <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">{initials}</AvatarFallback>
@@ -277,7 +289,7 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
           real build — a wrong number beside Logout is worse than none.)
         */}
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-2">
-          <div className="grid grid-cols-4 gap-x-2 gap-y-0.5">
+          <div className="grid grid-cols-4 gap-x-2 gap-y-0">
             <AnimatePresence>
               {visibleActions.map((action, i) => (
                 <motion.button
@@ -286,7 +298,7 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.03, duration: 0.25, ease: "easeOut" }}
                   onClick={() => action.onClick ? action.onClick() : action.to && go(action.to)}
-                  className="group relative flex flex-col items-center gap-1 rounded-xl px-1 py-2 transition-all duration-300 hover:bg-primary/10 active:bg-primary/20"
+                  className="group relative flex flex-col items-center gap-1 rounded-xl px-1 py-1.5 transition-all duration-300 hover:bg-primary/10 active:bg-primary/20"
                 >
                   <div className={`relative w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-300 ease-out
                     ${action.animated

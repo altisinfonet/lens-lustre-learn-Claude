@@ -441,6 +441,37 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   const [searchParams, setSearchParams] = useSearchParams();
   const composeHandledRef = useRef(false);
   useEffect(() => {
+    /**
+     * ONLY THE FEED'S COMPOSER ANSWERS `?compose=1`. THIS IS THE WHOLE BUG.
+     *
+     * ─────────────────────────────────────────────────────────────────────
+     * Owner, 2026-08-16: "create post is a static on the top menu bar but
+     * while on my or other pages, trying to uploaded - that is not happening.
+     * only from my feed section create post happening."
+     *
+     * `WallPosts` is mounted in TWO places — `Feed.tsx` with `composerOnly`,
+     * and `PublicProfile.tsx` for the wall. Both ran this effect, and both
+     * watched the same URL. So from his wall the sequence was:
+     *
+     *   1. the top-bar button navigates to /feed?compose=1
+     *   2. the WALL's WallPosts is still mounted through that transition. Its
+     *      effect sees compose=1 first, latches its ref, and STRIPS THE FLAG
+     *      from the URL with `setSearchParams(..., {replace:true})`
+     *   3. Feed mounts a moment later, reads the URL, and the flag is gone
+     *
+     * Nothing opens, and nothing is broken enough to log an error. From the
+     * feed itself there is only one instance and only one reader, which is
+     * exactly why it worked there and nowhere else — and why it looked random.
+     *
+     * The flag names an intent ("open the post composer"), and only the
+     * dedicated composer can act on it. The wall's inline instance is a LIST
+     * of posts that happens to share this component; it has no composer to
+     * open. Guarding on `composerOnly` makes the reader unique no matter how
+     * many walls, feeds or profiles are mounted at once.
+     * ─────────────────────────────────────────────────────────────────────
+     */
+    if (!composerOnly) return;
+
     if (searchParams.get("compose") !== "1") {
       // Reset once the flag is gone, so a SECOND press of Create still works.
       composeHandledRef.current = false;
@@ -457,7 +488,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     else openComposer();
     // startAppPost/openComposer are stable for this component's lifetime.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, appFlow]);
+  }, [searchParams, appFlow, composerOnly]);
   /**
    * Nothing worth saving: no photo, no words, and no existing draft to update.
    *
