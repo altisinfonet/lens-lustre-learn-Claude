@@ -25,7 +25,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { stripComments } from "@/test-utils/sourceText";
 
@@ -114,5 +114,73 @@ describe("the website's build cannot be broken by this", () => {
     // and the version-check step must verify the same plugin, or the pin is
     // decorative — nothing would notice if npm resolved something else.
     expect(workflow).toMatch(new RegExp(`check @capacitor/filesystem ${pinned![1].replace(/\./g, "\\.")}`));
+  });
+});
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * NO PDF MAY USE `doc.save()`. EVER.
+ *
+ * OWNER REPORT, 2026-08-16: "dowlload PDF from Mobile is not happening as
+ * showing failed on any PDF download featured artist journal etc — entire PDF
+ * download system failed."
+ *
+ * The article path had been moved to `saveBlob` back on 2026-08-05, and the
+ * reason was written down at the top of `saveFile.ts`: jsPDF's `save()` builds
+ * an `<a download>` and clicks it, and an Android WebView has no download
+ * manager, so the click is swallowed in silence — no error, no file.
+ *
+ * THREE CALLS WERE NEVER CONVERTED, and each is a whole feature:
+ *
+ *     src/pages/Certificates.tsx          every competition certificate
+ *     src/pages/Wallet.tsx                the wallet ledger
+ *     src/components/admin/AdminTransactions.tsx   the transactions export
+ *
+ * Nothing failed when the article path was fixed, because nothing was looking
+ * at the others. That is the whole reason this test exists: the rule was known,
+ * written down, and applied to exactly one of four call sites.
+ *
+ * A grep is the right shape of check here. `doc.save()` is not a wrong VALUE
+ * that a unit test could catch — it is a call that does nothing on one of the
+ * two platforms this app ships to, and no test that runs in Node can tell the
+ * difference. What CAN be pinned is that the call is not in the source.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+describe("every PDF goes through saveBlob, never jsPDF's save()", () => {
+  const SRC = join(process.cwd(), "src");
+
+  /** Every .ts/.tsx under src/, excluding tests (which may name the pattern). */
+  const sourceFiles = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) return e.name === "__tests__" ? [] : sourceFiles(p);
+      return /\.tsx?$/.test(e.name) ? [p] : [];
+    });
+
+  it("no source file calls .save() on a jsPDF document", () => {
+    const offenders: string[] = [];
+    for (const f of sourceFiles(SRC)) {
+      const text = stripComments(readFileSync(f, "utf8"));
+      // `doc.save(` / `pdf.save(` — the jsPDF handle is named one of the two
+      // everywhere in this codebase. Comments are stripped first so the notes
+      // explaining WHY not to use it do not trip their own rule.
+      if (/\b(doc|pdf)\.save\s*\(/.test(text)) offenders.push(f.replace(process.cwd() + "/", ""));
+    }
+    expect(
+      offenders,
+      "these download nothing inside the Android app — use saveBlob(doc.output(\"blob\"), name)",
+    ).toEqual([]);
+  });
+
+  it("the three converted call sites reach saveBlob", () => {
+    for (const f of [
+      "src/pages/Certificates.tsx",
+      "src/pages/Wallet.tsx",
+      "src/components/admin/AdminTransactions.tsx",
+    ]) {
+      const text = readFileSync(join(process.cwd(), f), "utf8");
+      expect(text, `${f} must import saveBlob`).toMatch(/from "@\/lib\/saveFile"/);
+      expect(text, `${f} must hand jsPDF's blob to saveBlob`).toMatch(/saveBlob\(\s*doc\.output\("blob"\)/);
+    }
   });
 });
