@@ -476,22 +476,81 @@ for (const scene of scenes) {
         const cs = getComputedStyle(el);
         if (cs.position !== "fixed" || cs.display === "none" || cs.visibility === "hidden") return false;
         const r = el.getBoundingClientRect();
+        /**
+         * A BAR IS A BAR. A SCRIM IS NOT.
+         *
+         * The height ceiling was added 2026-08-16. Without it, `fixed inset-0`
+         * matches every condition here — bottom-anchored, full-width, on
+         * screen — so an open modal's backdrop was classified as a bottom bar
+         * covering the entire viewport, and the check duly reported every
+         * element on the page as buried underneath it. Which is true, and is
+         * the backdrop doing its job.
+         *
+         * 40% of the screen is far above any real navigation or action bar
+         * (the app's own is 49px, 6%) and far below any sheet or scrim worth
+         * mistaking for one.
+         */
+        if (r.height > window.innerHeight * 0.4) return false;
         // bottom-anchored, full-width, and actually on screen
         return r.height > 8 && r.width > vw * 0.6 && Math.abs(r.bottom - window.innerHeight) < 4;
       });
       const buried = [];
       for (const bar of fixedBars) {
         const nb = bar.getBoundingClientRect();
-        for (const el of document.querySelectorAll("p,span,h1,h2,h3,button,a,img,input,textarea")) {
+
+        /**
+         * A MODAL IS SUPPOSED TO COVER THE PAGE.
+         *
+         * If this "bar" turns out to be part of an open dialog — the account
+         * drawer, the crop lightbox — then everything outside that dialog is
+         * deliberately unreachable, not accidentally buried. Reporting the
+         * page's own navigation as hidden underneath an open modal describes
+         * the modal working.
+         *
+         * So when the bar sits inside a dialog, the check narrows to that
+         * dialog's own contents, where a footer really can be pushed under a
+         * bar and really does matter. When it does not, nothing changes and
+         * the whole page is measured exactly as before.
+         */
+        const modal = bar.closest('[role="dialog"],[aria-modal="true"],[data-vaul-drawer]');
+        const scope = modal || document;
+
+        for (const el of scope.querySelectorAll("p,span,h1,h2,h3,button,a,img,input,textarea")) {
           if (bar.contains(el) || !visible(el)) continue;
           const r = el.getBoundingClientRect();
           if (r.width < 8 || r.height < 8) continue;
           const oy = Math.min(r.bottom, nb.bottom) - Math.max(r.top, nb.top);
           const ox = Math.min(r.right, nb.right) - Math.max(r.left, nb.left);
           // >6px of genuine two-axis overlap; a 1px kiss is not a defect.
-          if (oy > 6 && ox > 6) {
-            buried.push(`${path(el)} under the fixed bar by ${Math.round(oy)}px`);
-          }
+          if (oy <= 6 || ox <= 6) continue;
+
+          /**
+           * OVERLAPPING IS NOT THE SAME AS BEING COVERED.
+           *
+           * ADDED 2026-08-16, and it was this check's own false alarm that
+           * exposed the gap. `screen-account-sheet` opens the account drawer,
+           * which is `position: fixed` and correctly paints OVER the page's
+           * bottom navigation. Geometry alone reported 74 elements "hidden
+           * behind a fixed bar" — including the drawer's own Logout button,
+           * which a hit test showed was the topmost thing at its own centre.
+           *
+           * A rectangle test cannot see z-order, and z-order is the entire
+           * question. So ask the browser what is actually painted at the
+           * middle of the overlap. If the answer is inside the bar, the
+           * content really is buried. If it is the element itself — or
+           * anything in its own subtree, since a hit lands on the innermost
+           * child — the bar is behind it and there is nothing to report.
+           *
+           * This matters beyond one scene: a check that cries wolf on every
+           * modal is a check people learn to scroll past, and that is how the
+           * app-mode gap survived 63 screenshots.
+           */
+          const px = Math.max(r.left, nb.left) + ox / 2;
+          const py = Math.max(r.top, nb.top) + oy / 2;
+          const hit = document.elementFromPoint(px, py);
+          if (!hit || !bar.contains(hit)) continue;
+
+          buried.push(`${path(el)} under the fixed bar by ${Math.round(oy)}px`);
         }
       }
       window.scrollTo(0, scrollBefore);
