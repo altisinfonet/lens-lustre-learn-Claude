@@ -44,6 +44,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { stripComments } from "@/test-utils/sourceText";
 
 const FILES = [
   "supabase/functions/delete-my-account/index.ts",
@@ -51,10 +52,7 @@ const FILES = [
 ];
 
 /** Comments stripped: both files EXPLAIN the removed line at length. */
-const codeOf = (p: string) =>
-  readFileSync(join(process.cwd(), p), "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/^\s*\/\/.*$/gm, "");
+const codeOf = (p: string) => stripComments(readFileSync(join(process.cwd(), p), "utf8"));
 
 describe("neither delete path erases the sender of a notification", () => {
   for (const f of FILES) {

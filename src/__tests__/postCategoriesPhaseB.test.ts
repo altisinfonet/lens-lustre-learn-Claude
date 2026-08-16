@@ -31,6 +31,7 @@ import { join } from "node:path";
 import { QueryClient } from "@tanstack/react-query";
 
 import { queryKeys } from "@/lib/queryKeys";
+import { stripComments } from "@/test-utils/sourceText";
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 
@@ -43,9 +44,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
  * wrong by naming it. Matching raw text would fail on the explanation rather
  * than on the code, and the obvious "fix" would be to delete the explanation.
  */
-const code = (p: string) =>
-  read(p)
-    .replace(/\/\*[\s\S]*?\*\//g, "")
+const code = (p: string) => stripComments(read(p))
     .replace(/(^|[^:])\/\/.*$/gm, "$1");
 
 const MIGRATION = "supabase/migrations/20260812070000_post_categories.sql";

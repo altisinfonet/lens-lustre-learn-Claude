@@ -39,12 +39,10 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { stripComments } from "@/test-utils/sourceText";
 
 /** Comments stripped: several of these files EXPLAIN what was removed. */
-const code = (p: string) =>
-  readFileSync(join(process.cwd(), p), "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/^\s*\/\/.*$/gm, "")
+const code = (p: string) => stripComments(readFileSync(join(process.cwd(), p), "utf8"))
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
 
 const feed = code("src/pages/Feed.tsx");
@@ -289,9 +287,8 @@ describe("nothing on the site is set in capitals or stretched apart", () => {
    * `tracking-tight` and quotes font sizes — a source-scanning test that reads
    * its own documentation is the trap this project has fallen into three times.
    */
-  const block = raw
-    .slice(raw.lastIndexOf("INSTAGRAM TYPE"))
-    .replace(/\/\*[\s\S]*?\*\//g, "")
+  const block = stripComments(raw
+    .slice(raw.lastIndexOf("INSTAGRAM TYPE")))
     .replace(/^[\s\S]*?═══ \*\//, "");
 
   it("exists at all", () => {

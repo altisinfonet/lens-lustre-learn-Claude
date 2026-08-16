@@ -55,6 +55,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { stripComments } from "@/test-utils/sourceText";
 
 const root = process.cwd();
 const read = (p: string) => readFileSync(join(root, p), "utf8");
@@ -73,8 +74,7 @@ function tsxFiles(): string[] {
 }
 
 /** Source with comments stripped — this file's own prose quotes the bad pattern. */
-const code = (src: string) =>
-  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
+const code = (src: string) => stripComments(src).replace(/^[ \t]*\/\/.*$/gm, "");
 
 describe("no component is declared in render and then used as an element", () => {
   /**

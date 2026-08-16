@@ -25,9 +25,10 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { stripComments } from "@/test-utils/sourceText";
 
 const src = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
-const body = src.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+const body = stripComments(src).replace(/\/\/.*$/gm, "");
 
 /** Everything between <Route element={<RequireAuth />}> and its closing tag. */
 const guardedBlock = (() => {

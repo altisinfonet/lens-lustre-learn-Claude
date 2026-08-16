@@ -28,6 +28,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { devicePhotosToFiles } from "@/lib/native/gallery";
+import { stripComments } from "@/test-utils/sourceText";
 
 const root = process.cwd();
 const read = (p: string) => readFileSync(join(root, p), "utf8");
@@ -104,9 +105,7 @@ describe("gallery.ts still refuses static @capacitor imports", () => {
     const src = read("src/lib/native/gallery.ts");
     // Strip comments — this file DISCUSSES the banned pattern at length, and a
     // naive match would read its own documentation as a violation.
-    const code = src
-      .replace(/\/\*[\s\S]*?\*\//g, "")
-      .replace(/^\s*\/\/.*$/gm, "");
+    const code = stripComments(src);
     expect(code).not.toMatch(/from\s+["']@capacitor\//);
     expect(code).toContain("window as unknown as");
   });

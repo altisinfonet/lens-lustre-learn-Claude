@@ -44,6 +44,7 @@ vi.mock("react-router-dom", () => ({
 }));
 
 import { useEngagementHeartbeat } from "@/hooks/core/useEngagementHeartbeat";
+import { stripComments } from "@/test-utils/sourceText";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -277,9 +278,7 @@ describe("the heartbeat", () => {
  * files' own documentation — the header of activityPing.ts explains at length
  * why there is no retry, and the word "retry" in that sentence is not a retry.
  */
-const codeOnly = (p: string) =>
-  readFileSync(join(process.cwd(), p), "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
+const codeOnly = (p: string) => stripComments(readFileSync(join(process.cwd(), p), "utf8"))
     .replace(/(^|[^:])\/\/.*$/gm, "$1");
 
 describe("no retry and no offline queue", () => {
