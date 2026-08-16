@@ -1,112 +1,118 @@
-Build 1.2.8 - 2026-08-16 - SIX BUGS FROM THE OWNER'S PHONE, AND WHAT THEY UNCOVERED
+Build 1.2.9 - 2026-08-16 - THE SECOND ROUND FROM HIS PHONE
 
-The owner listed six faults from the live app and asked for them one at a time,
-fixed after the listing was finished. All six are done. Three of them turned out
-to be worse than reported, and every one of them had shipped because the screen
-it was on had never been photographed.
+He installed 1.2.8, found five more, and sent them one at a time. All five are
+here. Three had causes that were nothing like the symptom.
 
-  typecheck 0 · 1,861 tests pass · production build 0
+  typecheck 0 · 1,863 tests pass · production build 0
   112 screenshots · ZERO layout problems · zero non-fixture errors
 
-VERSION IS 1.2.8. Build #95 carried 1.2.7 and this is different code.
+VERSION IS 1.2.9. Build #97 carried 1.2.8 and this is different code.
 
-WHAT HE REPORTED, AND WHAT IT ACTUALLY WAS
+WHAT HE REPORTED
 
- 1. LOG OUT NOT REACHABLE. Members were right and it was not vague. Measured,
-    the bottom of the Logout button against the bottom of the screen:
+ 1. "unable to move selection / any upper menu section not working / anything
+    editing not working"
 
-        360x592   145px BELOW the screen      360x740    19px below
-        360x640   104px below                 360x800+   fine
+    The dialog was not frozen. ONE TAP ON AN ASPECT CHIP DELETED THE CROP FRAME
+    and nothing ever put one back — the only code that ever created a frame was
+    the image's load event. Measured either side of one tap:
 
-    On any phone under about 780px of usable height a member COULD NOT LOG OUT.
-    The sheet capped itself at 85% of the screen, stacked three blocks inside,
-    and nothing scrolled — so the footer was what got pushed off. Structural,
-    not a number: the grid gives way now and the footer is pinned.
+        start        [100, 372, 211, 211]
+        after 4:5    null
 
-    His follow-up — "all buttons are not showing some hiding" — was also right.
-    The first fix bought a reachable Logout with hidden actions. Tiles were
-    tightened instead: nothing hidden at 640 and above, no scrolling at all.
-    Labels went UP from 9px to 10px and out of all-caps.
+    After that there is no selection at all: nothing to drag, so it "cannot be
+    moved"; the px readout blanks, so nothing looks alive; and Crop & Upload
+    silently sends the WHOLE IMAGE, because there is no crop to apply. Every
+    symptom in his list is that one line.
 
- 2. CREATE POST, "many times not working". He answered that nothing opens at
-    all, and that is one `catch`. Android's picker rejects both when a member
-    backs out AND when it cannot open; the code returned "nobody chose
-    anything" for both, and the composer closes on that. A picker that failed
-    to open was a button that did nothing and said nothing. Only a message
-    containing "cancel" counts as cancelling now; anything else says so and
-    falls back to the OS file browser, which does not use that plugin at all.
+    It hid behind the one control that seemed to work: ROTATE reloads the
+    image, which fired the load event, which rebuilt the frame. So rotating
+    "fixed" it and nothing else did — which is why it read as random.
 
- 3+4. THE CROP DIALOG. "any of options not wokring" was EIGHTEEN TAP TARGETS
-    UNDER 44px — close button 16x16, every zoom/rotate/mirror button 20x20,
-    aspect chips 35x27. Drawn for a mouse, shipped to a thumb.
+    Now: any change to the frame's shape RE-SEEDS the frame. Verified after —
+    4:5 -> 190x238, Free -> 211x211, Reset -> 211x211, never null. Reset also
+    stopped meaning "no frame at all", which was the same dead end by another
+    door.
 
-    And underneath it, the one that matters most in this build:
+ 2. "create post ... only from my feed section create post happening"
 
-    ZOOM SILENTLY CROPPED THE WRONG PART OF THE PHOTOGRAPH.
+    WallPosts is mounted TWICE — once by the Feed, once by the wall — and BOTH
+    watched the URL for the compose flag. From his wall: the top-bar button
+    navigates to /feed?compose=1, the WALL's still-mounted copy reads the flag
+    first, latches it and STRIPS IT FROM THE URL, and the Feed then arrives to
+    find nothing. From the feed there is only one reader, which is exactly why
+    it worked there and nowhere else. Only the real composer answers it now.
 
-        zoom 100%   element 270x480   picture 270x480   scale used 3.33  true 3.33
-        zoom 200%   element 540x480   picture 270x480   scale used 1.67  true 3.33
+ 3. "light toggle icon will be one lone upper from the name line as overlapping"
 
-    Anyone who zoomed got a crop from somewhere else in the frame, off by the
-    zoom factor plus a 135px offset — and at high zoom the read area leaves the
-    image entirely and nothing is drawn, which is the blank "After" panel he
-    photographed. One cause, two reports. Verified correct at 100/200/400% on
-    portrait, landscape and square after the fix.
+    HIS RULE FROM 2026-08-12, WHICH I OVERRODE THIS MORNING AND SHOULD NOT
+    HAVE. I moved the button off its own line to reclaim 40px and argued the
+    rule was still honoured "a stronger way", because an absolutely positioned
+    element cannot be pushed by a sibling. True, and beside the point: it
+    cannot be pushed, so his NAME RAN UNDERNEATH IT — and his account is the
+    exact long name the rule was written for. Back on its own line, measured
+    with his real name at 360x640 and 412x892: no overlap, Logout still
+    visible, nothing hidden at 640 and above. A pinned rule of his is not
+    overridden by my judgement.
 
-    Also: body scroll lock, the back gesture closes the dialog instead of
-    unwinding the route beneath it, pinch-to-zoom, thirds guide, and corner
-    handles split into a 14px viewfinder bracket over a 44px invisible target —
-    he asked for smaller marks, and smaller alone would have made them
-    impossible to grab, which was his other complaint about the same screen.
+ 4. "on app on gesture zoom in zoom out not happening" / "in web on scroll zoom
+    in zoom out not happening"
 
- 5+6. THE WALL'S ABOUT PANEL AND THE ACCOUNT PAGE. Measured off his screenshot:
-    370px of screen to show an email address and a join date. Thirteen outlined
-    cards on one, nine boxes on the other, a 36px grey disc behind every 16px
-    glyph, a caption under each value repeating what the icon already said, and
-    the bio printed TWICE on the same screen. One 44px row per fact now, no
-    outlines anywhere — his standing rule, stated four times in three days.
+    Wheel zoom on the website never existed — added. For the pinch, I will not
+    claim a fix I cannot demonstrate: the handler DOES fire here, taking a
+    synthetic two-finger gesture from 100% to 350%. What differs on a device is
+    timing — two fingers never land on the same frame, so the crop library
+    captures the first one and owns the gesture before the second arrives. Every
+    active pointer now gets a pointercancel when the second finger lands. If it
+    still fails on the phone that is a WebView difference to report, not guess
+    at, and the +/- buttons remain.
 
-THE PATTERN UNDER ALL SIX
+ 5. "entire PDF download system failed"
 
-Every one of these was on a screen the sweep had never rendered. The crop
-dialog is mounted from nine places and had no scene. The account sheet is an
-overlay, so no page scene drew it. The About tab opens from a menu into
-component state, so 100% of this project's screenshots of that page were the
-photo grid. Four new scenes close those, and `?section=about|works` makes About
-linkable as a side effect.
+    TWO faults, and the second is why the first could not be diagnosed.
 
-THE CHECKER ITSELF WAS WRONG THREE TIMES, and each was found by using it:
-  · it called a modal's own backdrop a navigation bar and reported 74 items
-    "hidden" — it compared rectangles and could not see z-order;
-  · it read a button mid-animation as 35x35 when the layout says 44 (measured
-    at 0.9 scale and 1.6% opacity — it was barely on screen);
-  · it never rendered the build label beside Logout, because the Capacitor stub
-    had no App plugin — so the footer row it had been photographing was not the
-    row members see, with Logout at full width instead of half.
-All three fixed, and each broken deliberately afterwards to prove the alarm
-still fires.
+    THREE OF THE FOUR PDF PATHS STILL USED jsPDF's doc.save(). The rule was
+    established on 2026-08-05 from his own report and written at the top of
+    src/lib/saveFile.ts: save() clicks an <a download>, an Android WebView has
+    no download manager, the click is swallowed in silence. saveBlob() exists
+    for exactly this. It had been applied to ONE of four call sites:
+
+        Certificates.tsx            every competition certificate    BROKEN
+        Wallet.tsx                  the wallet ledger                BROKEN
+        AdminTransactions.tsx       the transactions export          BROKEN
+        generateArticlePdf.ts       journal / featured artist        fixed in Aug
+
+    Nothing failed when the article path was converted, because nothing was
+    looking at the other three. Eleven days live. A test now walks every
+    .ts/.tsx under src/ and fails on any doc.save( — mutated to prove it.
+
+    AND THE JOURNAL PATH THREW ITS REASON AWAY: `catch {` with no argument and
+    one fixed sentence, so a photo that would not fetch, a missing plugin, a
+    dismissed share sheet and a too-large PDF all arrived as the same four
+    words. saveBlob already throws member-facing sentences; they now reach the
+    toast.
+
+    ⚠ THE JOURNAL / FEATURED-ARTIST PDF IS NOT FIXED. Its cause is still
+    unknown. What changed is that the next failure NAMES ITSELF.
 
 WHAT ONLY THE PHONE CAN ANSWER
 
-  1. Open the account sheet on a short phone. Every action visible, Logout at
-     the bottom, V1095-style build label to its left.
-  2. Post a photo, then CROP AND ZOOM IN before uploading. The saved crop must
-     be the part you framed. This is the fix that matters most.
-  3. Pinch the photo in the crop dialog. Press the back gesture — it should
-     close the dialog, not the page.
-  4. If Create Post fails again, you should now get a MESSAGE saying why, and
-     the file browser should open. Send me that message.
-  5. Your wall's About panel, and the Profile page: no boxes, no repeated bio.
+  1. Crop a photo. Tap 1:1, 4:5, Free, and Reset. The frame must survive every
+     one of them, and Crop & Upload must send the part you framed.
+  2. Create Post from your WALL, from Journal, from anywhere — not just Feed.
+  3. The account sheet: the sun icon on its own line, clear of your name.
+  4. Download a CERTIFICATE and a WALLET ledger — the share sheet should open.
+  5. Download a JOURNAL PDF. If it fails there will now be a SECOND LINE under
+     the error. Send me that line; it is the missing piece.
+  6. Pinch the photo in the crop dialog.
 
 NOT DONE, AND NOT CLAIMED
 
- - This does not stop Android failing to read a photo. It stops that failure
-   being silent. The message tells us which of the two causes it was.
- - Still not Instagram's crop model: the frame moves over the photo rather than
-   the photo under the frame. Swapping that is a rewrite, not a fix.
- - `svgo` absent from both lockfiles, SVGs ship unoptimised. Pre-existing.
- - The harness has no fixtures for the Works tab. Test scaffolding, not an app
-   fault, and the reason 108 of the sweep's reports are data noise.
+ - The journal PDF cause. Instrumented, not fixed.
+ - Pinch on a real WebView — unreproducible here.
+ - Still not Instagram's crop model: the frame moves over the photo, not the
+   photo under the frame. That is a rewrite.
+ - svgo absent from both lockfiles; SVGs ship unoptimised. Pre-existing.
  - NO REELS. NO LIVE.
 
 Then promote the AAB.
