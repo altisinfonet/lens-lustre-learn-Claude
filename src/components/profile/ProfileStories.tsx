@@ -384,40 +384,35 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
 
         <div
           ref={scrollContainerRef}
-          className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide md:px-2"
+          className="flex items-center gap-4 overflow-x-auto pb-2 scrollbar-hide md:px-2"
         >
           {/* Add Story button (owner only) */}
           {isOwner && (
-            <label className="flex-shrink-0 flex flex-col items-center gap-1.5 cursor-pointer group relative">
-              <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full border-2 border-dashed border-primary/40 group-hover:border-primary flex items-center justify-center transition-colors bg-primary/5">
+            <label className="flex-shrink-0 flex flex-col items-center gap-1 cursor-pointer group relative">
+              {/* MATCHED TO THE REAL INSTAGRAM REFERENCE: a thin light ring
+                  with a single "+" — no clock, no star, no fill. Owner's spec
+                  section 9: "Use a clean '+' icon inside a subtle circle." */}
+              <div className="h-[68px] w-[68px] sm:h-20 sm:w-20 rounded-full border-[1.5px] border-foreground/35 group-hover:border-foreground/70 flex items-center justify-center transition-colors">
                 {uploading ? (
                   <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                 ) : (
-                  <div className="flex flex-col items-center">
-                    <Clock className="h-4 w-4 text-primary/60 group-hover:text-primary mb-0.5" />
-                    <Plus className="h-3.5 w-3.5 text-primary/60 group-hover:text-primary" />
-                  </div>
+                  <Plus className="h-6 w-6 text-foreground/80" strokeWidth={1.75} />
                 )}
               </div>
-              <span className="text-[8px] tracking-[0.1em] uppercase text-muted-foreground" style={headingFont}>Story</span>
-              <span className="text-[7px] text-muted-foreground/60 -mt-1">24h</span>
+              <span className="text-[14px] text-foreground/90" style={headingFont}>New Story</span>
               <input type="file" accept="image/*" className="hidden" onChange={handleAddStory} />
             </label>
           )}
 
           {/* Add Highlight button (owner only) */}
           {isOwner && (
-            <div className="flex-shrink-0 flex flex-col items-center gap-1.5 cursor-pointer group"
+            <div className="flex-shrink-0 flex flex-col items-center gap-1 cursor-pointer group"
               onClick={() => highlightInputRef.current?.click()}
             >
-              <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full border-2 border-dashed border-amber-500/60 group-hover:border-amber-500 flex items-center justify-center transition-colors bg-amber-500/5">
-                <div className="flex flex-col items-center">
-                  <Star className="h-4 w-4 text-amber-500/70 group-hover:text-amber-500 mb-0.5" />
-                  <Plus className="h-3.5 w-3.5 text-amber-500/70 group-hover:text-amber-500" />
-                </div>
+              <div className="h-[68px] w-[68px] sm:h-20 sm:w-20 rounded-full border-[1.5px] border-foreground/35 group-hover:border-foreground/70 flex items-center justify-center transition-colors">
+                <Plus className="h-6 w-6 text-foreground/80" strokeWidth={1.75} />
               </div>
-              <span className="text-[8px] tracking-[0.1em] uppercase text-muted-foreground" style={headingFont}>Highlight</span>
-              <span className="text-[7px] text-muted-foreground/60 -mt-1">Forever</span>
+              <span className="text-[14px] text-foreground/90" style={headingFont}>Highlights</span>
               <input ref={highlightInputRef} type="file" accept="image/*" className="hidden" onChange={handleHighlightFileSelect} />
             </div>
           )}
@@ -427,9 +422,9 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
             <button
               key={story.id}
               onClick={() => openStoryViewer(stories, i)}
-              className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
+              className="flex-shrink-0 flex flex-col items-center gap-1 group"
             >
-              <div className="relative h-20 w-20 sm:h-24 sm:w-24 rounded-full p-0.5 bg-gradient-to-tr from-primary via-primary/60 to-accent">
+              <div className="relative h-[68px] w-[68px] sm:h-20 sm:w-20 rounded-full p-0.5 bg-gradient-to-tr from-primary via-primary/60 to-accent">
                 <img loading="lazy" decoding="async" src={story.image_url} alt="Story" className="w-full h-full rounded-full object-cover border-2 border-background" />
                 <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[7px] font-bold px-1.5 py-0.5 rounded-full leading-none">
                   24h
@@ -446,9 +441,9 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
             <button
               key={hl.id}
               onClick={() => openHighlightViewer(hl)}
-              className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
+              className="flex-shrink-0 flex flex-col items-center gap-1 group"
             >
-              <div className="relative h-20 w-20 sm:h-24 sm:w-24 rounded-full p-0.5 bg-gradient-to-tr from-accent via-accent/60 to-amber-500">
+              <div className="relative h-[68px] w-[68px] sm:h-20 sm:w-20 rounded-full p-0.5 bg-gradient-to-tr from-accent via-accent/60 to-amber-500">
                 <div className="w-full h-full rounded-full overflow-hidden border-2 border-background">
                   {hl.cover_url || hl.items[0]?.image_url ? (
                     <img loading="lazy" decoding="async" src={hl.cover_url || hl.items[0]?.image_url} alt={hl.title} className="w-full h-full object-cover" />

@@ -20,7 +20,7 @@
  * button on its very first run.
  */
 
-import { LayoutGrid, Rows3 } from "lucide-react";
+import { Grid3x3, Rows3 } from "lucide-react";
 
 export type WallView = "grid" | "feed";
 
@@ -32,13 +32,20 @@ interface Props {
 }
 
 const WallViewToggle = ({ value, onChange, className = "" }: Props) => {
+  /**
+   * MATCHED TO THE OWNER'S REAL-INSTAGRAM REFERENCE, 2026-08-16: icons only,
+   * a 1px hairline under the whole bar, and a 1.5px WHITE underline under the
+   * active tab only. Instagram's grid glyph is the nine-dot 3x3, not the
+   * four-square. Inactive icons are dimmed, active is full white — the
+   * "stronger icon state" his spec section 10 asks for, plus the underline.
+   */
   const base =
-    "flex min-h-11 flex-1 items-center justify-center gap-2 border-b-2 text-sm font-medium transition-colors";
-  const on = "border-foreground text-foreground";
-  const off = "border-transparent text-muted-foreground hover:text-foreground";
+    "relative flex min-h-11 flex-1 items-center justify-center transition-colors";
+  const on = "text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-[1.5px] after:bg-foreground";
+  const off = "text-muted-foreground/70 hover:text-foreground";
 
   return (
-    <div role="tablist" aria-label="Wall layout" className={`flex w-full ${className}`}>
+    <div role="tablist" aria-label="Wall layout" className={`flex w-full border-b border-border/60 ${className}`}>
       <button
         type="button"
         role="tab"
@@ -46,7 +53,7 @@ const WallViewToggle = ({ value, onChange, className = "" }: Props) => {
         onClick={() => onChange("grid")}
         className={`${base} ${value === "grid" ? on : off}`}
       >
-        <LayoutGrid className="h-5 w-5" aria-hidden />
+        <Grid3x3 className="h-6 w-6" aria-hidden strokeWidth={1.75} />
         <span className="sr-only sm:not-sr-only">Grid</span>
       </button>
       <button
@@ -56,7 +63,7 @@ const WallViewToggle = ({ value, onChange, className = "" }: Props) => {
         onClick={() => onChange("feed")}
         className={`${base} ${value === "feed" ? on : off}`}
       >
-        <Rows3 className="h-5 w-5" aria-hidden />
+        <Rows3 className="h-6 w-6" aria-hidden strokeWidth={1.75} />
         <span className="sr-only sm:not-sr-only">Feed</span>
       </button>
     </div>
