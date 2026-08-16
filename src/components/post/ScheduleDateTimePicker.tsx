@@ -92,7 +92,7 @@ export function ScheduleDateTimePicker({
               mode="single"
               selected={value ?? undefined}
               onSelect={handleDateSelect}
-              initialFocus
+              autoFocus
               disabled={(d) => d < today || d > maxDate}
               className={cn("p-3 pointer-events-auto")}
             />
