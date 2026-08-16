@@ -242,8 +242,27 @@ const JournalArticle = () => {
         },
       });
       toast({ title: t("jart.pdfDownloaded") });
-    } catch {
-      toast({ title: t("jart.pdfFailed"), variant: "destructive" });
+        } catch (err) {
+      /**
+       * SHOW WHAT ACTUALLY WENT WRONG.
+       *
+       * Owner, 2026-08-16: "dowlload PDF from Mobile is not happening as
+       * showing failed on any PDF download". This `catch` took no argument and
+       * printed a fixed sentence, so every possible cause — a photo that would
+       * not fetch, a device with no Filesystem plugin, a share sheet the member
+       * dismissed, a PDF too large to base64 — arrived as the same four words.
+       * Neither he nor I could tell them apart, which is why this bug could be
+       * reported but not diagnosed.
+       *
+       * `saveBlob` already throws member-facing sentences (see saveFile.ts).
+       * Passing one through costs nothing and turns "it failed" into something
+       * that names itself.
+       */
+      toast({
+        title: t("jart.pdfFailed"),
+        description: err instanceof Error ? err.message : undefined,
+        variant: "destructive",
+      });
     }
     setGeneratingPdf(false);
   };

@@ -266,8 +266,20 @@ const FeaturedArtistPage = () => {
         },
       });
       toast({ title: "PDF downloaded!" });
-    } catch {
-      toast({ title: "PDF generation failed", variant: "destructive" });
+    } catch (err) {
+      /**
+       * SHOW WHAT ACTUALLY WENT WRONG. See the same note in JournalArticle.
+       * Owner, 2026-08-16: every PDF failure on mobile arrived as three fixed
+       * words, so a photo that would not fetch, a missing Filesystem plugin
+       * and a dismissed share sheet were indistinguishable — reportable, but
+       * impossible to diagnose. `saveBlob` throws member-facing sentences;
+       * this passes one through.
+       */
+      toast({
+        title: "PDF generation failed",
+        description: err instanceof Error ? err.message : undefined,
+        variant: "destructive",
+      });
     }
     setGeneratingPdf(false);
   };

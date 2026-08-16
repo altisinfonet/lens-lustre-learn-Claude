@@ -16,6 +16,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import { fireConversion } from "@/lib/adConversionContext";
 import RewardedAdEntry from "@/components/ads/RewardedAdEntry";
 import { useT } from "@/i18n/I18nContext";
+import { saveBlob } from "@/lib/saveFile";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -418,7 +419,7 @@ const Wallet = () => {
     setWithdrawSubmitting(false);
   };
 
-  const generateLedgerPDF = () => {
+  const generateLedgerPDF = async () => {
     const cutoff = new Date();
     cutoff.setFullYear(cutoff.getFullYear() - ledgerYears);
     const filtered = transactions.filter(t => new Date(t.created_at) >= cutoff);
@@ -453,7 +454,9 @@ const Wallet = () => {
       y += 6;
     }
 
-    doc.save(`wallet-ledger-${ledgerYears}yr.pdf`);
+    // NOT doc.save() — see saveFile.ts. jsPDF's save() clicks an <a download>,
+    // which an Android WebView drops on the floor with no error at all.
+    await saveBlob(doc.output("blob"), `wallet-ledger-${ledgerYears}yr.pdf`);
     toast({ title: t("wal.ledgerDownloaded") });
   };
 

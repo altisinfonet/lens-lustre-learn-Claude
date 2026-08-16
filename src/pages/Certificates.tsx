@@ -10,6 +10,7 @@ import { toast } from "@/hooks/core/use-toast";
 import CertificatePreviewModal from "@/components/CertificatePreviewModal";
 import type { CertificateType } from "@/lib/generateCertificatePdf";
 import { useT } from "@/i18n/I18nContext";
+import { saveBlob } from "@/lib/saveFile";
 
 
 const fadeUp = {
@@ -467,7 +468,13 @@ const Certificates = () => {
                                 displayCertificateId: cert.certificate_id || undefined,
                                 type: cert.type as never,
                               });
-                              doc.save(`50mmRetina-Certificate-${(cert.certificate_id || cert.id).slice(0, 12)}.pdf`);
+                              // NOT doc.save(). jsPDF's save() builds an <a
+                              // download> and clicks it, which an Android
+                              // WebView swallows in silence — see saveFile.ts.
+                              await saveBlob(
+                                doc.output("blob"),
+                                `50mmRetina-Certificate-${(cert.certificate_id || cert.id).slice(0, 12)}.pdf`,
+                              );
                             } catch {
                               toast({ title: t("cert.downloadFailed"), variant: "destructive" });
                             }
