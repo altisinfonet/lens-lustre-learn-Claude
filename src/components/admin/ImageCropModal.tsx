@@ -232,7 +232,57 @@ export default function ImageCropModal({
     if (e.touches.length !== 2) return;
     const [a, c] = [e.touches[0], e.touches[1]];
     pinchRef.current = { dist: Math.hypot(a.clientX - c.clientX, a.clientY - c.clientY), zoom };
+
+    /**
+     * THE FIRST FINGER HAS ALREADY STARTED A DRAG. CALL IT OFF.
+     *
+     * Owner, 2026-08-16, on 1.2.8: "on app on gesture zoom in zoom out not
+     * happening". The handler fires — a synthetic two-finger pinch in Chromium
+     * takes the zoom from 100% to 350% — so the gesture is not being missed.
+     * What differs on a real device is TIMING: two fingers never land on the
+     * same frame. The first one lands alone, `react-image-crop` captures the
+     * pointer and begins moving the crop frame, and by the time the second
+     * arrives the library owns the gesture. The pinch then fights a drag for
+     * the same fingers, and what a member sees is a frame that jitters and a
+     * zoom that does not move.
+     *
+     * `pointercancel` is the documented way to tell a library its gesture is
+     * over — the same event the browser sends when it takes a gesture over for
+     * scrolling. Sent for every active pointer, on the element that captured
+     * it, so the frame stops moving the instant the second finger lands and
+     * the pinch has the gesture to itself.
+     *
+     * NOT verifiable in this container: whether Android's WebView delivers
+     * two-finger touchmove at all under `touch-action: none`. It does in
+     * Chromium. If it still fails on the device, the +/- buttons remain, and
+     * that is a WebView difference to report rather than guess at.
+     */
+    for (const t of Array.from(e.touches)) {
+      const target = t.target as Element | null;
+      target?.dispatchEvent(
+        new PointerEvent("pointercancel", { bubbles: true, cancelable: true, pointerId: t.identifier }),
+      );
+    }
+
     e.stopPropagation();
+  };
+
+  /**
+   * WHEEL ZOOM, FOR THE WEBSITE. Owner: "in web on scroll zoom in zoom out not
+   * happening" — correct, and not a regression: it never existed. Two 44px
+   * buttons are the right controls on a phone and the wrong ones on a desktop,
+   * where the wheel is what every image editor uses.
+   *
+   * Only with a modifier-free wheel over the picture, and `preventDefault` so
+   * the page behind does not scroll at the same time. Deliberately coarse —
+   * one notch is one ZOOM_STEP, matching the buttons exactly, so the two
+   * controls cannot drift apart.
+   */
+  const onWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) return; // leave browser page-zoom alone
+    e.preventDefault();
+    const dir = e.deltaY < 0 ? 1 : -1;
+    setZoom((z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, +(z + dir * ZOOM_STEP).toFixed(2))));
   };
   const onTouchMove = (e: React.TouchEvent) => {
     const start = pinchRef.current;
@@ -332,36 +382,82 @@ export default function ImageCropModal({
     return () => ro.disconnect();
   }, [recomputeFit]);
 
+  /**
+   * PUT A CROP RECTANGLE ON THE PICTURE, CENTRED, AT THE GIVEN RATIO.
+   *
+   * ─────────────────────────────────────────────────────────────────────────
+   * PULLED OUT OF `onImageLoad` 2026-08-16, because the ONLY thing that ever
+   * created a crop was the image's load event — and that is why the owner
+   * reported this dialog as dead on 1.2.8:
+   *
+   *   "unable to move selection. any upper menu section not working.
+   *    anything editing not working"
+   *
+   * Tapping an aspect chip ran `setCrop(undefined)` and nothing put one back.
+   * Measured in Chromium, the selection rectangle before and after one tap:
+   *
+   *     start        [100, 372, 211, 211]
+   *     after 4:5    null
+   *
+   * From that tap onward there is NO SELECTION on the screen. There is nothing
+   * to drag, so the frame "cannot be moved"; the px readout goes blank, so
+   * nothing looks like it is responding; and Crop & Upload silently falls back
+   * to sending the WHOLE image, because `completedCrop` is undefined. One tap
+   * turns the whole dialog into furniture. Every symptom he listed is that.
+   *
+   * It hid behind the one control that appeared to work: ROTATE re-renders the
+   * source, which fires `onLoad`, which seeded a crop again — measured coming
+   * back as [28, 255, 356, 446]. So rotating "fixed" it and nothing else did,
+   * which is exactly the kind of intermittence that makes a bug unreportable.
+   *
+   * The rule is now simple and holds everywhere: ANY change to the frame's
+   * shape re-seeds the frame. Clearing it is never the last step.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  const seedCrop = useCallback((nextAspect: number | undefined) => {
+    const img = imgRef.current;
+    if (!img || !img.width || !img.height) return;
+    const { width, height } = img;
+
+    let cropW: number, cropH: number;
+    if (nextAspect) {
+      if (width / height > nextAspect) {
+        cropH = height * 0.9;
+        cropW = cropH * nextAspect;
+      } else {
+        cropW = width * 0.9;
+        cropH = cropW / nextAspect;
+      }
+    } else {
+      const size = Math.min(width, height) * 0.8;
+      cropW = size;
+      cropH = size;
+    }
+
+    setCrop({
+      unit: "px",
+      x: (width - cropW) / 2,
+      y: (height - cropH) / 2,
+      width: cropW,
+      height: cropH,
+    });
+    // The px readout and the confirm path both read `completedCrop`, and
+    // ReactCrop only fills it on a user gesture. Seeding it here means a
+    // freshly chosen ratio is immediately uploadable without touching the
+    // frame first — which is what a member expects after picking "4:5".
+    setCompletedCrop({
+      unit: "px",
+      x: (width - cropW) / 2,
+      y: (height - cropH) / 2,
+      width: cropW,
+      height: cropH,
+    });
+  }, []);
+
   const onImageLoad = useCallback(() => {
     recomputeFit();
-    if (imgRef.current) {
-      const { width, height } = imgRef.current;
-      const currentAspect = forcedAspect ?? aspect;
-
-      let cropW: number, cropH: number;
-      if (currentAspect) {
-        if (width / height > currentAspect) {
-          cropH = height * 0.9;
-          cropW = cropH * currentAspect;
-        } else {
-          cropW = width * 0.9;
-          cropH = cropW / currentAspect;
-        }
-      } else {
-        const size = Math.min(width, height) * 0.8;
-        cropW = size;
-        cropH = size;
-      }
-
-      setCrop({
-        unit: "px",
-        x: (width - cropW) / 2,
-        y: (height - cropH) / 2,
-        width: cropW,
-        height: cropH,
-      });
-    }
-  }, [aspect, forcedAspect, recomputeFit]);
+    seedCrop(forcedAspect ?? aspect);
+  }, [aspect, forcedAspect, recomputeFit, seedCrop]);
 
   const handleConfirm = async () => {
     if (!completedCrop || !imgRef.current) {
@@ -417,12 +513,15 @@ export default function ImageCropModal({
   };
 
   const resetAll = () => {
-    setCrop(undefined);
-    setCompletedCrop(undefined);
     setZoom(1);
     setRotation(0);
     setFlipH(false);
     setFlipV(false);
+    // Reset means "back to how it opened", NOT "no frame at all". This used to
+    // clear the crop and leave the member with an empty picture and nothing to
+    // drag — the same dead end tapping an aspect chip caused. When the rotation
+    // was already 0 no image reload followed either, so nothing put it back.
+    seedCrop(forcedAspect ?? aspect);
   };
 
   const effectiveAspect = isLocked ? forcedAspect : aspect;
@@ -486,9 +585,10 @@ export default function ImageCropModal({
                   key={opt.label}
                   type="button"
                   onClick={() => {
+                    // Re-seed, never just clear. See `seedCrop` — clearing was
+                    // the whole of the "nothing works" report.
                     setAspect(opt.value);
-                    setCrop(undefined);
-                    setCompletedCrop(undefined);
+                    seedCrop(opt.value);
                   }}
                   className={`h-11 shrink-0 rounded-md px-3 text-[13px] font-semibold transition-colors ${
                     aspect === opt.value
@@ -600,6 +700,7 @@ export default function ImageCropModal({
         <div
           ref={cropAreaRef}
           className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-black/20 p-2 sm:max-h-[60vh] sm:min-h-[320px] sm:p-4"
+          onWheel={onWheel}
           onTouchStartCapture={onTouchStart}
           onTouchMoveCapture={onTouchMove}
           onTouchEndCapture={onTouchEnd}
