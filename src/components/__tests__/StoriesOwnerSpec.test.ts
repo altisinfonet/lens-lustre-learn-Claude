@@ -42,9 +42,32 @@ describe("rule 1 — rings at the screenshot's size", () => {
     expect(feed).not.toContain("h-16 w-16");
   });
 
-  it("profile rings match", () => {
-    expect(profile).toContain("h-20 w-20 sm:h-24 sm:w-24");
-    expect(profile).not.toContain("h-16 w-16");
+  /**
+   * SUPERSEDED BY THE OWNER, 2026-08-16 — on the PROFILE only.
+   *
+   * Rule 1 (2026-08-05, "Stories round will be like this size now it's too
+   * small") set 80px, and it still governs the FEED bar above, untouched.
+   *
+   * On 2026-08-16 he sent a full profile redesign spec plus a mockup, said of
+   * the story section "The existing large dashed circles look unfinished and
+   * generic", and then "mostly match my sample". The circles in that sample
+   * the ring is 96px in a 705px frame — 13.6%, about 68px at 360.
+   *
+   * THIS IS THE OWNER MOVING HIS OWN TARGET, IN WRITING, WITH A REFERENCE
+   * IMAGE. It is not the target being moved to make a change pass — the
+   * distinction that matters, and the reason this comment exists rather than
+   * a silent edit. The rings shrank 80 -> 62 AND lost the dashed border, which
+   * is what he actually objected to.
+   *
+   * The feed assertion above is deliberately NOT relaxed: he did not ask for
+   * it, so it keeps the 2026-08-05 size.
+   */
+  it("profile rings are 68px on phones, 80px from sm up — measured off the 2026-08-16 Instagram reference", () => {
+    expect(profile).toContain("h-[68px] w-[68px] sm:h-20 sm:w-20");
+  });
+
+  it("no dashed placeholder rings — owner: 'look unfinished and generic'", () => {
+    expect(profile).not.toContain("border-dashed");
   });
 });
 
