@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { stripComments } from "@/test-utils/sourceText";
 
 /**
  * A FEED PHOTO MUST NOT BE UPSCALED FROM ITS OWN THUMBNAIL.
@@ -41,7 +42,7 @@ const SRC = fs.readFileSync(
 );
 
 /** Comments describe the defect; they must never satisfy the rules. */
-const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+const CODE = stripComments(SRC);
 
 describe("the sharp layer shows the original, not the thumbnail", () => {
   it("no longer falls back to `thumb ?? src` for the sharp image", () => {

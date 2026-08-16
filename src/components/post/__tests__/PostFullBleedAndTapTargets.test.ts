@@ -50,6 +50,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { stripComments } from "@/test-utils/sourceText";
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 
@@ -60,9 +61,7 @@ const postCard = read("src/components/post/PostCard.tsx");
  * explanation instead of the code — the same trap the mojibake scan fell into
  * when it flagged its own documentation. Check the code, never the commentary.
  */
-const picker = read("src/components/ReactionPicker.tsx")
-  .replace(/\/\*[\s\S]*?\*\//g, "")
-  .replace(/^\s*\/\/.*$/gm, "");
+const picker = stripComments(read("src/components/ReactionPicker.tsx"));
 const skeleton = read("src/components/post/PostCardSkeleton.tsx");
 const wall = read("src/components/WallPosts.tsx");
 const css = read("src/index.css");

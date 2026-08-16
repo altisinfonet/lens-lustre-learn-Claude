@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { stripComments } from "@/test-utils/sourceText";
 
 /**
  * THE TAG MODAL MUST FIT ON THE SCREEN.
@@ -42,7 +43,7 @@ const SRC = fs.readFileSync(
 );
 
 /** Comments explain the rules; they must never satisfy them. */
-const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+const CODE = stripComments(SRC);
 
 /** The one line that carries the dialog's own classes. */
 const dialogContentClasses = (): string => {
