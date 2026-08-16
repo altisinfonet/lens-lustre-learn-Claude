@@ -15,6 +15,7 @@
 import { useState, type JSX } from "react";
 import ProfilePostGrid from "@/components/profile/ProfilePostGrid";
 import ImageCropModal from "@/components/admin/ImageCropModal";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import PostComposerPreview from "@/components/post/PostComposerPreview";
 import WallViewToggle, { type WallView } from "@/components/profile/WallViewToggle";
 import { Calendar } from "@/components/ui/calendar";
@@ -270,6 +271,59 @@ export const SCENES: Record<string, () => JSX.Element> = {
       />
     </div>
   ),
+
+  /**
+   * THE CROP DIALOG WHILE THE COMPOSER DIALOG IS OPEN — the real arrangement.
+   *
+   * ─────────────────────────────────────────────────────────────────────────
+   * Owner, 2026-08-16, on 1.2.9: "after uploadling any image clicked crop after
+   * that any of option any fuction not wokring even not in web too, no cross,
+   * no mirror, no moving the selection nothing - its like Screen is freezed -
+   * web and app."
+   *
+   * The three scenes above mount `ImageCropModal` ALONE, and it works
+   * perfectly in all of them — which is why every measurement I reported was
+   * true and useless. In `WallPosts` it is not alone: it renders as a SIBLING
+   * of the composer's Radix `<Dialog>`, and that dialog is open at the moment
+   * Crop is pressed.
+   *
+   * A Radix modal dialog makes the rest of the page inert while it is open.
+   * Anything outside its content stops receiving pointer events entirely — so
+   * a `fixed` overlay drawn beside it is painted, perfectly laid out, and
+   * completely deaf. Every symptom he lists is that, including "no cross": the
+   * close button is dead for the same reason the drag is.
+   *
+   * This scene reproduces the arrangement rather than the component, so the
+   * difference between "the crop dialog works" and "the crop dialog works
+   * where a member actually meets it" is finally measurable.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  "crop-modal-behind-dialog": () => {
+    const Demo = () => {
+      const [taps, setTaps] = useState(0);
+      return (
+        <div className="min-h-screen bg-background">
+          {/* The crop dialog, exactly where WallPosts puts it: BEFORE the
+              composer Dialog and outside it. */}
+          <div data-testid="crop-host">
+            <ImageCropModal imageSrc={LAND} onCropComplete={() => {}} onCancel={() => setTaps((n) => n + 1)} />
+          </div>
+          <Dialog open onOpenChange={() => {}}>
+            <DialogContent className="max-w-lg">
+              <DialogTitle>New post</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                The composer, open behind the crop dialog — as it is when Crop is pressed.
+              </p>
+            </DialogContent>
+          </Dialog>
+          {/* Proof surface: if the crop dialog's Cancel can be reached at all,
+              this number moves. It is the whole question. */}
+          <span data-testid="cancel-taps" className="sr-only">{taps}</span>
+        </div>
+      );
+    };
+    return <Demo />;
+  },
 
   /** One photo: no reorder arrows can do anything, and there is no cover choice. */
   "composer-single": () => <ComposerHarness srcs={[LAND]} />,
