@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import type { User } from "@supabase/supabase-js";
 import type { Json } from "@/integrations/supabase/types";
 import { useT } from "@/i18n/I18nContext";
+import { saveBlob } from "@/lib/saveFile";
 
 interface Transaction {
   id: string;
@@ -188,7 +189,7 @@ const AdminTransactions = ({ user }: { user: User | null }) => {
     toast({ title: t("at.csvDownloaded") });
   };
 
-  const generatePDF = () => {
+  const generatePDF = async () => {
     const doc = new jsPDF({ orientation: "landscape" });
     doc.setFontSize(16);
     doc.text("All User Transactions — Admin Ledger", 14, 18);
@@ -220,7 +221,8 @@ const AdminTransactions = ({ user }: { user: User | null }) => {
       y += 5;
     }
 
-    doc.save(`transactions-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+    // NOT doc.save() — see saveFile.ts.
+    await saveBlob(doc.output("blob"), `transactions-${format(new Date(), "yyyy-MM-dd")}.pdf`);
     toast({ title: t("at.pdfDownloaded") });
   };
 
