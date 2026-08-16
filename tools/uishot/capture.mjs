@@ -330,6 +330,35 @@ for (const scene of scenes) {
           if (!visible(el)) continue;
           if (isFlowedText(el)) continue;
           if (coveredByLabel(el)) continue;
+          /**
+           * A CONTROL STILL FADING IN IS NOT A SMALL CONTROL.
+           *
+           * MEASURED 2026-08-16 on `screen-feed` in app mode. The back-to-top
+           * button was reported at 35x35 against a source that plainly says
+           * `h-11 w-11`. Both were true at the instant of measurement:
+           *
+           *   ~120ms in   rect 40x40   layout 44x44   scale(0.908)  opacity 0.016
+           *   settled     rect 44x44   layout 44x44   none          opacity 1
+           *
+           * It has a framer-motion entry that scales 0.8 -> 1, and the sweep
+           * caught it partway — at 1.6% opacity, when it was barely on screen
+           * at all. 44 x 0.8 = 35.2, which is exactly the number reported.
+           *
+           * Skipping anything not yet opaque is the narrow fix. It does NOT
+           * excuse a permanently undersized control: a button with a CSS
+           * `scale(0.5)` sits at opacity 1 and is still measured by its real
+           * on-screen rectangle, which is what a thumb has to hit. The only
+           * thing excused is a transient state that will be gone before any
+           * member could tap it.
+           *
+           * Left as a rect measurement rather than switching to offsetWidth,
+           * deliberately: `offsetWidth` ignores transforms entirely and would
+           * quietly stop reporting genuinely shrunken controls. The floor does
+           * not move to make a screen pass.
+           */
+          const cs = getComputedStyle(el);
+          if (parseFloat(cs.opacity) < 0.9) continue;
+
           const r = el.getBoundingClientRect();
           const long = Math.max(r.width, r.height);
           const short = Math.min(r.width, r.height);
