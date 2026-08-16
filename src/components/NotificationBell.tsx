@@ -331,7 +331,21 @@ const NotificationBell = () => {
     <div className="relative" ref={containerRef}>
       <button
         onClick={() => setOpen(!open)}
-        className="relative p-2 rounded-full border border-border hover:border-primary hover:text-primary transition-all duration-500"
+        /**
+         * NO CIRCLE, AND A FULL 44px TARGET. Owner, 2026-08-15: *"from the
+         * notification remove round circle"*.
+         *
+         * That instruction fixes two things at once. The ring was what made
+         * this control impossible to enlarge: at 44px — and even at 40px — it
+         * COLLIDED with the centred wordmark, "50mm Retina World" running
+         * straight into the circle at 360px, photographed twice. With the ring
+         * gone the button can reach the tap floor without touching anything,
+         * and it now matches the Search control beside it.
+         *
+         * The glyph is unchanged. What went is the border and the rounded
+         * outline, not the button.
+         */
+        className="relative grid h-11 w-11 place-items-center text-muted-foreground hover:text-primary transition-colors duration-300"
         aria-label="Notifications"
         aria-expanded={open}
         aria-controls="notification-panel"

@@ -492,7 +492,17 @@ const GlobalSearch = () => {
       {/* Search trigger — inline input style */}
       <button
         onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
-        className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors duration-300"
+        /**
+         * 44px MINIMUM. Measured at 16×16 in the harness — the bare glyph, with
+         * no padding at all — on every signed-in screen, because this sits in
+         * the shared header beside the bell.
+         *
+         * `min-h-11` plus horizontal padding rather than a fixed square: on
+         * desktop this button also carries a "search" caption (`hidden
+         * lg:inline`), so a hard width would either clip that or leave a hole
+         * on a phone. The height is the part a thumb needs.
+         */
+        className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 px-1 text-muted-foreground hover:text-foreground transition-colors duration-300"
         aria-label="Search"
       >
         <Search className="h-4 w-4" />

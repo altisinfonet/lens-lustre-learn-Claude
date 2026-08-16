@@ -361,7 +361,23 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
               the profile sheet header where the bell used to be. Notifications
               are checked many times a day; the theme is set once. Desktop is
               deliberately unchanged — this is an app/mobile-only layout. */}
-          <div className="flex items-center gap-2 lg:hidden">
+          {/**
+           * THE BELL AND THE SEARCH ARE ONE GROUP, SET APART FROM THE WORDMARK.
+           *
+           * Owner, 2026-08-15: *"search and bell will have closer with perfect
+           * distace but after 500mm text, looking bad"*.
+           *
+           * Two separate complaints in one sentence, and they pull opposite
+           * ways: the two icons belong TOGETHER (they are both "tools"), and
+           * the pair must stand CLEAR of the centred title. `gap-2` gave the
+           * same 8px in both places, so the group read as three evenly spaced
+           * things — title, bell, search — instead of a title and a pair.
+           *
+           * `gap-0.5` closes the pair to 2px between two 44px targets, which
+           * still leaves 44px of tappable area each. `ml-3` is the breathing
+           * space after the wordmark. Measured at 360px in the harness.
+           */}
+          <div className="flex items-center gap-0.5 ml-3 lg:hidden">
             {user && <NotificationBell />}
             {user && <GlobalSearch />}
           </div>
