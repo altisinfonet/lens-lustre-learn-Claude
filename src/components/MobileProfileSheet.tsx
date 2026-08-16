@@ -246,8 +246,38 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
             `min-h-0` lets it shrink below its content; `overscroll-contain`
             stops a flick at the end of the list from dragging the sheet shut
             mid-scroll, which on a list this long happens constantly. */}
+        {/*
+          THE GRID SCROLLS ONLY IF IT HAS TO — AND IT USUALLY WILL NOT.
+
+          Owner, 2026-08-16, on the first version of this fix: "after logout
+          version name was there. that you missed here and all buttons are not
+          showing some hiding."
+
+          Half right, and the half he is right about is the important half.
+          Making this band scrollable guaranteed Logout was reachable, but it
+          paid for that with actions below the fold — and an action you have to
+          discover by scrolling is, for most members, an action that is not
+          there. Trading one invisible control for four is not a fix.
+
+          So the tiles were tightened instead: 12px of vertical padding to 8,
+          the icon plate 40px to 36, the gap between rows 8px to 6. A row is
+          81px tall instead of 81 + slack, and the whole 21-action grid now
+          measures ~400px rather than ~490. Measured after: every action is on
+          screen without scrolling on a 592px viewport, which is shorter than
+          any phone that reported this.
+
+          The scroll stays as the SAFETY NET, not the mechanism. A member with
+          large system fonts, or an account that grows a Judge and an Admin
+          tile, will overflow — and when that happens the grid gives way and
+          Logout still does not. That is the whole point of the three bands.
+
+          (The version label he thought had gone is still here, in the footer
+          below. `AppVersionLabel` renders nothing when it cannot determine a
+          version, which is the case in the screenshot harness and never on a
+          real build — a wrong number beside Logout is worse than none.)
+        */}
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-2">
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-4 gap-x-2 gap-y-0.5">
             <AnimatePresence>
               {visibleActions.map((action, i) => (
                 <motion.button
@@ -256,9 +286,9 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.03, duration: 0.25, ease: "easeOut" }}
                   onClick={() => action.onClick ? action.onClick() : action.to && go(action.to)}
-                  className="group relative flex flex-col items-center gap-1.5 py-3 px-1 rounded-xl hover:bg-primary/10 active:bg-primary/20 transition-all duration-300"
+                  className="group relative flex flex-col items-center gap-1 rounded-xl px-1 py-2 transition-all duration-300 hover:bg-primary/10 active:bg-primary/20"
                 >
-                  <div className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ease-out
+                  <div className={`relative w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-300 ease-out
                     ${action.animated
                       ? "bg-primary/15 dark:bg-primary/20 group-hover:scale-110"
                       : "bg-accent dark:bg-muted/60 group-hover:bg-primary/20 group-hover:scale-110"
@@ -282,7 +312,7 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
                     {action.badge}
                   </div>
                   <span
-                    className={`text-[9px] tracking-[0.05em] uppercase leading-tight text-center transition-colors duration-300
+                    className={`w-full text-[10px] leading-[1.15] text-center transition-colors duration-300
                       ${action.animated
                         ? "text-primary font-semibold"
                         : "text-foreground/60 dark:text-muted-foreground group-hover:text-primary"

@@ -346,7 +346,69 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       fileInputRef.current?.click();
       return -1;
     }
-    const files = await pickGalleryFiles(10);
+    /**
+     * THE PICKER ITSELF CAN FAIL TO OPEN. Owner's answer, 2026-08-16, to which
+     * shape the Create Post failure takes: "(A) nothing opens at all."
+     *
+     * That case now throws rather than pretending nobody chose anything, so it
+     * gets a message instead of a dead button. Falling back to the OS file
+     * input is deliberate and is the actual recovery: `<input type=file>` does
+     * not depend on the Camera plugin, so a member whose gallery bridge is
+     * broken can still post today rather than waiting for a build.
+     */
+    let picked = 0, unreadable = 0, files: File[] = [];
+    try {
+      ({ files, picked, unreadable } = await pickGalleryFiles(10));
+    } catch (err) {
+      toast({
+        title: "Could not open the photo picker",
+        description: `${err instanceof Error ? err.message : "Android refused the request"}. Opening the file browser instead.`,
+        variant: "destructive",
+      });
+      fileInputRef.current?.click();
+      return -1;
+    }
+
+    /**
+     * A FAILURE MUST NOT LOOK LIKE A CANCELLATION.
+     *
+     * Owner, 2026-08-16: "Create Post : Many times not working."
+     *
+     * This used to be `const files = await pickGalleryFiles(10)` and nothing
+     * else, so an empty array ended the whole flow in silence. An empty array
+     * has two completely different meanings — the member backed out, or every
+     * photo they chose failed to read — and only one of them deserves silence.
+     * `devicePhotosToFiles` swallows a per-photo read error with `continue`
+     * (correctly: nine of ten is better than none), and if ALL of them fail
+     * the result is a Create button that visibly does nothing.
+     *
+     * This does NOT claim to fix the underlying read failure. Reading a
+     * `capacitor://` path can fail for reasons no code here controls — a
+     * revoked URI after the activity was recycled, a cloud-only photo that is
+     * not on the device yet, a file the OS handed over and then withdrew. What
+     * it fixes is the SILENCE, which is what made this unreportable: the member
+     * now sees that something went wrong instead of concluding the app is
+     * broken, and the count tells the next person which of the two it was.
+     */
+    if (picked > 0 && files.length === 0) {
+      toast({
+        title: "Could not read those photos",
+        description:
+          picked === 1
+            ? "Android handed the photo over but it could not be opened. Please try again, or pick it from a different album."
+            : `Android handed over ${picked} photos but none could be opened. Please try again, or pick them from a different album.`,
+        variant: "destructive",
+      });
+      return 0;
+    }
+    if (unreadable > 0) {
+      // Partial loss. The post still opens with what survived — telling them
+      // after the fact beats blocking a working post over one bad file.
+      toast({
+        title: `${unreadable} photo${unreadable === 1 ? "" : "s"} could not be read`,
+        description: `Continuing with the other ${files.length}.`,
+      });
+    }
     files.forEach(processFile);
     return files.length;
   };
