@@ -244,13 +244,70 @@ for (const scene of scenes) {
           if (el.tagName !== "A") return false;
           if (el.querySelector("svg,img,video")) return false;
           const cs = getComputedStyle(el);
+          /**
+           * `display: inline` IS the answer on its own, and the line-height
+           * test below CANNOT reach it.
+           *
+           * MEASURED 2026-08-16 on the author name inside a caption
+           * ("Avijit Sheel  Morning fog over the river…"): box 70x15,
+           * line-height 21.125px. The shape test asks for |15 - 21.125| <= 4
+           * and gets 6.1, so it reported a link that is four words into a
+           * sentence.
+           *
+           * The reason is not a bad threshold. For an INLINE box,
+           * getBoundingClientRect().height is the font's em box, not the line
+           * box — the two are different numbers by definition, and no
+           * threshold reconciles them without also swallowing real controls.
+           *
+           * An inline anchor cannot be given a 44px box at all: `height` does
+           * not apply to it. Making it obey would mean changing its display,
+           * which is exactly the "wreck the typography" outcome this whole
+           * rule exists to avoid. So inline is decided here, and the
+           * line-height test below continues to handle the `block` names that
+           * are styled that way only so they can truncate.
+           */
+          if (cs.display === "inline") return true;
           const line = parseFloat(cs.lineHeight);
           if (!Number.isFinite(line)) return false;
           return Math.abs(el.getBoundingClientRect().height - line) <= 4;
         };
+        /**
+         * Is the real target a LABEL wrapping this control?
+         *
+         * A settings row is the standard case: the switch itself is 44x24, but
+         * the whole row is a <label>, so the icon, the title and the
+         * description all toggle it. What the thumb aims at is the row, and
+         * the row is ~300x64. Measuring the switch reports a defect that does
+         * not exist and hides the ones that do.
+         *
+         * Kept DELIBERATELY NARROW, because this is the kind of exception that
+         * quietly turns a checker into decoration:
+         *   • only for form controls a label can actually drive — a switch, a
+         *     checkbox, a radio, an <input>. NOT for links or plain buttons; a
+         *     32px avatar link inside a big card is still a real finding.
+         *   • the ancestor must be a real <label>, not any large box.
+         *   • that label must itself clear 44px in BOTH directions. A label
+         *     that is also too small proves nothing and is still reported.
+         * This is not moving the target. The 44px is genuinely there — it is
+         * on a different element than the one being measured.
+         */
+        const coveredByLabel = (el) => {
+          const role = el.getAttribute("role");
+          const isFormControl =
+            el.tagName === "INPUT" ||
+            role === "switch" ||
+            role === "checkbox" ||
+            role === "radio";
+          if (!isFormControl) return false;
+          const label = el.closest("label");
+          if (!label) return false;
+          const lr = label.getBoundingClientRect();
+          return Math.min(lr.width, lr.height) >= 44;
+        };
         for (const el of document.querySelectorAll('button,a[href],[role="button"],input,select,summary')) {
           if (!visible(el)) continue;
           if (isFlowedText(el)) continue;
+          if (coveredByLabel(el)) continue;
           const r = el.getBoundingClientRect();
           const long = Math.max(r.width, r.height);
           const short = Math.min(r.width, r.height);
@@ -363,6 +420,24 @@ for (const scene of scenes) {
       //    platform is the worst possible visual bug.
       const broken = [];
       for (const img of document.querySelectorAll("img")) {
+        /**
+         * AN IMAGE THAT IS NOT DISPLAYED HAS NOTHING TO RENDER.
+         *
+         * MEASURED 2026-08-16 on the profile screen at 360 and 390: the QR
+         * code in the desktop-only left sidebar reported `naturalWidth: 0`
+         * and `complete: false` — at 700ms, at 2s and still at 5s. It is not
+         * broken and it never loads, because a browser does not fetch or
+         * decode an image inside a `display:none` subtree. It is correctly
+         * hidden on a phone; that is the sidebar working.
+         *
+         * Reported on both phone widths and on neither desktop width, which
+         * is the signature of exactly this and the opposite of a real broken
+         * photograph. `offsetParent === null` is the cheap, reliable test for
+         * "not laid out at all" — a genuinely broken <img> in the page IS
+         * laid out (it gets its alt box) and is still reported, which is the
+         * case this check exists for.
+         */
+        if (!img.offsetParent && getComputedStyle(img).position !== "fixed") continue;
         if (!img.complete || img.naturalWidth === 0) broken.push((img.getAttribute("src") || "(no src)").slice(0, 80));
       }
       if (broken.length) out.push(`images not rendered (${broken.length}): ${broken.slice(0, 4).join(", ")}`);
