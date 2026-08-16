@@ -676,3 +676,57 @@
 .tracking-widest {
   letter-spacing: normal;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * CROP HANDLES: A SMALL MARK, A LARGE TARGET.
+ *
+ * Owner, 2026-08-16, from his phone: "marked has big corners, needs to be
+ * small."
+ *
+ * He is right about what he can see and he must not be given what he asked for
+ * literally. `react-image-crop` grows its handles to 24px on a coarse pointer
+ * (`--rc-drag-handle-mobile-size`), which is why they look like grey boxes
+ * parked on his photograph — and that 24px is the only reason a thumb can grab
+ * a corner at all. Shrinking the handle would answer the complaint and quietly
+ * make the corners undraggable, which is his OTHER complaint in this same
+ * dialog.
+ *
+ * So the two are separated: the touch area goes UP to 28px and becomes
+ * invisible, and what is drawn is a 14px right-angle bracket sitting inside
+ * the frame — the corner mark a camera viewfinder uses. Less ink on the
+ * picture, more surface for the thumb.
+ *
+ * Scoped to `.rc-fine-handles`, which ImageCropModal puts on its ReactCrop
+ * root, so nothing else that ever uses this library inherits it by surprise.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+/* 44px is the tap floor this project holds every other control to, and there is
+ * no reason a crop corner should be the exception — the sweep flagged these at
+ * 28x28 and the rule does not bend to make a screen pass. It costs nothing
+ * visually because the box is transparent: what a member sees is the 14px
+ * bracket below, whatever the target underneath it measures. */
+.rc-fine-handles {
+  --rc-drag-handle-mobile-size: 44px;
+  --rc-drag-handle-size: 24px;
+}
+
+.rc-fine-handles .ReactCrop__drag-handle {
+  background-color: transparent;
+  border: none;
+}
+
+.rc-fine-handles .ReactCrop__drag-handle::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 0 solid #fff;
+  /* Readable on a white sky as well as a dark forest. */
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9));
+}
+
+/* Each bracket's own corner sits on the handle's centre, which is the corner of
+   the crop, and the two visible edges run INWARD from there. */
+.rc-fine-handles .ord-nw::after { top: 50%; left: 50%; border-top-width: 2px; border-left-width: 2px; }
+.rc-fine-handles .ord-ne::after { top: 50%; right: 50%; border-top-width: 2px; border-right-width: 2px; }
+.rc-fine-handles .ord-sw::after { bottom: 50%; left: 50%; border-bottom-width: 2px; border-left-width: 2px; }
+.rc-fine-handles .ord-se::after { bottom: 50%; right: 50%; border-bottom-width: 2px; border-right-width: 2px; }
