@@ -297,7 +297,16 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
             <button
               type="button"
               onClick={() => navigate("/feed?compose=1")}
-              className="lg:hidden relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-foreground/30 text-muted-foreground transition-colors hover:text-foreground"
+              /* NO BOX. Owner, 2026-08-15: "remove border from create icon too" — the
+                 third time in two days he has asked for a border gone (post card,
+                 top bar, now this), so treat it as the standing rule it is: this
+                 app draws no outlines around controls.
+
+                 Dropping the box also lets the button reach the 44px tap floor
+                 without looking heavy — the same thing that unblocked the bell
+                 once its ring went. It now matches the bell and the search: a
+                 bare glyph in a 44px-tall target. */
+              className="lg:hidden relative z-10 grid h-11 w-8 shrink-0 place-items-center text-muted-foreground transition-colors hover:text-foreground"
               aria-label={t("composer.create", "Create post")}
             >
               {/* ⚠ ICON ONLY — NO VISIBLE "Create" LABEL. Owner, 2026-08-14.
