@@ -528,7 +528,45 @@ export default function ImageCropModal({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4"
+      /**
+       * `pointer-events-auto` IS THE WHOLE FIX FOR "THE SCREEN IS FROZEN".
+       *
+       * ─────────────────────────────────────────────────────────────────────
+       * Owner, 2026-08-16, on 1.2.9: "after uploadling any image clicked crop
+       * after that any of option any fuction not wokring even not in web too,
+       * no cross, no mirror, no moving the selection nothing - its like Screen
+       * is freezed - web and app."
+       *
+       * He was describing something far simpler than anything I had been
+       * fixing, and the giveaway was "no cross". The close button is a plain
+       * <button onClick>. If THAT is dead, nothing about cropping is wrong —
+       * the dialog is not receiving input at all.
+       *
+       * `WallPosts` renders this component as a SIBLING of the composer's
+       * Radix <Dialog>, and that dialog is open at the moment Crop is pressed.
+       * A Radix modal makes the rest of the page inert while it is open by
+       * putting `pointer-events: none` on <body>. This overlay is outside the
+       * dialog's content, so it inherits it — painted perfectly, laid out
+       * perfectly, and completely deaf. Measured at 412px:
+       *
+       *     crop dialog ALONE       body pointer-events auto   Cancel reachable
+       *     behind the composer     body pointer-events NONE   Cancel NOT reachable
+       *                             (hit test lands on Radix's own overlay)
+       *
+       * Every symptom he reported is that one inherited value: no cross, no
+       * mirror, no rotate, no aspect chips, no drag, no pinch. Web and app,
+       * because it is not a WebView difference at all.
+       *
+       * AND IT IS WHY EVERY MEASUREMENT I GAVE HIM WAS TRUE AND USELESS. The
+       * three crop scenes mount this component ALONE, where the body is
+       * untouched and everything works. The bug lives in the ARRANGEMENT, not
+       * the component — `crop-modal-behind-dialog` now reproduces it.
+       *
+       * `pointer-events: auto` re-enables this subtree; z-[100] already sits
+       * above Radix's z-50 overlay, so paint order was never the problem.
+       * ─────────────────────────────────────────────────────────────────────
+       */
+      className="pointer-events-auto fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4"
       role="dialog"
       aria-modal="true"
     >
