@@ -395,7 +395,7 @@ const PostCard = ({
             disabled={friendRequested || sendFriend.isPending}
             aria-label={friendRequested ? "Friend request sent" : "Add friend"}
             title={friendRequested ? "Friend request sent" : "Add friend"}
-            className="shrink-0 p-2 rounded-full text-primary hover:bg-primary/10 transition-colors disabled:opacity-60"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-primary hover:bg-primary/10 transition-colors disabled:opacity-60"
           >
             {friendRequested
               ? <UserCheck className="h-6 w-6" strokeWidth={1.75} />
