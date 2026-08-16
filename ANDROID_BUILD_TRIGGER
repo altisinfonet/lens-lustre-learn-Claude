@@ -1,66 +1,83 @@
-Build 1.2.6 - 2026-08-16 - THE THREE AUDIT ITEMS ARE CLOSED
+Build 1.2.7 - 2026-08-16 - THE APP GETS ITS COMPOSER, AND THE WALL IS REBUILT
 
-Cut from main after the last three open items in docs/PATCHWORK_AUDIT.md were
-finished. typecheck clean, 1,833 tests green, production build clean, `npm ci`
-clean from an empty checkout with NO .npmrc, `bun install` clean, and the
-screenshot sweep reports 63 screenshots / 0 problems.
+Cut from main after everything the owner reported in a four-hour session on his
+phone. Verified against ORIGIN, not a local copy: the branch was reset to what
+is actually on GitHub and re-run from there.
 
-VERSION NAME IS 1.2.6, NOT 1.2.5. Builds #90 and #91 both carried 1.2.5 and
-NEITHER was promoted. This is different code, so it gets a different name —
-two artefacts sharing a version string is how the Play Console, the crash
+  typecheck 0 · 1,841 tests pass · production build 0
+  92 screenshots, ZERO real problems (web, 360, 390, desktop AND app mode)
+
+VERSION IS 1.2.7. Build #93 already carried 1.2.6 and this is different code.
+Two artefacts sharing a version string is how the Play Console, the crash
 reports and the About screen stop agreeing with each other.
 
-WHAT CHANGED SINCE #91
+THE ROOT CAUSE OF EVERYTHING BELOW
 
-1. THE WEBSITE'S BUILD PATCH IS GONE, PROPERLY.
-   When the site went dark for nine hours, `.npmrc legacy-peer-deps=true` was
-   the hold that got it deploying again. A hold is not a cure: that flag tells
-   npm to ignore peer conflicts ENTIRELY, so the next stale dependency would
-   have hidden exactly the same way.
-   react-day-picker is upgraded 8.10.1 -> 10.0.1, whose peer range genuinely
-   accepts React 19, and **.npmrc is deleted**. Proved, not assumed:
-   package.json + package-lock.json copied to an empty directory with no
-   .npmrc, `npm ci` run there -> exit 0. GitHub's own clean checkout then
-   agreed - 6/6 checks green.
-   Bundle cost: none. 439.44 kB -> 439.42 kB gzipped.
+The screenshot checker had NEVER ONCE rendered the app. `isNativeCapacitorApp()`
+reads `window.Capacitor`, nothing in the harness ever set it, so every one of
+the 63 screenshots it had been passing was the WEBSITE. It reported "0 problems"
+the same morning the owner found three real faults on his phone in two minutes.
 
-2. EVERY TAP TARGET REACHES 44px.
-   Feed 29 -> 0. Profile 17 -> 0. Post detail 14 -> 0. Login 2 -> 0.
-   Notification settings 24 -> 0.
-   Nothing was silenced to get there. The settings switches are the example
-   worth knowing: instead of inflating the switch, the whole ROW is now the
-   control - icon, title and description all toggle it, the way iOS and
-   Android Settings work. The switch looks exactly as it did.
+That is fixed first and permanently: there is now an `app-360` viewport, and the
+wall and the visitor-view of a wall have their own scenes. A checker that
+silently tests half the product is worse than none, because it issues a clean
+bill of health for the half it never opened.
 
-3. 33 TEST FILES NO LONGER CARRY A COMMENT STRIPPER THAT CAN DELETE REAL CODE.
-   41 sites across 33 files now use the safe one. Two of the migrated tests
-   were deliberately broken afterwards to confirm their alarms still fire.
+WHAT THE OWNER REPORTED, AND WHAT WAS DONE
+
+ 1. THE COMPOSER. Picking a photo on the app went straight to a 160x160
+    thumbnail — no Crop, no cover choice, no reorder, no sight of the framing.
+    On a photography platform, on the device nearly everyone posts from.
+    It now renders the SAME composer component the website does. Not a copy.
+
+ 2. THE BLANK GAP IN THE FEED. An empty advert slot returns nothing for a
+    normal member but drew an ADMIN placeholder for an admin — which he is —
+    and that placeholder inherited the story-card frame: full-bleed at 4:5,
+    reserving about 450px for two words of grey text. Now a compact strip.
+    No member ever saw this. Only he did.
+
+ 3. THE WALL. Rebuilt against his Instagram reference, measured off the
+    screenshot rather than eyeballed: name over the counts, kebab top-right,
+    white bio, thin "+" story rings, icon-only tabs with a white underline,
+    4:5 tiles that TOUCH, and ONE 18px left edge for the whole screen where
+    there had been four different ones.
+
+ 4. TOP BAR. The three icons were 20/16/16px — three sizes in one row. All
+    24px now, in 44x44 targets, with the Create and Search glyphs measured to
+    26px from their respective edges.
+
+ 5. GRID COUNTS. Likes and comments on wall tiles were hover-only, so on a
+    phone they did not exist at all. First tap reveals, second opens — his own
+    rule from 14 August, which I had applied to the feed and written the
+    opposite of into the grid.
+
+THREE HE NEVER SAW, all shipping, all found by photographing the app:
+
+  · AN INFINITE RENDER LOOP on every profile — "Maximum update depth exceeded",
+    four times per page load, burning battery for as long as the page was open.
+    `extData?.entries || []` built a new array every render and was a
+    dependency of an effect that called setState. Verified 4 before, 0 after.
+  · a long name rendering UNDERNEATH the ⋮ menu.
+  · "mutual friends" printing with NO NUMBER in front of it.
 
 WHAT TO CHECK ON THE PHONE - only your device can answer these
 
-  1. THE DATE PICKERS, please look at these first - they were rewritten:
-       - Edit Profile -> Date of Birth. Month and year dropdowns must both be
-         there, arrows on the left and right, your date highlighted in blue.
-       - Create a post -> Schedule. Past dates must still be greyed out.
-     They are photographed and clean at 360px and 390px, but a real finger on
-     a real phone is the test I cannot run.
-  2. Settings -> Notifications: tap the WORDS of a row, not the switch. It
-     must toggle. That is the change.
-  3. An album post: the little dots under the photo. They look identical, but
-     the tappable area around each is much bigger now.
-  4. Open a post FROM YOUR WALL and from the FEED - still identical. (The #91
-     fix; confirming it survived.)
-  5. Download an image and an article PDF - the save path is unchanged, but
-     it is now covered by a real test instead of a placeholder.
+  1. POST A PHOTO. After picking, you must now get the full composer: the photo
+     at publishing size, the thirds guide, Crop, the Cover badge, reorder. This
+     is the change. A source test pins the wiring, but no test here can drive a
+     native gallery — this one needs your thumb.
+  2. Your wall: one straight left edge down the whole screen, photos touching.
+  3. Tap a wall photo ONCE — the like/comment counts appear. Tap again — it opens.
+  4. Open somebody else's profile: Follow and Message should look like buttons,
+     not tiny uppercase links.
+  5. Scroll the feed: no blank hole between posts any more.
 
 NOT DONE, AND NOT CLAIMED
 
-- `svgo` is missing from both lockfiles, so SVGs ship unoptimised. It is an
-  OPTIONAL peer of vite-plugin-image-optimizer and has been absent all along -
-  this build did not cause it and does not fix it. Adding a dependency days
-  before a build is the kind of quiet change that causes the next outage, so
-  it is logged in the audit and left for its own cycle.
-- Audit section 8 is still open: the lint rule that would make the "one
-  funnel" gate a build failure rather than a test failure.
+ - his reference has four content tabs; ours has two. NO REELS, ever.
+ - `svgo` is still absent from both lockfiles, so SVGs ship unoptimised.
+   Pre-existing, unrelated, deliberately not touched beside a build.
+ - the harness has no fixtures for the Works tab, so those scenes log missing
+   data. Test scaffolding, not an app fault.
 
 Then promote the AAB.
