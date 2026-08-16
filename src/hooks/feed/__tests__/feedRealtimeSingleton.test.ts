@@ -21,11 +21,10 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { stripComments } from "@/test-utils/sourceText";
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
-const code = (p: string) =>
-  read(p)
-    .replace(/\/\*[\s\S]*?\*\//g, "")
+const code = (p: string) => stripComments(read(p))
     .replace(/(^|[^:])\/\/.*$/gm, "$1");
 
 const hook = code("src/hooks/feed/useRealtimeFeed.ts");
