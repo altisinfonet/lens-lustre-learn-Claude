@@ -405,7 +405,13 @@ const PostCard = ({
         {currentUserId && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="p-2 rounded-full text-muted-foreground hover:bg-muted/50 transition-colors">
+              <button
+                /* 44x44. Measured at 36x36 in the harness: this is the post's
+                   own menu — delete, report, remove from wall — so a miss here
+                   is a member tapping the wrong post's actions. The glyph is
+                   unchanged; the circle around it reaches the floor. */
+                className="grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors"
+              >
                 <MoreHorizontal className="h-5 w-5" />
               </button>
             </DropdownMenuTrigger>
