@@ -16,6 +16,7 @@ import { useState, type JSX } from "react";
 import ProfilePostGrid from "@/components/profile/ProfilePostGrid";
 import PostComposerPreview from "@/components/post/PostComposerPreview";
 import WallViewToggle, { type WallView } from "@/components/profile/WallViewToggle";
+import { Calendar } from "@/components/ui/calendar";
 import type { UnifiedPost } from "@/types/post";
 import { REAL_SCREENS } from "./realScreens";
 
@@ -179,6 +180,49 @@ export const SCENES: Record<string, () => JSX.Element> = {
    * screen scene has found one.
    */
   ...REAL_SCREENS,
+
+  /**
+   * THE TWO CALENDAR SHAPES, added 2026-08-16 for the react-day-picker v8 → v9
+   * upgrade (PATCHWORK_AUDIT item 3).
+   *
+   * v9 renames every `classNames` key and every caption prop. A rename that is
+   * missed does not throw and does not fail typecheck — the class is simply
+   * never applied, and the calendar renders as unstyled browser default. That
+   * is invisible to a unit test and obvious in a photograph, which is why these
+   * two scenes exist: one before the upgrade, one after, compared by eye.
+   *
+   * `month` is pinned so two runs produce identical pixels (scene rule above).
+   */
+  "calendar-plain": () => (
+    <div className="min-h-screen bg-background p-4">
+      <Calendar
+        mode="single"
+        month={new Date(2026, 7, 1)}
+        selected={new Date(2026, 7, 20)}
+        onSelect={() => {}}
+        disabled={(d) => d < new Date(2026, 7, 14)}
+      />
+    </div>
+  ),
+
+  /**
+   * The date-of-birth shape: month/year dropdowns in the caption. This is the
+   * one the upgrade is most likely to break — `captionLayout`, `fromYear` and
+   * `toYear` are all renamed in v10.
+   */
+  "calendar-dob": () => (
+    <div className="min-h-screen bg-background p-4">
+      <Calendar
+        mode="single"
+        captionLayout="dropdown"
+        startMonth={new Date(1940, 0)}
+        endMonth={new Date(2008, 11)}
+        month={new Date(1994, 4, 1)}
+        selected={new Date(1994, 4, 17)}
+        onSelect={() => {}}
+      />
+    </div>
+  ),
 
   /** One photo: no reorder arrows can do anything, and there is no cover choice. */
   "composer-single": () => <ComposerHarness srcs={[LAND]} />,
