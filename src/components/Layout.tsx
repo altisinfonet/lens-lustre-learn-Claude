@@ -1,5 +1,6 @@
 import { Outlet, useLocation } from "react-router-dom";
 import Navbar from "@/components/Navbar";
+import GlobalComposer from "@/components/GlobalComposer";
 import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
 import GiftCelebrationModal from "@/components/GiftCelebrationModal";
 import AnnouncementBar from "@/components/AnnouncementBar";
@@ -262,6 +263,32 @@ const LayoutInner = () => {
       )}
 
       {!showOnboarding && <GiftCelebrationModal />}
+
+      {/*
+        THE ONE UPLOADER, REACHABLE FROM EVERY PAGE.
+        ─────────────────────────────────────────────────────────────────────────
+        Owner, 2026-08-16: "as top menu icon is fix it should be from single
+        uploader while standing on any page - that is not happening. why ?"
+
+        Because the composer lived inside the Feed PAGE, so the fixed top-bar
+        button had to navigate to /feed to reach it — and that navigation was the
+        bug. Pressing Create did two things at once: changed the page AND opened
+        Android's photo picker, which backgrounds the WebView mid-transition.
+        From the feed there was no page change and therefore no race, which is
+        exactly why it worked there and nowhere else.
+
+        Mounted here, it belongs to the SHELL rather than to a page. The button
+        raises `?compose=1` on the current url, this composer opens in place, and
+        nothing navigates. The race is deleted rather than patched.
+
+        NATIVE APP ONLY, deliberately. The website's composer is an inline row on
+        the feed and is not reported broken; scoping this to the app keeps the
+        change off every web surface. `composerOnly` draws no post list and, since
+        today, fetches none either — so this costs a mount and no query.
+      */}
+      {user && isNativeCapacitorApp() && (
+        <GlobalComposer userId={user.id} />
+      )}
 
       {user && showOnboarding && (
         <OnboardingModal

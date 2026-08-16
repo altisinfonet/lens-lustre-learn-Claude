@@ -98,7 +98,9 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     hasNextPage: hasMore,
     fetchNextPage,
     refetch,
-  } = useUserPostsQuery(targetUserId, user?.id);
+    // A composer-only mount draws no list, so it must not fetch one. This
+    // matters now that the composer is mounted globally — see Layout.tsx.
+  } = useUserPostsQuery(targetUserId, user?.id, { enabled: !composerOnly });
 
   const posts = useMemo(() => flattenUserPosts(data?.pages), [data?.pages]);
 
@@ -1603,28 +1605,52 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                       <Avatar src={currentProfile?.avatar_url || null} name={currentProfile?.full_name} size="md" />
                       <div className="min-w-0">
                         <div className="truncate text-sm font-semibold">{currentProfile?.full_name || "You"}</div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button className="mt-0.5 flex items-center gap-1.5 rounded-md border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/50">
-                              {privacyIcon(newPrivacy)}
-                              <span>{PRIVACY_OPTIONS.find((o) => o.value === newPrivacy)?.label || "Public"}</span>
-                              <ChevronDown className="h-3 w-3 opacity-50" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="min-w-[180px]">
-                            {PRIVACY_OPTIONS.map((opt) => (
-                              <DropdownMenuItem key={opt.value} onClick={() => setNewPrivacy(opt.value)} className="flex items-center gap-2.5 py-2">
-                                {opt.icon}
-                                <div>
-                                  <div className="text-sm font-medium">{opt.label}</div>
-                                  {opt.value === "private" && <div className="text-xs text-muted-foreground">Only you can see this</div>}
-                                  {opt.value === "friends" && <div className="text-xs text-muted-foreground">Your friends</div>}
-                                  {opt.value === "public" && <div className="text-xs text-muted-foreground">Anyone can see</div>}
-                                </div>
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        {/*
+                          ⚠ THE PRIVACY CHOICE IS WITHHELD UNTIL THE CDN CAN KEEP IT.
+                          ─────────────────────────────────────────────────────────
+                          Owner, 2026-08-16, holding a build before its FIRST PUBLIC
+                          release: "Final build give me after checking as it will in
+                          Public."
+
+                          Checked, against production and not from a document:
+
+                              select privacy, count(*) from posts
+                              -> public: 218      (nothing else exists)
+
+                          The database honours a post's privacy. The feed honours it.
+                          Eight of the nine surfaces in the visibility invariant
+                          honour it. THE DIRECT IMAGE URL DOES NOT — CDN
+                          authorization is the one unfinished piece of the media
+                          engine (B5), and it is the known RED cell in that matrix.
+
+                          Today that is harmless, and only by luck: every one of the
+                          218 posts is public, so there is nothing private to leak.
+                          Going public is precisely the event that ends the luck. The
+                          first member who chooses "Private" would be given a promise
+                          this platform cannot yet keep — their photograph would still
+                          be fetchable by anyone holding the URL.
+
+                          Offering a control that does not do what it says is worse
+                          than not offering it. So the chooser is withheld and every
+                          post is public, which is what all 218 already are: nobody
+                          loses a capability they were actually getting, and nobody is
+                          told something untrue.
+
+                          TO RESTORE IT: delete this block, restore the DropdownMenu
+                          from git history, and delete the test that pins this. Do
+                          that ONLY once authorized media delivery is live and the
+                          Media-URL cell is green — the test names that condition so
+                          it cannot be reverted by someone who does not know why it
+                          is here.
+
+                          `newPrivacy` stays wired end to end and defaults to public,
+                          so nothing downstream changes and the day it comes back is a
+                          one-line day.
+                        */}
+                        <span className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                          {privacyIcon("public")}
+                          <span>Public</span>
+                        </span>
                       </div>
                     </div>
 
@@ -1920,33 +1946,37 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                           <span aria-hidden="true" className="text-muted-foreground">›</span>
                         </button>
                       )}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button type="button" className="flex w-full items-center gap-3 px-1 py-3 text-left hover:bg-muted/40">
-                            <Globe className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                            <span className="flex-1">
-                              <span className="block text-sm font-medium">{t("post.audience", "Post audience")}</span>
-                              <span className="block text-xs text-muted-foreground">
-                                {PRIVACY_OPTIONS.find((o) => o.value === newPrivacy)?.label || "Public"}
-                              </span>
-                            </span>
-                            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="min-w-[180px]">
-                          {PRIVACY_OPTIONS.map((opt) => (
-                            <DropdownMenuItem key={opt.value} onClick={() => setNewPrivacy(opt.value)} className="flex items-center gap-2.5 py-2">
-                              {opt.icon}
-                              <div>
-                                <div className="text-sm font-medium">{opt.label}</div>
-                                {opt.value === "private" && <div className="text-xs text-muted-foreground">Only you can see this</div>}
-                                {opt.value === "friends" && <div className="text-xs text-muted-foreground">Your friends</div>}
-                                {opt.value === "public" && <div className="text-xs text-muted-foreground">Anyone can see</div>}
-                              </div>
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      {/*
+                        ⚠ WITHHELD — and THIS is the one the APP shows.
+                        ─────────────────────────────────────────────────────
+                        The composer has TWO audience controls: the one on the
+                        web's first screen, and this one on screen 2, which is
+                        the ONLY one a member on the Android app ever reaches.
+
+                        I removed the web one first and believed I was done.
+                        The test written alongside it failed and named this
+                        line — which is the entire reason the test exists, and
+                        the difference between a privacy control being withheld
+                        and being withheld ON THE WEBSITE ONLY while shipping
+                        live to every phone.
+
+                        Reason, in full, at the other site: the database, the
+                        feed and eight of nine surfaces honour a post's
+                        privacy; the direct image URL does not, because
+                        authorized media delivery (B5) is unfinished. All 218
+                        production posts are public, so nothing leaks today —
+                        going public is what would end that.
+
+                        Restore BOTH together, only when the Media-URL cell is
+                        green, and delete the test in the same commit.
+                      */}
+                      <div className="flex w-full items-center gap-3 px-1 py-3 text-left">
+                        <Globe className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        <span className="flex-1">
+                          <span className="block text-sm font-medium">{t("post.audience", "Post audience")}</span>
+                          <span className="block text-xs text-muted-foreground">Public</span>
+                        </span>
+                      </div>
 
                       <div>
                         <button

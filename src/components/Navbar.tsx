@@ -296,7 +296,41 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
           {!transparent && user && isNativeCapacitorApp() && (
             <button
               type="button"
-              onClick={() => navigate("/feed?compose=1")}
+              /**
+               * OPEN THE COMPOSER WHERE THE MEMBER ALREADY IS. DO NOT NAVIGATE.
+               * ───────────────────────────────────────────────────────────────
+               * Owner, 2026-08-16: "create post is a static on the top menu bar
+               * but while on my or other pages, trying to uploaded - that is not
+               * happening. only from my feed section create post happening... as
+               * top menu icon is fix it should be from single uploader while
+               * standing on any page - that is not happening. why ?"
+               *
+               * This used to be `navigate("/feed?compose=1")`. That made a fixed
+               * button behave differently depending on the page under it, and
+               * pressing it did TWO things at once — change the page AND launch
+               * Android's photo picker, which backgrounds the whole WebView
+               * mid-navigation. From the feed there was no page change, so no
+               * race; from anywhere else there was.
+               *
+               * I first "fixed" that by guarding which WallPosts instance reads
+               * the flag. Measured with a two-page harness journey afterwards:
+               * that change did NOTHING — the picker fired from the wall with
+               * and without it. He called it a guess and he was right.
+               *
+               * So the race is removed rather than patched. The composer is
+               * mounted ONCE, globally, in Layout; this button raises the flag on
+               * the CURRENT url and the page never changes. No navigation, no
+               * second reader, no picker launched during a route transition —
+               * one uploader, reachable from every page, exactly as he asked.
+               *
+               * `replace` keeps the flag out of history, so Back never lands on
+               * a url that re-opens the composer.
+               */
+              onClick={() => {
+                const next = new URLSearchParams(location.search);
+                next.set("compose", "1");
+                navigate({ pathname: location.pathname, search: next.toString() }, { replace: true });
+              }}
               /* NO BOX. Owner, 2026-08-15: "remove border from create icon too" — the
                  third time in two days he has asked for a border gone (post card,
                  top bar, now this), so treat it as the standing rule it is: this
