@@ -1,3 +1,62 @@
+/**
+ * THE CROP DIALOG.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * REBUILT FOR THE PHONE 2026-08-16. It is mounted from NINE places, including
+ * the member post flow and the avatar picker, and it had never once been
+ * rendered by the screenshot sweep — it had no scene. `crop-modal-tall`,
+ * `crop-modal-wide` and `crop-modal-avatar` now cover it.
+ *
+ * OWNER REPORT, from his own phone:
+ *   "After uplaidng image any editing and Crop not working, any of options not
+ *    wokring., croipping selction not wokring."
+ *   "marked has big corners, needs to be small."
+ *   "after any button noting working after gesture back, this light boxes
+ *    opened but back screen scrolled."
+ *   "after grid if someone tried to zoom and fit the position based on the grid
+ *    not happening, this happens in instagram."
+ *
+ * Every one of those was real. Measured, not eyeballed:
+ *
+ * 1. EIGHTEEN TAP TARGETS UNDER 44px. The close button was 16x16. Every zoom,
+ *    rotate and mirror button was `p-1` around a 12px icon — 20x20. The aspect
+ *    chips were 35x27. This dialog was drawn for a mouse and shipped to a
+ *    thumb. "Any of options not working" is not vague; it is a 20px target.
+ *
+ * 2. ZOOM SILENTLY CROPPED THE WRONG PART OF THE PHOTOGRAPH. The image carried
+ *    `max-h-[60vh] object-contain` AND `style={{width: zoom*100%}}`. At 100%
+ *    those agree. At 200% the max-height clamps the height, the element box
+ *    becomes 540x480 while the picture inside it is still 270x480, and the
+ *    canvas maths — which divides naturalWidth by the ELEMENT width — is out by
+ *    exactly the zoom factor, with a 135px letterbox offset on top:
+ *
+ *        zoom 100%   element 270x480   painted 270x480   scale used 3.33  true 3.33
+ *        zoom 200%   element 540x480   painted 270x480   scale used 1.67  true 3.33
+ *
+ *    So a member who zoomed in got a crop from somewhere else in the frame, and
+ *    at high zoom the source rectangle falls off the image entirely and the
+ *    "After" panel draws nothing — which is the blank preview he photographed.
+ *    ONE root cause, two of his reports.
+ *
+ *    The cure is to stop letting the element box and the picture disagree: the
+ *    height limit moved OFF the image and ONTO its scroll container, and
+ *    `object-contain` is gone. An <img> with no fit override always paints
+ *    edge to edge of its own box, so `naturalWidth / img.width` is true at
+ *    every zoom level by construction rather than by luck.
+ *
+ * 3. NOTHING LOCKED THE PAGE BEHIND IT, and nothing listened for the back
+ *    gesture. Both are now handled.
+ *
+ * WHAT IS STILL NOT INSTAGRAM, stated rather than implied: Instagram pins the
+ * frame and moves the photograph under it. This moves a frame over a still
+ * photograph — that is `react-image-crop`'s model, and swapping it is a rewrite
+ * of the interaction, not a fix. What has been added is the part he actually
+ * asked for: PINCH TO ZOOM, with the frame keeping its ratio, so a photo can be
+ * sized and positioned against the thirds grid instead of only nudged by two
+ * 20px buttons.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactCrop, { type Crop, type PixelCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
@@ -112,6 +171,80 @@ export default function ImageCropModal({
   const [activeSrc, setActiveSrc] = useState(imageSrc);
   const imgRef = useRef<HTMLImageElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  /** Distance between two fingers when the current pinch began, and the zoom
+   *  level at that moment. Refs, not state: they change on every touchmove and
+   *  re-rendering on each one would drop frames mid-gesture. */
+  const pinchRef = useRef<{ dist: number; zoom: number } | null>(null);
+
+  /**
+   * THE PAGE UNDERNEATH MUST NOT SCROLL.
+   *
+   * Owner: "this light boxes opened but back screen scrolled." This is a plain
+   * `fixed` overlay rather than a Radix dialog, so it never inherited the
+   * scroll lock those get for free. On a phone the result is that a drag which
+   * misses the crop frame scrolls the feed behind the dialog instead, and the
+   * member comes back to a page that has moved.
+   *
+   * The previous overflow value is restored rather than assumed to be "auto" —
+   * several screens set their own, and stamping "auto" over them would leave a
+   * page scrollable that had deliberately been locked.
+   */
+  useEffect(() => {
+    const body = document.body;
+    const previous = body.style.overflow;
+    body.style.overflow = "hidden";
+    return () => { body.style.overflow = previous; };
+  }, []);
+
+  /**
+   * THE BACK GESTURE CLOSES THE DIALOG. It does not leave the page.
+   *
+   * Owner: "after any button noting working after gesture back". On Android the
+   * back swipe is a history POP. With nothing listening, it unwound the ROUTE
+   * while this overlay — which is not part of the route — kept rendering on top
+   * of whatever loaded next. That is the state where "nothing works": the
+   * buttons are alive and wired to a screen that has already gone.
+   *
+   * Pushing one history entry when the dialog opens gives the gesture something
+   * of its own to consume. The entry is popped again on a normal close, so the
+   * member's real history is exactly as they left it either way.
+   */
+  useEffect(() => {
+    let closedByPop = false;
+    window.history.pushState({ cropModal: true }, "");
+    const onPop = () => { closedByPop = true; onCancel(); };
+    window.addEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      if (!closedByPop) window.history.back();
+    };
+  }, [onCancel]);
+
+  /**
+   * PINCH TO ZOOM — the thing he asked for that no button can replace.
+   *
+   * Handled on the WRAPPER in the capture phase and swallowed there, because
+   * `react-image-crop` treats a second finger as another drag and fights the
+   * gesture for it. One finger is left entirely alone, so dragging the frame
+   * behaves exactly as before.
+   */
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 2) return;
+    const [a, c] = [e.touches[0], e.touches[1]];
+    pinchRef.current = { dist: Math.hypot(a.clientX - c.clientX, a.clientY - c.clientY), zoom };
+    e.stopPropagation();
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    const start = pinchRef.current;
+    if (!start || e.touches.length !== 2) return;
+    const [a, c] = [e.touches[0], e.touches[1]];
+    const dist = Math.hypot(a.clientX - c.clientX, a.clientY - c.clientY);
+    if (start.dist <= 0) return;
+    const next = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, +(start.zoom * (dist / start.dist)).toFixed(2)));
+    setZoom(next);
+    e.stopPropagation();
+  };
+  const onTouchEnd = () => { pinchRef.current = null; };
   const showQueue = typeof queuePosition === "number" && typeof queueTotal === "number" && queueTotal > 1;
   const canSkip = showQueue && typeof onSkip === "function";
 
@@ -158,7 +291,49 @@ export default function ImageCropModal({
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
   }, [completedCrop, zoom]);
 
+  /**
+   * THE WIDTH THE PHOTOGRAPH IS SHOWN AT WHEN ZOOM READS 100%.
+   *
+   * Removing `max-height` from the image fixed the crop maths (see the file
+   * header) but took the "fit on screen" behaviour with it: a 9:16 photo came
+   * up 612px tall in a 542px window, so the member arrived at this screen
+   * already needing to scroll to see their own picture.
+   *
+   * Measuring the space and sizing the image to it restores the fit WITHOUT
+   * bringing back the disagreement, because the element is still sized by an
+   * explicit width with `height: auto` — its box and its picture stay the same
+   * rectangle at every zoom level, which is the whole property the crop maths
+   * depends on. Zoom then multiplies a real number instead of a percentage of
+   * a container that shrink-wraps the image inside it.
+   */
+  const cropAreaRef = useRef<HTMLDivElement>(null);
+  const [fitWidth, setFitWidth] = useState<number | null>(null);
+
+  const recomputeFit = useCallback(() => {
+    const box = cropAreaRef.current;
+    const img = imgRef.current;
+    if (!box || !img || !img.naturalWidth || !img.naturalHeight) return;
+    const cs = getComputedStyle(box);
+    const availW = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const availH = box.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    if (availW <= 0 || availH <= 0) return;
+    const ratio = img.naturalWidth / img.naturalHeight;
+    setFitWidth(Math.max(1, Math.floor(Math.min(availW, availH * ratio))));
+  }, []);
+
+  /** Rotation, a keyboard opening, or turning the phone all change the space.
+   *  The container's own size never depends on the image (it is a `flex-1`
+   *  child with `min-h-0`), so observing it cannot feed back into itself. */
+  useEffect(() => {
+    const box = cropAreaRef.current;
+    if (!box || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => recomputeFit());
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, [recomputeFit]);
+
   const onImageLoad = useCallback(() => {
+    recomputeFit();
     if (imgRef.current) {
       const { width, height } = imgRef.current;
       const currentAspect = forcedAspect ?? aspect;
@@ -186,7 +361,7 @@ export default function ImageCropModal({
         height: cropH,
       });
     }
-  }, [aspect, forcedAspect]);
+  }, [aspect, forcedAspect, recomputeFit]);
 
   const handleConfirm = async () => {
     if (!completedCrop || !imgRef.current) {
@@ -253,48 +428,59 @@ export default function ImageCropModal({
   const effectiveAspect = isLocked ? forcedAspect : aspect;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-background border border-border rounded-sm shadow-2xl max-w-[90vw] max-h-[90vh] flex flex-col overflow-hidden w-[640px]">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      {/* FULL SCREEN ON A PHONE, a centred box from `sm` up.
+          It was `w-[640px] max-w-[90vw]` at every size, which on a 360px phone
+          is a 324px column with the photograph squeezed into whatever was left
+          after four stacked toolbars. The photograph is the whole point of this
+          screen, so on a phone it now gets the entire display and the toolbars
+          get exactly the height they need. */}
+      <div className="flex h-full w-full flex-col overflow-hidden bg-background sm:h-auto sm:max-h-[90vh] sm:w-[640px] sm:max-w-[90vw] sm:rounded-sm sm:border sm:border-border sm:shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card/50">
-          <div className="flex items-center gap-2">
-            <CropIcon className="h-4 w-4 text-primary" />
-            <span className="text-[10px] tracking-[0.2em] uppercase text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-              Crop & Adjust Image
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border bg-card/50 pl-4 pr-1 py-1.5">
+          <div className="flex min-w-0 items-center gap-2">
+            <CropIcon className="h-4 w-4 shrink-0 text-primary" />
+            <span className="truncate text-[12px] tracking-[0.12em] uppercase text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+              Crop &amp; Adjust
             </span>
             {showQueue && (
               <span
-                className="text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-sm bg-primary/10 text-primary border border-primary/20"
+                className="shrink-0 text-[11px] tracking-[0.1em] uppercase px-2 py-0.5 rounded-sm bg-primary/10 text-primary"
                 style={{ fontFamily: "var(--font-heading)" }}
               >
-                Photo {queuePosition} of {queueTotal}
+                {queuePosition}/{queueTotal}
               </span>
             )}
           </div>
-          <button type="button" onClick={onCancel} className="text-muted-foreground hover:text-foreground">
-            <X className="h-4 w-4" />
+          {/* 16x16 before. The one control every member reaches for first. */}
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Close"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+          >
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Aspect / target info row */}
-        <div className="flex flex-wrap items-center gap-1.5 px-4 py-2 border-b border-border bg-muted/20">
-          {isLocked && targetWidth && targetHeight ? (
-            <div className="flex items-center gap-1.5 text-[9px] text-primary">
-              <Info className="h-3 w-3" />
+        {/* ASPECT ROW. One line that SCROLLS SIDEWAYS rather than wrapping onto
+            a second row — at 360px the six chips used to wrap, pushing "3:2"
+            and Reset onto a line of their own and stealing 40px from the
+            photograph. Chips are 44px tall, from 35x27. */}
+        <div className="flex shrink-0 items-center gap-1.5 border-b border-border bg-muted/20 px-2">
+          {isLocked ? (
+            <div className="flex items-center gap-1.5 py-2.5 pl-2 text-[12px] text-primary">
+              <Info className="h-4 w-4 shrink-0" />
               <span style={{ fontFamily: "var(--font-heading)" }}>
-                Output: {targetWidth}×{targetHeight}px — aspect ratio locked
+                {targetWidth && targetHeight ? `${targetWidth}×${targetHeight}px — ratio locked` : "Ratio locked"}
               </span>
-            </div>
-          ) : isLocked ? (
-            <div className="flex items-center gap-1.5 text-[9px] text-primary">
-              <Info className="h-3 w-3" />
-              <span style={{ fontFamily: "var(--font-heading)" }}>Aspect ratio locked</span>
             </div>
           ) : (
-            <>
-              <span className="text-[9px] uppercase tracking-wider text-muted-foreground mr-2" style={{ fontFamily: "var(--font-heading)" }}>
-                Aspect:
-              </span>
+            <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {ASPECT_OPTIONS.map((opt) => (
                 <button
                   key={opt.label}
@@ -304,125 +490,163 @@ export default function ImageCropModal({
                     setCrop(undefined);
                     setCompletedCrop(undefined);
                   }}
-                  className={`text-[9px] px-2 py-1 rounded-sm border transition-colors ${
+                  className={`h-11 shrink-0 rounded-md px-3 text-[13px] font-semibold transition-colors ${
                     aspect === opt.value
-                      ? "border-primary text-primary bg-primary/10"
-                      : "border-border text-muted-foreground hover:text-foreground hover:border-primary/30"
+                      ? "bg-primary/15 text-primary"
+                      : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   {opt.label}
                 </button>
               ))}
-            </>
+            </div>
           )}
           <button
             type="button"
             onClick={resetAll}
-            className="ml-auto text-[9px] uppercase tracking-wider text-muted-foreground hover:text-foreground flex items-center gap-1"
+            aria-label="Reset zoom, rotation, mirror and crop selection"
+            className="ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
             title="Reset zoom, rotation, mirror, and crop selection"
           >
-            <RotateCcw className="h-3 w-3" /> Reset
+            <RotateCcw className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Zoom + rotate + mirror toolbar */}
-        <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-border bg-muted/10">
-          <div className="flex items-center gap-1">
+        {/* ZOOM · ROTATE · MIRROR. Every button here was `p-1` around a 12px
+            icon — a 20x20 target, which is why he reported that none of these
+            options worked. They are 44x44 now, with the borders dropped: this
+            app does not draw outlines around controls, and eight outlined
+            boxes in one strip was the loudest thing on the screen. */}
+        <div className="flex shrink-0 items-center justify-between gap-1 border-b border-border bg-muted/10 px-1">
+          <div className="flex items-center">
             <button
               type="button"
               onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))}
               disabled={zoom <= ZOOM_MIN}
-              className="p-1 rounded-sm border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 disabled:opacity-40 disabled:hover:text-muted-foreground"
+              className="flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
               title="Zoom out"
+              aria-label="Zoom out"
             >
-              <ZoomOut className="h-3 w-3" />
+              <ZoomOut className="h-5 w-5" />
             </button>
-            <span className="text-[9px] tabular-nums w-10 text-center text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+            <span className="w-11 text-center text-[12px] tabular-nums text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
               {Math.round(zoom * 100)}%
             </span>
             <button
               type="button"
               onClick={() => setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))}
               disabled={zoom >= ZOOM_MAX}
-              className="p-1 rounded-sm border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 disabled:opacity-40 disabled:hover:text-muted-foreground"
+              className="flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
               title="Zoom in"
+              aria-label="Zoom in"
             >
-              <ZoomIn className="h-3 w-3" />
+              <ZoomIn className="h-5 w-5" />
             </button>
           </div>
 
-          <div className="h-4 w-px bg-border/60" />
+          <div className="flex items-center">
+            <button
+              type="button"
+              onClick={() => setRotation((r) => (r + 270) % 360)}
+              className="flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+              title="Rotate 90° left"
+              aria-label="Rotate 90 degrees left"
+            >
+              <RotateCcw className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setRotation((r) => (r + 90) % 360)}
+              className="flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+              title="Rotate 90° right"
+              aria-label="Rotate 90 degrees right"
+            >
+              <RotateCw className="h-5 w-5" />
+            </button>
+          </div>
 
-          <button
-            type="button"
-            onClick={() => setRotation((r) => (r + 270) % 360)}
-            className="p-1 rounded-sm border border-border text-muted-foreground hover:text-foreground hover:border-primary/30"
-            title="Rotate 90° left"
-          >
-            <RotateCcw className="h-3 w-3" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setRotation((r) => (r + 90) % 360)}
-            className="p-1 rounded-sm border border-border text-muted-foreground hover:text-foreground hover:border-primary/30"
-            title="Rotate 90° right"
-          >
-            <RotateCw className="h-3 w-3" />
-          </button>
-          <span className="text-[9px] tabular-nums w-8 text-center text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-            {rotation}°
-          </span>
-
-          <div className="h-4 w-px bg-border/60" />
-
-          <button
-            type="button"
-            onClick={() => setFlipH((v) => !v)}
-            className={`p-1 rounded-sm border transition-colors ${
-              flipH ? "border-primary text-primary bg-primary/10" : "border-border text-muted-foreground hover:text-foreground hover:border-primary/30"
-            }`}
-            title="Mirror horizontally"
-          >
-            <FlipHorizontal2 className="h-3 w-3" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setFlipV((v) => !v)}
-            className={`p-1 rounded-sm border transition-colors ${
-              flipV ? "border-primary text-primary bg-primary/10" : "border-border text-muted-foreground hover:text-foreground hover:border-primary/30"
-            }`}
-            title="Flip vertically"
-          >
-            <FlipVertical2 className="h-3 w-3" />
-          </button>
+          <div className="flex items-center">
+            <button
+              type="button"
+              onClick={() => setFlipH((v) => !v)}
+              className={`flex h-11 w-11 items-center justify-center rounded-md transition-colors ${
+                flipH ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="Mirror horizontally"
+              aria-label="Mirror horizontally"
+              aria-pressed={flipH}
+            >
+              <FlipHorizontal2 className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setFlipV((v) => !v)}
+              className={`flex h-11 w-11 items-center justify-center rounded-md transition-colors ${
+                flipV ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="Flip vertically"
+              aria-label="Flip vertically"
+              aria-pressed={flipV}
+            >
+              <FlipVertical2 className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
-        {/* Crop area */}
-        <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-muted/10 min-h-[300px]">
+        {/* THE PHOTOGRAPH. The biggest thing on the screen, which it was not.
+            `min-h-0` lets this flex child shrink so the footer stays put; the
+            height cap lives HERE now instead of on the image — see the note at
+            the top of the file about zoom and the crop maths. */}
+        <div
+          ref={cropAreaRef}
+          className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-black/20 p-2 sm:max-h-[60vh] sm:min-h-[320px] sm:p-4"
+          onTouchStartCapture={onTouchStart}
+          onTouchMoveCapture={onTouchMove}
+          onTouchEndCapture={onTouchEnd}
+        >
           <ReactCrop
             crop={crop}
             onChange={(c) => setCrop(c)}
             onComplete={(c) => setCompletedCrop(c)}
             aspect={effectiveAspect}
             circularCrop={circularCrop}
-            className="max-h-[60vh]"
+            ruleOfThirds
+            className="rc-fine-handles"
           >
+            {/*
+              NO `object-contain`, NO `max-height` — deliberately, and this is
+              the fix for the wrong-crop bug. Both of those let the element's
+              box grow away from the picture painted inside it, and every
+              coordinate in `handleConfirm` is derived from that box. Sized by
+              width alone, an <img> keeps its own ratio and fills its box
+              exactly, so `naturalWidth / img.width` is correct at any zoom.
+
+              `loading="lazy"` is gone too: this image is the only thing on the
+              screen and deferring it delayed `onLoad`, which is what seeds the
+              initial crop rectangle.
+            */}
             <img
-              loading="lazy"
               decoding="async"
               ref={imgRef}
               src={activeSrc}
               alt="Crop preview"
               onLoad={onImageLoad}
-              className="max-h-[60vh] object-contain"
-              style={{ width: `${zoom * 100}%`, maxWidth: "none" }}
+              style={
+                fitWidth
+                  ? { width: `${Math.round(fitWidth * zoom)}px`, maxWidth: "none", height: "auto" }
+                  : { width: `${zoom * 100}%`, maxWidth: "none", height: "auto" }
+              }
               crossOrigin="anonymous"
             />
           </ReactCrop>
         </div>
 
-        {/* Before / After preview strip */}
-        <div className="flex items-center gap-3 px-4 py-2 border-t border-border bg-muted/10">
+        {/* BEFORE / AFTER — DESKTOP ONLY.
+            It cost about 90px of a phone screen to show a 64px thumbnail of
+            the rectangle the member is already looking at, full size, directly
+            above it. The px readout in the footer keeps the one piece of
+            information the strip carried that the crop frame does not. */}
+        <div className="hidden shrink-0 items-center gap-3 border-t border-border bg-muted/10 px-4 py-2 sm:flex">
           <span className="text-[9px] uppercase tracking-wider text-muted-foreground shrink-0" style={{ fontFamily: "var(--font-heading)" }}>
             Preview:
           </span>
@@ -450,30 +674,36 @@ export default function ImageCropModal({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card/50">
-          <span className="text-[9px] text-muted-foreground">
+        {/* FOOTER. The size readout gets its own line above the buttons on a
+            phone — side by side, "Drag to select crop area, or insert as-is"
+            wrapped to three lines and squeezed the two buttons that matter.
+            Safe-area padding so the confirm button clears a gesture bar. */}
+        <div
+          className="shrink-0 border-t border-border bg-card/50 px-3 pt-2"
+          style={{ paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom, 0px))" }}
+        >
+          <span className="mb-1.5 block text-[12px] text-muted-foreground sm:mb-0 sm:inline">
             {completedCrop
               ? `${Math.round(completedCrop.width)} × ${Math.round(completedCrop.height)}px selected`
-              : "Drag to select crop area, or insert as-is"}
-            {targetWidth && targetHeight ? ` → ${targetWidth}×${targetHeight}px output` : ""}
+              : "Drag to select, or insert as-is"}
+            {targetWidth && targetHeight ? ` → ${targetWidth}×${targetHeight}px` : ""}
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:float-right">
             {canSkip && (
               <button
                 type="button"
                 onClick={onSkip}
-                className="text-[10px] tracking-[0.15em] uppercase px-3 py-2 border border-border text-muted-foreground hover:text-foreground transition-colors rounded-sm flex items-center gap-1.5"
+                className="flex h-11 items-center justify-center gap-1.5 rounded-md px-3 text-[13px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
                 style={{ fontFamily: "var(--font-heading)" }}
                 title="Skip this photo and keep going through the queue"
               >
-                <SkipForward className="h-3 w-3" /> Skip
+                <SkipForward className="h-4 w-4" /> Skip
               </button>
             )}
             <button
               type="button"
               onClick={onCancel}
-              className="text-[10px] tracking-[0.15em] uppercase px-4 py-2 border border-border text-muted-foreground hover:text-foreground transition-colors rounded-sm"
+              className="flex h-11 flex-1 items-center justify-center rounded-md bg-muted/50 px-4 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted sm:flex-none"
               style={{ fontFamily: "var(--font-heading)" }}
             >
               Cancel
@@ -482,13 +712,13 @@ export default function ImageCropModal({
               type="button"
               onClick={handleConfirm}
               disabled={processing}
-              className="text-[10px] tracking-[0.15em] uppercase px-4 py-2 bg-primary text-primary-foreground hover:opacity-90 transition-opacity rounded-sm disabled:opacity-50 flex items-center gap-1.5"
+              className="flex h-11 flex-[2] items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-[13px] font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 sm:flex-none"
               style={{ fontFamily: "var(--font-heading)" }}
             >
               {processing ? (
-                <div className="h-3 w-3 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
               ) : (
-                <Check className="h-3 w-3" />
+                <Check className="h-4 w-4" />
               )}
               {processing ? "Processing…" : "Crop & Upload"}
             </button>
