@@ -502,7 +502,7 @@ const GlobalSearch = () => {
          * lg:inline`), so a hard width would either clip that or leave a hole
          * on a phone. The height is the part a thumb needs.
          */
-        className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 px-1 text-muted-foreground hover:text-foreground transition-colors duration-300"
+        className="inline-flex min-h-11 items-center justify-center gap-2 w-8 lg:w-auto lg:px-1 text-muted-foreground hover:text-foreground transition-colors duration-300"
         aria-label="Search"
       >
         <Search className="h-4 w-4" />

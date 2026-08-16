@@ -222,11 +222,31 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
         className={`${
           transparent
             ? ""
-            : "sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60"
+            /* NO LINE UNDER THE BAR. Owner, 2026-08-15: "I want line be remove
+               one top menus". It is the same instruction he gave for the post
+               card on 2026-08-10 — "I told No border anything to anywhere,
+               example like Instagram" — applied to the header. The blur and the
+               translucent background are what separate the bar from the page
+               now, exactly as Instagram does it. */
+            : "sticky top-0 z-50 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60"
         }`}
         aria-label="Main navigation"
       >
-        <div className="container mx-auto py-3 md:py-5 flex items-center justify-between relative">
+        {/**
+         * EQUAL GAPS AT BOTH EDGES, AND A TITLE THAT IS ACTUALLY IN THE MIDDLE.
+         *
+         * Owner, 2026-08-15: *"right and left icons must be same gap from edge.
+         * 50mm retina will be middle perfectly."*
+         *
+         * `px-3` puts the same 12px inside both ends of the bar, so the left
+         * group and the right group are equidistant from the screen edges
+         * whatever they contain. The wordmark is already absolutely centred on
+         * the BAR (`left-1/2 -translate-x-1/2`), which means it is centred on
+         * the SCREEN and cannot be pushed off-centre by whatever sits either
+         * side of it — that is why it stays a separate absolute element rather
+         * than a third flex child.
+         */}
+        <div className="container mx-auto px-3 py-3 md:py-5 flex items-center justify-between relative">
           {/* ── THE LEFT-HAND GROUP: logo, then "+ Create" ──
               ⚠ THESE TWO MUST STAY IN ONE WRAPPER. The bar is
               `justify-between`, and on the app the <Link> below collapses to
@@ -377,7 +397,7 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
            * still leaves 44px of tappable area each. `ml-3` is the breathing
            * space after the wordmark. Measured at 360px in the harness.
            */}
-          <div className="flex items-center gap-0.5 ml-3 lg:hidden">
+          <div className="flex items-center gap-0.5 lg:hidden">
             {user && <NotificationBell />}
             {user && <GlobalSearch />}
           </div>

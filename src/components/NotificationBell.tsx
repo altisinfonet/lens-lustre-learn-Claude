@@ -345,7 +345,7 @@ const NotificationBell = () => {
          * The glyph is unchanged. What went is the border and the rounded
          * outline, not the button.
          */
-        className="relative grid h-11 w-11 place-items-center text-muted-foreground hover:text-primary transition-colors duration-300"
+        className="relative grid h-11 w-8 place-items-center text-muted-foreground hover:text-primary transition-colors duration-300"
         aria-label="Notifications"
         aria-expanded={open}
         aria-controls="notification-panel"
