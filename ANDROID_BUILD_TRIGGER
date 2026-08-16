@@ -1,63 +1,66 @@
-Build 1.2.5 - 2026-08-15 (SECOND CUT) - ONE FUNNEL, AND THE THREE GATES
+Build 1.2.6 - 2026-08-16 - THE THREE AUDIT ITEMS ARE CLOSED
 
-Cut from main after the post screen was collapsed onto the one card component.
-typecheck clean, 1,821 tests green, production build clean, `npm ci` clean from
-an empty checkout, `bun install --frozen-lockfile` clean, website live and
-verified serving this code.
+Cut from main after the last three open items in docs/PATCHWORK_AUDIT.md were
+finished. typecheck clean, 1,833 tests green, production build clean, `npm ci`
+clean from an empty checkout with NO .npmrc, `bun install` clean, and the
+screenshot sweep reports 63 screenshots / 0 problems.
 
-WHY THIS REPLACES #90
+VERSION NAME IS 1.2.6, NOT 1.2.5. Builds #90 and #91 both carried 1.2.5 and
+NEITHER was promoted. This is different code, so it gets a different name —
+two artefacts sharing a version string is how the Play Console, the crash
+reports and the About screen stop agreeing with each other.
 
-Build #90 was green and I told the owner to hold it, because it still carried
-the fault he found himself: a post opened from the wall rendered a SECOND,
-older implementation of the card. Same post, two renderers. That is fixed here
-and #90 must not be promoted.
+WHAT CHANGED SINCE #91
 
-WHAT CHANGED SINCE #90
+1. THE WEBSITE'S BUILD PATCH IS GONE, PROPERLY.
+   When the site went dark for nine hours, `.npmrc legacy-peer-deps=true` was
+   the hold that got it deploying again. A hold is not a cure: that flag tells
+   npm to ignore peer conflicts ENTIRELY, so the next stale dependency would
+   have hidden exactly the same way.
+   react-day-picker is upgraded 8.10.1 -> 10.0.1, whose peer range genuinely
+   accepts React 19, and **.npmrc is deleted**. Proved, not assumed:
+   package.json + package-lock.json copied to an empty directory with no
+   .npmrc, `npm ci` run there -> exit 0. GitHub's own clean checkout then
+   agreed - 6/6 checks green.
+   Bundle cost: none. 439.44 kB -> 439.42 kB gzipped.
 
-- `PostDetail` no longer draws its own copy of the post. It renders the same
-  `PostCard` the feed and the wall render. One funnel. Its duplicated header
-  (the member's name and avatar appeared TWICE) and a wrapper that sliced 16px
-  off the card's left edge are gone with it.
+2. EVERY TAP TARGET REACHES 44px.
+   Feed 29 -> 0. Profile 17 -> 0. Post detail 14 -> 0. Login 2 -> 0.
+   Notification settings 24 -> 0.
+   Nothing was silenced to get there. The settings switches are the example
+   worth knowing: instead of inflating the switch, the whole ROW is now the
+   control - icon, title and description all toggle it, the way iOS and
+   Android Settings work. The switch looks exactly as it did.
 
-- THREE GATES now make today's failures impossible to repeat:
-    1. No file outside `src/components/post/` may draw the reaction control or
-       the reach/views figures. A second post card cannot be committed.
-    2. Any NEW screen that draws engagement fails the tests until somebody
-       rules on it in writing. Owner ruled "keep separate" for stories, adverts,
-       competition entries, lightboxes, journal and photo library — recorded in
-       the gate with the reason and the date.
-    3. Both lockfiles must agree with package.json. The stale `bun.lock` that
-       stopped the WEBSITE deploying for nine hours can no longer be committed.
-
-EVERYTHING FROM #90 IS STILL HERE
-
-The rebuilt composer, reach/views on the photograph (hover on web, FIRST TAP in
-the app), per-reaction icons with counts on the right, the caption that can
-break a long word, and the wall's delete animation that finally runs.
+3. 33 TEST FILES NO LONGER CARRY A COMMENT STRIPPER THAT CAN DELETE REAL CODE.
+   41 sites across 33 files now use the safe one. Two of the migrated tests
+   were deliberately broken afterwards to confirm their alarms still fire.
 
 WHAT TO CHECK ON THE PHONE - only your device can answer these
 
-  1. Open a post FROM YOUR WALL and from the FEED. They must look identical -
-     same header, same icons, same row, same reactions on the right. This is
-     the one that was wrong.
-  2. Tap a photo ONCE: reach/viewed appears and nothing opens. Tap again: it
-     opens.
-  3. Double-tap a photo: it likes, and the viewer does NOT open.
-  4. Post a photo. Reorder, crop, remove one. The preview must match what is
-     published.
-  5. Delete one of your own posts: it fades, it does not vanish.
-  6. Scroll the feed hard and back: no blank cards, no row shifting under your
-     thumb.
+  1. THE DATE PICKERS, please look at these first - they were rewritten:
+       - Edit Profile -> Date of Birth. Month and year dropdowns must both be
+         there, arrows on the left and right, your date highlighted in blue.
+       - Create a post -> Schedule. Past dates must still be greyed out.
+     They are photographed and clean at 360px and 390px, but a real finger on
+     a real phone is the test I cannot run.
+  2. Settings -> Notifications: tap the WORDS of a row, not the switch. It
+     must toggle. That is the change.
+  3. An album post: the little dots under the photo. They look identical, but
+     the tappable area around each is much bigger now.
+  4. Open a post FROM YOUR WALL and from the FEED - still identical. (The #91
+     fix; confirming it survived.)
+  5. Download an image and an article PDF - the save path is unchanged, but
+     it is now covered by a real test instead of a placeholder.
 
 NOT DONE, AND NOT CLAIMED
 
-- 12 findings from the screenshot sweep remain open: controls under the 44px
-  tap minimum on feed, wall, post and settings, and one avatar that does not
-  decode. They are NOT new - they predate today - but they are in this build.
-- react-day-picker is still v8, held by `.npmrc`. The cure is v9.
-- 38 test files still carry a comment stripper that can delete real code. A
-  script was written to fix them and DELIBERATELY REVERTED: removing the
-  stripper makes those tests read the file with its comments, so they can pass
-  by matching their own explanation. It has to be done one file at a time.
+- `svgo` is missing from both lockfiles, so SVGs ship unoptimised. It is an
+  OPTIONAL peer of vite-plugin-image-optimizer and has been absent all along -
+  this build did not cause it and does not fix it. Adding a dependency days
+  before a build is the kind of quiet change that causes the next outage, so
+  it is logged in the audit and left for its own cycle.
+- Audit section 8 is still open: the lint rule that would make the "one
+  funnel" gate a build failure rather than a test failure.
 
 Then promote the AAB.
