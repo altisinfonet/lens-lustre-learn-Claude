@@ -1,83 +1,112 @@
-Build 1.2.7 - 2026-08-16 - THE APP GETS ITS COMPOSER, AND THE WALL IS REBUILT
+Build 1.2.8 - 2026-08-16 - SIX BUGS FROM THE OWNER'S PHONE, AND WHAT THEY UNCOVERED
 
-Cut from main after everything the owner reported in a four-hour session on his
-phone. Verified against ORIGIN, not a local copy: the branch was reset to what
-is actually on GitHub and re-run from there.
+The owner listed six faults from the live app and asked for them one at a time,
+fixed after the listing was finished. All six are done. Three of them turned out
+to be worse than reported, and every one of them had shipped because the screen
+it was on had never been photographed.
 
-  typecheck 0 · 1,841 tests pass · production build 0
-  92 screenshots, ZERO real problems (web, 360, 390, desktop AND app mode)
+  typecheck 0 · 1,861 tests pass · production build 0
+  112 screenshots · ZERO layout problems · zero non-fixture errors
 
-VERSION IS 1.2.7. Build #93 already carried 1.2.6 and this is different code.
-Two artefacts sharing a version string is how the Play Console, the crash
-reports and the About screen stop agreeing with each other.
+VERSION IS 1.2.8. Build #95 carried 1.2.7 and this is different code.
 
-THE ROOT CAUSE OF EVERYTHING BELOW
+WHAT HE REPORTED, AND WHAT IT ACTUALLY WAS
 
-The screenshot checker had NEVER ONCE rendered the app. `isNativeCapacitorApp()`
-reads `window.Capacitor`, nothing in the harness ever set it, so every one of
-the 63 screenshots it had been passing was the WEBSITE. It reported "0 problems"
-the same morning the owner found three real faults on his phone in two minutes.
+ 1. LOG OUT NOT REACHABLE. Members were right and it was not vague. Measured,
+    the bottom of the Logout button against the bottom of the screen:
 
-That is fixed first and permanently: there is now an `app-360` viewport, and the
-wall and the visitor-view of a wall have their own scenes. A checker that
-silently tests half the product is worse than none, because it issues a clean
-bill of health for the half it never opened.
+        360x592   145px BELOW the screen      360x740    19px below
+        360x640   104px below                 360x800+   fine
 
-WHAT THE OWNER REPORTED, AND WHAT WAS DONE
+    On any phone under about 780px of usable height a member COULD NOT LOG OUT.
+    The sheet capped itself at 85% of the screen, stacked three blocks inside,
+    and nothing scrolled — so the footer was what got pushed off. Structural,
+    not a number: the grid gives way now and the footer is pinned.
 
- 1. THE COMPOSER. Picking a photo on the app went straight to a 160x160
-    thumbnail — no Crop, no cover choice, no reorder, no sight of the framing.
-    On a photography platform, on the device nearly everyone posts from.
-    It now renders the SAME composer component the website does. Not a copy.
+    His follow-up — "all buttons are not showing some hiding" — was also right.
+    The first fix bought a reachable Logout with hidden actions. Tiles were
+    tightened instead: nothing hidden at 640 and above, no scrolling at all.
+    Labels went UP from 9px to 10px and out of all-caps.
 
- 2. THE BLANK GAP IN THE FEED. An empty advert slot returns nothing for a
-    normal member but drew an ADMIN placeholder for an admin — which he is —
-    and that placeholder inherited the story-card frame: full-bleed at 4:5,
-    reserving about 450px for two words of grey text. Now a compact strip.
-    No member ever saw this. Only he did.
+ 2. CREATE POST, "many times not working". He answered that nothing opens at
+    all, and that is one `catch`. Android's picker rejects both when a member
+    backs out AND when it cannot open; the code returned "nobody chose
+    anything" for both, and the composer closes on that. A picker that failed
+    to open was a button that did nothing and said nothing. Only a message
+    containing "cancel" counts as cancelling now; anything else says so and
+    falls back to the OS file browser, which does not use that plugin at all.
 
- 3. THE WALL. Rebuilt against his Instagram reference, measured off the
-    screenshot rather than eyeballed: name over the counts, kebab top-right,
-    white bio, thin "+" story rings, icon-only tabs with a white underline,
-    4:5 tiles that TOUCH, and ONE 18px left edge for the whole screen where
-    there had been four different ones.
+ 3+4. THE CROP DIALOG. "any of options not wokring" was EIGHTEEN TAP TARGETS
+    UNDER 44px — close button 16x16, every zoom/rotate/mirror button 20x20,
+    aspect chips 35x27. Drawn for a mouse, shipped to a thumb.
 
- 4. TOP BAR. The three icons were 20/16/16px — three sizes in one row. All
-    24px now, in 44x44 targets, with the Create and Search glyphs measured to
-    26px from their respective edges.
+    And underneath it, the one that matters most in this build:
 
- 5. GRID COUNTS. Likes and comments on wall tiles were hover-only, so on a
-    phone they did not exist at all. First tap reveals, second opens — his own
-    rule from 14 August, which I had applied to the feed and written the
-    opposite of into the grid.
+    ZOOM SILENTLY CROPPED THE WRONG PART OF THE PHOTOGRAPH.
 
-THREE HE NEVER SAW, all shipping, all found by photographing the app:
+        zoom 100%   element 270x480   picture 270x480   scale used 3.33  true 3.33
+        zoom 200%   element 540x480   picture 270x480   scale used 1.67  true 3.33
 
-  · AN INFINITE RENDER LOOP on every profile — "Maximum update depth exceeded",
-    four times per page load, burning battery for as long as the page was open.
-    `extData?.entries || []` built a new array every render and was a
-    dependency of an effect that called setState. Verified 4 before, 0 after.
-  · a long name rendering UNDERNEATH the ⋮ menu.
-  · "mutual friends" printing with NO NUMBER in front of it.
+    Anyone who zoomed got a crop from somewhere else in the frame, off by the
+    zoom factor plus a 135px offset — and at high zoom the read area leaves the
+    image entirely and nothing is drawn, which is the blank "After" panel he
+    photographed. One cause, two reports. Verified correct at 100/200/400% on
+    portrait, landscape and square after the fix.
 
-WHAT TO CHECK ON THE PHONE - only your device can answer these
+    Also: body scroll lock, the back gesture closes the dialog instead of
+    unwinding the route beneath it, pinch-to-zoom, thirds guide, and corner
+    handles split into a 14px viewfinder bracket over a 44px invisible target —
+    he asked for smaller marks, and smaller alone would have made them
+    impossible to grab, which was his other complaint about the same screen.
 
-  1. POST A PHOTO. After picking, you must now get the full composer: the photo
-     at publishing size, the thirds guide, Crop, the Cover badge, reorder. This
-     is the change. A source test pins the wiring, but no test here can drive a
-     native gallery — this one needs your thumb.
-  2. Your wall: one straight left edge down the whole screen, photos touching.
-  3. Tap a wall photo ONCE — the like/comment counts appear. Tap again — it opens.
-  4. Open somebody else's profile: Follow and Message should look like buttons,
-     not tiny uppercase links.
-  5. Scroll the feed: no blank hole between posts any more.
+ 5+6. THE WALL'S ABOUT PANEL AND THE ACCOUNT PAGE. Measured off his screenshot:
+    370px of screen to show an email address and a join date. Thirteen outlined
+    cards on one, nine boxes on the other, a 36px grey disc behind every 16px
+    glyph, a caption under each value repeating what the icon already said, and
+    the bio printed TWICE on the same screen. One 44px row per fact now, no
+    outlines anywhere — his standing rule, stated four times in three days.
+
+THE PATTERN UNDER ALL SIX
+
+Every one of these was on a screen the sweep had never rendered. The crop
+dialog is mounted from nine places and had no scene. The account sheet is an
+overlay, so no page scene drew it. The About tab opens from a menu into
+component state, so 100% of this project's screenshots of that page were the
+photo grid. Four new scenes close those, and `?section=about|works` makes About
+linkable as a side effect.
+
+THE CHECKER ITSELF WAS WRONG THREE TIMES, and each was found by using it:
+  · it called a modal's own backdrop a navigation bar and reported 74 items
+    "hidden" — it compared rectangles and could not see z-order;
+  · it read a button mid-animation as 35x35 when the layout says 44 (measured
+    at 0.9 scale and 1.6% opacity — it was barely on screen);
+  · it never rendered the build label beside Logout, because the Capacitor stub
+    had no App plugin — so the footer row it had been photographing was not the
+    row members see, with Logout at full width instead of half.
+All three fixed, and each broken deliberately afterwards to prove the alarm
+still fires.
+
+WHAT ONLY THE PHONE CAN ANSWER
+
+  1. Open the account sheet on a short phone. Every action visible, Logout at
+     the bottom, V1095-style build label to its left.
+  2. Post a photo, then CROP AND ZOOM IN before uploading. The saved crop must
+     be the part you framed. This is the fix that matters most.
+  3. Pinch the photo in the crop dialog. Press the back gesture — it should
+     close the dialog, not the page.
+  4. If Create Post fails again, you should now get a MESSAGE saying why, and
+     the file browser should open. Send me that message.
+  5. Your wall's About panel, and the Profile page: no boxes, no repeated bio.
 
 NOT DONE, AND NOT CLAIMED
 
- - his reference has four content tabs; ours has two. NO REELS, ever.
- - `svgo` is still absent from both lockfiles, so SVGs ship unoptimised.
-   Pre-existing, unrelated, deliberately not touched beside a build.
- - the harness has no fixtures for the Works tab, so those scenes log missing
-   data. Test scaffolding, not an app fault.
+ - This does not stop Android failing to read a photo. It stops that failure
+   being silent. The message tells us which of the two causes it was.
+ - Still not Instagram's crop model: the frame moves over the photo rather than
+   the photo under the frame. Swapping that is a rewrite, not a fix.
+ - `svgo` absent from both lockfiles, SVGs ship unoptimised. Pre-existing.
+ - The harness has no fixtures for the Works tab. Test scaffolding, not an app
+   fault, and the reason 108 of the sweep's reports are data noise.
+ - NO REELS. NO LIVE.
 
 Then promote the AAB.
