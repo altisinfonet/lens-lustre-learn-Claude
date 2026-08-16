@@ -275,10 +275,26 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
     if (!isAdmin || enabled === null) return null;
     if (zone === "lightbox") return null;
     const meta = ZONE_META[zone];
+    /**
+     * THE BLANK GAP THE OWNER KEPT SEEING IN HIS FEED — 2026-08-16.
+     *
+     * "see blanck area as image missimg on the scrolling post". It was this:
+     * an EMPTY AD SLOT'S ADMIN PLACEHOLDER. A normal member gets `null` and no
+     * gap at all; an admin — which he is — got this box, carrying
+     * `frame.wrapper`, which for the story-card zone is `bleed-phone w-full`
+     * with a 4:5 media aspect. At 360px that reserved roughly 450px of screen
+     * with two words of 9px grey text in the middle of it, so on a dark theme
+     * it read as a blank hole between two posts.
+     *
+     * It is a real, useful control — an admin should be able to see that a
+     * slot exists and is unfilled — but it must not cost half a screen. Now a
+     * compact strip: `frame.wrapper` is deliberately NOT applied, so it takes
+     * its own height instead of the zone's media aspect.
+     */
     return (
-      <div className={cn("border-2 border-dashed border-muted-foreground/20 rounded-sm flex flex-col items-center justify-center gap-1 bg-muted/10 select-none py-6", frame.wrapper, className)}>
+      <div className={cn("mb-4 flex items-center justify-center gap-2 rounded-sm border border-dashed border-muted-foreground/25 bg-muted/10 px-3 py-2 select-none", className)}>
         <span className="text-[9px] tracking-[0.25em] uppercase text-muted-foreground/50 font-medium" style={{ fontFamily: "var(--font-heading)" }}>{meta.label} Zone</span>
-        <span className="text-[8px] text-muted-foreground/30">{meta.hint}</span>
+        <span className="text-[8px] text-muted-foreground/30">· {meta.hint}</span>
       </div>
     );
   }
