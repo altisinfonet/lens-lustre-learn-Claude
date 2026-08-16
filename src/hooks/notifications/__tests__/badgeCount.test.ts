@@ -27,6 +27,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { badgeCountOf, unreadTotalOf } from "@/hooks/notifications/useNotificationsQuery";
+import { stripComments } from "@/test-utils/sourceText";
 
 const groups = (n: number, total: number) =>
   Array.from({ length: n }, () => ({ total_unread: total }));
@@ -91,11 +92,10 @@ describe("the hook cannot go back to counting rows", () => {
    * reads the hook itself. Comments are stripped first — on 2026-08-01 a
    * source-pin test in this repo passed by matching its own explanation.
    */
-  const src = readFileSync(join(process.cwd(), "src/hooks/notifications/useNotificationsQuery.ts"), "utf8")
+  const src = stripComments(readFileSync(join(process.cwd(), "src/hooks/notifications/useNotificationsQuery.ts"), "utf8")
     .split("\n")
     .map((l) => l.replace(/\/\/.*$/, ""))
-    .join("\n")
-    .replace(/\/\*[\s\S]*?\*\//g, "");
+    .join("\n"));
 
   it("computes the badge from the server total", () => {
     expect(src).toMatch(/totalCount:\s*badgeCountOf\(data\)/);

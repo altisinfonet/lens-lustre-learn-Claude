@@ -29,13 +29,12 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { stripComments } from "@/test-utils/sourceText";
 
-const read = (p: string) =>
-  readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => stripComments(readFileSync(join(process.cwd(), p), "utf8")
     .split("\n")
     .map((l) => l.replace(/\/\/.*$/, ""))
-    .join("\n")
-    .replace(/\/\*[\s\S]*?\*\//g, "");
+    .join("\n"));
 
 const hook = read("src/hooks/notifications/useNotificationPreferences.ts");
 const page = read("src/pages/NotificationSettings.tsx");
