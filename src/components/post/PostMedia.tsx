@@ -1,3 +1,16 @@
+/**
+ * TAP TARGETS ON THE PHOTOGRAPH — measured, not guessed.
+ *
+ * The album's previous/next arrows were 32×32 and the download button 32×32,
+ * both under the 44px floor and both photographed at that size in the harness
+ * on 2026-08-15. They are enlarged here rather than given an invisible hit area,
+ * which the owner called "fraud, button same size as before" on 2026-08-03.
+ *
+ * Safe to grow because every one of them is ABSOLUTELY POSITIONED over the
+ * image: nothing reflows, and there is nothing beside them to collide with —
+ * which is exactly what stopped the notification bell being enlarged in the
+ * same pass. The glyphs inside are unchanged.
+ */
 import { useState, useCallback, useEffect, useRef } from "react";
 import { X, ChevronLeft, ChevronRight, Heart } from "lucide-react";
 import { useDownloadImage } from "@/hooks/core/useDownloadImage";
@@ -555,7 +568,7 @@ const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLi
         <DownloadButton
           downloading={downloading === src}
           onClick={(e) => { e.stopPropagation(); download(src); }}
-          className="absolute bottom-3 right-3 p-2 rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-card shadow-sm"
+          className="absolute bottom-3 right-3 grid h-11 w-11 place-items-center rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-card shadow-sm"
         />
       </div>
       {/* The viewer is handed the ORIGINAL url, never the 800px render copy
@@ -638,10 +651,10 @@ const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTa
         </AnimatePresence>
         <AnimatePresence>{heart && <DoubleTapHeart key={heart.id} x={heart.x} y={heart.y} />}</AnimatePresence>
 
-        <button onClick={(e) => { e.stopPropagation(); navigate(-1); }} className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-card/70 backdrop-blur-sm flex items-center justify-center text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity shadow-sm">
+        <button onClick={(e) => { e.stopPropagation(); navigate(-1); }} className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-card/70 backdrop-blur-sm flex items-center justify-center text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity shadow-sm">
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <button onClick={(e) => { e.stopPropagation(); navigate(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-card/70 backdrop-blur-sm flex items-center justify-center text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity shadow-sm">
+        <button onClick={(e) => { e.stopPropagation(); navigate(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-card/70 backdrop-blur-sm flex items-center justify-center text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity shadow-sm">
           <ChevronRight className="h-4 w-4" />
         </button>
 
@@ -650,7 +663,7 @@ const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTa
         <DownloadButton
           downloading={downloading === urls[current]}
           onClick={(e) => { e.stopPropagation(); download(urls[current]); }}
-          className="absolute bottom-3 right-3 p-2 rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity hover:bg-card shadow-sm z-10"
+          className="absolute bottom-3 right-3 grid h-11 w-11 place-items-center rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity hover:bg-card shadow-sm z-10"
         />
 
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
