@@ -1,72 +1,63 @@
-Build 1.2.5 - 2026-08-15 - THE DAY'S BATCH, AND THE DEPLOY THAT WAS BROKEN
+Build 1.2.5 - 2026-08-15 (SECOND CUT) - ONE FUNNEL, AND THE THREE GATES
 
-Cut from main. typecheck clean, 1,815 tests green, production build clean,
-`npm ci` clean from an empty checkout, 57 harness screenshots taken and looked
-at before this file was written.
+Cut from main after the post screen was collapsed onto the one card component.
+typecheck clean, 1,821 tests green, production build clean, `npm ci` clean from
+an empty checkout, `bun install --frozen-lockfile` clean, website live and
+verified serving this code.
 
-⚠ READ THIS FIRST, BEFORE INSTALLING
+WHY THIS REPLACES #90
 
-**The Android build has not run since the React 18 -> 19 upgrade, and it would
-have FAILED if it had.** Every clean install died at the first step:
+Build #90 was green and I told the owner to hold it, because it still carried
+the fault he found himself: a post opened from the wall rendered a SECOND,
+older implementation of the card. Same post, two renderers. That is fixed here
+and #90 must not be promoted.
 
-    npm error code ERESOLVE
-    npm error While resolving: react-day-picker@8.10.1
-    npm error Found: react@19.2.8
+WHAT CHANGED SINCE #90
 
-`npm ci` is the first line of this workflow, so this build is ALSO the first
-proof that the fix (`.npmrc`, `legacy-peer-deps=true`) works here. If the job
-fails at "Install dependencies", that is why, and the log will say so plainly.
+- `PostDetail` no longer draws its own copy of the post. It renders the same
+  `PostCard` the feed and the wall render. One funnel. Its duplicated header
+  (the member's name and avatar appeared TWICE) and a wrapper that sliced 16px
+  off the card's left edge are gone with it.
 
-The same breakage stopped the WEBSITE deploying for nine hours today, through a
-second stale lockfile: Cloudflare Pages installs with `bun`, and `bun.lock`
-still pinned React 18. Both lockfiles are now correct and the website is live
-and verified.
+- THREE GATES now make today's failures impossible to repeat:
+    1. No file outside `src/components/post/` may draw the reaction control or
+       the reach/views figures. A second post card cannot be committed.
+    2. Any NEW screen that draws engagement fails the tests until somebody
+       rules on it in writing. Owner ruled "keep separate" for stories, adverts,
+       competition entries, lightboxes, journal and photo library — recorded in
+       the gate with the reason and the date.
+    3. Both lockfiles must agree with package.json. The stale `bun.lock` that
+       stopped the WEBSITE deploying for nine hours can no longer be committed.
 
-WHAT IS IN THIS BUILD
+EVERYTHING FROM #90 IS STILL HERE
 
-THE UPLOAD COMPOSER, rebuilt
-- A true preview at the frame the post will actually get, `object-contain`, so
-  nothing is cropped away silently.
-- A rule-of-thirds guide over it. Decoration only: not in the upload, not in
-  the tab order, invisible to a screen reader.
-- Reorder by arrows, a "Cover" badge on the first photo, an n/N counter.
-- The remove button no longer overlaps the NEXT thumbnail. Its 44px target used
-  to hang over its neighbour, so tapping one photo's left edge deleted the photo
-  before it. Unrecoverable in a composer.
-- A photo that will not preview says so, instead of leaving a hole with
-  Chromium's own torn-page glyph in the corner.
-
-THE POST CARD
-- Reach and Viewed moved OFF the action row and onto the photograph: hover on
-  web, FIRST TAP in the app (second tap opens the photo, as always). They are
-  computed after the card paints, so in the row they made it reflow under your
-  thumb - that is the "reactions shifting" you reported.
-- The right of the row now carries each reaction with its own count, Facebook
-  style; the total stays on the left beside the thumb.
-- A caption that is one long word (a filename, a pasted url) no longer runs off
-  the card and gets sliced mid-word.
-
-THE WALL
-- Deleting a post fades it out. That animation never ran: it was keyed on a
-  Fragment, which cannot hold the reference the animation needs, and React
-  logged an error for every post on every render.
+The rebuilt composer, reach/views on the photograph (hover on web, FIRST TAP in
+the app), per-reaction icons with counts on the right, the caption that can
+break a long word, and the wall's delete animation that finally runs.
 
 WHAT TO CHECK ON THE PHONE - only your device can answer these
 
-  1. Post a photo. Reorder it, crop it, remove one. The preview must match what
-     is published.
-  2. Tap a photo in the feed ONCE: the reach/viewed chip appears and NOTHING
-     opens. Tap again: it opens.
+  1. Open a post FROM YOUR WALL and from the FEED. They must look identical -
+     same header, same icons, same row, same reactions on the right. This is
+     the one that was wrong.
+  2. Tap a photo ONCE: reach/viewed appears and nothing opens. Tap again: it
+     opens.
   3. Double-tap a photo: it likes, and the viewer does NOT open.
-  4. Delete one of your own posts on your wall: it fades, it does not vanish.
-  5. Scroll the feed hard and back: no blank cards, no jump, no row shifting
-     under your thumb as you reach for it.
-  6. A post with a very long one-word caption: "See more" appears, nothing is
-     cut off at the edge.
+  4. Post a photo. Reorder, crop, remove one. The preview must match what is
+     published.
+  5. Delete one of your own posts: it fades, it does not vanish.
+  6. Scroll the feed hard and back: no blank cards, no row shifting under your
+     thumb.
 
 NOT DONE, AND NOT CLAIMED
-- 12 findings from the screenshot sweep are still open: controls under the 44px
-  tap minimum on the feed, wall, post and settings screens, and one avatar that
-  does not decode. They are in this build.
-- The plain-language test worksheet is still not written.
+
+- 12 findings from the screenshot sweep remain open: controls under the 44px
+  tap minimum on feed, wall, post and settings, and one avatar that does not
+  decode. They are NOT new - they predate today - but they are in this build.
+- react-day-picker is still v8, held by `.npmrc`. The cure is v9.
+- 38 test files still carry a comment stripper that can delete real code. A
+  script was written to fix them and DELIBERATELY REVERTED: removing the
+  stripper makes those tests read the file with its comments, so they can pass
+  by matching their own explanation. It has to be done one file at a time.
+
 Then promote the AAB.
