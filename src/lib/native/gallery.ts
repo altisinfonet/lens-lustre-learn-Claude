@@ -102,17 +102,85 @@ export async function resolveGalleryMode(): Promise<GalleryMode> {
  * `limit` is passed through so a member cannot select 400 photos and wedge the
  * upload step. An empty array means they cancelled, which is not a failure.
  */
+/**
+ * Did Android say "the member backed out", or did something actually break?
+ *
+ * The Camera plugin REJECTS for both, and the only thing separating them is the
+ * message. Every cancellation string Android and the plugin produce contains
+ * "cancel" — "User cancelled photos app", "canceled", "Activity cancelled".
+ * Anything else is a real fault: a missing permission, a provider that died, an
+ * activity destroyed under memory pressure.
+ *
+ * Erring towards "cancelled" would restore exactly the silence this is here to
+ * remove, so the default is the opposite: unrecognised means failed.
+ */
+function looksCancelled(err: unknown): boolean {
+  const msg = typeof err === "string" ? err : (err as { message?: string })?.message ?? "";
+  return /cancel/i.test(msg);
+}
+
+/** Thrown by `pickFromGallery` when the picker itself failed. Not a cancellation. */
+export class GalleryPickerError extends Error {
+  constructor(readonly cause: unknown) {
+    const detail = typeof cause === "string" ? cause : (cause as { message?: string })?.message;
+    super(detail || "The photo picker could not be opened");
+    this.name = "GalleryPickerError";
+  }
+}
+
 export async function pickFromGallery(limit = 10): Promise<DevicePhoto[]> {
   const p = plugin();
   if (!p?.pickImages) return [];
   try {
     const res = await p.pickImages({ quality: 90, limit });
     return Array.isArray(res?.photos) ? res.photos : [];
-  } catch {
-    // Cancelling raises on some Android versions. Indistinguishable from a
-    // real failure at this layer, and both mean "nothing was chosen".
-    return [];
+  } catch (err) {
+    /**
+     * THIS `catch` USED TO SWALLOW EVERYTHING.
+     *
+     * Owner, 2026-08-16, asked which of three shapes the Create Post failure
+     * takes, and answered: "(A) nothing opens at all."
+     *
+     * That is this line. The comment that stood here said cancelling and
+     * failing were "indistinguishable at this layer, and both mean nothing was
+     * chosen" — the first half was a guess and the second half does not follow.
+     * A picker that fails to OPEN raises here, was reported as an empty
+     * selection, and the composer's answer to an empty selection is to return
+     * without opening anything. Tap Create, nothing happens, no message. There
+     * was no way for a member to report it as anything but "not working", and
+     * no way for us to tell it from someone changing their mind.
+     */
+    if (looksCancelled(err)) return [];
+    throw new GalleryPickerError(err);
   }
+}
+
+/**
+ * WHAT CAME BACK FROM THE PICKER, AND WHAT WAS LOST ON THE WAY.
+ *
+ * Added 2026-08-16 for the owner's "Create Post : Many times not working."
+ *
+ * The old signature returned `File[]` and threw nothing, so the caller could
+ * not tell these two apart:
+ *
+ *   • the member backed out of the picker and chose nothing   — say nothing
+ *   • the member chose four photos and NONE could be read     — say something
+ *
+ * Both arrived as an empty array, and the composer's response to an empty
+ * array is to return without opening. So a total read failure looked exactly
+ * like the Create button doing nothing at all, which is precisely how he
+ * described it.
+ *
+ * `picked` is what the member chose; `files` is what survived. The gap between
+ * them is the fault, and it can now be shown to them and reported back.
+ */
+export interface GalleryPick {
+  /** Readable photos, ready for the composer. */
+  files: File[];
+  /** How many the member selected. Zero means they cancelled. */
+  picked: number;
+  /** Selected but unreadable. `picked > 0 && files.length === 0` is a total failure. */
+  unreadable: number;
 }
 
 /**
@@ -179,10 +247,11 @@ export async function devicePhotosToFiles(
  * back, hand the composer real Files. Returns an empty array when the member
  * cancels — which is not a failure and must not raise.
  */
-export async function pickGalleryFiles(limit = 10): Promise<File[]> {
+export async function pickGalleryFiles(limit = 10): Promise<GalleryPick> {
   const photos = await pickFromGallery(limit);
-  if (!photos.length) return [];
-  return devicePhotosToFiles(photos);
+  if (!photos.length) return { files: [], picked: 0, unreadable: 0 };
+  const files = await devicePhotosToFiles(photos);
+  return { files, picked: photos.length, unreadable: photos.length - files.length };
 }
 
 /**
