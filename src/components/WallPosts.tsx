@@ -442,32 +442,49 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   const composeHandledRef = useRef(false);
   useEffect(() => {
     /**
-     * ONLY THE FEED'S COMPOSER ANSWERS `?compose=1`. THIS IS THE WHOLE BUG.
+     * ONLY THE FEED'S COMPOSER ANSWERS `?compose=1`.
      *
      * ─────────────────────────────────────────────────────────────────────
-     * Owner, 2026-08-16: "create post is a static on the top menu bar but
-     * while on my or other pages, trying to uploaded - that is not happening.
-     * only from my feed section create post happening."
+     * ⚠ THIS IS NOT THE FIX FOR THE OWNER'S BUG. IT WAS CLAIMED AS ONE, AND
+     * THAT CLAIM WAS WRONG. The correction is recorded here rather than
+     * quietly deleted, because a comment that explains a fix that does not
+     * work is worse than no comment: the next person trusts it.
      *
-     * `WallPosts` is mounted in TWO places — `Feed.tsx` with `composerOnly`,
-     * and `PublicProfile.tsx` for the wall. Both ran this effect, and both
-     * watched the same URL. So from his wall the sequence was:
+     * Owner, 2026-08-16: "create post ... only from my feed section create
+     * post happening." I read the code, found that `WallPosts` is mounted
+     * twice — once by Feed with `composerOnly`, once by PublicProfile for the
+     * wall — and that both watched the URL for the compose flag. I reasoned
+     * that the wall's copy read and stripped the flag before Feed could see
+     * it, wrote that up with confidence, and shipped it in 1.2.9.
      *
-     *   1. the top-bar button navigates to /feed?compose=1
-     *   2. the WALL's WallPosts is still mounted through that transition. Its
-     *      effect sees compose=1 first, latches its ref, and STRIPS THE FLAG
-     *      from the URL with `setSearchParams(..., {replace:true})`
-     *   3. Feed mounts a moment later, reads the URL, and the flag is gone
+     * It was never tested, and COULD NOT have been: the screenshot harness
+     * registered exactly one route, so navigating from a wall to /feed matched
+     * nothing at all. `journey-create-from-wall` was built afterwards to make
+     * the crossing observable, and it settles it — pressing the same top-bar
+     * button, with this guard REMOVED, from the wall:
      *
-     * Nothing opens, and nothing is broken enough to log an error. From the
-     * feed itself there is only one instance and only one reader, which is
-     * exactly why it worked there and nowhere else — and why it looked random.
+     *     with the guard      wall: picker fires    feed: picker fires
+     *     WITHOUT the guard   wall: picker fires    feed: picker fires
      *
-     * The flag names an intent ("open the post composer"), and only the
-     * dedicated composer can act on it. The wall's inline instance is a LIST
-     * of posts that happens to share this component; it has no composer to
-     * open. Guarding on `composerOnly` makes the reader unique no matter how
-     * many walls, feeds or profiles are mounted at once.
+     * Identical. The guard changes nothing about the reported fault.
+     *
+     * WHY IT STAYS ANYWAY: two components watching one URL flag and racing to
+     * consume it is genuinely wrong, and the flag names an intent only the
+     * dedicated composer can act on — the wall's instance is a LIST of posts
+     * with no composer to open. It is kept as correctness, and is no longer
+     * described as a fix for anything.
+     *
+     * WHERE THE REAL FAULT LIVES, stated as the open question it is: the
+     * harness has no Android picker, so it takes the file-input path. On a
+     * device, pressing + from the wall CHANGES THE PAGE and LAUNCHES ANDROID'S
+     * PICKER at the same moment, backgrounding the WebView mid-navigation.
+     * From the feed there is no page change and no race. That fits the
+     * symptom — and it is a hypothesis, not a finding, and must not be
+     * shipped as one. The owner's own instruction points at the structural
+     * answer instead: "as top menu icon is fix it should be from single
+     * uploader while standing on any page" — the button should open the
+     * composer WHERE THE MEMBER IS, deleting the navigation, the flag, the
+     * second reader and the race together.
      * ─────────────────────────────────────────────────────────────────────
      */
     if (!composerOnly) return;
