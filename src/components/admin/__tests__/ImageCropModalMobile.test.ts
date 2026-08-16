@@ -147,3 +147,49 @@ describe("the dialog behaves like a dialog", () => {
     expect(src).toContain('aria-modal="true"');
   });
 });
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE DIALOG MUST STAY REACHABLE WHILE ANOTHER DIALOG IS OPEN.
+ *
+ * OWNER, 2026-08-16, on 1.2.9: "after uploadling any image clicked crop after
+ * that any of option any fuction not wokring even not in web too, no cross, no
+ * mirror, no moving the selection nothing - its like Screen is freezed - web
+ * and app."
+ *
+ * `WallPosts` renders `ImageCropModal` as a SIBLING of the composer's Radix
+ * <Dialog>, which is open when Crop is pressed. A Radix modal makes the rest of
+ * the page inert by setting `pointer-events: none` on <body>; this overlay is
+ * outside the dialog's content, so it inherited that and was painted perfectly
+ * and completely deaf.
+ *
+ * Measured at 412px, hit-testing the centre of each control:
+ *
+ *     with `pointer-events-auto`      Cancel/Close/4:5/Mirror/ZoomIn/frame  ALL reachable
+ *     without it                      Cancel/Close/4:5/Mirror               ALL dead
+ *
+ * WHY THIS TEST IS WORTH HAVING despite reading only text: the three crop
+ * screenshot scenes mount this component ALONE, where the body is untouched
+ * and everything works — which is exactly why every measurement reported to
+ * the owner was true and useless. The arrangement, not the component, was
+ * broken. `crop-modal-behind-dialog` reproduces the arrangement and is the
+ * real proof; this pin is here so the one class that makes it work cannot be
+ * "tidied away" by someone who does not know what it is holding up.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+describe("the crop dialog survives being opened beside another dialog", () => {
+  it("re-enables pointer events on its own root", () => {
+    const root = src.slice(0, src.indexOf('role="dialog"'));
+    expect(
+      root,
+      "without pointer-events-auto the whole dialog is inert whenever a Radix " +
+        "dialog is open behind it — which is every time Crop is pressed",
+    ).toContain("pointer-events-auto");
+  });
+
+  it("sits above the Radix overlay it has to escape", () => {
+    // Radix's overlay is z-50. Paint order was never the problem, but if this
+    // ever dropped below 50 the dialog would be invisible as well as inert.
+    expect(src).toContain("z-[100]");
+  });
+});
