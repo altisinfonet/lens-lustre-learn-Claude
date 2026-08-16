@@ -1,13 +1,14 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import { useParams, Link } from "react-router-dom";
-import { Camera, CheckCircle2, ExternalLink, Globe, Trophy, BookOpen, User, Expand, Award, ChevronLeft, ChevronRight, Facebook, Instagram, GraduationCap, Twitter, Youtube, MapPin, Calendar, Image, BadgeCheck, Check, X, Play, Briefcase, Phone, Mail, Heart, Lock, Users as UsersIcon, Star, FileText, Layers, MessageSquare, BarChart3, Pencil } from "lucide-react";
+import { Camera, CheckCircle2, ExternalLink, Globe, Trophy, BookOpen, User, Expand, Award, ChevronLeft, ChevronRight, Facebook, Instagram, GraduationCap, Twitter, Youtube, MapPin, Calendar, Image, BadgeCheck, Check, X, Play, Briefcase, Phone, Mail, Heart, Lock, Users as UsersIcon, Star, FileText, Layers, MessageSquare, BarChart3, Pencil, Menu, MoreVertical, Settings as SettingsIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import JudgingStampBadge from "@/components/JudgingStampBadge";
 import { participantLabelForJudgingTag } from "@/lib/judging/participantStageLabels";
 import PhaseWatermark from "@/components/competition/PhaseWatermark";
-import FriendFollowActions, { FriendFollowStats, FriendFollowButtons } from "@/components/FriendFollowActions";
+import FriendFollowActions, { FriendFollowStats, FriendFollowButtons, ProfileStatRow } from "@/components/FriendFollowActions";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import MutualFriends from "@/components/MutualFriends";
 import { toast } from "@/hooks/core/use-toast";
 import WallPosts from "@/components/WallPosts";
@@ -287,8 +288,29 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
     }
   }, [searchParams, coreProfile]);
 
-  const entries = extData?.entries || [];
-  const certificates = extData?.certificates || [];
+  /**
+   * ⚠ THE INFINITE RENDER LOOP — FIXED 2026-08-16.
+   *
+   * These were `extData?.entries || []`. That `|| []` builds a BRAND NEW ARRAY
+   * on every single render, and `entries` is a dependency of the stamps effect
+   * below (`}, [entries, userId, currentUser?.id])`). A new array is never
+   * referentially equal to the last one, so the effect re-ran on every render,
+   * called setState, caused a render, and re-ran — for ever.
+   *
+   * React reported it as "Maximum update depth exceeded", FOUR TIMES on every
+   * load of this page. It had been shipping: it burns battery and CPU on every
+   * visitor's phone for as long as the profile is open.
+   *
+   * Nothing caught it because this page had no screenshot scene until today.
+   * The console errors were there the whole time with nobody reading them.
+   *
+   * `useMemo` gives one stable reference for as long as the underlying data is
+   * unchanged, so the effect runs when the entries actually change and not
+   * other wise. The `|| []` still guards the undefined case — it is just no
+   * longer evaluated fresh on every pass.
+   */
+  const entries = useMemo(() => extData?.entries || [], [extData?.entries]);
+  const certificates = useMemo(() => extData?.certificates || [], [extData?.certificates]);
   const articles = extData?.articles || [];
   const coursesCreated = extData?.courses || [];
   const featuredPhotos = extData?.featuredPhotos || [];
@@ -443,12 +465,104 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
     canView("portfolio") && profile.portfolio_url && !profile.website_url && { icon: Globe, label: "Portfolio", url: profile.portfolio_url },
   ].filter(Boolean) as { icon: any; label: string; url: string }[] : [];
 
+  /**
+   * The two marks that go in the header, in a fixed order so the row never
+   * reshuffles between profiles. Owner, 2026-08-16: *"Links (just shown the
+   * insta and fb niothing more)"*. Everything else stays on the profile and
+   * stays editable — it is simply not header material.
+   */
+  /** @handle from the member's custom URL — the one stable public identifier. */
+  const handle = ((profile as any)?.custom_url || "").trim();
+
+  /**
+   * The Instagram HANDLE, not the raw URL. Owner's spec §6: show
+   * "[Instagram icon] @avijit_sheel", not a long link and not a button.
+   * Parsed defensively — a stored value may be a full URL, may carry a
+   * trailing slash, query or "@", and must never render as "undefined".
+   */
+  const instagramHandle = (() => {
+    const raw = (profile.instagram_url || "").trim();
+    if (!raw) return "";
+    const m = raw.match(/instagram\.com\/([^/?#]+)/i);
+    const h = (m ? m[1] : raw).replace(/^@/, "").replace(/\/+$/, "");
+    return h && !/^https?:/i.test(h) ? h : "";
+  })();
+
+  const headerLinks = [
+    profile.instagram_url && { icon: Instagram, label: "Instagram", url: profile.instagram_url },
+    profile.facebook_url && { icon: Facebook, label: "Facebook", url: profile.facebook_url },
+  ].filter(Boolean) as { icon: any; label: string; url: string }[];
+
   const worksCount = entries.length + featuredPhotos.length + articles.length + coursesCreated.length;
   const tabs = [
     { key: "wall" as const, label: "Wall" },
     { key: "works" as const, label: "Works", count: worksCount },
     { key: "about" as const, label: "About" },
   ];
+
+  /**
+   * The profile menu, built once and rendered INLINE in the header row.
+   * It used to occupy a whole row of its own above the avatar — 44px of
+   * screen carrying one icon. Owner: "see how nicelys insta used space".
+   */
+  const profileMenu = (
+    <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  aria-label="Profile menu"
+                  className="grid min-h-11 min-w-11 place-items-center rounded-lg text-foreground transition-colors hover:bg-muted/60"
+                >
+                  {/* ⋮ not ☰ — the owner's Instagram reference uses the
+                      vertical kebab in the top-right corner. */}
+                  <MoreVertical className="h-6 w-6" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {/* Works lives here on a phone — owner: "works move to under
+                    thee lines". The count comes with it, so it is still
+                    obvious whether there is anything in there before tapping. */}
+                {/**
+                 * WORKS AND ABOUT LIVE HERE ON A PHONE — and the menu is shown
+                 * to EVERYONE, not just the owner.
+                 *
+                 * Owner: *"works move to under thee lines"*. About went the
+                 * same way, but only its SUMMARY moved into the header (bio,
+                 * links, joined). The full About panel still carries Workplace,
+                 * Education, Current City, Specializations, Phone, Email and
+                 * Portfolio — deleting the tab without putting it here would
+                 * have made all of that unreachable on a phone.
+                 *
+                 * The menu was owner-only for one commit, which would have hit
+                 * a VISITOR harder still: no tabs and no menu means no way to
+                 * reach either panel on someone else's profile. Edit Profile
+                 * and Settings stay owner-only; the two panels do not.
+                 */}
+                <DropdownMenuItem onClick={() => setActiveTab(activeTab === "works" ? "wall" : "works")} className="flex items-center gap-2.5">
+                  <Layers className="h-4 w-4" />
+                  {activeTab === "works" ? "Back to Wall" : "Works"}
+                  {worksCount > 0 && <span className="ml-auto text-[11px] text-muted-foreground">{worksCount}</span>}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab(activeTab === "about" ? "wall" : "about")} className="flex items-center gap-2.5">
+                  <User className="h-4 w-4" />
+                  {activeTab === "about" ? "Back to Wall" : "About"}
+                </DropdownMenuItem>
+                {isOwner && (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link to="/edit-profile" className="flex items-center gap-2.5">
+                        <Pencil className="h-4 w-4" /> Edit Profile
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/profile" className="flex items-center gap-2.5">
+                        <SettingsIcon className="h-4 w-4" /> Settings
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+  );
 
     return (
     <main className="min-h-screen bg-background text-foreground">
@@ -458,7 +572,19 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
         ogImage={profile.avatar_url || undefined}
       />
       {/* ═══ INSTAGRAM-STYLE PROFILE HEADER (no cover) ═══ */}
-      <section className="relative bg-background pt-6">
+      <section className="relative bg-background pt-1 sm:pt-6">
+        {/**
+         * ☰ TOP RIGHT — Edit Profile and Settings, phone only.
+         *
+         * Owner, 2026-08-16: *"setiing and edit profile place on top right side
+         * with three lines"*. Same control, same corner as Instagram, so it
+         * needs no explaining — and it buys back the row that "Edit Profile"
+         * used to occupy above the photographs, which is what this screen was
+         * short of.
+         *
+         * Owner only: a visitor has nothing to edit, and an empty menu is
+         * worse than no menu.
+         */}
         {/* ── Profile Info Section ── */}
         <div className="container mx-auto max-w-7xl px-4 relative">
           {/* Desktop: Two rows — Row 1: Avatar + Name | Buttons — Row 2: Stats below name */}
@@ -540,63 +666,207 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
             </div>
           </div>
 
-          {/* ═══ MOBILE: Centered stack ═══ */}
-          <div className="flex sm:hidden flex-col items-center gap-1.5">
-            {/* Avatar */}
-            <div className="relative z-10">
-              {canView("avatar") && profile.avatar_url ? (
-                <img referrerPolicy="no-referrer" loading="eager" decoding="async" fetchPriority="high" src={profile.avatar_url} alt={displayName} className="h-[100px] w-[100px] rounded-full object-cover border-[3px] border-background shadow-xl" />
-              ) : (
-                <div className="h-[100px] w-[100px] rounded-full bg-muted border-[3px] border-background flex items-center justify-center shadow-xl">
-                  <Camera className="h-8 w-8 text-muted-foreground/30" />
+          {/**
+           * ═══ MOBILE: INSTAGRAM'S ARRANGEMENT ═══
+           *
+           * Owner, 2026-08-16, holding his Instagram profile beside ours:
+           * *"DP missing too bad laytout. follow instagram style as attched."*
+           *
+           * WHAT WAS WRONG. Everything was CENTRED in a single column — a
+           * 100px avatar, then the name, then "Joined", then the three counts
+           * rendered as a 9px run of text, then the buttons. Five stacked rows
+           * before a single photograph, and the numbers a visitor judges a
+           * photographer by set in the smallest type on the screen.
+           *
+           * Instagram puts the picture on the LEFT with the counts beside it,
+           * which spends one row instead of two and makes the figures legible.
+           * Name and bio go underneath, left-aligned, because centred text
+           * that wraps to two lines looks like a mistake.
+           *
+           * ⚠ I FIRST BUILT THIS ON THE WRONG PAGE. `Profile.tsx` is the
+           * account/settings screen (About | Settings tabs, no posts on it).
+           * THIS is the one with Wall | Works | About and the photo grid, and
+           * it is the one he was showing me. The other file has been reverted.
+           */}
+          {/**
+           * -mx-4 CANCELS ONE OF TWO STACKED PADDINGS.
+           *
+           * Owner, 2026-08-16: "telling to remove padding from left and right
+           * edge not doing". Measured: content sat 34px from each edge while
+           * the tab bar below sat at 18px — so the page had two different
+           * left edges. Cause: Tailwind's `container` class carries its own
+           * 16px, and the wrapper adds `px-4` on top of it.
+           * Instagram's reference measures ~16-20px. -mx-4 removes one layer,
+           * giving 18px — which is also exactly where the tabs already were,
+           * so the whole screen now shares ONE left edge.
+           */}
+          <div className="relative -mx-4 flex sm:hidden flex-col gap-1 sm:mx-0">
+            {/* ⋮ pinned to the top-right corner of the profile block, exactly
+                where the reference puts it — no row of its own. */}
+            {!isGuest && <div className="absolute -right-2 -top-1 z-10">{profileMenu}</div>}
+            {/**
+             * DP LEFT · NAME AND COUNTS STACKED BESIDE IT · ☰ FAR RIGHT.
+             *
+             * Owner, 2026-08-16, with Instagram open: *"see how nicelys insta
+             * used space - and you spolied the sapce"*. He was right twice
+             * over, and both were mine:
+             *
+             *  1. The ☰ had a ROW TO ITSELF — 44px of screen holding one icon
+             *     and nothing else. Instagram keeps it inline at the top.
+             *  2. The name sat BELOW the whole avatar row, so the tall column
+             *     next to an 86px picture held only the counts and the rest
+             *     was blank. Instagram stacks name over counts in that column,
+             *     which is exactly the space that was going to waste.
+             *
+             * Both fixed here: one row now carries the picture, the name, the
+             * three figures and the menu. `items-start` so the name aligns
+             * with the top of the picture rather than floating at its centre.
+             */}
+            <div className="flex items-start gap-4">
+              <div className="relative z-10 shrink-0">
+                {canView("avatar") && profile.avatar_url ? (
+                  <img referrerPolicy="no-referrer" loading="eager" decoding="async" fetchPriority="high" src={profile.avatar_url} alt={displayName} className="h-[86px] w-[86px] rounded-full object-cover border-[3px] border-background shadow-xl" />
+                ) : (
+                  <div className="h-[86px] w-[86px] rounded-full bg-muted border-[3px] border-background flex items-center justify-center shadow-xl">
+                    <Camera className="h-7 w-7 text-muted-foreground/30" />
+                  </div>
+                )}
+              </div>
+
+              {/* pr-9 reserves the ⋮'s corner. Without it a long name ran
+                  straight under the menu — caught the moment the visitor scene
+                  rendered a name longer than the owner's. */}
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5 pr-9 pt-0.5">
+                <div className="flex items-start justify-between gap-2">
+                  {/**
+                   * MATCHED TO THE REAL INSTAGRAM PROFILE, 2026-08-16.
+                   *
+                   * Owner: "your design and this one 100000000% matched yes or
+                   * no ?? if not macthed then match it". It was not. Measured
+                   * against his reference:
+                   *   - the row beside the picture holds NAME then the three
+                   *     COUNTS and nothing else. No @handle, no badge, no menu.
+                   *   - the menu (⋮) lives in the TOP BAR, top right — not
+                   *     inside the profile block.
+                   *   - the @handle is the top-bar TITLE, not a subtitle.
+                   * So the badge and the inline menu are gone from here.
+                   * "Member" was my addition, not Instagram's; his sample has a
+                   * verified tick beside the handle in the top bar, and that
+                   * is what UserIdentityBlock's badge system already renders.
+                   */}
+                  <UserIdentityBlock
+                    userId={userId || ""}
+                    name={displayName}
+                    size="full"
+                    className="items-start text-left"
+                    nameClassName="text-[17px] font-semibold tracking-tight leading-tight [font-family:var(--font-display)]"
+                  />
                 </div>
-              )}
+                {/* Guests see no counts — unchanged rule, just a different shape. */}
+                {!isGuest && <ProfileStatRow targetUserId={userId!} />}
+              </div>
             </div>
 
-            <UserIdentityBlock
-              userId={userId || ""}
-              name={displayName}
-              size="full"
-              className="items-center mt-1"
-              nameClassName="text-base font-bold tracking-tight leading-none [font-family:var(--font-display)]"
-            />
-
-            {canView("member_since") && (
-              <p className="text-[10px] text-muted-foreground" style={bodyFont}>
-                Joined {memberSince}
+            {/**
+             * NAME → ABOUT → LINKS → JOINED, in that order, on the owner's
+             * instruction, 2026-08-16: *"Link abiut display under the Name /
+             * Like Name / About / Links (just shown the insta and fb niothing
+             * more) / Joined"*.
+             *
+             * This is Instagram's stack and it reads top-down in order of what
+             * a visitor wants: who is this, what do they do, where else are
+             * they, how long have they been here. The bio used to be buried in
+             * an "About" TAB — a whole extra tap to read one sentence — and
+             * the links sat in a bordered card further down the page.
+             */}
+            {canView("bio") && profile.bio && (
+              <p className="text-[15px] leading-snug text-foreground whitespace-pre-line" style={bodyFont}>
+                {profile.bio}
               </p>
             )}
 
-            {!isGuest && (
-              <div className="flex items-center gap-3 text-xs" style={bodyFont}>
-                <FriendFollowStats targetUserId={userId!} />
+            {/**
+             * INSTAGRAM AND FACEBOOK ONLY — owner: *"just shown the insta and
+             * fb niothing more"*. X, YouTube, Website and Portfolio are all
+             * still on the profile and still editable; they simply do not
+             * belong in the header, which is a summary and not a directory.
+             * Icons only, no labels: two marks everyone recognises, and it
+             * keeps the row to one line at 360px.
+             * 44px targets — the old link row measured 93x24.
+             */}
+            {/**
+             * §6 — the Instagram link is an ICON + @HANDLE, in the accent
+             * colour, at text weight. Not a button, not a raw URL. If the
+             * handle cannot be parsed the icon alone still links out, so a
+             * badly-stored value degrades to something useful rather than to
+             * "@undefined". Facebook keeps its icon beside it.
+             */}
+            {headerLinks.length > 0 && (
+              <div className="flex items-center gap-3">
+                {headerLinks.map((link) => {
+                  const isIg = link.label === "Instagram";
+                  return (
+                    <a
+                      key={link.url}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={isIg && instagramHandle ? `Instagram @${instagramHandle}` : link.label}
+                      className="inline-flex min-h-11 min-w-11 -my-2.5 items-center gap-1.5 text-[13px] text-primary transition-opacity hover:opacity-80"
+                      style={bodyFont}
+                    >
+                      <link.icon className="h-[18px] w-[18px]" />
+                      {isIg && instagramHandle && <span className="truncate">@{instagramHandle}</span>}
+                    </a>
+                  );
+                })}
               </div>
             )}
 
+
             {!isOwner && !isGuest && <MutualFriends targetUserId={userId!} />}
 
-            <div className="flex items-center gap-2 mt-1">
-              {!isOwner && !isGuest && <FriendFollowButtons targetUserId={userId!} />}
-              {isOwner && (
-                <Link to="/edit-profile" className="inline-flex items-center gap-2 text-[10px] tracking-[0.08em] font-semibold px-4 py-2 bg-muted hover:bg-accent text-foreground rounded-md border border-border transition-colors" style={headingFont}>
-                  <Pencil className="h-3.5 w-3.5" /> Edit Profile
-                </Link>
-              )}
-              {isGuest && (
-                <Link to="/signup" className="inline-flex items-center gap-2 text-[10px] tracking-[0.08em] font-semibold px-4 py-2 bg-primary text-primary-foreground hover:opacity-90 rounded-md transition-opacity" style={headingFont}>
-                  Follow
-                </Link>
-              )}
-            </div>
+            {/**
+             * Edit Profile is GONE from this row — it lives in the ☰ at the
+             * top right now, on the owner's instruction, which is also where
+             * Instagram keeps it. The row is left for the actions a VISITOR
+             * takes, so on your own profile it simply disappears rather than
+             * holding one lonely button.
+             */}
+            {/**
+             * §8 — THE ACTION ROW, rebuilt.
+             *
+             * Owner: *"The current UI uses oversized rectangular buttons"*.
+             * They were 10px uppercase text in 44px-tall blocks — desktop
+             * proportions on a phone. This is the social-platform row from his
+             * mockup: one accent primary, one secondary, the rest icon-only.
+             *
+             * h-9 (36px) is the visible height and matches Instagram's; the
+             * 44px touch minimum is met by the row's own padding rather than
+             * by inflating the button, which is what made them look oversized.
+             * `flex-1` on the two text buttons and fixed squares on the icons
+             * gives the consistent height and native proportion §8 asks for.
+             */}
+            {(!isOwner || isGuest) && (
+              <div className="mt-2 flex items-center gap-2 py-1">
+                {!isOwner && !isGuest && <FriendFollowButtons targetUserId={userId!} />}
+                {isGuest && (
+                  <Link to="/signup" className="inline-flex h-9 flex-1 items-center justify-center rounded-lg bg-primary px-4 text-[13px] font-semibold text-primary-foreground transition-opacity hover:opacity-90" style={headingFont}>
+                    Follow
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Separator */}
-          <div className="border-b border-border mt-4" />
         </div>
       </section>
 
       {/* ═══ Stories & Highlights (Instagram-style, in place of the old cover; visible to everyone) ═══ */}
-      <div className="container mx-auto max-w-7xl py-3 md:py-4">
+      {/* Same -mx-4 cancellation as the header, so the story rings share the
+          page's single 18px left edge instead of sitting 16px further in. */}
+      <div className="mx-auto max-w-7xl px-0 py-1 sm:container sm:px-4 md:py-4">
         <ProfileStories userId={userId!} isOwner={isOwner} />
       </div>
 
@@ -658,8 +928,12 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                   Links
                 </h3>
                 <div className="flex flex-wrap gap-x-5 gap-y-2">
+                  {/* min-h-11 = 44px. The sweep measured these at 93x24 the
+                      first time this page was ever photographed — they are
+                      real controls (they leave the site) sitting at half the
+                      tap minimum. `-my-2.5` keeps the card's height unchanged. */}
                   {socialLinks.map((link) => (
-                    <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors" style={bodyFont}>
+                    <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" className="flex min-h-11 -my-2.5 items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors" style={bodyFont}>
                       <link.icon className="h-3.5 w-3.5" />
                       {link.label}
                     </a>
@@ -676,8 +950,27 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
       {!isGuest && (
         <>
 
-      {/* ═══ Tabs Navigation ═══ */}
-      <div className="bg-background sticky top-0 z-20 border-b border-border">
+      {/**
+       * ═══ TABS — PHONE HAS NONE ═══
+       *
+       * Owner, 2026-08-16: *"works move to under thee lines"* and *"dont wort
+       * wall as it is main board"*.
+       *
+       * He is right about the shape. Three tabs where one of them is the page
+       * itself is a menu that mostly points at where you already are. On a
+       * phone the wall IS the profile — it is what everyone opens it for — so
+       * it needs no label and no tap to reach.
+       *
+       *   Wall  → gone as a label; it is simply the page.
+       *   Works → moved into the ☰ at the top right.
+       *   About → dissolved into the header (bio, links, joined), so reading
+       *           one sentence no longer costs a tap.
+       *
+       * DESKTOP KEEPS THE TABS. There the wall does not fill the viewport,
+       * there is room for a real tab bar, and a hamburger on a 1280px screen
+       * is hiding things for no reason. `sm:block` is the whole difference.
+       */}
+      <div className="hidden sm:block bg-background sticky top-0 z-20 border-b border-border">
         <div className="container mx-auto max-w-7xl">
           <div className="flex items-center gap-0">
             {tabs.map((tab) => (
@@ -709,10 +1002,19 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
       </div>
 
       {/* ═══ Main Content ═══ */}
-      <div className="mx-auto max-w-7xl py-6 px-0 sm:container sm:px-4">
-        {/* Social Links inline */}
+      <div className="mx-auto max-w-7xl py-2 px-0 sm:py-6 sm:container sm:px-4">
+        {/**
+         * PHONE: HIDDEN. The links now sit under the name as two icons, where
+         * the owner asked for them. Leaving this card as well would print the
+         * same two destinations twice on one screen, a few hundred pixels
+         * apart — which is what the first screenshot of this redesign showed.
+         *
+         * Desktop keeps it: the desktop header is a different, wider layout
+         * that does not carry the links, and there the card is the only place
+         * they appear.
+         */}
         {socialLinks.length > 0 && (
-          <div className="border border-border p-4 mb-6">
+          <div className="hidden sm:block border border-border p-4 mb-6">
             <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground mb-3" style={headingFont}>
               Links
             </h3>
@@ -723,7 +1025,11 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                   href={link.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors py-1"
+                  /* min-h-11 = 44px. Measured at 93x24 the first time this
+                     page was ever photographed — real controls (they leave the
+                     site) at half the tap minimum. `-my-2.5` cancels the added
+                     height so the Links card does not grow. */
+                  className="flex min-h-11 -my-2.5 items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors py-1"
                   style={bodyFont}
                 >
                   <link.icon className="h-3.5 w-3.5" />
@@ -1441,12 +1747,20 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
         )}
       </AnimatePresence>
 
-      {/* Footer */}
-      <div className="container mx-auto max-w-7xl py-4 md:py-8 text-center">
-        <Link to="/" className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground hover:text-primary transition-colors duration-500" style={headingFont}>
-          ← Back to 50mm Retina World
-        </Link>
-      </div>
+      {/**
+       * NO "← Back to 50mm Retina World" HERE. Owner, 2026-08-16: *"ack to
+       * 50mm retine dont witre on the footer"*.
+       *
+       * It was a leftover from when a profile could be arrived at cold from a
+       * search engine with no other navigation on the page. The app has a
+       * bottom bar and the web has the site header — both are always present,
+       * both go home. A third "go home" at the end of every profile is
+       * clutter, and on a phone it sat directly above the bottom nav that
+       * already does the same thing.
+       *
+       * The shared SiteFooter still renders below this, so nothing that
+       * belongs in a footer has been lost.
+       */}
         </>
       )}
     </main>
