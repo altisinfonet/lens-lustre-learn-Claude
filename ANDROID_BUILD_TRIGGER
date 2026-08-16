@@ -1,118 +1,71 @@
-Build 1.2.9 - 2026-08-16 - THE SECOND ROUND FROM HIS PHONE
+Build 1.2.10 - 2026-08-16 - THE CROP DIALOG WAS DEAF, AND EVERY MEASUREMENT I GAVE HIM WAS TRUE AND USELESS
 
-He installed 1.2.8, found five more, and sent them one at a time. All five are
-here. Three had causes that were nothing like the symptom.
+  typecheck 0 · 1,865 tests pass · production build 0
+  ZERO layout problems
 
-  typecheck 0 · 1,863 tests pass · production build 0
-  112 screenshots · ZERO layout problems · zero non-fixture errors
+VERSION IS 1.2.10. Build #99 carried 1.2.9 and this is different code.
 
-VERSION IS 1.2.9. Build #97 carried 1.2.8 and this is different code.
+THE ONE FAULT BEHIND ALL OF IT
 
-WHAT HE REPORTED
+Owner, on 1.2.9: "after uploadling any image clicked crop after that any of
+option any fuction not wokring even not in web too, no cross, no mirror, no
+moving the selection nothing - its like Screen is freezed - web and app."
 
- 1. "unable to move selection / any upper menu section not working / anything
-    editing not working"
+The giveaway was "no cross". The close button is a plain <button onClick>. If
+THAT is dead, nothing about cropping is wrong — the dialog is not receiving
+input at all.
 
-    The dialog was not frozen. ONE TAP ON AN ASPECT CHIP DELETED THE CROP FRAME
-    and nothing ever put one back — the only code that ever created a frame was
-    the image's load event. Measured either side of one tap:
+`WallPosts` renders `ImageCropModal` as a SIBLING of the composer's Radix
+<Dialog>, and that dialog is open at the moment Crop is pressed. A Radix modal
+makes the rest of the page inert while it is open by putting
+`pointer-events: none` on <body>. This overlay lives outside the dialog's
+content, so it inherited that — painted perfectly, laid out perfectly, and
+completely deaf. Measured at 412px, hit-testing the centre of each control:
 
-        start        [100, 372, 211, 211]
-        after 4:5    null
+    crop dialog ALONE       body pointer-events auto   every control reachable
+    behind the composer     body pointer-events NONE   Cancel, Close, 4:5,
+                                                       Mirror — ALL DEAD
+                            (the hit lands on Radix's own overlay)
 
-    After that there is no selection at all: nothing to drag, so it "cannot be
-    moved"; the px readout blanks, so nothing looks alive; and Crop & Upload
-    silently sends the WHOLE IMAGE, because there is no crop to apply. Every
-    symptom in his list is that one line.
+One inherited CSS value. It explains every symptom he reported across three
+rounds: no cross, no mirror, no rotate, no aspect chips, no drag, no pinch, no
+zoom — on WEB and APP, because it was never a WebView difference at all.
 
-    It hid behind the one control that seemed to work: ROTATE reloads the
-    image, which fired the load event, which rebuilt the frame. So rotating
-    "fixed" it and nothing else did — which is why it read as random.
+WHY IT TOOK THREE BUILDS, stated plainly because it is the more important
+lesson: all three crop scenes mount `ImageCropModal` ALONE. Alone it works, and
+it has worked in every screenshot and every probe I ran. I reported those
+numbers to him as evidence — "4:5 -> 190x238, never null", "pinch 100% -> 350%"
+— and every one was true of a component nobody meets. THE BUG WAS IN THE
+ARRANGEMENT, NOT THE COMPONENT. A harness that only ever renders things in
+isolation certifies them in isolation.
 
-    Now: any change to the frame's shape RE-SEEDS the frame. Verified after —
-    4:5 -> 190x238, Free -> 211x211, Reset -> 211x211, never null. Reset also
-    stopped meaning "no frame at all", which was the same dead end by another
-    door.
+`crop-modal-behind-dialog` reproduces the arrangement. With the fix, every
+control is reachable and a real click moves the zoom 100% -> 125%. Without it,
+all four tested controls are dead. That mutation is the proof.
 
- 2. "create post ... only from my feed section create post happening"
+WHAT ELSE CHANGED
 
-    WallPosts is mounted TWICE — once by the Feed, once by the wall — and BOTH
-    watched the URL for the compose flag. From his wall: the top-bar button
-    navigates to /feed?compose=1, the WALL's still-mounted copy reads the flag
-    first, latches it and STRIPS IT FROM THE URL, and the Feed then arrives to
-    find nothing. From the feed there is only one reader, which is exactly why
-    it worked there and nowhere else. Only the real composer answers it now.
-
- 3. "light toggle icon will be one lone upper from the name line as overlapping"
-
-    HIS RULE FROM 2026-08-12, WHICH I OVERRODE THIS MORNING AND SHOULD NOT
-    HAVE. I moved the button off its own line to reclaim 40px and argued the
-    rule was still honoured "a stronger way", because an absolutely positioned
-    element cannot be pushed by a sibling. True, and beside the point: it
-    cannot be pushed, so his NAME RAN UNDERNEATH IT — and his account is the
-    exact long name the rule was written for. Back on its own line, measured
-    with his real name at 360x640 and 412x892: no overlap, Logout still
-    visible, nothing hidden at 640 and above. A pinned rule of his is not
-    overridden by my judgement.
-
- 4. "on app on gesture zoom in zoom out not happening" / "in web on scroll zoom
-    in zoom out not happening"
-
-    Wheel zoom on the website never existed — added. For the pinch, I will not
-    claim a fix I cannot demonstrate: the handler DOES fire here, taking a
-    synthetic two-finger gesture from 100% to 350%. What differs on a device is
-    timing — two fingers never land on the same frame, so the crop library
-    captures the first one and owns the gesture before the second arrives. Every
-    active pointer now gets a pointercancel when the second finger lands. If it
-    still fails on the phone that is a WebView difference to report, not guess
-    at, and the +/- buttons remain.
-
- 5. "entire PDF download system failed"
-
-    TWO faults, and the second is why the first could not be diagnosed.
-
-    THREE OF THE FOUR PDF PATHS STILL USED jsPDF's doc.save(). The rule was
-    established on 2026-08-05 from his own report and written at the top of
-    src/lib/saveFile.ts: save() clicks an <a download>, an Android WebView has
-    no download manager, the click is swallowed in silence. saveBlob() exists
-    for exactly this. It had been applied to ONE of four call sites:
-
-        Certificates.tsx            every competition certificate    BROKEN
-        Wallet.tsx                  the wallet ledger                BROKEN
-        AdminTransactions.tsx       the transactions export          BROKEN
-        generateArticlePdf.ts       journal / featured artist        fixed in Aug
-
-    Nothing failed when the article path was converted, because nothing was
-    looking at the other three. Eleven days live. A test now walks every
-    .ts/.tsx under src/ and fails on any doc.save( — mutated to prove it.
-
-    AND THE JOURNAL PATH THREW ITS REASON AWAY: `catch {` with no argument and
-    one fixed sentence, so a photo that would not fetch, a missing plugin, a
-    dismissed share sheet and a too-large PDF all arrived as the same four
-    words. saveBlob already throws member-facing sentences; they now reach the
-    toast.
-
-    ⚠ THE JOURNAL / FEATURED-ARTIST PDF IS NOT FIXED. Its cause is still
-    unknown. What changed is that the next failure NAMES ITSELF.
+ - `pointer-events-auto` on the crop dialog's root, pinned by a test.
+ - Nothing else. The aspect-chip re-seed, the wheel zoom and the pinch
+   pointercancel from 1.2.9 all stay — they were correct, they were simply
+   unreachable behind a page that could not be touched.
 
 WHAT ONLY THE PHONE CAN ANSWER
 
-  1. Crop a photo. Tap 1:1, 4:5, Free, and Reset. The frame must survive every
-     one of them, and Crop & Upload must send the part you framed.
-  2. Create Post from your WALL, from Journal, from anywhere — not just Feed.
-  3. The account sheet: the sun icon on its own line, clear of your name.
-  4. Download a CERTIFICATE and a WALLET ledger — the share sheet should open.
-  5. Download a JOURNAL PDF. If it fails there will now be a SECOND LINE under
-     the error. Send me that line; it is the missing piece.
-  6. Pinch the photo in the crop dialog.
+  1. Pick a photo, press Crop. Then press the X. It must close. That single tap
+     is the whole test — if the X works, everything else in the dialog does.
+  2. Then: drag the frame, tap 1:1 / 4:5 / Free / Reset, rotate, mirror, pinch,
+     and on the website use the scroll wheel.
+  3. Crop & Upload must send the part you framed, including after zooming.
 
-NOT DONE, AND NOT CLAIMED
+STILL OPEN, AND NOT CLAIMED
 
- - The journal PDF cause. Instrumented, not fixed.
- - Pinch on a real WebView — unreproducible here.
- - Still not Instagram's crop model: the frame moves over the photo, not the
-   photo under the frame. That is a rewrite.
- - svgo absent from both lockfiles; SVGs ship unoptimised. Pre-existing.
+ - Create Post from pages other than the Feed. My 1.2.9 "fix" for this was
+   measured to change nothing and is recorded as such in the source. The
+   owner's own instruction is the design answer — one uploader that opens where
+   the member already is, with no navigation — and that is a change to make
+   deliberately, not another guess.
+ - The journal / featured-artist PDF cause. Instrumented, not fixed.
  - NO REELS. NO LIVE.
 
 Then promote the AAB.
