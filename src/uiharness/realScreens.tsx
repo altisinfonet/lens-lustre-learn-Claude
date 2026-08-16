@@ -114,6 +114,26 @@ export const REAL_SCREENS: Record<string, () => JSX.Element> = {
     screen(<PublicProfile />, `/profile/${HARNESS_USER_ID}`, "/profile/:userId"),
 
   /**
+   * THE ABOUT TAB — added 2026-08-16, and it had never been photographed.
+   *
+   * `activeTab` starts at "wall", so every screenshot of this page for the
+   * whole life of this harness has been the photo grid. The owner sent a
+   * picture of THIS tab — "structure is very poor, not alignment, placing
+   * fitting all bad use icon and less wasting space no use border" — and there
+   * was no way to render it here to check the work against him.
+   *
+   * `?section=about` is what makes it reachable, and it earns its place in the
+   * product too: About was reachable only from the ⋮ menu, so nothing could
+   * ever link to it.
+   */
+  "screen-wall-about": () =>
+    screen(
+      <PublicProfile />,
+      `/profile/${HARNESS_USER_ID}?section=about`,
+      "/profile/:userId",
+    ),
+
+  /**
    * SOMEONE ELSE'S WALL — the visitor view, and the ONLY place the Follow /
    * Add Friend / Message row exists.
    *
