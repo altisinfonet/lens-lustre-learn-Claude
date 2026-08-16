@@ -306,7 +306,15 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
                  without looking heavy — the same thing that unblocked the bell
                  once its ring went. It now matches the bell and the search: a
                  bare glyph in a 44px-tall target. */
-              className="lg:hidden relative z-10 grid h-11 w-8 shrink-0 place-items-center text-muted-foreground transition-colors hover:text-foreground"
+              /* `-ml-1.5` IS MEASURED, NOT TASTE. Owner: "create icon has more space
+                 from edge... very perfectly match it", and he was right — I had
+                 reported the two as equal by comparing the wrong things: the
+                 BUTTON's edge on the left against the GLYPH's edge on the right.
+                 Measured properly, glyph to screen edge: left 32px, right 26px.
+                 The + is also a wider glyph (20px) than the magnifier (16px), so
+                 centring it in an equal box does not give an equal margin.
+                 6px back closes it exactly. */
+              className="lg:hidden relative z-10 -ml-1.5 grid h-11 w-8 shrink-0 place-items-center text-muted-foreground transition-colors hover:text-foreground"
               aria-label={t("composer.create", "Create post")}
             >
               {/* ⚠ ICON ONLY — NO VISIBLE "Create" LABEL. Owner, 2026-08-14.
