@@ -19,28 +19,77 @@ interface ToggleRowProps {
   locked?: boolean;
 }
 
+/**
+ * THE WHOLE ROW IS THE TAP TARGET, not the switch.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * The screenshot sweep reported 24 findings on this one screen: every Radix
+ * Switch measures 44x24, which is 20px short of the 44px floor.
+ *
+ * The obvious fixes are both wrong:
+ *
+ *  • Making the SWITCH 44px tall. A switch that tall is not a switch any more —
+ *    it is a slab, and it would be the only control in the app that size.
+ *  • An invisible hit area around a 24px switch. The owner already ruled on
+ *    that one, on the notification bell, 2026-08-03: "button size same as it
+ *    was before" — growing the touch zone while leaving the picture identical
+ *    is indistinguishable from doing nothing, and he was right.
+ *
+ * The fix is the one iOS and Android Settings both use: **the row is the
+ * control.** A <label> wraps the whole row, so the icon, the title and the
+ * description all toggle the switch — a target 300px wide and ~64px tall
+ * instead of a 44x24 sliver at the far right edge, which is also the hardest
+ * part of a phone screen to reach one-handed.
+ *
+ * This is a REAL enlargement, not a measurement trick. It is also why
+ * `capture.mjs` had to learn about labels: it was measuring the switch, which
+ * is now the wrong element to measure.
+ *
+ * `htmlFor` is not used because Radix's Switch is a <button>, and a <label>
+ * cannot be associated with a button by id — wrapping is what carries the
+ * click. `cursor-pointer` and `select-none` are there so a drag across the
+ * description does not select text instead of toggling.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
 const ToggleRow = ({ icon, label, description, checked, onCheckedChange, disabled, locked }: ToggleRowProps) => {
   const t = useT();
-  return (
-  <div className="flex items-center justify-between gap-4 py-3 px-1">
-    <div className="flex items-start gap-3 min-w-0">
-      <div className="mt-0.5 text-muted-foreground shrink-0">{icon}</div>
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
-      </div>
-    </div>
-    <div className="shrink-0">
-      {locked ? (
-        <div className="flex items-center gap-1.5">
-          <Shield className="w-3.5 h-3.5 text-primary" />
-          <span className="text-[10px] uppercase tracking-wider text-primary font-semibold">{t("notif.alwaysOn")}</span>
+
+  const body = (
+    <>
+      <div className="flex items-start gap-3 min-w-0">
+        <div className="mt-0.5 text-muted-foreground shrink-0">{icon}</div>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">{label}</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
         </div>
-      ) : (
-        <Switch checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} />
-      )}
-    </div>
-  </div>
+      </div>
+      <div className="shrink-0">
+        {locked ? (
+          <div className="flex items-center gap-1.5">
+            <Shield className="w-3.5 h-3.5 text-primary" />
+            <span className="text-[10px] uppercase tracking-wider text-primary font-semibold">{t("notif.alwaysOn")}</span>
+          </div>
+        ) : (
+          <Switch checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} />
+        )}
+      </div>
+    </>
+  );
+
+  // A locked row has nothing to toggle, so it stays a plain div — a <label>
+  // with no control in it would offer a tap that does nothing.
+  if (locked) {
+    return <div className="flex min-h-11 items-center justify-between gap-4 py-3 px-1">{body}</div>;
+  }
+
+  return (
+    <label
+      className={`flex min-h-11 items-center justify-between gap-4 py-3 px-1 select-none rounded-md ${
+        disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer active:bg-accent/40"
+      }`}
+    >
+      {body}
+    </label>
   );
 };
 

@@ -279,7 +279,12 @@ const Login = () => {
 
       {/* Right — Content */}
       <div className="w-full lg:w-1/2 flex flex-col justify-center items-center px-6 md:px-12 lg:px-16">
-        <Link to="/" className="self-start inline-flex items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase text-muted-foreground hover:text-foreground transition-colors mb-3" style={{ fontFamily: "var(--font-heading)" }}>
+        {/* min-h-11 = 44px; reported at 45x17. This is the ONLY way back out of
+            the sign-in screen, so it is the last control that should be hard
+            to hit. `-mt-3` takes the added height off the top, keeping the gap
+            above the card unchanged, and `self-start` already keeps the target
+            the width of the words. */}
+        <Link to="/" className="self-start inline-flex min-h-11 -mt-3 items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase text-muted-foreground hover:text-foreground transition-colors mb-3" style={{ fontFamily: "var(--font-heading)" }}>
           <ArrowLeft className="h-3 w-3" /> Back
         </Link>
 

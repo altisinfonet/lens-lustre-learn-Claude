@@ -125,18 +125,28 @@ const Profile = () => {
           )}
         </div>
 
-        {/* Action buttons row */}
+        {/* Action buttons row.
+            ALL FOUR ARE 44px TALL, and the two icon-only ones are 44 WIDE.
+            They were `py-2`, which came out 35px tall; the sweep reported the
+            two narrow ones (38x35 and 40x35) because their longest side was
+            under 44. The two wide ones passed only on width while being just
+            as short under the thumb.
+            Raising the whole row rather than only the two that were reported
+            is the point: four buttons sitting side by side at three different
+            sizes is what made the small ones easy to miss in the first place.
+            The icons and the labels are unchanged — only the box around them
+            grew, so the row reads the same and is simply easier to hit. */}
         <div className="px-4 pb-3 flex gap-2">
-          <Link to="/edit-profile" className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium py-2 bg-muted/60 border border-border rounded-lg transition-colors" style={{ fontFamily: "var(--font-heading)" }}>
+          <Link to="/edit-profile" className="flex-1 flex min-h-11 items-center justify-center gap-1.5 text-[11px] font-medium bg-muted/60 border border-border rounded-lg transition-colors" style={{ fontFamily: "var(--font-heading)" }}>
             <Edit2 className="h-3 w-3" /> Edit Profile
           </Link>
-          <Link to={(profile as any)?.custom_url ? `/${(profile as any).custom_url}?section=wall` : `/profile/${user?.id}?section=wall`} className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium py-2 bg-muted/60 border border-border rounded-lg transition-colors" style={{ fontFamily: "var(--font-heading)" }}>
+          <Link to={(profile as any)?.custom_url ? `/${(profile as any).custom_url}?section=wall` : `/profile/${user?.id}?section=wall`} className="flex-1 flex min-h-11 items-center justify-center gap-1.5 text-[11px] font-medium bg-muted/60 border border-border rounded-lg transition-colors" style={{ fontFamily: "var(--font-heading)" }}>
             <MessageSquare className="h-3 w-3" /> My Wall
           </Link>
-          <Link to="/friends" className="flex items-center justify-center gap-1.5 text-[11px] font-medium py-2 px-3 bg-muted/60 border border-border rounded-lg transition-colors" style={{ fontFamily: "var(--font-heading)" }}>
+          <Link to="/friends" aria-label="Friends" className="grid min-h-11 min-w-11 place-items-center bg-muted/60 border border-border rounded-lg transition-colors" style={{ fontFamily: "var(--font-heading)" }}>
             <Users className="h-3 w-3" />
           </Link>
-          <button onClick={handleCopyUrl} className="flex items-center justify-center py-2 px-3 bg-muted/60 border border-border rounded-lg transition-colors">
+          <button onClick={handleCopyUrl} aria-label="Copy profile link" className="grid min-h-11 min-w-11 place-items-center bg-muted/60 border border-border rounded-lg transition-colors">
             {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Share2 className="h-3.5 w-3.5 text-muted-foreground" />}
           </button>
         </div>
@@ -232,9 +242,14 @@ const Profile = () => {
                     {(profile as any)?.custom_url ? `50mmretina.com/${(profile as any).custom_url}` : "Public Profile"}
                   </span>
                 </div>
+                {/* min-h-11 = 44px; reported at 41x17. `-my-3` takes the extra
+                    height back out of the flow so the public-profile strip
+                    keeps its height, and `w-fit` keeps the target the width of
+                    the word. It carries an icon, so it is a control, not the
+                    running text the sweep deliberately leaves alone. */}
                 <Link
                   to={(profile as any)?.custom_url ? `/${(profile as any).custom_url}` : `/profile/${user?.id}`}
-                  className="text-[10px] text-primary font-medium flex-shrink-0 ml-2"
+                  className="inline-flex w-fit min-h-11 -my-3 items-center text-[10px] text-primary font-medium flex-shrink-0 ml-2"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
                   View <ExternalLink className="h-2.5 w-2.5 inline ml-0.5" />

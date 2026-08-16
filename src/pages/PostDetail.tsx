@@ -231,8 +231,12 @@ const PostDetail = () => {
       />
 
       <div className="py-3 md:py-14 max-w-2xl mx-auto px-2 md:px-0">
-        {/* Back button */}
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary mb-4 transition-colors" style={headingFont}>
+        {/* Back button. min-h-11 = 44px; the sweep measured it at 49x16, which
+            is the smallest control on the screen and the one a member reaches
+            for most often. `-mt-3` takes the extra height back off the top so
+            the gap above the card is unchanged, and `self-start`/`w-fit` keeps
+            the target the width of the word rather than the whole column. */}
+        <button onClick={() => navigate(-1)} className="flex w-fit min-h-11 -mt-3 items-center gap-2 text-xs text-muted-foreground hover:text-primary mb-4 transition-colors" style={headingFont}>
           <ArrowLeft className="h-3.5 w-3.5" /> Back
         </button>
 
