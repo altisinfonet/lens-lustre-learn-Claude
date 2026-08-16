@@ -119,10 +119,15 @@ const Caption = ({ content, maxLines = 2, prefix }: CaptionProps) => {
           <RichContentRenderer content={content} />
         </p>
       </div>
+      {/* min-h-11 = 44px. Reported at 52x16 by the sweep. It sits UNDER the
+          caption, not inside it, so giving it a 44px tap area moves no text —
+          `-my-3` pulls the extra height back out of the flow so the gap
+          between caption and engagement row is unchanged. `self-start` keeps
+          the target the width of the words, not the whole card. */}
       {(overflowing || expanded) && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="text-xs text-muted-foreground hover:text-foreground mt-0.5 font-medium"
+          className="inline-flex min-h-11 -my-3 items-center self-start text-xs text-muted-foreground hover:text-foreground mt-0.5 font-medium"
         >
           {expanded ? "See less" : "See more"}
         </button>

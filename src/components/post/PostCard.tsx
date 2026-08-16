@@ -287,7 +287,18 @@ const PostCard = ({
           jammed against the name. Any change here must keep the header-to-media
           gap identical whether or not a caption exists. */}
       <div className="flex items-center gap-2.5 p-3 pb-2">
-        <Link to={`/profile/${post.user_id}`} className="shrink-0">
+        {/* THE AVATAR IS 32px BY DESIGN; THE TAP TARGET IS 44px.
+            Reported by the sweep at 32x37 on the feed and on post detail. The
+            photo itself must stay 32px — it is the Instagram proportion the
+            whole card is built around, and growing it would push the name and
+            the menu button out of line on a 360px phone.
+            `p-1.5 -m-1.5` makes the ANCHOR 44x44 (32 + 6 + 6) and pulls the
+            padding back out of the flow, so nothing moves by a pixel. This is
+            a real enlargement of a real element, not an invisible hit area
+            behind an unchanged one — the anchor's own box is what grows, which
+            is why the checker can see it. `-ml-1.5` is absorbed by the row's
+            `gap-2.5`, so the avatar sits exactly where it did. */}
+        <Link to={`/profile/${post.user_id}`} className="shrink-0 grid place-items-center p-1.5 -m-1.5">
           <span className="relative inline-block w-8 h-8">
             {post.author_avatar ? (
               <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={post.author_avatar} alt="" className="w-8 h-8 rounded-full object-cover" />

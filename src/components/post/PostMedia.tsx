@@ -666,10 +666,25 @@ const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTa
           className="absolute bottom-3 right-3 grid h-11 w-11 place-items-center rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity hover:bg-card shadow-sm z-10"
         />
 
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
+        {/* THE DOTS STAY 6px AND 8px; THE BUTTONS AROUND THEM ARE 44x32.
+            Reported by the sweep at 8x8 and 6x6 — the smallest controls in the
+            app, and they ARE controls: each one jumps to that photo.
+            Instagram draws dots this size too, so growing the dot is not an
+            option; what grows is the BUTTON, which now carries a transparent
+            44x32 box with the dot centred inside it.
+            The arithmetic keeps the dots exactly where they were: the row was
+            8px tall at `bottom-3`, so the dots' centre line sat 16px above the
+            image edge (12 + 4). The row is now 32px tall, so `bottom-0` puts
+            that same centre line at 16px (0 + 16). Nothing moves.
+            `gap-0` because each button now supplies its own spacing; four of
+            them come to 176px, comfortably inside a 360px phone. */}
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center gap-0 z-10">
           {urls.map((_, i) => (
-            <button key={i} onClick={(e) => { e.stopPropagation(); setDirection(i > current ? 1 : -1); setCurrent(i); }}
-              className={`rounded-full transition-all ${i === current ? "w-2 h-2 bg-white" : "w-1.5 h-1.5 bg-white/50"}`} />
+            <button key={i} aria-label={`Go to photo ${i + 1} of ${urls.length}`}
+              onClick={(e) => { e.stopPropagation(); setDirection(i > current ? 1 : -1); setCurrent(i); }}
+              className="grid h-8 w-11 place-items-center">
+              <span className={`rounded-full transition-all ${i === current ? "w-2 h-2 bg-white" : "w-1.5 h-1.5 bg-white/50"}`} />
+            </button>
           ))}
         </div>
       </div>
