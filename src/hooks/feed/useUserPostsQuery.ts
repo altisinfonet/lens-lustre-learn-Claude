@@ -185,10 +185,23 @@ async function fetchAndEnrich(
   return { posts, nextCursor };
 }
 
-export function useUserPostsQuery(targetUserId: string | undefined, currentUserId: string | undefined) {
+/**
+ * `enabled: false` is for the COMPOSER-ONLY mount.
+ *
+ * Added 2026-08-16. `WallPosts` in `composerOnly` mode renders no list at all,
+ * but still ran this query — harmless while it lived on one page, and not
+ * harmless once the composer is mounted globally so the top bar's Create button
+ * works from anywhere. Without this, every page load on the app would fetch a
+ * wall nobody is going to look at.
+ */
+export function useUserPostsQuery(
+  targetUserId: string | undefined,
+  currentUserId: string | undefined,
+  options?: { enabled?: boolean },
+) {
   return useInfiniteQuery<UserPostsPage, Error>({
     queryKey: ["user-wall-posts", targetUserId],
-    enabled: !!targetUserId,
+    enabled: !!targetUserId && options?.enabled !== false,
     queryFn: async ({ pageParam }) => {
       const cursor = (pageParam as string | undefined) ?? null;
       return fetchAndEnrich(targetUserId!, currentUserId, cursor);
