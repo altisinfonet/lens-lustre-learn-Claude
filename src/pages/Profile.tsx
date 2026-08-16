@@ -134,20 +134,27 @@ const Profile = () => {
             Raising the whole row rather than only the two that were reported
             is the point: four buttons sitting side by side at three different
             sizes is what made the small ones easy to miss in the first place.
-            The icons and the labels are unchanged — only the box around them
-            grew, so the row reads the same and is simply easier to hit. */}
+            RESTYLED 2026-08-16, owner: "design this page properly". The
+            outlines are gone — this app draws no boxes around controls, and
+            four of them in one row was the loudest thing above the fold. Icons
+            up from 12px to 16/18, labels from 11px to 13px semibold.
+
+            13px, not 14: at 360 each wide button gets 108px, and 14px semibold
+            plus an 18px glyph plus the gap needs 109. Measured, after "Edit
+            Profile" wrapped onto two lines and made that button 66px tall while
+            its neighbour stayed 44. One pixel is all it takes. */}
         <div className="px-4 pb-3 flex gap-2">
-          <Link to="/edit-profile" className="flex-1 flex min-h-11 items-center justify-center gap-1.5 text-[11px] font-medium bg-muted/60 border border-border rounded-lg transition-colors" style={{ fontFamily: "var(--font-heading)" }}>
-            <Edit2 className="h-3 w-3" /> Edit Profile
+          <Link to="/edit-profile" className="flex min-h-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-muted/50 text-[13px] font-semibold transition-colors" style={{ fontFamily: "var(--font-heading)" }}>
+            <Edit2 className="h-4 w-4 shrink-0" /> Edit Profile
           </Link>
-          <Link to={(profile as any)?.custom_url ? `/${(profile as any).custom_url}?section=wall` : `/profile/${user?.id}?section=wall`} className="flex-1 flex min-h-11 items-center justify-center gap-1.5 text-[11px] font-medium bg-muted/60 border border-border rounded-lg transition-colors" style={{ fontFamily: "var(--font-heading)" }}>
-            <MessageSquare className="h-3 w-3" /> My Wall
+          <Link to={(profile as any)?.custom_url ? `/${(profile as any).custom_url}?section=wall` : `/profile/${user?.id}?section=wall`} className="flex min-h-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-muted/50 text-[13px] font-semibold transition-colors" style={{ fontFamily: "var(--font-heading)" }}>
+            <MessageSquare className="h-4 w-4 shrink-0" /> My Wall
           </Link>
-          <Link to="/friends" aria-label="Friends" className="grid min-h-11 min-w-11 place-items-center bg-muted/60 border border-border rounded-lg transition-colors" style={{ fontFamily: "var(--font-heading)" }}>
-            <Users className="h-3 w-3" />
+          <Link to="/friends" aria-label="Friends" className="grid min-h-11 min-w-11 place-items-center rounded-lg bg-muted/50 transition-colors" style={{ fontFamily: "var(--font-heading)" }}>
+            <Users className="h-[18px] w-[18px]" />
           </Link>
-          <button onClick={handleCopyUrl} aria-label="Copy profile link" className="grid min-h-11 min-w-11 place-items-center bg-muted/60 border border-border rounded-lg transition-colors">
-            {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Share2 className="h-3.5 w-3.5 text-muted-foreground" />}
+          <button onClick={handleCopyUrl} aria-label="Copy profile link" className="grid min-h-11 min-w-11 place-items-center rounded-lg bg-muted/50 transition-colors">
+            {copied ? <Check className="h-[18px] w-[18px] text-primary" /> : <Share2 className="h-[18px] w-[18px] text-muted-foreground" />}
           </button>
         </div>
 
@@ -177,33 +184,33 @@ const Profile = () => {
         {activeTab === "about" && (
           <div className="px-4 py-3 space-y-3">
             {/* Details card */}
-            <div className="bg-card border border-border rounded-xl p-3 space-y-2.5">
-              <h3 className="text-xs font-semibold" style={{ fontFamily: "var(--font-heading)" }}>Details</h3>
+            <div className="mb-4">
+              <h3 className="mb-1 text-[13px] font-semibold" style={{ fontFamily: "var(--font-heading)" }}>Details</h3>
 
               {user?.email && (
-                <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
-                  <Mail className="h-3.5 w-3.5 flex-shrink-0" />
+                <div className="flex min-h-11 items-center gap-3 text-[15px] text-foreground">
+                  <Mail className="h-[18px] w-[18px] flex-shrink-0 text-muted-foreground" />
                   <span className="truncate" style={{ fontFamily: "var(--font-body)" }}>{user.email}</span>
-                  <span className="text-[8px] uppercase px-1.5 py-0.5 border border-border rounded text-muted-foreground/50 ml-auto flex-shrink-0">
+                  <span className="ml-auto flex-shrink-0 text-[11px] text-muted-foreground/70">
                     <Lock className="h-2.5 w-2.5 inline mr-0.5" />Private
                   </span>
                 </div>
               )}
               {(profile?.current_city || (profile as any)?.city) && (
-                <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
-                  <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                <div className="flex min-h-11 items-center gap-3 text-[15px] text-foreground">
+                  <MapPin className="h-[18px] w-[18px] flex-shrink-0 text-muted-foreground" />
                   <span style={{ fontFamily: "var(--font-body)" }}>{[profile?.current_city || (profile as any)?.city, (profile as any)?.state, (profile as any)?.country].filter(Boolean).join(", ")}</span>
                 </div>
               )}
               {profile?.phone && (
-                <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
-                  <Phone className="h-3.5 w-3.5 flex-shrink-0" />
+                <div className="flex min-h-11 items-center gap-3 text-[15px] text-foreground">
+                  <Phone className="h-[18px] w-[18px] flex-shrink-0 text-muted-foreground" />
                   <span style={{ fontFamily: "var(--font-body)" }}>{profile.phone}</span>
                 </div>
               )}
               {profile?.portfolio_url && (
-                <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
-                  <Globe className="h-3.5 w-3.5 flex-shrink-0" />
+                <div className="flex min-h-11 items-center gap-3 text-[15px] text-foreground">
+                  <Globe className="h-[18px] w-[18px] flex-shrink-0 text-muted-foreground" />
                   <a href={profile.portfolio_url} target="_blank" rel="noopener noreferrer" className="text-primary truncate" style={{ fontFamily: "var(--font-body)" }}>
                     {profile.portfolio_url.replace(/^https?:\/\//, "")}
                   </a>
@@ -211,21 +218,28 @@ const Profile = () => {
               )}
             </div>
 
-            {/* Bio card */}
-            {profile?.bio && (
-              <div className="bg-card border border-border rounded-xl p-3">
-                <h3 className="text-xs font-semibold mb-1.5" style={{ fontFamily: "var(--font-heading)" }}>Bio</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed" style={{ fontFamily: "var(--font-body)" }}>{profile.bio}</p>
-              </div>
-            )}
+            {/*
+              THE BIO CARD IS GONE, DELIBERATELY, AND IT HAS NOT BEEN LOST.
+
+              It printed the SAME sentence a second time: the bio already sits
+              under "Member since" at the top of this page, about 400px above.
+              A screenshot of this screen showed "Street and portrait work,
+              mostly at 50mm. Kolkata." twice, once in each place.
+
+              Owner, 2026-08-16: "design this page properly" and, of the wall,
+              "less wasting space". A heading, a card and a repeat of a sentence
+              already on screen is the clearest example of the waste on it — so
+              the duplicate goes and the original stays where a member looks
+              first. If the top copy is ever removed, this is where it belongs.
+            */}
 
             {/* Interests */}
             {profile?.photography_interests && profile.photography_interests.length > 0 && (
-              <div className="bg-card border border-border rounded-xl p-3">
-                <h3 className="text-xs font-semibold mb-2" style={{ fontFamily: "var(--font-heading)" }}>Photography Interests</h3>
+              <div className="mb-4">
+                <h3 className="mb-1.5 text-[13px] font-semibold" style={{ fontFamily: "var(--font-heading)" }}>Photography Interests</h3>
                 <div className="flex flex-wrap gap-1.5">
                   {profile.photography_interests.map(interest => (
-                    <span key={interest} className="text-[10px] px-2.5 py-1 bg-muted/50 border border-border rounded-full text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+                    <span key={interest} className="rounded-full bg-muted/40 px-3 py-1 text-[13px] text-foreground/80" style={{ fontFamily: "var(--font-heading)" }}>
                       {interest}
                     </span>
                   ))}
@@ -234,7 +248,7 @@ const Profile = () => {
             )}
 
             {/* Public profile link */}
-            <div className="bg-card border border-border rounded-xl p-3">
+            <div className="mb-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <Share2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
@@ -259,7 +273,7 @@ const Profile = () => {
 
             {/* Empty state */}
             {!profile?.bio && !profile?.portfolio_url && (!profile?.photography_interests || profile.photography_interests.length === 0) && (
-              <div className="bg-card border border-border rounded-xl p-6 text-center">
+              <div className="rounded-xl bg-muted/20 p-6 text-center">
                 <Camera className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
                 <p className="text-xs text-muted-foreground mb-3" style={{ fontFamily: "var(--font-body)" }}>
                   Complete your profile to let others know about your work.
@@ -275,8 +289,8 @@ const Profile = () => {
         {activeTab === "settings" && (
           <div className="px-4 py-3 space-y-3">
             {/* Email card */}
-            <div className="bg-card border border-border rounded-xl p-3">
-              <h3 className="text-xs font-semibold mb-2" style={{ fontFamily: "var(--font-heading)" }}>Email Address</h3>
+            <div className="mb-4">
+              <h3 className="mb-1.5 text-[13px] font-semibold" style={{ fontFamily: "var(--font-heading)" }}>Email Address</h3>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Mail className="h-3.5 w-3.5" />
                 <span style={{ fontFamily: "var(--font-body)" }}>{user?.email}</span>
@@ -284,15 +298,15 @@ const Profile = () => {
               <p className="text-[10px] text-muted-foreground/60 mt-1" style={{ fontFamily: "var(--font-heading)" }}>Cannot be changed</p>
             </div>
             {/* Password card */}
-            <div className="bg-card border border-border rounded-xl p-3">
-              <h3 className="text-xs font-semibold mb-1.5" style={{ fontFamily: "var(--font-heading)" }}>Password</h3>
+            <div className="mb-4">
+              <h3 className="mb-1 text-[13px] font-semibold" style={{ fontFamily: "var(--font-heading)" }}>Password</h3>
               <p className="text-[10px] text-muted-foreground mb-2.5" style={{ fontFamily: "var(--font-body)" }}>
                 We'll send a password reset link to your email.
               </p>
               <button
                 onClick={handlePasswordReset}
                 disabled={sendingReset}
-                className="inline-flex items-center gap-1.5 text-[11px] font-medium px-4 py-2 border border-border rounded-lg hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-muted/50 px-4 text-[14px] font-semibold transition-colors hover:text-primary disabled:opacity-50"
                 style={{ fontFamily: "var(--font-heading)" }}
               >
                 <KeyRound className="h-3 w-3" />
