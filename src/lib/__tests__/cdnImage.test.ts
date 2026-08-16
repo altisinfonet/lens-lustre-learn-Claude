@@ -29,6 +29,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { isCdnImage, isResizable, cdnResized, cdnSrcSet, originalOnError } from "@/lib/cdnImage";
+import { stripComments } from "@/test-utils/sourceText";
 
 const OURS = "https://cdn.50mmretina.com/portfolio-images/potd/photo.webp";
 
@@ -121,7 +122,7 @@ describe("rule 2 — a picture can always get back to the original", () => {
 
 describe("the Curated Wall shows the original, not the soft thumbnail", () => {
   const src = readSource("src/components/PhotoOfTheDay.tsx");
-  const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+  const code = stripComments(src).replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
 
   it("no longer prefers the 600px thumbnail for the big square", () => {
     // `thumbnail_url || image_url` is what made it extremely soft: a 600x338

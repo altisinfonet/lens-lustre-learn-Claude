@@ -29,6 +29,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { SITE_ORIGIN, publicUrl, shareLink } from "../publicUrl";
+import { stripComments } from "@/test-utils/sourceText";
 
 describe("publicUrl", () => {
   it("is the canonical production origin, hard-coded", () => {
@@ -117,9 +118,7 @@ describe("census: no outgoing URL is built from window.location.origin", () => {
       if (!/\.(ts|tsx)$/.test(name)) continue;
       const rel = p.slice(srcRoot.length + 1).replace(/\\/g, "/");
       if (ALLOWED.has(rel)) continue;
-      const body = readFileSync(p, "utf8")
-        .replace(/\/\*[\s\S]*?\*\//g, "")
-        .replace(/^\s*\/\/.*$/gm, "");
+      const body = stripComments(readFileSync(p, "utf8"));
       if (body.includes("window.location.origin")) offenders.push(rel);
     }
   };

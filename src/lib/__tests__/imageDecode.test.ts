@@ -29,6 +29,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { compressImage, ImageDecodeError } from "@/lib/imageCompression";
+import { stripComments } from "@/test-utils/sourceText";
 
 /** An <img> that always fails to decode — what a phone's newer photo format does. */
 function stubUndecodableImage() {
@@ -106,11 +107,10 @@ describe("when the browser cannot open the chosen photo", () => {
 });
 
 describe("the shape of the bug cannot come back", () => {
-  const src = readFileSync(join(process.cwd(), "src/lib/imageCompression.ts"), "utf8")
+  const src = stripComments(readFileSync(join(process.cwd(), "src/lib/imageCompression.ts"), "utf8")
     .split("\n")
     .map((l) => l.replace(/\/\/.*$/, ""))
-    .join("\n")
-    .replace(/\/\*[\s\S]*?\*\//g, "");
+    .join("\n"));
 
   it("never rejects a promise with whatever onerror was handed", () => {
     // `img.onerror = (err) => reject(err)` is the original defect, verbatim.

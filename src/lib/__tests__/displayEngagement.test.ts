@@ -17,6 +17,7 @@ import {
   REACH_MIN,
   REACH_MAX,
 } from "@/lib/displayEngagement";
+import { stripComments } from "@/test-utils/sourceText";
 
 /**
  * Every rule in displayEngagement.ts is pinned here. If one of these fails, the
@@ -198,9 +199,7 @@ describe("displayEngagement — NOTHING A MEMBER DOES CAN MOVE IT", () => {
       "src/components/profile/ProfileStories.tsx",
     ];
     for (const f of files) {
-      const src = readFileSync(join(process.cwd(), f), "utf8")
-        .replace(/\/\*[\s\S]*?\*\//g, "")
-        .replace(/^\s*\/\/.*$/gm, "");
+      const src = stripComments(readFileSync(join(process.cwd(), f), "utf8"));
       const call = src.indexOf("displayEngagement({");
       if (call === -1) continue;
       const args = src.slice(call, src.indexOf("}", call));
@@ -211,9 +210,7 @@ describe("displayEngagement — NOTHING A MEMBER DOES CAN MOVE IT", () => {
   it("PostCard does not recompute the figure when a count changes", () => {
     // The memo dependency list is what made the number move in the same frame
     // as the tap. It must contain the id and the date, and nothing else.
-    const src = readFileSync(join(process.cwd(), "src/components/post/PostCard.tsx"), "utf8")
-      .replace(/\/\*[\s\S]*?\*\//g, "")
-      .replace(/^\s*\/\/.*$/gm, "");
+    const src = stripComments(readFileSync(join(process.cwd(), "src/components/post/PostCard.tsx"), "utf8"));
     expect(src).toMatch(/\[post\.id, post\.created_at\],/);
     expect(src).not.toMatch(/\[post\.id, post\.created_at, post\.like_count/);
   });

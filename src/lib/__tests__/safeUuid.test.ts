@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { safeRandomUUID } from "@/lib/safeUuid";
+import { stripComments } from "@/test-utils/sourceText";
 
 /**
  * A MISSING `crypto.randomUUID` MUST NEVER BLANK A PAGE.
@@ -110,10 +111,8 @@ describe("no source file calls the raw Web Crypto UUID generator", () => {
     const offenders: string[] = [];
     for (const file of walk(ROOT)) {
       if (ALLOWED.has(file)) continue;
-      const code = fs
-        .readFileSync(file, "utf8")
-        .replace(/\/\*[\s\S]*?\*\//g, "")
-        .replace(/^\s*\/\/.*$/gm, "");
+      const code = stripComments(fs
+        .readFileSync(file, "utf8"));
       if (/\bcrypto\s*\.\s*randomUUID\s*\(/.test(code)) {
         offenders.push(path.relative(process.cwd(), file));
       }

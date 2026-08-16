@@ -36,6 +36,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { stripComments } from "@/test-utils/sourceText";
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 
@@ -50,7 +51,7 @@ const rpcBody = RPC.replace(/^\s*--.*$/gm, "")
   .replace(/--.*$/gm, "")
   .replace(/COMMENT ON[\s\S]*?;/g, "");
 const edgeFn = read("supabase/functions/dashboard-init/index.ts");
-const edgeBody = edgeFn.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+const edgeBody = stripComments(edgeFn);
 
 describe("the 50-row window is gone", () => {
   it("the function has no LIMIT at all", () => {

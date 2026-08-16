@@ -27,10 +27,9 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { stripComments } from "@/test-utils/sourceText";
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
-const stripComments = (s: string) =>
-  s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
 const saveFile = stripComments(read("src/lib/saveFile.ts"));
 const compression = stripComments(read("src/lib/imageCompression.ts"));

@@ -24,6 +24,7 @@ import {
   solidPillFill,
   solidPillClass,
 } from "../badgePalette";
+import { stripComments } from "@/test-utils/sourceText";
 
 /* ── WCAG 2.1 relative luminance + contrast ratio ─────────────────────────── */
 const rgb = (hex: string): [number, number, number] => {
@@ -150,9 +151,7 @@ describe("no surface bypasses the shared pill", () => {
     // `${cfg.badge_class}` in a className is how the unreadable value reached
     // the screen in the first place.
     for (const f of SURFACES) {
-      const src = readFileSync(join(process.cwd(), f), "utf8")
-        .replace(/\/\*[\s\S]*?\*\//g, "")
-        .replace(/^\s*\/\/.*$/gm, "");
+      const src = stripComments(readFileSync(join(process.cwd(), f), "utf8"));
       expect(src, `${f} interpolates a raw stored class`).not.toMatch(
         /\$\{\s*\w+\.(badge_class|pill_class)\s*\}/,
       );
