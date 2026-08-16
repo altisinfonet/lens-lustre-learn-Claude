@@ -59,10 +59,60 @@ const ALLOWED: Record<string, string> = {
     "it IS the control",
   "src/components/ReactionSummaryTooltip.tsx":
     "the detail panel the control opens — same family, opened from the card",
+
+  /**
+   * ─────────────────────────────────────────────────────────────────────────
+   * RULED BY THE OWNER, 2026-08-15: **"keep separate"**.
+   *
+   * These draw likes or views, and they are NOT posts. Forcing them through
+   * PostCard would be dogma rather than design — a story has no caption to
+   * render, an advertisement has no author to name. The ruling is recorded
+   * here, in the gate, rather than in a document nobody opens, so that the
+   * next person to ask "should this be one funnel?" finds the answer and the
+   * reasoning in the same place the rule is enforced.
+   *
+   * The list is CLOSED. Anything new that wants in has to be added here with
+   * its own sentence, which is the point: the question can never again be
+   * skipped by accident, only answered on purpose.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
   "src/components/profile/ProfileStories.tsx":
-    "a STORY is not a post: it expires in 24 hours and has no caption, comments or shares. NOT YET RULED ON — see docs/PATCHWORK_AUDIT.md §7",
+    "SEPARATE, ruled 2026-08-15. A story expires in 24 hours and has no caption, no comments and no shares — there is no post to draw",
   "src/components/ads/AdEngagementBar.tsx":
-    "an ADVERTISEMENT is not a post: nobody authored it and it cannot be opened, reshared or commented on. NOT YET RULED ON — see docs/PATCHWORK_AUDIT.md §7",
+    "SEPARATE, ruled 2026-08-15. Nobody authored an advertisement; it cannot be opened, reshared or commented on",
+};
+
+/**
+ * The other surfaces the owner ruled SEPARATE on the same day. They do not
+ * import the two modules above — they use `ImageEngagement` / `EngagementFooter`
+ * — so the rule above never touched them. They are named anyway, because a
+ * surface nobody has written down is exactly how PostDetail grew a second copy
+ * of the post card without anyone noticing.
+ */
+const RULED_SEPARATE: Record<string, string> = {
+  "src/components/EntryCard.tsx":
+    "SEPARATE, ruled 2026-08-15. A competition entry is judged and scored and belongs to a competition, not to a feed",
+  "src/components/CompetitionLightbox.tsx":
+    "SEPARATE, ruled 2026-08-15. A fullscreen viewer shows ONE photograph; it is not a card",
+  "src/components/Lightbox.tsx":
+    "SEPARATE, ruled 2026-08-15. Same reason as CompetitionLightbox",
+  "src/components/ImageEngagement.tsx":
+    "SEPARATE, ruled 2026-08-15. Likes on a single photograph inside a viewer, not on a post",
+  "src/components/EngagementFooter.tsx":
+    "SEPARATE, ruled 2026-08-15. A generic footer used by Journal, EntryDetail and MyPhotos — none of which show posts",
+
+  /**
+   * These three were found BY THIS CENSUS on the day it was written — they use
+   * the shared footer and nobody had ever ruled on them. That is the census
+   * doing its job on its first run, and the reason it exists: PostDetail grew a
+   * second post card precisely because no list ever named it.
+   */
+  "src/pages/EntryDetail.tsx":
+    "SEPARATE, ruled 2026-08-15. A competition ENTRY, judged and scored — it belongs to a competition, not to a feed",
+  "src/pages/Journal.tsx":
+    "SEPARATE, ruled 2026-08-15. A journal ARTICLE, written and edited — it has no reactions, reshares or comment thread",
+  "src/pages/MyPhotos.tsx":
+    "SEPARATE, ruled 2026-08-15. A member's own PHOTO library — a photograph here may not have been posted at all",
 };
 
 function sourceFiles(): string[] {
@@ -133,6 +183,38 @@ describe("a post is drawn in exactly one place", () => {
     for (const [file, reason] of Object.entries(ALLOWED)) {
       expect(reason.length, `${file} needs a reason someone can argue with`).toBeGreaterThan(15);
     }
+  });
+
+  it("every surface ruled SEPARATE is named, with the reason and the date", () => {
+    // Owner ruled "keep separate" on 2026-08-15. The value of writing it down
+    // is not the decision — it is that the list is now CLOSED, so a new
+    // surface cannot join it silently.
+    for (const [file, reason] of Object.entries(RULED_SEPARATE)) {
+      expect(files, `${file} is named as ruled-separate but does not exist`).toContain(file);
+      expect(reason, `${file} needs the ruling and its reason`).toMatch(/SEPARATE, ruled 2026-08-15\./);
+      expect(reason.length).toBeGreaterThan(40);
+    }
+  });
+
+  it("no NEW surface draws engagement without being ruled on", () => {
+    /**
+     * The census that closes docs/PATCHWORK_AUDIT.md §7. Every file that pulls
+     * the shared engagement pieces must be either the post card, or on one of
+     * the two lists above with a written reason. A new one appearing here is
+     * the moment to ask the question — not months later, on the owner's phone.
+     */
+    const SHARED = ["@/components/ImageEngagement", "@/components/EngagementFooter"];
+    const known = new Set([...Object.keys(RULED_SEPARATE), ...Object.keys(ALLOWED)]);
+    const unruled = files.filter((f) => {
+      if (f.startsWith(HOME) || known.has(f)) return false;
+      const src = readFileSync(join(root, f), "utf8");
+      return SHARED.some((m) => valueImports(src, m));
+    });
+    expect(
+      unruled,
+      "These draw engagement and nobody has ruled whether they are posts. " +
+        "Render <PostCard>, or add them to RULED_SEPARATE with a reason.",
+    ).toEqual([]);
   });
 
   it("the allowlist names only files that exist", () => {
