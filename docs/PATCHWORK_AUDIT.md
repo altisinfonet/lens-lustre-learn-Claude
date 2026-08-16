@@ -80,21 +80,31 @@ one of mine. **About thirty other test files still carry their own copy of the
 broken regex.** They are green today for the same reason those two were green
 for weeks: luck about which `*/` comes next.
 
-## 7. Surfaces that still draw engagement outside `PostCard`. OPEN — needs a ruling.
+## 7. Surfaces that draw engagement outside `PostCard`. CLOSED — ruled 2026-08-15.
 
-Read, not grepped. These are NOT all bugs — some render a photo or a competition
-entry, which is a different object from a post — but no one has ever decided
-which is which, and that undecided-ness is exactly what produced §1:
+**Owner's ruling, 2026-08-15: "keep separate".** None of these is a post, and
+forcing them through `PostCard` would be dogma rather than design — a story has
+no caption to render, an advertisement has no author to name.
 
-| file | what it draws | is it a post? |
+The ruling is recorded IN THE GATE (`src/__tests__/onePostFunnel.test.ts`), not
+only here, so the next person to ask the question finds the answer in the same
+place the rule is enforced. **The list is now closed:** a new surface that draws
+engagement fails the test until someone rules on it in writing.
+
+Three of these — `EntryDetail.tsx`, `Journal.tsx`, `MyPhotos.tsx` — were found
+BY that census on the day it was written. Nobody had ever named them. That is
+the whole failure of §1 repeating in miniature, caught this time by a machine
+instead of by the owner on his phone.
+
+| file | what it draws | ruling |
 |---|---|---|
-| `src/components/ImageEngagement.tsx` | likes/comments on a single photo | needs a ruling |
-| `src/components/EngagementFooter.tsx` | a generic footer | needs a ruling |
-| `src/components/EntryCard.tsx` | a competition entry | probably legitimately its own |
-| `src/components/CompetitionLightbox.tsx`, `Lightbox.tsx` | fullscreen viewers | needs a ruling |
-| `src/components/profile/ProfileStories.tsx` | stories | probably legitimately its own |
-| `src/components/ads/AdEngagementBar.tsx` | an advertisement | probably legitimately its own |
-| `src/pages/Journal.tsx`, `EntryDetail.tsx`, `MyPhotos.tsx` | consume the above | follow the ruling |
+| `src/components/ImageEngagement.tsx` | likes/comments on a single photo | SEPARATE |
+| `src/components/EngagementFooter.tsx` | a generic footer | SEPARATE |
+| `src/components/EntryCard.tsx` | a competition entry | SEPARATE |
+| `src/components/CompetitionLightbox.tsx`, `Lightbox.tsx` | fullscreen viewers | SEPARATE |
+| `src/components/profile/ProfileStories.tsx` | stories | SEPARATE |
+| `src/components/ads/AdEngagementBar.tsx` | an advertisement | SEPARATE |
+| `src/pages/Journal.tsx`, `EntryDetail.tsx`, `MyPhotos.tsx` | consume the above | SEPARATE |
 
 ## 8. The gate that would have prevented all of §1. OPEN — not built.
 
