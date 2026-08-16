@@ -345,7 +345,7 @@ ${filtered.map(t => `<tr>
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
-                <CalendarUI mode="single" selected={dateFrom} onSelect={setDateFrom} initialFocus className={cn("p-3 pointer-events-auto")} />
+                <CalendarUI mode="single" selected={dateFrom} onSelect={setDateFrom} autoFocus className={cn("p-3 pointer-events-auto")} />
               </PopoverContent>
             </Popover>
           </div>
@@ -361,7 +361,7 @@ ${filtered.map(t => `<tr>
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
-                <CalendarUI mode="single" selected={dateTo} onSelect={setDateTo} initialFocus className={cn("p-3 pointer-events-auto")} />
+                <CalendarUI mode="single" selected={dateTo} onSelect={setDateTo} autoFocus className={cn("p-3 pointer-events-auto")} />
               </PopoverContent>
             </Popover>
           </div>

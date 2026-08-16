@@ -555,7 +555,7 @@ export default function AdminPageManagement({ user }: { user: User | null }) {
                         else { setEditingPage((p) => p ? ({ ...p, scheduled_at: null }) : null); }
                       }}
                       disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                      initialFocus className={cn("p-3 pointer-events-auto")} />
+                      autoFocus className={cn("p-3 pointer-events-auto")} />
                     <div className="px-3 pb-3 flex items-center justify-between">
                       {editingPage.scheduled_at && (
                         <input type="time" value={editingPage.scheduled_at ? format(new Date(editingPage.scheduled_at), "HH:mm") : ""}
