@@ -279,6 +279,37 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
     }
   }, [coreProfile, extData?.privacySettings, extData?.visibleFields]);
 
+  /**
+   * `?section=about` / `?section=works` OPENS THAT SECTION DIRECTLY.
+   *
+   * Added 2026-08-16. Two reasons, and the second is the one that matters.
+   *
+   * The obvious one: About and Works are reachable only from the ⋮ menu, so
+   * nothing could link to them — not the account sheet, not a notification, not
+   * a share. `?section=wall` already existed and did the scroll half of this
+   * job, so the vocabulary was already here and only understood one word.
+   *
+   * The one that matters: WITHOUT THIS, THE ABOUT TAB CANNOT BE PHOTOGRAPHED.
+   * `activeTab` is component state that begins at "wall", so every screenshot
+   * this project has ever taken of this page has been the grid. The owner sent
+   * a photograph of the About tab calling its layout "very poor" — and there
+   * was no way for the sweep to render the thing he was looking at. That is the
+   * same hole as app-mode and the crop dialog: a screen with no route into it
+   * from a test is a screen that ships unlooked-at.
+   *
+   * Read once into initial state rather than synced, so a member who taps to
+   * another tab is not yanked back by their own URL.
+   */
+  const sectionParamHandled = useRef(false);
+  useEffect(() => {
+    if (sectionParamHandled.current) return;
+    const section = searchParams.get("section");
+    if (section === "about" || section === "works") {
+      sectionParamHandled.current = true;
+      setActiveTab(section);
+    }
+  }, [searchParams]);
+
   // Auto-scroll to wall section when ?section=wall
   useEffect(() => {
     if (searchParams.get("section") === "wall" && wallSectionRef.current && coreProfile) {
@@ -877,8 +908,8 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
           <div className="container mx-auto max-w-7xl py-6 space-y-4">
             {profile.bio && (
               <div className="border border-border p-5 space-y-3">
-                <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
-                  <User className="h-3.5 w-3.5 text-primary" />
+                <h3 className="text-[13px] font-semibold text-foreground flex items-center gap-2 mb-1" style={headingFont}>
+                  <User className="h-4 w-4 text-primary" />
                   About
                 </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed" style={bodyFont}>{profile.bio}</p>
@@ -893,7 +924,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                     </div>
                     <div>
                       <p className="text-sm" style={bodyFont}>{(profile as any).workplace}</p>
-                      <span className="text-[10px] text-muted-foreground" style={headingFont}>Workplace</span>
+                      <span className="shrink-0 text-[11px] text-muted-foreground/70" style={headingFont}>Workplace</span>
                     </div>
                   </div>
                 )}
@@ -904,7 +935,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                     </div>
                     <div>
                       <p className="text-sm" style={bodyFont}>{(profile as any).education}</p>
-                      <span className="text-[10px] text-muted-foreground" style={headingFont}>Education</span>
+                      <span className="shrink-0 text-[11px] text-muted-foreground/70" style={headingFont}>Education</span>
                     </div>
                   </div>
                 )}
@@ -915,7 +946,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                     </div>
                     <div>
                       <p className="text-sm" style={bodyFont}>{(profile as any).current_city}</p>
-                      <span className="text-[10px] text-muted-foreground" style={headingFont}>Current City</span>
+                      <span className="shrink-0 text-[11px] text-muted-foreground/70" style={headingFont}>Current City</span>
                     </div>
                   </div>
                 )}
@@ -923,8 +954,8 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
             )}
             {socialLinks.length > 0 && (
               <div className="border border-border p-5 space-y-3">
-                <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
-                  <Heart className="h-3.5 w-3.5 text-primary" />
+                <h3 className="text-[13px] font-semibold text-foreground flex items-center gap-2 mb-1" style={headingFont}>
+                  <Heart className="h-4 w-4 text-primary" />
                   Links
                 </h3>
                 <div className="flex flex-wrap gap-x-5 gap-y-2">
@@ -1087,8 +1118,8 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                           });
                           return (
                             <div className="border border-border p-5 space-y-3">
-                              <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
-                                <BarChart3 className="h-3.5 w-3.5 text-primary" />
+                              <h3 className="text-[13px] font-semibold text-foreground flex items-center gap-2 mb-1" style={headingFont}>
+                                <BarChart3 className="h-4 w-4 text-primary" />
                                 Photography Stats
                               </h3>
                               <div className="grid grid-cols-3 gap-3 text-center">
@@ -1112,8 +1143,8 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                         {/* Earned Judging Stamps */}
                         {earnedStamps.length > 0 && (
                           <div className="border border-border p-5 space-y-3">
-                            <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
-                              <Award className="h-3.5 w-3.5 text-primary" />
+                            <h3 className="text-[13px] font-semibold text-foreground flex items-center gap-2 mb-1" style={headingFont}>
+                              <Award className="h-4 w-4 text-primary" />
                               Judging Awards
                             </h3>
                             <div className="flex flex-wrap gap-2">
@@ -1139,9 +1170,9 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
 
                     {/* ── Awards & Placements ── */}
                     {entries.filter((e: any) => isPublicWinner(e.id)).length > 0 && (
-                      <div className="border border-border p-5 space-y-4">
-                        <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
-                          <Trophy className="h-3.5 w-3.5 text-primary" />
+                      <div className="mb-5">
+                        <h3 className="text-[13px] font-semibold text-foreground flex items-center gap-2 mb-1" style={headingFont}>
+                          <Trophy className="h-4 w-4 text-primary" />
                           Awards & Placements
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
@@ -1184,9 +1215,9 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
 
                     {/* ── Featured Photos ── */}
                     {featuredPhotos.length > 0 && (
-                      <div className="border border-border p-5 space-y-4">
-                        <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
-                          <Star className="h-3.5 w-3.5 text-primary" />
+                      <div className="mb-5">
+                        <h3 className="text-[13px] font-semibold text-foreground flex items-center gap-2 mb-1" style={headingFont}>
+                          <Star className="h-4 w-4 text-primary" />
                           Featured Photos
                         </h3>
                         <div className="grid grid-cols-3 gap-2">
@@ -1212,8 +1243,8 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                     {/* ── Competition Entries ── */}
                     {entries.length > 0 && (
                       <div className="space-y-4">
-                        <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
-                          <Image className="h-3.5 w-3.5 text-primary" />
+                        <h3 className="text-[13px] font-semibold text-foreground flex items-center gap-2 mb-1" style={headingFont}>
+                          <Image className="h-4 w-4 text-primary" />
                           Competition Submissions
                         </h3>
                         {/* Hero piece */}
@@ -1323,9 +1354,9 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
 
                     {/* ── Published Articles ── */}
                     {articles.length > 0 && (
-                      <div className="border border-border p-5 space-y-4">
-                        <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
-                          <FileText className="h-3.5 w-3.5 text-primary" />
+                      <div className="mb-5">
+                        <h3 className="text-[13px] font-semibold text-foreground flex items-center gap-2 mb-1" style={headingFont}>
+                          <FileText className="h-4 w-4 text-primary" />
                           Published Articles
                         </h3>
                         <div className="space-y-3">
@@ -1362,9 +1393,9 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
 
                     {/* ── Courses Created ── */}
                     {coursesCreated.length > 0 && (
-                      <div className="border border-border p-5 space-y-4">
-                        <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
-                          <Layers className="h-3.5 w-3.5 text-primary" />
+                      <div className="mb-5">
+                        <h3 className="text-[13px] font-semibold text-foreground flex items-center gap-2 mb-1" style={headingFont}>
+                          <Layers className="h-4 w-4 text-primary" />
                           Courses Created
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1392,9 +1423,9 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
 
                     {/* ── Judge Feedback (Owner Only) ── */}
                     {isOwner && judgeFeedback.length > 0 && (
-                      <div className="border border-border p-5 space-y-4">
-                        <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
-                          <MessageSquare className="h-3.5 w-3.5 text-primary" />
+                      <div className="mb-5">
+                        <h3 className="text-[13px] font-semibold text-foreground flex items-center gap-2 mb-1" style={headingFont}>
+                          <MessageSquare className="h-4 w-4 text-primary" />
                           Judge Feedback
                           <span className="text-[8px] px-1.5 py-0.5 bg-muted text-muted-foreground rounded-sm" style={headingFont}>Only You</span>
                         </h3>
@@ -1434,9 +1465,9 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
               >
                 {/* ── Overview ── */}
                 {(canView("bio") && profile.bio) || (canView("pronouns") && (profile as any).pronouns) ? (
-                  <div className="border border-border p-5 space-y-4">
-                    <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
-                      <User className="h-3.5 w-3.5 text-primary" />
+                  <div className="mb-5">
+                    <h3 className="text-[13px] font-semibold text-foreground flex items-center gap-2 mb-1" style={headingFont}>
+                      <User className="h-4 w-4 text-primary" />
                       Overview
                     </h3>
                     {canView("pronouns") && (profile as any).pronouns && (
@@ -1458,31 +1489,31 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
 
                 {/* ── Work & Education ── */}
                 {((canView("workplace") && (profile as any).workplace) || (canView("education") && (profile as any).education)) && (
-                  <div className="border border-border p-5 space-y-4">
-                    <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
-                      <Briefcase className="h-3.5 w-3.5 text-primary" />
+                  <div className="mb-5">
+                    <h3 className="text-[13px] font-semibold text-foreground flex items-center gap-2 mb-1" style={headingFont}>
+                      <Briefcase className="h-4 w-4 text-primary" />
                       Work & Education
                     </h3>
                     {canView("workplace") && (profile as any).workplace && (
-                      <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                      <div className="flex min-h-11 items-center gap-3">
+                        <div className="h-[18px] w-[18px] flex items-center justify-center flex-shrink-0">
                           <Briefcase className="h-4 w-4 text-muted-foreground" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm" style={bodyFont}>{(profile as any).workplace}</p>
-                          <span className="text-[10px] text-muted-foreground" style={headingFont}>Workplace</span>
+                        <div className="flex min-w-0 flex-1 items-baseline gap-2">
+                          <p className="truncate text-[15px]" style={bodyFont}>{(profile as any).workplace}</p>
+                          <span className="shrink-0 text-[11px] text-muted-foreground/70" style={headingFont}>Workplace</span>
                         </div>
                         {isOwner && <PrivacyIndicator level={getPrivacy(ps, "workplace")} />}
                       </div>
                     )}
                     {canView("education") && (profile as any).education && (
-                      <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                      <div className="flex min-h-11 items-center gap-3">
+                        <div className="h-[18px] w-[18px] flex items-center justify-center flex-shrink-0">
                           <GraduationCap className="h-4 w-4 text-muted-foreground" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm" style={bodyFont}>{(profile as any).education}</p>
-                          <span className="text-[10px] text-muted-foreground" style={headingFont}>Education</span>
+                        <div className="flex min-w-0 flex-1 items-baseline gap-2">
+                          <p className="truncate text-[15px]" style={bodyFont}>{(profile as any).education}</p>
+                          <span className="shrink-0 text-[11px] text-muted-foreground/70" style={headingFont}>Education</span>
                         </div>
                         {isOwner && <PrivacyIndicator level={getPrivacy(ps, "education")} />}
                       </div>
@@ -1492,18 +1523,18 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
 
                 {/* ── Places Lived ── */}
                 {canView("city_country") && (profile as any).current_city && (
-                  <div className="border border-border p-5 space-y-4">
-                    <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
-                      <MapPin className="h-3.5 w-3.5 text-primary" />
+                  <div className="mb-5">
+                    <h3 className="text-[13px] font-semibold text-foreground flex items-center gap-2 mb-1" style={headingFont}>
+                      <MapPin className="h-4 w-4 text-primary" />
                       Places Lived
                     </h3>
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                    <div className="flex min-h-11 items-center gap-3">
+                      <div className="h-[18px] w-[18px] flex items-center justify-center flex-shrink-0">
                         <MapPin className="h-4 w-4 text-muted-foreground" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm" style={bodyFont}>{(profile as any).current_city}</p>
-                        <span className="text-[10px] text-muted-foreground" style={headingFont}>Current City</span>
+                      <div className="flex min-w-0 flex-1 items-baseline gap-2">
+                        <p className="truncate text-[15px]" style={bodyFont}>{(profile as any).current_city}</p>
+                        <span className="shrink-0 text-[11px] text-muted-foreground/70" style={headingFont}>Current City</span>
                       </div>
                       {isOwner && <PrivacyIndicator level={getPrivacy(ps, "city_country")} />}
                     </div>
@@ -1512,55 +1543,55 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
 
                 {/* ── Contact & Basic Info ── */}
                 {isOwner && (
-                  <div className="border border-border p-5 space-y-4">
-                    <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
-                      <Phone className="h-3.5 w-3.5 text-primary" />
+                  <div className="mb-5">
+                    <h3 className="text-[13px] font-semibold text-foreground flex items-center gap-2 mb-1" style={headingFont}>
+                      <Phone className="h-4 w-4 text-primary" />
                       Contact & Basic Info
                     </h3>
                     {(profile as any).phone && (
-                      <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                      <div className="flex min-h-11 items-center gap-3">
+                        <div className="h-[18px] w-[18px] flex items-center justify-center flex-shrink-0">
                           <Phone className="h-4 w-4 text-muted-foreground" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm" style={bodyFont}>{(profile as any).phone}</p>
-                          <span className="text-[10px] text-muted-foreground" style={headingFont}>Phone</span>
+                        <div className="flex min-w-0 flex-1 items-baseline gap-2">
+                          <p className="truncate text-[15px]" style={bodyFont}>{(profile as any).phone}</p>
+                          <span className="shrink-0 text-[11px] text-muted-foreground/70" style={headingFont}>Phone</span>
                         </div>
                         <PrivacyIndicator level={getPrivacy(ps, "phone")} />
                       </div>
                     )}
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                    <div className="flex min-h-11 items-center gap-3">
+                      <div className="h-[18px] w-[18px] flex items-center justify-center flex-shrink-0">
                         <Mail className="h-4 w-4 text-muted-foreground" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm" style={bodyFont}>{currentUser?.email}</p>
-                        <span className="text-[10px] text-muted-foreground" style={headingFont}>Email</span>
+                      <div className="flex min-w-0 flex-1 items-baseline gap-2">
+                        <p className="truncate text-[15px]" style={bodyFont}>{currentUser?.email}</p>
+                        <span className="shrink-0 text-[11px] text-muted-foreground/70" style={headingFont}>Email</span>
                       </div>
                       <PrivacyIndicator level={getPrivacy(ps, "email")} />
                     </div>
                     {canView("portfolio") && profile.portfolio_url && (
-                      <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                      <div className="flex min-h-11 items-center gap-3">
+                        <div className="h-[18px] w-[18px] flex items-center justify-center flex-shrink-0">
                           <Globe className="h-4 w-4 text-muted-foreground" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <a href={profile.portfolio_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline truncate block" style={bodyFont}>
                             {profile.portfolio_url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                           </a>
-                          <span className="text-[10px] text-muted-foreground" style={headingFont}>Portfolio</span>
+                          <span className="shrink-0 text-[11px] text-muted-foreground/70" style={headingFont}>Portfolio</span>
                         </div>
                         <PrivacyIndicator level={getPrivacy(ps, "portfolio")} />
                       </div>
                     )}
                     {canView("member_since") && (
-                      <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                      <div className="flex min-h-11 items-center gap-3">
+                        <div className="h-[18px] w-[18px] flex items-center justify-center flex-shrink-0">
                           <Calendar className="h-4 w-4 text-muted-foreground" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm" style={bodyFont}>{memberSince}</p>
-                          <span className="text-[10px] text-muted-foreground" style={headingFont}>Member Since</span>
+                        <div className="flex min-w-0 flex-1 items-baseline gap-2">
+                          <p className="truncate text-[15px]" style={bodyFont}>{memberSince}</p>
+                          <span className="shrink-0 text-[11px] text-muted-foreground/70" style={headingFont}>Member Since</span>
                         </div>
                         <PrivacyIndicator level={getPrivacy(ps, "member_since")} />
                       </div>
@@ -1570,30 +1601,30 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
 
                 {/* ── Contact visible to non-owner (portfolio only if public) ── */}
                 {!isOwner && canView("portfolio") && profile.portfolio_url && (
-                  <div className="border border-border p-5 space-y-4">
-                    <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
-                      <Globe className="h-3.5 w-3.5 text-primary" />
+                  <div className="mb-5">
+                    <h3 className="text-[13px] font-semibold text-foreground flex items-center gap-2 mb-1" style={headingFont}>
+                      <Globe className="h-4 w-4 text-primary" />
                       Contact Info
                     </h3>
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                    <div className="flex min-h-11 items-center gap-3">
+                      <div className="h-[18px] w-[18px] flex items-center justify-center flex-shrink-0">
                         <Globe className="h-4 w-4 text-muted-foreground" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <a href={profile.portfolio_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline truncate block" style={bodyFont}>
                           {profile.portfolio_url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                         </a>
-                        <span className="text-[10px] text-muted-foreground" style={headingFont}>Portfolio</span>
+                        <span className="shrink-0 text-[11px] text-muted-foreground/70" style={headingFont}>Portfolio</span>
                       </div>
                     </div>
                     {canView("member_since") && (
-                      <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                      <div className="flex min-h-11 items-center gap-3">
+                        <div className="h-[18px] w-[18px] flex items-center justify-center flex-shrink-0">
                           <Calendar className="h-4 w-4 text-muted-foreground" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm" style={bodyFont}>{memberSince}</p>
-                          <span className="text-[10px] text-muted-foreground" style={headingFont}>Member Since</span>
+                        <div className="flex min-w-0 flex-1 items-baseline gap-2">
+                          <p className="truncate text-[15px]" style={bodyFont}>{memberSince}</p>
+                          <span className="shrink-0 text-[11px] text-muted-foreground/70" style={headingFont}>Member Since</span>
                         </div>
                       </div>
                     )}
@@ -1602,15 +1633,15 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
 
                 {/* ── Social Links ── */}
                 {socialLinks.length > 0 && (
-                  <div className="border border-border p-5 space-y-4">
-                    <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
-                      <Heart className="h-3.5 w-3.5 text-primary" />
+                  <div className="mb-5">
+                    <h3 className="text-[13px] font-semibold text-foreground flex items-center gap-2 mb-1" style={headingFont}>
+                      <Heart className="h-4 w-4 text-primary" />
                       Links & Social
                     </h3>
                     <div className="space-y-3">
                       {socialLinks.map((link) => (
                         <div key={link.url} className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                          <div className="h-[18px] w-[18px] flex items-center justify-center flex-shrink-0">
                             <link.icon className="h-4 w-4 text-muted-foreground" />
                           </div>
                           <a
@@ -1632,18 +1663,17 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
 
                 {/* ── Photography Details ── */}
                 {canView("interests") && profile.photography_interests && profile.photography_interests.length > 0 && (
-                  <div className="border border-border p-5 space-y-4">
-                    <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
-                      <Camera className="h-3.5 w-3.5 text-primary" />
+                  <div className="mb-5">
+                    <h3 className="text-[13px] font-semibold text-foreground flex items-center gap-2 mb-1" style={headingFont}>
+                      <Camera className="h-4 w-4 text-primary" />
                       Photography Details
                     </h3>
                     <div>
-                      <span className="text-[10px] tracking-[0.1em] uppercase text-muted-foreground block mb-2" style={headingFont}>Specializations</span>
-                      <div className="flex flex-wrap gap-2">
+                                            <div className="flex flex-wrap gap-2">
                         {profile.photography_interests.map((interest) => (
                           <span
                             key={interest}
-                            className="text-[10px] tracking-[0.1em] uppercase px-3 py-1.5 border border-border text-muted-foreground rounded-sm"
+                            className="rounded-full bg-muted/40 px-3 py-1 text-[13px] text-foreground/80"
                             style={headingFont}
                           >
                             {interest}
@@ -1669,15 +1699,15 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
 
                 {/* ── Certificates & Awards ── */}
                 {canView("certificates") && certificates.length > 0 && (
-                  <div className="border border-border p-5 space-y-4">
-                    <h3 className="text-[11px] tracking-[0.2em] uppercase text-foreground flex items-center gap-2" style={headingFont}>
-                      <Award className="h-3.5 w-3.5 text-primary" />
+                  <div className="mb-5">
+                    <h3 className="text-[13px] font-semibold text-foreground flex items-center gap-2 mb-1" style={headingFont}>
+                      <Award className="h-4 w-4 text-primary" />
                       Certificates & Awards
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {certificates.map((cert) => (
-                        <div key={cert.id} className="flex items-center gap-3 p-3 bg-muted/30 border border-border rounded-sm">
-                          <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <div key={cert.id} className="flex min-h-11 items-center gap-3 rounded-lg bg-muted/25 px-3 py-2">
+                          <div className="flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center">
                             {cert.type === "competition" ? (
                               <Trophy className="h-4 w-4 text-primary" />
                             ) : (
