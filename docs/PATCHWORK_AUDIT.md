@@ -118,11 +118,34 @@ build refuses to let through. Until it exists, §1 can happen again on the next
 change, and the only thing standing between the project and a third copy of the
 post card is my attention — which is precisely what failed.
 
-## 9. Twelve findings from the screenshot sweep. OPEN.
+## 9. Findings from the screenshot sweep. PARTLY DONE.
 
-Controls under the 44px tap minimum on feed, wall, post and settings, and one
-avatar that does not decode. Reported by `npm run ui:shot`, never triaged. They
-are in Android build #90.
+Controls under the 44px tap minimum on feed, wall, post and settings, plus one
+avatar that does not decode.
+
+**Done 2026-08-15:** the header **Search** button was a bare 16×16 glyph with no
+padding at all — on EVERY signed-in screen, because it is in the shared header.
+Now `min-h-11 min-w-11`. One control, four screens.
+
+**Done 2026-08-15, after the owner's instruction:** the header **notification
+bell** was 34×34 and could not be enlarged — at 44px, and even at 40px, its ring
+COLLIDED with the centred wordmark; "50mm Retina World" ran into the circle at
+360px, photographed twice. The invisible-hit-area alternative is the one he
+called "fraud, button same size as before" (2026-08-03).
+
+He resolved it in five words: *"from the notification remove round circle"*. With
+the ring gone the button reaches 44×44 without touching anything, and it now
+matches the Search control beside it. **Both shared-header controls are fixed on
+all four screens.** Feed findings: 29 → 27.
+
+**Still open**, triaged by measuring each one, not by grepping:
+- genuinely too small: Add Photo 36×36, Download 32×32, album prev/next 32×32,
+  Add friend 40×40, avatar links 32×32, carousel dots 8×8 and 6×6
+- NOT bugs, the checker over-reports: text links inside running sentences —
+  a member's name, "See more", "Cookie Policy". These cannot be 44px without
+  wrecking the typography, and the fix belongs in `capture.mjs`, which must stop
+  flagging a link in flowing text. **Do not silence a finding to get a green
+  light** — the owner's rule is that targets never move to pass.
 
 ---
 
