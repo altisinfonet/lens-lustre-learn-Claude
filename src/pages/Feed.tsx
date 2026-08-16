@@ -27,6 +27,7 @@ import { useFeedCacheUpdaters } from "@/hooks/feed/useFeedCacheUpdaters";
 import PostCard from "@/components/post/PostCard";
 import PostCardSkeleton from "@/components/post/PostCardSkeleton";
 import WallPosts from "@/components/WallPosts";
+import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
 import CategoryStrip from "@/components/feed/CategoryStrip";
 import FeedCardWindow, { EAGER_CARDS } from "@/components/feed/FeedCardWindow";
 import { ALL_FILTER } from "@/lib/categories";
@@ -294,8 +295,21 @@ const Feed = () => {
           Do not put a title back. Instagram's feed starts at the first post.
         */}
 
-        {/* Composer — same as My Wall, posts go to posts table → appear on Wall + Feed */}
-        <WallPosts targetUserId={user.id} isOwnWall composerOnly />
+        {/*
+          Composer — same as My Wall, posts go to posts table → appear on Wall + Feed
+
+          WEB ONLY, from 2026-08-16. On the app the composer is now mounted once
+          in the shell (see Layout.tsx / GlobalComposer.tsx) so the top bar's
+          Create button works from every page instead of only this one. Leaving
+          this mount in place as well would give the app TWO composers, both
+          watching `?compose=1`, and both would open.
+
+          The website keeps its inline composer row exactly as it was: it is the
+          only way to post on the web, and it was never the thing that broke.
+        */}
+        {!isNativeCapacitorApp() && (
+          <WallPosts targetUserId={user.id} isOwnWall composerOnly />
+        )}
 
         {/* Feed */}
         {loading ? (
