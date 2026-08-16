@@ -158,37 +158,76 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
+      {/*
+        THREE BANDS, AND ONLY THE MIDDLE ONE SCROLLS.
+
+        Owner, 2026-08-16, relaying live members: "many mobile the log out
+        screen are not coming perfectly and huge space water in top."
+
+        Both halves were real, and both were MEASURED before this was touched —
+        the sheet had never been photographed, because it is an overlay and no
+        page scene renders it. `screen-account-sheet` now does. What it found,
+        with the sheet open and the bottom of the Logout button compared to the
+        bottom of the screen:
+
+            360x592   Logout 145px BELOW the screen   unreachable
+            360x640   Logout 104px below              unreachable
+            360x740   Logout  19px below              unreachable
+            360x800   Logout  25px above              fine
+            390x844   fine        412x892   fine
+
+        So it worked on the two phones anyone here had looked at and failed on
+        every shorter one — and "shorter" is not exotic: a browser with a URL
+        bar showing, a phone with a large system font, or simply an older 5"
+        Android all land under 740. On those, a member CANNOT LOG OUT.
+
+        The cause was structural, not a number to nudge: `max-h-[85vh]` capped
+        the sheet, `flex flex-col` laid three bands out inside it, and NOTHING
+        was scrollable. When the twenty-one actions did not fit, the footer was
+        simply pushed past the bottom edge and clipped. Raising 85vh to 95vh
+        would move the failure to a slightly shorter phone, not remove it.
+
+        The fix makes height irrelevant: the header and the footer are
+        `shrink-0`, the action grid is `flex-1 min-h-0 overflow-y-auto`, so the
+        GRID gives up space instead of the footer. Logout is now pinned to the
+        bottom of the sheet at every height, and `min-h-0` is load-bearing —
+        without it a flex child refuses to shrink below its content and the
+        overflow silently returns.
+      */}
       <DrawerContent className="max-h-[85vh] bg-card backdrop-blur-2xl border-border">
-        <DrawerHeader className="pb-2">
+        <DrawerHeader className="shrink-0 relative pt-2 pb-3">
           <DrawerTitle className="sr-only">{t("msheet.profileMenu")}</DrawerTitle>
 
-          {/* THE THEME TOGGLE SITS ON ITS OWN LINE, ABOVE THE NAME.
+          {/* THE THEME TOGGLE IS PINNED TO THE HEADER'S TOP-RIGHT CORNER.
               Owner, 2026-08-12: "After clicking profile, dark and light mode
               moved extremely right when the name is big. Shift the toggle one
               line upper of the name line."
 
-              It used to be the third child of the name ROW. A long name — his
-              own account reads "Sri Venkata Ramasubramania Narayanasw" — grew
-              that row until the button was pushed against, and partly past, the
-              right edge. Truncation could not save it: the avatar and the button
-              are fixed width, so anything the name does happens between them.
+              His rule was that the NAME MUST NEVER PUSH THIS BUTTON — his own
+              account reads "Sri Venkata Ramasubramania Narayanasw", and as the
+              third child of a flex row it drove the button off the edge.
 
-              Putting the button on its own line above removes the competition
-              entirely. Its position is now the same whether the name is four
-              characters or forty. */}
-          <div className="flex justify-end -mt-1 mb-1">
-            <button
-              onClick={toggleTheme}
-              className="shrink-0 p-2 rounded-full border border-border hover:border-primary transition-colors"
-              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-            >
-              {theme === "dark" ? <Sun className="h-4 w-4 text-primary" /> : <Moon className="h-4 w-4 text-primary" />}
-            </button>
-          </div>
+              A whole line of its own honoured that rule and cost 40px of empty
+              sheet at the top of the most crowded screen in the product — 56 to
+              64px measured between the drag handle and the avatar, which is the
+              "huge space water in top" members are complaining about.
+
+              Taking it OUT of the flow honours the same rule for the same
+              reason — an absolutely positioned element cannot be pushed by a
+              sibling at all — and costs nothing. `pr-12` on the name column
+              reserves the corner so a long name cannot run underneath it.
+              44x44 as well; it photographed at 34x34, under the tap floor. */}
+          <button
+            onClick={toggleTheme}
+            className="absolute right-3 top-1 z-10 flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-primary/10"
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          >
+            {theme === "dark" ? <Sun className="h-5 w-5 text-primary" /> : <Moon className="h-5 w-5 text-primary" />}
+          </button>
 
           {/* Avatar + Name */}
-          <div className="flex items-center gap-3">
-            <Avatar className="h-14 w-14 ring-2 ring-primary/20">
+          <div className="flex items-center gap-3 pr-12">
+            <Avatar className="h-12 w-12 ring-2 ring-primary/20">
               <AvatarImage src={avatarUrl} alt={fullName} />
               <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">{initials}</AvatarFallback>
             </Avatar>
@@ -196,15 +235,18 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
               <UserIdentityBlock
                 userId={user.id}
                 name={fullName}
-                nameClassName="text-sm font-bold tracking-wide truncate [font-family:var(--font-heading)]"
+                nameClassName="text-[15px] font-bold tracking-wide truncate [font-family:var(--font-heading)]"
               />
-              <span className="text-[9px] text-muted-foreground truncate block mt-0.5">{user.email}</span>
+              <span className="text-[11px] text-muted-foreground truncate block mt-0.5">{user.email}</span>
             </div>
           </div>
         </DrawerHeader>
 
-        {/* Quick Actions Grid — staggered entry */}
-        <div className="px-4 pb-2">
+        {/* Quick Actions Grid — staggered entry. THE ONLY SCROLLING BAND.
+            `min-h-0` lets it shrink below its content; `overscroll-contain`
+            stops a flick at the end of the list from dragging the sheet shut
+            mid-scroll, which on a list this long happens constantly. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-2">
           <div className="grid grid-cols-4 gap-2">
             <AnimatePresence>
               {visibleActions.map((action, i) => (
@@ -268,14 +310,17 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
             only the order changed. When no version is known the label renders
             nothing and the button quietly keeps the whole row, exactly as
             before; a wrong number on screen is worse than none. */}
-        <div className="px-4 pb-6 pt-2 flex items-center gap-2 border-t border-border/40">
+        <div
+          className="shrink-0 px-4 pt-2 flex items-center gap-2 border-t border-border/40"
+          style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
+        >
           <AppVersionLabel />
           <button
             onClick={handleLogout}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-destructive hover:bg-destructive/90 transition-colors flex-1"
+            className="flex min-h-11 items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-destructive hover:bg-destructive/90 transition-colors flex-1"
           >
             <LogOut className="h-4 w-4 text-destructive-foreground" />
-            <span className="text-[9px] tracking-[0.1em] uppercase text-destructive-foreground font-semibold" style={headingFont}>
+            <span className="text-[12px] tracking-[0.08em] uppercase text-destructive-foreground font-semibold" style={headingFont}>
               {t("menu.logout")}
             </span>
           </button>
