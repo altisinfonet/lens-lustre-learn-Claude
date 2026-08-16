@@ -179,7 +179,7 @@ build refuses to let through. Until it exists, §1 can happen again on the next
 change, and the only thing standing between the project and a third copy of the
 post card is my attention — which is precisely what failed.
 
-## 9. Findings from the screenshot sweep. PARTLY DONE.
+## 9. Findings from the screenshot sweep. CLOSED 2026-08-16.
 
 Controls under the 44px tap minimum on feed, wall, post and settings, plus one
 avatar that does not decode.
@@ -199,14 +199,47 @@ the ring gone the button reaches 44×44 without touching anything, and it now
 matches the Search control beside it. **Both shared-header controls are fixed on
 all four screens.** Feed findings: 29 → 27.
 
-**Still open**, triaged by measuring each one, not by grepping:
-- genuinely too small: Add Photo 36×36, Download 32×32, album prev/next 32×32,
-  Add friend 40×40, avatar links 32×32, carousel dots 8×8 and 6×6
-- NOT bugs, the checker over-reports: text links inside running sentences —
-  a member's name, "See more", "Cookie Policy". These cannot be 44px without
-  wrecking the typography, and the fix belongs in `capture.mjs`, which must stop
-  flagging a link in flowing text. **Do not silence a finding to get a green
-  light** — the owner's rule is that targets never move to pass.
+### CLOSED 2026-08-16 — **63 screenshots, 0 problems** across the whole harness.
+
+Every remaining finding was measured before it was touched. Nothing was
+silenced to get a green light.
+
+**Controls that genuinely grew** (the box a thumb lands on is bigger, and the
+sweep can see that it is — no invisible hit areas, per the owner's 2026-08-03
+ruling on the bell):
+
+| control | was | now | how the picture stayed the same |
+|---|---|---|---|
+| Settings switches (**24 findings**) | 44×24 | whole ROW ~300×64 | a `<label>` wraps the row, so the icon, title and description all toggle it — the iOS/Android Settings pattern. The switch is untouched. |
+| Avatar link, feed + post detail | 32×37 | 44×44 | `p-1.5 -m-1.5` on the anchor. The photo is still 32px; the padding is pulled back out of the flow. |
+| Carousel dots | 8×8, 6×6 | 44×32 | the dot moved inside a transparent button. Measured after: the dot's centre still sits **exactly 16px** above the image edge, as before. |
+| Profile action row (all four) | 35 tall, two at 38/40 wide | 44×44 | raised all four, not only the two reported — three different sizes side by side is what made the small ones easy to miss. |
+| Back to top (feed) | 32×32 | 44×44 | a floating button has nothing beside it to catch a near miss. |
+| "Cookies" (shared footer) | 59×17 | 44 tall | `py-0 leading-none`, so the footer row does not grow. It was reported on **every screen**. |
+| "See more", "Back", "View", login's back link | 16–17 tall | 44 tall | negative margins take the height back out of the flow. |
+
+**Three checker CORRECTNESS fixes** — the checker was measuring the wrong
+thing. Each is narrow, and each was proved by mutation:
+
+1. **A control inside a ≥44px `<label>`.** Only for switches/checkboxes/radios
+   and `<input>`, only for a real `<label>`, only when the label itself clears
+   44px. Reverting the settings row to a `<div>` brings all 24 findings
+   straight back, which is how we know it is the fix doing the work and not
+   the exception.
+2. **`display: inline` anchors.** The author's name inside a caption measured
+   70×15 with a 21.1px line-height, so the existing shape test (|h − line| ≤ 4)
+   missed it by 2px. Not a bad threshold: for an inline box, `getBoundingClientRect`
+   returns the font's em box, which is a different quantity from the line box by
+   definition. An inline anchor cannot take a height at all.
+3. **Images that are not laid out.** The profile QR code reported
+   `naturalWidth: 0` at 700ms, 2s and 5s — because it is in the desktop-only
+   sidebar and a browser never decodes an image inside `display:none`. It was
+   reported on both phone widths and neither desktop width, the exact inverse
+   of a real broken photograph. A genuinely broken `<img>` IS laid out and is
+   still reported.
+
+**Score:** feed 29 → 0, profile 17 → 0, post detail 14 → 0, login 2 → 0,
+notification settings 24 → 0.
 
 ---
 
