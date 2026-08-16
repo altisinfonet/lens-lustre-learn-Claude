@@ -1417,7 +1417,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                 <button
                   type="button"
                   onClick={() => openComposer()}
-                  className="min-w-0 flex-1 truncate rounded-full bg-muted/50 px-4 py-2.5 text-left text-sm text-muted-foreground/70 transition-colors hover:bg-muted"
+                  className="min-h-11 min-w-0 flex-1 truncate rounded-full bg-muted/50 px-4 py-2.5 text-left text-sm text-muted-foreground/70 transition-colors hover:bg-muted"
                 >
                   {t("composer.placeholder")}
                 </button>
@@ -1425,7 +1425,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                   type="button"
                   onClick={() => openComposer(true)}
                   aria-label={t("composer.addPhoto")}
-                  className="shrink-0 rounded-full p-2 transition-colors hover:bg-muted/50"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full transition-colors hover:bg-muted/50"
                 >
                   <ImagePlus className="h-5 w-5 text-emerald-500" />
                 </button>
