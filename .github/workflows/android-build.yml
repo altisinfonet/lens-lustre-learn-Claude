@@ -15,6 +15,61 @@ name: Android Build
 # who has the upload keystore adds them ONCE; nobody else ever needs to see them.
 # See ANDROID_AUTORELEASE_SETUP.md for the 10-minute one-time setup.
 
+# ═══════════════════════════════════════════════════════════════════════════
+# BUILD 1102 / v1.2.11 — THE FIRST BUILD CUT FOR A PUBLIC RELEASE
+#
+# Owner: "Final build give me after checking as it will in Public."
+# Owner: "build name give 1102."
+#
+# versionCode is 1000 + the run number, so 1102 requires that EXACTLY ONE more
+# workflow run fires. Only two paths trigger this workflow — this file and
+# ANDROID_BUILD_TRIGGER. Every code change for this release was therefore pushed
+# first, touching neither, and this single edit is the one and only trigger.
+# ANDROID_BUILD_TRIGGER is deliberately left alone for the same reason; these
+# notes live here instead so the release still explains itself.
+#
+# WHAT CHANGED SINCE 1102's PREDECESSOR (1101 / v1.2.10)
+#
+#  1. THE PRIVACY CHOOSER IS WITHHELD. Checked against production rather than
+#     read from a plan: `select privacy, count(*) from posts` -> public: 218,
+#     and nothing else. The database, the feed and eight of nine surfaces honour
+#     a post's privacy; the DIRECT IMAGE URL does not, because authorized media
+#     delivery (B5) is unfinished. Harmless today only because nothing private
+#     exists — and a public release is precisely what would end that. The first
+#     member to choose "Private" would be given a promise the platform cannot
+#     keep. So the control is withheld and every post is public, which all 218
+#     already are.
+#
+#     Writing the test for it found a SECOND chooser — on composer screen 2,
+#     the only one an Android member ever reaches. Without that test this build
+#     would have withheld the control on the website while shipping it live to
+#     every phone.
+#
+#  2. ONE UPLOADER, FROM ANY PAGE. "as top menu icon is fix it should be from
+#     single uploader while standing on any page." The composer is mounted once
+#     in the shell; the Create button raises a flag on the CURRENT url and
+#     nothing navigates. Measured in app mode at 412px, from the wall AND from
+#     the feed: picker fires, PAGE UNCHANGED, exactly one composer mounted.
+#     The page staying put is the difference — before, it moved to the feed, and
+#     that navigation racing Android's picker was the bug.
+#
+#     The previous attempt at this was measured to change nothing and is
+#     recorded as such in the source. This one is measured to change the thing
+#     that matters.
+#
+#  3. Everything in 1.2.10 stands: the crop dialog's `pointer-events-auto`,
+#     verified on the live site.
+#
+# GATES: typecheck 0 · 1,868 tests · production build 0 · 124 screenshots,
+#        ZERO layout problems, zero non-fixture errors.
+#
+# STILL OPEN AND NOT CLAIMED: the journal / featured-artist PDF cause — it now
+# reports its real reason instead of "failed", and that reason is needed from a
+# device. Certificates, Wallet and Admin transactions ARE fixed.
+#
+# NO REELS. NO LIVE.
+# ═══════════════════════════════════════════════════════════════════════════
+
 on:
   push:
     branches: [main]
@@ -272,8 +327,8 @@ jobs:
           # and if it did, reusing it would put two different builds under one
           # version string. Skipping a name costs nothing; reusing one costs
           # clarity in the Console, in crash reports and on the About screen.
-          sed -i 's/versionName "1.0"/versionName "1.2.10"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.10 (live production is 1073 / 1.2.2)"
+          sed -i 's/versionName "1.0"/versionName "1.2.11"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.11 (live production is 1073 / 1.2.2)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
