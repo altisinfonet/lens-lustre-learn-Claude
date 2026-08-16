@@ -71,6 +71,27 @@ function MissingDataBanner() {
   );
 }
 
+/**
+ * A JOURNEY: several real pages registered at once, starting on one of them.
+ *
+ * Added 2026-08-16 for the Create-button bug, which does not exist on any
+ * single screen — only in the move from one to another. See the note on
+ * `AppShellProps.routes` for why that class of fault was invisible here.
+ */
+function journey(
+  routes: Array<{ path: string; element: JSX.Element }>,
+  startAt: string,
+) {
+  return (
+    <>
+      <Suspense fallback={<Loading />}>
+        <AppShell route={startAt} routes={routes} withLayout />
+      </Suspense>
+      <MissingDataBanner />
+    </>
+  );
+}
+
 function screen(node: JSX.Element, route: string, path = "*", withLayout = true) {
   return (
     <>
@@ -169,6 +190,39 @@ export const REAL_SCREENS: Record<string, () => JSX.Element> = {
    */
   "screen-account-sheet": () =>
     screen(<MobileProfileSheet open onOpenChange={() => {}} />, "/feed", "/feed"),
+
+  /**
+   * THE CREATE BUTTON, PRESSED FROM THE WALL — the owner's exact complaint.
+   *
+   * "create post is a static on the top menu bar but while on my or other
+   *  pages, trying to uploaded - that is not happening. only from my feed
+   *  section create post happening."
+   *
+   * Two real pages, starting on the wall, so the top bar's `navigate(
+   * "/feed?compose=1")` has somewhere to land. Until this existed the
+   * navigation went nowhere and the flow could not be observed at all — which
+   * is how a fix for it shipped on reasoning alone.
+   */
+  "journey-create-from-wall": () =>
+    journey(
+      [
+        { path: "/profile/:userId", element: <PublicProfile /> },
+        { path: "/feed", element: <Feed /> },
+      ],
+      `/profile/${HARNESS_USER_ID}`,
+    ),
+
+  /** The same press, started from the FEED — the one place he says it works.
+   *  Kept beside the wall journey so "works here, not there" is measurable
+   *  rather than reported. */
+  "journey-create-from-feed": () =>
+    journey(
+      [
+        { path: "/profile/:userId", element: <PublicProfile /> },
+        { path: "/feed", element: <Feed /> },
+      ],
+      "/feed",
+    ),
 
   /** Settings — long forms, switches, and the tap-target rule. */
   "screen-notification-settings": () =>

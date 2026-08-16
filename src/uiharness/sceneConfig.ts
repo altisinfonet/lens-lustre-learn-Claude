@@ -33,6 +33,22 @@ export function isSignedOutScene(name: string): boolean {
  */
 export const REAL_SCREEN_PREFIX = "screen-";
 
+/**
+ * `journey-` IS THE SAME CONTRACT, FOR MORE THAN ONE PAGE.
+ *
+ * Added 2026-08-16 with the first journey scene. A journey mounts `AppShell`
+ * exactly as a `screen-` scene does — same providers, same router — it just
+ * registers several routes so a scene can navigate between real pages.
+ *
+ * Missing this prefix here is not a subtle failure: `main.tsx` wraps anything
+ * it does not recognise in its own MemoryRouter, and the scene died with
+ * "You cannot render a <Router> inside another <Router>" and rendered a blank
+ * page — the same symptom the comment above records from the first five real
+ * screens. Caught immediately, because the probe reported zero buttons on a
+ * page that should have had fifteen.
+ */
+export const JOURNEY_PREFIX = "journey-";
+
 export function providesOwnShell(name: string): boolean {
-  return name.startsWith(REAL_SCREEN_PREFIX);
+  return name.startsWith(REAL_SCREEN_PREFIX) || name.startsWith(JOURNEY_PREFIX);
 }

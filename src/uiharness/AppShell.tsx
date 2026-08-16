@@ -55,7 +55,8 @@ function harnessQueryClient() {
 }
 
 export interface AppShellProps {
-  children: ReactNode;
+  /** The page, when the scene is a single screen. Omit when using `routes`. */
+  children?: ReactNode;
   /** The url the page believes it is at — some screens read it. */
   route?: string;
   /**
@@ -67,6 +68,31 @@ export interface AppShellProps {
   path?: string;
   /** false mounts the page bare, to isolate a fault to the page or the shell. */
   withLayout?: boolean;
+  /**
+   * MORE THAN ONE PAGE, so a JOURNEY can be tested and not just a screen.
+   *
+   * ─────────────────────────────────────────────────────────────────────────
+   * ADDED 2026-08-16, and its absence had just cost a false fix.
+   *
+   * The owner reported that the top bar's Create button works from the Feed
+   * and nowhere else. I read the code, found a cause, wrote it up with
+   * confidence and shipped it — and could not have tested it, because this
+   * shell registers exactly ONE route pattern. From a wall scene,
+   * `navigate("/feed?compose=1")` matched no route at all: nothing rendered,
+   * nothing could open, and no screenshot or probe could tell the difference
+   * between "the fix works" and "the harness cannot go there".
+   *
+   * He called it a guess. He was right. Every scene until now has photographed
+   * ONE screen standing still, and the bug he is describing only exists in the
+   * move BETWEEN two screens — which is a class of fault this harness was
+   * structurally blind to, not merely missing a scene for.
+   *
+   * `routes` registers several pages at once so a scene can start on one and
+   * navigate to another exactly as a member does. `path`/`children` still work
+   * unchanged for every existing scene.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  routes?: Array<{ path: string; element: ReactNode }>;
 }
 
 /**
@@ -75,9 +101,15 @@ export interface AppShellProps {
  * Routes rather than simply wrapping the child in `<Layout>`.
  */
 export default function AppShell({
-  children, route = "/", path = "*", withLayout = true,
+  children, route = "/", path = "*", withLayout = true, routes,
 }: AppShellProps) {
-  const page = <Routes><Route path={path} element={children} /></Routes>;
+  /** One scene = one page (every scene before 2026-08-16), or several. */
+  const entries = routes ?? [{ path, element: children }];
+  const page = (
+    <Routes>
+      {entries.map((r) => <Route key={r.path} path={r.path} element={r.element} />)}
+    </Routes>
+  );
 
   return (
     <HelmetProvider>
@@ -99,7 +131,9 @@ export default function AppShell({
                     {withLayout ? (
                       <Routes>
                         <Route element={<Layout />}>
-                          <Route path={path} element={children} />
+                          {entries.map((r) => (
+                            <Route key={r.path} path={r.path} element={r.element} />
+                          ))}
                         </Route>
                       </Routes>
                     ) : (
