@@ -95,7 +95,11 @@ create table if not exists public.post_hashtags (
   -- trg_posts_unsync_hashtags below.
   post_id    uuid not null references public.posts(id) on delete cascade,
   hashtag_id uuid not null references public.hashtags(id) on delete cascade,
-  author_id  uuid not null,
+  -- CASCADES FROM THE ACCOUNT. Written `uuid not null` with no reference when
+  -- this file was first applied, which would have left a deleted member's rows
+  -- behind for ever. Corrected 2026-08-17 and applied to production as
+  -- migration 20260817102540; see the note at the foot of this file.
+  author_id  uuid not null references auth.users(id) on delete cascade,
   created_at timestamptz not null default now(),
   primary key (post_id, hashtag_id)
 );
@@ -331,8 +335,25 @@ comment on function public.suggest_hashtags(text, integer) is
   'says an unrelated hashtag must never appear. Ranked by unique users, not '
   'alphabetically. Capped at 10 whatever the caller asks for.';
 
+-- CLOSED TO anon. Composing requires a signed-in member, so `authenticated` is
+-- the whole audience; a logged-out visitor has no box to type into. The first
+-- version of this line granted anon as well.
 revoke all on function public.suggest_hashtags(text, integer) from public;
-grant execute on function public.suggest_hashtags(text, integer) to anon, authenticated;
+revoke all on function public.suggest_hashtags(text, integer) from anon;
+grant execute on function public.suggest_hashtags(text, integer) to authenticated;
+
+-- CLOSED TO EVERY CLIENT ROLE. recount_hashtags was left on the default ACL,
+-- which `ALTER DEFAULT PRIVILEGES` hands to anon — an unauthenticated write
+-- path into public.hashtags at /rest/v1/rpc/recount_hashtags. It cannot forge a
+-- number (it recomputes from truth), but no client has any business calling it.
+-- Its only legitimate caller is trg_posts_sync_hashtags -> sync_post_hashtags(),
+-- which is SECURITY DEFINER owned by postgres, so the trigger path is
+-- unaffected by removing every client grant. Proven by an aborted-transaction
+-- probe after the revoke: insert -> counts move, delete -> counts return, 0
+-- orphans.
+revoke all on function public.recount_hashtags(uuid[]) from public;
+revoke all on function public.recount_hashtags(uuid[]) from anon;
+revoke all on function public.recount_hashtags(uuid[]) from authenticated;
 
 -- ── 8. Read access ───────────────────────────────────────────────────────
 alter table public.hashtags enable row level security;
@@ -371,3 +392,27 @@ join public.hashtags h on h.tag = public.normalize_hashtag(m[1])
 on conflict (post_id, hashtag_id) do nothing;
 
 select public.recount_hashtags(array(select id from public.hashtags));
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- CORRECTED 2026-08-17. THIS FILE WAS AMENDED AFTER IT HAD BEEN APPLIED, and
+-- that is deliberate, so read this before assuming drift.
+--
+-- Three defects shipped in the original: `suggest_hashtags` was granted to
+-- anon, `recount_hashtags` was left on the default ACL that anon inherits, and
+-- `post_hashtags.author_id` carried no cascade from auth.users.
+--
+-- They survived a full day for one reason: this file was first named
+-- `20260816T1900_hashtag_index.sql`, and both gates that would have caught them
+-- — securityDefinerGrants.test.ts and deletionCoverage.test.ts — select
+-- migrations with `^(\d{14})`. Eight digits then a `T` does not match, so
+-- neither gate ever read this file. Renaming it to the convention is what
+-- exposed all three, and CI then refused to cut the Android build.
+--
+-- WHY AMEND RATHER THAN ADD. Both gates inspect the migration that CREATES the
+-- object, by design — a later file cannot satisfy them. Leaving this one wrong
+-- would mean a permanently red gate, and the only way to green it would be to
+-- weaken the test. So the delta was applied to production as its own migration,
+-- `20260817102540_hashtag_grants_and_cascade.sql`, and this file was corrected
+-- to match. File and production now describe the same system, and replaying
+-- this file from scratch produces that system directly.
+-- ═══════════════════════════════════════════════════════════════════════════
