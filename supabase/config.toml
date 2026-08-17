@@ -56,3 +56,9 @@ project_id = "jtdtehuqtinjxropkkcn"
     verify_jwt = false
   [functions.seo-route-metadata]
     verify_jwt = false
+  # READ-ONLY Phase 2 manifest measurement. verify_jwt MUST stay true: the
+  # gateway rejecting anonymous callers is the outer of its two auth gates
+  # (the inner one is the user_roles admin check in index.ts). It also expires
+  # itself on 2026-09-01 so it cannot linger as a media API.
+  [functions.measure-post-media]
+    verify_jwt = true
