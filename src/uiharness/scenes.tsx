@@ -430,14 +430,13 @@ export const SCENES: Record<string, () => JSX.Element> = {
    * the scene that decides the placement question: both buttons must be whole
    * and reachable WHILE the list is open, not just after it closes.
    *
-   * ⚠ THIS SCENE REPORTS TWO TAP-TARGET FAILURES ON PURPOSE, and they are not
-   * the scene's fault. The buttons below carry PostCard's real classes, and at
-   * 63x31 and 59x29 they are genuinely under the 44px thumb floor — a
-   * PRE-EXISTING defect in the inline post editor that this feature did not
-   * create and has not been authorised to change. Copying the real classes is
-   * what made it visible; substituting `min-h-11` here would have made the
-   * scene pass while the shipped screen stayed wrong. Flagged to the owner
-   * 2026-08-17; the fix is one class on each button, his call to make.
+   * ⚠ THE BUTTONS BELOW CARRY POSTCARD'S REAL CLASSES, NOT SUBSTITUTED ONES.
+   * That is the whole value of this scene: on its first run it reported them
+   * at 63x31 and 59x29, under the 44px thumb floor — a real defect in the
+   * shipped inline editor that nothing else had ever measured. The owner
+   * authorised the fix on 2026-08-17 and both are now min-h-11. Keep copying
+   * the real classes here; substituting a passing one would make this scene
+   * agree with itself instead of with the product.
    */
   "hashtag-list-inline-edit": () => (
     <div className="min-h-screen bg-background p-3">
@@ -457,10 +456,10 @@ export const SCENES: Record<string, () => JSX.Element> = {
           />
         </div>
         <div className="flex items-center justify-end gap-2">
-          <button className="rounded-md border border-border px-3 py-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+          <button className="min-h-11 rounded-md border border-border px-4 text-[11px] uppercase tracking-wider text-muted-foreground">
             Cancel
           </button>
-          <button className="rounded-md bg-primary px-4 py-1.5 text-[11px] font-medium uppercase tracking-wider text-primary-foreground">
+          <button className="min-h-11 rounded-md bg-primary px-5 text-[11px] font-medium uppercase tracking-wider text-primary-foreground">
             Save
           </button>
         </div>

@@ -34,7 +34,7 @@
  */
 
 import { createRoot } from "react-dom/client";
-import { StrictMode } from "react";
+import React, { StrictMode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { installFakeBackend } from "./fakeBackend";
@@ -172,11 +172,30 @@ function Index() {
  */
 const ownShell = providesOwnShell(name);
 
+/**
+ * ⚠ PRODUCTION DOES NOT USE STRICTMODE. `src/main.tsx` has none.
+ *
+ * StrictMode double-invokes every effect: run → clean up → run again. For most
+ * components that is harmless and catches real mistakes, which is why it is on
+ * here. For a component whose effect touches BROWSER HISTORY it is not
+ * harmless — the crop dialog pushes an entry, the StrictMode cleanup calls
+ * history.back(), and the re-registered popstate listener catches that back as
+ * if the member had pressed it. The dialog then closes itself the instant it
+ * opens, in the harness only.
+ *
+ * So the harness must be able to render BOTH ways, or it cannot tell a real
+ * fault from its own. `?strict=0` renders the tree exactly as production does.
+ * Default stays ON: everything else benefits from the extra checking.
+ */
+const strict = params.get("strict") !== "0";
+const Root = ({ children }: { children: React.ReactNode }) =>
+  strict ? <StrictMode>{children}</StrictMode> : <>{children}</>;
+
 createRoot(document.getElementById("harness-root")!).render(
   ownShell && scene ? (
-    <StrictMode>{scene()}</StrictMode>
+    <Root>{scene()}</Root>
   ) : (
-  <StrictMode>
+  <Root>
     <QueryClientProvider client={queryClient}>
       {/* MemoryRouter: components that use navigate()/Link must mount, but a
           harness must never depend on the real route table or on history. */}
@@ -190,6 +209,6 @@ createRoot(document.getElementById("harness-root")!).render(
         {scene ? scene() : <Index />}
       </MemoryRouter>
     </QueryClientProvider>
-  </StrictMode>
+  </Root>
   ),
 );
