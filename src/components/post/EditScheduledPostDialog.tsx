@@ -14,6 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScheduleDateTimePicker } from "@/components/post/ScheduleDateTimePicker";
+import HashtagSuggestions from "@/components/post/HashtagSuggestions";
+import { useCaptionHashtags } from "@/hooks/feed/useCaptionHashtags";
 import {
   useUpdateScheduledPost,
   type ScheduledPost,
@@ -39,6 +41,23 @@ export default function EditScheduledPostDialog({
   const update = useUpdateScheduledPost();
   const [content, setContent] = React.useState<string>("");
   const [when, setWhen] = React.useState<Date | null>(null);
+  const captionRef = React.useRef<HTMLTextAreaElement>(null);
+
+  // Owner, 2026-08-16: scheduled posts get the hashtag list too.
+  //
+  // ⚠ MUST be declared above the `if (!post) return null` below. Hooks run in
+  // the same order on every render or React throws — and this dialog renders
+  // with a null post every time it is closed, which is most of the time.
+  //
+  // setValue re-applies the 2200 clamp the textarea's own onChange applies.
+  // Picking a tag is the ONE way text enters this box without passing through
+  // that handler, so without this a long caption could be pushed over the
+  // limit by the very list meant to help.
+  const captionHashtags = useCaptionHashtags({
+    textareaRef: captionRef,
+    value: content,
+    setValue: (v) => setContent(v.slice(0, 2200)),
+  });
 
   React.useEffect(() => {
     if (post && open) {
@@ -71,6 +90,7 @@ export default function EditScheduledPostDialog({
           : { id: post.id, content: content.trim() };
       await update.mutateAsync(patch);
       toast({ title: isTime ? "Rescheduled" : "Caption updated" });
+      captionHashtags.reset();
       onOpenChange(false);
     } catch (e: any) {
       toast({
@@ -96,13 +116,35 @@ export default function EditScheduledPostDialog({
             disabled={update.isPending}
           />
         ) : (
-          <Textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value.slice(0, 2200))}
-            rows={6}
-            placeholder="Write your caption…"
-            disabled={update.isPending}
-          />
+          <div className="relative">
+            <Textarea
+              ref={captionRef}
+              value={content}
+              onChange={(e) => {
+                setContent(e.target.value.slice(0, 2200));
+                captionHashtags.refresh();
+              }}
+              onClick={captionHashtags.refresh}
+              onKeyUp={captionHashtags.refresh}
+              onKeyDown={captionHashtags.onKeyDown}
+              rows={6}
+              placeholder="Write your caption…"
+              disabled={update.isPending}
+            />
+            {/* INLINE, so the dialog grows and the footer moves down.
+                Measured at 360px: floating the list downward covered Cancel and
+                Save; floating it upward covered the dialog title and its close
+                button. Taking real space is the only placement here that hides
+                no control at all. */}
+            <HashtagSuggestions
+              open={captionHashtags.open}
+              suggestions={captionHashtags.suggestions}
+              focusIdx={captionHashtags.focusIdx}
+              onFocusIdx={captionHashtags.setFocusIdx}
+              onPick={captionHashtags.pick}
+              placement="inline"
+            />
+          </div>
         )}
 
         <DialogFooter>

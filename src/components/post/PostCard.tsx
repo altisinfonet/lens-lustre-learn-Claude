@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { publicUrl } from "@/lib/publicUrl";
 import { Link } from "react-router-dom";
 import { MessageCircle, Share2, Send, Copy, MoreHorizontal, Trash2, Flag, Eye, Pencil, UserPlus, UserCheck, UserMinus, Users } from "lucide-react";
@@ -16,6 +16,8 @@ import ContributorScore from "@/components/ContributorScore";
 import TaggedPeople from "@/components/post/TaggedPeople";
 import PostMedia from "@/components/post/PostMedia";
 import Caption from "@/components/post/Caption";
+import HashtagSuggestions from "@/components/post/HashtagSuggestions";
+import { useCaptionHashtags } from "@/hooks/feed/useCaptionHashtags";
 import PostCommentsSection from "@/components/PostCommentsSection";
 import { timeAgo, privacyIcon } from "@/lib/postUtils";
 import { formatNumber } from "@/lib/postAnalytics";
@@ -73,6 +75,17 @@ const PostCard = ({
   const [actionLoading, setActionLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editDraft, setEditDraft] = useState(post.content || "");
+  const editRef = useRef<HTMLTextAreaElement>(null);
+  // Owner, 2026-08-16: hashtags are offered on inline edit too. Editing a
+  // caption is where a tag is most often FIXED — "#strret" → "#street" — so
+  // leaving the list out of the edit box would be leaving it out of the one
+  // place spelling gets corrected. There is no @mention list here to collide
+  // with, so no `enabled` gate is needed.
+  const editHashtags = useCaptionHashtags({
+    textareaRef: editRef,
+    value: editDraft,
+    setValue: setEditDraft,
+  });
   const [savingEdit, setSavingEdit] = useState(false);
   // Add-friend from suggested posts (sends request + auto-follows)
   const sendFriend = useSendFriendRequest();
@@ -125,6 +138,7 @@ const PostCard = ({
     const trimmed = editDraft.trim();
     if (trimmed === (post.content || "").trim()) {
       setIsEditing(false);
+      editHashtags.reset();
       return;
     }
     setSavingEdit(true);
@@ -139,6 +153,7 @@ const PostCard = ({
     }
     onContentChange?.(post.id, trimmed);
     setIsEditing(false);
+    editHashtags.reset();
     toast({ title: "Caption updated" });
   };
 
@@ -722,13 +737,33 @@ const PostCard = ({
           it because they are now the two halves of one ternary. */}
       {isEditing ? (
         <div className="px-3 pb-2 space-y-2">
-          <Textarea
-            value={editDraft}
-            onChange={(e) => setEditDraft(e.target.value)}
-            placeholder="Write a caption..."
-            className="text-[13px] min-h-[80px] resize-none"
-            autoFocus
-          />
+          {/* No `relative` wrapper needed: the list here is INLINE, because
+              Cancel and Save sit immediately below this box and a floating
+              list would cover both. It pushes them down instead. */}
+          <div>
+            <Textarea
+              ref={editRef}
+              value={editDraft}
+              onChange={(e) => {
+                setEditDraft(e.target.value);
+                editHashtags.refresh();
+              }}
+              onClick={editHashtags.refresh}
+              onKeyUp={editHashtags.refresh}
+              onKeyDown={editHashtags.onKeyDown}
+              placeholder="Write a caption..."
+              className="text-[13px] min-h-[80px] resize-none"
+              autoFocus
+            />
+            <HashtagSuggestions
+              open={editHashtags.open}
+              suggestions={editHashtags.suggestions}
+              focusIdx={editHashtags.focusIdx}
+              onFocusIdx={editHashtags.setFocusIdx}
+              onPick={editHashtags.pick}
+              placement="inline"
+            />
+          </div>
           {/* No running counter (owner, 2026-08-04: "Don't show it anywhere").
               The line appears ONLY over the limit, where Save is disabled and
               silence would leave a dead button unexplained. */}
@@ -739,7 +774,7 @@ const PostCard = ({
           )}
           <div className="flex items-center justify-end gap-2">
             <button
-              onClick={() => { setIsEditing(false); setEditDraft(post.content || ""); }}
+              onClick={() => { setIsEditing(false); setEditDraft(post.content || ""); editHashtags.reset(); }}
               disabled={savingEdit}
               className="text-[11px] px-3 py-1.5 border border-border rounded-md text-muted-foreground hover:border-foreground/40 transition-all uppercase tracking-wider disabled:opacity-50"
               style={headingFont}
