@@ -41,7 +41,7 @@ import { useUserPostsQuery, flattenUserPosts } from "@/hooks/feed/useUserPostsQu
 import ProfilePostGrid from "@/components/profile/ProfilePostGrid";
 import WallViewToggle, { type WallView } from "@/components/profile/WallViewToggle";
 import { useFeedRealtime } from "@/hooks/feed/useRealtimeFeed";
-import { reportClientError, memberFacingMessage, describeThrown } from "@/lib/reportClientError";
+import { reportClientError, memberFacingMessage, memberFacingFailure, describeThrown } from "@/lib/reportClientError";
 import { useCaptionMentions } from "@/hooks/feed/useCaptionMentions";
 import { useCaptionHashtags } from "@/hooks/feed/useCaptionHashtags";
 import HashtagSuggestions from "@/components/post/HashtagSuggestions";
@@ -1031,7 +1031,15 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       queryClient.invalidateQueries({ queryKey: queryKeys.feedAll() });
     } catch (e: any) {
       // Nothing was committed — the draft is intact and can be retried.
-      toast({ title: "Could not publish", description: e?.message, variant: "destructive" });
+      /* A raw JavaScript exception is not an explanation, and a failure with
+         no code cannot be reported. See memberFacingFailure's header — this
+         exact toast is why it exists. The verbatim text still reaches the log
+         under DRAFT-2002. */
+      toast({
+        title: "Could not publish",
+        description: memberFacingFailure(e, "DRAFT-2002"),
+        variant: "destructive",
+      });
     } finally {
       setPosting(false);
     }
