@@ -21,6 +21,14 @@ name: Android Build
 # Owner: "Final build give me after checking as it will in Public."
 # Owner: "build name give 1102."  -> cut, promoted, live.
 #
+# 2026-08-17 — BUILD 1105 / v1.2.14. PRODUCTION BLOCKER: MEMBERS COULD NOT
+# PUBLISH. A resumed draft failed on Share with "Cannot read properties of
+# undefined (reading 'rest')" because one line copied supabase.rpc into a
+# variable, detaching it from its client. Proven by a runtime test that builds
+# a real supabase-js client and was mutation-tested both ways. The same toast
+# also showed a raw JavaScript exception with no error code; it now shows a
+# sentence and DRAFT-2002.
+#
 # 2026-08-17 — BUILD 1104 / v1.2.13. THREE CORRECTIONS THE OWNER ASKED FOR:
 #   1. Crop & Upload no longer dismisses the composer, so the tag/category
 #      step opens instead of everything vanishing. Reproduced, traced to a
@@ -345,12 +353,13 @@ jobs:
           # and if it did, reusing it would put two different builds under one
           # version string. Skipping a name costs nothing; reusing one costs
           # clarity in the Console, in crash reports and on the About screen.
+          # 2026-08-17: bumped 1.2.13 -> 1.2.14 for the publishing blocker fix.
           # 2026-08-17: bumped 1.2.12 -> 1.2.13. Build 1103 was cut as 1.2.12;
           # whether it was promoted or not, bumping is correct — skipping a
           # name costs nothing, reusing one costs clarity in the Console, in
           # crash reports and on the member's About screen.
-          sed -i 's/versionName "1.0"/versionName "1.2.13"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.13 (1.2.11 / build 1102 went public)"
+          sed -i 's/versionName "1.0"/versionName "1.2.14"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.14 (1.2.11 / build 1102 went public)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
