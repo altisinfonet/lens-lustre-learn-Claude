@@ -587,6 +587,21 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
       "None on its own. It exists for the same reason ADMIN-8107 does: if the lock silently stops being applied, the app goes back to browser page zoom and nobody finds out until a member reports the whole screen scaling. DEBUG on purpose — it fires once per launch and must never reach the Error Log. `applied:false` on a handset is the finding; `applied:false` on web is correct and expected.",
   },
   {
+    code: "UI-8010",
+    severity: "warn",
+    description:
+      "The hashtag suggestion lookup behind a post caption failed.",
+    resolution:
+      "The composer keeps working and the list simply stays empty — a member can always type a hashtag by hand, because the text IS the tag. Check suggest_hashtags exists and is granted to `authenticated`, then the member's connection. This never blocks posting.",
+  },
+  {
+    code: "UI-8011",
+    severity: "debug",
+    description: "A member picked a hashtag from the caption suggestion list.",
+    resolution:
+      "None — it confirms the list is being used rather than ignored, which is the only way to tell a working typeahead from a decorative one.",
+  },
+  {
     code: "UI-8008",
     severity: "error",
     description:
