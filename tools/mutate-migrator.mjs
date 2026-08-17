@@ -90,6 +90,30 @@ const MUTATIONS = [
     to: `      await admin.from("post_media").insert(items as never);\n      const { data: out, error: rpcErr } =`,
   },
   {
+    control: "12. skip: reference-COUNT invariant (MIG-2020)",
+    file: SQL,
+    from: `    if _existing <> jsonb_array_length(_items) then`,
+    to: `    if false then`,
+  },
+  {
+    control: "13. skip: per-reference CONTENT invariant (MIG-2021)",
+    file: SQL,
+    from: `      and mo.sha256 = it.sha and mo.width = it.w and mo.height = it.h`,
+    to: `      and mo.width = it.w and mo.height = it.h`,
+  },
+  {
+    control: "14. skip: existing-STATE validation (must be 'ready')",
+    file: SQL,
+    from: `      and mo.owner_id = _owner_id and mo.state = 'ready';`,
+    to: `      and mo.owner_id = _owner_id;`,
+  },
+  {
+    control: "15. reconciliation by SET replaced with count-only",
+    file: PLAN,
+    from: `    } else if (expectedRefSetDigest !== db.refSetDigest) {`,
+    to: `    } else if (false) {`,
+  },
+  {
     control: "11. MIME/dimensions come from the bytes",
     file: FN,
     from: `    const d = imageDimsFromBytes(buf);`,
@@ -130,10 +154,12 @@ for (const m of MUTATIONS) {
 
 // Restore is belt; this is braces.
 for (const [f, s] of originals) writeFileSync(f, s);
-// Only TRACKED files matter here: the new migrator files are untracked by
-// design in this cycle, and listing them as "dirty" would hide a real leftover.
-const dirty = execSync("git diff --name-only", { encoding: "utf8" }).trim();
-console.log("\ntracked files modified after restore:", dirty === "" ? "NONE (clean)" : `LEFTOVER:\n${dirty}`);
+// Compare against the snapshot THIS RUN took, not against the git index: these
+// files are tracked and may be legitimately edited in the working tree, and a
+// git-based check would report that as a mutation leftover.
+const leftover = [...originals.entries()].filter(([f, s]) => read(f) !== s).map(([f]) => f);
+const dirty = leftover.join("\n");
+console.log("\nfiles differing from the pre-run snapshot:", dirty === "" ? "NONE (fully restored)" : `LEFTOVER:\n${dirty}`);
 console.log(failures === 0
   ? "\nALL CONTROLS DETECTED. Every safety control has a test that fails without it."
   : `\n${failures} CONTROL(S) NOT DETECTED — those tests are decoration, not proof.`);
