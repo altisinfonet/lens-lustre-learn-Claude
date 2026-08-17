@@ -21,6 +21,15 @@ name: Android Build
 # Owner: "Final build give me after checking as it will in Public."
 # Owner: "build name give 1102."  -> cut, promoted, live.
 #
+# 2026-08-17 — BUILD 1106 / v1.2.14. Re-cut. Build 1105 carried the same code
+# but was REFUSED by CI, correctly: securityDefinerGrants and deletionCoverage
+# found three defects in the hashtag migration applied that morning —
+# recount_hashtags and suggest_hashtags reachable by anon, and post_hashtags
+# missing its cascade from auth.users. They had been invisible because that
+# migration's filename did not match the 14-digit pattern both gates select on.
+# Fixed in production as migration 20260817102540 and verified there. The gate
+# was not touched. versionName stays 1.2.14 — 1105 produced no artifact.
+#
 # 2026-08-17 — BUILD 1105 / v1.2.14. PRODUCTION BLOCKER: MEMBERS COULD NOT
 # PUBLISH. A resumed draft failed on Share with "Cannot read properties of
 # undefined (reading 'rest')" because one line copied supabase.rpc into a
