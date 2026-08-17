@@ -215,15 +215,25 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   // to call twice.
   const selectedCountRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /**
+   * ONE REF FOR BOTH CAPTION BOXES, and that is not a shortcut.
+   *
+   * There are two caption textareas in this file: the web composer's, inside
+   * `composerStep === "compose"`, and the app's, inside
+   * `composerStep === "settings"`. THEY CAN NEVER BE MOUNTED TOGETHER — the
+   * step is one or the other, and the website's settings step has no caption
+   * box at all. So one ref lands on whichever exists, and React nulls it on
+   * unmount.
+   *
+   * Why it matters, owner-reported 2026-08-17: the app box never had a ref, so
+   * `useCaptionMentions` was reading a textarea that was not on screen and the
+   * @mention list has never once appeared on a phone. Two hook instances would
+   * have "fixed" the dropdown and broken something quieter — only the instance
+   * a name was PICKED from can convert "@Name" into `@[Name](id)` at submit,
+   * so a name picked on the app would have posted as plain text. One ref keeps
+   * one list of picks, which is the thing that has to stay whole.
+   */
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  // The app's caption box on screen 2 is a DIFFERENT textarea from the web
-  // composer's, and it never had a ref. That is why the @mention list has
-  // never appeared on a phone: `pick` and `refresh` both read textareaRef,
-  // which is null while the app screen is the one on show. Giving the app box
-  // its own ref is what lets the hashtag list work there — the mention list is
-  // left exactly as it is, because changing it is a separate decision with its
-  // own testing, and "never break what works" outranks tidiness.
-  const appTextareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [pendingTags, setPendingTags] = useState<PendingTag[]>([]);
@@ -540,22 +550,55 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     setValue: setNewContent,
   });
   // Hashtags in the caption — owner, 2026-08-16, "Post Section Only".
-  // TWO instances, one per caption box, because each is bound to its own
-  // textarea ref and the app's box is not the web's box. `enabled` keeps the
-  // two dropdowns mutually exclusive: if the member is mid-@mention, the
-  // hashtag list stays shut rather than stacking on top of it.
+  // ONE instance, on the shared caption ref above. `enabled` keeps the two
+  // dropdowns mutually exclusive: if the member is mid-@mention, the hashtag
+  // list stays shut rather than stacking on top of it.
   const captionHashtags = useCaptionHashtags({
     textareaRef,
     value: newContent,
     setValue: setNewContent,
     enabled: !captionMentions.open,
   });
-  const appCaptionHashtags = useCaptionHashtags({
-    textareaRef: appTextareaRef,
-    value: newContent,
-    setValue: setNewContent,
-    enabled: !captionMentions.open,
-  });
+  /**
+   * THE @MENTION LIST, DRAWN ONCE AND USED BY BOTH CAPTION BOXES.
+   *
+   * It was written inline under the web composer's textarea and existed
+   * nowhere else, which is half of why the app never showed it. Hoisted to a
+   * single value rather than copied: the same rule the owner set on
+   * 2026-08-15 after a post rendered two different ways — if two screens draw
+   * the same thing, they draw it with the same code or they drift apart.
+   *
+   * Instagram places caption suggestions in a list under the text box, so we
+   * do too. Buttons use onPointerDown (not onClick): a tap must win the race
+   * with the textarea's blur, the same Android-WebView rule already recorded
+   * in MentionInput.tsx and GlobalSearch.tsx.
+   */
+  const mentionList = captionMentions.open ? (
+    <div className="absolute top-full left-0 right-0 mt-1 z-30 rounded-lg border border-border bg-popover shadow-lg overflow-hidden">
+      {captionMentions.suggestions.map((s, i) => (
+        <button
+          key={s.id}
+          type="button"
+          onPointerDown={(e) => {
+            e.preventDefault();
+            captionMentions.pick(s);
+          }}
+          onMouseEnter={() => captionMentions.setFocusIdx(i)}
+          className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm ${i === captionMentions.focusIdx ? "bg-accent" : ""}`}
+        >
+          {s.avatar_url ? (
+            <img src={s.avatar_url} alt="" loading="lazy" className="h-7 w-7 rounded-full object-cover" />
+          ) : (
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+              {(s.display || "?")[0]?.toUpperCase()}
+            </div>
+          )}
+          <span className="font-medium">{s.display}</span>
+        </button>
+      ))}
+    </div>
+  ) : null;
+
   const createScheduled = useCreateScheduledPost();
   // Infinite scroll handled by <InfiniteScrollSentinel /> below.
 
@@ -976,10 +1019,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       setResumedThumbs([]);
       setNewContent("");
       captionMentions.reset();
-      // Both hashtag lists: the composer and the app screen share one caption
-      // string, so whichever was open must be closed with it.
       captionHashtags.reset();
-      appCaptionHashtags.reset();
       setPostCategories([]);
       setPendingTags([]);
       setExcludeFromSearch(false);
@@ -1152,7 +1192,6 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           setNewContent("");
           captionMentions.reset();
           captionHashtags.reset();
-          appCaptionHashtags.reset();
           setExcludeFromSearch(false);
           setScheduleAt(null);
           setShowSchedule(false);
@@ -1255,7 +1294,6 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         setNewContent("");
         captionMentions.reset();
         captionHashtags.reset();
-        appCaptionHashtags.reset();
         setExcludeFromSearch(false);
         setPostCategories([]);
         clearAllImages();
@@ -1607,7 +1645,44 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           )}
 
           <Dialog open={composerOpen} onOpenChange={(o) => (o ? setComposerOpen(true) : closeComposer())}>
-            <DialogContent className="flex max-h-[92dvh] max-w-lg flex-col gap-0 p-0">
+            <DialogContent
+              className="flex max-h-[92dvh] max-w-lg flex-col gap-0 p-0"
+              /*
+               * ⚠ WHILE THE CROP DIALOG IS OPEN, NOTHING OUTSIDE MAY DISMISS
+               * THIS ONE. Measured 2026-08-17, not reasoned about.
+               *
+               * Owner: "If anyone click crop and upload, option for Tag and
+               * select category screen is not opening, directly lightbox
+               * disappearing." Reproduced in tools/uishot/repro-crop-upload.mjs
+               * and traced to its origin with a stack trace out of the browser:
+               *
+               *   closeComposer
+               *     <- onOpenChange (this Dialog)
+               *     <- onDismiss
+               *     <- DismissableLayer usePointerDownOutside
+               *
+               * The crop dialog is deliberately rendered OUTSIDE this Dialog —
+               * that is the 1.2.10 fix for the frozen crop screen, because
+               * Radix puts `pointer-events: none` on <body> and anything inside
+               * the dialog's inert region cannot be touched. The cost of that
+               * fix, unnoticed until now: every press inside the crop dialog is
+               * a press OUTSIDE this one, so Radix read "Crop & Upload" as the
+               * member clicking away and dismissed the composer. The photo was
+               * cropped correctly and then had nowhere to go — the tag and
+               * category step never opened because the composer was gone.
+               *
+               * Guarded on `cropIndex`, not on the event target: while a dialog
+               * is open ON TOP of this one, no outside interaction of any kind
+               * should close this one. That is true of a stray tap on the page
+               * behind just as much as of the Crop & Upload button.
+               */
+              onInteractOutside={(e) => { if (cropIndex !== null) e.preventDefault(); }}
+              onPointerDownOutside={(e) => { if (cropIndex !== null) e.preventDefault(); }}
+              /* Escape belongs to the topmost dialog. The crop dialog closes
+                 itself on Escape; without this the same key press closed both
+                 and the member lost the whole composition. */
+              onEscapeKeyDown={(e) => { if (cropIndex !== null) e.preventDefault(); }}
+            >
               <header className="flex items-center gap-2 border-b border-border px-4 py-3">
                 {composerStep === "settings" ? (
                   <button
@@ -1749,36 +1824,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                         rows={3}
                       />
 
-                      {/* @mention dropdown — Instagram places caption suggestions in
-                          a list under the text box, so we do too. Buttons use
-                          onPointerDown (not onClick): a tap must win the race with
-                          the textarea's blur, the same Android-WebView rule already
-                          recorded in MentionInput.tsx and GlobalSearch.tsx. */}
-                      {captionMentions.open && (
-                        <div className="absolute top-full left-0 right-0 mt-1 z-30 rounded-lg border border-border bg-popover shadow-lg overflow-hidden">
-                          {captionMentions.suggestions.map((s, i) => (
-                            <button
-                              key={s.id}
-                              type="button"
-                              onPointerDown={(e) => {
-                                e.preventDefault();
-                                captionMentions.pick(s);
-                              }}
-                              onMouseEnter={() => captionMentions.setFocusIdx(i)}
-                              className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm ${i === captionMentions.focusIdx ? "bg-accent" : ""}`}
-                            >
-                              {s.avatar_url ? (
-                                <img src={s.avatar_url} alt="" loading="lazy" className="h-7 w-7 rounded-full object-cover" />
-                              ) : (
-                                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-                                  {(s.display || "?")[0]?.toUpperCase()}
-                                </div>
-                              )}
-                              <span className="font-medium">{s.display}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      {mentionList}
 
                       {/* #hashtag list — same anchor, same tap rule. Only one
                           of the two can be open at a time (see `enabled`). */}
@@ -1958,35 +2004,36 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                             the list would sit somewhere else entirely. */}
                         <div className="relative">
                           <Textarea
-                            ref={appTextareaRef}
+                            ref={textareaRef}
                             value={newContent}
                             onChange={(e) => {
                               setNewContent(e.target.value);
                               captionMentions.refresh();
-                              appCaptionHashtags.refresh();
+                              captionHashtags.refresh();
                             }}
                             onClick={() => {
                               captionMentions.refresh();
-                              appCaptionHashtags.refresh();
+                              captionHashtags.refresh();
                             }}
                             onKeyUp={() => {
                               captionMentions.refresh();
-                              appCaptionHashtags.refresh();
+                              captionHashtags.refresh();
                             }}
                             onKeyDown={(e) => {
                               captionMentions.onKeyDown(e);
-                              appCaptionHashtags.onKeyDown(e);
+                              captionHashtags.onKeyDown(e);
                             }}
                             placeholder={t("post.caption", "Add a caption…")}
                             className="min-h-[72px] resize-none border-0 bg-transparent px-0 text-base focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
                             rows={2}
                           />
+                          {mentionList}
                           <HashtagSuggestions
-                            open={appCaptionHashtags.open}
-                            suggestions={appCaptionHashtags.suggestions}
-                            focusIdx={appCaptionHashtags.focusIdx}
-                            onFocusIdx={appCaptionHashtags.setFocusIdx}
-                            onPick={appCaptionHashtags.pick}
+                            open={captionHashtags.open}
+                            suggestions={captionHashtags.suggestions}
+                            focusIdx={captionHashtags.focusIdx}
+                            onFocusIdx={captionHashtags.setFocusIdx}
+                            onPick={captionHashtags.pick}
                           />
                         </div>
                         {newContent.length > 2200 && (
