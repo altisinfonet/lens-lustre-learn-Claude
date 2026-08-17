@@ -30,7 +30,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 import {
   assertFence, assertManifestIntegrity, groupByPost, keySetText,
-  parseManifest, reconcile, verifyMeasured, CDN_HOST,
+  parseManifest, reconcile, verifyMeasured, expectedRefSetText, CDN_HOST,
   type ManifestRow, type Measured, type Refusal,
 } from "../_shared/manifestPlan.ts";
 import { imageDimsFromBytes } from "../_shared/imageDims.ts";
@@ -154,7 +154,11 @@ Deno.serve(async (req) => {
     for (const postId of slice) {
       if (Date.now() - t0 > TIME_BUDGET_MS) { results.push({ post_id: postId, result: "deferred-time-budget" }); break; }
       const group = byPost.get(postId)!;
-      if (done.has(postId)) { skipped++; results.push({ post_id: postId, result: "skipped", reason: "already has references" }); continue; }
+      // ⚠ NO BLIND PRE-SKIP. Cycle 7 found that skipping here on row existence
+      // alone bypassed every invariant. A post that already has references is
+      // still measured and still sent to media_migrate_post, which compares the
+      // existing set to the manifest and returns `verified-skip` or refuses.
+      const alreadyHasRefs = done.has(postId);
 
       // ── 5. PER-ITEM VERIFICATION, against the manifest ──────────────────
       const items: Record<string, unknown>[] = [];
@@ -172,14 +176,19 @@ Deno.serve(async (req) => {
       }
       if (postRefusal) { refused++; results.push({ post_id: postId, result: "refused", refusal: postRefusal }); continue; }
 
-      if (dryRun) { results.push({ post_id: postId, result: "would-migrate", slides: items.length }); continue; }
+      if (dryRun) {
+        results.push({ post_id: postId, slides: items.length,
+          result: alreadyHasRefs ? "would-verify-existing-references" : "would-migrate" });
+        continue;
+      }
 
       // ── 6. COMMIT — one post, one transaction, inside the database ──────
       const { data: out, error: rpcErr } =
         await admin.rpc("media_migrate_post", { _post_id: postId, _owner_id: group[0].owner_id, _items: items });
       if (rpcErr) { refused++; results.push({ post_id: postId, result: "failed", error: rpcErr.message }); continue; }
-      migrated++;
-      results.push({ post_id: postId, result: "committed", detail: out });
+      const outcome = (out as { result?: string } | null)?.result;
+      if (outcome === "verified-skip") { skipped++; } else { migrated++; }
+      results.push({ post_id: postId, result: outcome ?? "committed", detail: out });
     }
 
     // ── 7. RECONCILE ──────────────────────────────────────────────────────
@@ -189,7 +198,8 @@ Deno.serve(async (req) => {
       ? reconcile(rows, {
           postMediaCount: rec.post_media_rows, mediaObjectCount: rec.media_objects_rows,
           unreferencedMediaCount: rec.unreferenced_media, nonReadyMediaCount: rec.non_ready_media,
-        })
+          refSetDigest: rec.ref_set_md5,
+        }, await md5Hex(expectedRefSetText(rows)))
       : null;
 
     return json({
