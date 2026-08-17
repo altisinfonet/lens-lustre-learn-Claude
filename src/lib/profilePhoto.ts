@@ -28,7 +28,7 @@
  * reopens exactly this hole.
  *
  * ⚠ KEEP IN SYNC WITH THE DATABASE. `public.has_profile_photo(uuid)` in
- * supabase/migrations/20260801160000_require_own_profile_photo.sql applies the
+ * supabase/migrations/20260801160001_require_own_profile_photo.sql applies the
  * same two patterns, and it is the one that actually blocks a post. If you
  * change the rule here, change it there in the same commit — otherwise the UI
  * and the server disagree and members get an unexplained refusal.

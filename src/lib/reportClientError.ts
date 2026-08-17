@@ -105,6 +105,48 @@ export function memberFacingMessage(err: unknown): string {
 }
 
 /**
+ * The same idea, one step further, for a failure the member must be able to
+ * REPORT — every one of which the owner requires to carry a catalog code.
+ *
+ * ── WHY THIS EXISTS ───────────────────────────────────────────────────────
+ * On 2026-08-17 a member on the Android app was shown, as the whole
+ * explanation of why his photograph would not publish:
+ *
+ *     Could not publish
+ *     Cannot read properties of undefined (reading 'rest')
+ *
+ * Two separate failures in one toast. The obvious one: a raw JavaScript
+ * exception is not a sentence anybody can act on. The quieter one, and the
+ * reason it cost a day: `DRAFT-2002` WAS written to the log, but never to the
+ * screen — so the member had no code to quote and the report arrived as a
+ * screenshot of a stack-trace fragment.
+ *
+ * ── THE RULE THIS ENCODES ─────────────────────────────────────────────────
+ * A message the DATABASE wrote is meant for people — our own triggers raise
+ * "You are posting too quickly" and "Please add a profile photo first" — so it
+ * is shown as-is. A message the JAVASCRIPT ENGINE wrote is a defect in our
+ * code; the member did nothing wrong and can do nothing about it, so they get
+ * a plain sentence instead. Either way the code goes on the end, so the next
+ * report says "I'm getting DRAFT-2002" and the search starts where it should.
+ *
+ * The raw text is never lost — `logger` still records it verbatim under the
+ * same code.
+ */
+export function memberFacingFailure(err: unknown, code: string): string {
+  const raw = (err as { message?: unknown } | null)?.message;
+  const msg = typeof raw === "string" ? raw.trim() : "";
+
+  // The signatures of a programming fault, not of a refusal a member caused.
+  const isOurBug =
+    /cannot read propert|reading '|is not a function|is not iterable|undefined is not|null is not an object|of undefined|of null|is not defined/i.test(
+      msg,
+    );
+
+  if (msg && !isOurBug) return `${msg} (${code})`;
+  return `Something went wrong on our side. Nothing was lost — please try again. (${code})`;
+}
+
+/**
  * Fire-and-forget. Deliberately NOT async from the caller's point of view —
  * see rule 2 above.
  */
