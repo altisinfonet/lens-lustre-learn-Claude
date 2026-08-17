@@ -17,6 +17,10 @@ import ProfilePostGrid from "@/components/profile/ProfilePostGrid";
 import ImageCropModal from "@/components/admin/ImageCropModal";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import PostComposerPreview from "@/components/post/PostComposerPreview";
+import HashtagSuggestions from "@/components/post/HashtagSuggestions";
+import { Textarea } from "@/components/ui/textarea";
+import { DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import WallViewToggle, { type WallView } from "@/components/profile/WallViewToggle";
 import { Calendar } from "@/components/ui/calendar";
 import type { UnifiedPost } from "@/types/post";
@@ -324,6 +328,145 @@ export const SCENES: Record<string, () => JSX.Element> = {
     };
     return <Demo />;
   },
+
+  /*
+   * ── HASHTAG SUGGESTIONS ───────────────────────────────────────────────────
+   * The numbers below are the REAL production figures measured on 2026-08-16,
+   * not invented ones, so a screenshot shows what a member will actually see:
+   * #50mmretinaworld genuinely has 11 posts from exactly ONE person.
+   *
+   * These scenes exist because of the crop-dialog lesson (1.2.9/1.2.10): every
+   * fault that reached a member lived in an ARRANGEMENT the harness had never
+   * rendered, while the component alone worked perfectly. So the list is drawn
+   * here inside the two arrangements that can go wrong — hanging below a
+   * composer box, and opening upward inside a dialog above its footer buttons.
+   */
+  "hashtag-list-below-box": () => (
+    <div className="min-h-screen bg-background p-4">
+      <p className="mb-2 text-xs uppercase tracking-widest text-primary">Composer caption</p>
+      <div className="relative">
+        <Textarea
+          value="morning light on the bridge #50mm"
+          readOnly
+          rows={3}
+          className="min-h-[120px] resize-none rounded-2xl border-0 bg-muted/30 px-3 py-2.5 text-base"
+        />
+        <HashtagSuggestions
+          open
+          focusIdx={0}
+          onFocusIdx={() => {}}
+          onPick={() => {}}
+          suggestions={[
+            { tag: "50mmretinaworld", display_tag: "50mmRetinaWorld", unique_user_count: 1, post_count: 11 },
+            { tag: "50mmretina", display_tag: "50mmRetina", unique_user_count: 1, post_count: 6 },
+          ]}
+        />
+      </div>
+    </div>
+  ),
+
+  /**
+   * The ranking argument, made visible: the tag 13 PEOPLE use sits above the
+   * tag with more posts from fewer people. If this scene ever shows them the
+   * other way round, the ORDER BY changed and one member's private tag is
+   * being recommended to the whole platform.
+   */
+  "hashtag-list-ranked-by-people": () => (
+    <div className="min-h-screen bg-background p-4">
+      <div className="relative">
+        <Textarea value="entry for the contest #a" readOnly rows={2} className="resize-none bg-muted/30" />
+        <HashtagSuggestions
+          open
+          focusIdx={1}
+          onFocusIdx={() => {}}
+          onPick={() => {}}
+          suggestions={[
+            { tag: "aug_gallerycontest2026", display_tag: "Aug_GalleryContest2026", unique_user_count: 13, post_count: 24 },
+            { tag: "artofphotography", display_tag: "ArtOfPhotography", unique_user_count: 1, post_count: 2 },
+            { tag: "a_very_long_hashtag_that_should_truncate_rather_than_push_the_counts_off", display_tag: "A_Very_Long_Hashtag_That_Should_Truncate_Rather_Than_Push_The_Counts_Off", unique_user_count: 1, post_count: 1 },
+          ]}
+        />
+      </div>
+    </div>
+  ),
+
+  /**
+   * THE ARRANGEMENT THAT CAN GO WRONG. The scheduled-post dialog puts a
+   * six-row caption box directly above Cancel/Save. A list dropping DOWNWARD
+   * here would land on those buttons — on a 360px phone, partly outside the
+   * dialog. This scene is the proof that it opens upward and both buttons stay
+   * whole and tappable.
+   */
+  "hashtag-list-in-dialog": () => (
+    <div className="min-h-screen bg-background">
+      <Dialog open onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogTitle>Edit caption</DialogTitle>
+          <div>
+            <Textarea value="rescheduled for sunrise #stre" readOnly rows={6} className="resize-none" />
+            <HashtagSuggestions
+              open
+              placement="inline"
+              focusIdx={0}
+              onFocusIdx={() => {}}
+              onPick={() => {}}
+              suggestions={[
+                { tag: "streetphotography", display_tag: "StreetPhotography", unique_user_count: 2, post_count: 3 },
+                { tag: "streetlife", display_tag: "StreetLife", unique_user_count: 1, post_count: 1 },
+              ]}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost">Cancel</Button>
+            <Button>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  ),
+
+  /**
+   * Inline caption edit — Cancel and Save live directly under the box. This is
+   * the scene that decides the placement question: both buttons must be whole
+   * and reachable WHILE the list is open, not just after it closes.
+   *
+   * ⚠ THIS SCENE REPORTS TWO TAP-TARGET FAILURES ON PURPOSE, and they are not
+   * the scene's fault. The buttons below carry PostCard's real classes, and at
+   * 63x31 and 59x29 they are genuinely under the 44px thumb floor — a
+   * PRE-EXISTING defect in the inline post editor that this feature did not
+   * create and has not been authorised to change. Copying the real classes is
+   * what made it visible; substituting `min-h-11` here would have made the
+   * scene pass while the shipped screen stayed wrong. Flagged to the owner
+   * 2026-08-17; the fix is one class on each button, his call to make.
+   */
+  "hashtag-list-inline-edit": () => (
+    <div className="min-h-screen bg-background p-3">
+      <div className="space-y-2">
+        <div>
+          <Textarea value="reworking this caption #stre" readOnly className="min-h-[80px] resize-none text-[13px]" />
+          <HashtagSuggestions
+            open
+            placement="inline"
+            focusIdx={0}
+            onFocusIdx={() => {}}
+            onPick={() => {}}
+            suggestions={[
+              { tag: "streetphotography", display_tag: "StreetPhotography", unique_user_count: 2, post_count: 3 },
+              { tag: "streetlife", display_tag: "StreetLife", unique_user_count: 1, post_count: 1 },
+            ]}
+          />
+        </div>
+        <div className="flex items-center justify-end gap-2">
+          <button className="rounded-md border border-border px-3 py-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+            Cancel
+          </button>
+          <button className="rounded-md bg-primary px-4 py-1.5 text-[11px] font-medium uppercase tracking-wider text-primary-foreground">
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  ),
 
   /** One photo: no reorder arrows can do anything, and there is no cover choice. */
   "composer-single": () => <ComposerHarness srcs={[LAND]} />,
