@@ -19,9 +19,18 @@ name: Android Build
 # BUILD 1102 / v1.2.11 — THE FIRST BUILD CUT FOR A PUBLIC RELEASE
 #
 # Owner: "Final build give me after checking as it will in Public."
-# Owner: "build name give 1102."
+# Owner: "build name give 1102."  -> cut, promoted, live.
 #
-# versionCode is 1000 + the run number, so 1102 requires that EXACTLY ONE more
+# 2026-08-17 — BUILD 1103 / v1.2.12. THE HASHTAG TYPEAHEAD.
+# Owner: "tHIS SYSTEM I WANT ONLY OST SECTION ITSELF", "Post Section Only",
+# "Feed and My Wall", "YEs on inline edit and scheduled posts too".
+#
+# The database half is ALREADY LIVE — it was applied and verified before this
+# build was cut, so the website has had the feature since then. This build is
+# what carries it to the phone, because the app bundles the site rather than
+# loading it (no server.url in capacitor.config).
+#
+# versionCode is 1000 + the run number, so 1103 requires that EXACTLY ONE more
 # workflow run fires. Only two paths trigger this workflow — this file and
 # ANDROID_BUILD_TRIGGER. Every code change for this release was therefore pushed
 # first, touching neither, and this single edit is the one and only trigger.
@@ -327,8 +336,11 @@ jobs:
           # and if it did, reusing it would put two different builds under one
           # version string. Skipping a name costs nothing; reusing one costs
           # clarity in the Console, in crash reports and on the About screen.
-          sed -i 's/versionName "1.0"/versionName "1.2.11"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.11 (live production is 1073 / 1.2.2)"
+          # 2026-08-17: bumped 1.2.11 -> 1.2.12. 1.2.11 (build 1102) was the
+          # first build cut for a public release and the owner promoted it, so
+          # that name is now spoken for on the store and cannot be reused.
+          sed -i 's/versionName "1.0"/versionName "1.2.12"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.12 (1.2.11 / build 1102 went public)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
