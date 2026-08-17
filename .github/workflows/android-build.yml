@@ -21,6 +21,15 @@ name: Android Build
 # Owner: "Final build give me after checking as it will in Public."
 # Owner: "build name give 1102."  -> cut, promoted, live.
 #
+# 2026-08-17 — BUILD 1104 / v1.2.13. THREE CORRECTIONS THE OWNER ASKED FOR:
+#   1. Crop & Upload no longer dismisses the composer, so the tag/category
+#      step opens instead of everything vanishing. Reproduced, traced to a
+#      Radix outside-dismiss, fixed, and MUTATION-TESTED both ways with
+#      tools/uishot/repro-crop-upload.mjs.
+#   2. The inline caption editor's Cancel and Save are 44px again.
+#   3. The app's caption box shares the composer's ref, so @mentions can
+#      appear there for the first time.
+#
 # 2026-08-17 — BUILD 1103 / v1.2.12. THE HASHTAG TYPEAHEAD.
 # Owner: "tHIS SYSTEM I WANT ONLY OST SECTION ITSELF", "Post Section Only",
 # "Feed and My Wall", "YEs on inline edit and scheduled posts too".
@@ -336,11 +345,12 @@ jobs:
           # and if it did, reusing it would put two different builds under one
           # version string. Skipping a name costs nothing; reusing one costs
           # clarity in the Console, in crash reports and on the About screen.
-          # 2026-08-17: bumped 1.2.11 -> 1.2.12. 1.2.11 (build 1102) was the
-          # first build cut for a public release and the owner promoted it, so
-          # that name is now spoken for on the store and cannot be reused.
-          sed -i 's/versionName "1.0"/versionName "1.2.12"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.12 (1.2.11 / build 1102 went public)"
+          # 2026-08-17: bumped 1.2.12 -> 1.2.13. Build 1103 was cut as 1.2.12;
+          # whether it was promoted or not, bumping is correct — skipping a
+          # name costs nothing, reusing one costs clarity in the Console, in
+          # crash reports and on the member's About screen.
+          sed -i 's/versionName "1.0"/versionName "1.2.13"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.13 (1.2.11 / build 1102 went public)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
