@@ -776,7 +776,11 @@ const PostCard = ({
             <button
               onClick={() => { setIsEditing(false); setEditDraft(post.content || ""); editHashtags.reset(); }}
               disabled={savingEdit}
-              className="text-[11px] px-3 py-1.5 border border-border rounded-md text-muted-foreground hover:border-foreground/40 transition-all uppercase tracking-wider disabled:opacity-50"
+              /* min-h-11 = 44px, the thumb floor the capture sweep enforces.
+                 Measured 2026-08-17 at 63x31 — small enough that a miss lands
+                 on the caption box and reopens the keyboard instead. The type
+                 size and letter-spacing are unchanged; only the box grew. */
+              className="text-[11px] min-h-11 px-4 border border-border rounded-md text-muted-foreground hover:border-foreground/40 transition-all uppercase tracking-wider disabled:opacity-50"
               style={headingFont}
             >
               Cancel
@@ -784,7 +788,10 @@ const PostCard = ({
             <button
               onClick={handleSaveCaption}
               disabled={savingEdit || editDraft.length > 2200}
-              className="text-[11px] px-4 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all uppercase tracking-wider font-medium"
+              /* Was 59x29. Same reasoning as Cancel above, and it matters more
+                 here: a missed Save on a caption a member has just rewritten
+                 costs them the rewrite. */
+              className="text-[11px] min-h-11 px-5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all uppercase tracking-wider font-medium"
               style={headingFont}
             >
               {savingEdit ? "Saving..." : editDraft.length > 2200 ? `Trim ${editDraft.length - 2200}` : "Save"}
