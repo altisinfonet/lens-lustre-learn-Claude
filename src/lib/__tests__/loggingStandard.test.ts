@@ -63,6 +63,7 @@ const CONVERTED_FILES = [
   "components/profile/ProfileStories.tsx",
   "components/WallPosts.tsx",
   "hooks/feed/useCaptionMentions.ts",
+  "hooks/feed/useCaptionHashtags.ts",
   "hooks/core/useAuth.tsx",
   "lib/networkTracer.ts",
   // Group A — member-facing, converted 2026-08-06
@@ -119,6 +120,7 @@ const MUST_LOG = [
   "components/profile/ProfileStories.tsx",
   "components/WallPosts.tsx",
   "hooks/feed/useCaptionMentions.ts",
+  "hooks/feed/useCaptionHashtags.ts",
   "hooks/core/useAuth.tsx",
   "lib/networkTracer.ts",
   "lib/imageUpload.ts",
