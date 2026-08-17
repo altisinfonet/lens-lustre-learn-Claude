@@ -104,6 +104,8 @@ declare
   _ids uuid[] := '{}';
   _actual_owner uuid;
   _live_slides int;
+  _existing int;
+  _matched int;
 begin
   if _items is null or jsonb_typeof(_items) <> 'array' or jsonb_array_length(_items) = 0 then
     raise exception 'MIG-2001 _items must be a non-empty array' using errcode = '22023';
@@ -121,11 +123,52 @@ begin
       using errcode = '23514';
   end if;
 
-  -- Already done? Say so and change nothing. This is what makes a repeat run
-  -- and a resumed run the same thing.
-  if exists (select 1 from public.post_media where post_id = _post_id) then
-    return jsonb_build_object('post_id', _post_id, 'result', 'skipped',
-                              'reason', 'already has references');
+  -- ── ALREADY DONE? PROVE IT. ────────────────────────────────────────────
+  -- ⚠ This block replaces a bare `if exists (…) then return 'skipped'`.
+  -- Audited 2026-08-17 (Cycle 7): existence alone checked NOTHING — not ord,
+  -- not owner, not sha256, not dimensions, not mime, not readiness. This
+  -- function is all-or-nothing so IT cannot leave a partial set, but the check
+  -- does not know who wrote the rows: `post_publish_with_media` (which
+  -- `authenticated` may execute), the abandoned backfill, or a manual repair
+  -- all produce references this would have accepted unseen.
+  --
+  -- So: a post that already has references is compared, row for row, against
+  -- the items supplied. Three outcomes and no fourth — verified-skip, or
+  -- refuse. Never a silent skip.
+  select count(*) into _existing from public.post_media where post_id = _post_id;
+  if _existing > 0 then
+    if _existing <> jsonb_array_length(_items) then
+      raise exception 'MIG-2020 post % has % references, manifest has % — refusing to skip',
+        _post_id, _existing, jsonb_array_length(_items) using errcode = '23514';
+    end if;
+    -- Every existing reference must match the manifest item at that position:
+    -- content hash, dimensions, size, mime, owner, and readiness.
+    select count(*) into _matched
+    from public.post_media pm
+    join public.media_objects mo on mo.id = pm.media_id
+    join lateral (
+      select (e->>'ord')::int - 1            as ord0,
+             decode(e->>'sha256','hex')      as sha,
+             (e->>'width')::int              as w,
+             (e->>'height')::int             as h,
+             (e->>'bytes')::bigint           as b,
+             e->>'mime'                      as m
+      from jsonb_array_elements(_items) e
+    ) it on it.ord0 = pm.ord
+    where pm.post_id = _post_id
+      and mo.sha256 = it.sha and mo.width = it.w and mo.height = it.h
+      and mo.bytes = it.b and mo.mime = it.m
+      and mo.owner_id = _owner_id and mo.state = 'ready';
+
+    if _matched <> _existing then
+      raise exception 'MIG-2021 post % has % references but only % match the manifest — refusing to skip',
+        _post_id, _existing, _matched using errcode = '23514';
+    end if;
+    -- Proven equal. A different word from 'skipped', deliberately.
+    return jsonb_build_object('post_id', _post_id, 'result', 'verified-skip',
+                              'references', _existing, 'invariants_checked',
+                              jsonb_build_array('count','ord','sha256','width','height',
+                                                'bytes','mime','owner_id','state'));
   end if;
 
   -- Whole post or nothing: the number of items must equal the number of
@@ -266,7 +309,17 @@ as $$
                                where mo.owner_id <> p.user_id),
     'posts_with_gapped_ords', (select count(*) from (
                                  select post_id from public.post_media
-                                 group by post_id having max(ord) <> count(*) - 1) g)
+                                 group by post_id having max(ord) <> count(*) - 1) g),
+    -- ⚠ COUNT EQUALITY MUST NOT BE ABLE TO PRODUCE A PASS.
+    -- Audited 2026-08-17 (Cycle 7): the previous reconciliation compared
+    -- totals only, so a post carrying the right NUMBER of references pointing
+    -- at the WRONG media reconciled clean. This digest is over the actual
+    -- (post, position, content) triples, so the end state must be the manifest
+    -- itself and not merely the same size as it.
+    'ref_set_md5', (select md5(string_agg(k, E'\n' order by k)) from (
+                      select pm.post_id::text||'|'||pm.ord::text||'|'||encode(mo.sha256,'hex') as k
+                      from public.post_media pm
+                      join public.media_objects mo on mo.id = pm.media_id) t)
   );
 $$;
 
