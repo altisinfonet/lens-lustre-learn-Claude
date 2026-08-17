@@ -371,9 +371,20 @@ export function crossPostSharedContent(rows: ManifestRow[]): { owner_id: string;
  * what the run believed it did. `postMediaCount` and `mediaObjectCount` come
  * from the database after the run.
  */
+/**
+ * The end state as a SET, not a size. One line per reference:
+ *   post_id|ord0|sha256      (ord0 is post_media.ord, i.e. the manifest ord - 1)
+ * The database computes the same string in `media_migration_reconcile()`.
+ */
+export function expectedRefSetText(rows: ManifestRow[]): string {
+  return rows.map((r) => `${r.post_id}|${r.ord - 1}|${r.sha256}`).sort().join("\n");
+}
+
 export function reconcile(
   rows: ManifestRow[],
-  db: { postMediaCount: number; mediaObjectCount: number; unreferencedMediaCount: number; nonReadyMediaCount: number },
+  db: { postMediaCount: number; mediaObjectCount: number; unreferencedMediaCount: number;
+        nonReadyMediaCount: number; refSetDigest?: string },
+  expectedRefSetDigest?: string,
 ): { ok: boolean; failures: Refusal[] } {
   const failures: Refusal[] = [];
   const expectedRefs = rows.length;
@@ -392,6 +403,20 @@ export function reconcile(
   }
   if (db.nonReadyMediaCount !== 0) {
     failures.push({ code: "MIG-1073", detail: `${db.nonReadyMediaCount} media_objects rows are not in state 'ready'` });
+  }
+  // ⚠ COUNT EQUALITY MUST NOT BE ABLE TO PRODUCE A PASS.
+  // Audited 2026-08-17 (Cycle 7): the checks above compare totals, so a post
+  // holding the right NUMBER of references pointing at the WRONG media
+  // reconciled clean. This compares the actual (post, position, content) set.
+  if (expectedRefSetDigest !== undefined || db.refSetDigest !== undefined) {
+    if (!expectedRefSetDigest || !db.refSetDigest) {
+      failures.push({ code: "MIG-1074", detail: "reference-set digest missing on one side — cannot reconcile by set" });
+    } else if (expectedRefSetDigest !== db.refSetDigest) {
+      failures.push({
+        code: "MIG-1075",
+        detail: `reference set differs from the manifest (expected ${expectedRefSetDigest}, actual ${db.refSetDigest}) — counts alone would have passed`,
+      });
+    }
   }
   return { ok: failures.length === 0, failures };
 }
