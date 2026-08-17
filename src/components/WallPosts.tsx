@@ -43,6 +43,8 @@ import WallViewToggle, { type WallView } from "@/components/profile/WallViewTogg
 import { useFeedRealtime } from "@/hooks/feed/useRealtimeFeed";
 import { reportClientError, memberFacingMessage, describeThrown } from "@/lib/reportClientError";
 import { useCaptionMentions } from "@/hooks/feed/useCaptionMentions";
+import { useCaptionHashtags } from "@/hooks/feed/useCaptionHashtags";
+import HashtagSuggestions from "@/components/post/HashtagSuggestions";
 import { logger, newCorrelationId } from "@/lib/logger";
 import type { ReactionType } from "@/components/ReactionPicker";
 import type { UnifiedPost } from "@/types/post";
@@ -214,6 +216,14 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   const selectedCountRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // The app's caption box on screen 2 is a DIFFERENT textarea from the web
+  // composer's, and it never had a ref. That is why the @mention list has
+  // never appeared on a phone: `pick` and `refresh` both read textareaRef,
+  // which is null while the app screen is the one on show. Giving the app box
+  // its own ref is what lets the hashtag list work there — the mention list is
+  // left exactly as it is, because changing it is a separate decision with its
+  // own testing, and "never break what works" outranks tidiness.
+  const appTextareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [pendingTags, setPendingTags] = useState<PendingTag[]>([]);
@@ -528,6 +538,23 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     textareaRef,
     value: newContent,
     setValue: setNewContent,
+  });
+  // Hashtags in the caption — owner, 2026-08-16, "Post Section Only".
+  // TWO instances, one per caption box, because each is bound to its own
+  // textarea ref and the app's box is not the web's box. `enabled` keeps the
+  // two dropdowns mutually exclusive: if the member is mid-@mention, the
+  // hashtag list stays shut rather than stacking on top of it.
+  const captionHashtags = useCaptionHashtags({
+    textareaRef,
+    value: newContent,
+    setValue: setNewContent,
+    enabled: !captionMentions.open,
+  });
+  const appCaptionHashtags = useCaptionHashtags({
+    textareaRef: appTextareaRef,
+    value: newContent,
+    setValue: setNewContent,
+    enabled: !captionMentions.open,
   });
   const createScheduled = useCreateScheduledPost();
   // Infinite scroll handled by <InfiniteScrollSentinel /> below.
@@ -949,6 +976,10 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       setResumedThumbs([]);
       setNewContent("");
       captionMentions.reset();
+      // Both hashtag lists: the composer and the app screen share one caption
+      // string, so whichever was open must be closed with it.
+      captionHashtags.reset();
+      appCaptionHashtags.reset();
       setPostCategories([]);
       setPendingTags([]);
       setExcludeFromSearch(false);
@@ -1120,6 +1151,8 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           toast({ title: "Post scheduled", description: `Will publish at ${scheduleAt.toLocaleString()}` });
           setNewContent("");
           captionMentions.reset();
+          captionHashtags.reset();
+          appCaptionHashtags.reset();
           setExcludeFromSearch(false);
           setScheduleAt(null);
           setShowSchedule(false);
@@ -1221,6 +1254,8 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         }
         setNewContent("");
         captionMentions.reset();
+        captionHashtags.reset();
+        appCaptionHashtags.reset();
         setExcludeFromSearch(false);
         setPostCategories([]);
         clearAllImages();
@@ -1689,12 +1724,26 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                           el.style.height = "auto";
                           el.style.height = Math.min(el.scrollHeight, 440) + "px";
                           captionMentions.refresh();
+                          captionHashtags.refresh();
                         }}
                         // Caret can move without the text changing (clicks, arrow
                         // keys) — the @-dropdown must follow the caret, not the text.
-                        onClick={captionMentions.refresh}
-                        onKeyUp={captionMentions.refresh}
-                        onKeyDown={captionMentions.onKeyDown}
+                        onClick={() => {
+                          captionMentions.refresh();
+                          captionHashtags.refresh();
+                        }}
+                        onKeyUp={() => {
+                          captionMentions.refresh();
+                          captionHashtags.refresh();
+                        }}
+                        // Mentions get first refusal. Its handler returns
+                        // immediately unless its own list is open, and the
+                        // hashtag hook is disabled while that list is open, so
+                        // exactly one of the two can ever consume a key.
+                        onKeyDown={(e) => {
+                          captionMentions.onKeyDown(e);
+                          captionHashtags.onKeyDown(e);
+                        }}
                         placeholder={t("composer.placeholder")}
                         className={`relative resize-none rounded-2xl border-0 px-3 py-2.5 text-base focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60 min-h-[120px] max-h-[280px] overflow-y-auto ${newContent.length > 2200 ? "bg-transparent" : "bg-transparent"}`}
                         rows={3}
@@ -1730,6 +1779,16 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                           ))}
                         </div>
                       )}
+
+                      {/* #hashtag list — same anchor, same tap rule. Only one
+                          of the two can be open at a time (see `enabled`). */}
+                      <HashtagSuggestions
+                        open={captionHashtags.open}
+                        suggestions={captionHashtags.suggestions}
+                        focusIdx={captionHashtags.focusIdx}
+                        onFocusIdx={captionHashtags.setFocusIdx}
+                        onPick={captionHashtags.pick}
+                      />
                     </div>
 
                     {/* No running counter (owner, 2026-08-04: "Don't show it
@@ -1892,19 +1951,44 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                             />
                           </div>
                         )}
-                        <Textarea
-                          value={newContent}
-                          onChange={(e) => {
-                            setNewContent(e.target.value);
-                            captionMentions.refresh();
-                          }}
-                          onClick={captionMentions.refresh}
-                          onKeyUp={captionMentions.refresh}
-                          onKeyDown={captionMentions.onKeyDown}
-                          placeholder={t("post.caption", "Add a caption…")}
-                          className="min-h-[72px] resize-none border-0 bg-transparent px-0 text-base focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
-                          rows={2}
-                        />
+                        {/* `relative` exists so the hashtag list has something
+                            to anchor to. Without it the list would position
+                            against whichever ancestor happens to be positioned
+                            — which on this screen is the scrolling sheet, and
+                            the list would sit somewhere else entirely. */}
+                        <div className="relative">
+                          <Textarea
+                            ref={appTextareaRef}
+                            value={newContent}
+                            onChange={(e) => {
+                              setNewContent(e.target.value);
+                              captionMentions.refresh();
+                              appCaptionHashtags.refresh();
+                            }}
+                            onClick={() => {
+                              captionMentions.refresh();
+                              appCaptionHashtags.refresh();
+                            }}
+                            onKeyUp={() => {
+                              captionMentions.refresh();
+                              appCaptionHashtags.refresh();
+                            }}
+                            onKeyDown={(e) => {
+                              captionMentions.onKeyDown(e);
+                              appCaptionHashtags.onKeyDown(e);
+                            }}
+                            placeholder={t("post.caption", "Add a caption…")}
+                            className="min-h-[72px] resize-none border-0 bg-transparent px-0 text-base focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
+                            rows={2}
+                          />
+                          <HashtagSuggestions
+                            open={appCaptionHashtags.open}
+                            suggestions={appCaptionHashtags.suggestions}
+                            focusIdx={appCaptionHashtags.focusIdx}
+                            onFocusIdx={appCaptionHashtags.setFocusIdx}
+                            onPick={appCaptionHashtags.pick}
+                          />
+                        </div>
                         {newContent.length > 2200 && (
                           <div className="pb-1 text-right text-[10px] font-semibold tabular-nums text-destructive">
                             {newContent.length - 2200} over the 2200 limit
