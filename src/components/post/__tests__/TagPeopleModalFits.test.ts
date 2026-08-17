@@ -164,7 +164,7 @@ describe("consent survived the change — the database still gates publication",
   const SQL = fs.readFileSync(
     path.resolve(
       process.cwd(),
-      "supabase/migrations/20260810120000_tag_anyone_not_only_friends.sql",
+      "supabase/migrations/20260810120001_tag_anyone_not_only_friends.sql",
     ),
     "utf8",
   );
