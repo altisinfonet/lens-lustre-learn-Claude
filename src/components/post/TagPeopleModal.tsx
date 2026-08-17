@@ -89,7 +89,7 @@ export default function TagPeopleModal({
    * else sees it. Removing the friend gate widens who may ASK, not who appears.
    *
    * The matching database change is
-   * `supabase/migrations/20260810120000_tag_anyone_not_only_friends.sql` —
+   * `supabase/migrations/20260810120001_tag_anyone_not_only_friends.sql` —
    * the `validate_post_tag_insert` trigger raised
    * *"You can only tag accepted friends"* and would have refused every tag
    * this picker now offers. Both halves are required; neither works alone.
