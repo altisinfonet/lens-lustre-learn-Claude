@@ -77,7 +77,29 @@ type UntypedRpc = (fn: string, args: Record<string, unknown>) => PromiseLike<{
 }>;
 
 const from = (t: string) => (supabase.from as unknown as UntypedFrom)(t);
-const rpc = supabase.rpc as unknown as UntypedRpc;
+
+/**
+ * ⚠ CALL IT, NEVER COPY IT. This line was `const rpc = supabase.rpc as …`,
+ * and that single word of difference stopped members publishing from the app.
+ *
+ * supabase-js defines rpc as a METHOD:
+ *
+ *     rpc(fn, args, options) { return this.rest.rpc(fn, args, options) }
+ *
+ * Assigning it to a variable throws away the object it belongs to. Calling the
+ * copy runs it with `this === undefined` (ES modules are strict mode), so
+ * `this.rest` threw "Cannot read properties of undefined (reading 'rest')" —
+ * which is exactly what the member saw under "Could not publish", on the one
+ * path that used it: publishing a resumed draft. Reported from the live
+ * Android app 2026-08-17; introduced 2026-08-12 in a21a36e.
+ *
+ * The arrow above does the same job safely, and for a reason worth knowing:
+ * `supabase.rpc` is looked up IN CALL POSITION on every invocation, so the
+ * receiver is still attached when the call happens. `(supabase.rpc as any)(…)`
+ * is safe for the same reason — a cast does not detach anything. Only storing
+ * the bare method does.
+ */
+const rpc: UntypedRpc = (fn, args) => (supabase.rpc as unknown as UntypedRpc)(fn, args);
 
 /**
  * How many days a draft survives after its last edit. Mirrors
