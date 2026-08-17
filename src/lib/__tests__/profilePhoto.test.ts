@@ -125,7 +125,7 @@ describe("nothing may refuse a post or comment for a missing photo", () => {
 describe("the gate that was dropped stays dropped", () => {
   it("the drop migration removes all three RESTRICTIVE photo policies", () => {
     const created = readFileSync(
-      "supabase/migrations/20260801160000_require_own_profile_photo.sql",
+      "supabase/migrations/20260801160001_require_own_profile_photo.sql",
       "utf-8",
     );
     const dropped = readFileSync(
