@@ -22,8 +22,8 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";
 import {
-  assertFence, assertManifestIntegrity, crossPostSharedContent, groupByPost,
-  keySetText, parseManifest, planPost, reconcile, verifyMeasured,
+  assertFence, assertManifestIntegrity, crossPostSharedContent, expectedRefSetText,
+  groupByPost, keySetText, parseManifest, planPost, reconcile, verifyMeasured,
   type ManifestRow, type Measured,
 } from "../../supabase/functions/_shared/manifestPlan";
 
@@ -65,6 +65,8 @@ const goodRows = [
 ];
 const goodText = toText(goodRows);
 const goodHash = sha256(goodText);
+const sqlEngine = readFileSync(
+  resolve(__dirname, "../../supabase/migrations/20260817170000_media_migration_engine.sql"), "utf8");
 const measuredFor = (r: ManifestRow): Measured =>
   ({ status: 200, bytes: r.bytes, width: r.width, height: r.height, mime: r.mime, sha256: r.sha256 });
 
@@ -296,11 +298,101 @@ describe("17–20. running it twice, alongside a live platform, and finishing", 
   it("20. final reconciliation mismatch → FAIL", () => {
     const { rows } = parseManifest(goodText);
     const expectedMedia = new Set(rows.map((r) => `${r.owner_id}|${r.sha256}`)).size;
-    expect(reconcile(rows, { postMediaCount: rows.length, mediaObjectCount: expectedMedia, unreferencedMediaCount: 0, nonReadyMediaCount: 0 }).ok).toBe(true);
-    expect(reconcile(rows, { postMediaCount: rows.length - 1, mediaObjectCount: expectedMedia, unreferencedMediaCount: 0, nonReadyMediaCount: 0 }).failures[0].code).toBe("MIG-1070");
-    expect(reconcile(rows, { postMediaCount: rows.length, mediaObjectCount: expectedMedia + 1, unreferencedMediaCount: 0, nonReadyMediaCount: 0 }).failures[0].code).toBe("MIG-1071");
-    expect(reconcile(rows, { postMediaCount: rows.length, mediaObjectCount: expectedMedia, unreferencedMediaCount: 2, nonReadyMediaCount: 0 }).failures[0].code).toBe("MIG-1072");
-    expect(reconcile(rows, { postMediaCount: rows.length, mediaObjectCount: expectedMedia, unreferencedMediaCount: 0, nonReadyMediaCount: 1 }).failures[0].code).toBe("MIG-1073");
+    const good = { postMediaCount: rows.length, mediaObjectCount: expectedMedia, unreferencedMediaCount: 0, nonReadyMediaCount: 0 };
+    expect(reconcile(rows, good).ok).toBe(true);
+    expect(reconcile(rows, { ...good, postMediaCount: rows.length - 1 }).failures[0].code).toBe("MIG-1070");
+    expect(reconcile(rows, { ...good, mediaObjectCount: expectedMedia + 1 }).failures[0].code).toBe("MIG-1071");
+    expect(reconcile(rows, { ...good, unreferencedMediaCount: 2 }).failures[0].code).toBe("MIG-1072");
+    expect(reconcile(rows, { ...good, nonReadyMediaCount: 1 }).failures[0].code).toBe("MIG-1073");
+  });
+});
+
+describe("Cycle 8 — count equality must not be able to produce a PASS", () => {
+  const { rows } = parseManifest(goodText);
+  const expectedMedia = new Set(rows.map((r) => `${r.owner_id}|${r.sha256}`)).size;
+  const counts = { postMediaCount: rows.length, mediaObjectCount: expectedMedia, unreferencedMediaCount: 0, nonReadyMediaCount: 0 };
+  const expectedDigest = md5(expectedRefSetText(rows));
+
+  it("the reference set is compared as a SET — post|ord0|sha256", () => {
+    const text = expectedRefSetText(rows);
+    expect(text.split("\n")).toHaveLength(rows.length);
+    // ord0 is post_media.ord, i.e. the manifest's 1-based ord minus one
+    expect(text).toContain(`${rows[0].post_id}|0|${rows[0].sha256}`);
+    // sorted and stable, so both sides can compute it independently
+    expect(md5(expectedRefSetText([...rows].reverse()))).toBe(expectedDigest);
+  });
+
+  it("identical counts but a DIFFERENT reference set → FAIL (MIG-1075)", () => {
+    // Same number of references, one of them pointing at other content.
+    const wrong = md5(expectedRefSetText([{ ...rows[0], sha256: SHA("e") }, rows[1], rows[2]]));
+    expect(wrong).not.toBe(expectedDigest);
+    const r = reconcile(rows, { ...counts, refSetDigest: wrong }, expectedDigest);
+    expect(r.ok).toBe(false);
+    expect(r.failures[0].code).toBe("MIG-1075");
+    // every count check above passed — this is the point
+    expect(r.failures).toHaveLength(1);
+  });
+
+  it("matching set → PASS", () => {
+    expect(reconcile(rows, { ...counts, refSetDigest: expectedDigest }, expectedDigest).ok).toBe(true);
+  });
+
+  it("a missing digest on either side → FAIL, never a silent pass (MIG-1074)", () => {
+    expect(reconcile(rows, { ...counts, refSetDigest: expectedDigest }, undefined).failures[0].code).toBe("MIG-1074");
+    expect(reconcile(rows, { ...counts, refSetDigest: "" }, expectedDigest).failures[0].code).toBe("MIG-1074");
+  });
+
+  it("the database computes the same set string", () => {
+    // media_migration_reconcile() must build post_id|ord|sha256 hex, sorted, md5.
+    expect(sqlEngine).toMatch(/ref_set_md5/);
+    expect(sqlEngine).toMatch(/pm\.post_id::text\|\|'\|'\|\|pm\.ord::text\|\|'\|'\|\|encode\(mo\.sha256,'hex'\)/);
+    expect(sqlEngine).toMatch(/md5\(string_agg\(k, E'\\n' order by k\)\)/);
+  });
+});
+
+describe("Cycle 8 — 'skipped' must prove the existing rows are correct", () => {
+  it("skip is invariant-checked, not existence-checked", () => {
+    // The bare `if exists (…) then return 'skipped'` is gone.
+    expect(sqlEngine).not.toMatch(/if exists \(select 1 from public\.post_media where post_id = _post_id\) then/);
+    expect(sqlEngine).toMatch(/select count\(\*\) into _existing from public\.post_media where post_id = _post_id;/);
+  });
+
+  it("a different reference COUNT refuses instead of skipping (MIG-2020)", () => {
+    // Assert the GUARD, not its message. Mutation 12 disabled the `if` and left
+    // the raise text in place; asserting the text alone stayed green.
+    expect(sqlEngine).toMatch(/if _existing <> jsonb_array_length\(_items\) then/);
+    const guard = sqlEngine.indexOf("if _existing <> jsonb_array_length(_items) then");
+    const raise = sqlEngine.indexOf("MIG-2020");
+    expect(guard).toBeGreaterThan(-1);
+    expect(raise).toBeGreaterThan(guard);
+    expect(sqlEngine).toMatch(/MIG-2020 post % has % references, manifest has % — refusing to skip/);
+  });
+
+  it("references that do not match the manifest refuse instead of skipping (MIG-2021)", () => {
+    expect(sqlEngine).toMatch(/MIG-2021 post % has % references but only % match the manifest — refusing to skip/);
+  });
+
+  it("the match compares content, shape, owner and readiness — not just presence", () => {
+    const blk = sqlEngine.slice(sqlEngine.indexOf("select count(*) into _matched"), sqlEngine.indexOf("MIG-2021"));
+    for (const col of ["mo.sha256 = it.sha", "mo.width = it.w", "mo.height = it.h",
+                       "mo.bytes = it.b", "mo.mime = it.m", "mo.owner_id = _owner_id", "mo.state = 'ready'"]) {
+      expect(blk, `skip verification does not check ${col}`).toContain(col);
+    }
+    expect(blk).toContain("it.ord0 = pm.ord");
+  });
+
+  it("a proven skip is a DIFFERENT WORD from a silent one", () => {
+    expect(sqlEngine).toMatch(/'result', 'verified-skip'/);
+    expect(sqlEngine).toMatch(/'invariants_checked'/);
+  });
+
+  it("the edge function no longer pre-skips before the RPC can verify", () => {
+    const fnSrc = readFileSync(resolve(__dirname, "../../supabase/functions/migrate-post-media/index.ts"), "utf8");
+    const fnCode = fnSrc.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
+    expect(fnCode).not.toMatch(/if \(done\.has\(postId\)\)\s*\{[^}]*continue;/);
+    expect(fnCode).toMatch(/const alreadyHasRefs = done\.has\(postId\);/);
+    expect(fnCode).toMatch(/would-verify-existing-references/);
+    expect(fnCode).toMatch(/outcome === "verified-skip"/);
   });
 });
 
