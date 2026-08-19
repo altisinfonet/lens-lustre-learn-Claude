@@ -1,5 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 import { getS3Settings, listAllS3Objects } from "../_shared/s3.ts";
+import {
+  BUCKETS,
+  extractPath,
+  mediaReferenceKeys,
+  type MediaRow,
+} from "../_shared/referenceSet.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,22 +13,26 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const BUCKETS = [
-  "avatars",
-  "competition-photos",
-  "course-images",
-  "email-assets",
-  "journal-images",
-  "portfolio-images",
-  "post-images",
-];
-
 /**
  * ⚠ THIS TABLE IS A DELETION SAFETY LIST. AN OMISSION HERE IS A DATA-LOSS BUG.
  *
- * Anything NOT named below is reported as an orphan, and `purge-s3-orphans`
- * acts on that verdict. A column left out of this file is a file deleted out
- * of a live post.
+ * A file is reported as an orphan unless SOMETHING in the database names it,
+ * and `purge-s3-orphans` acts on that class of verdict. A column left out of
+ * this file is a file deleted out of a live post.
+ *
+ * ── THIS IS NOW HALF THE ANSWER, NOT ALL OF IT (2026-08-19, Item D) ────────
+ *
+ * There are TWO representations of media ownership:
+ *
+ *   1. url columns            — this table
+ *   2. the media graph        — post_media -> media_objects.derivatives,
+ *                               collected by addMediaReferences() below
+ *
+ * `media_objects.derivatives` names storage objects that appear in NO url
+ * column: `post_publish_with_media` inserts posts with `image_urls = '{}'`,
+ * and `media-verify-upload` stores originals under `…/media/<id>/original.…`.
+ * Extending THIS table does not cover them and never will. If you are adding a
+ * media feature, check ../_shared/referenceSet.ts too.
  *
  * ── WHY THIS WAS REWRITTEN, 2026-08-14 ─────────────────────────────────────
  *
@@ -196,27 +206,28 @@ Deno.serve(async (req) => {
     // whoever reads this report before deleting anything needs to know.
     const snapshotSkips: string[] = [];
 
-    const extractPath = (url: string) => {
-      if (!url) return null;
-      // Strip query params (cache busters)
-      const cleanUrl = url.split("?")[0];
-      // Extract path from Supabase storage URL
-      // Pattern: .../storage/v1/object/public/{bucket}/{path}
-      const match = cleanUrl.match(/\/storage\/v1\/object\/(?:public|sign)\/([^?]+)/);
-      if (match) return match[1];
-      // BUG-071: media is served from the R2/CDN host (e.g.
-      // https://cdn.50mmretina.com/<bucket>/<path>). Strip any absolute origin so
-      // an R2/CDN URL normalizes to the same <bucket>/<path> key as the stored
-      // object — otherwise referenced files were missed and flagged as orphans.
-      let pathPart = cleanUrl;
-      const hostMatch = cleanUrl.match(/^https?:\/\/[^/]+\/(.+)$/);
-      if (hostMatch) pathPart = hostMatch[1];
-      for (const b of BUCKETS) {
-        if (pathPart.startsWith(b + "/")) return pathPart;
-        if (cleanUrl.startsWith(b + "/")) return cleanUrl;
-      }
-      return null;
-    };
+    /**
+     * ⚠ THE MEDIA GRAPH IS THE SECOND REPRESENTATION OF MEDIA OWNERSHIP.
+     *
+     * post_media → media_objects → storage. `media_objects.derivatives` names
+     * storage objects that NO url column mentions, so a scan that reads only
+     * REFERENCE_COLUMNS condemns them. See ../_shared/referenceSet.ts for the
+     * three retention rules and why each one is not optional.
+     *
+     * These counters ride in the report because a reference set that silently
+     * shrinks is the defect class that has now bitten this file twice.
+     */
+    let mediaRowsScanned = 0;
+    let mediaKeysAdded = 0;
+    let mediaDerivedInFlight = 0;
+    const mediaStates: Record<string, number> = {};
+    const mediaUnresolved: { media_id: string; value: string }[] = [];
+    const mediaIds = new Set<string>();
+    const referencedMediaIds = new Set<string>();
+
+    // `extractPath` and the media reference rules live in ../_shared/referenceSet.ts
+    // so that the tests exercise the SAME code this function runs, rather than a
+    // regex impression of it. Moved verbatim; behaviour unchanged.
 
     // Query each table individually and collect all referenced storage paths.
     const collectUrls = async () => {
@@ -271,6 +282,76 @@ Deno.serve(async (req) => {
       for (const { table, columns } of REFERENCE_COLUMNS) {
         queries.push(addUrls(table, columns));
       }
+
+      /**
+       * THE MEDIA GRAPH. Not a url column, so it cannot live in
+       * REFERENCE_COLUMNS — and it is NOT best-effort. A failure here is
+       * exactly as fatal as a failure on `posts`: an unread media table means
+       * every object the media engine owns reads as unreferenced.
+       *
+       * `sha256` is deliberately NOT selected. The content hash is server-side
+       * only (see 20260814084711) and this function has no use for it.
+       */
+      const addMediaReferences = async () => {
+        const PAGE = 1000;
+        for (let from = 0; ; from += PAGE) {
+          const { data, error } = await adminClient
+            .from("media_objects")
+            .select("id,owner_id,mime,state,derivatives")
+            .range(from, from + PAGE - 1);
+          if (error) {
+            throw new Error(
+              `reference scan failed on media_objects at offset ${from}: ` +
+              `${error.message ?? String(error)} — aborting rather than reporting a ` +
+              `reference set that cannot see post_media -> media_objects -> storage`,
+            );
+          }
+          if (!data || data.length === 0) break;
+          for (const r of data as unknown as MediaRow[]) mediaIds.add(r.id);
+          const result = mediaReferenceKeys(data as unknown as MediaRow[]);
+          for (const k of result.keys) referencedPaths.add(k);
+          mediaRowsScanned += data.length;
+          mediaKeysAdded += result.keys.length;
+          mediaDerivedInFlight += result.derived_in_flight;
+          mediaUnresolved.push(...result.unresolved);
+          for (const [st, n] of Object.entries(result.by_state)) {
+            mediaStates[st] = (mediaStates[st] ?? 0) + n;
+          }
+          if (data.length < PAGE) break;
+        }
+      };
+      queries.push(addMediaReferences());
+
+      /**
+       * post_media, read ONLY to report which media_objects no post points at.
+       *
+       * ⚠ THIS IS NOT AN ORPHAN TEST AND MUST NEVER BECOME ONE. A media object
+       * with no reference is in-flight, or detached by a quarantine, or waiting
+       * for the publish that is still being typed. Its bytes stay in the
+       * reference set either way (rule 3). Reclaiming them is a separate,
+       * separately-reviewed sweep; this count exists so that storage cannot
+       * leak INVISIBLY as the price of that safety.
+       */
+      const addPostMediaCoverage = async () => {
+        const PAGE = 1000;
+        for (let from = 0; ; from += PAGE) {
+          const { data, error } = await adminClient
+            .from("post_media")
+            .select("media_id")
+            .range(from, from + PAGE - 1);
+          if (error) {
+            throw new Error(
+              `reference scan failed on post_media at offset ${from}: ` +
+              `${error.message ?? String(error)} — aborting rather than reporting ` +
+              `media coverage from a partial read`,
+            );
+          }
+          if (!data || data.length === 0) break;
+          for (const r of data as { media_id: string }[]) referencedMediaIds.add(r.media_id);
+          if (data.length < PAGE) break;
+        }
+      };
+      queries.push(addPostMediaCoverage());
 
       // Snapshots are best-effort: a dropped snapshot table is a legitimate
       // state, unlike a missing live table. Tolerated, but never silently — a
@@ -447,6 +528,28 @@ Deno.serve(async (req) => {
         total_orphan_size_mb: Math.round(totalOrphanSize / 1024 / 1024 * 100) / 100,
       },
       bucket_stats: bucketStats,
+      /**
+       * The media graph, stated per run. `post_media -> media_objects ->
+       * storage` is the SECOND representation of media ownership; a reader who
+       * cannot see these numbers cannot tell a scan that understood it from
+       * one that did not.
+       */
+      media_graph: {
+        media_objects_scanned: mediaRowsScanned,
+        reference_keys_from_media: mediaKeysAdded,
+        rows_by_state: mediaStates,
+        // Rows whose original address had to be DERIVED because the upload is
+        // still in flight and no column names it yet.
+        derived_in_flight_keys: mediaDerivedInFlight,
+        // Media objects no post points at. NOT orphans — see addPostMediaCoverage.
+        media_objects_without_post_reference: mediaIds.size - [...mediaIds].filter((id) => referencedMediaIds.has(id)).length,
+        // ⚠ Derivative values this scan could not resolve to a managed bucket.
+        // They are still protected (kept verbatim in the reference set); they
+        // are listed because an unparsed reference is a gap in this function's
+        // knowledge, and the 263-file near-miss was deleting from ignorance.
+        unresolved_derivative_values: mediaUnresolved.length,
+        unresolved_sample: mediaUnresolved.slice(0, 20),
+      },
       orphan_files: orphans.sort((a, b) => b.size - a.size).slice(0, 500), // Top 500 by size
       r2: {
         scanned: r2Scanned,
@@ -468,9 +571,13 @@ Deno.serve(async (req) => {
       // are always scanned; R2 — the live object store — is scanned when
       // configured, and `r2.scanned=false` + `r2.scan_error` say so loudly
       // when it is not. Never read an absent R2 section as "storage is clean".
-      scope_warning: r2Scanned
+      scope_warning: (r2Scanned
         ? "Supabase Storage and R2 both scanned. R2 orphans are REPORT-ONLY; deletion goes through purge-s3-orphans under the Deletion Protocol."
-        : `R2 was NOT scanned this run (${r2ScanError ?? "unknown reason"}). Supabase Storage only — do not read this as 'storage is clean'.`,
+        : `R2 was NOT scanned this run (${r2ScanError ?? "unknown reason"}). Supabase Storage only — do not read this as 'storage is clean'.`)
+        + ` Reference set covers BOTH representations of media ownership: ${REFERENCE_COLUMNS.length} url-column tables and the media graph (post_media -> media_objects -> storage, ${mediaRowsScanned} media rows).`
+        + (mediaUnresolved.length
+            ? ` ⚠ ${mediaUnresolved.length} derivative value(s) could not be resolved to a managed bucket; they were RETAINED as references, not orphaned. See media_graph.unresolved_sample.`
+            : ""),
       note: "READ-ONLY REPORT. No files were deleted or modified.",
     };
 
