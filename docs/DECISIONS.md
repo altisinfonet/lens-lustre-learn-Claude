@@ -45,7 +45,7 @@ each of those fails the suite.
 | Status | Meaning |
 |---|---|
 | `ACTIVE` | The withholding is in force right now. Its pinning test must exist and must carry the `@decision` marker. |
-| `CLOSED` | The condition in "Restore when" was met and the thing was restored. The pinning test is normally deleted in the same commit. |
+| `CLOSED` | The condition in "Restore when" was met and the thing was restored. **The pinning test MUST be deleted in the same commit** — enforced, because an entry marked closed while its pin still stands is the register claiming something untrue about the product. |
 | `SUPERSEDED` | Replaced by a later decision, which must be named in the entry. |
 
 **Restore when** must name a condition somebody can *check*, not a feeling.
@@ -56,12 +56,14 @@ a reviewer cannot tell whether it has happened.
 
 ## D-001 — The privacy chooser is withheld until the CDN can keep the promise
 
-- **Status:** ACTIVE
+- **Status:** SUPERSEDED
 - **Decided:** 2026-08-16
 - **Decided by:** Assistant, holding build 1102 before the first public release, under the owner's instruction "Final build give me after checking as it will in Public."
 - **Commit:** `c19a0ce`
-- **Pinned by:** `src/components/__tests__/PrivacyChooserWithheld.test.ts`
-- **Restore when:** Authorized media delivery (B5) is live and the Media-URL cell of the Cross-Surface Visibility Invariant is green — i.e. fetching a post's image URL without permission is refused by the server, not merely hidden by the app.
+- **Superseded by:** D-002, on 2026-08-19
+- **Pinned by:** `src/components/__tests__/PrivacyGapDisclosed.test.ts`
+- **Note:** the original pin was `PrivacyChooserWithheld.test.ts`, deleted when this entry was superseded — its successor's test above replaces it.
+- **Restore when:** Superseded before its condition was met — see D-002. The condition it named (authorized media delivery live, Media-URL cell green) is NOT yet true and is now carried by D-002.
 
 ### What is withheld
 
@@ -95,14 +97,57 @@ Members cannot restrict a post. Nobody *lost* a capability — all 218 posts wer
 already public — but nobody gains one either, and the platform looks less
 capable than it is.
 
-### Update, 2026-08-19 — the owner has decided to restore it
+### Closed, 2026-08-19 — superseded by D-002
 
 Told plainly that a restored "Friends" or "Only Me" post keeps a publicly
 fetchable image URL until the media engine is live, and that hiding the link in
-the app does not change that, the owner chose to restore the chooser anyway,
-with the gap disclosed honestly in the UI.
+the app does not change that, the owner chose to restore the chooser with the
+gap disclosed in the UI. Executed the same day. The reasoning above is kept
+verbatim because it is still the reason the gap exists — only the response to
+it changed.
 
-That decision is **not yet executed**. When it is, this entry moves to
-`SUPERSEDED`, names its successor, and the successor records the accepted risk
-and its own restore condition. Until then this entry stays `ACTIVE` and the
-pinning test stays, because the chooser is in fact still withheld.
+---
+
+## D-002 — The audience chooser ships with its limit stated in the UI
+
+- **Status:** ACTIVE
+- **Decided:** 2026-08-19
+- **Decided by:** Owner (Neil Basu), after being told the file-level gap in full and that hiding the link in the app does not close it
+- **Supersedes:** D-001
+- **Pinned by:** `src/components/__tests__/PrivacyGapDisclosed.test.ts`
+- **Restore when:** Nothing to restore — this ENDS when authorized media delivery is live and the Media-URL cell of the Cross-Surface Visibility Invariant is green, i.e. fetching a post's image URL without permission is refused by the server rather than merely hidden by the app. At that point delete `PrivacyGapNotice.tsx`, delete the pinning test, and close this entry in the same commit.
+
+### What was decided
+
+Only Me / Friends / Public are offered again in both composers — the web's
+first screen and screen 2, which is the only one an Android member reaches.
+Alongside them, `PrivacyGapNotice` states, for restricted audiences only, that
+the photo file can still be opened by anyone holding its direct link.
+
+### Why, and what is accepted
+
+The gap D-001 describes is **unchanged and still verified**: `post-images` is a
+public bucket whose `storage.objects` SELECT policy is
+`(bucket_id = 'post-images')` with no privacy condition. The database, the feed
+and eight of the nine visibility surfaces honour a post's privacy; the direct
+image URL does not, and hiding the link client-side changes nothing because the
+file is served with no server-side check — a URL obtained at any point keeps
+working.
+
+D-001 answered this by withholding the control. D-002 answers it by offering
+the control and **telling the truth about its limit**, which is the owner's
+call to make: it touches what the platform promises its members, and that is
+not a decision to be taken quietly inside a component.
+
+### What it costs
+
+A member choosing "Only me" gets a post hidden everywhere in the product, and a
+photograph that is still fetchable by direct link. That is a real gap and the
+notice says so in plain words. The mitigation is honesty, not engineering, and
+it is temporary by design — Phase 2's media authorization engine is built and
+migration-ready, and closing it is what ends this entry.
+
+⚠ THE NOTICE IS NOT COSMETIC. Removing it while keeping the chooser lands
+exactly where D-001 started — a control promising more than the platform can
+keep — while looking, in a diff, like a tidy-up. The pinning test fails if
+either composer offers the chooser without it.
