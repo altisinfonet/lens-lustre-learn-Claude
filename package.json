@@ -17,6 +17,7 @@
     "postinstall": "node -e \"try{require('@swc/core')}catch(e){}\"",
     "ui:harness": "vite --host 127.0.0.1 --port 5199 --strictPort",
     "ui:shot": "node tools/uishot/capture.mjs",
+    "ui:gate": "node tools/uishot/gate.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "gate": "npm run typecheck && npm run test && npm run build"
   },
