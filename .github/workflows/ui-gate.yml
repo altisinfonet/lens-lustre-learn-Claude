@@ -1,0 +1,75 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# THE UI GATE, RUN ON EVERY PUSH — NOT ONLY WHEN A BUILD IS CUT.
+#
+# The same gate is ALSO a hard dependency of `build-aab` in android-build.yml,
+# and that is what actually blocks a release. This file exists because that one
+# only runs when somebody cuts a build:
+#
+#     on: push: paths: [.github/workflows/android-build.yml, ANDROID_BUILD_TRIGGER]
+#
+# So a change to a component could sit on `main` for days having broken a
+# control on some screen, and nothing would say so until release day — when the
+# cost of finding out is highest and the temptation to wave it through is
+# greatest. That is the opposite of what the owner asked for:
+#
+#   "we will build one gate you will break another gate which is working.
+#    This should not happen"
+#
+# Catching it on the push that caused it is the whole point. Run #107 also
+# proved the second reason this is needed: the gate's FIRST real execution
+# failed for an environment reason (`Missing script: "ui:gate"`, because the
+# workflow reached GitHub one commit before package.json did). It blocked the
+# build correctly — but the only way to discover that was to cut a build, which
+# is far too expensive a way to test a checker.
+#
+# ⚠ THIS FILE DOES NOT REPLACE THE GATE IN android-build.yml AND MUST NOT.
+# A job in one workflow cannot be a `needs:` dependency of a job in another, so
+# deleting the copy over there would let a release through with this one still
+# green beside it. `uiGateCannotBeBypassed.test.ts` asserts both.
+#
+# It builds nothing, signs nothing, and touches neither Play nor the CDN.
+# ─────────────────────────────────────────────────────────────────────────────
+name: UI gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ui-gate:
+    name: Every control reachable, nothing regressed
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      # `npm ci`, never `npm install`, and no `|| true` fallback — the same
+      # reasoning as every other job here: a failed install must fail.
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      # The same single command a person runs locally. A gate invoked one way
+      # here and another way on a laptop has two behaviours, and the one that
+      # matters is whichever nobody checked.
+      - name: The UI gate
+        run: npm run ui:gate
+
+      # On a failure these are the difference between "it went red" and knowing
+      # what it saw. On a baseline regression they are also how you tell a real
+      # change from an environment one.
+      - name: Upload the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-sweep-screenshots
+          path: /tmp/shots
+          retention-days: 7
+          if-no-files-found: warn
