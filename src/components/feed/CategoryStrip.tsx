@@ -157,8 +157,35 @@ export default function CategoryStrip({ value, onChange, className }: CategorySt
           // a phone and a visible bar under 46 chips is noise. Desktop reaches
           // the rest through the arrows and the grid below.
           "flex items-stretch gap-1 overflow-x-auto px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-          // Room for the ‹ › and grid buttons so a chip never hides under one.
-          "md:pl-9 md:pr-20",
+          /**
+           * Room for the ‹ › and grid buttons so a chip never hides under one.
+           *
+           * ⚠ `pr-11` IS NOT `md:`, AND THAT WAS THE BUG. The intent above was
+           * right from the start; it was only ever applied from `md` up, while
+           * the "All categories" button is `absolute right-0 w-9` at EVERY
+           * width. So on a phone the reserved space did not exist and the
+           * button sat directly on top of the chips.
+           *
+           * Measured on `screen-feed` at 390 before the fix: the "Architecture"
+           * chip showed 43x62px, and a tap at the centre of what was visible
+           * (x=365) hit the grid button — so the chip opened All categories
+           * instead of filtering the feed. Found by the reachability gate on a
+           * screen nobody was looking at, which is what that gate is for.
+           *
+           * AND IT IS A MARGIN, NOT PADDING — the first attempt at this fix
+           * used `pr-11` and the gate stayed RED, correctly. Padding sits
+           * INSIDE the scrolling content, so it only guarantees the LAST chip
+           * clears the button once you have scrolled to the end; every other
+           * chip still slides underneath on the way past. `mr-9` makes the
+           * scroll viewport itself stop where the button starts, so no chip is
+           * ever rendered under it at any scroll position. Flush against the
+           * button's own `border-l`, which is the divider.
+           *
+           * The ARROWS stay `md:` because they are `hidden md:flex` —
+           * genuinely desktop-only, so reserving width for them on a phone
+           * would steal a chip's worth for nothing.
+           */
+          "mr-9 md:mr-0 md:pl-9 md:pr-20",
         )}
         role="tablist"
         aria-label={t("feed.categories", "Categories")}
