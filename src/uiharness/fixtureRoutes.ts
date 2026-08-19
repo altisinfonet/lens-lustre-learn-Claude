@@ -99,6 +99,27 @@ const EMPTY_BY_DESIGN: Record<string, string> = {
    * where every switch should read "on".
    */
   notification_preferences: "no saved row; the hook's DEFAULTS path, which every new member takes",
+  /**
+   * ── The wall's THREE AUTHORED SECTIONS, added 2026-08-19. ────────────────
+   *
+   * Until today these three had no fixture at all, so every wall scene
+   * photographed itself while shouting "NO FIXTURE" into a console nobody was
+   * reading — 132 errors across four wall scenes, and the sweep had been
+   * failing on them long enough that its red had stopped meaning anything.
+   * That is the same rot this file's header warns about, arriving by the other
+   * door: not a screen quietly empty, but a checker permanently red.
+   *
+   * They are empty for the same reason `featured_photos`, `photo_albums` and
+   * `highlights` above are: each is something a member accumulates over time,
+   * and the state that must look right for EVERY member on day one is the
+   * state without it. A wall carrying competition placements, published
+   * articles and a course row is a genuinely different screenshot and deserves
+   * its own scene rather than being the default every other check is read
+   * through.
+   */
+  competition_entries: "a member who has not entered a competition; the day-one wall",
+  journal_articles: "a member who has published no articles; the wall's default",
+  courses: "a member who teaches no courses; the wall's default",
 };
 
 /**
@@ -142,6 +163,68 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
   // Contributor score drives a small rank chip. Nobody has one here, which is
   // the state a new member and most members are in.
   get_contributor_scores: () => [],
+
+  /**
+   * ── THE WALL'S RELATIONSHIP RPCs, added 2026-08-19. ──────────────────────
+   *
+   * All four must AGREE WITH `friendships` being empty by design above. A
+   * fixture set where `are_friends` says yes while the friendship table is
+   * empty would photograph a combination the app can never actually be in,
+   * which is worse than no fixture: it looks checked.
+   *
+   * So: not friends, therefore no mutuals, therefore no mutual ids. The
+   * visitor wall renders its "Add friend" state and the mutual-friends row is
+   * absent — which is exactly the pairing a real visitor sees on the wall of
+   * someone they have never met, and the one where a stray margin would show.
+   */
+  are_friends: () => false,
+  mutual_friends_count: () => 0,
+  mutual_friend_ids: () => [],
+
+  /**
+   * Is the TARGET an admin? No. Consistent with `get_public_role_user_ids`
+   * and `get_public_roles_for_users` above, both empty: nobody in this fixture
+   * set holds a role, so no badge appears beside any name.
+   */
+  app_has_role: () => false,
+
+  /**
+   * THE PRIVACY-RESOLVED PROFILE FIELDS (BUG-112), AND THE ONE RPC HERE THAT
+   * MUST NOT ANSWER EMPTY.
+   *
+   * `useProfileData` reads `data?.[0]` and falls back to `null`, so returning
+   * `[]` would compile, render, and photograph a wall with NO BIO — while the
+   * `profiles` fixture plainly carries one. A real member looking at their own
+   * wall is the owner, and the owner sees every field. Answering empty would
+   * therefore have been the precise failure this file's header describes: a
+   * screen starved of data, rendering tidily, passing for checked.
+   *
+   * So it is resolved from the SAME `profiles` rows the rest of the harness
+   * uses, by `_target`, and the two cannot drift apart. The remaining columns
+   * are null because this fixture set genuinely carries no city, workplace or
+   * social links — null is what the RPC returns for a field with no value, so
+   * the wall renders its absent state honestly rather than an invented one.
+   */
+  get_profile_visible_fields: (body) => {
+    const target = String(body._target ?? "");
+    const p = profiles.find((x) => x.id === target);
+    if (!p) return []; // an unknown member really does resolve to nothing
+    return [{
+      avatar_url: p.avatar_url ?? null,
+      bio: p.bio ?? null,
+      current_city: null,
+      education: null,
+      facebook_url: null,
+      instagram_url: null,
+      photography_interests: null,
+      portfolio_url: null,
+      pronouns: null,
+      twitter_url: null,
+      website_url: null,
+      workplace: null,
+      youtube_url: null,
+    }];
+  },
 };
 
 /**
