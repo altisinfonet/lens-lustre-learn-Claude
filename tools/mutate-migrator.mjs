@@ -17,7 +17,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 
 const PLAN = "supabase/functions/_shared/manifestPlan.ts";
-const SQL = "supabase/migrations/20260817170000_media_migration_engine.sql";
+const SQL = "supabase/migrations/20260818011014_media_migration_engine.sql";
 const FN = "supabase/functions/migrate-post-media/index.ts";
 const SUITE = "src/__tests__/manifestMigrator.test.ts";
 

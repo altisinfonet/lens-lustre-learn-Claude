@@ -66,7 +66,7 @@ const goodRows = [
 const goodText = toText(goodRows);
 const goodHash = sha256(goodText);
 const sqlEngine = readFileSync(
-  resolve(__dirname, "../../supabase/migrations/20260817170000_media_migration_engine.sql"), "utf8");
+  resolve(__dirname, "../../supabase/migrations/20260818011014_media_migration_engine.sql"), "utf8");
 const measuredFor = (r: ManifestRow): Measured =>
   ({ status: 200, bytes: r.bytes, width: r.width, height: r.height, mime: r.mime, sha256: r.sha256 });
 
@@ -204,7 +204,7 @@ describe("6–12. rows that must never reach the database", () => {
 
 describe("13–16. failures the database must absorb — proven against the shipped SQL", () => {
   const sql = readFileSync(
-    resolve(__dirname, "../../supabase/migrations/20260817170000_media_migration_engine.sql"), "utf8");
+    resolve(__dirname, "../../supabase/migrations/20260818011014_media_migration_engine.sql"), "utf8");
 
   it("13. media_objects failure → the whole post rolls back (one function, one transaction)", () => {
     // A plpgsql function IS a transaction: any RAISE undoes every write it made.
@@ -400,7 +400,7 @@ describe("the engine's own security posture", () => {
   const fnPath = resolve(__dirname, "../../supabase/functions/migrate-post-media/index.ts");
   const fn = existsSync(fnPath) ? readFileSync(fnPath, "utf8") : "";
   const code = fn.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
-  const sql = readFileSync(resolve(__dirname, "../../supabase/migrations/20260817170000_media_migration_engine.sql"), "utf8");
+  const sql = readFileSync(resolve(__dirname, "../../supabase/migrations/20260818011014_media_migration_engine.sql"), "utf8");
 
   it("it has NO population scan of its own — the manifest is the work list", () => {
     expect(code).not.toMatch(/from\(["']posts["']\)/);
