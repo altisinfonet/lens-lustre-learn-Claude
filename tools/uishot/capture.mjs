@@ -184,6 +184,44 @@ for (const scene of scenes) {
         { timeout: 8000 },
       )
       .catch(() => { /* something never settled — the image checks below say so */ });
+
+    /**
+     * ── WAIT FOR EVERY ANIMATION TO FINISH BEFORE MEASURING ANYTHING ────────
+     *
+     * ⚠ THIS IS WHAT MAKES THE BASELINE DIFFABLE. Measured 2026-08-19, and it
+     * cost a false failure on the very first run after the baseline was
+     * recorded: `journey-create-from-feed`'s back-to-top button was captured at
+     * 35x35 — which is 44 x 0.8, its entry animation caught partway — and the
+     * next run reported "button.fixed.bottom-20 is gone", because by then it
+     * had finished leaving. Three probes afterwards found it absent every time.
+     * A baseline diff that raises false alarms is worse than no baseline: it is
+     * a red gate with nothing behind it, which is how a checker teaches people
+     * to re-run rather than read.
+     *
+     * THE FIRST FIX WAS WRONG AND IS WORTH RECORDING. Skipping any control
+     * under `opacity: 0.9` looked like the same rule the tap-target check uses,
+     * and it did remove the flap — along with 143 other controls, because
+     * Radix's dialog Close button is `opacity-70` BY DESIGN, permanently. That
+     * would have made both gates blind to a real, permanently visible control
+     * on every dialog in the app: a checker quietly narrowed to make itself
+     * agree with itself, which is the exact failure this whole gate exists to
+     * prevent.
+     *
+     * So the cause is fixed instead of the symptom. `reducedMotion: "reduce"`
+     * above stops CSS transitions but NOT JS-driven ones, and this waits for
+     * the Web Animations API to report nothing still running. Bounded: a
+     * genuinely infinite animation (a spinner) must not hang the sweep — it
+     * carries on and measures, exactly as before. 800ms: an entry animation runs
+     * 200-400ms, so this clears real ones and costs little on the scenes that
+     * animate for ever. Measured: 4000ms put the full sweep over 12 minutes.
+     */
+    await page
+      .waitForFunction(
+        () => document.getAnimations().every((a) => a.playState !== "running"),
+        null,
+        { timeout: 800 },
+      )
+      .catch(() => { /* something animates for ever; measure anyway */ });
     await page.waitForTimeout(200);
 
     // ── The visual-defect sweep ───────────────────────────────────────────

@@ -9516,13 +9516,6 @@
       "options": null
     },
     {
-      "path": "button.fixed.bottom-20",
-      "w": 35,
-      "h": 35,
-      "reachable": null,
-      "options": null
-    },
-    {
       "path": "a.flex.flex-col",
       "w": 70,
       "h": 36,
@@ -12434,6 +12427,48 @@
       "options": null
     },
     {
+      "path": "a.inline-flex.items-center",
+      "w": 222,
+      "h": 33,
+      "reachable": null,
+      "options": null
+    },
+    {
+      "path": "a.text-[9px].tracking-[0.15em]",
+      "w": 75,
+      "h": 14,
+      "reachable": null,
+      "options": null
+    },
+    {
+      "path": "a.text-[9px].tracking-[0.15em]",
+      "w": 53,
+      "h": 14,
+      "reachable": null,
+      "options": null
+    },
+    {
+      "path": "a.text-[9px].tracking-[0.15em]",
+      "w": 57,
+      "h": 14,
+      "reachable": null,
+      "options": null
+    },
+    {
+      "path": "a.text-[9px].tracking-[0.15em]",
+      "w": 103,
+      "h": 14,
+      "reachable": null,
+      "options": null
+    },
+    {
+      "path": "a.text-[9px].tracking-[0.15em]",
+      "w": 104,
+      "h": 14,
+      "reachable": null,
+      "options": null
+    },
+    {
       "path": "a.font-semibold.tracking-[0.15em]",
       "w": 75,
       "h": 17,
@@ -12458,119 +12493,119 @@
       "path": "button.flex.h-11",
       "w": 44,
       "h": 44,
-      "reachable": null,
+      "reachable": true,
       "options": null
     },
     {
       "path": "button.group.relative",
       "w": 306,
       "h": 66,
-      "reachable": null,
+      "reachable": true,
       "options": null
     },
     {
       "path": "button.group.relative",
       "w": 306,
       "h": 66,
-      "reachable": null,
+      "reachable": true,
       "options": null
     },
     {
       "path": "button.group.relative",
       "w": 306,
       "h": 66,
-      "reachable": null,
+      "reachable": true,
       "options": null
     },
     {
       "path": "button.group.relative",
       "w": 306,
       "h": 66,
-      "reachable": null,
+      "reachable": true,
       "options": null
     },
     {
       "path": "button.group.relative",
       "w": 306,
       "h": 66,
-      "reachable": null,
+      "reachable": true,
       "options": null
     },
     {
       "path": "button.group.relative",
       "w": 306,
       "h": 66,
-      "reachable": null,
+      "reachable": true,
       "options": null
     },
     {
       "path": "button.group.relative",
       "w": 306,
       "h": 66,
-      "reachable": null,
+      "reachable": true,
       "options": null
     },
     {
       "path": "button.group.relative",
       "w": 306,
       "h": 66,
-      "reachable": null,
+      "reachable": true,
       "options": null
     },
     {
       "path": "button.group.relative",
       "w": 306,
       "h": 66,
-      "reachable": null,
+      "reachable": true,
       "options": null
     },
     {
       "path": "button.group.relative",
       "w": 306,
       "h": 66,
-      "reachable": null,
+      "reachable": true,
       "options": null
     },
     {
       "path": "button.group.relative",
       "w": 306,
       "h": 66,
-      "reachable": null,
+      "reachable": true,
       "options": null
     },
     {
       "path": "button.group.relative",
       "w": 306,
       "h": 66,
-      "reachable": null,
+      "reachable": true,
       "options": null
     },
     {
       "path": "button.group.relative",
       "w": 306,
       "h": 66,
-      "reachable": null,
+      "reachable": true,
       "options": null
     },
     {
       "path": "button.group.relative",
       "w": 306,
       "h": 66,
-      "reachable": null,
+      "reachable": true,
       "options": null
     },
     {
       "path": "button.group.relative",
       "w": 306,
       "h": 66,
-      "reachable": null,
+      "reachable": true,
       "options": null
     },
     {
       "path": "button.group.relative",
       "w": 306,
       "h": 66,
-      "reachable": null,
+      "reachable": true,
       "options": null
     },
     {
@@ -15609,6 +15644,20 @@
       "options": null
     },
     {
+      "path": "a.inline-flex.items-center",
+      "w": 222,
+      "h": 33,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "a.text-[9px].tracking-[0.15em]",
+      "w": 75,
+      "h": 14,
+      "reachable": null,
+      "options": null
+    },
+    {
       "path": "button.flex.w-fit",
       "w": 49,
       "h": 44,
@@ -15661,6 +15710,34 @@
       "path": "a.font-semibold.text-foreground",
       "w": 70,
       "h": 15,
+      "reachable": null,
+      "options": null
+    },
+    {
+      "path": "a.text-[9px].tracking-[0.15em]",
+      "w": 53,
+      "h": 14,
+      "reachable": null,
+      "options": null
+    },
+    {
+      "path": "a.text-[9px].tracking-[0.15em]",
+      "w": 57,
+      "h": 14,
+      "reachable": null,
+      "options": null
+    },
+    {
+      "path": "a.text-[9px].tracking-[0.15em]",
+      "w": 103,
+      "h": 14,
+      "reachable": null,
+      "options": null
+    },
+    {
+      "path": "a.text-[9px].tracking-[0.15em]",
+      "w": 104,
+      "h": 14,
       "reachable": null,
       "options": null
     },
@@ -16121,6 +16198,20 @@
       "options": null
     },
     {
+      "path": "a.inline-flex.items-center",
+      "w": 222,
+      "h": 33,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "a.text-[9px].tracking-[0.15em]",
+      "w": 75,
+      "h": 14,
+      "reachable": null,
+      "options": null
+    },
+    {
       "path": "button.text-primary.hover:text-primary/80",
       "w": 14,
       "h": 14,
@@ -16194,6 +16285,34 @@
       "path": "button.inline-flex.items-center",
       "w": 150,
       "h": 38,
+      "reachable": null,
+      "options": null
+    },
+    {
+      "path": "a.text-[9px].tracking-[0.15em]",
+      "w": 53,
+      "h": 14,
+      "reachable": null,
+      "options": null
+    },
+    {
+      "path": "a.text-[9px].tracking-[0.15em]",
+      "w": 57,
+      "h": 14,
+      "reachable": null,
+      "options": null
+    },
+    {
+      "path": "a.text-[9px].tracking-[0.15em]",
+      "w": 103,
+      "h": 14,
+      "reachable": null,
+      "options": null
+    },
+    {
+      "path": "a.text-[9px].tracking-[0.15em]",
+      "w": 104,
+      "h": 14,
       "reachable": null,
       "options": null
     },
