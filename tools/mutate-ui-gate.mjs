@@ -23,6 +23,7 @@ const CAP = "tools/uishot/capture.mjs";
 const GATE = "tools/uishot/gate.mjs";
 const BASE = "tools/uishot/baseline.json";
 const PKG = "package.json";
+const STANDALONE = ".github/workflows/ui-gate.yml";
 const SUITE = "src/__tests__/uiGateCannotBeBypassed.test.ts";
 
 const MUTATIONS = [
@@ -106,6 +107,23 @@ const MUTATIONS = [
     file: PKG,
     from: '"ui:gate": "node tools/uishot/gate.mjs"',
     to: '"ui:gate": "echo skipped"',
+  },
+  {
+    control: "15. the standalone per-push gate workflow is deleted",
+    file: STANDALONE,
+    delete: true,
+  },
+  {
+    control: "16. the standalone gate stops running on push",
+    file: STANDALONE,
+    from: "  push:\n    branches: [main]",
+    to: "  workflow_dispatch:",
+  },
+  {
+    control: "17. the standalone gate swallows its failure",
+    file: STANDALONE,
+    from: "        run: npm run ui:gate",
+    to: "        run: npm run ui:gate || true",
   },
 ];
 
