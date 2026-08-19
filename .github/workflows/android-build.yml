@@ -147,8 +147,90 @@ jobs:
       - name: This project's own security rules
         run: node scripts/security-audit.mjs
 
+  # ---------------------------------------------------------------------------
+  # THE UI GATE — NOTHING IS BUILT UNTIL EVERY CONTROL IS REACHABLE.
+  #
+  # Owner requirement, 2026-08-19, after the registration date-of-birth
+  # dropdowns shipped unusable on BOTH web and app:
+  #   "we will build one gate you will break another gate which is working.
+  #    This should not happen"
+  #
+  # He is describing a class of failure, not one bug, and the class is: a change
+  # in one place silently breaks a control somewhere nobody thought to look. The
+  # 1,982 unit tests could not catch it — only ~15 of them render anything at
+  # all, and a test asserting a function returns the right value has nothing to
+  # say about a nav bar painted on top of a <select>.
+  #
+  # So this job renders every scene at every viewport in real Chromium and
+  # blocks the build on two things a screenshot alone cannot tell you:
+  #
+  #   GATE 1  every interactive control must be the element actually painted at
+  #           its own centre — the exact fault above, hit-tested rather than
+  #           argued about.
+  #   GATE 2  every control's size, reachability and option count is diffed
+  #           against tools/uishot/baseline.json, so a control that disappears,
+  #           shrinks below the tap floor, or quietly loses its options fails
+  #           the build EVEN ON A SCREEN THIS CHANGE NEVER TOUCHED. That is the
+  #           part that answers the owner's objection: it does not depend on
+  #           anyone having predicted the failure.
+  #
+  # `build-aab` carries `needs: [security-gate, ui-gate]`, so a red gate means
+  # the build job never starts and no .aab exists to upload by accident — the
+  # same shape as the security gate above.
+  #
+  # ⚠ THE BASELINE IS DELIBERATE, NOT AUTOMATIC. This job never writes it.
+  # `--baseline-write` is a reviewed act, like an approved migration hash: a run
+  # that silently re-recorded its own baseline would agree with itself for ever.
+  #
+  # Determinism was proven before this was wired in, because a gate that fails
+  # at random is a gate people learn to re-run rather than read: the first
+  # baseline caught a back-to-top button mid-animation at 35x35 (44 x 0.8) and
+  # the next run reported it "gone". Controls mid-transition are now neither
+  # judged nor recorded, and two consecutive independent sweeps then came back
+  # clean against the same baseline.
+  # ---------------------------------------------------------------------------
+  ui-gate:
+    name: UI gate — reachability + baseline (blocks the build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        # `npm ci`, never `npm install`, and no fallback — same reasoning as the
+        # build job below: a failed install must fail, not silently re-resolve.
+        run: npm ci --no-audit --no-fund
+
+      # The container this was developed in ships a pinned Chromium and
+      # capture.mjs resolves it from PLAYWRIGHT_BROWSERS_PATH. A GitHub runner
+      # has neither, so the browser is installed here and capture.mjs falls back
+      # to Playwright's own default — one code path, two environments.
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      # ⚠ ONE COMMAND, THE SAME ONE A PERSON RUNS LOCALLY. The sweep needs a dev
+      # server and capture.mjs deliberately does not start one, so the joining
+      # lives in tools/uishot/gate.mjs rather than being improvised differently
+      # here and on a laptop. A gate invoked two ways has two behaviours.
+      - name: Every control reachable, nothing regressed against the baseline
+        run: npm run ui:gate
+
+      # The screenshots are the evidence. On a failure they are the difference
+      # between "the gate went red" and knowing what it saw.
+      - name: Upload the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-sweep-screenshots
+          path: /tmp/shots
+          retention-days: 7
+          if-no-files-found: warn
+
   build-aab:
-    needs: security-gate
+    needs: [security-gate, ui-gate]
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
