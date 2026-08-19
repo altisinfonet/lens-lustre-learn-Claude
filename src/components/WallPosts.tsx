@@ -45,25 +45,26 @@ import { reportClientError, memberFacingMessage, memberFacingFailure, describeTh
 import { useCaptionMentions } from "@/hooks/feed/useCaptionMentions";
 import { useCaptionHashtags } from "@/hooks/feed/useCaptionHashtags";
 import HashtagSuggestions from "@/components/post/HashtagSuggestions";
+import { PostAudienceChooser, type Privacy as AudiencePrivacy } from "@/components/post/PostAudienceChooser";
 import { logger, newCorrelationId } from "@/lib/logger";
 import type { ReactionType } from "@/components/ReactionPicker";
 import type { UnifiedPost } from "@/types/post";
 import { avatarInitial } from "@/lib/displayName";
 import { mapServerCounts, applyReactionDelta } from "@/lib/feed/realtimeCounts";
 
-type Privacy = "public" | "friends" | "private";
+/**
+ * Re-exported from the chooser so there is ONE list of audiences in the app.
+ * The local copy that used to live here went dead the moment both composers
+ * started rendering `PostAudienceChooser`, and a second copy of a privacy list
+ * is precisely the shape of thing that drifts.
+ */
+type Privacy = AudiencePrivacy;
 
 interface WallPostsProps {
   targetUserId: string;
   isOwnWall: boolean;
   composerOnly?: boolean;
 }
-
-const PRIVACY_OPTIONS: { value: Privacy; label: string; icon: React.ReactNode }[] = [
-  { value: "public", label: "Public", icon: <Globe className="h-3.5 w-3.5" /> },
-  { value: "friends", label: "Friends", icon: <Users className="h-3.5 w-3.5" /> },
-  { value: "private", label: "Only Me", icon: <Lock className="h-3.5 w-3.5" /> },
-];
 
 const Avatar = ({ src, name, size = "md" }: { src: string | null; name: string | null; size?: "sm" | "md" | "lg" }) => {
   const sizeClasses = { sm: "w-8 h-8 text-xs", md: "w-10 h-10 text-sm", lg: "w-10 h-10 text-sm" };
@@ -75,14 +76,6 @@ const Avatar = ({ src, name, size = "md" }: { src: string | null; name: string |
       <span className="text-xs text-primary" style={{ fontFamily: "var(--font-display)" }}>{avatarInitial(name)}</span>
     </div>
   );
-};
-
-const privacyIcon = (p: Privacy) => {
-  switch (p) {
-    case "public": return <Globe className="h-3 w-3" />;
-    case "friends": return <Users className="h-3 w-3" />;
-    case "private": return <Lock className="h-3 w-3" />;
-  }
 };
 
 const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) => {
@@ -1724,51 +1717,34 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                       <div className="min-w-0">
                         <div className="truncate text-sm font-semibold">{currentProfile?.full_name || "You"}</div>
                         {/*
-                          ⚠ THE PRIVACY CHOICE IS WITHHELD UNTIL THE CDN CAN KEEP IT.
+                          RESTORED 2026-08-19, BY THE OWNER'S DECISION, WITH THE
+                          FILE-LEVEL GAP STATED IN THE UI. See docs/DECISIONS.md
+                          D-002; the withholding it replaces is D-001.
                           ─────────────────────────────────────────────────────────
-                          Owner, 2026-08-16, holding a build before its FIRST PUBLIC
-                          release: "Final build give me after checking as it will in
-                          Public."
+                          Withheld on 2026-08-16 because the database honours a
+                          post's privacy and THE DIRECT IMAGE URL DOES NOT: the
+                          `post-images` bucket is public and its storage.objects
+                          SELECT policy is `(bucket_id = 'post-images')` with no
+                          privacy condition at all. Verified still true today.
 
-                          Checked, against production and not from a document:
+                          Told plainly that a "Friends" or "Only me" post keeps a
+                          publicly fetchable photo URL until the media engine is
+                          live, and that hiding the link in the app changes nothing
+                          because the file is served with no server-side check, the
+                          owner chose to restore the chooser anyway — with the gap
+                          disclosed rather than papered over.
 
-                              select privacy, count(*) from posts
-                              -> public: 218      (nothing else exists)
-
-                          The database honours a post's privacy. The feed honours it.
-                          Eight of the nine surfaces in the visibility invariant
-                          honour it. THE DIRECT IMAGE URL DOES NOT — CDN
-                          authorization is the one unfinished piece of the media
-                          engine (B5), and it is the known RED cell in that matrix.
-
-                          Today that is harmless, and only by luck: every one of the
-                          218 posts is public, so there is nothing private to leak.
-                          Going public is precisely the event that ends the luck. The
-                          first member who chooses "Private" would be given a promise
-                          this platform cannot yet keep — their photograph would still
-                          be fetchable by anyone holding the URL.
-
-                          Offering a control that does not do what it says is worse
-                          than not offering it. So the chooser is withheld and every
-                          post is public, which is what all 218 already are: nobody
-                          loses a capability they were actually getting, and nobody is
-                          told something untrue.
-
-                          TO RESTORE IT: delete this block, restore the DropdownMenu
-                          from git history, and delete the test that pins this. Do
-                          that ONLY once authorized media delivery is live and the
-                          Media-URL cell is green — the test names that condition so
-                          it cannot be reverted by someone who does not know why it
-                          is here.
-
-                          `newPrivacy` stays wired end to end and defaults to public,
-                          so nothing downstream changes and the day it comes back is a
-                          one-line day.
+                          ⚠ THE DISCLOSURE BELOW IS THE CONDITION OF THAT DECISION,
+                          NOT DECORATION. Without it this is the exact thing the
+                          withholding existed to prevent: a control that promises
+                          more than the platform can keep. `PrivacyGapDisclosed`
+                          pins it, and D-002 names the condition that removes it.
                         */}
-                        <span className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                          {privacyIcon("public")}
-                          <span>Public</span>
-                        </span>
+                        <PostAudienceChooser
+                          value={newPrivacy}
+                          onChange={setNewPrivacy}
+                          variant="inline"
+                        />
                       </div>
                     </div>
 
@@ -2086,36 +2062,31 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                         </button>
                       )}
                       {/*
-                        ⚠ WITHHELD — and THIS is the one the APP shows.
+                        ⚠ THIS IS THE ONE THE APP SHOWS. RESTORED WITH ITS PAIR.
                         ─────────────────────────────────────────────────────
                         The composer has TWO audience controls: the one on the
                         web's first screen, and this one on screen 2, which is
                         the ONLY one a member on the Android app ever reaches.
 
-                        I removed the web one first and believed I was done.
-                        The test written alongside it failed and named this
-                        line — which is the entire reason the test exists, and
-                        the difference between a privacy control being withheld
-                        and being withheld ON THE WEBSITE ONLY while shipping
-                        live to every phone.
+                        When these were withheld, the web one was removed first
+                        and believed done; the test failed and named THIS line.
+                        That is the difference between a privacy control being
+                        withheld and being withheld ON THE WEBSITE ONLY while
+                        shipping live to every phone — and it cuts exactly the
+                        same way now that they are coming back. Restore both or
+                        neither; `PrivacyGapDisclosed` checks both.
 
-                        Reason, in full, at the other site: the database, the
-                        feed and eight of nine surfaces honour a post's
-                        privacy; the direct image URL does not, because
-                        authorized media delivery (B5) is unfinished. All 218
-                        production posts are public, so nothing leaks today —
-                        going public is what would end that.
-
-                        Restore BOTH together, only when the Media-URL cell is
-                        green, and delete the test in the same commit.
+                        Full reasoning at the other site and in
+                        docs/DECISIONS.md D-002. The notice below is not
+                        optional: it is the condition the owner restored this
+                        under.
                       */}
-                      <div className="flex w-full items-center gap-3 px-1 py-3 text-left">
-                        <Globe className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                        <span className="flex-1">
-                          <span className="block text-sm font-medium">{t("post.audience", "Post audience")}</span>
-                          <span className="block text-xs text-muted-foreground">Public</span>
-                        </span>
-                      </div>
+                      <PostAudienceChooser
+                        value={newPrivacy}
+                        onChange={setNewPrivacy}
+                        variant="row"
+                        rowLabel={t("post.audience", "Post audience")}
+                      />
 
                       <div>
                         <button
