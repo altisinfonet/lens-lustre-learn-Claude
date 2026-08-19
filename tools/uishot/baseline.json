@@ -18093,5 +18093,185 @@
       "reachable": true,
       "options": null
     }
+  ],
+  "privacy-gap-notice--android-360": [],
+  "privacy-gap-notice--iphone-390": [],
+  "privacy-gap-notice--desktop-1280": [],
+  "privacy-gap-notice--app-360": [],
+  "post-audience-chooser--android-360": [
+    {
+      "path": "button#radix-_r_0_.mt-0.5.flex",
+      "w": 89,
+      "h": 32,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "button#radix-_r_2_.mt-0.5.flex",
+      "w": 96,
+      "h": 32,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "button#radix-_r_4_.mt-0.5.flex",
+      "w": 101,
+      "h": 32,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "button#radix-_r_6_.flex.w-full",
+      "w": 328,
+      "h": 60,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "button#radix-_r_8_.flex.w-full",
+      "w": 328,
+      "h": 60,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "button#radix-_r_a_.flex.w-full",
+      "w": 328,
+      "h": 60,
+      "reachable": null,
+      "options": null
+    }
+  ],
+  "post-audience-chooser--iphone-390": [
+    {
+      "path": "button#radix-_r_0_.mt-0.5.flex",
+      "w": 89,
+      "h": 32,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "button#radix-_r_2_.mt-0.5.flex",
+      "w": 96,
+      "h": 32,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "button#radix-_r_4_.mt-0.5.flex",
+      "w": 101,
+      "h": 32,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "button#radix-_r_6_.flex.w-full",
+      "w": 358,
+      "h": 60,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "button#radix-_r_8_.flex.w-full",
+      "w": 358,
+      "h": 60,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "button#radix-_r_a_.flex.w-full",
+      "w": 358,
+      "h": 60,
+      "reachable": true,
+      "options": null
+    }
+  ],
+  "post-audience-chooser--desktop-1280": [
+    {
+      "path": "button#radix-_r_0_.mt-0.5.flex",
+      "w": 89,
+      "h": 32,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "button#radix-_r_2_.mt-0.5.flex",
+      "w": 96,
+      "h": 32,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "button#radix-_r_4_.mt-0.5.flex",
+      "w": 101,
+      "h": 32,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "button#radix-_r_6_.flex.w-full",
+      "w": 1248,
+      "h": 60,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "button#radix-_r_8_.flex.w-full",
+      "w": 1248,
+      "h": 60,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "button#radix-_r_a_.flex.w-full",
+      "w": 1248,
+      "h": 60,
+      "reachable": true,
+      "options": null
+    }
+  ],
+  "post-audience-chooser--app-360": [
+    {
+      "path": "button#radix-_r_0_.mt-0.5.flex",
+      "w": 89,
+      "h": 32,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "button#radix-_r_2_.mt-0.5.flex",
+      "w": 96,
+      "h": 32,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "button#radix-_r_4_.mt-0.5.flex",
+      "w": 101,
+      "h": 32,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "button#radix-_r_6_.flex.w-full",
+      "w": 328,
+      "h": 60,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "button#radix-_r_8_.flex.w-full",
+      "w": 328,
+      "h": 60,
+      "reachable": true,
+      "options": null
+    },
+    {
+      "path": "button#radix-_r_a_.flex.w-full",
+      "w": 328,
+      "h": 60,
+      "reachable": null,
+      "options": null
+    }
   ]
 }
