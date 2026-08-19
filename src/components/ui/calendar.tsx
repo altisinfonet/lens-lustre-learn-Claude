@@ -125,16 +125,52 @@ function Calendar({ className, classNames, showOutsideDays = true, footer, ...pr
         // arrows are pushed to its ends. Positioning each arrow individually
         // is what broke above; one positioned parent is the simpler shape and
         // survives the caption growing dropdowns.
-        nav: "absolute inset-x-0 top-0 z-10 flex h-11 items-center justify-between",
+        /**
+         * ⚠ `pointer-events-none` HERE IS LOAD-BEARING. DO NOT REMOVE IT.
+         *
+         * This bar is `absolute inset-x-0` — FULL WIDTH — at `z-10`, and it is
+         * laid over the caption row, which is where the month and year
+         * dropdowns live. The two arrows it contains sit at the far ends; the
+         * ~250px between them is empty bar, painted directly on top of both
+         * `<select>` elements.
+         *
+         * WHAT THAT COST, 2026-08-18: members could not set a date of birth
+         * during registration, on the website AND in the app, because both
+         * come from this one component. The dropdowns rendered at their
+         * correct size, in the DOM, plainly visible — and swallowed every tap.
+         * Proved with a hit test rather than argued from the code:
+         * `document.elementFromPoint()` at the centre of the month select (12
+         * options) and of the year select (69 options) returned this NAV
+         * element both times, at all four viewports.
+         *
+         * The bar must keep its geometry — it is what centres the arrows over
+         * the caption — so the fix is to stop it INTERCEPTING, not to move it:
+         * the container passes pointers straight through, and each arrow turns
+         * them back on for itself. Net effect is that the arrows behave
+         * exactly as before and the space between them belongs to the
+         * dropdowns again.
+         *
+         * `tools/uishot/capture.mjs` now hit-tests EVERY control on every
+         * scene for exactly this, and `calendar-dob` is the scene that pins
+         * it. Delete `pointer-events-none` and that gate goes red — which was
+         * mutation-proven, not assumed.
+         */
+        nav: "absolute inset-x-0 top-0 z-10 flex h-11 items-center justify-between pointer-events-none",
         // v8 had ONE `nav_button` key plus two position keys. v10 has no shared
         // key at all, so the shared classes are written into both.
+        //
+        // `pointer-events-auto` re-arms each arrow individually — see the nav
+        // comment above. Without it the arrows inherit `none` from the bar and
+        // month navigation dies, trading one dead control for two.
         button_previous: cn(
           buttonVariants({ variant: "ghost" }),
           "h-11 w-11 p-0 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md",
+          "pointer-events-auto",
         ),
         button_next: cn(
           buttonVariants({ variant: "ghost" }),
           "h-11 w-11 p-0 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md",
+          "pointer-events-auto",
         ),
 
         /* ── the grid ───────────────────────────────────────────────────── */
