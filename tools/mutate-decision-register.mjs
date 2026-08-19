@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync, unlinkSync, existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 
 const REG = "docs/DECISIONS.md";
-const PIN = "src/components/__tests__/PrivacyChooserWithheld.test.ts";
+const PIN = "src/components/__tests__/PrivacyGapDisclosed.test.ts";
 const DECOY = "src/__tests__/decisionRegisterMutationDecoy.ts";
 const SUITE = "src/__tests__/decisionRegister.test.ts";
 
@@ -43,20 +43,20 @@ const MUTATIONS = [
   {
     control: "3. the pinning test carries its @decision marker",
     file: PIN,
-    from: " * @decision D-001",
+    from: " * @decision D-002",
     to: " * (marker removed)",
   },
   {
     control: "4. the named pinning test really exists",
     file: REG,
-    from: "**Pinned by:** `src/components/__tests__/PrivacyChooserWithheld.test.ts`",
+    from: "**Pinned by:** `src/components/__tests__/PrivacyGapDisclosed.test.ts`",
     to: "**Pinned by:** `src/components/__tests__/NoSuchFile.test.ts`",
   },
   {
     control: "5. a decision must carry a checkable restore condition",
     file: REG,
-    from: "- **Restore when:** Authorized media delivery",
-    to: "- **Restore when:** soon\n- **Ignored:** Authorized media delivery",
+    from: "- **Restore when:** Nothing to restore",
+    to: "- **Restore when:** soon\n- **Ignored:** Nothing to restore",
   },
   {
     control: "6. status must be one of the three known values",
@@ -81,7 +81,7 @@ const MUTATIONS = [
     file: REG,
     transform: (s) => s + "\n\n## D-001 — a duplicate id nobody noticed\n\n" +
       "- **Status:** ACTIVE\n- **Decided:** 2026-08-18\n- **Decided by:** nobody\n" +
-      "- **Pinned by:** `src/components/__tests__/PrivacyChooserWithheld.test.ts`\n" +
+      "- **Pinned by:** `src/components/__tests__/PrivacyGapDisclosed.test.ts`\n" +
       "- **Restore when:** never, this entry exists only to prove ids are checked\n",
   },
   {
