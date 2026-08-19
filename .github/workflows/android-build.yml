@@ -21,6 +21,14 @@ name: Android Build
 # Owner: "Final build give me after checking as it will in Public."
 # Owner: "build name give 1102."  -> cut, promoted, live.
 #
+# 2026-08-19 — BUILD 1109 / v1.2.15. RE-CUT. Build 1107 was CANCELLED at the
+# 30-minute timeout with the UI gate stuck installing Chromium: apt could not
+# reach Ubuntu's mirror. Nothing was wrong with the app, the sweep or the gate,
+# and 1107 produced no artifact — so versionName stays 1.2.15, exactly as 1105
+# and 1106 were handled below. The install step is now cached and retried three
+# times, because a gate that blocks a release must not fail on somebody else's
+# package mirror.
+#
 # 2026-08-19 — BUILD 1107 / v1.2.15. THE FIRST BUILD CUT THROUGH THE UI GATE.
 #
 # Owner, after the registration date-of-birth dropdowns shipped unusable on BOTH
@@ -267,8 +275,42 @@ jobs:
       # capture.mjs resolves it from PLAYWRIGHT_BROWSERS_PATH. A GitHub runner
       # has neither, so the browser is installed here and capture.mjs falls back
       # to Playwright's own default — one code path, two environments.
+      # ⚠ RETRIED, AND CACHED, BECAUSE THIS STEP BLOCKS A RELEASE.
+      #
+      # Build 1107 was CANCELLED at the 30-minute timeout with the gate stuck
+      # here: `npx playwright install --with-deps chromium` runs apt, and
+      # Ubuntu's mirror was refusing — the log is pages of
+      # `Ign: http://azure.archive.ubuntu.com ... InRelease`. Nothing was wrong
+      # with the app, the sweep or the gate. The same step had taken 5 minutes
+      # an hour earlier.
+      #
+      # A gate that blocks the build must not fail on somebody else's package
+      # mirror. That is how a checker earns a reputation for crying wolf, and
+      # this one is load-bearing.
+      #
+      # The cache removes the download entirely on a repeat run. The retry
+      # covers a cold cache landing on a bad mirror. It STILL FAILS after three
+      # attempts — this makes the step resilient, not permissive, and a genuine
+      # inability to install Chromium remains a red gate and no .aab.
+      - name: Cache the Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package-lock.json') }}
+
       - name: Install Chromium for Playwright
-        run: npx playwright install --with-deps chromium
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            if npx playwright install --with-deps chromium; then
+              echo "Chromium ready (attempt ${attempt})."
+              exit 0
+            fi
+            echo "::warning::Chromium install attempt ${attempt} failed; retrying."
+            sleep $((attempt * 20))
+          done
+          echo "::error::Chromium could not be installed after 3 attempts."
+          exit 1
 
       # ⚠ ONE COMMAND, THE SAME ONE A PERSON RUNS LOCALLY. The sweep needs a dev
       # server and capture.mjs deliberately does not start one, so the joining

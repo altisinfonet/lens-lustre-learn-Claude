@@ -53,8 +53,42 @@ jobs:
       - name: Clean install
         run: npm ci --no-audit --no-fund
 
+      # ⚠ RETRIED, AND CACHED, BECAUSE THIS STEP BLOCKS A RELEASE.
+      #
+      # Build 1107 was CANCELLED at the 30-minute timeout with the gate stuck
+      # here: `npx playwright install --with-deps chromium` runs apt, and
+      # Ubuntu's mirror was refusing — the log is pages of
+      # `Ign: http://azure.archive.ubuntu.com ... InRelease`. Nothing was wrong
+      # with the app, the sweep or the gate. The same step had taken 5 minutes
+      # an hour earlier.
+      #
+      # A gate that blocks the build must not fail on somebody else's package
+      # mirror. That is how a checker earns a reputation for crying wolf, and
+      # this one is load-bearing.
+      #
+      # The cache removes the download entirely on a repeat run. The retry
+      # covers a cold cache landing on a bad mirror. It STILL FAILS after three
+      # attempts — this makes the step resilient, not permissive, and a genuine
+      # inability to install Chromium remains a red gate and no .aab.
+      - name: Cache the Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package-lock.json') }}
+
       - name: Install Chromium for Playwright
-        run: npx playwright install --with-deps chromium
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            if npx playwright install --with-deps chromium; then
+              echo "Chromium ready (attempt ${attempt})."
+              exit 0
+            fi
+            echo "::warning::Chromium install attempt ${attempt} failed; retrying."
+            sleep $((attempt * 20))
+          done
+          echo "::error::Chromium could not be installed after 3 attempts."
+          exit 1
 
       # The same single command a person runs locally. A gate invoked one way
       # here and another way on a laptop has two behaviours, and the one that
