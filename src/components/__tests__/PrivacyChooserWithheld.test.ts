@@ -29,6 +29,13 @@
  * delivery is LIVE and the Media-URL cell is green. Verify that first; then
  * remove this file in the same commit that restores the control, and say so in
  * the message.
+ *
+ * @decision D-001 — registered in docs/DECISIONS.md, which carries the full
+ * reasoning, the owner's words, and the condition that ends this. That register
+ * exists because withholding the chooser was RIGHT and burying the reason in a
+ * comment was WRONG: the owner found the control missing and had no way to tell
+ * it apart from damage. Do not remove this marker while the entry is ACTIVE —
+ * `decisionRegister.test.ts` checks both directions and will fail.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
