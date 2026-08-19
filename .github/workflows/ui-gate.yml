@@ -76,18 +76,34 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ hashFiles('package-lock.json') }}
 
+      # ⚠ NO `--with-deps`, AND THAT IS THE FIX. `--with-deps` runs apt, and apt
+      # is what hung TWICE — builds 1107 and 1109 both sat on
+      # `Ign: http://azure.archive.ubuntu.com ... InRelease` until the job
+      # timed out. The retry added after the first failure did not help,
+      # because apt does not fail fast: it retries internally for longer than
+      # the whole job budget, so a three-attempt loop never reached attempt two.
+      #
+      # This downloads the browser binary from Playwright's own CDN and touches
+      # no system package manager at all. GitHub's ubuntu runner image already
+      # ships the shared libraries Chromium needs — it pre-installs Chrome,
+      # Edge and Firefox — so the deps `--with-deps` would have fetched are
+      # already present.
+      #
+      # ⚠ AND IF THEY ARE NOT, THIS STILL FAILS HONESTLY: Chromium will not
+      # launch, the sweep cannot render a single scene, and the gate goes red
+      # with no .aab. Nothing here is permitted to pass by assuming.
       - name: Install Chromium for Playwright
         run: |
           set -uo pipefail
           for attempt in 1 2 3; do
-            if npx playwright install --with-deps chromium; then
+            if npx playwright install chromium; then
               echo "Chromium ready (attempt ${attempt})."
               exit 0
             fi
-            echo "::warning::Chromium install attempt ${attempt} failed; retrying."
-            sleep $((attempt * 20))
+            echo "::warning::Chromium download attempt ${attempt} failed; retrying."
+            sleep $((attempt * 15))
           done
-          echo "::error::Chromium could not be installed after 3 attempts."
+          echo "::error::Chromium could not be downloaded after 3 attempts."
           exit 1
 
       # The same single command a person runs locally. A gate invoked one way
