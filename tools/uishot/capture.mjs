@@ -724,6 +724,7 @@ for (const scene of scenes) {
       {
         const DIALOG_SEL = '[role="dialog"],[aria-modal="true"],[data-vaul-drawer]';
         const dialogOf = (node) => (node && node.closest ? node.closest(DIALOG_SEL) : null);
+        const openDialogs = [...document.querySelectorAll(DIALOG_SEL)].filter((d) => visible(d));
         const pageScrolls = document.documentElement.scrollHeight > window.innerHeight + 1;
         const selector =
           'button,a[href],[role="button"],input,select,summary,textarea,' +
@@ -759,9 +760,27 @@ for (const scene of scenes) {
           let reachable = null; // null = deliberately not judged
           if (!isDisabled && !clippedToASliver) {
             const hit = document.elementFromPoint((vl + vr) / 2, (vt + vb) / 2);
-            // Exception 3 — one modal painted over another is deliberate.
+            /**
+             * Exception 3 — anything a modal deliberately covers, in BOTH of
+             * the two shapes that actually occur:
+             *
+             *   a) THE PAGE BEHIND AN OPEN MODAL. `screen-account-sheet` opens
+             *      a drawer whose scrim is `fixed inset-0 z-50 bg-black/80` —
+             *      a SIBLING of the drawer, not a child, so asking whether the
+             *      thing on top belongs to a dialog answers "no" and every
+             *      control on the page behind it got reported. Blocking the
+             *      page is the scrim's entire job.
+             *   b) ONE MODAL OVER ANOTHER. The composer's Close under the crop
+             *      lightbox — the control IS in a dialog, but a DIFFERENT one
+             *      is painted over it.
+             *
+             * Controls inside the open modal are still judged, which is where
+             * a real fault would be.
+             */
             const elDialog = dialogOf(el), hitDialog = dialogOf(hit);
-            const behindAnotherModal = hitDialog !== elDialog && hitDialog !== null;
+            const behindAnotherModal =
+              (openDialogs.length > 0 && elDialog === null) ||
+              (hitDialog !== null && hitDialog !== elDialog);
             // Exception 4 — a fixed bar over a scrollable page is check 4b's.
             let hitIsFixed = false;
             for (let n = hit; n; n = n.parentElement) {
