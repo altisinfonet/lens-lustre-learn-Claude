@@ -133,16 +133,64 @@ describe("the decision register is real, not aspirational", () => {
     }
   });
 
-  it("every ACTIVE decision has a pinning test that exists and points back", () => {
+  it("every decision still in force names a pinning test that exists", () => {
+    /**
+     * ACTIVE and SUPERSEDED both require the file to be there, for different
+     * reasons: an ACTIVE decision is held by its own pin, and a SUPERSEDED one
+     * handed its pin to the successor — which is exactly what D-001 did when
+     * D-002 replaced it, so the file it names is the successor's and must
+     * exist. CLOSED is the opposite case and is checked below.
+     *
+     * ⚠ SUPERSEDED WAS FOUND MISSING BY MUTATION, 2026-08-19. Pointing D-001's
+     * "Pinned by" at a file that does not exist left the suite green, because
+     * the rule only covered ACTIVE. A register entry naming a file nobody can
+     * open is the register describing a safeguard that is not there.
+     */
+    for (const d of decisions.filter((x) => x.status === "ACTIVE" || x.status === "SUPERSEDED")) {
+      expect(
+        existsSync(join(ROOT, d.pinnedBy)),
+        `${d.id} (${d.status}) names "${d.pinnedBy}", which does not exist`,
+      ).toBe(true);
+    }
+  });
+
+  it("every ACTIVE decision's pinning test points back at it", () => {
     for (const d of decisions.filter((x) => x.status === "ACTIVE")) {
-      const p = join(ROOT, d.pinnedBy);
-      expect(existsSync(p), `${d.id} names "${d.pinnedBy}", which does not exist`).toBe(true);
-      const src = readFileSync(p, "utf8");
+      const src = readFileSync(join(ROOT, d.pinnedBy), "utf8");
       expect(
         src.includes(`@decision ${d.id}`),
         `${d.pinnedBy} does not carry "@decision ${d.id}". The register and the test ` +
           `have drifted apart, so deleting one would leave the other silently orphaned.`,
       ).toBe(true);
+    }
+  });
+
+  it("a CLOSED decision has had its pinning test deleted", () => {
+    /**
+     * ⚠ FOUND BY MUTATION, 2026-08-19, and it was a real hole. Marking D-002
+     * CLOSED while the privacy-gap notice and its pinning test both still stood
+     * left every other assertion green — so the register would have said the
+     * gap was closed and the product would still have had it. A register that
+     * can say that is the "document nobody is forced to update, which goes
+     * stale and then lies" this file exists to prevent, arriving through the
+     * status field instead of through a missing entry.
+     *
+     * CLOSED means the condition in "Restore when" was met and the withholding
+     * ended — at which point the pin has nothing left to hold and is deleted in
+     * the same commit. If the pin is still there, the closure is not true yet.
+     *
+     * SUPERSEDED is deliberately NOT covered: supersession hands the pin to the
+     * successor entry, which is exactly what D-001 did when D-002 replaced it,
+     * and that file must keep existing.
+     */
+    for (const d of decisions.filter((x) => x.status === "CLOSED")) {
+      expect(
+        existsSync(join(ROOT, d.pinnedBy)),
+        `${d.id} is marked CLOSED but its pinning test "${d.pinnedBy}" still exists. ` +
+          `Either the decision is not actually closed — in which case the status is wrong and ` +
+          `the register is now claiming something untrue about the product — or the test should ` +
+          `have been deleted in the same commit that closed it.`,
+      ).toBe(false);
     }
   });
 
