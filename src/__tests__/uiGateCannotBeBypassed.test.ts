@@ -32,11 +32,28 @@ import { join } from "node:path";
 
 const ROOT = process.cwd();
 const WORKFLOW = join(ROOT, ".github/workflows/android-build.yml");
+const STANDALONE = join(ROOT, ".github/workflows/ui-gate.yml");
 const CAPTURE = join(ROOT, "tools/uishot/capture.mjs");
 const GATE = join(ROOT, "tools/uishot/gate.mjs");
 const BASELINE = join(ROOT, "tools/uishot/baseline.json");
 
-const workflow = existsSync(WORKFLOW) ? readFileSync(WORKFLOW, "utf8") : "";
+/**
+ * ⚠ COMMENTS ARE STRIPPED BEFORE ANY "IS IT DISABLED?" CHECK, and this test
+ * caught the need for it on itself. Both workflows explain, in a comment, that
+ * there is deliberately no `|| true` fallback — and that sentence contains the
+ * literal `|| true`, so the assertion fired on the prose describing the rule it
+ * was enforcing. Funny once; a permanently red gate otherwise, and a red gate
+ * gets relaxed rather than read.
+ *
+ * Only whole-line comments are removed. A real `run: npm run ui:gate || true`
+ * is code, survives this, and is still caught — proven by mutations 3 and 17 in
+ * tools/mutate-ui-gate.mjs.
+ */
+const stripYamlComments = (s: string) =>
+  s.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+
+const workflow = existsSync(WORKFLOW) ? stripYamlComments(readFileSync(WORKFLOW, "utf8")) : "";
+const standalone = existsSync(STANDALONE) ? stripYamlComments(readFileSync(STANDALONE, "utf8")) : "";
 const capture = existsSync(CAPTURE) ? readFileSync(CAPTURE, "utf8") : "";
 const gate = existsSync(GATE) ? readFileSync(GATE, "utf8") : "";
 const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));
@@ -66,6 +83,29 @@ describe("the UI gate is wired into the build and cannot be silently bypassed", 
       `build-aab's needs is "${needs?.[1]}" — it no longer waits for ui-gate, so the ` +
         `build runs and an .aab is produced even when the gate is red`,
     ).toBe(true);
+  });
+
+  it("the gate ALSO runs on every push, not only when a build is cut", () => {
+    /**
+     * android-build.yml only fires on `ANDROID_BUILD_TRIGGER` or on edits to
+     * itself, so without this a broken control could sit on main for days and
+     * only surface on release day — when the cost of finding out is highest and
+     * the temptation to wave it through is greatest.
+     *
+     * This is an ADDITION, never a replacement: a job in one workflow cannot be
+     * a `needs:` dependency of a job in another, so the copy in android-build.yml
+     * is still the only thing that actually blocks a release.
+     */
+    expect(
+      existsSync(STANDALONE),
+      ".github/workflows/ui-gate.yml is gone — the gate now only runs when a build is cut, " +
+        "so a regression can sit on main unnoticed until release day",
+    ).toBe(true);
+    expect(/^\s*push:/m.test(standalone), "the standalone gate no longer runs on push").toBe(true);
+    expect(/run:\s*npm run ui:gate\b/.test(standalone), "the standalone gate no longer runs the gate command").toBe(true);
+    expect(/\|\|\s*true/.test(standalone), "the standalone gate swallows its failure with `|| true`").toBe(false);
+    expect(/continue-on-error:\s*true/.test(standalone), "the standalone gate is continue-on-error").toBe(false);
+    expect(/--baseline-write/.test(standalone), "the standalone gate re-records its own baseline").toBe(false);
   });
 
   it("nothing swallows the gate's failure", () => {
