@@ -21,7 +21,7 @@
  */
 
 import { chromium } from "playwright";
-import { readdirSync, existsSync, mkdirSync } from "node:fs";
+import { readdirSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const BASE = process.env.UI_HARNESS_BASE ?? "http://127.0.0.1:5199";
@@ -92,7 +92,16 @@ async function listScenes(page) {
   );
 }
 
-const only = process.argv.slice(2);
+/**
+ * `--baseline-write` records the current run's control fingerprints as the
+ * new baseline (tools/uishot/baseline.json), committed to the repo. Every
+ * other run instead DIFFS against that file — see the baseline-diff block
+ * after the capture loop.
+ */
+const rawArgs = process.argv.slice(2);
+const BASELINE_WRITE = rawArgs.includes("--baseline-write");
+const only = rawArgs.filter((a) => !a.startsWith("--"));
+const BASELINE_PATH = join(process.cwd(), "tools/uishot/baseline.json");
 mkdirSync(OUT, { recursive: true });
 
 const exe = chromePath();
@@ -181,7 +190,7 @@ for (const scene of scenes) {
     // These are the faults a screenshot contains but the eye slides over, and
     // they are the ones that accumulate into "the build has 3000 visual bugs".
     // Each is measured from the live DOM, not guessed from the code.
-    const faults = await page.evaluate((isMobile) => {
+    const { faults, controls } = await page.evaluate((isMobile) => {
       const out = [];
       const vw = document.documentElement.clientWidth;
       const path = (el) => {
@@ -613,7 +622,176 @@ for (const scene of scenes) {
       }
       if (broken.length) out.push(`images not rendered (${broken.length}): ${broken.slice(0, 4).join(", ")}`);
 
-      return out;
+      // 6. UNIVERSAL REACHABILITY — every interactive control must be the
+      //    thing actually painted at its own centre, on every screen, not
+      //    only the ones somebody thought to check.
+      //
+      //    ─────────────────────────────────────────────────────────────────
+      //    WHY THIS EXISTS. 2026-08-18, the registration date-of-birth year
+      //    and month dropdowns went to production invisible-but-present: both
+      //    `<select>` elements rendered at their correct size, in the DOM,
+      //    on screen — and neither could be tapped, because
+      //    `calendar.tsx`'s `nav` class is `absolute inset-x-0 top-0 z-10`,
+      //    a full-width bar sitting on top of the caption row where the
+      //    dropdowns live. Proved with a standalone Playwright probe against
+      //    the real component: `document.elementFromPoint()` at the centre
+      //    of each select returned the NAV element, not the select, for
+      //    both (12-option month, 69-option year).
+      //
+      //    Check 4b above already does exactly this hit-test — but only for
+      //    elements sitting under a bottom-anchored `position: fixed` bar
+      //    taller than 8px. The DOB nav is `position: absolute`, anchored to
+      //    the TOP, and lives inside a popover, not the page shell — none of
+      //    check 4b's preconditions match it, so it sailed through 63
+      //    screenshots unreported. The gap was not the technique — the
+      //    technique (`elementFromPoint`) is proven — it was that the
+      //    technique was only ever pointed at one specific shape of overlay.
+      //
+      //    This check drops every precondition except "is it an interactive
+      //    control, is it visible, is it on screen" and asks the one
+      //    question that actually matters: what does the browser hit when a
+      //    thumb lands on its centre? That is the same standard a real tap
+      //    is held to, so it cannot be fooled by a control that LOOKS right
+      //    in a screenshot while something else silently eats the touch.
+      //
+      //    ─────────────────────────────────────────────────────────────────
+      //    FOUR EXCEPTIONS, EACH MEASURED RATHER THAN ASSUMED. The first full
+      //    sweep after this check was written reported 33 scene/viewport hits.
+      //    Every one was diagnosed individually against the live DOM before
+      //    anything was excused, because an exception added to make a sweep go
+      //    green is how a checker turns into decoration. The DOB fault stays
+      //    red under all four.
+      //
+      //    1. A DISABLED CONTROL IS *MEANT* TO BE UNTAPPABLE. 19 of the 33
+      //       were `calendar-plain`'s out-of-range days: `disabled: true`,
+      //       `opacity: 0.5`, `pointer-events: none`, hit-test landing on the
+      //       <td> behind them. That is `disabled` working. Keyed on the
+      //       DISABLED STATE, deliberately — NOT on `pointer-events: none`,
+      //       because that property on an ENABLED control is the very shape of
+      //       bug this check exists to catch.
+      //
+      //    2. JUDGE THE VISIBLE PORTION, NOT THE GEOMETRIC CENTRE. 4 more were
+      //       controls inside a horizontally scrollable strip — the composer's
+      //       photo thumbnails (80x80, only 36px of it past the clip) and the
+      //       feed's category chips (88x62, 16px showing). Their geometric
+      //       centre lies beyond the clip, so it was never painted by them and
+      //       could not have been. A thumb aims at the part it can SEE, so the
+      //       hit-test now uses the centre of the element's rectangle
+      //       intersected with the viewport and every clipping ancestor. This
+      //       is stricter, not looser: it also stops the old code's clamping of
+      //       an off-screen centre to the viewport edge, which tested a point
+      //       that was not on the control at all.
+      //
+      //    2b. CLIPPED IS NOT COVERED, AND ONLY CLIPPING IS EXCUSED. The feed's
+      //       category strip peeks the next chip by 16px of its 88px. Its
+      //       visible sliver is below the tap floor this file already enforces
+      //       (44 long / 32 short), because it is a HINT that there is more to
+      //       swipe, not a control anyone aims at yet. So a control whose
+      //       CLIP-derived visible portion is below that floor is not judged.
+      //       ⚠ Measured from CLIPPING ancestors ONLY, never from what is
+      //       painted on top. A button that something else covers keeps its
+      //       full visible rectangle and is still judged — otherwise an overlay
+      //       could earn its own exemption by covering enough of the control,
+      //       which is precisely backwards.
+      //
+      //    3. A CONTROL BEHIND A *DIFFERENT* MODAL IS DELIBERATE — decided by
+      //       what is painted, not by DOM order. The first version called the
+      //       LAST dialog in DOM order the top one and got
+      //       `crop-modal-behind-dialog` wrong: the crop lightbox mounts FIRST
+      //       and paints ON TOP, so the composer's Close button was reported
+      //       as a defect for being under it, which is the lightbox working.
+      //       Radix portals to <body> in mount order and stacking decides the
+      //       rest, so DOM order never answered this question. Now: if the
+      //       thing painted at the control's centre belongs to a different
+      //       dialog/drawer subtree than the control itself, that is one modal
+      //       over another and it is deliberate.
+      //
+      //    4. A CONTROL UNDER A `position: fixed` BAR IS CHECK 4b's JOB, NOT
+      //       THIS ONE'S. The notification screen's last switch sits under the
+      //       bottom navigation at scroll-top and is reached by scrolling —
+      //       which is why 4b deliberately measures this at the END of the
+      //       page, where reserved space actually runs out. Judging it here as
+      //       well produces a false alarm AND double-reports the true ones.
+      //       ⚠ This is a HANDOFF, not a silencing, and it is the one real
+      //       hole in this check: 4b only recognises a BOTTOM-ANCHORED,
+      //       full-width, under-40%-height fixed bar. A fixed overlay of some
+      //       other shape covering a control is caught by NEITHER check. Named
+      //       here so the next person finds it written down instead of
+      //       discovering it the way the DOB fault was discovered.
+      //    ─────────────────────────────────────────────────────────────────
+      const controls = [];
+      const unreachable = [];
+      {
+        const DIALOG_SEL = '[role="dialog"],[aria-modal="true"],[data-vaul-drawer]';
+        const dialogOf = (node) => (node && node.closest ? node.closest(DIALOG_SEL) : null);
+        const pageScrolls = document.documentElement.scrollHeight > window.innerHeight + 1;
+        const selector =
+          'button,a[href],[role="button"],input,select,summary,textarea,' +
+          '[role="switch"],[role="checkbox"],[role="radio"],[role="tab"],[role="menuitem"]';
+        for (const el of document.querySelectorAll(selector)) {
+          if (!visible(el)) continue;
+          const r = el.getBoundingClientRect();
+          if (r.width === 0 || r.height === 0) continue;
+
+          // Exception 1 — a disabled control is meant not to respond.
+          const isDisabled = el.disabled === true || el.getAttribute("aria-disabled") === "true";
+
+          // Exception 2 — what a thumb can actually see and aim at: this
+          // element's box narrowed by the viewport and by every clipping
+          // ancestor. Empty means it is scrolled or clipped entirely out of
+          // sight right now, which check 4 (off-screen) reports in its own,
+          // clearer words.
+          let cl = 0, ct = 0, cr = vw, cb = window.innerHeight;
+          for (let n = el.parentElement; n; n = n.parentElement) {
+            const ns = getComputedStyle(n);
+            if (!/(hidden|auto|scroll|clip)/.test(ns.overflow + ns.overflowX + ns.overflowY)) continue;
+            const nr = n.getBoundingClientRect();
+            cl = Math.max(cl, nr.left); ct = Math.max(ct, nr.top);
+            cr = Math.min(cr, nr.right); cb = Math.min(cb, nr.bottom);
+          }
+          const vl = Math.max(r.left, cl), vt = Math.max(r.top, ct);
+          const vr = Math.min(r.right, cr), vb = Math.min(r.bottom, cb);
+          // Exception 2b — a sliver peeking out of a scroll strip is a hint,
+          // not a target. Same floor the tap-target check above enforces.
+          const visW = vr - vl, visH = vb - vt;
+          const clippedToASliver = Math.max(visW, visH) < 44 || Math.min(visW, visH) < 32;
+
+          let reachable = null; // null = deliberately not judged
+          if (!isDisabled && !clippedToASliver) {
+            const hit = document.elementFromPoint((vl + vr) / 2, (vt + vb) / 2);
+            // Exception 3 — one modal painted over another is deliberate.
+            const elDialog = dialogOf(el), hitDialog = dialogOf(hit);
+            const behindAnotherModal = hitDialog !== elDialog && hitDialog !== null;
+            // Exception 4 — a fixed bar over a scrollable page is check 4b's.
+            let hitIsFixed = false;
+            for (let n = hit; n; n = n.parentElement) {
+              if (getComputedStyle(n).position === "fixed") { hitIsFixed = true; break; }
+            }
+            if (!behindAnotherModal && !(hitIsFixed && pageScrolls)) {
+              reachable = !!hit && (hit === el || el.contains(hit));
+              if (!reachable) {
+                unreachable.push(`${path(el)} centre is painted by ${hit ? path(hit) : "nothing"}, not itself`);
+              }
+            }
+          }
+
+          // Fingerprint for the baseline diff (Gate 2) — recorded regardless
+          // of pass/fail here, so a later run can notice this control
+          // silently losing its reachability, its size, or its options.
+          controls.push({
+            path: path(el),
+            w: Math.round(r.width),
+            h: Math.round(r.height),
+            reachable,
+            options: el.tagName === "SELECT" ? el.options.length : null,
+          });
+        }
+      }
+      if (unreachable.length) {
+        out.push(`controls not reachable at their own centre (${unreachable.length}): ${unreachable.slice(0, 6).join(", ")}`);
+      }
+
+      return { faults: out, controls };
     }, vp.mobile);
     errors.push(...faults.map((f) => `layout: ${f}`));
 
@@ -680,7 +858,7 @@ for (const scene of scenes) {
     });
     await page.screenshot({ path: file, fullPage: true });
     if (errors.length) problems += errors.length;
-    rows.push({ scene, viewport: vp.name, file, errors });
+    rows.push({ scene, viewport: vp.name, file, errors, controls });
     await ctx.close();
   }
 }
@@ -693,4 +871,87 @@ for (const r of rows) {
   for (const e of r.errors) console.log(`    ${e}`);
 }
 console.log(`\n${rows.length} screenshots, ${problems} problem(s) reported.`);
+
+/**
+ * ── GATE 2 — BASELINE DIFF ───────────────────────────────────────────────
+ *
+ * WHY THIS EXISTS, 2026-08-18. Everything above only ever catches what
+ * somebody thought to write a rule for. The owner's objection, put plainly:
+ * "we will build one gate you will break another gate which is working" —
+ * a fault on a screen nobody was looking at that day.
+ *
+ * This does not depend on anyone predicting the failure. Every run above
+ * already recorded, for every interactive control on every scene, its size,
+ * whether it is reachable at its own centre, and (for a <select>) how many
+ * options it has. This block compares THAT against the last known-good
+ * recording and fails on any control that got WORSE — disappeared, shrank
+ * below the tap-target floor, lost an option, or stopped being reachable —
+ * even on a scene this change never touched and nobody re-checked by hand.
+ * New controls, growth, or more options are not failures; only regressions.
+ *
+ * `--baseline-write` records the current run as the new known-good state.
+ * That is a deliberate act, not a side effect of a normal run — it should
+ * happen once, reviewed, after a change is confirmed correct, the same way
+ * an approved migration hash is a deliberate act elsewhere in this repo.
+ */
+const fingerprint = {};
+for (const r of rows) fingerprint[`${r.scene}--${r.viewport}`] = r.controls;
+
+if (BASELINE_WRITE) {
+  const merged = existsSync(BASELINE_PATH)
+    ? { ...JSON.parse(readFileSync(BASELINE_PATH, "utf8")), ...fingerprint }
+    : fingerprint;
+  writeFileSync(BASELINE_PATH, JSON.stringify(merged, null, 2) + "\n");
+  console.log(`\nbaseline written: ${join("tools/uishot/baseline.json")} (${Object.keys(fingerprint).length} scene/viewport keys from this run)`);
+} else if (existsSync(BASELINE_PATH)) {
+  const baseline = JSON.parse(readFileSync(BASELINE_PATH, "utf8"));
+  const regressions = [];
+
+  // A key that used to exist and produced nothing this run, on a FULL sweep
+  // (no scene filter), means the scene itself is gone.
+  if (only.length === 0) {
+    for (const key of Object.keys(baseline)) {
+      if (!(key in fingerprint)) regressions.push(`${key}: this scene/viewport no longer runs at all (existed in the baseline)`);
+    }
+  }
+
+  for (const [key, current] of Object.entries(fingerprint)) {
+    const base = baseline[key];
+    if (!base) continue; // new scene/viewport — nothing to regress against yet
+    const seenB = new Map(), seenC = new Map();
+    const occurrenceKey = (c, seen) => {
+      const n = seen.get(c.path) || 0;
+      seen.set(c.path, n + 1);
+      return `${c.path}#${n}`;
+    };
+    const bmap = new Map(base.map((c) => [occurrenceKey(c, seenB), c]));
+    const cmap = new Map(current.map((c) => [occurrenceKey(c, seenC), c]));
+    for (const [ck, b] of bmap) {
+      const c = cmap.get(ck);
+      if (!c) { regressions.push(`${key}: "${b.path}" is gone (was present in the baseline)`); continue; }
+      if (b.reachable === true && c.reachable === false) {
+        regressions.push(`${key}: "${b.path}" is no longer reachable at its own centre`);
+      }
+      if (typeof b.options === "number" && typeof c.options === "number" && c.options < b.options) {
+        regressions.push(`${key}: "${b.path}" has ${c.options} options now, had ${b.options}`);
+      }
+      const bOk = Math.max(b.w, b.h) >= 44 && Math.min(b.w, b.h) >= 32;
+      const cOk = Math.max(c.w, c.h) >= 44 && Math.min(c.w, c.h) >= 32;
+      if (bOk && !cOk) {
+        regressions.push(`${key}: "${b.path}" shrank to ${c.w}x${c.h} (was ${b.w}x${b.h}, a tappable size)`);
+      }
+    }
+  }
+
+  if (regressions.length) {
+    problems += regressions.length;
+    console.log(`\nBASELINE REGRESSIONS (${regressions.length}) — a control got worse since the last approved run:`);
+    for (const reg of regressions) console.log(`    ✗ ${reg}`);
+  } else {
+    console.log(`\nbaseline diff: clean against ${Object.keys(baseline).length} recorded scene/viewport keys.`);
+  }
+} else {
+  console.log(`\nno baseline recorded yet at tools/uishot/baseline.json — run with --baseline-write once this run is confirmed correct.`);
+}
+
 process.exit(problems > 0 ? 1 : 0);
