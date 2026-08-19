@@ -155,11 +155,21 @@ describe("the orphan reference set names every column that points at a stored fi
    * like an answer.
    */
   it("a failed reference query aborts the run instead of meaning 'no references'", () => {
+    // ⚠ TIGHT ON PURPOSE. The loose `{ … 400 chars … throw` form is satisfied
+    // by `if (error) { break; } if (false) { throw new Error(` — the exact
+    // swallow this assertion forbids. Found 2026-08-19 by
+    // tools/mutate-orphan-media.mjs, which slipped that shape past the loose
+    // regex on the media read. The throw must be FIRST in the error branch.
     expect(
-      /if\s*\(\s*error\s*\)\s*\{[\s\S]{0,400}?throw new Error\(/.test(code),
-      "A reference-scan error does not throw. If `posts` fails transiently, " +
-        "the run reports every post image as an orphan.",
+      /if\s*\(\s*error\s*\)\s*\{\s*throw new Error\(/.test(code),
+      "A reference-scan error does not throw immediately. If `posts` fails " +
+        "transiently, the run reports every post image as an orphan.",
     ).toBe(true);
+    expect(
+      /if\s*\(\s*error\s*\)\s*\{\s*(break|return|continue)\b/.test(code),
+      "A reference-scan error breaks out of the page loop, which is the old " +
+        "`error means empty table` bug wearing different punctuation.",
+    ).toBe(false);
     expect(
       /if\s*\(\s*error\s*\|\|\s*!data/.test(code),
       "The old `if (error || !data || ...) break;` is back: an error is once " +
