@@ -21,6 +21,65 @@ name: Android Build
 # Owner: "Final build give me after checking as it will in Public."
 # Owner: "build name give 1102."  -> cut, promoted, live.
 #
+# 2026-08-19 — BUILD 1107 / v1.2.15. THE FIRST BUILD CUT THROUGH THE UI GATE.
+#
+# Owner, after the registration date-of-birth dropdowns shipped unusable on BOTH
+# web and app: "we will build one gate you will break another gate which is
+# working. This should not happen" and "I need permanenet solution for this.
+# then fix bug - not shorcut cheap soltuion anymore".
+#
+# So the gate was built FIRST and the fixes went through it.
+#
+#  1. THE DOB DROPDOWNS ARE TAPPABLE AGAIN. Not a missing dropdown — an
+#     INTERCEPTED one. Both selects rendered at the correct size, in the DOM,
+#     plainly visible, and swallowed every tap: calendar.tsx's `nav` is
+#     `absolute inset-x-0 top-0 z-10`, a full-width bar over the caption row
+#     where the dropdowns live. Proved by hit test, not argued from the code —
+#     elementFromPoint() at the centre of the month select (12 options) and the
+#     year select (69) returned the NAV element, at all four viewports. Fixed
+#     with pointer-events-none on the bar and pointer-events-auto on each arrow,
+#     mutation-proven both ways.
+#
+#  2. THE PRIVACY CHOOSER IS BACK — WITH ITS LIMIT STATED IN THE UI. Reversing
+#     item 1 of the 1103 notes below, by the owner's decision (D-002). The gap
+#     those notes describe is UNCHANGED and still verified: post-images is a
+#     public bucket whose SELECT policy carries no privacy condition, so a
+#     "Friends" or "Only me" photo stays fetchable by anyone holding its link.
+#     Told that plainly — including that hiding the link in the app fixes
+#     nothing — the owner chose to offer the control and say so, rather than
+#     keep members waiting. PostAudienceChooser renders the disclosure itself,
+#     so the two cannot be separated. docs/DECISIONS.md carries the reasoning
+#     and the condition that ends it.
+#
+#  3. THE CATEGORY STRIP no longer hides chips under the "All categories"
+#     button on a phone. Measured at 390: the chip showed 43x62 and a tap at
+#     the centre of what was visible opened All categories instead of filtering.
+#
+#  THE GATE ITSELF, which is the point of this release:
+#     • every interactive control on every scene and viewport must be the
+#       element actually painted at its own centre;
+#     • every control's size, reachability and option count is diffed against a
+#       recorded baseline, so a control that disappears, shrinks below the tap
+#       floor or loses its options fails the build EVEN ON A SCREEN THE CHANGE
+#       NEVER TOUCHED;
+#     • `build-aab` carries `needs: [security-gate, ui-gate]`, and the wiring is
+#       asserted by uiGateCannotBeBypassed.test.ts, mutation-proven 17/17.
+#
+#  Build #107 already demonstrated the block on a real release attempt: the gate
+#  went red and build-aab was SKIPPED — 0s, no artifact.
+#
+#  IT FOUND TWO DEFECTS NOBODY WAS LOOKING FOR, in code restored verbatim from
+#  history, because the audience chooser had NEVER been photographed: a 22px
+#  tall pill (10px under the tap floor) and a GLOBE icon beside the words
+#  "Only Me".
+#
+# GATES: typecheck 0 · 1,999 tests · 148 scene/viewport keys, 2,569 controls,
+#        ZERO problems · three mutation harnesses green (17/17, 10/10, 10/10).
+#
+# STILL OPEN AND NOT CLAIMED: authorized media delivery (B5) — built, not
+# deployed, and the reason D-002 exists. The journal / featured-artist PDF
+# cause. NO REELS. NO LIVE.
+#
 # 2026-08-17 — BUILD 1106 / v1.2.14. Re-cut. Build 1105 carried the same code
 # but was REFUSED by CI, correctly: securityDefinerGrants and deletionCoverage
 # found three defects in the hashtag migration applied that morning —
@@ -449,8 +508,8 @@ jobs:
           # whether it was promoted or not, bumping is correct — skipping a
           # name costs nothing, reusing one costs clarity in the Console, in
           # crash reports and on the member's About screen.
-          sed -i 's/versionName "1.0"/versionName "1.2.14"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.14 (1.2.11 / build 1102 went public)"
+          sed -i 's/versionName "1.0"/versionName "1.2.15"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.15 (1.2.11 / build 1102 went public)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
