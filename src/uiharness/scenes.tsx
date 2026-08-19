@@ -23,6 +23,8 @@ import { DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import WallViewToggle, { type WallView } from "@/components/profile/WallViewToggle";
 import { Calendar } from "@/components/ui/calendar";
+import { PrivacyGapNotice } from "@/components/post/PrivacyGapNotice";
+import { PostAudienceChooser, type Privacy } from "@/components/post/PostAudienceChooser";
 import type { UnifiedPost } from "@/types/post";
 import { REAL_SCREENS } from "./realScreens";
 
@@ -208,6 +210,95 @@ export const SCENES: Record<string, () => JSX.Element> = {
         onSelect={() => {}}
         disabled={(d) => d < new Date(2026, 7, 14)}
       />
+    </div>
+  ),
+
+  /**
+   * THE PRIVACY GAP NOTICE, IN ALL THREE AUDIENCES AT ONCE.
+   *
+   * Added 2026-08-19 with D-002. The notice is the CONDITION under which the
+   * owner restored the audience chooser, so the state that matters is the one
+   * where it is SHOWING — and a composer scene defaults to Public, where it is
+   * correctly absent. Photographing only that would prove nothing about the
+   * text a member actually reads before choosing "Only me".
+   *
+   * All three are rendered together so the absence under Public is visible as
+   * an absence rather than as a scene somebody forgot to add, and so the two
+   * restricted wordings can be read side by side at 360px, where the longer
+   * one wraps.
+   */
+  /**
+   * THE AUDIENCE CHOOSER, BOTH VARIANTS, ALL THREE AUDIENCES.
+   *
+   * ⚠ ADDED 2026-08-19 BECAUSE THIS CONTROL HAD NEVER BEEN PHOTOGRAPHED — not
+   * once, in the whole life of this harness. The `composer-*` scenes mount
+   * `PostComposerPreview`, which is the photo strip only; the audience row
+   * lives in `WallPosts` and no scene reached it. So the control that decides
+   * who can see a member's photograph was invisible to the sweep, on every
+   * width, in both modes — including on the day it was withheld and the day it
+   * came back.
+   *
+   * Rendered in both variants because they are genuinely different shapes: the
+   * bordered pill on the web's first screen, and the full-width settings row on
+   * screen 2, which is the ONLY one an Android member reaches. Each is shown at
+   * every audience, so the notice's presence under Friends and Only Me — and
+   * its absence under Public — is visible rather than asserted.
+   */
+  "post-audience-chooser": () => {
+    const Demo = () => {
+      const [row, setRow] = useState<Privacy>("public");
+      const [inline, setInline] = useState<Privacy>("friends");
+      return (
+        <div className="min-h-screen space-y-6 bg-background p-4">
+          <div>
+            <div className="mb-2 text-xs font-semibold text-foreground">
+              Web, screen 1 — the pill under the member's name
+            </div>
+            {(["public", "friends", "private"] as Privacy[]).map((p) => (
+              <div key={p} className="mb-3 border-b border-border pb-3">
+                <PostAudienceChooser value={p} onChange={setInline} variant="inline" />
+              </div>
+            ))}
+            <div className="text-[10px] text-muted-foreground">live: {inline}</div>
+          </div>
+          <div>
+            <div className="mb-2 text-xs font-semibold text-foreground">
+              App, screen 2 — the settings row every Android member reaches
+            </div>
+            {(["public", "friends", "private"] as Privacy[]).map((p) => (
+              <div key={p} className="mb-3 border-b border-border pb-3">
+                <PostAudienceChooser
+                  value={p}
+                  onChange={setRow}
+                  variant="row"
+                  rowLabel="Post audience"
+                />
+              </div>
+            ))}
+            <div className="text-[10px] text-muted-foreground">live: {row}</div>
+          </div>
+        </div>
+      );
+    };
+    return <Demo />;
+  },
+
+  "privacy-gap-notice": () => (
+    <div className="min-h-screen space-y-4 bg-background p-4">
+      <div>
+        <div className="mb-1 text-xs font-semibold text-foreground">Only me</div>
+        <PrivacyGapNotice privacy="private" />
+      </div>
+      <div>
+        <div className="mb-1 text-xs font-semibold text-foreground">Friends</div>
+        <PrivacyGapNotice privacy="friends" />
+      </div>
+      <div>
+        <div className="mb-1 text-xs font-semibold text-foreground">
+          Public — nothing should appear below this line
+        </div>
+        <PrivacyGapNotice privacy="public" />
+      </div>
     </div>
   ),
 
