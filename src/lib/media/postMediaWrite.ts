@@ -36,7 +36,8 @@
  * `media/<id>/original.webp` would silently disable both.
  *
  * ───────────────────────────────────────────────────────────────────────────
- * ⚠ THE FALLBACK IS DELIBERATE AND MUST NOT BECOME SILENT.
+ * ⚠ THE FALLBACK IS DELIBERATE, MUST NOT BECOME SILENT, AND MUST NOT BE ONE
+ * UNDIFFERENTIATED THING.
  *
  * If any step of the media path fails, `publishPost` falls back to the legacy
  * insert so the member's post still goes out. A photographer who has waited
@@ -45,8 +46,65 @@
  * that nobody counts is a regression that reintroduces itself: the legacy-only
  * population starts growing again and the graph looks flat.
  *
+ * From 2026-08-20 (WS2) the outcome also says WHICH KIND of failure it was,
+ * because two very different things were being counted as one:
+ *
+ *   `unmigratable-slides` — at least one slide has no `StoredObjectFacts`. In
+ *      practice this is a RESUMED DRAFT: the original bytes are gone, so the
+ *      photograph can never be declared and the post is legacy-only BY DESIGN.
+ *      Expected. Not a defect. Part of the floor, not the leak.
+ *
+ *   `media-path-failed` — every slide was describable and the media path still
+ *      did not complete. That is a DEFECT: a refusal from the server, or an
+ *      exception. It is reported at ERROR as `MEDIA-4010` in addition to the
+ *      MEDIA-4001 count, so it can be alerted on separately.
+ *
+ * ⚠ WHY THIS DISTINCTION IS LOAD-BEARING. Under RED-1 the media path threw on
+ * its very first call for four days, and every post that still went out looked
+ * — in the logs — exactly like a resumed draft. A counter that cannot tell
+ * "correctly legacy" from "broken" reports a healthy floor while the leak runs.
+ *
+ * ⚠ AND THE LEGACY INSERT MUST NEVER BECOME THE NORMAL ROUTE. It is the
+ * airbag, not the steering. If `MEDIA-4010` is ever non-trivial, the fix is the
+ * media path, not a wider fallback.
+ *
  * ⚠ DO NOT MAKE THE FALLBACK THE DEFAULT ORDER. Trying legacy first "because
  * it is simpler" means the media path is never exercised and rots.
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * ⚠ THE ONE LINE THAT MUST NEVER BE REFACTORED FOR TIDINESS.
+ *
+ * Both RPCs below are called as `(supabase.rpc as <cast>)(fn, args)` — the cast
+ * sits INSIDE the call parentheses. That looks like a stylistic choice. It is
+ * not. supabase-js defines rpc as a prototype METHOD:
+ *
+ *     rpc(fn, args, options) { return this.rest.rpc(fn, args, options) }
+ *
+ * Hoisting it — `const rpc = supabase.rpc as …; await rpc(…)` — throws away the
+ * object it belongs to. The copy then runs with `this === undefined` (ES modules
+ * are strict mode) and `this.rest` throws
+ * "Cannot read properties of undefined (reading 'rest')".
+ *
+ * This file SHIPPED with exactly that bug on both call sites. The result was
+ * not a degraded post: `publishViaMedia` has no try/catch, so the throw sailed
+ * past the legacy fallback and the member got "Could not publish" and no post
+ * at all. Proof it never once ran in production: 0 of 252 posts carried an
+ * `idempotency_key`, which `post_publish_with_media` always sets. Found by the
+ * Workstream 1 audit, 2026-08-20. The identical bug had already cost members
+ * the draft-publish path on 2026-08-17 — see `usePostDrafts.ts:89-108`.
+ *
+ * A cast does not detach anything, and neither does an arrow wrapper
+ * (`(fn, a) => (supabase.rpc as X)(fn, a)`), because the member expression is
+ * re-resolved on every call. Only STORING the bare method detaches.
+ *
+ * Locked three ways, all in `src/__tests__/mediaWritePath.test.ts`:
+ *   • the client mock is a CLASS whose `rpc` lives on the prototype and returns
+ *     `this.rest.rpc(...)`, so a detached call throws there exactly as it does
+ *     in production — the old object-literal mock could not reproduce it;
+ *   • a regression test asserts the detached form throws and the in-call form
+ *     does not;
+ *   • a repository-wide static scan forbids the detaching assignment in any
+ *     file, so this cannot come back somewhere else.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 import { supabase } from "@/integrations/supabase/client";
@@ -87,11 +145,75 @@ export function objectPathFromUrl(url: string): string | null {
 }
 
 /**
+ * ⚠ ONE MEDIA-4006, TWO CALLERS.
+ *
+ * This must be emitted from BOTH places that can decide a slide is
+ * undescribable: `registerUploadedPhotoInner`, and `publishViaMedia`'s
+ * up-front classification (added in WS2). When the classification was first
+ * moved up front it short-circuited before the registrar ran, and MEDIA-4006
+ * silently stopped firing on the composer path — the exact code whose whole
+ * purpose is that this case leaves a trace when nothing else does. Extracting
+ * it makes that impossible to do by accident again.
+ */
+function reportUndescribableSlide(photo: UploadedPhoto, correlationId?: string): void {
+  logger.warn({
+    code: "MEDIA-4006",
+    event: "PHOTO_NOT_DESCRIBABLE",
+    fn: "registerUploadedPhoto",
+    file: FILE,
+    message: "A photograph was never offered to the media engine.",
+    reason: "No StoredObjectFacts for this slide, so nothing could be declared.",
+    expected: "sha256, bytes, width, height and mime for the bytes that were uploaded",
+    actual: "null",
+    nextStep:
+      "If this slide came from a resumed draft the null is correct and the post is legacy-only by design. Otherwise describeStoredObject could not measure the encoded file — check the encoder output and crypto.subtle availability.",
+    correlationId,
+    detail: { url: photo.url },
+  });
+}
+
+/**
  * Drive one photograph from "uploaded" to "ready", returning its media id.
  * Returns null on any refusal — the caller decides what a null means for the
  * post as a whole, and it always means "do not claim this slide is migrated".
  */
 export async function registerUploadedPhoto(
+  photo: UploadedPhoto,
+  correlationId?: string,
+): Promise<string | null> {
+  // ⚠ NOTHING IN THE MEDIA PATH MAY THROW AT ITS CALLER.
+  //
+  // Every caller of this function treats `null` as "not migrated" and carries
+  // on. None of them expects an exception, and RED-1 proved what happens when
+  // one escapes: the throw sailed past the composer's legacy fallback and the
+  // member got "Could not publish" and no post at all — a bug strictly worse
+  // than the legacy-only post the fallback exists to prevent.
+  //
+  // So the boundary is closed here rather than at each of the five call sites.
+  // A throw is NOT quietly swallowed: MEDIA-4009 is an ERROR, because unlike a
+  // refusal it is never expected and always means this module is broken.
+  try {
+    return await registerUploadedPhotoInner(photo, correlationId);
+  } catch (e) {
+    logger.error({
+      code: "MEDIA-4009",
+      event: "MEDIA_PATH_THREW",
+      fn: "registerUploadedPhoto",
+      file: FILE,
+      message: "The media write path threw instead of refusing.",
+      reason: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+      expected: "A media id, or null on a refusal the caller can handle",
+      actual: "an exception",
+      nextStep:
+        "ALWAYS A DEFECT IN THIS MODULE — a refusal returns null, so an exception means a contract broke. A TypeError mentioning 'rest' is RED-1 returning: supabase.rpc has been stored in a variable somewhere instead of called in call position. See the header.",
+      correlationId,
+      detail: { url: photo.url },
+    });
+    return null;
+  }
+}
+
+async function registerUploadedPhotoInner(
   photo: UploadedPhoto,
   correlationId?: string,
 ): Promise<string | null> {
@@ -108,44 +230,38 @@ export async function registerUploadedPhoto(
   // measure the encoded bytes, or the slide came from a RESUMED DRAFT, where
   // the original file is gone and null is the honest answer rather than a
   // guess. `detail.resumed` separates them.
+  // ⚠ THE ONE REFUSAL THAT MAKES NO NETWORK CALL — see reportUndescribableSlide.
   if (!photo.stored) {
-    logger.warn({
-      code: "MEDIA-4006",
-      event: "PHOTO_NOT_DESCRIBABLE",
-      fn: "registerUploadedPhoto",
-      file: FILE,
-      message: "A photograph was never offered to the media engine.",
-      reason: "No StoredObjectFacts for this slide, so nothing could be declared.",
-      expected: "sha256, bytes, width, height and mime for the bytes that were uploaded",
-      actual: "null",
-      nextStep:
-        "If this slide came from a resumed draft the null is correct and the post is legacy-only by design. Otherwise describeStoredObject could not measure the encoded file — check the encoder output and crypto.subtle availability.",
-      correlationId,
-      detail: { url: photo.url },
-    });
+    reportUndescribableSlide(photo, correlationId);
     return null;
   }
   const bytea = shaToBytea(photo.stored.sha256);
   const objectPath = objectPathFromUrl(photo.url);
   if (!bytea || !objectPath) return null;
 
+  // ⚠ CALL IT IN CALL POSITION. NEVER STORE IT. See the header note "THE ONE
+  // LINE THAT MUST NEVER BE REFACTORED FOR TIDINESS".
+  //
   // The generated `types.ts` does not carry the media RPCs, so the contract is
-  // declared HERE, at the call site, exactly as `postMediaRead.ts` does for
+  // declared HERE, at the call site, exactly as `postMediaRead.ts:146` does for
   // `post_media_for`. A blanket `as never` would have hidden a wrong argument
   // name as readily as a wrong function name; this narrows to one signature and
-  // still fails the moment the shape stops matching.
-  const rpc = supabase.rpc as unknown as <T>(
+  // still fails the moment the shape stops matching. The cast is inside the
+  // parentheses of the call, so `supabase.rpc` is resolved as a MEMBER
+  // EXPRESSION at invocation time and `this` is still the client.
+  const { data: mediaId, error: beginErr } = await (supabase.rpc as unknown as (
     fn: string,
     args: Record<string, unknown>,
-  ) => Promise<{ data: T | null; error: { message: string } | null }>;
-
-  const { data: mediaId, error: beginErr } = await rpc<string>("media_begin_upload", {
-    _sha256: bytea,
-    _width: photo.stored.width,
-    _height: photo.stored.height,
-    _bytes: photo.stored.bytes,
-    _mime: photo.stored.mime,
-  });
+  ) => Promise<{ data: string | null; error: { message: string } | null }>)(
+    "media_begin_upload",
+    {
+      _sha256: bytea,
+      _width: photo.stored.width,
+      _height: photo.stored.height,
+      _bytes: photo.stored.bytes,
+      _mime: photo.stored.mime,
+    },
+  );
 
   if (beginErr || typeof mediaId !== "string") {
     logger.warn({
@@ -228,10 +344,25 @@ export interface PublishInput {
   idempotencyKey: string;
 }
 
+/**
+ * WHY a post did not go through the media engine. See the header note.
+ *
+ * ⚠ THESE TWO MUST NOT BE MERGED BACK INTO ONE BOOLEAN. `unmigratable-slides`
+ * is the permanent, correct floor; `media-path-failed` is a leak. Counting them
+ * together is what let RED-1 run for four days looking like normal behaviour.
+ */
+export type PublishFailure =
+  /** A slide has no StoredObjectFacts — a resumed draft. Legacy-only BY DESIGN. */
+  | "unmigratable-slides"
+  /** Every slide was describable and the path still failed. A DEFECT. */
+  | "media-path-failed";
+
 export interface PublishOutcome {
   postId: string | null;
   /** true when the post carries post_media rows; false when it is legacy-only. */
   viaMedia: boolean;
+  /** null on success. Otherwise which of the two failures above. */
+  failure: PublishFailure | null;
 }
 
 /**
@@ -245,31 +376,46 @@ export interface PublishOutcome {
  * every photograph is present and the post is simply not migrated yet.
  */
 export async function publishViaMedia(input: PublishInput): Promise<PublishOutcome> {
+  // ⚠ CLASSIFY BEFORE TRYING, NOT AFTER FAILING.
+  //
+  // A slide with no StoredObjectFacts cannot be declared to the media engine at
+  // all — there is no sha256, no byte count, nothing to verify against. That is
+  // the resumed-draft case, and it is legacy-only by design. Deciding it HERE,
+  // from the input, is what keeps it distinguishable from a path that was
+  // capable of working and did not.
+  const undescribable = input.photos.filter((p) => !p.stored);
+  if (undescribable.length > 0) {
+    for (const p of undescribable) reportUndescribableSlide(p, input.idempotencyKey);
+    return { postId: null, viaMedia: false, failure: "unmigratable-slides" };
+  }
+
   const ids: string[] = [];
   for (const photo of input.photos) {
     const id = await registerUploadedPhoto(photo, input.idempotencyKey);
-    if (!id) return { postId: null, viaMedia: false };
+    if (!id) return { postId: null, viaMedia: false, failure: "media-path-failed" };
     ids.push(id);
   }
   if (ids.length === 0 || ids.length !== input.photos.length) {
-    return { postId: null, viaMedia: false };
+    return { postId: null, viaMedia: false, failure: "media-path-failed" };
   }
 
-  // Same narrow cast as `registerUploadedPhoto` — see the note there.
-  const rpc = supabase.rpc as unknown as <T>(
+  // ⚠ CALL IT IN CALL POSITION. NEVER STORE IT — same narrow cast as
+  // `registerUploadedPhoto`, and the same reason. See the header note.
+  const { data: postId, error } = await (supabase.rpc as unknown as (
     fn: string,
     args: Record<string, unknown>,
-  ) => Promise<{ data: T | null; error: { message: string } | null }>;
-
-  const { data: postId, error } = await rpc<string>("post_publish_with_media", {
-    _media_ids: ids,
-    _content: input.content,
-    _privacy: input.privacy,
-    _categories: input.categories,
-    _indexing_disabled: input.indexingDisabled,
-    _idempotency_key: input.idempotencyKey,
-    _thumbnail_urls: input.photos.map((p) => p.thumbnailUrl),
-  });
+  ) => Promise<{ data: string | null; error: { message: string } | null }>)(
+    "post_publish_with_media",
+    {
+      _media_ids: ids,
+      _content: input.content,
+      _privacy: input.privacy,
+      _categories: input.categories,
+      _indexing_disabled: input.indexingDisabled,
+      _idempotency_key: input.idempotencyKey,
+      _thumbnail_urls: input.photos.map((p) => p.thumbnailUrl),
+    },
+  );
 
   if (error || typeof postId !== "string") {
     logger.warn({
@@ -286,10 +432,10 @@ export async function publishViaMedia(input: PublishInput): Promise<PublishOutco
       correlationId: input.idempotencyKey,
       detail: { photographs: ids.length, privacy: input.privacy },
     });
-    return { postId: null, viaMedia: false };
+    return { postId: null, viaMedia: false, failure: "media-path-failed" };
   }
 
-  return { postId, viaMedia: true };
+  return { postId, viaMedia: true, failure: null };
 }
 
 /**
@@ -299,6 +445,26 @@ export async function publishViaMedia(input: PublishInput): Promise<PublishOutco
  * population was measured at 56 posts / 83 slides on 2026-08-20; if it starts
  * growing again, this counter is where it shows up first. Deleting this call
  * makes the regression invisible, which is worse than the regression.
+ */
+export function reportMediaPathFailure(correlationId?: string): void {
+  logger.error({
+    code: "MEDIA-4010",
+    event: "MEDIA_WRITE_PATH_FAILED",
+    fn: "createPost",
+    file: FILE,
+    message: "Every photograph in this post was describable, and the media path still did not complete.",
+    reason: "publishViaMedia returned media-path-failed",
+    expected:
+      "A describable photograph is declared, verified and published through post_publish_with_media",
+    actual: "the post fell back to the legacy image_urls-only insert",
+    nextStep:
+      "⚠ THIS IS A DEFECT, NOT A LEGACY SLIDE — do not treat it as part of the permanent floor. The MEDIA-4002/4003/4004/4009 entry with the same correlation id says which step refused. MEDIA-4009 means the path THREW, which is RED-1's signature. Fix the media path; do not widen the fallback.",
+    correlationId,
+  });
+}
+
+/**
+ * Say out loud that a post was published without media rows.
  */
 export function reportLegacyOnlyPublish(reason: string, correlationId?: string): void {
   logger.warn({
