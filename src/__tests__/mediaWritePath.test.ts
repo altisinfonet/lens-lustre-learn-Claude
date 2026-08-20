@@ -83,6 +83,7 @@ import {
   shaToBytea,
   objectPathFromUrl,
   registerUploadedPhoto,
+  registerAllOrNone,
   publishViaMedia,
   reportLegacyOnlyPublish,
   type UploadedPhoto,
@@ -623,5 +624,200 @@ describe("reportLegacyOnlyPublish", () => {
     reportLegacyOnlyPublish("because", "cid");
     const w = warnings.find((x) => x.code === "MEDIA-4001");
     expect(w).toBeTruthy();
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE DEFERRED PUBLISH PATHS — DRAFTS AND SCHEDULED POSTS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("post_attach_media — the deferred paths", () => {
+  const fn = lastDefinitionOf("post_attach_media");
+
+  it("is defined (vacuity guard)", () => {
+    expect(fn.length, "no migration defines post_attach_media").toBeGreaterThan(0);
+  });
+
+  it("reads the author from the POST, never from the caller", () => {
+    /**
+     * The scheduled publisher runs hours later as service_role with no session,
+     * so there is no auth.uid() to fall back on. If the author came from the
+     * caller, that publisher would be asserting whose photograph this is.
+     */
+    expect(/SELECT user_id, coalesce\(image_urls, '\{\}'\) INTO _author, _slides/.test(fn)).toBe(true);
+    expect(/mo\.owner_id <> _author/.test(fn)).toBe(true);
+  });
+
+  it("MEDIA-2205: every media must resolve to the photograph the post SHOWS", () => {
+    /**
+     * ⚠ THIS IS THE ONE THAT MATTERS. Ownership and readiness would happily
+     * accept the member's OTHER photographs — the feed would then show a
+     * different picture from every other surface, and nothing would be
+     * technically wrong.
+     */
+    expect(/MEDIA-2205/.test(fn), "the resolve-to-the-same-photograph check is gone").toBe(true);
+    expect(/_origin \|\| '\/' \|\| \(mo\.derivatives->>'original'\) IS DISTINCT FROM _slides\[t\.ord\]/.test(fn)).toBe(true);
+  });
+
+  it("is whole-post or nothing", () => {
+    expect(/MEDIA-2204/.test(fn), "a post may now carry fewer references than photographs").toBe(true);
+    expect(/MEDIA-2203/.test(fn), "media may now be attached twice").toBe(true);
+    expect(/MEDIA-2202/.test(fn), "the same photograph may now appear twice").toBe(true);
+  });
+
+  it("offering nothing is a no-op, not an error", () => {
+    // A draft written before the media path exists must still publish.
+    expect(/RETURN 0;/.test(fn)).toBe(true);
+  });
+
+  it("is service_role only — a member attaching their own references is the gap", () => {
+    const all = bodies.join("\n");
+    expect(/REVOKE ALL ON FUNCTION public\.post_attach_media\(uuid, uuid\[\]\) FROM PUBLIC, anon;/.test(all)).toBe(true);
+    expect(/REVOKE ALL ON FUNCTION public\.post_attach_media\(uuid, uuid\[\]\) FROM authenticated;/.test(all)).toBe(true);
+  });
+});
+
+describe("publish_post_draft — attaches, but never at the cost of the post", () => {
+  const fn = lastDefinitionOf("publish_post_draft");
+
+  it("is defined (vacuity guard)", () => {
+    expect(fn.length).toBeGreaterThan(0);
+  });
+
+  it("ships with a rollback that refuses to drop the media_ids columns", () => {
+    const m = files.find((f) => /media_attach_for_deferred_publish/.test(f));
+    expect(m, "the deferred-publish migration is missing").toBeTruthy();
+    const rb = join(ROOT, "supabase/rollback", m!.replace(/\.sql$/, "_ROLLBACK.sql"));
+    expect(existsSync(rb), "no rollback for the deferred-publish migration").toBe(true);
+    const flat = readFileSync(rb, "utf8").replace(/\s*\n\s*--\s*/g, " ").replace(/\s+/g, " ");
+    // Dropping them would strand media_objects the client already registered:
+    // nothing would point at them, and re-applying could not recover the link.
+    expect(
+      /THE COLUMNS ARE NOT DROPPED/i.test(flat),
+      "the rollback does not say the media_ids columns are kept — dropping them " +
+        "strands registered media that re-applying cannot recover",
+    ).toBe(true);
+    expect(/DROP COLUMN/i.test(flat), "the rollback drops a media_ids column").toBe(false);
+  });
+
+  it("calls post_attach_media", () => {
+    expect(/PERFORM public\.post_attach_media\(_post_id, _d\.media_ids\);/.test(fn)).toBe(true);
+  });
+
+  it("wraps it so a refusal cannot cost the member their post", () => {
+    /**
+     * Same guarded shape the people-tags block has used since drafts shipped.
+     * PL/pgSQL's BEGIN…EXCEPTION is a subtransaction, so a refusal rolls back
+     * the WHOLE attach — a partial carousel is not reachable.
+     */
+    const block = /BEGIN\s+PERFORM public\.post_attach_media[\s\S]{0,400}?EXCEPTION WHEN OTHERS THEN[\s\S]{0,200}?DRAFT-005/;
+    expect(
+      block.test(fn),
+      "the attach is no longer wrapped — a refused media reference now fails the whole publish",
+    ).toBe(true);
+  });
+
+  it("still deletes the draft and still keeps its images", () => {
+    expect(/DELETE FROM public\.post_drafts WHERE id = _draft_id;/.test(fn)).toBe(true);
+    expect(/Its IMAGES DO NOT/.test(fn)).toBe(true);
+  });
+});
+
+describe("the client registers deferred media at UPLOAD time", () => {
+  const composer = readFileSync(join(ROOT, "src/components/WallPosts.tsx"), "utf8");
+  const sched = readFileSync(join(ROOT, "src/hooks/feed/useScheduledPosts.ts"), "utf8");
+  const publisher = readFileSync(join(ROOT, "supabase/functions/publish-scheduled-posts/index.ts"), "utf8");
+  const lib = readFileSync(join(ROOT, "src/lib/media/postMediaWrite.ts"), "utf8");
+
+  it("Save draft registers and stores media_ids", () => {
+    expect(/media_ids: mediaIds,/.test(composer)).toBe(true);
+    expect(/registerAllOrNone\(/.test(composer)).toBe(true);
+  });
+
+  it("Schedule registers and stores media_ids", () => {
+    expect(/media_ids: await registerAllOrNone\(/.test(composer)).toBe(true);
+    expect(/media_ids: input\.media_ids \?\? null,/.test(sched)).toBe(true);
+  });
+
+  it("registerAllOrNone declines the whole set when one slide cannot be declared", async () => {
+    const out = await registerAllOrNone([photo(1), photo(2, { stored: null }), photo(3)]);
+    expect(
+      out,
+      "a subset would publish a post with an ord gap — the one shape every gate " +
+        "in this engine exists to make unreachable",
+    ).toBeNull();
+  });
+
+  it("stops at the first refusal — it does not keep creating media nobody will reference", async () => {
+    /**
+     * ⚠ FOUND BY MUTATION, 2026-08-20. Removing the early return left the
+     * final length check to catch it, so the RETURN VALUE was still null and
+     * the suite stayed green — but the loop had gone on to register the
+     * remaining slides, creating `media_objects` rows that no post would ever
+     * reference. Unreferenced media is exactly what the orphan sweep now
+     * reports, and manufacturing it on every failed draft save is a slow leak.
+     */
+    const out = await registerAllOrNone([photo(1), photo(2, { stored: null }), photo(3)]);
+    expect(out).toBeNull();
+    expect(
+      rpcCalls.filter((c) => c.fn === "media_begin_upload"),
+      "registration continued past the slide that could not be declared",
+    ).toHaveLength(1);
+  });
+
+  it("registerAllOrNone returns every id, in order, when they all register", async () => {
+    const out = await registerAllOrNone([photo(1), photo(2)]);
+    expect(out).toEqual(["media-0", "media-1"]);
+  });
+
+  it("resumed draft slides carry no declaration, so the draft declines rather than half-registers", () => {
+    expect(
+      /let stored: \(StoredObjectFacts \| null\)\[\] = resumedUrls\.map\(\(\) => null\);/.test(composer),
+      "resumed slides no longer default to null — a draft could now register a subset",
+    ).toBe(true);
+  });
+
+  it("the scheduled publisher attaches, counts failures, and never fails the publish", () => {
+    /**
+     * ⚠ ASSERT ON THE CALL, NOT ON THE NAME. Found by mutation, 2026-08-20:
+     * `/post_attach_media/` and `/MEDIA-4005/` both matched the explanatory
+     * COMMENT above the call, so deleting the call itself and deleting the
+     * counter both left the suite green. A test that a comment can satisfy is
+     * not a test.
+     */
+    expect(
+      /await admin\.rpc\(\s*"post_attach_media"/.test(publisher),
+      "the scheduled publisher no longer calls post_attach_media — every scheduled " +
+        "post rejoins the legacy-only population",
+    ).toBe(true);
+    expect(
+      /console\.warn\(\s*`MEDIA-4005/.test(publisher),
+      "an unattached scheduled post is no longer reported",
+    ).toBe(true);
+    expect(/summary\.mediaUnattached\+\+;/.test(publisher)).toBe(true);
+    // The attach must come AFTER the insert and must not be inside the insErr
+    // branch — a member must get their post at the time they asked for it.
+    const insertAt = publisher.indexOf('.from("posts")');
+    const attachAt = publisher.indexOf('await admin.rpc("post_attach_media"');
+    expect(attachAt).toBeGreaterThan(insertAt);
+  });
+
+  it("MyPhotos and profilePostHelper are NOT wired, and the reason is written down", () => {
+    /**
+     * Not an oversight. MyPhotos uploads to `avatars/<uid>/my-photos/…` (the
+     * wrong bucket prefix) and profilePostHelper posts the member's
+     * `avatars/<uid>/avatar.webp?t=…` — a MUTABLE path overwritten on every
+     * profile-photo change, which cannot carry stable content identity at all.
+     * `media_mark_ready` refuses both today (MEDIA-2102). Closing them needs
+     * the Priority-2 class C/D decision, not a patch.
+     */
+    const myPhotos = readFileSync(join(ROOT, "src/pages/MyPhotos.tsx"), "utf8");
+    expect(/bucket: "avatars"/.test(myPhotos), "MyPhotos no longer uploads to avatars/ — re-open the question").toBe(true);
+    const mig = readFileSync(
+      join(ROOT, "supabase/migrations/20260820073000_media_attach_for_deferred_publish.sql"),
+      "utf8",
+    );
+    expect(/MyPhotos album posts upload to/.test(mig)).toBe(true);
+    expect(/MUTABLE path/.test(mig)).toBe(true);
   });
 });
