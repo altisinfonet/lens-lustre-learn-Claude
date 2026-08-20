@@ -546,14 +546,49 @@ describe("media_mark_ready — the object must be the owner's", () => {
     expect(fn.length).toBeGreaterThan(0);
   });
 
-  it("refuses an original outside post-images/<owner>/", () => {
+  it("refuses an original outside the ROW OWNER's folder, in either media prefix", () => {
+    /**
+     * Widened 2026-08-20 from `post-images/<owner>/` to
+     * `(post-images|avatars)/<owner>/` so class C — album uploads that landed
+     * under the avatars prefix of the same R2 bucket — can be migrated.
+     * docs/CANDIDATE_PATTERN_AUDIT.md §7.
+     *
+     * ⚠ THE OWNER SEGMENT IS THE PROPERTY, NOT THE PREFIX. What must never
+     * move is that the path is pinned to THIS ROW'S owner. The prefix list is
+     * checked separately below so it cannot quietly grow to include platform
+     * assets.
+     */
     expect(
       /MEDIA-2102/.test(fn),
       "media_mark_ready no longer checks that the stored object belongs to the row's " +
         "owner — a writer that accepts a caller-supplied path can now mark a member's " +
         "row ready against somebody else's photograph",
     ).toBe(true);
-    expect(/'\^post-images\/' \|\| _owner::text \|\| '\/'/.test(fn)).toBe(true);
+    const guard = /'\^\(([a-z|-]+)\)\/' \|\| _owner::text \|\| '\/'/.exec(fn);
+    expect(guard, "the owner-folder guard is no longer built from _owner").toBeTruthy();
+    expect(
+      guard![1].split("|").sort(),
+      "the allowed media prefixes changed — anything beyond the member-media prefixes " +
+        "lets a writer point a member's row at platform assets",
+    ).toEqual(["avatars", "post-images"]);
+  });
+
+  it("the LIVE write path stays narrower than the migration", () => {
+    /**
+     * `media_mark_ready` must accept `avatars/<owner>/…` because the migration
+     * needs class C. The live registrar must NOT, because there the caller is a
+     * MEMBER and an `avatars/…` path would be a member registering their own
+     * MUTABLE avatar — overwritten on every profile-photo change — as a post
+     * photograph. Narrow where the caller is a member; general where the caller
+     * is the migration.
+     */
+    const edge = readFileSync(join(ROOT, "supabase/functions/media-register-upload/index.ts"), "utf8");
+    expect(
+      /key\.startsWith\(`post-images\/\$\{ownerId\}\//.test(edge),
+      "the live registrar now accepts a prefix other than post-images/<owner>/ — a " +
+        "member could register their own mutable avatar as a post photograph",
+    ).toBe(true);
+    expect(/avatars/.test(edge.replace(/\/\*[\s\S]*?\*\//g, "")), "the live registrar mentions avatars outside a comment").toBe(false);
   });
 
   it("refuses traversal, absolute paths and hosts", () => {
