@@ -151,3 +151,77 @@ migration-ready, and closing it is what ends this entry.
 exactly where D-001 started — a control promising more than the platform can
 keep — while looking, in a diff, like a tidy-up. The pinning test fails if
 either composer offers the chooser without it.
+
+---
+
+## D-003 — Authorized media delivery: the architecture is chosen, the dependency is not ours
+
+- **Status:** ACTIVE
+- **Decided:** 2026-08-20
+- **Decided by:** Assistant, closing the Phase 2 workstream, on measured evidence rather than on design preference
+- **Pinned by:** `src/__tests__/authorizedMediaDelivery.test.ts`
+- **Restore when:** Nothing to restore — this ENDS when byte retrieval is authorized at the delivery edge and the negative test below returns "refused" instead of "retrieved". At that point `PrivacyGapNotice.tsx` and its pin are deleted, D-002 is closed, and this entry is closed in the same commit.
+
+### The measurement that forced this entry
+
+Executed 2026-08-20 from `https://example.com` — a third-party origin with no
+session, no cookie, and `credentials:'omit'` so none could be attached:
+
+```
+migrated post media   https://cdn.50mmretina.com/post-images/…/posts/…webp   RETRIEVED  2560x1165
+a second post's media https://cdn.50mmretina.com/post-images/…/posts/…webp   RETRIEVED  1023x1537
+a key that does not exist                                                     refused
+Supabase-hosted object (fetch, credentials:'omit')      HTTP 200, 18,094 bytes, image/webp
+```
+
+The control refuses, so the method discriminates. **Byte retrieval is
+unauthenticated.** `post_media_for` decides which ADDRESSES a viewer learns; it
+does not and cannot decide who may fetch them. Item E did not change this and
+no client change ever can: anything a browser renders, a browser can be told to
+fetch.
+
+### The architectures considered, and why one wins
+
+| approach | privacy | performance / caching | effect on the 229 live public images | complexity | verdict |
+|---|---|---|---|---|---|
+| Private Supabase bucket + `createSignedUrl` | strong | good | **breaks them** — live media is on R2; Supabase cannot sign an R2 object | medium | ✗ wrong store |
+| R2 presigned URLs for everything | strong | **destroys CDN caching** — every URL unique per viewer; kills `srcset`, the `-l3` ladder and `/cdn-cgi/image` transforms | breaks every existing URL, including the Android app's | high | ✗ |
+| Edge-function media proxy | strong | every byte through Deno: latency, bandwidth, no CDN, 25 MB originals | none | medium | ✗ ruinous for a photography feed |
+| **Two stores: public bucket stays public; restricted media on a private prefix with authorized delivery at the Cloudflare/R2 edge** | strong where it is needed | **zero impact on public images or caching** | **none** | medium | ✓ **chosen** |
+
+The chosen shape is the one the schema was already built for.
+`media_objects.visibility` exists today with `('public','restricted','private')`
+and **defaults to `private`** — added in `20260814084711` with the note
+*"friends-privacy objects moved off the public bucket"*. Nothing new has to be
+invented; the column is waiting.
+
+### The dependency that blocks it, stated exactly
+
+Authorization has to happen **where the bytes are served**, and that is
+Cloudflare in front of R2 (`cdn.50mmretina.com`). That configuration lives
+outside this repository — `src/lib/cdnImage.ts` already records the lesson:
+*"this is Cloudflare zone configuration, it lives outside this repository, no
+deploy or test here can see it change, and it HAS changed."*
+
+So the remaining work is not code that was skipped. It is:
+
+1. a Cloudflare Worker (or equivalent) bound to the R2 custom domain that, for
+   objects under the restricted prefix, requires a short-lived token minted by
+   the application after `can_view_post`, and passes public objects through
+   untouched;
+2. an application endpoint that mints that token — the natural home is beside
+   `post_media_for`, which already performs exactly the right check;
+3. the upload path routing `visibility <> 'public'` media to the restricted
+   prefix.
+
+(1) cannot be built, deployed or tested from this repository. Until it exists,
+(2) and (3) would be a lock with no door: media written to a "restricted"
+prefix on a bucket that serves everything publicly is not protected, it merely
+looks protected — which is worse, and is precisely what D-001 refused to ship.
+
+### What is true in the meantime
+
+All 254 production posts are `privacy = 'public'`, so live exposure is **zero**
+and the negative test above retrieves nothing a visitor could not already see.
+The gap becomes real the first time a member uses the audience chooser, which
+is why `PrivacyGapNotice` is not cosmetic and stays until this entry closes.

@@ -56,10 +56,48 @@ is never treated as a hash.
 4. After a run, reconciliation compares the reference set as a set
    (`MIG-1075`), so equal counts cannot produce a pass.
 
-## Drift
+## Drift, and the cycles that followed
 
-The platform is live. At the fence the population is 207. As of 2026-08-17 the
-live population is **208** — one photograph arrived at 13:23:31+00, after the
-fence. It is deliberately **outside** the fenced set and is not migrated. Any
-arrival is handled by its own delta manifest, measured the same way, approved
-separately.
+The platform is live, so the fenced population is a snapshot and the manifest
+is not. Each arrival was handled by its own cycle: measure at a **new** fence,
+build a **cumulative** manifest (the prior rows verbatim plus the new ones),
+prove containment, and migrate. **No frozen fence or manifest has ever been
+edited** — the earlier ones still digest to the values recorded above and in
+the entries below.
+
+The cumulative shape is not a preference. `media_migration_fence_digest`
+returns a digest of the *entire* candidate population up to the fence, not of a
+window, so a delta-only manifest is refused by `MIG-1040`. That refusal is the
+control working. Already-migrated posts return `verified-skip` after a
+row-for-row comparison (`MIG-2020` / `MIG-2021`), so a cumulative manifest
+re-verifies them rather than rewriting them.
+
+| cycle | fence | rows | candidate digest | outcome |
+|---|---|---|---|---|
+| 1 | `2026-08-17 10:52:06.533572+00` | 207 | `f0a74d3e74d8a52f61de92a2e0ab429a` | 207 migrated |
+| 2 | `2026-08-19 14:31:54+00` | 226 | `46c4cad2797a26c4b5613fdff36a4b3a` | +19 |
+| 3 | `2026-08-19 15:38:02.195291+00` | 228 | `eff23edc6ede73221fd0a1b3aee6a275` | +2 |
+| 4 | `2026-08-20 02:45:07.818428+00` | **229** | `c6173052cddf7119ba027f0f874544cd` | **+1 — fenced delta now 0** |
+
+Cycle 4 manifest: `PHASE2_CUMULATIVE_MANIFEST_229_2026-08-20T0245.tsv`,
+sha256 `9613580f813fab660a44c2dff8999f74f8307c11913f06ac38526dfbd8005666`,
+95,469 bytes, 229 rows / 198 posts, 128,677,908 object bytes. Final reference-set
+digest **`9dafcfa7bb00828f773d8da099dbc91c`**, computed from the manifest
+*before* execution and matched exactly afterwards.
+
+## What the fence deliberately does NOT cover
+
+83 slides across 56 posts sit outside the candidate pattern
+`cdn.50mmretina.com/post-images/<owner>/posts/<file>` and are therefore outside
+every manifest above. They are not forgotten; they are classified, and three
+groups cannot be migrated in place at all:
+
+| group | slides | why |
+|---|---|---|
+| `post-images/<owner>/<file>` (older flat naming) | 19 | migratable data; blocked only by the engine's path pattern |
+| `avatars/<owner>/my-photos/<album>/<file>` | 15 | migratable data; same |
+| Supabase-hosted `…-thumb.webp` | 28 | **the CDN does not serve these keys** — measured; migrating would resolve to a 404 |
+| `avatars/covers/<owner>/<file>` | 3 | owner is not the path's second segment, which `MIG-1019`/`MIG-2006` require |
+| `avatars/<owner>/avatar.webp` \| `cover.webp` | 18 | **the path is mutable** — overwritten on every profile-photo change, and two posts already share one. Content-addressed identity cannot be applied to an address whose bytes change. |
+
+See `claude/PHASE2_REMAINING_MEDIA_MATRIX_2026-08-20.md` for the full matrix.
