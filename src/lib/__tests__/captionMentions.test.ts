@@ -114,9 +114,16 @@ describe("the composer is wired, the textarea is kept", () => {
     // Was two — post and schedule. Stage C added a third: saving a draft must
     // store the SAME @[Name](id) markup, or a mention typed before saving would
     // come back as plain text on resume and publish without its link.
+    //
+    // A FOURTH landed on 2026-08-20 with the Phase 2 media write path: the
+    // immediate publish now goes through `post_publish_with_media` first and
+    // falls back to the legacy `posts` insert. BOTH must convert, or the same
+    // caption publishes with working mentions or dead plain text depending on
+    // whether a verification endpoint happened to be up — which is exactly the
+    // kind of difference nobody would think to look for.
     expect(wall).toContain("useCaptionMentions");
     const conversions = wall.match(/captionMentions\.convert\(newContent\.trim\(\)\)/g) || [];
-    expect(conversions.length).toBe(3);
+    expect(conversions.length).toBe(4);
   });
 
   it("the plain Textarea (with its over-limit overlay) survives — mentions did not replace it", () => {
