@@ -248,6 +248,20 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
       "The post itself is fine. Check that the scheduled_posts row carried media_ids and that post_attach_media did not refuse — MEDIA-2205 means the registered objects do not match the row's image_urls, which is the check that stops one member's photograph being attached to another's post.",
   },
   {
+    code: "MEDIA-4007",
+    severity: "warn",
+    description: "A post was created that can never carry media references, and that is correct.",
+    resolution:
+      "NOTHING TO FIX. Profile-picture and cover-photo announcements point at a MUTABLE avatar object, so they cannot carry stable content identity and media_mark_ready refuses the path (MEDIA-2102). This code exists so the permanent floor of the legacy-only population is explainable rather than merely small — do not confuse it with MEDIA-4001, which is a regression.",
+  },
+  {
+    code: "MEDIA-4008",
+    severity: "warn",
+    description: "A system post published without attaching its registered media.",
+    resolution:
+      "Emitted by create_system_post as a Postgres WARNING, so look in the database logs, not client_errors. The post itself is fine and the member's photographs are already in their album. MEDIA-2205 in the reason means the registered objects do not match the post's image_urls, which is the check that stops one member's photograph being attached to another's post.",
+  },
+  {
     code: "MEDIA-4006",
     severity: "warn",
     description: "A photograph could not be described, so it was never offered to the media engine.",

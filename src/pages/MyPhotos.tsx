@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { registerAllOrNone, reportLegacyOnlyPublish } from "@/lib/media/postMediaWrite";
+import { newCorrelationId } from "@/lib/logger";
+import type { StoredObjectFacts } from "@/lib/media/storedObject";
 import { useQuery, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import PageSEO from "@/components/PageSEO";
@@ -327,11 +330,18 @@ const AlbumDetailView = ({ album, onBack, isOwner }: { album: PhotoAlbum; onBack
       return;
     }
     const fileList = Array.from(files);
+    // One id ties the registrations, the post and any MEDIA-40xx warning
+    // together, so an album upload can be read end-to-end in client_errors.
+    const correlationId = newCorrelationId();
     setUploading(true);
     setUploadProgress({ current: 0, total: fileList.length });
     let successCount = 0;
     const uploadedUrls: string[] = [];
     const uploadedThumbs: string[] = [];
+    // The bytes that were actually stored, measured by the encoder at the one
+    // moment both facts are in hand. Without these the album post cannot be
+    // offered to the media engine and would land image_urls-only.
+    const uploadedStored: (StoredObjectFacts | null)[] = [];
     try {
       for (let i = 0; i < fileList.length; i++) {
         setUploadProgress({ current: i, total: fileList.length });
@@ -344,6 +354,7 @@ const AlbumDetailView = ({ album, onBack, isOwner }: { album: PhotoAlbum; onBack
         });
         uploadedUrls.push(result.url);
         uploadedThumbs.push(result.thumbnailUrl);
+        uploadedStored.push(result.stored);
         successCount++;
       }
       setUploadProgress({ current: fileList.length, total: fileList.length });
@@ -356,6 +367,40 @@ const AlbumDetailView = ({ album, onBack, isOwner }: { album: PhotoAlbum; onBack
         // by the member, so no human ever chose a category for it. Phase B's
         // trigger would reject a direct client insert with POST-CAT-002.
         // create_system_post() is the only path that may declare post_kind.
+        //
+        // ⚠ THE MEDIA ENGINE RUNS FIRST, AND ALL-OR-NONE.
+        //
+        // Album objects live at `avatars/<owner>/my-photos/<album>/<file>` —
+        // written once, never overwritten. They are real photographs and they
+        // belong in media_objects/post_media, which is why 15 slides of exactly
+        // this shape (class C) migrated cleanly on 2026-08-20.
+        //
+        // Until today this call created the post with `image_urls` and nothing
+        // else, and — because MEDIA-4001 lives in the composer's client code,
+        // not here — NOTHING reported it. Every album upload quietly grew the
+        // legacy-only population.
+        //
+        // `registerAllOrNone` returns null if ANY slide cannot be declared. A
+        // post carrying media for three photographs out of four would publish an
+        // ordinal gap, which is the one shape every gate in this engine exists
+        // to make unreachable, so a single failure sends the whole post down the
+        // legacy path — where the member still gets their album post and nothing
+        // is lost but the migration.
+        const mediaIds = await registerAllOrNone(
+          uploadedUrls.map((url, i) => ({
+            url,
+            thumbnailUrl: uploadedThumbs[i],
+            stored: uploadedStored[i] ?? null,
+          })),
+          correlationId,
+        );
+        if (!mediaIds) {
+          reportLegacyOnlyPublish(
+            "an album post could not register every photograph with the media engine",
+            correlationId,
+          );
+        }
+
         const { data: postId } = await (
           supabase.rpc as unknown as (
             fn: string,
@@ -366,6 +411,7 @@ const AlbumDetailView = ({ album, onBack, isOwner }: { album: PhotoAlbum; onBack
           _image_url: uploadedUrls[0],
           _image_urls: uploadedUrls,
           _thumbnail_urls: uploadedThumbs,
+          _media_ids: mediaIds,
         });
 
         // Add each photo to the album, linking to the post
