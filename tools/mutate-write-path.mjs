@@ -24,12 +24,15 @@ const UPLOAD   = "src/lib/imageUpload.ts";
 const STORED   = "src/lib/media/storedObject.ts";
 const EDGE     = "supabase/functions/media-register-upload/index.ts";
 const TOML     = "supabase/config.toml";
+const MIG2     = "supabase/migrations/20260820073000_media_attach_for_deferred_publish.sql";
+const SCHED    = "supabase/functions/publish-scheduled-posts/index.ts";
+const SCHEDHOOK= "src/hooks/feed/useScheduledPosts.ts";
 const REG      = "docs/DECISIONS.md";
 const PIN      = "src/__tests__/mediaWritePath.test.ts";
 
 const SUITE = `${PIN} src/__tests__/publishAtomicity.test.ts src/__tests__/decisionRegister.test.ts`;
 
-const FILES = [MIG, CLIENT, COMPOSER, UPLOAD, STORED, EDGE, TOML, REG, PIN];
+const FILES = [MIG, MIG2, CLIENT, COMPOSER, UPLOAD, STORED, EDGE, TOML, REG, PIN, SCHED, SCHEDHOOK];
 const originals = Object.fromEntries(FILES.map((f) => [f, readFileSync(f, "utf8")]));
 
 const mutations = [
@@ -37,8 +40,8 @@ const mutations = [
   {
     file: CLIENT, name: "1. missing media_objects insert — the row is never opened",
     apply: (s) => s.replace(
-      'const { data: mediaId, error: beginErr } = await supabase.rpc("media_begin_upload", {',
-      'const { data: mediaId, error: beginErr } = { data: "fake", error: null } as never;\n  void ((async () => ({} as never))); const _unused = ({',
+      'const { data: mediaId, error: beginErr } = await rpc<string>("media_begin_upload", {',
+      'const { data: mediaId, error: beginErr } = { data: "fake", error: null }; const _unused = ({',
     ),
   },
   {
@@ -129,6 +132,66 @@ const mutations = [
     file: UPLOAD, name: "16. the picked file hashed instead of the encoded one — every upload quarantines",
     apply: (s) => s.replace("await describeStoredObject(fullResFile, encodedDims)", "await describeStoredObject(file, encodedDims)"),
   },
+  // ── the deferred publish paths ───────────────────────────────────────────
+  {
+    file: MIG2, name: "19. MEDIA-2205 removed — a draft can attach the member's OTHER photographs",
+    apply: (s) => s.replace(
+      "    RAISE EXCEPTION 'MEDIA-2205 % of % media do not resolve to the photographs this post shows',\n      _bad, _n USING ERRCODE = '23514';",
+      "    NULL;",
+    ),
+  },
+  {
+    file: MIG2, name: "20. the author read from the caller instead of the post",
+    apply: (s) => s.replace(
+      "SELECT user_id, coalesce(image_urls, '{}') INTO _author, _slides",
+      "SELECT auth.uid(), coalesce(image_urls, '{}') INTO _author, _slides",
+    ),
+  },
+  {
+    file: MIG2, name: "21. whole-post rule dropped — a post may carry fewer references than photographs",
+    apply: (s) => s.replace(
+      "    RAISE EXCEPTION 'MEDIA-2204 post % shows % photographs, % media offered',\n      _post_id, coalesce(array_length(_slides, 1), 0), _n USING ERRCODE = '23514';",
+      "    NULL;",
+    ),
+  },
+  {
+    file: MIG2, name: "22. the draft attach stops being guarded — a refusal now costs the member the post",
+    apply: (s) => s.replace(
+      "  BEGIN\n    PERFORM public.post_attach_media(_post_id, _d.media_ids);\n  EXCEPTION WHEN OTHERS THEN\n    RAISE WARNING 'DRAFT-005: media references not attached to post %: %', _post_id, SQLERRM;\n  END;",
+      "  PERFORM public.post_attach_media(_post_id, _d.media_ids);",
+    ),
+  },
+  {
+    file: MIG2, name: "23. post_attach_media granted to authenticated — members attach their own references",
+    apply: (s) => s.replace(
+      "REVOKE ALL ON FUNCTION public.post_attach_media(uuid, uuid[]) FROM authenticated;",
+      "GRANT EXECUTE ON FUNCTION public.post_attach_media(uuid, uuid[]) TO authenticated;",
+    ),
+  },
+  {
+    file: CLIENT, name: "24. registerAllOrNone registers a SUBSET — drafts publish with ord gaps",
+    apply: (s) => s.replace("    if (!id) return null;\n    ids.push(id);", "    if (id) ids.push(id);"),
+  },
+  {
+    file: COMPOSER, name: "25. resumed draft slides claim a declaration they do not have",
+    apply: (s) => s.replace(
+      "let stored: (StoredObjectFacts | null)[] = resumedUrls.map(() => null);",
+      "let stored: (StoredObjectFacts | null)[] = [];",
+    ),
+  },
+  {
+    file: SCHED, name: "26. the scheduled publisher stops attaching media",
+    apply: (s) => s.replace('const { error: attachErr } = await admin.rpc("post_attach_media", {', 'const { error: attachErr } = { error: null } as never; void ({'),
+  },
+  {
+    file: SCHED, name: "27. an unattached scheduled post stops being counted",
+    apply: (s) => s.replace(/\s*console\.warn\(\s*`MEDIA-4005[\s\S]*?\);\n/, "\n"),
+  },
+  {
+    file: SCHEDHOOK, name: "28. scheduled rows stop carrying media_ids",
+    apply: (s) => s.replace("          media_ids: input.media_ids ?? null,\n", ""),
+  },
+
   {
     file: TOML, name: "17. the superseded verifier deployed — every upload strands at pending",
     apply: (s) => s + "\n  [functions.media-verify-upload]\n    verify_jwt = true\n",
