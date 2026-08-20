@@ -28,11 +28,15 @@ const MIG2     = "supabase/migrations/20260820073000_media_attach_for_deferred_p
 const SCHED    = "supabase/functions/publish-scheduled-posts/index.ts";
 const SCHEDHOOK= "src/hooks/feed/useScheduledPosts.ts";
 const REG      = "docs/DECISIONS.md";
+const DELTA    = "supabase/migrations/20260820110000_media_write_path_delta.sql";
+const MAIN     = "src/main.tsx";
+const CATALOG  = "src/lib/errorCodes.ts";
+const WIDEN    = "supabase/migrations/20260820090000_candidate_pattern_widened.sql";
 const PIN      = "src/__tests__/mediaWritePath.test.ts";
 
 const SUITE = `${PIN} src/__tests__/publishAtomicity.test.ts src/__tests__/decisionRegister.test.ts`;
 
-const FILES = [MIG, MIG2, CLIENT, COMPOSER, UPLOAD, STORED, EDGE, TOML, REG, PIN, SCHED, SCHEDHOOK];
+const FILES = [MIG, MIG2, CLIENT, COMPOSER, UPLOAD, STORED, EDGE, TOML, REG, PIN, SCHED, SCHEDHOOK, DELTA, MAIN, CATALOG, WIDEN];
 const originals = Object.fromEntries(FILES.map((f) => [f, readFileSync(f, "utf8")]));
 
 const mutations = [
@@ -114,10 +118,17 @@ const mutations = [
     ),
   },
   {
-    file: MIG, name: "13. media_mark_ready stops checking the object belongs to the owner",
+    // ⚠ RETARGETED 2026-08-20. This originally mutated the copy of
+    // media_mark_ready in MIG (20260820061500). The candidate-pattern widening
+    // (20260820090000) then re-declared the function with CREATE OR REPLACE, so
+    // MIG's copy became a SUPERSEDED definition — mutating it changed a file
+    // but not the behaviour, and the harness reported an escape that was really
+    // a stale target. The assertions resolve the LAST definition on purpose;
+    // the mutation must aim at the same one.
+    file: WIDEN, name: "13. media_mark_ready stops checking the object belongs to the owner",
     apply: (s) => s.replace(
-      "    RAISE EXCEPTION 'MEDIA-2102 derivative original % is not inside post-images/%/', _orig, _owner\n      USING ERRCODE = '23514';",
-      "    NULL;",
+      "  IF _orig IS NULL\n     OR _orig !~ ('^(post-images|avatars)/' || _owner::text || '/') THEN",
+      "  IF FALSE THEN",
     ),
   },
   {
@@ -207,6 +218,67 @@ console.log(`baseline (no mutation): ${suiteResult()}\n`);
 let undetected = 0;
 
 for (const m of mutations) {
+  const original = originals[m.file];
+  const mutated = m.apply(original);
+  if (mutated === original) { console.log(`✗ NOT APPLIED  ${m.name}`); undetected++; continue; }
+  writeFileSync(m.file, mutated);
+  const res = suiteResult();
+  writeFileSync(m.file, original);
+  if (res === "RED") console.log(`✓ DETECTED    ${m.name}`);
+  else { console.log(`✗ UNDETECTED  ${m.name}  → suite stayed GREEN`); undetected++; }
+}
+
+// ── 19–23: the stale-client hole, closed 2026-08-20 ────────────────────────
+//
+// These five are the ones the 07:08 incident proves are needed. Each is a
+// plausible tidy-up that would restore the exact blindness that let a
+// legacy-only post through unnoticed.
+for (const m of [
+  {
+    file: CLIENT,
+    name: "19. MEDIA-4006 deleted — an undescribable slide is silently dropped again",
+    apply: (s) => s.replace(
+      /  if \(!photo\.stored\) \{[\s\S]*?\n    return null;\n  \}/,
+      "  if (!photo.stored) return null;",
+    ),
+  },
+  {
+    file: CLIENT,
+    name: "20. MEDIA-4006 downgraded to a comment (an assertion satisfiable by prose)",
+    apply: (s) => s.replace('code: "MEDIA-4006",', 'code: "MEDIA-9999", // was MEDIA-4006'),
+  },
+  {
+    file: DELTA,
+    name: "21. the delta check starts reading client_errors — inherits the blindness",
+    apply: (s) => s.replace(
+      "    from public.posts p",
+      "    from public.posts p left join public.client_errors ce on ce.user_id = p.user_id",
+    ),
+  },
+  {
+    file: DELTA,
+    name: "22. the scoped 'new' counters removed — a shrinking total hides a growing edge",
+    apply: (s) => s.replace(/'new_legacy_only_posts',/, "'unused_counter',"),
+  },
+  {
+    file: DELTA,
+    name: "23. the revoke dropped and execute granted to the client",
+    apply: (s) => s.replace(
+      /revoke all on function public\.media_write_path_delta\(timestamptz\) from public, anon, authenticated;/,
+      "grant execute on function public.media_write_path_delta(timestamptz) to authenticated;",
+    ),
+  },
+  {
+    file: MAIN,
+    name: "24. the build marker reverted to the value the stale client reported",
+    apply: (s) => s.replace(/__APP_BUILD = "[^"]+"/, '__APP_BUILD = "2026-08-10-3"'),
+  },
+  {
+    file: CATALOG,
+    name: "25. MEDIA-4006 removed from the catalog while the client still emits it",
+    apply: (s) => s.replace('    code: "MEDIA-4006",', '    code: "MEDIA-4106",'),
+  },
+]) {
   const original = originals[m.file];
   const mutated = m.apply(original);
   if (mutated === original) { console.log(`✗ NOT APPLIED  ${m.name}`); undetected++; continue; }

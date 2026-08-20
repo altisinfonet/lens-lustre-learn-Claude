@@ -95,7 +95,36 @@ export async function registerUploadedPhoto(
   photo: UploadedPhoto,
   correlationId?: string,
 ): Promise<string | null> {
-  if (!photo.stored) return null;
+  // ⚠ THE ONE REFUSAL THAT MAKES NO NETWORK CALL.
+  //
+  // Every other path below fails against a server, so it leaves a row in
+  // edge_logs even when the client's own warning is lost. This one returns
+  // before touching anything, so without its own code a post that landed
+  // legacy-only for THIS reason is indistinguishable — in the server logs —
+  // from a post published by a browser running an old bundle. Those two need
+  // different fixes, so they need different evidence.
+  //
+  // `stored` is null in exactly two ways: describeStoredObject could not
+  // measure the encoded bytes, or the slide came from a RESUMED DRAFT, where
+  // the original file is gone and null is the honest answer rather than a
+  // guess. `detail.resumed` separates them.
+  if (!photo.stored) {
+    logger.warn({
+      code: "MEDIA-4006",
+      event: "PHOTO_NOT_DESCRIBABLE",
+      fn: "registerUploadedPhoto",
+      file: FILE,
+      message: "A photograph was never offered to the media engine.",
+      reason: "No StoredObjectFacts for this slide, so nothing could be declared.",
+      expected: "sha256, bytes, width, height and mime for the bytes that were uploaded",
+      actual: "null",
+      nextStep:
+        "If this slide came from a resumed draft the null is correct and the post is legacy-only by design. Otherwise describeStoredObject could not measure the encoded file — check the encoder output and crypto.subtle availability.",
+      correlationId,
+      detail: { url: photo.url },
+    });
+    return null;
+  }
   const bytea = shaToBytea(photo.stored.sha256);
   const objectPath = objectPathFromUrl(photo.url);
   if (!bytea || !objectPath) return null;

@@ -56,6 +56,7 @@ export interface ErrorCodeEntry {
  *   CMNT-2100…2199   comments and comment moderation
  *   DB-3000…3999     database reads and writes
  *   API-4000…4999    edge functions and outside services
+ *   MEDIA-4000…4099  the media write path (media_objects/post_media)
  *   FILE-5000…5999   upload, download, storage
  *   STORY-6000…6999  stories and highlights
  *   JUDGE-6100…6199  competition judging, scoring and the judging locks
@@ -193,6 +194,65 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     description: "Publishing a draft failed; neither the post nor the deletion happened.",
     resolution:
       "THE DRAFT IS INTACT and the member has lost nothing — publish_post_draft() is one transaction, so a failure commits neither half. Read the Postgres message: the rate-limit, duplicate-detection and moderation triggers all fire inside it.",
+  },
+
+  // ── MEDIA ─────────────────────────────────────────────────────────────────
+  //
+  // THESE SIX ARE THE ONLY THING THAT PROVES THE PHASE 2 DELTA IS NOT GROWING.
+  //
+  // The media write path falls back to the legacy `image_urls`-only insert
+  // whenever any part of it refuses, and that fallback is CORRECT — a member
+  // must never lose a post because a verification endpoint was slow. But a
+  // silent fallback is indistinguishable from success, so every refusal on the
+  // way down is named here, and MEDIA-4001 counts the landing.
+  //
+  // ⚠ THEY ARE EMITTED BY THE CLIENT, WHICH IS THE ONE THING THAT MAY BE OUT
+  // OF DATE. On 2026-08-20 a post landed legacy-only and NONE of these fired,
+  // because the browser was running a bundle from before the write path
+  // shipped. A counter that lives in the new code cannot report that the new
+  // code is not running. That is why `media_write_path_delta()` exists in the
+  // database: it is the check that does not depend on the client at all.
+  {
+    code: "MEDIA-4001",
+    severity: "warn",
+    description: "A post was published with image_urls only — no media_objects/post_media rows.",
+    resolution:
+      "The member's post SUCCEEDED and nothing is lost. Read the MEDIA-4002/4003/4004/4006 warning that precedes it in the same correlation id — that one says WHY. A rising rate means the media write path is failing in production and the legacy-only population is growing again.",
+  },
+  {
+    code: "MEDIA-4002",
+    severity: "warn",
+    description: "media_begin_upload would not open a media record for a photograph.",
+    resolution:
+      "The reason field carries the Postgres message. The usual causes are the 50 in-flight upload cap (MEDIA-1001) and a declaration the schema refuses — an unsupported MIME or a non-positive byte count.",
+  },
+  {
+    code: "MEDIA-4003",
+    severity: "warn",
+    description: "The server did not confirm an uploaded photograph as ready.",
+    resolution:
+      "'quarantined' means the stored bytes are not the bytes that were declared — investigate before dismissing it. 'pending' with retryable means the PUT has not landed yet and a retry will succeed.",
+  },
+  {
+    code: "MEDIA-4004",
+    severity: "warn",
+    description: "The atomic publish refused the whole post.",
+    resolution:
+      "NOTHING WAS WRITTEN — post_publish_with_media is one transaction, so there is no half-published post to clean up. The rate-limit and duplicate-post triggers read the same here as on the legacy path.",
+  },
+  {
+    code: "MEDIA-4005",
+    severity: "warn",
+    description: "A scheduled post published without attaching its registered media.",
+    resolution:
+      "The post itself is fine. Check that the scheduled_posts row carried media_ids and that post_attach_media did not refuse — MEDIA-2205 means the registered objects do not match the row's image_urls, which is the check that stops one member's photograph being attached to another's post.",
+  },
+  {
+    code: "MEDIA-4006",
+    severity: "warn",
+    description: "A photograph could not be described, so it was never offered to the media engine.",
+    resolution:
+      "This is the ONLY legacy-only cause that makes no network call, so it leaves no server-side trace at all — which is why it has its own code. Either the encoded bytes could not be measured (describeStoredObject returned null) or the slide came from a resumed draft, where the original bytes are gone and null is correct. The detail field says which.",
   },
 
   // ── CMNT ──────────────────────────────────────────────────────────────────
