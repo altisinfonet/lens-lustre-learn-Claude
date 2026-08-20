@@ -14,7 +14,17 @@ import "./index.css";
 // doesn't update. It is a window side-effect (NOT a bare export, which gets
 // tree-shaken away) so it survives into the bundle and forces a new hashed
 // entry filename, busting year-cached immutable copies of the old bundle.
-(window as any).__APP_BUILD = "2026-08-10-3";
+//
+// ⚠ 2026-08-20 — THIS STRING IS EVIDENCE, NOT DECORATION.
+// A post published at 07:08 landed legacy-only. The edge logs showed no call
+// to media_begin_upload at all, and no MEDIA-4001 was persisted — because the
+// browser was running a bundle from before the write path shipped, in which
+// none of that code exists. The one thing that identified it was this marker,
+// still reading "2026-08-10-3" in the client_errors row three days after the
+// releases that followed. A stale marker turns "the client is old" from a
+// guess into a fact, so it must be bumped on EVERY release that changes what
+// the client sends to the database.
+(window as any).__APP_BUILD = "2026-08-20-1";
 
 // DEVELOPMENT ONLY — owner decision, 2026-08-06.
 //
