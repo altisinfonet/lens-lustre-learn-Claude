@@ -24,7 +24,12 @@ import "./index.css";
 // releases that followed. A stale marker turns "the client is old" from a
 // guess into a fact, so it must be bumped on EVERY release that changes what
 // the client sends to the database.
-(window as any).__APP_BUILD = "2026-08-20-1";
+// 2026-08-20-2 — MyPhotos album uploads now send `media_ids` to
+// create_system_post. That is a change to WHAT THE CLIENT SENDS THE DATABASE,
+// which is precisely the trigger this marker exists for: without the bump, an
+// album post that landed legacy-only could not be attributed to a stale bundle
+// versus a real failure of the media path.
+(window as any).__APP_BUILD = "2026-08-20-2";
 
 // DEVELOPMENT ONLY — owner decision, 2026-08-06.
 //
