@@ -46,10 +46,17 @@ const originals = Object.fromEntries(FILES.map((f) => [f, readFileSync(f, "utf8"
 const mutations = [
   // ── the nine the brief named ──────────────────────────────────────────────
   {
+    // ⚠ RETARGETED 2026-08-20 (WS2). The old target quoted
+    // `await rpc<string>("media_begin_upload", {` — the DETACHED form, which was
+    // RED-1 and has been removed. A mutation aimed at a line that no longer
+    // exists does not apply, and the harness then reports a false escape: the
+    // same stale-target bug as mutations 13, 21 and 22. Retargeted at the live
+    // in-call-position form. The INVARIANT is unchanged: the client must open a
+    // media_objects row before it publishes.
     file: CLIENT, name: "1. missing media_objects insert — the row is never opened",
     apply: (s) => s.replace(
-      'const { data: mediaId, error: beginErr } = await rpc<string>("media_begin_upload", {',
-      'const { data: mediaId, error: beginErr } = { data: "fake", error: null }; const _unused = ({',
+      'const { data: mediaId, error: beginErr } = await (supabase.rpc as unknown as (',
+      'const { data: mediaId, error: beginErr } = { data: "fake", error: null }; const _unused = ((',
     ),
   },
   {
@@ -207,6 +214,143 @@ const mutations = [
     apply: (s) => s.replace("          media_ids: input.media_ids ?? null,\n", ""),
   },
 
+  // ── RED-1: the detached prototype method (WS2, 2026-08-20) ───────────────
+  //
+  // These re-introduce the EXACT line that shipped. Each must turn the suite
+  // red. If any of them stays green, the guard added in WS2 is decorative and
+  // the bug that cost members every photograph post can come back unnoticed.
+  {
+    file: CLIENT, name: "R1a. supabase.rpc DETACHED at the media_begin_upload site — the exact line that shipped",
+    apply: (s) => s.replace(
+      `  const { data: mediaId, error: beginErr } = await (supabase.rpc as unknown as (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: string | null; error: { message: string } | null }>)(
+    "media_begin_upload",
+    {`,
+      `  const rpc = supabase.rpc as unknown as (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: string | null; error: { message: string } | null }>;
+  const { data: mediaId, error: beginErr } = await rpc(
+    "media_begin_upload",
+    {`,
+    ),
+  },
+  {
+    file: CLIENT, name: "R1b. supabase.rpc DETACHED at the post_publish_with_media site",
+    apply: (s) => s.replace(
+      `  const { data: postId, error } = await (supabase.rpc as unknown as (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: string | null; error: { message: string } | null }>)(
+    "post_publish_with_media",
+    {`,
+      `  const rpc = supabase.rpc as unknown as (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: string | null; error: { message: string } | null }>;
+  const { data: postId, error } = await rpc(
+    "post_publish_with_media",
+    {`,
+    ),
+  },
+  {
+    file: PIN, name: "R1c. the client mock reverted to an OBJECT LITERAL — the blind spot that let RED-1 ship",
+    apply: (s) => s.replace(
+      `    /** Prototype method, exactly as supabase-js declares it. */
+    rpc(fn: string, args: Record<string, unknown> = {}) {
+      return this.rest.rpc(fn, args);
+    }
+  }
+
+  return { supabase: new MockSupabaseClient() };`,
+      `  }
+
+  const rest = new MockRest();
+  return {
+    supabase: {
+      rest,
+      functions: new MockFunctions(),
+      rpc: (fn: string, args: Record<string, unknown> = {}) => rest.rpc(fn, args),
+    },
+  };`,
+    ),
+  },
+  {
+    file: PIN, name: "R1d. the mock BINDS rpc — production does not, so the mock stops being able to fail",
+    apply: (s) => s.replace(
+      `  class MockSupabaseClient {
+    rest = new MockRest();`,
+      `  class MockSupabaseClient {
+    constructor() { this.rpc = this.rpc.bind(this); }
+    rest = new MockRest();`,
+    ),
+  },
+  {
+    file: PIN, name: "R1e. the repository-wide scan walks nothing — a vacuous guard that reads as proof",
+    apply: (s) => s.replace(
+      "        if (e.isDirectory()) return e.name === \"node_modules\" || e.name === \"__tests__\" ? [] : walk(full);",
+      "        if (e.isDirectory()) return [];",
+    ),
+  },
+  {
+    file: PIN, name: "R1f. the scan stops treating a stored reference as different from a call",
+    apply: (s) => s.replace(
+      "(?:rpc|from)\\b(?!\\s*\\()/;",
+      "(?:rpc|from)\\bXXNEVER/;",
+    ),
+  },
+  // ── P3: the fallback must not mask a media-path failure (WS2, 2026-08-20) ─
+  {
+    file: CLIENT, name: "P3a. the two fallback conditions merged back into one — the leak looks like the floor",
+    apply: (s) => s.replace(
+      "  const undescribable = input.photos.filter((p) => !p.stored);\n  if (undescribable.length > 0) {",
+      "  const undescribable = input.photos.filter((p) => !p.stored);\n  if (false) {",
+    ),
+  },
+  {
+    file: CLIENT, name: "P3b. every failure reported as unmigratable — MEDIA-4010 can never fire",
+    apply: (s) => s.replace(
+      'return { postId: null, viaMedia: false, failure: "media-path-failed" };',
+      'return { postId: null, viaMedia: false, failure: "unmigratable-slides" };',
+    ),
+  },
+  {
+    file: CLIENT, name: "P3c. the throw guard removed — an exception escapes past the composer's fallback again (RED-1's real cost)",
+    apply: (s) => s.replace(
+      "  try {\n    return await registerUploadedPhotoInner(photo, correlationId);\n  } catch (e) {",
+      "  if (true) {\n    return await registerUploadedPhotoInner(photo, correlationId);\n  }\n  { const e = new Error(); {",
+    ),
+  },
+  {
+    file: CLIENT, name: "P3d. MEDIA-4006 stops firing on the composer path once classification moves up front",
+    apply: (s) => s.replace(
+      "    for (const p of undescribable) reportUndescribableSlide(p, input.idempotencyKey);\n",
+      "",
+    ),
+  },
+  {
+    file: CATALOG, name: "P3e. MEDIA-4010 downgraded to a warning — the leak stops being alertable",
+    apply: (s) => s.replace(
+      '    code: "MEDIA-4010",\n    severity: "error",',
+      '    code: "MEDIA-4010",\n    severity: "warn",',
+    ),
+  },
+  {
+    file: COMPOSER, name: "P3f. the composer stops branching — MEDIA-4010 is never emitted",
+    apply: (s) => s.replace(
+      "        if (!unmigratable) reportMediaPathFailure(correlationId);\n",
+      "",
+    ),
+  },
+  {
+    file: COMPOSER, name: "P3g. MEDIA-4001 stops counting the expected kind — the log undercounts the database",
+    apply: (s) => s.replace(
+      "        const unmigratable = viaMedia.failure === \"unmigratable-slides\";\n        if (!unmigratable) reportMediaPathFailure(correlationId);\n        reportLegacyOnlyPublish(",
+      "        const unmigratable = viaMedia.failure === \"unmigratable-slides\";\n        if (!unmigratable) reportMediaPathFailure(correlationId);\n        if (!unmigratable) reportLegacyOnlyPublish(",
+    ),
+  },
   {
     file: TOML, name: "17. the superseded verifier deployed — every upload strands at pending",
     apply: (s) => s + "\n  [functions.media-verify-upload]\n    verify_jwt = true\n",
@@ -218,7 +362,16 @@ function suiteResult() {
   catch { return "RED"; }
 }
 
-console.log(`baseline (no mutation): ${suiteResult()}\n`);
+// ⚠ A RED BASELINE INVALIDATES EVERY RESULT BELOW. If the suite is already
+// failing, every mutation is "detected" for a reason that has nothing to do
+// with the mutation, and the run prints a page of green ticks that mean nothing.
+// Added 2026-08-20 (WS2) after the scheduled-duplicate harness did exactly that.
+const baseline = suiteResult();
+console.log(`baseline (no mutation): ${baseline}\n`);
+if (baseline !== "GREEN") {
+  console.error("BASELINE IS RED — fix the suite before drawing any conclusion from a mutation run.");
+  process.exit(1);
+}
 let undetected = 0;
 
 for (const m of mutations) {
