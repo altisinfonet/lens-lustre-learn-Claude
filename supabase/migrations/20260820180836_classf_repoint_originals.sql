@@ -1,10 +1,16 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- ⚠ NOT APPLIED. NOT A MIGRATION YET. RENAME TO ENABLE.
+-- ✔ APPLIED TO PRODUCTION 2026-08-20 18:08 UTC as version 20260820180836.
 --
--- The `UNAPPLIED_` prefix keeps this out of the migration ledger on purpose.
--- It is a prepared, reversible repair awaiting an owner decision, not work that
--- was done and is being recorded.
+-- Approved by the owner the same day ("DECISION 3 — APPROVE EXECUTION") after
+-- the corrected gates were re-verified read-only: 8 posts / 20 slides /
+-- 0 missing targets. Execution passed all three gates and every independent
+-- post-check: the 8 posts' after-state matched the predicted digest exactly,
+-- all other posts' digest was byte-identical, storage digest unchanged
+-- (116 objects), post_media/media_objects untouched (263/265, ref_set_md5
+-- dce7bec802523fca3b0a4123ea0a2a6f), rollback captured in media_repair_audit.
 --
+-- This file previously carried the UNAPPLIED_ prefix; the annotations below
+-- are preserved as written for provenance.
 -- ═══════════════════════════════════════════════════════════════════════════
 -- WHAT IT REPAIRS
 --
@@ -74,6 +80,16 @@ create table if not exists public.media_repair_audit (
 
 -- No client ever reads this. It is an audit trail, not an API.
 revoke all on table public.media_repair_audit from public, anon, authenticated;
+
+-- ⚠ PROVENANCE NOTE, 2026-08-20. The line below was NOT part of the script
+-- executed as version 20260820180836 — the newTableGrants gate caught the
+-- omission eleven minutes later, and it was applied to production as its own
+-- migration, 20260820181949_media_repair_audit_rls (kept beside this file and
+-- idempotent). It is included here so this file records the table's complete
+-- intended definition and so a fresh environment replaying the ledger reaches
+-- the same end state at this point. Enabled RLS with zero policies is deny-all
+-- for every non-owner role; service_role bypasses RLS and keeps the audit.
+alter table public.media_repair_audit enable row level security;
 
 with candidates as (
   select p.id as post_id, p.image_urls as before_urls,

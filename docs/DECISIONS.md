@@ -337,3 +337,43 @@ FALLBACK. Widening the fallback makes the delta grow more quietly, which is the
 one outcome every control in Phase 2 exists to prevent. The pinning test fails
 if the two conditions are merged, if `MEDIA-4010` stops being an error, if the
 composer stops branching, or if `MEDIA-4001` stops counting either kind.
+
+---
+
+## D-006 — The 29 remaining legacy slides are permanently excluded from migration
+
+- **Status:** ACTIVE
+- **Decided:** 2026-08-20
+- **Decided by:** Owner ("PHASE 2 — EXECUTE APPROVED CLOSURE DECISIONS", Decisions 1 and 2), on the Workstream 3 audit and the Final Decision Package
+- **Pinned by:** `src/__tests__/candidatePatternWidening.test.ts`
+- **Restore when:** Never restored — this ENDS only if a future owner explicitly commissions a Supabase→R2 copy-and-rewrite programme for the 27 (new scope, outside Phase 2), or explicitly accepts an ownership-control widening for the 2 covers. Either would be its own reviewed decision superseding this one.
+
+### What was decided
+
+Two decisions, one register (`docs/PERMANENT_LEGACY_EXCLUSIONS.md`):
+
+1. The **27 Supabase-hosted thumbnail slides** (15 posts, 23 objects) are accepted as
+   permanent legacy. Not copied to R2, no `image_urls` rewrite beyond the separately
+   approved Class-F repoint, no `media_objects`/`post_media` rows created.
+2. Migration of the **2 R2 cover photographs** is rejected, because it would require
+   widening an ownership control (`MIG-1019` / MEDIA-2102's owner-at-segment-2 rule)
+   for 2 slides out of 310.
+
+### Why
+
+The 27 are 600px derivatives on the wrong host: migrating them requires a prohibited
+byte copy AND a prohibited URL rewrite, and would enshrine thumbnails as canonical
+originals. The 2 covers are refused by the engine's ownership proof, and weakening an
+ownership proof is the highest-consequence change this engine admits.
+
+### What it costs
+
+35 posts remain legacy-only forever, rendering via the `image_urls` fallback — exactly
+as they render today. Members see no change. The delta detector's `migratable_legacy_*`
+labels lag this register until its classifier is updated (optional follow-up).
+
+⚠ THE PIN IS THE REFUSAL ITSELF. The pinning test asserts the real production keys are
+not migration candidates, that `CDN_HOST` is the CDN by value, and that
+`media_mark_ready` still pins the owner to path segment 2 — with mutations W1–W5
+proving each assertion bites. Deleting this entry while those tests stand would leave
+guards enforcing a rule with no written reason, which the register forbids.
