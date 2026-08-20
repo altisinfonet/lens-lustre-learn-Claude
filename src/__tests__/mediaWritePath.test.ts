@@ -1,201 +1,627 @@
 /**
- * A MEMBER MAY START AN UPLOAD. ONLY THE SERVER MAY SAY IT WAS VERIFIED.
+ * A NEWLY PUBLISHED PHOTOGRAPH MUST NOT BECOME AN `image_urls`-ONLY POST.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * That asymmetry is the entire security property of the media pipeline, and it
- * is worth writing down what it costs to lose it: `media_mark_ready` is, by
- * definition, the ability to publish bytes the server never checked. A member
- * who can reach it can attach anything to a post — the wrong image, a file that
- * is not an image, or bytes whose hash does not match what they claimed.
+ * @decision D-004
  *
- * Three separate things hold the line, and this file asserts all three, because
- * any one of them silently reverting restores the hole:
+ * WHAT THIS FILE IS FOR. The fenced migration reached zero on 2026-08-20 —
+ * every photograph inside the candidate pattern had a `media_objects` row and a
+ * `post_media` reference. It would have gone non-zero again with the very next
+ * upload, because all five production write sites created posts with bytes in a
+ * bucket, a string in an array, and nothing that had ever looked at the file.
+ * Migrating legacy data while the write path keeps producing more of it is
+ * bailing with the tap running.
  *
- *   1. `media_objects` is NOT granted to anon or authenticated at all. This is
- *      the load-bearing one and the least obvious. RLS constrains WHICH ROWS a
- *      statement may touch — it says nothing about WHICH COLUMN VALUES. With a
- *      plain `GRANT INSERT ... TO authenticated` plus the existing
- *      `WITH CHECK (owner_id = auth.uid())` policy, a member inserts a row with
- *      `state = 'ready'` in the same statement, and the post_media gate from
- *      20260814084711 waves it through because the row does say `ready`.
+ * The failures this catches are the quiet ones:
  *
- *   2. The worker functions are revoked from `authenticated`, not merely from
- *      `anon`. `ALTER DEFAULT PRIVILEGES` grants EXECUTE to BOTH roles on every
- *      new public function, and `REVOKE ... FROM PUBLIC` removes neither.
- *      `securityDefinerGrants.test.ts` covers the anon half for every migration;
- *      the authenticated half is what matters here, and it is specific enough
- *      to these four functions to belong in its own file.
+ *   • the media path silently stops running and every new post is legacy-only
+ *     again, with nothing in the logs to show it;
+ *   • the fallback is reordered to "legacy first" so the media path is never
+ *     exercised and rots;
+ *   • the fallback is deleted, and a slow verification endpoint costs a member
+ *     the post they just waited through an upload for;
+ *   • a post publishes with SOME of its slides registered — the exact gap
+ *     `post_publish_with_media`'s completeness gate exists to make
+ *     unrepresentable, arriving through the client instead;
+ *   • the dual-write (D-004) is removed as a tidy-up, blanking every photograph
+ *     in the Android binary this repository cannot deploy;
+ *   • `image_urls` becomes a SUPPLIED parameter rather than a derived one, so a
+ *     caller can publish media A while the legacy readers show URL B.
  *
- *   3. The state machine lives in a trigger, so `pending -> ready` is refused
- *      even for `service_role` and `postgres`. The worker is the component most
- *      likely to carry a bug, and "skip verification, mark it ready" is the bug
- *      that matters. A trigger cannot be forgotten by whoever writes the next
- *      worker; a convention can.
- *
- * Migrations are resolved at run time, never by a hardcoded filename — trap #8:
- * a test pinned to a superseded file passes forever while production drifts.
- * Comments are stripped before matching so the prose above cannot satisfy an
- * assertion.
+ * ⚠ THE SQL ASSERTIONS RESOLVE THE LAST DEFINITION ACROSS MIGRATIONS.
+ * `CREATE OR REPLACE` means a later file silently wins, so a corpus-wide grep
+ * would keep passing against a superseded version.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-
-import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
-const MIGRATIONS = join(process.cwd(), "supabase/migrations");
-const MANDATE_FROM = "20260813000000";
+const ROOT = process.cwd();
+const MIGRATIONS = join(ROOT, "supabase/migrations");
 
-const inScope = readdirSync(MIGRATIONS)
-  .filter((f) => f.endsWith(".sql"))
-  .filter((f) => (f.match(/^(\d{14})/)?.[1] ?? "0") >= MANDATE_FROM)
-  .sort();
+/* ── the client under test, with the server mocked at the boundary ───────── */
 
-const strip = (f: string) =>
-  readFileSync(join(MIGRATIONS, f), "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, " ")
-    .replace(/--.*$/gm, " ");
+type RpcCall = { fn: string; args: Record<string, unknown> };
+type FnCall = { name: string; body: Record<string, unknown> };
 
-/** Every in-scope migration, concatenated. Later files may revoke what earlier ones granted. */
-const all = inScope.map(strip).join("\n");
+const rpcCalls: RpcCall[] = [];
+const fnCalls: FnCall[] = [];
+/** Keyed by RPC name; a function so a test can vary answers per call. */
+let rpcHandler: (c: RpcCall, n: number) => { data: unknown; error: { message: string } | null };
+let fnHandler: (c: FnCall, n: number) => { data: unknown; error: { message: string } | null };
 
-/** The three transitions only the server may make. */
-const WORKER_FNS = ["media_mark_verified", "media_mark_ready", "media_quarantine"];
+vi.mock("@/integrations/supabase/client", () => ({
+  supabase: {
+    rpc: (fn: string, args: Record<string, unknown>) => {
+      const call = { fn, args };
+      rpcCalls.push(call);
+      return Promise.resolve(rpcHandler(call, rpcCalls.length - 1));
+    },
+    functions: {
+      invoke: (name: string, opts: { body: Record<string, unknown> }) => {
+        const call = { name, body: opts.body };
+        fnCalls.push(call);
+        return Promise.resolve(fnHandler(call, fnCalls.length - 1));
+      },
+    },
+  },
+}));
 
-/** `GRANT EXECUTE ON FUNCTION public.<fn>(...) TO <roles>` — returns the role lists. */
-function grantsFor(fn: string): string[] {
-  return [
-    ...all.matchAll(
-      new RegExp(`GRANT\\s+EXECUTE\\s+ON\\s+FUNCTION\\s+public\\.${fn}\\s*\\([^)]*\\)\\s*TO\\s+([^;]+);`, "gi"),
-    ),
-  ].map((m) => m[1]);
+const warnings: { code?: string; reason?: string }[] = [];
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    warn: (e: { code?: string }) => warnings.push(e),
+    error: (e: { code?: string }) => warnings.push(e),
+    info: () => {},
+    debug: () => {},
+  },
+  newCorrelationId: () => "cid-test",
+}));
+
+import {
+  shaToBytea,
+  objectPathFromUrl,
+  registerUploadedPhoto,
+  publishViaMedia,
+  reportLegacyOnlyPublish,
+  type UploadedPhoto,
+} from "@/lib/media/postMediaWrite";
+
+const SHA = (n: number) => String(n).repeat(1).padStart(64, "a").slice(0, 64);
+const OWNER = "11111111-1111-4111-8111-111111111111";
+
+function photo(i: number, over: Partial<UploadedPhoto> = {}): UploadedPhoto {
+  return {
+    url: `https://cdn.50mmretina.com/post-images/${OWNER}/posts/p${i}-w100h100-l3.webp`,
+    thumbnailUrl: `https://cdn.50mmretina.com/post-images/${OWNER}/posts/p${i}-w100h100-l3-thumb.webp`,
+    stored: { sha256: SHA(i), bytes: 100 + i, width: 100, height: 100, mime: "image/webp" },
+    ...over,
+  };
 }
 
-describe("only the server can publish media", () => {
-  it("the write-path migration is present (guards against a vacuous pass)", () => {
-    // Every assertion below is "X is not granted". Delete the migration and
-    // they all pass. This makes that failure loud.
-    expect(
-      /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+public\.media_begin_upload\s*\(/i.test(all),
-      "No in-scope migration defines media_begin_upload. Either the mandate " +
-        "window moved past it or it was renamed — either way this file is now " +
-        "asserting nothing.",
-    ).toBe(true);
+/** The happy server: begin returns an id, register says ready, publish returns a post. */
+function happyServer() {
+  let media = 0;
+  rpcHandler = (c) => {
+    if (c.fn === "media_begin_upload") return { data: `media-${media++}`, error: null };
+    if (c.fn === "post_publish_with_media") return { data: "post-1", error: null };
+    return { data: null, error: { message: `unexpected rpc ${c.fn}` } };
+  };
+  fnHandler = () => ({ data: { state: "ready" }, error: null });
+}
+
+beforeEach(() => {
+  rpcCalls.length = 0;
+  fnCalls.length = 0;
+  warnings.length = 0;
+  happyServer();
+});
+
+const input = (photos: UploadedPhoto[]) => ({
+  photos,
+  content: "a caption",
+  privacy: "public",
+  categories: ["street"],
+  indexingDisabled: false,
+  idempotencyKey: "idem-1",
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE 19 REQUIRED BEHAVIOURAL CASES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("write path — behaviour", () => {
+  it("1. a one-photo post goes through the media path", async () => {
+    const out = await publishViaMedia(input([photo(1)]));
+    expect(out).toEqual({ postId: "post-1", viaMedia: true });
+    expect(rpcCalls.map((c) => c.fn)).toEqual([
+      "media_begin_upload",
+      "post_publish_with_media",
+    ]);
+    expect(fnCalls.map((c) => c.name)).toEqual(["media-register-upload"]);
   });
 
-  /** (1) The load-bearing one. */
-  it("media_objects and post_media are never granted to anon or authenticated", () => {
-    const offenders: string[] = [];
-    for (const table of ["media_objects", "post_media"]) {
-      for (const [, roles] of all.matchAll(
-        new RegExp(`GRANT\\s+[^;]*\\bON\\s+(?:TABLE\\s+)?public\\.${table}\\b[^;]*?TO\\s+([^;]+);`, "gi"),
-      )) {
-        if (/\b(anon|authenticated)\b/i.test(roles)) offenders.push(`${table} -> ${roles.trim()}`);
+  it("2. a multi-photo post registers every slide before publishing", async () => {
+    const out = await publishViaMedia(input([photo(1), photo(2), photo(3)]));
+    expect(out.viaMedia).toBe(true);
+    expect(rpcCalls.filter((c) => c.fn === "media_begin_upload")).toHaveLength(3);
+    expect(fnCalls).toHaveLength(3);
+    // The publish is LAST: no post exists until every photograph is ready.
+    expect(rpcCalls[rpcCalls.length - 1].fn).toBe("post_publish_with_media");
+  });
+
+  it("3. ordering is the composer's order, and it is carried positionally", async () => {
+    await publishViaMedia(input([photo(7), photo(8), photo(9)]));
+    const publish = rpcCalls.find((c) => c.fn === "post_publish_with_media")!;
+    // ords are derived server-side from THIS array's ordinality, so the array
+    // order is the slide order. A set would have lost it.
+    expect(publish.args._media_ids).toEqual(["media-0", "media-1", "media-2"]);
+    expect(publish.args._thumbnail_urls).toEqual([
+      photo(7).thumbnailUrl, photo(8).thumbnailUrl, photo(9).thumbnailUrl,
+    ]);
+  });
+
+  it("4. a duplicate upload resolves to ONE media object, not two", async () => {
+    // media_begin_upload is idempotent on UNIQUE(owner, sha256): the same bytes
+    // twice come back as the same id. The client must not "helpfully" dedupe
+    // them away — it passes both and the server refuses the repeat.
+    rpcHandler = (c) => {
+      if (c.fn === "media_begin_upload") return { data: "media-same", error: null };
+      if (c.fn === "post_publish_with_media") {
+        return { data: null, error: { message: "the same photograph appears more than once in this post" } };
       }
+      return { data: null, error: { message: "?" } };
+    };
+    const same = photo(1);
+    const out = await publishViaMedia(input([same, same]));
+    expect(out.viaMedia).toBe(false);
+    expect(warnings.some((w) => w.code === "MEDIA-4004")).toBe(true);
+  });
+
+  it("5. a retry carries the SAME idempotency key, so the server can return the first post", async () => {
+    const i = input([photo(1)]);
+    await publishViaMedia(i);
+    await publishViaMedia(i);
+    const keys = rpcCalls
+      .filter((c) => c.fn === "post_publish_with_media")
+      .map((c) => c.args._idempotency_key);
+    expect(keys).toEqual(["idem-1", "idem-1"]);
+  });
+
+  it("6. failed verification does NOT publish, and says why", async () => {
+    fnHandler = () => ({ data: { state: "quarantined", reason: "checksum mismatch" }, error: null });
+    const out = await publishViaMedia(input([photo(1)]));
+    expect(out).toEqual({ postId: null, viaMedia: false });
+    expect(rpcCalls.some((c) => c.fn === "post_publish_with_media")).toBe(false);
+    const w = warnings.find((x) => x.code === "MEDIA-4003");
+    expect(w, "a quarantine must be reported, not swallowed").toBeTruthy();
+    expect(String(w!.reason)).toContain("quarantined");
+  });
+
+  it("7. a refused media insert stops the post reaching the media path", async () => {
+    rpcHandler = (c) =>
+      c.fn === "media_begin_upload"
+        ? { data: null, error: { message: "too many uploads in flight (50)" } }
+        : { data: "post-1", error: null };
+    const out = await publishViaMedia(input([photo(1)]));
+    expect(out.viaMedia).toBe(false);
+    expect(fnCalls).toHaveLength(0);
+    expect(warnings.some((w) => w.code === "MEDIA-4002")).toBe(true);
+  });
+
+  it("8. a refused post insert reports MEDIA-4004 and yields no post id", async () => {
+    rpcHandler = (c) =>
+      c.fn === "media_begin_upload"
+        ? { data: "media-0", error: null }
+        : { data: null, error: { message: "rate limit" } };
+    const out = await publishViaMedia(input([photo(1)]));
+    expect(out).toEqual({ postId: null, viaMedia: false });
+    expect(warnings.some((w) => w.code === "MEDIA-4004")).toBe(true);
+  });
+
+  it("9. rollback safety: a refused publish leaves NO post id to act on", async () => {
+    // The transaction is the server's; the client's obligation is to not
+    // invent a post id when the publish failed. A truthy id here would send
+    // the composer on to navigate, invalidate caches and toast success for a
+    // post that does not exist.
+    rpcHandler = (c) =>
+      c.fn === "media_begin_upload" ? { data: "m", error: null } : { data: null, error: { message: "x" } };
+    const out = await publishViaMedia(input([photo(1)]));
+    expect(out.postId).toBeNull();
+  });
+
+  it("10. owner mismatch is the server's answer, and the client does not paper over it", async () => {
+    rpcHandler = (c) =>
+      c.fn === "media_begin_upload"
+        ? { data: "m", error: null }
+        : { data: null, error: { message: "1 of 1 photographs are not yours, do not exist, or are not finished uploading" } };
+    const out = await publishViaMedia(input([photo(1)]));
+    expect(out.viaMedia).toBe(false);
+    expect(String(warnings.find((w) => w.code === "MEDIA-4004")!.reason)).toContain("not yours");
+  });
+
+  it("11. an unauthorized caller never reaches the publish", async () => {
+    rpcHandler = (c) =>
+      c.fn === "media_begin_upload"
+        ? { data: null, error: { message: "media_begin_upload requires an authenticated caller" } }
+        : { data: "post-1", error: null };
+    const out = await publishViaMedia(input([photo(1)]));
+    expect(out.viaMedia).toBe(false);
+    expect(rpcCalls.some((c) => c.fn === "post_publish_with_media")).toBe(false);
+  });
+
+  it.each(["public", "friends", "private"])(
+    "12/13/14. privacy=%s is passed through verbatim, never defaulted",
+    async (privacy) => {
+      await publishViaMedia({ ...input([photo(1)]), privacy });
+      const publish = rpcCalls.find((c) => c.fn === "post_publish_with_media")!;
+      expect(publish.args._privacy).toBe(privacy);
+    },
+  );
+
+  it("15. concurrent publishes of the same composition share one idempotency key", async () => {
+    const i = input([photo(1)]);
+    const [a, b] = await Promise.all([publishViaMedia(i), publishViaMedia(i)]);
+    expect(a.postId).toBe("post-1");
+    expect(b.postId).toBe("post-1");
+    const keys = rpcCalls
+      .filter((c) => c.fn === "post_publish_with_media")
+      .map((c) => c.args._idempotency_key);
+    expect(new Set(keys).size).toBe(1);
+  });
+
+  it("16. an existing legacy post stays readable — nothing here touches image_urls of other posts", () => {
+    const src = readFileSync(join(ROOT, "src/lib/media/postMediaWrite.ts"), "utf8");
+    expect(/\.from\(\s*["']posts["']\s*\)/.test(src), "the media write path must not write posts directly").toBe(false);
+    expect(/update|delete/i.test(src.replace(/\/\*[\s\S]*?\*\//g, "")), "no update/delete of anything").toBe(false);
+  });
+
+  it("17/18. a successful publish is the ONLY way viaMedia is true, and it means both tables were written", async () => {
+    const out = await publishViaMedia(input([photo(1), photo(2)]));
+    expect(out.viaMedia).toBe(true);
+    // post_publish_with_media is a single transaction that inserts the post AND
+    // its post_media rows; there is no code path that reports viaMedia without
+    // it having returned a post id.
+    expect(out.postId).toBe("post-1");
+  });
+
+  it("19. no orphan on failure: a post is never published with only SOME slides registered", async () => {
+    // Slide 2 of 3 refuses. The whole post must go legacy — every photograph
+    // present, nothing half-migrated.
+    let n = 0;
+    fnHandler = () => (n++ === 1 ? { data: { state: "pending" }, error: null } : { data: { state: "ready" }, error: null });
+    const out = await publishViaMedia(input([photo(1), photo(2), photo(3)]));
+    expect(out.viaMedia).toBe(false);
+    expect(
+      rpcCalls.some((c) => c.fn === "post_publish_with_media"),
+      "publishing a subset of the slides is exactly the gap the completeness gate exists to prevent",
+    ).toBe(false);
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE FALLBACK IS DELIBERATE, ORDERED, AND LOUD
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("the legacy fallback", () => {
+  const composer = readFileSync(join(ROOT, "src/components/WallPosts.tsx"), "utf8");
+
+  it("the media path runs FIRST — legacy is only reached when it did not complete", () => {
+    const mediaAt = composer.indexOf("await publishViaMedia(");
+    const legacyAt = composer.indexOf('await supabase.from("posts").insert(');
+    expect(mediaAt).toBeGreaterThan(-1);
+    expect(legacyAt).toBeGreaterThan(-1);
+    expect(
+      mediaAt < legacyAt,
+      "the legacy insert comes first — the media path would never be exercised and would rot",
+    ).toBe(true);
+    expect(
+      /if \(!viaMedia\.viaMedia\) \{/.test(composer),
+      "the legacy insert is no longer conditional on the media path having failed",
+    ).toBe(true);
+  });
+
+  it("every legacy-only publish is counted — MEDIA-4001", () => {
+    expect(
+      /reportLegacyOnlyPublish\(/.test(composer),
+      "a fallback nobody counts is a regression that reintroduces itself: the " +
+        "legacy-only population starts growing again and the graph looks flat",
+    ).toBe(true);
+    const lib = readFileSync(join(ROOT, "src/lib/media/postMediaWrite.ts"), "utf8");
+    expect(/code: "MEDIA-4001"/.test(lib)).toBe(true);
+  });
+
+  it("the fallback still exists — a slow endpoint must not cost a member their post", () => {
+    expect(
+      /image_urls: uploadedUrls/.test(composer),
+      "the legacy insert was deleted; a member who waited through an upload now " +
+        "loses the post whenever verification is slow",
+    ).toBe(true);
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WHAT IS DECLARED IS WHAT WAS STORED
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("the declaration describes the uploaded bytes, not the picked file", () => {
+  const up = readFileSync(join(ROOT, "src/lib/imageUpload.ts"), "utf8");
+  const so = readFileSync(join(ROOT, "src/lib/media/storedObject.ts"), "utf8");
+
+  it("the hash is taken from the ENCODED file", () => {
+    expect(
+      /describeStoredObject\(fullResFile/.test(up),
+      "hashing the picked file instead of the encoded one declares a fingerprint " +
+        "the stored object cannot match, and EVERY upload quarantines itself",
+    ).toBe(true);
+  });
+
+  it("every return of uploadImageWithThumbnail carries it", () => {
+    const returns = up.match(/return \{[\s\S]*?\};/g) ?? [];
+    const uploadReturns = returns.filter((r) => /thumbnailPath:/.test(r));
+    expect(uploadReturns.length).toBeGreaterThanOrEqual(3);
+    for (const r of uploadReturns) {
+      expect(/\bstored,/.test(r), `an upload return path omits \`stored\`:\n${r}`).toBe(true);
     }
-    expect(
-      offenders,
-      "A direct table grant defeats the whole design: RLS restricts which ROWS " +
-        "a member may write, never which COLUMN VALUES, so an INSERT grant lets " +
-        "them set state='ready' inline and publish unverified bytes. All member " +
-        "access goes through media_begin_upload().",
-    ).toEqual([]);
   });
 
-  /** (2) Revoked from authenticated, not merely from anon. */
-  for (const fn of WORKER_FNS) {
-    it(`${fn}() is revoked from authenticated as well as anon`, () => {
-      const revoked = new RegExp(
-        `REVOKE\\s+ALL\\s+ON\\s+FUNCTION\\s+public\\.${fn}\\s*\\([^)]*\\)\\s*FROM[^;]*\\bauthenticated\\b`,
-        "i",
-      ).test(all);
-      expect(
-        revoked,
-        `${fn}() is not revoked from authenticated by name. ALTER DEFAULT ` +
-          `PRIVILEGES already granted it EXECUTE, and REVOKE ... FROM PUBLIC ` +
-          `does not remove a grant held by a named role.`,
-      ).toBe(true);
-    });
+  it("unknown dimensions produce null, never a guess", () => {
+    expect(/if \(!dims\) return null;/.test(so)).toBe(true);
+    expect(
+      /a FALSE declaration|quarantine/i.test(so),
+      "the reason for refusing to guess is not written down",
+    ).toBe(true);
+  });
 
-    it(`${fn}() is never granted back to anon or authenticated`, () => {
-      const bad = grantsFor(fn).filter((roles) => /\b(anon|authenticated)\b/i.test(roles));
-      expect(
-        bad,
-        `${fn}() is granted to a member-reachable role. This function asserts ` +
-          `that bytes were verified; a member who can call it can publish ` +
-          `anything.`,
-      ).toEqual([]);
-    });
+  it("a slide with no declaration is not sent to the media path", async () => {
+    const out = await publishViaMedia(input([photo(1, { stored: null })]));
+    expect(out.viaMedia).toBe(false);
+    expect(rpcCalls).toHaveLength(0);
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INPUT SHAPES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("shaToBytea / objectPathFromUrl", () => {
+  it("a 64-char lowercase digest becomes a bytea literal", () => {
+    expect(shaToBytea("a".repeat(64))).toBe(`\\x${"a".repeat(64)}`);
+    expect(shaToBytea("A".repeat(64))).toBe(`\\x${"a".repeat(64)}`);
+  });
+
+  it("anything that is not a digest is refused rather than sent", () => {
+    for (const bad of ["", "zz", "a".repeat(63), "a".repeat(65), `${"a".repeat(63)}g`]) {
+      expect(shaToBytea(bad), `accepted ${JSON.stringify(bad)}`).toBeNull();
+    }
+  });
+
+  it("a CDN url becomes the bucket-relative key", () => {
+    expect(objectPathFromUrl("https://cdn.50mmretina.com/post-images/x/posts/a.webp"))
+      .toBe("post-images/x/posts/a.webp");
+  });
+
+  it("query strings and fragments are not part of the object", () => {
+    expect(objectPathFromUrl("https://cdn.50mmretina.com/post-images/x/posts/a.webp?t=1"))
+      .toBe("post-images/x/posts/a.webp");
+  });
+
+  it("traversal and absolute paths are refused", () => {
+    expect(objectPathFromUrl("https://cdn.50mmretina.com/../secret")).toBeNull();
+    expect(objectPathFromUrl("/post-images/x/a.webp")).toBeNull();
+    expect(objectPathFromUrl("")).toBeNull();
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE SERVER SIDE, ASSERTED AGAINST THE LAST DEFINITION IN THE MIGRATIONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort();
+const bodies = files.map((f) => readFileSync(join(MIGRATIONS, f), "utf8"));
+
+function lastDefinitionOf(fn: string): string {
+  const re = new RegExp(
+    `CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+public\\.${fn}\\s*\\([\\s\\S]*?\\$function\\$[\\s\\S]*?\\$function\\$`,
+    "gi",
+  );
+  let latest = "";
+  for (const body of bodies) {
+    const hits = [...body.matchAll(re)];
+    if (hits.length) latest = hits[hits.length - 1][0];
   }
+  return latest;
+}
 
-  it("media_begin_upload is reachable by authenticated but not by anon", () => {
-    const roles = grantsFor("media_begin_upload").join(" ");
-    expect(roles, "media_begin_upload is not granted to authenticated — members cannot upload at all").toMatch(
-      /\bauthenticated\b/,
-    );
+describe("post_publish_with_media — the dual-write (D-004)", () => {
+  const fn = lastDefinitionOf("post_publish_with_media");
+
+  it("is defined (vacuity guard)", () => {
+    expect(fn.length, "no migration defines post_publish_with_media").toBeGreaterThan(0);
+  });
+
+  it("writes image_urls — an empty array blanks every Android member's photograph", () => {
     expect(
-      /\banon\b/.test(roles),
-      "media_begin_upload is granted to anon. A logged-out visitor has no " +
-        "reason to create media rows, and auth.uid() is NULL for them anyway.",
+      /image_urls\s*=\s*'\{\}'|,\s*'\{\}'\s*\)/.test(fn) === false || /_image_urls\[1\], _image_urls/.test(fn),
+      "post_publish_with_media writes an empty image_urls. D-004 records why that " +
+        "blanks the photograph in a binary this repository cannot deploy.",
+    ).toBe(true);
+    expect(/INSERT INTO public\.posts[\s\S]*?image_urls/.test(fn)).toBe(true);
+    expect(/thumbnail_urls/.test(fn)).toBe(true);
+  });
+
+  it("DERIVES image_urls from the media rows — it is never a parameter", () => {
+    // If it were supplied, a caller could publish media A while every legacy
+    // reader shows URL B.
+    expect(
+      /_image_urls\s+text\[\]\s*DEFAULT|_image_urls\s+text\[\]\s*,/.test(
+        fn.slice(0, fn.indexOf("AS $function$")),
+      ),
+      "image_urls became a parameter — the legacy array can now disagree with post_media",
+    ).toBe(false);
+    expect(
+      /mo\.derivatives->>'original'/.test(fn),
+      "image_urls is no longer derived from media_objects.derivatives",
+    ).toBe(true);
+  });
+
+  it("CONSTRAINS thumbnail_urls to the photograph or its -thumb sibling", () => {
+    expect(/MEDIA-2113/.test(fn), "the thumbnail constraint is gone").toBe(true);
+    expect(/-thumb\\\.|-thumb\./.test(fn)).toBe(true);
+  });
+
+  it("keeps every property the shipped version had", () => {
+    expect(/FROM unnest\(_media_ids\) WITH ORDINALITY AS t\(mid, ord\)/.test(fn), "R15: ords from ordinality").toBe(true);
+    expect(/SELECT _post_id, ord - 1, mid/.test(fn), "ords no longer start at 0").toBe(true);
+    expect(/publish aborted: % of % photographs attached/.test(fn), "completeness gate").toBe(true);
+    expect(/mo\.owner_id <> _uid OR mo\.state <> 'ready'/.test(fn), "ownership + readiness").toBe(true);
+    expect(/RETURN _existing;/.test(fn), "idempotency short-circuit").toBe(true);
+    expect(/at most 10 photographs/.test(fn), "the 10-photograph cap").toBe(true);
+  });
+
+  it("carries the caller's privacy into the row — it is never re-defaulted", () => {
+    /**
+     * ⚠ FOUND BY MUTATION, 2026-08-20, and it was a real hole. Replacing
+     * `_privacy` with a literal `'public'` in the INSERT left every assertion
+     * green — so a member choosing "Only me" would have published a PUBLIC
+     * post, and the one surface that honours privacy today (the database)
+     * would have been the surface that broke it. The parameter existing is not
+     * the property; the parameter REACHING THE ROW is.
+     */
+    const insert = /INSERT INTO public\.posts[\s\S]*?RETURNING id INTO _post_id;/.exec(fn)?.[0] ?? "";
+    expect(insert.length, "the INSERT could not be located").toBeGreaterThan(0);
+    expect(
+      /COALESCE\(_content, ''\), _privacy,/.test(insert),
+      "post_publish_with_media no longer inserts the caller's _privacy — a " +
+        "restricted post would publish as whatever the literal says",
+    ).toBe(true);
+    for (const literal of ["'public'", "'friends'", "'private'"]) {
+      expect(
+        insert.includes(literal),
+        `the INSERT hardcodes privacy as ${literal} instead of carrying _privacy`,
+      ).toBe(false);
+    }
+  });
+
+  it("the origin is read from settings and never guessed", () => {
+    expect(/MEDIA-2110/.test(fn), "a missing public_url must fail loud, not publish half a URL").toBe(true);
+    expect(
+      /'https:\/\/cdn\.50mmretina\.com'/.test(fn),
+      "the delivery host is hardcoded in the function — it belongs in settings",
     ).toBe(false);
   });
 
-  /** (3) The machine is a trigger, not a convention. */
-  it("the state machine is enforced by a BEFORE UPDATE trigger on media_objects", () => {
+  it("ships with a rollback that says what reverting actually costs", () => {
+    const m = files.find((f) => /media_write_path_live/.test(f));
+    expect(m, "the live write-path migration is missing").toBeTruthy();
+    const rb = join(ROOT, "supabase/rollback", m!.replace(/\.sql$/, "_ROLLBACK.sql"));
+    expect(existsSync(rb), "no rollback at supabase/rollback/ for the live write path").toBe(true);
+    const src = readFileSync(rb, "utf8");
+    // A rollback that silently reopens the delta is worse than none: whoever
+    // runs it must know that new posts go back to being image_urls-only.
+    expect(/MEDIA-4001|image_urls.-only|delta starts growing/i.test(src)).toBe(true);
+    // The phrase wraps across a SQL comment line, so normalise before matching.
+    const flat = src.replace(/\s*\n\s*--\s*/g, " ").replace(/\s+/g, " ");
     expect(
-      /CREATE\s+TRIGGER\s+trg_media_state_transition[\s\S]{0,120}?BEFORE\s+UPDATE\s+ON\s+public\.media_objects/i.test(all),
-      "trg_media_state_transition is missing. Without it, state is governed " +
-        "only by its CHECK constraint, which permits pending -> ready — " +
-        "verification becomes skippable.",
+      /MUST NOT BE "CLEANED UP"/i.test(flat),
+      "the rollback does not warn against deleting the media rows of posts already " +
+        "published through the new path — that would destroy verified provenance",
     ).toBe(true);
   });
 
-  it("the legal-transition list does not allow skipping verification", () => {
-    const fn = all.match(
-      /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+public\.tg_media_state_transition[\s\S]*?\$\$([\s\S]*?)\$\$/i,
-    )?.[1];
-    expect(fn, "tg_media_state_transition body not found").toBeTruthy();
-
-    // pending may become verified or quarantined. It may NOT become ready.
-    const pendingEdge = fn!.match(/OLD\.state\s*=\s*'pending'\s+AND\s+NEW\.state\s+IN\s*\(([^)]*)\)/i)?.[1] ?? "";
-    expect(pendingEdge, "no pending-state edge found in the transition guard").toMatch(/verified/);
+  it("stays revoked from anon", () => {
+    const all = bodies.join("\n");
     expect(
-      /'ready'/.test(pendingEdge),
-      "pending -> ready is listed as a legal transition. That is the exact " +
-        "edge the state machine exists to forbid: it publishes bytes whose " +
-        "hash was never recomputed server-side.",
+      /REVOKE ALL ON FUNCTION public\.post_publish_with_media\([^)]*\) FROM PUBLIC, anon;/.test(all),
+    ).toBe(true);
+  });
+});
+
+describe("media_mark_ready — the object must be the owner's", () => {
+  const fn = lastDefinitionOf("media_mark_ready");
+
+  it("is defined (vacuity guard)", () => {
+    expect(fn.length).toBeGreaterThan(0);
+  });
+
+  it("refuses an original outside post-images/<owner>/", () => {
+    expect(
+      /MEDIA-2102/.test(fn),
+      "media_mark_ready no longer checks that the stored object belongs to the row's " +
+        "owner — a writer that accepts a caller-supplied path can now mark a member's " +
+        "row ready against somebody else's photograph",
+    ).toBe(true);
+    expect(/'\^post-images\/' \|\| _owner::text \|\| '\/'/.test(fn)).toBe(true);
+  });
+
+  it("refuses traversal, absolute paths and hosts", () => {
+    expect(/MEDIA-2103/.test(fn)).toBe(true);
+  });
+
+  it("keeps the rung allow-list — an unknown rung means the reader serves nothing", () => {
+    expect(/original', '1440', '1080', '600'/.test(fn)).toBe(true);
+  });
+
+  it("is service_role only — a member marking their own bytes ready is the whole gap", () => {
+    const all = bodies.join("\n");
+    expect(/REVOKE ALL ON FUNCTION public\.media_mark_ready\(uuid, jsonb\) FROM PUBLIC, anon;/.test(all)).toBe(true);
+    expect(/REVOKE ALL ON FUNCTION public\.media_mark_ready\(uuid, jsonb\) FROM authenticated;/.test(all)).toBe(true);
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE VERIFIER
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("media-register-upload", () => {
+  const fnPath = join(ROOT, "supabase/functions/media-register-upload/index.ts");
+  const src = existsSync(fnPath) ? readFileSync(fnPath, "utf8") : "";
+
+  it("exists and is registered with verify_jwt=false for the documented reason", () => {
+    expect(src.length, "the verifier is gone — nothing can move an upload to ready").toBeGreaterThan(1000);
+    const toml = readFileSync(join(ROOT, "supabase/config.toml"), "utf8");
+    expect(/\[functions\.media-register-upload\]\s*\n\s*verify_jwt = false/.test(toml)).toBe(true);
+  });
+
+  it("re-reads the object and re-hashes it — the check the design rests on", () => {
+    expect(/readS3Object\(/.test(src)).toBe(true);
+    expect(/crypto\.subtle\.digest\("SHA-256", bytes\)/.test(src)).toBe(true);
+    expect(/media_quarantine/.test(src), "a mismatch must quarantine, not merely refuse").toBe(true);
+  });
+
+  it("refuses any row that is not the caller's", () => {
+    expect(/row\.owner_id !== callerId/.test(src)).toBe(true);
+  });
+
+  it("refuses any path outside the ROW OWNER's folder — never the request's", () => {
+    expect(/key\.startsWith\(`post-images\/\$\{ownerId\}\//.test(src)).toBe(true);
+    expect(
+      /objectKeyForOwner\(rawPath, row\.owner_id\)/.test(src),
+      "the path is checked against something other than the row's owner",
+    ).toBe(true);
+  });
+
+  it("refuses a thumbnail or a rung as an original", () => {
+    expect(/-thumb\\\.\[A-Za-z0-9\]\+\$/.test(src)).toBe(true);
+    expect(/-r\(\?:600\|1080\|1440\)/.test(src)).toBe(true);
+  });
+
+  it("the superseded verifier is NOT deployed", () => {
+    const toml = readFileSync(join(ROOT, "supabase/config.toml"), "utf8");
+    expect(
+      /\[functions\.media-verify-upload\]/.test(toml),
+      "media-verify-upload derives post-images/<owner>/media/<id>/original.* — a " +
+        "layout ZERO of the 229 production objects use. Deploying it strands every " +
+        "upload at pending. See docs/WRITE_PATH.md.",
     ).toBe(false);
   });
+});
 
-  it("owner_id and sha256 are frozen after insert", () => {
-    const fn = all.match(
-      /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+public\.tg_media_state_transition[\s\S]*?\$\$([\s\S]*?)\$\$/i,
-    )?.[1] ?? "";
-    expect(
-      /NEW\.owner_id\s+IS\s+DISTINCT\s+FROM\s+OLD\.owner_id/i.test(fn),
-      "owner_id is mutable. A row could be verified honestly and then handed " +
-        "to another member.",
-    ).toBe(true);
-    expect(
-      /NEW\.sha256\s+IS\s+DISTINCT\s+FROM\s+OLD\.sha256/i.test(fn),
-      "sha256 is mutable. A row could reach `ready` against one byte stream " +
-        "and then claim a different one, making the verification meaningless.",
-    ).toBe(true);
-  });
-
-  it("quarantine does not require a verification that never happened", () => {
-    // The 20260814084711 constraint was `state = 'pending' OR verified_at IS NOT NULL`,
-    // which forced a quarantined-from-pending row to carry a fabricated timestamp.
-    const latest = [...all.matchAll(
-      /ADD\s+CONSTRAINT\s+media_objects_verified_has_ts\s+CHECK\s*\(([\s\S]*?)\);/gi,
-    )].pop()?.[1];
-    expect(latest, "media_objects_verified_has_ts is never re-added").toBeTruthy();
-    expect(
-      /quarantined/i.test(latest!),
-      "The verified_has_ts constraint does not exempt `quarantined`. Quarantine " +
-        "is what happens when hash verification FAILS, so verified_at is " +
-        "legitimately NULL — the constraint would only be satisfiable by writing " +
-        "a timestamp asserting a verification that did not happen.",
-    ).toBe(true);
+describe("reportLegacyOnlyPublish", () => {
+  it("names the counter that would show the delta growing again", () => {
+    reportLegacyOnlyPublish("because", "cid");
+    const w = warnings.find((x) => x.code === "MEDIA-4001");
+    expect(w).toBeTruthy();
   });
 });

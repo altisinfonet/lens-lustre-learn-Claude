@@ -5,6 +5,7 @@ import { guardOriginalUpload } from "@/lib/gpsGuard";
 import { LADDER_MARKER, RUNG_QUALITY, rungPath, rungPlan } from "@/lib/imageLadder";
 import { dimsSuffix } from "@/lib/imageFrame";
 import { logger } from "@/lib/logger";
+import { describeStoredObject, type StoredObjectFacts } from "@/lib/media/storedObject";
 
 const FILE = "src/lib/imageUpload.ts";
 
@@ -235,6 +236,18 @@ interface UploadWithThumbnailResult {
   thumbnailUrl: string;
   /** Thumbnail storage path */
   thumbnailPath: string;
+  /**
+   * What was ACTUALLY stored — the fingerprint, size and dimensions of the
+   * encoded bytes that went to R2, not of the file the member picked. This is
+   * the declaration `media_begin_upload` takes and `media-register-upload`
+   * re-derives from the stored object.
+   *
+   * ⚠ null means the encoder could not report dimensions and they could not be
+   * measured. The caller must then keep that slide on the legacy path rather
+   * than declare something it does not know: a FALSE declaration quarantines
+   * the member's photograph, which is terminal. See storedObject.ts.
+   */
+  stored: StoredObjectFacts | null;
 }
 
 /**
@@ -296,6 +309,12 @@ export async function uploadImageWithThumbnail(
     // member-readable copy; callers surface it like any upload failure.
     fullResFile = await guardOriginalUpload(file);
   }
+
+  // Measured HERE, from the encoded file, because this is the last moment the
+  // bytes that are about to be uploaded exist in one place. Every return below
+  // carries it. See storedObject.ts for why hashing `file` instead would
+  // quarantine every upload.
+  const stored = await describeStoredObject(fullResFile, encodedDims);
 
   // ── Dimensions in the filename (posts only, 2026-08-01) ──
   // The feed sizes a post's frame BEFORE the image loads; reading naturalWidth
@@ -362,6 +381,7 @@ export async function uploadImageWithThumbnail(
       path: fullResult.path,
       thumbnailUrl: fullResult.url,
       thumbnailPath: fullResult.path,
+      stored,
     };
   }
 
@@ -480,6 +500,7 @@ export async function uploadImageWithThumbnail(
       path: full.key,
       thumbnailUrl: isPrivate ? s3ThumbPath : thumb.url,
       thumbnailPath: thumb.key,
+      stored,
     };
   }
 
@@ -518,6 +539,7 @@ export async function uploadImageWithThumbnail(
     path: fullResult.path,
     thumbnailUrl: thumbResult.url,
     thumbnailPath: thumbResult.path,
+    stored,
   };
 }
 

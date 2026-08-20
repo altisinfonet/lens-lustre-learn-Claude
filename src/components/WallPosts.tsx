@@ -47,6 +47,8 @@ import { useCaptionHashtags } from "@/hooks/feed/useCaptionHashtags";
 import HashtagSuggestions from "@/components/post/HashtagSuggestions";
 import { PostAudienceChooser, type Privacy as AudiencePrivacy } from "@/components/post/PostAudienceChooser";
 import { logger, newCorrelationId } from "@/lib/logger";
+import { publishViaMedia, reportLegacyOnlyPublish } from "@/lib/media/postMediaWrite";
+import type { StoredObjectFacts } from "@/lib/media/storedObject";
 import type { ReactionType } from "@/components/ReactionPicker";
 import type { UnifiedPost } from "@/types/post";
 import { avatarInitial } from "@/lib/displayName";
@@ -312,7 +314,16 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
    * eventually collects, paid for by the member's data allowance twice. The
    * B4 gate is explicit: no orphans, no duplicate objects.
    */
-  const uploadedPhotoCache = useRef(new Map<File, { url: string; thumbnailUrl: string }>());
+  const uploadedPhotoCache = useRef(
+    new Map<File, { url: string; thumbnailUrl: string; stored: StoredObjectFacts | null }>(),
+  );
+  /**
+   * One key per COMPOSITION, not per attempt. `post_publish_with_media` uses
+   * it to make a retry return the first post instead of creating a second, so
+   * it must survive the retries it exists to protect against. Cleared with the
+   * images, which is what ends a composition.
+   */
+  const publishIdemKey = useRef<string>(newCorrelationId());
 
   const closeComposer = () => {
     setComposerOpen(false);
@@ -720,6 +731,9 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   };
 
   const clearAllImages = () => {
+    // A new composition is a new post, so it gets a new idempotency key.
+    // Reusing the old one would make the NEXT post return the previous one.
+    publishIdemKey.current = newCorrelationId();
     selectedCountRef.current = 0;
     setSelectedImages([]);
     setImagePreviews([]);
@@ -784,6 +798,10 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   const uploadPhotos = async (correlationId: string) => {
   const uploadedUrls: string[] = [];
   const uploadedThumbs: string[] = [];
+  // Index-aligned with the two arrays above, exactly as imagePreviews is with
+  // selectedImages. A null entry means the encoder could not report what it
+  // stored, and that slide cannot be honestly declared to the media engine.
+  const uploadedStored: (StoredObjectFacts | null)[] = [];
   for (let i = 0; i < selectedImages.length; i++) {
     // ── B4 RESUME: already uploaded in an earlier attempt at THIS post ──
     // Checked before the scan, because a photo whose bytes are already in
@@ -805,6 +823,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       });
       uploadedUrls.push(already.url);
       uploadedThumbs.push(already.thumbnailUrl);
+      uploadedStored.push(already.stored);
       continue;
     }
 
@@ -915,12 +934,14 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     uploadedPhotoCache.current.set(selectedImages[i], {
       url: uploadResult.url,
       thumbnailUrl: uploadResult.thumbnailUrl,
+      stored: uploadResult.stored,
     });
 
     uploadedUrls.push(uploadResult.url);
     uploadedThumbs.push(uploadResult.thumbnailUrl);
+    uploadedStored.push(uploadResult.stored);
   }
-    return { uploadedUrls, uploadedThumbs };
+    return { uploadedUrls, uploadedThumbs, uploadedStored };
   };
 
   /**
@@ -1164,7 +1185,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
 
     setPosting(true);
     try {
-      const { uploadedUrls, uploadedThumbs } = await uploadPhotos(correlationId);
+      const { uploadedUrls, uploadedThumbs, uploadedStored } = await uploadPhotos(correlationId);
       // Phase 3B — Schedule branch: divert INSERT to scheduled_posts (RLS-gated).
       // Window validated by DB trigger validate_scheduled_post_window (5min…90d).
       if (scheduleAt) {
@@ -1205,20 +1226,66 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         setPosting(false);
         return;
       }
-      const { data: newPost, error } = await supabase.from("posts").insert({
-        user_id: user.id,
-        // Picked @mentions become @[Name](id) markup (see useCaptionMentions).
+      /**
+       * ── THE MEDIA PATH FIRST ────────────────────────────────────────────
+       *
+       * Phase 2, 2026-08-20. Every post published before this line existed was
+       * an `image_urls`-only post: bytes in a bucket, a string in an array, and
+       * nothing that had ever looked at the file. The fenced migration reached
+       * zero on this date and would have gone non-zero with the next upload.
+       *
+       * `publishViaMedia` declares each photograph's fingerprint, has the
+       * SERVER re-read the stored object and re-hash it, and then publishes the
+       * post and all of its references in ONE transaction. It is all-or-nothing
+       * per post by design — see postMediaWrite.ts.
+       *
+       * ⚠ THE FALLBACK BELOW IS NOT DEAD CODE AND MUST NOT BE DELETED. A
+       * photographer who has waited through an upload must not lose the post
+       * because a verification endpoint was slow. But it is never silent:
+       * MEDIA-4001 counts every post that lands legacy-only, which is the one
+       * signal that would show the delta growing again.
+       *
+       * ⚠ AND IT MUST NOT BE REORDERED. Trying legacy first "because it is
+       * simpler" means the media path is never exercised and rots.
+       */
+      const viaMedia = await publishViaMedia({
+        photos: uploadedUrls.map((url, i) => ({
+          url,
+          thumbnailUrl: uploadedThumbs[i],
+          stored: uploadedStored[i] ?? null,
+        })),
         content: captionMentions.convert(newContent.trim()),
         privacy: newPrivacy,
-        // Always present: createPost refuses to run without at least one photo
-        // (see the ruling at the top of createPost). This is the first of them.
-        image_url: uploadedUrls[0],
-        image_urls: uploadedUrls,
-        thumbnail_urls: uploadedThumbs,
-        indexing_disabled: excludeFromSearch,
-        // Stage C: same INSERT as the post itself. Never a second statement.
         categories: postCategories,
-      } as any).select("id").single();
+        indexingDisabled: excludeFromSearch,
+        idempotencyKey: publishIdemKey.current,
+      });
+
+      let newPost: { id: string } | null = viaMedia.postId ? { id: viaMedia.postId } : null;
+      let error: { message: string; code?: string } | null = null;
+
+      if (!viaMedia.viaMedia) {
+        reportLegacyOnlyPublish(
+          "the media write path did not complete for every photograph in this post",
+          correlationId,
+        );
+        const legacy = await supabase.from("posts").insert({
+          user_id: user.id,
+          // Picked @mentions become @[Name](id) markup (see useCaptionMentions).
+          content: captionMentions.convert(newContent.trim()),
+          privacy: newPrivacy,
+          // Always present: createPost refuses to run without at least one photo
+          // (see the ruling at the top of createPost). This is the first of them.
+          image_url: uploadedUrls[0],
+          image_urls: uploadedUrls,
+          thumbnail_urls: uploadedThumbs,
+          indexing_disabled: excludeFromSearch,
+          // Stage C: same INSERT as the post itself. Never a second statement.
+          categories: postCategories,
+        } as any).select("id").single();
+        newPost = legacy.data as { id: string } | null;
+        error = legacy.error;
+      }
       if (error) {
         // NOTHING HERE MAY MENTION A PROFILE PHOTO.
         //

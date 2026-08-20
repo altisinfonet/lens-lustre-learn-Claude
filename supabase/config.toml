@@ -62,3 +62,14 @@ project_id = "jtdtehuqtinjxropkkcn"
   # itself on 2026-09-01 so it cannot linger as a media API.
   [functions.measure-post-media]
     verify_jwt = true
+  # THE LIVE MEDIA WRITE PATH's verifier. verify_jwt MUST stay false, for the
+  # same reason s3-presign-upload does and it is the same failure: this runs on
+  # the member's posting path, and a gateway 401 from a transiently stale
+  # session would fail the whole post rather than one call. Auth is not
+  # weakened by this — the function validates the bearer token with
+  # getClaims(), 401s without one, and refuses any media row that is not the
+  # caller's own, before it reads a single byte. Removing this line
+  # re-introduces the "Edge Function returned a non-2xx status code" posting
+  # outage in a new place. Do not delete.
+  [functions.media-register-upload]
+    verify_jwt = false

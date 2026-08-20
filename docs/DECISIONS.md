@@ -225,3 +225,62 @@ All 254 production posts are `privacy = 'public'`, so live exposure is **zero**
 and the negative test above retrieves nothing a visitor could not already see.
 The gap becomes real the first time a member uses the audience chooser, which
 is why `PrivacyGapNotice` is not cosmetic and stays until this entry closes.
+
+---
+
+## D-004 — New posts dual-write the legacy arrays, because a binary this repository cannot deploy still reads them
+
+- **Status:** ACTIVE
+- **Decided:** 2026-08-20
+- **Decided by:** Assistant, building the Phase 2 live write path, on measured consumer evidence rather than on preference
+- **Pinned by:** `src/__tests__/mediaWritePath.test.ts`
+- **Restore when:** Nothing to restore — this ENDS when all three conditions below are true, at which point `post_publish_with_media` stops writing `image_urls`/`thumbnail_urls`, this entry is closed and its pin deleted in the same commit.
+
+### What was decided
+
+`post_publish_with_media` writes `post_media` rows **and** `posts.image_urls` /
+`posts.thumbnail_urls`. The shipped version wrote `image_urls = '{}'`.
+
+Neither legacy array is trusted:
+
+- `image_urls[i]` is **derived inside the transaction** from
+  `media_objects.derivatives->>'original'` of the media at `ord = i`, prefixed
+  with `site_settings.s3_storage_settings.public_url`. The caller cannot supply
+  it, so publishing media A while displaying URL B is not expressible.
+- `thumbnail_urls[i]` is **supplied but constrained** to exactly two honest
+  values: the derived original, or that original with `-thumb` inserted before
+  the extension (`MEDIA-2113` refuses anything else). It cannot be derived
+  because `-thumb` is a filename convention and the documented fallback reuses
+  the full-size URL when thumbnail encoding fails.
+
+### Why — measured, not assumed
+
+Publishing with an empty `image_urls` today blanks the photograph for:
+
+| consumer | reads | reachable from this repo |
+|---|---|---|
+| **the Android app** | `posts.image_urls` | **no** — a separately released binary, in members' hands now |
+| `Feed.tsx`, `PostCard.tsx`, `ProfilePostGrid.tsx`, `DraftsList.tsx`, `ScheduledPostsList.tsx`, `useScheduledPosts.ts` | `image_urls` directly | yes, not yet switched |
+| every thumbnail, everywhere | `thumbnail_urls` | yes — but `thumbnail_urls` has **no representation in `media_objects` at all**; `post_media_for` returns `derivatives.original` only |
+
+### What it costs
+
+Two representations of the same fact, which can in principle drift. The
+mitigation is that only one of them is writable by anyone: `image_urls` is
+derived from the media rows in the same transaction that creates them, so drift
+is not expressible on the write path either.
+
+### Restore when — all three, each checkable
+
+1. the six repository consumers above read through `resolvePostImageUrls`;
+2. `thumbnail_urls` is represented in the media schema — the honest shape is a
+   `thumb` key in `derivatives`, which requires widening `media_mark_ready`'s
+   rung allow-list (`original,1440,1080,600`), a security-control change with
+   its own review;
+3. the Android binary in members' hands reads the new path — a store release,
+   not a deploy, and the long pole.
+
+⚠ REMOVING THE DUAL-WRITE BEFORE ALL THREE BLANKS PHOTOGRAPHS, and it does so
+in a diff that looks like a tidy-up. The pinning test fails if
+`post_publish_with_media` stops writing either array, or if `image_urls` ever
+becomes a supplied parameter rather than a derived one.
