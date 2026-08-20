@@ -36,6 +36,12 @@ interface ScheduledRow {
   user_id: string;
   content: string | null;
   image_urls: string[];
+  /**
+   * media_objects the composer registered when these photographs were
+   * uploaded. NULL for every row scheduled before the Phase 2 write path —
+   * those publish legacy-only, exactly as they always did.
+   */
+  media_ids: string[] | null;
   /** B3c: thumbnails stored at compose time. NULL on pre-2026-08-14 rows. */
   thumbnail_urls: string[] | null;
   image_url: string | null;
@@ -88,6 +94,12 @@ Deno.serve(async (req) => {
     published: 0,
     shifted: 0,
     failed: 0,
+    /**
+     * Published, but WITHOUT media references. Not a failure — the member got
+     * their post — but the counter that would show scheduled posts rejoining
+     * the legacy-only population. See MEDIA-4005.
+     */
+    mediaUnattached: 0,
     errors: [] as Array<{ id: string; reason: string }>,
   };
 
@@ -272,6 +284,36 @@ Deno.serve(async (req) => {
           await fail(admin, row, `insert_error: ${msg}`, summary);
         }
         continue;
+      }
+
+      /**
+       * ── MEDIA REFERENCES ────────────────────────────────────────────────
+       * Attached AFTER the post exists and deliberately NOT allowed to fail
+       * the publication. A photographer who scheduled a post for 7am must get
+       * their post at 7am; a media reference is not worth a missed
+       * publication, and a post without one is merely unmigrated — a state the
+       * reconciliation already reports.
+       *
+       * `post_attach_media` is all-or-nothing and re-derives the author from
+       * the POST, not from this row, because nothing here runs as the member.
+       * It also refuses (MEDIA-2205) unless every media object resolves to the
+       * exact URL the post is already showing at that position, so a stale
+       * `media_ids` on an edited row cannot attach the wrong photographs.
+       */
+      if (row.media_ids && row.media_ids.length > 0) {
+        const { error: attachErr } = await admin.rpc("post_attach_media", {
+          _post_id: inserted.id,
+          _media_ids: row.media_ids,
+        });
+        if (attachErr) {
+          // Recorded, never fatal. A rising count here means scheduled posts
+          // are rejoining the legacy-only population.
+          console.warn(
+            `MEDIA-4005 scheduled post ${row.id} published as ${inserted.id} ` +
+              `WITHOUT media references: ${attachErr.message}`,
+          );
+          summary.mediaUnattached++;
+        }
       }
 
       await admin
