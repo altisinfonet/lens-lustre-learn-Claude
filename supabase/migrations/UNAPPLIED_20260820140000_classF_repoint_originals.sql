@@ -8,9 +8,21 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- WHAT IT REPAIRS
 --
--- 17 slides across 15 posts display a 600-pixel THUMBNAIL where the member's
--- photograph should be. The 1920-pixel original is present in storage for every
--- one of them. Evidence, per object, is in docs/LEGACY_MEDIA_EVIDENCE_MATRIX.md.
+-- ⚠ NUMBERS CORRECTED 2026-08-20 (WORKSTREAM 3). This header previously read
+-- "17 slides across 15 posts", which mixed two different counts and did not
+-- match what the statement below actually selects. Re-derived from production:
+--
+--     17  DISTINCT OBJECTS have a surviving 1920px original
+--     20  SLIDE POSITIONS reference those 17 objects (4 objects are shared)
+--      8  POSTS would actually change
+--     15  POSTS carry a Supabase -thumb slide at all (7 of them cannot change,
+--         because for their objects the original is gone — see note 1)
+--
+-- The 600px thumbnails display where the member's photograph should be. The
+-- 1920px original is present in storage for every one of the 17. Evidence, per
+-- object, is in docs/LEGACY_MEDIA_EVIDENCE_MATRIX.md; re-measured 2026-08-20
+-- by retrieval (every thumb exactly 600px on its long edge, every original
+-- exactly 1920px).
 --
 -- The pairing is proven rather than assumed: both files were fetched and measured
 -- from their header bytes. Every thumb is exactly 600px on its long edge, every
@@ -26,7 +38,8 @@
 --
 -- ⚠ THREE THINGS TO KNOW BEFORE ENABLING IT
 --
---   1. SIX MORE SLIDES ARE NOT TOUCHED and must not be. Their originals are
+--   1. SIX OBJECTS (7 slide positions, across 7 posts) ARE NOT TOUCHED and must
+--      not be. Their originals are
 --      GONE (avatar/cover objects overwritten long ago), so the thumbnail is the
 --      only surviving copy. The WHERE clause below reaches them only if the
 --      original exists in storage.objects, which for those six it does not.
@@ -97,16 +110,38 @@ where a.post_id = p.id
   and a.repaired_at > now() - interval '1 minute';
 
 -- ── THE GATE ───────────────────────────────────────────────────────────────
--- Refuse the whole transaction unless exactly the 15 audited posts moved, and
+-- Refuse the whole transaction unless exactly the audited population moved, and
 -- unless every rewritten URL now resolves to an object that really exists.
 -- A repair that silently touched a different number of rows is not a repair.
+--
+-- ⚠ CORRECTED 2026-08-20 (WORKSTREAM 3). This gate compared the number of
+-- CHANGED posts against 15 — the number of posts in the class-F POPULATION.
+-- Only 8 of those 15 can change, because for the other 7 the original is gone,
+-- so `changed` filters them out one CTE earlier. Evaluated read-only against
+-- production, the statement above selects 8 posts / 20 slides, so this file as
+-- written would have aborted with REPAIR-001 on its very first run — from the
+-- day it was written. The gate was right to refuse; the constant was wrong.
+--
+-- Both numbers are now checked, because posts alone cannot tell a 4-slide post
+-- from a 1-slide one.
 do $$
-declare _n int; _bad int;
+declare _n int; _slides int; _bad int;
 begin
   select count(*) into _n from public.media_repair_audit
    where repair='classF_repoint_originals' and repaired_at > now() - interval '1 minute';
-  if _n <> 15 then
-    raise exception 'REPAIR-001: expected 15 posts, audited %', _n;
+  if _n <> 8 then
+    raise exception 'REPAIR-001: expected 8 posts to change, audited %', _n;
+  end if;
+
+  select count(*) into _slides
+    from public.media_repair_audit a
+    cross join lateral unnest(a.image_urls_before) with ordinality b(u, i)
+    cross join lateral unnest(a.image_urls_after)  with ordinality c(v, j)
+   where a.repair='classF_repoint_originals'
+     and a.repaired_at > now() - interval '1 minute'
+     and b.i = c.j and b.u is distinct from c.v;
+  if _slides <> 20 then
+    raise exception 'REPAIR-003: expected 20 slides to change, changed %', _slides;
   end if;
   select count(*) into _bad
     from public.media_repair_audit a
