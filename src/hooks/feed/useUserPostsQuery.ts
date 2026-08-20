@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchPostMediaMap, resolvePostImageUrls } from "@/lib/media/postMediaRead";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
 import type { UnifiedPost, TaggedPerson } from "@/types/post";
@@ -81,7 +82,7 @@ async function fetchAndEnrich(
   const postIds = postsData.map((p) => p.id);
 
   // Merge reaction queries into ONE — filter user reactions client-side
-  const [profileMap, adminIds, allReactionsRes, tagsRes] = await Promise.all([
+  const [profileMap, adminIds, allReactionsRes, tagsRes, postMediaMap] = await Promise.all([
     fetchProfileMap(authorIds),
     getAdminIds(),
     supabase.from("post_reactions").select("post_id, reaction_type, user_id").in("post_id", postIds),
@@ -93,6 +94,13 @@ async function fetchAndEnrich(
         .select("post_id, tagged_user_id, status")
         .in("post_id", postIds)
         .in("status", ["pending", "approved"]),
+    /**
+     * ITEM E — the same sanctioned media read path the feed uses, batched into
+     * this page's existing Promise.all. The wall and the feed must not disagree
+     * about the same post, so they must not resolve its photographs
+     * differently.
+     */
+    fetchPostMediaMap(postIds),
   ]);
 
   /**
@@ -148,7 +156,11 @@ async function fetchAndEnrich(
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3)
       .map(([type]) => type);
-    const imageUrls = p.image_urls?.length > 0 ? p.image_urls : p.image_url ? [p.image_url] : [];
+    const imageUrls = resolvePostImageUrls(
+      postMediaMap,
+      p.id,
+      p.image_urls?.length > 0 ? p.image_urls : p.image_url ? [p.image_url] : [],
+    );
 
     return {
       id: p.id,
