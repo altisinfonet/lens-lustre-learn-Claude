@@ -38,6 +38,7 @@ import { join } from "node:path";
 import {
   CANDIDATE_CLASSES,
   CANDIDATE_PATH,
+  CDN_HOST,
   candidateClass,
 } from "../../supabase/functions/_shared/manifestPlan";
 
@@ -46,6 +47,37 @@ const MIGRATIONS = join(ROOT, "supabase/migrations");
 const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort();
 const bodies = files.map((f) => readFileSync(join(MIGRATIONS, f), "utf8"));
 const allSql = bodies.join("\n");
+
+/**
+ * The LAST definition of a function across every migration, because
+ * CREATE OR REPLACE means an earlier file's text proves nothing about the
+ * function that is actually live. Same rule the other suites follow.
+ */
+function lastDefinitionOf(fn: string): string {
+  // ⚠ MATCH THE DEFINITION, NOT EVERY MENTION. The first version of this helper
+  // searched for `function public.<fn>(` and happily returned the tail of a
+  // GRANT statement — a target that is not the thing under test at all, the
+  // same stale-target class as the retargeted mutations in tools/. The marker
+  // below is the CREATE, and the result is checked to look like a body.
+  let found = "";
+  for (const body of bodies) {
+    const re = new RegExp(`create\\s+(or\\s+replace\\s+)?function\\s+public\\.${fn}\\s*\\(`, "gi");
+    let m: RegExpExecArray | null;
+    let last = -1;
+    while ((m = re.exec(body)) !== null) last = m.index;
+    if (last >= 0) found = body.slice(last);
+  }
+  if (!found) throw new Error(`no CREATE FUNCTION for ${fn} found in migrations`);
+  if (!/\$[a-z]*\$|BEGIN/i.test(found)) {
+    throw new Error(`the slice for ${fn} does not look like a function body`);
+  }
+  return found;
+}
+
+/** Every migration concatenated, for corpus-wide structural assertions. */
+function allMigrationText(): string {
+  return allSql;
+}
 
 const OWNER = "01c5059c-5df3-4885-ae61-21a88f25114a";
 const ALBUM = "9f31841a-9ece-431a-9703-6df1783068c4";
@@ -284,5 +316,128 @@ describe("the fence function is a recorded choice, not a default", () => {
     const plan = readFileSync(join(ROOT, "supabase/functions/_shared/manifestPlan.ts"), "utf8");
     expect(/code: "MIG-1040"/.test(plan)).toBe(true);
     expect(/assertFence\(/.test(mig)).toBe(true);
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WORKSTREAM 3 — THE REFUSALS THAT KEEP THE REMAINING 29 SLIDES OUT
+   ═══════════════════════════════════════════════════════════════════════════
+
+   The WS3 audit (2026-08-20) re-derived the 29 remaining legacy-only slides
+   from production and proved that NONE of them is migratable by this engine:
+
+     • 27 slides live on `jtdtehuqtinjxropkkcn.supabase.co`, not in R2. All 23
+       distinct objects return 404 from `cdn.50mmretina.com`, and every one of
+       them is a 600px `-thumb.webp` DERIVATIVE, not an original.
+     • 2 slides are real R2 cover photographs under `avatars/covers/<owner>/`,
+       where the owner sits at path segment 3 rather than 2.
+
+   Two of the controls that refuse them had NO test on their VALUE, only on
+   their presence:
+
+     • nothing asserted what `CDN_HOST` actually is. Retargeting it at
+       `jtdtehuqtinjxropkkcn.supabase.co` would have admitted all 27 Supabase
+       thumbnails while `host !== CDN_HOST` still appeared in the source and
+       every existing assertion stayed green.
+     • nothing asserted that the candidate classes refuse the real production
+       keys — only synthetic ones.
+
+   ⚠ THESE ARE NOT HYPOTHETICALS. The keys below are the real production
+   objects, copied from the audit. If a future widening admits them, the engine
+   will try to migrate a thumbnail as if it were an original.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("WS3 — the 29 remaining legacy slides must stay out of the candidate set", () => {
+  it("CDN_HOST is the CDN, and is asserted by VALUE", () => {
+    /**
+     * The 27 Supabase-hosted slides are refused first by the host check, before
+     * any pattern runs. A host constant with no value assertion is a one-word
+     * edit away from admitting them.
+     */
+    expect(CDN_HOST).toBe("cdn.50mmretina.com");
+    expect(CDN_HOST).not.toContain("supabase");
+  });
+
+  it("refuses every real Supabase-hosted key from the WS3 audit", () => {
+    /**
+     * These are bucket-relative keys as they would appear AFTER the host is
+     * stripped — i.e. the shape a widened host check would hand to the pattern.
+     * `storage/v1/object/public/...` is not a candidate under any class.
+     */
+    const realSupabaseKeys = [
+      "storage/v1/object/public/post-images/5745a9c9-55ec-4f0b-8a75-3a55ab3064d8/1773424319982_0-thumb.webp",
+      "storage/v1/object/public/post-images/622dada0-2ec0-4472-85ac-7d2a034a1cf5/1775128354335_0-thumb.webp",
+      "storage/v1/object/public/post-images/85250f9f-f210-444c-97cc-dd03949efe27/avatar-thumb.webp",
+      "storage/v1/object/public/post-images/85250f9f-f210-444c-97cc-dd03949efe27/covers/1775110594127-1000651117-thumb.webp",
+    ];
+    for (const k of realSupabaseKeys) {
+      expect(candidateClass(k), `${k} must not be a candidate`).toBeNull();
+    }
+  });
+
+  it("refuses the two real avatars/covers keys — the owner is at segment 3", () => {
+    /**
+     * These two objects DO exist in R2 and are genuine photographs (1500x1000
+     * and 2000x1333 JPEGs, retrieved and measured 2026-08-20). They are refused
+     * for one reason only: `avatars/covers/<owner>/` puts the owner one segment
+     * too deep, so MIG-1019's "owner at segment 2" rule cannot prove ownership.
+     *
+     * ⚠ THE FIX FOR THESE IS NOT TO WIDEN THE PATTERN. `media_mark_ready`
+     * independently refuses the same shape and says so in terms:
+     * "DO NOT REMOVE, AND DO NOT WIDEN THE PREFIX LIST."
+     */
+    const realCoverKeys = [
+      "avatars/covers/569aa88e-3401-4836-88ea-2d43a1ab7e18/1773897608964-2150573909.jpg",
+      "avatars/covers/569aa88e-3401-4836-88ea-2d43a1ab7e18/1773897806339-Faces of the World.jpg",
+    ];
+    for (const k of realCoverKeys) {
+      expect(candidateClass(k), `${k} must not be a candidate`).toBeNull();
+      // and the owner really is at segment 3, which is why segment 2 fails
+      expect(k.split("/")[1]).toBe("covers");
+      expect(k.split("/")[2]).toMatch(/^[0-9a-f-]{36}$/);
+    }
+  });
+
+  it("the live readiness gate still pins the owner to segment 2", () => {
+    /**
+     * Belt and braces: even if a pattern admitted `avatars/covers/<owner>/`,
+     * `media_mark_ready` would refuse the object with MEDIA-2102. Asserted
+     * against the LAST definition across migrations, because CREATE OR REPLACE
+     * means an earlier file's text proves nothing.
+     */
+    const src = lastDefinitionOf("media_mark_ready");
+    expect(src).toContain("'^(post-images|avatars)/' || _owner::text || '/'");
+    expect(src).toContain("MEDIA-2102");
+    expect(src, "the prefix list must not have grown a third entry").not.toMatch(
+      /\^\(post-images\|avatars\|[a-z-]+\)\//,
+    );
+  });
+
+  it("duplicate protection exists for BOTH shapes a migration could violate", () => {
+    /**
+     * (owner_id, sha256) stops the same photograph becoming two media rows.
+     * (post_id, media_id) and PK(post_id, ord) stop one post carrying the same
+     * object twice or two objects at one position.
+     */
+    const all = allMigrationText();
+    expect(all).toMatch(/CREATE UNIQUE INDEX[^;]*media_objects_owner_content[^;]*\(owner_id, sha256\)/s);
+    expect(all).toMatch(/CREATE UNIQUE INDEX[^;]*post_media_post_media_uniq[^;]*\(post_id, media_id\)/s);
+    expect(all).toMatch(/PRIMARY KEY \(post_id, ord\)|primary key \(post_id, ord\)/);
+  });
+
+  it("nothing in the migrator deletes, renames or overwrites a source object", () => {
+    /**
+     * The engine reads bytes and writes rows. A migration that mutated storage
+     * would make the manifest's recorded hashes describe something that no
+     * longer exists, and there would be no way back.
+     */
+    const migrator = readFileSync(
+      join(process.cwd(), "supabase/functions/migrate-post-media/index.ts"),
+      "utf8",
+    ).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    for (const forbidden of ["DeleteObject", "PutObject", "CopyObject", "deleteS3", "copyS3", "x-amz-copy-source"]) {
+      expect(migrator, `the migrator must never ${forbidden}`).not.toContain(forbidden);
+    }
+    expect(migrator).not.toMatch(/method:\s*["'](PUT|DELETE)["']/);
   });
 });
