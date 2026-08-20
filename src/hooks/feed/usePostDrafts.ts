@@ -60,6 +60,13 @@ export interface PostDraft {
 /** What Save sends. Everything optional except the owner. */
 export interface DraftInput {
   content?: string;
+  /**
+   * media_objects registered when these photographs were uploaded.
+   * `publish_post_draft` attaches them via `post_attach_media`, which refuses
+   * anything that does not resolve to the photographs the post actually shows.
+   * Undefined means the draft publishes legacy-only, exactly as before.
+   */
+  media_ids?: string[] | null;
   image_url?: string | null;
   image_urls?: string[];
   thumbnail_urls?: string[] | null;

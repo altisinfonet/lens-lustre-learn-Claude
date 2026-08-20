@@ -70,6 +70,13 @@ export function useScheduledPosts() {
 
 export interface CreateScheduledPostInput {
   content: string;
+  /**
+   * media_objects registered when these photographs were uploaded. Registered
+   * NOW because the publisher runs hours later with no member and no session,
+   * so there is no auth.uid() from which to re-derive ownership then.
+   * Undefined means the scheduled post publishes legacy-only, as before.
+   */
+  media_ids?: string[] | null;
   image_urls: string[];
   /**
    * B3c: thumbnails are GENERATED at compose time (the upload path writes a
@@ -119,6 +126,10 @@ export function useCreateScheduledPost() {
           privacy: input.privacy ?? "public",
           indexing_disabled: input.indexing_disabled ?? false,
           categories: input.categories ?? [],
+          // Registered at upload time because the publisher runs hours later
+          // with no member and no session. post_attach_media re-checks that
+          // every one of them resolves to a photograph this post shows.
+          media_ids: input.media_ids ?? null,
         } as any)
         .select("*")
         .single();
