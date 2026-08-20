@@ -1,6 +1,13 @@
 /**
  * THE LIVE WRITE PATH'S ONE DOOR FROM `pending` TO `ready`.
  *
+ * DEPLOYED: version 2, ezbr 405127a99a5c08c8c65fdebc534adfdeac61f6fb…
+ * (2026-08-20, verify_jwt=false — this function authenticates in code; see the
+ * note in supabase/config.toml). The deployed copy is this file's LOGIC byte
+ * for byte; its comments were normalised to ASCII by the deploy path. Version 1
+ * (ezbr 9f034433…) accepted only `post-images/<owner>/`, so every MyPhotos
+ * album upload was refused and every album post landed image_urls-only.
+ *
  * ═══════════════════════════════════════════════════════════════════════════
  * This supersedes `media-verify-upload`, which was written for a storage
  * layout production does not use. That function derives the key from the row
@@ -115,10 +122,39 @@ export function objectKeyForOwner(raw: string, ownerId: string): string | null {
   if (key.includes("\\")) return null;
   if (key.includes("//")) return null;
 
-  // The whole authorization, stated once: the object must be in this row's
-  // owner's post-images folder. `s3-presign-upload` enforces the same shape on
-  // the way in, so an honest client cannot produce anything else.
-  if (!key.startsWith(`post-images/${ownerId}/`)) return null;
+  // ── THE WHOLE AUTHORIZATION, STATED ONCE ────────────────────────────────
+  //
+  // The object must sit in this row's OWNER's folder. `s3-presign-upload`
+  // enforces the same shape on the way in, so an honest client cannot produce
+  // anything else, and a dishonest one is refused here.
+  //
+  // TWO PREFIXES, AND THE SECOND IS DELIBERATELY NARROW (added 2026-08-20).
+  //
+  //   post-images/<owner>/…              the composer's uploads
+  //   avatars/<owner>/my-photos/…        album uploads (MyPhotos)
+  //
+  // ⚠ WHY NOT SIMPLY `avatars/<owner>/`. That folder ALSO holds
+  // `avatar.webp?t=…` and `cover.webp?t=…`, which are MUTABLE — overwritten on
+  // every profile-photo change. Registering one would mint a media object whose
+  // sha256 stops describing the bytes at that key the moment the member changes
+  // their picture, and `post_media_for` would then serve a photograph nobody
+  // published. `media_mark_ready`'s MEDIA-2102 accepts the whole
+  // `(post-images|avatars)/<owner>/` shape because ITS caller is the migrator
+  // running as service_role against an approved manifest; HERE the caller is a
+  // member, so the rule stays tight.
+  //
+  // The `/my-photos/` segment is what makes it safe: album objects are written
+  // once under a per-album uuid and never overwritten, which is exactly why the
+  // class-C population migrated cleanly (15 slides, 2026-08-20).
+  const inPostImages = key.startsWith(`post-images/${ownerId}/`);
+  const inMyPhotos = key.startsWith(`avatars/${ownerId}/my-photos/`);
+  if (!inPostImages && !inMyPhotos) return null;
+
+  // Belt as well as braces. Even inside the allowed prefixes, a mutable
+  // profile object is never an original. These names cannot occur under
+  // `my-photos/` today; the check exists so that if the prefix rule is ever
+  // widened again, the mutable pair still cannot get through.
+  if (/(^|\/)(avatar|cover)\.[A-Za-z0-9]+$/.test(key)) return null;
 
   // A thumbnail or a rung is not an original. Registering one would publish a
   // 600px copy as the photograph.
