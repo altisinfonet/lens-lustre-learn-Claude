@@ -575,20 +575,48 @@ describe("media_mark_ready — the object must be the owner's", () => {
 
   it("the LIVE write path stays narrower than the migration", () => {
     /**
-     * `media_mark_ready` must accept `avatars/<owner>/…` because the migration
-     * needs class C. The live registrar must NOT, because there the caller is a
-     * MEMBER and an `avatars/…` path would be a member registering their own
-     * MUTABLE avatar — overwritten on every profile-photo change — as a post
-     * photograph. Narrow where the caller is a member; general where the caller
-     * is the migration.
+     * ⚠ THIS ASSERTION CHANGED SHAPE ON 2026-08-20, AND IT GOT STRICTER.
+     *
+     * It used to say: the live registrar must not contain the string
+     * "avatars" outside a comment. That was a proxy, and a bad one — it would
+     * have passed a rename and failed an honest widening. It failed the honest
+     * widening first.
+     *
+     * The invariant it was PROTECTING is real and unchanged: `media_mark_ready`
+     * accepts `(post-images|avatars)/<owner>/` because its caller is the
+     * migrator running as service_role against an approved manifest, whereas
+     * the live registrar's caller is a MEMBER — so a member must never be able
+     * to register their own MUTABLE avatar as a post photograph.
+     *
+     * `avatars/<owner>/my-photos/` is now accepted because album objects are
+     * written once under a per-album uuid and never overwritten. That is the
+     * whole difference, and it is what these assertions now check directly.
      */
     const edge = readFileSync(join(ROOT, "supabase/functions/media-register-upload/index.ts"), "utf8");
+
+    // The two prefixes that ARE accepted, named exactly.
     expect(
       /key\.startsWith\(`post-images\/\$\{ownerId\}\//.test(edge),
-      "the live registrar now accepts a prefix other than post-images/<owner>/ — a " +
-        "member could register their own mutable avatar as a post photograph",
+      "the composer's own prefix is no longer accepted",
     ).toBe(true);
-    expect(/avatars/.test(edge.replace(/\/\*[\s\S]*?\*\//g, "")), "the live registrar mentions avatars outside a comment").toBe(false);
+    expect(
+      /key\.startsWith\(`avatars\/\$\{ownerId\}\/my-photos\//.test(edge),
+      "album objects are no longer accepted — MyPhotos posts fall back to legacy",
+    ).toBe(true);
+
+    // The prefix that must NEVER be accepted: the whole avatars folder, which
+    // holds avatar.webp and cover.webp.
+    expect(
+      /startsWith\(`avatars\/\$\{ownerId\}\/`\)/.test(edge),
+      "the registrar accepts the WHOLE avatars folder — a member can register " +
+        "their own mutable avatar as a post photograph",
+    ).toBe(false);
+
+    // And the name-level backstop, so a future prefix change cannot re-open it.
+    expect(
+      /\(avatar\|cover\)/.test(edge),
+      "the mutable-name backstop is gone",
+    ).toBe(true);
   });
 
   it("refuses traversal, absolute paths and hosts", () => {
@@ -990,5 +1018,223 @@ describe("media_write_path_delta — the check that does not trust the client", 
     const src = readFileSync(rb, "utf8");
     expect(/drop function if exists public\.media_write_path_delta/.test(src)).toBe(true);
     expect(/07:08/.test(src), "the rollback must carry the incident that justifies the function").toBe(true);
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE FOURTH WRITE SURFACE — `create_system_post`, found 2026-08-20.
+
+   The write-path work closed the composer, the draft and the scheduler. A
+   repository-wide re-trace found a path that had been looked at and waved
+   through: an RPC granted to `authenticated` that does a bare INSERT INTO
+   posts with image_urls and nothing else — reached from MyPhotos album uploads
+   and from every profile-photo change, and reporting NOTHING, because
+   MEDIA-4001 lives in the composer's client code.
+
+   Its two callers are different problems and must not get the same fix:
+
+     ALBUM POSTS    `avatars/<owner>/my-photos/…` — immutable, real
+                    photographs. They now go through the media engine, and a
+                    legacy-only album post is a REGRESSION.
+
+     PROFILE POSTS  `avatars/<owner>/avatar.webp?t=…` — overwritten on every
+                    change. They can NEVER carry content identity. Legacy-only
+                    is correct for them; MEDIA-4007 counts them so the floor is
+                    explainable rather than merely small.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("create_system_post — the fourth write surface", () => {
+  const fn = lastDefinitionOf("create_system_post");
+
+  it("is defined (vacuity guard)", () => {
+    expect(fn.length, "no migration defines create_system_post").toBeGreaterThan(0);
+  });
+
+  it("takes media ids and attaches them", () => {
+    expect(/_media_ids\s+uuid\[\]/.test(fn), "the RPC cannot accept media at all").toBe(true);
+    expect(/post_attach_media\(_id, _media_ids\)/.test(fn)).toBe(true);
+  });
+
+  it("the attach is GUARDED, so a refusal does not cost the member the post", () => {
+    /**
+     * Same rule as publish_post_draft's DRAFT-005. PL/pgSQL's BEGIN…EXCEPTION
+     * is a subtransaction, so the attach is all-or-none — a partial carousel is
+     * unreachable — but the post itself survives a refusal. The member's photos
+     * are already in their album; losing the announcement too would be a second
+     * failure caused by the first.
+     */
+    const guarded = /BEGIN\s+PERFORM public\.post_attach_media[\s\S]*?EXCEPTION WHEN OTHERS THEN[\s\S]*?MEDIA-4008/.test(fn);
+    expect(guarded, "the attach is unguarded, or no longer reports MEDIA-4008").toBe(true);
+  });
+
+  it("still writes user_id from auth.uid(), never from a parameter", () => {
+    expect(/_uid uuid := auth\.uid\(\)/.test(fn)).toBe(true);
+    expect(/VALUES \(_uid,/.test(fn)).toBe(true);
+    expect(/_user_id|_owner_id/.test(fn), "a caller-supplied identity appeared").toBe(false);
+  });
+
+  it("the old 4-argument overload is DROPPED, not left alongside", () => {
+    /**
+     * ⚠ FOUND BY APPLYING IT. With a DEFAULT on the fifth argument, a 4-argument
+     * call matches BOTH candidates and Postgres refuses it with 42725
+     * `function ... is not unique`. Leaving both would have broken the two live
+     * callers the moment either ran.
+     */
+    const mig = readFileSync(
+      join(MIGRATIONS, "20260820120000_system_post_media.sql"),
+      "utf8",
+    );
+    expect(
+      /drop function if exists public\.create_system_post\(text, text, text\[\], text\[\]\);/.test(mig),
+      "the 4-arg overload is not dropped — a 4-arg call would be ambiguous",
+    ).toBe(true);
+  });
+
+  it("the PUBLIC grant that CREATE OR REPLACE hands out is revoked", () => {
+    /**
+     * A new signature takes the server default of EXECUTE to PUBLIC, which
+     * silently gave `anon` a post-creating SECURITY DEFINER function. The
+     * auth.uid() guard refuses it at runtime, but the grant should not be there.
+     */
+    const mig = readFileSync(
+      join(MIGRATIONS, "20260820120000_system_post_media.sql"),
+      "utf8",
+    );
+    expect(/revoke all on function public\.create_system_post\([^)]*\) from public, anon;/.test(mig)).toBe(true);
+    expect(/grant execute on function public\.create_system_post\([^)]*\) to authenticated;/.test(mig)).toBe(true);
+  });
+});
+
+describe("MyPhotos album posts now reach the media engine", () => {
+  const src = readFileSync(join(ROOT, "src/pages/MyPhotos.tsx"), "utf8");
+
+  it("registers every photograph, all-or-none, BEFORE creating the post", () => {
+    /**
+     * ⚠ THE BINDING, NOT THE CALL. An earlier version of this asserted only
+     * that the string `registerAllOrNone(` appeared. Mutation 30 defeated it by
+     * writing `const mediaIds = null && await registerAllOrNone(...)` — the
+     * call is still there, still spelled correctly, and its result is thrown
+     * away. Assert that `mediaIds` IS the awaited result.
+     */
+    expect(
+      /const mediaIds = await registerAllOrNone\(/.test(src),
+      "mediaIds is no longer the result of registerAllOrNone — the call may be present but discarded",
+    ).toBe(true);
+    const registerAt = src.indexOf("registerAllOrNone(");
+    const rpcAt = src.indexOf('"create_system_post"');
+    expect(registerAt).toBeGreaterThan(-1);
+    expect(rpcAt).toBeGreaterThan(-1);
+    expect(registerAt, "the post is created before the media is registered").toBeLessThan(rpcAt);
+  });
+
+  it("passes the media ids to the RPC", () => {
+    expect(/_media_ids: mediaIds/.test(src)).toBe(true);
+  });
+
+  it("carries the stored facts through the upload loop", () => {
+    /**
+     * Without these the register call has nothing to declare and every album
+     * post silently falls back to legacy — the failure mode MEDIA-4006 exists
+     * to name.
+     */
+    expect(/uploadedStored\.push\(result\.stored\)/.test(src)).toBe(true);
+  });
+
+  it("reports MEDIA-4001 when the album post lands legacy-only", () => {
+    expect(/reportLegacyOnlyPublish\(/.test(src), "a legacy-only album post is silent again").toBe(true);
+  });
+});
+
+describe("profile-update posts are permanently legacy-only, and counted", () => {
+  const src = readFileSync(join(ROOT, "src/lib/profilePostHelper.ts"), "utf8");
+
+  it("passes NULL media ids, deliberately", () => {
+    expect(/_media_ids: null/.test(src)).toBe(true);
+  });
+
+  it("emits MEDIA-4007, which is NOT MEDIA-4001", () => {
+    /**
+     * MEDIA-4001 means "the media path was tried and did not complete" — a
+     * regression that should trend to zero. MEDIA-4007 means "this post can
+     * never carry media references" — a floor. Filing both under one code makes
+     * a healthy floor look like a growing fault, and then the threshold gets
+     * raised and nobody reads either.
+     */
+    expect(/code: "MEDIA-4007"/.test(src)).toBe(true);
+    expect(/code: "MEDIA-4001"/.test(src), "the floor is being reported as a regression").toBe(false);
+  });
+
+  it("says WHY it can never be migrated, next to the null", () => {
+    expect(/MUTABLE/.test(src)).toBe(true);
+    expect(/MEDIA-2102/.test(src)).toBe(true);
+  });
+});
+
+describe("media-register-upload accepts album objects but never a mutable avatar", () => {
+  const src = readFileSync(
+    join(ROOT, "supabase/functions/media-register-upload/index.ts"),
+    "utf8",
+  );
+
+  it("accepts avatars/<owner>/my-photos/ — the immutable album prefix", () => {
+    expect(/avatars\/\$\{ownerId\}\/my-photos\//.test(src)).toBe(true);
+  });
+
+  it("does NOT accept the whole avatars/<owner>/ folder", () => {
+    /**
+     * That folder also holds avatar.webp and cover.webp, which are overwritten
+     * in place. A member could otherwise register their own mutable avatar as a
+     * post photograph and post_media_for would serve bytes nobody published.
+     */
+    expect(
+      /startsWith\(`avatars\/\$\{ownerId\}\/`\)/.test(src),
+      "the prefix was widened to the whole avatars folder — mutable objects are now registrable",
+    ).toBe(false);
+  });
+
+  it("refuses avatar/cover by name even inside an allowed prefix", () => {
+    expect(/\(avatar\|cover\)/.test(src), "the mutable-name backstop is gone").toBe(true);
+  });
+
+  it("still refuses thumbnails and ladder rungs", () => {
+    expect(/-thumb\\\.\[A-Za-z0-9\]\+\$/.test(src)).toBe(true);
+    expect(/-r\(\?:600\|1080\|1440\)/.test(src)).toBe(true);
+  });
+});
+
+describe("media_write_path_delta tells a floor from a leak", () => {
+  const fn = lastDefinitionOf("media_write_path_delta");
+
+  it("splits permanent from migratable", () => {
+    expect(/'permanent_legacy_posts'/.test(fn)).toBe(true);
+    expect(/'migratable_legacy_posts'/.test(fn)).toBe(true);
+  });
+
+  it("the growing-edge counter EXCLUDES the permanent floor", () => {
+    /**
+     * A profile-photo change is expected to land legacy-only. If it flipped
+     * delta_growing, the alarm would fire on healthy behaviour, the threshold
+     * would be raised, and the alarm would stop meaning anything.
+     */
+    expect(/'new_unexplained_legacy_posts'/.test(fn)).toBe(true);
+    expect(
+      /'delta_growing',\s*\(select count\(\*\) > 0 from recent_legacy where not has_mutable_media\)/.test(fn),
+      "delta_growing no longer excludes mutable-media posts",
+    ).toBe(true);
+  });
+
+  it("classifies by URL SHAPE, not by post_kind", () => {
+    /**
+     * The 14 oldest profile-update posts predate post_kind entirely, so keying
+     * off the kind would misclassify every one of them as a regression.
+     */
+    expect(/has_mutable_media/.test(fn)).toBe(true);
+    expect(/avatar\|cover/.test(fn)).toBe(true);
+  });
+
+  it("is still read-only and still grants nothing to a client", () => {
+    expect(/\b(insert|update|delete)\s+(into|from)?\s*public\./i.test(fn)).toBe(false);
+    const file = readFileSync(join(MIGRATIONS, "20260820130000_delta_attribution.sql"), "utf8");
+    expect(/revoke all on function public\.media_write_path_delta/.test(file)).toBe(true);
   });
 });
