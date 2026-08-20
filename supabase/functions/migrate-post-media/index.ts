@@ -1,23 +1,19 @@
 /**
  * MANIFEST-DRIVEN MEDIA MIGRATION.
  *
- * ⚠ DEPLOYMENT STATE, 2026-08-20 — READ THIS BEFORE RUNNING A CYCLE.
+ * DEPLOYMENT STATE, 2026-08-20 — READ THIS BEFORE RUNNING A CYCLE.
  *
- *   DEPLOYED:     version 1, ezbr 28db46a90897c80261ba8065bf3a9841a97f4299…
- *                 It was built against the NARROW `CANDIDATE_PATH` (class A
- *                 only) and has no `wide` flag. It is what migrated the 229.
+ *   DEPLOYED:     version 2, ezbr 267aa65ac3d72ca5566bb2e1a7af38ef2d3fce48…
+ *                 This file's LOGIC, byte for byte. The deployed copy's
+ *                 header and a few comment glyphs were normalised to ASCII by
+ *                 the deploy path; no statement, identifier or literal differs.
+ *                 Version 1 (ezbr 28db46a9…) was the narrow class-A-only build
+ *                 that migrated the 229.
  *
- *   THIS FILE:    carries the `wide` flag (§3) and imports the widened
- *                 `_shared/manifestPlan.ts` with classes B and C.
- *
- *   ⚠ THESE TWO DIFFER, ON PURPOSE AND TEMPORARILY. A class-B/C cycle CANNOT
- *   be run until this file is deployed: the running v1 would refuse every
- *   class-B/C manifest row with MIG-1017, which is the correct behaviour for
- *   the code it is. Deploying is a deliberate act, and the cycle that follows
- *   it must pass `wide: true` — see docs/CANDIDATE_PATTERN_AUDIT.md.
- *
- *   The class-A population is unaffected either way: `wide` defaults to false,
- *   so a re-run against the frozen fence behaves identically in both versions.
+ *   A class-B/C cycle MUST pass `wide: true` — see
+ *   docs/CANDIDATE_PATTERN_AUDIT.md. The class-A population is unaffected
+ *   either way: `wide` defaults to false, so a re-run against the frozen fence
+ *   behaves identically in both versions.
  *
  *   `supabase/config.toml` deliberately has no entry for this function; it was
  *   deployed directly and verify_jwt defaults to true.
