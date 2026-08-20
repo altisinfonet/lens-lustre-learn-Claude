@@ -62,22 +62,67 @@ describe("scheduled posts carry thumbnails end to end", () => {
   });
 
   it("compose: duplicating a scheduled post keeps its thumbnails", () => {
+    /**
+     * ⚠ RETARGETED 2026-08-20 (WS2), AND MADE STRICTER, NOT WEAKER.
+     *
+     * This used to look for `thumbnail_urls: p.thumbnail_urls` inside
+     * `duplicate.mutateAsync({…})`. The RED-2 fix moved the copy out of that
+     * inline literal into `duplicateScheduledPostInput`, because the literal is
+     * the shape that dropped four other fields. The old assertion would now
+     * fail against a CORRECT implementation — a stale target, the same class of
+     * bug as the retargeted mutations in tools/mutate-write-path.mjs.
+     *
+     * The invariant is unchanged: a duplicate must carry the source row's
+     * thumbnails. It is now checked where the copy actually happens, and the
+     * component is additionally required to delegate rather than rebuild — so
+     * this is a stronger assertion than the one it replaces, not a looser one.
+     */
+    const hook = read("src/hooks/feed/useScheduledPosts.ts");
+    const builder = hook.slice(
+      hook.indexOf("export function duplicateScheduledPostInput"),
+      hook.indexOf("export function assertCarriesMemberChoices"),
+    );
+    expect(builder.length, "duplicateScheduledPostInput not found").toBeGreaterThan(0);
+    expect(
+      /thumbnail_urls:\s*source\.thumbnail_urls\s*\?\?\s*\[\]/.test(builder),
+      "Duplicate reuses the same image objects but drops their thumbnails — " +
+        "the copy publishes heavy.",
+    ).toBe(true);
+
     const list = read("src/components/post/ScheduledPostsList.tsx");
     const call = list.slice(list.indexOf("duplicate.mutateAsync"), list.indexOf("duplicate.mutateAsync") + 600);
     expect(
-      /thumbnail_urls:\s*p\.thumbnail_urls/.test(call),
-      "Duplicate reuses the same image objects but drops their thumbnails — " +
-        "the copy publishes heavy.",
+      /duplicate\.mutateAsync\(duplicateScheduledPostInput\(/.test(call),
+      "the component builds the copy itself again — that literal is what dropped " +
+        "media_ids, privacy, indexing_disabled and categories (RED-2).",
     ).toBe(true);
   });
 
   it("storage: the insert hook writes thumbnail_urls", () => {
     const hook = read("src/hooks/feed/useScheduledPosts.ts");
+    /**
+     * ⚠ RETARGETED 2026-08-20 (WS2). The `?? []` was REMOVED on purpose: a
+     * default at the insert is indistinguishable from a member's choice, which
+     * is exactly how RED-2 turned a private post public one field over. The
+     * column must still be written — that is the invariant — and the caller is
+     * now required by the type to supply it.
+     */
     expect(
-      /thumbnail_urls:\s*input\.thumbnail_urls\s*\?\?\s*\[\]/.test(hook),
+      /thumbnail_urls:\s*input\.thumbnail_urls,/.test(hook),
       "useCreateScheduledPost does not write thumbnail_urls — the column exists " +
         "and nobody writes it.",
     ).toBe(true);
+    // Scoped to the WRITE type. On the READ type `thumbnail_urls?: string[] | null`
+    // is correct and deliberate — the column is NULL on rows scheduled before
+    // 2026-08-14 and the generated types lag the migration.
+    const writeType = hook.slice(
+      hook.indexOf("export interface CreateScheduledPostInput {"),
+      hook.indexOf("export function duplicateScheduledPostInput"),
+    );
+    expect(
+      /thumbnail_urls\?:/.test(writeType),
+      "thumbnail_urls is optional again on the WRITE type — omission stops being a compile error.",
+    ).toBe(false);
   });
 
   it("publish: the publisher carries thumbnails into posts", () => {

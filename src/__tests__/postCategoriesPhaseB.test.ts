@@ -212,8 +212,26 @@ describe("every path that creates a post", () => {
 
   it("the scheduled path carries categories from compose time to publish time", () => {
     const hook = read("src/hooks/feed/useScheduledPosts.ts");
-    expect(hook, "compose does not store the choice").toContain("categories: input.categories ?? []");
-    expect(hook).toMatch(/categories\??:\s*string\[\]/);
+    /**
+     * ⚠ RETARGETED 2026-08-20 (WS2), AND MADE STRICTER.
+     *
+     * This asserted `categories: input.categories ?? []`. The `?? []` was
+     * REMOVED on purpose by the RED-2 fix: a default at the insert is
+     * indistinguishable from a member's choice, and the field one row over
+     * (`privacy ?? "public"`) is precisely how a private post's duplicate was
+     * published to the world. The invariant — the compose-time choice is
+     * STORED on the row — is unchanged and is what is asserted now, plus the
+     * two new requirements that it be required on the input type and that a
+     * missing value be refused rather than defaulted.
+     */
+    expect(hook, "compose does not store the choice").toContain("categories: input.categories,");
+    expect(hook, "the choice must not be defaulted at the insert")
+      .not.toContain("categories: input.categories ?? []");
+    expect(hook).toMatch(/categories:\s*string\[\];/);
+    expect(hook, "an omitted categories array must be refused, not defaulted")
+      .toContain('if (!Array.isArray(input.categories)) missing.push("categories");');
+    // And a duplicate must carry the source row's categories rather than start empty.
+    expect(hook).toContain("categories: source.categories ?? [],");
 
     const fn = read("supabase/functions/publish-scheduled-posts/index.ts");
     expect(fn, "publisher does not copy the choice onto the post")
