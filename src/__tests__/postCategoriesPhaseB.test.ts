@@ -461,12 +461,20 @@ describe("Stage C HAS shipped — the tripwire has flipped", () => {
     // branch both carry the member's choice, in the same statement as the post
     // itself. Nothing is written in two steps.
     const composer = code("src/components/WallPosts.tsx");
-    // Three sites now: the immediate posts insert, the scheduled_posts branch,
-    // and the draft row. All three carry the member's choice in the same
+    // FOUR sites since 2026-08-20: the media publish (`post_publish_with_media`),
+    // the legacy `posts` insert it falls back to, the scheduled_posts branch,
+    // and the draft row. All four carry the member's choice in the same
     // statement as the thing being written.
-    expect((composer.match(/categories: postCategories/g) ?? []).length).toBe(3);
-    // The two that reach `posts` are the ones that matter for the feed.
+    //
+    // ⚠ THE COUNT IS NOT THE PROPERTY. The Phase 2 write path added a second
+    // route to the SAME published post, and a member's categories reaching one
+    // route but not the other would mean the post lands in different sections
+    // depending on whether a verification endpoint happened to be up. So the
+    // two immediate-publish sites are also checked to agree, below.
+    expect((composer.match(/categories: postCategories/g) ?? []).length).toBe(4);
+    // The three that reach `posts` are the ones that matter for the feed.
     expect(composer).toContain("categories: postCategories,");
+    expect(composer).toContain("categories: postCategories,\n        indexingDisabled: excludeFromSearch,");
   });
 
   it("the composer refuses to post without one, in BOTH places", () => {
