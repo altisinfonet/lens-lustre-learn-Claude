@@ -323,6 +323,13 @@ describe("the fence function is a recorded choice, not a default", () => {
    WORKSTREAM 3 — THE REFUSALS THAT KEEP THE REMAINING 29 SLIDES OUT
    ═══════════════════════════════════════════════════════════════════════════
 
+   @decision D-006
+
+   Since 2026-08-20 these refusals are not merely defensive: they PIN the
+   owner's decision that the 29 slides are permanently excluded from migration
+   (docs/PERMANENT_LEGACY_EXCLUSIONS.md). Weakening any of them is overturning
+   an owner decision, not tidying a test.
+
    The WS3 audit (2026-08-20) re-derived the 29 remaining legacy-only slides
    from production and proved that NONE of them is migratable by this engine:
 
