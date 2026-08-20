@@ -91,10 +91,17 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public' AS $f$ select '
     apply: (s) => s.replace("fence, fence_fn: fenceFn, wide, fence_live: live,", "fence, fence_live: live,"),
   },
   {
-    file: EDGE, name: "11. the LIVE registrar accepts avatars/ — a member registers their mutable avatar as a post photo",
+    // ⚠ RETARGETED 2026-08-20. The registrar's single-line prefix check became a
+    // two-constant form when `avatars/<owner>/my-photos/` was admitted, so this
+    // mutation stopped applying and reported a false escape — the same stale-target
+    // bug as mutations 13, 21 and 22 in the write-path harness. The INVARIANT is
+    // unchanged and is what the mutation must still break: the live registrar may
+    // accept the immutable album prefix, and must never accept the whole avatars
+    // folder, which holds avatar.webp and cover.webp.
+    file: EDGE, name: "11. the LIVE registrar accepts all of avatars/ — a member registers their mutable avatar as a post photo",
     apply: (s) => s.replace(
-      "if (!key.startsWith(`post-images/${ownerId}/`)) return null;",
-      "if (!key.startsWith(`post-images/${ownerId}/`) && !key.startsWith(`avatars/${ownerId}/`)) return null;",
+      "const inMyPhotos = key.startsWith(`avatars/${ownerId}/my-photos/`);",
+      "const inMyPhotos = key.startsWith(`avatars/${ownerId}/`);",
     ),
   },
   {

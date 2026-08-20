@@ -32,11 +32,15 @@ const DELTA    = "supabase/migrations/20260820110000_media_write_path_delta.sql"
 const MAIN     = "src/main.tsx";
 const CATALOG  = "src/lib/errorCodes.ts";
 const WIDEN    = "supabase/migrations/20260820090000_candidate_pattern_widened.sql";
+const SYSPOST  = "supabase/migrations/20260820120000_system_post_media.sql";
+const ATTRIB   = "supabase/migrations/20260820130000_delta_attribution.sql";
+const MYPHOTOS = "src/pages/MyPhotos.tsx";
+const PROFHELP = "src/lib/profilePostHelper.ts";
 const PIN      = "src/__tests__/mediaWritePath.test.ts";
 
 const SUITE = `${PIN} src/__tests__/publishAtomicity.test.ts src/__tests__/decisionRegister.test.ts`;
 
-const FILES = [MIG, MIG2, CLIENT, COMPOSER, UPLOAD, STORED, EDGE, TOML, REG, PIN, SCHED, SCHEDHOOK, DELTA, MAIN, CATALOG, WIDEN];
+const FILES = [MIG, MIG2, CLIENT, COMPOSER, UPLOAD, STORED, EDGE, TOML, REG, PIN, SCHED, SCHEDHOOK, DELTA, MAIN, CATALOG, WIDEN, SYSPOST, ATTRIB, MYPHOTOS, PROFHELP];
 const originals = Object.fromEntries(FILES.map((f) => [f, readFileSync(f, "utf8")]));
 
 const mutations = [
@@ -248,15 +252,22 @@ for (const m of [
     apply: (s) => s.replace('code: "MEDIA-4006",', 'code: "MEDIA-9999", // was MEDIA-4006'),
   },
   {
-    file: DELTA,
+    // ⚠ RETARGETED 2026-08-20, same stale-target bug as mutation 13. The delta
+    // check's original migration (20260820110000) was superseded by the
+    // attribution migration (20260820130000) via CREATE OR REPLACE, so mutating
+    // the older file changed a file without changing the live definition. The
+    // assertions resolve the LAST definition on purpose; the mutation must aim
+    // at the same one.
+    file: ATTRIB,
     name: "21. the delta check starts reading client_errors — inherits the blindness",
     apply: (s) => s.replace(
-      "    from public.posts p",
-      "    from public.posts p left join public.client_errors ce on ce.user_id = p.user_id",
+      "    from public.posts p\n    where coalesce(array_length(p.image_urls, 1), 0) > 0",
+      "    from public.posts p left join public.client_errors ce on ce.user_id = p.user_id\n    where coalesce(array_length(p.image_urls, 1), 0) > 0",
     ),
   },
   {
-    file: DELTA,
+    // ⚠ RETARGETED 2026-08-20 — see the note on 21.
+    file: ATTRIB,
     name: "22. the scoped 'new' counters removed — a shrinking total hides a growing edge",
     apply: (s) => s.replace(/'new_legacy_only_posts',/, "'unused_counter',"),
   },
@@ -287,6 +298,99 @@ for (const m of [
   writeFileSync(m.file, original);
   if (res === "RED") console.log(`✓ DETECTED    ${m.name}`);
   else { console.log(`✗ UNDETECTED  ${m.name}  → suite stayed GREEN`); undetected++; }
+}
+
+// ── 26–34: the fourth write surface, found in the closure audit ───────────
+//
+// `create_system_post` was granted to `authenticated`, inserted into posts with
+// image_urls and nothing else, and reported NOTHING — MEDIA-4001 lives in the
+// composer's client code and this RPC is called from two other places entirely.
+// Every mutation below restores some part of that hole.
+for (const m of [
+  {
+    file: SYSPOST,
+    name: "26. create_system_post stops attaching media — album posts go legacy-only again",
+    apply: (s) => s.replace(/PERFORM public\.post_attach_media\(_id, _media_ids\);/, "NULL;"),
+  },
+  {
+    file: SYSPOST,
+    name: "27. the guarded attach becomes unguarded — a refusal now costs the member the post",
+    apply: (s) => s.replace(
+      /    BEGIN\n      PERFORM public\.post_attach_media\(_id, _media_ids\);\n    EXCEPTION WHEN OTHERS THEN\n      RAISE WARNING 'MEDIA-4008[^\n]*\n    END;/,
+      "    PERFORM public.post_attach_media(_id, _media_ids);",
+    ),
+  },
+  {
+    file: SYSPOST,
+    name: "28. the 4-arg overload is left in place — every 4-arg call becomes ambiguous (42725)",
+    apply: (s) => s.replace(
+      /drop function if exists public\.create_system_post\(text, text, text\[\], text\[\]\);/,
+      "-- drop removed",
+    ),
+  },
+  {
+    file: SYSPOST,
+    name: "29. the PUBLIC/anon grant is left in place on a SECURITY DEFINER function",
+    apply: (s) => s.replace(
+      /revoke all on function public\.create_system_post\([^)]*\) from public, anon;/,
+      "-- revoke removed",
+    ),
+  },
+  {
+    file: MYPHOTOS,
+    name: "30. MyPhotos stops registering media — album uploads grow the delta silently",
+    apply: (s) => s.replace(/const mediaIds = await registerAllOrNone\(/, "const mediaIds = null && await registerAllOrNone("),
+  },
+  {
+    file: MYPHOTOS,
+    name: "31. MyPhotos stops carrying the stored facts — every slide is undescribable",
+    apply: (s) => s.replace(/uploadedStored\.push\(result\.stored\);/, ""),
+  },
+  {
+    file: PROFHELP,
+    name: "32. the permanent floor is reported as MEDIA-4001, so it reads as a regression",
+    apply: (s) => s.replace(/code: "MEDIA-4007"/, 'code: "MEDIA-4001"'),
+  },
+  {
+    file: ATTRIB,
+    name: "33. delta_growing stops excluding the floor — the alarm fires on healthy behaviour",
+    apply: (s) => s.replace(
+      /'delta_growing',\s*\(select count\(\*\) > 0 from recent_legacy where not has_mutable_media\)/,
+      "'delta_growing',            (select count(*) > 0 from recent_legacy)",
+    ),
+  },
+  {
+    file: ATTRIB,
+    name: "34. mutable media classified by post_kind instead of URL shape (misses the 14 oldest)",
+    apply: (s) => s.replace(/has_mutable_media/g, "is_system_kind"),
+  },
+]) {
+  const original = originals[m.file];
+  const mutated = m.apply(original);
+  if (mutated === original) { console.log(`✗ NOT APPLIED  ${m.name}`); undetected++; continue; }
+  writeFileSync(m.file, mutated);
+  const res = suiteResult();
+  writeFileSync(m.file, original);
+  if (res === "RED") console.log(`✓ DETECTED    ${m.name}`);
+  else { console.log(`✗ UNDETECTED  ${m.name}  → suite stayed GREEN`); undetected++; }
+}
+
+// 35. the album registrar prefix widened to the whole avatars folder.
+{
+  const name = "35. media-register-upload widened to all of avatars/<owner>/ — mutable avatar registrable";
+  const original = originals[EDGE];
+  const mutated = original.replace(
+    "const inMyPhotos = key.startsWith(`avatars/${ownerId}/my-photos/`);",
+    "const inMyPhotos = key.startsWith(`avatars/${ownerId}/`);",
+  );
+  if (mutated === original) { console.log(`✗ NOT APPLIED  ${name}`); undetected++; }
+  else {
+    writeFileSync(EDGE, mutated);
+    const res = suiteResult();
+    writeFileSync(EDGE, original);
+    if (res === "RED") console.log(`✓ DETECTED    ${name}`);
+    else { console.log(`✗ UNDETECTED  ${name}  → suite stayed GREEN`); undetected++; }
+  }
 }
 
 // 18. the verifier deleted outright — a file move, not an edit.
