@@ -51,22 +51,57 @@ const fnCalls: FnCall[] = [];
 let rpcHandler: (c: RpcCall, n: number) => { data: unknown; error: { message: string } | null };
 let fnHandler: (c: FnCall, n: number) => { data: unknown; error: { message: string } | null };
 
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    rpc: (fn: string, args: Record<string, unknown>) => {
+/**
+ * ⚠ THE MOCK IS A CLASS, AND THAT IS THE WHOLE POINT.
+ *
+ * This mock used to be an object literal: `{ rpc: (fn, args) => … }`. An own
+ * property that closes over nothing survives being detached, so
+ * `const rpc = supabase.rpc; await rpc(…)` worked perfectly here — while the
+ * identical line threw in production and cost the member the post. Every test
+ * below passed against a client that could not exhibit the defect they exist
+ * to catch. That is worse than having no test, because it reads as proof.
+ *
+ * `MockSupabaseClient` reproduces the real shape from
+ * `node_modules/@supabase/supabase-js/dist/index.mjs:291-296`:
+ *
+ *     rpc(fn, args = {}, options = {…}) { return this.rest.rpc(fn, args, options) }
+ *
+ * — a PROTOTYPE method whose body dereferences `this`. Detach it and the call
+ * runs with `this === undefined` and throws the real TypeError.
+ *
+ * ⚠ DO NOT "SIMPLIFY" THIS BACK TO AN OBJECT LITERAL, and do not add
+ * `this.rpc = this.rpc.bind(this)` — binding in the mock re-creates exactly the
+ * blind spot this class removes, because the production client does not bind.
+ */
+vi.mock("@/integrations/supabase/client", () => {
+  class MockRest {
+    rpc(fn: string, args: Record<string, unknown>) {
       const call = { fn, args };
       rpcCalls.push(call);
       return Promise.resolve(rpcHandler(call, rpcCalls.length - 1));
-    },
-    functions: {
-      invoke: (name: string, opts: { body: Record<string, unknown> }) => {
-        const call = { name, body: opts.body };
-        fnCalls.push(call);
-        return Promise.resolve(fnHandler(call, fnCalls.length - 1));
-      },
-    },
-  },
-}));
+    }
+  }
+
+  class MockFunctions {
+    invoke(name: string, opts: { body: Record<string, unknown> }) {
+      const call = { name, body: opts.body };
+      fnCalls.push(call);
+      return Promise.resolve(fnHandler(call, fnCalls.length - 1));
+    }
+  }
+
+  class MockSupabaseClient {
+    rest = new MockRest();
+    functions = new MockFunctions();
+
+    /** Prototype method, exactly as supabase-js declares it. */
+    rpc(fn: string, args: Record<string, unknown> = {}) {
+      return this.rest.rpc(fn, args);
+    }
+  }
+
+  return { supabase: new MockSupabaseClient() };
+});
 
 const warnings: { code?: string; reason?: string }[] = [];
 vi.mock("@/lib/logger", () => ({
@@ -88,6 +123,7 @@ import {
   reportLegacyOnlyPublish,
   type UploadedPhoto,
 } from "@/lib/media/postMediaWrite";
+import { supabase } from "@/integrations/supabase/client";
 
 const SHA = (n: number) => String(n).repeat(1).padStart(64, "a").slice(0, 64);
 const OWNER = "11111111-1111-4111-8111-111111111111";
@@ -135,7 +171,7 @@ const input = (photos: UploadedPhoto[]) => ({
 describe("write path — behaviour", () => {
   it("1. a one-photo post goes through the media path", async () => {
     const out = await publishViaMedia(input([photo(1)]));
-    expect(out).toEqual({ postId: "post-1", viaMedia: true });
+    expect(out).toEqual({ postId: "post-1", viaMedia: true, failure: null });
     expect(rpcCalls.map((c) => c.fn)).toEqual([
       "media_begin_upload",
       "post_publish_with_media",
@@ -193,7 +229,7 @@ describe("write path — behaviour", () => {
   it("6. failed verification does NOT publish, and says why", async () => {
     fnHandler = () => ({ data: { state: "quarantined", reason: "checksum mismatch" }, error: null });
     const out = await publishViaMedia(input([photo(1)]));
-    expect(out).toEqual({ postId: null, viaMedia: false });
+    expect(out).toEqual({ postId: null, viaMedia: false, failure: "media-path-failed" });
     expect(rpcCalls.some((c) => c.fn === "post_publish_with_media")).toBe(false);
     const w = warnings.find((x) => x.code === "MEDIA-4003");
     expect(w, "a quarantine must be reported, not swallowed").toBeTruthy();
@@ -217,7 +253,7 @@ describe("write path — behaviour", () => {
         ? { data: "media-0", error: null }
         : { data: null, error: { message: "rate limit" } };
     const out = await publishViaMedia(input([photo(1)]));
-    expect(out).toEqual({ postId: null, viaMedia: false });
+    expect(out).toEqual({ postId: null, viaMedia: false, failure: "media-path-failed" });
     expect(warnings.some((w) => w.code === "MEDIA-4004")).toBe(true);
   });
 
@@ -1236,5 +1272,353 @@ describe("media_write_path_delta tells a floor from a leak", () => {
     expect(/\b(insert|update|delete)\s+(into|from)?\s*public\./i.test(fn)).toBe(false);
     const file = readFileSync(join(MIGRATIONS, "20260820130000_delta_attribution.sql"), "utf8");
     expect(/revoke all on function public\.media_write_path_delta/.test(file)).toBe(true);
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RED-1 — THE DETACHED `supabase.rpc` METHOD
+   ═══════════════════════════════════════════════════════════════════════════
+
+   This module shipped with
+
+       const rpc = supabase.rpc as unknown as <T>(…) => …;
+       await rpc<string>("media_begin_upload", {…});
+
+   on BOTH of its call sites. supabase-js declares `rpc` as a prototype method
+   whose body is `return this.rest.rpc(...)`, so the copy ran with
+   `this === undefined` and threw. `publishViaMedia` has no try/catch, so the
+   throw propagated past the legacy fallback: the member got "Could not publish"
+   and NO POST AT ALL. Production proof it never once succeeded: 0 of 252 posts
+   carried an `idempotency_key`, which `post_publish_with_media` always sets.
+
+   The identical defect had already broken draft publishing on 2026-08-17
+   (`usePostDrafts.ts:89-108`). It came back three days later in a different
+   file. So the guard here is deliberately three-layered:
+
+     1. the mock can now REPRODUCE the failure (it is a class — see above);
+     2. these tests prove detaching throws and the shipped form does not;
+     3. the last test scans the WHOLE repository, so the next recurrence is
+        caught wherever it lands, not only in this file.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * The forbidden shapes. `(?!\s*\()` is what separates a DETACH from a CALL:
+ * `const q = supabase.from("posts").select()` is fine — the method is invoked
+ * immediately, with its receiver attached. Only a reference that is stored
+ * without being called is dangerous.
+ */
+const DETACHING_ASSIGNMENT =
+  /(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*(?::[^=;]*)?=\s*supabase\s*\.\s*(?:rpc|from)\b(?!\s*\()/;
+const DETACHING_DESTRUCTURE = /(?:const|let|var)\s*\{[^}]*\b(?:rpc|from)\b[^}]*\}\s*=\s*supabase\b/;
+const DETACHING_PROPERTY = /\b(?:rpc|from)\s*:\s*supabase\s*\.\s*(?:rpc|from)\s*[,}]/;
+
+describe("RED-1 — supabase.rpc must be called in call position", () => {
+  it("the mock reproduces the production failure: detaching rpc throws", async () => {
+    /**
+     * ⚠ IF THIS TEST EVER PASSES TRIVIALLY, THE MOCK HAS BEEN WEAKENED.
+     *
+     * Under the old object-literal mock this expectation FAILED — the detached
+     * copy resolved happily — which is precisely why the suite was green while
+     * production was broken. The assertion is on the mock, not on the SUT, and
+     * that is intentional: it is the test harness's own fidelity under test.
+     */
+    const detached = supabase.rpc;
+    expect(() => (detached as (f: string, a: Record<string, unknown>) => unknown)("media_begin_upload", {}))
+      .toThrowError(TypeError);
+    expect(() => (detached as (f: string, a: Record<string, unknown>) => unknown)("media_begin_upload", {}))
+      .toThrowError(/reading 'rest'|of undefined|undefined \(reading/);
+  });
+
+  it("a destructured rpc throws for the same reason", () => {
+    const { rpc } = supabase;
+    expect(() => (rpc as (f: string, a: Record<string, unknown>) => unknown)("post_publish_with_media", {}))
+      .toThrowError(TypeError);
+  });
+
+  it("the in-call-position cast — the shipped form — does not throw", async () => {
+    const out = await (supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: string | null; error: { message: string } | null }>)("media_begin_upload", {});
+    expect(out.error).toBeNull();
+    expect(typeof out.data).toBe("string");
+  });
+
+  it("an arrow wrapper is also safe — the member expression is re-resolved", async () => {
+    const wrapped = (fn: string, args: Record<string, unknown>) =>
+      (supabase.rpc as unknown as (
+        f: string,
+        a: Record<string, unknown>,
+      ) => Promise<{ data: string | null; error: { message: string } | null }>)(fn, args);
+    const out = await wrapped("media_begin_upload", {});
+    expect(out.error).toBeNull();
+  });
+
+  it("registerUploadedPhoto reaches the server rather than throwing", async () => {
+    /**
+     * The end-to-end proof. Before the fix this REJECTED with the TypeError
+     * instead of resolving, and no `media_begin_upload` call was ever recorded.
+     */
+    await expect(registerUploadedPhoto(photo(1))).resolves.toBe("media-0");
+    expect(rpcCalls.map((c) => c.fn)).toContain("media_begin_upload");
+  });
+
+  it("publishViaMedia reaches post_publish_with_media rather than throwing", async () => {
+    await expect(publishViaMedia(input([photo(1)]))).resolves.toEqual({
+      postId: "post-1",
+      viaMedia: true,
+      failure: null,
+    });
+    expect(rpcCalls.map((c) => c.fn)).toContain("post_publish_with_media");
+  });
+
+  it("publishViaMedia does not throw even when the server refuses", async () => {
+    /**
+     * A REFUSAL and a THROW are different failures with different blast radii.
+     * A refusal must return {postId:null, viaMedia:false} so the caller can
+     * decide; a throw escapes past the caller's fallback entirely. RED-1 turned
+     * every refusal path in this module into the second kind.
+     */
+    rpcHandler = (c) =>
+      c.fn === "media_begin_upload"
+        ? { data: "media-0", error: null }
+        : { data: null, error: { message: "refused" } };
+    await expect(publishViaMedia(input([photo(1)]))).resolves.toEqual({
+      postId: null,
+      viaMedia: false,
+      failure: "media-path-failed",
+    });
+    expect(warnings.map((w) => w.code)).toContain("MEDIA-4004");
+  });
+
+  it("NO source file anywhere in src/ stores supabase.rpc or supabase.from", () => {
+    /**
+     * ⚠ THE ONLY LAYER THAT COVERS FILES NOBODY THOUGHT TO TEST.
+     *
+     * This bug has now appeared twice, in two different modules, three days
+     * apart. A per-file test would have caught neither occurrence in advance.
+     * This walks every .ts/.tsx under src/ and fails on the assignment form.
+     *
+     * SAFE (not matched): `const rpc: T = (fn, a) => (supabase.rpc as T)(fn, a)`
+     *   — the RHS begins with `(`, not with `supabase.`.
+     * UNSAFE (matched):   `const rpc = supabase.rpc as unknown as …`
+     *                     `const { rpc } = supabase`
+     *                     `{ rpc: supabase.rpc }`
+     */
+    const walk = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+        const full = join(dir, e.name);
+        // __tests__ is excluded ON PURPOSE and this is the only exclusion: the
+        // tests immediately above DELIBERATELY detach `supabase.rpc` to prove
+        // that doing so throws. Scanning them would make the guard fail on the
+        // very evidence that it works.
+        if (e.isDirectory()) return e.name === "node_modules" || e.name === "__tests__" ? [] : walk(full);
+        return /\.tsx?$/.test(e.name) ? [full] : [];
+      });
+
+    const files = walk(join(ROOT, "src"));
+
+    /**
+     * ⚠ A SCAN THAT READS NOTHING PASSES EVERYTHING.
+     *
+     * This is the same failure mode as the Postgres `\b` regex in the
+     * Workstream 1 audit: the query was well-formed, returned zero rows, and
+     * read exactly like proof that nothing was wrong. If `walk` is ever broken
+     * — a changed directory layout, an over-eager exclusion — the offenders
+     * list is empty and this test goes green while guarding nothing.
+     */
+    expect(files.length, "the source walk found almost no files — the scan is vacuous").toBeGreaterThan(100);
+    expect(files.some((f) => f.endsWith("postMediaWrite.ts"))).toBe(true);
+    expect(files.some((f) => f.endsWith("usePostDrafts.ts"))).toBe(true);
+
+    const offenders: string[] = [];
+    for (const file of files) {
+      const text = readFileSync(file, "utf8");
+      // Strip block and line comments so the cautionary notes that QUOTE the
+      // bad line (this file, postMediaWrite.ts, usePostDrafts.ts) do not trip it.
+      const code = text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+      code.split("\n").forEach((line, i) => {
+        if (
+          DETACHING_ASSIGNMENT.test(line) ||
+          DETACHING_DESTRUCTURE.test(line) ||
+          DETACHING_PROPERTY.test(line)
+        ) {
+          offenders.push(`${file.slice(ROOT.length + 1)}:${i + 1}  ${line.trim()}`);
+        }
+      });
+    }
+
+    expect(
+      offenders,
+      "supabase.rpc/from stored in a variable — it is a prototype method and " +
+        "will throw with `this === undefined`. Call it in call position instead:\n" +
+        offenders.join("\n"),
+    ).toEqual([]);
+  });
+
+  it("the static scan actually matches the historical bug line", () => {
+    /**
+     * A scan that matches nothing is indistinguishable from a scan that is
+     * broken — the same class of mistake as the Postgres `\b` regex in the
+     * Workstream 1 audit, which silently returned zero rows. So assert the
+     * pattern against the exact line that shipped, and against the safe forms.
+     */
+    expect(DETACHING_ASSIGNMENT.test("  const rpc = supabase.rpc as unknown as <T>(")).toBe(true);
+    expect(DETACHING_ASSIGNMENT.test("const rpc = supabase.rpc;")).toBe(true);
+    expect(DETACHING_ASSIGNMENT.test("let from: UntypedFrom = supabase.from")).toBe(true);
+
+    // A CALL is not a detach — these must NOT be flagged, or the guard becomes
+    // noise and gets deleted.
+    expect(DETACHING_ASSIGNMENT.test('const countsP = supabase.rpc("get_x" as any);')).toBe(false);
+    expect(DETACHING_ASSIGNMENT.test('let q = supabase.from("competition_judges").select("id");')).toBe(false);
+
+    expect(
+      DETACHING_ASSIGNMENT.test(
+        "const rpc: UntypedRpc = (fn, args) => (supabase.rpc as unknown as UntypedRpc)(fn, args);",
+      ),
+    ).toBe(false);
+    expect(
+      DETACHING_ASSIGNMENT.test("const from = (t: string) => (supabase.from as unknown as UntypedFrom)(t);"),
+    ).toBe(false);
+    expect(DETACHING_ASSIGNMENT.test("  const { data } = await (supabase.rpc as unknown as (")).toBe(false);
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PRIORITY 3 — THE LEGACY FALLBACK MUST NOT MASK A MEDIA-PATH FAILURE
+   ═══════════════════════════════════════════════════════════════════════════
+
+   @decision D-005
+
+   Two things were being counted as one. A resumed draft has no original bytes,
+   so its slides can never be declared and the post is legacy-only BY DESIGN —
+   that is the permanent floor. A post whose photographs were all describable
+   and still did not make it through is a LEAK.
+
+   Under RED-1 the second kind looked exactly like the first for four days: the
+   only signal either produced was a single MEDIA-4001, and MEDIA-4001 was
+   already expected to be non-zero. A counter that cannot distinguish "correctly
+   legacy" from "broken" reports a healthy floor while the tap runs.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("P3 — the two fallback conditions are separated", () => {
+  it("an undescribable slide is classified unmigratable, not as a failure", async () => {
+    const out = await publishViaMedia(input([photo(1, { stored: null })]));
+    expect(out).toEqual({ postId: null, viaMedia: false, failure: "unmigratable-slides" });
+  });
+
+  it("an undescribable slide STILL emits MEDIA-4006 on the composer path", async () => {
+    /**
+     * ⚠ REGRESSION GUARD FOR THE FIX ITSELF. Moving the classification up front
+     * short-circuited before the registrar ran, and MEDIA-4006 — the only code
+     * for a refusal that leaves no server-side trace — silently stopped firing
+     * on the path that matters most. One reporter, two callers.
+     */
+    await publishViaMedia(input([photo(1, { stored: null }), photo(2, { stored: null })]));
+    expect(warnings.filter((w) => w.code === "MEDIA-4006")).toHaveLength(2);
+  });
+
+  it("an undescribable slide makes NO network call at all", async () => {
+    /**
+     * Classification happens from the INPUT, before anything is attempted.
+     * Deciding it afterwards, from a refusal, is exactly the conflation this
+     * separation removes — a server that is down would then be indistinguishable
+     * from a resumed draft.
+     */
+    await publishViaMedia(input([photo(1, { stored: null })]));
+    expect(rpcCalls).toHaveLength(0);
+    expect(fnCalls).toHaveLength(0);
+  });
+
+  it("ONE undescribable slide out of three sends the whole post to unmigratable", async () => {
+    const out = await publishViaMedia(input([photo(1), photo(2, { stored: null }), photo(3)]));
+    expect(out.failure).toBe("unmigratable-slides");
+    expect(rpcCalls).toHaveLength(0);
+  });
+
+  it("a describable post that the server refuses is classified as a FAILURE", async () => {
+    rpcHandler = () => ({ data: null, error: { message: "too many uploads in flight (50)" } });
+    const out = await publishViaMedia(input([photo(1)]));
+    expect(out.failure).toBe("media-path-failed");
+  });
+
+  it("a describable post refused at PUBLISH is classified as a FAILURE", async () => {
+    rpcHandler = (c) =>
+      c.fn === "media_begin_upload"
+        ? { data: "media-0", error: null }
+        : { data: null, error: { message: "rate limit" } };
+    const out = await publishViaMedia(input([photo(1)]));
+    expect(out.failure).toBe("media-path-failed");
+  });
+
+  it("a quarantined object is a FAILURE, not an unmigratable slide", async () => {
+    fnHandler = () => ({ data: { state: "quarantined" }, error: null });
+    const out = await publishViaMedia(input([photo(1)]));
+    expect(out.failure).toBe("media-path-failed");
+  });
+
+  it("MEDIA-4010 exists, is an ERROR, and is not confusable with the floor", () => {
+    const catalog = readFileSync(join(ROOT, "src/lib/errorCodes.ts"), "utf8");
+    expect(/code: "MEDIA-4010",\s*\n\s*severity: "error"/.test(catalog)).toBe(true);
+    expect(/code: "MEDIA-4009",\s*\n\s*severity: "error"/.test(catalog)).toBe(true);
+    const composer = readFileSync(join(ROOT, "src/components/WallPosts.tsx"), "utf8");
+    // The composer must branch on the classification, not just count.
+    expect(/viaMedia\.failure === "unmigratable-slides"/.test(composer)).toBe(true);
+    expect(/if \(!unmigratable\) reportMediaPathFailure\(/.test(composer)).toBe(true);
+  });
+
+  it("MEDIA-4001 still counts BOTH kinds — the delta must stay complete", () => {
+    /**
+     * ⚠ The temptation after splitting the signal is to stop counting the
+     * "expected" kind. That would make the legacy-only population in the logs
+     * smaller than the one in the database, and the database is the one that is
+     * right. Exactly ONE call site, unconditional inside the fallback branch.
+     */
+    const composer = readFileSync(join(ROOT, "src/components/WallPosts.tsx"), "utf8");
+    const calls = composer.match(/reportLegacyOnlyPublish\(/g) ?? [];
+    expect(calls).toHaveLength(1);
+    expect(/const unmigratable = viaMedia\.failure === "unmigratable-slides";\s*\n\s*if \(!unmigratable\) reportMediaPathFailure\(correlationId\);\s*\n\s*reportLegacyOnlyPublish\(/.test(composer)).toBe(true);
+  });
+
+  it("a THROW inside the media path becomes MEDIA-4009 and a null, never an exception", async () => {
+    /**
+     * RED-1's real cost was not that the media path failed — it is that it
+     * THREW. The throw escaped the composer's fallback, so the member lost the
+     * post entirely. This closes that boundary for every caller at once.
+     */
+    rpcHandler = () => {
+      throw new TypeError("Cannot read properties of undefined (reading 'rest')");
+    };
+    await expect(registerUploadedPhoto(photo(1))).resolves.toBeNull();
+    const e = warnings.find((w) => w.code === "MEDIA-4009");
+    expect(e, "a throw must be reported, not swallowed").toBeTruthy();
+    expect(String(e!.reason)).toContain("rest");
+  });
+
+  it("publishViaMedia degrades rather than throwing when the path throws", async () => {
+    rpcHandler = () => {
+      throw new TypeError("Cannot read properties of undefined (reading 'rest')");
+    };
+    await expect(publishViaMedia(input([photo(1)]))).resolves.toEqual({
+      postId: null,
+      viaMedia: false,
+      failure: "media-path-failed",
+    });
+  });
+
+  it("registerAllOrNone degrades rather than throwing — drafts and schedules too", async () => {
+    rpcHandler = () => {
+      throw new TypeError("Cannot read properties of undefined (reading 'rest')");
+    };
+    await expect(registerAllOrNone([photo(1), photo(2)])).resolves.toBeNull();
+  });
+
+  it("the legacy insert is still SECOND, and still present", () => {
+    const composer = readFileSync(join(ROOT, "src/components/WallPosts.tsx"), "utf8");
+    const media = composer.indexOf("const viaMedia = await publishViaMedia(");
+    const legacy = composer.indexOf('const legacy = await supabase.from("posts").insert(');
+    expect(media).toBeGreaterThan(-1);
+    expect(legacy).toBeGreaterThan(-1);
+    expect(legacy, "the legacy insert must not be tried first").toBeGreaterThan(media);
   });
 });

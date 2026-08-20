@@ -50,6 +50,34 @@ export interface ScheduledPost {
    * becomes required when the migration lands and the types are regenerated.
    */
   categories?: string[];
+
+  /* ──────────────────────────────────────────────────────────────────────────
+     ⚠ THE FOUR FIELDS BELOW ARE WHY RED-2 EXISTED.
+
+     `useScheduledPosts` selects `*`, so every one of these has ALWAYS been
+     present on the row. They were simply absent from this interface — so
+     `ScheduledPostsList.handleDuplicate` could not reference them even if its
+     author had thought to. The copy silently dropped all four and the database
+     defaults filled in: `privacy` → 'public', `indexing_disabled` → false,
+     `categories` → '{}', `media_ids` → NULL.
+
+     Duplicating a PRIVATE, search-excluded, categorised post therefore
+     published it PUBLIC, indexable, uncategorised and legacy-only. The privacy
+     downgrade is a disclosure defect, not a tidiness one.
+
+     ⚠ DO NOT MAKE THESE OPTIONAL AGAIN to silence a compile error at a new
+     call site. The compile error IS the feature — see CreateScheduledPostInput.
+     ────────────────────────────────────────────────────────────────────────── */
+
+  /** 'public' | 'friends' | 'private'. NOT NULL DEFAULT 'public' on the table. */
+  privacy: string;
+  /** The member's SEO opt-out. NOT NULL DEFAULT false on the table. */
+  indexing_disabled: boolean;
+  /**
+   * media_objects registered when the photographs were uploaded. NULL on rows
+   * created before the media write path, and on legacy-only rows.
+   */
+  media_ids: string[] | null;
 }
 
 export function useScheduledPosts() {
@@ -68,15 +96,32 @@ export function useScheduledPosts() {
   });
 }
 
+/**
+ * ⚠ EVERY FIELD HERE IS REQUIRED, AND THAT IS THE POINT.
+ *
+ * `privacy`, `indexing_disabled`, `categories`, `media_ids`, `thumbnail_urls`
+ * and `tagged_user_ids` used to be optional, each with a sensible-looking
+ * default applied below. For the COMPOSER — which is creating something new —
+ * a default is reasonable. For a DUPLICATE it is a data-loss bug wearing a
+ * default's clothes: `ScheduledPostsList.handleDuplicate` omitted four of them,
+ * TypeScript said nothing, and a private post's copy published to the world.
+ *
+ * Making them required does not stop anyone writing `privacy: "public"`. It
+ * stops anyone writing nothing at all and getting "public" anyway. A caller
+ * that genuinely has no value must now say so out loud (`media_ids: null`,
+ * `categories: []`), which is a decision a reviewer can see.
+ *
+ * ⚠ DO NOT ADD `?` BACK to any of these to make a new call site compile.
+ */
 export interface CreateScheduledPostInput {
   content: string;
   /**
    * media_objects registered when these photographs were uploaded. Registered
    * NOW because the publisher runs hours later with no member and no session,
    * so there is no auth.uid() from which to re-derive ownership then.
-   * Undefined means the scheduled post publishes legacy-only, as before.
+   * `null` means the scheduled post publishes legacy-only — say it explicitly.
    */
-  media_ids?: string[] | null;
+  media_ids: string[] | null;
   image_urls: string[];
   /**
    * B3c: thumbnails are GENERATED at compose time (the upload path writes a
@@ -85,12 +130,14 @@ export interface CreateScheduledPostInput {
    * with no thumbnails, and 9 production posts ended up serving a full-size
    * original wherever a thumbnail belongs. Index-aligned with image_urls.
    */
-  thumbnail_urls?: string[];
+  thumbnail_urls: string[];
   image_url: string | null;
-  tagged_user_ids?: string[];
+  tagged_user_ids: string[];
   scheduled_for: string; // ISO UTC
-  privacy?: string; // BUG-024: carry the composer's privacy choice
-  indexing_disabled?: boolean; // BUG-024: carry the SEO opt-out choice
+  /** BUG-024: carry the composer's privacy choice. Required — see the note above. */
+  privacy: string;
+  /** BUG-024: carry the SEO opt-out choice. Required — see the note above. */
+  indexing_disabled: boolean;
   /**
    * Phase B: the category slugs chosen at COMPOSE time.
    *
@@ -99,11 +146,87 @@ export interface CreateScheduledPostInput {
    * stored on `scheduled_posts` at compose time because the publisher runs
    * hours later with no member and no UI — there is nobody to ask then.
    *
-   * Optional here only because the Create UI that fills it is Phase C. Until
-   * that ships this stays empty, which is exactly why Phase B's minimum cannot
-   * be enabled before Phase C — see the migration header.
+   * Required, and an empty array is a legitimate value until the Create UI
+   * that fills it ships in Phase C — which is exactly why Phase B's minimum
+   * cannot be enabled before Phase C, see the migration header. What is NOT
+   * legitimate is omitting it on a duplicate of a categorised post.
    */
-  categories?: string[];
+  categories: string[];
+}
+
+/**
+ * Build the payload for a DUPLICATE of an existing scheduled post.
+ *
+ * ⚠ THE ONLY PLACE A DUPLICATE IS DEFINED. RED-2 happened because the copy was
+ * written inline in a component as an object literal: six fields listed, four
+ * forgotten, and nothing anywhere that could notice. A pure function has three
+ * properties that the literal did not — it can be tested without a DOM, the
+ * exhaustiveness check below runs against the real row shape, and there is
+ * exactly one of it to review.
+ *
+ * WHAT A DUPLICATE IS. Everything the member chose, carried over verbatim, at a
+ * NEW TIME. Nothing is defaulted, nothing is "sensible" — a private post's copy
+ * is private, a search-excluded post's copy is excluded, a categorised post's
+ * copy keeps its categories, and a post with registered media keeps the same
+ * media_objects because the copy shows the same photographs.
+ *
+ * WHAT IS DELIBERATELY NOT CARRIED: status, attempt_count, shifted_count,
+ * last_error, published_post_id, original_scheduled_for. Those describe what
+ * happened to the ORIGINAL. A copy that inherited `attempt_count: 3` would
+ * start three-quarters of the way to max_shifts_exceeded.
+ */
+export function duplicateScheduledPostInput(
+  source: ScheduledPost,
+  scheduledFor: string,
+): CreateScheduledPostInput {
+  return {
+    content: source.content ?? "",
+    // The copy shows the SAME photographs, so it reuses the SAME verified
+    // media_objects. Re-registering would create duplicate rows for identical
+    // bytes, which UNIQUE(owner, sha256) refuses anyway.
+    media_ids: source.media_ids ?? null,
+    image_urls: source.image_urls ?? [],
+    // B3c: a duplicate reuses the same objects, so it reuses their thumbnails
+    // too — otherwise the copy publishes heavy.
+    thumbnail_urls: source.thumbnail_urls ?? [],
+    image_url: source.image_url,
+    tagged_user_ids: source.tagged_user_ids ?? [],
+    scheduled_for: scheduledFor,
+    // ⚠ THE FOUR THAT RED-2 DROPPED. Never default these from a source row.
+    privacy: source.privacy,
+    indexing_disabled: source.indexing_disabled,
+    categories: source.categories ?? [],
+  };
+}
+
+/**
+ * Refuse a payload that would let the DATABASE decide a member's privacy.
+ *
+ * ⚠ THE TYPE IS NOT ENOUGH ON ITS OWN. `CreateScheduledPostInput` makes
+ * omission a compile error, which stops the RED-2 shape being written again in
+ * TypeScript. It does not stop an `as any` cast, an untyped JS caller, or a row
+ * read from a source that genuinely lacks the column. In every one of those the
+ * field arrives as `undefined`, the insert omits it, and the table default
+ * silently publishes a private post to the world.
+ *
+ * So the last line of defence THROWS. A failed duplicate that says why is
+ * strictly better than a successful one that discloses a photograph.
+ */
+export function assertCarriesMemberChoices(input: CreateScheduledPostInput): void {
+  const missing: string[] = [];
+  if (typeof input.privacy !== "string" || input.privacy.length === 0) missing.push("privacy");
+  if (typeof input.indexing_disabled !== "boolean") missing.push("indexing_disabled");
+  if (!Array.isArray(input.categories)) missing.push("categories");
+  if (!Array.isArray(input.image_urls)) missing.push("image_urls");
+  if (!Array.isArray(input.thumbnail_urls)) missing.push("thumbnail_urls");
+  if (!Array.isArray(input.tagged_user_ids)) missing.push("tagged_user_ids");
+  if (input.media_ids !== null && !Array.isArray(input.media_ids)) missing.push("media_ids");
+  if (missing.length > 0) {
+    throw new Error(
+      `A scheduled post may not be created without the member's own choices: ${missing.join(", ")}. ` +
+        "Falling back to the table defaults here is what published a private post publicly (RED-2).",
+    );
+  }
 }
 
 export function useCreateScheduledPost() {
@@ -112,20 +235,24 @@ export function useCreateScheduledPost() {
   return useMutation({
     mutationFn: async (input: CreateScheduledPostInput) => {
       if (!user?.id) throw new Error("Not authenticated");
+      assertCarriesMemberChoices(input);
       const { data, error } = await supabase
         .from("scheduled_posts")
         .insert({
           user_id: user.id,
           content: input.content,
           image_urls: input.image_urls,
-          thumbnail_urls: input.thumbnail_urls ?? [],
+          thumbnail_urls: input.thumbnail_urls,
           image_url: input.image_url,
-          tagged_user_ids: input.tagged_user_ids ?? [],
+          tagged_user_ids: input.tagged_user_ids,
           scheduled_for: input.scheduled_for,
           original_scheduled_for: input.scheduled_for,
-          privacy: input.privacy ?? "public",
-          indexing_disabled: input.indexing_disabled ?? false,
-          categories: input.categories ?? [],
+          // ⚠ NO `??` DEFAULTS. A default here is indistinguishable from a
+          // choice, which is precisely how RED-2 turned a private post public.
+          // assertCarriesMemberChoices above has already refused undefined.
+          privacy: input.privacy,
+          indexing_disabled: input.indexing_disabled,
+          categories: input.categories,
           // Registered at upload time because the publisher runs hours later
           // with no member and no session. post_attach_media re-checks that
           // every one of them resolves to a photograph this post shows.

@@ -262,6 +262,21 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
       "Emitted by create_system_post as a Postgres WARNING, so look in the database logs, not client_errors. The post itself is fine and the member's photographs are already in their album. MEDIA-2205 in the reason means the registered objects do not match the post's image_urls, which is the check that stops one member's photograph being attached to another's post.",
   },
   {
+    code: "MEDIA-4009",
+    severity: "error",
+    description: "The media write path threw an exception instead of refusing.",
+    resolution:
+      "ALWAYS A DEFECT. Every refusal in postMediaWrite.ts returns null, so an exception means a contract broke inside the module. A TypeError mentioning 'rest' is RED-1 returning: `supabase.rpc` has been stored in a variable somewhere instead of being called in call position — it is a prototype method and the copy runs with `this === undefined`. That exact line shipped on 2026-08-20 and, because it threw rather than refusing, cost members the post entirely instead of degrading it.",
+  },
+  {
+    code: "MEDIA-4010",
+    severity: "error",
+    description:
+      "A post fell back to the legacy insert even though every one of its photographs was describable.",
+    resolution:
+      "⚠ NOT PART OF THE PERMANENT FLOOR — this is the leak. MEDIA-4007 (profile/cover) and the resumed-draft case are the floor; this code is emitted only when the media path COULD have worked and did not. Read the MEDIA-4002/4003/4004/4009 entry with the same correlation id for the failing step. The fix is always the media path; widening the fallback would only make the delta grow more quietly.",
+  },
+  {
     code: "MEDIA-4006",
     severity: "warn",
     description: "A photograph could not be described, so it was never offered to the media engine.",

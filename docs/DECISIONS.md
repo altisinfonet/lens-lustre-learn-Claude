@@ -286,3 +286,54 @@ is not expressible on the write path either.
 in a diff that looks like a tidy-up. The pinning test fails if
 `post_publish_with_media` stops writing either array, or if `image_urls` ever
 becomes a supplied parameter rather than a derived one.
+
+---
+
+## D-005 — The legacy insert stays as the airbag, and is now told apart from the steering
+
+- **Status:** ACTIVE
+- **Decided:** 2026-08-20
+- **Decided by:** Owner (Workstream 2, Priority 3: *"Do NOT use a legacy fallback to hide a failure of the new media path"*), implemented by Assistant
+- **Pinned by:** `src/__tests__/mediaWritePath.test.ts`
+- **Restore when:** Nothing to restore — this ENDS when the legacy `image_urls`-only insert is deleted from `WallPosts.tsx` altogether, which is only safe once the Android binary reads `post_media` (see D-004's third condition). At that point this entry is closed and its pin deleted in the same commit.
+
+### What was decided
+
+`createPost` still falls back to `.from("posts").insert(...)` when the media
+path does not complete. But `publishViaMedia` now returns **why**, and the two
+reasons are treated as different things:
+
+| failure | meaning | signal |
+|---|---|---|
+| `unmigratable-slides` | a slide has no `StoredObjectFacts` — in practice a RESUMED DRAFT, whose original bytes are gone. Legacy-only **by design**, permanently. | `MEDIA-4006` per slide, then `MEDIA-4001` |
+| `media-path-failed` | every slide was describable and the path still did not complete. **A defect.** | `MEDIA-4010` at **ERROR**, then `MEDIA-4001` |
+
+`MEDIA-4001` still counts **both**, because both land in the legacy-only
+population and the delta must agree with the database.
+
+### Why the fallback was not simply deleted
+
+The stated goal is that the legacy insert must not become "the normal recovery
+mechanism for a media-post failure". Deleting it does not achieve that — it
+converts every media-path fault into total post loss for the member, which is
+what RED-1 actually did in production for four days and is strictly worse than
+a legacy-only post. The failure mode to design against is not the fallback
+existing; it is the fallback being **indistinguishable from success**.
+
+### Why the classification is decided from the INPUT, before anything is tried
+
+An undescribable slide is detected from `photo.stored === null` up front, not
+inferred afterwards from a refusal. Inferring it would make a server outage
+look exactly like a resumed draft — the same conflation, one layer down.
+
+### What it costs
+
+One more branch on the publish path, and a second error code for reviewers to
+learn. In exchange, `MEDIA-4010 > 0` is a fact about the write path being
+broken, which `MEDIA-4001 > 0` never was.
+
+⚠ THE FIX FOR A NON-TRIVIAL `MEDIA-4010` RATE IS THE MEDIA PATH, NEVER A WIDER
+FALLBACK. Widening the fallback makes the delta grow more quietly, which is the
+one outcome every control in Phase 2 exists to prevent. The pinning test fails
+if the two conditions are merged, if `MEDIA-4010` stops being an error, if the
+composer stops branching, or if `MEDIA-4001` stops counting either kind.

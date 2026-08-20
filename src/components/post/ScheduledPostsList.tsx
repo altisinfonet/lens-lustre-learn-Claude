@@ -47,6 +47,7 @@ import {
   useScheduledPosts,
   useCancelScheduledPost,
   useCreateScheduledPost,
+  duplicateScheduledPostInput,
   useScheduledPostsRealtime,
   type ScheduledPost,
 } from "@/hooks/feed/useScheduledPosts";
@@ -130,20 +131,25 @@ export default function ScheduledPostsList() {
   }
 
   const handleDuplicate = async (p: ScheduledPost) => {
+    /**
+     * ⚠ RED-2. THIS FUNCTION USED TO BUILD THE COPY ITSELF.
+     *
+     * It listed six fields and forgot four: `media_ids`, `privacy`,
+     * `indexing_disabled` and `categories`. The table's defaults then filled in
+     * 'public', false, and '{}' — so duplicating a PRIVATE, search-excluded,
+     * categorised post published it public, indexable, uncategorised and
+     * legacy-only. Nothing failed. Nothing was logged. TypeScript was happy,
+     * because every one of those fields was optional on the input type.
+     *
+     * The copy now lives in `duplicateScheduledPostInput`, which is a pure
+     * function with a test for each privacy level, and the input type makes
+     * omission a compile error. DO NOT INLINE AN OBJECT LITERAL HERE AGAIN.
+     */
     // Duplicate re-uses existing image URLs (no re-upload); shifts time +1 hour.
     const next = new Date();
     next.setMinutes(next.getMinutes() + 60);
     try {
-      await duplicate.mutateAsync({
-        content: p.content ?? "",
-        image_urls: p.image_urls ?? [],
-        // B3c: a duplicate reuses the SAME objects, so it reuses their
-        // thumbnails too — otherwise the copy publishes heavy.
-        thumbnail_urls: p.thumbnail_urls ?? [],
-        image_url: p.image_url,
-        tagged_user_ids: p.tagged_user_ids ?? [],
-        scheduled_for: next.toISOString(),
-      });
+      await duplicate.mutateAsync(duplicateScheduledPostInput(p, next.toISOString()));
       toast({
         title: "Duplicated",
         description: `New draft scheduled for ${format(next, "PPP p")}`,

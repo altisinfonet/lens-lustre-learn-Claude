@@ -47,7 +47,12 @@ import { useCaptionHashtags } from "@/hooks/feed/useCaptionHashtags";
 import HashtagSuggestions from "@/components/post/HashtagSuggestions";
 import { PostAudienceChooser, type Privacy as AudiencePrivacy } from "@/components/post/PostAudienceChooser";
 import { logger, newCorrelationId } from "@/lib/logger";
-import { publishViaMedia, registerAllOrNone, reportLegacyOnlyPublish } from "@/lib/media/postMediaWrite";
+import {
+  publishViaMedia,
+  registerAllOrNone,
+  reportLegacyOnlyPublish,
+  reportMediaPathFailure,
+} from "@/lib/media/postMediaWrite";
 import type { StoredObjectFacts } from "@/lib/media/storedObject";
 import type { ReactionType } from "@/components/ReactionPicker";
 import type { UnifiedPost } from "@/types/post";
@@ -1301,8 +1306,25 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       let error: { message: string; code?: string } | null = null;
 
       if (!viaMedia.viaMedia) {
+        /**
+         * ⚠ TWO DIFFERENT FAILURES, TWO DIFFERENT SIGNALS.
+         *
+         * A resumed draft has no original bytes, so its slides can never be
+         * declared: legacy-only is CORRECT and permanent. Anything else means
+         * the media path was capable of working and did not — a defect, and one
+         * that must never hide behind "the fallback handled it". Under RED-1
+         * the second kind looked exactly like the first for four days.
+         *
+         * MEDIA-4010 is ERROR and is the thing to alert on. MEDIA-4001 still
+         * counts BOTH, because both land in the legacy-only population and the
+         * delta must stay complete.
+         */
+        const unmigratable = viaMedia.failure === "unmigratable-slides";
+        if (!unmigratable) reportMediaPathFailure(correlationId);
         reportLegacyOnlyPublish(
-          "the media write path did not complete for every photograph in this post",
+          unmigratable
+            ? "a slide carries no stored facts (resumed draft) — legacy-only by design, part of the permanent floor"
+            : "the media write path FAILED for a post whose photographs were all describable — this is a defect, not a legacy slide",
           correlationId,
         );
         const legacy = await supabase.from("posts").insert({
