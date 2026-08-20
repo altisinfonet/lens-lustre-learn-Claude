@@ -2,6 +2,7 @@ import { useParams, Link } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
 import { Hash, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchPostMediaMap, resolvePostImageUrls } from "@/lib/media/postMediaRead";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { useAuth } from "@/hooks/core/useAuth";
 import RichContentRenderer from "@/components/RichContentRenderer";
@@ -83,10 +84,22 @@ const HashtagFeed = () => {
       return;
     }
 
+    /**
+     * ITEM E — same sanctioned media read path as the feed, the wall and the
+     * photo detail page. One batched call for the whole result set; the
+     * hashtag page must not show a different photograph from the feed for the
+     * same post.
+     */
+    const postMediaMap = await fetchPostMediaMap(visiblePosts.map((p) => p.id));
+
     setPosts(
       visiblePosts.map((p) => ({
         ...p,
-        image_urls: (p as any).image_urls || (p.image_url ? [p.image_url] : []),
+        image_urls: resolvePostImageUrls(
+          postMediaMap,
+          p.id,
+          (p as any).image_urls || (p.image_url ? [p.image_url] : []),
+        ),
         author_name: resolveName(p.user_id, profileMap.get(p.user_id)?.full_name ?? null, adminIds),
         author_avatar: profileMap.get(p.user_id)?.avatar_url || null,
         author_badges: resolveBadges(p.user_id, profileMap.get(p.user_id)?.badges || [], adminIds),

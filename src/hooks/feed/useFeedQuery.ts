@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useRef, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchPostMediaMap, resolvePostImageUrls } from "@/lib/media/postMediaRead";
 import { persistFeedPage, getCachedFeed } from "@/lib/feedCache";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
@@ -195,7 +196,7 @@ async function enrichPosts(
   // 3 queries instead of 4: merge reaction queries into ONE, filter user reactions client-side
   // Plus one small query for friendship state, so the "Add friend" button is
   // never offered for someone a friendship row already exists with.
-  const [profileMapRes, allReactionsRes, adminIds, friendshipsRes, viewCountsRes, thumbsRes, tagsRes] =
+  const [profileMapRes, allReactionsRes, adminIds, friendshipsRes, viewCountsRes, thumbsRes, tagsRes, postMediaMap] =
     await Promise.all([
       fetchProfileMap(authorIds),
       supabase.from("post_reactions").select("post_id, reaction_type, user_id").in("post_id", postIds),
@@ -236,6 +237,22 @@ async function enrichPosts(
         .select("post_id, tagged_user_id, status")
         .in("post_id", postIds)
         .in("status", ["pending", "approved"]),
+      /**
+       * ITEM E — THE SANCTIONED MEDIA READ PATH.
+       *
+       * ONE call for the whole page, riding the same Promise.all as everything
+       * else, so the switch costs no extra round trip and cannot become an N+1.
+       * A feed page is 10 posts; the RPC's cap is 50.
+       *
+       * `post_media_for` is SECURITY DEFINER and filters by `can_view_post`, so
+       * a post whose media this viewer may not see simply returns no rows and
+       * the card renders without it. The client holds no privilege on
+       * `post_media` or `media_objects` and must never be given any.
+       *
+       * Posts outside the migrated population get nothing back and fall through
+       * to `posts.image_urls` below — 57 posts / 84 photographs, measured.
+       */
+      fetchPostMediaMap(postIds),
     ]);
 
   /**
@@ -316,8 +333,14 @@ async function enrichPosts(
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3)
       .map(([type]) => type);
-    const imageUrls =
-      p.image_urls?.length > 0 ? p.image_urls : p.image_url ? [p.image_url] : [];
+    // MEDIA GRAPH FIRST, legacy column as the fallback. Per post, never per
+    // slide: a post is migrated whole or not at all (MIG-2004), so a carousel
+    // is never half one representation and half the other.
+    const imageUrls = resolvePostImageUrls(
+      postMediaMap,
+      p.id,
+      p.image_urls?.length > 0 ? p.image_urls : p.image_url ? [p.image_url] : [],
+    );
     return {
       ...p,
       image_urls: imageUrls,

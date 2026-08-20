@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { publicUrl } from "@/lib/publicUrl";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchPostMediaMap, resolvePostImageUrls } from "@/lib/media/postMediaRead";
 import { useAuth } from "@/hooks/core/useAuth";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { Globe, Users, Lock, ArrowLeft, Share2, Copy, Flag, MoreHorizontal, MessageCircle, Eye } from "lucide-react";
@@ -111,12 +112,20 @@ const PostDetail = () => {
         .select("id", { count: "exact", head: true })
         .eq("post_id", postId) as any);
 
+      /**
+       * ITEM E — the photo detail page reads media through the same sanctioned
+       * path as the feed and the wall. One post, so one batch of one; the
+       * function is still the batching one because there must be exactly one
+       * media reader in this codebase.
+       */
+      const postMediaMap = await fetchPostMediaMap([rawPost.id]);
+
       setPost({
         id: rawPost.id,
         user_id: rawPost.user_id,
         content: rawPost.content || "",
         image_url: rawPost.image_url,
-        image_urls: (rawPost as any).image_urls || [],
+        image_urls: resolvePostImageUrls(postMediaMap, rawPost.id, (rawPost as any).image_urls || []),
         privacy: (rawPost.privacy || "public") as Privacy,
         created_at: rawPost.created_at,
         author_name: profile?.full_name || null,
