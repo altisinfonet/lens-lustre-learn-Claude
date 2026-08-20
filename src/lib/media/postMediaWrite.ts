@@ -100,13 +100,23 @@ export async function registerUploadedPhoto(
   const objectPath = objectPathFromUrl(photo.url);
   if (!bytea || !objectPath) return null;
 
-  const { data: mediaId, error: beginErr } = await supabase.rpc("media_begin_upload", {
+  // The generated `types.ts` does not carry the media RPCs, so the contract is
+  // declared HERE, at the call site, exactly as `postMediaRead.ts` does for
+  // `post_media_for`. A blanket `as never` would have hidden a wrong argument
+  // name as readily as a wrong function name; this narrows to one signature and
+  // still fails the moment the shape stops matching.
+  const rpc = supabase.rpc as unknown as <T>(
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: T | null; error: { message: string } | null }>;
+
+  const { data: mediaId, error: beginErr } = await rpc<string>("media_begin_upload", {
     _sha256: bytea,
     _width: photo.stored.width,
     _height: photo.stored.height,
     _bytes: photo.stored.bytes,
     _mime: photo.stored.mime,
-  } as never);
+  });
 
   if (beginErr || typeof mediaId !== "string") {
     logger.warn({
@@ -187,7 +197,13 @@ export async function publishViaMedia(input: PublishInput): Promise<PublishOutco
     return { postId: null, viaMedia: false };
   }
 
-  const { data: postId, error } = await supabase.rpc("post_publish_with_media", {
+  // Same narrow cast as `registerUploadedPhoto` — see the note there.
+  const rpc = supabase.rpc as unknown as <T>(
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: T | null; error: { message: string } | null }>;
+
+  const { data: postId, error } = await rpc<string>("post_publish_with_media", {
     _media_ids: ids,
     _content: input.content,
     _privacy: input.privacy,
@@ -195,7 +211,7 @@ export async function publishViaMedia(input: PublishInput): Promise<PublishOutco
     _indexing_disabled: input.indexingDisabled,
     _idempotency_key: input.idempotencyKey,
     _thumbnail_urls: input.photos.map((p) => p.thumbnailUrl),
-  } as never);
+  });
 
   if (error || typeof postId !== "string") {
     logger.warn({
