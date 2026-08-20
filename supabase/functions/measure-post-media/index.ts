@@ -28,8 +28,9 @@
  *    is no input that can become a request target.
  *
  * 3. THE POPULATION IS DERIVED, NOT SUPPLIED. Candidates come from
- *    `posts.image_urls` filtered by CANDIDATE_RE — byte-for-byte the pattern
- *    the Cycle 3 SQL proof used to establish the 207. Anything that fails the
+ *    `posts.image_urls` filtered by CANDIDATE_PATTERNS — three narrow shapes,
+ *    the first byte-for-byte the pattern the Cycle 3 SQL proof used to
+ *    establish the 207. Anything that fails all three is rejected, and the
  *    pattern is rejected, and the host is re-checked against CDN_HOST after
  *    parsing, so a crafted row in the database could not redirect a fetch.
  *
@@ -73,8 +74,40 @@ const CDN_HOST = "cdn.50mmretina.com";
  * by the Cycle 3 SQL proof that established 207 candidates. If these two ever
  * drift, the manifest stops describing the population it claims to describe.
  */
-const CANDIDATE_RE =
-  /^https:\/\/cdn\.50mmretina\.com\/post-images\/[0-9a-f-]{36}\/posts\/[^/?]+$/;
+/**
+ * THE POPULATION, AS THREE NARROW PATTERNS.
+ *
+ * Class A is the original and is FROZEN — it must stay byte-for-byte the
+ * pattern the Cycle 3 SQL proof used, and byte-for-byte
+ * `media_migration_fence_digest`, or a measurement would stop describing the
+ * population an approved manifest was approved against.
+ *
+ * Classes B and C were added 2026-08-20 (docs/CANDIDATE_PATTERN_AUDIT.md) for
+ * 34 slides that are real photographs the CDN serves, owned by the member who
+ * posted them. Proven over all 310 production slides: the three are DISJOINT
+ * (0 matched more than one), all 34 carry the owner at path segment 2, and
+ * none is a thumbnail, a rung or carries a query string.
+ *
+ * ⚠ CONTROL 3 IS UNCHANGED BY THIS. The population is still DERIVED from
+ * `posts.image_urls` and still filtered by these patterns; the caller still
+ * supplies nothing that can become a request target, and the host is still
+ * re-checked against CDN_HOST after parsing.
+ *
+ * ⚠ WHAT MUST STAY OUT: `avatars/<uuid>/avatar.webp?t=…` (MUTABLE — overwritten
+ * on every profile-photo change, so a hash taken now describes bytes that may
+ * already be gone) and `avatars/covers/<uuid>/…` (the owner is at segment 3).
+ * Class C reaches neither: it requires `/my-photos/<uuid>/`, and `covers` is
+ * not a uuid.
+ */
+const CANDIDATE_PATTERNS: readonly RegExp[] = [
+  /^https:\/\/cdn\.50mmretina\.com\/post-images\/[0-9a-f-]{36}\/posts\/[^/?]+$/,
+  /^https:\/\/cdn\.50mmretina\.com\/post-images\/[0-9a-f-]{36}\/[^/?]+$/,
+  /^https:\/\/cdn\.50mmretina\.com\/avatars\/[0-9a-f-]{36}\/my-photos\/[0-9a-f-]{36}\/[^/?]+$/,
+];
+
+const CANDIDATE_RE = {
+  test: (u: string) => CANDIDATE_PATTERNS.some((re) => re.test(u)),
+};
 
 /** Control 6: a hard end date. Past it this function is inert. */
 const EXPIRES_AT = Date.parse("2026-09-01T00:00:00Z");
