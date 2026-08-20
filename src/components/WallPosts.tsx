@@ -47,7 +47,7 @@ import { useCaptionHashtags } from "@/hooks/feed/useCaptionHashtags";
 import HashtagSuggestions from "@/components/post/HashtagSuggestions";
 import { PostAudienceChooser, type Privacy as AudiencePrivacy } from "@/components/post/PostAudienceChooser";
 import { logger, newCorrelationId } from "@/lib/logger";
-import { publishViaMedia, reportLegacyOnlyPublish } from "@/lib/media/postMediaWrite";
+import { publishViaMedia, registerAllOrNone, reportLegacyOnlyPublish } from "@/lib/media/postMediaWrite";
 import type { StoredObjectFacts } from "@/lib/media/storedObject";
 import type { ReactionType } from "@/components/ReactionPicker";
 import type { UnifiedPost } from "@/types/post";
@@ -961,14 +961,41 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     try {
       let urls = resumedUrls;
       let thumbs = resumedThumbs;
+      // Index-aligned with `urls`. Resumed slides carry no declaration — they
+      // were uploaded by an earlier attempt whose facts this component no
+      // longer holds — so they are null, and registerAllOrNone then declines
+      // the WHOLE draft rather than registering a subset.
+      let stored: (StoredObjectFacts | null)[] = resumedUrls.map(() => null);
       if (action.uploadImages) {
         // Same path Post uses — stale-handle recovery and all.
         const up = await uploadPhotos(newCorrelationId());
         urls = [...resumedUrls, ...up.uploadedUrls];
         thumbs = [...resumedThumbs, ...up.uploadedThumbs];
+        stored = [...stored, ...up.uploadedStored];
       }
+      const uploadedStored = stored;
+      /**
+       * Registered HERE, not at publish. A draft becomes a post minutes or
+       * days later through `publish_post_draft`, and a scheduled post through
+       * an edge function running with no member at all — neither can re-read
+       * the bytes or re-derive ownership then. This is the last moment the
+       * photographs, the member and the session are all present.
+       *
+       * Null is a normal outcome, not an error: the row simply publishes
+       * legacy-only, exactly as every draft did before this existed.
+       */
+      const mediaIds = await registerAllOrNone(
+        urls.map((url, i) => ({
+          url,
+          thumbnailUrl: thumbs[i],
+          stored: uploadedStored[i] ?? null,
+        })),
+        publishIdemKey.current,
+      );
+
       const payload = {
         content: captionMentions.convert(newContent.trim()),
+        media_ids: mediaIds,
         image_url: urls[0] ?? null,
         image_urls: urls,
         thumbnail_urls: thumbs,
@@ -1195,6 +1222,15 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
             // Picked @mentions become @[Name](id) markup — the same format
             // comments store, rendered by RichContentRenderer.
             content: captionMentions.convert(newContent.trim()),
+            // Registered now: the publisher runs hours later with no member.
+            media_ids: await registerAllOrNone(
+              uploadedUrls.map((url, i) => ({
+                url,
+                thumbnailUrl: uploadedThumbs[i],
+                stored: uploadedStored[i] ?? null,
+              })),
+              correlationId,
+            ),
             image_urls: uploadedUrls,
             // B3c: the thumbnails were ALWAYS generated right here and then
             // thrown away — scheduled_posts had no column for them, so the
