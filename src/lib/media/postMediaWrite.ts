@@ -161,6 +161,35 @@ export async function registerUploadedPhoto(
   return mediaId;
 }
 
+/**
+ * Register every photograph, or none of them.
+ *
+ * Used by the DEFERRED publish paths — Save draft and Schedule — where the row
+ * is written now and becomes a post later. Registering at upload time is the
+ * only moment the bytes are known to be in storage and the member is present;
+ * `publish_post_draft` and the scheduled publisher run later, and the latter
+ * runs with no member at all.
+ *
+ * ⚠ ALL OR NONE, for the same reason `publishViaMedia` is: a draft carrying two
+ * media ids for three photographs would publish a post with an ord gap, which
+ * is the one shape every gate in this engine exists to make unreachable.
+ * `post_attach_media` refuses it (MEDIA-2204) — but a client that can express
+ * it will eventually send it, so it is not expressible here either.
+ */
+export async function registerAllOrNone(
+  photos: readonly UploadedPhoto[],
+  correlationId?: string,
+): Promise<string[] | null> {
+  if (photos.length === 0) return null;
+  const ids: string[] = [];
+  for (const photo of photos) {
+    const id = await registerUploadedPhoto(photo, correlationId);
+    if (!id) return null;
+    ids.push(id);
+  }
+  return ids.length === photos.length ? ids : null;
+}
+
 export interface PublishInput {
   photos: UploadedPhoto[];
   content: string;
