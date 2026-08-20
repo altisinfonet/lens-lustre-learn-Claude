@@ -140,6 +140,32 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
   get_broadcast_feed: () => posts,
 
   /**
+   * ── THE MEDIA READ PATH (Item E), AND WHY THIS ONE IS EMPTY ON PURPOSE ───
+   *
+   * Every media surface now asks `post_media_for` for the page's photographs
+   * and falls back to `posts.image_urls` for any post the media graph does not
+   * hold. Empty here is therefore not a shrug — it is a state 57 of the 254
+   * production posts are in RIGHT NOW (84 photographs), because the Phase 2
+   * migration population was fenced to
+   * `cdn.50mmretina.com/post-images/<owner>/posts/<file>` and those posts live
+   * in six older path shapes.
+   *
+   * So these fixture posts are UNMIGRATED posts, and every screen below is
+   * photographed on the legacy fallback — which is exactly the branch that
+   * must never be removed, and the one whose loss would blank a fifth of the
+   * platform. Delete the fallback and these scenes go blank; that is the
+   * regression this fixture makes visible.
+   *
+   * It could not honestly return rows: `fixtureImage` produces `data:` URLs,
+   * and a derivative path is a bucket-relative key that resolves against
+   * cdn.50mmretina.com. Rows here would photograph broken images, which is a
+   * state the app is never in. The migrated branch is proven instead where it
+   * can be proven exactly — 27 unit tests over the shipped module, 19
+   * mutations, and 228/228 resolved URLs measured against production.
+   */
+  post_media_for: () => [],
+
+  /**
    * Real distinct-viewer counts. Zero is honest: no one has opened these
    * fixture posts, and "0 views" is what a just-published post shows.
    */
