@@ -243,26 +243,40 @@ describe("the fence function is a recorded choice, not a default", () => {
     expect(/fence_fn: fenceFn, wide,/.test(mig)).toBe(true);
   });
 
-  it("says out loud that the DEPLOYED version does not yet carry the flag", () => {
+  it("records WHICH deployed version is live, and it is no longer the narrow one", () => {
     /**
-     * The repo and the deployed function differ, temporarily and on purpose:
-     * v1 was built against the narrow pattern and is what migrated the 229.
-     * A class-B/C cycle cannot run until this file is deployed — v1 would
-     * refuse every class-B/C row with MIG-1017, which is CORRECT for the code
-     * it is. The danger is somebody reading this file, assuming it is live,
-     * and concluding the cycle failed for a different reason.
+     * ⚠ THIS TEST CHANGED MEANING ON 2026-08-20, AND THAT IS THE POINT.
      *
-     * `_shared/s3.ts` already records what happens when two copies of the same
-     * thing drift: "the divergent one is always the one that runs".
+     * Until the wide cycle ran, the repo and the deployed function differed on
+     * purpose: v1 was built against the narrow pattern and is what migrated the
+     * 229, and it would have refused every class-B/C manifest row with MIG-1017
+     * — correct for the code it was. This test asserted that the divergence was
+     * WRITTEN DOWN, because the danger was a reader assuming the wide flag was
+     * live and misreading the resulting refusals.
+     *
+     * v2 (ezbr 267aa65a…) is now deployed and the divergence is closed. So the
+     * assertion becomes the opposite one, and it must be just as specific: the
+     * header must still name a version, because "there is no note" and "the note
+     * says they agree" are different states and only one of them is checked.
+     *
+     * `_shared/s3.ts` records what happens when two copies of the same thing
+     * drift: "the divergent one is always the one that runs".
      */
     expect(
       /DEPLOYMENT STATE, 2026-08-20 — READ THIS BEFORE RUNNING A CYCLE/.test(mig),
-      "the deployment-state note is gone — a reader would assume the wide flag is live",
+      "the deployment-state note is gone — a reader cannot tell which version is live",
     ).toBe(true);
-    expect(/THESE TWO DIFFER, ON PURPOSE AND TEMPORARILY/.test(mig)).toBe(true);
     expect(
-      /MIG-1017/.test(mig),
-      "the note no longer says HOW the running version refuses a class-B/C row",
+      /DEPLOYED:\s+version 2/.test(mig),
+      "the header no longer names the deployed version",
+    ).toBe(true);
+    expect(
+      /THESE TWO DIFFER, ON PURPOSE AND TEMPORARILY/.test(mig),
+      "the divergence was closed when v2 shipped; this warning would now be a lie",
+    ).toBe(false);
+    expect(
+      /wide: true/.test(mig),
+      "the header must still say that a class-B/C cycle has to ask for the wide fence",
     ).toBe(true);
   });
 

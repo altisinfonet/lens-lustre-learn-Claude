@@ -856,3 +856,139 @@ describe("the client registers deferred media at UPLOAD time", () => {
     expect(/MUTABLE path/.test(mig)).toBe(true);
   });
 });
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE STALE-CLIENT HOLE — closed 2026-08-20, after it cost a real post.
+
+   THE INCIDENT, because the tests below only make sense with it.
+
+   The write path went live at 05:16 UTC. At 07:08:49 a member published one
+   photograph and it landed `image_urls`-only. Every instrument aimed at that
+   failure stayed silent: no `media_begin_upload` in the edge logs, no
+   MEDIA-4001 in client_errors. The browser was running a bundle from before
+   the deploy, so none of the reporting code existed in it.
+
+   Two separate defects, and they need two separate fixes:
+
+     1. `registerUploadedPhoto` returned null on `!photo.stored` with NO log at
+        all — the only refusal that makes no network call, and therefore the
+        only one that can leave no trace anywhere. MEDIA-4006 now names it.
+
+     2. Every counter lived inside the client. `media_write_path_delta()` reads
+        committed rows instead, so it cannot be blinded by an old bundle.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("the stale-client hole", () => {
+  it("MEDIA-4006: an undescribable photograph is REFUSED OUT LOUD, not silently", async () => {
+    /**
+     * Before this, `if (!photo.stored) return null;` was the whole branch. The
+     * post fell back to legacy and MEDIA-4001 said so — but MEDIA-4001 cannot
+     * distinguish "the bytes could not be measured" from "this browser is
+     * running last week's code", and those have different fixes.
+     */
+    const id = await registerUploadedPhoto({
+      url: "https://cdn.50mmretina.com/post-images/o/posts/x.webp",
+      thumbnailUrl: "",
+      stored: null,
+    });
+    expect(id, "an undescribed slide must never yield a media id").toBeNull();
+    const w = warnings.find((x) => x.code === "MEDIA-4006");
+    expect(w, "a slide that never reaches the server must still be reported").toBeTruthy();
+  });
+
+  it("MEDIA-4006 is raised BEFORE any network call, so it cannot be confused with a server refusal", async () => {
+    await registerUploadedPhoto({
+      url: "https://cdn.50mmretina.com/post-images/o/posts/x.webp",
+      thumbnailUrl: "",
+      stored: null,
+    });
+    expect(rpcCalls.length, "no RPC may be attempted for an undescribed slide").toBe(0);
+    expect(fnCalls.length, "no function may be invoked for an undescribed slide").toBe(0);
+    expect(warnings.some((w) => w.code === "MEDIA-4002")).toBe(false);
+    expect(warnings.some((w) => w.code === "MEDIA-4003")).toBe(false);
+  });
+
+  it("every MEDIA-40xx code the client emits is in the error catalog", () => {
+    /**
+     * They were not, until today. `log_app_event` accepts any PREFIX-NNNN, so
+     * the rows persisted and nothing failed — but docs/error-codes.md, which is
+     * what the owner reads when a member quotes a code, described none of them.
+     */
+    const src = readFileSync(join(ROOT, "src/lib/media/postMediaWrite.ts"), "utf8");
+    const catalog = readFileSync(join(ROOT, "src/lib/errorCodes.ts"), "utf8");
+    const used = [...src.matchAll(/code: "(MEDIA-\d{4})"/g)].map((m) => m[1]);
+    expect(used.length, "no MEDIA codes found — has the file moved?").toBeGreaterThan(3);
+    for (const code of used) {
+      expect(catalog, `${code} is emitted but not catalogued`).toContain(`code: "${code}"`);
+    }
+  });
+
+  it("the build marker was bumped past the bundle that caused the incident", () => {
+    /**
+     * "2026-08-10-3" is the value that was still being reported by the client
+     * that published the legacy-only post, three releases after it was current.
+     * A marker that is never bumped cannot tell a stale client from a current
+     * one, which is the whole reason it exists.
+     */
+    const main = readFileSync(join(ROOT, "src/main.tsx"), "utf8");
+    const m = main.match(/__APP_BUILD = "([^"]+)"/);
+    expect(m, "the build marker is gone").toBeTruthy();
+    expect(m![1], "the marker still reads the pre-incident build").not.toBe("2026-08-10-3");
+  });
+});
+
+describe("media_write_path_delta — the check that does not trust the client", () => {
+  const fn = lastDefinitionOf("media_write_path_delta");
+
+  it("is defined (vacuity guard)", () => {
+    expect(fn.length, "no migration defines media_write_path_delta").toBeGreaterThan(0);
+  });
+
+  it("reads only committed rows — it never consults a log table", () => {
+    /**
+     * THE POINT OF THE WHOLE FUNCTION. client_errors is written by the client,
+     * so a client that is not running the new code writes nothing there. If
+     * this function ever starts reading it, it inherits the blindness it was
+     * built to escape.
+     */
+    expect(/client_errors/.test(fn), "the delta check must not depend on client logs").toBe(false);
+    expect(/from public\.posts/.test(fn)).toBe(true);
+    expect(/public\.post_media/.test(fn)).toBe(true);
+  });
+
+  it("reports the growing delta specifically, not just a total", () => {
+    /**
+     * A shrinking total can hide a growing edge: migration removes ten old
+     * legacy-only posts while the write path adds one new one, and the headline
+     * number improves. `new_legacy_only_posts` is scoped to posts created after
+     * the cutoff, so it cannot be masked that way.
+     */
+    expect(/'new_legacy_only_posts'/.test(fn)).toBe(true);
+    expect(/'new_legacy_only_slides'/.test(fn)).toBe(true);
+    expect(/'delta_growing'/.test(fn)).toBe(true);
+    expect(/'newest_legacy_only_post'/.test(fn)).toBe(true);
+  });
+
+  it("is read-only and grants nothing to a client", () => {
+    /**
+     * Phase 2's standing rule: media_objects and post_media carry no client
+     * grants. A diagnostic is not a reason to break it.
+     */
+    expect(/\b(insert|update|delete)\s+(into|from)?\s*public\./i.test(fn)).toBe(false);
+    expect(/\bstable\b/i.test(fn)).toBe(true);
+    const file = readFileSync(
+      join(MIGRATIONS, "20260820110000_media_write_path_delta.sql"),
+      "utf8",
+    );
+    expect(/revoke all on function public\.media_write_path_delta/.test(file)).toBe(true);
+    expect(/grant execute on function public\.media_write_path_delta/i.test(file)).toBe(false);
+  });
+
+  it("has a rollback that says what is lost by running it", () => {
+    const rb = join(ROOT, "supabase/rollback/20260820110000_media_write_path_delta_ROLLBACK.sql");
+    expect(existsSync(rb)).toBe(true);
+    const src = readFileSync(rb, "utf8");
+    expect(/drop function if exists public\.media_write_path_delta/.test(src)).toBe(true);
+    expect(/07:08/.test(src), "the rollback must carry the incident that justifies the function").toBe(true);
+  });
+});
