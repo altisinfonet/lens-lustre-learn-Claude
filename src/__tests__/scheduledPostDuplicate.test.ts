@@ -169,7 +169,7 @@ describe("RED-2 — the whole payload", () => {
     const out = duplicateScheduledPostInput(
       row({ status: "failed", attempt_count: 3, shifted_count: 2, last_error: "boom", published_post_id: "p-9" }),
       NEXT,
-    ) as Record<string, unknown>;
+    ) as unknown as Record<string, unknown>;
     for (const forbidden of [
       "status",
       "attempt_count",
