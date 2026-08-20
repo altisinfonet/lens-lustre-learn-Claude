@@ -161,6 +161,8 @@ either composer offers the chooser without it.
 - **Decided by:** Assistant, closing the Phase 2 workstream, on measured evidence rather than on design preference
 - **Pinned by:** `src/__tests__/authorizedMediaDelivery.test.ts`
 - **Restore when:** Nothing to restore — this ENDS when byte retrieval is authorized at the delivery edge and the negative test below returns "refused" instead of "retrieved". At that point `PrivacyGapNotice.tsx` and its pin are deleted, D-002 is closed, and this entry is closed in the same commit.
+- **Specification:** `docs/D003_AUTHORIZED_DELIVERY_SPEC.md` — Worker behaviour, token contract, endpoint contract, DNS/R2 binding, and the 15 tests that close D-002. Added 2026-08-20.
+- **Update, 2026-08-20:** the dependency is **not** unreachable in principle. The MCP registry carries a `Cloudflare Developer Platform` connector (`workers_list`, `accounts_list`, …), currently NOT installed on this account. Connecting it turns §2–§7 of the specification from work that can only be described into work that can be done. Re-measured the same day: the negative test still RETRIEVES, the control still refuses, and 0 production posts are non-public, so live exposure remains zero.
 
 ### The measurement that forced this entry
 

@@ -70,9 +70,63 @@ export const MIGRATOR_VERSION = "1";
 /** The one host the migration will ever accept. */
 export const CDN_HOST = "cdn.50mmretina.com";
 
-/** The approved population's path shape. Anything else is not a candidate. */
-export const CANDIDATE_PATH =
-  /^post-images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/posts\/[^/?]+$/;
+/**
+ * THE APPROVED POPULATION'S PATH SHAPES. Anything else is not a candidate.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Class A is the original and is FROZEN — `media_migration_fence_digest` and
+ * every manifest digest ever approved were computed against it, so changing it
+ * would retroactively falsify `docs/MANIFEST_PROVENANCE.md`.
+ *
+ * Classes B and C were added on 2026-08-20 for 34 slides across 19 posts that
+ * are real photographs in a bucket the CDN serves, owned by the member who
+ * posted them, and were outside every manifest only because the pattern did
+ * not describe them. `docs/CANDIDATE_PATTERN_AUDIT.md` is the audit; the short
+ * version:
+ *
+ *   • the three are DISJOINT — measured over all 310 production slides, 0
+ *     matched more than one. A and B cannot overlap because `[^/?]+$` forbids
+ *     a slash.
+ *   • ownership needs no new rule: `MIG-1019` requires the owner at path
+ *     segment 2, which holds for all three shapes. 0 mismatches across 34.
+ *   • `post-images/` and `avatars/` are key prefixes in ONE R2 bucket served
+ *     by one CDN origin, so there is no cross-bucket mapping to get wrong.
+ *     Verified by retrieval, not assumed.
+ *
+ * ⚠ WHAT IS DELIBERATELY EXCLUDED, AND MUST STAY EXCLUDED:
+ *   `avatars/<uuid>/avatar.webp?t=…`   — MUTABLE. Overwritten on every profile
+ *                                        photo change, so content identity can
+ *                                        never be stable. No `/my-photos/` so
+ *                                        class C does not reach it.
+ *   `avatars/covers/<uuid>/<file>`     — the owner is at segment 3, not 2.
+ *                                        `covers` is not a uuid so the pattern
+ *                                        fails before MIG-1019 even runs.
+ *   anything with `?`                  — `[^/?]+$` keeps a cache-buster out of
+ *                                        an object key.
+ *
+ * ⚠ DO NOT REPLACE THESE WITH ONE PERMISSIVE PATTERN. Each is narrow on
+ * purpose, and the narrowness is what keeps the two classes above out.
+ */
+const UUID_SEG = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+
+export const CANDIDATE_CLASSES: ReadonlyArray<{ cls: string; re: RegExp }> = [
+  { cls: "A", re: new RegExp(`^post-images/${UUID_SEG}/posts/[^/?]+$`) },
+  { cls: "B", re: new RegExp(`^post-images/${UUID_SEG}/[^/?]+$`) },
+  { cls: "C", re: new RegExp(`^avatars/${UUID_SEG}/my-photos/${UUID_SEG}/[^/?]+$`) },
+];
+
+/**
+ * Class A alone. FROZEN. Kept exported because the frozen fence, the approved
+ * manifests and their tests are all defined against exactly this shape, and a
+ * reader comparing them needs the same regex, not a widened one.
+ */
+export const CANDIDATE_PATH = CANDIDATE_CLASSES[0].re;
+
+/** Which class a path belongs to, or null if it is not a candidate at all. */
+export function candidateClass(objectPath: string): string | null {
+  for (const { cls, re } of CANDIDATE_CLASSES) if (re.test(objectPath)) return cls;
+  return null;
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -152,7 +206,7 @@ export function parseManifest(text: string): { rows: ManifestRow[]; refusal: Ref
     if (object_path.includes("..")) {
       return { rows: [], refusal: { code: "MIG-1016", detail: `${at}: object_path contains ".."` } };
     }
-    if (!CANDIDATE_PATH.test(object_path)) {
+    if (candidateClass(object_path) === null) {
       return { rows: [], refusal: { code: "MIG-1017", detail: `${at}: object_path is not a post-photograph path` } };
     }
     // The URL must be exactly the host and path, so there is one address and
