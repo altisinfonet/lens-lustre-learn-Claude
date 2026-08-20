@@ -21,6 +21,7 @@ import { execSync } from "node:child_process";
 
 const PLAN   = "supabase/functions/_shared/manifestPlan.ts";
 const MIG    = "supabase/migrations/20260820090000_candidate_pattern_widened.sql";
+const WIDEN  = MIG; // media_mark_ready's LIVE definition lives in the widening migration
 const ENGINE = "supabase/migrations/20260818011014_media_migration_engine.sql";
 const MIGRATOR = "supabase/functions/migrate-post-media/index.ts";
 const MEASURE  = "supabase/functions/measure-post-media/index.ts";
@@ -111,6 +112,47 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public' AS $f$ select '
       "/^https",
     ),
   },
+  // ── WS3 (2026-08-20): the refusals that keep the remaining 29 slides out ──
+  //
+  // The WS3 audit proved all 29 are refused, but two of the refusals had no
+  // test on their VALUE — only on their presence. These mutations exist because
+  // a one-word edit to either would have admitted the whole population while
+  // every existing assertion stayed green.
+  {
+    file: PLAN, name: "W1. CDN_HOST retargeted at Supabase — all 27 Supabase-hosted thumbnails become candidates",
+    apply: (s) => s.replace(
+      'export const CDN_HOST = "cdn.50mmretina.com";',
+      'export const CDN_HOST = "jtdtehuqtinjxropkkcn.supabase.co";',
+    ),
+  },
+  {
+    file: PLAN, name: "W2. a class D admits avatars/covers/<owner>/ — the owner moves to segment 3",
+    apply: (s) => s.replace(
+      '  { cls: "C", re: new RegExp(`^avatars/${UUID_SEG}/my-photos/${UUID_SEG}/[^/?]+$`) },',
+      '  { cls: "C", re: new RegExp(`^avatars/${UUID_SEG}/my-photos/${UUID_SEG}/[^/?]+$`) },\n  { cls: "D", re: new RegExp(`^avatars/covers/${UUID_SEG}/[^/?]+$`) },',
+    ),
+  },
+  {
+    file: PLAN, name: "W3. the class pattern admits the storage/v1 prefix — a Supabase URL path becomes an object key",
+    apply: (s) => s.replace(
+      '  { cls: "B", re: new RegExp(`^post-images/${UUID_SEG}/[^/?]+$`) },',
+      '  { cls: "B", re: new RegExp(`^(storage/v1/object/public/)?post-images/${UUID_SEG}/[^/?]+$`) },',
+    ),
+  },
+  {
+    file: WIDEN, name: "W4. media_mark_ready widened to accept avatars/covers/ — ownership can no longer be read from the path",
+    apply: (s) => s.replace(
+      "'^(post-images|avatars)/' || _owner::text || '/'",
+      "'^(post-images|avatars|avatars/covers)/' || _owner::text || '/'",
+    ),
+  },
+  {
+    file: MIGRATOR, name: "W5. the migrator gains a copy step — a source object is written, not just read",
+    apply: (s) => s.replace(
+      "const wide: boolean = body?.wide === true;",
+      'const wide: boolean = body?.wide === true;\n  const _copy = async (k: string) => fetch(k, { method: "PUT", headers: { "x-amz-copy-source": k } });\n  void _copy;',
+    ),
+  },
   {
     file: AUDIT, name: "13. the retrieval evidence deleted from the audit",
     apply: (s) => s.replace(/RETRIEVED 1080x1350/g, "probably fine"),
@@ -122,7 +164,13 @@ function suiteResult() {
   catch { return "RED"; }
 }
 
-console.log(`baseline (no mutation): ${suiteResult()}\n`);
+// ⚠ A RED BASELINE INVALIDATES EVERY RESULT BELOW — see tools/mutate-write-path.mjs.
+const baseline = suiteResult();
+console.log(`baseline (no mutation): ${baseline}\n`);
+if (baseline !== "GREEN") {
+  console.error("BASELINE IS RED — fix the suite before drawing any conclusion from a mutation run.");
+  process.exit(1);
+}
 let undetected = 0;
 
 for (const m of mutations) {
