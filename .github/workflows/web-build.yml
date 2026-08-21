@@ -57,3 +57,12 @@ jobs:
           count=$(find dist/assets -name '*.js' | wc -l)
           echo "dist/assets carries $count JavaScript chunks"
           test "$count" -gt 0
+
+      - name: Bundle isolation guard (self-test)
+        run: node scripts/test-isolation-guard.mjs
+
+      - name: Bundle isolation guard (production lane)
+        env:
+          VITE_SUPABASE_URL: https://jtdtehuqtinjxropkkcn.supabase.co
+          ISOLATION_FORBIDDEN_REFS: ""
+        run: node scripts/verify-bundle-isolation.mjs

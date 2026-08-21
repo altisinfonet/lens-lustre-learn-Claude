@@ -36,11 +36,15 @@
  */
 import reportClientError from "@/lib/reportClientError";
 
-/** Our own image hosts. Anything else is somebody else's problem. */
-const OUR_IMAGE_HOSTS = [
-  "cdn.50mmretina.com",
-  "jtdtehuqtinjxropkkcn.supabase.co",
-];
+/** Our own image hosts. Anything else is somebody else's problem.
+ *  The Supabase host is DERIVED from the build's environment so that a staging
+ *  build reports against staging and can never embed the production ref
+ *  (bundle-isolation guard, 2026-08-21). */
+const SUPABASE_HOST = (() => {
+  try { return new URL(import.meta.env.VITE_SUPABASE_URL as string).hostname; }
+  catch { return ""; }
+})();
+const OUR_IMAGE_HOSTS = ["cdn.50mmretina.com", SUPABASE_HOST].filter(Boolean);
 
 const MAX_REPORTS_PER_PAGE = 5;
 
