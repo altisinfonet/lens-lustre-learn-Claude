@@ -1,6 +1,8 @@
 # HANDOVER — CONNECT AND CONTINUE IN THE NEXT CHAT
 
-**Written:** 2026-08-21 · **Repo HEAD at handover:** `9160b75` on `main`, working tree clean
+**Written:** 2026-08-21 · **Repo HEAD when written:** `9160b75` on `main` (clean).
+This document and the plan were then merged as **PR #85**, which is now the head of `main` —
+confirm the actual current HEAD at the start of the next session rather than trusting a SHA here.
 **Author:** the session that closed Phase 2's Android acceptance and wrote the Master Execution Plan.
 
 This document exists for one purpose: so the next chat can pick up **without re-deriving
