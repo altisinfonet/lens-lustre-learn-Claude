@@ -1,0 +1,26 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# GITLEAKS CONFIG — the secret scan in security.yml ("Secret scan (full
+# history)") reads this automatically.
+#
+# ONE allowlisted value, pinned by its EXACT literal: the Supabase ANON key.
+# It is public by design — it ships in every browser bundle, its JWT payload
+# reads "role":"anon", and every table behind it is guarded by RLS. It was
+# validated as a false alarm on 2026-08-06 (docs/claude/
+# SECURITY_GATE_AND_FALSE_ALARMS.md: ".env committed — Fine.") and moved into
+# the workflow files when .env stopped being committed (isolation guard,
+# 2026-08-21), which is what first put it in a commit the scanner actually
+# scans.
+#
+# ⚠ THE MATCH IS THE FULL TOKEN, NOT A PATTERN. A service_role key, a rotated
+# anon key, or any other JWT still fails the scan. If the anon key is ever
+# rotated, the new value must be re-validated (role claim reads "anon") and
+# this literal replaced — that re-validation is the point of pinning it.
+# ─────────────────────────────────────────────────────────────────────────────
+[extend]
+useDefault = true
+
+[allowlist]
+description = "The public Supabase anon key (role=anon, RLS-guarded), exact literal only"
+regexes = [
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0ZHRlaHVxdGluanhyb3Bra2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzI3MjEsImV4cCI6MjA5OTE0ODcyMX0\.qY8BI5LXb6uLzTwbpf8AleZ6UZyfeaOA0q4_TC5CEpo''',
+]
