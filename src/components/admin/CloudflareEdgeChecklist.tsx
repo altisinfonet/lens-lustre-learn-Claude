@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+
   CheckCircle2,
   Circle,
   Copy,
@@ -8,6 +9,9 @@ import {
   RefreshCw,
   XCircle,
 } from "lucide-react";
+
+// Derived from the build environment — never a literal (isolation guard, 2026-08-21).
+const SUPA_REF = (import.meta.env.VITE_SUPABASE_PROJECT_ID as string) || (() => { try { return new URL(import.meta.env.VITE_SUPABASE_URL as string).hostname.split(".")[0]; } catch { return ""; } })();
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -186,9 +190,9 @@ export default function CloudflareEdgeChecklist() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">
           {[
             ["ORIGIN_HOST", "lens-lustre-learn-claude.pages.dev"],
-            ["SUPABASE_PROJECT_REF", "jtdtehuqtinjxropkkcn"],
+            ["SUPABASE_PROJECT_REF", SUPA_REF],
             ["ENABLE_REWRITE", "false"],
-            ["METADATA_FUNCTION_URL", "https://jtdtehuqtinjxropkkcn.functions.supabase.co/seo-route-metadata"],
+            ["METADATA_FUNCTION_URL", `https://${SUPA_REF}.functions.supabase.co/seo-route-metadata`],
           ].map(([k, v]) => (
             <div key={k} className="flex items-center justify-between gap-2 border border-border px-2 py-1.5">
               <div className="min-w-0 flex-1">

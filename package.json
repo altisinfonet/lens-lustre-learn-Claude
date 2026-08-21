@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/generate-redirects.mjs",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -19,7 +19,9 @@
     "ui:shot": "node tools/uishot/capture.mjs",
     "ui:gate": "node tools/uishot/gate.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "gate": "npm run typecheck && npm run test && npm run build"
+    "gate": "npm run typecheck && npm run test && npm run build",
+    "verify:isolation": "node scripts/verify-bundle-isolation.mjs",
+    "test:isolation-guard": "node scripts/test-isolation-guard.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

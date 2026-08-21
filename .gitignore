@@ -26,3 +26,8 @@ dist-ssr
 
 # Screenshots produced by tools/uishot/capture.mjs — build output, not source.
 /ui-shots/
+
+# environment files are never committed (staging isolation, 2026-08-21)
+.env
+.env.local
+.env.*.local
