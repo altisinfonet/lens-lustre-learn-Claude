@@ -1,3 +1,53 @@
+Build 1.2.16 - 2026-08-20 - THE APP WAS THE LAST OPEN WRITE PATH, AND IT WAS GROWING THE DELTA
+
+  typecheck 0 · 2,261 tests pass · production build 0
+  mutation harnesses 58/58, 24/24, 19/19 — all from GREEN baselines
+
+VERSION IS 1.2.16. Build 1110 was cut as 1.2.15 and uploaded to Play as a
+production DRAFT on 2026-08-19; whether it was rolled out or not, the name is
+spent and this is different code.
+
+WHY THIS BUILD EXISTS
+
+At 18:16 UTC today a member published a photograph from the app. It landed
+image_urls-only: no media_objects row, no post_media row, and not one
+MEDIA-4xxx log line. Nothing malfunctioned — the app simply bundles its web
+assets at build time (webDir: dist, no server.url), and every build through
+1110 was cut BEFORE the media write path shipped to main at 15:51 UTC today.
+The member's app executed last week's composer, which does not know the media
+engine exists. media_write_path_delta() flipped delta_growing = TRUE on that
+single post, which is precisely the alarm it was built to raise.
+
+The web channel was fixed and PROVEN the same day (post 98b2d052, private,
+idempotency_key ef03927f — the first post ever to travel the whole path). The
+app channel is the last producer of legacy-only posts that is not a documented
+permanent exclusion (D-006).
+
+WHAT THIS BUILD CARRIES
+
+Today's dist, unchanged from what production web serves (__APP_BUILD
+2026-08-20-2):
+
+  - RED-1 fixed: supabase.rpc called in call position at BOTH write sites,
+    guarded four ways (prototype-bound test mock, regression tests, a
+    repository-wide static scan, MEDIA-4009 at the throw boundary).
+  - The fallback is classified (D-005): unmigratable-slides vs
+    media-path-failed, MEDIA-4010 at ERROR — so if the media path ever fails
+    INSIDE this app, it says so instead of quietly joining the legacy pile.
+  - RED-2 fixed: duplicating a scheduled post preserves privacy, media_ids,
+    indexing_disabled and categories.
+
+No native change. versionCode 1000 + run number, versionName 1.2.16.
+
+WHAT "DONE" MEANS FOR THIS BUILD
+
+Not "it uploaded". After rollout, ONE real member post from the app must show
+post_media + media_objects rows, and delta_growing must return to FALSE. Until
+that is observed in production, Phase 2 stays at 96% and the app channel is
+still the leak.
+
+==============================================================================
+
 Build 1.2.10 - 2026-08-16 - THE CROP DIALOG WAS DEAF, AND EVERY MEASUREMENT I GAVE HIM WAS TRUE AND USELESS
 
   typecheck 0 · 1,865 tests pass · production build 0
