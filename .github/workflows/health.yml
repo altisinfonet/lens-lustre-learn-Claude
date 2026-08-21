@@ -55,4 +55,8 @@ jobs:
       - name: Run the health check
         env:
           DEEP: "1"
+          # .env is no longer committed (isolation guard, 2026-08-21) — the
+          # script's checkout-fallback is gone, so the PUBLIC anon key (the one
+          # in every browser bundle) is supplied here explicitly.
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0ZHRlaHVxdGluanhyb3Bra2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzI3MjEsImV4cCI6MjA5OTE0ODcyMX0.qY8BI5LXb6uLzTwbpf8AleZ6UZyfeaOA0q4_TC5CEpo
         run: node scripts/health-check.mjs

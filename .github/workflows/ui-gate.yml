@@ -109,7 +109,15 @@ jobs:
       # The same single command a person runs locally. A gate invoked one way
       # here and another way on a laptop has two behaviours, and the one that
       # matters is whichever nobody checked.
+      # .env is no longer committed (isolation guard, 2026-08-21). The dev server
+      # needs VITE_* defined or the Supabase client throws at module load and the
+      # sweep sees zero scenes. The sweep is fixture-driven and must never touch a
+      # real backend, so these are the SAME synthetic values vitest.config.ts uses.
       - name: The UI gate
+        env:
+          VITE_SUPABASE_URL: https://testprojectref0000x.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: test-publishable-key-not-real
+          VITE_SUPABASE_PROJECT_ID: testprojectref0000x
         run: npm run ui:gate
 
       # On a failure these are the difference between "it went red" and knowing

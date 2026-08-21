@@ -360,7 +360,14 @@ jobs:
       # server and capture.mjs deliberately does not start one, so the joining
       # lives in tools/uishot/gate.mjs rather than being improvised differently
       # here and on a laptop. A gate invoked two ways has two behaviours.
+      # Synthetic backend env for the sweep — .env is no longer committed, the dev
+      # server needs VITE_* defined, and the fixture-driven sweep must never touch
+      # a real backend. Same values as vitest.config.ts and ui-gate.yml.
       - name: Every control reachable, nothing regressed against the baseline
+        env:
+          VITE_SUPABASE_URL: https://testprojectref0000x.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: test-publishable-key-not-real
+          VITE_SUPABASE_PROJECT_ID: testprojectref0000x
         run: npm run ui:gate
 
       # The screenshots are the evidence. On a failure they are the difference
@@ -516,7 +523,14 @@ jobs:
           check @capawesome/capacitor-app-update 8.0.3
           echo "All native dependencies match the pin."
 
+      # This dist ships inside the APK, so it is built against PRODUCTION —
+      # explicitly, now that .env is no longer committed (isolation guard,
+      # 2026-08-21). Public values, the same ones in every browser bundle.
       - name: Build web app
+        env:
+          VITE_SUPABASE_URL: https://jtdtehuqtinjxropkkcn.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0ZHRlaHVxdGluanhyb3Bra2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzI3MjEsImV4cCI6MjA5OTE0ODcyMX0.qY8BI5LXb6uLzTwbpf8AleZ6UZyfeaOA0q4_TC5CEpo
+          VITE_SUPABASE_PROJECT_ID: jtdtehuqtinjxropkkcn
         run: npm run build
 
       - name: Add Android platform

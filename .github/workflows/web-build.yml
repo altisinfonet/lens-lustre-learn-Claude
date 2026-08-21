@@ -44,7 +44,15 @@ jobs:
       - name: Clean install (what Pages does first)
         run: npm ci --no-audit --no-fund
 
+      # .env is no longer committed (isolation guard, 2026-08-21): every build's
+      # backend is explicit. This lane is production — the values are the PUBLIC
+      # ones already shipped in every browser bundle, and the guard step below
+      # asserts the produced dist actually carries this ref and no other.
       - name: Production build (what Pages does second)
+        env:
+          VITE_SUPABASE_URL: https://jtdtehuqtinjxropkkcn.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0ZHRlaHVxdGluanhyb3Bra2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzI3MjEsImV4cCI6MjA5OTE0ODcyMX0.qY8BI5LXb6uLzTwbpf8AleZ6UZyfeaOA0q4_TC5CEpo
+          VITE_SUPABASE_PROJECT_ID: jtdtehuqtinjxropkkcn
         run: npm run build
 
       # A build that "succeeds" but emits nothing is the same class of lie as a
