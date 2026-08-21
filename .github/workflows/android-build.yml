@@ -21,6 +21,27 @@ name: Android Build
 # Owner: "Final build give me after checking as it will in Public."
 # Owner: "build name give 1102."  -> cut, promoted, live.
 #
+# 2026-08-20 — BUILD 1111 / v1.2.16. THE APP STOPS GROWING THE MEDIA DELTA.
+#
+# WHY THIS BUILD EXISTS. At 18:16 UTC today a member published a photograph
+# from the app and it landed image_urls-only with NO media_objects, NO
+# post_media and NO MEDIA-4xxx log line — because the app bundles its web
+# assets at build time (capacitor webDir: dist, no server.url), and every
+# build up to and including 1110 was cut BEFORE the write path shipped to
+# main (2026-08-20 15:51 UTC, PR #81). The web channel was proven fixed the
+# same day; the app channel kept publishing through the legacy insert,
+# invisibly. media_write_path_delta() flipped delta_growing=TRUE on exactly
+# that post, which is the alarm doing its job.
+#
+# WHAT THIS BUILD CARRIES: today's dist, i.e. the in-call-position supabase.rpc
+# fix at both write sites (RED-1), the classified fallback (MEDIA-4009/4010,
+# D-005), the scheduled-duplicate fix (RED-2, D-006 era), __APP_BUILD
+# 2026-08-20-2. No native change; versionName 1.2.16, versionCode 1000+run.
+#
+# ACCEPTANCE IS BEHAVIOURAL, NOT "IT BUILT": after rollout, ONE real app post
+# must show post_media + media_objects rows and delta_growing must return to
+# FALSE. Until that is observed, Phase 2 stays at 96%.
+#
 # 2026-08-19 — BUILD 1110 / v1.2.15. RE-CUT AGAIN. 1109 hung on apt in exactly
 # the same place as 1107, because the retry added after 1107 could not help:
 # apt does not fail fast, so attempt one outlived the job budget. `--with-deps`
@@ -573,8 +594,12 @@ jobs:
           # whether it was promoted or not, bumping is correct — skipping a
           # name costs nothing, reusing one costs clarity in the Console, in
           # crash reports and on the member's About screen.
-          sed -i 's/versionName "1.0"/versionName "1.2.15"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.15 (1.2.11 / build 1102 went public)"
+          # 2026-08-20: bumped 1.2.15 -> 1.2.16. Build 1110 was cut as 1.2.15
+          # and uploaded to the Play production track as a draft; whether the
+          # owner rolled it out or not, the name is spent. 1.2.16 carries the
+          # media write-path fix (RED-1) — the reason this build exists.
+          sed -i 's/versionName "1.0"/versionName "1.2.16"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.16 (1.2.11 / build 1102 went public)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
