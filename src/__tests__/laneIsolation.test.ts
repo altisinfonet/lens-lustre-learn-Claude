@@ -170,3 +170,45 @@ describe("derived hosts", () => {
     }
   });
 });
+
+describe("substring traps — why the forbidden lists are shaped the way they are", () => {
+  // ⚠ MEASURED, NOT REASONED. The isolation guard matches by substring, and
+  // these seven results are what make a bare apex unusable in a forbidden list
+  // and the scheme-qualified origin usable. A future "simplification" to
+  // matching bare `50mmretina.com` would flag the staging lane's own hosts and
+  // two legitimate email addresses; these rows kill that change rather than let
+  // it merely misbehave. Guard rule R9 refuses a bare apex outright.
+  const rows: Array<[string, string, boolean, string]> = [
+    ["cdn.50mmretina.com", "cdn-staging.50mmretina.com", false, "prod CDN is NOT inside the staging CDN — safe to forbid"],
+    ["www.50mmretina.com", "staging.50mmretina.com", false, "www host is NOT inside the staging origin — safe to forbid"],
+    ["https://50mmretina.com", "https://staging.50mmretina.com", false, "scheme-qualified apex is NOT inside the staging origin — THIS is the usable form"],
+    ["50mmretina.com", "staging.50mmretina.com", true, "TRAP: bare apex matches the staging origin"],
+    ["50mmretina.com", "cdn-staging.50mmretina.com", true, "TRAP: bare apex matches the staging CDN"],
+    ["50mmretina.com", "mail@50mmretina.com", true, "TRAP: bare apex matches an allowed email address"],
+    ["staging.50mmretina.com", "cdn-staging.50mmretina.com", true, "benign overlap: both forbidden in the production lane, but the guard must report WHICH needle matched"],
+  ];
+
+  it.each(rows)("%s in %s -> %s (%s)", (needle, haystack, expected) => {
+    expect(haystack.includes(needle)).toBe(expected);
+  });
+
+  it("the staging lane's forbidden list contains no bare apex", () => {
+    const stagingForbidden = ["cdn.50mmretina.com", "www.50mmretina.com", "https://50mmretina.com"];
+    expect(stagingForbidden).not.toContain("50mmretina.com");
+    // and none of them matches the staging lane's own hosts or the emails
+    for (const own of ["cdn-staging.50mmretina.com", "staging.50mmretina.com", "mail@50mmretina.com", "noreply@50mmretina.com"]) {
+      for (const needle of stagingForbidden) {
+        expect(own.includes(needle)).toBe(false);
+      }
+    }
+  });
+
+  it("the production lane's forbidden list matches neither production host nor the emails", () => {
+    const prodForbidden = ["cdn-staging.50mmretina.com", "staging.50mmretina.com"];
+    for (const own of ["cdn.50mmretina.com", "www.50mmretina.com", "mail@50mmretina.com", "noreply@50mmretina.com"]) {
+      for (const needle of prodForbidden) {
+        expect(own.includes(needle)).toBe(false);
+      }
+    }
+  });
+});

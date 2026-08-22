@@ -25,7 +25,12 @@ const results = [];
  *  So the guard's own variables are stripped from the inherited environment and
  *  each case states everything it needs. Anything not named by a case is absent,
  *  wherever the harness runs. */
-const GUARD_VARS = ["VITE_SUPABASE_URL", "ISOLATION_FORBIDDEN_REFS", "ISOLATION_ALLOW_NO_FORBIDDEN", "ISOLATION_DIST_DIR"];
+const GUARD_VARS = ["VITE_SUPABASE_URL", "ISOLATION_FORBIDDEN_REFS", "ISOLATION_ALLOW_NO_FORBIDDEN", "ISOLATION_DIST_DIR",
+  // Added with the host rules (G5a). EVERY new guard variable must be listed
+  // here: the CI build job now sets these too, and an inherited value would
+  // silently satisfy a case written to test their absence - the exact failure
+  // that turned RED-3 and RED-8 into the wrong assertions on 2026-08-22.
+  "ISOLATION_EXPECTED_HOST", "ISOLATION_FORBIDDEN_HOSTS"];
 function runGuard(guardPath, dist, env) {
   const base = { ...process.env };
   for (const v of GUARD_VARS) delete base[v];
@@ -43,6 +48,13 @@ function fixture(kind) {
   if (kind === "empty")           { /* nothing */ }
   if (kind === "redirects-leak") { put("index.html", `ok https://${STAG}.supabase.co`); put("_redirects", `/sitemap.xml https://${PROD}.supabase.co/functions/v1/sitemap 200`); }
   if (kind === "split-css-js")    { put("assets/style.css", `/* ${STAG} marker: https://${STAG}.supabase.co */`); put("assets/app.js", `const bad="https://${PROD}.supabase.co";`); }
+  // --- host fixtures (G5a) ---
+  if (kind === "host-staging-clean") { put("index.html", `<img src="https://cdn-staging.50mmretina.com/x.jpg">`); put("assets/app.js", `const u="https://${STAG}.supabase.co";const h="https://staging.50mmretina.com";`); }
+  if (kind === "host-staging-leaky") { put("index.html", `<img src="https://cdn-staging.50mmretina.com/x.jpg">`); put("assets/app.js", `const u="https://${STAG}.supabase.co";const bad="https://cdn.50mmretina.com/y.jpg";`); }
+  if (kind === "host-prod-clean")    { put("index.html", `<img src="https://cdn.50mmretina.com/x.jpg">`); put("assets/app.js", `const u="https://${PROD}.supabase.co";const h="https://www.50mmretina.com";`); }
+  if (kind === "host-missing")       { put("index.html", `<html></html>`); put("assets/app.js", `const u="https://${STAG}.supabase.co";`); }
+  // The email addresses a bare-apex forbidden list would wrongly flag.
+  if (kind === "host-staging-emails"){ put("index.html", `<a href="mailto:mail@50mmretina.com">c</a><img src="https://cdn-staging.50mmretina.com/x.jpg">`); put("assets/app.js", `const u="https://${STAG}.supabase.co";const n="noreply@50mmretina.com";`); }
   return d;
 }
 function expect(name, r, wantExit, wantSnippet) {
@@ -51,6 +63,13 @@ function expect(name, r, wantExit, wantSnippet) {
   results.push({ name, ok, exit: r.status, out: out.trim().split("\n").pop() });
   return ok;
 }
+// Real hosts, because the substring traps are properties of these exact strings.
+const PROD_HOST = "cdn.50mmretina.com";
+const STAG_HOST = "cdn-staging.50mmretina.com";
+const PROD_ORIGIN = "https://50mmretina.com";
+const STAG_ORIGIN_HOST = "staging.50mmretina.com";
+const APEX = "50mmretina.com";
+
 const stagingEnv = { VITE_SUPABASE_URL: `https://${STAG}.supabase.co`, ISOLATION_FORBIDDEN_REFS: PROD };
 const prodEnv    = { VITE_SUPABASE_URL: `https://${PROD}.supabase.co`, ISOLATION_FORBIDDEN_REFS: STAG };
 
@@ -69,6 +88,28 @@ expect("GREEN-2 clean production bundle (inverse lane) -> PASS", runGuard(GUARD,
 expect("RED-7 no forbidden refs, no escape hatch -> FAIL R6", runGuard(GUARD, fixture("prod-clean"), { VITE_SUPABASE_URL: `https://${PROD}.supabase.co`, ISOLATION_FORBIDDEN_REFS: "" }), 1, "[R6]");
 expect("RED-8 forbidden var absent entirely -> FAIL R6", runGuard(GUARD, fixture("prod-clean"), { VITE_SUPABASE_URL: `https://${PROD}.supabase.co` }), 1, "[R6]");
 expect("GREEN-3 no forbidden refs WITH explicit escape hatch -> PASS", runGuard(GUARD, fixture("prod-clean"), { VITE_SUPABASE_URL: `https://${PROD}.supabase.co`, ISOLATION_FORBIDDEN_REFS: "", ISOLATION_ALLOW_NO_FORBIDDEN: "1" }), 0, "ISOLATION-GUARD PASS");
+
+// ---- HOST RULES R7-R10, added 2026-08-22 (G5a) ----
+// The lane environments exactly as CI supplies them.
+const stagingHostEnv = { ...stagingEnv, ISOLATION_EXPECTED_HOST: STAG_HOST, ISOLATION_FORBIDDEN_HOSTS: `${PROD_HOST},www.50mmretina.com,${PROD_ORIGIN}` };
+const prodHostEnv    = { ...prodEnv,    ISOLATION_EXPECTED_HOST: PROD_HOST, ISOLATION_FORBIDDEN_HOSTS: `${STAG_HOST},${STAG_ORIGIN_HOST}` };
+
+expect("RED-9 staging bundle containing the production CDN host -> FAIL R8", runGuard(GUARD, fixture("host-staging-leaky"), stagingHostEnv), 1, "[R8]");
+expect("RED-10 expected host absent from the bundle -> FAIL R7", runGuard(GUARD, fixture("host-missing"), stagingHostEnv), 1, "[R7]");
+expect("RED-11 expected host also listed as forbidden -> FAIL R9", runGuard(GUARD, fixture("host-staging-clean"), { ...stagingEnv, ISOLATION_EXPECTED_HOST: STAG_HOST, ISOLATION_FORBIDDEN_HOSTS: `${PROD_HOST},${STAG_HOST}` }), 1, "[R9]");
+expect("RED-12 forbidden hosts empty, no escape hatch -> FAIL R10", runGuard(GUARD, fixture("host-staging-clean"), { ...stagingEnv, ISOLATION_EXPECTED_HOST: STAG_HOST, ISOLATION_FORBIDDEN_HOSTS: "" }), 1, "[R10]");
+expect("RED-13 forbidden-hosts var absent entirely -> FAIL R10", runGuard(GUARD, fixture("host-staging-clean"), { ...stagingEnv, ISOLATION_EXPECTED_HOST: STAG_HOST }), 1, "[R10]");
+// ⚠ THE TRAP, AS A RULE: a bare apex is a parent of the expected host, so it
+// would fail this lane on its own bytes. Refused as misconfiguration, not
+// reported as a leak.
+expect("RED-14 bare apex forbidden while expecting a subdomain -> FAIL R9", runGuard(GUARD, fixture("host-staging-clean"), { ...stagingEnv, ISOLATION_EXPECTED_HOST: STAG_HOST, ISOLATION_FORBIDDEN_HOSTS: APEX }), 1, "[R9]");
+
+expect("GREEN-4 clean staging bundle with host rules -> PASS", runGuard(GUARD, fixture("host-staging-clean"), stagingHostEnv), 0, "ISOLATION-GUARD PASS");
+expect("GREEN-5 clean production bundle with host rules (inverse lane) -> PASS", runGuard(GUARD, fixture("host-prod-clean"), prodHostEnv), 0, "ISOLATION-GUARD PASS");
+// The allowed email addresses must NOT trip the staging lane. This is the case
+// a bare-apex forbidden list would break.
+expect("GREEN-6 staging bundle with mail@/noreply@ addresses -> PASS", runGuard(GUARD, fixture("host-staging-emails"), stagingHostEnv), 0, "ISOLATION-GUARD PASS");
+expect("GREEN-7 host rules inactive when no expected host is named -> PASS", runGuard(GUARD, fixture("staging-clean"), stagingEnv), 0, "host rules inactive");
 
 if (results.some(r => !r.ok)) { report(); console.error("\nBASELINE RED — refusing to run mutations over a failing baseline."); process.exit(1); }
 
@@ -90,6 +131,24 @@ const killMutations = [
   ["W7 R6 downgraded back to a warning",
      src.replace(/if \(forbidden\.length === 0 && process\.env\.ISOLATION_ALLOW_NO_FORBIDDEN !== "1"\)\n  fail\("R6",[^;]*;/, 'if (false) fail("R6", "disarmed");'),
      g => runGuard(g, fixture("prod-clean"), { VITE_SUPABASE_URL: `https://${PROD}.supabase.co`, ISOLATION_FORBIDDEN_REFS: "" }).status === 0],
+
+  // --- host rules R7-R10 (G5a). One kill mutation per rule, plus the trap. ---
+  ["W8 R7 removed - expected host never checked",
+     src.replace('if (!expectedHostSeen) fail("R7"', 'if (false) fail("R7"'),
+     g => runGuard(g, fixture("host-missing"), stagingHostEnv).status === 0],
+  ["W9 R8's forbidden-host scan removed",
+     src.replace("for (const h of forbiddenHosts) if (body.includes(h)) hostLeaks.push", "for (const h of forbiddenHosts) if (false) hostLeaks.push"),
+     g => runGuard(g, fixture("host-staging-leaky"), stagingHostEnv).status === 0],
+  ["W11 R10 downgraded to a warning, exactly as W7 does for R6",
+     src.replace(/if \(forbiddenHosts\.length === 0 && process\.env\.ISOLATION_ALLOW_NO_FORBIDDEN !== "1"\)\n    fail\("R10",[^;]*;/, 'if (false) fail("R10", "disarmed");'),
+     g => runGuard(g, fixture("host-staging-clean"), { ...stagingEnv, ISOLATION_EXPECTED_HOST: STAG_HOST, ISOLATION_FORBIDDEN_HOSTS: "" }).status === 0],
+  // ⚠ THE TRAP AS A MUTANT. Replacing the apex guard with permissive matching
+  // lets a bare apex into the forbidden list, where it matches the staging
+  // lane's OWN host - the clean staging bundle then fails on its own bytes.
+  // Killed by that false failure, not by an escape.
+  ["W12 apex guard removed - bare apex accepted into the forbidden list",
+     src.replace("    if (expectedHost.endsWith(`.${h}`))", "    if (false)"),
+     g => !((runGuard(g, fixture("host-staging-clean"), { ...stagingEnv, ISOLATION_EXPECTED_HOST: STAG_HOST, ISOLATION_FORBIDDEN_HOSTS: APEX }).stderr || "").includes("[R9]"))],
 ];
 // EQUIVALENT-REDUNDANT mutations (W4/W5): R2 backstops them, so the end state cannot change.
 // Per standing rule 9 the target is RETARGETED, invariant restated: under these mutations the
@@ -98,6 +157,16 @@ const failClosedMutations = [
   ["W4 empty-dist rule dropped -> must still fail closed (via R2 backstop)",
      src.replace('if (files.length === 0) fail("R4"', 'if (false) fail("R4"'),
      g => runGuard(g, fixture("empty"), stagingEnv).status !== 0],
+  // ⚠ W10 RETARGETED, NOT DELETED (standing rule 9). It was written as a kill:
+  // "drop R9 and a misconfigured lane sails through". Measured, it does not -
+  // with R9 gone the run still refuses, via R8 when the expected host is present
+  // and via R7 when it is absent. R9 is a DIAGNOSTIC rule, exactly like R5 for
+  // refs: it turns a confusing downstream failure into one that names the
+  // misconfiguration. The invariant it protects is therefore not "a hole opens"
+  // but "the guard still refuses" - which is what this now asserts.
+  ["W10 R9 dropped -> a lane forbidding its own host must STILL fail closed (via R8/R7)",
+     src.replace('if (forbiddenHosts.includes(expectedHost))\n    fail("R9"', 'if (false)\n    fail("R9"'),
+     g => runGuard(g, fixture("host-staging-clean"), { ...stagingEnv, ISOLATION_EXPECTED_HOST: STAG_HOST, ISOLATION_FORBIDDEN_HOSTS: `${PROD_HOST},${STAG_HOST}` }).status !== 0],
   ["W5 URL validation loosened -> garbage URL must still fail closed (via R2 backstop)",
      src.replace(/const m = url.match\([^\n]+\);/, 'const m = ["", url.replace(/[^a-z0-9]/g, "").slice(0,20) || "x"];'),
      g => runGuard(g, fixture("staging-clean"), { VITE_SUPABASE_URL: "http://evil.example", ISOLATION_FORBIDDEN_REFS: PROD }).status !== 0],

@@ -87,6 +87,10 @@ jobs:
       # the one that matters most - was running with it switched off. R6 now
       # refuses an empty list outright, so this cannot silently regress.
       ISOLATION_FORBIDDEN_REFS: ztzutckwdhetphwghuzj
+      # Host rules (G5a). R1-R6 police the Supabase ref only, so a bundle could
+      # name the wrong CDN or origin and pass all of them.
+      ISOLATION_EXPECTED_HOST: cdn.50mmretina.com
+      ISOLATION_FORBIDDEN_HOSTS: cdn-staging.50mmretina.com,staging.50mmretina.com
     steps:
       - uses: actions/checkout@v4
 
@@ -140,6 +144,13 @@ jobs:
       VITE_CDN_HOST: cdn-staging.50mmretina.com
       VITE_SITE_ORIGIN: https://staging.50mmretina.com
       ISOLATION_FORBIDDEN_REFS: jtdtehuqtinjxropkkcn
+      # ⚠ THE APEX IS FORBIDDEN SCHEME-QUALIFIED, NEVER BARE. Matching is
+      # substring: bare `50mmretina.com` is inside `staging.50mmretina.com`,
+      # `cdn-staging.50mmretina.com` AND `mail@50mmretina.com`, so it would flag
+      # this lane's own hosts and two legitimate addresses. R9 refuses a bare
+      # apex outright rather than letting it misfire.
+      ISOLATION_EXPECTED_HOST: cdn-staging.50mmretina.com
+      ISOLATION_FORBIDDEN_HOSTS: cdn.50mmretina.com,www.50mmretina.com,https://50mmretina.com
     steps:
       - uses: actions/checkout@v4
 
