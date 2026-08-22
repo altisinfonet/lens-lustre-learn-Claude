@@ -33,8 +33,13 @@ name: UI gate
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
+    branches: [main, staging]
+
+# The sweep reads the repository and writes nothing back.
+permissions:
+  contents: read
 
 jobs:
   ui-gate:

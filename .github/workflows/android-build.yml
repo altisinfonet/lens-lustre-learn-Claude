@@ -385,6 +385,16 @@ jobs:
     needs: [security-gate, ui-gate]
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # This job consumes the signing and Play secrets, and what it produces is
+    # installed on members' phones — it is a production job by definition.
+    #
+    # ⚠ THE DECLARATION IS AHEAD OF THE MOVE, DELIBERATELY. The five Android/Play
+    # secrets are still repository-level today, so they resolve with or without
+    # this line and nothing changes yet. The moment they are moved into the
+    # production Environment, this is what keeps the job working — and what stops
+    # any other job reaching them. Declaring it first means the move is a
+    # one-step change with no window where the build is broken.
+    environment: production
     env:
       PLAY_SA: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
     steps:

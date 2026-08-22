@@ -54,6 +54,13 @@ name: Apply a database migration
 on:
   workflow_dispatch:
     inputs:
+      target:
+        description: "Which database. staging = ztzutckwdhetphwghuzj, production = jtdtehuqtinjxropkkcn."
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
       migration:
         description: "Path under supabase/migrations/ or supabase/rollback/ — e.g. supabase/migrations/20260813120000_feed_author_identity.sql"
         required: true
@@ -63,22 +70,49 @@ on:
         required: true
         type: string
 
-# Two dispatches must never overlap on the same database.
+# Two dispatches must never overlap on the same database — but staging and
+# production are different databases, so they need not wait for each other.
 concurrency:
-  group: apply-migration
+  group: apply-migration-${{ inputs.target }}
   cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   apply:
-    name: Apply SQL to production
+    name: Apply SQL to ${{ inputs.target }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Uncomment to require a human approval on every run (see the header):
-    # environment: production
+    # The Environment supplies the credential, and its branch restriction is the
+    # outer fence: production is bound to main, staging to staging. The two gates
+    # in the first steps below are the inner fences, because a branch restriction
+    # cannot tell you which database a secret actually points at.
+    environment: ${{ inputs.target }}
     env:
       DB_URL: ${{ secrets.SUPABASE_DB_URL }}
     steps:
       - uses: actions/checkout@v4
+
+      # ⚠ LANE GATE. The Environment is already branch-restricted, so this is a
+      # second, independent check — and the one that produces a readable error
+      # instead of a confusing "environment not accessible". Belt and braces on
+      # the question "should this branch be allowed to touch this database?".
+      - name: The branch must match the target
+        run: |
+          set -euo pipefail
+          TARGET='${{ inputs.target }}'
+          REF='${{ github.ref_name }}'
+          case "$TARGET" in
+            production) WANT=main ;;
+            staging)    WANT=staging ;;
+            *) echo "::error::Unknown target '$TARGET'."; exit 1 ;;
+          esac
+          if [ "$REF" != "$WANT" ]; then
+            echo "::error::target='$TARGET' must be dispatched from '$WANT', but this run is on '$REF'. Refusing."
+            exit 1
+          fi
+          echo "Lane OK: target='$TARGET' dispatched from '$REF'."
 
       # The secret is checked FIRST so a missing one costs two seconds and says
       # plainly what to do, rather than failing later inside psql with
@@ -90,6 +124,42 @@ jobs:
             exit 1
           fi
           echo "Credential present. Its value is never printed by this workflow."
+
+      # ⚠ REF ASSERTION — THE GATE THAT ACTUALLY PROTECTS PRODUCTION.
+      #
+      # Everything else here checks INTENT: which branch, which environment,
+      # which typed path. None of them can see where the credential POINTS. A
+      # staging Environment holding a production connection string satisfies
+      # every other control in this file and then drops the migration on live
+      # member data. One wrong paste, no warning.
+      #
+      # So the project ref is parsed out of the connection string's username
+      # (Supabase poolers use `postgres.<ref>`) and compared against the target.
+      # The ref is public — it is in every browser bundle — so printing it costs
+      # nothing. $DB_URL itself is never echoed.
+      - name: The credential must point at the target database
+        run: |
+          set -euo pipefail
+          REF=$(printf '%s' "$DB_URL" | sed -E 's|^postgres(ql)?://([^:]+):.*|\2|' | cut -d. -f2)
+          case '${{ inputs.target }}' in
+            production) EXPECT=jtdtehuqtinjxropkkcn ;;
+            staging)    EXPECT=ztzutckwdhetphwghuzj ;;
+            *) echo "::error::Unknown target '${{ inputs.target }}'."; exit 1 ;;
+          esac
+          # A DIRECT (non-pooler) URI has username `postgres` with no `.<ref>`,
+          # so this parses to "postgres", matches neither target, and the run is
+          # refused. That is the correct direction to fail in: the pooler string
+          # is what both Environments hold, and a shape this gate cannot read is
+          # a shape it must not wave through.
+          if [ -z "$REF" ]; then
+            echo "::error::Could not parse a project ref from the credential. Expected a postgres://postgres.<ref>:... pooler connection string. Refusing rather than guessing."
+            exit 1
+          fi
+          if [ "$REF" != "$EXPECT" ]; then
+            echo "::error::secret points at '$REF', target is '${{ inputs.target }}' — refusing"
+            exit 1
+          fi
+          echo "Credential points at '$REF', which matches target '${{ inputs.target }}'."
 
       # ⚠ PATH VALIDATION IS A SECURITY CONTROL, NOT TIDINESS.
       #

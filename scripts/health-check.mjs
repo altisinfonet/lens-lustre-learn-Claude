@@ -60,8 +60,6 @@
  * wolf — which is the one thing that makes it useless.
  */
 
-import { readFileSync } from "node:fs";
-
 const SUPABASE_URL = "https://jtdtehuqtinjxropkkcn.supabase.co";
 
 /**
@@ -86,16 +84,13 @@ function readAnonKey() {
   const fromEnv =
     process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   if (fromEnv) return fromEnv.trim();
-  try {
-    const env = readFileSync(new URL("../.env", import.meta.url), "utf8");
-    const m = env.match(/VITE_SUPABASE_PUBLISHABLE_KEY\s*=\s*"?([^"\n\r]+)"?/);
-    if (m) return m[1].trim();
-  } catch {
-    /* not running from a checkout */
-  }
+  // The .env fallback that used to sit here was deleted on 2026-08-22. The file
+  // it read no longer exists (isolation guard, PR #87), so the branch was dead —
+  // and worse, it was a re-introduction path: restoring .env would silently give
+  // this script a backend again instead of failing loudly.
   console.log(
     "CANNOT RUN — no Supabase key available.\n" +
-      "  Set SUPABASE_ANON_KEY, or run from a repository checkout so .env can be read.\n" +
+      "  Set SUPABASE_ANON_KEY (health.yml supplies it explicitly).\n" +
       "  (This is the PUBLIC anon key, the one already in the browser bundle.)",
   );
   process.exit(2);

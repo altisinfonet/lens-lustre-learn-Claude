@@ -19,10 +19,15 @@ name: Security
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
-    branches: [main]
+    branches: [main, staging]
   workflow_dispatch:
+
+# Least privilege. gitleaks-action reads the history and annotates the run; it
+# needs nothing else, and a scanner is the last place to hand out write scopes.
+permissions:
+  contents: read
 
 jobs:
   project-rules:

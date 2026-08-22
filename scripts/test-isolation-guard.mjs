@@ -48,6 +48,12 @@ expect("RED-5 expected ref also forbidden -> FAIL R5", runGuard(GUARD, fixture("
 expect("RED-6 leak in extensionless _redirects -> FAIL R3", runGuard(GUARD, fixture("redirects-leak"), stagingEnv), 1, "[R3]");
 expect("GREEN-1 clean staging bundle -> PASS", runGuard(GUARD, fixture("staging-clean"), stagingEnv), 0, "ISOLATION-GUARD PASS");
 expect("GREEN-2 clean production bundle (inverse lane) -> PASS", runGuard(GUARD, fixture("prod-clean"), prodEnv), 0, "ISOLATION-GUARD PASS");
+// R6, added 2026-08-22. An empty forbidden list used to be a warning, and the
+// production lane shipped with exactly that - so the only rule that can see a
+// cross-environment leak was switched off in the lane that matters most.
+expect("RED-7 no forbidden refs, no escape hatch -> FAIL R6", runGuard(GUARD, fixture("prod-clean"), { VITE_SUPABASE_URL: `https://${PROD}.supabase.co`, ISOLATION_FORBIDDEN_REFS: "" }), 1, "[R6]");
+expect("RED-8 forbidden var absent entirely -> FAIL R6", runGuard(GUARD, fixture("prod-clean"), { VITE_SUPABASE_URL: `https://${PROD}.supabase.co` }), 1, "[R6]");
+expect("GREEN-3 no forbidden refs WITH explicit escape hatch -> PASS", runGuard(GUARD, fixture("prod-clean"), { VITE_SUPABASE_URL: `https://${PROD}.supabase.co`, ISOLATION_FORBIDDEN_REFS: "", ISOLATION_ALLOW_NO_FORBIDDEN: "1" }), 0, "ISOLATION-GUARD PASS");
 
 if (results.some(r => !r.ok)) { report(); console.error("\nBASELINE RED — refusing to run mutations over a failing baseline."); process.exit(1); }
 
@@ -63,6 +69,12 @@ const killMutations = [
      g => runGuard(g, fixture("staging-leaky"), stagingEnv).status === 0],
   ["W6 scan scope narrowed to .css only",  src.replace(/const TEXT_EXT = new Set\(\[[^\]]*\]\);/, 'const TEXT_EXT = new Set([".css"]);'),
      g => runGuard(g, fixture("split-css-js"), stagingEnv).status === 0],
+  // W7: R6 reverted to the warning it used to be. The mutant lets a lane that
+  // forbids nothing build cleanly - precisely the state the production lane was
+  // in before 2026-08-22 - so the harness must catch the escape.
+  ["W7 R6 downgraded back to a warning",
+     src.replace(/if \(forbidden\.length === 0 && process\.env\.ISOLATION_ALLOW_NO_FORBIDDEN !== "1"\)\n  fail\("R6",[^;]*;/, 'if (false) fail("R6", "disarmed");'),
+     g => runGuard(g, fixture("prod-clean"), { VITE_SUPABASE_URL: `https://${PROD}.supabase.co`, ISOLATION_FORBIDDEN_REFS: "" }).status === 0],
 ];
 // EQUIVALENT-REDUNDANT mutations (W4/W5): R2 backstops them, so the end state cannot change.
 // Per standing rule 9 the target is RETARGETED, invariant restated: under these mutations the
