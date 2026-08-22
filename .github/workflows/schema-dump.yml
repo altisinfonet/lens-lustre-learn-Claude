@@ -90,22 +90,49 @@ jobs:
 
       - name: GUARD + VALIDATION COUNTS
         run: |
+          set -euo pipefail
           if grep -qiE '^(COPY [^ ]+ .*FROM stdin|INSERT INTO )' prod_public_schema.sql; then
             echo "::error::dump contains row data — refusing"; exit 1; fi
-          echo "=== VALIDATION COUNTS ==="
-          echo "bytes:        $(wc -c < prod_public_schema.sql)"
-          echo "sha256:       $(sha256sum prod_public_schema.sql | cut -d' ' -f1)"
-          echo "CREATE TABLE: $(grep -c '^CREATE TABLE' prod_public_schema.sql)"
-          echo "FUNCTIONS:    $(grep -cE '^CREATE (OR REPLACE )?FUNCTION' prod_public_schema.sql)"
-          echo "POLICIES:     $(grep -c '^CREATE POLICY' prod_public_schema.sql)"
-          echo "INDEXES:      $(grep -cE '^CREATE (UNIQUE )?INDEX' prod_public_schema.sql)"
-          echo "TRIGGERS:     $(grep -c '^CREATE TRIGGER' prod_public_schema.sql)"
-          echo "VIEWS:        $(grep -cE '^CREATE (OR REPLACE )?VIEW' prod_public_schema.sql)"
-          echo "SEQUENCES:    $(grep -c '^CREATE SEQUENCE' prod_public_schema.sql)"
-          echo "EXTENSIONS:   $(grep -c '^CREATE EXTENSION' prod_public_schema.sql)"
-          echo "RLS ENABLE:   $(grep -c 'ENABLE ROW LEVEL SECURITY' prod_public_schema.sql)"
-          echo "ALTER TABLE:  $(grep -c '^ALTER TABLE' prod_public_schema.sql)"
-          echo "GRANTS:       $(grep -c '^GRANT ' prod_public_schema.sql)"
+
+          SHA=$(sha256sum prod_public_schema.sql | cut -d' ' -f1)
+          PINNED=e675ca950d8b4a771e8baf1f8356b82e8db10139b95f59aacab9de5bb390e946
+          if [ "$SHA" = "$PINNED" ]; then
+            echo "::notice::BYTE-IDENTICAL to run-4 artifact — counts below describe that exact file"
+          else
+            echo "::warning::sha256 differs from run 4 ($SHA). Either production schema changed or the CLI version moved. Do NOT proceed to apply until explained."
+          fi
+
+          # Supabase CLI rewrites 'CREATE TRIGGER "' -> 'CREATE OR REPLACE TRIGGER "'.
+          # Anchoring on '^CREATE TRIGGER' can never match. This is the corrected counter.
+          grep -E '^CREATE (OR REPLACE )?TRIGGER ' prod_public_schema.sql \
+            | sed -E 's/^CREATE (OR REPLACE )?TRIGGER "([^"]+)".* ON "public"\."([^"]+)".*/\2|\3/' \
+            | LC_ALL=C sort > /tmp/tg_pairs.txt
+          TG_COUNT=$(wc -l < /tmp/tg_pairs.txt)
+          TG_DIGEST=$(printf '%s' "$(cat /tmp/tg_pairs.txt)" | md5sum | cut -d' ' -f1)
+          CONSTRAINT_TG=$(grep -cE '^CREATE CONSTRAINT TRIGGER ' prod_public_schema.sql || true)
+
+          echo "=== VALIDATION COUNTS (corrected) ==="
+          echo "bytes:          $(wc -c < prod_public_schema.sql)"
+          echo "sha256:         $SHA"
+          echo "CREATE TABLE:   $(grep -c '^CREATE TABLE' prod_public_schema.sql)"
+          echo "FUNCTIONS:      $(grep -cE '^CREATE (OR REPLACE )?FUNCTION' prod_public_schema.sql)"
+          echo "POLICIES:       $(grep -c '^CREATE POLICY' prod_public_schema.sql)"
+          echo "INDEXES:        $(grep -cE '^CREATE (UNIQUE )?INDEX' prod_public_schema.sql)"
+          echo "TRIGGERS:       $TG_COUNT            # expect 148"
+          echo "TRIGGER DIGEST: $TG_DIGEST   # expect d289eafea3cb2c73094a2bd1c3d338fd"
+          echo "CONSTRAINT TRG: $CONSTRAINT_TG            # expect 0"
+          echo "VIEWS:          $(grep -cE '^CREATE (OR REPLACE )?VIEW' prod_public_schema.sql)"
+          echo "SEQUENCES:      $(grep -c '^CREATE SEQUENCE' prod_public_schema.sql)"
+          echo "EXTENSIONS:     $(grep -c '^CREATE EXTENSION' prod_public_schema.sql)"
+          echo "RLS ENABLE:     $(grep -c 'ENABLE ROW LEVEL SECURITY' prod_public_schema.sql)"
+          echo "ALTER TABLE:    $(grep -c '^ALTER TABLE' prod_public_schema.sql)"
+          echo "GRANTS:         $(grep -c '^GRANT ' prod_public_schema.sql)"
+
+          FAIL=0
+          [ "$TG_COUNT" = "148" ] || { echo "::error::TRIGGERS $TG_COUNT != 148"; FAIL=1; }
+          [ "$TG_DIGEST" = "d289eafea3cb2c73094a2bd1c3d338fd" ] || { echo "::error::trigger set digest mismatch"; FAIL=1; }
+          [ "$CONSTRAINT_TG" = "0" ] || { echo "::error::unexpected CREATE CONSTRAINT TRIGGER lines"; FAIL=1; }
+          exit $FAIL
 
       - uses: actions/upload-artifact@v4
         with:
