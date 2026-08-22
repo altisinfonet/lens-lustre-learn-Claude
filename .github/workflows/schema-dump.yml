@@ -2,9 +2,10 @@
 # workflow_dispatch is unusable here: GitHub registers dispatchable workflows
 # only from the DEFAULT branch, and this file must never reach main.
 #
-# The secret holds ONLY the password. The connection string is assembled and
-# percent-encoded here, because a hand-built URI in the secret failed to parse
-# (run 32553680478) and that failure mode is not worth keeping.
+# SUPABASE_DB_URL is the only credential secret that exists (proven: run
+# 32553680478 rendered it as ***, while SUPABASE_DB_PASSWORD rendered empty in
+# runs 32554555368 attempts 1 and 2). Whatever shape it holds is normalised in
+# the runner rather than guessed at from outside.
 name: Schema dump (tool branch, artifact only)
 on:
   push:
@@ -18,26 +19,70 @@ jobs:
       - uses: supabase/setup-cli@v1
         with: { version: latest }
 
-      - name: Build connection string from password-only secret
+      - name: Normalise whatever SUPABASE_DB_URL contains into a valid URI
         env:
-          PGPW: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          RAW: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          test -n "$PGPW" || { echo "::error::SUPABASE_DB_PASSWORD is not set"; exit 1; }
-          # strip any accidental surrounding whitespace/newlines
-          CLEAN=$(printf '%s' "$PGPW" | tr -d '\r\n')
-          # NOTE: the password is handed to python through the ENVIRONMENT, not a
-          # herestring. `<<<` appends a newline that sys.stdin.read() would keep,
-          # and the encoder would faithfully turn it into a trailing %0A — a wrong
-          # password every time, failing as an auth error rather than a visible bug.
-          ENC=$(CLEAN="$CLEAN" python3 -c "import os,urllib.parse;print(urllib.parse.quote(os.environ['CLEAN'],safe=''))")
-          # diagnostics that reveal nothing sensitive:
-          echo "password length: ${#CLEAN}"
-          if [ "$ENC" = "$CLEAN" ]; then echo "encoding: no special characters"; else echo "encoding: special characters were percent-encoded"; fi
-          DB_URL="postgresql://postgres.jtdtehuqtinjxropkkcn:${ENC}@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres"
+          test -n "$RAW" || { echo "::error::SUPABASE_DB_URL is empty"; exit 1; }
+          OUT=$(python3 - <<'PY'
+          import os, urllib.parse
+          HOST = "aws-1-ap-northeast-2.pooler.supabase.com"
+          PORT = "5432"
+          USER = "postgres.jtdtehuqtinjxropkkcn"   # production, hardcoded on purpose
+          DB   = "postgres"
+
+          raw = os.environ["RAW"]
+          raw = raw.replace("\r", "").replace("\n", "").strip()
+          # strip one layer of surrounding quotes if present
+          for q in ('"', "'"):
+              if len(raw) >= 2 and raw.startswith(q) and raw.endswith(q):
+                  raw = raw[1:-1].strip()
+
+          mode = ""
+          pw = ""
+          if raw.startswith("postgresql://") or raw.startswith("postgres://"):
+              body = raw.split("://", 1)[1]
+              mode = "uri"
+          elif "@" in raw and "pooler" in raw:
+              body = raw
+              mode = "uri-missing-scheme"
+          else:
+              body = None
+              mode = "raw-password"
+
+          if body is None:
+              pw = raw
+          else:
+              creds, _host = body.rsplit("@", 1)       # last @ separates creds from host
+              if ":" in creds:
+                  _user, pw = creds.split(":", 1)      # first : after user separates password
+              else:
+                  _user, pw = creds, ""
+              # if the password looks already percent-encoded, decode once so we don't double-encode
+              if "%" in pw:
+                  try:
+                      dec = urllib.parse.unquote(pw)
+                      if urllib.parse.quote(dec, safe="") == pw:
+                          pw = dec
+                  except Exception:
+                      pass
+
+          if not pw:
+              print("DIAG|empty-password|0|" + mode)
+              raise SystemExit(3)
+
+          enc = urllib.parse.quote(pw, safe="")
+          url = f"postgresql://{USER}:{enc}@{HOST}:{PORT}/{DB}"
+          print("DIAG|" + mode + "|" + str(len(pw)) + "|" + ("specials" if enc != pw else "plain"))
+          print("URL|" + url)
+          PY
+          ) || { echo "::error::normaliser failed (empty or unusable password)"; echo "$OUT"; exit 1; }
+          DIAG=$(printf '%s\n' "$OUT" | grep '^DIAG|')
+          DB_URL=$(printf '%s\n' "$OUT" | grep '^URL|' | cut -d'|' -f2-)
           echo "::add-mask::$DB_URL"
-          echo "::add-mask::$ENC"
+          echo "diagnostics (no secret content): $DIAG"
           echo "DB_URL=$DB_URL" >> "$GITHUB_ENV"
-          echo "URI shape OK: postgresql://postgres.jtdtehuqtinjxropkkcn:<masked>@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres"
+          echo "normalised OK -> postgresql://postgres.jtdtehuqtinjxropkkcn:<masked>@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres"
 
       - name: Dump production schema (NO DATA)
         run: |
