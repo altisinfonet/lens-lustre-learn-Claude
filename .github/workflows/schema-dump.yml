@@ -1,6 +1,10 @@
 # A push to this throwaway tool branch is the manual act that runs it.
 # workflow_dispatch is unusable here: GitHub registers dispatchable workflows
 # only from the DEFAULT branch, and this file must never reach main.
+#
+# The secret holds ONLY the password. The connection string is assembled and
+# percent-encoded here, because a hand-built URI in the secret failed to parse
+# (run 32553680478) and that failure mode is not worth keeping.
 name: Schema dump (tool branch, artifact only)
 on:
   push:
@@ -12,32 +16,52 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-      - name: Dump production schema (NO DATA)
+        with: { version: latest }
+
+      - name: Build connection string from password-only secret
         env:
-          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGPW: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          test -n "$DB_URL" || { echo "::error::SUPABASE_DB_URL is not set"; exit 1; }
+          test -n "$PGPW" || { echo "::error::SUPABASE_DB_PASSWORD is not set"; exit 1; }
+          # strip any accidental surrounding whitespace/newlines
+          CLEAN=$(printf '%s' "$PGPW" | tr -d '\r\n')
+          # NOTE: the password is handed to python through the ENVIRONMENT, not a
+          # herestring. `<<<` appends a newline that sys.stdin.read() would keep,
+          # and the encoder would faithfully turn it into a trailing %0A — a wrong
+          # password every time, failing as an auth error rather than a visible bug.
+          ENC=$(CLEAN="$CLEAN" python3 -c "import os,urllib.parse;print(urllib.parse.quote(os.environ['CLEAN'],safe=''))")
+          # diagnostics that reveal nothing sensitive:
+          echo "password length: ${#CLEAN}"
+          if [ "$ENC" = "$CLEAN" ]; then echo "encoding: no special characters"; else echo "encoding: special characters were percent-encoded"; fi
+          DB_URL="postgresql://postgres.jtdtehuqtinjxropkkcn:${ENC}@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres"
+          echo "::add-mask::$DB_URL"
+          echo "::add-mask::$ENC"
+          echo "DB_URL=$DB_URL" >> "$GITHUB_ENV"
+          echo "URI shape OK: postgresql://postgres.jtdtehuqtinjxropkkcn:<masked>@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres"
+
+      - name: Dump production schema (NO DATA)
+        run: |
           supabase db dump --db-url "$DB_URL" -f prod_public_schema.sql
-      - name: GUARD — refuse to publish anything containing row data
+
+      - name: GUARD + VALIDATION COUNTS
         run: |
           if grep -qiE '^(COPY [^ ]+ .*FROM stdin|INSERT INTO )' prod_public_schema.sql; then
             echo "::error::dump contains row data — refusing"; exit 1; fi
           echo "=== VALIDATION COUNTS ==="
-          echo "bytes: $(wc -c < prod_public_schema.sql)"
-          echo "sha256: $(sha256sum prod_public_schema.sql | cut -d' ' -f1)"
+          echo "bytes:        $(wc -c < prod_public_schema.sql)"
+          echo "sha256:       $(sha256sum prod_public_schema.sql | cut -d' ' -f1)"
           echo "CREATE TABLE: $(grep -c '^CREATE TABLE' prod_public_schema.sql)"
-          echo "FUNCTIONS: $(grep -cE '^CREATE (OR REPLACE )?FUNCTION' prod_public_schema.sql)"
-          echo "POLICIES: $(grep -c '^CREATE POLICY' prod_public_schema.sql)"
-          echo "INDEXES: $(grep -cE '^CREATE (UNIQUE )?INDEX' prod_public_schema.sql)"
-          echo "TRIGGERS: $(grep -c '^CREATE TRIGGER' prod_public_schema.sql)"
-          echo "VIEWS: $(grep -cE '^CREATE (OR REPLACE )?VIEW' prod_public_schema.sql)"
-          echo "SEQUENCES: $(grep -c '^CREATE SEQUENCE' prod_public_schema.sql)"
-          echo "EXTENSIONS: $(grep -c '^CREATE EXTENSION' prod_public_schema.sql)"
-          echo "RLS ENABLE: $(grep -c 'ENABLE ROW LEVEL SECURITY' prod_public_schema.sql)"
-          echo "ALTER TABLE: $(grep -c '^ALTER TABLE' prod_public_schema.sql)"
-          echo "GRANTS: $(grep -c '^GRANT ' prod_public_schema.sql)"
+          echo "FUNCTIONS:    $(grep -cE '^CREATE (OR REPLACE )?FUNCTION' prod_public_schema.sql)"
+          echo "POLICIES:     $(grep -c '^CREATE POLICY' prod_public_schema.sql)"
+          echo "INDEXES:      $(grep -cE '^CREATE (UNIQUE )?INDEX' prod_public_schema.sql)"
+          echo "TRIGGERS:     $(grep -c '^CREATE TRIGGER' prod_public_schema.sql)"
+          echo "VIEWS:        $(grep -cE '^CREATE (OR REPLACE )?VIEW' prod_public_schema.sql)"
+          echo "SEQUENCES:    $(grep -c '^CREATE SEQUENCE' prod_public_schema.sql)"
+          echo "EXTENSIONS:   $(grep -c '^CREATE EXTENSION' prod_public_schema.sql)"
+          echo "RLS ENABLE:   $(grep -c 'ENABLE ROW LEVEL SECURITY' prod_public_schema.sql)"
+          echo "ALTER TABLE:  $(grep -c '^ALTER TABLE' prod_public_schema.sql)"
+          echo "GRANTS:       $(grep -c '^GRANT ' prod_public_schema.sql)"
+
       - uses: actions/upload-artifact@v4
         with:
           name: prod-schema
