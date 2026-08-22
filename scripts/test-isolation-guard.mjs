@@ -13,9 +13,24 @@ const GUARD = new URL("./verify-bundle-isolation.mjs", import.meta.url).pathname
 const PROD = "jtdtehuqtinjxropkkcn";
 const STAG = "stgabcdefghijklmnopq"; // synthetic 20-char staging ref
 const results = [];
+/** ⚠ THE HARNESS MUST BE HERMETIC, AND ONCE WAS NOT.
+ *
+ *  Several cases test what the guard does when a variable is ABSENT. Inheriting
+ *  process.env makes that untestable the moment something upstream sets it: the
+ *  lane-aware build job carries VITE_SUPABASE_URL and ISOLATION_FORBIDDEN_REFS
+ *  at job level, and on 2026-08-22 those leaked in and turned RED-3 into an R2
+ *  and RED-8 into an R5 — two cases quietly asserting the wrong rule, on a
+ *  harness whose whole job is to notice exactly that.
+ *
+ *  So the guard's own variables are stripped from the inherited environment and
+ *  each case states everything it needs. Anything not named by a case is absent,
+ *  wherever the harness runs. */
+const GUARD_VARS = ["VITE_SUPABASE_URL", "ISOLATION_FORBIDDEN_REFS", "ISOLATION_ALLOW_NO_FORBIDDEN", "ISOLATION_DIST_DIR"];
 function runGuard(guardPath, dist, env) {
+  const base = { ...process.env };
+  for (const v of GUARD_VARS) delete base[v];
   return spawnSync(process.execPath, [guardPath], {
-    env: { ...process.env, ISOLATION_DIST_DIR: dist, ...env }, encoding: "utf8" });
+    env: { ...base, ISOLATION_DIST_DIR: dist, ...env }, encoding: "utf8" });
 }
 function fixture(kind) {
   const d = mkdtempSync(join(tmpdir(), "dist-"));
