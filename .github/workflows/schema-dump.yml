@@ -14,6 +14,8 @@ jobs:
   dump:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
@@ -133,6 +135,25 @@ jobs:
           [ "$TG_DIGEST" = "d289eafea3cb2c73094a2bd1c3d338fd" ] || { echo "::error::trigger set digest mismatch"; FAIL=1; }
           [ "$CONSTRAINT_TG" = "0" ] || { echo "::error::unexpected CREATE CONSTRAINT TRIGGER lines"; FAIL=1; }
           exit $FAIL
+
+      # Runs only when the guard above passed - no `if: always()`. Neither
+      # sandbox can download the artifact (blob.core.windows.net is blocked in
+      # both), so the file has to exist as a git object to be reachable at all.
+      # Nothing new is disclosed: the repository is public and the same schema
+      # already sits in 629 committed migrations.
+      - name: Publish the validated dump to this branch
+        run: |
+          set -euo pipefail
+          SHA=$(sha256sum prod_public_schema.sql | cut -d' ' -f1)
+          PINNED=e675ca950d8b4a771e8baf1f8356b82e8db10139b95f59aacab9de5bb390e946
+          if [ "$SHA" != "$PINNED" ]; then
+            echo "::error::refusing to publish: sha256 $SHA != pinned $PINNED"; exit 1; fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f prod_public_schema.sql
+          git commit -m "chore(schema-dump): publish the validated production schema dump (sha256 ${SHA})"
+          git push origin HEAD:staging/schema-dump-tool
+          echo "::notice::published commit $(git rev-parse HEAD)"
 
       - uses: actions/upload-artifact@v4
         with:
