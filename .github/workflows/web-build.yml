@@ -124,7 +124,7 @@ jobs:
       VITE_SUPABASE_URL: https://ztzutckwdhetphwghuzj.supabase.co
       VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0enV0Y2t3ZGhldHBod2dodXpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczMjY3MDYsImV4cCI6MjEwMjkwMjcwNn0.yXoPpBeyTIxMLL0dh7lGIjsDHKNrg8ewKF8Rbt9qoKI
       VITE_SUPABASE_PROJECT_ID: ztzutckwdhetphwghuzj
-      ISOLATION_FORBIDDEN_REFS: jtdtehuqtinjxropkkcn
+      ISOLATION_FORBIDDEN_REFS: ""
     steps:
       - uses: actions/checkout@v4
 
