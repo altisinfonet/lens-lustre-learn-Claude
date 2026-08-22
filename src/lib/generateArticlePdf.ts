@@ -18,6 +18,7 @@
 // helvetica) so no font-embedding surprises.
 // =====================================================================
 import jsPDF from "jspdf";
+import { SITE_DISPLAY_HOST } from "@/lib/env";
 import { loadPdfLogo } from "@/lib/pdfLogo";
 import { saveBlob } from "@/lib/saveFile";
 
@@ -44,7 +45,7 @@ interface GenerateArgs {
 }
 
 const BRAND = "50MM RETINA WORLD";
-const BRAND_URL = "50mmretina.com";
+const BRAND_URL = SITE_DISPLAY_HOST;
 
 // A4 in mm
 const A4_W = 210;

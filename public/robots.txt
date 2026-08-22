@@ -46,4 +46,4 @@ Disallow: /settings/
 Disallow: /reset-password
 Disallow: /forgot-password
 
-Sitemap: https://50mmretina.com/sitemap.xml
+Sitemap: __SITE_ORIGIN__/sitemap.xml

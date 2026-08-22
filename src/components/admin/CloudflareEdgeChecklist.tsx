@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { SITE_HOST, SITE_APEX_HOST, SITE_DISPLAY_HOST } from "@/lib/env";
 import {
 
   CheckCircle2,
@@ -17,8 +18,10 @@ const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
 
 const STORAGE_KEY = "cf-edge-checklist-v1";
-const ROUTES = ["50mmretina.com/*", "www.50mmretina.com/*"];
-const DOMAINS = ["https://50mmretina.com", "https://www.50mmretina.com"];
+// Lane-derived since 2026-08-22. This panel tells an admin which zone routes to
+// configure; hardcoded, it told a staging admin to configure production.
+const ROUTES = [SITE_APEX_HOST, SITE_HOST].filter(Boolean).map((h) => `${h}/*`);
+const DOMAINS = [SITE_APEX_HOST, SITE_HOST].filter(Boolean).map((h) => `https://${h}`);
 const CF_DASH = "https://dash.cloudflare.com/?to=/:account/workers/services/view/seo-edge-injector/production/settings";
 
 type StepKey = "open" | "route1" | "route2" | "envs" | "verify";
@@ -167,7 +170,7 @@ export default function CloudflareEdgeChecklist() {
             onToggle={() => toggle(key)}
           >
             <p className="text-[11px] text-muted-foreground mb-2" style={bodyFont}>
-              Click <strong>+ Add → Route</strong>. Pick zone <code>50mmretina.com</code>, paste the route below, choose <strong>Fail open (proceed)</strong>, then save.
+              Click <strong>+ Add → Route</strong>. Pick zone <code>{SITE_DISPLAY_HOST}</code>, paste the route below, choose <strong>Fail open (proceed)</strong>, then save.
             </p>
             <div className="flex items-center gap-2 flex-wrap">
               <code className="px-2 py-1 bg-muted text-[11px]">{route}</code>

@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
+import { SITE_DISPLAY_HOST } from "@/lib/env";
 import { publicUrl } from "@/lib/publicUrl";
 import { Camera, Copy, Check, Edit2, ExternalLink, Globe, KeyRound, Lock, Mail, MapPin, MessageSquare, Phone, Share2, Users } from "lucide-react";
 import AvatarCompletionRing from "@/components/AvatarCompletionRing";
@@ -253,7 +254,7 @@ const Profile = () => {
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <Share2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                   <span className="text-[10px] text-muted-foreground truncate" style={{ fontFamily: "var(--font-heading)" }}>
-                    {(profile as any)?.custom_url ? `50mmretina.com/${(profile as any).custom_url}` : "Public Profile"}
+                    {(profile as any)?.custom_url ? `${SITE_DISPLAY_HOST}/${(profile as any).custom_url}` : "Public Profile"}
                   </span>
                 </div>
                 {/* min-h-11 = 44px; reported at 41x17. `-my-3` takes the extra
@@ -396,7 +397,7 @@ const Profile = () => {
               <div className="flex items-center gap-2 px-4 py-2.5 bg-muted/50 border border-border rounded-sm max-w-full overflow-hidden">
                 <Share2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                 <span className="text-[10px] tracking-[0.1em] text-muted-foreground truncate" style={{ fontFamily: "var(--font-heading)" }}>
-                  {(profile as any)?.custom_url ? `50mmretina.com/${(profile as any).custom_url}` : publicUrl(`/profile/${user?.id}`)}
+                  {(profile as any)?.custom_url ? `${SITE_DISPLAY_HOST}/${(profile as any).custom_url}` : publicUrl(`/profile/${user?.id}`)}
                 </span>
                 <button onClick={handleCopyUrl} className="flex-shrink-0 p-1 hover:text-primary transition-colors duration-300" title="Copy profile URL">
                   {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}

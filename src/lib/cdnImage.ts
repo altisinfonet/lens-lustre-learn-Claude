@@ -47,9 +47,10 @@
  *   2026-08-01 and the cards showed only their blurred backdrop. Both forms
  *   return a correct image; only this one survives srcset.
  */
+import { CDN_HOST } from "@/lib/env";
 
-/** The one host these transforms are ever addressed to. See rule 1 above. */
-const CDN_HOST = "cdn.50mmretina.com";
+/** The one host these transforms are ever addressed to. See rule 1 above.
+ *  Lane-derived since 2026-08-22 — production unless the build says otherwise. */
 
 /** True for a file served from our own image CDN. Everything else is left alone. */
 export function isCdnImage(url: string | null | undefined): boolean {

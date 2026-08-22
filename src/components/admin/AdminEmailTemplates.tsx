@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { SITE_DISPLAY_ORIGIN } from "@/lib/env";
 import DOMPurify from "dompurify";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
@@ -192,7 +193,7 @@ export default function AdminEmailTemplates({ user }: Props) {
       .replace(/\{\{user_name\}\}/g, "John Doe")
       .replace(/\{\{user_email\}\}/g, "john@example.com")
       .replace(/\{\{site_name\}\}/g, "50mm Retina World")
-      .replace(/\{\{site_url\}\}/g, "https://50mmretina.com")
+      .replace(/\{\{site_url\}\}/g, SITE_DISPLAY_ORIGIN)
       .replace(/\{\{amount\}\}/g, "₹500")
       .replace(/\{\{competition_title\}\}/g, "Street Photography 2026")
       .replace(/\{\{entry_title\}\}/g, "Urban Shadows")

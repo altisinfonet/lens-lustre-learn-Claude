@@ -34,9 +34,9 @@
  * and the server disagree and members get an unexplained refusal.
  * ─────────────────────────────────────────────────────────────────────────────
  */
+import { CDN_PREFIX } from "@/lib/env";
 
-/** Where uploaded avatars live today. */
-const CDN_PREFIX = "https://cdn.50mmretina.com/";
+/** Where uploaded avatars live today. Lane-derived since 2026-08-22. */
 /** Where they lived before the CDN. Two accounts still have these; they are
  *  genuine uploads and must keep counting. */
 const SUPABASE_AVATARS = "/storage/v1/object/public/avatars/";

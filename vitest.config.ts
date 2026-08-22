@@ -1,9 +1,15 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { laneDefine, PRODUCTION_CDN_HOST, PRODUCTION_SITE_ORIGIN } from "./scripts/lane-config.mjs";
 
 export default defineConfig({
   plugins: [react()],
+  // The same lane constants vite.config.ts injects — src/lib/env.ts reads only
+  // these, so without them every test that touches it would fail to resolve.
+  // Pinned to the production values explicitly, matching the hermetic-env
+  // convention below: a test must never depend on the ambient environment.
+  define: laneDefine({ cdnHost: PRODUCTION_CDN_HOST, siteOrigin: PRODUCTION_SITE_ORIGIN }),
   test: {
     environment: "jsdom",
     // Hermetic synthetic backend env for tests (isolation guard, 2026-08-21).

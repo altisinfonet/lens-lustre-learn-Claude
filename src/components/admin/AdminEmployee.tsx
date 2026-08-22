@@ -3,6 +3,7 @@
 // /IDverification (or directly /IDverification=<ID>). Admin can download a
 // QR code that encodes that URL for printing on physical ID cards.
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { SITE_DISPLAY_ORIGIN } from "@/lib/env";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
@@ -14,7 +15,7 @@ import {
   Plus, Pencil, Trash2, Loader2, QrCode, Search, ExternalLink, BadgeCheck, UserX,
 } from "lucide-react";
 
-const SITE_URL = "https://50mmretina.com";
+const SITE_URL = SITE_DISPLAY_ORIGIN;
 const verificationUrl = (idNumber: string) =>
   `${SITE_URL}/IDverification=${encodeURIComponent(idNumber.trim())}`;
 

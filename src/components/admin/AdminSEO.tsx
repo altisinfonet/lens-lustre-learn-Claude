@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { SITE_DISPLAY_ORIGIN } from "@/lib/env";
 import { useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,7 +41,7 @@ const defaultGlobalSEO: GlobalSEO = {
   default_og_image: "",
   site_name: "50mm Retina World",
   twitter_handle: "",
-  canonical_base: "https://50mmretina.com",
+  canonical_base: SITE_DISPLAY_ORIGIN,
   google_verification: "",
   bing_verification: "",
 };
@@ -61,7 +62,7 @@ Disallow: /judge
 Disallow: /reset-password
 Disallow: /forgot-password
 
-Sitemap: https://50mmretina.com/sitemap.xml`;
+Sitemap: ${SITE_DISPLAY_ORIGIN}/sitemap.xml`;
 
 export default function AdminSEO({ user }: { user: User | null }) {
   const queryClient = useQueryClient();
@@ -315,7 +316,7 @@ export default function AdminSEO({ user }: { user: User | null }) {
   };
 
   const generateSitemap = async () => {
-    const base = globalSEO.canonical_base || "https://50mmretina.com";
+    const base = globalSEO.canonical_base || SITE_DISPLAY_ORIGIN;
 
     // Fetch dynamic slugs
     const [{ data: articles }, { data: courses }, { data: comps }, { data: artists }] = await Promise.all([

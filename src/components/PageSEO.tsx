@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { SITE_DISPLAY_ORIGIN } from "@/lib/env";
 import { Helmet } from "react-helmet-async";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSEO } from "@/hooks/core/useSEO";
@@ -47,7 +48,7 @@ interface PageSEOProps {
   rawJsonLd?: string;
 }
 
-const SITE_URL = "https://50mmretina.com";
+const SITE_URL = SITE_DISPLAY_ORIGIN;
 const SITE_NAME = "50mm Retina World";
 
 function buildJsonLd(data: JsonLdData, canonicalUrl: string): object {

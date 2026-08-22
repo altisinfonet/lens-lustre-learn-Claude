@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
+import { SITE_DISPLAY_HOST } from "@/lib/env";
 import { publicUrl } from "@/lib/publicUrl";
 import { Bell, Camera, CheckCircle2, Facebook, Instagram, Globe, KeyRound, Loader2, Mail, MapPin, Phone, Save, User, X, AlertCircle, ExternalLink, Twitter, Youtube, CloudOff, Cloud, CalendarIcon } from "lucide-react";
 import ProfileCompletionBar from "@/components/ProfileCompletionBar";
@@ -990,7 +991,7 @@ const EditProfile = () => {
             </p>
             <div className="flex items-center gap-0">
               <span className="text-[10px] text-muted-foreground py-3 pr-1 whitespace-nowrap" style={{ fontFamily: "var(--font-body)" }}>
-                50mmretina.com/
+                {SITE_DISPLAY_HOST}/
               </span>
               <input
                 type="text"

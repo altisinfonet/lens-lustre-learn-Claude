@@ -1,8 +1,9 @@
-import { sbGet, renderSeo, getShell, stripHtml, SITE, type SeoMeta } from "../_seo";
+import { sbGet, renderSeo, getShell, stripHtml, site, type SeoMeta } from "../_seo";
 
 // Edge SEO for /competitions/:id — injects the competition's real title/description/OG
 // + Event JSON-LD into the SPA shell.
 export const onRequest = async (context: any) => {
+  const SITE = site(context.env);
   const res = await getShell(context.request);
   const ct = res.headers.get("content-type") || "";
   if (!ct.includes("text/html")) return context.next();
@@ -14,6 +15,7 @@ export const onRequest = async (context: any) => {
   const c = await sbGet(
     `competitions?id=eq.${encodeURIComponent(id)}` +
       `&select=id,title,description,cover_image_url,category,status,starts_at,ends_at&limit=1`,
+    context.env,
   );
   if (!c) return res;
 
