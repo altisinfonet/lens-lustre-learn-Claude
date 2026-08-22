@@ -1,0 +1,45 @@
+# A push to this throwaway tool branch is the manual act that runs it.
+# workflow_dispatch is unusable here: GitHub registers dispatchable workflows
+# only from the DEFAULT branch, and this file must never reach main.
+name: Schema dump (tool branch, artifact only)
+on:
+  push:
+    branches: [staging/schema-dump-tool]
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Dump production schema (NO DATA)
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          test -n "$DB_URL" || { echo "::error::SUPABASE_DB_URL is not set"; exit 1; }
+          supabase db dump --db-url "$DB_URL" -f prod_public_schema.sql
+      - name: GUARD — refuse to publish anything containing row data
+        run: |
+          if grep -qiE '^(COPY [^ ]+ .*FROM stdin|INSERT INTO )' prod_public_schema.sql; then
+            echo "::error::dump contains row data — refusing"; exit 1; fi
+          echo "=== VALIDATION COUNTS ==="
+          echo "bytes: $(wc -c < prod_public_schema.sql)"
+          echo "sha256: $(sha256sum prod_public_schema.sql | cut -d' ' -f1)"
+          echo "CREATE TABLE: $(grep -c '^CREATE TABLE' prod_public_schema.sql)"
+          echo "FUNCTIONS: $(grep -cE '^CREATE (OR REPLACE )?FUNCTION' prod_public_schema.sql)"
+          echo "POLICIES: $(grep -c '^CREATE POLICY' prod_public_schema.sql)"
+          echo "INDEXES: $(grep -cE '^CREATE (UNIQUE )?INDEX' prod_public_schema.sql)"
+          echo "TRIGGERS: $(grep -c '^CREATE TRIGGER' prod_public_schema.sql)"
+          echo "VIEWS: $(grep -cE '^CREATE (OR REPLACE )?VIEW' prod_public_schema.sql)"
+          echo "SEQUENCES: $(grep -c '^CREATE SEQUENCE' prod_public_schema.sql)"
+          echo "EXTENSIONS: $(grep -c '^CREATE EXTENSION' prod_public_schema.sql)"
+          echo "RLS ENABLE: $(grep -c 'ENABLE ROW LEVEL SECURITY' prod_public_schema.sql)"
+          echo "ALTER TABLE: $(grep -c '^ALTER TABLE' prod_public_schema.sql)"
+          echo "GRANTS: $(grep -c '^GRANT ' prod_public_schema.sql)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prod-schema
+          path: prod_public_schema.sql
+          retention-days: 5
