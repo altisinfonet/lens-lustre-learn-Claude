@@ -19,38 +19,46 @@
  * silently drops real security headers.
  */
 import { writeFileSync, readFileSync, existsSync } from "node:fs";
+import { laneDefine } from "./lane-config.mjs";
 
-const PRODUCTION_CDN_HOST = "cdn.50mmretina.com";
-const PRODUCTION_SITE_ORIGIN = "https://www.50mmretina.com";
 const TEMPLATE = "public/_headers";
 const OUT = "dist/_headers";
 
-function laneValue(name, productionDefault) {
-  const raw = process.env[name];
-  if (raw === undefined) return productionDefault;
-  const value = raw.trim();
-  if (value === "") {
-    console.error(
-      `generate-headers FAIL: ${name} is set but empty. An empty string is a ` +
-        `configuration error, not a default — it would emit a hostless entry into ` +
-        `the CSP. Unset it for the production value, or give it this lane's host.`,
-    );
-    process.exit(1);
-  }
-  return value;
-}
-
-const cdnHost = laneValue("VITE_CDN_HOST", PRODUCTION_CDN_HOST);
-const siteOrigin = laneValue("VITE_SITE_ORIGIN", PRODUCTION_SITE_ORIGIN).replace(/\/+$/, "");
-
-if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(cdnHost)) {
-  console.error(`generate-headers FAIL: VITE_CDN_HOST "${cdnHost}" is not a bare hostname.`);
+// One resolver for the whole build — the production values and the "empty is
+// not a default" rule live in lane-config.mjs and nowhere else.
+let define;
+try {
+  define = laneDefine();
+} catch (e) {
+  console.error(`generate-headers FAIL: ${e.message}`);
   process.exit(1);
 }
-if (!/^https:\/\/[a-z0-9.-]+\.[a-z]{2,}$/i.test(siteOrigin)) {
-  console.error(`generate-headers FAIL: VITE_SITE_ORIGIN "${siteOrigin}" is not an https origin.`);
-  process.exit(1);
-}
+const cdnHost = JSON.parse(define.__LANE_CDN_HOST__);
+const siteOrigin = JSON.parse(define.__LANE_SITE_ORIGIN__);
+const siteHost = JSON.parse(define.__LANE_SITE_HOST__);
+const apexHost = JSON.parse(define.__LANE_SITE_APEX_HOST__);
+
+/**
+ * ⚠ ACAO USES THE APEX FORM, NOT THE SERVING ORIGIN — A DELIBERATE G4 DECISION.
+ *
+ * Production serves from `www.` but its CORS policy has always named the apex,
+ * and this gate keeps it byte-identical: the only difference between the
+ * generated production _headers and main's committed copy is this file's
+ * template banner.
+ *
+ * The tempting "fix" is to point VITE_SITE_ORIGIN at the apex instead. That
+ * would be a silent regression: index.html derives the apex->www redirect by
+ * stripping a leading `www.` from this same value, so an apex serving origin
+ * yields an empty apex and DISABLES the redirect — reopening the 2026-08-05
+ * incident where members on the bare domain got a logged-out copy of the site,
+ * apex and www being separate browser origins with separate logins and caches.
+ *
+ * Whether production CORS should name www rather than the apex is a real
+ * question. It is NOT settled here, and nothing in this gate depends on the
+ * answer.
+ */
+const acaoOrigin = `https://${apexHost || siteHost}`;
+
 if (!existsSync("dist")) {
   console.error("generate-headers FAIL: dist/ missing — run the build first.");
   process.exit(1);
@@ -60,9 +68,16 @@ if (!existsSync(TEMPLATE)) {
   process.exit(1);
 }
 
-const template = readFileSync(TEMPLATE, "utf8");
+// #!template lines document the TEMPLATE and must not reach the shipped file:
+// they would carry this lane's hostnames into a comment in every artifact, and
+// they would make the production output differ from main's committed copy.
+const template = readFileSync(TEMPLATE, "utf8")
+  .split("\n")
+  .filter((l) => !l.startsWith("#!template"))
+  .join("\n");
 const out = template
   .replaceAll("__CDN_HOST__", cdnHost)
+  .replaceAll("__SITE_DISPLAY_ORIGIN__", acaoOrigin)
   .replaceAll("__SITE_ORIGIN__", siteOrigin);
 
 // A leftover placeholder means the template gained one this script does not
@@ -106,5 +121,5 @@ for (const [i, line] of out.split("\n").entries()) {
 writeFileSync(OUT, out);
 console.log(
   `generate-headers OK: ${ruleCount} rules, ${headerCount} headers; ` +
-    `cdn=${cdnHost} origin=${siteOrigin}`,
+    `cdn=${cdnHost} serving-origin=${siteOrigin} acao=${acaoOrigin}`,
 );

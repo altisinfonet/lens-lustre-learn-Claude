@@ -73,6 +73,14 @@ jobs:
       VITE_SUPABASE_URL: https://jtdtehuqtinjxropkkcn.supabase.co
       VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0ZHRlaHVxdGluanhyb3Bra2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzI3MjEsImV4cCI6MjA5OTE0ODcyMX0.qY8BI5LXb6uLzTwbpf8AleZ6UZyfeaOA0q4_TC5CEpo
       VITE_SUPABASE_PROJECT_ID: jtdtehuqtinjxropkkcn
+      VITE_CDN_HOST: cdn.50mmretina.com
+      # ⚠ THE SERVING ORIGIN, NOT THE APEX. index.html derives the apex->www
+      # redirect by stripping a leading `www.` from this value, so setting it to
+      # https://50mmretina.com yields an empty apex and DISABLES the redirect -
+      # reopening the 2026-08-05 incident where members on the bare domain got a
+      # logged-out copy of the site. CORS keeps the apex; that is derived
+      # separately in scripts/generate-headers.mjs.
+      VITE_SITE_ORIGIN: https://www.50mmretina.com
       # ⚠ THIS WAS "" UNTIL 2026-08-22, WHICH DISARMED THE LEAK CHECK ENTIRELY.
       # R3 is the only rule that can see a cross-environment leak, and it has
       # nothing to compare against when this list is empty. The production lane -
@@ -124,6 +132,13 @@ jobs:
       VITE_SUPABASE_URL: https://ztzutckwdhetphwghuzj.supabase.co
       VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0enV0Y2t3ZGhldHBod2dodXpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczMjY3MDYsImV4cCI6MjEwMjkwMjcwNn0.yXoPpBeyTIxMLL0dh7lGIjsDHKNrg8ewKF8Rbt9qoKI
       VITE_SUPABASE_PROJECT_ID: ztzutckwdhetphwghuzj
+      # Stated explicitly, never inherited: an omitted variable falls back to the
+      # PRODUCTION value, so a silent omission here would build staging against
+      # production's CDN and origin - the exact failure this lane exists to stop.
+      # ⚠ Neither host resolves yet (both NXDOMAIN). Expected at this gate: the
+      # staging Pages project and the R2 custom domain are a later gate's work.
+      VITE_CDN_HOST: cdn-staging.50mmretina.com
+      VITE_SITE_ORIGIN: https://staging.50mmretina.com
       ISOLATION_FORBIDDEN_REFS: jtdtehuqtinjxropkkcn
     steps:
       - uses: actions/checkout@v4
