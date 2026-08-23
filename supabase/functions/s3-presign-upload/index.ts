@@ -5,6 +5,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecureHeaders } from "../_shared/secureHeaders.ts";
+import { assertStorageLane } from "../_shared/s3.ts";
 
 const TTL_SECONDS = 300; // 5 min
 const RATE_LIMIT_MAX = 60;
@@ -162,6 +163,10 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (!settingsRow?.value) return json(400, { error: "S3 storage not configured" });
     const s3 = settingsRow.value as S3Settings;
+    // G9: the lane assertion getS3Settings performs — this function reads the
+    // settings row itself and signs its own requests, so it must assert here or
+    // not at all. Before anything is signed.
+    if (s3?.enabled) assertStorageLane(s3, (globalThis as { Deno?: { env?: { get(k: string): string | undefined } } }).Deno?.env?.get("SUPABASE_URL"));
     if (!s3.enabled) return json(400, { error: "S3 storage is disabled" });
 
     // SEC-2 ownership gate (applies to primary + pair)
