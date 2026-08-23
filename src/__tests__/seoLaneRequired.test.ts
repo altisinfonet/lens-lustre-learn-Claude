@@ -44,7 +44,7 @@ describe("functions/_seo.ts — lane values are required, never defaulted", () =
     expect(site(env)).toBe("https://staging.50mmretina.com"); // trailing slash stripped
     for (const v of [supabaseUrl(env), supabaseAnon(env), site(env)]) {
       expect(v).not.toContain("jtdtehuqtinjxropkkcn");
-      expect(v).not.toContain("[www.50mmretina.com](https://www.50mmretina.com)");
+      expect(v).not.toContain("www.50mmretina.com");
     }
   });
 
@@ -55,7 +55,7 @@ describe("functions/_seo.ts — lane values are required, never defaulted", () =
     const { join } = await import("node:path");
     const src = readFileSync(join(process.cwd(), "functions", "_seo.ts"), "utf8");
     expect(src).not.toContain("jtdtehuqtinjxropkkcn");
-    expect(src).not.toContain("[www.50mmretina.com](https://www.50mmretina.com)");
+    expect(src).not.toContain("www.50mmretina.com");
     expect(src).not.toMatch(/eyJhbGciOi/); // no baked JWT
   });
 });
