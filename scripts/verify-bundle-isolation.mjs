@@ -43,6 +43,18 @@
  * R10 reuses ISOLATION_ALLOW_NO_FORBIDDEN rather than adding a second hatch, so
  * there is exactly one way to say "this lane has no counterpart".
  *
+ * FUNCTIONS SCANNING, added 2026-08-23 (G5b). Cloudflare Pages Functions have
+ * NO build step, so nothing about them appears in dist. Until G5b the guard was
+ * blind to them, and functions/_seo.ts carried three production literals that
+ * would have shipped into any lane. Extra roots are scanned alongside dist:
+ *
+ *   R11 a functions/ directory exists but is not among the scanned roots -> exit 1
+ *
+ * R11 exists because an opt-in scan that CI forgets to request is no scan at
+ * all, and the failure would be silent. Escape hatch, for a repository that
+ * deliberately has no Pages Functions to guard:
+ * ISOLATION_ALLOW_UNSCANNED_FUNCTIONS=1.
+ *
  * ⚠ NEVER PUT THE BARE APEX IN A FORBIDDEN LIST. Matching is substring, and
  * `50mmretina.com` is a substring of `staging.50mmretina.com`,
  * `cdn-staging.50mmretina.com` AND `mail@50mmretina.com` - it would flag the
@@ -62,6 +74,10 @@ import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, extname } from "node:path";
 
 const DIST = process.env.ISOLATION_DIST_DIR || "dist";
+// Additional source roots scanned alongside dist. Pages Functions are deployed
+// from source, so their lane values can only be checked here.
+const explicitExtras = (process.env.ISOLATION_EXTRA_DIRS || "")
+  .split(",").map(s => s.trim()).filter(Boolean);
 const url = (process.env.VITE_SUPABASE_URL || "").trim();
 const forbidden = (process.env.ISOLATION_FORBIDDEN_REFS || "")
   .split(",").map(s => s.trim()).filter(Boolean);
@@ -69,7 +85,9 @@ const expectedHost = (process.env.ISOLATION_EXPECTED_HOST || "").trim();
 const forbiddenHosts = (process.env.ISOLATION_FORBIDDEN_HOSTS || "")
   .split(",").map(s => s.trim()).filter(Boolean);
 
-const TEXT_EXT = new Set([".html", ".js", ".mjs", ".css", ".json", ".txt", ".webmanifest", ".map", ".svg"]);
+// .ts is here for the Pages Functions roots: they ship as TypeScript source,
+// so a lane literal in them is never compiled away into dist.
+const TEXT_EXT = new Set([".html", ".js", ".mjs", ".css", ".json", ".txt", ".webmanifest", ".map", ".svg", ".ts"]);
 const fail = (code, msg) => { console.error(`ISOLATION-GUARD FAIL [${code}]: ${msg}`); process.exit(1); };
 
 const m = url.match(/^https:\/\/([a-z0-9]{15,25})\.supabase\.co\/?$/);
@@ -99,16 +117,44 @@ if (hostRulesActive) {
 }
 
 if (!existsSync(DIST)) fail("R4", `dist directory "${DIST}" does not exist`);
+
+// Scanning functions/ is ON BY DEFAULT when the directory is there. An opt-in
+// scan would have to be requested identically by CI *and* by the Pages build
+// command, and the day one of them forgot, the failure would be silence. The
+// var stays available for additional roots, and naming any root explicitly
+// takes over completely - which is what R11 then polices.
+const extraDirs = explicitExtras.length > 0
+  ? explicitExtras
+  : (existsSync("functions") ? ["functions"] : []);
+
+// R11 — a Pages Functions directory that nobody asked us to scan is a blind
+// spot, not an absence of risk. Functions carry lane values in source.
+if (existsSync("functions")
+    && !extraDirs.some(d => d === "functions" || d.startsWith("functions/"))
+    && process.env.ISOLATION_ALLOW_UNSCANNED_FUNCTIONS !== "1") {
+  fail("R11", 'a "functions" directory exists but ISOLATION_EXTRA_DIRS names other roots '
+    + "and excludes it — Pages Functions have no build step, so nothing about them "
+    + "reaches dist and this guard would be blind to a production literal in them. "
+    + 'Include "functions" in the list, or set ISOLATION_ALLOW_UNSCANNED_FUNCTIONS=1 '
+    + "to state deliberately that this repository has no Pages Functions to guard.");
+}
+
+const roots = [DIST, ...extraDirs];
+for (const r of extraDirs) {
+  if (!existsSync(r)) fail("R4", `scan root "${r}" listed in ISOLATION_EXTRA_DIRS does not exist`);
+}
 const files = [];
-(function walk(dir) {
-  for (const name of readdirSync(dir)) {
-    const p = join(dir, name);
-    const st = statSync(p);
-    if (st.isDirectory()) walk(p);
-    else { const e = extname(name).toLowerCase(); if (TEXT_EXT.has(e) || e === "") files.push(p); } // extensionless (_redirects, _headers) are text artifacts too
-  }
-})(DIST);
-if (files.length === 0) fail("R4", `no text assets found under "${DIST}" — nothing was verified`);
+(function walkAll(dirs) {
+  for (const dir of dirs) (function walk(d) {
+    for (const name of readdirSync(d)) {
+      const p = join(d, name);
+      const st = statSync(p);
+      if (st.isDirectory()) walk(p);
+      else { const e = extname(name).toLowerCase(); if (TEXT_EXT.has(e) || e === "") files.push(p); } // extensionless (_redirects, _headers) are text artifacts too
+    }
+  })(dir);
+})(roots);
+if (files.length === 0) fail("R4", `no text assets found under ${roots.map(r => `"${r}"`).join(", ")} — nothing was verified`);
 
 let expectedSeen = false;
 let expectedHostSeen = false;
@@ -135,4 +181,4 @@ if (hostRulesActive) {
 const hostSummary = hostRulesActive
   ? ` host=${expectedHost} present; forbidden-hosts=[${forbiddenHosts.join(",")}] absent;`
   : " host rules inactive (no ISOLATION_EXPECTED_HOST);";
-console.log(`ISOLATION-GUARD PASS: expected=${expectedRef} present; forbidden=[${forbidden.join(",")}] absent;${hostSummary} ${files.length} assets scanned.`);
+console.log(`ISOLATION-GUARD PASS: expected=${expectedRef} present; forbidden=[${forbidden.join(",")}] absent;${hostSummary} ${files.length} assets scanned across ${roots.length} root(s): ${roots.join(", ")}.`);
