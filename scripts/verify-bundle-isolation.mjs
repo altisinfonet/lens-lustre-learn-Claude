@@ -39,9 +39,25 @@
  *   R8  any ISOLATION_FORBIDDEN_HOSTS entry present            -> exit 1
  *   R9  expected host also listed as forbidden                 -> exit 1
  *   R10 ISOLATION_FORBIDDEN_HOSTS empty, no explicit allowance -> exit 1
+ *   R12 ISOLATION_EXPECTED_HOST unset, no explicit allowance   -> exit 1
  *
  * R10 reuses ISOLATION_ALLOW_NO_FORBIDDEN rather than adding a second hatch, so
  * there is exactly one way to say "this lane has no counterpart".
+ *
+ * R12, added 2026-08-23 (G8). R7-R10 were opt-in: a lane that did not name an
+ * expected host simply skipped them and printed PASS. That PASS is byte-for-byte
+ * as reassuring as one from a lane that was fully checked, so the failure mode
+ * was not a red build but a green one that had checked half of what it claimed.
+ * A Pages project missing the two host variables is exactly that shape, and it
+ * is the likeliest way for them to be missing — nobody deletes them on purpose.
+ *
+ * R12 gets its OWN hatch rather than reusing ISOLATION_ALLOW_NO_FORBIDDEN,
+ * because the two say different things and collapsing them would let one
+ * intention silently grant the other: ALLOW_NO_FORBIDDEN says "this lane has no
+ * counterpart to forbid", while ALLOW_NO_HOST_RULES says "this build is checked
+ * on refs only". A single-lane build legitimately wants the first without the
+ * second. The summary line names the hatch when it is used, so a run that
+ * skipped R7-R10 can never be mistaken for one that ran them.
  *
  * FUNCTIONS SCANNING, added 2026-08-23 (G5b). Cloudflare Pages Functions have
  * NO build step, so nothing about them appears in dist. Until G5b the guard was
@@ -98,9 +114,11 @@ if (forbidden.length === 0 && process.env.ISOLATION_ALLOW_NO_FORBIDDEN !== "1")
   fail("R6", "ISOLATION_FORBIDDEN_REFS is empty — a lane that forbids nothing is not isolated. Set the other lane's ref, or ISOLATION_ALLOW_NO_FORBIDDEN=1 to state deliberately that this build has no counterpart lane.");
 if (forbidden.length === 0) console.warn("ISOLATION-GUARD WARN: no forbidden refs, explicitly allowed — leak check limited to R2.");
 
-// Host rules are opt-in per lane: a lane naming no expected host is not checked
-// for hosts, which is how these were added without breaking callers that predate
-// them. Once a lane opts in, R9 and R10 apply in full.
+// ⚠ NOT opt-in any more. See R12 in the header: an unset ISOLATION_EXPECTED_HOST
+// silently skipped R7-R10 and still printed PASS, which is indistinguishable
+// from a lane that was actually checked.
+if (expectedHost === "" && process.env.ISOLATION_ALLOW_NO_HOST_RULES !== "1")
+  fail("R12", "ISOLATION_EXPECTED_HOST is unset, which would skip R7-R10 entirely and still report PASS — a bundle naming the other lane's CDN or origin would ship. Set this lane's expected host (and ISOLATION_FORBIDDEN_HOSTS), or ISOLATION_ALLOW_NO_HOST_RULES=1 to state deliberately that this build is checked on refs only.");
 const hostRulesActive = expectedHost !== "";
 if (hostRulesActive) {
   if (forbiddenHosts.includes(expectedHost))
@@ -180,5 +198,5 @@ if (hostRulesActive) {
 
 const hostSummary = hostRulesActive
   ? ` host=${expectedHost} present; forbidden-hosts=[${forbiddenHosts.join(",")}] absent;`
-  : " host rules inactive (no ISOLATION_EXPECTED_HOST);";
+  : " host rules DELIBERATELY DISABLED via ISOLATION_ALLOW_NO_HOST_RULES=1 — R7-R10 did not run;";
 console.log(`ISOLATION-GUARD PASS: expected=${expectedRef} present; forbidden=[${forbidden.join(",")}] absent;${hostSummary} ${files.length} assets scanned across ${roots.length} root(s): ${roots.join(", ")}.`);
