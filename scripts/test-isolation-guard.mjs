@@ -30,12 +30,23 @@ const GUARD_VARS = ["VITE_SUPABASE_URL", "ISOLATION_FORBIDDEN_REFS", "ISOLATION_
   // here: the CI build job now sets these too, and an inherited value would
   // silently satisfy a case written to test their absence - the exact failure
   // that turned RED-3 and RED-8 into the wrong assertions on 2026-08-22.
-  "ISOLATION_EXPECTED_HOST", "ISOLATION_FORBIDDEN_HOSTS"];
+  "ISOLATION_EXPECTED_HOST", "ISOLATION_FORBIDDEN_HOSTS",
+  // Added with the functions scan (G5b). Same rule, same reason.
+  "ISOLATION_EXTRA_DIRS", "ISOLATION_ALLOW_UNSCANNED_FUNCTIONS"];
+/** R11 keys off a "functions" directory RELATIVE TO CWD, so the harness's own
+ *  working directory became a hidden input the moment that rule existed: run
+ *  from the repo root and every legacy case inherits a functions/ that its
+ *  author never wrote. Hermeticity is not only about env vars. Cases run in a
+ *  scratch cwd and state their own filesystem, exactly as they state their own
+ *  environment. */
+const NEUTRAL_CWD = mkdtempSync(join(tmpdir(), "cwd-"));
 function runGuard(guardPath, dist, env) {
   const base = { ...process.env };
   for (const v of GUARD_VARS) delete base[v];
+  const { __cwd, ...vars } = env || {};
   return spawnSync(process.execPath, [guardPath], {
-    env: { ...base, ISOLATION_DIST_DIR: dist, ...env }, encoding: "utf8" });
+    cwd: __cwd || NEUTRAL_CWD,
+    env: { ...base, ISOLATION_DIST_DIR: dist, ...vars }, encoding: "utf8" });
 }
 function fixture(kind) {
   const d = mkdtempSync(join(tmpdir(), "dist-"));
@@ -56,6 +67,22 @@ function fixture(kind) {
   // The email addresses a bare-apex forbidden list would wrongly flag.
   if (kind === "host-staging-emails"){ put("index.html", `<a href="mailto:mail@50mmretina.com">c</a><img src="https://cdn-staging.50mmretina.com/x.jpg">`); put("assets/app.js", `const u="https://${STAG}.supabase.co";const n="noreply@50mmretina.com";`); }
   return d;
+}
+/** A scratch CWD containing a Pages Functions root, so R11 and the extra-root
+ *  scan can be exercised without depending on the repository's own layout. */
+function fnCwd(kind) {
+  const c = mkdtempSync(join(tmpdir(), "fncwd-"));
+  mkdirSync(join(c, "functions"), { recursive: true });
+  const body = kind === "leaky"
+    // A production literal in TypeScript source: invisible to dist, because
+    // Pages Functions are deployed from source and never bundled.
+    ? `const PRODUCTION_PROJECT_REF = "${PROD}";\nexport const u = \`https://\${PRODUCTION_PROJECT_REF}.supabase.co\`;\n`
+    : `export function ref(env) { if (!env?.SUPABASE_PROJECT_REF) throw new Error("unset"); return env.SUPABASE_PROJECT_REF; }\n`;
+  writeFileSync(join(c, "functions", "_seo.ts"), body);
+  // A second, innocuous root, so a case can declare roots that EXCLUDE functions/.
+  mkdirSync(join(c, "other"), { recursive: true });
+  writeFileSync(join(c, "other", "note.txt"), "nothing lane-specific here\n");
+  return c;
 }
 function expect(name, r, wantExit, wantSnippet) {
   const out = (r.stdout || "") + (r.stderr || "");
@@ -111,6 +138,33 @@ expect("GREEN-5 clean production bundle with host rules (inverse lane) -> PASS",
 expect("GREEN-6 staging bundle with mail@/noreply@ addresses -> PASS", runGuard(GUARD, fixture("host-staging-emails"), stagingHostEnv), 0, "ISOLATION-GUARD PASS");
 expect("GREEN-7 host rules inactive when no expected host is named -> PASS", runGuard(GUARD, fixture("staging-clean"), stagingEnv), 0, "host rules inactive");
 
+// ---- G5b: Pages Functions are scanned from SOURCE, or the guard is blind ----
+// Pages Functions have no build step. Nothing about them reaches dist, so every
+// rule above was structurally unable to see functions/_seo.ts, which carried
+// three production literals until 2026-08-23.
+// Scanning is default-on, so the way to be blind is to name OTHER roots and
+// leave functions/ out. That is what this asserts - not the absence of a var.
+expect("RED-15 explicit roots that exclude an existing functions/ -> FAIL R11",
+  runGuard(GUARD, fixture("staging-clean"), { ...stagingEnv, ISOLATION_EXTRA_DIRS: "other", __cwd: fnCwd("clean") }), 1, "[R11]");
+expect("GREEN-10 functions/ scanned by default with no variable set -> PASS",
+  runGuard(GUARD, fixture("staging-clean"), { ...stagingEnv, __cwd: fnCwd("clean") }), 0, "2 root(s)");
+expect("RED-18 default-on scan catches a production ref in functions/ with NO var set -> FAIL R3",
+  runGuard(GUARD, fixture("staging-clean"), { ...stagingEnv, __cwd: fnCwd("leaky") }), 1, "[R3]");
+expect("RED-16 production ref inside functions/*.ts on the staging lane -> FAIL R3",
+  runGuard(GUARD, fixture("staging-clean"), { ...stagingEnv, ISOLATION_EXTRA_DIRS: "functions", __cwd: fnCwd("leaky") }), 1, "[R3]");
+// ⚠ THIS CASE WAS WRITTEN WRONG FIRST TIME, AND THE HARNESS CAUGHT IT.
+// It originally passed ISOLATION_EXTRA_DIRS="no-such-root" alone and expected
+// R4. It got R11 - correctly, because with only that root declared, functions/
+// really is unscanned, and R11 is the more useful of the two messages. Rule
+// order is right; the expectation was not. The case now satisfies R11 first so
+// that it tests what it claims to: a declared root that does not exist.
+expect("RED-17 a declared extra root that does not exist -> FAIL R4",
+  runGuard(GUARD, fixture("staging-clean"), { ...stagingEnv, ISOLATION_EXTRA_DIRS: "functions,no-such-root", __cwd: fnCwd("clean") }), 1, "[R4]");
+expect("GREEN-8 functions/ present, explicitly declared unguarded -> PASS",
+  runGuard(GUARD, fixture("staging-clean"), { ...stagingEnv, ISOLATION_ALLOW_UNSCANNED_FUNCTIONS: "1", __cwd: fnCwd("clean") }), 0, "ISOLATION-GUARD PASS");
+expect("GREEN-9 functions/ scanned and free of the other lane's values -> PASS",
+  runGuard(GUARD, fixture("staging-clean"), { ...stagingEnv, ISOLATION_EXTRA_DIRS: "functions", __cwd: fnCwd("clean") }), 0, "2 root(s)");
+
 if (results.some(r => !r.ok)) { report(); console.error("\nBASELINE RED — refusing to run mutations over a failing baseline."); process.exit(1); }
 
 // ---- MUTATIONS: each mutated guard must be DETECTED by these fixtures ----
@@ -146,6 +200,18 @@ const killMutations = [
   // lets a bare apex into the forbidden list, where it matches the staging
   // lane's OWN host - the clean staging bundle then fails on its own bytes.
   // Killed by that false failure, not by an escape.
+  ["W13 .ts dropped from the scanned extensions - a leak in functions source goes unseen",
+     src.replace('".svg", ".ts"', '".svg"'),
+     g => !((runGuard(g, fixture("staging-clean"), { ...stagingEnv, __cwd: fnCwd("leaky") }).stderr || "").includes("[R3]"))],
+  ["W14 R11 removed - explicit roots excluding functions/ sail through",
+     src.replace('if (existsSync("functions")', 'if (false && existsSync("functions")'),
+     g => !((runGuard(g, fixture("staging-clean"), { ...stagingEnv, ISOLATION_EXTRA_DIRS: "other", __cwd: fnCwd("clean") }).stderr || "").includes("[R11]"))],
+  ["W16 default-on scan reverted to opt-in - functions/ unscanned unless asked",
+     src.replace(': (existsSync("functions") ? ["functions"] : []);', ": [];"),
+     g => !((runGuard(g, fixture("staging-clean"), { ...stagingEnv, __cwd: fnCwd("leaky") }).stderr || "").includes("[R3]"))],
+  ["W15 extra roots dropped - functions/ is requested but never walked",
+     src.replace("const roots = [DIST, ...extraDirs];", "const roots = [DIST];"),
+     g => !((runGuard(g, fixture("staging-clean"), { ...stagingEnv, ISOLATION_EXTRA_DIRS: "functions", __cwd: fnCwd("leaky") }).stderr || "").includes("[R3]"))],
   ["W12 apex guard removed - bare apex accepted into the forbidden list",
      src.replace("    if (expectedHost.endsWith(`.${h}`))", "    if (false)"),
      g => !((runGuard(g, fixture("host-staging-clean"), { ...stagingEnv, ISOLATION_EXPECTED_HOST: STAG_HOST, ISOLATION_FORBIDDEN_HOSTS: APEX }).stderr || "").includes("[R9]"))],
