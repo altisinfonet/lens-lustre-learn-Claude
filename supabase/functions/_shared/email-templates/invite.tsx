@@ -5,10 +5,10 @@ import * as React from 'npm:react@18.3.1'
 import {
   Body, Button, Container, Head, Heading, Html, Img, Link, Preview, Text,
 } from 'npm:@react-email/components@0.0.22'
+import { emailAssetUrl } from '../laneConfig.ts'
 
 interface InviteEmailProps { siteName: string; siteUrl: string; confirmationUrl: string }
 
-const LOGO_URL = 'https://jtdtehuqtinjxropkkcn.supabase.co/storage/v1/object/public/email-assets/logo.png'
 
 export const InviteEmail = ({ siteName, siteUrl, confirmationUrl }: InviteEmailProps) => (
   <Html lang="en" dir="ltr">
@@ -16,7 +16,7 @@ export const InviteEmail = ({ siteName, siteUrl, confirmationUrl }: InviteEmailP
     <Preview>You've been invited to join {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Img src={LOGO_URL} alt={siteName} width="48" height="48" style={logo} />
+        <Img src={emailAssetUrl('logo.png')} alt={siteName} width="48" height="48" style={logo} />
         <Heading style={h1}>You've Been Invited</Heading>
         <Text style={text}>
           You've been invited to join <Link href={siteUrl} style={link}><strong>{siteName}</strong></Link>. Click the button below to accept.

@@ -6,6 +6,7 @@ import { BrandHeader } from './BrandHeader.tsx'
 import { Disclaimer } from './Disclaimer.tsx'
 import type { TemplateEntry } from './registry.ts'
 import { labelForStageKey } from '../stageCatalog.ts'
+import { siteUrl } from '../laneConfig.ts'
 
 const SITE_NAME = '50mm Retina World'
 
@@ -45,7 +46,7 @@ const EntryRejectedEmail = ({
             you can build on.
           </Text>
           <Section style={ctaSection}>
-            <Button href={feedbackUrl ?? 'https://www.50mmretina.com/dashboard'} style={button}>
+            <Button href={feedbackUrl ?? siteUrl('/dashboard')} style={button}>
               View Judge Feedback
             </Button>
           </Section>
@@ -69,7 +70,7 @@ export const template = {
     competitionTitle: 'Street Photography 2026',
     roundNumber: 1,
     stageKey: 'r1_rejected',
-    feedbackUrl: 'https://www.50mmretina.com/dashboard',
+    feedbackUrl: 'https://example.invalid/dashboard',
   },
 } satisfies TemplateEntry
 

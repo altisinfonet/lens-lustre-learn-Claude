@@ -5,9 +5,9 @@ import {
 import { BrandHeader } from './BrandHeader.tsx'
 import { Disclaimer } from './Disclaimer.tsx'
 import type { TemplateEntry } from './registry.ts'
+import { siteOrigin } from '../laneConfig.ts'
 
 const SITE_NAME = '50mm Retina World'
-const SITE_URL = 'https://www.50mmretina.com'
 
 interface Props {
   participantName?: string
@@ -36,7 +36,7 @@ const Email = ({ participantName }: Props) => (
           <Text style={attribution}>— Ansel Adams</Text>
         </Section>
         <Section style={ctaSection}>
-          <Button href={`${SITE_URL}/feed`} style={button}>Make One More</Button>
+          <Button href={`${siteOrigin()}/feed`} style={button}>Make One More</Button>
         </Section>
         <Text style={footerNote}>
           We'll be here. No pressure. No more emails like this.

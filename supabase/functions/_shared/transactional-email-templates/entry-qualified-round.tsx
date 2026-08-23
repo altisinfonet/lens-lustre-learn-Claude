@@ -6,6 +6,7 @@ import { BrandHeader } from './BrandHeader.tsx'
 import { Disclaimer } from './Disclaimer.tsx'
 import type { TemplateEntry } from './registry.ts'
 import { labelForStageKey } from '../stageCatalog.ts'
+import { siteUrl } from '../laneConfig.ts'
 
 const SITE_NAME = '50mm Retina World'
 
@@ -43,7 +44,7 @@ const EntryQualifiedRoundEmail = ({
             The next round of judging will begin shortly. Stay tuned for further updates.
           </Text>
           <Section style={ctaSection}>
-            <Button href={entryUrl ?? 'https://www.50mmretina.com/dashboard'} style={button}>
+            <Button href={entryUrl ?? siteUrl('/dashboard')} style={button}>
               View Your Entry
             </Button>
           </Section>
@@ -70,7 +71,7 @@ export const template = {
     roundNumber: 2,
     nextRoundNumber: 3,
     stageKey: 'r2_qualified_r3',
-    entryUrl: 'https://www.50mmretina.com/dashboard',
+    entryUrl: 'https://example.invalid/dashboard',
   },
 } satisfies TemplateEntry
 
