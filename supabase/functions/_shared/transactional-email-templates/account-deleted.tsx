@@ -5,6 +5,7 @@ import {
 import { BrandHeader } from './BrandHeader.tsx'
 import { Disclaimer } from './Disclaimer.tsx'
 import type { TemplateEntry } from './registry.ts'
+import { siteUrl } from '../laneConfig.ts'
 
 const SITE_NAME = '50mm Retina World'
 
@@ -70,7 +71,7 @@ const AccountDeletedEmail = ({ fullName, deletedAt }: Props) => {
           <Text style={text}>
             <strong>If you did not request this deletion</strong>, please
             contact us immediately by replying to this email or via the Help
-            &amp; Support page at https://50mmretina.com/help-support so we can
+            &amp; Support page at {siteUrl('/help-support')} so we can
             investigate.
           </Text>
           <Hr style={hr} />

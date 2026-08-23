@@ -5,10 +5,10 @@ import * as React from 'npm:react@18.3.1'
 import {
   Body, Button, Container, Head, Heading, Html, Img, Preview, Text,
 } from 'npm:@react-email/components@0.0.22'
+import { emailAssetUrl } from '../laneConfig.ts'
 
 interface MagicLinkEmailProps { siteName: string; confirmationUrl: string }
 
-const LOGO_URL = 'https://jtdtehuqtinjxropkkcn.supabase.co/storage/v1/object/public/email-assets/logo.png'
 
 export const MagicLinkEmail = ({ siteName, confirmationUrl }: MagicLinkEmailProps) => (
   <Html lang="en" dir="ltr">
@@ -16,7 +16,7 @@ export const MagicLinkEmail = ({ siteName, confirmationUrl }: MagicLinkEmailProp
     <Preview>Your login link for {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Img src={LOGO_URL} alt={siteName} width="48" height="48" style={logo} />
+        <Img src={emailAssetUrl('logo.png')} alt={siteName} width="48" height="48" style={logo} />
         <Heading style={h1}>Your Login Link</Heading>
         <Text style={text}>Click the button below to log in to {siteName}. This link will expire shortly.</Text>
         <Button style={button} href={confirmationUrl}>Log In</Button>

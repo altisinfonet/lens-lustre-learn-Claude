@@ -14,6 +14,7 @@ import {
   Preview,
   Text,
 } from 'npm:@react-email/components@0.0.22'
+import { emailAssetUrl } from '../laneConfig.ts'
 
 interface SignupEmailProps {
   siteName: string
@@ -23,7 +24,6 @@ interface SignupEmailProps {
   token?: string
 }
 
-const LOGO_URL = 'https://jtdtehuqtinjxropkkcn.supabase.co/storage/v1/object/public/email-assets/logo.png'
 
 export const SignupEmail = ({ siteName, siteUrl, recipient, confirmationUrl, token }: SignupEmailProps) => (
   <Html lang="en" dir="ltr">
@@ -31,7 +31,7 @@ export const SignupEmail = ({ siteName, siteUrl, recipient, confirmationUrl, tok
     <Preview>Your {siteName} verification code{token ? ` is ${token}` : ''}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Img src={LOGO_URL} alt={siteName} width="48" height="48" style={logo} />
+        <Img src={emailAssetUrl('logo.png')} alt={siteName} width="48" height="48" style={logo} />
         <Heading style={h1}>Welcome to {siteName}</Heading>
         <Text style={text}>
           Thanks for joining <Link href={siteUrl} style={link}><strong>{siteName}</strong></Link>!

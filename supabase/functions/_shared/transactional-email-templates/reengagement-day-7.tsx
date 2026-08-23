@@ -5,9 +5,9 @@ import {
 import { BrandHeader } from './BrandHeader.tsx'
 import { Disclaimer } from './Disclaimer.tsx'
 import type { TemplateEntry } from './registry.ts'
+import { siteOrigin } from '../laneConfig.ts'
 
 const SITE_NAME = '50mm Retina World'
-const SITE_URL = 'https://www.50mmretina.com'
 
 interface Props {
   participantName?: string
@@ -39,7 +39,7 @@ const Email = ({ participantName, newPostsCount = 0, activeCompetitions = 0, fri
           <Text style={statLine}>☕️ <strong>0</strong> excuses left</Text>
         </Section>
         <Section style={ctaSection}>
-          <Button href={`${SITE_URL}/feed`} style={button}>Dust Off The Shutter →</Button>
+          <Button href={`${siteOrigin()}/feed`} style={button}>Dust Off The Shutter →</Button>
         </Section>
         <Text style={ps}>P.S. Your followers refreshed their feed 47 times this week. Not exaggerating. Slightly.</Text>
         <Hr style={hr} />

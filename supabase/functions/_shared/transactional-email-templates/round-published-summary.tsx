@@ -5,6 +5,7 @@ import {
 import { BrandHeader } from './BrandHeader.tsx'
 import { Disclaimer } from './Disclaimer.tsx'
 import type { TemplateEntry } from './registry.ts'
+import { siteUrl } from '../laneConfig.ts'
 
 const SITE_NAME = '50mm Retina World'
 
@@ -57,7 +58,7 @@ const RoundPublishedSummaryEmail = ({
           next steps.
         </Text>
         <Section style={ctaSection}>
-          <Button href={dashboardUrl ?? 'https://www.50mmretina.com/dashboard'} style={button}>
+          <Button href={dashboardUrl ?? siteUrl('/dashboard')} style={button}>
             View Round Results
           </Button>
         </Section>
@@ -81,7 +82,7 @@ export const template = {
     entriesAdvanced: 2,
     entriesNotAdvanced: 1,
     totalEntries: 3,
-    dashboardUrl: 'https://www.50mmretina.com/dashboard',
+    dashboardUrl: 'https://example.invalid/dashboard',
   },
 } satisfies TemplateEntry
 

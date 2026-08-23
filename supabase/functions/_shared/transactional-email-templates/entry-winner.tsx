@@ -6,6 +6,7 @@ import { BrandHeader } from './BrandHeader.tsx'
 import { Disclaimer } from './Disclaimer.tsx'
 import type { TemplateEntry } from './registry.ts'
 import { labelForStageKey } from '../stageCatalog.ts'
+import { siteUrl } from '../laneConfig.ts'
 
 const SITE_NAME = '50mm Retina World'
 
@@ -86,7 +87,7 @@ const EntryWinnerEmail = ({
             the {SITE_NAME} community.
           </Text>
           <Section style={ctaSection}>
-            <Button href={certificateUrl ?? entryUrl ?? 'https://www.50mmretina.com/dashboard'} style={button}>
+            <Button href={certificateUrl ?? entryUrl ?? siteUrl('/dashboard')} style={button}>
               {certificateUrl ? 'View Your Certificate' : 'View Your Award'}
             </Button>
           </Section>
@@ -113,8 +114,8 @@ export const template = {
     entryTitle: 'Morning Light',
     competitionTitle: 'Street Photography 2026',
     stageKey: 'r4_winner',
-    certificateUrl: 'https://www.50mmretina.com/dashboard?certificate=demo',
-    entryUrl: 'https://www.50mmretina.com/dashboard',
+    certificateUrl: 'https://example.invalid/dashboard?certificate=demo',
+    entryUrl: 'https://example.invalid/dashboard',
   },
 } satisfies TemplateEntry
 

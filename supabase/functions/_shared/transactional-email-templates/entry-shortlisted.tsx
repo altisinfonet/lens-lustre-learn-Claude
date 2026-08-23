@@ -6,6 +6,7 @@ import { BrandHeader } from './BrandHeader.tsx'
 import { Disclaimer } from './Disclaimer.tsx'
 import type { TemplateEntry } from './registry.ts'
 import { labelForStageKey } from '../stageCatalog.ts'
+import { siteUrl } from '../laneConfig.ts'
 
 const SITE_NAME = '50mm Retina World'
 
@@ -40,7 +41,7 @@ const EntryShortlistedEmail = ({
             strength of your work.
           </Text>
           <Section style={ctaSection}>
-            <Button href={entryUrl ?? 'https://www.50mmretina.com/dashboard'} style={button}>
+            <Button href={entryUrl ?? siteUrl('/dashboard')} style={button}>
               View Your Entry
             </Button>
           </Section>
@@ -66,7 +67,7 @@ export const template = {
     competitionTitle: 'Street Photography 2026',
     roundNumber: 1,
     stageKey: 'r1_shortlisted_r2',
-    entryUrl: 'https://www.50mmretina.com/dashboard',
+    entryUrl: 'https://example.invalid/dashboard',
   },
 } satisfies TemplateEntry
 

@@ -5,6 +5,7 @@ import * as React from 'npm:react@18.3.1'
 import {
   Body, Button, Container, Head, Heading, Html, Img, Preview, Text,
 } from 'npm:@react-email/components@0.0.22'
+import { emailAssetUrl } from '../laneConfig.ts'
 
 interface RecoveryEmailProps {
   siteName: string
@@ -14,7 +15,6 @@ interface RecoveryEmailProps {
   recipient?: string
 }
 
-const LOGO_URL = 'https://jtdtehuqtinjxropkkcn.supabase.co/storage/v1/object/public/email-assets/logo.png'
 
 export const RecoveryEmail = ({ siteName, siteUrl, confirmationUrl, token, recipient }: RecoveryEmailProps) => {
   const baseUrl = siteUrl?.replace(/\/$/, '')
@@ -29,7 +29,7 @@ export const RecoveryEmail = ({ siteName, siteUrl, confirmationUrl, token, recip
       <Preview>Reset your password for {siteName}</Preview>
       <Body style={main}>
         <Container style={container}>
-          <Img src={LOGO_URL} alt={siteName} width="48" height="48" style={logo} />
+          <Img src={emailAssetUrl('logo.png')} alt={siteName} width="48" height="48" style={logo} />
           <Heading style={h1}>Reset Your Password</Heading>
           <Text style={text}>We received a request to reset your password for {siteName}. Click the button below to choose a new password.</Text>
           <Button style={button} href={scannerSafeResetUrl}>Reset Password</Button>

@@ -136,21 +136,35 @@ describe("storage bypass detector", () => {
       "s3-signed-url",
       "s3-upload",
     ];
+    // ⚠ THE DEFINITION IS STRUCTURAL: "reads the settings row itself".
+    // An earlier version also filtered on whether the file mentioned
+    // getS3Settings, to mean "and is therefore unprotected". Adding the G9
+    // assertion put the word "getS3Settings" into a COMMENT in all six, the
+    // filter matched it, and the list silently emptied — a pin that counts
+    // nothing while still reporting green. Same failure as a mention-based
+    // match on measure-post-media, one level up. Prose is not a predicate.
     const found = functionSources()
       .filter(([, src]) => SETTINGS_QUERY.test(src))
-      .filter(([, src]) => !/from\s+["'][^"']*_shared\/s3\.ts["']/.test(src) || !/getS3Settings/.test(src))
       .map(([name]) => name)
       .sort();
     // A seventh appearing fails here. One leaving the list must leave because it
     // now calls assertStorageLane (directly or via getS3Settings) — not because
     // it stopped reading the row while still signing its own requests.
     expect(found).toEqual(EXPECTED);
-    // And each really is unprotected: none of the six imports the shared
-    // getS3Settings, so none of them reaches assertStorageLane today. If one
-    // ever does, it drops out of `found` above and this list must shrink with it.
+    // ⚠ THE LIST STAYS AT SIX. These six still read the settings row directly
+    // and still sign their own requests — that has not changed and is not the
+    // thing being fixed. What changed is that each now calls assertStorageLane
+    // before signing. Narrowing the list to "unasserted readers" would empty it
+    // and make a SEVENTH reader invisible again, which is the whole point of a
+    // pin: it counts readers, not remaining defects.
     for (const name of found) {
       const src = readFileSync(join(FUNCTIONS_DIR, name, "index.ts"), "utf8");
-      expect(src).not.toMatch(/import[\s\S]*?getS3Settings[\s\S]*?_shared\/s3/);
+      expect(src, `${name} reads the settings row but never asserts its lane`).toMatch(
+        /assertStorageLane\s*\(/,
+      );
+      expect(src, `${name} does not import assertStorageLane from the shared module`).toMatch(
+        /import\s*\{[^}]*assertStorageLane[^}]*\}\s*from\s*["'][^"']*_shared\/s3\.ts["']/,
+      );
     }
   });
 

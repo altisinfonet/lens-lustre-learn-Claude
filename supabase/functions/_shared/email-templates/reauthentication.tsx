@@ -5,10 +5,10 @@ import * as React from 'npm:react@18.3.1'
 import {
   Body, Container, Head, Heading, Html, Img, Preview, Text,
 } from 'npm:@react-email/components@0.0.22'
+import { emailAssetUrl } from '../laneConfig.ts'
 
 interface ReauthenticationEmailProps { token: string }
 
-const LOGO_URL = 'https://jtdtehuqtinjxropkkcn.supabase.co/storage/v1/object/public/email-assets/logo.png'
 
 export const ReauthenticationEmail = ({ token }: ReauthenticationEmailProps) => (
   <Html lang="en" dir="ltr">
@@ -16,7 +16,7 @@ export const ReauthenticationEmail = ({ token }: ReauthenticationEmailProps) => 
     <Preview>Your verification code</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Img src={LOGO_URL} alt="50mm Retina World" width="48" height="48" style={logo} />
+        <Img src={emailAssetUrl('logo.png')} alt="50mm Retina World" width="48" height="48" style={logo} />
         <Heading style={h1}>Verification Code</Heading>
         <Text style={text}>Use the code below to confirm your identity:</Text>
         <Text style={codeStyle}>{token}</Text>
