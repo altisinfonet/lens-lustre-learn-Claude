@@ -124,6 +124,24 @@ jobs:
       - name: Bundle isolation guard (production lane)
         run: node scripts/verify-bundle-isolation.mjs
 
+      - name: SEO indexing policy (self-test)
+        run: node scripts/test-seo-assets.mjs
+
+      # The production lane is the ONLY indexable lane. Asserting it here means
+      # a change that de-indexes the live site fails CI instead of shipping.
+      - name: Production lane is indexable
+        run: |
+          set -euo pipefail
+          test -f dist/robots.txt
+          if grep -qiE '^[[:space:]]*Disallow:[[:space:]]*/[[:space:]]*$' dist/robots.txt; then
+            echo "FAIL: the production lane shipped a blanket Disallow: /" >&2
+            cat dist/robots.txt >&2
+            exit 1
+          fi
+          grep -qiE '^[[:space:]]*Sitemap:[[:space:]]*https://50mmretina\.com/sitemap\.xml' dist/robots.txt
+          grep -q '<loc>' dist/sitemap.xml
+          echo "production robots.txt is indexable and advertises the production sitemap"
+
   build-staging:
     name: Staging lane build
     if: github.base_ref == 'staging' || (github.event_name != 'pull_request' && github.ref_name == 'staging')
@@ -139,8 +157,9 @@ jobs:
       # Stated explicitly, never inherited: an omitted variable falls back to the
       # PRODUCTION value, so a silent omission here would build staging against
       # production's CDN and origin - the exact failure this lane exists to stop.
-      # ⚠ Neither host resolves yet (both NXDOMAIN). Expected at this gate: the
-      # staging Pages project and the R2 custom domain are a later gate's work.
+      # STATUS 2026-08-23 (G7): staging.50mmretina.com is Active on the staging
+      # Pages project. cdn-staging.50mmretina.com is still NXDOMAIN - the R2
+      # custom domain is G8's work, so this lane's asset host does not resolve.
       VITE_CDN_HOST: cdn-staging.50mmretina.com
       VITE_SITE_ORIGIN: https://staging.50mmretina.com
       ISOLATION_FORBIDDEN_REFS: jtdtehuqtinjxropkkcn
@@ -178,3 +197,24 @@ jobs:
 
       - name: Bundle isolation guard (staging lane)
         run: node scripts/verify-bundle-isolation.mjs
+
+      - name: SEO indexing policy (self-test)
+        run: node scripts/test-seo-assets.mjs
+
+      # A crawlable staging lane competes with production in search results,
+      # and search engines keep what they have already indexed. Fail the build.
+      - name: Staging lane is not indexable
+        run: |
+          set -euo pipefail
+          test -f dist/robots.txt
+          grep -qiE '^[[:space:]]*Disallow:[[:space:]]*/[[:space:]]*$' dist/robots.txt
+          if grep -qiE '^[[:space:]]*Sitemap:' dist/robots.txt; then
+            echo "FAIL: the staging lane advertised a sitemap while blocking crawlers" >&2
+            cat dist/robots.txt >&2
+            exit 1
+          fi
+          if grep -q '<loc>' dist/sitemap.xml; then
+            echo "FAIL: the staging sitemap lists URLs" >&2
+            exit 1
+          fi
+          echo "staging robots.txt blocks all crawling and advertises no sitemap"

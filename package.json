@@ -21,7 +21,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "gate": "npm run typecheck && npm run test && npm run build",
     "verify:isolation": "node scripts/verify-bundle-isolation.mjs",
-    "test:isolation-guard": "node scripts/test-isolation-guard.mjs"
+    "test:isolation-guard": "node scripts/test-isolation-guard.mjs",
+    "test:seo-assets": "node scripts/test-seo-assets.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
