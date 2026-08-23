@@ -23,12 +23,108 @@ export interface S3Settings {
   secret_access_key: string;
   endpoint?: string;
   path_prefix?: string;
+  /** Public base URL for served objects; read by assertStorageLane. */
+  public_url?: string;
 }
 
 export interface S3Object {
   key: string;
   size: number;
   lastModified: string; // ISO timestamp as returned by ListObjectsV2
+}
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * STORAGE LANE ASSERTION
+ *
+ * The object store is the one lane boundary with no undo. A bundle wired to the
+ * wrong backend is a bad deploy; member photographs written into the wrong
+ * bucket, or deleted from the right one by a staging job, are gone. So this is
+ * checked at the moment the credentials are loaded, not left to configuration.
+ *
+ * The bucket lives in `site_settings.s3_storage_settings`, in the database —
+ * NOT in this repository and not in any environment variable. That is precisely
+ * why it needs asserting: a staging project restored from a production database
+ * dump inherits production's bucket name and production's public_url, and
+ * every S3 call it makes then lands on production's objects while every other
+ * lane signal says staging.
+ *
+ * ⚠ EQUALITY, NEVER `includes` OR `endsWith`. "50mm" is a PREFIX of
+ * "50mm-staging", so a substring test would classify the staging bucket as
+ * production and refuse every legitimate staging write. This is the same trap
+ * guard rule R9 exists for on the host side, and the prefix case is pinned as a
+ * test rather than left to the reader.
+ *
+ * The check is symmetric on purpose. Production naming a foreign bucket is
+ * caught by rule 3; any other lane naming production's bucket or production's
+ * CDN is caught by rule 4. Neither direction is the ambient one.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export const PRODUCTION_PROJECT_REF = "jtdtehuqtinjxropkkcn";
+export const PRODUCTION_BUCKET = "50mm";
+export const PRODUCTION_CDN_HOST = "cdn.50mmretina.com";
+
+export interface StorageLaneSubject {
+  bucket_name: string;
+  endpoint?: string;
+  public_url?: string;
+}
+
+/**
+ * Throws unless the storage settings belong to the same lane as `supabaseUrl`.
+ *
+ * Refuses rather than guesses when the lane cannot be determined: an
+ * unrecognisable SUPABASE_URL means we do not know which side of the boundary
+ * we are on, and "assume production" and "assume staging" are both wrong — one
+ * blocks a real deploy, the other waves through the deletion job.
+ */
+export function assertStorageLane(s3: StorageLaneSubject, supabaseUrl: unknown): void {
+  const url = typeof supabaseUrl === "string" ? supabaseUrl : "";
+  const ref = url.match(/^https:\/\/([a-z0-9]{15,25})\.supabase\.co/)?.[1];
+  if (!ref) {
+    throw new Error(
+      `storage lane cannot be determined: SUPABASE_URL is not a https://<ref>.supabase.co URL ` +
+        `(got: "${url}"). Refusing rather than guessing a lane — guessing production blocks a ` +
+        `real deploy, guessing staging waves a deletion job through onto live objects.`,
+    );
+  }
+
+  const bucket = (s3.bucket_name ?? "").trim();
+  if (bucket === "") {
+    throw new Error(`storage lane: bucket_name is empty for project ref "${ref}" — a bucketless S3 client signs requests at nothing.`);
+  }
+
+  if (ref === PRODUCTION_PROJECT_REF) {
+    // Equality, not a prefix test: see the header.
+    if (bucket !== PRODUCTION_BUCKET) {
+      throw new Error(
+        `storage lane mismatch: the PRODUCTION project (${ref}) is configured with bucket ` +
+          `"${bucket}", not "${PRODUCTION_BUCKET}". Production would write member photographs ` +
+          `into another lane's bucket.`,
+      );
+    }
+    return;
+  }
+
+  if (bucket === PRODUCTION_BUCKET) {
+    throw new Error(
+      `storage lane mismatch: project ref "${ref}" is NOT production but is configured with the ` +
+        `production bucket "${PRODUCTION_BUCKET}". A non-production job would read, overwrite or ` +
+        `delete live member photographs.`,
+    );
+  }
+
+  // The CDN host is matched as a substring BECAUSE these two fields hold URLs,
+  // not bare identifiers — the host sits inside them. That is the opposite of
+  // the bucket rule above, and deliberately so.
+  const urls = `${s3.endpoint ?? ""} ${s3.public_url ?? ""}`;
+  if (urls.includes(PRODUCTION_CDN_HOST)) {
+    throw new Error(
+      `storage lane mismatch: project ref "${ref}" is NOT production but its endpoint/public_url ` +
+        `names the production CDN "${PRODUCTION_CDN_HOST}". Objects written here would be served ` +
+        `from, or served as, production media.`,
+    );
+  }
 }
 
 function toHex(buffer: ArrayBuffer): string {
@@ -185,7 +281,14 @@ export async function getS3Settings(
     .maybeSingle();
   if (error) throw new Error(`could not read s3_storage_settings: ${error.message}`);
   const s3 = (data?.value as S3Settings | null) ?? null;
-  return s3?.enabled ? s3 : null;
+  if (!s3?.enabled) return null;
+  // ⚠ SUPABASE_URL VIA globalThis, NOT AN AMBIENT `Deno` DECLARATION.
+  // These functions run on Deno, but this file is pulled into the web
+  // TypeScript program by its vitest suite; declaring `Deno` globally would
+  // leak a Deno namespace into every src/ file and break tsconfig.app.json.
+  const denoEnv = (globalThis as { Deno?: { env?: { get(k: string): string | undefined } } }).Deno;
+  assertStorageLane(s3, denoEnv?.env?.get("SUPABASE_URL"));
+  return s3;
 }
 
 /**
