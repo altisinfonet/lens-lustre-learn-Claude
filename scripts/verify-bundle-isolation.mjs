@@ -71,6 +71,12 @@
  * deliberately has no Pages Functions to guard:
  * ISOLATION_ALLOW_UNSCANNED_FUNCTIONS=1.
  *
+ * PER-LINE EXEMPTION, added 2026-08-23 (G10). A line containing the pragma
+ * `isolation-allow:` is skipped by the leak scans, and the number skipped is
+ * printed on every PASS. Per-line and not per-file on purpose: the files that
+ * need an exemption are the ones that handle lane identity, so a file-level
+ * exclusion would hide the next real leak added to precisely the wrong file.
+ *
  * ⚠ NEVER PUT THE BARE APEX IN A FORBIDDEN LIST. Matching is substring, and
  * `50mmretina.com` is a substring of `staging.50mmretina.com`,
  * `cdn-staging.50mmretina.com` AND `mail@50mmretina.com` - it would flag the
@@ -101,9 +107,11 @@ const expectedHost = (process.env.ISOLATION_EXPECTED_HOST || "").trim();
 const forbiddenHosts = (process.env.ISOLATION_FORBIDDEN_HOSTS || "")
   .split(",").map(s => s.trim()).filter(Boolean);
 
-// .ts is here for the Pages Functions roots: they ship as TypeScript source,
-// so a lane literal in them is never compiled away into dist.
-const TEXT_EXT = new Set([".html", ".js", ".mjs", ".css", ".json", ".txt", ".webmanifest", ".map", ".svg", ".ts"]);
+// .ts AND .tsx are here for the source roots: they ship as TypeScript, so a lane
+// literal in them is never compiled away into dist. .tsx was missing until G10
+// and every email template is .tsx — the scan walked the directory and read none
+// of them. Two blind spots, and fixing either one alone changes nothing.
+const TEXT_EXT = new Set([".html", ".js", ".mjs", ".css", ".json", ".txt", ".webmanifest", ".map", ".svg", ".ts", ".tsx"]);
 const fail = (code, msg) => { console.error(`ISOLATION-GUARD FAIL [${code}]: ${msg}`); process.exit(1); };
 
 const m = url.match(/^https:\/\/([a-z0-9]{15,25})\.supabase\.co\/?$/);
@@ -141,9 +149,10 @@ if (!existsSync(DIST)) fail("R4", `dist directory "${DIST}" does not exist`);
 // command, and the day one of them forgot, the failure would be silence. The
 // var stays available for additional roots, and naming any root explicitly
 // takes over completely - which is what R11 then polices.
+const SOURCE_ROOTS = ["functions", "supabase/functions"];
 const extraDirs = explicitExtras.length > 0
   ? explicitExtras
-  : (existsSync("functions") ? ["functions"] : []);
+  : SOURCE_ROOTS.filter((d) => existsSync(d));
 
 // R11 — a Pages Functions directory that nobody asked us to scan is a blind
 // spot, not an absence of risk. Functions carry lane values in source.
@@ -155,6 +164,19 @@ if (existsSync("functions")
     + "reaches dist and this guard would be blind to a production literal in them. "
     + 'Include "functions" in the list, or set ISOLATION_ALLOW_UNSCANNED_FUNCTIONS=1 '
     + "to state deliberately that this repository has no Pages Functions to guard.");
+}
+
+// R13 — the same rule for supabase/functions, and it was NOT theoretical: until
+// G10 this directory was never scanned, and it held 23 lines of production
+// literals across 13 files while CI reported a fully-armed guard.
+if (existsSync("supabase/functions")
+    && !extraDirs.some(d => d === "supabase/functions" || d.startsWith("supabase/functions/"))
+    && process.env.ISOLATION_ALLOW_UNSCANNED_EDGE_FUNCTIONS !== "1") {
+  fail("R13", 'a "supabase/functions" directory exists but ISOLATION_EXTRA_DIRS names other roots '
+    + "and excludes it — Supabase edge functions ship as source, nothing about them reaches dist, "
+    + "and they send the email a member reads. "
+    + 'Include "supabase/functions" in the list, or set ISOLATION_ALLOW_UNSCANNED_EDGE_FUNCTIONS=1 '
+    + "to state deliberately that this repository has no edge functions to guard.");
 }
 
 const roots = [DIST, ...extraDirs];
@@ -178,12 +200,34 @@ let expectedSeen = false;
 let expectedHostSeen = false;
 const leaks = [];
 const hostLeaks = [];
+/**
+ * ⚠ PER-LINE, NEVER PER-FILE. A file-level exclusion would silence the NEXT
+ * leak added to that file as well as the one it was written for, and the files
+ * needing an exemption are exactly the ones that handle lane identity — s3.ts
+ * must NAME the production ref and bucket in order to refuse them, and
+ * secureHeaders.ts must name the production origins because they ARE the CORS
+ * policy. Those are the last files where a new literal should go unnoticed.
+ *
+ * The count is printed on every PASS. An exemption nobody can see is an
+ * exclusion list with better manners.
+ */
+const ALLOW_PRAGMA = "isolation-allow:";
+let exemptedLines = 0;
+
 for (const f of files) {
-  const body = readFileSync(f, "utf8");
-  if (body.includes(expectedRef)) expectedSeen = true;
+  const raw = readFileSync(f, "utf8");
+  const kept = [];
+  for (const line of raw.split("\n")) {
+    if (line.includes(ALLOW_PRAGMA)) { exemptedLines++; continue; }
+    kept.push(line);
+  }
+  const body = kept.join("\n");
+  // The expected-ref/host sightings read the FULL file: an exempted line still
+  // proves the build used this lane, and R2/R7 are presence checks, not leaks.
+  if (raw.includes(expectedRef)) expectedSeen = true;
   for (const ref of forbidden) if (body.includes(ref)) leaks.push(`${ref} in ${f}`);
   if (hostRulesActive) {
-    if (body.includes(expectedHost)) expectedHostSeen = true;
+    if (raw.includes(expectedHost)) expectedHostSeen = true;
     // Report the needle that matched, not just the file: forbidden hosts can
     // overlap, and a leak attributed to the wrong host sends the fix elsewhere.
     for (const h of forbiddenHosts) if (body.includes(h)) hostLeaks.push(`${h} in ${f}`);
@@ -199,4 +243,4 @@ if (hostRulesActive) {
 const hostSummary = hostRulesActive
   ? ` host=${expectedHost} present; forbidden-hosts=[${forbiddenHosts.join(",")}] absent;`
   : " host rules DELIBERATELY DISABLED via ISOLATION_ALLOW_NO_HOST_RULES=1 — R7-R10 did not run;";
-console.log(`ISOLATION-GUARD PASS: expected=${expectedRef} present; forbidden=[${forbidden.join(",")}] absent;${hostSummary} ${files.length} assets scanned across ${roots.length} root(s): ${roots.join(", ")}.`);
+console.log(`ISOLATION-GUARD PASS: expected=${expectedRef} present; forbidden=[${forbidden.join(",")}] absent;${hostSummary} ${files.length} assets scanned across ${roots.length} root(s): ${roots.join(", ")}; ${exemptedLines} line(s) exempted by ${ALLOW_PRAGMA}.`);

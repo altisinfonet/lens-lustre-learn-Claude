@@ -12,7 +12,8 @@ const corsHeaders = {
   "Content-Type": "application/json",
 };
 
-const SITE_URL = "https://50mmretina.com";
+import { siteOrigin } from "../_shared/laneConfig.ts";
+const SITE_URL = () => siteOrigin();
 const SITE_NAME_FALLBACK = "50mm Retina World";
 const DEFAULT_TITLE = "50mm Retina World — Competitions, Education & Journal for Photographers";
 const DEFAULT_DESC = "Join 50mm Retina World — the ultimate platform for photographers.";
@@ -51,7 +52,7 @@ function clampDesc(d: string): string {
 
 function buildCanonical(path: string): string {
   const clean = path.startsWith("/") ? path : `/${path}`;
-  return `${SITE_URL}${clean}`;
+  return `${SITE_URL()}${clean}`;
 }
 
 async function loadGlobals(): Promise<{
@@ -159,7 +160,7 @@ async function resolveCompetition(slugOrId: string, meta: Metadata, global: any)
     endDate: data.ends_at || "",
     eventStatus: "https://schema.org/EventScheduled",
     eventAttendanceMode: "https://schema.org/OnlineEventAttendanceMode",
-    organizer: { "@type": "Organization", name: SITE_NAME_FALLBACK, url: SITE_URL },
+    organizer: { "@type": "Organization", name: SITE_NAME_FALLBACK, url: SITE_URL() },
   }];
   meta.source = "competition";
   return true;
@@ -197,7 +198,7 @@ async function resolveJournal(slug: string, meta: Metadata, global: any) {
     datePublished: data.published_at || "",
     dateModified: data.updated_at || data.published_at || "",
     url: meta.canonical,
-    publisher: { "@type": "Organization", name: SITE_NAME_FALLBACK, url: SITE_URL },
+    publisher: { "@type": "Organization", name: SITE_NAME_FALLBACK, url: SITE_URL() },
     ...(authorName ? { author: { "@type": "Person", name: authorName } } : {}),
     ...(Array.isArray(data.tags) && data.tags.length ? { keywords: data.tags.join(", ") } : {}),
   }];
@@ -223,7 +224,7 @@ async function resolveCourse(slug: string, meta: Metadata, global: any) {
     description: data.description || "",
     image: data.cover_image_url || "",
     url: meta.canonical,
-    provider: { "@type": "Organization", name: SITE_NAME_FALLBACK, url: SITE_URL },
+    provider: { "@type": "Organization", name: SITE_NAME_FALLBACK, url: SITE_URL() },
     ...(data.difficulty ? { educationalLevel: data.difficulty } : {}),
   }];
   meta.source = "course";
@@ -252,7 +253,7 @@ async function resolveFeaturedArtist(slug: string, meta: Metadata, global: any) 
     image: data.cover_image_url || "",
     datePublished: data.published_at || "",
     url: meta.canonical,
-    publisher: { "@type": "Organization", name: SITE_NAME_FALLBACK, url: SITE_URL },
+    publisher: { "@type": "Organization", name: SITE_NAME_FALLBACK, url: SITE_URL() },
     ...(data.artist_name ? { author: { "@type": "Person", name: data.artist_name } } : {}),
   }];
   meta.source = "featured-artist";

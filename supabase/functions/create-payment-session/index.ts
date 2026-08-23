@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecureHeaders } from "../_shared/secureHeaders.ts";
+import { siteOrigin } from "../_shared/laneConfig.ts";
 
 Deno.serve(async (req) => {
   const headers = getSecureHeaders(req);
@@ -62,12 +63,11 @@ Deno.serve(async (req) => {
     const amountUSD = currency === "inr" ? amount : amount; // amount should already be in USD from frontend
     // SECURITY: allowlist return origins to prevent open-redirect via attacker-controlled `Origin` header.
     const ALLOWED_ORIGINS = new Set([
-      "https://50mmretina.com",
-      "https://www.50mmretina.com",
+      siteOrigin(),
       "https://fiftymmretinaworld.lovable.app",
     ]);
     const requestOrigin = req.headers.get("Origin") ?? "";
-    const origin = ALLOWED_ORIGINS.has(requestOrigin) ? requestOrigin : "https://50mmretina.com";
+    const origin = ALLOWED_ORIGINS.has(requestOrigin) ? requestOrigin : siteOrigin();
     const returnUrl = `${origin}/wallet?payment=success`;
     const cancelUrl = `${origin}/wallet?payment=cancelled`;
 

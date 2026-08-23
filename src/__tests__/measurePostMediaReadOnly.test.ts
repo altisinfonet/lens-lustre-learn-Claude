@@ -59,8 +59,12 @@ describe("measure-post-media stays a measurement, not a capability", () => {
 
   it("FETCHES ONE HOST ONLY — pinned constant, and the host is re-checked after parsing", () => {
     const code = codeOnly(src);
-    expect(code).toContain('const CDN_HOST = "cdn.50mmretina.com"');
-    expect(code).toContain("host !== CDN_HOST");
+    // Lane-derived since G10 — the host is no longer a literal, but the
+    // invariant is unchanged and is what this pins: ONE host, obtained from the
+    // lane, and re-checked after parsing. Asserting the production literal here
+    // would have made this test fail on staging for being correct.
+    expect(code).toContain("cdnHostValue = (): string => cdnHost()");
+    expect(code).toContain("host !== cdnHostValue()");
     // A redirect is a target the function did not choose.
     expect(code).toContain('redirect: "error"');
     // The only fetch of an object is the candidate URL the database supplied.

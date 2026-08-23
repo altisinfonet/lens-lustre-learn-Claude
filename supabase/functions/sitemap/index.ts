@@ -1,6 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const SITE_URL = "https://50mmretina.com";
+import { siteOrigin } from "../_shared/laneConfig.ts";
+// Call-time, not module load: a module-level throw would kill the whole function
+// before it can report why.
+const SITE_URL = () => siteOrigin();
 
 const corsHeaders = {
   "Content-Type": "application/xml; charset=utf-8",
@@ -62,7 +65,7 @@ Deno.serve(async () => {
 
     // 1. Static routes
     for (const route of staticRoutes) {
-      xml += urlEntry(`${SITE_URL}${route.path}`, today, route.changefreq, route.priority);
+      xml += urlEntry(`${SITE_URL()}${route.path}`, today, route.changefreq, route.priority);
     }
 
     // 2. Competitions
@@ -78,7 +81,7 @@ Deno.serve(async () => {
     if (competitions) {
       for (const c of competitions) {
         xml += urlEntry(
-          `${SITE_URL}/competitions/${c.id}`,
+          `${SITE_URL()}/competitions/${c.id}`,
           c.updated_at?.split("T")[0],
           "weekly",
           "0.7",
@@ -97,7 +100,7 @@ Deno.serve(async () => {
     if (articles) {
       for (const a of articles) {
         xml += urlEntry(
-          `${SITE_URL}/journal/${a.slug}`,
+          `${SITE_URL()}/journal/${a.slug}`,
           a.updated_at?.split("T")[0],
           "monthly",
           "0.6",
@@ -116,7 +119,7 @@ Deno.serve(async () => {
     if (courses) {
       for (const c of courses) {
         xml += urlEntry(
-          `${SITE_URL}/courses/${c.slug}`,
+          `${SITE_URL()}/courses/${c.slug}`,
           c.updated_at?.split("T")[0],
           "monthly",
           "0.7",
@@ -135,7 +138,7 @@ Deno.serve(async () => {
     if (artists) {
       for (const a of artists) {
         xml += urlEntry(
-          `${SITE_URL}/featured-artist/${a.slug}`,
+          `${SITE_URL()}/featured-artist/${a.slug}`,
           a.updated_at?.split("T")[0],
           "monthly",
           "0.6",
@@ -155,7 +158,7 @@ Deno.serve(async () => {
       for (const p of pagesData.value as any[]) {
         if (p.is_published && !p.noindex) {
           xml += urlEntry(
-            `${SITE_URL}/page/${p.slug}`,
+            `${SITE_URL()}/page/${p.slug}`,
             undefined,
             "monthly",
             "0.4"
@@ -176,7 +179,7 @@ Deno.serve(async () => {
       for (const p of profiles as any[]) {
         if (!p.custom_url) continue;
         xml += urlEntry(
-          `${SITE_URL}/${p.custom_url}`,
+          `${SITE_URL()}/${p.custom_url}`,
           p.updated_at?.split("T")[0],
           "weekly",
           "0.5",
@@ -197,7 +200,7 @@ Deno.serve(async () => {
     if (posts) {
       for (const p of posts as any[]) {
         xml += urlEntry(
-          `${SITE_URL}/post/${p.id}`,
+          `${SITE_URL()}/post/${p.id}`,
           p.created_at?.split("T")[0],
           "monthly",
           "0.4",

@@ -36,7 +36,9 @@ const GUARD_VARS = ["VITE_SUPABASE_URL", "ISOLATION_FORBIDDEN_REFS", "ISOLATION_
   // Added with R12 (G8). Same rule, same reason — and this one matters most of
   // all: it is the hatch that TURNS OFF R7-R10, so an inherited "1" would
   // disarm the host rules in every case below without a single line changing.
-  "ISOLATION_ALLOW_NO_HOST_RULES"];
+  "ISOLATION_ALLOW_NO_HOST_RULES",
+  // Added with R13 and the per-line pragma (G10). Same rule, same reason.
+  "ISOLATION_ALLOW_UNSCANNED_EDGE_FUNCTIONS"];
 /** R11 keys off a "functions" directory RELATIVE TO CWD, so the harness's own
  *  working directory became a hidden input the moment that rule existed: run
  *  from the repo root and every legacy case inherits a functions/ that its
@@ -86,6 +88,23 @@ function fnCwd(kind) {
   // A second, innocuous root, so a case can declare roots that EXCLUDE functions/.
   mkdirSync(join(c, "other"), { recursive: true });
   writeFileSync(join(c, "other", "note.txt"), "nothing lane-specific here\n");
+  return c;
+}
+/** A scratch CWD with a supabase/functions root, for R13, the .tsx blind spot
+ *  and the per-line pragma. The leaky variant puts its literal in a .tsx file
+ *  ON PURPOSE: every email template is .tsx, and until G10 the scan walked the
+ *  directory and read none of them. */
+function edgeCwd(kind) {
+  const c = mkdtempSync(join(tmpdir(), "edgecwd-"));
+  mkdirSync(join(c, "supabase", "functions", "_shared"), { recursive: true });
+  const f = (n, b) => writeFileSync(join(c, "supabase", "functions", "_shared", n), b);
+  if (kind === "leaky-tsx") f("tpl.tsx", `const LOGO = "https://${PROD}.supabase.co/logo.png"\n`);
+  if (kind === "leaky-ts")  f("mod.ts",  `const REF = "${PROD}"\n`);
+  if (kind === "pragma")    f("mod.ts",  `const REF = "${PROD}" // isolation-allow: policy, not a leak\n`);
+  if (kind === "pragma-file") f("mod.ts", `// isolation-allow: whole file\nconst REF = "${PROD}"\n`);
+  if (kind === "clean")     f("mod.ts",  `export const ok = 1\n`);
+  mkdirSync(join(c, "other"), { recursive: true });
+  writeFileSync(join(c, "other", "note.txt"), "nothing lane-specific\n");
   return c;
 }
 function expect(name, r, wantExit, wantSnippet) {
@@ -207,6 +226,28 @@ expect("GREEN-8 functions/ present, explicitly declared unguarded -> PASS",
 expect("GREEN-9 functions/ scanned and free of the other lane's values -> PASS",
   runGuard(GUARD, fixture("staging-clean"), { ...stagingEnv, ISOLATION_EXTRA_DIRS: "functions", __cwd: fnCwd("clean") }), 0, "2 root(s)");
 
+// ---- G10: supabase/functions reach, .tsx, and the per-line pragma ----
+// Measured on the pre-fix tree: the guard scanned "dist, functions" and reported
+// PASS while supabase/functions held 23 lines of production literals in 13 files.
+expect("RED-21 explicit roots that exclude an existing supabase/functions -> FAIL R13",
+  runGuard(GUARD, fixture("staging-clean"), { ...stagingEnv, ISOLATION_EXTRA_DIRS: "other", __cwd: edgeCwd("clean") }), 1, "[R13]");
+expect("GREEN-12 supabase/functions scanned by default -> PASS",
+  runGuard(GUARD, fixture("staging-clean"), { ...stagingEnv, __cwd: edgeCwd("clean") }), 0, "supabase/functions");
+// The .tsx blind spot, as a leak the guard must now see.
+expect("RED-22 a production ref inside a .tsx under supabase/functions -> FAIL R3",
+  runGuard(GUARD, fixture("staging-clean"), { ...stagingEnv, __cwd: edgeCwd("leaky-tsx") }), 1, "[R3]");
+expect("RED-23 a production ref inside a .ts under supabase/functions -> FAIL R3",
+  runGuard(GUARD, fixture("staging-clean"), { ...stagingEnv, __cwd: edgeCwd("leaky-ts") }), 1, "[R3]");
+expect("GREEN-13 supabase/functions present, explicitly declared unguarded -> PASS",
+  runGuard(GUARD, fixture("staging-clean"), { ...stagingEnv, ISOLATION_ALLOW_UNSCANNED_EDGE_FUNCTIONS: "1", ISOLATION_EXTRA_DIRS: "other", __cwd: edgeCwd("clean") }), 0, "ISOLATION-GUARD PASS");
+// The pragma exempts the LINE it is on, and says so in the summary.
+expect("GREEN-14 an isolation-allow: line is exempted, and counted -> PASS",
+  runGuard(GUARD, fixture("staging-clean"), { ...stagingEnv, __cwd: edgeCwd("pragma") }), 0, "1 line(s) exempted");
+// ⚠ PER-LINE, NOT PER-FILE. A pragma on its own line must NOT cover the rest of
+// the file, or the next real leak added below it becomes invisible.
+expect("RED-24 a pragma on another line does NOT exempt the file -> FAIL R3",
+  runGuard(GUARD, fixture("staging-clean"), { ...stagingEnv, __cwd: edgeCwd("pragma-file") }), 1, "[R3]");
+
 if (results.some(r => !r.ok)) { report(); console.error("\nBASELINE RED — refusing to run mutations over a failing baseline."); process.exit(1); }
 
 // ---- MUTATIONS: each mutated guard must be DETECTED by these fixtures ----
@@ -252,8 +293,14 @@ const killMutations = [
   ["W14 R11 removed - explicit roots excluding functions/ sail through",
      src.replace('if (existsSync("functions")', 'if (false && existsSync("functions")'),
      g => !((runGuard(g, fixture("staging-clean"), { ...stagingEnv, ISOLATION_EXTRA_DIRS: "other", __cwd: fnCwd("clean") }).stderr || "").includes("[R11]"))],
-  ["W16 default-on scan reverted to opt-in - functions/ unscanned unless asked",
-     src.replace(': (existsSync("functions") ? ["functions"] : []);', ": [];"),
+  // ⚠ W16 RETARGETED, NOT DELETED (standing rule 9). Its mutation string was
+  // ': (existsSync("functions") ? ["functions"] : []);' — the exact source line
+  // G10 replaced with the SOURCE_ROOTS filter. The replace stopped matching, the
+  // mutation silently did not apply, and the harness reported it SURVIVED. The
+  // invariant is unchanged and still worth pinning: the default-on scan must
+  // never revert to opt-in. Only the text it attaches to moved.
+  ["W16 default-on scan reverted to opt-in - source roots unscanned unless asked",
+     src.replace("  : SOURCE_ROOTS.filter((d) => existsSync(d));", "  : [];"),
      g => !((runGuard(g, fixture("staging-clean"), { ...stagingEnv, __cwd: fnCwd("leaky") }).stderr || "").includes("[R3]"))],
   ["W15 extra roots dropped - functions/ is requested but never walked",
      src.replace("const roots = [DIST, ...extraDirs];", "const roots = [DIST];"),
@@ -269,6 +316,17 @@ const killMutations = [
   ["W18 R12's hatch inverted - the allowance switches the rules on rather than off",
      src.replace('process.env.ISOLATION_ALLOW_NO_HOST_RULES !== "1"', 'process.env.ISOLATION_ALLOW_NO_HOST_RULES === "1"'),
      g => runGuard(g, fixture("host-staging-clean"), stagingRefs).status === 0],
+  // --- G10 ---
+  ["W19 R13 removed - supabase/functions can be excluded silently",
+     src.replace('if (existsSync("supabase/functions")', 'if (false && existsSync("supabase/functions")'),
+     g => !((runGuard(g, fixture("staging-clean"), { ...stagingEnv, ISOLATION_EXTRA_DIRS: "other", __cwd: edgeCwd("clean") }).stderr || "").includes("[R13]"))],
+  ["W20 .tsx dropped from TEXT_EXT - every email template becomes unreadable",
+     src.replace('".ts", ".tsx"]', '".ts"]'),
+     g => !((runGuard(g, fixture("staging-clean"), { ...stagingEnv, __cwd: edgeCwd("leaky-tsx") }).stderr || "").includes("[R3]"))],
+  ["W21 pragma made FILE-level instead of per-line - the next leak in that file hides",
+     src.replace("    if (line.includes(ALLOW_PRAGMA)) { exemptedLines++; continue; }\n    kept.push(line);",
+                 "    if (raw.includes(ALLOW_PRAGMA)) { exemptedLines++; continue; }\n    kept.push(line);"),
+     g => !((runGuard(g, fixture("staging-clean"), { ...stagingEnv, __cwd: edgeCwd("pragma-file") }).stderr || "").includes("[R3]"))],
   ["W12 apex guard removed - bare apex accepted into the forbidden list",
      src.replace("    if (expectedHost.endsWith(`.${h}`))", "    if (false)"),
      g => !((runGuard(g, fixture("host-staging-clean"), { ...stagingRefs, ISOLATION_EXPECTED_HOST: STAG_HOST, ISOLATION_FORBIDDEN_HOSTS: APEX }).stderr || "").includes("[R9]"))],

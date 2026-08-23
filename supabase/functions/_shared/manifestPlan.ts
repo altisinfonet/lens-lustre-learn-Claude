@@ -31,6 +31,7 @@
  * arrives. That is the specific hole this replaces.
  * ═══════════════════════════════════════════════════════════════════════════
  */
+import { cdnHost } from "./laneConfig.ts";
 
 /** One approved row. Mirrors the 13 columns of the Cycle-4 manifest exactly. */
 export interface ManifestRow {
@@ -68,7 +69,9 @@ export interface Refusal {
 export const MIGRATOR_VERSION = "1";
 
 /** The one host the migration will ever accept. */
-export const CDN_HOST = "cdn.50mmretina.com";
+// Lane-derived (G10). An allow-list, not a display value: callers compare
+// against it to decide whether a URL is this lane's. Call-time, not module load.
+export const cdnHostFor = (): string => cdnHost();
 
 /**
  * THE APPROVED POPULATION'S PATH SHAPES. Anything else is not a candidate.
@@ -200,8 +203,8 @@ export function parseManifest(text: string): { rows: ManifestRow[]; refusal: Ref
     if (!Number.isInteger(ord) || ord < 1) {
       return { rows: [], refusal: { code: "MIG-1014", detail: `${at}: ord must be a positive integer` } };
     }
-    if (source_host !== CDN_HOST) {
-      return { rows: [], refusal: { code: "MIG-1015", detail: `${at}: host ${source_host} is not ${CDN_HOST}` } };
+    if (source_host !== cdnHostFor()) {
+      return { rows: [], refusal: { code: "MIG-1015", detail: `${at}: host ${source_host} is not ${cdnHostFor()}` } };
     }
     if (object_path.includes("..")) {
       return { rows: [], refusal: { code: "MIG-1016", detail: `${at}: object_path contains ".."` } };
