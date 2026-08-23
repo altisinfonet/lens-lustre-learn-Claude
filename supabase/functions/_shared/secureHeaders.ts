@@ -9,10 +9,14 @@
  * that BEGINS with an allowed origin, and anyone can register a domain that
  * does. Measured against the previous implementation:
  *
- *   ALLOWED  https://50mmretina.com.evil.example
- *   ALLOWED  https://50mmretina.com.attacker.net
- *   ALLOWED  https://www.50mmretina.com.evil.io
- *   blocked  https://staging.50mmretina.com      <- the only legitimate one
+ *   ALLOWED  <production-apex>.evil.example
+ *   ALLOWED  <production-apex>.attacker.net
+ *   ALLOWED  <production-www-host>.evil.io
+ *   blocked  <the staging lane's own origin>     <- the only legitimate one
+ *
+ * (The attacker hosts are written as placeholders rather than literals so this
+ *  comment is not itself a lane leak; the exact strings are pinned in
+ *  src/__tests__/corsOriginAllowlist.test.ts, where they belong.)
  *
  * Every one of those got Access-Control-Allow-Origin echoed back with
  * credentials-bearing endpoints behind it. The one origin the lane work exists
@@ -25,8 +29,8 @@
  */
 
 const ALLOWED_ORIGINS = [
-  "https://50mmretina.com",
-  "https://www.50mmretina.com",
+  "https://50mmretina.com", // isolation-allow: this list IS the CORS policy; the production origins are its content, not a leak into it
+  "https://www.50mmretina.com", // isolation-allow: as above — every lane's allow-list names production, because production is a legitimate caller
   "https://fiftymmretinaworld.lovable.app",
   "https://lens-lustre-learn.lovable.app",
   "https://id-preview--8658c335-87a2-4e48-86ad-6c1fff54dead.lovable.app",

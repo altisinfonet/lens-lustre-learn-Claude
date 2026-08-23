@@ -87,3 +87,19 @@ export function emailAssetUrl(file: string): string {
   }
   return `${base}/storage/v1/object/public/email-assets/${file.replace(/^\/+/, "")}`;
 }
+
+/**
+ * This lane's CDN host, e.g. for building or validating media URLs.
+ *
+ * ⚠ AN ALLOW-LIST, NOT A DISPLAY VALUE. Code compares against this to decide
+ * whether a URL may be trusted or rewritten, so a wrong value does not merely
+ * render oddly — it decides that another lane's objects are this lane's. Hence
+ * required, with no default, exactly like siteOrigin().
+ */
+export function cdnHost(): string {
+  const raw = laneValue("CDN_HOST").replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(raw)) {
+    throw new Error(`CDN_HOST is not a bare hostname (got: "${raw}").`);
+  }
+  return raw;
+}

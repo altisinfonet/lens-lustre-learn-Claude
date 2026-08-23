@@ -10,11 +10,11 @@ const corsHeaders = {
   "Content-Type": "application/json",
 };
 
-const TARGETS = [
-  "https://50mmretina.com",
-  "https://www.50mmretina.com",
-  "https://fiftymmretinaworld.lovable.app",
-];
+// Lane-derived, and evaluated at CALL TIME: siteOrigin() throws when SITE_ORIGIN
+// is unset, and a module-level throw would kill the function before it could say
+// why. The lane's own origin is first, because callers below treat targets()[0] as
+// the canonical host.
+const targets = (): string[] => [siteOrigin(), "https://fiftymmretinaworld.lovable.app"];
 
 // Sample one URL per route family — covers every shape the SOW cares about.
 // Keep the list small so a full run finishes well under the 60s edge budget.
@@ -228,9 +228,9 @@ Deno.serve(async (req) => {
   // --- SECURITY: SSRF allowlist — only known production origins permitted ---
   let originParam: string | null = null;
   if (originParamRaw) {
-    if (!TARGETS.includes(originParamRaw)) {
+    if (!targets().includes(originParamRaw)) {
       return new Response(
-        JSON.stringify({ error: "origin not in allowlist", allowed: TARGETS }),
+        JSON.stringify({ error: "origin not in allowlist", allowed: targets() }),
         { status: 400, headers: corsHeaders }
       );
     }
@@ -245,13 +245,13 @@ Deno.serve(async (req) => {
 
     if (mode === "all" || mode === "domains") {
       tasks.push(
-        Promise.all(TARGETS.map(inspectDomain)).then((r) => {
+        Promise.all(targets().map(inspectDomain)).then((r) => {
           domainReports = r;
         })
       );
     }
     if (mode === "all" || mode === "routes") {
-      const origins = originParam ? [originParam] : [TARGETS[0]]; // canonical host only by default
+      const origins = originParam ? [originParam] : [targets()[0]]; // canonical host only by default
       const work: Promise<unknown>[] = [];
       for (const origin of origins) {
         for (const sample of ROUTE_SAMPLES) {
@@ -291,8 +291,8 @@ Deno.serve(async (req) => {
         jsonLdInvalidCount: invalidJsonLdCount,
       },
       googlebotWillFetchNext: {
-        html: TARGETS.map((t) => `${t}/`),
-        favicon: TARGETS.map((t) => `${t}/favicon.ico`),
+        html: targets().map((t) => `${t}/`),
+        favicon: targets().map((t) => `${t}/favicon.ico`),
       },
     };
     return new Response(

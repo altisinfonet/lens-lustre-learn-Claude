@@ -60,9 +60,9 @@ export interface S3Object {
  * CDN is caught by rule 4. Neither direction is the ambient one.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export const PRODUCTION_PROJECT_REF = "jtdtehuqtinjxropkkcn";
+export const PRODUCTION_PROJECT_REF = "jtdtehuqtinjxropkkcn"; // isolation-allow: this file must NAME the production ref in order to refuse it; removing it would delete the check, not the leak
 export const PRODUCTION_BUCKET = "50mm";
-export const PRODUCTION_CDN_HOST = "cdn.50mmretina.com";
+export const PRODUCTION_CDN_HOST = "cdn.50mmretina.com"; // isolation-allow: same — assertStorageLane compares against this to catch a non-production lane serving production media
 
 export interface StorageLaneSubject {
   bucket_name: string;
