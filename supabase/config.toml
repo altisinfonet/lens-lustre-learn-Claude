@@ -24,10 +24,6 @@ project_id = "jtdtehuqtinjxropkkcn"
     verify_jwt = false
   [functions.sitemap]
     verify_jwt = false
-  [functions.translate]
-    verify_jwt = false
-  [functions.vote-wallet-reward]
-    verify_jwt = false
   [functions.send-transactional-email]
     verify_jwt = true
   [functions.preview-transactional-email]
@@ -51,8 +47,6 @@ project_id = "jtdtehuqtinjxropkkcn"
   [functions.judge-session-resume]
     verify_jwt = false
   [functions.cast-photo-vote]
-    verify_jwt = false
-  [functions.expire-photo-verifications]
     verify_jwt = false
   [functions.seo-route-metadata]
     verify_jwt = false

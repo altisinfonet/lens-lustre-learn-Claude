@@ -59,7 +59,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
-import { imageDimsFromBytes } from "./_shared/imageDims.ts";
+import { imageDimsFromBytes } from "../_shared/imageDims.ts";
 import { cdnHost } from "../_shared/laneConfig.ts";
 
 const corsHeaders = {
