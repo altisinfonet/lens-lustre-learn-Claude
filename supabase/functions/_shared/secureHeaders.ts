@@ -34,6 +34,17 @@ const ALLOWED_ORIGINS = [
   "https://fiftymmretinaworld.lovable.app",
   "https://lens-lustre-learn.lovable.app",
   "https://id-preview--8658c335-87a2-4e48-86ad-6c1fff54dead.lovable.app",
+  // ⚠ THE ANDROID APP'S ORIGIN. capacitor.config.ts sets androidScheme: "https",
+  // so the Capacitor WebView serves the app from https://localhost and sends
+  // that as its Origin. It is NOT one of the site hostnames and never was in
+  // this list — until now it reached these endpoints only through the
+  // permissive "*" fallback below. Removing that fallback without naming the
+  // app origin here would have broken every shipped Android build the moment
+  // it called dashboard-init, get-wallet-summary, submit-deposit or any of the
+  // other 27 functions built on these headers. The production R2 bucket CORS
+  // policy carries the same entry, for the same reason.
+  "https://localhost",
+  "capacitor://localhost",
 ];
 
 /** Anchored, https-only. `endsWith(".lovable.app")` matched http:// too. */
@@ -79,15 +90,36 @@ export function isOriginAllowed(requestOrigin: string): boolean {
   return lane !== null && o === lane;
 }
 
+/**
+ * ⚠ THREE CASES, NOT TWO. The old code had one `origin` variable defaulting to
+ * "*", which meant a DISALLOWED origin was answered with a wildcard — the
+ * allow-list decided whose origin got echoed, and everybody else still got a
+ * usable CORS grant. Browsers refuse "*" for credentialed requests, so cookie
+ * flows were never exposed, but every non-credentialed call from any origin on
+ * the internet was permitted.
+ *
+ *   no Origin header      -> not a CORS request at all. Keep "*": it is
+ *                            meaningless to the caller and preserves the
+ *                            behaviour of non-browser callers and of the call
+ *                            sites that invoke getSecureHeaders() with no req.
+ *   Origin, allowed       -> echo that exact origin.
+ *   Origin, NOT allowed   -> emit NO Access-Control-Allow-Origin at all. The
+ *                            browser then blocks the response, which is what
+ *                            "not allowed" is supposed to mean.
+ */
 export function getSecureHeaders(req?: Request): Record<string, string> {
-  let origin = "*";
-  if (req) {
-    const requestOrigin = req.headers.get("Origin") || "";
-    if (isOriginAllowed(requestOrigin)) origin = requestOrigin;
-  }
+  const requestOrigin = req ? (req.headers.get("Origin") || "") : "";
+  const isCorsRequest = requestOrigin !== "";
+  const allowed = isCorsRequest && isOriginAllowed(requestOrigin);
+
+  const acao: Record<string, string> = !isCorsRequest
+    ? { "Access-Control-Allow-Origin": "*" }
+    : allowed
+      ? { "Access-Control-Allow-Origin": requestOrigin, "Vary": "Origin" }
+      : { "Vary": "Origin" };
 
   return {
-    "Access-Control-Allow-Origin": origin,
+    ...acao,
     "Access-Control-Allow-Headers":
       "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
