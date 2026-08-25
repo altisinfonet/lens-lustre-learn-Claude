@@ -44,11 +44,34 @@ interface UserRow {
 
 type UserSearchMode = "name" | "email";
 
+/** ── WHY THIS LIST IS PAGED ────────────────────────────────────────────────
+ *  Until 2026-08-24 this screen called `admin_search_users`, whose default
+ *  branch ends `ORDER BY created_at DESC LIMIT 100`, and it had no paging at
+ *  all — row 101 was unreachable by any interaction on the page.
+ *
+ *  profiles crossed 100 rows on 2026-08-21 05:14 UTC. The OLDEST profile —
+ *  the owner's own `50mm Retina World` account, and the only holder of the
+ *  `admin` role — dropped off the bottom and vanished from the admin list.
+ *
+ *  The role filter broke the same way, one layer down: it fetched the role's
+ *  holders from user_roles and then intersected them CLIENT-SIDE against the
+ *  truncated hundred. The one admin was not in the hundred, so the filter
+ *  rendered "no users found" for a role that has a holder.
+ *
+ *  Both are fixed by `admin_search_users_v2`, which filters by role and badge
+ *  IN SQL — before the limit, never after — and returns `total_count` so this
+ *  component can say "Page 3 of 42 — 4,182 members" instead of silently
+ *  showing a slice. Matches the page pattern already proven in
+ *  AdminTransactions.tsx.
+ */
+const USERS_PAGE_SIZE = 100;
+
 interface ActiveUserQuery {
   query: string;
   by: UserSearchMode;
   badge: string;
   role: string;
+  page: number;
 }
 
 const AdminUsers = ({ user }: { user: AuthUser | null }) => {
@@ -87,7 +110,13 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
   const [badgeFilter, setBadgeFilter] = useState<string>("");
   const [roleFilter, setRoleFilter] = useState<string>("");
   const activeQueryRef = useRef<ActiveUserQuery | null>(null);
-  const fetchUsersRef = useRef<((query?: string, by?: UserSearchMode, badge?: string, role?: string, options?: { silent?: boolean }) => Promise<void>) | null>(null);
+  const fetchUsersRef = useRef<((query?: string, by?: UserSearchMode, badge?: string, role?: string, options?: { silent?: boolean; page?: number }) => Promise<void>) | null>(null);
+
+  /** 0-based page index, and the size of the FILTERED set (not of this page).
+   *  totalCount comes from the RPC so the footer can never overstate or
+   *  understate what the admin is looking at. */
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
 
   const getRoleLabel = (r: string) => {
     const def = roleDefs.get(r);
@@ -158,8 +187,10 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
 
   const refreshCurrentUsers = (options: { silent?: boolean } = { silent: true }) => {
     if (!activeQueryRef.current || !fetchUsersRef.current) return;
-    const { query, by, badge, role } = activeQueryRef.current;
-    void fetchUsersRef.current(query, by, badge, role, options);
+    // Stay on the page the admin is looking at. A realtime repaint that
+    // silently threw them back to page 1 mid-task would be its own bug.
+    const { query, by, badge, role, page: currentPage } = activeQueryRef.current;
+    void fetchUsersRef.current(query, by, badge, role, { ...options, page: currentPage });
   };
 
   const bulkAssignRole = async () => {
@@ -214,47 +245,39 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
     by = searchBy,
     badge = badgeFilter,
     role = roleFilter,
-    options: { silent?: boolean } = {},
+    options: { silent?: boolean; page?: number } = {},
   ) => {
     const normalizedQuery = query.trim();
-    const { silent = false } = options;
-    activeQueryRef.current = { query: normalizedQuery, by, badge, role };
+    const { silent = false, page: requestedPage = 0 } = options;
+    activeQueryRef.current = { query: normalizedQuery, by, badge, role, page: requestedPage };
+    setPage(requestedPage);
     setLoading(true);
 
-    let badgeUserIds: string[] | null = null;
-    if (badge) {
-      const { data: badgeData } = await supabase
-        .from("user_badges")
-        .select("user_id")
-        .eq("badge_type", badge);
-      badgeUserIds = (badgeData as any[])?.map((b: any) => b.user_id) || [];
-      if (badgeUserIds.length === 0) {
-        setUsers([]);
-        if (!silent) toast({ title: `${t("au.noUsersFound")} — ${getBadgeLabel(badge)}` });
-        setLoading(false);
-        return;
-      }
-    }
-
-    let roleUserIds: string[] | null = null;
-    if (role) {
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", role as any);
-      roleUserIds = (roleData as any[])?.map((r: any) => r.user_id) || [];
-      if (roleUserIds.length === 0) {
-        setUsers([]);
-        if (!silent) toast({ title: `${t("au.noUsersFound")} — ${getRoleLabel(role)}` });
-        setLoading(false);
-        return;
-      }
-    }
-
-    const { data, error } = await supabase.rpc("admin_search_users", {
-      search_query: normalizedQuery,
-      search_by: by,
-    });
+    // ── ROLE AND BADGE ARE NOW FILTERED IN SQL ─────────────────────────────
+    // What used to live here was two pre-queries against user_roles /
+    // user_badges followed by a client-side intersection with whatever the
+    // RPC returned. That intersection ran against a truncated 100 rows, so a
+    // holder outside the newest hundred was filtered out of a list it had
+    // never been offered to — which is exactly how the sole `admin` became
+    // invisible. Passing _role / _badge into the RPC applies them BEFORE the
+    // limit, so a holder can never be dropped by paging.
+    const { data, error } = await (supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: unknown[] | null; error: { message: string } | null }>)(
+      // ⚠ CALL IT, NEVER COPY IT — see the header of src/lib/media/postMediaWrite.ts.
+      // The cast sits INSIDE the call parentheses so `supabase.rpc` is resolved
+      // as a member expression at invocation and `this` is still the client.
+      "admin_search_users_v2",
+      {
+        _query: normalizedQuery,
+        _by: by,
+        _role: role || null,
+        _badge: badge || null,
+        _limit: USERS_PAGE_SIZE,
+        _offset: requestedPage * USERS_PAGE_SIZE,
+      },
+    );
 
     if (error) {
       if (!silent) toast({ title: t("au.searchFailed"), description: error.message, variant: "destructive" });
@@ -263,26 +286,11 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
     }
 
     if (data && data.length > 0) {
-      let filtered = data as any[];
-      if (badgeUserIds) {
-        const idSet = new Set(badgeUserIds);
-        filtered = filtered.filter((u: any) => idSet.has(u.id));
-      }
-      if (roleUserIds) {
-        const idSet = new Set(roleUserIds);
-        filtered = filtered.filter((u: any) => idSet.has(u.id));
-      }
-
-      if (filtered.length === 0) {
-        setUsers([]);
-        const filters = [
-          badge ? `${getBadgeLabel(badge)} badge` : "",
-          role ? `${getRoleLabel(role)} role` : "",
-        ].filter(Boolean).join(" & ");
-        if (!silent) toast({ title: `${t("au.noUsersFound")}${filters ? ` — ${filters}` : ""}` });
-        setLoading(false);
-        return;
-      }
+      const filtered = data as any[];
+      // total_count is repeated on every row by the RPC's count(*) over ().
+      // It is the size of the FILTERED set, before limit/offset — the number
+      // the footer must show. Counting `filtered` would only count this page.
+      setTotalCount(Number(filtered[0]?.total_count ?? filtered.length));
 
       const userIds = filtered.map((u: any) => u.id);
       // Owner, 2026-08-05: "on the admin users list show last activated time and
@@ -318,7 +326,24 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
       })));
     } else {
       setUsers([]);
-      if (normalizedQuery && !silent) toast({ title: t("au.noUsersFound") });
+      setTotalCount(0);
+      if (!silent) {
+        const filters = [
+          badge ? `${getBadgeLabel(badge)} badge` : "",
+          role ? `${getRoleLabel(role)} role` : "",
+        ].filter(Boolean).join(" & ");
+        // An empty page N of a non-empty set means the admin paged past the
+        // end (a deletion shrank the set under them). Say so, rather than
+        // implying nobody matches.
+        if (requestedPage > 0) {
+          toast({ title: t("au.noUsersFound"), description: `No members on page ${requestedPage + 1}. Returning to page 1.` });
+          void fetchUsersRef.current?.(normalizedQuery, by, badge, role, { silent: true, page: 0 });
+          return;
+        }
+        if (normalizedQuery || filters) {
+          toast({ title: `${t("au.noUsersFound")}${filters ? ` — ${filters}` : ""}` });
+        }
+      }
     }
     setLoading(false);
   };
@@ -948,6 +973,69 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
             ))}
           </div>
         </div>
+      )}
+
+      {/* ── PAGER ────────────────────────────────────────────────────────────
+          Shown whenever the filtered set is larger than one page. The count is
+          total_count from the RPC, so it describes the whole filtered set and
+          not this slice of it — the absence of exactly this was what let the
+          list hide the owner's own account for three days without a word. */}
+      {users.length > 0 && totalCount > USERS_PAGE_SIZE && (() => {
+        const pageCount = Math.ceil(totalCount / USERS_PAGE_SIZE);
+        const goTo = (p: number) => {
+          if (p < 0 || p >= pageCount || loading) return;
+          const q = activeQueryRef.current;
+          void fetchUsersRef.current?.(q?.query ?? "", q?.by ?? searchBy, q?.badge ?? badgeFilter, q?.role ?? roleFilter, { silent: true, page: p });
+        };
+        // A window of at most 7 numbers around the current page, so 42,000
+        // pages does not render 42,000 buttons.
+        const windowStart = Math.max(0, Math.min(page - 3, pageCount - 7));
+        const windowEnd = Math.min(pageCount, Math.max(page + 4, 7));
+        const numbers: number[] = [];
+        for (let p = Math.max(0, windowStart); p < windowEnd; p++) numbers.push(p);
+
+        return (
+          <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-3 border-t border-border">
+            <p className="text-[10px] tracking-wider uppercase text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
+              Page {page + 1} of {pageCount} — {totalCount.toLocaleString()} members
+            </p>
+            <div className="flex items-center gap-1">
+              <button onClick={() => goTo(page - 1)} disabled={page === 0 || loading}
+                className="px-2 py-1 text-[10px] tracking-wider uppercase border border-border rounded-sm hover:bg-primary/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                Prev
+              </button>
+              {numbers[0] > 0 && (
+                <>
+                  <button onClick={() => goTo(0)} className="px-2 py-1 text-[10px] border border-border rounded-sm hover:bg-primary/10 transition-colors">1</button>
+                  {numbers[0] > 1 && <span className="px-1 text-[10px] text-muted-foreground">…</span>}
+                </>
+              )}
+              {numbers.map((p) => (
+                <button key={p} onClick={() => goTo(p)} disabled={loading}
+                  className={`px-2 py-1 text-[10px] border rounded-sm transition-colors ${p === page ? "bg-primary/15 border-primary/40 text-primary font-medium" : "border-border hover:bg-primary/10"}`}>
+                  {p + 1}
+                </button>
+              ))}
+              {numbers[numbers.length - 1] < pageCount - 1 && (
+                <>
+                  {numbers[numbers.length - 1] < pageCount - 2 && <span className="px-1 text-[10px] text-muted-foreground">…</span>}
+                  <button onClick={() => goTo(pageCount - 1)} className="px-2 py-1 text-[10px] border border-border rounded-sm hover:bg-primary/10 transition-colors">{pageCount}</button>
+                </>
+              )}
+              <button onClick={() => goTo(page + 1)} disabled={page >= pageCount - 1 || loading}
+                className="px-2 py-1 text-[10px] tracking-wider uppercase border border-border rounded-sm hover:bg-primary/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                Next
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* One page, but say how many there are — silence is what caused this bug. */}
+      {users.length > 0 && totalCount > 0 && totalCount <= USERS_PAGE_SIZE && (
+        <p className="text-[10px] tracking-wider uppercase text-muted-foreground mt-4 pt-3 border-t border-border" style={{ fontFamily: "var(--font-body)" }}>
+          {totalCount.toLocaleString()} member{totalCount === 1 ? "" : "s"}
+        </p>
       )}
 
       {users.length === 0 && !loading && (
