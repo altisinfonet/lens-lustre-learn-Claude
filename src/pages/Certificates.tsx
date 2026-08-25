@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { toast } from "@/hooks/core/use-toast";
-import CertificatePreviewModal from "@/components/CertificatePreviewModal";
+import CertificatePreviewModal, { type IssuedCertificate } from "@/components/CertificatePreviewModal";
 import type { CertificateType } from "@/lib/generateCertificatePdf";
 import { useT } from "@/i18n/I18nContext";
 import { saveBlob } from "@/lib/saveFile";
@@ -26,6 +26,8 @@ interface Certificate {
   id: string;
   title: string;
   description: string | null;
+  /** Custom certificates only — the line under CERTIFICATE. */
+  heading: string | null;
   type: string;
   issued_at: string;
   reference_id: string | null;
@@ -76,11 +78,25 @@ const Certificates = () => {
   const [previewType, setPreviewType] = useState<CertificateType>("winner");
   const [previewTitle, setPreviewTitle] = useState<string | undefined>(undefined);
   const [allowSwitch, setAllowSwitch] = useState(true);
+  /**
+   * The member's actual certificate, when they pressed View on one of theirs.
+   * Null means the sample gallery. Without this the modal rendered
+   * PREVIEW-0000 and today's date at them and called it a sample.
+   */
+  const [previewCert, setPreviewCert] = useState<IssuedCertificate | null>(null);
 
   const openPreview = (type: CertificateType, title?: string, lockType = false) => {
+    setPreviewCert(null);
     setPreviewType(type);
     setPreviewTitle(title);
     setAllowSwitch(!lockType);
+    setPreviewOpen(true);
+  };
+
+  /** View an issued certificate — the real one, not a stand-in for its type. */
+  const openIssued = (cert: IssuedCertificate) => {
+    setPreviewCert(cert);
+    setAllowSwitch(false);
     setPreviewOpen(true);
   };
 
@@ -445,7 +461,16 @@ const Certificates = () => {
                           {certName}
                         </h3>
                         <button
-                          onClick={() => openPreview(cert.type as CertificateType, certName, true)}
+                          onClick={() => openIssued({
+                            id: cert.id,
+                            title: certName,
+                            type: cert.type,
+                            issued_at: cert.issued_at,
+                            description: cert.description,
+                            heading: cert.heading,
+                            certificate_id: cert.certificate_id,
+                            verification_token: cert.verification_token,
+                          })}
                           disabled={cert.is_revoked}
                           className="shrink-0 inline-flex items-center gap-1 text-[10px] tracking-[0.15em] uppercase px-2.5 py-1.5 md:px-3 md:py-2 border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-all rounded-md md:rounded-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-muted-foreground disabled:hover:border-border"
                           style={{ fontFamily: "var(--font-heading)" }}
@@ -467,6 +492,8 @@ const Certificates = () => {
                                 verificationToken: cert.verification_token || undefined,
                                 displayCertificateId: cert.certificate_id || undefined,
                                 type: cert.type as never,
+                                description: cert.description,
+                                heading: cert.heading,
                               });
                               // NOT doc.save(). jsPDF's save() builds an <a
                               // download> and clicks it, which an Android
@@ -555,6 +582,7 @@ const Certificates = () => {
         recipientName={displayName}
         courseTitle={previewTitle}
         allowTypeSwitch={allowSwitch}
+        certificate={previewCert}
       />
     </main>
   );
