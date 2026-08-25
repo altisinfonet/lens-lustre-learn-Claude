@@ -10,6 +10,7 @@ import type { User } from "@supabase/supabase-js";
 import { uploadImage } from "@/lib/imageUpload";
 import { compressImageToFiles } from "@/lib/imageCompression";
 import { saveBlob } from "@/lib/saveFile";
+import { clearCertificateAssetCache } from "@/lib/generateCertificatePdf";
 import {
   CERT_TYPES,
   CERT_TYPE_GROUPS,
@@ -104,6 +105,28 @@ const CertificatesList = ({ user }: { user: User | null }) => {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   /**
+   * LIVE PREVIEW — the certificate redraws as the admin types.
+   *
+   * ⚠ Why this matters rather than being a nicety: a certificate cannot be
+   * edited once the recipient has downloaded it. Until now the only way to see
+   * what the wording actually looked like was to issue it to a real member and
+   * then look. The admin was composing a document blind.
+   *
+   * Debounced at 180ms, not rendered per keystroke: a full render is ~240ms of
+   * canvas work, so keying it to every character would queue renders faster
+   * than they complete and the picture would trail the typing. 180ms redraws
+   * between words, which is what "live" actually feels like.
+   *
+   * `previewSeq` discards a slow render whose input has already changed —
+   * without it, a render started three characters ago can land last and paint
+   * stale text over current text.
+   */
+  const [previewPng, setPreviewPng] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const previewSeq = useRef(0);
+
+  /**
    * ⚠ THIS WAS `.order(issued_at).limit(50)` WITH NO PAGING.
    * At 51 certificates the oldest silently disappeared and nothing said so —
    * the same defect that hid the owner's own account from the member list.
@@ -148,6 +171,42 @@ const CertificatesList = ({ user }: { user: User | null }) => {
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (!showForm) { setPreviewPng(null); setPreviewError(null); return; }
+    const seq = ++previewSeq.current;
+    const timer = setTimeout(async () => {
+      setPreviewing(true);
+      try {
+        const { renderCertificateToPng } = await import("@/lib/generateCertificatePdf");
+        // Editing an existing certificate previews ITS date and id, not
+        // today's — otherwise the admin is shown something the member will
+        // never receive, which is the defect the member view had.
+        const existing = editingId ? certs.find((c) => c.id === editingId) : undefined;
+        const png = await renderCertificateToPng({
+          recipientName: resolvedUserName || existing?.user_name || "Recipient name",
+          courseTitle: form.title.trim() || "Certificate title",
+          issueDate: new Date(existing?.issued_at ?? Date.now()).toLocaleDateString("en-US", {
+            year: "numeric", month: "long", day: "numeric",
+          }),
+          certificateId: existing?.id ?? "preview",
+          displayCertificateId: existing?.certificate_id ?? "CERT-PREVIEW",
+          type: form.type as never,
+          description: form.description,
+        });
+        if (seq !== previewSeq.current) return;
+        setPreviewPng(png);
+        setPreviewError(null);
+      } catch (err) {
+        if (seq !== previewSeq.current) return;
+        setPreviewError(err instanceof Error ? err.message : "Could not draw the preview.");
+      } finally {
+        if (seq === previewSeq.current) setPreviewing(false);
+      }
+    }, 180);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showForm, form.title, form.description, form.type, resolvedUserName, editingId]);
 
   // Load page 1 on mount. fetchCerts is deliberately not a dependency: it is
   // recreated on every render, so listing it would refetch continuously.
@@ -540,6 +599,47 @@ const CertificatesList = ({ user }: { user: User | null }) => {
               </span>
             </div>
           </div>
+
+          {/* ── Live preview ──────────────────────────────────────────────
+              What the recipient will actually receive, redrawn as the admin
+              types. Same `drawCertificate` routine as the PDF, so this is the
+              document itself and not an impression of it. */}
+          <div className="border-t border-border pt-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+                Live preview
+              </span>
+              <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1.5">
+                {previewing && <Loader2 className="h-3 w-3 animate-spin" />}
+                {previewing ? "drawing…" : previewError ? "" : "updates as you type"}
+              </span>
+            </div>
+
+            <div className="relative bg-muted/20 rounded-sm overflow-hidden border border-border">
+              {/* A4 landscape, so the box never jumps height between renders. */}
+              <div style={{ aspectRatio: "297 / 210" }} className="w-full">
+                {previewPng ? (
+                  <img
+                    src={previewPng}
+                    alt="Live certificate preview"
+                    className={`w-full h-full object-contain transition-opacity duration-150 ${previewing ? "opacity-60" : "opacity-100"}`}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    {previewError
+                      ? <span className="text-[10px] text-destructive px-4 text-center">{previewError}</span>
+                      : <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <p className="text-[10px] text-muted-foreground">
+              {resolvedUserId || editingId
+                ? "This is the certificate that will be issued."
+                : "Choose a recipient above and their name replaces the placeholder."}
+            </p>
+          </div>
         </div>
       )}
 
@@ -749,6 +849,10 @@ const AssetUploader = ({
       toast({ title: "Failed to save", variant: "destructive" });
     } else {
       setUrl(newUrl);
+      // The renderer holds certificate assets for the life of the page so the
+      // live preview is not refetching them on every keystroke. Drop them now,
+      // or the preview keeps drawing the logo that was just replaced.
+      clearCertificateAssetCache();
       toast({ title: `${title} saved successfully` });
     }
     setUploading(false);
@@ -817,7 +921,11 @@ const AssetUploader = ({
           .from("site_settings")
           .upsert({ key: settingsKey, value: JSON.stringify("") }, { onConflict: "key" });
         if (error) toast({ title: "Failed to remove", variant: "destructive" });
-        else { setUrl(null); toast({ title: `${title} removed` }); }
+        else {
+          setUrl(null);
+          clearCertificateAssetCache();
+          toast({ title: `${title} removed` });
+        }
       },
     });
   };
