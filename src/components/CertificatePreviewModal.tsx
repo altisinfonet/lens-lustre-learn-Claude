@@ -8,7 +8,12 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { generateCertificatePdf, type CertificateType } from "@/lib/generateCertificatePdf";
+import {
+  generateCertificatePdf,
+  renderCertificateToPng,
+  type CertificateType,
+} from "@/lib/generateCertificatePdf";
+import { saveBlob } from "@/lib/saveFile";
 import { toast } from "@/hooks/core/use-toast";
 
 /**
@@ -47,73 +52,99 @@ const CertificatePreviewModal = ({
   allowTypeSwitch = true,
 }: CertificatePreviewModalProps) => {
   const [type, setType] = useState<CertificateType>(initialType);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  /**
+   * ⚠ A PNG, NOT A PDF BLOB URL, AND NOT AN IFRAME.
+   *
+   * This was `<iframe src={URL.createObjectURL(pdfBlob)}>` and it showed
+   * "This content is blocked" to every member who pressed View. Two faults:
+   *
+   *   1. `public/_headers` sets `frame-src 'self' …` with no `blob:`. A blob
+   *      URL is not `'self'` for framing purposes, so the browser refused it.
+   *   2. Even allowed, an iframe only renders a PDF where the browser HAS a
+   *      PDF viewer. An Android WebView has none. Widening the CSP would have
+   *      fixed the desktop symptom and left the app broken.
+   *
+   * The image comes from the same `drawCertificate` routine the PDF does, so
+   * the two cannot disagree, and `img-src` already allowed `blob:`/`data:`.
+   */
+  const [imgUrl, setImgUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const lastUrlRef = useRef<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const renderSeq = useRef(0);
+
+  /**
+   * One input builder for both the on-screen render and the download, so the
+   * image a member looks at and the file they save can never differ.
+   */
+  const pdfInput = (sampleTitle?: string) => ({
+    recipientName,
+    courseTitle: courseTitle || sampleTitle || "Sample Title",
+    issueDate: new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }),
+    certificateId: "preview-only-not-issued",
+    displayCertificateId: "PREVIEW-0000",
+    type,
+  });
 
   // Reset to requested type each time the modal opens
   useEffect(() => {
     if (open) setType(initialType);
   }, [open, initialType]);
 
-  // Render the PDF whenever modal is open or selected type changes
+  // Render whenever the modal is open or the selected type changes.
   useEffect(() => {
     if (!open) return;
-    let cancelled = false;
+    // A slow render for one type must never paint over a newer one.
+    const seq = ++renderSeq.current;
     const render = async () => {
       setLoading(true);
       try {
         const entry = CERT_TYPE_CATALOG.find((c) => c.value === type);
-        const doc = await generateCertificatePdf({
-          recipientName,
-          courseTitle: courseTitle || entry?.sampleTitle || "Sample Title",
-          issueDate: new Date().toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          }),
-          certificateId: "preview-only-not-issued",
-          displayCertificateId: "PREVIEW-0000",
-          type,
+        const png = await renderCertificateToPng({
+          ...pdfInput(entry?.sampleTitle),
         });
-        const blob = doc.output("blob");
-        const url = URL.createObjectURL(blob);
-        if (cancelled) {
-          URL.revokeObjectURL(url);
-          return;
-        }
-        if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current);
-        lastUrlRef.current = url;
-        setPdfUrl(url);
-      } catch (err) {
-        if (!cancelled) {
+        if (seq !== renderSeq.current) return;
+        setImgUrl(png);
+      } catch {
+        if (seq === renderSeq.current) {
           toast({ title: "Preview failed", description: "Could not render certificate.", variant: "destructive" });
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (seq === renderSeq.current) setLoading(false);
       }
     };
-    render();
-    return () => {
-      cancelled = true;
-    };
+    void render();
+    return () => { renderSeq.current++; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, type, recipientName, courseTitle]);
 
-  // Cleanup blob URL on unmount / close
+  // Drop the rendered image on close so reopening never flashes the last one.
   useEffect(() => {
-    if (!open && lastUrlRef.current) {
-      URL.revokeObjectURL(lastUrlRef.current);
-      lastUrlRef.current = null;
-      setPdfUrl(null);
-    }
+    if (!open) setImgUrl(null);
   }, [open]);
 
-  const handleDownloadSample = () => {
-    if (!pdfUrl) return;
-    const a = document.createElement("a");
-    a.href = pdfUrl;
-    a.download = `Sample-Certificate-${type}.pdf`;
-    a.click();
+  /**
+   * The download is still a real PDF — only the on-screen preview is an image.
+   *
+   * ⚠ `saveBlob`, never an <a download> click. This function used to build an
+   * anchor and click it, which an Android WebView swallows in silence: the
+   * member taps Download, nothing happens, and nothing reports why. Same class
+   * of failure as the blocked iframe — it worked on a desktop and nowhere else.
+   */
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const entry = CERT_TYPE_CATALOG.find((c) => c.value === type);
+      const doc = await generateCertificatePdf({ ...pdfInput(entry?.sampleTitle) });
+      await saveBlob(doc.output("blob"), `Sample-Certificate-${type}.pdf`);
+    } catch {
+      toast({ title: "Download failed", description: "Could not build the certificate PDF.", variant: "destructive" });
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -150,19 +181,19 @@ const CertificatePreviewModal = ({
           </div>
         )}
 
-        {/* PDF iframe area */}
-        <div className="flex-1 min-h-0 bg-muted/30 relative">
+        {/* The certificate itself — an image, so it renders in every browser
+            and every WebView. See renderCertificateToPng for why not a PDF. */}
+        <div className="flex-1 min-h-0 bg-muted/30 relative overflow-auto p-3 md:p-4">
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center z-10 bg-background/60 backdrop-blur-sm">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
           )}
-          {pdfUrl && (
-            <iframe
-              key={pdfUrl}
-              src={pdfUrl}
-              title="Certificate preview"
-              className="w-full h-full border-0"
+          {imgUrl && (
+            <img
+              src={imgUrl}
+              alt="Certificate preview"
+              className="w-full h-auto max-h-full object-contain mx-auto shadow-lg rounded-sm"
             />
           )}
         </div>
@@ -173,8 +204,8 @@ const CertificatePreviewModal = ({
             Type: <code className="font-mono text-foreground">{type}</code>
           </span>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleDownloadSample} disabled={!pdfUrl || loading}>
-              <Download className="h-3.5 w-3.5" />
+            <Button variant="outline" size="sm" onClick={() => void handleDownload()} disabled={!imgUrl || loading || downloading}>
+              {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
               Download Sample
             </Button>
             <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
