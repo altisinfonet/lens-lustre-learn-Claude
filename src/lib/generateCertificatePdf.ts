@@ -118,6 +118,24 @@ interface CertificateData {
    * wording for the type, so nothing regresses for the automatic kinds.
    */
   description?: string | null;
+  /**
+   * ⚠ CUSTOM CERTIFICATES ONLY — the line printed under the word CERTIFICATE.
+   *
+   * Every other type gets that line from `TIER_CONFIG`: OF COMPLETION for a
+   * course, OF MERIT for a Top 50, and so on. That is correct, because those
+   * types describe a known occasion and the wording must match the placement
+   * the member actually earned.
+   *
+   * `custom` exists precisely because the occasion is NOT one of those, which
+   * made the heading the one line on the page the admin could not write. Now
+   * they can. Blank falls back to the type's own wording — OF ACHIEVEMENT for
+   * `custom` — so nothing already issued changes.
+   *
+   * The rule is enforced by a CHECK constraint, not by this file:
+   * `certificates_heading_only_for_custom`. A renderer guard would be a second
+   * copy of the rule and the two would eventually disagree.
+   */
+  heading?: string | null;
 }
 
 // Per-tier renderer config — drives the PDF copy for each canonical cert.type
@@ -465,6 +483,7 @@ async function drawCertificate(d: CertificateSurface, {
   displayCertificateId,
   type = "course_completion",
   description,
+  heading,
 }: CertificateData) {
   const tier = resolveTier(type);
 
@@ -523,7 +542,8 @@ async function drawCertificate(d: CertificateSurface, {
   d.setFont("times", "normal");
   d.setFontSize(18);
   d.setTextColor(...GOLD);
-  const ofText = tier.ofText;
+  // The admin's heading where there is one, the type's wording otherwise.
+  const ofText = (heading || "").trim() || tier.ofText;
   d.text(ofText, W / 2, y, { align: "center" });
   y += 18;
 
