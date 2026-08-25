@@ -218,3 +218,82 @@ describe("rendering repeatedly does not hammer the network", () => {
     expect((admin.match(/clearCertificateAssetCache\(\)/g) || []).length).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe("the heading line on a custom certificate", () => {
+  /**
+   * Under the word CERTIFICATE the renderer prints OF COMPLETION, OF MERIT,
+   * OF ACHIEVEMENT — chosen by type. Correct for the fifteen types that name a
+   * known occasion; wrong for `custom`, which exists BECAUSE the occasion is
+   * not one of those. It was the one line on the page the admin could not say.
+   */
+  const admin = readFileSync(join(ROOT, "src/components/admin/AdminCertificates.tsx"), "utf8");
+  const code = RENDERER
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n")
+    .filter((l) => !l.trim().startsWith("//") && !l.trim().startsWith("*"))
+    .join("\n");
+
+  function headingMigration(): string {
+    const dir = join(ROOT, "supabase/migrations");
+    const f = readdirSync(dir).find((n) => n.includes("certificate_custom_heading"));
+    if (!f) throw new Error("the certificate_custom_heading migration is missing");
+    return readFileSync(join(dir, f), "utf8");
+  }
+
+  it("overrides the type's wording, and falls back when blank", () => {
+    expect(code).toMatch(/const ofText = \(heading \|\| ""\)\.trim\(\) \|\| tier\.ofText;/);
+    expect(code).toMatch(/heading\?: string \| null;/);
+  });
+
+  it("is refused by the database on any type but custom", () => {
+    // Enforced once, in the constraint — not a second copy of the rule in the
+    // renderer, which would eventually disagree with it.
+    const sql = headingMigration();
+    expect(sql).toMatch(/certificates_heading_only_for_custom/);
+    expect(sql).toMatch(/heading is null\s*\n\s*or \(type = 'custom'/);
+    expect(sql).toMatch(/length\(btrim\(heading\)\) between 1 and 60/);
+  });
+
+  it("is returned by admin_list_certificates, or the admin screen cannot see it", () => {
+    const sql = headingMigration();
+    // The function has an explicit column list; a new column is invisible
+    // until it is named in the signature AND selected in the body.
+    expect(sql).toMatch(/^  heading         text,$/m);
+    expect(sql).toMatch(/c\.type, c\.heading, c\.issued_at/);
+    expect(sql).toMatch(/m\.type, m\.heading, m\.issued_at/);
+  });
+
+  it("drops the function first, because a return type cannot be replaced in place", () => {
+    // 42P13 cannot change return type of existing function
+    expect(headingMigration()).toMatch(/drop function if exists public\.admin_list_certificates/);
+  });
+
+  it("only offers the field for custom", () => {
+    expect(admin).toMatch(/\{form\.type === "custom" && \(/);
+    expect(admin).toMatch(/Leave blank for/);
+  });
+
+  it("never sends a heading for another type, even after a type change", () => {
+    // Switching type with text still in the box would otherwise post a heading
+    // the constraint refuses, and the admin would see an opaque save failure.
+    const sends = admin.match(/heading: form\.type === "custom" \? \(form\.heading\.trim\(\) \|\| null\) : null,/g) || [];
+    expect(sends.length, "insert and update must both guard").toBe(2);
+  });
+
+  it("is carried by every path that renders a stored certificate", () => {
+    const member = readFileSync(join(ROOT, "src/pages/Certificates.tsx"), "utf8");
+    const modal = readFileSync(join(ROOT, "src/components/CertificatePreviewModal.tsx"), "utf8");
+    expect(admin, "admin download").toMatch(/heading: c\.heading,/);
+    expect(member, "member download and view").toMatch(/heading: cert\.heading,/);
+    expect(modal, "the member's own certificate view").toMatch(/heading: certificate\.heading,/);
+    expect(admin, "the live preview").toMatch(/heading: form\.type === "custom" \? form\.heading : null,/);
+  });
+
+  it("is declared in the generated database types", () => {
+    // Without this the query result has no such field and the real typecheck
+    // (tsc -p tsconfig.app.json) rejects the assignment.
+    const types = readFileSync(join(ROOT, "src/integrations/supabase/types.ts"), "utf8");
+    const block = types.slice(types.indexOf("      certificates: {"), types.indexOf("      certificates: {") + 4000);
+    expect((block.match(/heading\??: string \| null/g) || []).length).toBe(3);
+  });
+});
