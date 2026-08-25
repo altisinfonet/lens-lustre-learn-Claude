@@ -267,7 +267,8 @@ const CertificatesList = ({ user }: { user: User | null }) => {
       title: "Delete this certificate?",
       description:
         `"${cert.title}" for ${cert.user_name || "this member"} will be removed permanently. ` +
-        `Public verification will stop working immediately and any testimonial attached to it is deleted too. ` +
+        `Public verification will stop working immediately, any testimonial attached to it is deleted, ` +
+        `and the member's "New Certificate!" notification is removed so it cannot link to nothing. ` +
         `This cannot be undone — to withdraw a certificate but keep the record, use Revoke instead.`,
       onConfirm: async () => {
         const { data, error } = await supabase
