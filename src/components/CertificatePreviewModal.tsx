@@ -31,6 +31,20 @@ export const CERT_TYPE_CATALOG: { value: CertificateType; label: string; sampleT
   { value: "participation_r4", label: "Round 4 — Final Qualifier", sampleTitle: "Spring Showcase 2026" },
 ];
 
+/**
+ * A certificate that has actually been issued. When this is supplied the modal
+ * stops being a sample viewer and shows the member THEIR certificate.
+ */
+export interface IssuedCertificate {
+  id: string;
+  title: string;
+  type: string;
+  issued_at: string;
+  description?: string | null;
+  certificate_id?: string | null;
+  verification_token?: string | null;
+}
+
 interface CertificatePreviewModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -41,6 +55,19 @@ interface CertificatePreviewModalProps {
   courseTitle?: string;
   /** When true, shows the full type-picker so you can preview every variant. */
   allowTypeSwitch?: boolean;
+  /**
+   * ⚠ WITHOUT THIS, A MEMBER OPENING THEIR OWN CERTIFICATE SAW A FAKE ONE.
+   *
+   * The modal had exactly one mode. Pressing View on an issued certificate
+   * still rendered `certificateId: "preview-only-not-issued"`, the placeholder
+   * id `PREVIEW-0000` and **today's date** instead of the date it was issued,
+   * under a header reading "sample data, no certificate is issued" and a button
+   * marked "Download Sample". The member's real certificate was never shown to
+   * them anywhere.
+   *
+   * Supplying this switches every one of those to the real values.
+   */
+  certificate?: IssuedCertificate | null;
 }
 
 const CertificatePreviewModal = ({
@@ -50,7 +77,10 @@ const CertificatePreviewModal = ({
   recipientName = "Jane Photographer",
   courseTitle,
   allowTypeSwitch = true,
+  certificate = null,
 }: CertificatePreviewModalProps) => {
+  /** Real certificate on screen, or a sample from the type gallery. */
+  const isReal = Boolean(certificate);
   const [type, setType] = useState<CertificateType>(initialType);
   /**
    * ⚠ A PNG, NOT A PDF BLOB URL, AND NOT AN IFRAME.
@@ -76,18 +106,31 @@ const CertificatePreviewModal = ({
    * One input builder for both the on-screen render and the download, so the
    * image a member looks at and the file they save can never differ.
    */
-  const pdfInput = (sampleTitle?: string) => ({
-    recipientName,
-    courseTitle: courseTitle || sampleTitle || "Sample Title",
-    issueDate: new Date().toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    }),
-    certificateId: "preview-only-not-issued",
-    displayCertificateId: "PREVIEW-0000",
-    type,
-  });
+  const pdfInput = (sampleTitle?: string) => {
+    const asDate = (iso: string) =>
+      new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
+    if (certificate) {
+      return {
+        recipientName,
+        courseTitle: certificate.title,
+        issueDate: asDate(certificate.issued_at),
+        certificateId: certificate.id,
+        displayCertificateId: certificate.certificate_id || undefined,
+        verificationToken: certificate.verification_token || undefined,
+        description: certificate.description,
+        type: certificate.type as CertificateType,
+      };
+    }
+    return {
+      recipientName,
+      courseTitle: courseTitle || sampleTitle || "Sample Title",
+      issueDate: asDate(new Date().toISOString()),
+      certificateId: "preview-only-not-issued",
+      displayCertificateId: "PREVIEW-0000",
+      type,
+    };
+  };
 
   // Reset to requested type each time the modal opens
   useEffect(() => {
@@ -119,7 +162,7 @@ const CertificatePreviewModal = ({
     void render();
     return () => { renderSeq.current++; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, type, recipientName, courseTitle]);
+  }, [open, type, recipientName, courseTitle, certificate]);
 
   // Drop the rendered image on close so reopening never flashes the last one.
   useEffect(() => {
@@ -139,7 +182,12 @@ const CertificatePreviewModal = ({
     try {
       const entry = CERT_TYPE_CATALOG.find((c) => c.value === type);
       const doc = await generateCertificatePdf({ ...pdfInput(entry?.sampleTitle) });
-      await saveBlob(doc.output("blob"), `Sample-Certificate-${type}.pdf`);
+      await saveBlob(
+        doc.output("blob"),
+        certificate
+          ? `50mmRetina-Certificate-${(certificate.certificate_id || certificate.id).slice(0, 12)}.pdf`
+          : `Sample-Certificate-${type}.pdf`,
+      );
     } catch {
       toast({ title: "Download failed", description: "Could not build the certificate PDF.", variant: "destructive" });
     } finally {
@@ -152,15 +200,17 @@ const CertificatePreviewModal = ({
       <DialogContent className="max-w-5xl w-[95vw] h-[90vh] flex flex-col p-0 gap-0">
         <DialogHeader className="p-4 md:p-5 border-b border-border shrink-0">
           <DialogTitle className="text-base md:text-lg font-light tracking-tight">
-            Certificate Preview
+            {isReal ? "Your Certificate" : "Certificate Preview"}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Preview-only render — sample data, no certificate is issued.
+            {isReal
+              ? `Issued ${new Date(certificate!.issued_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}${certificate!.certificate_id ? ` · ${certificate!.certificate_id}` : ""}`
+              : "Preview-only render — sample data, no certificate is issued."}
           </DialogDescription>
         </DialogHeader>
 
         {/* Type switcher */}
-        {allowTypeSwitch && (
+        {allowTypeSwitch && !isReal && (
           <div className="px-4 md:px-5 py-3 border-b border-border shrink-0 overflow-x-auto">
             <div className="flex gap-1.5 min-w-max">
               {CERT_TYPE_CATALOG.map((c) => (
@@ -201,12 +251,12 @@ const CertificatePreviewModal = ({
         {/* Footer actions */}
         <div className="p-3 md:p-4 border-t border-border shrink-0 flex items-center justify-between gap-2">
           <span className="text-[10px] text-muted-foreground">
-            Type: <code className="font-mono text-foreground">{type}</code>
+            Type: <code className="font-mono text-foreground">{isReal ? certificate!.type : type}</code>
           </span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => void handleDownload()} disabled={!imgUrl || loading || downloading}>
               {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-              Download Sample
+              {isReal ? "Download Certificate" : "Download Sample"}
             </Button>
             <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
               <X className="h-3.5 w-3.5" />
