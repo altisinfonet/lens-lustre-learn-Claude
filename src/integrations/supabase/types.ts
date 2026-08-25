@@ -755,6 +755,7 @@ export type Database = {
           certificate_id: string | null
           description: string | null
           featured_order: number
+          heading: string | null
           featured_quote: string | null
           file_url: string | null
           id: string
@@ -774,6 +775,7 @@ export type Database = {
           certificate_id?: string | null
           description?: string | null
           featured_order?: number
+          heading?: string | null
           featured_quote?: string | null
           file_url?: string | null
           id?: string
@@ -793,6 +795,7 @@ export type Database = {
           certificate_id?: string | null
           description?: string | null
           featured_order?: number
+          heading?: string | null
           featured_quote?: string | null
           file_url?: string | null
           id?: string
