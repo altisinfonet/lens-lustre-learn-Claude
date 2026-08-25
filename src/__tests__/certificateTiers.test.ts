@@ -143,3 +143,78 @@ describe("the admin can see what they are about to print", () => {
     expect(admin).toMatch(/uses the standard wording for/);
   });
 });
+
+describe("the admin sees the certificate before issuing it", () => {
+  const admin = readFileSync(join(ROOT, "src/components/admin/AdminCertificates.tsx"), "utf8");
+  const adminCode = admin
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n")
+    .filter((l) => !l.trim().startsWith("//") && !l.trim().startsWith("*"))
+    .join("\n");
+
+  /**
+   * A certificate cannot be edited once the recipient has downloaded it, and
+   * until 2026-08-25 the only way to see the wording was to issue one to a real
+   * member and look. The admin was composing a document blind.
+   */
+  it("draws a live preview from the same renderer as the PDF", () => {
+    expect(adminCode).toMatch(/renderCertificateToPng/);
+    expect(adminCode).toMatch(/Live certificate preview/);
+  });
+
+  it("redraws on every field that changes the certificate", () => {
+    const deps = adminCode.match(/\[showForm, form\.title, form\.description, form\.type, resolvedUserName, editingId\]/);
+    expect(deps, "a field that changes the certificate is missing from the deps").toBeTruthy();
+  });
+
+  it("debounces instead of rendering per keystroke", () => {
+    // A render is ~20ms warm and ~70ms cold; keying it to every character
+    // queues renders faster than they finish and the picture trails the typing.
+    expect(adminCode).toMatch(/const timer = setTimeout\(async \(\) => \{/);
+    expect(adminCode, "the debounce interval changed").toMatch(/\n {4}\}, 180\);/);
+    // Cleaned up on every dep change, or the timers stack up while typing.
+    expect(adminCode).toMatch(/return \(\) => clearTimeout\(timer\);/);
+  });
+
+  it("discards a slow render whose input has already changed", () => {
+    expect(adminCode).toMatch(/previewSeq/);
+    expect(adminCode).toMatch(/if \(seq !== previewSeq\.current\) return;/);
+  });
+
+  it("previews an edited certificate with ITS date and id, not today's", () => {
+    // Showing the admin something the member will never receive is the same
+    // defect the member-facing view had.
+    expect(adminCode).toMatch(/certs\.find\(\(c\) => c\.id === editingId\)/);
+    expect(adminCode).toMatch(/existing\?\.issued_at/);
+    expect(adminCode).toMatch(/existing\?\.certificate_id/);
+  });
+});
+
+describe("rendering repeatedly does not hammer the network", () => {
+  const code = RENDERER
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n")
+    .filter((l) => !l.trim().startsWith("//") && !l.trim().startsWith("*"))
+    .join("\n");
+  const admin = readFileSync(join(ROOT, "src/components/admin/AdminCertificates.tsx"), "utf8");
+
+  it("caches asset lookups, decoded images and conversions", () => {
+    expect(code).toMatch(/const assetUrlCache = new Map/);
+    expect(code).toMatch(/const imageCache = new Map/);
+    expect(code).toMatch(/const assetPngCache = new Map/);
+  });
+
+  it("resolves the logo once per render, not once per place it is drawn", () => {
+    // Watermark and footer both draw it. Two resolutions meant two calls to
+    // getSiteLogoUrl(), which documents itself as deliberately uncached.
+    expect(code).toMatch(/const logoUrlOnce = async/);
+    expect((code.match(/await logoUrlOnce\(\)/g) || []).length).toBe(2);
+    expect(code).not.toMatch(/if \(!wmLogoUrl\) wmLogoUrl = await getSiteLogoUrl\(\)/);
+  });
+
+  it("drops the cache when an asset is replaced, so the preview is never stale", () => {
+    expect(code).toMatch(/export function clearCertificateAssetCache/);
+    // Both the upload and the removal paths must invalidate.
+    expect((admin.match(/clearCertificateAssetCache\(\)/g) || []).length).toBeGreaterThanOrEqual(2);
+  });
+});
