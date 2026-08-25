@@ -15,6 +15,7 @@ import {
   CERT_TYPE_GROUPS,
   certTypeLabel,
   certTypeClass,
+  isManualCertType,
 } from "@/components/admin/certificateTypes";
 
 interface CertRow {
@@ -321,6 +322,8 @@ const CertificatesList = ({ user }: { user: User | null }) => {
         certificateId: c.id,
         displayCertificateId: c.certificate_id || undefined,
         type: c.type as never,
+        // The admin's own words, which the renderer ignored until 2026-08-25.
+        description: c.description,
       });
       await saveBlob(
         doc.output("blob"),
@@ -501,8 +504,42 @@ const CertificatesList = ({ user }: { user: User | null }) => {
               {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : editingId ? "Update" : "Issue"}
             </button>
           </div>
-          <input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Description (optional)"
-            className="w-full bg-transparent border border-border rounded-sm px-3 py-1.5 text-xs outline-none focus:border-primary" />
+          {/*
+            ⚠ A TEXTAREA, SPELL-CHECKED, AND IT NOW REACHES THE CERTIFICATE.
+
+            This was a single-line <input> whose value the PDF renderer never
+            read — the admin typed it, the database stored it, and the printed
+            certificate ignored it. It is now the closing line beneath the
+            title, so it is the sentence the recipient actually reads, and a
+            typo in it is a typo on a certificate that cannot be edited once
+            downloaded. `spellCheck` gives the red underline and the
+            right-click correction the browser already knows how to do; a
+            textarea gives room to see the whole sentence before issuing it.
+          */}
+          <div className="space-y-1">
+            <textarea
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              placeholder={isManualCertType(form.type)
+                ? "Wording printed beneath the title — e.g. \u201cfor outstanding service to the community throughout 2026.\u201d"
+                : "Description (optional) — replaces the standard closing line"}
+              rows={2}
+              spellCheck
+              lang="en"
+              maxLength={300}
+              className="w-full bg-transparent border border-border rounded-sm px-3 py-1.5 text-xs outline-none focus:border-primary resize-y leading-relaxed"
+            />
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] text-muted-foreground">
+                {form.description.trim()
+                  ? "This replaces the standard closing line on the certificate."
+                  : `Left blank, the certificate uses the standard wording for ${certTypeLabel(form.type)}.`}
+              </p>
+              <span className={`text-[10px] shrink-0 ${form.description.length > 260 ? "text-destructive" : "text-muted-foreground"}`}>
+                {form.description.length}/300
+              </span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -605,6 +642,23 @@ const CertificatesList = ({ user }: { user: User | null }) => {
           </div>
         );
       })()}
+
+      {/*
+        ⚠ WITHOUT THIS LINE, DELETE, REVOKE AND RESTORE ALL DO NOTHING.
+
+        `useConfirmAction` is only a state holder: `confirmAction({...})` stores
+        the config and flips `open` to true. Something has to RENDER the dialog
+        that reads `open`, and until 2026-08-25 nothing in this component did.
+        The hook was called, the state was set, and `onConfirm` was never
+        reached — so the admin pressed Delete and nothing happened at all. No
+        error, no toast, no request. Revoke was worse: it prompted for a reason
+        first, then discarded it.
+
+        Reported by the owner as "delete certificate from admin and everywhere
+        is not working", and they were right. The database was never the
+        problem — the audit log shows the delete never reached the server.
+      */}
+      <ConfirmDialog {...dialogProps} />
     </div>
   );
 };
