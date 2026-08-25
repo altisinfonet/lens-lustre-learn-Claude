@@ -46,10 +46,10 @@ const CODE = COMPONENT
   .filter((l) => !l.trim().startsWith("//") && !l.trim().startsWith("*"))
   .join("\n");
 
-function migrationSource(): string {
+function migrationSource(fragment = "certificate_types_and_admin_search"): string {
   const dir = join(ROOT, "supabase/migrations");
-  const f = readdirSync(dir).find((n) => n.includes("certificate_types_and_admin_search"));
-  if (!f) throw new Error("the certificate_types_and_admin_search migration is missing");
+  const f = readdirSync(dir).find((n) => n.includes(fragment));
+  if (!f) throw new Error(`the ${fragment} migration is missing`);
   return readFileSync(join(dir, f), "utf8");
 }
 
@@ -162,6 +162,10 @@ describe("admin certificates component", () => {
   it("warns what delete actually destroys before doing it", () => {
     expect(COMPONENT).toMatch(/Public verification will stop working immediately/);
     expect(COMPONENT).toMatch(/use Revoke instead/);
+    // Measured on staging 2026-08-25: deleting a certificate used to leave the
+    // member's "New Certificate!" notification behind, pointing at nothing.
+    // The trigger now removes it, and the dialog says so.
+    expect(COMPONENT).toMatch(/notification is removed so it cannot link to nothing/);
   });
 });
 
@@ -200,5 +204,58 @@ describe("the migration", () => {
 
   it("indexes the ordering it depends on", () => {
     expect(SQL).toMatch(/create index if not exists idx_certificates_issued_at_id_desc/);
+  });
+});
+
+describe("delete removes what still points at the certificate", () => {
+  /**
+   * ⚠ THE DEFECT THIS BLOCK EXISTS TO PREVENT.
+   *
+   * `certificates` has exactly one FK pointing at it (certificate_testimonials,
+   * ON DELETE CASCADE) and one column that points at it with NO foreign key:
+   * `user_notifications.reference_id`. Deleting a certificate therefore left
+   * the member holding a "New Certificate! You've earned: …" notification for
+   * a certificate that no longer existed.
+   *
+   * Measured 2026-08-25: staging carried 3 such orphans, PRODUCTION carried 1.
+   * Every other loose reference column in the schema was checked against
+   * certificates and holds zero certificate ids.
+   */
+  const SQL = migrationSource("certificate_delete_removes_notifications");
+
+  it("cleans up through a trigger, not through the admin button", () => {
+    // The admin screen is one delete path. SQL, a support script and any future
+    // cascade are others. A trigger is the only place that covers all of them.
+    expect(SQL).toMatch(/create trigger trg_cleanup_certificate_references/);
+    expect(SQL).toMatch(/before delete on public\.certificates/);
+    expect(SQL).toMatch(/for each row/);
+  });
+
+  it("is SECURITY DEFINER, because the admin is not the notification's owner", () => {
+    // user_notifications carries "Users can delete own notifications"
+    // USING (auth.uid() = user_id). Without SECURITY DEFINER an admin deleting
+    // ANOTHER member's certificate would delete zero notifications, silently —
+    // the exact failure class this whole change is about.
+    expect(SQL).toMatch(/security definer/);
+    expect(SQL).toMatch(/set search_path to 'public'/);
+  });
+
+  it("deletes only rows keyed to the certificate being removed", () => {
+    expect(SQL).toMatch(/delete from public\.user_notifications\s*\n?\s*where reference_id = OLD\.id;/);
+    // No branch, no dynamic SQL: the statement cannot widen.
+    expect(SQL).not.toMatch(/execute\s+format/i);
+    expect(SQL).not.toMatch(/truncate/i);
+  });
+
+  it("does not touch the historical orphans inside a schema migration", () => {
+    // Removing rows from members' existing notification lists is a separate
+    // decision with a separate blast radius. It is documented, not performed.
+    const executable = SQL.split("\n").filter((l) => !l.trim().startsWith("--")).join("\n");
+    expect(executable).not.toMatch(/delete from public\.user_notifications\s+where not exists/i);
+  });
+
+  it("closes the trigger function to every client role", () => {
+    expect(SQL).toMatch(/revoke all on function public\.cleanup_certificate_references\(\) from anon/);
+    expect(SQL).toMatch(/revoke all on function public\.cleanup_certificate_references\(\) from authenticated/);
   });
 });
