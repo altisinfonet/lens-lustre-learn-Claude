@@ -44,8 +44,19 @@ function imageToPngDataUrl(img: HTMLImageElement, opacity?: number, grayscale?: 
 
 // Canonical cert.type values (must mirror DB CHECK constraint on public.certificates.type)
 export type CertificateType =
+  // Hand-issued by an admin
+  | "achievement"
+  | "custom"
   | "course_completion"
+  // Competition awards, written by trg_auto_certificate_r4_award
   | "competition_winner"
+  | "competition_runner_up_1"
+  | "competition_runner_up_2"
+  | "competition_honorary_mention"
+  | "competition_special_jury"
+  | "competition_top_50"
+  | "competition_top_100"
+  // Member-requested
   | "winner"
   | "finalist"
   | "participation_r1"
@@ -64,6 +75,19 @@ interface CertificateData {
   verificationToken?: string;
   displayCertificateId?: string;
   type?: CertificateType;
+  /**
+   * ⚠ THE ADMIN'S OWN WORDS, AND UNTIL NOW THEY WENT NOWHERE.
+   *
+   * The issue form has always collected a description and the database has
+   * always stored it — a certificate issued on staging on 2026-08-25 carries
+   * one — but this renderer had no such field, so it was never printed. The
+   * admin typed it, the row kept it, and the certificate ignored it.
+   *
+   * It is printed in place of the canned closing line beneath the title, which
+   * is the slot that line was already occupying. Blank falls back to the
+   * wording for the type, so nothing regresses for the automatic kinds.
+   */
+  description?: string | null;
 }
 
 // Per-tier renderer config — drives the PDF copy for each canonical cert.type
@@ -74,7 +98,37 @@ interface TierConfig {
   dedicationText: string;  // line below the title block
 }
 
+/**
+ * ⚠ EVERY TYPE THE CHECK CONSTRAINT PERMITS MUST HAVE AN ENTRY.
+ *
+ * This map held 8 of the 16 permitted types and `resolveTier` ended with
+ * `?? TIER_CONFIG.course_completion`. So `custom`, `achievement` and all six
+ * `competition_*` placements printed **"for successfully completing the
+ * course"** on a certificate that had nothing to do with a course. The owner
+ * hit it the moment `custom` became issuable: a Custom certificate came out
+ * reading Completion of Course.
+ *
+ * A default that silently substitutes the wrong words is the same defect as a
+ * <select> falling back to its first <option>. `certificateTiers.test.ts` pins
+ * these keys against the constraint so the two cannot drift again.
+ */
 const TIER_CONFIG: Record<string, TierConfig> = {
+  // ── Hand-issued ──────────────────────────────────────────────────────────
+  achievement: {
+    ofText: "OF ACHIEVEMENT",
+    presentText: "This certificate is proudly presented to",
+    completionText: "in recognition of",
+    dedicationText: "for work that stands apart and deserves to be marked.",
+  },
+  custom: {
+    // Deliberately neutral: a Custom certificate exists precisely because the
+    // occasion does not fit a preset, so the closing line is expected to come
+    // from the admin's description rather than from here.
+    ofText: "OF ACHIEVEMENT",
+    presentText: "This certificate is proudly presented to",
+    completionText: "in recognition of",
+    dedicationText: "with the appreciation of 50mm Retina World.",
+  },
   course_completion: {
     ofText: "OF COMPLETION",
     presentText: "This certificate is proudly presented to",
@@ -86,6 +140,42 @@ const TIER_CONFIG: Record<string, TierConfig> = {
     presentText: "This certificate is proudly presented to",
     completionText: "for outstanding achievement in",
     dedicationText: "demonstrating exceptional skill, creativity, and dedication to the craft.",
+  },
+  competition_runner_up_1: {
+    ofText: "OF EXCELLENCE",
+    presentText: "This certificate is proudly awarded to",
+    completionText: "as 1st Runner-Up in",
+    dedicationText: "in recognition of work placed among the very finest of the competition.",
+  },
+  competition_runner_up_2: {
+    ofText: "OF EXCELLENCE",
+    presentText: "This certificate is proudly awarded to",
+    completionText: "as 2nd Runner-Up in",
+    dedicationText: "in recognition of work placed among the very finest of the competition.",
+  },
+  competition_honorary_mention: {
+    ofText: "OF MERIT",
+    presentText: "This certificate is proudly presented to",
+    completionText: "awarded an Honorary Mention in",
+    dedicationText: "for work the jury singled out for special recognition.",
+  },
+  competition_special_jury: {
+    ofText: "OF DISTINCTION",
+    presentText: "This certificate is proudly awarded to",
+    completionText: "awarded the Special Jury Award in",
+    dedicationText: "chosen by the jury for exceptional artistry and originality.",
+  },
+  competition_top_50: {
+    ofText: "OF MERIT",
+    presentText: "This certificate is presented to",
+    completionText: "for placing in the Top 50 of",
+    dedicationText: "in recognition of work ranked among the fifty finest entries.",
+  },
+  competition_top_100: {
+    ofText: "OF MERIT",
+    presentText: "This certificate is presented to",
+    completionText: "for placing in the Top 100 of",
+    dedicationText: "in recognition of work ranked among the hundred finest entries.",
   },
   winner: {
     ofText: "OF EXCELLENCE",
@@ -125,12 +215,28 @@ const TIER_CONFIG: Record<string, TierConfig> = {
   },
 };
 
+/**
+ * Neutral wording for a type this renderer has never heard of.
+ *
+ * ⚠ NOT `course_completion`. That was the old fallback and it is why a Custom
+ * certificate printed "for successfully completing the course": a default that
+ * asserts something specific and wrong is worse than one that asserts little.
+ * If a new type is added to the constraint and not to TIER_CONFIG, the
+ * certificate should read plainly rather than confidently lie about a course.
+ */
+const NEUTRAL_TIER: TierConfig = {
+  ofText: "OF ACHIEVEMENT",
+  presentText: "This certificate is proudly presented to",
+  completionText: "in recognition of",
+  dedicationText: "with the appreciation of 50mm Retina World.",
+};
+
 // Map legacy short-form aliases to canonical keys
 function resolveTier(type?: CertificateType): TierConfig {
-  if (!type) return TIER_CONFIG.course_completion;
+  if (!type) return NEUTRAL_TIER;
   if (type === "course") return TIER_CONFIG.course_completion;
   if (type === "competition") return TIER_CONFIG.competition_winner;
-  return TIER_CONFIG[type] ?? TIER_CONFIG.course_completion;
+  return TIER_CONFIG[type] ?? NEUTRAL_TIER;
 }
 
 async function fetchCertAsset(key: string): Promise<string | null> {
@@ -294,6 +400,7 @@ async function drawCertificate(d: CertificateSurface, {
   verificationToken,
   displayCertificateId,
   type = "course_completion",
+  description,
 }: CertificateData) {
   const tier = resolveTier(type);
   const W = 297;
@@ -371,12 +478,20 @@ async function drawCertificate(d: CertificateSurface, {
   });
   y += titleLines.length * 9 + 4;
 
-  // --- Dedication text ---
+  // --- Closing line: the admin's description if there is one ---
+  //
+  // ⚠ This is where the description finally lands. It was collected by the
+  // form and stored by the database and printed nowhere. Wrapped, because an
+  // admin writing free text will not stop at one line the way the canned
+  // wording does — an unwrapped string would run off both edges of the page.
   d.setFont("times", "italic");
   d.setFontSize(12);
   d.setTextColor(...TEXT_SUBTLE);
-  const dedicationText = tier.dedicationText;
-  d.text(dedicationText, W / 2, y, { align: "center" });
+  const closing = (description || "").trim() || tier.dedicationText;
+  const closingLines = d.splitTextToSize(closing, 200).slice(0, 3);
+  closingLines.forEach((line: string, i: number) => {
+    d.text(line, W / 2, y + i * 6, { align: "center" });
+  });
 
   // ============== FOOTER SECTION ==============
   const footerY = H - 40;
