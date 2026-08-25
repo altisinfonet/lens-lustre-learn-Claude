@@ -32,6 +32,8 @@ interface CertRow {
   revoked_reason: string | null;
   /** Human-facing id printed on the PDF. Null until the BEFORE INSERT trigger fills it. */
   certificate_id: string | null;
+  /** Custom certificates only — the line under CERTIFICATE. Null = the type's own wording. */
+  heading: string | null;
 }
 
 /** One row from admin_search_certificate_recipients. */
@@ -85,7 +87,7 @@ const CertificatesList = ({ user }: { user: User | null }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", type: "course_completion", user_search: "" });
+  const [form, setForm] = useState({ title: "", description: "", heading: "", type: "course_completion", user_search: "" });
   const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
   const [resolvedUserName, setResolvedUserName] = useState("");
   const { confirm: confirmAction, dialogProps } = useConfirmAction();
@@ -193,6 +195,7 @@ const CertificatesList = ({ user }: { user: User | null }) => {
           displayCertificateId: existing?.certificate_id ?? "CERT-PREVIEW",
           type: form.type as never,
           description: form.description,
+          heading: form.type === "custom" ? form.heading : null,
         });
         if (seq !== previewSeq.current) return;
         setPreviewPng(png);
@@ -216,7 +219,7 @@ const CertificatesList = ({ user }: { user: User | null }) => {
   }, []);
 
   const resetForm = () => {
-    setForm({ title: "", description: "", type: "course_completion", user_search: "" });
+    setForm({ title: "", description: "", heading: "", type: "course_completion", user_search: "" });
     setEditingId(null);
     setResolvedUserId(null);
     setResolvedUserName("");
@@ -293,14 +296,23 @@ const CertificatesList = ({ user }: { user: User | null }) => {
     setSaving(true);
     if (editingId) {
       const { error } = await supabase.from("certificates").update({
-        title: form.title.trim(), description: form.description.trim() || null, type: form.type,
+        title: form.title.trim(),
+        description: form.description.trim() || null,
+        type: form.type,
+        // A CHECK constraint refuses a heading on any other type, so send NULL
+        // rather than carrying a stale one across a type change.
+        heading: form.type === "custom" ? (form.heading.trim() || null) : null,
       }).eq("id", editingId);
       if (error) toast({ title: "Update failed", variant: "destructive" });
       else { toast({ title: "Updated" }); qc.invalidateQueries({ queryKey: ["certificates"] }); resetForm(); fetchCerts(); }
     } else {
       if (!resolvedUserId) { toast({ title: "Look up a user first", variant: "destructive" }); setSaving(false); return; }
       const { error } = await supabase.from("certificates").insert({
-        title: form.title.trim(), description: form.description.trim() || null, type: form.type, user_id: resolvedUserId,
+        title: form.title.trim(),
+        description: form.description.trim() || null,
+        type: form.type,
+        heading: form.type === "custom" ? (form.heading.trim() || null) : null,
+        user_id: resolvedUserId,
       });
       if (error) toast({ title: "Create failed", variant: "destructive" });
       else { toast({ title: "Certificate issued" }); qc.invalidateQueries({ queryKey: ["certificates"] }); resetForm(); fetchCerts(); }
@@ -383,6 +395,7 @@ const CertificatesList = ({ user }: { user: User | null }) => {
         type: c.type as never,
         // The admin's own words, which the renderer ignored until 2026-08-25.
         description: c.description,
+        heading: c.heading,
       });
       await saveBlob(
         doc.output("blob"),
@@ -435,7 +448,7 @@ const CertificatesList = ({ user }: { user: User | null }) => {
     // The type is set from the row and the dropdown now renders ALL 16 types,
     // so an unmatched value can no longer fall back to the first option and
     // silently rewrite a Runner-Up into a Course certificate.
-    setForm({ title: c.title, description: c.description || "", type: c.type, user_search: "" });
+    setForm({ title: c.title, description: c.description || "", heading: c.heading || "", type: c.type, user_search: "" });
     setResolvedUserId(c.user_id);
     setResolvedUserName(c.user_name || "");
     setShowForm(true);
@@ -563,6 +576,35 @@ const CertificatesList = ({ user }: { user: User | null }) => {
               {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : editingId ? "Update" : "Issue"}
             </button>
           </div>
+          {/*
+            ⚠ CUSTOM ONLY — and deliberately so.
+
+            The line under CERTIFICATE is OF COMPLETION for a course, OF MERIT
+            for a Top 50, and so on: it states what the member earned, so it
+            must not be free text on those types. A CHECK constraint enforces
+            that (`certificates_heading_only_for_custom`); this field simply
+            does not appear for anything but `custom`, so the rule is visible
+            in the UI as well as guaranteed underneath it.
+          */}
+          {form.type === "custom" && (
+            <div className="space-y-1">
+              <input
+                value={form.heading}
+                onChange={(e) => setForm((f) => ({ ...f, heading: e.target.value }))}
+                placeholder="OF ACHIEVEMENT"
+                spellCheck
+                lang="en"
+                maxLength={60}
+                className="w-full bg-transparent border border-border rounded-sm px-3 py-1.5 text-xs outline-none focus:border-primary tracking-[0.15em] uppercase"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                {form.heading.trim()
+                  ? <>Printed under the word <span className="text-foreground">CERTIFICATE</span>.</>
+                  : <>Printed under the word <span className="text-foreground">CERTIFICATE</span>. Leave blank for <span className="text-foreground">OF ACHIEVEMENT</span>.</>}
+              </p>
+            </div>
+          )}
+
           {/*
             ⚠ A TEXTAREA, SPELL-CHECKED, AND IT NOW REACHES THE CERTIFICATE.
 
