@@ -41,6 +41,8 @@ export interface IssuedCertificate {
   type: string;
   issued_at: string;
   description?: string | null;
+  /** Custom certificates only — the line under CERTIFICATE. */
+  heading?: string | null;
   certificate_id?: string | null;
   verification_token?: string | null;
 }
@@ -119,6 +121,7 @@ const CertificatePreviewModal = ({
         displayCertificateId: certificate.certificate_id || undefined,
         verificationToken: certificate.verification_token || undefined,
         description: certificate.description,
+        heading: certificate.heading,
         type: certificate.type as CertificateType,
       };
     }

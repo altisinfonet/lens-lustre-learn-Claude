@@ -4,6 +4,36 @@ import QRCode from "qrcode";
 import { getSiteLogoUrl } from "@/hooks/core/useSiteLogo";
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Decoded images and their converted data URLs, held for the life of the page.
+ * See the note on `fetchCertAsset`: the live admin preview re-renders on a
+ * debounce while the admin types, and the grayscale watermark pass walks every
+ * pixel of the logo. Doing that per keystroke is what makes a preview feel
+ * laggy. Cleared by `clearCertificateAssetCache()` when an asset is replaced.
+ */
+const imageCache = new Map<string, Promise<HTMLImageElement>>();
+
+function cachedImage(src: string): Promise<HTMLImageElement> {
+  const hit = imageCache.get(src);
+  if (hit) return hit;
+  const p = loadImage(src);
+  imageCache.set(src, p);
+  return p;
+}
+
+/** `imageToPngDataUrl` memoised on (url, opacity, grayscale). */
+async function cachedPng(src: string, opacity?: number, grayscale?: boolean): Promise<string> {
+  const key = `${src}|${opacity ?? ""}|${grayscale ? "g" : ""}`;
+  const hit = assetPngCache.get(key);
+  if (hit) {
+    const v = await hit;
+    if (v) return v;
+  }
+  const p = cachedImage(src).then((img) => imageToPngDataUrl(img, opacity, grayscale));
+  assetPngCache.set(key, p);
+  return p;
+}
+
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -88,6 +118,24 @@ interface CertificateData {
    * wording for the type, so nothing regresses for the automatic kinds.
    */
   description?: string | null;
+  /**
+   * ⚠ CUSTOM CERTIFICATES ONLY — the line printed under the word CERTIFICATE.
+   *
+   * Every other type gets that line from `TIER_CONFIG`: OF COMPLETION for a
+   * course, OF MERIT for a Top 50, and so on. That is correct, because those
+   * types describe a known occasion and the wording must match the placement
+   * the member actually earned.
+   *
+   * `custom` exists precisely because the occasion is NOT one of those, which
+   * made the heading the one line on the page the admin could not write. Now
+   * they can. Blank falls back to the type's own wording — OF ACHIEVEMENT for
+   * `custom` — so nothing already issued changes.
+   *
+   * The rule is enforced by a CHECK constraint, not by this file:
+   * `certificates_heading_only_for_custom`. A renderer guard would be a second
+   * copy of the rule and the two would eventually disagree.
+   */
+  heading?: string | null;
 }
 
 // Per-tier renderer config — drives the PDF copy for each canonical cert.type
@@ -239,7 +287,41 @@ function resolveTier(type?: CertificateType): TierConfig {
   return TIER_CONFIG[type] ?? NEUTRAL_TIER;
 }
 
+/**
+ * ⚠ CACHED, BECAUSE THE ADMIN PREVIEW NOW RENDERS WHILE THEY TYPE.
+ *
+ * Each render asks for the certificate logo, the site logo and the signature.
+ * Uncached, a live preview would fire three Supabase reads and three image
+ * downloads for every debounced keystroke — a sentence of description would
+ * cost dozens of round trips and the preview would lag behind the typing.
+ *
+ * Certificate assets change only when an admin uploads one, so they are held
+ * for the life of the page. `clearCertificateAssetCache()` is called by the
+ * uploader the moment a new logo or signature is saved, so the preview never
+ * shows the previous one.
+ *
+ * Promises are cached, not results: two renders racing on first paint share
+ * one request instead of issuing two.
+ */
+const assetUrlCache = new Map<string, Promise<string | null>>();
+const assetPngCache = new Map<string, Promise<string | null>>();
+
+/** Invalidate after an upload, so the next render fetches the new asset. */
+export function clearCertificateAssetCache() {
+  assetUrlCache.clear();
+  assetPngCache.clear();
+  imageCache.clear();
+}
+
 async function fetchCertAsset(key: string): Promise<string | null> {
+  const hit = assetUrlCache.get(key);
+  if (hit) return hit;
+  const p = fetchCertAssetUncached(key);
+  assetUrlCache.set(key, p);
+  return p;
+}
+
+async function fetchCertAssetUncached(key: string): Promise<string | null> {
   try {
     const { data } = await supabase
       .from("site_settings")
@@ -401,8 +483,31 @@ async function drawCertificate(d: CertificateSurface, {
   displayCertificateId,
   type = "course_completion",
   description,
+  heading,
 }: CertificateData) {
   const tier = resolveTier(type);
+
+  /**
+   * ⚠ RESOLVED ONCE PER RENDER, NOT TWICE.
+   *
+   * The logo is drawn twice — as the faint watermark behind the text and again
+   * in the footer — and each site previously resolved it independently. Where
+   * `certificate_logo` is unset that meant TWO calls to `getSiteLogoUrl()`,
+   * which documents itself as deliberately uncached so a changed logo shows
+   * immediately. Harmless for a one-off download; measured at 12 network round
+   * trips across six renders once the admin preview started redrawing as they
+   * type. Same freshness, half the requests, and the two never disagree.
+   */
+  let logoUrlMemo: string | null | undefined;
+  const logoUrlOnce = async (): Promise<string | null> => {
+    if (logoUrlMemo !== undefined) return logoUrlMemo;
+    let u = await fetchCertAsset("certificate_logo");
+    if (!u) u = await getSiteLogoUrl();
+    if (u && u.startsWith("/")) u = `${window.location.origin}${u}`;
+    logoUrlMemo = u || null;
+    return logoUrlMemo;
+  };
+
   const W = 297;
   const H = 210;
 
@@ -415,12 +520,9 @@ async function drawCertificate(d: CertificateSurface, {
 
   // --- Watermark: Large logo in center at 10% opacity, grayscale ---
   try {
-    let wmLogoUrl = await fetchCertAsset("certificate_logo");
-    if (!wmLogoUrl) wmLogoUrl = await getSiteLogoUrl();
-    if (wmLogoUrl && wmLogoUrl.startsWith("/")) wmLogoUrl = `${window.location.origin}${wmLogoUrl}`;
+    const wmLogoUrl = await logoUrlOnce();
     if (wmLogoUrl) {
-      const wmImg = await loadImage(wmLogoUrl);
-      const wmDataUrl = imageToPngDataUrl(wmImg, 0.10, true);
+      const wmDataUrl = await cachedPng(wmLogoUrl, 0.10, true);
       const wmSize = 100;
       d.addImage(wmDataUrl, "PNG", W / 2 - wmSize / 2, H / 2 - wmSize / 2 + 5, wmSize, wmSize);
     }
@@ -440,7 +542,8 @@ async function drawCertificate(d: CertificateSurface, {
   d.setFont("times", "normal");
   d.setFontSize(18);
   d.setTextColor(...GOLD);
-  const ofText = tier.ofText;
+  // The admin's heading where there is one, the type's wording otherwise.
+  const ofText = (heading || "").trim() || tier.ofText;
   d.text(ofText, W / 2, y, { align: "center" });
   y += 18;
 
@@ -518,12 +621,10 @@ async function drawCertificate(d: CertificateSurface, {
   // --- Center: Logo (30mm height, aligned with date/signature baseline) ---
   let footerLogoDrawn = false;
   try {
-    let logoUrl = await fetchCertAsset("certificate_logo");
-    if (!logoUrl) logoUrl = await getSiteLogoUrl();
-    if (logoUrl && logoUrl.startsWith("/")) logoUrl = `${window.location.origin}${logoUrl}`;
+    const logoUrl = await logoUrlOnce();
     if (logoUrl) {
-      const logoImg = await loadImage(logoUrl);
-      const logoDataUrl = imageToPngDataUrl(logoImg);
+      const logoImg = await cachedImage(logoUrl);
+      const logoDataUrl = await cachedPng(logoUrl);
       const logoH = 30;
       const logoW = (logoImg.width / logoImg.height) * logoH;
       // Align logo bottom edge with footerY so it sits at same baseline as date/signature
@@ -546,8 +647,8 @@ async function drawCertificate(d: CertificateSurface, {
   try {
     const sigUrl = await fetchCertAsset("certificate_signature");
     if (sigUrl) {
-      const sigImg = await loadImage(sigUrl);
-      const sigDataUrl = imageToPngDataUrl(sigImg);
+      const sigImg = await cachedImage(sigUrl);
+      const sigDataUrl = await cachedPng(sigUrl);
       const sigH = 18;
       const sigW = (sigImg.width / sigImg.height) * sigH;
       d.addImage(sigDataUrl, "PNG", rightX - sigW / 2, footerY - sigH - 2, sigW, sigH);

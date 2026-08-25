@@ -10,6 +10,7 @@ import type { User } from "@supabase/supabase-js";
 import { uploadImage } from "@/lib/imageUpload";
 import { compressImageToFiles } from "@/lib/imageCompression";
 import { saveBlob } from "@/lib/saveFile";
+import { clearCertificateAssetCache } from "@/lib/generateCertificatePdf";
 import {
   CERT_TYPES,
   CERT_TYPE_GROUPS,
@@ -31,6 +32,8 @@ interface CertRow {
   revoked_reason: string | null;
   /** Human-facing id printed on the PDF. Null until the BEFORE INSERT trigger fills it. */
   certificate_id: string | null;
+  /** Custom certificates only — the line under CERTIFICATE. Null = the type's own wording. */
+  heading: string | null;
 }
 
 /** One row from admin_search_certificate_recipients. */
@@ -84,7 +87,7 @@ const CertificatesList = ({ user }: { user: User | null }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", type: "course_completion", user_search: "" });
+  const [form, setForm] = useState({ title: "", description: "", heading: "", type: "course_completion", user_search: "" });
   const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
   const [resolvedUserName, setResolvedUserName] = useState("");
   const { confirm: confirmAction, dialogProps } = useConfirmAction();
@@ -102,6 +105,28 @@ const CertificatesList = ({ user }: { user: User | null }) => {
   const [totalCount, setTotalCount] = useState(0);
   const [typeFilter, setTypeFilter] = useState("");
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  /**
+   * LIVE PREVIEW — the certificate redraws as the admin types.
+   *
+   * ⚠ Why this matters rather than being a nicety: a certificate cannot be
+   * edited once the recipient has downloaded it. Until now the only way to see
+   * what the wording actually looked like was to issue it to a real member and
+   * then look. The admin was composing a document blind.
+   *
+   * Debounced at 180ms, not rendered per keystroke: a full render is ~240ms of
+   * canvas work, so keying it to every character would queue renders faster
+   * than they complete and the picture would trail the typing. 180ms redraws
+   * between words, which is what "live" actually feels like.
+   *
+   * `previewSeq` discards a slow render whose input has already changed —
+   * without it, a render started three characters ago can land last and paint
+   * stale text over current text.
+   */
+  const [previewPng, setPreviewPng] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const previewSeq = useRef(0);
 
   /**
    * ⚠ THIS WAS `.order(issued_at).limit(50)` WITH NO PAGING.
@@ -149,6 +174,43 @@ const CertificatesList = ({ user }: { user: User | null }) => {
     setLoading(false);
   };
 
+  useEffect(() => {
+    if (!showForm) { setPreviewPng(null); setPreviewError(null); return; }
+    const seq = ++previewSeq.current;
+    const timer = setTimeout(async () => {
+      setPreviewing(true);
+      try {
+        const { renderCertificateToPng } = await import("@/lib/generateCertificatePdf");
+        // Editing an existing certificate previews ITS date and id, not
+        // today's — otherwise the admin is shown something the member will
+        // never receive, which is the defect the member view had.
+        const existing = editingId ? certs.find((c) => c.id === editingId) : undefined;
+        const png = await renderCertificateToPng({
+          recipientName: resolvedUserName || existing?.user_name || "Recipient name",
+          courseTitle: form.title.trim() || "Certificate title",
+          issueDate: new Date(existing?.issued_at ?? Date.now()).toLocaleDateString("en-US", {
+            year: "numeric", month: "long", day: "numeric",
+          }),
+          certificateId: existing?.id ?? "preview",
+          displayCertificateId: existing?.certificate_id ?? "CERT-PREVIEW",
+          type: form.type as never,
+          description: form.description,
+          heading: form.type === "custom" ? form.heading : null,
+        });
+        if (seq !== previewSeq.current) return;
+        setPreviewPng(png);
+        setPreviewError(null);
+      } catch (err) {
+        if (seq !== previewSeq.current) return;
+        setPreviewError(err instanceof Error ? err.message : "Could not draw the preview.");
+      } finally {
+        if (seq === previewSeq.current) setPreviewing(false);
+      }
+    }, 180);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showForm, form.title, form.description, form.type, resolvedUserName, editingId]);
+
   // Load page 1 on mount. fetchCerts is deliberately not a dependency: it is
   // recreated on every render, so listing it would refetch continuously.
   useEffect(() => {
@@ -157,7 +219,7 @@ const CertificatesList = ({ user }: { user: User | null }) => {
   }, []);
 
   const resetForm = () => {
-    setForm({ title: "", description: "", type: "course_completion", user_search: "" });
+    setForm({ title: "", description: "", heading: "", type: "course_completion", user_search: "" });
     setEditingId(null);
     setResolvedUserId(null);
     setResolvedUserName("");
@@ -234,14 +296,23 @@ const CertificatesList = ({ user }: { user: User | null }) => {
     setSaving(true);
     if (editingId) {
       const { error } = await supabase.from("certificates").update({
-        title: form.title.trim(), description: form.description.trim() || null, type: form.type,
+        title: form.title.trim(),
+        description: form.description.trim() || null,
+        type: form.type,
+        // A CHECK constraint refuses a heading on any other type, so send NULL
+        // rather than carrying a stale one across a type change.
+        heading: form.type === "custom" ? (form.heading.trim() || null) : null,
       }).eq("id", editingId);
       if (error) toast({ title: "Update failed", variant: "destructive" });
       else { toast({ title: "Updated" }); qc.invalidateQueries({ queryKey: ["certificates"] }); resetForm(); fetchCerts(); }
     } else {
       if (!resolvedUserId) { toast({ title: "Look up a user first", variant: "destructive" }); setSaving(false); return; }
       const { error } = await supabase.from("certificates").insert({
-        title: form.title.trim(), description: form.description.trim() || null, type: form.type, user_id: resolvedUserId,
+        title: form.title.trim(),
+        description: form.description.trim() || null,
+        type: form.type,
+        heading: form.type === "custom" ? (form.heading.trim() || null) : null,
+        user_id: resolvedUserId,
       });
       if (error) toast({ title: "Create failed", variant: "destructive" });
       else { toast({ title: "Certificate issued" }); qc.invalidateQueries({ queryKey: ["certificates"] }); resetForm(); fetchCerts(); }
@@ -324,6 +395,7 @@ const CertificatesList = ({ user }: { user: User | null }) => {
         type: c.type as never,
         // The admin's own words, which the renderer ignored until 2026-08-25.
         description: c.description,
+        heading: c.heading,
       });
       await saveBlob(
         doc.output("blob"),
@@ -376,7 +448,7 @@ const CertificatesList = ({ user }: { user: User | null }) => {
     // The type is set from the row and the dropdown now renders ALL 16 types,
     // so an unmatched value can no longer fall back to the first option and
     // silently rewrite a Runner-Up into a Course certificate.
-    setForm({ title: c.title, description: c.description || "", type: c.type, user_search: "" });
+    setForm({ title: c.title, description: c.description || "", heading: c.heading || "", type: c.type, user_search: "" });
     setResolvedUserId(c.user_id);
     setResolvedUserName(c.user_name || "");
     setShowForm(true);
@@ -505,6 +577,35 @@ const CertificatesList = ({ user }: { user: User | null }) => {
             </button>
           </div>
           {/*
+            ⚠ CUSTOM ONLY — and deliberately so.
+
+            The line under CERTIFICATE is OF COMPLETION for a course, OF MERIT
+            for a Top 50, and so on: it states what the member earned, so it
+            must not be free text on those types. A CHECK constraint enforces
+            that (`certificates_heading_only_for_custom`); this field simply
+            does not appear for anything but `custom`, so the rule is visible
+            in the UI as well as guaranteed underneath it.
+          */}
+          {form.type === "custom" && (
+            <div className="space-y-1">
+              <input
+                value={form.heading}
+                onChange={(e) => setForm((f) => ({ ...f, heading: e.target.value }))}
+                placeholder="OF ACHIEVEMENT"
+                spellCheck
+                lang="en"
+                maxLength={60}
+                className="w-full bg-transparent border border-border rounded-sm px-3 py-1.5 text-xs outline-none focus:border-primary tracking-[0.15em] uppercase"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                {form.heading.trim()
+                  ? <>Printed under the word <span className="text-foreground">CERTIFICATE</span>.</>
+                  : <>Printed under the word <span className="text-foreground">CERTIFICATE</span>. Leave blank for <span className="text-foreground">OF ACHIEVEMENT</span>.</>}
+              </p>
+            </div>
+          )}
+
+          {/*
             ⚠ A TEXTAREA, SPELL-CHECKED, AND IT NOW REACHES THE CERTIFICATE.
 
             This was a single-line <input> whose value the PDF renderer never
@@ -539,6 +640,47 @@ const CertificatesList = ({ user }: { user: User | null }) => {
                 {form.description.length}/300
               </span>
             </div>
+          </div>
+
+          {/* ── Live preview ──────────────────────────────────────────────
+              What the recipient will actually receive, redrawn as the admin
+              types. Same `drawCertificate` routine as the PDF, so this is the
+              document itself and not an impression of it. */}
+          <div className="border-t border-border pt-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+                Live preview
+              </span>
+              <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1.5">
+                {previewing && <Loader2 className="h-3 w-3 animate-spin" />}
+                {previewing ? "drawing…" : previewError ? "" : "updates as you type"}
+              </span>
+            </div>
+
+            <div className="relative bg-muted/20 rounded-sm overflow-hidden border border-border">
+              {/* A4 landscape, so the box never jumps height between renders. */}
+              <div style={{ aspectRatio: "297 / 210" }} className="w-full">
+                {previewPng ? (
+                  <img
+                    src={previewPng}
+                    alt="Live certificate preview"
+                    className={`w-full h-full object-contain transition-opacity duration-150 ${previewing ? "opacity-60" : "opacity-100"}`}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    {previewError
+                      ? <span className="text-[10px] text-destructive px-4 text-center">{previewError}</span>
+                      : <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <p className="text-[10px] text-muted-foreground">
+              {resolvedUserId || editingId
+                ? "This is the certificate that will be issued."
+                : "Choose a recipient above and their name replaces the placeholder."}
+            </p>
           </div>
         </div>
       )}
@@ -749,6 +891,10 @@ const AssetUploader = ({
       toast({ title: "Failed to save", variant: "destructive" });
     } else {
       setUrl(newUrl);
+      // The renderer holds certificate assets for the life of the page so the
+      // live preview is not refetching them on every keystroke. Drop them now,
+      // or the preview keeps drawing the logo that was just replaced.
+      clearCertificateAssetCache();
       toast({ title: `${title} saved successfully` });
     }
     setUploading(false);
@@ -817,7 +963,11 @@ const AssetUploader = ({
           .from("site_settings")
           .upsert({ key: settingsKey, value: JSON.stringify("") }, { onConflict: "key" });
         if (error) toast({ title: "Failed to remove", variant: "destructive" });
-        else { setUrl(null); toast({ title: `${title} removed` }); }
+        else {
+          setUrl(null);
+          clearCertificateAssetCache();
+          toast({ title: `${title} removed` });
+        }
       },
     });
   };

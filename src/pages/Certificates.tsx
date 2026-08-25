@@ -26,6 +26,8 @@ interface Certificate {
   id: string;
   title: string;
   description: string | null;
+  /** Custom certificates only — the line under CERTIFICATE. */
+  heading: string | null;
   type: string;
   issued_at: string;
   reference_id: string | null;
@@ -465,6 +467,7 @@ const Certificates = () => {
                             type: cert.type,
                             issued_at: cert.issued_at,
                             description: cert.description,
+                            heading: cert.heading,
                             certificate_id: cert.certificate_id,
                             verification_token: cert.verification_token,
                           })}
@@ -490,6 +493,7 @@ const Certificates = () => {
                                 displayCertificateId: cert.certificate_id || undefined,
                                 type: cert.type as never,
                                 description: cert.description,
+                                heading: cert.heading,
                               });
                               // NOT doc.save(). jsPDF's save() builds an <a
                               // download> and clicks it, which an Android
