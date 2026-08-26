@@ -386,8 +386,24 @@ export const CERT_PAGE_H = 210;
 
 const GOLD: [number, number, number] = [184, 150, 80];
 const GOLD_LIGHT: [number, number, number] = [210, 185, 120];
+/**
+ * ⚠ OWNER DECISION 2026-08-25 — THE TWO TEXT TIERS SHIFTED, DELIBERATELY.
+ *
+ * Before today the certificate ran on a single dark grey for the things that
+ * matter (name, title, date) and a warm grey `TEXT_MUTED` [100, 95, 88] for the
+ * two connector lines. The owner moved BOTH:
+ *
+ *   name / title / date .................. #282828  ->  #007BB1  (TEXT_ACCENT)
+ *   "This is to certify that" /
+ *   "has successfully completed" ......... #645F58  ->  #282828  (TEXT_DARK)
+ *
+ * So the connector lines inherit the old headline colour and the headline gets
+ * the brand blue. `TEXT_MUTED` is gone rather than left unused: an orphaned
+ * palette entry is the kind of thing the next person re-applies by accident.
+ * It was [100, 95, 88] if it is ever wanted back.
+ */
+const TEXT_ACCENT: [number, number, number] = [0, 123, 177];
 const TEXT_DARK: [number, number, number] = [40, 40, 40];
-const TEXT_MUTED: [number, number, number] = [100, 95, 88];
 const TEXT_SUBTLE: [number, number, number] = [150, 145, 138];
 const BG_COLOR: [number, number, number] = [255, 253, 248];
 
@@ -550,7 +566,7 @@ async function drawCertificate(d: CertificateSurface, {
   // --- "This certificate is proudly presented to" ---
   d.setFont("times", "normal");
   d.setFontSize(14);
-  d.setTextColor(...TEXT_MUTED);
+  d.setTextColor(...TEXT_DARK);
   const presentText = tier.presentText;
   d.text(presentText, W / 2, y, { align: "center" });
   y += 14;
@@ -558,14 +574,14 @@ async function drawCertificate(d: CertificateSurface, {
   // --- Recipient Name (elegant script-like) ---
   d.setFont("times", "bolditalic");
   d.setFontSize(38);
-  d.setTextColor(...TEXT_DARK);
+  d.setTextColor(...TEXT_ACCENT);
   d.text(recipientName, W / 2, y, { align: "center" });
   y += 14;
 
   // --- "for successfully completing the course" ---
   d.setFont("times", "normal");
   d.setFontSize(14);
-  d.setTextColor(...TEXT_MUTED);
+  d.setTextColor(...TEXT_DARK);
   const completionText = tier.completionText;
   d.text(completionText, W / 2, y, { align: "center" });
   y += 12;
@@ -573,7 +589,7 @@ async function drawCertificate(d: CertificateSurface, {
   // --- Course Title ---
   d.setFont("times", "bolditalic");
   d.setFontSize(22);
-  d.setTextColor(...TEXT_DARK);
+  d.setTextColor(...TEXT_ACCENT);
   const maxTitleWidth = 220;
   const titleLines = d.splitTextToSize(`"${courseTitle}"`, maxTitleWidth);
   titleLines.forEach((line: string, i: number) => {
@@ -605,7 +621,7 @@ async function drawCertificate(d: CertificateSurface, {
   // --- Left: Date ---
   d.setFont("times", "normal");
   d.setFontSize(12);
-  d.setTextColor(...TEXT_DARK);
+  d.setTextColor(...TEXT_ACCENT);
   d.text(issueDate, leftX, footerY, { align: "center" });
   // Underline below date
   const dateTextW = d.getTextWidth(issueDate);
