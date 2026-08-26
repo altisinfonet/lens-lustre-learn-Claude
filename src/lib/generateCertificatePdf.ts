@@ -401,6 +401,22 @@ const GOLD_LIGHT: [number, number, number] = [210, 185, 120];
  * the brand blue. `TEXT_MUTED` is gone rather than left unused: an orphaned
  * palette entry is the kind of thing the next person re-applies by accident.
  * It was [100, 95, 88] if it is ever wanted back.
+ *
+ * SECOND PASS, same day: the CLOSING LINE moved too.
+ *
+ *   closing / description ................ #96918A  ->  #282828  (TEXT_DARK)
+ *
+ * That line is where the admin's `description` prints, and where the tier's
+ * own wording ("with the appreciation of 50mm Retina World." on a Custom
+ * certificate) prints when there is no description. At TEXT_SUBTLE it read as
+ * small print next to the blue title above it. It is a sentence addressed to
+ * the recipient, so it now carries the same weight as the two connector lines.
+ *
+ * ⚠ TEXT_SUBTLE IS STILL THE COLOUR OF THE ACTUAL SMALL PRINT — the DATE and
+ * AUTHORIZED SIGNATURE labels, the certificate id, the verify URL and the
+ * "Scan to verify" caption. Those were NOT part of this change, and
+ * certificatePalette.test.ts asserts each of them individually so a future
+ * "make the text darker" cannot quietly sweep them up.
  */
 const TEXT_ACCENT: [number, number, number] = [0, 123, 177];
 const TEXT_DARK: [number, number, number] = [40, 40, 40];
@@ -605,7 +621,7 @@ async function drawCertificate(d: CertificateSurface, {
   // wording does — an unwrapped string would run off both edges of the page.
   d.setFont("times", "italic");
   d.setFontSize(12);
-  d.setTextColor(...TEXT_SUBTLE);
+  d.setTextColor(...TEXT_DARK);
   const closing = (description || "").trim() || tier.dedicationText;
   const closingLines = d.splitTextToSize(closing, 200).slice(0, 3);
   closingLines.forEach((line: string, i: number) => {
