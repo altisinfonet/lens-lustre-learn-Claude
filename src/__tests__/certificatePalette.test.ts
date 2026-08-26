@@ -21,6 +21,15 @@ import { join } from "node:path";
  * Both directions matter. Asserting only that the name is blue would pass on a
  * build where the connector lines never left #645F58.
  *
+ * A second pass the same day moved the closing / description line as well:
+ *
+ *     closing / description ................ #96918A  ->  #282828
+ *
+ * That one shares a colour with the genuine small print (DATE, AUTHORIZED
+ * SIGNATURE, certificate id, verify URL, "Scan to verify"), so it is asserted
+ * separately from them — otherwise a future sweep of "make TEXT_SUBTLE darker"
+ * would darken the footer too and nothing here would notice.
+ *
  * The QR block is checked too, for a different reason: it hardcodes its own
  * hex copies of GOLD and BG_COLOR instead of deriving them, so a future change
  * to GOLD alone would leave a QR code in the previous gold, clashing with the
@@ -94,6 +103,10 @@ describe("certificate palette — which element gets which colour", () => {
 
   it('"has successfully completed" is TEXT_DARK, not the retired muted grey', () => {
     expect(colourOf("const completionText")).toBe("TEXT_DARK");
+  });
+
+  it("the closing / description line is TEXT_DARK", () => {
+    expect(colourOf("const closing =")).toBe("TEXT_DARK");
   });
 
   it("the small print stays TEXT_SUBTLE — the change did not bleed into it", () => {
