@@ -72,5 +72,7 @@ jobs:
       - name: Bundle isolation guard (production lane)
         env:
           VITE_SUPABASE_URL: https://jtdtehuqtinjxropkkcn.supabase.co
-          ISOLATION_FORBIDDEN_REFS: ""
+          ISOLATION_FORBIDDEN_REFS: ztzutckwdhetphwghuzj
+          ISOLATION_EXPECTED_HOST: cdn.50mmretina.com
+          ISOLATION_FORBIDDEN_HOSTS: cdn-staging.50mmretina.com,staging.50mmretina.com
         run: node scripts/verify-bundle-isolation.mjs
