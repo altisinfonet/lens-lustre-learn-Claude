@@ -1,46 +1,60 @@
 /**
- * The comment thread under a sponsored ad.
+ * The comment thread under a sponsored ad — the ADAPTER, and nothing else.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * WHY THIS IS NOT PostCommentsSection
+ * WHAT THIS FILE USED TO BE, AND WHY IT IS NOT THAT ANY MORE
  *
- * PostCommentsSection reads post_comments, post_comment_reactions, pinning and
- * a post owner's moderation rights. An ad has no owner and no pinned comments,
- * and its rows live in different tables, so pointing that component at an ad
- * would have meant threading a "kind" through 565 lines that every post in the
- * feed also runs. This is the same thread, minus what an ad does not have:
+ * 405 lines: a second comment thread, hand-copied from PostCommentsSection's,
+ * opening with a long paragraph justifying the copy. The justification was
+ * about the DATA — an ad has no owner, no pinned comments, and its rows live in
+ * different tables — and all of that is still true. None of it was ever a
+ * reason to draw a second comment row.
  *
- *   * one level of replies, the depth the post thread actually renders
- *   * write, edit and delete your own
- *   * an admin may delete anybody's (RLS enforces it; this only draws it)
- *   * the SAME keyword blocklist, because the database attaches the SAME
- *     trigger function — see the migration
+ * The copy rotted exactly as a copy does. Its list said
  *
- * No comment reactions and no pinning. Both are real features on a post; on an
- * advertiser's ad they are noise, and adding them later is additive.
+ *     renderRow(comment, false)
+ *
+ * with no braces around it, so React printed the call as literal text and a
+ * member reading 'What is the awarding criteria ?' saw the words
+ * `renderRow(comment, false)` instead. The reply one line below it, inside a
+ * `.map()`, was correct — which is why nobody spotted it in review. The post
+ * thread never had the bug and could not have caught it.
+ *
+ * So the drawing is now src/components/comments/CommentThread.tsx, shared with
+ * the post card, and what is left here is the mapping this surface actually
+ * needs: ad_creative_comments rows in, the thread's shape out; the thread's
+ * callbacks in, src/lib/ads/adEngagement.ts writes out.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHAT THE AD THREAD DOES NOT HAVE
+ *
+ *   * comment reactions — there is no ad_creative_comment_reactions table
+ *   * pinning — nobody owns an advertisement, so nobody may pin on it
+ *   * per-comment reporting from the row menu — a flagged ad comment reaches
+ *     the SAME admin queue, but through the blocklist trigger in the migration,
+ *     not through a member-facing Report button
+ *   * a sort selector — an ad thread is short and ordered by time
+ *
+ * These are passed as `features`, so they are absences this file states out
+ * loud rather than differences in a second implementation. Adding any of them
+ * later is a table and one flag.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * WHY THE COUNT COMES BACK FROM THE PARENT
  *
  * `onCountChange` re-runs the engagement RPC rather than incrementing a local
- * number. A comment can be refused by the blocklist trigger AFTER the optimistic
+ * number. A comment can be refused by the blocklist trigger AFTER an optimistic
  * bump, and a number that says 4 above a list of 3 is worse than a number that
  * arrives a moment late.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { MoreHorizontal, Pencil, Reply, Send, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { useProfileMap } from "@/hooks/profile/useProfileMap";
+import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { toast } from "@/hooks/core/use-toast";
-import RichContentRenderer from "@/components/RichContentRenderer";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
+import CommentThread, { type ThreadComment } from "@/components/comments/CommentThread";
 import {
   type AdComment,
   addAdComment,
@@ -54,52 +68,27 @@ interface Props {
   onCountChange?: () => void;
 }
 
-const timeAgo = (date: string) => {
-  const diff = Date.now() - new Date(date).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d`;
-  return new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-};
-
-const Avatar = ({ src, name }: { src: string | null; name: string | null }) => (
-  <span className="relative inline-block w-8 h-8 shrink-0">
-    {src ? (
-      <img
-        src={src}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        referrerPolicy="no-referrer"
-        className="w-8 h-8 rounded-full object-cover"
-      />
-    ) : (
-      <span className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">
-        {(name || "?")[0]?.toUpperCase()}
-      </span>
-    )}
-  </span>
-);
+/**
+ * The ad thread is ONE level deep. `fetchAdComments` returns a flat list and
+ * this groups replies under their top-level parent; a reply to a reply would
+ * have nowhere to be drawn, which is why CommentThread is told the same depth.
+ */
+const AD_MAX_REPLY_DEPTH = 1;
 
 const AdComments = ({ creativeId, onCountChange }: Props) => {
   const { user } = useAuth();
+  const { data: currentProfile } = useProfileCore(user?.id);
   const { isAdmin } = useIsAdmin();
   const [rows, setRows] = useState<AdComment[]>([]);
+  const [adminIds, setAdminIds] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
-  const [input, setInput] = useState("");
-  const [replyTo, setReplyTo] = useState<string | null>(null);
-  const [replyInput, setReplyInput] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editInput, setEditInput] = useState("");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setRows(await fetchAdComments(creativeId));
+    const [fetched, admins] = await Promise.all([fetchAdComments(creativeId), getAdminIds()]);
+    setRows(fetched);
+    setAdminIds(admins);
     setLoading(false);
   }, [creativeId]);
 
@@ -110,55 +99,69 @@ const AdComments = ({ creativeId, onCountChange }: Props) => {
   const authorIds = useMemo(() => [...new Set(rows.map((r) => r.user_id))], [rows]);
   const { profileMap } = useProfileMap(authorIds);
 
-  /** Top-level comments, each with its replies attached in time order. */
-  const threaded = useMemo(() => {
-    const tops = rows.filter((r) => !r.parent_id);
-    const byParent = new Map<string, AdComment[]>();
+  /** ad_creative_comments rows in the shape the shared thread draws. */
+  const comments = useMemo<ThreadComment[]>(() => {
+    const toThread = (r: AdComment): ThreadComment => ({
+      id: r.id,
+      user_id: r.user_id,
+      content: r.content,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+      parent_id: r.parent_id,
+      // An ad has no owner and so no pinned comments, and no comment reactions.
+      is_pinned: false,
+      like_count: 0,
+      is_liked: false,
+      author_name: resolveName(r.user_id, profileMap[r.user_id]?.full_name ?? null, adminIds),
+      author_avatar: profileMap[r.user_id]?.avatar_url ?? null,
+      author_badges: resolveBadges(r.user_id, profileMap[r.user_id]?.badges || [], adminIds),
+      author_last_active: profileMap[r.user_id]?.last_active_at ?? null,
+      replies: [],
+    });
+
+    const byParent = new Map<string, ThreadComment[]>();
     rows
       .filter((r) => r.parent_id)
       .forEach((r) => {
         const list = byParent.get(r.parent_id!) || [];
-        list.push(r);
+        list.push(toThread(r));
         byParent.set(r.parent_id!, list);
       });
-    return tops.map((t) => ({ comment: t, replies: byParent.get(t.id) || [] }));
-  }, [rows]);
 
-  const submit = async (content: string, parentId: string | null) => {
+    return rows
+      .filter((r) => !r.parent_id)
+      .map((r) => ({ ...toThread(r), replies: byParent.get(r.id) || [] }));
+  }, [rows, profileMap, adminIds]);
+
+  const add = async (content: string, parentId: string | null): Promise<boolean> => {
     if (!user) {
       toast({ title: "Sign in to comment" });
-      return;
+      return false;
     }
-    if (busy) return;
+    if (busy) return false;
     setBusy(true);
     const { error } = await addAdComment(creativeId, user.id, content, parentId);
     setBusy(false);
     if (error) {
       toast({ title: "Comment not posted", description: error, variant: "destructive" });
-      return;
-    }
-    if (parentId) {
-      setReplyInput("");
-      setReplyTo(null);
-    } else {
-      setInput("");
+      return false;
     }
     await load();
     onCountChange?.();
+    return true;
   };
 
-  const saveEdit = async (id: string) => {
-    if (busy) return;
+  const edit = async (id: string, content: string): Promise<boolean> => {
+    if (busy) return false;
     setBusy(true);
-    const { error } = await editAdComment(id, editInput);
+    const { error } = await editAdComment(id, content);
     setBusy(false);
     if (error) {
       toast({ title: "Comment not saved", description: error, variant: "destructive" });
-      return;
+      return false;
     }
-    setEditingId(null);
-    setEditInput("");
     await load();
+    return true;
   };
 
   const remove = async (id: string) => {
@@ -174,231 +177,26 @@ const AdComments = ({ creativeId, onCountChange }: Props) => {
     onCountChange?.();
   };
 
-  /**
-   * ⚠ RENDERED BY CALLING IT, NOT AS <Row />. THAT IS THE WHOLE POINT.
-   *
-   * Owner, 2026-08-12: *"In Comment Reply : I am typing 'Thanks' its typing as
-   * 'sknaht'. Text pointer atomically coming front after typing"*.
-   *
-   * This function is DEFINED INSIDE the parent's render. Written as a JSX
-   * element (`<Row ... />`) that makes it a brand-new component TYPE on
-   * every parent render — and the reply text lives in parent state, so every
-   * keystroke re-rendered the parent, React saw an unfamiliar type, and it
-   * unmounted and rebuilt the entire subtree. The real DOM <input> was
-   * destroyed and recreated per letter, so the caret snapped back to 0 and the
-   * next character landed in FRONT of the previous one. "Thanks" → "sknaht".
-   *
-   * Calling it as a plain function splices its output into the PARENT's
-   * element tree, so there is no new component type, nothing remounts, and the
-   * caret stays where the member put it.
-   *
-   * ⚠ THE `key` LIVES ON THE RETURNED ROOT ELEMENT, not on a call site — a
-   * function call cannot carry one.
-   *
-   * ⚠ NEVER CALL A REACT HOOK IN HERE. As a function call it shares the
-   * parent's hook slots, so a conditional `useState` here would corrupt the
-   * parent's hook order. It uses none today, and it must stay that way.
-   * If you ever need one, hoist this to a real component at module scope with
-   * explicit props instead of putting `<Row />` back.
-   */
-  const renderRow = (c: AdComment, isReply: boolean) => {
-    const p = profileMap[c.user_id];
-    const name = p?.full_name || "A member";
-    const mine = user?.id === c.user_id;
-    return (
-      // Key moved here — see the note above renderRow.
-      <div key={c.id} className={`flex gap-2.5 ${isReply ? "pl-10" : ""}`}>
-        <Link to={`/profile/${c.user_id}`}>
-          <Avatar src={p?.avatar_url ?? null} name={name} />
-        </Link>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2">
-            <Link
-              to={`/profile/${c.user_id}`}
-              className="text-sm font-semibold hover:text-primary transition-colors truncate"
-            >
-              {name}
-            </Link>
-            <span className="text-[11px] text-muted-foreground shrink-0">{timeAgo(c.created_at)}</span>
-            {c.updated_at !== c.created_at && (
-              <span className="text-[11px] text-muted-foreground shrink-0">edited</span>
-            )}
-          </div>
-
-          {editingId === c.id ? (
-            <div className="mt-1 flex gap-2">
-              <input
-                value={editInput}
-                onChange={(e) => setEditInput(e.target.value)}
-                /**
-                 * CARET TO THE END, NOT THE FRONT.
-                 *
-                 * `autoFocus` focuses this field but leaves the caret at index
-                 * 0, and this box opens PRE-FILLED with the existing comment —
-                 * so without this every character the member types is inserted
-                 * in front of their own text. The reply box below opens empty,
-                 * where 0 and "end" are the same spot, which is why only Edit
-                 * showed the fault. Same fix as MentionInput.tsx; see the long
-                 * note there for the full reasoning.
-                 *
-                 * `onFocus` and not a mount effect because a raw input focused
-                 * by `autoFocus` fires focus synchronously with its value
-                 * already on the node — there is nothing to wait for.
-                 *
-                 * IT MUST RUN ONCE, ON THE AUTOFOCUS ONLY. Chrome fires `focus`
-                 * BEFORE it applies the selection from a mouse click, so a
-                 * handler that ran on every focus would drag the caret to the
-                 * end each time a member clicked back into the middle of their
-                 * own text — trading the reported bug for an equally annoying
-                 * one. The flag on the node marks the first focus as handled
-                 * and every later focus is left completely alone. It lives on
-                 * the element, not in state, so it cannot cause a re-render.
-                 */
-                onFocus={(e) => {
-                  const el = e.currentTarget;
-                  if (el.dataset.caretPlaced) return;
-                  el.dataset.caretPlaced = "1";
-                  const end = el.value.length;
-                  if (end > 0) el.setSelectionRange(end, end);
-                }}
-                className="flex-1 bg-muted/40 rounded-full px-3 py-1.5 text-sm outline-none"
-                autoFocus
-              />
-              <button
-                onClick={() => saveEdit(c.id)}
-                disabled={busy}
-                className="text-xs font-semibold text-primary disabled:opacity-50"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => {
-                  setEditingId(null);
-                  setEditInput("");
-                }}
-                className="text-xs text-muted-foreground"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <div className="text-sm text-foreground/90 break-words">
-              <RichContentRenderer content={c.content} />
-            </div>
-          )}
-
-          {editingId !== c.id && (
-            <div className="mt-0.5 flex items-center gap-3">
-              {!isReply && (
-                <button
-                  onClick={() => {
-                    setReplyTo(replyTo === c.id ? null : c.id);
-                    setReplyInput("");
-                  }}
-                  className="text-[11px] font-medium text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-                >
-                  <Reply className="h-3 w-3" /> Reply
-                </button>
-              )}
-              {(mine || isAdmin) && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      aria-label="Comment options"
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      <MoreHorizontal className="h-3.5 w-3.5" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-40">
-                    {mine && (
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setEditingId(c.id);
-                          setEditInput(c.content);
-                        }}
-                        className="py-2 cursor-pointer"
-                      >
-                        <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem
-                      onClick={() => remove(c.id)}
-                      className="py-2 cursor-pointer text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
-          )}
-
-          {replyTo === c.id && (
-            <div className="mt-2 flex gap-2">
-              <input
-                value={replyInput}
-                onChange={(e) => setReplyInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") submit(replyInput, c.id);
-                }}
-                placeholder={`Reply to ${name}…`}
-                className="flex-1 bg-muted/40 rounded-full px-3 py-1.5 text-sm outline-none"
-                autoFocus
-              />
-              <button
-                onClick={() => submit(replyInput, c.id)}
-                disabled={busy || !replyInput.trim()}
-                aria-label="Post reply"
-                className="text-primary disabled:opacity-40"
-              >
-                <Send className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   return (
-    <div className="px-3 pt-1 pb-3 space-y-3">
-      {loading && <div className="text-xs text-muted-foreground">Loading comments…</div>}
-
-      {!loading && threaded.length === 0 && (
-        <div className="text-xs text-muted-foreground">No comments yet.</div>
-      )}
-
-      {threaded.map(({ comment, replies }) => (
-        <div key={comment.id} className="space-y-2">
-          renderRow(comment, false)
-          {replies.map((r) => (
-            renderRow(r, true)
-          ))}
-        </div>
-      ))}
-
-      <div className="flex gap-2 pt-1">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") submit(input, null);
-          }}
-          placeholder={user ? "Add a comment…" : "Sign in to comment"}
-          disabled={!user}
-          className="flex-1 bg-muted/40 rounded-full px-3.5 py-2 text-sm outline-none disabled:opacity-60"
-        />
-        <button
-          onClick={() => submit(input, null)}
-          disabled={!user || busy || !input.trim()}
-          aria-label="Post comment"
-          className="text-primary disabled:opacity-40"
-        >
-          <Send className="h-5 w-5" />
-        </button>
-      </div>
-    </div>
+    <CommentThread
+      comments={comments}
+      loading={loading}
+      currentUserId={user?.id ?? null}
+      viewer={currentProfile}
+      isAdmin={isAdmin}
+      submitting={busy}
+      editSubmitting={busy}
+      /* ad_creative_comments_length CHECK (length(content) <= 2000) — the box
+         must not accept what the database will refuse. */
+      maxLength={2000}
+      composerPlaceholder="Add a comment…"
+      emptyLabel="No comments yet."
+      features={{ reactions: false, pinning: false, reporting: false, sorting: false }}
+      maxReplyDepth={AD_MAX_REPLY_DEPTH}
+      onAdd={add}
+      onEdit={edit}
+      onDelete={remove}
+    />
   );
 };
 

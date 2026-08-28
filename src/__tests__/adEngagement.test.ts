@@ -306,6 +306,65 @@ describe("the three defects found and fixed on 2026-08-11", () => {
   });
 });
 
+/**
+ * THE TWO POLICIES ad_creative_comments WAS MISSING.
+ *
+ * 20260811120000 reused every generic protection post_comments has — the
+ * blocklist, the deleted-account lock, has_role — and left two behind. Neither
+ * was a decision:
+ *
+ *   * a BANNED member could still comment on every sponsored ad, while being
+ *     shut out of every post thread
+ *   * a HIDDEN creative's thread was readable by any signed-in member straight
+ *     from PostgREST, even though 2026-08-11 had already stopped /ad/<id>
+ *     serving the ad itself
+ *
+ * Both are RESTRICTIVE, and that is the point rather than a detail: the
+ * existing SELECT policy reads `USING (true)`, so a PERMISSIVE addition beside
+ * it would be OR'd with `true` and change nothing whatsoever.
+ */
+describe("an ad comment is governed like a post comment", () => {
+  const MIGRATION_2 =
+    "supabase/migrations/20260828082136_ad_comment_ban_and_visibility_policies.sql";
+  const sql2 = stripSqlComments(read(MIGRATION_2));
+
+  it("refuses a banned member, with post_comments' own predicate", () => {
+    expect(sql2).toContain('CREATE POLICY "Banned users cannot comment on ads"');
+    expect(sql2).toMatch(/AS RESTRICTIVE\s+FOR INSERT TO authenticated\s+WITH CHECK \(NOT public\.is_banned/);
+  });
+
+  it("hides a hidden creative's thread, and keeps it open to an admin", () => {
+    expect(sql2).toContain(`CREATE POLICY "Ad comments follow the ad's visibility"`);
+    expect(sql2).toMatch(/AS RESTRICTIVE\s+FOR SELECT TO authenticated/);
+    expect(sql2).toContain("FROM public.ad_creatives c");
+    expect(sql2).toContain("c.is_active OR public.has_role");
+  });
+
+  it("is expand-only — it adds policies and removes nothing else", () => {
+    // The only DROPs allowed are the idempotent `DROP POLICY IF EXISTS` that
+    // immediately precedes each CREATE POLICY of the same name.
+    const drops = sql2.match(/DROP\s+\w+/gi) || [];
+    expect(drops.every((d) => /^DROP\s+POLICY$/i.test(d)), `unexpected DROP: ${drops}`).toBe(true);
+    for (const forbidden of ["ALTER TABLE", "DELETE FROM", "TRUNCATE", "UPDATE public."]) {
+      expect(sql2, `${forbidden} is not expand-only`).not.toContain(forbidden);
+    }
+  });
+
+  it("leaves ad analytics alone", () => {
+    expect(sql2).not.toContain("ad_impressions");
+  });
+
+  it("has a rollback file, as every migration must", () => {
+    const rollback = stripSqlComments(
+      read("supabase/rollback/20260828082136_ad_comment_ban_and_visibility_policies_ROLLBACK.sql"),
+    );
+    expect(rollback).toContain('DROP POLICY IF EXISTS "Banned users cannot comment on ads"');
+    expect(rollback).toContain(`DROP POLICY IF EXISTS "Ad comments follow the ad's visibility"`);
+    // A rollback that drops the TABLE takes the comments with it.
+    expect(rollback).not.toMatch(/DROP\s+TABLE/i);
+  });
+});
+
 describe("nothing is invented when the viewer is signed out", () => {
   it("starts every count at a real zero", () => {
     const e = emptyEngagement("x");

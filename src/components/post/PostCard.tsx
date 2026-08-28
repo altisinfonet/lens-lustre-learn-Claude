@@ -1,14 +1,14 @@
 import { useMemo, useRef, useState } from "react";
 import { publicUrl } from "@/lib/publicUrl";
 import { Link } from "react-router-dom";
-import { MessageCircle, Share2, Send, Copy, MoreHorizontal, Trash2, Flag, Eye, Pencil, UserPlus, UserCheck, UserMinus, Users } from "lucide-react";
+import { Share2, Copy, MoreHorizontal, Trash2, Flag, Eye, Pencil, UserPlus, UserCheck, UserMinus, Users } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import { isActiveNow } from "@/hooks/core/useLastActive";
 import { REACTIONS, type ReactionType } from "@/components/ReactionPicker";
-import ReactionPicker from "@/components/ReactionPicker";
+import PostActionRow, { ActionCount } from "@/components/post/PostActionRow";
 import ReactionSummaryTooltip from "@/components/ReactionSummaryTooltip";
 import ShareSummaryTooltip from "@/components/ShareSummaryTooltip";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
@@ -588,138 +588,110 @@ const PostCard = ({
           is gone with everything else he called a border, and each number now
           sits beside the icon it belongs to.
 
+          THE ROW ITSELF NOW LIVES IN PostActionRow. It was written out here,
+          and hand-copied into the sponsored-ad card, with a comment on the copy
+          promising the two would be kept in step by hand. They were not: the
+          shipped bundle carried two different comment composers and only one of
+          the two rows could record a reaction other than `like`. The geometry —
+          24px icons, 48px tap targets, left-aligned, no rule, no labels — is
+          one file now, and this card and the ad card both render it.
+
           Nothing lost a tooltip. The like number is still wrapped in
-          ReactionSummaryTooltip and the share number in ShareSummaryTooltip —
-          they moved, they were not deleted. The counts still disappear at zero,
-          so a fresh post shows three clean icons.
+          ReactionSummaryTooltip and the share number in ShareSummaryTooltip;
+          they are passed in as slots, because what a POST's number opens is a
+          post's business and not the row's. */}
+      <PostActionRow
+        currentReaction={post.user_reaction}
+        onReact={(type) => onReact(post.id, type)}
+        onUnreact={() => onUnreact(post.id)}
+        reactionDisabled={!currentUserId}
+        likeCount={post.like_count}
+        commentCount={post.comment_count}
+        shareCount={post.share_count}
+        onCommentClick={() => setCommentsExpanded(!commentsExpanded)}
+        commentLabel={t("post.comment")}
+        shareLabel={t("post.share")}
+        shareMenu={
+          <>
+            <DropdownMenuItem onClick={shareToWall} className="py-2.5 cursor-pointer">
+              <Share2 className="h-4 w-4 mr-2.5" /> Share to your wall
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={copyLink} className="py-2.5 cursor-pointer">
+              <Copy className="h-4 w-4 mr-2.5" /> Copy link
+            </DropdownMenuItem>
+          </>
+        }
+        likeCountSlot={
+          /* JUST THE NUMBER IN THE ROW. THE BREAK-UP IS ONE TAP AWAY.
 
-          Icon size is 24px, the same as Instagram's, in a 44x48 tap area. */}
-      <div className="select-none px-1.5">
-        <div className="flex items-center">
-          {/* Like — the picker owns the button, the count sits beside it */}
-          <div className="flex items-center">
-            <ReactionPicker
-              currentReaction={post.user_reaction}
-              onReact={(type) => onReact(post.id, type)}
-              onUnreact={() => onUnreact(post.id)}
-              disabled={!currentUserId}
-            />
-            {post.like_count > 0 && (
-              <ReactionSummaryTooltip reactionCounts={post.reaction_counts} totalCount={post.like_count} postId={post.id}>
-                {/* JUST THE NUMBER IN THE ROW. THE BREAK-UP IS ONE TAP AWAY.
+             Owner, 2026-08-10, with Instagram open beside this: "Like count
+             exactly show like Instagram but when All likes will see then love
+             and wow break up will show. Same for Comment and Share."
 
-                    Owner, 2026-08-10, with Instagram open beside this: "Like
-                    count exactly show like Instagram but when All likes will
-                    see then love and wow break up will show. Same for Comment
-                    and Share."
+             Instagram writes "50.9K" beside the heart and nothing else, and
+             that is what this is. Nothing is lost: this span is the trigger for
+             ReactionSummaryTooltip, which lists every reaction with its own
+             emoji, its name and its count, and then every member who left one.
+             Share behaves the same way — a plain number that opens the detail.
 
-                    Instagram writes "50.9K" beside the heart and nothing else,
-                    and that is what this is. Nothing is lost: this span is the
-                    trigger for ReactionSummaryTooltip, which lists every
-                    reaction with its own emoji, its name and its count, and
-                    then every member who left one. Comment and Share behave the
-                    same way — a plain number that opens the detail.
+             The two emoji faces that used to sit here were also what made the
+             row's spacing uneven, because they were wider than the number they
+             preceded. */
+          <ReactionSummaryTooltip reactionCounts={post.reaction_counts} totalCount={post.like_count} postId={post.id}>
+            <ActionCount interactive>{formatNumber(post.like_count)}</ActionCount>
+          </ReactionSummaryTooltip>
+        }
+        shareCountSlot={
+          <ShareSummaryTooltip shareCount={post.share_count} postId={post.id}>
+            <ActionCount interactive>{formatNumber(post.share_count)}</ActionCount>
+          </ShareSummaryTooltip>
+        }
+        trailing={
+          /* ── THE REACTION BREAKDOWN, ON THE RIGHT ──
 
-                    The two emoji faces that used to sit here were also what
-                    made the row's spacing uneven, because they were wider than
-                    the number they preceded. */}
-                <span className="pr-2 cursor-pointer text-sm font-semibold text-foreground">
-                  {formatNumber(post.like_count)}
-                </span>
-              </ReactionSummaryTooltip>
-            )}
-          </div>
+             Owner, 2026-08-15: *"emoji mean love and like icons of likes post
+             posts like fb"*, with *"Icons + a count per reaction, total
+             reaction on left side as per FB current style"*.
 
-          {/* Comment */}
-          <button onClick={() => setCommentsExpanded(!commentsExpanded)}
-            aria-label={t("post.comment")}
-            title={t("post.comment")}
-            className="h-12 px-2.5 flex items-center gap-1.5 rounded-md text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
-            <MessageCircle className="h-6 w-6" strokeWidth={1.75} />
-            {post.comment_count > 0 && (
-              <span className="text-sm font-semibold text-foreground">{formatNumber(post.comment_count)}</span>
-            )}
-          </button>
+             So the total stays where it always was — beside the thumb on the
+             left, which is Facebook's own arrangement — and the right-hand
+             side, which used to hold the reach/views figures that were being
+             sliced off at 360px, now carries each reaction that the post
+             actually received with its own count.
 
-          {/* Share */}
-          <div className="flex items-center">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  aria-label={t("post.share")}
-                  title={t("post.share")}
-                  className="h-12 px-2.5 flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
-                  <Send className="h-6 w-6" strokeWidth={1.75} />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuItem onClick={shareToWall} className="py-2.5 cursor-pointer">
-                  <Share2 className="h-4 w-4 mr-2.5" /> Share to your wall
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={copyLink} className="py-2.5 cursor-pointer">
-                  <Copy className="h-4 w-4 mr-2.5" /> Copy link
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {post.share_count > 0 && (
-              <ShareSummaryTooltip shareCount={post.share_count} postId={post.id}>
-                <span className="pr-2 cursor-pointer text-sm font-semibold text-foreground">{formatNumber(post.share_count)}</span>
-              </ShareSummaryTooltip>
-            )}
-          </div>
+             It is derived from `reaction_counts`, which arrives WITH the post,
+             so unlike the figures it replaced this cannot appear late and shift
+             the row. Zero-count reactions are dropped rather than shown as "0"
+             — an emoji nobody chose is noise. `ml-auto` holds the group right
+             even on a post with no reactions at all.
 
-          {/* Reach and Viewed-by. DISPLAY figures from `displayEngagement`, not
-              measurements. The real distinct-viewer count (`post.views`, from
-              get_post_view_counts) is still collected and still on the object —
-              it is simply not what this renders. Everything about why, and the
-              four properties that keep the pair internally consistent, is
-              documented in src/lib/displayEngagement.ts. Every other number
-              here is real.
-              Kept at the owner's explicit instruction on 2026-08-10 when he was
-              offered its removal. `ml-auto` holds it against the right edge
-              even on a post with no reactions, comments or shares at all.
-              `stats` is null for the first 24 hours after posting — the pair is
-              then absent entirely, which is his rule. */}
-          {/* ── THE REACTION BREAKDOWN, ON THE RIGHT ──
+             It opens the same ReactionSummaryTooltip as the total does, so
+             tapping any of it still lists every member who reacted.
 
-              Owner, 2026-08-15: *"emoji mean love and like icons of likes post
-              posts like fb"*, with *"Icons + a count per reaction, total
-              reaction on left side as per FB current style"*.
+             `ml-auto` sits on a wrapper OUTSIDE the tooltip, not on the row
+             itself: the tooltip renders its own element around the trigger, so
+             a margin on the child never reaches the flex parent and the group
+             drifted in from the right edge. Measured in the harness.
 
-              So the total stays where it always was — beside the thumb on the
-              left, which is Facebook's own arrangement — and the right-hand
-              side, which used to hold the reach/views figures that were being
-              sliced off at 360px, now carries each reaction that the post
-              actually received with its own count.
-
-              It is derived from `reaction_counts`, which arrives WITH the post,
-              so unlike the figures it replaced this cannot appear late and
-              shift the row. Zero-count reactions are dropped rather than shown
-              as "0" — an emoji nobody chose is noise. `ml-auto` holds the group
-              right even on a post with no reactions at all.
-
-              It opens the same ReactionSummaryTooltip as the total does, so
-              tapping any of it still lists every member who reacted. */}
-          {breakdown.length > 0 && (
-            /* `ml-auto` sits on a wrapper OUTSIDE the tooltip, not on the row
-               itself: the tooltip renders its own element around the trigger,
-               so a margin on the child never reaches the flex parent and the
-               group drifted in from the right edge. Measured in the harness. */
+             Reach and Viewed-by used to live here. They were DISPLAY figures
+             from `displayEngagement`, not measurements, and everything about
+             why they went is documented in src/lib/displayEngagement.ts. */
+          breakdown.length > 0 ? (
             <div className="ml-auto">
-            <ReactionSummaryTooltip reactionCounts={post.reaction_counts} totalCount={post.like_count} postId={post.id}>
-              <div className="flex cursor-pointer items-center gap-2.5 pr-1.5 text-xs text-muted-foreground">
-                {breakdown.map(({ type, emoji, count }) => (
-                  <span key={type} className="inline-flex items-center gap-1" title={type}>
-                    <span aria-hidden className="text-[13px] leading-none">{emoji}</span>
-                    <span className="font-medium text-foreground/80">{formatNumber(count)}</span>
-                  </span>
-                ))}
-              </div>
-            </ReactionSummaryTooltip>
+              <ReactionSummaryTooltip reactionCounts={post.reaction_counts} totalCount={post.like_count} postId={post.id}>
+                <div className="flex cursor-pointer items-center gap-2.5 pr-1.5 text-xs text-muted-foreground">
+                  {breakdown.map(({ type, emoji, count }) => (
+                    <span key={type} className="inline-flex items-center gap-1" title={type}>
+                      <span aria-hidden className="text-[13px] leading-none">{emoji}</span>
+                      <span className="font-medium text-foreground/80">{formatNumber(count)}</span>
+                    </span>
+                  ))}
+                </div>
+              </ReactionSummaryTooltip>
             </div>
-          )}
-        </div>
-      </div>
+          ) : null
+        }
+      />
 
       {/* ── Caption, UNDER the actions, with the name in front of it ──
           Instagram's order, which the owner chose on 2026-08-10 when he was

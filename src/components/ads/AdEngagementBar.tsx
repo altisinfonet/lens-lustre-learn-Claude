@@ -7,20 +7,28 @@
  * Owner, 2026-08-11: "For All sponsored Ad, Like Comment share is required like
  * a normal post."
  *
- * "Like a normal post" is meant literally, so this is PostCard's action row
- * reproduced with the same numbers: ReactionPicker owns the like button, the
- * count sits beside it as a plain number, the comment icon is 24px in a 48px
- * tall tap target, and share is the paper plane. If PostCard's row changes,
- * this changes with it — the two are supposed to look like one thing.
+ * "Like a normal post" is meant literally. This file used to make that true by
+ * REPRODUCING PostCard's action row here, under a comment promising that if
+ * PostCard's row ever changed, this one would change with it. Nothing enforced
+ * the promise and the two drifted anyway: the shipped bundle carried two
+ * different "Add a comment" composers, and the thread under this row printed
+ * the literal string `renderRow(comment, false)` where a member's comment
+ * should have been.
+ *
+ * So it is the same row now, not a copy of it — src/components/post/
+ * PostActionRow.tsx — and the thread under it is the same thread the post card
+ * draws. What is left here is the AD's half: the ad_creative_* reads and
+ * writes, and the one place the two surfaces genuinely differ.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * WHAT IT DELIBERATELY DOES NOT OFFER
+ * THE ONE PLACE THEY DIFFER: "SHARE TO YOUR WALL"
  *
- * "Share to your wall". On a post that republishes the post under the sharer's
- * name; doing it with an advertisement would put an ad on a member's own
- * profile, in front of their friends, with their name on it. That is a product
- * decision and not one to take quietly, so the share action copies the ad's
- * permalink and records the share. Raised with the owner.
+ * On a post that republishes the post under the sharer's name; doing it with an
+ * advertisement would put an ad on a member's own profile, in front of their
+ * friends, with their name on it. That is a product decision and not one to
+ * take quietly, so the share menu here offers Copy link only, and the copy
+ * records the share. Raised with the owner. The menu is a prop on the shared
+ * row precisely so this stays a stated decision rather than a missing branch.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * SIGNED OUT
@@ -30,18 +38,13 @@
  * to sign in rather than failing silently against RLS.
  */
 import { useCallback, useEffect, useState } from "react";
-import { MessageCircle, Send, Copy } from "lucide-react";
+import { Copy } from "lucide-react";
 import { toast } from "@/hooks/core/use-toast";
 import { useAuth } from "@/hooks/core/useAuth";
 import { publicUrl } from "@/lib/publicUrl";
-import { formatNumber } from "@/lib/postAnalytics";
-import ReactionPicker, { type ReactionType } from "@/components/ReactionPicker";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import type { ReactionType } from "@/components/ReactionPicker";
+import PostActionRow from "@/components/post/PostActionRow";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
   type AdEngagement,
   adPath,
@@ -139,62 +142,23 @@ const AdEngagementBar = ({ creativeId, commentsAlwaysOpen = false }: Props) => {
 
   return (
     <>
-      {/* Same geometry as PostCard's row: 24px icons, 48px tall, pushed left. */}
-      <div className="select-none px-1.5">
-        <div className="flex items-center">
-          <div className="flex items-center">
-            <ReactionPicker
-              currentReaction={(eng.myReaction as ReactionType | null) ?? null}
-              onReact={onReact}
-              onUnreact={onUnreact}
-              disabled={busy}
-            />
-            {eng.likeCount > 0 && (
-              <span className="pr-2 text-sm font-semibold text-foreground">
-                {formatNumber(eng.likeCount)}
-              </span>
-            )}
-          </div>
-
-          <button
-            onClick={onCommentClick}
-            aria-label="Comment"
-            title="Comment"
-            className="h-12 px-2.5 flex items-center gap-1.5 rounded-md text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation"
-          >
-            <MessageCircle className="h-6 w-6" strokeWidth={1.75} />
-            {eng.commentCount > 0 && (
-              <span className="text-sm font-semibold text-foreground">
-                {formatNumber(eng.commentCount)}
-              </span>
-            )}
-          </button>
-
-          <div className="flex items-center">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  aria-label="Share"
-                  title="Share"
-                  className="h-12 px-2.5 flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation"
-                >
-                  <Send className="h-6 w-6" strokeWidth={1.75} />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuItem onClick={copyLink} className="py-2.5 cursor-pointer">
-                  <Copy className="h-4 w-4 mr-2.5" /> Copy link
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {eng.shareCount > 0 && (
-              <span className="pr-2 text-sm font-semibold text-foreground">
-                {formatNumber(eng.shareCount)}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
+      <PostActionRow
+        currentReaction={(eng.myReaction as ReactionType | null) ?? null}
+        onReact={onReact}
+        onUnreact={onUnreact}
+        reactionDisabled={busy}
+        likeCount={eng.likeCount}
+        commentCount={eng.commentCount}
+        shareCount={eng.shareCount}
+        onCommentClick={onCommentClick}
+        commentLabel="Comment"
+        shareLabel="Share"
+        shareMenu={
+          <DropdownMenuItem onClick={copyLink} className="py-2.5 cursor-pointer">
+            <Copy className="h-4 w-4 mr-2.5" /> Copy link
+          </DropdownMenuItem>
+        }
+      />
 
       {open && (
         <AdComments
