@@ -329,6 +329,21 @@ const CommentThread = ({
                     <UserIdentityBlock
                       userId={comment.user_id}
                       name={comment.author_name || "Photographer"}
+                      /**
+                       * ⚠ PASS THE BADGES THE CALLER ALREADY RESOLVED.
+                       *
+                       * Both adapters run every author through `resolveBadges`,
+                       * which is what injects the brand tick for an admin — the
+                       * admin account has no row in user_badges at all. This
+                       * computed them and threw them away, so the row fell back
+                       * to a second per-name lookup that could not know about
+                       * the brand rule, and the owner saw a verified name with
+                       * no tick in every comment (2026-08-28). Same correction
+                       * PostCard's header took on 2026-08-14: if the name and
+                       * the badge arrive together, "name visible, badge
+                       * missing" stops being a reachable state.
+                       */
+                      badges={comment.author_badges}
                       linkTo={`/profile/${comment.user_id}`}
                     />
                     <p className="text-[15px] text-foreground leading-[1.33] break-words">
