@@ -150,6 +150,8 @@ const AdEngagementBar = ({ creativeId, commentsAlwaysOpen = false }: Props) => {
         likeCount={eng.likeCount}
         commentCount={eng.commentCount}
         shareCount={eng.shareCount}
+        reactionCounts={eng.reactionCounts}
+        reactionSource={{ kind: "ad", creativeId }}
         onCommentClick={onCommentClick}
         commentLabel="Comment"
         shareLabel="Share"

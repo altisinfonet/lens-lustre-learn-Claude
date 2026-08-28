@@ -17,19 +17,37 @@
  * labels, and a count that disappears at zero.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * WHAT STAYS WITH THE CALLER
+ * THE REACTIONS BELONG TO THE ROW, NOT TO THE CALLER
  *
- * Everything that is about a POST rather than about the row: the
- * ReactionSummaryTooltip and ShareSummaryTooltip that a post's numbers open,
- * the per-reaction breakdown on the right, and what the share menu offers. A
- * post may be reshared to a member's wall; an advertisement may not (that would
- * republish an ad under a member's own name), so the menu is a prop and not a
- * decision this file makes. They arrive as slots, so the ad surface simply
- * passes none and gets a plain number.
+ * They did not, at first. The like number's panel and the per-reaction
+ * breakdown on the right were left with PostCard as slots, on the reasoning
+ * that what a POST's number opens is a post's business. That reasoning was
+ * wrong in exactly the way this whole file exists to prevent: the ad card
+ * passed no slots, so it drew a like count that named nobody and no breakdown
+ * at all. Owner, 2026-08-28: *"Reactions name of the person like Feed right
+ * side not showing"*.
+ *
+ * So the row now draws both, from `reactionCounts` and a `reactionSource` that
+ * says which table the names come from. Neither surface can be given one and
+ * not the other, and neither can quietly go without.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHAT STILL STAYS WITH THE CALLER
+ *
+ * The share menu, because that is where the two surfaces genuinely differ: a
+ * post may be reshared to a member's wall, and an advertisement may not — that
+ * would republish an ad under a member's own name. A decision, not an omission,
+ * so it is stated at each call site.
+ *
+ * And `shareCountSlot`, which is still a slot because ShareSummaryTooltip reads
+ * post_shares only. An ad's share number therefore opens nothing yet; that is
+ * the same gap the reactions had, one column over, and it is recorded here
+ * rather than left to be discovered.
  */
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { MessageCircle, Send } from "lucide-react";
-import ReactionPicker, { type ReactionType } from "@/components/ReactionPicker";
+import ReactionPicker, { REACTIONS, type ReactionType } from "@/components/ReactionPicker";
+import ReactionSummaryTooltip, { type ReactionSource } from "@/components/ReactionSummaryTooltip";
 import { formatNumber } from "@/lib/postAnalytics";
 import {
   DropdownMenu,
@@ -66,6 +84,11 @@ export interface PostActionRowProps {
   commentCount: number;
   shareCount: number;
 
+  /** { like: 4, love: 2 } — the same shape posts and ads both return. */
+  reactionCounts: Record<string, number>;
+  /** Which table the names in the Reactions panel are read from. */
+  reactionSource: ReactionSource;
+
   onCommentClick: () => void;
 
   /** Accessible names. Icon-only buttons have no other name. */
@@ -75,12 +98,8 @@ export interface PostActionRowProps {
   /** The items inside the share menu — <DropdownMenuItem>s, supplied by the caller. */
   shareMenu: ReactNode;
 
-  /** Replaces the plain like/share number, for a caller whose number opens a panel. */
-  likeCountSlot?: ReactNode;
+  /** Replaces the plain share number, for a caller whose number opens a panel. */
   shareCountSlot?: ReactNode;
-
-  /** Anything pinned to the right of the row (the post's reaction breakdown). */
-  trailing?: ReactNode;
 }
 
 const PostActionRow = ({
@@ -91,14 +110,34 @@ const PostActionRow = ({
   likeCount,
   commentCount,
   shareCount,
+  reactionCounts,
+  reactionSource,
   onCommentClick,
   commentLabel,
   shareLabel,
   shareMenu,
-  likeCountSlot,
   shareCountSlot,
-  trailing,
-}: PostActionRowProps) => (
+}: PostActionRowProps) => {
+  /**
+   * Which reactions this actually received, biggest first, with the emoji the
+   * picker uses so the row and the picker can never disagree. Capped at four:
+   * a 360px row has to hold the three action controls too.
+   */
+  const breakdown = useMemo(
+    () =>
+      Object.entries(reactionCounts ?? {})
+        .filter(([, n]) => (n ?? 0) > 0)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4)
+        .map(([type, count]) => ({
+          type,
+          count,
+          emoji: REACTIONS.find((r) => r.type === type)?.emoji ?? "👍",
+        })),
+    [reactionCounts],
+  );
+
+  return (
   <div className="select-none px-1.5">
     <div className="flex items-center">
       {/* Like — the picker owns the button, the count sits beside it */}
@@ -109,7 +148,25 @@ const PostActionRow = ({
           onUnreact={onUnreact}
           disabled={reactionDisabled}
         />
-        {likeCount > 0 && (likeCountSlot ?? <ActionCount>{formatNumber(likeCount)}</ActionCount>)}
+        {/* JUST THE NUMBER IN THE ROW. THE BREAK-UP IS ONE TAP AWAY.
+
+            Owner, 2026-08-10, with Instagram open beside this: "Like count
+            exactly show like Instagram but when All likes will see then love
+            and wow break up will show. Same for Comment and Share."
+
+            Instagram writes "50.9K" beside the heart and nothing else, and that
+            is what this is. Nothing is lost: the span is the trigger for
+            ReactionSummaryTooltip, which lists every reaction with its own
+            emoji, its name and its count, and then every member who left one.
+
+            The two emoji faces that used to sit here were also what made the
+            row's spacing uneven, because they were wider than the number they
+            preceded. */}
+        {likeCount > 0 && (
+          <ReactionSummaryTooltip reactionCounts={reactionCounts} totalCount={likeCount} source={reactionSource}>
+            <ActionCount interactive>{formatNumber(likeCount)}</ActionCount>
+          </ReactionSummaryTooltip>
+        )}
       </div>
 
       {/* Comment */}
@@ -142,9 +199,47 @@ const PostActionRow = ({
         {shareCount > 0 && (shareCountSlot ?? <ActionCount>{formatNumber(shareCount)}</ActionCount>)}
       </div>
 
-      {trailing}
+      {/* ── THE REACTION BREAKDOWN, ON THE RIGHT ──
+
+          Owner, 2026-08-15: *"emoji mean love and like icons of likes post
+          posts like fb"*, with *"Icons + a count per reaction, total reaction
+          on left side as per FB current style"*.
+
+          So the total stays where it always was — beside the thumb on the left,
+          which is Facebook's own arrangement — and the right-hand side, which
+          used to hold reach/views figures that were being sliced off at 360px,
+          carries each reaction actually received with its own count.
+
+          It is derived from `reactionCounts`, which arrives WITH the post or
+          with the ad's engagement RPC, so it cannot appear late and shift the
+          row. Zero-count reactions are dropped rather than shown as "0" — an
+          emoji nobody chose is noise. `ml-auto` holds the group right even with
+          no reactions at all.
+
+          It opens the same ReactionSummaryTooltip the total does, so tapping
+          any of it lists every member who reacted.
+
+          ⚠ `ml-auto` sits on a wrapper OUTSIDE the tooltip, not on the row
+          itself: the tooltip renders its own element around the trigger, so a
+          margin on the child never reaches the flex parent and the group
+          drifted in from the right edge. Measured in the harness. */}
+      {breakdown.length > 0 && (
+        <div className="ml-auto">
+          <ReactionSummaryTooltip reactionCounts={reactionCounts} totalCount={likeCount} source={reactionSource}>
+            <div className="flex cursor-pointer items-center gap-2.5 pr-1.5 text-xs text-muted-foreground">
+              {breakdown.map(({ type, emoji, count }) => (
+                <span key={type} className="inline-flex items-center gap-1" title={type}>
+                  <span aria-hidden className="text-[13px] leading-none">{emoji}</span>
+                  <span className="font-medium text-foreground/80">{formatNumber(count)}</span>
+                </span>
+              ))}
+            </div>
+          </ReactionSummaryTooltip>
+        </div>
+      )}
     </div>
   </div>
-);
+  );
+};
 
 export default PostActionRow;

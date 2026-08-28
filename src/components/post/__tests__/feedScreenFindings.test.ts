@@ -23,6 +23,14 @@ const root = process.cwd();
 const read = (p: string) => readFileSync(join(root, p), "utf8");
 const CAPTION = read("src/components/post/Caption.tsx");
 const CARD = read("src/components/post/PostCard.tsx");
+/**
+ * The reaction breakdown moved out of PostCard on 2026-08-28. It was computed
+ * here and handed to the row as finished JSX, so the sponsored-ad card — which
+ * passed none — drew no breakdown and a like number that opened nothing. The
+ * row draws it now, from `reactionCounts`, for both surfaces; these assertions
+ * follow it, and the two that are about what the CARD feeds in stay on CARD.
+ */
+const ROW = read("src/components/post/PostActionRow.tsx");
 const FEED = read("src/pages/Feed.tsx");
 const WALL = read("src/components/WallPosts.tsx");
 
@@ -138,28 +146,51 @@ describe("the right of the row carries the reactions, Facebook-style", () => {
   it("each reaction shows its own emoji and its own count", () => {
     // Owner: "Icons + a count per reaction, total reaction on left side as per
     // FB current style."
-    expect(CARD).toMatch(/breakdown\.map\(\(\{ type, emoji, count \}\)/);
-    expect(CARD).toMatch(/formatNumber\(count\)/);
+    expect(ROW).toMatch(/breakdown\.map\(\(\{ type, emoji, count \}\)/);
+    expect(ROW).toMatch(/formatNumber\(count\)/);
   });
 
   it("the total stays on the LEFT, beside the thumb, where it was", () => {
-    const row = CARD.slice(CARD.indexOf("── ACTION ROW"), CARD.indexOf("── Caption"));
-    expect(row.indexOf("formatNumber(post.like_count)")).toBeGreaterThan(0);
-    expect(row.indexOf("formatNumber(post.like_count)")).toBeLessThan(row.indexOf("breakdown.map"));
+    expect(ROW.indexOf("formatNumber(likeCount)")).toBeGreaterThan(0);
+    expect(ROW.indexOf("formatNumber(likeCount)")).toBeLessThan(ROW.indexOf("breakdown.map"));
   });
 
   it("a reaction nobody chose is not drawn as a zero", () => {
-    expect(CARD).toMatch(/\.filter\(\(\[, n\]\) => \(n \?\? 0\) > 0\)/);
+    expect(ROW).toMatch(/\.filter\(\(\[, n\]\) => \(n \?\? 0\) > 0\)/);
   });
 
   it("it is derived from data that arrives WITH the post, so it cannot shift", () => {
-    // The whole point of the change. reaction_counts is on the post row.
-    expect(CARD).toMatch(/Object\.entries\(post\.reaction_counts \?\? \{\}\)/);
+    // The whole point of the change. reaction_counts is on the post row, and
+    // the ad's equivalent comes back on the same round trip as its counts.
+    expect(ROW).toMatch(/Object\.entries\(reactionCounts \?\? \{\}\)/);
+    expect(CARD).toContain("reactionCounts={post.reaction_counts}");
   });
 
   it("`ml-auto` is outside the tooltip, or the group drifts off the edge", () => {
     // Measured in the harness: a margin on the tooltip's CHILD never reaches
     // the flex parent.
-    expect(CARD).toMatch(/<div className="ml-auto">\s*\n\s*<ReactionSummaryTooltip/);
+    expect(ROW).toMatch(/<div className="ml-auto">\s*\n\s*<ReactionSummaryTooltip/);
+  });
+
+  /**
+   * The report that caused the move. Owner, 2026-08-28: *"Reactions name of the
+   * person like Feed right side not showing"* — the ad card drew a like count
+   * that opened nothing and no breakdown at all, because both were optional
+   * slots only PostCard filled.
+   */
+  it("the sponsored ad gets the same reactions, from its own table", () => {
+    const AD = read("src/components/ads/AdEngagementBar.tsx");
+    expect(AD).toContain("reactionCounts={eng.reactionCounts}");
+    expect(AD).toContain('reactionSource={{ kind: "ad", creativeId }}');
+    expect(CARD).toContain('reactionSource={{ kind: "post", postId: post.id }}');
+  });
+
+  it("neither surface can be given a source without the counts", () => {
+    // Both are REQUIRED props on the row. An optional pair is what let the ad
+    // card go without for a fortnight.
+    const props = ROW.slice(ROW.indexOf("export interface PostActionRowProps"), ROW.indexOf("const PostActionRow"));
+    expect(props).toMatch(/reactionCounts: Record<string, number>;/);
+    expect(props).toMatch(/reactionSource: ReactionSource;/);
+    expect(props, "an optional reaction prop is the bug").not.toMatch(/reaction(Counts|Source)\?:/);
   });
 });

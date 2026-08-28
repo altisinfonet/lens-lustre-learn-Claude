@@ -21,10 +21,33 @@ import AutoBadge from "@/components/AutoBadge";
 import AutoRole from "@/components/AutoRole";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 
+/**
+ * WHICH TABLE THE NAMES COME FROM.
+ *
+ * This panel used to take a bare `postId` and read post_reactions, so a
+ * sponsored ad — whose reactions live in ad_creative_reactions — had no way to
+ * open it at all. The ad card therefore drew a like count that named nobody,
+ * which is what the owner reported on 2026-08-28: *"Reactions name of the
+ * person like Feed right side not showing"*.
+ *
+ * A discriminated union rather than two optional ids: exactly one of them is
+ * always right, and the compiler says so at every call site. The two tables
+ * carry the SAME columns (user_id, reaction_type) — 20260811120000 mirrored
+ * post_reactions deliberately — so only the table and the key column differ.
+ */
+export type ReactionSource =
+  | { kind: "post"; postId: string }
+  | { kind: "ad"; creativeId: string };
+
+const sourceTable = (source: ReactionSource) =>
+  source.kind === "post"
+    ? { table: "post_reactions", column: "post_id", id: source.postId }
+    : { table: "ad_creative_reactions", column: "creative_id", id: source.creativeId };
+
 interface ReactionSummaryTooltipProps {
   reactionCounts: Record<string, number>;
   totalCount: number;
-  postId: string;
+  source: ReactionSource;
   children: React.ReactNode;
 }
 
@@ -35,7 +58,7 @@ interface ReactorUser {
   avatar_url: string | null;
 }
 
-const ReactionSummaryTooltip = ({ reactionCounts, totalCount, postId, children }: ReactionSummaryTooltipProps) => {
+const ReactionSummaryTooltip = ({ reactionCounts, totalCount, source, children }: ReactionSummaryTooltipProps) => {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("all");
   const [reactors, setReactors] = useState<ReactorUser[]>([]);
@@ -52,19 +75,31 @@ const ReactionSummaryTooltip = ({ reactionCounts, totalCount, postId, children }
 
   const fetchReactors = useCallback(async () => {
     setLoading(true);
+    const { table, column, id } = sourceTable(source);
+    /**
+     * TYPED AS post_reactions, WHICHEVER TABLE IT IS.
+     *
+     * A table name chosen at runtime cannot resolve the generated row types,
+     * and ad_creative_reactions is not in them at all. Both really do carry
+     * `user_id` and `reaction_type` — 20260811120000 mirrored post_reactions
+     * on purpose, and src/__tests__/adEngagement.test.ts holds it to that — so
+     * the post row type describes either. Narrowed through `unknown` rather
+     * than `any`, so nothing downstream quietly loses its type.
+     */
     const { data } = await supabase
-      .from("post_reactions")
+      .from(table as unknown as "post_reactions")
       .select("user_id, reaction_type")
-      .eq("post_id", postId);
+      .eq(column as unknown as "post_id", id);
 
-    if (data && data.length > 0) {
-      const userIds = [...new Set(data.map(r => r.user_id))];
+    const rows = (data as unknown as { user_id: string; reaction_type: string }[] | null) ?? [];
+    if (rows.length > 0) {
+      const userIds = [...new Set(rows.map(r => r.user_id))];
       const profileMap = await fetchProfileMap(userIds);
 
       // Badges/roles now come from unified profileMap cache
 
       setReactors(
-        data.map(r => ({
+        rows.map(r => ({
           user_id: r.user_id,
           reaction_type: r.reaction_type,
           full_name: profileMap.get(r.user_id)?.full_name || "Unknown",
@@ -75,7 +110,7 @@ const ReactionSummaryTooltip = ({ reactionCounts, totalCount, postId, children }
       setReactors([]);
     }
     setLoading(false);
-  }, [postId]);
+  }, [source]);
 
   const handleOpen = () => {
     if (totalCount === 0) return;

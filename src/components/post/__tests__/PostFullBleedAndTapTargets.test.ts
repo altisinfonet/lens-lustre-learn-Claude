@@ -245,16 +245,20 @@ describe("react, comment and share are thumb-sized", () => {
     expect(actionButtons).toContain("formatNumber(likeCount)");
     expect(actionButtons, "comment and share are numbers too").toContain("formatNumber(commentCount)");
     expect(actionButtons).toContain("formatNumber(shareCount)");
-    // … and a post's like and share numbers are still the triggers for the
-    // panels that break them up. They are passed in as slots, because what a
-    // POST's number opens is a post's business and not the shared row's — but
-    // the row must still be given them, or the break-up is gone.
-    expect(actionSlot).toContain("formatNumber(post.like_count)");
-    expect(actionSlot).toContain("ReactionSummaryTooltip");
+    // … and each one is still the trigger for the panel that breaks it up.
+    //
+    // ⚠ THE REACTIONS PANEL IS THE ROW'S, NOT THE CALLER'S, AND THAT IS THE
+    // FIX OF 2026-08-28. It used to be a slot PostCard filled, on the reasoning
+    // that what a post's number opens is a post's business — so the ad card,
+    // which filled nothing, showed a like count that named nobody. Owner:
+    // "Reactions name of the person like Feed right side not showing".
+    expect(actionButtons).toContain("ReactionSummaryTooltip");
+    expect(actionButtons).toContain("source={reactionSource}");
+    // The share number IS still a slot, because ShareSummaryTooltip reads
+    // post_shares. If that ever becomes shared too, this moves with it.
     expect(actionSlot).toContain("formatNumber(post.share_count)");
     expect(actionSlot).toContain("ShareSummaryTooltip");
-    expect(actionButtons, "a slot the row never renders is a deleted tooltip").toContain("likeCountSlot");
-    expect(actionButtons).toContain("shareCountSlot");
+    expect(actionButtons, "a slot the row never renders is a deleted tooltip").toContain("shareCountSlot");
 
     // The break-up itself. If this ever stops listing each reaction with its
     // own count, the row's plain number becomes a loss of information rather
@@ -349,7 +353,7 @@ describe("the card is laid out in Instagram's order", () => {
 
   it("keeps every count's tooltip when the count moves", () => {
     // Moving a number is not an excuse to drop what it opens.
-    expect(actionSlot).toContain("ReactionSummaryTooltip");
+    expect(actionButtons).toContain("ReactionSummaryTooltip");
     expect(actionSlot).toContain("ShareSummaryTooltip");
   });
 
