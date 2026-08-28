@@ -47,14 +47,26 @@ Deno.serve(async (req) => {
     let resolvedUserIds: string[] = user_ids || [];
 
     if (target_type === "email" && target_email) {
-      const { data: authUsers } = await supabase.auth.admin.listUsers();
-      const matchedUser = authUsers?.users?.find(
-        (u: any) => u.email?.toLowerCase() === target_email.toLowerCase()
+      // Was listUsers()+find() = one 50-row page searched in JS; broke once
+      // auth.users passed 50. Indexed RPC: one round trip, any scale. See repo.
+      const { data: matchedId, error: lookupErr } = await supabase.rpc(
+        "admin_lookup_user_id_by_email",
+        { _email: target_email },
       );
 
-      if (!matchedUser) {
+      if (lookupErr) {
+        console.error("admin_lookup_user_id_by_email failed:", lookupErr);
+        return new Response(
+          JSON.stringify({ error: `Recipient lookup failed: ${lookupErr.message}` }),
+          { status: 500, headers },
+        );
+      }
+
+      if (!matchedId) {
         return new Response(JSON.stringify({ error: "User with this email not found" }), { status: 404, headers });
       }
+
+      const matchedUser = { id: matchedId as string };
 
       resolvedUserIds = [matchedUser.id];
 
@@ -100,8 +112,15 @@ Deno.serve(async (req) => {
     }
 
     if (resolvedUserIds.length > 0) {
-      const { data: authUsers } = await supabase.auth.admin.listUsers();
-      const emailMap = new Map(authUsers?.users?.map((u: any) => [u.id, u.email]) || []);
+      // Same defect, quieter: bare listUsers() dropped recipients past page 1.
+      const { data: emailRows, error: emailErr } = await supabase.rpc(
+        "admin_emails_for_user_ids",
+        { _ids: resolvedUserIds },
+      );
+      if (emailErr) console.error("admin_emails_for_user_ids failed:", emailErr);
+      const emailMap = new Map(
+        ((emailRows ?? []) as Array<{ user_id: string; email: string }>).map((r) => [r.user_id, r.email]),
+      );
       const emails = resolvedUserIds.map((uid) => emailMap.get(uid)).filter(Boolean);
       console.log(`Gift notification emails would be sent to: ${emails.join(", ")}`);
       console.log(`Amount: $${amount}, Reason: ${reason}`);

@@ -1,0 +1,53 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- ROLLBACK for 20260824145345_admin_user_lookup_by_email.sql
+--
+-- PREPARED, NOT COMMITTED, NOT APPLIED. 2026-08-26.
+--
+-- Reverses, in reverse order of creation:
+--   1. function admin_emails_for_user_ids(uuid[])
+--   2. function admin_lookup_user_id_by_email(text)
+--
+-- ⚠ STOP — RUNNING THIS BREAKS A LIVE PRODUCTION EDGE FUNCTION.
+--
+-- Measured on production jtdtehuqtinjxropkkcn, 2026-08-26 (read-only):
+--   edge function `send-gift-credit` is version 23, status ACTIVE, and its
+--   deployed source calls BOTH of these functions by name:
+--       supabase.rpc("admin_lookup_user_id_by_email", { _email: … })
+--       supabase.rpc("admin_emails_for_user_ids",     { _ids:   … })
+--   Dropping them returns a PostgREST "function not found" to every
+--   gift-by-email request. Redeploy `send-gift-credit` to a version that does
+--   not call them BEFORE running this file, or do not run it.
+--
+-- ⚠ WHY THIS IS A DROP AND NOT A RESTORE.
+--
+-- The forward migration uses `create or replace`, which would ordinarily mean
+-- an earlier definition might exist and ought to be restored. It does not.
+-- Evidence, gathered 2026-08-26 by scanning every object in the repository
+-- (3,899 blobs across all branches and all fetched pull-request head refs):
+-- exactly two blobs in the entire history mention either function name — this
+-- migration, and the branch copy of supabase/functions/send-gift-credit/
+-- index.ts that calls it. No prior definition exists to restore. The predecessor
+-- of this change was JavaScript (`supabase.auth.admin.listUsers()` filtered in
+-- the edge function), not a database object.
+--
+-- SAFE OTHERWISE. Neither statement touches auth.users or any application
+-- table; both only remove a read-only STABLE function.
+--
+-- Baseline measured on BOTH lanes, 2026-08-26:
+--   admin_lookup_user_id_by_email(_email text)
+--     returns uuid · language sql · SECURITY DEFINER · STABLE
+--     search_path = public, auth · owner postgres
+--     ACL: postgres=X/postgres, service_role=X/postgres   (no anon, no authenticated)
+--     pg_get_functiondef md5 6c64b6f09026a9d73ebeab916e3657f7  (identical both lanes)
+--   admin_emails_for_user_ids(_ids uuid[])
+--     returns TABLE(user_id uuid, email text) · language sql · SECURITY DEFINER · STABLE
+--     search_path = public, auth · owner postgres
+--     ACL: postgres=X/postgres, service_role=X/postgres   (no anon, no authenticated)
+--     pg_get_functiondef md5 8a3cf2ef581825b36c612d10daccfe91  (identical both lanes)
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- 1. Bulk id -> email lookup.
+drop function if exists public.admin_emails_for_user_ids(uuid[]);
+
+-- 2. Single email -> id lookup.
+drop function if exists public.admin_lookup_user_id_by_email(text);
