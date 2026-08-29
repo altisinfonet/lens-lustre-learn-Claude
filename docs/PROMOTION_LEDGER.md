@@ -6,7 +6,7 @@
 
 **Repository path:** `docs/PROMOTION_LEDGER.md` (canonical, on `staging`)
 **Ledger ID:** `LEDGER-50MM-001`
-**Status of this revision:** `REV-8 · 2026-08-29T08:45Z`
+**Status of this revision:** `REV-9 · 2026-08-29T09:05Z`
 
 ---
 
@@ -1081,6 +1081,7 @@ APPROVAL
 | **D-7** | Promote **current `staging`**, not the audited 08-26 tree | Today's fixes must reach members and the app build | 2026-08-29 | Neil Basu | §3.4 | ✅ **RULED.** Consequence: 7 commits bypass the full gate review |
 | **D-8** | **ACAO accepted as `www`** (option D-8b) | Owner: *"approve ACAO header"*. The site is served on `www`, so a browser there sends `Origin: https://www.50mmretina.com`; the apex value would not match it | 2026-08-29 | Neil Basu | §7.2 | ✅ **RULED — ACCEPTED.** On promotion, production `Access-Control-Allow-Origin` changes **apex → `www`**. This is a deliberate CORS correction, no longer an undeclared side effect |
 | **D-9** | **AF-15 — fix the tap targets rather than ship the red gate** | Owner: *"fix it first"*. Option (a) chosen over accepting a deviation or reverting | 2026-08-29 | Neil Basu | §13.1 | ✅ **RULED AND EXECUTED** — `bfcb68da` (fix) + `c8aec5d5` (pin) |
+| **D-12** | **G8 — waive the control-3 precondition; accept token-scope observation** | The control cannot discriminate for a correctly-scoped token (§10.2 / §4A). Owner informed that a prior ruling on this gate was withdrawn | 2026-08-29 | Neil Basu | §23.3 | ✅ **RULED — WAIVED.** G8 = CLOSED WITH DOCUMENTED DEVIATION |
 | **D-10** | **Apply migration `20260828082136` to production, post-merge** (option D-10a) | Owner: *"apply migration 20260828082136 post-merge"*. Closes two live RLS gaps on `ad_creative_comments` | 2026-08-29 | Neil Basu | §6.2, §24.3 | ✅ **RULED — SCHEDULED.** ⚠ **NOT YET EXECUTED.** It is a production DB write and an owner action; see §24.3 step 12 |
 
 ### D-8 · THE DECISION TO BE MADE (not yet made)
@@ -1124,13 +1125,57 @@ owner action by construction — no session performs it.
 | **B13** | G9 exclusion countersignature — accepts 4 residual production risks incl. `submit-judge-decision` answering `*` | Requires the owner to have **read** `G10_S14_G9_EXCLUSION_RULING_2026-08-26.md`. Not pre-attestable | ☐ **UNSIGNED** |
 | **B12 / CHG-005** | Change-ledger closure + Story-row waiver | Ruling written 08-27; signature line blank | ☐ **UNSIGNED** |
 | **D-5 / AF-03** | Deviation acceptance | — | ☐ **UNSIGNED** |
-| **G8 substitution** | Accept token-scope observation in place of A.5 | ⚠ 08-27 pack requires control-3 re-run **first**; §10.2 argues it is structurally incapable. **Waiver must be explicit** | ☐ **UNSIGNED** |
+| **G8 substitution** | Accept token-scope observation in place of A.5 | Precondition **explicitly waived** by the owner, §23.3 | ✅ **RULED 2026-08-29 — D-12** |
 | **D-8 / AF-11** | ACAO ruling | — | ☐ **NOT DRAFTED** |
 | **D-9 / AF-15** | UI-gate ruling | — | ☐ **NOT DRAFTED** |
 | **D-10 / AF-17** | Apply M2 to production | — | ☐ **NOT DRAFTED** |
 | **§11 Release Approval Record (OA-19)** | 8 fields, signed **and tagged BEFORE the merge** (§17-10) | **Cannot be signed while G8 and AF-15 are unresolved** | ☐ **UNSIGNED** |
 | **Promotion approval (OA-20)** | §12.4 in order | All above | ☐ **UNSIGNED** |
 | **Ledger closure** | This document | All above + §25 | ☐ **OPEN** |
+
+## 23.3 · D-12 — G8 SUBSTITUTION, WAIVED AND ACCEPTED BY THE OWNER
+
+**Ruled 2026-08-29 by Neil Basu, in this session, after being shown the evidence, its class, and the
+fact that a prior substitution ruling on this same gate had been withdrawn.**
+
+> **§8.6 — R2 WRITE ISOLATION. PRECONDITION WAIVED; SCOPE OBSERVATION ACCEPTED.**
+>
+> I accept direct observation of the token's permission list as evidence that the staging storage
+> credential cannot write to the production bucket, **in place of** A.5's runtime negative test.
+>
+> **I waive** the 2026-08-27 signing pack's requirement that A.5's known-absent control be re-run
+> before any substitution ruling is signed. I do so on the recorded finding that **the control
+> cannot discriminate for a correctly-scoped token**: `50mm` and a non-existent bucket are both
+> outside the token's Access Policy, so both are refused at the authorization layer (`10003
+> AccessDenied`) before the existence check that would emit `10006 NoSuchBucket`. **Only a
+> credential broad enough to fail the gate could produce the answer the control asks for.**
+>
+> **I am aware** that a prior session's substitution ruling on this gate was withdrawn, and that
+> the signing pack marked it "intentionally left unsignable." This waiver is made knowingly.
+>
+> **I accept the evidence class:** the token's scope is **VERIFIED** by direct reading; runtime
+> enforcement is **INFERRED** from Cloudflare's documented deny-by-default Access Policy model,
+> **not observed**. Cloudflare's error-code reference documents both codes but is silent on
+> evaluation order.
+>
+> **I accept the residual limits:** §8.6 part 3 has an **after** measurement only — the production
+> bucket's `isolation-probe/` prefix returned **zero objects** at 2026-08-29T04:37:25Z — and **no
+> before baseline exists** for run `33079091310`, nor can one be created retroactively.
+>
+> **Evidence relied upon:**
+> 1. Token `staging-upload` (`73a7920647481fd93553f9c1f68bf5a3`) — **exactly one** permission policy: `R2 › 50mm-staging`, Bucket Item Write. **No policy names `50mm`.** Only token in the account.
+> 2. Owner-confirmed: `site_settings.s3_storage_settings.access_key_id` **equals that token id**; Cloudflare docs state verbatim *"Access Key ID: The `id` of the API token."*
+> 3. Run `33079091310`: the same credential, seconds apart, **succeeded** writing to `50mm-staging` and was **denied** writing to `50mm`. A credential erroring on everything could not have succeeded on the first.
+> 4. Production `50mm`, prefix `isolation-probe/` → **no objects matched**, measured 04:37:25Z.
+> 5. Precedent: `G9_CLOSURE_FINAL_2026-08-24.md` closed **G9 GREEN** on this same evidence class, naming this same token.
+>
+> **G8 recorded as: CLOSED WITH DOCUMENTED DEVIATION** — the substance of §8.6 part 2 is met; the
+> prescribed instrument was not used, and that substitution is this deviation.
+>
+> Ruled by: **Neil Basu (owner)** · Date (UTC): **2026-08-29** · Recorded in session, transcribed
+> verbatim from the owner's decision. **Not signed by the compiler.**
+
+---
 
 ## 23.1 · B11 — CORRECTED SIX-FILE ROLLBACK BINDING (ready to sign)
 
@@ -1169,7 +1214,7 @@ owner action by construction — no session performs it.
 
 > ⚠ **Must be signed AND the tag created BEFORE the merge** (§17-10). Tree equality after the merge
 > is asserted against **that tag**, not against T (§20).
-> ⚠ **Cannot be signed while items 3, 4 and 6 of §26 remain open**, and §25 is vacant.
+> ⚠ **Item 3 (G8) is now CLOSED — D-12.** Still cannot be signed while **item 4 (§5.3 probe)** and **item 6 (B11 signature)** are open, and while **§25 is vacant**.
 
 | # | Field | Value |
 |---|---|---|
@@ -1178,7 +1223,7 @@ owner action by construction — no session performs it.
 | 3 | Candidate tree | `f4616fb680f863d1141491d9ab5f3b619c048f4b` |
 | 4 | Target | `main` at `b671e1fb0c5bcf145d442076c229eca888afd674` |
 | 5 | Gate status | 7 GREEN · 4 CLOSED-WITH-DEVIATION · G10 not reachable pre-merge (§10 ceiling) |
-| 6 | Deviations accepted | **D-1** `UNAPPLIED_` filenames · **D-5** AF-03 data-borne CDN refs · **D-7** 7 commits outside the 08-26 review · **G8** substitution *(if waived)* |
+| 6 | Deviations accepted | **D-1** `UNAPPLIED_` filenames · **D-5** AF-03 data-borne CDN refs · **D-7** 7 commits outside the 08-26 review · **G8** substitution — **waived, D-12 §23.3** |
 | 7 | Findings carried to G11 | AF-03 · AF-11 *(ruled D-8)* · AF-13 · AF-16 · **AF-20** |
 | 8 | Post-promotion obligations | **D-10** apply `20260828082136` · N2 cross-lane · §18 regression · deploy G9 edge functions |
 |  | **Tag** | `______________________` *(create BEFORE merging)* |
@@ -1257,7 +1302,7 @@ owner action by construction — no session performs it.
 |---|---|---|
 | ~~1~~ | ~~UI gate RED on the candidate~~ — ✅ **RESOLVED.** Fixed, controlled, pinned, and **green in CI** (runs #123/#124) | AF-15 · D-9 |
 | ~~2~~ | ~~Merge conflict unresolved~~ — ✅ **RESOLVED.** Merge `9faf5a17` landed; blue taken; `tsc` clean, 2,475 tests pass; PR #104 **"Able to merge"** | §4.4 · D-6 |
-| 3 | **G8** — instrument not satisfied; substitution requires an explicit waiver | §10.2 · §23 |
+| ~~3~~ | ~~G8 instrument not satisfied~~ — ✅ **RESOLVED.** Owner waived the precondition and accepted scope observation (**D-12**, §23.3) | §10.2 · §23.3 |
 | 4 | **§5.3 secret-isolation probe never run**, and must run immediately pre-merge | §24.1 |
 | 5 | **§11 approval unsigned; 0 tags exist** | §23 |
 | ~~6~~ | ~~B11 rollback binding wrong~~ — ✅ **CORRECTED six-file text drafted, §23.1.** ☐ still **UNSIGNED** | §17.1 · §23.1 |
@@ -1277,9 +1322,9 @@ fixed, control-verified and mutation-tested, with **no deviation carried**.
 
 **Every CI gate on the candidate is now GREEN.** Net **9 → 5 outstanding.**
 
-**Still outstanding:** G8 instrument (3) · §5.3 secret-isolation probe (4) · B11 **six-file**
-rollback binding (6) · the AF-17 production migration **action** (8 — ruled D-10, not executed) ·
-independent audit (9) · then §11 approval + tag.
+**Still outstanding:** §5.3 secret-isolation probe (4) · B11 **six-file** rollback binding signature
+(6) · the AF-17 production migration **action** (8 — ruled D-10, not executed) · independent audit
+(9) · then §11 approval + tag. **G8 (3) is closed — D-12.**
 
 ---
 
@@ -1327,7 +1372,8 @@ independent audit (9) · then §11 approval + tag.
 | REV-5 | 2026-08-29 07:55Z | **Auditor Option 3 pass.** §4.4 added: certificate conflict resolution prepared, editor loaded and marked resolved, **merged tree verified `tsc` clean + 2,475 tests** — but **"Commit merge" could not be actuated from this session**, so `origin/staging` is unchanged at `5a700d91` and **no merge commit exists**. Botched intermediate edit disclosed and discarded, nothing committed. **D-8 and D-10 framed with explicit options but NOT decided** — no owner ruling exists for either; the compiler does not make them |
 | REV-6 | 2026-08-29 08:20Z | **D-6 EXECUTED.** Merge `9faf5a17` (`main` → `staging`) landed taking staging's blue on all 6 hunks; verified `tsc` clean + **2,475 tests**, 0 markers, PR #104 **"Able to merge"**. **UI gate GREEN on the merge commit.** Owner decisions **D-8 (ACAO = `www`)**, **D-9 (tap-target fix)** and **D-10 (apply `20260828082136` post-merge)** recorded as RULED. 🆕 **AF-19** — secret scan RED: publishable key hardcoded in `web-build.yml` since `ccd5e423` (2026-08-22), **pre-existing, not a credential incident**, ruling **D-11** required |
 | REV-7 | 2026-08-29 08:30Z | **AF-19 CLOSED — and it was not what REV-6 assumed.** Root cause: `.gitleaks.toml` pinned only the **production** anon key; `ccd5e423` added a **second lane** and a **second anon key** (staging) that was never allowlisted. Both decoded and confirmed `role="anon"` — no `service_role` key, **no rotation required**. Fixed in `a42b209e`; verified with **real gitleaks 8.24.3** (control: 1 leak → 0) and **mutation-tested** (a synthetic `service_role` JWT is still caught). **PR #104: zero failing checks.** D-11 dissolved — a gap in an allowlist is a fix, not a deviation. Blockers 6 → 5 |
-| **REV-8** | **2026-08-29 08:45Z** | **Final verification pass on `d06b0379`.** tsc 0 · 2,475 tests · gitleaks clean on the CI range · **all CI gates green, zero failing**. §18 snapshot refreshed. 🆕 **AF-20** — the gate named "Secret scan (full history)" scans a *range*, not full history; an unrestricted scan returns 23 findings, **all pre-candidate**, none identifiable as a real secret (3 decoded as `role="anon"`, 1 documented client config, 19 `generic-api-key` **inferred**-not-verified). RECORD ONLY → G11. **§23.1 corrected SIX-file rollback binding** drafted (the 08-27 five-file draft would leave M2 un-rollbackable). **§23.2 §11 approval record pre-filled, unsigned** |
+| REV-8 | 2026-08-29 08:45Z | **Final verification pass on `d06b0379`.** tsc 0 · 2,475 tests · gitleaks clean on the CI range · **all CI gates green, zero failing**. §18 snapshot refreshed. 🆕 **AF-20** — the gate named "Secret scan (full history)" scans a *range*, not full history; an unrestricted scan returns 23 findings, **all pre-candidate**, none identifiable as a real secret (3 decoded as `role="anon"`, 1 documented client config, 19 `generic-api-key` **inferred**-not-verified). RECORD ONLY → G11. **§23.1 corrected SIX-file rollback binding** drafted (the 08-27 five-file draft would leave M2 un-rollbackable). **§23.2 §11 approval record pre-filled, unsigned** |
+| **REV-9** | **2026-08-29 09:05Z** | **G8 CLOSED — D-12.** Owner waived the 08-27 precondition and accepted token-scope observation in place of A.5's runtime test, after being shown the evidence class (scope VERIFIED, runtime enforcement INFERRED), the residual limits (after-only measurement, no before baseline), and the fact that a prior substitution ruling on this gate had been withdrawn. Full text §23.3. **G8 = CLOSED WITH DOCUMENTED DEVIATION.** Also corrected: the stale **REV-3** copy on `altisinfonet-patch-35` that was misleading the auditor is now synced to REV-8+. Blockers 5 → 4 |
 
 ---
 
