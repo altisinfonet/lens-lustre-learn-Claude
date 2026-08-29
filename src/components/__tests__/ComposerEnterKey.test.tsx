@@ -1,30 +1,33 @@
 /**
- * THE COMPOSER SAYS HOW TO POST, AND SAYS THE TRUE THING FOR THE DEVICE.
+ * THE RETURN KEY IS LABELLED WITH WHAT IT ACTUALLY DOES.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * WHAT WAS MISSING
+ * ⚠ ENTER DOES NOT POST ON A TOUCH DEVICE, AND THAT IS THE WHOLE REASON THIS
+ * FILE EXISTS.
  *
- * Owner, 2026-08-28, after testing the live box: *"Shift+Enter does insert a
- * newline and plain Enter submits ... but nothing tells anyone — there is no
- * hint under the box and enterkeyhint is not set"*. Both behaviours had worked
- * for months and neither was written anywhere, so Shift+Enter could only be
- * found by guessing.
+ * `handleKeyDown` returns early when `(pointer: coarse)` matches, so Enter
+ * inserts a new line there — an owner decision from 2026-08-03, because a phone
+ * keyboard has no Shift and a member would otherwise never be able to write a
+ * second line. The 44px round button is the send route on a phone.
+ *
+ * So `enterKeyHint="send"` — asked for on 2026-08-28 on the assumption that
+ * Enter posts on mobile — would put the word "Send" on a key that inserts a
+ * line break. The attribute is therefore derived from the SAME media query the
+ * key handler reads, and both branches are pinned below so the label and the
+ * behaviour cannot drift apart.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * ⚠ THE HINT IS NOT THE SAME SENTENCE ON EVERY DEVICE, AND THAT IS THE POINT.
+ * THE VISIBLE HINT IS GONE, ON PURPOSE (2026-08-29).
  *
- * Enter does NOT post on a touch device. `handleKeyDown` returns early when
- * `(pointer: coarse)` matches, so Enter inserts a new line there — an owner
- * decision from 2026-08-03, because a phone keyboard has no Shift and a member
- * would otherwise never be able to write a second line. The 44px round button
- * is the send route on a phone.
+ * A one-line hint under the composer shipped with the key label on 2026-08-28
+ * — "Enter to post · Shift + Enter for a new line" on a desktop, "Enter starts
+ * a new line · tap the arrow to post" on touch. The owner had it removed the
+ * next day with NO replacement text. Only the visible line went; the
+ * conditional Enter handling and the key label stayed exactly as they were.
  *
- * So a single hardcoded "Enter to post" would be wrong on every phone, and
- * `enterKeyHint="send"` — asked for on the assumption that Enter posts on
- * mobile — would put the word "Send" on a key that inserts a line break. Both
- * the sentence and the key label are therefore derived from the SAME media
- * query the key handler reads, and these tests pin both branches so the three
- * can never drift apart.
+ * That removal is pinned below rather than merely done, because a hint is the
+ * kind of thing a later reader re-adds "helpfully" without knowing it was
+ * considered and rejected.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
@@ -70,20 +73,12 @@ const setPointer = (coarse: boolean) => {
 };
 
 const draw = (props: Record<string, unknown> = {}) =>
-  render(
-    <MentionInput value="" onChange={() => {}} onSubmit={() => {}} showHint {...props} />,
-  );
+  render(<MentionInput value="" onChange={() => {}} onSubmit={() => {}} {...props} />);
 
 afterEach(() => setPointer(false));
 beforeEach(() => setPointer(false));
 
 describe("on a desktop, where Enter really does post", () => {
-  it("says so, and names Shift+Enter for the new line", () => {
-    draw();
-    expect(screen.getByText(/Enter to post/i)).toBeInTheDocument();
-    expect(screen.getByText(/Shift \+ Enter for a new line/i)).toBeInTheDocument();
-  });
-
   it("labels the key 'send' — inert on a desktop, but true", () => {
     draw();
     expect(screen.getByTestId("field")).toHaveAttribute("enterkeyhint", "send");
@@ -91,13 +86,6 @@ describe("on a desktop, where Enter really does post", () => {
 });
 
 describe("on a touch device, where Enter inserts a line", () => {
-  it("does NOT claim Enter posts — it points at the button", () => {
-    setPointer(true);
-    draw();
-    expect(screen.getByText(/Enter starts a new line/i)).toBeInTheDocument();
-    expect(screen.queryByText(/Enter to post/i), "this would be a lie on a phone").toBeNull();
-  });
-
   it("labels the key 'enter', because 'send' would lie about what it does", () => {
     setPointer(true);
     draw();
@@ -105,22 +93,35 @@ describe("on a touch device, where Enter inserts a line", () => {
   });
 });
 
-describe("the hint stays out of the way", () => {
-  it("is off unless asked for, so replies and edit boxes do not repeat it", () => {
-    render(<MentionInput value="" onChange={() => {}} onSubmit={() => {}} />);
-    expect(screen.queryByText(/Enter to post/i)).toBeNull();
-  });
+describe("no visible hint under the box, on any device", () => {
+  /**
+   * Removed by the owner on 2026-08-29, the day after it shipped, with nothing
+   * put in its place. Both sentences are named here so that re-adding either
+   * one is a decision somebody has to take on purpose rather than a tidy-up.
+   */
+  const GONE = [
+    /Enter to post/i,
+    /Shift \+ Enter for a new line/i,
+    /Enter starts a new line/i,
+    /tap the arrow to post/i,
+  ];
 
-  it("yields to the over-limit line, which is the more urgent thing to read", () => {
+  for (const coarse of [false, true]) {
+    it(`renders none of the removed hint text (${coarse ? "touch" : "desktop"})`, () => {
+      setPointer(coarse);
+      draw({ value: "typing something" });
+      for (const gone of GONE) {
+        expect(screen.queryByText(gone), `the removed hint is back: ${gone}`).toBeNull();
+      }
+    });
+  }
+
+  it("still shows the over-limit line, which was never the hint", () => {
+    // The one line under the box that DOES remain. It is not a running counter
+    // — the owner's 2026-08-04 ban — it appears only past the limit, where a
+    // disabled send button would otherwise be a silent dead control.
     draw({ value: "x".repeat(12), maxLength: 10 });
     expect(screen.getByText(/over the 10 limit/i)).toBeInTheDocument();
-    expect(screen.queryByText(/Enter to post/i)).toBeNull();
-  });
-
-  it("is a fixed sentence, not the running counter the owner banned", () => {
-    draw({ value: "still typing" });
-    const hint = screen.getByText(/Enter to post/i);
-    expect(hint.textContent).not.toMatch(/\d+\s*\/\s*\d+/);
   });
 });
 

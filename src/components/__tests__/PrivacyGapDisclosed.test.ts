@@ -23,11 +23,19 @@
  *
  * So the rule this file pins is the condition of that decision:
  *
- *     the chooser and the disclosure ship together, or neither ships.
+ *     the chooser and the notice ship together, or neither ships.
  *
  * Restoring the control and quietly dropping the notice would land exactly
  * where the withholding started — a control promising more than the platform
  * can keep — while looking, in a diff, like a tidy-up.
+ *
+ * ⚠ IT SAID "the disclosure" UNTIL 2026-08-29. On that day the owner shortened
+ * the notice to "{who} will see this post on 50mm Retina World." and dropped
+ * the sentence about the photo file being reachable by direct link. The notice
+ * therefore no longer DISCLOSES the gap; it states the audience. The gap is
+ * unchanged, D-002 stays ACTIVE, and the change is recorded in
+ * docs/DECISIONS.md. This file was narrowed to match — deliberately, and with
+ * the reasoning below the assertion that changed.
  *
  * ⚠ WHEN THIS FAILS, DO NOT DELETE IT TO GET GREEN. Deleting it removes the
  * only thing keeping the promise honest. It becomes correct to remove this file
@@ -52,6 +60,16 @@ const NOTICE = join(ROOT, "src/components/post/PrivacyGapNotice.tsx");
 const wall = stripComments(readFileSync(WALL, "utf8"));
 const chooser = existsSync(CHOOSER) ? readFileSync(CHOOSER, "utf8") : "";
 const notice = existsSync(NOTICE) ? readFileSync(NOTICE, "utf8") : "";
+/**
+ * ⚠ THE COPY IS PINNED AGAINST THE CODE, NOT AGAINST THE FILE.
+ *
+ * The old assertions matched /direct link/ and /photo file/ against the raw
+ * file — and this component's own header quotes both phrases, so those checks
+ * could have passed on the documentation alone while the rendered sentence said
+ * something else entirely. That trap has been paid for twice in this repository
+ * already; see src/test-utils/sourceText.ts.
+ */
+const noticeCode = existsSync(NOTICE) ? stripComments(notice) : "";
 
 describe("a member is never offered a privacy without being told its limit", () => {
   it("the chooser and the notice both exist (guards against a vacuous pass)", () => {
@@ -104,9 +122,49 @@ describe("a member is never offered a privacy without being told its limit", () 
     ).toBe(true);
   });
 
-  it("the notice states the one fact a member needs", () => {
-    expect(/direct link/i.test(notice)).toBe(true);
-    expect(/photo file/i.test(notice)).toBe(true);
+  /**
+   * ─────────────────────────────────────────────────────────────────────────
+   * ⚠ THE COPY WAS SHORTENED ON 2026-08-29, AND D-002 DID NOT CLOSE.
+   *
+   * Until that day the notice read:
+   *
+   *     "{who} will see this post on 50mm Retina World. The photo file itself
+   *      can still be opened by anyone who has its direct link — we are still
+   *      building that protection."
+   *
+   * and this test pinned the second sentence, because the second sentence WAS
+   * the disclosure. The owner has since chosen the first sentence alone. It is
+   * a deliberate UI-copy decision, confirmed with him, and it is recorded in
+   * docs/DECISIONS.md under D-002 so that a later reader does not take it for
+   * an accidental deletion.
+   *
+   * BE HONEST ABOUT WHAT THAT LEAVES. The gap is untouched: `post-images` is
+   * still a public bucket with no privacy condition on its SELECT policy, and
+   * the photograph behind an "Only me" post is still fetchable by anyone
+   * holding its URL. What the member is now told is who can see the POST. They
+   * are no longer told about the file.
+   *
+   * So this file no longer pins a disclosure — it pins the exact copy the owner
+   * approved, and the structural rule that the notice ships with the chooser.
+   * The pin was narrowed on purpose; it was not weakened by accident, and it
+   * was not deleted.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  it("the notice carries the exact copy the owner approved", () => {
+    expect(noticeCode).toContain("{who} will see this post on 50mm Retina World.");
+    expect(/const who = privacy === "private" \? "Only you" : "Only your friends";/.test(noticeCode))
+      .toBe(true);
+  });
+
+  it("the sentence dropped on 2026-08-29 has not drifted back unannounced", () => {
+    /**
+     * Not a bar on ever disclosing the file gap again — it is a bar on doing it
+     * SILENTLY. Restoring that sentence is the owner's call, the same way
+     * removing it was, and it comes with an update to D-002 and to this test.
+     */
+    expect(noticeCode, "the file-gap sentence is back without a decision record")
+      .not.toMatch(/direct link/i);
+    expect(noticeCode).not.toMatch(/photo file/i);
   });
 
   it("the notice appears for restricted audiences and NOT for public", () => {

@@ -13,14 +13,6 @@ interface MentionInputProps {
   className?: string;
   showSendButton?: boolean;
   autoFocus?: boolean;
-  /**
-   * Draw the one-line "how do I post this" hint under the box.
-   *
-   * Off by default: it belongs under the composer a member starts in, not
-   * under every reply and edit box, where it would be four repetitions of the
-   * same sentence on one screen.
-   */
-  showHint?: boolean;
 }
 
 interface UserSuggestion extends SuggestionDataItem {
@@ -37,7 +29,6 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
   className = "",
   showSendButton = true,
   autoFocus = false,
-  showHint = false,
 }: MentionInputProps, _forwardedRef) => {
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
@@ -171,13 +162,18 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
     window.matchMedia("(pointer: coarse)").matches;
 
   /**
-   * The same question, as STATE, because the hint and the keyboard's own key
-   * label have to be rendered rather than answered at keypress time.
+   * The same question, as STATE, because the keyboard's own key label has to be
+   * RENDERED rather than answered at keypress time.
    *
-   * It reads the identical media query `handleKeyDown` uses, so the words under
-   * the box and the label on the key can never disagree with what Enter
-   * actually does. Live, not once at mount: a Surface or an iPad with a
-   * keyboard attached flips `(pointer: coarse)` mid-session.
+   * It reads the identical media query `handleKeyDown` uses, so the label on
+   * the key can never disagree with what Enter actually does. Live, not once at
+   * mount: a Surface or an iPad with a keyboard attached flips
+   * `(pointer: coarse)` mid-session.
+   *
+   * It briefly also drove a one-line hint under the box ("Enter to post ·
+   * Shift + Enter for a new line"). The owner had that removed on 2026-08-29
+   * with no replacement — the visible text only. The conditional Enter handling
+   * and the key label below are unchanged and deliberate.
    */
   const [coarse, setCoarse] = useState(isTouch);
   useEffect(() => {
@@ -433,27 +429,6 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
         </div>
       )}
 
-      {/*
-        HOW TO POST, AND HOW TO START A SECOND LINE.
-
-        Both have always worked and neither was ever written down, so the only
-        way to discover Shift+Enter was to guess it. This is NOT a character
-        counter — the owner's 2026-08-04 ban is on a running readout of how much
-        you have typed; this is a fixed sentence that never changes as you type.
-
-        It is rendered from `coarse`, the same media query handleKeyDown asks,
-        so it describes THIS device rather than a guess: on a phone Enter makes
-        a new line and the round button posts, on a desktop Enter posts and
-        Shift+Enter makes the line. Hidden while over the limit, where the
-        destructive line above is the more urgent thing to read.
-      */}
-      {showHint && !overLimit && (
-        <div className="text-[10px] mt-1 px-3 text-muted-foreground">
-          {coarse
-            ? "Enter starts a new line · tap the arrow to post"
-            : "Enter to post · Shift + Enter for a new line"}
-        </div>
-      )}
     </div>
   );
 });

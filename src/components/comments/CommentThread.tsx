@@ -578,9 +578,6 @@ const CommentThread = ({
             placeholder={composerPlaceholder}
             disabled={submitting}
             maxLength={maxLength}
-            /* Only here. Under every reply and edit box too, the same sentence
-               would appear four times on one screen. */
-            showHint
           />
         </div>
       )}

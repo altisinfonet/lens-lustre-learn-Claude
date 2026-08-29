@@ -26,6 +26,29 @@
  * there is no gap to disclose. And when authorized media delivery goes live the
  * whole component is deleted — D-002 names that condition, and
  * `PrivacyGapDisclosed.test.ts` fails if the chooser is offered without it.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⚠ THE SECOND SENTENCE WAS REMOVED ON 2026-08-29, AND THE GAP WAS NOT CLOSED.
+ *
+ * Until that day this read:
+ *
+ *     "{who} will see this post on 50mm Retina World. The photo file itself can
+ *      still be opened by anyone who has its direct link — we are still building
+ *      that protection."
+ *
+ * The owner shortened it to the first sentence alone. It is a UI-COPY decision,
+ * taken deliberately and confirmed with him — NOT the removal of a disclosure
+ * that had become unnecessary, and NOT evidence that the underlying fault was
+ * fixed.
+ *
+ * Be clear about what that means, because the paragraphs above no longer
+ * describe what a member reads: `post-images` is still a public bucket whose
+ * `storage.objects` SELECT policy is `(bucket_id = 'post-images')` with no
+ * privacy condition, the photograph behind an "Only me" post is still fetchable
+ * by anyone holding its URL, and this notice no longer says so. D-002 stays
+ * OPEN and is closed by authorized media delivery going live — see
+ * docs/DECISIONS.md, where the 2026-08-29 change is recorded so that it is not
+ * later mistaken for an accidental deletion.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { Info } from "lucide-react";
@@ -53,11 +76,7 @@ export function PrivacyGapNotice({ privacy }: { privacy: string }) {
       className="mt-2 flex items-start gap-2 rounded-md border border-border bg-muted/40 px-2.5 py-2 text-xs leading-relaxed text-muted-foreground"
     >
       <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-      <span>
-        {who} will see this post on 50mm Retina World. The photo file itself can
-        still be opened by anyone who has its direct link — we are still building
-        that protection.
-      </span>
+      <span>{who} will see this post on 50mm Retina World.</span>
     </div>
   );
 }
