@@ -6,7 +6,7 @@
 
 **Repository path:** `docs/PROMOTION_LEDGER.md` (canonical, on `staging`)
 **Ledger ID:** `LEDGER-50MM-001`
-**Status of this revision:** `REV-10 · 2026-08-29T09:20Z`
+**Status of this revision:** `REV-11 · 2026-08-29T09:35Z`
 
 ---
 
@@ -1120,11 +1120,11 @@ owner action by construction — no session performs it.
 
 | ID | Instrument | Prerequisite | State |
 |---|---|---|---|
-| **B8 / D-1** | `UNAPPLIED_` deviation acceptance | — | ☐ **UNSIGNED** |
+| **B8 / D-1** | `UNAPPLIED_` deviation acceptance | — | ✅ **RULED 2026-08-29** — §23.4 |
 | **B11** | Database rollback binding | **⚠ Must be re-drafted to SIX files** — the 08-27 five-file version omits M2's rollback (§17.1) | ☐ **UNSIGNED — and the existing draft is now WRONG** |
-| **B13** | G9 exclusion countersignature — accepts 4 residual production risks incl. `submit-judge-decision` answering `*` | Requires the owner to have **read** `G10_S14_G9_EXCLUSION_RULING_2026-08-26.md`. Not pre-attestable | ☐ **UNSIGNED** |
-| **B12 / CHG-005** | Change-ledger closure + Story-row waiver | Ruling written 08-27; signature line blank | ☐ **UNSIGNED** |
-| **D-5 / AF-03** | Deviation acceptance | — | ☐ **UNSIGNED** |
+| **B13** | G9 exclusion countersignature — accepts 4 residual production risks incl. `submit-judge-decision` answering `*` | Requires the owner to have **READ** `G10_S14_G9_EXCLUSION_RULING_AND_EXECUTION_2026-08-26.md`. **Deliberately held back on 2026-08-29** while B8/B12/D-5 were ruled — the compiler will not record an "I have read" attestation it cannot witness | ☐ **UNSIGNED — HELD, §23.5** |
+| **B12 / CHG-005** | Change-ledger closure + Story-row waiver | Ruling written 08-27 | ✅ **RULED 2026-08-29** — §23.4 |
+| **D-5 / AF-03** | Deviation acceptance | — | ✅ **RULED 2026-08-29** — §23.4 |
 | **G8 substitution** | Accept token-scope observation in place of A.5 | Precondition **explicitly waived** by the owner, §23.3 | ✅ **RULED 2026-08-29 — D-12** |
 | **D-8 / AF-11** | ACAO ruling | — | ☐ **NOT DRAFTED** |
 | **D-9 / AF-15** | UI-gate ruling | — | ☐ **NOT DRAFTED** |
@@ -1132,6 +1132,88 @@ owner action by construction — no session performs it.
 | **§11 Release Approval Record (OA-19)** | 8 fields, signed **and tagged BEFORE the merge** (§17-10) | **Cannot be signed while G8 and AF-15 are unresolved** | ☐ **UNSIGNED** |
 | **Promotion approval (OA-20)** | §12.4 in order | All above | ☐ **UNSIGNED** |
 | **Ledger closure** | This document | All above + §25 | ☐ **OPEN** |
+
+## 23.4 · B8, B12 and D-5 — RULED 2026-08-29
+
+**Transcribed verbatim from the owner's decision in session. Not signed by the compiler.**
+These three are **rulings on disposition**, not attestations of having read evidence — which is why
+they could be taken together and **B13 could not** (§23.5).
+
+### B8 / D-1 — the nine `UNAPPLIED_`-prefixed files
+
+> I accept for this release that nine files keep the `UNAPPLIED_` prefix while the migrations they
+> name **are applied in production** (§6.3, measured: all nine have forward migrations live).
+>
+> **The defect is documentary.** Nothing machine-readable depends on the names — the migration
+> workflow takes a free-text path, no CI enumerates them, and `schema_migrations` is keyed on
+> version integers. **Renaming would change the tree**, voiding every CI artifact earned against
+> this candidate and forcing a rebaseline. The rename and the orphan's disposition are **deferred
+> to G11**.
+>
+> I further note the approved migration manifest for §12.4 step 12 is **explicitly EMPTY**.
+>
+> Ruled by: **Neil Basu (owner)** · 2026-08-29
+
+### B12 — change-ledger closure
+
+> With CHG-G10-005 dispositioned (reclassified TEST/HARNESS, 08-27) and **CHG-G10-003 withdrawn
+> from this candidate** — PR #103's head `704ad57` is not an ancestor of `staging` and its own body
+> says "Do not merge" — **all nine ledger entries are terminal and none is UNINTENDED.**
+>
+> **The Change Ledger for this release is CLOSED.** §11 prerequisite 2 is satisfied.
+>
+> I accept that the Story row remains in the **staging** database (no reaper exists; `expires_at`
+> governs display only), and that the duplicate-file-input hazard that created it is carried to G11.
+>
+> Ruled by: **Neil Basu (owner)** · 2026-08-29
+
+### D-5 / AF-03 — production-CDN references in staging configuration
+
+> I accept **46 references** to `https://cdn.50mmretina.com` in staging `site_settings`, resolving
+> to **12 distinct production objects** across six keys.
+>
+> **Measured with controls on both origins: there is no cross-lane data leak** — the 12 objects
+> exist in production R2, are absent from staging R2, and the production CDN **refuses** them when
+> requested from a staging page.
+>
+> **I accept the two residual defects:** §15 row 1's negative criterion literally fails, and
+> staging renders broken ad/OG images on **29 routes**.
+>
+> **I accept that remediation was declined deliberately** — nulling the SEO keys would remove
+> `og:image` and `json_ld` entirely, converting a visible failure into a **vacuous pass** on §15
+> row 8, which is the exact anti-pattern the gate exists to prevent.
+>
+> **Control gap carried to G11:** the isolation guard scans **built code**; these references live in
+> **database rows** and are invisible to every R-rule and mutant. A data-side isolation scan is
+> required. The guard's 21/21 mutant result is **not** downgraded.
+>
+> ⚠ **Evidence class: INFERRED.** This ledger carries AF-03 from the 2026-08-27 record; it was
+> **not re-measured** on 2026-08-29. The owner ruled on the record as it stands.
+>
+> Ruled by: **Neil Basu (owner)** · 2026-08-29
+
+---
+
+## 23.5 · B13 — HELD, NOT SIGNED
+
+**Deliberately not taken with the three above.** B13's own text reads *"I have read the measured
+basis"* — an assertion about the owner's state of knowledge. **The compiler cannot witness that and
+will not transcribe it.**
+
+**What B13 asks the owner to accept — four LIVE production risks:**
+
+1. **Pre-G9 CORS in all 71 production edge functions** — deployed `_shared/secureHeaders.ts` is byte-identical (md5 `58b9f45d…`), prefix matching with a `.lovable.app` wildcard.
+2. **`submit-judge-decision` v23 answers `Access-Control-Allow-Origin: *`** — a judging-decision endpoint accepting requests from **any origin on the internet**. The source fix is in this candidate; **edge functions do not auto-deploy from GitHub**, so production stays exposed until deployed separately.
+3. **Storage-lane guard absent in ten functions** — `s3-delete`, `s3-presign-upload`, `s3-signed-url`, `s3-upload`, `migrate-storage`, `hard-delete-competition`, `purge-s3-orphans`, `detect-orphan-files`, `backfill-image-dims`, `media-register-upload`.
+4. **Lane-config drift in eight functions**, including all three email functions.
+
+**Basis to read first:** `claude/G10_S14_G9_EXCLUSION_RULING_AND_EXECUTION_2026-08-26.md` — 71
+functions compared byte-for-byte on 2026-08-26: **21 MATCH · 21 differing only in
+`secureHeaders.ts` · 29 DRIFT · 0 UNKNOWN.**
+
+**§11 cannot be signed while this is open.**
+
+---
 
 ## 23.3 · D-12 — G8 SUBSTITUTION, WAIVED AND ACCEPTED BY THE OWNER
 
@@ -1230,7 +1312,7 @@ fact that a prior substitution ruling on this same gate had been withdrawn.**
 
 > ⚠ **Must be signed AND the tag created BEFORE the merge** (§17-10). Tree equality after the merge
 > is asserted against **that tag**, not against T (§20).
-> ⚠ **Items 3 (G8, D-12) and 6 (B11, §23.1) are now CLOSED.** Still cannot be signed while **item 4 (§5.3 probe)** is un-run and **§25 is vacant**, and while **B8, B12, B13 and D-5 remain unsigned**.
+> ⚠ **G8 (D-12), B11 (§23.1), B8, B12 and D-5 are all now RULED.** Still cannot be signed while **B13 is held (§23.5)**, **the §5.3 probe is un-run**, and **§25 is vacant**.
 
 | # | Field | Value |
 |---|---|---|
@@ -1390,7 +1472,8 @@ fixed, control-verified and mutation-tested, with **no deviation carried**.
 | REV-7 | 2026-08-29 08:30Z | **AF-19 CLOSED — and it was not what REV-6 assumed.** Root cause: `.gitleaks.toml` pinned only the **production** anon key; `ccd5e423` added a **second lane** and a **second anon key** (staging) that was never allowlisted. Both decoded and confirmed `role="anon"` — no `service_role` key, **no rotation required**. Fixed in `a42b209e`; verified with **real gitleaks 8.24.3** (control: 1 leak → 0) and **mutation-tested** (a synthetic `service_role` JWT is still caught). **PR #104: zero failing checks.** D-11 dissolved — a gap in an allowlist is a fix, not a deviation. Blockers 6 → 5 |
 | REV-8 | 2026-08-29 08:45Z | **Final verification pass on `d06b0379`.** tsc 0 · 2,475 tests · gitleaks clean on the CI range · **all CI gates green, zero failing**. §18 snapshot refreshed. 🆕 **AF-20** — the gate named "Secret scan (full history)" scans a *range*, not full history; an unrestricted scan returns 23 findings, **all pre-candidate**, none identifiable as a real secret (3 decoded as `role="anon"`, 1 documented client config, 19 `generic-api-key` **inferred**-not-verified). RECORD ONLY → G11. **§23.1 corrected SIX-file rollback binding** drafted (the 08-27 five-file draft would leave M2 un-rollbackable). **§23.2 §11 approval record pre-filled, unsigned** |
 | REV-9 | 2026-08-29 09:05Z | **G8 CLOSED — D-12.** Owner waived the 08-27 precondition and accepted token-scope observation in place of A.5's runtime test, after being shown the evidence class (scope VERIFIED, runtime enforcement INFERRED), the residual limits (after-only measurement, no before baseline), and the fact that a prior substitution ruling on this gate had been withdrawn. Full text §23.3. **G8 = CLOSED WITH DOCUMENTED DEVIATION.** Also corrected: the stale **REV-3** copy on `altisinfonet-patch-35` that was misleading the auditor is now synced to REV-8+. Blockers 5 → 4 |
-| **REV-10** | **2026-08-29 09:20Z** | **B11 RULED — six-file rollback binding signed** (§23.1), superseding the 08-27 five-file draft that would have left `20260828082136` un-rollbackable. Owner shown and accepted, before ruling, that the set has **never been executed against a live database**, that file 0 **deliberately reopens both RLS gaps**, and that `git revert` does not un-apply migrations. Owner **declined to test it on staging first** — recorded, not left implicit. Blockers 4 → 3 |
+| REV-10 | 2026-08-29 09:20Z | **B11 RULED — six-file rollback binding signed** (§23.1), superseding the 08-27 five-file draft that would have left `20260828082136` un-rollbackable. Owner shown and accepted, before ruling, that the set has **never been executed against a live database**, that file 0 **deliberately reopens both RLS gaps**, and that `git revert` does not un-apply migrations. Owner **declined to test it on staging first** — recorded, not left implicit. Blockers 4 → 3 |
+| **REV-11** | **2026-08-29 09:35Z** | **B8, B12 and D-5 RULED** (§23.4) — dispositions, not evidence-attestations, which is why they could be taken together. **B13 DELIBERATELY HELD** (§23.5): its text asserts *"I have read the measured basis"*, which the compiler cannot witness and will not transcribe. B13 accepts four **live** production risks including `submit-judge-decision` answering `Access-Control-Allow-Origin: *`. **§11 remains unsignable while B13, the §5.3 probe and §25 are open** |
 
 ---
 
