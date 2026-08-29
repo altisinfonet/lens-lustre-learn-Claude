@@ -6,7 +6,7 @@
 
 **Repository path:** `docs/PROMOTION_LEDGER.md` (canonical, on `staging`)
 **Ledger ID:** `LEDGER-50MM-001`
-**Status of this revision:** `REV-9 · 2026-08-29T09:05Z`
+**Status of this revision:** `REV-10 · 2026-08-29T09:20Z`
 
 ---
 
@@ -1177,7 +1177,7 @@ fact that a prior substitution ruling on this same gate had been withdrawn.**
 
 ---
 
-## 23.1 · B11 — CORRECTED SIX-FILE ROLLBACK BINDING (ready to sign)
+## 23.1 · B11 — SIX-FILE ROLLBACK BINDING — ✅ SIGNED 2026-08-29
 
 > ⚠ **Do not sign the 2026-08-27 five-file version.** It predates migration `20260828082136` and
 > would leave that migration **un-rollbackable**. This supersedes it.
@@ -1206,7 +1206,23 @@ fact that a prior substitution ruling on this same gate had been withdrawn.**
 > * §17-9's Pages-deployment rollback covers the **web bundle only** and does **not** cover schema;
 > * `git revert` of the merge does **not** un-apply any migration.
 >
-> Signed: ______________________  Date (UTC): ____________
+> **Ruled by: Neil Basu (owner) · Date (UTC): 2026-08-29** · transcribed verbatim from the owner's
+> decision in session. **Not signed by the compiler.**
+>
+> **The owner was shown, and accepted, before ruling:**
+> * the set has **NEVER been executed against a live database** — it is written and reviewed only,
+>   so in an incident it would be untested SQL run against production under pressure;
+> * **file 0 deliberately reopens both RLS gaps** — a banned member could comment on ads again, and
+>   a hidden ad's thread would become readable again;
+> * **`git revert` of the merge does NOT un-apply any migration** — schema and code roll back
+>   separately;
+> * §17-9's Pages rollback covers **the web bundle only**;
+> * the 2026-08-27 five-file draft **would have left `20260828082136` un-rollbackable**, and is
+>   superseded by this six-file set.
+>
+> **The owner declined to test the set on staging first, and signed it as-is.** That choice is
+> recorded here rather than left implicit: **the rollback plan exists and is correct on paper; its
+> behaviour against a live database remains unverified.**
 
 ---
 
@@ -1214,7 +1230,7 @@ fact that a prior substitution ruling on this same gate had been withdrawn.**
 
 > ⚠ **Must be signed AND the tag created BEFORE the merge** (§17-10). Tree equality after the merge
 > is asserted against **that tag**, not against T (§20).
-> ⚠ **Item 3 (G8) is now CLOSED — D-12.** Still cannot be signed while **item 4 (§5.3 probe)** and **item 6 (B11 signature)** are open, and while **§25 is vacant**.
+> ⚠ **Items 3 (G8, D-12) and 6 (B11, §23.1) are now CLOSED.** Still cannot be signed while **item 4 (§5.3 probe)** is un-run and **§25 is vacant**, and while **B8, B12, B13 and D-5 remain unsigned**.
 
 | # | Field | Value |
 |---|---|---|
@@ -1305,7 +1321,7 @@ fact that a prior substitution ruling on this same gate had been withdrawn.**
 | ~~3~~ | ~~G8 instrument not satisfied~~ — ✅ **RESOLVED.** Owner waived the precondition and accepted scope observation (**D-12**, §23.3) | §10.2 · §23.3 |
 | 4 | **§5.3 secret-isolation probe never run**, and must run immediately pre-merge | §24.1 |
 | 5 | **§11 approval unsigned; 0 tags exist** | §23 |
-| ~~6~~ | ~~B11 rollback binding wrong~~ — ✅ **CORRECTED six-file text drafted, §23.1.** ☐ still **UNSIGNED** | §17.1 · §23.1 |
+| ~~6~~ | ~~B11 rollback binding~~ — ✅ **RULED 2026-08-29**, six-file set, §23.1. ⚠ carries an accepted limitation: **never executed against a live database** | §23.1 |
 | ~~7~~ | ~~AF-11 ACAO ruling not made~~ — ✅ **RULED:** accepted as `www` | D-8 |
 | 8 | **AF-17** — production missing 2 RLS policies. ✅ **RULED:** apply post-merge (D-10). ⚠ **ACTION STILL PENDING** — production DB write, owner-only | D-10 · §24.3 |
 | 9 | **No independent audit performed** | §25 |
@@ -1373,7 +1389,8 @@ fixed, control-verified and mutation-tested, with **no deviation carried**.
 | REV-6 | 2026-08-29 08:20Z | **D-6 EXECUTED.** Merge `9faf5a17` (`main` → `staging`) landed taking staging's blue on all 6 hunks; verified `tsc` clean + **2,475 tests**, 0 markers, PR #104 **"Able to merge"**. **UI gate GREEN on the merge commit.** Owner decisions **D-8 (ACAO = `www`)**, **D-9 (tap-target fix)** and **D-10 (apply `20260828082136` post-merge)** recorded as RULED. 🆕 **AF-19** — secret scan RED: publishable key hardcoded in `web-build.yml` since `ccd5e423` (2026-08-22), **pre-existing, not a credential incident**, ruling **D-11** required |
 | REV-7 | 2026-08-29 08:30Z | **AF-19 CLOSED — and it was not what REV-6 assumed.** Root cause: `.gitleaks.toml` pinned only the **production** anon key; `ccd5e423` added a **second lane** and a **second anon key** (staging) that was never allowlisted. Both decoded and confirmed `role="anon"` — no `service_role` key, **no rotation required**. Fixed in `a42b209e`; verified with **real gitleaks 8.24.3** (control: 1 leak → 0) and **mutation-tested** (a synthetic `service_role` JWT is still caught). **PR #104: zero failing checks.** D-11 dissolved — a gap in an allowlist is a fix, not a deviation. Blockers 6 → 5 |
 | REV-8 | 2026-08-29 08:45Z | **Final verification pass on `d06b0379`.** tsc 0 · 2,475 tests · gitleaks clean on the CI range · **all CI gates green, zero failing**. §18 snapshot refreshed. 🆕 **AF-20** — the gate named "Secret scan (full history)" scans a *range*, not full history; an unrestricted scan returns 23 findings, **all pre-candidate**, none identifiable as a real secret (3 decoded as `role="anon"`, 1 documented client config, 19 `generic-api-key` **inferred**-not-verified). RECORD ONLY → G11. **§23.1 corrected SIX-file rollback binding** drafted (the 08-27 five-file draft would leave M2 un-rollbackable). **§23.2 §11 approval record pre-filled, unsigned** |
-| **REV-9** | **2026-08-29 09:05Z** | **G8 CLOSED — D-12.** Owner waived the 08-27 precondition and accepted token-scope observation in place of A.5's runtime test, after being shown the evidence class (scope VERIFIED, runtime enforcement INFERRED), the residual limits (after-only measurement, no before baseline), and the fact that a prior substitution ruling on this gate had been withdrawn. Full text §23.3. **G8 = CLOSED WITH DOCUMENTED DEVIATION.** Also corrected: the stale **REV-3** copy on `altisinfonet-patch-35` that was misleading the auditor is now synced to REV-8+. Blockers 5 → 4 |
+| REV-9 | 2026-08-29 09:05Z | **G8 CLOSED — D-12.** Owner waived the 08-27 precondition and accepted token-scope observation in place of A.5's runtime test, after being shown the evidence class (scope VERIFIED, runtime enforcement INFERRED), the residual limits (after-only measurement, no before baseline), and the fact that a prior substitution ruling on this gate had been withdrawn. Full text §23.3. **G8 = CLOSED WITH DOCUMENTED DEVIATION.** Also corrected: the stale **REV-3** copy on `altisinfonet-patch-35` that was misleading the auditor is now synced to REV-8+. Blockers 5 → 4 |
+| **REV-10** | **2026-08-29 09:20Z** | **B11 RULED — six-file rollback binding signed** (§23.1), superseding the 08-27 five-file draft that would have left `20260828082136` un-rollbackable. Owner shown and accepted, before ruling, that the set has **never been executed against a live database**, that file 0 **deliberately reopens both RLS gaps**, and that `git revert` does not un-apply migrations. Owner **declined to test it on staging first** — recorded, not left implicit. Blockers 4 → 3 |
 
 ---
 
