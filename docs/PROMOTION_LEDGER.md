@@ -6,7 +6,7 @@
 
 **Repository path:** `docs/PROMOTION_LEDGER.md` (canonical, on `staging`)
 **Ledger ID:** `LEDGER-50MM-001`
-**Status of this revision:** `REV-8 · 2026-08-29T08:45Z`
+**Status of this revision:** `REV-12 · 2026-08-29T10:20Z`
 
 ---
 
@@ -1081,6 +1081,7 @@ APPROVAL
 | **D-7** | Promote **current `staging`**, not the audited 08-26 tree | Today's fixes must reach members and the app build | 2026-08-29 | Neil Basu | §3.4 | ✅ **RULED.** Consequence: 7 commits bypass the full gate review |
 | **D-8** | **ACAO accepted as `www`** (option D-8b) | Owner: *"approve ACAO header"*. The site is served on `www`, so a browser there sends `Origin: https://www.50mmretina.com`; the apex value would not match it | 2026-08-29 | Neil Basu | §7.2 | ✅ **RULED — ACCEPTED.** On promotion, production `Access-Control-Allow-Origin` changes **apex → `www`**. This is a deliberate CORS correction, no longer an undeclared side effect |
 | **D-9** | **AF-15 — fix the tap targets rather than ship the red gate** | Owner: *"fix it first"*. Option (a) chosen over accepting a deviation or reverting | 2026-08-29 | Neil Basu | §13.1 | ✅ **RULED AND EXECUTED** — `bfcb68da` (fix) + `c8aec5d5` (pin) |
+| **D-12** | **G8 — waive the control-3 precondition; accept token-scope observation** | The control cannot discriminate for a correctly-scoped token (§10.2 / §4A). Owner informed that a prior ruling on this gate was withdrawn | 2026-08-29 | Neil Basu | §23.3 | ✅ **RULED — WAIVED.** G8 = CLOSED WITH DOCUMENTED DEVIATION |
 | **D-10** | **Apply migration `20260828082136` to production, post-merge** (option D-10a) | Owner: *"apply migration 20260828082136 post-merge"*. Closes two live RLS gaps on `ad_creative_comments` | 2026-08-29 | Neil Basu | §6.2, §24.3 | ✅ **RULED — SCHEDULED.** ⚠ **NOT YET EXECUTED.** It is a production DB write and an owner action; see §24.3 step 12 |
 
 ### D-8 · THE DECISION TO BE MADE (not yet made)
@@ -1119,12 +1120,12 @@ owner action by construction — no session performs it.
 
 | ID | Instrument | Prerequisite | State |
 |---|---|---|---|
-| **B8 / D-1** | `UNAPPLIED_` deviation acceptance | — | ☐ **UNSIGNED** |
-| **B11** | Database rollback binding | **⚠ Must be re-drafted to SIX files** — the 08-27 five-file version omits M2's rollback (§17.1) | ☐ **UNSIGNED — and the existing draft is now WRONG** |
-| **B13** | G9 exclusion countersignature — accepts 4 residual production risks incl. `submit-judge-decision` answering `*` | Requires the owner to have **read** `G10_S14_G9_EXCLUSION_RULING_2026-08-26.md`. Not pre-attestable | ☐ **UNSIGNED** |
-| **B12 / CHG-005** | Change-ledger closure + Story-row waiver | Ruling written 08-27; signature line blank | ☐ **UNSIGNED** |
-| **D-5 / AF-03** | Deviation acceptance | — | ☐ **UNSIGNED** |
-| **G8 substitution** | Accept token-scope observation in place of A.5 | ⚠ 08-27 pack requires control-3 re-run **first**; §10.2 argues it is structurally incapable. **Waiver must be explicit** | ☐ **UNSIGNED** |
+| **B8 / D-1** | `UNAPPLIED_` deviation acceptance | — | ✅ **RULED 2026-08-29** — §23.4 |
+| **B11** | Database rollback binding | Re-drafted to **SIX** files; the 08-27 five-file version omitted M2's rollback (§17.1) | ✅ **SIGNED 2026-08-29** — §23.1. *(This row read "UNSIGNED — and the existing draft is now WRONG" until REV-12; it was stale from REV-10. Corrected, not deleted — §14.)* |
+| **B13** | G9 exclusion countersignature — accepts 4 residual production risks incl. `submit-judge-decision` answering `*` | Owner read the measured basis in session, then ruled in their own words. Compiler pre-checked the text against source and added **two items at the owner's direction**: per-function review of the 29 drift cases (3 opposite-direction), and a date-stamp on the 08-26 counts | ✅ **RULED 2026-08-29** — §23.5. **Authorises nothing else** — §23.5.5 |
+| **B12 / CHG-005** | Change-ledger closure + Story-row waiver | Ruling written 08-27 | ✅ **RULED 2026-08-29** — §23.4 |
+| **D-5 / AF-03** | Deviation acceptance | — | ✅ **RULED 2026-08-29** — §23.4 |
+| **G8 substitution** | Accept token-scope observation in place of A.5 | Precondition **explicitly waived** by the owner, §23.3 | ✅ **RULED 2026-08-29 — D-12** |
 | **D-8 / AF-11** | ACAO ruling | — | ☐ **NOT DRAFTED** |
 | **D-9 / AF-15** | UI-gate ruling | — | ☐ **NOT DRAFTED** |
 | **D-10 / AF-17** | Apply M2 to production | — | ☐ **NOT DRAFTED** |
@@ -1132,7 +1133,253 @@ owner action by construction — no session performs it.
 | **Promotion approval (OA-20)** | §12.4 in order | All above | ☐ **UNSIGNED** |
 | **Ledger closure** | This document | All above + §25 | ☐ **OPEN** |
 
-## 23.1 · B11 — CORRECTED SIX-FILE ROLLBACK BINDING (ready to sign)
+## 23.4 · B8, B12 and D-5 — RULED 2026-08-29
+
+**Transcribed verbatim from the owner's decision in session. Not signed by the compiler.**
+These three are **rulings on disposition**, not attestations of having read evidence — which is why
+they could be taken together and **B13 could not** (§23.5).
+
+### B8 / D-1 — the nine `UNAPPLIED_`-prefixed files
+
+> I accept for this release that nine files keep the `UNAPPLIED_` prefix while the migrations they
+> name **are applied in production** (§6.3, measured: all nine have forward migrations live).
+>
+> **The defect is documentary.** Nothing machine-readable depends on the names — the migration
+> workflow takes a free-text path, no CI enumerates them, and `schema_migrations` is keyed on
+> version integers. **Renaming would change the tree**, voiding every CI artifact earned against
+> this candidate and forcing a rebaseline. The rename and the orphan's disposition are **deferred
+> to G11**.
+>
+> I further note the approved migration manifest for §12.4 step 12 is **explicitly EMPTY**.
+>
+> Ruled by: **Neil Basu (owner)** · 2026-08-29
+
+### B12 — change-ledger closure
+
+> With CHG-G10-005 dispositioned (reclassified TEST/HARNESS, 08-27) and **CHG-G10-003 withdrawn
+> from this candidate** — PR #103's head `704ad57` is not an ancestor of `staging` and its own body
+> says "Do not merge" — **all nine ledger entries are terminal and none is UNINTENDED.**
+>
+> **The Change Ledger for this release is CLOSED.** §11 prerequisite 2 is satisfied.
+>
+> I accept that the Story row remains in the **staging** database (no reaper exists; `expires_at`
+> governs display only), and that the duplicate-file-input hazard that created it is carried to G11.
+>
+> Ruled by: **Neil Basu (owner)** · 2026-08-29
+
+### D-5 / AF-03 — production-CDN references in staging configuration
+
+> I accept **46 references** to `https://cdn.50mmretina.com` in staging `site_settings`, resolving
+> to **12 distinct production objects** across six keys.
+>
+> **Measured with controls on both origins: there is no cross-lane data leak** — the 12 objects
+> exist in production R2, are absent from staging R2, and the production CDN **refuses** them when
+> requested from a staging page.
+>
+> **I accept the two residual defects:** §15 row 1's negative criterion literally fails, and
+> staging renders broken ad/OG images on **29 routes**.
+>
+> **I accept that remediation was declined deliberately** — nulling the SEO keys would remove
+> `og:image` and `json_ld` entirely, converting a visible failure into a **vacuous pass** on §15
+> row 8, which is the exact anti-pattern the gate exists to prevent.
+>
+> **Control gap carried to G11:** the isolation guard scans **built code**; these references live in
+> **database rows** and are invisible to every R-rule and mutant. A data-side isolation scan is
+> required. The guard's 21/21 mutant result is **not** downgraded.
+>
+> ⚠ **Evidence class: INFERRED.** This ledger carries AF-03 from the 2026-08-27 record; it was
+> **not re-measured** on 2026-08-29. The owner ruled on the record as it stands.
+>
+> Ruled by: **Neil Basu (owner)** · 2026-08-29
+
+---
+
+## 23.5 · B13 — G9 EXCLUSION COUNTERSIGNATURE — ✅ RULED 2026-08-29
+
+**Ruled 2026-08-29T10:20Z by Neil Basu, in this session.** Superseding the HELD state recorded at
+REV-11 (preserved below, §23.5.4). Transcribed from the owner's own decision text; **two additions
+were made at the owner's explicit direction after the compiler's pre-check** (§23.5.2). **Not signed
+by the compiler.**
+
+### 23.5.1 · The owner's ruling — as accepted
+
+> **B13 — G9 EXCLUSION COUNTERSIGNATURE.**
+>
+> I accept B13 as a **documented, temporary risk acceptance** for this release.
+>
+> **I accept these four residual production risks, and I accept that they are LIVE TODAY, not
+> historical:**
+>
+> 1. **Pre-G9 CORS in all 71 production edge functions.** The deployed `_shared/secureHeaders.ts` is
+>    byte-identical across production (md5 `58b9f45d…`) and uses prefix matching with a
+>    `.lovable.app` wildcard.
+> 2. **`submit-judge-decision` answers `Access-Control-Allow-Origin: *`** — a judging-decision
+>    endpoint reachable from **any origin on the internet**. The source fix is in this candidate, but
+>    **edge functions do not auto-deploy from GitHub**, so production remains exposed until the
+>    function is deployed separately.
+> 3. **The storage-lane guard is absent in ten functions:** `s3-delete`, `s3-presign-upload`,
+>    `s3-signed-url`, `s3-upload`, `migrate-storage`, `hard-delete-competition`, `purge-s3-orphans`,
+>    `detect-orphan-files`, `backfill-image-dims`, `media-register-upload`.
+> 4. **Lane-config drift in eight functions**, including all three email functions.
+>
+> **My reasoning:**
+>
+> - Production is **ahead of** staging in three functions. A blanket staging-over-production deploy
+>   would be a regression, not a fix.
+> - **29 of 71** functions differ. That is too many to deploy blind alongside a Pages promotion.
+> - There is **no function-level rollback**. Supabase edge functions cannot be rolled back per
+>   function; the only rollback available is at the Pages level, which does not touch functions.
+> - Therefore separating the function deployment from this release **reduces** risk. Carrying the
+>   four risks for a bounded period is the lesser exposure.
+>
+> **Conditions of this acceptance:**
+>
+> 1. This acceptance is **temporary and bounded to this release**. It does not carry forward to any
+>    later release without being re-taken.
+> 2. **No edge function is deployed as part of this promotion.** The G9 function work is excluded
+>    from RC-20260829-05 entirely.
+> 3. The four risks above are carried into **G11** as open items, not closed here.
+> 4. Before any G9 function deployment, the **71 production function bundles must be captured AND
+>    HASHED** so the pre-deployment state is reconstructible. A captured snapshot alone is not
+>    sufficient; the hashes are required.
+> 5. **[ADDED — see §23.5.2]** Before any G9 function deployment, a **per-function review of the 29
+>    drifted functions** must be completed and recorded. **Three of the 29 must be resolved in the
+>    OPPOSITE direction from the other 26** — production holds the newer version in those three, and
+>    staging must not overwrite them. A blanket staging→production deploy is expressly prohibited.
+> 6. `submit-judge-decision` is treated as the **highest-priority** item of the four, because it is
+>    the only one where an unauthenticated third-party origin can reach a decision endpoint.
+> 7. The two findings below remain **unresolved and are not closed by this acceptance.**
+>
+> **Unresolved findings carried forward, not closed:**
+>
+> - **Cloudflare Zero Trust posture — NEED EVIDENCE.** Not measured; must not be recorded as pass.
+> - **Brevo API-key prefix logging — DEFERRED.** Known, accepted for now, still open.
+>
+> **Limits on what this acceptance authorises:**
+>
+> **Do not deploy functions, merge PR #104, apply migrations, create a tag, or perform production
+> writes merely because I have accepted B13.** Continue only with the remaining pre-promotion gates
+> and approvals.
+>
+> Ruled by: **Neil Basu (owner)** · Date (UTC): **2026-08-29** · **Not signed by the compiler.**
+
+### 23.5.2 · Pre-check performed before recording — and the two additions
+
+The owner instructed the compiler to **check the text before recording it** rather than transcribe it
+as given. That check was performed against the source document
+`claude/G10_S14_G9_EXCLUSION_RULING_AND_EXECUTION_2026-08-26.md`.
+
+| Item checked | Result |
+|---|---|
+| Four risks vs source | **MATCH** — verbatim, all four |
+| Reasoning (production ahead in 3 · 29/71 · no function-level rollback · Pages-only rollback) | **MATCH** |
+| Measurement `21 MATCH / 21 secureHeaders-only / 29 DRIFT / 0 UNKNOWN` | **MATCH** |
+| Two unresolved findings (Zero Trust, Brevo) | **MATCH** |
+| Owner's requirement to **hash** the 71 bundles | **STRONGER than source** — source asked only for a captured snapshot. Retained as written. |
+| Per-function review of the 29, with 3 opposite-direction | **GAP — present in source, absent from the owner's text** → added as condition 5 |
+| Currency of the 29/71 figures | **GAP — figures are as of 2026-08-26** → date-stamped, §23.5.3 |
+
+**Both gaps were put to the owner before recording. The owner directed: add both, then record.**
+Nothing was removed from the owner's text; the additions are marked `[ADDED]` in place.
+
+**Independent currency check performed by the compiler, 2026-08-29:** the live production
+`submit-judge-decision` function was fetched and read. It is **version 23, ACTIVE**, and its source
+still declares a local `corsHeaders` object containing `"Access-Control-Allow-Origin": "*"`.
+**Evidence class: VERIFIED.** Risk 2 is therefore live on the date of this ruling, not merely as of
+2026-08-26.
+
+### 23.5.3 · Evidence class and date-stamp of the measured basis
+
+> ⚠ **The 71-function comparison was taken on 2026-08-26 against `staging @ 702e5ce`.** The candidate
+> has moved since. **The drift counts have NOT been re-measured against RC-20260829-05.**
+>
+> | Element | Value | Class |
+> |---|---|---|
+> | `21 MATCH · 21 secureHeaders-only · 29 DRIFT · 0 UNKNOWN` | as of **2026-08-26**, staging `702e5ce` | **VERIFIED (as of that date) — NOT re-measured** |
+> | The four risks still standing on 2026-08-29 | production has **not** been redeployed since 08-26 | **VERIFIED** |
+> | `submit-judge-decision` v23 serving `*` on 2026-08-29 | live function source fetched and read | **VERIFIED** |
+> | Owner's reading of the measured basis | owner attestation | **OWNER-ATTESTED** |
+>
+> **The owner was shown this staleness before ruling and ruled on the record as it stands.** The
+> counts must be re-measured before condition 5's per-function review is carried out; the review may
+> **not** be performed against the 08-26 numbers.
+
+### 23.5.4 · Superseded state — preserved, not overwritten (§14 rule)
+
+**At REV-11, 2026-08-29T09:35Z, this section read: "B13 — HELD, NOT SIGNED."** The stated reason was
+that B13's text asserted *"I have read the measured basis"* — an assertion about the owner's state of
+knowledge that the compiler could not witness and would not transcribe.
+
+**That conclusion is preserved, not deleted.** It was correct at the time it was written. It was
+resolved — not reversed — by the owner reading the measured basis in session (the owner asked for it
+to be pasted and read it), and then issuing the ruling above in their own words. The compiler still
+does not attest to the owner's knowledge; **the owner does**, and that is recorded as
+**OWNER-ATTESTED**, not as VERIFIED.
+
+### 23.5.5 · What this ruling does NOT authorise
+
+Restated at the owner's explicit instruction, because this is the ruling most likely to be misread as
+a green light:
+
+| Action | Authorised by B13? |
+|---|---|
+| Deploy any edge function | ❌ **NO** — expressly excluded, condition 2 |
+| Merge PR #104 | ❌ **NO** |
+| Apply migration `20260828082136` | ❌ **NO** |
+| Create the release tag | ❌ **NO** |
+| Any production write | ❌ **NO** |
+| Proceed with the remaining pre-promotion gates (§24.1 steps 6–7) | ✅ yes — and only those |
+
+**§11 is now unblocked by B13. It remains unsignable while the §5.3 probe is un-run and §25 is
+vacant.**
+
+---
+
+## 23.3 · D-12 — G8 SUBSTITUTION, WAIVED AND ACCEPTED BY THE OWNER
+
+**Ruled 2026-08-29 by Neil Basu, in this session, after being shown the evidence, its class, and the
+fact that a prior substitution ruling on this same gate had been withdrawn.**
+
+> **§8.6 — R2 WRITE ISOLATION. PRECONDITION WAIVED; SCOPE OBSERVATION ACCEPTED.**
+>
+> I accept direct observation of the token's permission list as evidence that the staging storage
+> credential cannot write to the production bucket, **in place of** A.5's runtime negative test.
+>
+> **I waive** the 2026-08-27 signing pack's requirement that A.5's known-absent control be re-run
+> before any substitution ruling is signed. I do so on the recorded finding that **the control
+> cannot discriminate for a correctly-scoped token**: `50mm` and a non-existent bucket are both
+> outside the token's Access Policy, so both are refused at the authorization layer (`10003
+> AccessDenied`) before the existence check that would emit `10006 NoSuchBucket`. **Only a
+> credential broad enough to fail the gate could produce the answer the control asks for.**
+>
+> **I am aware** that a prior session's substitution ruling on this gate was withdrawn, and that
+> the signing pack marked it "intentionally left unsignable." This waiver is made knowingly.
+>
+> **I accept the evidence class:** the token's scope is **VERIFIED** by direct reading; runtime
+> enforcement is **INFERRED** from Cloudflare's documented deny-by-default Access Policy model,
+> **not observed**. Cloudflare's error-code reference documents both codes but is silent on
+> evaluation order.
+>
+> **I accept the residual limits:** §8.6 part 3 has an **after** measurement only — the production
+> bucket's `isolation-probe/` prefix returned **zero objects** at 2026-08-29T04:37:25Z — and **no
+> before baseline exists** for run `33079091310`, nor can one be created retroactively.
+>
+> **Evidence relied upon:**
+> 1. Token `staging-upload` (`73a7920647481fd93553f9c1f68bf5a3`) — **exactly one** permission policy: `R2 › 50mm-staging`, Bucket Item Write. **No policy names `50mm`.** Only token in the account.
+> 2. Owner-confirmed: `site_settings.s3_storage_settings.access_key_id` **equals that token id**; Cloudflare docs state verbatim *"Access Key ID: The `id` of the API token."*
+> 3. Run `33079091310`: the same credential, seconds apart, **succeeded** writing to `50mm-staging` and was **denied** writing to `50mm`. A credential erroring on everything could not have succeeded on the first.
+> 4. Production `50mm`, prefix `isolation-probe/` → **no objects matched**, measured 04:37:25Z.
+> 5. Precedent: `G9_CLOSURE_FINAL_2026-08-24.md` closed **G9 GREEN** on this same evidence class, naming this same token.
+>
+> **G8 recorded as: CLOSED WITH DOCUMENTED DEVIATION** — the substance of §8.6 part 2 is met; the
+> prescribed instrument was not used, and that substitution is this deviation.
+>
+> Ruled by: **Neil Basu (owner)** · Date (UTC): **2026-08-29** · Recorded in session, transcribed
+> verbatim from the owner's decision. **Not signed by the compiler.**
+
+---
+
+## 23.1 · B11 — SIX-FILE ROLLBACK BINDING — ✅ SIGNED 2026-08-29
 
 > ⚠ **Do not sign the 2026-08-27 five-file version.** It predates migration `20260828082136` and
 > would leave that migration **un-rollbackable**. This supersedes it.
@@ -1161,7 +1408,23 @@ owner action by construction — no session performs it.
 > * §17-9's Pages-deployment rollback covers the **web bundle only** and does **not** cover schema;
 > * `git revert` of the merge does **not** un-apply any migration.
 >
-> Signed: ______________________  Date (UTC): ____________
+> **Ruled by: Neil Basu (owner) · Date (UTC): 2026-08-29** · transcribed verbatim from the owner's
+> decision in session. **Not signed by the compiler.**
+>
+> **The owner was shown, and accepted, before ruling:**
+> * the set has **NEVER been executed against a live database** — it is written and reviewed only,
+>   so in an incident it would be untested SQL run against production under pressure;
+> * **file 0 deliberately reopens both RLS gaps** — a banned member could comment on ads again, and
+>   a hidden ad's thread would become readable again;
+> * **`git revert` of the merge does NOT un-apply any migration** — schema and code roll back
+>   separately;
+> * §17-9's Pages rollback covers **the web bundle only**;
+> * the 2026-08-27 five-file draft **would have left `20260828082136` un-rollbackable**, and is
+>   superseded by this six-file set.
+>
+> **The owner declined to test the set on staging first, and signed it as-is.** That choice is
+> recorded here rather than left implicit: **the rollback plan exists and is correct on paper; its
+> behaviour against a live database remains unverified.**
 
 ---
 
@@ -1169,7 +1432,7 @@ owner action by construction — no session performs it.
 
 > ⚠ **Must be signed AND the tag created BEFORE the merge** (§17-10). Tree equality after the merge
 > is asserted against **that tag**, not against T (§20).
-> ⚠ **Cannot be signed while items 3, 4 and 6 of §26 remain open**, and §25 is vacant.
+> ⚠ **G8 (D-12), B11 (§23.1), B8, B12, D-5 and now B13 (§23.5) are ALL RULED.** Still cannot be signed while **the §5.3 probe is un-run** and **§25 is vacant** — **two blockers remain**.
 
 | # | Field | Value |
 |---|---|---|
@@ -1178,9 +1441,9 @@ owner action by construction — no session performs it.
 | 3 | Candidate tree | `f4616fb680f863d1141491d9ab5f3b619c048f4b` |
 | 4 | Target | `main` at `b671e1fb0c5bcf145d442076c229eca888afd674` |
 | 5 | Gate status | 7 GREEN · 4 CLOSED-WITH-DEVIATION · G10 not reachable pre-merge (§10 ceiling) |
-| 6 | Deviations accepted | **D-1** `UNAPPLIED_` filenames · **D-5** AF-03 data-borne CDN refs · **D-7** 7 commits outside the 08-26 review · **G8** substitution *(if waived)* |
+| 6 | Deviations accepted | **D-1** `UNAPPLIED_` filenames · **D-5** AF-03 data-borne CDN refs · **D-7** 7 commits outside the 08-26 review · **G8** substitution — **waived, D-12 §23.3** |
 | 7 | Findings carried to G11 | AF-03 · AF-11 *(ruled D-8)* · AF-13 · AF-16 · **AF-20** |
-| 8 | Post-promotion obligations | **D-10** apply `20260828082136` · N2 cross-lane · §18 regression · deploy G9 edge functions |
+| 8 | Post-promotion obligations | **D-10** apply `20260828082136` · N2 cross-lane · §18 regression · **G9 edge-function deployment — gated by B13 conditions 4 and 5 (§23.5.1): 71 bundles captured AND HASHED first; per-function review of the 29 drift cases, 3 of them resolved in the OPPOSITE direction; drift counts RE-MEASURED (the 08-26 figures are stale). Blanket staging→production deploy expressly prohibited.** |
 |  | **Tag** | `______________________` *(create BEFORE merging)* |
 |  | **Signed** | `______________________`  Date (UTC): `____________` |
 
@@ -1196,7 +1459,7 @@ owner action by construction — no session performs it.
 2. **D-8** — rule on AF-11 (ACAO).
 3. **G8** — resolve (§10.2 / §23).
 4. **Confirm a `staging` Environment exists** with its own `SUPABASE_DB_URL` (§7.1), or `apply-migration.yml target=staging` cannot run.
-5. Sign B8, B11 (**six-file version**), B12, B13, D-5.
+5. ~~Sign B8, B11 (**six-file version**), B12, B13, D-5.~~ ✅ **ALL RULED** — B8/B12/D-5 §23.4 · B11 §23.1 · B13 §23.5.
 6. **§5.3 secret-isolation probe** — §5.3.6 requires it **immediately before** promotion. Running it early goes stale and must be repeated.
 7. **§11 approval signed AND tagged** — the tag must exist **before** the merge (§17-10).
 
@@ -1212,7 +1475,11 @@ owner action by construction — no session performs it.
 12. **🔴 APPLY M2 TO PRODUCTION** — `20260828082136_ad_comment_ban_and_visibility_policies.sql` via `apply-migration.yml`, `target=production`, from `main`. **Until this runs, both RLS gaps stay open in production even though the file is on `main`.** Verify: `pg_policies` on `ad_creative_comments` returns **9 rows**.
 13. **N2 cross-lane test** — only meaningful **after** the merge installs the gate on `main` (§12 row 12). ⚠ Execute **N2 only** (staging URL / production target). **Do NOT execute N1 as written** — it places a production credential in a staging Environment, and a gate failure would hit **production live member data**. Safe N1 substitute: dispatch `target=staging` from `main`, which trips gate 1 before any credential is read.
 14. **§18 regression suite** — post-promotion by construction.
-15. **Deploy the G9 edge-function fixes** — merging does **not** deploy them; `submit-judge-decision` keeps answering `*` until deployed.
+15. **Deploy the G9 edge-function fixes** — merging does **not** deploy them; `submit-judge-decision` keeps answering `*` until deployed. **⚠ B13 (§23.5) attaches four preconditions to this step, and they are binding:**
+    - **15a.** Capture **and HASH** all 71 production function bundles first. A snapshot without hashes does not satisfy condition 4.
+    - **15b.** **Re-measure** the drift. The `21/21/29/0` split is **as of 2026-08-26 @ `702e5ce`** and is stale against RC-20260829-05 (§23.5.3). The review may not be done against the old numbers.
+    - **15c.** Complete and record a **per-function review of the 29 drifted functions**. **Three of them must be resolved in the OPPOSITE direction** — production holds the newer version there and must not be overwritten by staging.
+    - **15d.** **A blanket staging→production deploy is expressly prohibited.** `submit-judge-decision` is the highest-priority single item (B13 condition 6).
 16. Android build from `main` — separate release, own versionCode, AF-13 unresolved.
 
 ---
@@ -1257,10 +1524,10 @@ owner action by construction — no session performs it.
 |---|---|---|
 | ~~1~~ | ~~UI gate RED on the candidate~~ — ✅ **RESOLVED.** Fixed, controlled, pinned, and **green in CI** (runs #123/#124) | AF-15 · D-9 |
 | ~~2~~ | ~~Merge conflict unresolved~~ — ✅ **RESOLVED.** Merge `9faf5a17` landed; blue taken; `tsc` clean, 2,475 tests pass; PR #104 **"Able to merge"** | §4.4 · D-6 |
-| 3 | **G8** — instrument not satisfied; substitution requires an explicit waiver | §10.2 · §23 |
+| ~~3~~ | ~~G8 instrument not satisfied~~ — ✅ **RESOLVED.** Owner waived the precondition and accepted scope observation (**D-12**, §23.3) | §10.2 · §23.3 |
 | 4 | **§5.3 secret-isolation probe never run**, and must run immediately pre-merge | §24.1 |
 | 5 | **§11 approval unsigned; 0 tags exist** | §23 |
-| ~~6~~ | ~~B11 rollback binding wrong~~ — ✅ **CORRECTED six-file text drafted, §23.1.** ☐ still **UNSIGNED** | §17.1 · §23.1 |
+| ~~6~~ | ~~B11 rollback binding~~ — ✅ **RULED 2026-08-29**, six-file set, §23.1. ⚠ carries an accepted limitation: **never executed against a live database** | §23.1 |
 | ~~7~~ | ~~AF-11 ACAO ruling not made~~ — ✅ **RULED:** accepted as `www` | D-8 |
 | 8 | **AF-17** — production missing 2 RLS policies. ✅ **RULED:** apply post-merge (D-10). ⚠ **ACTION STILL PENDING** — production DB write, owner-only | D-10 · §24.3 |
 | 9 | **No independent audit performed** | §25 |
@@ -1268,18 +1535,20 @@ owner action by construction — no session performs it.
 
 **Not blocking, recorded:** AF-13 (Android records) · AF-16 (version-stamp divergence) · AF-03/D-5 (accepted) · §15 rows 1 and 8 failing under D-5.
 
-**What would change this to READY FOR APPROVAL:** items 3, 4 and 6 resolved with evidence; §25 completed by an independent auditor; then §11 signed and tagged.
+**What would change this to READY FOR APPROVAL:** item 4 (§5.3 probe) run with evidence; §25 completed by an independent auditor; then §11 signed and tagged. Items 3 and 6 are closed.
 
 **Progress since REV-3:** blocker 1 (red UI gate) closed with direct evidence — reproduced, root-caused, fixed in both affected components, control-verified, mutation-pinned, CI-green. Blocker 2 (merge conflict) **executed and verified**. Blocker 7 (D-8) **ruled**. D-9 and D-10 **ruled**.
+
+**Progress at REV-12:** every owner decision and every signature block that was outstanding is now **RULED** — B8, B11, B12, B13, D-5, D-12. **No decision is waiting on the owner.** What remains is not a decision: it is one un-run instrument (§5.3), one vacant audit (§25), and one deferred production action (D-10, post-merge).
 
 **AF-19 was opened by measurement and closed the same day** — root-caused to a one-lane allowlist,
 fixed, control-verified and mutation-tested, with **no deviation carried**.
 
-**Every CI gate on the candidate is now GREEN.** Net **9 → 5 outstanding.**
+**Every CI gate on the candidate is now GREEN.** Net **9 → 4 outstanding** (B11 signed at REV-10; B13 ruled at REV-12).
 
-**Still outstanding:** G8 instrument (3) · §5.3 secret-isolation probe (4) · B11 **six-file**
-rollback binding (6) · the AF-17 production migration **action** (8 — ruled D-10, not executed) ·
-independent audit (9) · then §11 approval + tag.
+**Still outstanding:** §5.3 secret-isolation probe (4) · **§11 approval + tag** (5) · the AF-17
+production migration **action** (8 — ruled D-10, not executed, post-merge) · independent audit (9).
+**G8 (3) is closed — D-12. B11 (6) is signed — §23.1. B13 is ruled — §23.5.**
 
 ---
 
@@ -1327,7 +1596,11 @@ independent audit (9) · then §11 approval + tag.
 | REV-5 | 2026-08-29 07:55Z | **Auditor Option 3 pass.** §4.4 added: certificate conflict resolution prepared, editor loaded and marked resolved, **merged tree verified `tsc` clean + 2,475 tests** — but **"Commit merge" could not be actuated from this session**, so `origin/staging` is unchanged at `5a700d91` and **no merge commit exists**. Botched intermediate edit disclosed and discarded, nothing committed. **D-8 and D-10 framed with explicit options but NOT decided** — no owner ruling exists for either; the compiler does not make them |
 | REV-6 | 2026-08-29 08:20Z | **D-6 EXECUTED.** Merge `9faf5a17` (`main` → `staging`) landed taking staging's blue on all 6 hunks; verified `tsc` clean + **2,475 tests**, 0 markers, PR #104 **"Able to merge"**. **UI gate GREEN on the merge commit.** Owner decisions **D-8 (ACAO = `www`)**, **D-9 (tap-target fix)** and **D-10 (apply `20260828082136` post-merge)** recorded as RULED. 🆕 **AF-19** — secret scan RED: publishable key hardcoded in `web-build.yml` since `ccd5e423` (2026-08-22), **pre-existing, not a credential incident**, ruling **D-11** required |
 | REV-7 | 2026-08-29 08:30Z | **AF-19 CLOSED — and it was not what REV-6 assumed.** Root cause: `.gitleaks.toml` pinned only the **production** anon key; `ccd5e423` added a **second lane** and a **second anon key** (staging) that was never allowlisted. Both decoded and confirmed `role="anon"` — no `service_role` key, **no rotation required**. Fixed in `a42b209e`; verified with **real gitleaks 8.24.3** (control: 1 leak → 0) and **mutation-tested** (a synthetic `service_role` JWT is still caught). **PR #104: zero failing checks.** D-11 dissolved — a gap in an allowlist is a fix, not a deviation. Blockers 6 → 5 |
-| **REV-8** | **2026-08-29 08:45Z** | **Final verification pass on `d06b0379`.** tsc 0 · 2,475 tests · gitleaks clean on the CI range · **all CI gates green, zero failing**. §18 snapshot refreshed. 🆕 **AF-20** — the gate named "Secret scan (full history)" scans a *range*, not full history; an unrestricted scan returns 23 findings, **all pre-candidate**, none identifiable as a real secret (3 decoded as `role="anon"`, 1 documented client config, 19 `generic-api-key` **inferred**-not-verified). RECORD ONLY → G11. **§23.1 corrected SIX-file rollback binding** drafted (the 08-27 five-file draft would leave M2 un-rollbackable). **§23.2 §11 approval record pre-filled, unsigned** |
+| REV-8 | 2026-08-29 08:45Z | **Final verification pass on `d06b0379`.** tsc 0 · 2,475 tests · gitleaks clean on the CI range · **all CI gates green, zero failing**. §18 snapshot refreshed. 🆕 **AF-20** — the gate named "Secret scan (full history)" scans a *range*, not full history; an unrestricted scan returns 23 findings, **all pre-candidate**, none identifiable as a real secret (3 decoded as `role="anon"`, 1 documented client config, 19 `generic-api-key` **inferred**-not-verified). RECORD ONLY → G11. **§23.1 corrected SIX-file rollback binding** drafted (the 08-27 five-file draft would leave M2 un-rollbackable). **§23.2 §11 approval record pre-filled, unsigned** |
+| REV-9 | 2026-08-29 09:05Z | **G8 CLOSED — D-12.** Owner waived the 08-27 precondition and accepted token-scope observation in place of A.5's runtime test, after being shown the evidence class (scope VERIFIED, runtime enforcement INFERRED), the residual limits (after-only measurement, no before baseline), and the fact that a prior substitution ruling on this gate had been withdrawn. Full text §23.3. **G8 = CLOSED WITH DOCUMENTED DEVIATION.** Also corrected: the stale **REV-3** copy on `altisinfonet-patch-35` that was misleading the auditor is now synced to REV-8+. Blockers 5 → 4 |
+| REV-10 | 2026-08-29 09:20Z | **B11 RULED — six-file rollback binding signed** (§23.1), superseding the 08-27 five-file draft that would have left `20260828082136` un-rollbackable. Owner shown and accepted, before ruling, that the set has **never been executed against a live database**, that file 0 **deliberately reopens both RLS gaps**, and that `git revert` does not un-apply migrations. Owner **declined to test it on staging first** — recorded, not left implicit. Blockers 4 → 3 |
+| **REV-11** | **2026-08-29 09:35Z** | **B8, B12 and D-5 RULED** (§23.4) — dispositions, not evidence-attestations, which is why they could be taken together. **B13 DELIBERATELY HELD** (§23.5): its text asserts *"I have read the measured basis"*, which the compiler cannot witness and will not transcribe. B13 accepts four **live** production risks including `submit-judge-decision` answering `Access-Control-Allow-Origin: *`. **§11 remains unsignable while B13, the §5.3 probe and §25 are open** |
+| **REV-12** | **2026-08-29 10:20Z** | **B13 RULED** (§23.5) — supersedes the REV-11 HELD state, which is **preserved verbatim** at §23.5.4 rather than overwritten. Owner read the measured basis in session and ruled in their own words; the compiler **pre-checked the text against source before recording it** at the owner's instruction (§23.5.2). Text found substantially accurate; **two gaps found and, at the owner's direction, added**: (a) condition 5 — the per-function review of the 29 drift cases, of which **3 must be resolved in the OPPOSITE direction**, present in source but absent from the owner's draft; (b) a date-stamp on the `21/21/29/0` counts, which are **as of 2026-08-26 @ `702e5ce` and NOT re-measured** against RC-20260829-05 (§23.5.3). Compiler independently **VERIFIED** that production `submit-judge-decision` is **v23, ACTIVE, still serving `Access-Control-Allow-Origin: *`** — the risk is live today, not historical. Also corrected at this revision: the **B11 blocker row was stale from REV-10** and still read UNSIGNED; corrected, with the stale text preserved in the cell (§14 rule). **B13 authorises NOTHING further** — no function deploy, no merge, no migration, no tag, no production write (§23.5.5). Blockers 3 → 2 |
 
 ---
 
