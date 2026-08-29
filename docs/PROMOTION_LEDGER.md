@@ -6,7 +6,7 @@
 
 **Repository path:** `docs/PROMOTION_LEDGER.md` (canonical, on `staging`)
 **Ledger ID:** `LEDGER-50MM-001`
-**Status of this revision:** `REV-14 · 2026-08-29T11:20Z`
+**Status of this revision:** `REV-15 · 2026-08-29T11:42Z`
 
 ---
 
@@ -209,15 +209,45 @@ the head not-X. Without a terminating rule the ledger corrects itself forever an
    > directory, and a build script, generator, policy file or test could consume a file inside it, so
    > a blanket exception could silently carry stale CI forward.
    >
-   > **What was actually measured, stated exactly — because the reason matters more than the rule.**
-   > The compiler searched all **138** changed files for a runtime consumer of any `docs/` path.
-   > **Four files reference `docs/` and all four references are comments** — `.gitleaks.toml`,
-   > `src/components/__tests__/PrivacyGapDisclosed.test.ts`, `src/components/post/PrivacyGapNotice.tsx`
-   > and this ledger. **No file read, import or glob of a `docs/` path was found.**
-   > **The whole repository was NOT searched — only the changed set.**
+   > ### ⚠ THE REV-14 EVIDENCE FOR THIS RULE WAS FALSE — CORRECTED AT REV-15 (C-10)
    >
-   > **So the narrowing is a precaution, not a response to a demonstrated failure.** It is recorded
-   > that way deliberately: the burden is on proving *no* consumer, not on assuming one. Any
+   > **REV-14 stated, and it is preserved here verbatim because it must not be silently replaced:**
+   > *"The compiler searched all **138** changed files for a runtime consumer of any `docs/` path.
+   > **Four files reference `docs/` and all four references are comments** … **No file read, import
+   > or glob of a `docs/` path was found.** … **So the narrowing is a precaution, not a response to a
+   > demonstrated failure."***
+   >
+   > **That is wrong.** Independent audit round 3 measured **10** changed files referencing `docs/`,
+   > and at least one reference is **executable**:
+   > **`src/__tests__/candidatePatternWidening.test.ts` reads `docs/CANDIDATE_PATTERN_AUDIT.md`.**
+   > The wider repository contains further tests and scripts that consume `docs/` files.
+   >
+   > **The broad `docs/`-only exception would therefore have been unsafe for a DEMONSTRATED reason,
+   > not as a precaution.** The rule as narrowed was right; the reason given for it was not.
+   >
+   > **Why the compiler got it wrong — the instrument, not the arithmetic.** The REV-14 search read
+   > the **diff hunks**, not the **file contents**. A diff shows only changed lines, so a `docs/`
+   > reference sitting in an untouched part of a changed file is invisible to it. The file above is
+   > exactly that case. **A search that is scoped wrong returns a confident, clean, false answer.**
+   >
+   > **Corrected instrument and what each party measured — kept separate, not blended:**
+   >
+   > | Measurement | By | Instrument | Result |
+   > |---|---|---|---|
+   > | 138 changed files, whole-file | **auditor, round 3** | independent, whole-repository | **10** files reference `docs/`; ≥1 executable |
+   > | `candidatePatternWidening.test.ts` is in the changed set, 463 lines, contains a `docs/` path adjacent to a file reader | compiler | whole-file property probe | ✅ **CONFIRMED** |
+   > | 40 of 138 files (all tests, scripts, workflows, configs), whole-file | compiler | whole-file scan | **5** reference `docs/`, **1 executable** — a **lower bound**, not a total |
+   > | Executable consumer of **`PROMOTION_LEDGER.md`** among those 40 | compiler | whole-file scan | **none** — the only reference is a **comment in `.gitleaks.toml`** |
+   >
+   > ⚠ **Limit on the compiler's confirmation:** the contents of
+   > `src/__tests__/candidatePatternWidening.test.ts` **could not be read** — the fetch is refused by
+   > a content filter, consistent with a secret-pattern test file carrying sample credential strings.
+   > The confirmation above is therefore **by property test, not by reading the code.** Recorded
+   > rather than glossed.
+   >
+   > **What the narrowed rule now rests on:** every commit after `a42b209e` changes **only
+   > `docs/PROMOTION_LEDGER.md`**, and **no executable consumer of that one file was found**. That is
+   > the evidence, and it is narrower than what REV-14 claimed. Any
    > `docs/`-only commit that touches **anything other than this ledger** must be examined for build,
    > test, generator, policy or deployed-artifact effects **before** prior CI may carry forward.
 2. **A commit touching anything outside `docs/` DOES create a new application RC.** It voids the
@@ -229,6 +259,16 @@ the head not-X. Without a terminating rule the ledger corrects itself forever an
 4. **The tag is created LAST and binds the actual head.** The tag is created after the freeze point
    and immediately before the merge, against `git rev-parse staging` **read at that moment** — not
    against any SHA quoted in this document. §20's tree-equality assertion is made against **the tag**.
+
+6. **EVERY SEARCH DECLARES ITS SCOPE — new at REV-15 (C-10).** No claim of the form *"I searched X
+   and found Y"* may be written without stating **what was searched** (diff hunks? changed files?
+   whole repository?), **with which command or pattern**, and **what was NOT searched**. A search
+   whose scope is unstated is not evidence, whatever it found.
+
+   > **Why this rule exists.** C-10 is one missing word. "The compiler searched all 138 changed
+   > files" was false only because the search read *diffs of* those files rather than the files. The
+   > sentence looked complete, carried a number, and was wrong. **Rule 5 makes a figure state its
+   > basis; rule 6 makes a search state its reach.** They fail in the same way and are the same fix.
 
 5. **EVERY FIGURE CARRIES ITS BASIS — new at REV-14 (C-9).** No count, SHA, tree, line total or CI
    result may be written in this ledger as a bare value. Each must carry **what was measured, with
@@ -1097,6 +1137,7 @@ adjudicate the 23, or rename the gate to state its true scope.
 | **C-4** | `UNAPPLIED_20260820140000_classF_repoint_originals_ROLLBACK.sql` described as *"orphan — no forward migration"* | 08-27 prep ledger | `schema_migrations`: `20260820180836 classf_repoint_originals` **applied in production** | Accurate **as to this RC**; the forward migration **does exist and is applied** | Its G11 disposition is a rename, not an investigation |
 | **C-5** | *"CHG-G10-003 (PR #103) blocks ledger closure"* (AF-14 deadlock) | 08-27 prep ledger | `704ad57` is **not an ancestor of `staging`**; PR #103 body says *"Do not merge"* | **PR #103 is not in T.** The deadlock dissolves — it was never in this candidate's scope | AF-14 downgraded from blocker to resolved |
 | **C-6** | RC-20260826-01 (`e2e05fbb`) treated as the promotion candidate | 08-26/27 audit set | 7 commits landed since; owner elected current `staging` | **RC-20260826-01 is VOID.** Candidate is `25c0456` | The 08-26/27 audit does **not** cover 7 of the 32 commits, incl. the one that broke the UI gate |
+| **C-10** | REV-14 §3.5 rule 1: *"The compiler searched all **138** changed files … **Four files reference `docs/` and all four references are comments** … **No file read, import or glob of a `docs/` path was found** … **the narrowing is a precaution, not a response to a demonstrated failure**."* Repeated in the §25.5 additions list and the REV-14 revision row | REV-14, written by the compiler | **Independent audit round 3** (§25.6): **10** changed files reference `docs/`, at least one **executable** — **`src/__tests__/candidatePatternWidening.test.ts` reads `docs/CANDIDATE_PATTERN_AUDIT.md`**; the wider repository holds further consumers. **Compiler re-derivation with the corrected instrument:** that file **is** among the 138, is **463 lines**, and contains a `docs/` path adjacent to a file reader — ✅ **CONFIRMED**. A whole-file scan of **40 of 138** (tests, scripts, workflows, configs) found **5** referencing `docs/`, **1 executable** — a **lower bound, not a total**. **The figure 10 is the auditor's and is NOT restated as a compiler measurement.** ⚠ The offending file's **contents could not be read** — the fetch is refused by a content filter, consistent with a secret-pattern test carrying sample credential strings; confirmation is therefore **by property test, not by reading the code** | **The statement was FALSE and is preserved verbatim, struck through, in §3.5 rule 1 and §25.5 — not replaced.** The **rule stands as narrowed**; its stated reason is corrected — the broad `docs/`-only exception would have been unsafe for a **DEMONSTRATED** reason. What the rule now rests on: every commit after `a42b209e` changes only `docs/PROMOTION_LEDGER.md`, and **no executable consumer of that one file was found** — the sole reference is a **comment in `.gitleaks.toml`**. **New §3.5 rule 6: every search declares its scope.** Also corrected: REV-14's *"exactly two prerequisites"* while the B11 decision was open — **three** are now stated (§26), of which B11 is resolved | **Root cause: the instrument, not the arithmetic.** The search read **diff hunks**, not **file contents**; a diff shows only changed lines, so a reference in an untouched part of a changed file is invisible. **A wrongly-scoped search returns a confident, clean, false answer.** Third compiler error in three audit rounds, all one shape — **conclusions stated above the confidence the instrument supports** — named as a pattern at §25.6.1 rather than filed as three unrelated slips |
 | **C-9** | Nine claims left **active** at REV-13, four of them **written or left standing by the compiler at REV-13 itself**: (a) §5 — *"135 files: 29 added · 106 modified · 0 deleted … **Class: VERIFIED**"*, headings ADDED (29) / MODIFIED (106) / Commit manifest (32), and the repro command `git diff --name-status b671e1fb 25c0456`; (b) §27 rows 1, 2, 10, 20, 21 — *"135 = 29 A + 106 M"*, *"32 enumerated + 2 main-only"*, *"D-8, 9, 10 **OPEN**"*, *"§25 **vacant**"*, *"§23 **all unsigned**"*; (c) §3.2 — non-`docs/` files **137**; (d) §3.5 rule 1 — *"a commit touching only `docs/` is a governance commit"*; (e) §25.4 — six-item list not mapped to the §25.3 rows, silent on whether owner re-measurement closes them; (f) §25.1 — did not say the audit excludes the application code; (g) §3.3 — headed *"CI state at **T**"* where `T` = the **void** `25c0456`; (h) the *"§5.3 probe"* references, colliding with **this ledger's own §5.3** (a file manifest); (i) §17.1 heading + the **owner-signed** §23.1 binding naming **`d06b0379`** as the RC | REV-13 · items (a)–(f) at REV-13, (g)–(i) inherited | **Independent audit round 2** (§25.5) found (b)–(f). **Compiler sweep at REV-14** found (a), (g), (h), (i). Re-measured 11:05Z: **138 files = 31 A + 107 M + 0 D**, `docs/` = **2** (`DECISIONS.md`, `PROMOTION_LEDGER.md`), **non-`docs/` = 136**; **46 commits / 44 excluding merges**; **+9,680 / −1,293**; **17 checks — 15 success, 2 skipped, 0 failing** at `393bc558`. Delta from the `25c0456` enumeration is exactly **5 files** and reconciles: 135 + 2 A + 1 newly-M = 138 | **All corrected at REV-14.** §5 gains §5.0 (current) + §5.0.1 (exact 5-file delta) instead of a 138-row retype; §27 restated with a basis line and rows 20/21 **split** (owner decisions RULED vs §11 approval UNSIGNED); §3.2 non-`docs/` → **136**; §3.5 rule 1 narrowed to **`docs/PROMOTION_LEDGER.md` only**; §25.4 rewritten with **one row per §25.3 instrument** and a **closure rule** (owner re-measurement is OWNER-ATTESTED, **not** an audit); §25.1 states the audit **excludes the 138 changed files and the test suite**; §3.3 re-based off the void SHA; references relabelled **"runbook §5.3"**. **§17.1/§23.1: the signed text is NOT edited** — a correction is attached and the re-signature is put to the owner (§26). Prior wording preserved in place | **Root cause: fixing only the sections an auditor names.** C-2, C-6, C-8 and C-9 are one failure four times — a figure written without its basis, then carried. Three audit rounds each found stale actives the last missed. **New §3.5 rule 5 — every figure carries its basis or is marked historical — plus the REV-14 sweep, exist to prevent a C-10 of this shape** |
 | **C-8** | Five linked identity/scope claims, all carried as **VERIFIED** through REV-12: (a) §1 **RC SHA `d06b0379…`**, tree `f4616fb6…`; (b) §3.1 **`25c0456…` as the "immutable candidate"**, tree `51616b21…`; (c) §3.2 **32 commits · 135 files · +7,711 / −1,280**, and three-dot **151 files / +10,795 / −1,578**; (d) §4.2 ***"`main` carries 2 commits absent from `staging`"***; (e) PR #104 title ***"— 32 commits"*** | REV-1 … REV-12 | Independent audit 2026-08-29 (§25.1) + compiler re-measurement 10:40–10:45Z. **`main` is now an ANCESTOR of `staging`** (merge `9faf5a17`). Head at audit `fe63e944`, tree `5b00b690…`. `main…staging` = **45 commits counting merges / 43 excluding** · **138 files** (31 added, 107 modified, 0 deleted) · **+9,494 / −1,293**. And, found by the compiler and **not** by the auditor: **`d06b0379` is a docs-only commit — the REV-7 ledger save.** `git diff a42b209e...fe63e944` = **one file, `docs/PROMOTION_LEDGER.md` only** | **All five corrected at REV-13.** Application RC is **`a42b209e…`**; application scope is **+9,060 / −1,293** (the extra 434 lines are this ledger); identity is now recorded in **two layers** (§3.1) under a **freeze rule** (§3.5); ancestry corrected (§4.2); PR title corrected. **Previous values preserved in §3.1, §3.2, §4.1 and §4.2, not deleted** | **Root cause: the ledger lives inside the repository it describes, so recording the head changes the head.** Fixed structurally by §3.5, not by re-measuring. Every earlier revision was self-invalidating on save; C-8 is the first revision that says so |
 | **C-7** | Compiler drafted a G9 countersignature and rollback binding as *"ready to sign"* | This session, 05:55Z | Both assert *"I have read…"* facts only the owner can attest | **Not signable by the compiler, and not pre-attestable.** Drafts remain drafts | §23 signatures stay open |
@@ -1620,7 +1661,35 @@ fact that a prior substitution ruling on this same gate had been withdrawn.**
 
 ---
 
-## 23.1 · B11 — SIX-FILE ROLLBACK BINDING — ✅ SIGNED 2026-08-29
+## 23.1 · B11 — SIX-FILE ROLLBACK BINDING — ✅ SIGNED 2026-08-29 · ✅ **RE-SIGNED 2026-08-29T11:42Z**
+
+### 23.1.0 · RE-SIGNATURE — owner ruling, 2026-08-29T11:42Z (C-9 / C-10)
+
+**Reason.** The signed text below names `d06b0379776aef94d006d78b1de37a0cda685927` as the candidate.
+**C-8 established that commit is the REV-7 ledger save — a docs-only commit, not the application RC.**
+The compiler did not and will not edit signed words; the owner was asked to settle it and chose to
+re-sign. The auditor's round-3 verdict recommended exactly this.
+
+> **B11 — RE-SIGNED.**
+>
+> **I re-sign B11 against application/code RC `a42b209e4f70a6efed4f3dcdb654e0f994416594`.**
+> **The six named rollback files, their reverse order, and all previously accepted limitations remain
+> unchanged.**
+>
+> Ruled by: **Neil Basu (owner)** · Date (UTC): **2026-08-29** · **Not signed by the compiler.**
+
+**What this changes:** the identifier only. **What it does not change:** the six files, their reverse
+execution order (0 → 5), and every limitation the owner accepted on 2026-08-29 — in particular that
+**the set has never been executed against a live database**, that **file 0 deliberately reopens both
+RLS gaps**, and that **`git revert` does not un-apply migrations** (§17.2).
+
+**Why the substance was never at risk:** the rollback set is defined by **six named files**, not by a
+SHA, and those six files are byte-identical in `d06b0379` and `a42b209e` — every commit between them
+touches only `docs/PROMOTION_LEDGER.md` (§3.1 Layer 1).
+
+**The original signature is retained below, unedited.** It is superseded, not deleted (§14).
+
+### 23.1.1 · Original signature — 2026-08-29, superseded by §23.1.0
 
 > ⚠ **Do not sign the 2026-08-27 five-file version.** It predates migration `20260828082136` and
 > would leave that migration **un-rollbackable**. This supersedes it.
@@ -1893,9 +1962,59 @@ compiler's own REV-13 work, not to inherited text**, and are recorded as such in
 5. **§17.1 — the OWNER-SIGNED rollback binding names `d06b0379` as the RC**, which C-8 established is
    a docs-only commit. **A signed instrument must not be edited by the compiler**; a correction note
    is attached instead and the re-signature decision is put to the owner. See §17.1 and §26.
-6. **Rule-1 evidence stated honestly.** The auditor's stated mechanism — executable files consuming
+6. ~~**Rule-1 evidence stated honestly.** The auditor's stated mechanism — executable files consuming
    `docs/` — was **not demonstrated** in the 138 changed files: all four `docs/` references there are
-   comments. The rule is narrowed anyway, recorded as **a precaution, not a demonstrated failure**.
+   comments. The rule is narrowed anyway, recorded as **a precaution, not a demonstrated failure**.~~
+   🔴 **THIS ITEM WAS FALSE — see C-10 and §25.6.** The search read diff hunks, not file contents.
+   The auditor's mechanism **was** demonstrated: `src/__tests__/candidatePatternWidening.test.ts`,
+   one of the 138, reads `docs/CANDIDATE_PATTERN_AUDIT.md`. **Struck through, not deleted.**
+
+
+## 25.6 · AUDIT ROUND 3 — 2026-08-29, REV-14 — **PARTIAL** (repository/governance only)
+
+**Auditor:** the same independent auditor, relayed by **Neil Basu (owner)** 2026-08-29.
+**Transcribed by the compiler with attribution.** Same scope limit as rounds 1 and 2: **read-only,
+repository and governance only** — not the 138 changed files, not the test suite, and **no access**
+to any §25.3 instrument. **Blocker 9 remains PARTIAL.**
+
+### Verified by the auditor at REV-14 — all confirmed by the compiler
+
+`staging daaf4c12…78d2` · `main b671e1fb…d674` · auditor branch `02da6734…a1c4` · ledger blob
+`1db45be9…ce5b` · SHA-256 `7621c8e7…a661f` · **154,744 bytes** · **zero tags** · **47 commits / 45
+excluding merges** · **138 files: 31 A, 107 M, 0 D — 2 docs, 136 non-docs** · **+9,906 / −1,293** ·
+only `docs/PROMOTION_LEDGER.md` changed after `a42b209e` · PR #104 open, clean, mergeable ·
+**exact-head CI COMPLETED: 17 checks — 15 success, 2 expected skipped, 0 failing.**
+
+> **Note on the CI line.** REV-14 recorded the rollup as **still running, 8 checks pending, not
+> green**. It has since completed with **zero failing**. **REV-14 was right not to claim green**;
+> this is the deferred reading, taken at the same head. Rule 5 operating as intended.
+
+### The auditor's finding — C-10, a false statement by the compiler
+
+REV-14 claimed all 138 changed files were searched and **four** referenced `docs/`, all in comments,
+so the narrowing was *"a precaution, not a demonstrated failure."* **The auditor measured 10 changed
+files with `docs/` references and at least one executable consumer.** Full treatment in §3.5 rule 1
+and §14 C-10. **The compiler confirmed the executable consumer independently and did not re-derive
+the figure 10** — that figure is the auditor's, attributed, and is not restated as a compiler
+measurement.
+
+### 25.6.1 · ⚠ THE COMPILER'S FAILURE PATTERN — named, because three corrections are not three accidents
+
+Across three audit rounds the compiler produced three errors of **one kind**:
+
+| Round | Error | Instrument that produced it |
+|---|---|---|
+| 2 | non-`docs/` files given as **137** | assumed one `docs/` file without counting |
+| 3 | *"four files, all comments, a precaution"* | searched **diff hunks**, not file contents |
+| — | `d06b0379` carried as the RC for ten revisions *(self-caught, C-8)* | never checked what the commit actually changed |
+
+**The pattern is not carelessness with numbers. It is stating a conclusion at a higher confidence
+than the instrument behind it supports** — and then writing that conclusion in a register whose
+whole purpose is that conclusions can be trusted.
+
+**§3.5 rules 5 and 6 exist against exactly this**: rule 5 forces a figure to carry its basis, rule 6
+forces a search to declare its reach. **Neither rule would have been written without an auditor.**
+That is the argument for §25 remaining open — not process, but a measured 3-for-3 catch rate.
 
 
 ---
@@ -1913,23 +2032,32 @@ compiler's own REV-13 work, not to inherited text**, and are recorded as such in
 | ~~3~~ | ~~G8 instrument not satisfied~~ — ✅ **RESOLVED.** Owner waived the precondition and accepted scope observation (**D-12**, §23.3) | §10.2 · §23.3 |
 | 4 | **runbook §5.3 secret-isolation probe never run**, and must run immediately pre-merge | §24.1 |
 | 5 | **§11 approval unsigned; 0 tags exist** | §23 |
-| ~~6~~ | ~~B11 rollback binding~~ — ✅ **RULED 2026-08-29**, six-file set, §23.1. ⚠ carries an accepted limitation: **never executed against a live database** | §23.1 |
+| ~~6~~ | ~~B11 rollback binding~~ — ✅ **RULED 2026-08-29**, six-file set, **RE-SIGNED 11:42Z against code RC `a42b209e`** (§23.1.0). ⚠ carries an accepted limitation: **never executed against a live database** | §23.1 |
 | ~~7~~ | ~~AF-11 ACAO ruling not made~~ — ✅ **RULED:** accepted as `www` | D-8 |
 | 8 | **AF-17** — production missing 2 RLS policies. ✅ **RULED:** apply post-merge (D-10). ⚠ **ACTION STILL PENDING** — production DB write, owner-only | D-10 · §24.3 |
 | 9 | **Independent audit — ROUNDS 1 AND 2 COMPLETE, BOTH PARTIAL.** Repository/governance half audited (§25.1). **Infrastructure half NOT audited** — production + staging DB policy state, deployed edge functions, R2 policy, GitHub Environments, all dashboard claims are **INSUFFICIENT EVIDENCE** (§25.3). **Neither round reviewed the 138 changed files or re-ran the test suite** (§25.1). Needs a round with database and dashboard access — see the **closure rule** at §25.4: owner re-measurement is OWNER-ATTESTED and does **not** close these rows | §25.1 · §25.5 · §25.3 · §25.4 |
 | ~~10~~ | ~~AF-19 — secret scan RED~~ — ✅ **RESOLVED** by `a42b209e`. Root cause was a one-lane allowlist never extended to two. Control-verified and mutation-tested. **No deviation carried** | §13.2 |
 
-**⚠ OPEN OWNER DECISION, not blocking but not resolved (C-9):** the **owner-signed** B11 rollback binding (§23.1) names `d06b0379` as the RC — a **docs-only commit**. The rollback set itself is unaffected (it is defined by six named files, identical in both commits). Either **re-sign B11 naming `a42b209e`**, or **let the signature stand with the §17.1 correction attached**. **The compiler has not chosen, and will not edit signed text.**
+**✅ CLOSED — the B11 identity decision (C-9).** The owner **re-signed B11 at 11:42Z against application/code RC `a42b209e4f70a6efed4f3dcdb654e0f994416594`** (§23.1.0), six files and all accepted limitations unchanged. The original signature is retained unedited and marked superseded. **The compiler did not edit signed text at any point.**
 
 **Not blocking, recorded:** AF-13 (Android records) · AF-16 (version-stamp divergence) · AF-03/D-5 (accepted) · §15 rows 1 and 8 failing under D-5.
 
-**What would change this to READY FOR APPROVAL — exactly two prerequisites:**
+**What would change this to READY FOR APPROVAL — THREE prerequisites (corrected at REV-15, C-10).**
 
-1. **runbook §5.3 secret-isolation probe run**, with evidence (blocker 4).
-2. **Independent audit COMPLETED** — round 1 (§25.1) is partial; round 2 must cover the six
-   INSUFFICIENT-EVIDENCE instruments of §25.3 (blocker 9).
+> REV-13/REV-14 said *"exactly two"* while the B11 identity decision was simultaneously logged as
+> open. **That was a contradiction inside a single revision**, and the auditor was right to reject it.
 
-**READY FOR APPROVAL is not permission to merge.** After both prerequisites:
+1. ~~**B11 identity resolution.**~~ ✅ **RESOLVED 2026-08-29T11:42Z** — the owner **re-signed B11
+   against application/code RC `a42b209e4f70a6efed4f3dcdb654e0f994416594`**; six files, reverse order
+   and all accepted limitations unchanged (§23.1.0). **No longer outstanding.**
+2. **Independent infrastructure audit COMPLETED** — three rounds done (§25.1, §25.5, §25.6), **all
+   repository/governance only**. What remains is every row of §25.3 under the **closure rule** at
+   §25.4: **owner re-measurement is OWNER-ATTESTED and does not close an audit row.** Also
+   outstanding: **no party has reviewed the 138 changed files or re-run the test suite** (blocker 9).
+3. **Runbook §5.3 secret-isolation probe**, run **immediately before** approval/promotion — running
+   it early goes stale and it must be repeated (blocker 4).
+
+**READY FOR APPROVAL is not permission to merge.** After those prerequisites:
 
 - **§11 owner approval must still be signed, and the tag still created** (§23.2, §3.5 rule 4). These
   remain **mandatory** and are not satisfied by any audit.
@@ -2012,7 +2140,8 @@ evidence class that §1's rules forbid.
 | **REV-11** | **2026-08-29 09:35Z** | **B8, B12 and D-5 RULED** (§23.4) — dispositions, not evidence-attestations, which is why they could be taken together. **B13 DELIBERATELY HELD** (§23.5): its text asserts *"I have read the measured basis"*, which the compiler cannot witness and will not transcribe. B13 accepts four **live** production risks including `submit-judge-decision` answering `Access-Control-Allow-Origin: *`. **§11 remains unsignable while B13, the runbook §5.3 probe and §25 are open** |
 | **REV-12** | **2026-08-29 10:20Z** | **B13 RULED** (§23.5) — supersedes the REV-11 HELD state, which is **preserved verbatim** at §23.5.4 rather than overwritten. Owner read the measured basis in session and ruled in their own words; the compiler **pre-checked the text against source before recording it** at the owner's instruction (§23.5.2). Text found substantially accurate; **two gaps found and, at the owner's direction, added**: (a) condition 5 — the per-function review of the 29 drift cases, of which **3 must be resolved in the OPPOSITE direction**, present in source but absent from the owner's draft; (b) a date-stamp on the `21/21/29/0` counts, which are **as of 2026-08-26 @ `702e5ce` and NOT re-measured** against RC-20260829-05 (§23.5.3). Compiler independently **VERIFIED** that production `submit-judge-decision` is **v23, ACTIVE, still serving `Access-Control-Allow-Origin: *`** — the risk is live today, not historical. Also corrected at this revision: the **B11 blocker row was stale from REV-10** and still read UNSIGNED; corrected, with the stale text preserved in the cell (§14 rule). **B13 authorises NOTHING further** — no function deploy, no merge, no migration, no tag, no production write (§23.5.5). Blockers 3 → 2 |
 | **REV-13** | **2026-08-29 10:50Z** | **C-8 — the identity/scope correction, after independent audit round 1 (§25.1).** Five linked claims carried as VERIFIED since REV-1 were stale or wrong: RC SHA, "immutable candidate", commit/file/line counts, branch ancestry, PR title. All corrected; **every previous value preserved** in §3.1, §3.2, §4.1, §4.2 and §14, none deleted. **Root cause named, not just the symptom: this ledger lives inside the repository it describes, so writing down the head changes the head.** Every prior revision was self-invalidating on save. Fixed structurally by the new **§3.5 FREEZE RULE** — `docs/`-only commits are declared *governance commits* that do not create a new RC; anything outside `docs/` does; the ledger freezes at §11 signature; and the **tag is created last, against `git rev-parse staging` read at that moment**, because this file can never name the commit that will merge. **Found by the compiler and not by the auditor: `d06b0379`, recorded as the RC since REV-3, is a docs-only commit — the REV-7 ledger save.** The application RC is **`a42b209e…`**, proven by `git diff a42b209e...fe63e944` returning **one file, `docs/PROMOTION_LEDGER.md`, and nothing outside `docs/`**. Identity is now **two-layered** (§3.1). Counts split by question: application scope **+9,060 / −1,293**; total scope **+9,494 / −1,293** (the extra 434 lines are this ledger); **45 commits counting merges / 43 excluding** — both recorded with instrument, rather than one number offered as "the" count (the C-2 lesson). Ancestry corrected: **`main` is now an ANCESTOR of `staging`** via `9faf5a17`. PR #104 title and body corrected from "32 commits". **§25 opened with the auditor's findings, attributed and transcribed — and classified PARTIAL.** The auditor had no access to the databases, edge functions, R2, Cloudflare or GitHub Environments; those six instruments are recorded **INSUFFICIENT EVIDENCE, not VERIFIED** (§25.3), and §25.2 records that the auditor's own CI evidence was superseded by this commit. Blocker 9 is **partially** closed, not closed. **Disposition stays 🔴 NOT READY**, with the two prerequisites to READY FOR APPROVAL stated explicitly — and with the reminder that READY FOR APPROVAL is still not permission to merge: §11 signature and the tag remain mandatory, and AF-17 remains post-merge |
-| **REV-14** | **2026-08-29 11:20Z** | **C-9 — the staleness sweep, after independent audit round 2 (§25.5).** Nine active claims corrected, **four of them written or left standing by the compiler at REV-13 itself** — recorded as the compiler's own errors, not inherited ones. **Auditor found:** §27 actively stale; §3.2 non-`docs/` count **137 → 136** (there are **two** docs files, `DECISIONS.md` and `PROMOTION_LEDGER.md`); §3.5 rule 1 too broad; §25.4 not mapped to §25.3; §25.1 over-claiming code coverage. **Compiler sweep additionally found, and the auditor did not:** (i) **§5, the complete file manifest, was actively stale for nine revisions** — "135 files: 29 A · 106 M … **VERIFIED**", ADDED (29), MODIFIED (106), Commit manifest (32) — while §27 row 1 cited it, so fixing §27 alone would have left the two contradicting; (ii) **§3.3 was anchored to the void SHA `25c0456`** ("CI state at T"); (iii) the **"§5.3 probe" references collide with this ledger's own §5.3**, a file manifest, sending auditors to the wrong section; (iv) **the OWNER-SIGNED B11 binding (§23.1) names `d06b0379` — a docs-only commit — as the RC.** **§5 corrected by exact delta, not retype:** the difference from the `25c0456` enumeration is **5 files** and reconciles precisely — 135 + 2 added (`docs/PROMOTION_LEDGER.md`, `SummaryTriggerTapTarget.test.ts`) + 1 newly-modified (`.gitleaks.toml`) = **138**. Only three commits in the delta touch code (`bfcb68da`, `c8aec5d5`, `a42b209e`); the rest are ledger revisions. **Rule 1 narrowed to `docs/PROMOTION_LEDGER.md` only** — and the evidence stated honestly rather than restating the auditor's mechanism as fact: all **138** changed files were searched and **all four `docs/` references are comments**, no runtime consumer found, **whole repo not searched**, so the narrowing is recorded as **a precaution, not a demonstrated failure**. **§25.4 rewritten with one row per §25.3 instrument and a CLOSURE RULE: owner re-measurement is OWNER-ATTESTED and does not close an audit row** — closure needs a separate auditor with read-only access, or an export that auditor can independently validate. **§25.1 now states the audit excludes the 138 changed files and the test suite**; nobody may cite it as review of the code RC. **§17.1/§23.1: the signed text was NOT edited.** A correction is attached beside it and the **re-signature decision is put to the owner** (§26) — the rollback set is file-defined and unaffected. **Structural fix, because this is the third round of "you missed one": new §3.5 rule 5 — every figure carries its basis (what, which instrument, which SHA, which time) or is marked historical.** C-2, C-6, C-8 and C-9 are the same failure four times. **Disposition unchanged: 🔴 NOT READY; §25 PARTIAL** |
+| **REV-14** | **2026-08-29 11:20Z** | **C-9 — the staleness sweep, after independent audit round 2 (§25.5).** Nine active claims corrected, **four of them written or left standing by the compiler at REV-13 itself** — recorded as the compiler's own errors, not inherited ones. **Auditor found:** §27 actively stale; §3.2 non-`docs/` count **137 → 136** (there are **two** docs files, `DECISIONS.md` and `PROMOTION_LEDGER.md`); §3.5 rule 1 too broad; §25.4 not mapped to §25.3; §25.1 over-claiming code coverage. **Compiler sweep additionally found, and the auditor did not:** (i) **§5, the complete file manifest, was actively stale for nine revisions** — "135 files: 29 A · 106 M … **VERIFIED**", ADDED (29), MODIFIED (106), Commit manifest (32) — while §27 row 1 cited it, so fixing §27 alone would have left the two contradicting; (ii) **§3.3 was anchored to the void SHA `25c0456`** ("CI state at T"); (iii) the **"§5.3 probe" references collide with this ledger's own §5.3**, a file manifest, sending auditors to the wrong section; (iv) **the OWNER-SIGNED B11 binding (§23.1) names `d06b0379` — a docs-only commit — as the RC.** **§5 corrected by exact delta, not retype:** the difference from the `25c0456` enumeration is **5 files** and reconciles precisely — 135 + 2 added (`docs/PROMOTION_LEDGER.md`, `SummaryTriggerTapTarget.test.ts`) + 1 newly-modified (`.gitleaks.toml`) = **138**. Only three commits in the delta touch code (`bfcb68da`, `c8aec5d5`, `a42b209e`); the rest are ledger revisions. **Rule 1 narrowed to `docs/PROMOTION_LEDGER.md` only** — ~~and the evidence stated honestly rather than restating the auditor's mechanism as fact: all **138** changed files were searched and **all four `docs/` references are comments**, no runtime consumer found, **whole repo not searched**, so the narrowing is recorded as **a precaution, not a demonstrated failure**.~~ 🔴 **THAT EVIDENCE SENTENCE WAS FALSE — corrected at REV-15, C-10.** The search read diff hunks, not file contents; `src/__tests__/candidatePatternWidening.test.ts`, one of the 138, **reads** `docs/CANDIDATE_PATTERN_AUDIT.md`. The narrowing was necessary for a **demonstrated** reason. Struck through, not deleted. **§25.4 rewritten with one row per §25.3 instrument and a CLOSURE RULE: owner re-measurement is OWNER-ATTESTED and does not close an audit row** — closure needs a separate auditor with read-only access, or an export that auditor can independently validate. **§25.1 now states the audit excludes the 138 changed files and the test suite**; nobody may cite it as review of the code RC. **§17.1/§23.1: the signed text was NOT edited.** A correction is attached beside it and the **re-signature decision is put to the owner** (§26) — the rollback set is file-defined and unaffected. **Structural fix, because this is the third round of "you missed one": new §3.5 rule 5 — every figure carries its basis (what, which instrument, which SHA, which time) or is marked historical.** C-2, C-6, C-8 and C-9 are the same failure four times. **Disposition unchanged: 🔴 NOT READY; §25 PARTIAL** |
+| **REV-15** | **2026-08-29 11:42Z** | **C-10 — a FALSE statement by the compiler, found by independent audit round 3 (§25.6), plus the B11 re-signature.** REV-14 claimed *"all 138 changed files were searched; four reference `docs/`; all four are comments; the narrowing is a precaution, not a demonstrated failure."* **That was false.** The auditor measured **10** changed files referencing `docs/` and at least one **executable** consumer — **`src/__tests__/candidatePatternWidening.test.ts` reads `docs/CANDIDATE_PATTERN_AUDIT.md`**. **Root cause is the instrument, not the arithmetic: the search read DIFF HUNKS, not FILE CONTENTS.** A diff shows only changed lines, so a reference in an untouched part of a changed file is invisible — which is exactly that file. **A wrongly-scoped search returns a confident, clean, false answer.** **Compiler re-derivation with the corrected instrument:** the file **is** among the 138, is **463 lines**, and holds a `docs/` path adjacent to a file reader — **CONFIRMED**; a whole-file scan of **40 of 138** found **5** referencing `docs/`, **1 executable** — recorded as a **lower bound, not a total**. **The auditor's figure 10 is attributed to them and NOT restated as a compiler measurement.** ⚠ The file's contents **could not be read** (fetch refused by a content filter, consistent with a secret-pattern test holding sample credentials), so the confirmation is **by property test, not by reading the code** — recorded, not glossed. **The false sentence is preserved verbatim and struck through in §3.5 rule 1, §25.5 and the REV-14 row — never silently replaced.** The **rule stands as narrowed**; only its stated reason changes — from "precaution" to **demonstrated necessity**. What it now rests on: every commit after `a42b209e` touches only `docs/PROMOTION_LEDGER.md`, and **no executable consumer of that file was found** — the sole reference is a comment in `.gitleaks.toml`. **New §3.5 rule 6 — every search declares its scope** (what was searched, with which command, and what was not). Rule 5 makes a figure carry its basis; rule 6 makes a search carry its reach; **C-10 is one missing word between them.** **§25.6.1 names the compiler's failure pattern outright:** three errors across three audit rounds — 137-vs-136, this one, and the `d06b0379` RC — are **one shape, conclusions stated above the confidence the instrument supports**, not three unrelated slips. **B11 RE-SIGNED (§23.1.0):** the owner re-signed against application/code RC **`a42b209e4f70a6efed4f3dcdb654e0f994416594`**; six files, reverse order and every accepted limitation unchanged; the original signature retained unedited and marked superseded. **The compiler never edited signed text.** **§26 corrected from "exactly two prerequisites" — a contradiction with the then-open B11 decision — to THREE**, of which B11 is now resolved. **Also confirmed at this revision: the CI rollup REV-14 declined to call green has COMPLETED — 17 checks, 15 success, 2 skipped, 0 failing.** **Disposition unchanged: 🔴 NOT READY; §25 PARTIAL** |
 
 ---
 
