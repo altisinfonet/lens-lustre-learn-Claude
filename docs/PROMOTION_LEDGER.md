@@ -6,7 +6,7 @@
 
 **Repository path:** `docs/PROMOTION_LEDGER.md` (canonical, on `staging`)
 **Ledger ID:** `LEDGER-50MM-001`
-**Status of this revision:** `REV-13 · 2026-08-29T10:50Z`
+**Status of this revision:** `REV-14 · 2026-08-29T11:20Z`
 
 ---
 
@@ -109,7 +109,8 @@ which question it answered — the same failure as C-2 (205 vs 32).**
 | Metric | Value | Instrument |
 |---|---|---|
 | Files changed | **138** — 31 added, 107 modified, **0 deleted** | `compare/main...a42b209e.diff`, compiler, 10:45Z |
-| Of those, non-`docs/` | **137** | same |
+| Of those, in `docs/` | **2** — `docs/DECISIONS.md`, `docs/PROMOTION_LEDGER.md` | re-measured 11:05Z |
+| Of those, **non-`docs/`** | **136** *(REV-13 said **137** — wrong; it assumed one docs file. Corrected C-9, found by the auditor)* | re-measured 11:05Z |
 | Lines | **+9,060 / −1,293** | same |
 
 ### (b) Total promotion scope — `main…fe63e944` (code + this ledger)
@@ -133,27 +134,48 @@ which question it answered — the same failure as C-2 (205 vs 32).**
 
 ---
 
-## 3.3 CI state at T — **NOT GREEN**
+## 3.3 CI STATE — RE-BASED AT REV-14 (C-9)
 
-| Check | Result | Class |
-|---|---|---|
-| Typecheck | ✅ Successful (1m) | VERIFIED |
-| Web build / Staging lane | ✅ Successful (52s) | VERIFIED |
-| Web build / lane resolves to exactly one | ✅ Successful (4s) | VERIFIED |
-| Web build / **Production lane** | ⏭ **SKIPPED** | VERIFIED |
-| Security / Dependency vulnerabilities | ✅ Successful (30s) | VERIFIED |
-| Security / Secret scan (full history) | ✅ Successful (9s) | VERIFIED |
-| Security / project's own security rules | ✅ Successful (9s) | VERIFIED |
-| Cloudflare Pages (staging) | ✅ Deployed successfully | VERIFIED |
-| **UI gate — "Every control reachable, nothing regressed"** | ✅ **PASSING** on the merge commit `9faf5a17` — was 🔴 at `25c0456` | **VERIFIED** |
-| **Security / Secret scan (full history)** | ✅ **PASSING** at `a42b209e` — was 🔴 at `9faf5a17`. See **AF-19** | **VERIFIED** |
+> **⚠ This section was headed "CI state at T — NOT GREEN" through REV-13, where `T` = `25c0456` — a
+> SHA this ledger itself records as **void** (§3.1, C-6, C-8). A CI table anchored to a void SHA is the
+> same defect the auditor found in §27; it was not in the auditor's list and is corrected here.**
 
-**PR #104 on `a42b209e`: 13 successful · 2 skipped · 2 in progress · ZERO FAILING.** GitHub reports
-**"Able to merge"**.
+### Current — measured at the exact branch head, 2026-08-29T11:05Z
 
-**Both red gates are now green.** The UI gate was RED at `25c0456` and was closed by `bfcb68da` +
-`c8aec5d5` (§13.1 AF-15). The secret scan was RED at `9faf5a17` and was closed by `a42b209e`
-(§13.2 AF-19). **Neither was waved through; each was root-caused, fixed and control-verified.**
+| | |
+|---|---|
+| Head measured | `393bc5589636a0386d2c059c1fede2f31c01a736` |
+| Checks | **17 total — 15 success · 2 skipped (expected) · 0 failing** |
+| GitHub rollup | ✅ green · PR banner reads **"Ready to merge"** |
+| Class | **VERIFIED** (compiler, GitHub checks UI) · independently reported by the auditor, §25.5 |
+
+> **These 17 runs test the application code RC `a42b209e`.** Every commit between `a42b209e` and the
+> measured head changes **only `docs/PROMOTION_LEDGER.md`** (§3.1 Layer 1, re-verified at REV-14).
+> **This figure will go stale on the next ledger revision** — that is expected and governed by §3.5;
+> re-read it at the freeze point (§24.1 step 6a), never carry it forward.
+
+### Historical — the run-by-run record that closed the two red gates
+
+**Class: VERIFIED as of the SHA named in each row. Retained as history, not as current state.**
+
+| Check | Result | At | Class |
+|---|---|---|---|
+| Typecheck | ✅ Successful (1m) | `25c0456` | VERIFIED (historical) |
+| Web build / Staging lane | ✅ Successful (52s) | `25c0456` | VERIFIED (historical) |
+| Web build / lane resolves to exactly one | ✅ Successful (4s) | `25c0456` | VERIFIED (historical) |
+| Web build / **Production lane** | ⏭ **SKIPPED** | `25c0456` | VERIFIED (historical) |
+| Security / Dependency vulnerabilities | ✅ Successful (30s) | `25c0456` | VERIFIED (historical) |
+| Security / Secret scan (full history) | ✅ Successful (9s) | `25c0456` | VERIFIED (historical) |
+| Security / project's own security rules | ✅ Successful (9s) | `25c0456` | VERIFIED (historical) |
+| Cloudflare Pages (staging) | ✅ Deployed successfully | `25c0456` | VERIFIED (historical) |
+| **UI gate — "Every control reachable, nothing regressed"** | 🔴 RED at `25c0456` → ✅ **PASSING** at merge `9faf5a17` | — | **VERIFIED** · §13.1 AF-15 |
+| **Security / Secret scan (full history)** | 🔴 RED at `9faf5a17` → ✅ **PASSING** at `a42b209e` | — | **VERIFIED** · §13.2 AF-19 |
+
+> Superseded snapshot, preserved (§14): *"PR #104 on `a42b209e`: 13 successful · 2 skipped · 2 in
+> progress · ZERO FAILING."* Correct when measured; superseded by the 17-check reading above.
+
+**Both red gates are green, and neither was waved through** — each was reproduced, root-caused, fixed
+and control-verified. **That conclusion is unchanged by this re-basing.**
 
 ## 3.4 Tree immutability — RESTATED AT REV-13 (C-8)
 
@@ -177,10 +199,27 @@ the head not-X. Without a terminating rule the ledger corrects itself forever an
 
 **Rule, in four parts. All four are binding.**
 
-1. **Governance commits are declared.** A commit touching **only** `docs/` is a *governance commit*.
-   It changes no application behaviour, is **expected** to move the branch head, and **does not**
-   create a new application RC, does not void CI evidence taken on the code RC, and does not require
-   §18 to be re-run. Layer 1 of §3.1 is unaffected by it.
+1. **Governance commits are declared — NARROWED AT REV-14 (C-9).** A commit touching **only
+   `docs/PROMOTION_LEDGER.md`** is a *governance commit*. It changes no application behaviour, is
+   **expected** to move the branch head, and **does not** create a new application RC, does not void
+   CI evidence taken on the code RC, and does not require §18 to be re-run.
+
+   > **Superseded wording, preserved (§14):** REV-13 read *"A commit touching only `docs/` is a
+   > governance commit."* **That was unsafe** and the auditor was right to reject it: `docs/` is a
+   > directory, and a build script, generator, policy file or test could consume a file inside it, so
+   > a blanket exception could silently carry stale CI forward.
+   >
+   > **What was actually measured, stated exactly — because the reason matters more than the rule.**
+   > The compiler searched all **138** changed files for a runtime consumer of any `docs/` path.
+   > **Four files reference `docs/` and all four references are comments** — `.gitleaks.toml`,
+   > `src/components/__tests__/PrivacyGapDisclosed.test.ts`, `src/components/post/PrivacyGapNotice.tsx`
+   > and this ledger. **No file read, import or glob of a `docs/` path was found.**
+   > **The whole repository was NOT searched — only the changed set.**
+   >
+   > **So the narrowing is a precaution, not a response to a demonstrated failure.** It is recorded
+   > that way deliberately: the burden is on proving *no* consumer, not on assuming one. Any
+   > `docs/`-only commit that touches **anything other than this ledger** must be examined for build,
+   > test, generator, policy or deployed-artifact effects **before** prior CI may carry forward.
 2. **A commit touching anything outside `docs/` DOES create a new application RC.** It voids the
    frozen SHA in §3.1 Layer 1, voids the CI evidence in §3.3, and requires §18 to be re-run. There is
    no exception for "small" or "obvious" changes.
@@ -190,6 +229,17 @@ the head not-X. Without a terminating rule the ledger corrects itself forever an
 4. **The tag is created LAST and binds the actual head.** The tag is created after the freeze point
    and immediately before the merge, against `git rev-parse staging` **read at that moment** — not
    against any SHA quoted in this document. §20's tree-equality assertion is made against **the tag**.
+
+5. **EVERY FIGURE CARRIES ITS BASIS — new at REV-14 (C-9).** No count, SHA, tree, line total or CI
+   result may be written in this ledger as a bare value. Each must carry **what was measured, with
+   which instrument, at which SHA, at which time** — or be explicitly labelled **historical**. A
+   figure without a basis is to be treated by any reader as unverified, whatever class it claims.
+
+   > **Why this rule exists.** C-2, C-6, C-8 and C-9 are the same failure four times: a number was
+   > written without its basis, stayed true for a few hours, and was then carried forward as though
+   > it were still current. Three consecutive audit rounds each found stale actives that the previous
+   > round missed. **Fixing the sections named by an auditor, one round at a time, is what produced
+   > C-9.** This rule and the REV-14 sweep exist to stop a C-10 of the same shape.
 
 **Consequence, stated plainly so it cannot be misread:** *this ledger can never name the commit that
 will be merged.* It can only name the rule that binds it. Anyone auditing the promotion must read
@@ -320,9 +370,50 @@ render in **blue `rgb(0,123,177)`** instead of dark grey.
 
 # 5 · COMPLETE FILE-LEVEL CHANGE MANIFEST
 
-**135 files: 29 added · 106 modified · 0 deleted.** Instrument: `git diff --name-status origin/main origin/staging`. **Class: VERIFIED.**
+> **⚠ CORRECTED AT REV-14 (C-9). Through REV-13 this section opened with "135 files: 29 added · 106
+> modified · 0 deleted … Class: VERIFIED" and its sub-headings read ADDED (29), MODIFIED (106),
+> Commit manifest (32). Those figures were measured at `25c0456` and were stale from REV-4 onward —
+> nine revisions.** They were not in the auditor's REV-13 list; §27 row 1 cited them, so correcting
+> §27 without §5 would have left the two contradicting each other. Old values preserved below.
 
-## 5.1 ADDED (29 — complete, no elision)
+## 5.0 · CURRENT — measured 2026-08-29T11:05Z
+
+| Metric | Value | Basis |
+|---|---|---|
+| **Files changed, `main…staging`** | **138** — **31 added · 107 modified · 0 deleted** | `compare/main...staging.diff`, compiler |
+| of which in `docs/` | **2** — `docs/DECISIONS.md`, `docs/PROMOTION_LEDGER.md` | same |
+| of which **non-`docs/`** | **136** | same |
+| Lines, total | **+9,680 / −1,293** | same |
+| Lines, application only (`main…a42b209e`) | **+9,060 / −1,293** | `compare/main...a42b209e.diff` |
+| Commits ahead of `main` | **46 counting merges · 44 excluding** | PR #104 Commits tab · `compare/main...staging.patch` |
+
+**Reproduce:** `git diff --name-status origin/main origin/staging` *(the REV-1…REV-13 text gave
+`git diff --name-status b671e1fb 25c0456`, which pins the void SHA — corrected)*.
+
+> **Head-derived figures go stale by design (§3.5).** Re-measure at the freeze point; do not carry.
+
+## 5.0.1 · DELTA since the `25c0456` enumeration — complete, 5 files
+
+The tables in §5.1–§5.4 enumerate the state **at `25c0456`**. Rather than retype 138 entries — where
+transcription error is the likeliest failure — the difference is stated exactly and is independently
+reproducible with `git diff --name-status 25c0456 staging`:
+
+| Status | Path | Effect on the counts |
+|---|---|---|
+| **A** | `docs/PROMOTION_LEDGER.md` | added → 29 → 30 |
+| **A** | `src/components/__tests__/SummaryTriggerTapTarget.test.ts` | added → 30 → **31** |
+| **M** | `.gitleaks.toml` | **newly** modified → 106 → **107** |
+| M | `src/components/ReactionSummaryTooltip.tsx` | already counted; changed further (AF-15) |
+| M | `src/components/ShareSummaryTooltip.tsx` | already counted; changed further (AF-15) |
+
+**135 + 2 added + 1 newly-modified = 138.** ✅ reconciles exactly.
+
+**Only three commits in that delta touch application code** — `bfcb68da` and `c8aec5d5` (AF-15) and
+`a42b209e` (AF-19). Merge `9faf5a17` brought `main`'s `b671e1fb` and `6ebe6c3d` into `staging`
+(§4.2). **Every remaining commit in the delta is a ledger revision, REV-4 … REV-13, touching only
+`docs/PROMOTION_LEDGER.md`.**
+
+## 5.1 ADDED — 29 as enumerated at `25c0456`; **31 currently** (see §5.0.1)
 
 **CI / workflows (1)**
 1. `.github/workflows/verify-schema-dependencies.yml`
@@ -372,7 +463,12 @@ render in **blue `rgb(0,123,177)`** instead of dark grey.
 
 **NONE.** `git diff --diff-filter=D` returns empty. **Class: VERIFIED.** No file is removed from `main` by this promotion.
 
-## 5.3 MODIFIED (106) — by area
+## 5.3 MODIFIED — 106 as enumerated at `25c0456`; **107 currently** (see §5.0.1) — by area
+
+> ⚠ **Do not confuse this §5.3 with the "runbook §5.3 secret-isolation probe" referenced in §11, §24 and §26.**
+> That probe is **§5.3 of the migration/execution runbook**, a different document. The collision is
+> real and an auditor following the reference lands here, in a file manifest. **All such references
+> are relabelled "runbook §5.3" at REV-14 (C-9).** Found by the compiler, not in the auditor's list.
 
 | Area | Count | Notable |
 |---|---|---|
@@ -387,9 +483,14 @@ render in **blue `rgb(0,123,177)`** instead of dark grey.
 | root config | 5 | `vite.config.ts`, `vitest.config.ts`, `package.json`, `index.html`, `supabase/config.toml` |
 | `docs/DECISIONS.md` | 1 | D-002 update (§22 D-4) |
 
-**Full per-file list reproducible by:** `git diff --name-status b671e1fb 25c0456`.
+**Full per-file list reproducible by:** `git diff --name-status origin/main origin/staging` for the current set, or `git diff --name-status b671e1fb 25c0456` to reproduce the historical enumeration above. *(REV-1…REV-13 gave only the second form, pinning the void SHA — corrected at REV-14, C-9.)*
 
-## 5.4 Commit manifest (32)
+## 5.4 Commit manifest — **32 as enumerated at `25c0456`; 46 currently (44 excluding merges)**
+
+> **HISTORICAL ENUMERATION.** The 32 rows below are the state at `25c0456`. The 14-commit delta is
+> itemised in §5.0.1: three code commits (`bfcb68da`, `c8aec5d5`, `a42b209e`), merge `9faf5a17`
+> bringing `main`'s two commits, and the REV-4…REV-13 ledger revisions. **Reproduce:**
+> `git log --oneline origin/main..origin/staging`.
 
 | # | SHA | Date | Subject |
 |---|---|---|---|
@@ -606,7 +707,7 @@ banned members          0     ← gap 1 not currently reachable
 | **Migration lane gate** | 🔴 **ABSENT** — `apply-migration.yml` line 77 reads `# environment: production`, **commented out** | ✅ `environment: ${{ inputs.target }}` live, plus 4 ordered gates (branch↔target, credential present, **ref assertion**, path validation), all before `psql` | **VERIFIED** |
 | **Branch protection (`main`)** | ✅ ruleset `protect-main` **Active**, bypass list **EMPTY**, rules: *Require a pull request before merging* · *Block force pushes* · *Restrict deletions* | unchanged | **VERIFIED** |
 | Environment protection | `production` Environment exists and holds `SUPABASE_DB_URL` | unchanged | VERIFIED (existence) |
-| **§5.3 secret-isolation probe** | not run | not run | **BLOCKED** — §24.2 |
+| **runbook runbook §5.3 secret-isolation probe** | not run | not run | **BLOCKED** — §24.2 |
 | DB isolation | Distinct projects: `jtdtehuqtinjxropkkcn` (prod) / `ztzutckwdhetphwghuzj` (staging) | unchanged | VERIFIED |
 | **R2 write isolation** | Token scoped to one bucket — §10.2 | unchanged | **VERIFIED (scope)** |
 | CDN isolation | `cdn.` / `cdn-staging.` split; production CDN refuses staging-origin reads | unchanged | INFERRED (prior G9 measurement, not re-measured) |
@@ -681,7 +782,7 @@ Measured with positive and negative controls on both origins: the 12 objects **e
 |---|---|---|---|---|---|
 | **G1–G2** | Lane-aware CI; forbidden-ref guard fires | `ci: lane-aware CI` (`ccd5e42`); prove/revert pair `ec1a3b9`/`44e3e92` | R6 demonstrated firing then restored; 8 workflows present in T | ✅ **CLOSED** | INFERRED (prior CI runs; not re-run today) |
 | **G3** | Migration lane gate armed on the **target** lane | `git show origin/main:.github/workflows/apply-migration.yml` | **Line 77 = `# environment: production` — COMMENTED OUT on `main`.** Live in T with 4 ordered gates | 🔴 **OPEN on `main`** — closes *only* on promotion | **VERIFIED** |
-| | §5.3 secret-isolation probe | throwaway branch + echo-only workflow | **Never run.** §5.3.6 requires it *immediately before* promotion | 🔴 **BLOCKED** | **BLOCKED** |
+| | runbook §5.3 secret-isolation probe | throwaway branch + echo-only workflow | **Never run.** runbook §5.3.6 requires it *immediately before* promotion | 🔴 **BLOCKED** | **BLOCKED** |
 | **G4** | No production literals in staging bundle | bundle census (prior) | staging bundle: `cdn.50mmretina.com` 0 · `www.50mmretina.com` 0 · prod ref 0 | ✅ **CLOSED** | INFERRED (prior; not re-built today) |
 | | ACAO derivation | `public/_headers` diff | **apex → `www` — a production behaviour change** carried under a de-hardcoding commit | ⚠ **AMBER** | VERIFIED (diff) · **AF-11** |
 | **G5b** | No production defaults in Pages Functions; guard scans `functions/` | `d33c91e` (#89) | 6 Pages Functions modified; guard extended | ✅ **CLOSED** | INFERRED (prior) |
@@ -996,6 +1097,7 @@ adjudicate the 23, or rename the gate to state its true scope.
 | **C-4** | `UNAPPLIED_20260820140000_classF_repoint_originals_ROLLBACK.sql` described as *"orphan — no forward migration"* | 08-27 prep ledger | `schema_migrations`: `20260820180836 classf_repoint_originals` **applied in production** | Accurate **as to this RC**; the forward migration **does exist and is applied** | Its G11 disposition is a rename, not an investigation |
 | **C-5** | *"CHG-G10-003 (PR #103) blocks ledger closure"* (AF-14 deadlock) | 08-27 prep ledger | `704ad57` is **not an ancestor of `staging`**; PR #103 body says *"Do not merge"* | **PR #103 is not in T.** The deadlock dissolves — it was never in this candidate's scope | AF-14 downgraded from blocker to resolved |
 | **C-6** | RC-20260826-01 (`e2e05fbb`) treated as the promotion candidate | 08-26/27 audit set | 7 commits landed since; owner elected current `staging` | **RC-20260826-01 is VOID.** Candidate is `25c0456` | The 08-26/27 audit does **not** cover 7 of the 32 commits, incl. the one that broke the UI gate |
+| **C-9** | Nine claims left **active** at REV-13, four of them **written or left standing by the compiler at REV-13 itself**: (a) §5 — *"135 files: 29 added · 106 modified · 0 deleted … **Class: VERIFIED**"*, headings ADDED (29) / MODIFIED (106) / Commit manifest (32), and the repro command `git diff --name-status b671e1fb 25c0456`; (b) §27 rows 1, 2, 10, 20, 21 — *"135 = 29 A + 106 M"*, *"32 enumerated + 2 main-only"*, *"D-8, 9, 10 **OPEN**"*, *"§25 **vacant**"*, *"§23 **all unsigned**"*; (c) §3.2 — non-`docs/` files **137**; (d) §3.5 rule 1 — *"a commit touching only `docs/` is a governance commit"*; (e) §25.4 — six-item list not mapped to the §25.3 rows, silent on whether owner re-measurement closes them; (f) §25.1 — did not say the audit excludes the application code; (g) §3.3 — headed *"CI state at **T**"* where `T` = the **void** `25c0456`; (h) the *"§5.3 probe"* references, colliding with **this ledger's own §5.3** (a file manifest); (i) §17.1 heading + the **owner-signed** §23.1 binding naming **`d06b0379`** as the RC | REV-13 · items (a)–(f) at REV-13, (g)–(i) inherited | **Independent audit round 2** (§25.5) found (b)–(f). **Compiler sweep at REV-14** found (a), (g), (h), (i). Re-measured 11:05Z: **138 files = 31 A + 107 M + 0 D**, `docs/` = **2** (`DECISIONS.md`, `PROMOTION_LEDGER.md`), **non-`docs/` = 136**; **46 commits / 44 excluding merges**; **+9,680 / −1,293**; **17 checks — 15 success, 2 skipped, 0 failing** at `393bc558`. Delta from the `25c0456` enumeration is exactly **5 files** and reconciles: 135 + 2 A + 1 newly-M = 138 | **All corrected at REV-14.** §5 gains §5.0 (current) + §5.0.1 (exact 5-file delta) instead of a 138-row retype; §27 restated with a basis line and rows 20/21 **split** (owner decisions RULED vs §11 approval UNSIGNED); §3.2 non-`docs/` → **136**; §3.5 rule 1 narrowed to **`docs/PROMOTION_LEDGER.md` only**; §25.4 rewritten with **one row per §25.3 instrument** and a **closure rule** (owner re-measurement is OWNER-ATTESTED, **not** an audit); §25.1 states the audit **excludes the 138 changed files and the test suite**; §3.3 re-based off the void SHA; references relabelled **"runbook §5.3"**. **§17.1/§23.1: the signed text is NOT edited** — a correction is attached and the re-signature is put to the owner (§26). Prior wording preserved in place | **Root cause: fixing only the sections an auditor names.** C-2, C-6, C-8 and C-9 are one failure four times — a figure written without its basis, then carried. Three audit rounds each found stale actives the last missed. **New §3.5 rule 5 — every figure carries its basis or is marked historical — plus the REV-14 sweep, exist to prevent a C-10 of this shape** |
 | **C-8** | Five linked identity/scope claims, all carried as **VERIFIED** through REV-12: (a) §1 **RC SHA `d06b0379…`**, tree `f4616fb6…`; (b) §3.1 **`25c0456…` as the "immutable candidate"**, tree `51616b21…`; (c) §3.2 **32 commits · 135 files · +7,711 / −1,280**, and three-dot **151 files / +10,795 / −1,578**; (d) §4.2 ***"`main` carries 2 commits absent from `staging`"***; (e) PR #104 title ***"— 32 commits"*** | REV-1 … REV-12 | Independent audit 2026-08-29 (§25.1) + compiler re-measurement 10:40–10:45Z. **`main` is now an ANCESTOR of `staging`** (merge `9faf5a17`). Head at audit `fe63e944`, tree `5b00b690…`. `main…staging` = **45 commits counting merges / 43 excluding** · **138 files** (31 added, 107 modified, 0 deleted) · **+9,494 / −1,293**. And, found by the compiler and **not** by the auditor: **`d06b0379` is a docs-only commit — the REV-7 ledger save.** `git diff a42b209e...fe63e944` = **one file, `docs/PROMOTION_LEDGER.md` only** | **All five corrected at REV-13.** Application RC is **`a42b209e…`**; application scope is **+9,060 / −1,293** (the extra 434 lines are this ledger); identity is now recorded in **two layers** (§3.1) under a **freeze rule** (§3.5); ancestry corrected (§4.2); PR title corrected. **Previous values preserved in §3.1, §3.2, §4.1 and §4.2, not deleted** | **Root cause: the ledger lives inside the repository it describes, so recording the head changes the head.** Fixed structurally by §3.5, not by re-measuring. Every earlier revision was self-invalidating on save; C-8 is the first revision that says so |
 | **C-7** | Compiler drafted a G9 countersignature and rollback binding as *"ready to sign"* | This session, 05:55Z | Both assert *"I have read…"* facts only the owner can attest | **Not signable by the compiler, and not pre-attestable.** Drafts remain drafts | §23 signatures stay open |
 
@@ -1044,7 +1146,31 @@ adjudicate the 23, or rename the gate to state its true scope.
 
 # 17 · ROLLBACK CONTROL
 
-## 17.1 Database rollback set — RC-20260829-01
+## 17.1 Database rollback set
+
+> ### ⚠ CORRECTION ATTACHED AT REV-14 (C-9) — THE SIGNED BINDING NAMES THE WRONG SHA
+>
+> This section was headed **"RC-20260829-01"**, and the **owner-signed** B11 binding at §23.1 reads
+> *"the database rollback for candidate `d06b0379776aef94d006d78b1de37a0cda685927`"*. **C-8
+> established that `d06b0379` is a docs-only commit — the REV-7 ledger save — not a code RC.**
+>
+> **The compiler has NOT edited the signed text, and will not.** A signature covers the words that
+> were signed. This note is attached beside it instead.
+>
+> **What is and is not affected:**
+> - **The rollback set itself is unaffected.** It is defined by **six named files**, not by a SHA,
+>   and those six files are identical in `d06b0379` and in the code RC `a42b209e` — every commit
+>   between them touches only `docs/PROMOTION_LEDGER.md` (§3.1 Layer 1).
+> - **The owner's ruling is unaffected.** B11 was a ruling on *which files roll back what*, and the
+>   owner was shown the substantive limitations before signing (§23.1).
+> - **The identifier in the signed text is wrong** and would mislead anyone reconstructing the RC
+>   from the binding alone.
+>
+> **⚠ OWNER DECISION REQUIRED — not taken by the compiler.** Either (a) re-sign B11 naming
+> `a42b209e4f70a6efed4f3dcdb654e0f994416594`, or (b) let the signature stand with this correction
+> attached. **Neither option is exercised here.** Recorded as an open item in §26.
+
+Execute in **reverse migration order**, via `apply-migration.yml`, `target=production`, dispatched from `main`:
 
 Execute in **reverse migration order**, via `apply-migration.yml`, `target=production`, dispatched from `main`:
 
@@ -1057,7 +1183,7 @@ Execute in **reverse migration order**, via `apply-migration.yml`, `target=produ
 | 4 | `UNAPPLIED_20260824000000_admin_user_list_pagination_ROLLBACK.sql` | applied prod `20260825092152` | ❌ never executed |
 | 5 | `20260824145345_admin_user_lookup_by_email_ROLLBACK.sql` | applied both lanes | ❌ never executed |
 
-**⚠ CHANGED FROM THE 08-27 BINDING:** that binding named **five** files. This RC adds **M2's rollback at order 0** — it must run **first**, because M2 was applied last. **Signing the 08-27 five-file binding would leave M2 un-rollbackable.** §14 C-8 *(new — recorded here).*
+**⚠ CHANGED FROM THE 08-27 BINDING:** that binding named **five** files. This RC adds **M2's rollback at order 0** — it must run **first**, because M2 was applied last. **Signing the 08-27 five-file binding would leave M2 un-rollbackable.** *(REV-13 and earlier cross-referenced this to "§14 C-8" — a wrong reference: C-8 is the identity/scope correction. The five-vs-six-file change is recorded at §23.1 and REV-10. Corrected at REV-14, C-9.)*
 
 **EXCLUDED:** `UNAPPLIED_20260820140000_classF_repoint_originals_ROLLBACK.sql` — its forward migration (`20260820180836`) is applied in production but is **not part of this RC**.
 
@@ -1071,6 +1197,12 @@ Execute in **reverse migration order**, via `apply-migration.yml`, `target=produ
 ---
 
 # 18 · PRE-PROMOTION SNAPSHOT — 2026-08-29T08:45Z
+
+> **HISTORICAL SNAPSHOT — do not read as current (§3.5 rule 5).** Taken at 08:45Z. The `RC SHA (T)`
+> line below names `d06b0379`, which **C-8 established is a docs-only commit**, not the code RC; the
+> code RC is `a42b209e` (§3.1). The snapshot is retained **as taken**, uncorrected, because that is
+> what a snapshot is. **`main SHA` is the one line still true today.** A fresh snapshot must be taken
+> at the freeze point (§24.1 step 7).
 
 ```
 RC SHA (T)          d06b0379776aef94d006d78b1de37a0cda685927
@@ -1439,7 +1571,7 @@ a green light:
 | Any production write | ❌ **NO** |
 | Proceed with the remaining pre-promotion gates (§24.1 steps 6–7) | ✅ yes — and only those |
 
-**§11 is now unblocked by B13. It remains unsignable while the §5.3 probe is un-run and §25 is
+**§11 is now unblocked by B13. It remains unsignable while the runbook §5.3 probe is un-run and §25 is
 vacant.**
 
 ---
@@ -1543,7 +1675,7 @@ fact that a prior substitution ruling on this same gate had been withdrawn.**
 > is asserted against **that tag**, not against T (§20).
 > ⚠ **§3.5 freeze rule applies from the moment this record is signed:** no further commit of any kind
 > to `staging` until after the merge. That is what makes the signed head equal the merged head.
-> ⚠ **G8 (D-12), B11 (§23.1), B8, B12, D-5 and now B13 (§23.5) are ALL RULED.** Still cannot be signed while **the §5.3 probe is un-run** and **§25 is vacant** — **two blockers remain**.
+> ⚠ **G8 (D-12), B11 (§23.1), B8, B12, D-5 and now B13 (§23.5) are ALL RULED.** Still cannot be signed while **the runbook §5.3 probe is un-run** and **§25 is vacant** — **two blockers remain**.
 
 | # | Field | Value |
 |---|---|---|
@@ -1571,7 +1703,7 @@ fact that a prior substitution ruling on this same gate had been withdrawn.**
 3. **G8** — resolve (§10.2 / §23).
 4. **Confirm a `staging` Environment exists** with its own `SUPABASE_DB_URL` (§7.1), or `apply-migration.yml target=staging` cannot run.
 5. ~~Sign B8, B11 (**six-file version**), B12, B13, D-5.~~ ✅ **ALL RULED** — B8/B12/D-5 §23.4 · B11 §23.1 · B13 §23.5.
-6. **§5.3 secret-isolation probe** — §5.3.6 requires it **immediately before** promotion. Running it early goes stale and must be repeated.
+6. **runbook runbook §5.3 secret-isolation probe** — runbook §5.3.6 requires it **immediately before** promotion. Running it early goes stale and must be repeated.
 6a. **Re-confirm CI on the head that actually exists at that moment** — §25.2: evidence taken on `fe63e944` does not carry to a later head. Application code is unchanged (§3.1 Layer 1), so this is a re-read, not a re-test.
 7. **§11 approval signed AND tagged** — sign, then **LEDGER FREEZE** (§3.5 rule 3: no more commits to `staging`), then `git rev-parse staging`, then create the tag against that SHA. The tag must exist **before** the merge (§17-10).
 
@@ -1611,6 +1743,13 @@ fact that a prior substitution ruling on this same gate had been withdrawn.**
 > access** to the production database, the staging database, the deployed edge functions, Cloudflare
 > R2, the Cloudflare dashboard, or GitHub Environments. It is a **repository and governance audit**.
 > The infrastructure half is unaudited. See §25.3.
+>
+> ⚠ **AND IT DOES NOT COVER THE APPLICATION CODE — added at REV-14 (C-9) at the auditor's own
+> insistence.** Round 1 verified **the specific repository and governance claims listed below and
+> nothing more**. It did **NOT** independently review the **138 changed files**, did **NOT** re-run
+> the test suite, and did **NOT** re-derive the UI-gate, typecheck, build or secret-scan results.
+> **Nobody may cite this audit as evidence that the code RC `a42b209e` has been reviewed.** No such
+> review has been performed by anyone other than the compiler.
 
 ### Independently verified by the auditor
 
@@ -1674,17 +1813,90 @@ so nothing below may be cited as audited, by anyone, including this ledger:
 **This does not mean the claims are wrong.** It means one person measured them and no second party
 has checked. **The compiler is not a second party.**
 
-## 25.4 · WHAT WOULD COMPLETE THE AUDIT
+## 25.4 · WHAT WOULD COMPLETE THE AUDIT — one row per §25.3 instrument (REV-14, C-9)
 
-Round 1 closed the repository half. Round 2 needs someone with dashboard and database access —
-realistically **the owner, or an auditor the owner grants read access to**:
+> ### ⚠ THE CLOSURE RULE — read before planning round 2
+>
+> **The owner re-measuring these instruments does NOT close them.** Owner re-measurement is
+> **OWNER-ATTESTED**, which is the class these items already carry; repeating it changes nothing.
+>
+> **To close §25, each row must be either:**
+> **(a)** checked directly by a **separate auditor holding read-only access** to that instrument; or
+> **(b)** **exported through an instrument the separate auditor can independently validate** — a
+> signed/timestamped export, a CI job whose logs the auditor reads, or a provider-side artifact the
+> auditor can fetch themselves. **A value pasted into a chat by the owner is not an export.**
+>
+> **No row below may be marked closed by the compiler.** The compiler is not a second party.
 
-1. Re-query `pg_policies` on `ad_creative_comments` in **both** lanes (AF-17, highest-severity live finding).
-2. Re-read the deployed `submit-judge-decision` source and confirm the ACAO value and version.
-3. Re-read the R2 token's policy list (§10.2) and judge whether step 7's `INFERRED` class is acceptable.
-4. Confirm whether a `staging` GitHub Environment exists with its own `SUPABASE_DB_URL` (§7.1).
-5. Verify §10.4 AF-03 by re-measurement — this ledger carries it as **INFERRED** only.
-6. Re-read UI-gate run `33232872781` logs and confirm the `e7dbf51` boundary (AF-15).
+| # | §25.3 instrument | What must be checked | Acceptable closure |
+|---|---|---|---|
+| 1 | **Production DB policy state** | `pg_policies` on `ad_creative_comments` — expect **7** rows pre-migration, **9** after D-10 (AF-17, highest-severity live finding) | (a) auditor with read-only DB role · or (b) CI job output the auditor reads |
+| 2 | **Staging DB policy state** | same query on the staging lane — expect **9** | (a) or (b) |
+| 3 | **Deployed edge-function state** | `submit-judge-decision` **version and ACAO value** (ledger claims v23 serving `*`), plus the **71-bundle** comparison underpinning B13 — which must be **re-measured**, the `21/21/29/0` split being as of 2026-08-26 @ `702e5ce` (§23.5.3) | (a) auditor with Supabase read access · or (b) hashed bundle export the auditor validates |
+| 4 | **R2 token policy / bucket scope** | token `staging-upload` (`73a7920647481fd93553f9c1f68bf5a3`) has **exactly one** policy, `R2 › 50mm-staging`, and **no policy naming `50mm`** (§10.2, D-12) | (a) auditor with Cloudflare read access — **the owner re-reading it is not closure** |
+| 5 | **GitHub `staging` Environment** | whether it exists, and whether it carries its **own** `SUPABASE_DB_URL` (§7.1, unresolved; blocks `apply-migration.yml target=staging`) | (a) auditor with repo settings read · or (b) a dispatch whose logs demonstrate the binding |
+| 6a | **Cloudflare — R2 bucket state** | `50mm` bucket size and creation/public-access settings; `50mm-staging` likewise (§8, §10.2) | (a) — dashboard values relayed by the owner stay OWNER-ATTESTED |
+| 6b | **Cloudflare — `isolation-probe/` prefix searches** | production `50mm` prefix returns **zero** objects. ⚠ **After-only: no before baseline exists for run `33079091310` and none can be created retroactively** (§23.3) | (a) — and the missing baseline must be recorded, not glossed |
+| 6c | **Cloudflare — Zero Trust posture** | **NEED EVIDENCE.** Never measured; carried forward unresolved by B13 (§23.5.1). **Must not be recorded as a pass** | (a) — first measurement, by a second party |
+
+**Also outstanding, and not an infrastructure item:** no party has independently reviewed the **138
+changed files** or re-run the test suite (§25.1). Round 2 should say plainly whether it intends to,
+because §26 blocker 9 cannot honestly close while that is true.
+
+**Lower priority, repository-side, still open from round 1's list:** re-read UI-gate run
+`33232872781` logs and confirm the `e7dbf51` boundary (AF-15); verify §10.4 AF-03 by re-measurement
+— this ledger carries it as **INFERRED** only.
+
+## 25.5 · AUDIT ROUND 2 — 2026-08-29, REV-13 — **PARTIAL** (repository/governance only)
+
+**Auditor:** the same independent auditor, findings relayed by **Neil Basu (owner)** 2026-08-29.
+**Transcribed by the compiler with attribution.** Same scope limit as round 1: **read-only,
+repository and governance only.** It did **not** review the 138 changed files or re-run the tests,
+and had **no access** to any §25.3 instrument. **Blocker 9 remains PARTIAL.**
+
+### Independently verified by the auditor at REV-13
+
+| # | Claim | Compiler re-derivation |
+|---|---|---|
+| 1 | `staging` = `393bc5589636a0386d2c059c1fede2f31c01a736` | ✅ confirmed |
+| 2 | `main` = `b671e1fb0c5bcf145d442076c229eca888afd674` | ✅ confirmed — unchanged all session |
+| 3 | auditor branch = `112af616253de735268823e491d1fa14e2747537` | ✅ confirmed |
+| 4 | ledger blob on both branches `0269e12969c2200032856894c691922ba89c1f41` | ✅ **second-source match** — `git hash-object` on the compiler's own file returns the same blob |
+| 5 | raw ledger SHA-256 `3ce90b7c…935f`, **130,127 bytes** | ✅ confirmed |
+| 6 | zero remote tags | ✅ confirmed |
+| 7 | `main…staging` = **46 commits, 44 excluding merges** | ✅ confirmed |
+| 8 | **138 files: 31 added, 107 modified, 0 deleted** | ✅ confirmed |
+| 9 | **+9,680 / −1,293** | ✅ confirmed |
+| 10 | every commit after `a42b209e` changes only `docs/PROMOTION_LEDGER.md` | ✅ **re-verified at REV-14** — still true at head `393bc558` |
+| 11 | PR #104 head = `staging`, mergeable | ✅ confirmed — banner reads "Ready to merge" |
+| 12 | exact-head checks: **17 total, 15 success, 2 expected skipped** | ✅ confirmed (§3.3) |
+| 13 | the PR body's "32 commits" occurrence is marked historical | ✅ confirmed |
+
+### Defects the auditor required — all applied at REV-14 as **C-9**
+
+Five items: §27 actively stale · §3.2's non-`docs/` count wrong · §3.5 rule 1 too broad · §25.4 not
+covering every §25.3 row · §25.1 over-claiming code coverage. **Two of these are corrections to the
+compiler's own REV-13 work, not to inherited text**, and are recorded as such in §14 C-9.
+
+### Compiler additions the auditor did not specify
+
+1. **§5 — the complete file manifest — was actively stale** ("135 files: 29 A · 106 M … VERIFIED",
+   ADDED (29), MODIFIED (106), Commit manifest (32)) and **not in the auditor's list**, though §27
+   row 1 cited it. Corrected in §5.0 with an exact 5-file delta (§5.0.1) rather than a 138-row retype.
+2. **§3.3 was anchored to the void SHA `25c0456`** ("CI state at T"). Re-based onto the code RC and
+   the measured head; the old run-by-run table retained as history.
+3. **The "§5.3 probe" reference collision** — this ledger's own §5.3 is a file manifest. All such
+   references relabelled **"runbook §5.3"**.
+4. **§3.5 rule 5 — every figure carries its basis**, plus a full REV-14 sweep. Three consecutive
+   audit rounds each found stale actives the previous round missed; fixing only the named sections is
+   what produced C-9. This is the structural answer.
+5. **§17.1 — the OWNER-SIGNED rollback binding names `d06b0379` as the RC**, which C-8 established is
+   a docs-only commit. **A signed instrument must not be edited by the compiler**; a correction note
+   is attached instead and the re-signature decision is put to the owner. See §17.1 and §26.
+6. **Rule-1 evidence stated honestly.** The auditor's stated mechanism — executable files consuming
+   `docs/` — was **not demonstrated** in the 138 changed files: all four `docs/` references there are
+   comments. The rule is narrowed anyway, recorded as **a precaution, not a demonstrated failure**.
+
 
 ---
 
@@ -1699,19 +1911,21 @@ realistically **the owner, or an auditor the owner grants read access to**:
 | ~~1~~ | ~~UI gate RED on the candidate~~ — ✅ **RESOLVED.** Fixed, controlled, pinned, and **green in CI** (runs #123/#124) | AF-15 · D-9 |
 | ~~2~~ | ~~Merge conflict unresolved~~ — ✅ **RESOLVED.** Merge `9faf5a17` landed; blue taken; `tsc` clean, 2,475 tests pass; PR #104 **"Able to merge"** | §4.4 · D-6 |
 | ~~3~~ | ~~G8 instrument not satisfied~~ — ✅ **RESOLVED.** Owner waived the precondition and accepted scope observation (**D-12**, §23.3) | §10.2 · §23.3 |
-| 4 | **§5.3 secret-isolation probe never run**, and must run immediately pre-merge | §24.1 |
+| 4 | **runbook §5.3 secret-isolation probe never run**, and must run immediately pre-merge | §24.1 |
 | 5 | **§11 approval unsigned; 0 tags exist** | §23 |
 | ~~6~~ | ~~B11 rollback binding~~ — ✅ **RULED 2026-08-29**, six-file set, §23.1. ⚠ carries an accepted limitation: **never executed against a live database** | §23.1 |
 | ~~7~~ | ~~AF-11 ACAO ruling not made~~ — ✅ **RULED:** accepted as `www` | D-8 |
 | 8 | **AF-17** — production missing 2 RLS policies. ✅ **RULED:** apply post-merge (D-10). ⚠ **ACTION STILL PENDING** — production DB write, owner-only | D-10 · §24.3 |
-| 9 | **Independent audit — ROUND 1 COMPLETE, PARTIAL.** Repository/governance half audited (§25.1). **Infrastructure half NOT audited** — production + staging DB policy state, deployed edge functions, R2 policy, GitHub Environments, all dashboard claims are **INSUFFICIENT EVIDENCE** (§25.3). Needs a round 2 by someone with database and dashboard access | §25.1 · §25.3 · §25.4 |
+| 9 | **Independent audit — ROUNDS 1 AND 2 COMPLETE, BOTH PARTIAL.** Repository/governance half audited (§25.1). **Infrastructure half NOT audited** — production + staging DB policy state, deployed edge functions, R2 policy, GitHub Environments, all dashboard claims are **INSUFFICIENT EVIDENCE** (§25.3). **Neither round reviewed the 138 changed files or re-ran the test suite** (§25.1). Needs a round with database and dashboard access — see the **closure rule** at §25.4: owner re-measurement is OWNER-ATTESTED and does **not** close these rows | §25.1 · §25.5 · §25.3 · §25.4 |
 | ~~10~~ | ~~AF-19 — secret scan RED~~ — ✅ **RESOLVED** by `a42b209e`. Root cause was a one-lane allowlist never extended to two. Control-verified and mutation-tested. **No deviation carried** | §13.2 |
+
+**⚠ OPEN OWNER DECISION, not blocking but not resolved (C-9):** the **owner-signed** B11 rollback binding (§23.1) names `d06b0379` as the RC — a **docs-only commit**. The rollback set itself is unaffected (it is defined by six named files, identical in both commits). Either **re-sign B11 naming `a42b209e`**, or **let the signature stand with the §17.1 correction attached**. **The compiler has not chosen, and will not edit signed text.**
 
 **Not blocking, recorded:** AF-13 (Android records) · AF-16 (version-stamp divergence) · AF-03/D-5 (accepted) · §15 rows 1 and 8 failing under D-5.
 
 **What would change this to READY FOR APPROVAL — exactly two prerequisites:**
 
-1. **§5.3 secret-isolation probe run**, with evidence (blocker 4).
+1. **runbook §5.3 secret-isolation probe run**, with evidence (blocker 4).
 2. **Independent audit COMPLETED** — round 1 (§25.1) is partial; round 2 must cover the six
    INSUFFICIENT-EVIDENCE instruments of §25.3 (blocker 9).
 
@@ -1724,14 +1938,14 @@ realistically **the owner, or an auditor the owner grants read access to**:
 
 **Progress since REV-3:** blocker 1 (red UI gate) closed with direct evidence — reproduced, root-caused, fixed in both affected components, control-verified, mutation-pinned, CI-green. Blocker 2 (merge conflict) **executed and verified**. Blocker 7 (D-8) **ruled**. D-9 and D-10 **ruled**.
 
-**Progress at REV-12:** every owner decision and every signature block that was outstanding is now **RULED** — B8, B11, B12, B13, D-5, D-12. **No decision is waiting on the owner.** What remains is not a decision: it is one un-run instrument (§5.3), one vacant audit (§25), and one deferred production action (D-10, post-merge).
+**Progress at REV-12:** every owner decision and every signature block that was outstanding is now **RULED** — B8, B11, B12, B13, D-5, D-12. **No decision is waiting on the owner.** What remains is not a decision: it is one un-run instrument (runbook §5.3), one vacant audit (§25), and one deferred production action (D-10, post-merge).
 
 **AF-19 was opened by measurement and closed the same day** — root-caused to a one-lane allowlist,
 fixed, control-verified and mutation-tested, with **no deviation carried**.
 
 **Every CI gate on the candidate is now GREEN.** Net **9 → 4 outstanding** (B11 signed at REV-10; B13 ruled at REV-12).
 
-**Still outstanding:** §5.3 secret-isolation probe (4) · **§11 approval + tag** (5) · the AF-17
+**Still outstanding:** runbook runbook §5.3 secret-isolation probe (4) · **§11 approval + tag** (5) · the AF-17
 production migration **action** (8 — ruled D-10, not executed, post-merge) · independent audit (9).
 **G8 (3) is closed — D-12. B11 (6) is signed — §23.1. B13 is ruled — §23.5.**
 
@@ -1739,32 +1953,43 @@ production migration **action** (8 — ruled D-10, not executed, post-merge) · 
 
 # 27 · "NOTHING HIDDEN" CHECKLIST
 
+> **⚠ CORRECTED AT REV-14 (C-9).** Through REV-13 this checklist carried **active** conclusions that
+> were stale by nine revisions — 135/29/106, "32 enumerated + 2 main-only", D-8/D-9/D-10 "OPEN",
+> "§25 vacant", "§23 all unsigned". **A checklist whose purpose is to prove nothing is hidden was
+> itself hiding its own staleness.** Old values are preserved in §14 C-9 and in §3.2, §4.2 and §5.0.1,
+> not here — this table states current state only.
+
+**Basis for every row below: measured 2026-08-29T11:05Z at head `393bc558`, code RC `a42b209e`
+(§3.5 rule 5).**
+
 | # | Item | State |
 |---|---|---|
-| 1 | Every file accounted for | ✅ 135 = 29 A + 106 M + 0 D (§5) |
-| 2 | Every commit accounted for | ✅ 32 enumerated (§5.4) + 2 main-only (§4.2) |
+| 1 | Every file accounted for | ✅ **138 = 31 A + 107 M + 0 D** (§5.0), reconciled to the `25c0456` enumeration by the 5-file delta in §5.0.1 |
+| 2 | Every commit accounted for | ✅ **46 (44 excluding merges)** — 32 enumerated at `25c0456` (§5.4) + the 14-commit delta itemised in §5.0.1. **`main` has no commit absent from `staging`** (§4.2) |
 | 3 | Every migration/rollback accounted for | ✅ §6 |
-| 4 | Every DB change accounted for | ✅ §6, measured both lanes |
-| 5 | Every config/secret-scope change accounted for | ⚠ §7 — **`staging` Environment existence UNRESOLVED** |
-| 6 | Every CI run accounted for | ✅ §8 |
+| 4 | Every DB change accounted for | ✅ §6, measured both lanes — **but not independently audited** (§25.3) |
+| 5 | Every config/secret-scope change accounted for | ⚠ §7 — **`staging` Environment existence UNRESOLVED**, and **not independently audited** (§25.3) |
+| 6 | Every CI run accounted for | ✅ §8 · current state §3.3 — **17 checks, 15 success, 2 skipped, 0 failing** at `393bc558` |
 | 7 | Every deployment accounted for | ✅ staging only; **no production deployment exists** |
 | 8 | Every QA mutation accounted for | ⚠ §15 — carried as OWNER-ATTESTED, **not re-measured** |
-| 9 | Every finding accounted for | ✅ §13 — AF-03, 11, 13, 14, 15, 16, 17, 18 |
-| 10 | Every deviation accounted for | ✅ §22 — D-1, 4, 5, 6, 7 ruled; **D-8, 9, 10 OPEN** |
+| 9 | Every finding accounted for | ✅ §13 — AF-03, 11, 13, 14, 15, 16, 17, 18, **19, 20** |
+| 10 | Every deviation accounted for | ✅ §22 — D-1, 4, 5, 6, 7 ruled; **D-8, D-9 and D-10 also RULED**. ⚠ **D-10 is ruled but NOT EXECUTED** — a production DB write still owed (§24.3) |
 | 11 | Every N/A has reasoning | ✅ §11, §12 |
 | 12 | Every BLOCKED item has reasoning | ✅ §11 G3/G6, §12 row 10 |
 | 13 | Every DEFERRED item has owner + date | ⚠ **PARTIAL** — §12 rows 11/12 name the owner but **no date**; G11 items have no scheduled date |
 | 14 | Every GREEN has direct evidence | ⚠ **NO** — G1–G2, G4, G5b, G7 are **INFERRED** from prior reports, not re-measured. **Explicitly labelled, not silently upgraded** |
 | 15 | No secret values recorded | ✅ §7, §16 |
 | 16 | No unauthorized production writes | ✅ §16 — zero |
-| 17 | Approved RC SHA matches promoted tree | **N/A — nothing approved, nothing promoted** |
+| 17 | Approved RC SHA matches promoted tree | **N/A — nothing approved, nothing promoted.** When it applies, the comparison is **tag ↔ merged tree** (§3.5 rule 4), never a SHA quoted in this file |
 | 18 | Deployment SHA matches expected tree | **N/A — no deployment** |
 | 19 | No unauthorized changes | ✅ §21 — one item requiring notice (M2), legitimate |
-| 20 | Independent audit completed | ❌ **NO** — §25 vacant |
-| 21 | Owner approval completed | ❌ **NO** — §23 all unsigned |
+| 20 | Independent audit completed | ⚠ **PARTIAL, NOT COMPLETE** — two read-only rounds done (§25.1, §25.5) covering **repository and governance claims only**. They did **not** independently review all 138 changed files, did **not** re-run the test suite, and had **no access** to the six instruments in §25.3 |
+| 21 | Owner approval completed | ⚠ **SPLIT — do not read as one item.** **Owner decisions are RULED:** B8, B11, B12, B13, D-5, D-12 (§23.1, §23.3, §23.4, §23.5). **The §11 Release Approval Record remains UNSIGNED** (§23.2), and **0 tags exist** |
 | 22 | Ledger signed and closed | ❌ **NO** — **OPEN** |
 
-**Items 5, 8, 13, 14 are ⚠ rather than ✅ deliberately.** Marking them green would require either measurements not taken or an upgrade of evidence class that §1's rules forbid.
+**Items 4, 5, 8, 13, 14, 20 and 21 are ⚠ rather than ✅ deliberately.** Marking them green would
+require either measurements not taken, an independent audit not yet performed, or an upgrade of
+evidence class that §1's rules forbid.
 
 ---
 
@@ -1784,9 +2009,10 @@ production migration **action** (8 — ruled D-10, not executed, post-merge) · 
 | REV-8 | 2026-08-29 08:45Z | **Final verification pass on `d06b0379`.** tsc 0 · 2,475 tests · gitleaks clean on the CI range · **all CI gates green, zero failing**. §18 snapshot refreshed. 🆕 **AF-20** — the gate named "Secret scan (full history)" scans a *range*, not full history; an unrestricted scan returns 23 findings, **all pre-candidate**, none identifiable as a real secret (3 decoded as `role="anon"`, 1 documented client config, 19 `generic-api-key` **inferred**-not-verified). RECORD ONLY → G11. **§23.1 corrected SIX-file rollback binding** drafted (the 08-27 five-file draft would leave M2 un-rollbackable). **§23.2 §11 approval record pre-filled, unsigned** |
 | REV-9 | 2026-08-29 09:05Z | **G8 CLOSED — D-12.** Owner waived the 08-27 precondition and accepted token-scope observation in place of A.5's runtime test, after being shown the evidence class (scope VERIFIED, runtime enforcement INFERRED), the residual limits (after-only measurement, no before baseline), and the fact that a prior substitution ruling on this gate had been withdrawn. Full text §23.3. **G8 = CLOSED WITH DOCUMENTED DEVIATION.** Also corrected: the stale **REV-3** copy on `altisinfonet-patch-35` that was misleading the auditor is now synced to REV-8+. Blockers 5 → 4 |
 | REV-10 | 2026-08-29 09:20Z | **B11 RULED — six-file rollback binding signed** (§23.1), superseding the 08-27 five-file draft that would have left `20260828082136` un-rollbackable. Owner shown and accepted, before ruling, that the set has **never been executed against a live database**, that file 0 **deliberately reopens both RLS gaps**, and that `git revert` does not un-apply migrations. Owner **declined to test it on staging first** — recorded, not left implicit. Blockers 4 → 3 |
-| **REV-11** | **2026-08-29 09:35Z** | **B8, B12 and D-5 RULED** (§23.4) — dispositions, not evidence-attestations, which is why they could be taken together. **B13 DELIBERATELY HELD** (§23.5): its text asserts *"I have read the measured basis"*, which the compiler cannot witness and will not transcribe. B13 accepts four **live** production risks including `submit-judge-decision` answering `Access-Control-Allow-Origin: *`. **§11 remains unsignable while B13, the §5.3 probe and §25 are open** |
+| **REV-11** | **2026-08-29 09:35Z** | **B8, B12 and D-5 RULED** (§23.4) — dispositions, not evidence-attestations, which is why they could be taken together. **B13 DELIBERATELY HELD** (§23.5): its text asserts *"I have read the measured basis"*, which the compiler cannot witness and will not transcribe. B13 accepts four **live** production risks including `submit-judge-decision` answering `Access-Control-Allow-Origin: *`. **§11 remains unsignable while B13, the runbook §5.3 probe and §25 are open** |
 | **REV-12** | **2026-08-29 10:20Z** | **B13 RULED** (§23.5) — supersedes the REV-11 HELD state, which is **preserved verbatim** at §23.5.4 rather than overwritten. Owner read the measured basis in session and ruled in their own words; the compiler **pre-checked the text against source before recording it** at the owner's instruction (§23.5.2). Text found substantially accurate; **two gaps found and, at the owner's direction, added**: (a) condition 5 — the per-function review of the 29 drift cases, of which **3 must be resolved in the OPPOSITE direction**, present in source but absent from the owner's draft; (b) a date-stamp on the `21/21/29/0` counts, which are **as of 2026-08-26 @ `702e5ce` and NOT re-measured** against RC-20260829-05 (§23.5.3). Compiler independently **VERIFIED** that production `submit-judge-decision` is **v23, ACTIVE, still serving `Access-Control-Allow-Origin: *`** — the risk is live today, not historical. Also corrected at this revision: the **B11 blocker row was stale from REV-10** and still read UNSIGNED; corrected, with the stale text preserved in the cell (§14 rule). **B13 authorises NOTHING further** — no function deploy, no merge, no migration, no tag, no production write (§23.5.5). Blockers 3 → 2 |
 | **REV-13** | **2026-08-29 10:50Z** | **C-8 — the identity/scope correction, after independent audit round 1 (§25.1).** Five linked claims carried as VERIFIED since REV-1 were stale or wrong: RC SHA, "immutable candidate", commit/file/line counts, branch ancestry, PR title. All corrected; **every previous value preserved** in §3.1, §3.2, §4.1, §4.2 and §14, none deleted. **Root cause named, not just the symptom: this ledger lives inside the repository it describes, so writing down the head changes the head.** Every prior revision was self-invalidating on save. Fixed structurally by the new **§3.5 FREEZE RULE** — `docs/`-only commits are declared *governance commits* that do not create a new RC; anything outside `docs/` does; the ledger freezes at §11 signature; and the **tag is created last, against `git rev-parse staging` read at that moment**, because this file can never name the commit that will merge. **Found by the compiler and not by the auditor: `d06b0379`, recorded as the RC since REV-3, is a docs-only commit — the REV-7 ledger save.** The application RC is **`a42b209e…`**, proven by `git diff a42b209e...fe63e944` returning **one file, `docs/PROMOTION_LEDGER.md`, and nothing outside `docs/`**. Identity is now **two-layered** (§3.1). Counts split by question: application scope **+9,060 / −1,293**; total scope **+9,494 / −1,293** (the extra 434 lines are this ledger); **45 commits counting merges / 43 excluding** — both recorded with instrument, rather than one number offered as "the" count (the C-2 lesson). Ancestry corrected: **`main` is now an ANCESTOR of `staging`** via `9faf5a17`. PR #104 title and body corrected from "32 commits". **§25 opened with the auditor's findings, attributed and transcribed — and classified PARTIAL.** The auditor had no access to the databases, edge functions, R2, Cloudflare or GitHub Environments; those six instruments are recorded **INSUFFICIENT EVIDENCE, not VERIFIED** (§25.3), and §25.2 records that the auditor's own CI evidence was superseded by this commit. Blocker 9 is **partially** closed, not closed. **Disposition stays 🔴 NOT READY**, with the two prerequisites to READY FOR APPROVAL stated explicitly — and with the reminder that READY FOR APPROVAL is still not permission to merge: §11 signature and the tag remain mandatory, and AF-17 remains post-merge |
+| **REV-14** | **2026-08-29 11:20Z** | **C-9 — the staleness sweep, after independent audit round 2 (§25.5).** Nine active claims corrected, **four of them written or left standing by the compiler at REV-13 itself** — recorded as the compiler's own errors, not inherited ones. **Auditor found:** §27 actively stale; §3.2 non-`docs/` count **137 → 136** (there are **two** docs files, `DECISIONS.md` and `PROMOTION_LEDGER.md`); §3.5 rule 1 too broad; §25.4 not mapped to §25.3; §25.1 over-claiming code coverage. **Compiler sweep additionally found, and the auditor did not:** (i) **§5, the complete file manifest, was actively stale for nine revisions** — "135 files: 29 A · 106 M … **VERIFIED**", ADDED (29), MODIFIED (106), Commit manifest (32) — while §27 row 1 cited it, so fixing §27 alone would have left the two contradicting; (ii) **§3.3 was anchored to the void SHA `25c0456`** ("CI state at T"); (iii) the **"§5.3 probe" references collide with this ledger's own §5.3**, a file manifest, sending auditors to the wrong section; (iv) **the OWNER-SIGNED B11 binding (§23.1) names `d06b0379` — a docs-only commit — as the RC.** **§5 corrected by exact delta, not retype:** the difference from the `25c0456` enumeration is **5 files** and reconciles precisely — 135 + 2 added (`docs/PROMOTION_LEDGER.md`, `SummaryTriggerTapTarget.test.ts`) + 1 newly-modified (`.gitleaks.toml`) = **138**. Only three commits in the delta touch code (`bfcb68da`, `c8aec5d5`, `a42b209e`); the rest are ledger revisions. **Rule 1 narrowed to `docs/PROMOTION_LEDGER.md` only** — and the evidence stated honestly rather than restating the auditor's mechanism as fact: all **138** changed files were searched and **all four `docs/` references are comments**, no runtime consumer found, **whole repo not searched**, so the narrowing is recorded as **a precaution, not a demonstrated failure**. **§25.4 rewritten with one row per §25.3 instrument and a CLOSURE RULE: owner re-measurement is OWNER-ATTESTED and does not close an audit row** — closure needs a separate auditor with read-only access, or an export that auditor can independently validate. **§25.1 now states the audit excludes the 138 changed files and the test suite**; nobody may cite it as review of the code RC. **§17.1/§23.1: the signed text was NOT edited.** A correction is attached beside it and the **re-signature decision is put to the owner** (§26) — the rollback set is file-defined and unaffected. **Structural fix, because this is the third round of "you missed one": new §3.5 rule 5 — every figure carries its basis (what, which instrument, which SHA, which time) or is marked historical.** C-2, C-6, C-8 and C-9 are the same failure four times. **Disposition unchanged: 🔴 NOT READY; §25 PARTIAL** |
 
 ---
 
