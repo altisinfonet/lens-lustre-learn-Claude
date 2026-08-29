@@ -6,7 +6,7 @@
 
 **Repository path:** `docs/PROMOTION_LEDGER.md` (canonical, on `staging`)
 **Ledger ID:** `LEDGER-50MM-001`
-**Status of this revision:** `REV-6 · 2026-08-29T08:15Z`
+**Status of this revision:** `REV-7 · 2026-08-29T08:30Z`
 
 ---
 
@@ -14,11 +14,11 @@
 
 | Field | Value | Class |
 |---|---|---|
-| **Release ID** | `RC-20260829-03` (AF-15 fix → -02; D-6 conflict merge → -03. Supersedes `RC-20260826-01`) | VERIFIED |
+| **Release ID** | `RC-20260829-04` (AF-15 fix → -02; D-6 merge → -03; AF-19 fix → -04. Supersedes `RC-20260826-01`) | VERIFIED |
 | **Ledger ID** | `LEDGER-50MM-001` | — |
 | **Source lane** | `staging` → Supabase `ztzutckwdhetphwghuzj` → `staging.50mmretina.com` / `cdn-staging.50mmretina.com` / R2 `50mm-staging` | VERIFIED |
 | **Target lane** | `main` → Supabase `jtdtehuqtinjxropkkcn` → `www.50mmretina.com` / `cdn.50mmretina.com` / R2 `50mm` | VERIFIED |
-| **RC SHA (T)** | **`9faf5a17f2653ca5675250e274357248310198ba`** — merge commit `Merge branch 'main' into staging`; parents `fe4505aa` + `b671e1fb` | VERIFIED |
+| **RC SHA (T)** | **`a42b209e4f70a6efed4f3dcdb654e0f994416594`** — AF-19 fix. Merge base of the promotion is `9faf5a17` (parents `fe4505aa` + `b671e1fb`) | VERIFIED |
 | **RC tree** | *re-derive at approval; `25c0456`'s tree `51616b21…` is superseded* | VERIFIED |
 | **main pre-promotion SHA** | `b671e1fb0c5bcf145d442076c229eca888afd674` | VERIFIED |
 | **main pre-promotion tree** | `db8df5679ab812be4f0ba9a3284df7dc2f02c3e1` | VERIFIED |
@@ -87,13 +87,14 @@ PR           #104  (base main ← head staging)
 | Security / project's own security rules | ✅ Successful (9s) | VERIFIED |
 | Cloudflare Pages (staging) | ✅ Deployed successfully | VERIFIED |
 | **UI gate — "Every control reachable, nothing regressed"** | ✅ **PASSING** on the merge commit `9faf5a17` — was 🔴 at `25c0456` | **VERIFIED** |
-| **Security / Secret scan (full history)** | 🔴 **FAILING** (6s) — `leaks found: 1`. **Pre-existing, NOT candidate-introduced.** See **AF-19** | **VERIFIED** |
+| **Security / Secret scan (full history)** | ✅ **PASSING** at `a42b209e` — was 🔴 at `9faf5a17`. See **AF-19** | **VERIFIED** |
 
-**PR #104 on `9faf5a17`: 13 successful · 2 skipped · 2 failing** — both failures are the same secret
-scan, once on the `push` trigger and once on `pull_request`. GitHub reports **"Able to merge"**.
+**PR #104 on `a42b209e`: 13 successful · 2 skipped · 2 in progress · ZERO FAILING.** GitHub reports
+**"Able to merge"**.
 
-**The candidate's regression gate is now GREEN** (was RED at `25c0456`; closed by `bfcb68da` +
-`c8aec5d5` — §13.1 AF-15). **The secret scan is the one remaining red check** — §13.2 AF-19.
+**Both red gates are now green.** The UI gate was RED at `25c0456` and was closed by `bfcb68da` +
+`c8aec5d5` (§13.1 AF-15). The secret scan was RED at `9faf5a17` and was closed by `a42b209e`
+(§13.2 AF-19). **Neither was waved through; each was root-caused, fixed and control-verified.**
 
 ## 3.4 Tree immutability
 
@@ -621,7 +622,7 @@ Measured with positive and negative controls on both origins: the 12 objects **e
 | **AF-15** | ~~🔴 THE UI GATE IS RED ON THE CANDIDATE~~ → **FIXED 2026-08-29.** 9 problems / 148 screenshots, 3 scenes × 3 mobile viewports | **Candidate — `e7dbf51`** | **HIGH** | §13.1 below | ✅ **RESOLVED** by `bfcb68da` + `c8aec5d5`. Owner ruling D-9 = **"fix it first"**. Reproduced, fixed, controlled, pinned |
 | **AF-16** | Same logical migration carries different version integers per lane (`…144927` staging / `…145345` production) | Pre-existing | Low | §6.2 M1 | **RECORD ONLY.** `schema_migrations` is keyed on version, so the lanes cannot be compared by version alone |
 | **AF-17** | 🔴 **PRODUCTION IS MISSING TWO RLS POLICIES** on `ad_creative_comments`: banned members may comment on ads; a hidden ad's thread is readable by any signed-in member | Pre-existing (gap since `20260811120000`) | **HIGH (latent)** | §6.2 M2 — `pg_policies` both lanes | **ACTION REQUIRED** — §24.3. Fix exists and is applied on staging; **live exposure today = 0** |
-| **AF-19** | 🔴 **SECRET SCAN FAILS — a Supabase PUBLISHABLE key is hardcoded in `.github/workflows/web-build.yml`.** gitleaks rule `jwt`, entropy 5.544294 | **Pre-existing — commit `ccd5e423`, 2026-08-22** ("ci: lane-aware CI for the staging and production lanes"). **NOT introduced by any 2026-08-29 commit** | **Medium** | §13.2 below | 🔴 **OWNER RULING REQUIRED — D-11** |
+| **AF-19** | ~~🔴 SECRET SCAN FAILS~~ → ✅ **FIXED.** The allowlist covered only the **production** anon key; the **staging** anon key added by the lane-aware CI commit was never added | **Pre-existing — commit `ccd5e423`, 2026-08-22.** NOT introduced by any 2026-08-29 commit | **Medium** | §13.2 | ✅ **RESOLVED** by `a42b209e`. Verified with real gitleaks 8.24.3 + control + mutation test |
 | **AF-18** | `main`'s `apply-migration.yml` has `environment:` **commented out** — no lane gate, no ref assertion on the production lane | Pre-existing | **HIGH** | §9 | **CLOSED BY THIS PROMOTION** — the merge installs the gate |
 
 ## 13.1 AF-15 in full — the UI gate failure
@@ -779,17 +780,52 @@ through.
 request and blocks force pushes; **"Require status checks to pass" is NOT enabled** (§9, verified).
 GitHub therefore reports **"Able to merge"**. Whether it *should* block is the owner's call.
 
-### D-11 — the decision to be made (NOT made)
+### ✅ RESOLUTION — root cause found and fixed, 2026-08-29 (`a42b209e`)
 
-| Option | Effect |
+**The root cause is not a leaked secret. It is an allowlist written for one lane and never extended
+to two.**
+
+`.gitleaks.toml` already pinned the **production** anon key by exact literal, with a header
+explaining it is public by design. `ccd5e423` gave `web-build.yml` a **second lane** and therefore a
+**second anon key** — staging's — and **the allowlist was never extended**. That key sat in the tree
+as an unallowlisted JWT from 22 August.
+
+**Measured, both tokens decoded from their JWT payloads:**
+
+| Token | `role` | `ref` | In allowlist before | After |
+|---|---|---|---|---|
+| production | **`anon`** | `jtdtehuqtinjxropkkcn` | ✅ yes | ✅ yes |
+| staging | **`anon`** | `ztzutckwdhetphwghuzj` | ❌ **no ← the finding** | ✅ yes |
+
+**Neither is a `service_role` key.** An anon key is public by construction — it ships in every
+browser bundle and every table behind it is RLS-guarded. **No rotation is required, and none should
+be performed** (§14 HS-10 does not apply): rotating an anon key churns every client and buys no
+security.
+
+### Verified with the real binary, with a control
+
+**gitleaks 8.24.3 — the exact version CI runs — on the exact CI range:**
+
+| Run | Result |
 |---|---|
-| **D-11a** | **Allowlist it in `.gitleaks.toml`** with a comment stating it is the publishable key and public by design. Gate returns to green honestly; the value stays where CI needs it |
-| **D-11b** | **Move it to a repository variable** (not a secret — it is not secret) and reference it from the workflow. Removes the literal; the historical commit still trips a full-history scan until the fingerprint is allowlisted |
-| **D-11c** | **Accept the red check as a documented deviation** for this release and fix in G11 |
+| **Without the fix** | 🔴 `leaks found: 1` |
+| **With the fix** | ✅ `no leaks found` |
 
-**Not chosen. This session does not rule on it.**
-**⚠ Whichever is chosen, do NOT "fix" this by rotating the publishable key** — it is public by
-design, and rotating it would churn every client for no security gain.
+### Mutation-tested, so the allowlist cannot be over-broad
+
+A synthetic JWT with `role="service_role"` against the same project ref, placed in a file and scanned
+with the **new** config: **still caught — `leaks found: 1`.**
+
+**Only the two exact anon literals pass. Any other JWT — including a service-role key, and including
+a rotated anon key — still fails**, exactly as the config's own header promises. The fix teaches the
+scanner one true fact; it does not blunt it.
+
+**CI confirmation:** PR #104 went from **2 failing** to **ZERO failing** checks.
+
+**D-11 did not need an owner ruling after all.** The three options in REV-6 all assumed the finding
+was a true positive to be accepted or worked around. It was neither: it was a **gap in the
+allowlist**, and closing the gap is a fix, not a deviation. **No deviation is carried and nothing is
+signed away.**
 
 ---
 
@@ -1107,20 +1143,22 @@ owner action by construction — no session performs it.
 | ~~7~~ | ~~AF-11 ACAO ruling not made~~ — ✅ **RULED:** accepted as `www` | D-8 |
 | 8 | **AF-17** — production missing 2 RLS policies. ✅ **RULED:** apply post-merge (D-10). ⚠ **ACTION STILL PENDING** — production DB write, owner-only | D-10 · §24.3 |
 | 9 | **No independent audit performed** | §25 |
-| 10 | 🆕 **AF-19 — secret scan RED.** Publishable key hardcoded in `web-build.yml` since 2026-08-22. Pre-existing, not a credential incident, but the gate is red and no ruling exists | D-11 · §13.2 |
+| ~~10~~ | ~~AF-19 — secret scan RED~~ — ✅ **RESOLVED** by `a42b209e`. Root cause was a one-lane allowlist never extended to two. Control-verified and mutation-tested. **No deviation carried** | §13.2 |
 
 **Not blocking, recorded:** AF-13 (Android records) · AF-16 (version-stamp divergence) · AF-03/D-5 (accepted) · §15 rows 1 and 8 failing under D-5.
 
-**What would change this to READY FOR APPROVAL:** items 3, 4, 6, 10 resolved with evidence; §25 completed by an independent auditor; then §11 signed and tagged.
+**What would change this to READY FOR APPROVAL:** items 3, 4 and 6 resolved with evidence; §25 completed by an independent auditor; then §11 signed and tagged.
 
 **Progress since REV-3:** blocker 1 (red UI gate) closed with direct evidence — reproduced, root-caused, fixed in both affected components, control-verified, mutation-pinned, CI-green. Blocker 2 (merge conflict) **executed and verified**. Blocker 7 (D-8) **ruled**. D-9 and D-10 **ruled**.
 
-**One new blocker opened by measurement, not by change: AF-19 (D-11).** Net **8 → 6 outstanding**,
-plus D-11.
+**AF-19 was opened by measurement and closed the same day** — root-caused to a one-lane allowlist,
+fixed, control-verified and mutation-tested, with **no deviation carried**.
 
-**Still outstanding:** G8 instrument (3) · §5.3 probe (4) · B11 six-file rollback binding (6) ·
-AF-19/D-11 (10) · the AF-17 production migration **action** (8, ruled but not executed) ·
-independent audit (9) · §11 approval + tag.
+**Every CI gate on the candidate is now GREEN.** Net **9 → 5 outstanding.**
+
+**Still outstanding:** G8 instrument (3) · §5.3 secret-isolation probe (4) · B11 **six-file**
+rollback binding (6) · the AF-17 production migration **action** (8 — ruled D-10, not executed) ·
+independent audit (9) · then §11 approval + tag.
 
 ---
 
@@ -1166,7 +1204,8 @@ independent audit (9) · §11 approval + tag.
 | REV-3 | 2026-08-29 06:10Z | **Full audit-grade rebuild.** 27 sections. New: AF-15 (red UI gate, root-caused), AF-17 (production RLS gaps, measured), AF-18, AF-16; corrections C-1…C-7; six-file rollback binding; §25 audit section |
 | REV-4 | 2026-08-29 07:15Z | **AF-15 CLOSED.** Owner ruling D-9 = "fix it first". `h-12 px-2.5` on both summary triggers; `SummaryTriggerTapTarget.test.ts` pins it (mutation-tested); local sweep 12/12 with a control proving the failure returns without the fix; **CI runs #123/#124 green**. Candidate advanced `25c0456` → `c8aec5d5`; `RC-20260829-01` void, now `RC-20260829-02`. Blockers 9 → 8 |
 | REV-5 | 2026-08-29 07:55Z | **Auditor Option 3 pass.** §4.4 added: certificate conflict resolution prepared, editor loaded and marked resolved, **merged tree verified `tsc` clean + 2,475 tests** — but **"Commit merge" could not be actuated from this session**, so `origin/staging` is unchanged at `5a700d91` and **no merge commit exists**. Botched intermediate edit disclosed and discarded, nothing committed. **D-8 and D-10 framed with explicit options but NOT decided** — no owner ruling exists for either; the compiler does not make them |
-| **REV-6** | **2026-08-29 08:20Z** | **D-6 EXECUTED.** Merge `9faf5a17` (`main` → `staging`) landed taking staging's blue on all 6 hunks; verified `tsc` clean + **2,475 tests**, 0 markers, PR #104 **"Able to merge"**. **UI gate GREEN on the merge commit.** Owner decisions **D-8 (ACAO = `www`)**, **D-9 (tap-target fix)** and **D-10 (apply `20260828082136` post-merge)** recorded as RULED. 🆕 **AF-19** — secret scan RED: publishable key hardcoded in `web-build.yml` since `ccd5e423` (2026-08-22), **pre-existing, not a credential incident**, ruling **D-11** required |
+| REV-6 | 2026-08-29 08:20Z | **D-6 EXECUTED.** Merge `9faf5a17` (`main` → `staging`) landed taking staging's blue on all 6 hunks; verified `tsc` clean + **2,475 tests**, 0 markers, PR #104 **"Able to merge"**. **UI gate GREEN on the merge commit.** Owner decisions **D-8 (ACAO = `www`)**, **D-9 (tap-target fix)** and **D-10 (apply `20260828082136` post-merge)** recorded as RULED. 🆕 **AF-19** — secret scan RED: publishable key hardcoded in `web-build.yml` since `ccd5e423` (2026-08-22), **pre-existing, not a credential incident**, ruling **D-11** required |
+| **REV-7** | **2026-08-29 08:30Z** | **AF-19 CLOSED — and it was not what REV-6 assumed.** Root cause: `.gitleaks.toml` pinned only the **production** anon key; `ccd5e423` added a **second lane** and a **second anon key** (staging) that was never allowlisted. Both decoded and confirmed `role="anon"` — no `service_role` key, **no rotation required**. Fixed in `a42b209e`; verified with **real gitleaks 8.24.3** (control: 1 leak → 0) and **mutation-tested** (a synthetic `service_role` JWT is still caught). **PR #104: zero failing checks.** D-11 dissolved — a gap in an allowlist is a fix, not a deviation. Blockers 6 → 5 |
 
 ---
 
