@@ -159,7 +159,22 @@ const ReactionSummaryTooltip = ({ reactionCounts, totalCount, source, children }
               type="button"
               onClick={handleOpen}
               aria-label={`See who reacted (${totalCount})`}
-              className="cursor-pointer inline-flex items-center"
+              /* ⚠ 44/32 TAP FLOOR. h-12 px-2.5 is not decoration — it is the
+                 same box the Comment and Share buttons beside it already use.
+
+                 Making this a real <button> on 2026-08-28 was correct and is
+                 kept. What it also did was make the control MEASURABLE: as a
+                 <div> it was never checked, and the gate's tap-target rule only
+                 looks at interactive elements. The rect was always ~16-24 x 20;
+                 becoming a button is what surfaced it, not what shrank it.
+
+                 The rule (tools/uishot/capture.mjs) is LONG >= 44 AND SHORT >= 32,
+                 measured with getBoundingClientRect, which INCLUDES padding.
+                 h-12 gives 48 on the long axis; px-2.5 lifts the narrowest
+                 content (16px) to 36 on the short axis. The row is already 48px
+                 tall because of its h-12 siblings, so the height costs no layout.
+              */
+              className="cursor-pointer inline-flex items-center justify-center h-12 px-2.5 touch-manipulation"
             >
               {children}
             </button>
