@@ -105,6 +105,17 @@ export interface ThreadFeatures {
   sorting?: boolean;
 }
 
+/**
+ * ONE PLACEHOLDER, ONE STRING.
+ *
+ * The post cards said "Write a comment..." and the sponsored ad card said
+ * "Add a comment…" — different words AND a different ellipsis (one U+2026
+ * character against three full stops). Two threads written twice left two
+ * strings behind even after the threads became one; a member moving down the
+ * feed met both. This is the string, and the ad surface no longer overrides it.
+ */
+export const COMMENT_PLACEHOLDER = "Write a comment...";
+
 const REPORT_REASONS = [
   "Inappropriate",
   "Spam",
@@ -203,7 +214,7 @@ const CommentThread = ({
   submitting = false,
   editSubmitting = false,
   maxLength = 2200,
-  composerPlaceholder = "Write a comment...",
+  composerPlaceholder = COMMENT_PLACEHOLDER,
   emptyLabel,
   features,
   maxReplyDepth = Number.POSITIVE_INFINITY,
@@ -346,7 +357,34 @@ const CommentThread = ({
                       badges={comment.author_badges}
                       linkTo={`/profile/${comment.user_id}`}
                     />
-                    <p className="text-[15px] text-foreground leading-[1.33] break-words">
+                    {/*
+                      ⚠ `whitespace-pre-wrap` IS LOAD-BEARING. (Fixed 2026-08-28.)
+
+                      A comment written as two paragraphs rendered as ONE line.
+                      The newline survived everything except the last step: the
+                      database stored it (post_comments 95c6f07c is 'para one' +
+                      chr(10) + 'para two'), React put it in the DOM (textContent
+                      was "para one\npara two") — and then HTML did what HTML
+                      does. Under the default `white-space: normal` a newline is
+                      just another run of whitespace and collapses to a single
+                      space. Measured: 18px rendered against a 20px line-height.
+
+                      Nothing in the data path was wrong, which is why it looked
+                      so puzzling; the fault was one missing CSS declaration on
+                      the element that draws the text.
+
+                      PRE-WRAP, NEVER PRE: `pre` would preserve the newlines and
+                      stop long lines wrapping, so a pasted URL would run off the
+                      card — the same failure `break-words` exists to prevent one
+                      property along. `pre-wrap` keeps the breaks AND still wraps.
+
+                      It is inherited, so it reaches RichContentRenderer's inner
+                      <span> too, and this is the one comment row both the post
+                      card and the sponsored ad card render — replies included.
+                      Caption.tsx has carried the identical pair since it was
+                      written; see the note there.
+                    */}
+                    <p className="text-[15px] text-foreground leading-[1.33] whitespace-pre-wrap break-words">
                       <RichContentRenderer content={comment.content} />
                     </p>
                     {isEdited(comment) && (
@@ -540,6 +578,9 @@ const CommentThread = ({
             placeholder={composerPlaceholder}
             disabled={submitting}
             maxLength={maxLength}
+            /* Only here. Under every reply and edit box too, the same sentence
+               would appear four times on one screen. */
+            showHint
           />
         </div>
       )}

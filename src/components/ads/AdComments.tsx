@@ -189,7 +189,6 @@ const AdComments = ({ creativeId, onCountChange }: Props) => {
       /* ad_creative_comments_length CHECK (length(content) <= 2000) — the box
          must not accept what the database will refuse. */
       maxLength={2000}
-      composerPlaceholder="Add a comment…"
       emptyLabel="No comments yet."
       features={{ reactions: false, pinning: false, reporting: false, sorting: false }}
       maxReplyDepth={AD_MAX_REPLY_DEPTH}

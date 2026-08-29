@@ -33,7 +33,9 @@
  *      specific shape of the defect, and of any successor to it
  *   3. the story card draws ONE composer, not two. The shipped bundle carried
  *      two "Add a comment" boxes because the ad thread and the post thread were
- *      separate implementations; there is one thread now and this says so.
+ *      separate implementations; there is one thread now and this says so. The
+ *      placeholder is one string too, since 2026-08-28 — the ad card used to
+ *      say "Add a comment…" and the post cards "Write a comment...".
  *
  * (2) is the assertion that would have caught it. It is deliberately a check on
  * the RENDERED OUTPUT and not on the source: a call rendered as text is
@@ -173,7 +175,7 @@ describe("the story card shows the comment that is actually there", () => {
     // placeholder came back — the same red as the assertion above, for a
     // different reason, and this one would never actually run. It has to be
     // able to fail on its own terms.
-    await screen.findByPlaceholderText(/add a comment/i);
+    await screen.findByPlaceholderText(/write a comment/i);
     // The whole rendered subtree, not one node: the placeholder sat beside the
     // comment, so an assertion scoped to the comment's own element would have
     // walked straight past it.
@@ -184,7 +186,7 @@ describe("the story card shows the comment that is actually there", () => {
 
   it("draws ONE comment composer, not the two the bundle shipped", async () => {
     await openStoryCardThread();
-    const composers = await screen.findAllByPlaceholderText(/add a comment/i);
+    const composers = await screen.findAllByPlaceholderText(/write a comment/i);
     expect(composers).toHaveLength(1);
   });
 });

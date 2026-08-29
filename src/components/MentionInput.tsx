@@ -1,4 +1,4 @@
-import { useCallback, useEffect, forwardRef, useRef } from "react";
+import { useCallback, useEffect, forwardRef, useRef, useState } from "react";
 import { Send } from "lucide-react";
 import { MentionsInput, Mention, SuggestionDataItem } from "react-mentions";
 import { profilesPublic } from "@/lib/profilesPublic";
@@ -13,6 +13,14 @@ interface MentionInputProps {
   className?: string;
   showSendButton?: boolean;
   autoFocus?: boolean;
+  /**
+   * Draw the one-line "how do I post this" hint under the box.
+   *
+   * Off by default: it belongs under the composer a member starts in, not
+   * under every reply and edit box, where it would be four repetitions of the
+   * same sentence on one screen.
+   */
+  showHint?: boolean;
 }
 
 interface UserSuggestion extends SuggestionDataItem {
@@ -29,6 +37,7 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
   className = "",
   showSendButton = true,
   autoFocus = false,
+  showHint = false,
 }: MentionInputProps, _forwardedRef) => {
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
@@ -161,6 +170,25 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
     typeof window.matchMedia === "function" &&
     window.matchMedia("(pointer: coarse)").matches;
 
+  /**
+   * The same question, as STATE, because the hint and the keyboard's own key
+   * label have to be rendered rather than answered at keypress time.
+   *
+   * It reads the identical media query `handleKeyDown` uses, so the words under
+   * the box and the label on the key can never disagree with what Enter
+   * actually does. Live, not once at mount: a Surface or an iPad with a
+   * keyboard attached flips `(pointer: coarse)` mid-session.
+   */
+  const [coarse, setCoarse] = useState(isTouch);
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(pointer: coarse)");
+    const sync = () => setCoarse(mq.matches);
+    sync();
+    mq.addEventListener?.("change", sync);
+    return () => mq.removeEventListener?.("change", sync);
+  }, []);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== "Enter") return;
 
@@ -215,12 +243,24 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
          * `autoCapitalize` was never set, so a comment started lowercase. Every
          * other social app capitalises the first letter.
          *
-         * `enterKeyHint` is deliberately ABSENT. It was "send" while the box was
-         * single-line, because the keyboard was the only usable way to post past
-         * a 24px button. Now that Enter inserts a new line on touch (see
-         * handleKeyDown) a key labelled "Send" would lie about what it does.
-         * The 44px button is the send route on a phone, exactly as on Instagram.
+         * `enterKeyHint` NOW FOLLOWS WHAT ENTER ACTUALLY DOES, rather than being
+         * absent. (2026-08-28.)
+         *
+         * It was left unset deliberately, and the reasoning still stands: Enter
+         * inserts a NEW LINE on a touch device (see handleKeyDown — a phone
+         * keyboard has no Shift, so if Enter posted, nobody could ever write a
+         * second line). Labelling that key "Send" would be a lie told by the
+         * keyboard itself, and it was asked for on the assumption that Enter
+         * posts on mobile. It does not.
+         *
+         * Absent was not right either: the key then falls back to whatever the
+         * platform picks. So it is now derived from the SAME media query the key
+         * handler uses — "send" where Enter really does post, "enter" where it
+         * really does insert a line. On a desktop the attribute is inert (there
+         * is no soft keyboard to label), which costs nothing and keeps the two
+         * branches honest side by side.
          */
+        enterKeyHint={coarse ? "enter" : "send"}
         autoCapitalize="sentences"
         inputRef={(node: any) => {
           inputRef.current = node;
@@ -390,6 +430,28 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
       {overLimit && (
         <div className="text-[10px] mt-1 pr-2 text-right tabular-nums text-destructive font-semibold">
           {value.length - maxLength} over the {maxLength} limit — shorten to post · {value.length} / {maxLength}
+        </div>
+      )}
+
+      {/*
+        HOW TO POST, AND HOW TO START A SECOND LINE.
+
+        Both have always worked and neither was ever written down, so the only
+        way to discover Shift+Enter was to guess it. This is NOT a character
+        counter — the owner's 2026-08-04 ban is on a running readout of how much
+        you have typed; this is a fixed sentence that never changes as you type.
+
+        It is rendered from `coarse`, the same media query handleKeyDown asks,
+        so it describes THIS device rather than a guess: on a phone Enter makes
+        a new line and the round button posts, on a desktop Enter posts and
+        Shift+Enter makes the line. Hidden while over the limit, where the
+        destructive line above is the more urgent thing to read.
+      */}
+      {showHint && !overLimit && (
+        <div className="text-[10px] mt-1 px-3 text-muted-foreground">
+          {coarse
+            ? "Enter starts a new line · tap the arrow to post"
+            : "Enter to post · Shift + Enter for a new line"}
         </div>
       )}
     </div>

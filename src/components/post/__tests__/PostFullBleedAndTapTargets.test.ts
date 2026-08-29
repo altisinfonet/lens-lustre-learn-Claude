@@ -328,6 +328,49 @@ describe("there is ONE action row, and both surfaces draw it", () => {
   });
 });
 
+/**
+ * BOTH COUNTS OPEN THEIR PANEL WITHOUT A MOUSE.
+ *
+ * The reaction trigger was a `<div onClick>` — no role, no tabindex, no name —
+ * and the share trigger was the identical thing one column along. Each is a
+ * real <button> now, with the count kept in the accessible name because an
+ * `aria-label` REPLACES the content for assistive tech and a bare "See who
+ * shared" would throw the number away.
+ *
+ * ⚠ ASSERTED ON THE PANELS, NOT ON THE ROW. Both wrap whatever they are given,
+ * so the row's own source says nothing about whether the wrapper is focusable —
+ * which is exactly how a mouse-only control survived a source-reading suite.
+ */
+describe("the count triggers are controls, not clickable divs", () => {
+  const panels = {
+    "src/components/ReactionSummaryTooltip.tsx": "See who reacted",
+    "src/components/ShareSummaryTooltip.tsx": "See who shared",
+  } as const;
+
+  for (const [file, label] of Object.entries(panels)) {
+    it(`${file} wraps its trigger in a real button`, () => {
+      const src = stripComments(read(file));
+      expect(src, "a div with onClick is not a control").not.toMatch(
+        /<div onClick=\{handleOpen\}/,
+      );
+      expect(src).toMatch(/<button\s+type="button"\s+onClick=\{handleOpen\}/);
+    });
+
+    it(`${file} names it, and keeps the count in the name`, () => {
+      const src = stripComments(read(file));
+      expect(src).toContain(`aria-label={\`${label} (`);
+    });
+
+    it(`${file} needs no hand-rolled keyboard handling`, () => {
+      // A native button already does Enter, Space and the tab order. A
+      // re-implementation is a worse copy of something the platform ships.
+      const src = stripComments(read(file));
+      expect(src).not.toMatch(/role="button"/);
+      expect(src).not.toMatch(/tabIndex=\{0\}/);
+    });
+  }
+});
+
 describe("the card is laid out in Instagram's order", () => {
   it("puts the photo first, then the icons, then the caption, then the comments", () => {
     const media = postCard.indexOf(MEDIA_ANCHOR);

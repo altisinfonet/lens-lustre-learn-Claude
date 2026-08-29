@@ -240,7 +240,6 @@ const PostCommentsSection = ({ postId, postOwnerId, expanded, onCommentCountChan
         submitting={addCommentMutation.isPending}
         editSubmitting={editSubmitting}
         maxLength={2200}
-        composerPlaceholder="Write a comment..."
         onAdd={(content, parentId) => {
           addCommentMutation.mutate({ postId, content, parentId });
         }}

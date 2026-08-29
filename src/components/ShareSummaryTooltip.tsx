@@ -74,10 +74,33 @@ const ShareSummaryTooltip = ({ shareCount, postId, children }: ShareSummaryToolt
     <>
       <TooltipProvider delayDuration={200}>
         <Tooltip>
+          {/*
+            ⚠ A REAL BUTTON, NOT A CLICKABLE DIV. (Fixed 2026-08-28.)
+
+            The identical defect ReactionSummaryTooltip carried, one column
+            along: `<div onClick={handleOpen} className="cursor-pointer">` — no
+            role, no tabindex, no accessible name. The list of who shared a post
+            could be opened with a mouse and by nothing else.
+
+            A <button> needs no key handling of its own: focus order, Enter and
+            Space come from the platform, and a hand-rolled `role="button" +
+            tabIndex={0} + onKeyDown` only re-implements them less well.
+            Tailwind's preflight strips the UA border, background and padding,
+            so nothing moves.
+
+            THE COUNT IS IN THE NAME, exactly as on the reaction trigger: an
+            `aria-label` REPLACES the content for assistive tech, so a bare
+            "See who shared" would throw away the number this control wraps.
+          */}
           <TooltipTrigger asChild>
-            <div onClick={handleOpen} className="cursor-pointer">
+            <button
+              type="button"
+              onClick={handleOpen}
+              aria-label={`See who shared (${shareCount})`}
+              className="cursor-pointer inline-flex items-center"
+            >
               {children}
-            </div>
+            </button>
           </TooltipTrigger>
           <TooltipContent
             side="top"
