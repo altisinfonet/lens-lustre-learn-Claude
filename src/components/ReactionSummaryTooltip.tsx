@@ -130,10 +130,39 @@ const ReactionSummaryTooltip = ({ reactionCounts, totalCount, source, children }
       {/* Hover tooltip for quick summary */}
       <TooltipProvider delayDuration={200}>
         <Tooltip>
+          {/*
+            ⚠ A REAL BUTTON, NOT A CLICKABLE DIV. (Fixed 2026-08-28.)
+
+            This was `<div onClick={handleOpen} className="cursor-pointer">`:
+            no role, no tabindex, no accessible name. The Reactions dialog — the
+            only place the app names WHO reacted — could be opened with a mouse
+            and by no other means. Not reachable by Tab, not announced as a
+            control, not operable by Enter or Space. On the post card and, since
+            the two share PostActionRow, on the sponsored ad card too.
+
+            A `<button>` fixes all of it at once and needs no key handling of its
+            own: the platform gives Enter and Space, focus order and the role for
+            free, and every hand-rolled `role="button" + tabIndex={0} +
+            onKeyDown` is a re-implementation of something the element already
+            does correctly. Tailwind's preflight strips a button's UA border,
+            background and padding, so nothing moves.
+
+            THE COUNT IS IN THE NAME on purpose. An `aria-label` REPLACES the
+            content for assistive tech, so a bare "See who reacted" would have
+            silently thrown away the number this control is wrapped around — a
+            sighted member reads "3", a screen-reader member would have heard
+            nothing at all. Both triggers on a row (the total and the break-up)
+            open the same dialog, so they share the name deliberately.
+          */}
           <TooltipTrigger asChild>
-            <div onClick={handleOpen} className="cursor-pointer">
+            <button
+              type="button"
+              onClick={handleOpen}
+              aria-label={`See who reacted (${totalCount})`}
+              className="cursor-pointer inline-flex items-center"
+            >
               {children}
-            </div>
+            </button>
           </TooltipTrigger>
           <TooltipContent
             side="top"

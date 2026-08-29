@@ -29,7 +29,7 @@
  * the person who reacted must be nameable.
  */
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 const CREATIVE_ID = "933bf711-ee95-4414-b399-5ca8c33e85e5";
@@ -139,12 +139,68 @@ describe("the reaction break-up is on the ad card's row", () => {
   });
 });
 
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE TRIGGERS ARE CONTROLS, NOT DECORATED TEXT.
+ *
+ * Found on the live staging bundle, 2026-08-28: the far-right reaction chip was
+ * a bare `<span class="inline-flex items-center gap-1">` inside a
+ * `<div onClick>` — cursor:pointer and a handler, but no role, no tabindex and
+ * no accessible name. The Reactions dialog is the ONLY place the app names who
+ * reacted, and it could be opened with a mouse and by nothing else: not by Tab,
+ * not by Enter or Space, not announced as a control at all. On the post card as
+ * well, since the two share PostActionRow.
+ *
+ * ⚠ THESE QUERY BY ROLE, NEVER BY TEXT, AND THAT IS THE POINT. `getByText("3")`
+ * passes just as happily against an unfocusable span — it is exactly the
+ * assertion that let this ship. A role query can only succeed against something
+ * the accessibility tree actually exposes as a button.
+ */
+describe("the reaction triggers are reachable without a mouse", () => {
+  const REACT_TRIGGER = { name: /see who reacted/i } as const;
+
+  it("exposes the total and the break-up chip as real buttons", async () => {
+    await drawStoryCard();
+    const triggers = screen.getAllByRole("button", REACT_TRIGGER);
+    // Two: the total beside the thumb, and the break-up group on the right.
+    expect(triggers).toHaveLength(2);
+    for (const t of triggers) {
+      expect(t.tagName, "a span with onClick is not a control").toBe("BUTTON");
+      // A native button is in the tab order and handles Enter/Space itself —
+      // no hand-rolled tabIndex or onKeyDown needed, and none must appear.
+      expect(t).not.toHaveAttribute("tabindex", "-1");
+      expect(t).not.toBeDisabled();
+    }
+  });
+
+  it("names the control AND keeps the count in the accessible name", async () => {
+    await drawStoryCard();
+    // aria-label REPLACES the content for assistive tech, so a bare
+    // "See who reacted" would drop the number the control is wrapped around.
+    expect(screen.getAllByRole("button", { name: "See who reacted (3)" })).toHaveLength(2);
+  });
+
+  it("still carries the visible chips inside the button", async () => {
+    await drawStoryCard();
+    const chip = screen.getAllByRole("button", REACT_TRIGGER)[1];
+    expect(within(chip).getByTitle("like")).toBeInTheDocument();
+    expect(within(chip).getByTitle("love")).toBeInTheDocument();
+  });
+});
+
 describe("tapping the count names the people, from the AD's own table", () => {
   it("opens the Reactions dialog and lists the member", async () => {
     await drawStoryCard();
-    fireEvent.click(screen.getByText("3"));
+    // Reached by ROLE — the way a keyboard or screen-reader user reaches it.
+    fireEvent.click(screen.getAllByRole("button", { name: /see who reacted/i })[0]);
 
     expect(await screen.findByText("Reactions")).toBeInTheDocument();
+    expect(await screen.findByText("Reacting Member")).toBeInTheDocument();
+  });
+
+  it("opens from the far-right break-up chip too, not only from the total", async () => {
+    await drawStoryCard();
+    fireEvent.click(screen.getAllByRole("button", { name: /see who reacted/i })[1]);
     expect(await screen.findByText("Reacting Member")).toBeInTheDocument();
   });
 
@@ -152,7 +208,7 @@ describe("tapping the count names the people, from the AD's own table", () => {
     selectedFrom.length = 0;
     eqCalls.length = 0;
     await drawStoryCard();
-    fireEvent.click(screen.getByText("3"));
+    fireEvent.click(screen.getAllByRole("button", { name: /see who reacted/i })[0]);
     await screen.findByText("Reacting Member");
 
     expect(selectedFrom).toContain("ad_creative_reactions");

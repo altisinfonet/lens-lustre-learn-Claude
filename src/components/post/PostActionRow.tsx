@@ -226,14 +226,17 @@ const PostActionRow = ({
       {breakdown.length > 0 && (
         <div className="ml-auto">
           <ReactionSummaryTooltip reactionCounts={reactionCounts} totalCount={likeCount} source={reactionSource}>
-            <div className="flex cursor-pointer items-center gap-2.5 pr-1.5 text-xs text-muted-foreground">
+            {/* A SPAN, because ReactionSummaryTooltip's trigger is now a real
+                <button> and a <div> inside a button is invalid content. The
+                cursor and the click behaviour come from that button. */}
+            <span className="inline-flex items-center gap-2.5 pr-1.5 text-xs text-muted-foreground">
               {breakdown.map(({ type, emoji, count }) => (
                 <span key={type} className="inline-flex items-center gap-1" title={type}>
                   <span aria-hidden className="text-[13px] leading-none">{emoji}</span>
                   <span className="font-medium text-foreground/80">{formatNumber(count)}</span>
                 </span>
               ))}
-            </div>
+            </span>
           </ReactionSummaryTooltip>
         </div>
       )}
