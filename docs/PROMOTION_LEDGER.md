@@ -6,7 +6,7 @@
 
 **Repository path:** `docs/PROMOTION_LEDGER.md` (canonical, on `staging`)
 **Ledger ID:** `LEDGER-50MM-001`
-**Status of this revision:** `REV-7 · 2026-08-29T08:30Z`
+**Status of this revision:** `REV-8 · 2026-08-29T08:45Z`
 
 ---
 
@@ -14,11 +14,11 @@
 
 | Field | Value | Class |
 |---|---|---|
-| **Release ID** | `RC-20260829-04` (AF-15 fix → -02; D-6 merge → -03; AF-19 fix → -04. Supersedes `RC-20260826-01`) | VERIFIED |
+| **Release ID** | `RC-20260829-05` (AF-15 → -02; D-6 merge → -03; AF-19 → -04; ledger REV-7 → -05. Supersedes `RC-20260826-01`) | VERIFIED |
 | **Ledger ID** | `LEDGER-50MM-001` | — |
 | **Source lane** | `staging` → Supabase `ztzutckwdhetphwghuzj` → `staging.50mmretina.com` / `cdn-staging.50mmretina.com` / R2 `50mm-staging` | VERIFIED |
 | **Target lane** | `main` → Supabase `jtdtehuqtinjxropkkcn` → `www.50mmretina.com` / `cdn.50mmretina.com` / R2 `50mm` | VERIFIED |
-| **RC SHA (T)** | **`a42b209e4f70a6efed4f3dcdb654e0f994416594`** — AF-19 fix. Merge base of the promotion is `9faf5a17` (parents `fe4505aa` + `b671e1fb`) | VERIFIED |
+| **RC SHA (T)** | **`d06b0379776aef94d006d78b1de37a0cda685927`** · tree **`f4616fb680f863d1141491d9ab5f3b619c048f4b`**. Promotion merge base `9faf5a17` (parents `fe4505aa` + `b671e1fb`) | VERIFIED |
 | **RC tree** | *re-derive at approval; `25c0456`'s tree `51616b21…` is superseded* | VERIFIED |
 | **main pre-promotion SHA** | `b671e1fb0c5bcf145d442076c229eca888afd674` | VERIFIED |
 | **main pre-promotion tree** | `db8df5679ab812be4f0ba9a3284df7dc2f02c3e1` | VERIFIED |
@@ -622,6 +622,7 @@ Measured with positive and negative controls on both origins: the 12 objects **e
 | **AF-15** | ~~🔴 THE UI GATE IS RED ON THE CANDIDATE~~ → **FIXED 2026-08-29.** 9 problems / 148 screenshots, 3 scenes × 3 mobile viewports | **Candidate — `e7dbf51`** | **HIGH** | §13.1 below | ✅ **RESOLVED** by `bfcb68da` + `c8aec5d5`. Owner ruling D-9 = **"fix it first"**. Reproduced, fixed, controlled, pinned |
 | **AF-16** | Same logical migration carries different version integers per lane (`…144927` staging / `…145345` production) | Pre-existing | Low | §6.2 M1 | **RECORD ONLY.** `schema_migrations` is keyed on version, so the lanes cannot be compared by version alone |
 | **AF-17** | 🔴 **PRODUCTION IS MISSING TWO RLS POLICIES** on `ad_creative_comments`: banned members may comment on ads; a hidden ad's thread is readable by any signed-in member | Pre-existing (gap since `20260811120000`) | **HIGH (latent)** | §6.2 M2 — `pg_policies` both lanes | **ACTION REQUIRED** — §24.3. Fix exists and is applied on staging; **live exposure today = 0** |
+| **AF-20** | ⚠ **The gate named "Secret scan (FULL HISTORY)" does not scan full history.** CI restricts it to `--no-merges --first-parent <range>`. An unrestricted scan of the same repository returns **23 findings across 6 commits, 2026-07-09 → 2026-08-05** — every one of them **outside** the range CI checks | Pre-existing control-scope gap | **Low (name/scope mismatch)** · **no real secret found** | §13.3 below | **RECORD ONLY** — not a release blocker. Carried to G11 |
 | **AF-19** | ~~🔴 SECRET SCAN FAILS~~ → ✅ **FIXED.** The allowlist covered only the **production** anon key; the **staging** anon key added by the lane-aware CI commit was never added | **Pre-existing — commit `ccd5e423`, 2026-08-22.** NOT introduced by any 2026-08-29 commit | **Medium** | §13.2 | ✅ **RESOLVED** by `a42b209e`. Verified with real gitleaks 8.24.3 + control + mutation test |
 | **AF-18** | `main`'s `apply-migration.yml` has `environment:` **commented out** — no lane gate, no ref assertion on the production lane | Pre-existing | **HIGH** | §9 | **CLOSED BY THIS PROMOTION** — the merge installs the gate |
 
@@ -829,6 +830,50 @@ signed away.**
 
 ---
 
+## 13.3 AF-20 — the "full history" scan is not full history
+
+**Measured 2026-08-29 with gitleaks 8.24.3 on candidate `d06b0379`.**
+
+| Scan | Result |
+|---|---|
+| **As CI runs it** (`--no-merges --first-parent <range>`) | ✅ **no leaks found** |
+| **Unrestricted, whole repository** | ⚠ **23 findings, 6 commits, 2026-07-09 → 2026-08-05** |
+
+**Every one of the 23 predates the candidate window** (which begins 2026-08-22). **None is
+candidate-introduced.**
+
+### What the 23 actually are — each checked, no value printed
+
+| Rule | Count | Assessment |
+|---|---|---|
+| `jwt` ×3 — `.github/workflows/test-agent.yml`, `scripts/test-agent/run-checks.mjs` | 3 | **Decoded: `role="anon"`, ref `isywidnfnjhtydmdfgtk`** — a *third* (test-agent) project's anon key. Public by design, same class as AF-19 |
+| `gcp-api-key` — `google-services.json` | 1 | `PROJECT_MASTER_RECORD.md` §9, verbatim: *"Firebase client config … **client config, not a secret**"* |
+| `generic-api-key` — source, tests, migrations, a `.lovable` memo | 19 | gitleaks' loosest rule, firing on long identifiers (stage keys, UUIDs). **Not individually adjudicated** — see the honest limit below |
+
+**No evidence of a real secret in history was found.** Every finding that could be identified
+resolves to a value the project already documents as public.
+
+### The actual finding is the name, not the secrets
+
+A gate called **"Secret scan (full history)"** that scans a **commit range** is a gate whose name
+overstates its coverage. That mismatch is exactly the class of defect this programme exists to
+catch — and it is also **why AF-19 hid for a week**: the range simply never reached `ccd5e423`.
+
+### Honest limits
+
+- The 19 `generic-api-key` findings were **classified by rule and file, not individually opened**.
+  Calling them false positives is **INFERRED** from the rule's known noisiness and the file types,
+  **not VERIFIED** one by one.
+- This is therefore **not** a statement that the repository's history is clean. It is a statement
+  that **nothing identifiable is a real secret**, and that **the gate's scope is narrower than its
+  name**.
+
+**Disposition: RECORD ONLY.** Not a release blocker — the CI gate passes honestly on what it
+scans, and nothing found is a live credential. **Carried to G11:** either widen the scan and
+adjudicate the 23, or rename the gate to state its true scope.
+
+---
+
 ---
 
 # 14 · CONTRADICTION / CORRECTION REGISTER
@@ -916,33 +961,55 @@ Execute in **reverse migration order**, via `apply-migration.yml`, `target=produ
 
 ---
 
-# 18 · PRE-PROMOTION SNAPSHOT — 2026-08-29T06:10Z
+# 18 · PRE-PROMOTION SNAPSHOT — 2026-08-29T08:45Z
 
 ```
-RC SHA (T)          25c0456011451f644def7ef5361904e4de25dd08
-T tree              51616b2196641abbad9d0cdc20171efc6a64facc
-main SHA            b671e1fb0c5bcf145d442076c229eca888afd674
-main tree           db8df5679ab812be4f0ba9a3284df7dc2f02c3e1
-merge base          32930e75b1d87d361f44e4b4f90dabf9deeda3e1
-working tree        clean (compiler's clone; no local modification to T)
-files changed       135  (29 A / 106 M / 0 D)
-lines               +7,711 / −1,280
-commits ahead       32
-commits behind      2   ← main-only: b671e1fb, 6ebe6c3d
-migrations (repo)   staging 635 / main 633
-rollbacks (repo)    staging 35  / main 30
-new migrations      2   (1 applied both lanes · 1 applied STAGING ONLY)
-merge state         CONFLICT — src/lib/generateCertificatePdf.ts, 6 hunks
-CI at T             8 pass · 1 SKIP (production build) · 1 FAIL (UI gate)
-prod ad-comment RLS 7 policies (2 missing)
-staging ad-cmt RLS  9 policies
-prod R2 50mm        1.12 GB · isolation-probe/ = 0 objects
-R2 token            staging-upload · 1 policy · 50mm-staging · no expiration
-branch protection   protect-main ACTIVE · bypass EMPTY · PR required · force-push blocked
-repo secrets        4 (all ANDROID_*) · SUPABASE_DB_URL = production Environment only
-approval state      NOT APPROVED — no tag exists, §11 record unsigned
-tags in repository  0
+RC SHA (T)          d06b0379776aef94d006d78b1de37a0cda685927
+T tree              f4616fb680f863d1141491d9ab5f3b619c048f4b
+promotion merge base 9faf5a17  (parents fe4505aa + b671e1fb)
+main SHA            b671e1fb0c5bcf145d442076c229eca888afd674   ← UNCHANGED all session
+main is ancestor    YES  (conflict resolved 08:05Z, D-6)
+working tree        clean
+PR #104             "Able to merge" — no conflicts
+
+CI ON THE CANDIDATE — ALL GREEN
+  Typecheck                             pass
+  Web build / staging lane              pass
+  Web build / lane resolves to one      pass
+  Security / dependency vulnerabilities pass
+  Security / own security rules         pass
+  Security / Secret scan (full history) pass   9s   (was RED — AF-19)
+  UI gate / every control reachable     pass   7m   (was RED — AF-15)
+  Cloudflare Pages (staging)            deployed
+  failing checks                        ZERO
+
+LOCAL VERIFICATION ON d06b0379
+  tsc --noEmit                          exit 0
+  vitest                                178 files, 2,475 passed, 1 skipped
+  gitleaks (CI range)                   no leaks found
+  gitleaks (unrestricted)               23 findings, all pre-candidate — AF-20
+
+DATABASE
+  new migrations in promotion           2
+    20260824145345  applied BOTH lanes            (net effect: none)
+    20260828082136  applied STAGING ONLY  ← D-10, must run post-merge
+  production ad_creative_comments RLS   7 policies  (staging: 9)
+  live exposure of the 2 missing policies  ZERO (0 hidden creatives, 0 banned members)
+
+SECURITY POSTURE
+  branch protection protect-main        ACTIVE, bypass EMPTY, PR required, force-push blocked
+  SUPABASE_DB_URL                       production Environment only; absent at repo level
+  repo secrets                          4, all ANDROID_*
+  R2 token staging-upload               1 policy, 50mm-staging only, no expiration
+  production R2 isolation-probe/        0 objects
+
+APPROVAL
+  tags in repository                    0
+  §11 Release Approval Record           UNSIGNED
+  §25 independent audit                 NOT PERFORMED
 ```
+
+---
 
 ---
 
@@ -1065,6 +1132,60 @@ owner action by construction — no session performs it.
 | **Promotion approval (OA-20)** | §12.4 in order | All above | ☐ **UNSIGNED** |
 | **Ledger closure** | This document | All above + §25 | ☐ **OPEN** |
 
+## 23.1 · B11 — CORRECTED SIX-FILE ROLLBACK BINDING (ready to sign)
+
+> ⚠ **Do not sign the 2026-08-27 five-file version.** It predates migration `20260828082136` and
+> would leave that migration **un-rollbackable**. This supersedes it.
+
+> **DATABASE ROLLBACK COMPONENT — RC-20260829-05.**
+> The database rollback for candidate `d06b0379776aef94d006d78b1de37a0cda685927` is the following
+> **six** files, executed in **reverse migration order (0 → 5)** via
+> `.github/workflows/apply-migration.yml` with `target = production`, dispatched from `main`:
+>
+> 0. `supabase/rollback/20260828082136_ad_comment_ban_and_visibility_policies_ROLLBACK.sql`
+>    **← runs FIRST; absent from the 08-27 draft**
+> 1. `supabase/rollback/UNAPPLIED_20260825170000_certificate_custom_heading_ROLLBACK.sql`
+> 2. `supabase/rollback/UNAPPLIED_20260825120000_certificate_delete_removes_notifications_ROLLBACK.sql`
+> 3. `supabase/rollback/UNAPPLIED_20260825060000_certificate_types_and_admin_search_ROLLBACK.sql`
+> 4. `supabase/rollback/UNAPPLIED_20260824000000_admin_user_list_pagination_ROLLBACK.sql`
+> 5. `supabase/rollback/20260824145345_admin_user_lookup_by_email_ROLLBACK.sql`
+>
+> `UNAPPLIED_20260820140000_classF_repoint_originals_ROLLBACK.sql` is **NOT** part of this set — its
+> forward migration is applied in production but is not part of this RC.
+>
+> **I acknowledge:**
+> * this set is **prepared and reviewed but NEVER EXECUTED** against a live database;
+> * **file 0 reopens both RLS gaps by design** — a banned member could comment on ads again, and a
+>   hidden ad's thread would become readable again. It is not a safe default and its own header
+>   says so;
+> * §17-9's Pages-deployment rollback covers the **web bundle only** and does **not** cover schema;
+> * `git revert` of the merge does **not** un-apply any migration.
+>
+> Signed: ______________________  Date (UTC): ____________
+
+---
+
+## 23.2 · §11 RELEASE APPROVAL RECORD (OA-19) — pre-filled, UNSIGNED
+
+> ⚠ **Must be signed AND the tag created BEFORE the merge** (§17-10). Tree equality after the merge
+> is asserted against **that tag**, not against T (§20).
+> ⚠ **Cannot be signed while items 3, 4 and 6 of §26 remain open**, and §25 is vacant.
+
+| # | Field | Value |
+|---|---|---|
+| 1 | Release ID | `RC-20260829-05` |
+| 2 | Candidate SHA | `d06b0379776aef94d006d78b1de37a0cda685927` |
+| 3 | Candidate tree | `f4616fb680f863d1141491d9ab5f3b619c048f4b` |
+| 4 | Target | `main` at `b671e1fb0c5bcf145d442076c229eca888afd674` |
+| 5 | Gate status | 7 GREEN · 4 CLOSED-WITH-DEVIATION · G10 not reachable pre-merge (§10 ceiling) |
+| 6 | Deviations accepted | **D-1** `UNAPPLIED_` filenames · **D-5** AF-03 data-borne CDN refs · **D-7** 7 commits outside the 08-26 review · **G8** substitution *(if waived)* |
+| 7 | Findings carried to G11 | AF-03 · AF-11 *(ruled D-8)* · AF-13 · AF-16 · **AF-20** |
+| 8 | Post-promotion obligations | **D-10** apply `20260828082136` · N2 cross-lane · §18 regression · deploy G9 edge functions |
+|  | **Tag** | `______________________` *(create BEFORE merging)* |
+|  | **Signed** | `______________________`  Date (UTC): `____________` |
+
+---
+
 ---
 
 # 24 · POST-PROMOTION GATES — SEQUENCING
@@ -1139,7 +1260,7 @@ owner action by construction — no session performs it.
 | 3 | **G8** — instrument not satisfied; substitution requires an explicit waiver | §10.2 · §23 |
 | 4 | **§5.3 secret-isolation probe never run**, and must run immediately pre-merge | §24.1 |
 | 5 | **§11 approval unsigned; 0 tags exist** | §23 |
-| 6 | **B11 rollback binding is WRONG as drafted** — omits M2 | §17.1 |
+| ~~6~~ | ~~B11 rollback binding wrong~~ — ✅ **CORRECTED six-file text drafted, §23.1.** ☐ still **UNSIGNED** | §17.1 · §23.1 |
 | ~~7~~ | ~~AF-11 ACAO ruling not made~~ — ✅ **RULED:** accepted as `www` | D-8 |
 | 8 | **AF-17** — production missing 2 RLS policies. ✅ **RULED:** apply post-merge (D-10). ⚠ **ACTION STILL PENDING** — production DB write, owner-only | D-10 · §24.3 |
 | 9 | **No independent audit performed** | §25 |
@@ -1205,7 +1326,8 @@ independent audit (9) · then §11 approval + tag.
 | REV-4 | 2026-08-29 07:15Z | **AF-15 CLOSED.** Owner ruling D-9 = "fix it first". `h-12 px-2.5` on both summary triggers; `SummaryTriggerTapTarget.test.ts` pins it (mutation-tested); local sweep 12/12 with a control proving the failure returns without the fix; **CI runs #123/#124 green**. Candidate advanced `25c0456` → `c8aec5d5`; `RC-20260829-01` void, now `RC-20260829-02`. Blockers 9 → 8 |
 | REV-5 | 2026-08-29 07:55Z | **Auditor Option 3 pass.** §4.4 added: certificate conflict resolution prepared, editor loaded and marked resolved, **merged tree verified `tsc` clean + 2,475 tests** — but **"Commit merge" could not be actuated from this session**, so `origin/staging` is unchanged at `5a700d91` and **no merge commit exists**. Botched intermediate edit disclosed and discarded, nothing committed. **D-8 and D-10 framed with explicit options but NOT decided** — no owner ruling exists for either; the compiler does not make them |
 | REV-6 | 2026-08-29 08:20Z | **D-6 EXECUTED.** Merge `9faf5a17` (`main` → `staging`) landed taking staging's blue on all 6 hunks; verified `tsc` clean + **2,475 tests**, 0 markers, PR #104 **"Able to merge"**. **UI gate GREEN on the merge commit.** Owner decisions **D-8 (ACAO = `www`)**, **D-9 (tap-target fix)** and **D-10 (apply `20260828082136` post-merge)** recorded as RULED. 🆕 **AF-19** — secret scan RED: publishable key hardcoded in `web-build.yml` since `ccd5e423` (2026-08-22), **pre-existing, not a credential incident**, ruling **D-11** required |
-| **REV-7** | **2026-08-29 08:30Z** | **AF-19 CLOSED — and it was not what REV-6 assumed.** Root cause: `.gitleaks.toml` pinned only the **production** anon key; `ccd5e423` added a **second lane** and a **second anon key** (staging) that was never allowlisted. Both decoded and confirmed `role="anon"` — no `service_role` key, **no rotation required**. Fixed in `a42b209e`; verified with **real gitleaks 8.24.3** (control: 1 leak → 0) and **mutation-tested** (a synthetic `service_role` JWT is still caught). **PR #104: zero failing checks.** D-11 dissolved — a gap in an allowlist is a fix, not a deviation. Blockers 6 → 5 |
+| REV-7 | 2026-08-29 08:30Z | **AF-19 CLOSED — and it was not what REV-6 assumed.** Root cause: `.gitleaks.toml` pinned only the **production** anon key; `ccd5e423` added a **second lane** and a **second anon key** (staging) that was never allowlisted. Both decoded and confirmed `role="anon"` — no `service_role` key, **no rotation required**. Fixed in `a42b209e`; verified with **real gitleaks 8.24.3** (control: 1 leak → 0) and **mutation-tested** (a synthetic `service_role` JWT is still caught). **PR #104: zero failing checks.** D-11 dissolved — a gap in an allowlist is a fix, not a deviation. Blockers 6 → 5 |
+| **REV-8** | **2026-08-29 08:45Z** | **Final verification pass on `d06b0379`.** tsc 0 · 2,475 tests · gitleaks clean on the CI range · **all CI gates green, zero failing**. §18 snapshot refreshed. 🆕 **AF-20** — the gate named "Secret scan (full history)" scans a *range*, not full history; an unrestricted scan returns 23 findings, **all pre-candidate**, none identifiable as a real secret (3 decoded as `role="anon"`, 1 documented client config, 19 `generic-api-key` **inferred**-not-verified). RECORD ONLY → G11. **§23.1 corrected SIX-file rollback binding** drafted (the 08-27 five-file draft would leave M2 un-rollbackable). **§23.2 §11 approval record pre-filled, unsigned** |
 
 ---
 
