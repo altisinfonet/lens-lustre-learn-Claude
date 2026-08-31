@@ -31,6 +31,11 @@ on:
   # release, which is exactly when a mistake is most likely to be live.
   workflow_dispatch:
 
+# This watchdog watches PRODUCTION, deliberately, and that does not change with
+# the staging lane: there is no point monitoring an environment nobody uses.
+permissions:
+  contents: read
+
 # A late scheduled run must never queue up behind an earlier one.
 concurrency:
   group: health

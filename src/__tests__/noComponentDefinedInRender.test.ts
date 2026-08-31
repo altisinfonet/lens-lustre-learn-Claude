@@ -225,10 +225,20 @@ describe("the render-functions that replaced them stay hook-free", () => {
   // They share the PARENT's hook slots. A hook here — especially a conditional
   // one — corrupts the parent's hook order, which React reports as the far
   // less obvious "Rendered fewer hooks than expected".
+  //
+  // ⚠ THE LIST FOLLOWED THE CODE. It used to name PostCommentsSection and
+  // ads/AdComments, which each owned a comment renderer of their own. Those
+  // were two hand-copies of one thread, and the copy rotted: the ad list read
+  //
+  //     renderRow(comment, false)
+  //
+  // with no braces, so React printed the CALL as text and a member saw the
+  // literal words where their comment should have been. There is one thread
+  // now — CommentThread — and those two files are its data adapters, so this
+  // is where the render-function lives and where the rule applies.
   const files = [
-    "src/components/PostCommentsSection.tsx",
+    "src/components/comments/CommentThread.tsx",
     "src/components/CommentsSection.tsx",
-    "src/components/ads/AdComments.tsx",
   ];
 
   for (const file of files) {
@@ -259,11 +269,109 @@ describe("the reply inputs are still there", () => {
   // A regression that silently deleted the box would also make the guard pass.
   it("each comment surface still renders a controlled input", () => {
     for (const f of [
-      "src/components/PostCommentsSection.tsx",
+      "src/components/comments/CommentThread.tsx",
       "src/components/CommentsSection.tsx",
-      "src/components/ads/AdComments.tsx",
     ]) {
       expect(code(read(f))).toMatch(/<(MentionInput|Textarea|Input|input|textarea)\b/);
+    }
+  });
+});
+
+/**
+ * THE SECOND HALF OF THE SAME LESSON.
+ *
+ * The caret bug was a copy of a component behaving differently from the
+ * original. The `renderRow(comment, false)` bug — a call written as bare text
+ * inside JSX, so React printed the source of the call instead of running it —
+ * was a copy ROTTING while the original stayed correct. One thread cannot
+ * disagree with itself, so these two adapters must not grow a comment renderer
+ * of their own again.
+ */
+describe("a post and an advertisement draw the SAME comment row", () => {
+  const ADAPTERS = [
+    "src/components/PostCommentsSection.tsx",
+    "src/components/ads/AdComments.tsx",
+  ];
+
+  it("both render CommentThread", () => {
+    for (const f of ADAPTERS) {
+      expect(code(read(f)), `${f} must draw the shared thread`).toMatch(/<CommentThread\b/);
+    }
+  });
+
+  it("neither defines a comment renderer of its own", () => {
+    for (const f of ADAPTERS) {
+      const src = code(read(f));
+      expect(src, `${f} has grown a second comment renderer`).not.toMatch(
+        /const render(Comment|Row)\s*=/,
+      );
+      expect(src, `${f} has grown a second comment composer`).not.toMatch(
+        /<(MentionInput|Textarea|input|textarea)\b/,
+      );
+    }
+  });
+
+  /**
+   * The bug itself, held down by name.
+   *
+   *     <div key={comment.id} className="space-y-2">
+   *       renderRow(comment, false)          ← printed as literal text
+   *       {replies.map((r) => renderRow(r, true))}
+   *     </div>
+   *
+   * The braces are missing on the first call and present on the second, so
+   * React ran one and printed the source of the other. It is valid JSX and
+   * valid TypeScript; neither the compiler nor the linter has anything to say
+   * about it. Only a test does.
+   *
+   * A call is a CHILD (bad) when the line before it ends a JSX tag or an
+   * expression container — `>` or `}`. It is an EXPRESSION (fine) when the line
+   * before it opens one — `(`, `{`, `=>`, `&&`, `?`, `:`.
+   */
+  const bareCallsInJsx = (src: string): string[] => {
+    const lines = src.split("\n");
+    const out: string[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!/^render[A-Z][\w$]*\(.*\)$/.test(line)) continue;
+      let j = i - 1;
+      while (j >= 0 && lines[j].trim() === "") j--;
+      const before = j >= 0 ? lines[j].trim() : "";
+      if (/[>}]$/.test(before)) out.push(line);
+    }
+    return out;
+  };
+
+  it("still detects a call rendered as bare JSX text — so the guard is not blind", () => {
+    // This fixture IS the shipped defect, verbatim in shape.
+    const bug = [
+      '<div key={comment.id} className="space-y-2">',
+      "  renderRow(comment, false)",
+      "  {replies.map((r) => (",
+      "    renderRow(r, true)",
+      "  ))}",
+      "</div>",
+    ].join("\n");
+    expect(bareCallsInJsx(bug)).toEqual(["renderRow(comment, false)"]);
+  });
+
+  it("does not flag a call inside an expression container", () => {
+    const fixed = [
+      "{sortedComments.map((c) => (",
+      "  renderComment(c)",
+      "))}",
+    ].join("\n");
+    expect(bareCallsInJsx(fixed)).toEqual([]);
+  });
+
+  it("no comment surface renders a function CALL as bare JSX text", () => {
+    const SURFACES = [
+      ...ADAPTERS,
+      "src/components/comments/CommentThread.tsx",
+      "src/components/CommentsSection.tsx",
+    ];
+    for (const f of SURFACES) {
+      expect(bareCallsInJsx(code(read(f))), `${f} renders a call as literal text`).toEqual([]);
     }
   });
 });

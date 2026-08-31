@@ -1,0 +1,118 @@
+name: Verify schema dependencies
+
+# ═══════════════════════════════════════════════════════════════════════════
+# THE PRE-PROMOTION GATE FOR SCHEMA DEPENDENCIES.
+#
+# Run this against PRODUCTION before promoting to production. It refuses if the
+# application source calls a database function the target lane cannot serve.
+#
+# WHY IT EXISTS: G10 run 1, 2026-08-25. AdminUsers.tsx called
+# admin_search_users_v2; production had only v1. The migration travelled in the
+# same tree named UNAPPLIED_… — a filename, not a control. Nothing failed. It
+# was caught by reading the diff.
+#
+# ⚠ TARGET IS THE LANE YOU ARE PROMOTING TO, NOT THE ONE YOU BUILT ON.
+# Running this against staging proves nothing about production: staging having
+# the function is exactly the state that hid the defect.
+#
+# COVERAGE IS PART OF THE VERDICT. The guard prints how many call sites it
+# checked at ARGUMENT level and how many it could not, and it exits non-zero if
+# any call site could not be checked. Revision 1 degraded two real call sites to
+# a name-only check and said nothing — including AdminUsers.tsx:264, the very
+# call this gate exists for. PostgREST resolves an RPC by argument NAME, so a
+# name-only check is the check this guard replaces, not a weaker form of it.
+#
+# CREDENTIALS ARE THE ONES THAT ALREADY EXIST. This reads SUPABASE_DB_URL from
+# the target Environment — the same secret apply-migration.yml consumes. No new
+# credential, no new store. The guard prints the project ref (public, it is in
+# every browser bundle) and never the connection string.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Which database to check the code against. Promoting to production? Choose production."
+        required: true
+        type: choice
+        options:
+          - production
+          - staging
+      source_dir:
+        description: "Source tree to scan. Leave as src unless you know why not."
+        required: false
+        default: "src"
+        type: string
+
+concurrency:
+  group: verify-schema-deps-${{ inputs.target }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Schema dependencies vs ${{ inputs.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: ${{ inputs.target }}
+    # ⚠ EVERY DISPATCH INPUT IS BOUND HERE, AND NOWHERE ELSE -- the same rule,
+    # and the same reason, as apply-migration.yml. GitHub substitutes
+    # ${{ ... }} into a `run:` script's TEXT before any shell exists, so an
+    # input carrying an apostrophe closes its quote and executes. Bound as an
+    # environment variable and read as "$SOURCE_DIR", it is data and can never
+    # become script.
+    #
+    # THE RULE FOR THIS FILE: no `${{` inside any `run:` block.
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      TARGET_LANE: ${{ inputs.target }}
+      SOURCE_DIR: ${{ inputs.source_dir }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # ⚠ THE REF ASSERTION, SAME AS apply-migration.yml AND FOR THE SAME REASON.
+      # Every other control here checks INTENT. None of them can see where the
+      # credential POINTS. A production connection string filed under the staging
+      # Environment would satisfy the dropdown and check the wrong database — and
+      # a schema check against the wrong database is worse than none, because it
+      # produces a green line.
+      - name: The credential must point at the target database
+        run: |
+          set -euo pipefail
+          REF=$(printf '%s' "$SUPABASE_DB_URL" | sed -E 's|^postgres(ql)?://([^:]+):.*|\2|' | cut -d. -f2)
+          case "$TARGET_LANE" in
+            production) EXPECT=jtdtehuqtinjxropkkcn ;;
+            staging)    EXPECT=ztzutckwdhetphwghuzj ;;
+            *) echo "::error::Unknown target."; exit 1 ;;
+          esac
+          if [ -z "${SUPABASE_DB_URL:-}" ]; then
+            echo "::error::SUPABASE_DB_URL is not set on the '$TARGET_LANE' environment."
+            exit 1
+          fi
+          if [ -z "$REF" ] || [ "$REF" != "$EXPECT" ]; then
+            echo "::error::the credential does not point at '$TARGET_LANE' — refusing rather than checking the wrong database."
+            exit 1
+          fi
+          echo "Credential points at '$REF', which matches target '$TARGET_LANE'."
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      # The guard shells to psql, exactly as apply-migration.yml does.
+      - name: Install psql
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      # 41 cases. The guard is not trusted until its own failures are proven:
+      # planted missing RPC, planted wrong argument name, renamed parameter,
+      # overload mismatch, omitted required parameter, unreadable argument
+      # object, unresolvable RPC name, empty inventory, empty catalog, absent
+      # credential, tampered catalog. If this step fails, the verdict below
+      # means nothing.
+      - name: Guard harness must pass before the guard is trusted
+        run: node scripts/test-schema-dependencies.mjs
+
+      - name: Verify schema dependencies
+        run: node scripts/verify-schema-dependencies.mjs "$SOURCE_DIR"

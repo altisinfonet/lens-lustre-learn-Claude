@@ -3,9 +3,17 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { ViteImageOptimizer } from "vite-plugin-image-optimizer";
+import { laneDefine } from "./scripts/lane-config.mjs";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  /**
+   * This lane's addresses, resolved at build time. The production defaults and
+   * the "empty is not a default" rule live in scripts/lane-config.mjs, so that
+   * src/ contains no host literal and a staging bundle carries no production
+   * string. See src/lib/env.ts.
+   */
+  define: laneDefine(),
   server: {
     host: "::",
     port: 8080,

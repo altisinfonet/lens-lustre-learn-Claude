@@ -54,6 +54,13 @@ name: Apply a database migration
 on:
   workflow_dispatch:
     inputs:
+      target:
+        description: "Which database. staging = ztzutckwdhetphwghuzj, production = jtdtehuqtinjxropkkcn."
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
       migration:
         description: "Path under supabase/migrations/ or supabase/rollback/ — e.g. supabase/migrations/20260813120000_feed_author_identity.sql"
         required: true
@@ -63,22 +70,75 @@ on:
         required: true
         type: string
 
-# Two dispatches must never overlap on the same database.
+# Two dispatches must never overlap on the same database — but staging and
+# production are different databases, so they need not wait for each other.
 concurrency:
-  group: apply-migration
+  group: apply-migration-${{ inputs.target }}
   cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   apply:
-    name: Apply SQL to production
+    name: Apply SQL to ${{ inputs.target }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Uncomment to require a human approval on every run (see the header):
-    # environment: production
+    # The Environment supplies the credential, and its branch restriction is the
+    # outer fence: production is bound to main, staging to staging. The two gates
+    # in the first steps below are the inner fences, because a branch restriction
+    # cannot tell you which database a secret actually points at.
+    environment: ${{ inputs.target }}
+    # ═══════════════════════════════════════════════════════════════════════
+    # ⚠ EVERY DISPATCH INPUT IS BOUND HERE, AND NOWHERE ELSE.
+    #
+    # GitHub substitutes ${{ ... }} into a `run:` script's TEXT before any
+    # shell exists. A value containing an apostrophe therefore closes the
+    # quote and the remainder of it executes as shell -- ABOVE, and so
+    # BEFORE, every check the step goes on to perform. The allowlist further
+    # down does not fail to catch such a payload: it never runs.
+    #
+    # Bound here instead, the value is set by the runner as a process
+    # environment variable. The script reads it as "$MIGRATION_PATH", and a
+    # shell variable's contents are never re-parsed as script. THAT is the
+    # fix. Quoting is not -- the quoting was already there, and the quoting
+    # is what made it exploitable.
+    #
+    # THE RULE FOR THIS FILE: no `${{` may appear inside any `run:` block.
+    # Not "none except the ones we decided were safe" -- six of the eleven
+    # this replaced were safe, being `choice` inputs that cannot carry a
+    # payload. A bright line survives handover; a reasoned exception makes
+    # every future reader re-derive the safety argument, and that is where
+    # scope falls off.
+    # ═══════════════════════════════════════════════════════════════════════
     env:
       DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      TARGET_LANE: ${{ inputs.target }}
+      BRANCH_REF: ${{ github.ref_name }}
+      MIGRATION_PATH: ${{ inputs.migration }}
+      CONFIRM_PATH: ${{ inputs.confirm }}
     steps:
       - uses: actions/checkout@v4
+
+      # ⚠ LANE GATE. The Environment is already branch-restricted, so this is a
+      # second, independent check — and the one that produces a readable error
+      # instead of a confusing "environment not accessible". Belt and braces on
+      # the question "should this branch be allowed to touch this database?".
+      - name: The branch must match the target
+        run: |
+          set -euo pipefail
+          TARGET="$TARGET_LANE"
+          REF="$BRANCH_REF"
+          case "$TARGET" in
+            production) WANT=main ;;
+            staging)    WANT=staging ;;
+            *) echo "::error::Unknown target '$TARGET'."; exit 1 ;;
+          esac
+          if [ "$REF" != "$WANT" ]; then
+            echo "::error::target='$TARGET' must be dispatched from '$WANT', but this run is on '$REF'. Refusing."
+            exit 1
+          fi
+          echo "Lane OK: target='$TARGET' dispatched from '$REF'."
 
       # The secret is checked FIRST so a missing one costs two seconds and says
       # plainly what to do, rather than failing later inside psql with
@@ -91,6 +151,42 @@ jobs:
           fi
           echo "Credential present. Its value is never printed by this workflow."
 
+      # ⚠ REF ASSERTION — THE GATE THAT ACTUALLY PROTECTS PRODUCTION.
+      #
+      # Everything else here checks INTENT: which branch, which environment,
+      # which typed path. None of them can see where the credential POINTS. A
+      # staging Environment holding a production connection string satisfies
+      # every other control in this file and then drops the migration on live
+      # member data. One wrong paste, no warning.
+      #
+      # So the project ref is parsed out of the connection string's username
+      # (Supabase poolers use `postgres.<ref>`) and compared against the target.
+      # The ref is public — it is in every browser bundle — so printing it costs
+      # nothing. $DB_URL itself is never echoed.
+      - name: The credential must point at the target database
+        run: |
+          set -euo pipefail
+          REF=$(printf '%s' "$DB_URL" | sed -E 's|^postgres(ql)?://([^:]+):.*|\2|' | cut -d. -f2)
+          case "$TARGET_LANE" in
+            production) EXPECT=jtdtehuqtinjxropkkcn ;;
+            staging)    EXPECT=ztzutckwdhetphwghuzj ;;
+            *) echo "::error::Unknown target '$TARGET_LANE'."; exit 1 ;;
+          esac
+          # A DIRECT (non-pooler) URI has username `postgres` with no `.<ref>`,
+          # so this parses to "postgres", matches neither target, and the run is
+          # refused. That is the correct direction to fail in: the pooler string
+          # is what both Environments hold, and a shape this gate cannot read is
+          # a shape it must not wave through.
+          if [ -z "$REF" ]; then
+            echo "::error::Could not parse a project ref from the credential. Expected a postgres://postgres.<ref>:... pooler connection string. Refusing rather than guessing."
+            exit 1
+          fi
+          if [ "$REF" != "$EXPECT" ]; then
+            echo "::error::secret points at '$REF', target is '$TARGET_LANE' — refusing"
+            exit 1
+          fi
+          echo "Credential points at '$REF', which matches target '$TARGET_LANE'."
+
       # ⚠ PATH VALIDATION IS A SECURITY CONTROL, NOT TIDINESS.
       #
       # `migration` is free text typed into a dispatch box. Without these
@@ -101,8 +197,8 @@ jobs:
       - name: Validate the requested file
         run: |
           set -euo pipefail
-          FILE='${{ inputs.migration }}'
-          CONFIRM='${{ inputs.confirm }}'
+          FILE="$MIGRATION_PATH"
+          CONFIRM="$CONFIRM_PATH"
 
           if [ "$FILE" != "$CONFIRM" ]; then
             echo "::error::The two inputs do not match. Nothing was run."
@@ -133,8 +229,9 @@ jobs:
       # exactly what ran — not of what the file happened to say afterwards.
       - name: Show the SQL that is about to run
         run: |
+          set -euo pipefail
           echo "───────────────────────────────────────────────────────────"
-          cat '${{ inputs.migration }}'
+          cat -- "$MIGRATION_PATH"
           echo "───────────────────────────────────────────────────────────"
 
       - name: Install psql
@@ -158,9 +255,9 @@ jobs:
             --set ON_ERROR_STOP=1 \
             --echo-errors \
             --no-psqlrc \
-            -f '${{ inputs.migration }}'
+            -f "$MIGRATION_PATH"
 
       - name: Confirm
         run: |
-          echo "✅ Applied: ${{ inputs.migration }}"
+          echo "✅ Applied: $MIGRATION_PATH"
           echo "Verify from the app, not only from SQL — that is the check that counts."

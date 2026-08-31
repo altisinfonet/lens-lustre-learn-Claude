@@ -1,3 +1,9 @@
+#!template ⚠ TEMPLATE, NOT THE SHIPPED FILE. scripts/generate-headers.mjs fills
+#!template the __PLACEHOLDERS__ below from the build environment and writes
+#!template dist/_headers. Lines marked #!template are stripped from the output,
+#!template so the generated production file is byte-identical to what main
+#!template committed. Committing lane values here put the production CDN into
+#!template every lane's CSP and advertised the production origin in its CORS policy.
 /*
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
@@ -5,10 +11,10 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://translate.google.com https://translate.googleapis.com https://checkout.razorpay.com https://pagead2.googlesyndication.com https://www.googletagmanager.com https://connect.facebook.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://translate.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' blob: data: https://*.supabase.co https://*.r2.dev https://cdn.50mmretina.com https://*.r2.cloudflarestorage.com https://*.cloudflare.com https://translate.google.com https://www.google.com https://www.gstatic.com https://images.unsplash.com https://www.googletagmanager.com https://www.facebook.com; connect-src 'self' https://challenges.cloudflare.com https://*.supabase.co https://*.supabase.in https://cdn.50mmretina.com https://*.r2.cloudflarestorage.com https://translate.googleapis.com https://checkout.razorpay.com https://pagead2.googlesyndication.com https://www.google-analytics.com https://www.googletagmanager.com https://connect.facebook.net; frame-src 'self' https://challenges.cloudflare.com https://translate.google.com https://checkout.razorpay.com https://www.googletagmanager.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://translate.google.com https://translate.googleapis.com https://checkout.razorpay.com https://pagead2.googlesyndication.com https://www.googletagmanager.com https://connect.facebook.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://translate.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' blob: data: https://*.supabase.co https://*.r2.dev https://__CDN_HOST__ https://*.r2.cloudflarestorage.com https://*.cloudflare.com https://translate.google.com https://www.google.com https://www.gstatic.com https://images.unsplash.com https://www.googletagmanager.com https://www.facebook.com; connect-src 'self' https://challenges.cloudflare.com https://*.supabase.co https://*.supabase.in https://__CDN_HOST__ https://*.r2.cloudflarestorage.com https://translate.googleapis.com https://checkout.razorpay.com https://pagead2.googlesyndication.com https://www.google-analytics.com https://www.googletagmanager.com https://connect.facebook.net; frame-src 'self' https://challenges.cloudflare.com https://translate.google.com https://checkout.razorpay.com https://www.googletagmanager.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
   
   Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate
-  Access-Control-Allow-Origin: https://50mmretina.com
+  Access-Control-Allow-Origin: __SITE_DISPLAY_ORIGIN__
   X-Permitted-Cross-Domain-Policies: none
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: cross-origin

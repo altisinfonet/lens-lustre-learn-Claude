@@ -121,8 +121,10 @@ it changed.
 
 Only Me / Friends / Public are offered again in both composers — the web's
 first screen and screen 2, which is the only one an Android member reaches.
-Alongside them, `PrivacyGapNotice` states, for restricted audiences only, that
-the photo file can still be opened by anyone holding its direct link.
+Alongside them, `PrivacyGapNotice` renders for restricted audiences only. As
+decided, it stated that the photo file can still be opened by anyone holding
+its direct link; that sentence was removed on 2026-08-29 — see the update at
+the end of this entry.
 
 ### Why, and what is accepted
 
@@ -142,15 +144,56 @@ not a decision to be taken quietly inside a component.
 ### What it costs
 
 A member choosing "Only me" gets a post hidden everywhere in the product, and a
-photograph that is still fetchable by direct link. That is a real gap and the
-notice says so in plain words. The mitigation is honesty, not engineering, and
-it is temporary by design — Phase 2's media authorization engine is built and
-migration-ready, and closing it is what ends this entry.
+photograph that is still fetchable by direct link. That is a real gap. Until
+2026-08-29 the notice said so in plain words; see the update below, which
+changed the wording and not the gap. The mitigation is temporary by design —
+Phase 2's media authorization engine is built and migration-ready, and closing
+it is what ends this entry.
 
 ⚠ THE NOTICE IS NOT COSMETIC. Removing it while keeping the chooser lands
 exactly where D-001 started — a control promising more than the platform can
 keep — while looking, in a diff, like a tidy-up. The pinning test fails if
 either composer offers the chooser without it.
+
+### Update, 2026-08-29 — the UI copy was shortened; the gap was NOT closed
+
+`PrivacyGapNotice` read, for a restricted audience:
+
+> {who} will see this post on 50mm Retina World. The photo file itself can still
+> be opened by anyone who has its direct link — we are still building that
+> protection.
+
+The owner chose to drop the second sentence. It now reads only:
+
+> {who} will see this post on 50mm Retina World.
+
+**This is a UI-copy decision and nothing else.** It is recorded here because a
+later reader finding a shortened disclosure in a diff would otherwise have two
+equally plausible readings — that somebody deleted it by accident, or that the
+underlying fault had been fixed — and neither is true.
+
+What is unchanged, and re-stated so it cannot be inferred away:
+
+- `post-images` is still a public bucket. Its `storage.objects` SELECT policy
+  is still `(bucket_id = 'post-images')` with no privacy condition.
+- The photograph behind an "Only me" or "Friends" post is still fetchable by
+  anyone holding its URL, with no server-side check.
+- **D-002 remains ACTIVE.** It closes when authorized media delivery is live and
+  the Media-URL cell of the Cross-Surface Visibility Invariant is green — see
+  D-003 — at which point `PrivacyGapNotice.tsx` and its pinning test are deleted
+  and this entry is closed, exactly as the Restore-when line above already says.
+
+What DID change, and should be said plainly: the notice no longer discloses the
+file-level gap. It states who can see the post. A member choosing "Only me" is
+therefore no longer told, in the product, that the photograph itself remains
+reachable. That is the owner's call to make — it is his to make precisely
+because it touches what the platform promises its members — and the cost of it
+is written here rather than left implicit.
+
+`PrivacyGapDisclosed.test.ts` was NARROWED to pin the new copy exactly, not
+deleted and not weakened to a check that would pass on anything. Restoring the
+dropped sentence is as much a decision as removing it was, and the test fails if
+it reappears without one.
 
 ---
 

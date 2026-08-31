@@ -12,6 +12,7 @@
  * same pass. The glyphs inside are unchanged.
  */
 import { useState, useCallback, useEffect, useRef } from "react";
+import { CDN_HOST as LANE_CDN_HOST, SITE_ORIGIN } from "@/lib/env";
 import { X, ChevronLeft, ChevronRight, Heart } from "lucide-react";
 import { useDownloadImage } from "@/hooks/core/useDownloadImage";
 import DownloadButton from "@/components/DownloadButton";
@@ -154,11 +155,18 @@ const SUPABASE_RENDER_RE = /\/storage\/v1\/render\/image\/public\//;
  * fallback to the direct URL. Neither existed.
  */
 
-/* The three definitions below are UNUSED since the removal — kept, unchanged,
-   as the exact code that used to run, so the note above stays checkable
-   against it. Safe to delete whenever. */
-const CF_ZONE_ORIGIN = "https://50mmretina.com";
-const CDN_HOST = "cdn.50mmretina.com";
+/* The three definitions below are UNUSED since the removal — kept as the code
+   that used to run, so the note above stays checkable against it. Safe to
+   delete whenever.
+
+   ⚠ 2026-08-22: the two hosts are now lane-derived rather than literal. They
+   held the production apex origin and the production CDN host respectively —
+   named in the prose above, so nothing is lost by not repeating them here.
+   Left as literals they would have put both into every staging bundle: dead
+   code still ships as bytes, and the isolation guard reads bytes, not
+   reachability. */
+const CF_ZONE_ORIGIN = SITE_ORIGIN;
+const CDN_HOST = LANE_CDN_HOST;
 
 function isCdnImage(url: string): boolean {
   try {

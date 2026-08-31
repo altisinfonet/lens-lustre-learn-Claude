@@ -35,6 +35,7 @@
  *      exactly the 1x1-GIF case that hid this bug for weeks.
  */
 import reportClientError from "@/lib/reportClientError";
+import { CDN_HOST } from "@/lib/env";
 
 /** Our own image hosts. Anything else is somebody else's problem.
  *  The Supabase host is DERIVED from the build's environment so that a staging
@@ -44,7 +45,7 @@ const SUPABASE_HOST = (() => {
   try { return new URL(import.meta.env.VITE_SUPABASE_URL as string).hostname; }
   catch { return ""; }
 })();
-const OUR_IMAGE_HOSTS = ["cdn.50mmretina.com", SUPABASE_HOST].filter(Boolean);
+const OUR_IMAGE_HOSTS = [CDN_HOST, SUPABASE_HOST].filter(Boolean);
 
 const MAX_REPORTS_PER_PAGE = 5;
 

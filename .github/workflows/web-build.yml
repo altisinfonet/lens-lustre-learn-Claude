@@ -24,13 +24,73 @@ name: Web build
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
+    branches: [main, staging]
+
+permissions:
+  contents: read
 
 jobs:
-  build:
+  # ⚠ LANE SELECTION MUST BE TOTAL, NOT BEST-EFFORT.
+  #
+  # The two build jobs below each carry an `if:` naming their lane. A run that
+  # matched neither would simply skip both and report GREEN — a build that never
+  # happened, indistinguishable from one that passed. That is the same class of
+  # lie as a typecheck that compiles nothing.
+  #
+  # This job resolves the lane by the same rules and FAILS when it cannot. It is
+  # cheap, it runs on every event, and it is the reason "no build ran" can never
+  # be mistaken for "the build was fine".
+  lane-guard:
+    name: The lane resolves to exactly one of main or staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Resolve the lane
+        run: |
+          set -euo pipefail
+          BASE='${{ github.base_ref }}'
+          REF='${{ github.ref_name }}'
+          EVENT='${{ github.event_name }}'
+          if [ "$EVENT" = "pull_request" ]; then LANE="$BASE"; else LANE="$REF"; fi
+          echo "event=$EVENT base_ref=$BASE ref_name=$REF -> lane=$LANE"
+          case "$LANE" in
+            main|staging) echo "Lane '$LANE' is known; the matching build job runs." ;;
+            *) echo "::error::Unresolvable lane '$LANE' (event=$EVENT base_ref=$BASE ref_name=$REF). Neither build job would run, and a skipped build must never read as a passing one. Add the branch to this workflow's triggers and to a lane before using it."
+               exit 1 ;;
+          esac
+
+  build-production:
+    name: Production lane build
+    if: github.base_ref == 'main' || (github.event_name != 'pull_request' && github.ref_name == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # The PUBLIC production values - they ship in every browser bundle. No
+      # secret is involved in a build lane, which is why neither job declares a
+      # GitHub Environment.
+      VITE_SUPABASE_URL: https://jtdtehuqtinjxropkkcn.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0ZHRlaHVxdGluanhyb3Bra2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzI3MjEsImV4cCI6MjA5OTE0ODcyMX0.qY8BI5LXb6uLzTwbpf8AleZ6UZyfeaOA0q4_TC5CEpo
+      VITE_SUPABASE_PROJECT_ID: jtdtehuqtinjxropkkcn
+      VITE_CDN_HOST: cdn.50mmretina.com
+      # ⚠ THE SERVING ORIGIN, NOT THE APEX. index.html derives the apex->www
+      # redirect by stripping a leading `www.` from this value, so setting it to
+      # https://50mmretina.com yields an empty apex and DISABLES the redirect -
+      # reopening the 2026-08-05 incident where members on the bare domain got a
+      # logged-out copy of the site. CORS keeps the apex; that is derived
+      # separately in scripts/generate-headers.mjs.
+      VITE_SITE_ORIGIN: https://www.50mmretina.com
+      # ⚠ THIS WAS "" UNTIL 2026-08-22, WHICH DISARMED THE LEAK CHECK ENTIRELY.
+      # R3 is the only rule that can see a cross-environment leak, and it has
+      # nothing to compare against when this list is empty. The production lane -
+      # the one that matters most - was running with it switched off. R6 now
+      # refuses an empty list outright, so this cannot silently regress.
+      ISOLATION_FORBIDDEN_REFS: ztzutckwdhetphwghuzj
+      # Host rules (G5a). R1-R6 police the Supabase ref only, so a bundle could
+      # name the wrong CDN or origin and pass all of them.
+      ISOLATION_EXPECTED_HOST: cdn.50mmretina.com
+      ISOLATION_FORBIDDEN_HOSTS: cdn-staging.50mmretina.com,staging.50mmretina.com
     steps:
       - uses: actions/checkout@v4
 
@@ -44,15 +104,7 @@ jobs:
       - name: Clean install (what Pages does first)
         run: npm ci --no-audit --no-fund
 
-      # .env is no longer committed (isolation guard, 2026-08-21): every build's
-      # backend is explicit. This lane is production — the values are the PUBLIC
-      # ones already shipped in every browser bundle, and the guard step below
-      # asserts the produced dist actually carries this ref and no other.
       - name: Production build (what Pages does second)
-        env:
-          VITE_SUPABASE_URL: https://jtdtehuqtinjxropkkcn.supabase.co
-          VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0ZHRlaHVxdGluanhyb3Bra2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzI3MjEsImV4cCI6MjA5OTE0ODcyMX0.qY8BI5LXb6uLzTwbpf8AleZ6UZyfeaOA0q4_TC5CEpo
-          VITE_SUPABASE_PROJECT_ID: jtdtehuqtinjxropkkcn
         run: npm run build
 
       # A build that "succeeds" but emits nothing is the same class of lie as a
@@ -70,7 +122,99 @@ jobs:
         run: node scripts/test-isolation-guard.mjs
 
       - name: Bundle isolation guard (production lane)
-        env:
-          VITE_SUPABASE_URL: https://jtdtehuqtinjxropkkcn.supabase.co
-          ISOLATION_FORBIDDEN_REFS: ""
         run: node scripts/verify-bundle-isolation.mjs
+
+      - name: SEO indexing policy (self-test)
+        run: node scripts/test-seo-assets.mjs
+
+      # The production lane is the ONLY indexable lane. Asserting it here means
+      # a change that de-indexes the live site fails CI instead of shipping.
+      - name: Production lane is indexable
+        run: |
+          set -euo pipefail
+          test -f dist/robots.txt
+          if grep -qiE '^[[:space:]]*Disallow:[[:space:]]*/[[:space:]]*$' dist/robots.txt; then
+            echo "FAIL: the production lane shipped a blanket Disallow: /" >&2
+            cat dist/robots.txt >&2
+            exit 1
+          fi
+          grep -qiE '^[[:space:]]*Sitemap:[[:space:]]*https://50mmretina\.com/sitemap\.xml' dist/robots.txt
+          grep -q '<loc>' dist/sitemap.xml
+          echo "production robots.txt is indexable and advertises the production sitemap"
+
+  build-staging:
+    name: Staging lane build
+    if: github.base_ref == 'staging' || (github.event_name != 'pull_request' && github.ref_name == 'staging')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # The PUBLIC staging values. The forbidden list is production's ref, so a
+      # staging build that reached the production backend fails here rather than
+      # in front of a member.
+      VITE_SUPABASE_URL: https://ztzutckwdhetphwghuzj.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0enV0Y2t3ZGhldHBod2dodXpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczMjY3MDYsImV4cCI6MjEwMjkwMjcwNn0.yXoPpBeyTIxMLL0dh7lGIjsDHKNrg8ewKF8Rbt9qoKI
+      VITE_SUPABASE_PROJECT_ID: ztzutckwdhetphwghuzj
+      # Stated explicitly, never inherited: an omitted variable falls back to the
+      # PRODUCTION value, so a silent omission here would build staging against
+      # production's CDN and origin - the exact failure this lane exists to stop.
+      # STATUS 2026-08-23 (G7): staging.50mmretina.com is Active on the staging
+      # Pages project. cdn-staging.50mmretina.com is still NXDOMAIN - the R2
+      # custom domain is G8's work, so this lane's asset host does not resolve.
+      VITE_CDN_HOST: cdn-staging.50mmretina.com
+      VITE_SITE_ORIGIN: https://staging.50mmretina.com
+      ISOLATION_FORBIDDEN_REFS: jtdtehuqtinjxropkkcn
+      # ⚠ THE APEX IS FORBIDDEN SCHEME-QUALIFIED, NEVER BARE. Matching is
+      # substring: bare `50mmretina.com` is inside `staging.50mmretina.com`,
+      # `cdn-staging.50mmretina.com` AND `mail@50mmretina.com`, so it would flag
+      # this lane's own hosts and two legitimate addresses. R9 refuses a bare
+      # apex outright rather than letting it misfire.
+      ISOLATION_EXPECTED_HOST: cdn-staging.50mmretina.com
+      ISOLATION_FORBIDDEN_HOSTS: cdn.50mmretina.com,www.50mmretina.com,https://50mmretina.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - name: Clean install (what Pages does first)
+        run: npm ci --no-audit --no-fund
+
+      - name: Staging build
+        run: npm run build
+
+      - name: The build actually produced a site
+        run: |
+          set -euo pipefail
+          test -f dist/index.html
+          test -d dist/assets
+          count=$(find dist/assets -name '*.js' | wc -l)
+          echo "dist/assets carries $count JavaScript chunks"
+          test "$count" -gt 0
+
+      - name: Bundle isolation guard (self-test)
+        run: node scripts/test-isolation-guard.mjs
+
+      - name: Bundle isolation guard (staging lane)
+        run: node scripts/verify-bundle-isolation.mjs
+
+      - name: SEO indexing policy (self-test)
+        run: node scripts/test-seo-assets.mjs
+
+      # A crawlable staging lane competes with production in search results,
+      # and search engines keep what they have already indexed. Fail the build.
+      - name: Staging lane is not indexable
+        run: |
+          set -euo pipefail
+          test -f dist/robots.txt
+          grep -qiE '^[[:space:]]*Disallow:[[:space:]]*/[[:space:]]*$' dist/robots.txt
+          if grep -qiE '^[[:space:]]*Sitemap:' dist/robots.txt; then
+            echo "FAIL: the staging lane advertised a sitemap while blocking crawlers" >&2
+            cat dist/robots.txt >&2
+            exit 1
+          fi
+          if grep -q '<loc>' dist/sitemap.xml; then
+            echo "FAIL: the staging sitemap lists URLs" >&2
+            exit 1
+          fi
+          echo "staging robots.txt blocks all crawling and advertises no sitemap"

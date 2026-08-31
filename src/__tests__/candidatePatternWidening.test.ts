@@ -38,7 +38,7 @@ import { join } from "node:path";
 import {
   CANDIDATE_CLASSES,
   CANDIDATE_PATH,
-  CDN_HOST,
+  cdnHostFor,
   candidateClass,
 } from "../../supabase/functions/_shared/manifestPlan";
 
@@ -342,9 +342,9 @@ describe("the fence function is a recorded choice, not a default", () => {
    Two of the controls that refuse them had NO test on their VALUE, only on
    their presence:
 
-     • nothing asserted what `CDN_HOST` actually is. Retargeting it at
+     • nothing asserted what `cdnHostFor()` actually is. Retargeting it at
        `jtdtehuqtinjxropkkcn.supabase.co` would have admitted all 27 Supabase
-       thumbnails while `host !== CDN_HOST` still appeared in the source and
+       thumbnails while `host !== cdnHostFor()` still appeared in the source and
        every existing assertion stayed green.
      • nothing asserted that the candidate classes refuse the real production
        keys — only synthetic ones.
@@ -361,8 +361,21 @@ describe("WS3 — the 29 remaining legacy slides must stay out of the candidate 
      * any pattern runs. A host constant with no value assertion is a one-word
      * edit away from admitting them.
      */
-    expect(CDN_HOST).toBe("cdn.50mmretina.com");
-    expect(CDN_HOST).not.toContain("supabase");
+    // Lane-derived since G10. Asserting the production literal would be the G4
+    // defect exactly: a test sharing the code's wrong assumption, green on
+    // production and wrong everywhere else. What must hold is that the value
+    // comes from THIS lane and is a CDN host, not a Supabase one.
+    const g = globalThis as { Deno?: { env: { get(k: string): string | undefined } } };
+    const prior = g.Deno;
+    try {
+      g.Deno = { env: { get: (k: string) => (k === "CDN_HOST" ? "cdn-staging.50mmretina.com" : undefined) } };
+      expect(cdnHostFor()).toBe("cdn-staging.50mmretina.com");
+      expect(cdnHostFor()).not.toContain("supabase");
+      g.Deno = { env: { get: () => undefined } };
+      expect(() => cdnHostFor()).toThrow(/CDN_HOST is not set/);
+    } finally {
+      if (prior === undefined) delete g.Deno; else g.Deno = prior;
+    }
   });
 
   it("refuses every real Supabase-hosted key from the WS3 audit", () => {

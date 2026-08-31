@@ -1,6 +1,7 @@
 /// <reference types="npm:@types/react@18.3.1" />
 import * as React from 'npm:react@18.3.1'
 import { Img, Section, Text } from 'npm:@react-email/components@0.0.22'
+import { siteUrl } from '../laneConfig.ts'
 
 /**
  * Shared 50mm Retina World brand header for ALL transactional email
@@ -12,12 +13,11 @@ import { Img, Section, Text } from 'npm:@react-email/components@0.0.22'
  * Single source of truth for the header across every transactional email —
  * update here to restyle all of them at once.
  */
-const LOGO_URL = 'https://50mmretina.com/images/icon-512x512.png'
 
 export const BrandHeader: React.FC = () => (
   <Section style={card}>
     <Img
-      src={LOGO_URL}
+      src={siteUrl('/images/icon-512x512.png')}
       alt="50mm Retina World"
       width="58"
       height="58"

@@ -5,8 +5,8 @@ import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 
 // Configuration baked in at scaffold time
 const SITE_NAME = "50mm Retina World"
-const SENDER_DOMAIN = "notify.www.50mmretina.com"
-const FROM_DOMAIN = "www.50mmretina.com"
+const SENDER_DOMAIN = "notify.www.50mmretina.com" // isolation-allow: a MAIL domain, not a site origin — the authenticated SPF/DKIM sender, which does not change per lane. Unlike support@50mmretina.com it literally contains the forbidden needle, so it needs the pragma the address did not.
+const FROM_DOMAIN = "www.50mmretina.com" // isolation-allow: as above — the From: domain is what the mail provider authenticated, not where the link points.
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

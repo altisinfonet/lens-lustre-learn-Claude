@@ -417,7 +417,10 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
                       name={comment.profile?.full_name || "Anonymous"}
                       linkTo={`/profile/${comment.user_id}`}
                     />
-                    <p className="text-[15px] text-foreground leading-[1.33] break-words">
+                    {/* `whitespace-pre-wrap` for the same reason as in
+                        src/components/comments/CommentThread.tsx: without it a
+                        two-paragraph comment collapses onto one line. */}
+                    <p className="text-[15px] text-foreground leading-[1.33] whitespace-pre-wrap break-words">
                       <RichContentRenderer content={comment.content} />
                     </p>
                     {isEdited(comment) && (

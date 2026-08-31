@@ -34,6 +34,7 @@
  *     a canonical stage_key. That guard (a BEFORE INSERT trigger asserting the
  *     row matches a catalog row) is Phase 5 territory once all callers migrate.
  */
+import { getSecureHeaders } from "../_shared/secureHeaders.ts";
 import {
   authenticateJudge,
   validateRoundNotLocked,
@@ -41,18 +42,24 @@ import {
   AuthError,
 } from "../_shared/judgingAuth.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-function bad(message: string, status = 400, extra?: Record<string, unknown>) {
-  return new Response(
-    JSON.stringify({ error: message, ...(extra ?? {}) }),
-    { status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-  );
+/**
+ * ⚠ THIS FUNCTION USED TO ANSWER EVERY ORIGIN WITH "*".
+ *
+ * It carried its own local `corsHeaders` with `Access-Control-Allow-Origin: "*"`
+ * instead of the shared policy, so the lane allow-list in _shared/secureHeaders
+ * never applied to it: a judging decision endpoint granted CORS to any origin on
+ * the internet while the rest of the judging surface did not. Measured on the
+ * deployed staging function before this change — a preflight from the staging
+ * origin came back `*`, the same answer an attacker origin received.
+ *
+ * The headers are now per-request, because the correct value DEPENDS on the
+ * request's Origin. That is why `bad()` moved inside the handler: a module-level
+ * helper cannot see the request, and making the header set a module-level
+ * mutable would race across concurrent invocations.
+ */
+function corsFor(req: Request) {
+  const { "Content-Type": _ct, ...rest } = getSecureHeaders(req);
+  return rest;
 }
 
 interface CatalogRow {
@@ -66,6 +73,13 @@ interface CatalogRow {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = corsFor(req);
+  const bad = (message: string, status = 400, extra?: Record<string, unknown>) =>
+    new Response(
+      JSON.stringify({ error: message, ...(extra ?? {}) }),
+      { status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return bad("Method not allowed", 405);
 
@@ -246,7 +260,20 @@ Deno.serve(async (req) => {
             round_number,
             photo_index,
             tag_id: tagRow.id,
-            updated_at: nowIso,
+            // ⚠ NO `updated_at` HERE. This upsert used to set it, and
+            // judge_tag_assignments HAS NO SUCH COLUMN — verified against BOTH
+            // lanes: production and staging both read
+            //   id, entry_id, tag_id, judge_id, created_at, photo_index, round_number
+            // PostgREST therefore rejected every mirror write with
+            //   "Could not find the 'updated_at' column of 'judge_tag_assignments'
+            //    in the schema cache"
+            // and, because the mirror is deliberately non-fatal, the failure was
+            // reported only as a `tag_mirror_warning` on the response. The
+            // decision was written; the tag never was. Found by running the
+            // judging flow end to end on staging on 2026-08-24 — the first time
+            // it had ever been run — with judge_tag_assignments still at 0 rows
+            // after a successful decision. This is a PRODUCTION defect: the
+            // same code path fails identically there.
           },
           { onConflict: "entry_id,judge_id,round_number,photo_index,tag_id" },
         );

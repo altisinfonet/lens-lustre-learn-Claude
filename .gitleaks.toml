@@ -2,25 +2,50 @@
 # GITLEAKS CONFIG — the secret scan in security.yml ("Secret scan (full
 # history)") reads this automatically.
 #
-# ONE allowlisted value, pinned by its EXACT literal: the Supabase ANON key.
-# It is public by design — it ships in every browser bundle, its JWT payload
-# reads "role":"anon", and every table behind it is guarded by RLS. It was
-# validated as a false alarm on 2026-08-06 (docs/claude/
-# SECURITY_GATE_AND_FALSE_ALARMS.md: ".env committed — Fine.") and moved into
-# the workflow files when .env stopped being committed (isolation guard,
-# 2026-08-21), which is what first put it in a commit the scanner actually
-# scans.
+# TWO allowlisted values, each pinned by its EXACT literal: the Supabase ANON
+# key of EACH LANE. They are public by design — they ship in every browser
+# bundle, their JWT payloads read "role":"anon", and every table behind them is
+# guarded by RLS. The production one was validated as a false alarm on
+# 2026-08-06 (docs/claude/SECURITY_GATE_AND_FALSE_ALARMS.md: ".env committed —
+# Fine.") and moved into the workflow files when .env stopped being committed
+# (isolation guard, 2026-08-21), which is what first put it in a commit the
+# scanner actually scans.
 #
-# ⚠ THE MATCH IS THE FULL TOKEN, NOT A PATTERN. A service_role key, a rotated
-# anon key, or any other JWT still fails the scan. If the anon key is ever
-# rotated, the new value must be re-validated (role claim reads "anon") and
-# this literal replaced — that re-validation is the point of pinning it.
+# ⚠ WHY THE SECOND ENTRY EXISTS (added 2026-08-29, finding AF-19).
+#
+# `ccd5e423` ("ci: lane-aware CI for the staging and production lanes",
+# 2026-08-22) gave web-build.yml a SECOND lane and therefore a SECOND anon key —
+# staging's. The allowlist was written when there was only one, and was never
+# extended, so the staging key was an unallowlisted JWT sitting in the tree from
+# that day.
+#
+# It did not fail the gate immediately because the scan runs
+# `--no-merges --first-parent <range>` and the range did not reach back to
+# `ccd5e423`. Merging main into staging on 2026-08-29 (`9faf5a17`) moved that
+# window onto the commit and the scan reported `leaks found: 1`. **The defect
+# was always in the tree; the scan window moved onto it.** Recorded in
+# docs/PROMOTION_LEDGER.md §13.2.
+#
+# Both values were re-verified on 2026-08-29 by decoding each JWT payload:
+#   role = "anon" for BOTH; ref = jtdtehuqtinjxropkkcn (production) and
+#   ztzutckwdhetphwghuzj (staging). Neither is a service_role key.
+#
+# ⚠ EACH MATCH IS A FULL TOKEN, NOT A PATTERN. A service_role key, a rotated
+# anon key, or any other JWT still fails the scan. If either anon key is ever
+# rotated, the new value must be re-validated (role claim reads "anon") and the
+# literal replaced — that re-validation is the point of pinning them.
+#
+# ⚠ DO NOT "FIX" A FINDING ON THESE BY ROTATING THE KEY. An anon key is public
+# by construction; rotating it churns every client and buys no security.
 # ─────────────────────────────────────────────────────────────────────────────
 [extend]
 useDefault = true
 
 [allowlist]
-description = "The public Supabase anon key (role=anon, RLS-guarded), exact literal only"
+description = "The public Supabase anon keys, one per lane (role=anon, RLS-guarded), exact literals only"
 regexes = [
+  # production — ref jtdtehuqtinjxropkkcn
   '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0ZHRlaHVxdGluanhyb3Bra2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzI3MjEsImV4cCI6MjA5OTE0ODcyMX0\.qY8BI5LXb6uLzTwbpf8AleZ6UZyfeaOA0q4_TC5CEpo''',
+  # staging — ref ztzutckwdhetphwghuzj  (AF-19, added 2026-08-29)
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0enV0Y2t3ZGhldHBod2dodXpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczMjY3MDYsImV4cCI6MjEwMjkwMjcwNn0\.yXoPpBeyTIxMLL0dh7lGIjsDHKNrg8ewKF8Rbt9qoKI''',
 ]

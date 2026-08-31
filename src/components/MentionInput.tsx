@@ -1,4 +1,4 @@
-import { useCallback, useEffect, forwardRef, useRef } from "react";
+import { useCallback, useEffect, forwardRef, useRef, useState } from "react";
 import { Send } from "lucide-react";
 import { MentionsInput, Mention, SuggestionDataItem } from "react-mentions";
 import { profilesPublic } from "@/lib/profilesPublic";
@@ -161,6 +161,30 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
     typeof window.matchMedia === "function" &&
     window.matchMedia("(pointer: coarse)").matches;
 
+  /**
+   * The same question, as STATE, because the keyboard's own key label has to be
+   * RENDERED rather than answered at keypress time.
+   *
+   * It reads the identical media query `handleKeyDown` uses, so the label on
+   * the key can never disagree with what Enter actually does. Live, not once at
+   * mount: a Surface or an iPad with a keyboard attached flips
+   * `(pointer: coarse)` mid-session.
+   *
+   * It briefly also drove a one-line hint under the box ("Enter to post ·
+   * Shift + Enter for a new line"). The owner had that removed on 2026-08-29
+   * with no replacement — the visible text only. The conditional Enter handling
+   * and the key label below are unchanged and deliberate.
+   */
+  const [coarse, setCoarse] = useState(isTouch);
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(pointer: coarse)");
+    const sync = () => setCoarse(mq.matches);
+    sync();
+    mq.addEventListener?.("change", sync);
+    return () => mq.removeEventListener?.("change", sync);
+  }, []);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== "Enter") return;
 
@@ -215,12 +239,24 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
          * `autoCapitalize` was never set, so a comment started lowercase. Every
          * other social app capitalises the first letter.
          *
-         * `enterKeyHint` is deliberately ABSENT. It was "send" while the box was
-         * single-line, because the keyboard was the only usable way to post past
-         * a 24px button. Now that Enter inserts a new line on touch (see
-         * handleKeyDown) a key labelled "Send" would lie about what it does.
-         * The 44px button is the send route on a phone, exactly as on Instagram.
+         * `enterKeyHint` NOW FOLLOWS WHAT ENTER ACTUALLY DOES, rather than being
+         * absent. (2026-08-28.)
+         *
+         * It was left unset deliberately, and the reasoning still stands: Enter
+         * inserts a NEW LINE on a touch device (see handleKeyDown — a phone
+         * keyboard has no Shift, so if Enter posted, nobody could ever write a
+         * second line). Labelling that key "Send" would be a lie told by the
+         * keyboard itself, and it was asked for on the assumption that Enter
+         * posts on mobile. It does not.
+         *
+         * Absent was not right either: the key then falls back to whatever the
+         * platform picks. So it is now derived from the SAME media query the key
+         * handler uses — "send" where Enter really does post, "enter" where it
+         * really does insert a line. On a desktop the attribute is inert (there
+         * is no soft keyboard to label), which costs nothing and keeps the two
+         * branches honest side by side.
          */
+        enterKeyHint={coarse ? "enter" : "send"}
         autoCapitalize="sentences"
         inputRef={(node: any) => {
           inputRef.current = node;
@@ -392,6 +428,7 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
           {value.length - maxLength} over the {maxLength} limit — shorten to post · {value.length} / {maxLength}
         </div>
       )}
+
     </div>
   );
 });

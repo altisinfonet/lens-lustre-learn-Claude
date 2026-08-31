@@ -42,6 +42,8 @@ export const queryKeys = {
 
   /* ── Auth / Roles ── */
   isAdmin: (userId: string) => ["is-admin", userId] as const,
+  /** The set of admin user ids — who gets the brand name and the brand tick. */
+  adminIds: () => ["admin-ids"] as const,
   juryUsers: () => ["jury-users"] as const,
 
   /* ── Navigation ── */

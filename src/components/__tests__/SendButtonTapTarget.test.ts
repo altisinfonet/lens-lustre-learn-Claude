@@ -192,12 +192,42 @@ describe("the box is multi-line, the way Instagram's is", () => {
 });
 
 describe("the keyboard behaves like Instagram's", () => {
-  it("does NOT label the return key 'Send'", () => {
-    // Deliberate reversal, 2026-08-03. enterKeyHint="send" was correct while
-    // the box was single-line and the 24px button was unusable. Now Enter
-    // inserts a new line on touch, so a key labelled "Send" would lie.
+  /**
+   * ⚠ THIS RULE WAS TIGHTENED, NOT DROPPED. (2026-08-28.)
+   *
+   * It used to read `expect(body).not.toMatch(/enterKeyHint/)` — the attribute
+   * banned outright. The reasoning behind the ban was right and still is:
+   * enterKeyHint="send" was correct while the box was single-line and the 24px
+   * button was unusable, and once Enter began inserting a new line on touch
+   * (2026-08-03) a key labelled "Send" would lie about what it does.
+   *
+   * But "never set it" also forbids setting it CORRECTLY. Absent means the
+   * platform picks a label of its own, which is a guess rather than a fact, and
+   * the owner asked on 2026-08-28 for the key to say what it does. So the
+   * attribute is now derived from the same `(pointer: coarse)` state
+   * handleKeyDown reads: "send" only where Enter really posts.
+   *
+   * What must never come back is the unconditional literal. That is what this
+   * asserts now — the lie, not the attribute.
+   */
+  it("never labels the return key 'Send' where Enter does not send", () => {
     const body = stripComments(src).replace(/\/\/.*$/gm, "");
-    expect(body).not.toMatch(/enterKeyHint/);
+
+    // The banned shape: a flat "send" that ignores the device.
+    expect(body, "a hardcoded Send label lies on every phone")
+      .not.toMatch(/enterKeyHint="send"/);
+    expect(body).not.toMatch(/enterKeyHint=\{"send"\}/);
+
+    // The required shape: chosen by the same test the key handler uses.
+    expect(body).toMatch(/enterKeyHint=\{coarse \? "enter" : "send"\}/);
+  });
+
+  it("reads the key label from the SAME media query as the key handler", () => {
+    // If these two ever consult different things, the keyboard and the code
+    // start disagreeing — which is the whole failure this pair prevents.
+    const body = stripComments(src).replace(/\/\/.*$/gm, "");
+    expect(body).toMatch(/matchMedia\("\(pointer: coarse\)"\)/);
+    expect(body).toMatch(/setCoarse\(mq\.matches\)/);
   });
 
   it("capitalises the first letter of a comment", () => {

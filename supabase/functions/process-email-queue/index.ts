@@ -308,7 +308,7 @@ Deno.serve(async (req) => {
         const parsedEmail = fromMatch ? fromMatch[2].trim() : 'noreply@50mmretina.com'
         // Consolidate ALL outgoing mail onto the Brevo-authenticated domain so SPF/DKIM
         // pass and messages land in the inbox. 50mmretina.com is the authenticated sender
-        // domain; callers that used other domains (e.g. www.50mmretina.com) are normalized
+        // domain; callers that used other domains (e.g. a www. host) are normalized
         // here so we never send from an unauthenticated domain. Local part is preserved.
         const AUTHENTICATED_SENDER_DOMAIN = '50mmretina.com'
         const localPart = (parsedEmail.split('@')[0] || 'noreply').trim() || 'noreply'

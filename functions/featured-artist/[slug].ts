@@ -1,7 +1,8 @@
-import { sbGet, renderSeo, getShell, SITE, type SeoMeta } from "../_seo";
+import { sbGet, renderSeo, getShell, site, type SeoMeta } from "../_seo";
 
 // Edge SEO for /featured-artist/:slug — Person JSON-LD + per-page meta.
 export const onRequest = async (context: any) => {
+  const SITE = site(context.env);
   const res = await getShell(context.request);
   if (!(res.headers.get("content-type") || "").includes("text/html")) return context.next();
 
@@ -11,6 +12,7 @@ export const onRequest = async (context: any) => {
   const a = await sbGet(
     `featured_artists?slug=eq.${encodeURIComponent(slug)}&is_active=eq.true` +
       `&select=slug,title,artist_name,cover_image_url&limit=1`,
+    context.env,
   );
   if (!a) return res;
 

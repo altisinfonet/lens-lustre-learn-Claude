@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { SITE_HOST } from "@/lib/env";
 import { QrCode, Download } from "lucide-react";
 import QRCode from "qrcode";
 
@@ -80,7 +81,7 @@ const QRCodeCard = ({ profileUrl, displayName, avatarUrl }: Props) => {
 
     ctx.fillStyle = "#aaaaaa";
     ctx.font = "10px sans-serif";
-    ctx.fillText("www.50mmretina.com", 200, 480);
+    ctx.fillText(SITE_HOST, 200, 480);
 
     // Download
     const link = document.createElement("a");

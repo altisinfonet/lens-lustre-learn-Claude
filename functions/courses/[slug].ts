@@ -1,7 +1,8 @@
-import { sbGet, renderSeo, getShell, stripHtml, SITE, type SeoMeta } from "../_seo";
+import { sbGet, renderSeo, getShell, stripHtml, site, type SeoMeta } from "../_seo";
 
 // Edge SEO for /courses/:slug — Course JSON-LD + per-page meta.
 export const onRequest = async (context: any) => {
+  const SITE = site(context.env);
   const res = await getShell(context.request);
   if (!(res.headers.get("content-type") || "").includes("text/html")) return context.next();
 
@@ -11,6 +12,7 @@ export const onRequest = async (context: any) => {
   const c = await sbGet(
     `courses?slug=eq.${encodeURIComponent(slug)}&status=eq.published` +
       `&select=slug,title,description,cover_image_url,category,difficulty&limit=1`,
+    context.env,
   );
   if (!c) return res;
 

@@ -107,7 +107,7 @@ export function extractPath(url: string): string | null {
   const match = cleanUrl.match(/\/storage\/v1\/object\/(?:public|sign)\/([^?]+)/);
   if (match) return match[1];
   // BUG-071: media is served from the R2/CDN host (e.g.
-  // https://cdn.50mmretina.com/<bucket>/<path>). Strip any absolute origin so
+  // https://<this-lane's-cdn-host>/<bucket>/<path>). Strip any absolute origin so
   // an R2/CDN URL normalizes to the same <bucket>/<path> key as the stored
   // object — otherwise referenced files were missed and flagged as orphans.
   let pathPart = cleanUrl;

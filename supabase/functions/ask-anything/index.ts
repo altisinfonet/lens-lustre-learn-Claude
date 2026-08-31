@@ -161,7 +161,7 @@ IMPORTANT: Never give the exact same response twice. Vary your phrasing, example
 - Email notifications for important platform events.
 
 ### Website
-- The platform is accessible at: www.50mmretina.com
+- The platform is accessible at its public site address
 - Always refer users to the platform by name "50mm Retina World".`;
 }
 

@@ -17,7 +17,24 @@
  * post ids and owner ids; this repository is public. The real manifest is
  * exercised in the dry run, from the workspace, not committed here.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+/**
+ * ⚠ THIS SUITE MUST STATE ITS LANE (G10). manifestPlan's accepted CDN host is
+ * lane-derived and REQUIRED — reading it with CDN_HOST unset throws, by design,
+ * so a lane that forgets the variable fails loudly instead of silently
+ * accepting production's host. These fixtures are production-shaped, so the
+ * suite declares the production lane explicitly rather than inheriting one.
+ * Hermetic: set before, removed after, never left on the global.
+ */
+// vi.hoisted: this suite calls parseManifest at MODULE scope, so the lane must
+// exist before the imports run — beforeAll is far too late and the suite fails
+// at collection, not at assertion.
+vi.hoisted(() => {
+  (globalThis as { Deno?: unknown }).Deno = {
+    env: { get: (k: string) => (k === "CDN_HOST" ? "cdn.50mmretina.com" : undefined) },
+  };
+});
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";

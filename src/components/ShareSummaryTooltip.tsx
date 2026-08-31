@@ -74,10 +74,48 @@ const ShareSummaryTooltip = ({ shareCount, postId, children }: ShareSummaryToolt
     <>
       <TooltipProvider delayDuration={200}>
         <Tooltip>
+          {/*
+            ⚠ A REAL BUTTON, NOT A CLICKABLE DIV. (Fixed 2026-08-28.)
+
+            The identical defect ReactionSummaryTooltip carried, one column
+            along: `<div onClick={handleOpen} className="cursor-pointer">` — no
+            role, no tabindex, no accessible name. The list of who shared a post
+            could be opened with a mouse and by nothing else.
+
+            A <button> needs no key handling of its own: focus order, Enter and
+            Space come from the platform, and a hand-rolled `role="button" +
+            tabIndex={0} + onKeyDown` only re-implements them less well.
+            Tailwind's preflight strips the UA border, background and padding,
+            so nothing moves.
+
+            THE COUNT IS IN THE NAME, exactly as on the reaction trigger: an
+            `aria-label` REPLACES the content for assistive tech, so a bare
+            "See who shared" would throw away the number this control wraps.
+          */}
           <TooltipTrigger asChild>
-            <div onClick={handleOpen} className="cursor-pointer">
+            <button
+              type="button"
+              onClick={handleOpen}
+              aria-label={`See who shared (${shareCount})`}
+              /* ⚠ 44/32 TAP FLOOR. h-12 px-2.5 is not decoration — it is the
+                 same box the Comment and Share buttons beside it already use.
+
+                 Making this a real <button> on 2026-08-28 was correct and is
+                 kept. What it also did was make the control MEASURABLE: as a
+                 <div> it was never checked, and the gate's tap-target rule only
+                 looks at interactive elements. The rect was always ~16-24 x 20;
+                 becoming a button is what surfaced it, not what shrank it.
+
+                 The rule (tools/uishot/capture.mjs) is LONG >= 44 AND SHORT >= 32,
+                 measured with getBoundingClientRect, which INCLUDES padding.
+                 h-12 gives 48 on the long axis; px-2.5 lifts the narrowest
+                 content (16px) to 36 on the short axis. The row is already 48px
+                 tall because of its h-12 siblings, so the height costs no layout.
+              */
+              className="cursor-pointer inline-flex items-center justify-center h-12 px-2.5 touch-manipulation"
+            >
               {children}
-            </div>
+            </button>
           </TooltipTrigger>
           <TooltipContent
             side="top"

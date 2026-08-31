@@ -147,7 +147,26 @@ const CAPTION_ANCHOR = "── Caption, UNDER the actions";
 const COMMENTS_ANCHOR = "── Comments ──";
 const MEDIA_ANCHOR = "── Media ──";
 
-const actionButtons = (() => {
+/**
+ * ⚠ THE ROW ITSELF NOW LIVES IN ITS OWN FILE, AND SO DO THESE ASSERTIONS.
+ *
+ * It was written out inside PostCard, and hand-copied into the sponsored-ad
+ * card under a comment promising the two would be kept in step by hand. They
+ * were not — the shipped bundle carried two different comment composers, and
+ * the ad's thread printed the literal string `renderRow(comment, false)` in
+ * place of a member's comment. PostActionRow is the row now, once, and both
+ * surfaces render it.
+ *
+ * Everything about the row's SHAPE — 48px targets, 24px icons, left alignment,
+ * no rule, no words — is asserted against that file. Everything about what a
+ * POST puts INTO the row — the tooltips its numbers open, the counts it feeds
+ * in — is asserted against the slot PostCard fills, which is still sliced from
+ * its own banner to the caption that follows it, so a change to either boundary
+ * fails loudly instead of silently widening what is looked at.
+ */
+const actionButtons = stripComments(read("src/components/post/PostActionRow.tsx"));
+
+const actionSlot = (() => {
   const start = postCard.indexOf(ACTION_ANCHOR);
   expect(start, "the action row moved — update this test").toBeGreaterThan(-1);
   const end = postCard.indexOf(CAPTION_ANCHOR, start);
@@ -186,7 +205,7 @@ describe("react, comment and share are thumb-sized", () => {
   it("carries NO text label at any screen size", () => {
     // "After Like Comment and Share icon dont write the text" — so `hidden
     // md:inline` is not enough; the words are gone entirely.
-    expect(actionButtons).not.toContain("post.comment\")}</span>");
+    expect(actionButtons).not.toMatch(/>\s*(Like|Comment|Share)\s*</);
     expect(actionButtons).not.toMatch(/<span className="hidden md:inline">/);
     expect(picker).not.toMatch(/<span className="hidden md:inline">/);
   });
@@ -222,11 +241,24 @@ describe("react, comment and share are thumb-sized", () => {
     // be a lie without the second half, so both are asserted: no emoji in the
     // row, AND a summary component that really does list them.
     expect(actionButtons, "the emoji faces are back in the row").not.toContain("REACTION_EMOJI_MAP");
-    expect(actionButtons).toContain("formatNumber(post.like_count)");
+    // The row writes three plain numbers …
+    expect(actionButtons).toContain("formatNumber(likeCount)");
+    expect(actionButtons, "comment and share are numbers too").toContain("formatNumber(commentCount)");
+    expect(actionButtons).toContain("formatNumber(shareCount)");
+    // … and each one is still the trigger for the panel that breaks it up.
+    //
+    // ⚠ THE REACTIONS PANEL IS THE ROW'S, NOT THE CALLER'S, AND THAT IS THE
+    // FIX OF 2026-08-28. It used to be a slot PostCard filled, on the reasoning
+    // that what a post's number opens is a post's business — so the ad card,
+    // which filled nothing, showed a like count that named nobody. Owner:
+    // "Reactions name of the person like Feed right side not showing".
     expect(actionButtons).toContain("ReactionSummaryTooltip");
-    expect(actionButtons, "comment and share are numbers too").toContain("formatNumber(post.comment_count)");
-    expect(actionButtons).toContain("formatNumber(post.share_count)");
-    expect(actionButtons).toContain("ShareSummaryTooltip");
+    expect(actionButtons).toContain("source={reactionSource}");
+    // The share number IS still a slot, because ShareSummaryTooltip reads
+    // post_shares. If that ever becomes shared too, this moves with it.
+    expect(actionSlot).toContain("formatNumber(post.share_count)");
+    expect(actionSlot).toContain("ShareSummaryTooltip");
+    expect(actionButtons, "a slot the row never renders is a deleted tooltip").toContain("shareCountSlot");
 
     // The break-up itself. If this ever stops listing each reaction with its
     // own count, the row's plain number becomes a loss of information rather
@@ -262,11 +294,81 @@ describe("react, comment and share are thumb-sized", () => {
   it("names each icon-only button for screen readers", () => {
     // With the words gone the button has no accessible name unless given one,
     // and a sighted member gets no tooltip either.
-    expect(actionButtons).toMatch(/aria-label=\{t\("post\.comment"\)\}/);
-    expect(actionButtons).toMatch(/aria-label=\{t\("post\.share"\)\}/);
-    expect(actionButtons).toMatch(/title=\{t\("post\.comment"\)\}/);
-    expect(actionButtons).toMatch(/title=\{t\("post\.share"\)\}/);
+    // The row names its two icon-only buttons from what it is given …
+    expect(actionButtons).toMatch(/aria-label=\{commentLabel\}/);
+    expect(actionButtons).toMatch(/aria-label=\{shareLabel\}/);
+    expect(actionButtons).toMatch(/title=\{commentLabel\}/);
+    expect(actionButtons).toMatch(/title=\{shareLabel\}/);
+    // … and a post gives it the translated words, not nothing.
+    expect(actionSlot).toMatch(/commentLabel=\{t\("post\.comment"\)\}/);
+    expect(actionSlot).toMatch(/shareLabel=\{t\("post\.share"\)\}/);
   });
+});
+
+describe("there is ONE action row, and both surfaces draw it", () => {
+  /**
+   * The anti-drift check. AdEngagementBar used to reproduce this row by hand,
+   * with a comment promising it would be kept in step. A promise a person has
+   * to keep by hand is not a design; this is the same row on both surfaces, and
+   * these two lines are what say so.
+   */
+  const adBar = stripComments(read("src/components/ads/AdEngagementBar.tsx"));
+
+  it("PostCard renders PostActionRow instead of drawing one", () => {
+    expect(actionSlot).toMatch(/<PostActionRow\b/);
+    expect(actionSlot, "the row is drawn here again").not.toMatch(/<ReactionPicker\b/);
+    expect(actionSlot).not.toContain("h-12 px-2.5");
+  });
+
+  it("the sponsored ad renders the SAME row, not a copy of it", () => {
+    expect(adBar).toMatch(/<PostActionRow\b/);
+    expect(adBar, "a second hand-drawn row is how the two drifted").not.toMatch(/<ReactionPicker\b/);
+    expect(adBar).not.toContain("h-12 px-2.5");
+    expect(adBar).not.toContain("h-6 w-6");
+  });
+});
+
+/**
+ * BOTH COUNTS OPEN THEIR PANEL WITHOUT A MOUSE.
+ *
+ * The reaction trigger was a `<div onClick>` — no role, no tabindex, no name —
+ * and the share trigger was the identical thing one column along. Each is a
+ * real <button> now, with the count kept in the accessible name because an
+ * `aria-label` REPLACES the content for assistive tech and a bare "See who
+ * shared" would throw the number away.
+ *
+ * ⚠ ASSERTED ON THE PANELS, NOT ON THE ROW. Both wrap whatever they are given,
+ * so the row's own source says nothing about whether the wrapper is focusable —
+ * which is exactly how a mouse-only control survived a source-reading suite.
+ */
+describe("the count triggers are controls, not clickable divs", () => {
+  const panels = {
+    "src/components/ReactionSummaryTooltip.tsx": "See who reacted",
+    "src/components/ShareSummaryTooltip.tsx": "See who shared",
+  } as const;
+
+  for (const [file, label] of Object.entries(panels)) {
+    it(`${file} wraps its trigger in a real button`, () => {
+      const src = stripComments(read(file));
+      expect(src, "a div with onClick is not a control").not.toMatch(
+        /<div onClick=\{handleOpen\}/,
+      );
+      expect(src).toMatch(/<button\s+type="button"\s+onClick=\{handleOpen\}/);
+    });
+
+    it(`${file} names it, and keeps the count in the name`, () => {
+      const src = stripComments(read(file));
+      expect(src).toContain(`aria-label={\`${label} (`);
+    });
+
+    it(`${file} needs no hand-rolled keyboard handling`, () => {
+      // A native button already does Enter, Space and the tab order. A
+      // re-implementation is a worse copy of something the platform ships.
+      const src = stripComments(read(file));
+      expect(src).not.toMatch(/role="button"/);
+      expect(src).not.toMatch(/tabIndex=\{0\}/);
+    });
+  }
 });
 
 describe("the card is laid out in Instagram's order", () => {
@@ -287,22 +389,22 @@ describe("the card is laid out in Instagram's order", () => {
     // The old shape was: a counts row, a horizontal rule, then a row of bare
     // icons — two rows for the same three facts.
     expect(postCard, "the separate counts row is back").not.toContain("── Reactions Row ──");
-    expect(actionButtons).toContain("formatNumber(post.like_count)");
-    expect(actionButtons).toContain("formatNumber(post.comment_count)");
-    expect(actionButtons).toContain("formatNumber(post.share_count)");
+    expect(actionSlot).toContain("likeCount={post.like_count}");
+    expect(actionSlot).toContain("commentCount={post.comment_count}");
+    expect(actionSlot).toContain("shareCount={post.share_count}");
   });
 
   it("keeps every count's tooltip when the count moves", () => {
     // Moving a number is not an excuse to drop what it opens.
     expect(actionButtons).toContain("ReactionSummaryTooltip");
-    expect(actionButtons).toContain("ShareSummaryTooltip");
+    expect(actionSlot).toContain("ShareSummaryTooltip");
   });
 
   it("keeps a count hidden while it is zero", () => {
     // A fresh post shows three clean icons and no zeros, as on Instagram.
-    expect(actionButtons).toContain("post.like_count > 0");
-    expect(actionButtons).toContain("post.comment_count > 0");
-    expect(actionButtons).toContain("post.share_count > 0");
+    expect(actionButtons).toContain("likeCount > 0");
+    expect(actionButtons).toContain("commentCount > 0");
+    expect(actionButtons).toContain("shareCount > 0");
   });
 
   it("edits the caption in the SAME PLACE it is read", () => {

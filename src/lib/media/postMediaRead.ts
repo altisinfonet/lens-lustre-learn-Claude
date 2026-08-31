@@ -65,6 +65,11 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { logger } from "@/lib/logger";
+/** The CDN host for this lane. Re-exported here because callers have always
+ *  imported it from this module; the value itself is lane-derived since
+ *  2026-08-22 and no longer a literal. */
+import { CDN_HOST as MEDIA_CDN_HOST } from "@/lib/env";
+export { MEDIA_CDN_HOST };
 
 const FILE = "src/lib/media/postMediaRead.ts";
 
@@ -81,7 +86,7 @@ export const POST_MEDIA_ID_BATCH = 50;
  * `location.origin` — the apex is the one origin that does NOT work, and that
  * cost four days of missing photographs in August.
  */
-export const MEDIA_CDN_HOST = "cdn.50mmretina.com";
+
 
 /** One row of `post_media_for`. Deliberately NOT the whole table. */
 interface PostMediaForRow {

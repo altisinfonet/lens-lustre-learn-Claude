@@ -43,7 +43,7 @@ const TABLES: Record<string, TableSpec> = {
  * Parse any known URL into { bucket, key }. Returns null on unrecognized formats.
  *
  * Supabase: https://*.supabase.co/storage/v1/object/public/{bucket}/{key...}
- * External (R2 / custom CDN domain, e.g. cdn.50mmretina.com): /{bucket}/{key...}
+ * External (R2 / custom CDN domain, i.e. this lane's CDN host): /{bucket}/{key...}
  *
  * BUG-029: the old parser only knew Supabase hosts and *.r2.dev, so production
  * URLs on the custom CDN domain parsed to null and rows got full-size originals

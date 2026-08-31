@@ -78,8 +78,33 @@ const ALLOWED: Record<string, string> = {
    */
   "src/components/profile/ProfileStories.tsx":
     "SEPARATE, ruled 2026-08-15. A story expires in 24 hours and has no caption, no comments and no shares — there is no post to draw",
-  "src/components/ads/AdEngagementBar.tsx":
-    "SEPARATE, ruled 2026-08-15. Nobody authored an advertisement; it cannot be opened, reshared or commented on",
+
+  /**
+   * ─────────────────────────────────────────────────────────────────────────
+   * src/components/ads/AdEngagementBar.tsx WAS HERE, AND NO LONGER NEEDS TO BE.
+   *
+   * Its allowance read: *"SEPARATE, ruled 2026-08-15. Nobody authored an
+   * advertisement; it cannot be opened, reshared or commented on"* — which was
+   * already untrue when it was written. The ad HAD a permalink, a share and a
+   * comment thread, and the file it excused was a hand-copy of PostCard's
+   * action row above a hand-copy of the post comment thread. The copies drifted
+   * exactly as copies do: the shipped bundle carried two different "Add a
+   * comment" composers, and the ad's list printed the literal string
+   * `renderRow(comment, false)` where a member's comment should have been.
+   *
+   * The ad card now renders src/components/post/PostActionRow.tsx and
+   * src/components/comments/CommentThread.tsx — the SAME row and the SAME
+   * thread the post card draws, behind an adapter that maps them to the
+   * ad_creative_* tables. It draws no reaction control of its own, so the gate
+   * below no longer has anything to forgive it for, and an allowance for a file
+   * that does not need one is a hole nobody can see.
+   *
+   * What remains genuinely separate is the ad's DATA path and the one product
+   * decision that goes with it — an advertisement is never reshared to a
+   * member's wall under their own name — and that now lives in the share menu
+   * this surface passes to the shared row.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
 };
 
 /**

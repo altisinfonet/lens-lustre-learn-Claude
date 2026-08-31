@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { assertStorageLane } from "../_shared/s3.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -244,6 +245,10 @@ async function deleteS3Keys(s3: S3Settings, keys: string[]): Promise<number> {
 async function getS3Settings(adminClient: AdminClient): Promise<S3Settings | null> {
   const { data } = await adminClient.from("site_settings").select("value").eq("key", "s3_storage_settings").maybeSingle();
   const s3 = (data?.value as S3Settings | null) ?? null;
+  // G9: the lane assertion getS3Settings performs — this function reads the
+  // settings row itself and signs its own requests, so it must assert here or
+  // not at all. Before anything is signed.
+  if (s3?.enabled) assertStorageLane(s3, (globalThis as { Deno?: { env?: { get(k: string): string | undefined } } }).Deno?.env?.get("SUPABASE_URL"));
   if (!s3?.enabled) return null;
   return s3;
 }

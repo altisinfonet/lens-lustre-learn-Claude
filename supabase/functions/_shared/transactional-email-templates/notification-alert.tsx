@@ -64,7 +64,7 @@ export const template = {
     userName: 'Jane',
     notificationType: 'New Reaction',
     message: 'Someone reacted to your photo',
-    actionUrl: 'https://www.50mmretina.com/feed',
+    actionUrl: 'https://example.invalid/feed',
     actionLabel: 'View Now',
   },
 } satisfies TemplateEntry

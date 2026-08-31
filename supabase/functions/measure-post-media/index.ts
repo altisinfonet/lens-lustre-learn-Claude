@@ -17,7 +17,7 @@
  * THE SEVEN THINGS THAT MAKE IT SAFE. Each is a line of code, not a promise.
  *
  * 1. IT HOLDS NO STORAGE CREDENTIALS. Every object is read over ordinary
- *    public HTTPS from cdn.50mmretina.com — the same bytes any visitor already
+ *    public HTTPS from this lane's CDN host — the same bytes any visitor already
  *    gets. It never calls _shared/s3.ts, never reads s3_storage_settings, and
  *    therefore cannot reach a private bucket even by accident. This is the
  *    single strongest control here: there is no private-storage capability to
@@ -31,7 +31,7 @@
  *    `posts.image_urls` filtered by CANDIDATE_PATTERNS — three narrow shapes,
  *    the first byte-for-byte the pattern the Cycle 3 SQL proof used to
  *    establish the 207. Anything that fails all three is rejected, and the
- *    pattern is rejected, and the host is re-checked against CDN_HOST after
+ *    pattern is rejected, and the host is re-checked against cdnHostValue() after
  *    parsing, so a crafted row in the database could not redirect a fetch.
  *
  * 4. IT CANNOT WRITE. There is no .insert, .update, .upsert, .delete or .rpc
@@ -59,7 +59,8 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
-import { imageDimsFromBytes } from "./_shared/imageDims.ts";
+import { imageDimsFromBytes } from "../_shared/imageDims.ts";
+import { cdnHost } from "../_shared/laneConfig.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,7 +68,8 @@ const corsHeaders = {
 };
 
 /** The ONLY host this function will ever fetch from. Re-checked after parsing. */
-const CDN_HOST = "cdn.50mmretina.com";
+// Lane-derived (G10), call-time. Allow-list, not display value.
+const cdnHostValue = (): string => cdnHost();
 
 /**
  * The verified migration population, character for character the pattern used
@@ -91,7 +93,7 @@ const CDN_HOST = "cdn.50mmretina.com";
  * ⚠ CONTROL 3 IS UNCHANGED BY THIS. The population is still DERIVED from
  * `posts.image_urls` and still filtered by these patterns; the caller still
  * supplies nothing that can become a request target, and the host is still
- * re-checked against CDN_HOST after parsing.
+ * re-checked against cdnHostValue() after parsing.
  *
  * ⚠ WHAT MUST STAY OUT: `avatars/<uuid>/avatar.webp?t=…` (MUTABLE — overwritten
  * on every profile-photo change, so a hash taken now describes bytes that may
@@ -243,7 +245,7 @@ Deno.serve(async (req) => {
       // row that somehow satisfied the regex still cannot redirect the fetch.
       let host = "";
       try { host = new URL(c.url).host; } catch { /* falls through to reject */ }
-      if (host !== CDN_HOST) {
+      if (host !== cdnHostValue()) {
         results.push({ post_id: c.post_id, ord: c.ord, url: c.url, ok: false, reason: "host-not-permitted" });
         continue;
       }
