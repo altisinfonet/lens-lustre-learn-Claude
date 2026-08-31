@@ -71,3 +71,40 @@ export function laneDefine(overrides = {}) {
     __LANE_SITE_APEX_HOST__: JSON.stringify(host.startsWith("www.") ? host.slice(4) : ""),
   };
 }
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE SAME LANE VALUES, FOR `index.html`.
+ *
+ * ⚠ WHY THIS EXISTS. `index.html` carries `%VITE_SITE_ORIGIN%`, and until this
+ * function existed that token was resolved by Vite's built-in HTML env
+ * replacement — a mechanism with NO DEFAULT. When the variable is unset Vite
+ * leaves the token in the file verbatim and only warns. The comment beside the
+ * token in index.html promised "defaulting to the production origin when the
+ * build names no lane"; that promise was never kept, because the defaulting
+ * rule lives here and never reached the HTML.
+ *
+ * The cost, measured on 2026-08-31: `www.50mmretina.com` was serving
+ *
+ *     var origin = "%VITE_SITE_ORIGIN%";
+ *
+ * so `host` was the literal token, `apex` was "" and the apex→www hop could
+ * never fire. `https://50mmretina.com/` answered 200 as its own origin — the
+ * 2026-08-05 logged-out-origin incident, live again. Cloudflare Pages'
+ * production environment had no VITE_SITE_ORIGIN; the staging Pages project
+ * did, which is why staging looked right and only production was wrong.
+ *
+ * Routing the token through laneValue() gives the HTML the rule the rest of the
+ * build already has: unset -> production, set -> that value, "" -> fail loudly.
+ * The site is then correct whether or not any dashboard variable exists.
+ *
+ * Pairs with scripts/verify-html-tokens.mjs, which fails the build if ANY
+ * `%VITE_…%` token survives into dist — this class of defect, caught by bytes.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export function laneHtmlTokens(overrides = {}) {
+  const define = laneDefine(overrides);
+  return {
+    VITE_SITE_ORIGIN: JSON.parse(define.__LANE_SITE_ORIGIN__),
+  };
+}

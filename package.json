@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/generate-redirects.mjs && node scripts/generate-headers.mjs && node scripts/generate-seo-assets.mjs",
+    "build": "vite build && node scripts/generate-redirects.mjs && node scripts/generate-headers.mjs && node scripts/generate-seo-assets.mjs && node scripts/verify-html-tokens.mjs",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -18,9 +18,11 @@
     "ui:harness": "vite --host 127.0.0.1 --port 5199 --strictPort",
     "ui:shot": "node tools/uishot/capture.mjs",
     "ui:gate": "node tools/uishot/gate.mjs",
+    "ui:mention-overflow": "node tools/uishot/mention-overflow.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "gate": "npm run typecheck && npm run test && npm run build",
     "verify:isolation": "node scripts/verify-bundle-isolation.mjs",
+    "verify:html-tokens": "node scripts/verify-html-tokens.mjs",
     "test:isolation-guard": "node scripts/test-isolation-guard.mjs",
     "test:seo-assets": "node scripts/test-seo-assets.mjs"
   },

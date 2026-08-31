@@ -16,6 +16,12 @@
     <script>
       // Lane-derived since 2026-08-22: %VITE_SITE_ORIGIN% is substituted at build
       // time, defaulting to the production origin when the build names no lane.
+      // ⚠ THE DEFAULT IS APPLIED BY vite.config.ts's laneHtmlPlugin, reading
+      // scripts/lane-config.mjs — NOT by Vite's built-in %VITE_x% replacement,
+      // which has no default and silently ships this token verbatim when the
+      // variable is unset. It did exactly that on production until 2026-08-31,
+      // killing the redirect below. scripts/verify-html-tokens.mjs now fails
+      // any build whose emitted HTML still contains an unsubstituted token.
       // The apex is computed from it, so a lane whose origin is already an apex
       // gets an empty string here and can never build a redirect loop.
       (function () {
