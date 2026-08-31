@@ -16,6 +16,59 @@ name: Android Build
 # See ANDROID_AUTORELEASE_SETUP.md for the 10-minute one-time setup.
 
 # ═══════════════════════════════════════════════════════════════════════════
+# 2026-08-31 — v1.2.17. THE FIRST ANDROID BUILD SINCE THE CHANNEL WAS BROKEN.
+#
+# ⚠ READ THIS BEFORE ASSUMING THE APP CHANNEL WAS FINE. Run #113, on the
+# promotion commit 789d455, FAILED — and produced no .aab:
+#
+#   vite.config.ts(6,30): Could not find a declaration file for module
+#   './scripts/lane-config.mjs' ... implicitly has an 'any' type.
+#
+# That is F-52. `npx tsc -b tsconfig.json` (tsconfig.node.json, "strict": true)
+# is run by THIS WORKFLOW AND NOWHERE ELSE — `npm run typecheck` uses
+# tsconfig.app.json, which sets "noImplicitAny": false and passes. And this
+# workflow fires only on push to main for two paths, never on a pull request.
+# So the error could not be seen before it was merged, and the Android release
+# channel sat dead while every check on the repository was green.
+#
+# scripts/lane-config.d.mts (b6a22c1) fixes it and reached main today in
+# 86a17dd1. The gate gap itself is NOT fixed: nothing runs the strict
+# typecheck on a pull request. That stays on the record as F-52.
+#
+# WHAT THIS BUILD CARRIES, beyond everything in 1111:
+#
+#  1. F-53 — the app bundles its web assets (capacitor webDir: dist, no
+#     server.url), so index.html ships INSIDE the apk/aab. Until today that
+#     index.html carried the literal text %VITE_SITE_ORIGIN%, unsubstituted,
+#     because Vite's HTML token replacement has no default and Cloudflare
+#     Pages' production environment defines no VITE_SITE_ORIGIN. Substitution
+#     now runs through scripts/lane-config.mjs's defaulting rule, and
+#     scripts/verify-html-tokens.mjs fails any build whose emitted HTML still
+#     carries an unsubstituted token — so this class of defect can no longer
+#     be packaged into a phone build unnoticed.
+#
+#  2. The @mention list no longer leaves the screen. Measured at 360px, the
+#     width the app actually runs at: the list ran to 369.3px on a 360px
+#     screen and the send button painted over its corner. react-mentions
+#     already guards its right edge but measures the suggestions OVERLAY, and
+#     all sizing had been written on the inner <ul> with position:absolute —
+#     out of flow, so the overlay reported 100px while 277px was painted.
+#     Sizing moved onto the overlay; zIndex 50; forceSuggestionsAboveCursor.
+#
+# GATES ON THE CODE IN THIS BUILD: vitest 2,480 passed / 0 failed; tsc app and
+# strict both clean; full uishot sweep 152 screenshots, 0 problems, baseline
+# diff clean; tools/uishot/mention-overflow.mjs 4/4 on screen and 3/4 failing
+# on the pre-fix code. Verified live on www.50mmretina.com after deploy.
+#
+# versionName 1.2.17 because 1.2.16 is spent — build 1111 carried it. Two
+# different builds under one version string is exactly what the note below
+# says never to do.
+#
+# ACCEPTANCE IS NOT "IT BUILT": the owner installs it and types "@" in a
+# comment on a phone. The name list must be fully on screen and in front of
+# the send button.
+#
+# ═══════════════════════════════════════════════════════════════════════════
 # BUILD 1102 / v1.2.11 — THE FIRST BUILD CUT FOR A PUBLIC RELEASE
 #
 # Owner: "Final build give me after checking as it will in Public."
@@ -622,8 +675,13 @@ jobs:
           # and uploaded to the Play production track as a draft; whether the
           # owner rolled it out or not, the name is spent. 1.2.16 carries the
           # media write-path fix (RED-1) — the reason this build exists.
-          sed -i 's/versionName "1.0"/versionName "1.2.16"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.16 (1.2.11 / build 1102 went public)"
+          # 2026-08-31: bumped 1.2.16 -> 1.2.17. Build 1111 was cut as 1.2.16.
+          # 1.2.17 carries F-53 (the unsubstituted %VITE_SITE_ORIGIN% that the
+          # app bundles into its own index.html) and the @mention list fix —
+          # and it is the first build since run #113 failed on F-52, leaving
+          # the Android channel dead with every other check green.
+          sed -i 's/versionName "1.0"/versionName "1.2.17"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.17 (1.2.11 / build 1102 went public)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
