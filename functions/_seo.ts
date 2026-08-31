@@ -72,6 +72,38 @@ export function esc(s: string): string {
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+/**
+ * ⚠ THIS IS NOT esc(), AND IT MUST NOT BECOME esc().
+ *
+ * A JSON-LD payload is placed BETWEEN <script> tags, not into an attribute.
+ * HTML-escaping it would put &quot; inside the JSON document and destroy it,
+ * so the ten attribute sinks below use esc() and this one cannot.
+ *
+ * The defect being fixed: JSON.stringify does not escape `<`. A string field
+ * whose value contains the sequence </script> therefore CLOSES the script
+ * element, and everything after it is parsed by the browser as HTML. That is
+ * the standard JSON-LD injection, and neither esc() nor stripHtml() is the
+ * remedy -- stripHtml removes tag-shaped substrings and is not an escape at
+ * all, so nothing must ever be relied on it here.
+ *
+ * Unicode escapes are the one fix that satisfies both grammars at once:
+ * \u003c is valid JSON and a conforming parser reads it back as `<`, while
+ * the HTML parser never sees a `<` and so cannot be made to close the
+ * element. `>` and `&` are escaped by the same convention so that no bracket
+ * or entity sequence can be reconstructed from the output.
+ *
+ * Threat model, stated so it is not over-read: meta.jsonLd originates from
+ * database content whose writers are admin / content_editor. This is an
+ * AUTHENTICATED-PRIVILEGED-ACTOR exposure, not an anonymous one. It is fixed
+ * anyway -- the control exists to make a mistaken or deliberate write safe.
+ */
+export function escapeJsonLd(json: string): string {
+  return String(json ?? "")
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026");
+}
+
 export function stripHtml(s: string): string {
   return String(s ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -115,7 +147,7 @@ export function renderSeo(response: Response, meta: SeoMeta): Response {
   const image = meta.image || DEFAULT_OG;
   const canonical = meta.canonical;
   const jsonLd = meta.jsonLd
-    ? `<script type="application/ld+json">${JSON.stringify(meta.jsonLd)}</script>`
+    ? `<script type="application/ld+json">${escapeJsonLd(JSON.stringify(meta.jsonLd))}</script>`
     : "";
   const inject =
     `<meta property="og:title" content="${esc(title)}">` +
