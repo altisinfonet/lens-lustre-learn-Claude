@@ -57,8 +57,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: ${{ inputs.target }}
+    # ⚠ EVERY DISPATCH INPUT IS BOUND HERE, AND NOWHERE ELSE -- the same rule,
+    # and the same reason, as apply-migration.yml. GitHub substitutes
+    # ${{ ... }} into a `run:` script's TEXT before any shell exists, so an
+    # input carrying an apostrophe closes its quote and executes. Bound as an
+    # environment variable and read as "$SOURCE_DIR", it is data and can never
+    # become script.
+    #
+    # THE RULE FOR THIS FILE: no `${{` inside any `run:` block.
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      TARGET_LANE: ${{ inputs.target }}
+      SOURCE_DIR: ${{ inputs.source_dir }}
     steps:
       - uses: actions/checkout@v4
 
@@ -72,20 +82,20 @@ jobs:
         run: |
           set -euo pipefail
           REF=$(printf '%s' "$SUPABASE_DB_URL" | sed -E 's|^postgres(ql)?://([^:]+):.*|\2|' | cut -d. -f2)
-          case '${{ inputs.target }}' in
+          case "$TARGET_LANE" in
             production) EXPECT=jtdtehuqtinjxropkkcn ;;
             staging)    EXPECT=ztzutckwdhetphwghuzj ;;
             *) echo "::error::Unknown target."; exit 1 ;;
           esac
           if [ -z "${SUPABASE_DB_URL:-}" ]; then
-            echo "::error::SUPABASE_DB_URL is not set on the '${{ inputs.target }}' environment."
+            echo "::error::SUPABASE_DB_URL is not set on the '$TARGET_LANE' environment."
             exit 1
           fi
           if [ -z "$REF" ] || [ "$REF" != "$EXPECT" ]; then
-            echo "::error::the credential does not point at '${{ inputs.target }}' — refusing rather than checking the wrong database."
+            echo "::error::the credential does not point at '$TARGET_LANE' — refusing rather than checking the wrong database."
             exit 1
           fi
-          echo "Credential points at '$REF', which matches target '${{ inputs.target }}'."
+          echo "Credential points at '$REF', which matches target '$TARGET_LANE'."
 
       - uses: actions/setup-node@v4
         with:
@@ -105,4 +115,4 @@ jobs:
         run: node scripts/test-schema-dependencies.mjs
 
       - name: Verify schema dependencies
-        run: node scripts/verify-schema-dependencies.mjs '${{ inputs.source_dir }}'
+        run: node scripts/verify-schema-dependencies.mjs "$SOURCE_DIR"

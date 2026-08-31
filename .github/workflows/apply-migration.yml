@@ -89,8 +89,34 @@ jobs:
     # in the first steps below are the inner fences, because a branch restriction
     # cannot tell you which database a secret actually points at.
     environment: ${{ inputs.target }}
+    # ═══════════════════════════════════════════════════════════════════════
+    # ⚠ EVERY DISPATCH INPUT IS BOUND HERE, AND NOWHERE ELSE.
+    #
+    # GitHub substitutes ${{ ... }} into a `run:` script's TEXT before any
+    # shell exists. A value containing an apostrophe therefore closes the
+    # quote and the remainder of it executes as shell -- ABOVE, and so
+    # BEFORE, every check the step goes on to perform. The allowlist further
+    # down does not fail to catch such a payload: it never runs.
+    #
+    # Bound here instead, the value is set by the runner as a process
+    # environment variable. The script reads it as "$MIGRATION_PATH", and a
+    # shell variable's contents are never re-parsed as script. THAT is the
+    # fix. Quoting is not -- the quoting was already there, and the quoting
+    # is what made it exploitable.
+    #
+    # THE RULE FOR THIS FILE: no `${{` may appear inside any `run:` block.
+    # Not "none except the ones we decided were safe" -- six of the eleven
+    # this replaced were safe, being `choice` inputs that cannot carry a
+    # payload. A bright line survives handover; a reasoned exception makes
+    # every future reader re-derive the safety argument, and that is where
+    # scope falls off.
+    # ═══════════════════════════════════════════════════════════════════════
     env:
       DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      TARGET_LANE: ${{ inputs.target }}
+      BRANCH_REF: ${{ github.ref_name }}
+      MIGRATION_PATH: ${{ inputs.migration }}
+      CONFIRM_PATH: ${{ inputs.confirm }}
     steps:
       - uses: actions/checkout@v4
 
@@ -101,8 +127,8 @@ jobs:
       - name: The branch must match the target
         run: |
           set -euo pipefail
-          TARGET='${{ inputs.target }}'
-          REF='${{ github.ref_name }}'
+          TARGET="$TARGET_LANE"
+          REF="$BRANCH_REF"
           case "$TARGET" in
             production) WANT=main ;;
             staging)    WANT=staging ;;
@@ -141,10 +167,10 @@ jobs:
         run: |
           set -euo pipefail
           REF=$(printf '%s' "$DB_URL" | sed -E 's|^postgres(ql)?://([^:]+):.*|\2|' | cut -d. -f2)
-          case '${{ inputs.target }}' in
+          case "$TARGET_LANE" in
             production) EXPECT=jtdtehuqtinjxropkkcn ;;
             staging)    EXPECT=ztzutckwdhetphwghuzj ;;
-            *) echo "::error::Unknown target '${{ inputs.target }}'."; exit 1 ;;
+            *) echo "::error::Unknown target '$TARGET_LANE'."; exit 1 ;;
           esac
           # A DIRECT (non-pooler) URI has username `postgres` with no `.<ref>`,
           # so this parses to "postgres", matches neither target, and the run is
@@ -156,10 +182,10 @@ jobs:
             exit 1
           fi
           if [ "$REF" != "$EXPECT" ]; then
-            echo "::error::secret points at '$REF', target is '${{ inputs.target }}' — refusing"
+            echo "::error::secret points at '$REF', target is '$TARGET_LANE' — refusing"
             exit 1
           fi
-          echo "Credential points at '$REF', which matches target '${{ inputs.target }}'."
+          echo "Credential points at '$REF', which matches target '$TARGET_LANE'."
 
       # ⚠ PATH VALIDATION IS A SECURITY CONTROL, NOT TIDINESS.
       #
@@ -171,8 +197,8 @@ jobs:
       - name: Validate the requested file
         run: |
           set -euo pipefail
-          FILE='${{ inputs.migration }}'
-          CONFIRM='${{ inputs.confirm }}'
+          FILE="$MIGRATION_PATH"
+          CONFIRM="$CONFIRM_PATH"
 
           if [ "$FILE" != "$CONFIRM" ]; then
             echo "::error::The two inputs do not match. Nothing was run."
@@ -203,8 +229,9 @@ jobs:
       # exactly what ran — not of what the file happened to say afterwards.
       - name: Show the SQL that is about to run
         run: |
+          set -euo pipefail
           echo "───────────────────────────────────────────────────────────"
-          cat '${{ inputs.migration }}'
+          cat -- "$MIGRATION_PATH"
           echo "───────────────────────────────────────────────────────────"
 
       - name: Install psql
@@ -228,9 +255,9 @@ jobs:
             --set ON_ERROR_STOP=1 \
             --echo-errors \
             --no-psqlrc \
-            -f '${{ inputs.migration }}'
+            -f "$MIGRATION_PATH"
 
       - name: Confirm
         run: |
-          echo "✅ Applied: ${{ inputs.migration }}"
+          echo "✅ Applied: $MIGRATION_PATH"
           echo "Verify from the app, not only from SQL — that is the check that counts."
