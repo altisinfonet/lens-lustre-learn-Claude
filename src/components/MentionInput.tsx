@@ -236,6 +236,18 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
          */
         allowSpaceInQuery
         /**
+         * OPEN UPWARD, COMPUTED — not with a hand-written `bottom: 100%`.
+         *
+         * The comment box sits at the bottom of a thread, so a list dropping
+         * downward lands off the screen. The library positions the overlay from
+         * its measured height (`top - offsetHeight - caretHeight`), which stays
+         * right as the box grows from one line to five; a fixed `bottom: 100%`
+         * on the inner <ul> only looked right at one line, and took the <ul>
+         * out of flow — which is what disarmed the right-edge guard. See the
+         * long note on `suggestions` below.
+         */
+        forceSuggestionsAboveCursor
+        /**
          * `autoCapitalize` was never set, so a comment started lowercase. Every
          * other social app capitalises the first letter.
          *
@@ -306,7 +318,74 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
             color: "hsl(var(--foreground))",
             maxHeight: "116px",
           },
+          /**
+           * ── THE @NAME LIST ─────────────────────────────────────────────────
+           *
+           * Reported by the owner on 2026-08-31 with a screenshot: "during
+           * tagging in a coments, options are hiding not coming in fornt".
+           * Rendered in the harness at 360px (scene
+           * `mention-list-over-comment-box`) it was two faults, and the second
+           * one is the interesting one.
+           *
+           *  1. THE SEND BUTTON PAINTED OVER THE LIST. The button is `z-10`;
+           *     react-mentions gives its suggestions overlay `z-index: 1`, so
+           *     the list's bottom-right corner rendered UNDER the blue disc.
+           *
+           *  2. THE LIST RAN OFF THE RIGHT EDGE OF THE PHONE — and it did so
+           *     BECAUSE OF HOW THIS BLOCK WAS WRITTEN, not despite it.
+           *
+           * ⚠ THE TRAP, WRITTEN DOWN SO IT IS NOT WALKED INTO AGAIN.
+           *
+           * react-mentions already guards its own right edge. From
+           * `updateSuggestionsPosition`:
+           *
+           *     if (left + suggestions.offsetWidth > container.offsetWidth)
+           *       position.right = 0            // snap to the field's edge
+           *     else
+           *       position.left = left          // sit under the caret
+           *
+           * It measures `suggestions` — THE OVERLAY. This block used to put
+           * every sizing rule (`minWidth: 260px`, `width: max-content`,
+           * `maxWidth: 320px`) plus `position: absolute` on `list`, the <ul>
+           * INSIDE that overlay. An absolutely positioned child is out of flow,
+           * so the overlay never grew: it stayed at the library's default
+           * `minWidth: 100` and reported `offsetWidth` = 100 while 277px of
+           * names were painted. The guard compared the wrong number, concluded
+           * the list fitted, and set `left` to the caret. Measured at 360px:
+           * left 92 + 277.3 = 369.3 against a 369px viewport, with "Ranjana
+           * Bhattacharya Chowdhury" sliced in half at the screen edge.
+           *
+           * So the fix is not a wider guard — it is to STOP LYING TO THE ONE
+           * THAT IS ALREADY THERE. Sizing belongs on the overlay; the <ul>
+           * keeps only its looks and fills its parent. The library then does
+           * its own job: under the caret when there is room, snapped to the
+           * field's right edge when there is not, never off-screen.
+           *
+           * `forceSuggestionsAboveCursor` replaces the hand-written
+           * `bottom: 100%`, for the same reason — it is the placement the
+           * library computes from the real overlay height, so it stays correct
+           * as the box grows to five lines.
+           * ───────────────────────────────────────────────────────────────────
+           */
           suggestions: {
+            // Above the send button (z-10). ⚠ On the OVERLAY, which is the
+            // element the library stacks — a zIndex on `list` below would land
+            // on a child of a box that has already lost the comparison.
+            zIndex: 50,
+            // The library's default is `marginTop: 14`, which offsets the
+            // computed position. The placement is now computed; the nudge is a
+            // 4px breathing gap above the pill and nothing more.
+            marginTop: 0,
+            marginBottom: 4,
+            // ⚠ THE SIZE LIVES HERE, NOT ON `list`. This is the whole fix:
+            // these three lines are what the right-edge guard measures.
+            width: "max-content",
+            minWidth: 0,
+            // The field's own width on a phone (so the list can never be wider
+            // than the box it belongs to); 320px is the cap on a desktop, where
+            // the field is much wider than a name needs.
+            maxWidth: "min(320px, 100%)",
+            backgroundColor: "transparent",
             list: {
               backgroundColor: "hsl(var(--popover))",
               border: "1px solid hsl(var(--border))",
@@ -315,15 +394,17 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
               boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
               maxHeight: "200px",
               overflowY: "auto",
-              bottom: "100%",
-              marginBottom: "4px",
-              position: "absolute",
-              minWidth: "260px",
-              width: "max-content",
-              maxWidth: "320px",
+              // ⚠ NO position/left/width/maxWidth HERE. See the note above:
+              // taking this <ul> out of flow is what disarmed the guard.
+              overflowX: "hidden",
             },
             item: {
               padding: "8px 12px",
+              // A name longer than the box ends in an ellipsis rather than
+              // widening the list.
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
               "&focused": {
                 backgroundColor: "hsl(var(--accent))",
               },
@@ -338,7 +419,7 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
           displayTransform={(_id, display) => `@${display}`}
           appendSpaceOnAdd
           renderSuggestion={(suggestion: UserSuggestion, _search, highlightedDisplay) => (
-            <div className="flex items-center gap-2.5">
+            <div className="flex min-w-0 items-center gap-2.5">
               {suggestion.avatar_url ? (
                 <img
                   src={suggestion.avatar_url}
@@ -351,7 +432,11 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
                   {(suggestion.display || "?")[0]?.toUpperCase()}
                 </div>
               )}
-              <span className="font-medium">{highlightedDisplay}</span>
+              {/* `min-w-0` above + `truncate` here is the pair that actually
+                  clips: a flex item's default min-width is its content, so
+                  without min-w-0 the row refuses to shrink and the ellipsis
+                  never appears. */}
+              <span className="truncate font-medium">{highlightedDisplay}</span>
             </div>
           )}
           style={{
