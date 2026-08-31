@@ -32,3 +32,14 @@ export declare function laneDefine(overrides?: {
   __LANE_SITE_HOST__: string;
   __LANE_SITE_APEX_HOST__: string;
 };
+
+/**
+ * The `%TOKEN%` map substituted into index.html by vite.config.ts's
+ * laneHtmlPlugin. Same defaulting rule as laneDefine(): unset -> the production
+ * value, "" -> a build failure. Vite's own HTML env replacement has no default,
+ * which is why this exists.
+ */
+export declare function laneHtmlTokens(overrides?: {
+  cdnHost?: string;
+  siteOrigin?: string;
+}): Record<string, string>;
