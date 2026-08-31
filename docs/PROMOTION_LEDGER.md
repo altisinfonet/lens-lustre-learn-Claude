@@ -822,11 +822,12 @@ Measured with positive and negative controls on both origins: the 12 objects **e
 |---|---|---|---|---|---|
 | **G1–G2** | Lane-aware CI; forbidden-ref guard fires | `ci: lane-aware CI` (`ccd5e42`); prove/revert pair `ec1a3b9`/`44e3e92` | R6 demonstrated firing then restored; 8 workflows present in T | ✅ **CLOSED** | INFERRED (prior CI runs; not re-run today) |
 | **G3** | Migration lane gate armed on the **target** lane | `git show origin/main:.github/workflows/apply-migration.yml` | **Line 77 = `# environment: production` — COMMENTED OUT on `main`.** Live in T with 4 ordered gates | 🔴 **OPEN on `main`** — closes *only* on promotion | **VERIFIED** |
-| | runbook §5.3 secret-isolation probe | throwaway branch + echo-only workflow | **Never run.** runbook §5.3.6 requires it *immediately before* promotion | 🔴 **BLOCKED** | **BLOCKED** |
+| | runbook §5.3 secret-isolation probe | throwaway branch + echo-only workflow, **no `environment:` key — its absence IS the test** | **RE-TAKEN at the candidate, 2026-08-31.** Run **`33378911297`**, branch `scratch/g10-53-secret-isolation-20260831` at `9c556b8ebe4f480b85b4b415a48cd95b1d846180`, parented on `5ca0d256`. Workflow blob sha256 `4da0826127e32f950cdf79750dc3cb1a054c585ebb053f573bff679f65ca42a0`, byte-identical to the 2026-08-26 design. **Step log line 12 read verbatim: `EMPTY`.** `NON-EMPTY` absent from the log. Job `probe` succeeded in 4s, all three steps green. Branch deleted; cleanup proved — 0 `secret-isolation` refs, remote branch count restored to its pre-probe 119, `main` and `staging` unmoved, 0 tags. Residue: the run record and its logs persist and cannot be removed; **no deployment record was created** | ✅ **CLOSED** | **VERIFIED** |
 | **G4** | No production literals in staging bundle | bundle census (prior) | staging bundle: `cdn.50mmretina.com` 0 · `www.50mmretina.com` 0 · prod ref 0 | ✅ **CLOSED** | INFERRED (prior; not re-built today) |
 | | ACAO derivation | `public/_headers` diff | **apex → `www` — a production behaviour change** carried under a de-hardcoding commit | ⚠ **AMBER** | VERIFIED (diff) · **AF-11** |
 | **G5b** | No production defaults in Pages Functions; guard scans `functions/` | `d33c91e` (#89) | 6 Pages Functions modified; guard extended | ✅ **CLOSED** | INFERRED (prior) |
-| **G6** | *(not separately evidenced in the record available to this compiler)* | — | — | ⬜ **NOT ESTABLISHED** | **BLOCKED** |
+| **G6** | Production-lane cross-reference negative test; forbidden-ref guard fires in both directions | Six executed negative tests, 2026-08-22 — `claude/G6_VERIFICATION_AND_G3_5.3_CARD_2026-08-22.md` | **N-PROD-1 FAIL [R3] exit 1** (production bundle carrying a staging ref) · **N-PROD-3 PASS exit 0** (ref belonging to neither lane — the discriminating control) · N-PROD-2 FAIL [R6] · N-PROD-4 FAIL [R8] · N-STG-1 FAIL [R3] · P-1 PASS · 12/12 mutants held. **Production Cloudflare Pages variable `ISOLATION_FORBIDDEN_REFS` NOT READABLE from any session to date** | ⚠ **AMBER** | **VERIFIED** (guard, both directions) + **OWNER-ATTESTED** (Pages variable) |
+| | *G6 corrected at REV-17.* | *Prior row read: "(not separately evidenced in the record available to this compiler)" — ⬜ NOT ESTABLISHED — BLOCKED.* | ***That was stale, not empty**: the evidence existed in the project and not in this ledger. Prior wording preserved above per the owner's standing rule. **To reach GREEN one observation is still required and only the owner can take it:** the next production Pages deploy log line reading `forbidden=[ztzutckwdhetphwghuzj]`, captured and recorded* | | |
 | **G7** | Production lane is the only indexable lane | `06b9162` (#90); `public/robots.txt`, `sitemap.xml` | robots/sitemap generated per lane | ✅ **CLOSED** | INFERRED (prior) |
 | **G8** | Storage lane asserted where credentials load | `87aa5ea` (#92); `src/__tests__/storageLane.test.ts` (new) | test added in T | ✅ **CLOSED** | VERIFIED (file present) |
 | | §8.6 pt.2 — staging credential refused write to production bucket | A.5 runtime test / token-scope read | **Scope read directly: 1 policy, `50mm-staging` only** (§10.2). Runtime run `33079091310` = staging SUCCESS + production DENIED. Control 3 structurally cannot discriminate | ⚠ **SUBSTANCE MET, INSTRUMENT NOT** | **VERIFIED (scope)** + **INFERRED (runtime enforcement)** |
@@ -2077,12 +2078,12 @@ not close on effort; it closes on those eight rows.**
 | ~~1~~ | ~~UI gate RED on the candidate~~ — ✅ **RESOLVED.** Fixed, controlled, pinned, and **green in CI** (runs #123/#124) | AF-15 · D-9 |
 | ~~2~~ | ~~Merge conflict unresolved~~ — ✅ **RESOLVED.** Merge `9faf5a17` landed; blue taken; `tsc` clean, 2,475 tests pass; PR #104 **"Able to merge"** | §4.4 · D-6 |
 | ~~3~~ | ~~G8 instrument not satisfied~~ — ✅ **RESOLVED.** Owner waived the precondition and accepted scope observation (**D-12**, §23.3) | §10.2 · §23.3 |
-| 4 | **runbook §5.3 secret-isolation probe never run**, and must run immediately pre-merge | §24.1 |
+| 4 | ~~runbook §5.3 secret-isolation probe never run~~ — ✅ **CLOSED at REV-17.** Re-taken at candidate `5ca0d256` on 2026-08-31, run `33378911297`, log line 12 = **`EMPTY`**, branch deleted and cleanup proved | §24.1 · §11 G3 |
 | 5 | **§11 approval unsigned; 0 tags exist** | §23 |
 | ~~6~~ | ~~B11 rollback binding~~ — ✅ **RULED 2026-08-29**, six-file set, **RE-SIGNED 11:42Z against code RC `a42b209e`** (§23.1.0). ⚠ carries an accepted limitation: **never executed against a live database** | §23.1 |
 | ~~7~~ | ~~AF-11 ACAO ruling not made~~ — ✅ **RULED:** accepted as `www` | D-8 |
 | 8 | **AF-17** — production missing 2 RLS policies. ✅ **RULED:** apply post-merge (D-10). ⚠ **ACTION STILL PENDING** — production DB write, owner-only | D-10 · §24.3 |
-| 9 | **Independent audit — THREE ROUNDS COMPLETE (§25.1, §25.5, §25.6), ALL PARTIAL and ALL repository/governance-only.** **Infrastructure half NOT audited** — production + staging DB policy state, deployed edge functions, R2 policy, GitHub Environments and all dashboard claims are **INSUFFICIENT EVIDENCE** (§25.3). **No round reviewed the 138 changed files or re-ran the test suite.** Closure needs a round with database and dashboard access — **§25.4 closure rule: owner re-measurement is OWNER-ATTESTED and does NOT close these rows.** ✅ **Owner ruled 2026-08-29T11:56Z to grant the auditor read-only access — D-13, §25.7** | §25.1 · §25.5 · §25.6 · §25.7 · §25.3 · §25.4 |
+| 9 | **Independent audit — THREE ROUNDS COMPLETE (§25.1, §25.5, §25.6), ALL PARTIAL and ALL repository/governance-only.** **Infrastructure half NOT audited** — production + staging DB policy state, deployed edge functions, R2 policy, GitHub Environments and all dashboard claims are **INSUFFICIENT EVIDENCE** (§25.3). ~~**No round reviewed the 138 changed files or re-ran the test suite.**~~ ✅ **CLOSED BY OWNER ACCEPTANCE at REV-17 — with its gap named.** The test suite **was** re-run; the 138 files **were** reviewed across three parties (compiler 43, Developer 1 44, Developer 2 51). **What does NOT exist is the artefact: 95 of the 138 per-file claim rows were never published, so the review is not independently checkable.** The owner accepted this in writing on 2026-08-31 rather than hold the promotion for the rows. **This row is closed by acceptance, not by verification.** Original closure requirement, preserved: closure needs a round with database and dashboard access — **§25.4 closure rule: owner re-measurement is OWNER-ATTESTED and does NOT close these rows.** ✅ **Owner ruled 2026-08-29T11:56Z to grant the auditor read-only access — D-13, §25.7** | §25.1 · §25.5 · §25.6 · §25.7 · §25.3 · §25.4 |
 | ~~10~~ | ~~AF-19 — secret scan RED~~ — ✅ **RESOLVED** by `a42b209e`. Root cause was a one-lane allowlist never extended to two. Control-verified and mutation-tested. **No deviation carried** | §13.2 |
 
 **✅ CLOSED — the B11 identity decision (C-9).** The owner **re-signed B11 at 11:42Z against application/code RC `a42b209e4f70a6efed4f3dcdb654e0f994416594`** (§23.1.0), six files and all accepted limitations unchanged. The original signature is retained unedited and marked superseded. **The compiler did not edit signed text at any point.**
@@ -2270,3 +2271,125 @@ no deployment, no migration dispatch. `main` unchanged at `b671e1fb0c5bcf145d442
 > **Footer corrected at REV-16 (C-11).** Every revision to REV-15 ended *"T unchanged at `25c0456`"*.
 > **That was false and self-contradictory** — C-8 and §3.1 record `25c0456` as **void**, so the
 > document's own closing line asserted an identity its §3 denies. Preserved here, not deleted.
+
+
+---
+
+# 29 · REV-17 — PROMOTION RECORD
+
+**Committed 2026-08-31 as the single §24.1 step 7 commit.** §28.2 permits it under exception (a) — *an identity, a finding, an owner ruling, a signature* — and exception (b), *the entries §11/§19/§20 require at promotion. Everything below is a material fact about the release. No wording, labelling or formatting change is included.*
+
+## 29.1 · RELEASE CANDIDATE SUPERSEDED
+
+**`RC-20260829-05` / `a42b209e4f70a6efed4f3dcdb654e0f994416594` is SUPERSEDED as the application candidate.** Its measurements remain true statements about `a42b209e` and are **not** withdrawn — §3.5 rule 11 does not fire, because no premise was withdrawn; a new object was created.
+
+| Layer | Value |
+|---|---|
+| **Application / code RC** | **`5ca0d256a994fcab9e5beecfae8b8513d2799446`** |
+| Superseded | `a42b209e4f70a6efed4f3dcdb654e0f994416594` |
+| Delta RC → new RC | **4 paths, all `M`** — `.github/workflows/apply-migration.yml`, `.github/workflows/verify-schema-dependencies.yml`, `functions/_seo.ts`, `docs/PROMOTION_LEDGER.md`. **0 A, 0 D.** `+1,340 / −172` |
+| Scope vs `main` | **138 files · 31 A · 107 M · 0 D · +10,234 / −1,299.** Symmetric difference against the reviewed 138-path set: **EMPTY, per item** |
+| Commits | `fb881eec164869f2a34968556702af5fc72dd467` · `5ca0d256a994fcab9e5beecfae8b8513d2799446` |
+| Why | Closure of the `run:`-interpolation injection path in two workflows, and the JSON-LD escape in `functions/_seo.ts` |
+
+**What the patch closed.** GitHub substitutes `${{ … }}` into a `run:` script's **text** before any shell exists, so an input containing an apostrophe closed its quote and executed — **above, and therefore before, every validation the step performed.** In `apply-migration.yml` the allowlist, the `..` refusal, the existence check and the confirm-match all sat below the line already running attacker text. **They did not fail to catch a payload; they never ran.** Quoting was not the fix — the quoting was what made it exploitable. Every dispatch input is now bound through the job's `env:` map and read as a shell variable, whose contents are never re-parsed as script.
+
+**Invariant, checkable in one command — no `${{` inside any `run:` block:** `apply-migration.yml` **11 → 0**; `verify-schema-dependencies.yml` **5 → 0**. Six of the eleven were already safe (`choice` inputs cannot carry a payload) and were converted anyway: a bright line survives handover, a reasoned exception makes every future reader re-derive the safety argument.
+
+**The production leg, verified at the provider 2026-08-31:** the `production` GitHub Environment holds `SUPABASE_DB_URL` and admits `main` only, with no required reviewer and no wait timer. **Before this patch, merging would have handed any repository-write actor a shell on the runner with the production database URL already in the job environment.** That is now closed.
+
+**PROVENANCE, recorded because it bears on the weight of the evidence.** Both commits were authored and pushed by the audit/compiler session on the owner's explicit ruling of 2026-08-31, against a specification **pre-registered and published at 08:19:50Z, before the patch was written** (`claude/PRE_REGISTERED_PATCH_SPEC_2026-08-31.md`, sha256 `691e0a4a56cf9d77a31c14d8598cfa032bed449790994d4d256fc54327e181e3`).
+
+**This is NOT Developer 1's `rc-replacement/option2-2026-08-30` at `9384ba9a…`.** That branch was never pushed — `git fetch origin 9384ba9a…` returns **`fatal: remote error: upload-pack: not our ref`**, the provider's own statement that the object does not exist here. **None of its measurements are inherited, including `+36 / −7`, which must not be quoted for this candidate** (§3.5 rule 15).
+
+**The patch's author and its first checker were the same party**, which is weaker than this ledger's standard. Mitigated, not cured, by the pre-registered specification and by **independent re-measurement at `5ca0d256` by Developer 1**, who reproduced six of seven steps with figures printed; the seventh (CI conclusions) was completed by provider read.
+
+## 29.2 · §25 CLOSED BY OWNER ACCEPTANCE
+
+**All eight §25.3 rows are closed under §25.7.3's second limb — *"recorded as a named residual risk the owner has accepted in writing"* — the D-12 / B13 pattern.** Acceptances: `claude/S25_ACCEPTANCES_DRAFT_FOR_OWNER_2026-08-31.md`, Row 5 re-drafted after the replacement candidate landed.
+
+> **These eight rows are closed by acceptance, not by verification. No row was verified by a second party. This is the weaker of the two routes §25.7.3 allows, and it was chosen because no separate auditor with read-only access was available.**
+
+**Every row's class is OWNER-ATTESTED. None is VERIFIED.**
+
+| Row | What is carried |
+|---|---|
+| 1 | Production `ad_creative_comments` has **7 policies where staging has 9**. Both missing are RESTRICTIVE: a banned user can comment on ads, and ad comments are readable regardless of the parent creative's visibility. **Fixed by D-10, post-merge — not by this promotion** |
+| 2 | Staging's 9-policy state; the control that makes row 1 legible |
+| 3 | `submit-judge-decision` v23 serves `Access-Control-Allow-Origin: *` to any origin, probed as served. No `allow-credentials` on any probe, which bounds it. **50 of 71 deployed bundles differ from the candidate.** §23.5.1 condition 2 excludes all function deployment from this release |
+| 4 | R2 token `73a7920647481fd93553f9c1f68bf5a3` — one bucket scope (`50mm-staging`), **TTL Forever, no IP filtering**. Lane separation holds; no token spans both buckets |
+| 5 | Both environments carry `SUPABASE_DB_URL`. **The injection path that made this dangerous was closed at `5ca0d256`.** What remains: a live credential reachable by legitimate dispatch with no required reviewer and no wait timer, and a patch whose author and first checker were the same party |
+| 6a | **Both R2 buckets report Public Access: Enabled**; production holds a `national-ids/` prefix under that setting |
+| 6b | `isolation-probe/` returns 0 objects in both buckets. **After-only — no before-baseline exists for run `33079091310` and none can be created retroactively.** The permanent absence of that baseline is part of what is accepted |
+| 6c | **First measurement ever taken, and expressly NOT a pass.** Zero reusable Access policies; one legacy policy covering `*.lens-lustre-learn-claude.pages.dev` only, MFA Off. **No Cloudflare Access application covers `staging.50mmretina.com`.** Trap for re-checkers: the Applications page shows a plan paywall reading as "nothing configured" — **the Legacy tab must be opened** |
+
+**§26 blocker 1 (§25 PARTIAL): CLOSED.**
+
+## 29.3 · CORRECTION REGISTER — C-30 and C-31, both the compiler's
+
+| ID | Claim | Raised | Finding | Disposition |
+|---|---|---|---|---|
+| **C-30** | The compiler published **F-49**, asserting the runbook §5.3 secret-isolation probe *"does not exist"*, as a blocker-class finding | 2026-08-31 | **Found by the compiler within the hour, before it reached a decision.** The probe exists, fully specified, in the project — `claude/WS4_PACK_SOURCE/05_APPENDIX_runbook_5.3_probe_PREPARED_NOT_RUN.md` (revision 6), `claude/G6_VERIFICATION_AND_G3_5.3_CARD_2026-08-22.md`, `claude/G10_FINAL_OWNER_EXECUTION_PACK_2026-08-27.md`. **The git repository was searched exhaustively; the project was not searched at all**, and an absence claim was published from inside the wrong boundary | **F-49 WITHDRAWN IN FULL. Original wording preserved.** What survives is narrower: this ledger cites a runbook not present in the repository — a **traceability gap**, §28.3, not a blocker. **New standing rule 17** |
+| **C-31** | `TRANCHE_4…§4` stated *"Remote branches: `main`, `staging`, `altisinfonet-patch-35` — and nothing else."* | 2026-08-31 | **Found by the compiler while correcting C-30.** The instrument was `git branch -r` — the local clone's fetched refs, not the remote. `git ls-remote --heads origin` returns **119 branches** | **Corrected. No conclusion changes and one strengthens:** `rc-replacement/option2-2026-08-30` confirmed absent from `origin`, and `9384ba9a` rejected by the remote as **"not our ref"** — the provider's own statement, stronger than the original inference |
+
+**Both are one failure twice: the instrument nearest to hand, then a sentence wider than what it measured.** `git branch -r` for the remote; the repository for the project. Both times the correct instrument was one command away.
+
+## 29.4 · STANDING RULES 16 AND 17
+
+**16. A character a quoting layer can eat must be verified in the artefact, never in a report of it.** An escape sequence quoted in a document is not evidence that the escape exists in the file. Byte inspection — `od -c`, `xxd`, a hash — is the only instrument that settles it. *Earned three times in one day on a single line of `functions/_seo.ts`: the original patch document ate the escape, the compiler's relay carried the error, and the verification report ate it again. **The repository was correct throughout; every failure was in a description of it.***
+
+**17. An absence is only as wide as the space searched, and the claim must name that space.** *"X does not exist"* is never a finding. *"X does not appear in \<enumerated space\>, searched by \<instrument\>"* is. Before publishing any absence, enumerate every store the thing could be in and state which were searched and which were not. *Earned twice in two hours — C-30 and C-31.*
+
+## 29.5 · §21 REPOSITORY EVENTS — 2026-08-31
+
+| When | What | Who | Note |
+|---|---|---|---|
+| ~07:35Z | **`SUPABASE_DB_URL` created on the `staging` GitHub Environment**, verified present 07:40:40Z | **The owner**, in his own browser. The compiler entered no value; the guard refused every keystroke into that dialog | Satisfies §24.1 step 4, which had been **FAILING**. It also **created** the exposure §25.3 row 5 named, which the patch then closed |
+| ~08:5xZ | **Two commits to `staging`** — `fb881eec`, `5ca0d256` | Audit/compiler session, on the owner's explicit ruling | Uploaded byte-for-byte rather than retyped; pushed bytes hash-match the tested files. **No pull request opened. No force-push, no rebase.** CI fired automatically and **that run satisfied §24.1 step 6a** |
+| ~09:4xZ | **A commit directly to `staging` was STOPPED before it happened** | Caught by the compiler from the owner's screenshot of the commit dialog, which was set to *"Commit directly to the `staging` branch"* | Had it landed it would have moved the RC **and inverted the probe's meaning** — on a lane branch the secret is *supposed* to resolve. `staging` measured unmoved at `5ca0d256` throughout |
+| 09:4xZ | Probe branch `scratch/g10-53-secret-isolation-20260831` (`9c556b8e`) created, run **`33378911297`** → **`EMPTY`**, branch deleted | The owner in his browser; verified from the remote and the provider by the compiler | runbook §5.3, **re-taken at `5ca0d256`** rather than inherited. One file added, `+43`, byte-identical to what was issued. **No `environment:` bound, so NO deployment record was created.** Residue: the run record and its logs persist |
+
+## 29.6 · CI AT THE FREEZE HEAD — §24.1 step 6a
+
+At `5ca0d256`: **All checks have passed · 15 successful · 2 skipped · 0 failing · No conflicts with base branch.**
+
+**The two skipped checks, named** — an item that had been open and unexplained: **`Production lane build` on `push`** and **`Staging lane build` on `pull_request`**. They are the opposite lane in each event — the `push` event runs on `staging`, the `pull_request` event targets `main`. **Between the two events both lanes build. Correct lane-aware behaviour, not a coverage gap.**
+
+## 29.7 · §24.2 step 8 — ALREADY SATISFIED, measured
+
+`git merge-base b671e1fb 5ca0d256` → **`b671e1fb0c5bcf145d442076c229eca888afd674`**. **`main` IS the merge-base** — the D-6 conflict was resolved by `9faf5a17`, already in the candidate's history. **There is no conflict to resolve and step 8 creates no promotion-time commit.** GitHub concurs: *"No conflicts with base branch."* Consequently the tree at the tag and the tree on `main` after the merge are identical, and §24.2 step 10's equality assertion is a straight comparison.
+
+---
+
+# 29.8 · §11 OWNER APPROVAL
+
+**I approve the promotion of `5ca0d256a994fcab9e5beecfae8b8513d2799446` to `main`.**
+
+I record what I am approving:
+
+1. **§25 is closed by my written acceptance, not by verification.** Eight named residual risks, every one OWNER-ATTESTED. No second party verified any of them.
+2. **G6 is AMBER, not GREEN.** The guard is proven in both directions; the production Cloudflare Pages variable has never been read and remains owner-attested.
+3. **G9 is excluded from this release** under §23.5.1 condition 2. `submit-judge-decision` keeps answering `Access-Control-Allow-Origin: *` in production after this merge, and 50 of 71 deployed bundles differ from the candidate. **Merging deploys no edge function.**
+4. **D-10 / AF-17 is not done by merging.** Until `20260828082136` is dispatched against production, a banned user can comment on ads and ad comments ignore the parent creative's visibility.
+5. **F-47 is knowingly left in place** — `web-build.yml`'s `lane-guard` carries the same construct patched elsewhere. LATENT under the configured triggers, and it lands on `main` with this merge.
+6. **The security patch in this candidate was authored and first checked by the same party**, then independently re-measured by a developer who did not write it.
+7. **§26 blocker 9 is closed by my acceptance with its gap named:** the test suite was re-run and the 138 files were reviewed across three parties, but **95 of 138 per-file claim rows were never published**, so the review is not independently checkable.
+
+**Anyone reading "11 green" on this candidate is reading something that does not exist.**
+
+---
+
+> ## ⚠ HOW THIS APPROVAL WAS RECORDED — read before relying on it
+>
+> **Approved by: Neil Basu, owner.**
+> **Authorisation given to the compiler in session on 2026-08-31** — *"go and do my work to i authorise you"* — followed by the owner's explicit confirmation, put to him item by item, that **he has read the seven risk statements above**.
+>
+> **The text above was drafted by the compiler. The compiler did not sign as the owner and did not represent itself as him.** This block records the owner's instruction and his confirmation; it is not a hand-signed attestation, and it must not be described as one.
+>
+> **If a stronger record is wanted, the owner should replace this block with his own signature and date.** Until he does, the approval's class is **OWNER-ATTESTED VIA RECORDED INSTRUCTION**, which is weaker than a signature and stronger than an inference.
+>
+> Candidate: `5ca0d256a994fcab9e5beecfae8b8513d2799446` · Recorded: 2026-08-31
+
+---
+
+**Prepared by the compiler. §24.1 steps 1–6a complete; step 7 recorded here. Freeze in force from this commit: no further commits to `staging` before promotion (§3.5 rule 3).**
