@@ -18,6 +18,7 @@ import ImageCropModal from "@/components/admin/ImageCropModal";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import PostComposerPreview from "@/components/post/PostComposerPreview";
 import HashtagSuggestions from "@/components/post/HashtagSuggestions";
+import MentionInput from "@/components/MentionInput";
 import { Textarea } from "@/components/ui/textarea";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -177,6 +178,31 @@ function ComposerHarness({ srcs }: { srcs: string[] }) {
         onCrop={() => {}}
         onAddMore={order.length < 10 ? () => {} : undefined}
       />
+    </div>
+  );
+}
+
+/**
+ * The comment composer as it is actually assembled: an avatar, the field, and
+ * the send button that lives INSIDE the field. Hoisted to module scope rather
+ * than declared inside the scene — a component declared in render is a new type
+ * every render, React remounts its subtree, and a text input inside it loses
+ * the caret. src/__tests__/noComponentDefinedInRender.test.ts enforces that,
+ * and a scene whose whole subject is a text input is the last place to break
+ * the rule.
+ */
+function CommentComposerHarness() {
+  const [value, setValue] = useState("");
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Pushed down so an upward-opening list has room, and so a list that
+          escapes the row shows against plain background. */}
+      <div className="h-64" />
+      <p className="px-4 pb-2 text-xs uppercase tracking-widest text-primary">Comment composer</p>
+      <div className="flex items-start gap-2 border-t border-border/60 px-3 py-2">
+        <div className="mt-1 h-8 w-8 shrink-0 rounded-full bg-muted" />
+        <MentionInput value={value} onChange={setValue} onSubmit={() => {}} placeholder="Write a comment..." />
+      </div>
     </div>
   );
 }
@@ -653,6 +679,29 @@ export const SCENES: Record<string, () => JSX.Element> = {
     };
     return <Demo />;
   },
+
+  /*
+   * ── @MENTION SUGGESTIONS ──────────────────────────────────────────────────
+   * Reported by the owner on 2026-08-31, with a screenshot: typing "@" in a
+   * comment shows the name list "hiding, not coming in front".
+   *
+   * The hashtag list got scenes on 2026-08-16 for exactly this class of fault;
+   * the @mention list — a SECOND dropdown, from a different library, over a
+   * different box — never got one, so nobody had ever looked at it. That gap is
+   * why this shipped.
+   *
+   * ⚠ THE ARRANGEMENT IS THE TEST, not the component. MentionInput is drawn
+   * here inside the real comment row: an avatar to its left and a send button
+   * absolutely positioned INSIDE the field at z-10. react-mentions gives its
+   * suggestions overlay `z-index: 1`, so the list renders UNDER that button.
+   * A scene that mounted MentionInput alone would look perfect and prove
+   * nothing.
+   *
+   * The list is opened by the capture script, which types "@a" and waits for
+   * the fake backend's profiles_public_data rows — the real query path, not an
+   * invented prop.
+   */
+  "mention-list-over-comment-box": () => <CommentComposerHarness />,
 
   /**
    * Proves the harness itself renders the app's real styling — Tailwind
