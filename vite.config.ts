@@ -3,7 +3,40 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { ViteImageOptimizer } from "vite-plugin-image-optimizer";
-import { laneDefine } from "./scripts/lane-config.mjs";
+import { laneDefine, laneHtmlTokens } from "./scripts/lane-config.mjs";
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * `index.html` GETS THE LANE FROM lane-config.mjs, NOT FROM Vite's env lookup.
+ *
+ * Vite's built-in `%VITE_X%` replacement in index.html reads the environment and
+ * has NO fallback: an unset variable leaves the token in the shipped HTML and
+ * emits only a warning. That is how www.50mmretina.com came to serve
+ * `var origin = "%VITE_SITE_ORIGIN%"` and lose its apex→www redirect, while
+ * staging — whose Pages project did define the variable — looked perfect.
+ *
+ * This plugin substitutes the lane tokens itself, through laneValue()'s rule
+ * (unset -> production, "" -> build failure), BEFORE Vite's replacement runs.
+ * Vite then finds nothing left to do for these tokens. Variables that are
+ * genuinely per-deployment and have no sensible default — %VITE_SUPABASE_URL% —
+ * are deliberately left to Vite, and scripts/verify-html-tokens.mjs fails the
+ * build if any of those go unresolved.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+function laneHtmlPlugin() {
+  const tokens: Record<string, string> = laneHtmlTokens();
+  const pattern = new RegExp(`%(${Object.keys(tokens).join("|")})%`, "g");
+  return {
+    name: "lane-html-tokens",
+    enforce: "pre" as const,
+    transformIndexHtml: {
+      order: "pre" as const,
+      handler(html: string) {
+        return html.replace(pattern, (_match, key: string) => tokens[key]);
+      },
+    },
+  };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -22,6 +55,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   plugins: [
+    laneHtmlPlugin(),
     react(),
     mode === "development" && componentTagger(),
     ViteImageOptimizer({
