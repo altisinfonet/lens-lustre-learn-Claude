@@ -2610,3 +2610,266 @@ Measured at 360px in a new harness scene: list left 92px + width 277.3px = **369
 ---
 
 **Prepared by the compiler. REV-18 records; it does not approve, and it closes nothing.**
+
+---
+
+# 31 · REV-19 — THE ANDROID RELEASE CHAIN, AND A PLAY WARNING THAT CANNOT BE FIXED
+
+**Opened 2026-09-01. Compiler entry. Records builds #115, #116 and #117, the Play Console
+debug-symbols advisory, one new finding, one pending owner decision, and six corrections —
+five of them mine.**
+
+## 31.1 · Class of this entry
+
+REV-19 is a **record**, not an approval. Nothing in it is signed by the owner. Every row is
+classified `VERIFIED` (instrument named, evidence quoted), `OWNER-ATTESTED`, `INFERRED`,
+`BLOCKED`, `N/A` or `DEFERRED`. No category is silently converted into another. No earlier
+conclusion is overwritten; where an earlier statement of mine proved wrong, the original stands
+and the correction is filed beside it in §31.11.
+
+## 31.2 · ⚠ WHY THIS ENTRY EXISTS AT ALL — THE LEDGER FELL BEHIND
+
+REV-18 (§30) closed with the promotion of `86a17dd1` and the live verification of F-53 and the
+@mention fix. It recorded **nothing** about the Android release chain that ran immediately after
+it. Between REV-18 and this entry the following happened and went unwritten for a day:
+
+* build #115 succeeded and produced the first signed `.aab` since the Android channel died;
+* the owner uploaded it to the Play Console and Play answered with a debug-symbols advisory;
+* two attempts to satisfy that advisory were made, one of which (#116) **failed the build**;
+* a new blocking gate was written, tested, opened as PR #112, merged, and built as #117.
+
+The ledger is the record. A day of release activity sitting only in a session transcript is a
+gap in the record, and it is named here as one rather than back-filled quietly.
+
+## 31.3 · THE ANDROID CHAIN, RUN BY RUN
+
+| Run | Commit | Result | Duration | What it establishes |
+|---|---|---|---|---|
+| #113 | `789d455` | ❌ failure | 8m 55s | recorded at §30.8 — F-52, the Android channel was dead |
+| #114 | `ea68174` | ❌ failure | 11m 04s | recorded at §30.8 |
+| #115 | `99d0e23` | ✅ **success** | 15m 38s | first signed `.aab` after F-52 — §31.4 |
+| #116 | `90dae3d` | ❌ **failure** | 13m 59s | failed at the new blocking symbol gate — §31.7 |
+| #117 | `ba200cf` | ✅ **success** | 16m 08s | the current release candidate — §31.9 |
+
+Instrument: the Android Build workflow-run list and each run page,
+`https://github.com/altisinfonet/lens-lustre-learn-Claude/actions/workflows/android-build.yml`.
+Status: **VERIFIED**.
+
+## 31.4 · BUILD #115 — THE FIRST SIGNED BUNDLE AFTER F-52
+
+Run `33472479292`, commit `99d0e23cbafaabc7b3217d7055f19871c2174b42`, success in 15m 38s.
+`versionName 1.2.17`, `versionCode 1115`.
+
+| Artefact | Size | sha256 |
+|---|---|---|
+| `app-release-aab` | 8.48 MB | `af84e0b74826c3e9716dea01d8c89d8e6955adf44e93321cce82f3d3afb23d1e` |
+| `app-debug-apk-SIDELOAD-THIS` | 13.9 MB | `1087b7c1c3bad2c1365d633889973d359e536a996b5a12ac05b11bd8b94b4354` |
+| `ui-sweep-screenshots` | 40.1 MB | `df2ce8f22c02358c7f4ecb9d9e4067beadb78b5f6574b6696da4523aaa4857b1` |
+
+Status: **VERIFIED** (run page, artefact digests read from it).
+
+## 31.5 · THE REQUIREMENT — OWNER-STATED, 2026-09-01
+
+The owner uploaded #115's bundle to the Play Console and Play returned an advisory about
+missing native debug symbols. The owner's instruction, verbatim in substance: no warning is to
+be tolerated, and **the app will not be uploaded — not even for testing — while one stands**.
+
+Requirement: *the Play Console shows no warning for the bundle we publish.*
+Status of the requirement as of this entry: **NOT MET, and not meetable from our side.** §31.6.
+
+## 31.6 · F-56 (NEW) — THE PLAY DEBUG-SYMBOLS ADVISORY CANNOT BE SATISFIED BY THIS PROJECT
+
+**Finding.** The release bundle contains 12 native libraries. **None of them is our code.**
+They are 3 libraries × 4 ABIs (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`):
+
+| Library | Arrives via |
+|---|---|
+| `libdatastore_shared_counter.so` | Firebase → `androidx.datastore` |
+| `libimage_processing_util_jni.so` | `androidx.camera` |
+| `libsurface_util_jni.so` | `androidx.camera` |
+
+**Evidence chain, each item an instrument and a reading:**
+
+1. `readelf -S` on each `.so` → the only sections present are `.dynsym` and `.shstrtab`.
+   There is no `.symtab` and no DWARF. Status: **VERIFIED**.
+2. `nm --debug-syms` on each `.so` → `no symbols`. Status: **VERIFIED**.
+3. The `.so` extracted from Google's published AAR and the `.so` found inside our bundle are
+   the same size to the byte (29008 == 29008). We are not stripping them; they arrive stripped.
+   Status: **VERIFIED**.
+4. AGP's `ndk { debugSymbolLevel }` can only extract what exists. At `SYMBOL_TABLE` (build #115)
+   and at `FULL` (builds #116 and #117) it emitted **zero** entries into
+   `BUNDLE-METADATA/com.android.tools.build.debugsymbols/`. Status: **VERIFIED** — the gate's own
+   output in #117 reads `debug symbol entries: 0`.
+
+**Consequence.** Play will display the advisory for every bundle this project produces.
+It is an advisory, **not a publishing blocker**: Play accepts and publishes the bundle.
+
+**What would NOT fix it.** Removing `@capacitor/camera` would remove two of the three libraries.
+`libdatastore_shared_counter.so` would remain, because it comes with Firebase. The advisory
+would still appear. Status: **VERIFIED** by dependency origin, §31.12.
+
+**STANDING RULE 19.** A Play Console advisory that this project's own code cannot satisfy is
+recorded as a **named, accepted condition** with its evidence — never as a fixed item, never as
+a silent omission, and never closed by making the check stop looking.
+
+## 31.7 · THE TWO REMEDIATION ATTEMPTS, AND WHY #116 FAILED
+
+**Attempt 1 — build #115.** `debugSymbolLevel 'SYMBOL_TABLE'`. Bundle built and signed; Play
+still showed the advisory. Result: attempt failed. Status: **VERIFIED**.
+
+**Attempt 2 — build #116**, commit `90dae3da18bdcf7303858f3bdd5682cb33a02b4b`.
+Two changes: `debugSymbolLevel` raised to `'FULL'`, and a **new blocking step** added —
+*"Prove native debug symbols are in the bundle (blocking)"* — which fails the build if any
+native library in the bundle has no symbol entry.
+
+The build **failed at exactly that step**, 13m 59s, no `.aab` produced. Status: **VERIFIED**
+(job `99756894100`; the failing step is the one named, every step after it reads 0s and the
+`Upload debug info on failure` step ran).
+
+**This failure was correct behaviour, not a defect.** The gate was written to be blocking, and
+it found that the requirement is unmeetable. The choice at that point was between weakening the
+gate to a warning — which hides the fact — and stating the truth in the gate itself. §31.8.
+
+## 31.8 · THE ALLOWLIST — PR #112, MERGED AS `ba200cf`
+
+The gate was changed to allow **three libraries by name**, with the reason recorded in the
+workflow itself, and to keep failing for anything else:
+
+```
+KNOWN_STRIPPED="libimage_processing_util_jni.so libsurface_util_jni.so libdatastore_shared_counter.so"
+```
+
+Any native library that is **not** one of those three and carries no symbols still fails the
+build. The allowlist is a statement about three specific Google-published binaries, not a
+general amnesty.
+
+* PR #112 — *"ci(android): the three AndroidX libs Google ships stripped — allowed by name, with the proof"*
+* Branch `build/android-1.2.18-symbol-allowlist-20260901`, one file changed, checks: 7 successful, 1 skipped.
+* Merge method: **squash**. Resulting commit on `main`: **`ba200cf`**.
+* **Identity check:** sha256 of `.github/workflows/android-build.yml` read back from `main` =
+  `ed524d8352d1c3abf55d4dd145170a8c0457553a1e6a1c235edfaaca6e98391e`, 81,301 bytes —
+  byte-identical to the file that was tested before the merge. Status: **VERIFIED**.
+
+## 31.9 · BUILD #117 — THE CURRENT RELEASE CANDIDATE
+
+Run `33478685018`, commit `ba200cf`, **Success**, total 16m 08s.
+
+| Requirement | Instrument | Evidence | Status |
+|---|---|---|---|
+| Security gate passes | job "Security gate (blocks the build)" | succeeded, 6s | VERIFIED |
+| UI gate passes | job "UI gate — reachability + baseline" | succeeded, 7m 59s | VERIFIED |
+| Typecheck passes | step in `build-aab` | succeeded, 35s | VERIFIED |
+| Test suite passes | step in `build-aab` | succeeded, 1m 13s | VERIFIED |
+| Version is monotonic and named | step "Set app version", log lines 45–47 | `versionCode=1117 versionName=1.2.18`; gradle reads `versionCode 1117`, `versionName "1.2.18"` | VERIFIED |
+| Web bundle is inside the release bundle | blocking step | succeeded | VERIFIED |
+| Native symbol gate | blocking step, log lines 77–97 | 12 `.so`, 3 distinct libraries, all three on the allowlist | VERIFIED |
+| Release bundle is signed | step "Prove the release bundle is signed", line 24 | `OK: the release bundle carries a signature block` | VERIFIED |
+
+**Verbatim gate output, run #117:**
+
+```
+native .so files: 12   distinct libraries: 3
+--- debug symbol metadata ---
+(none)
+debug symbol entries: 0
+  allowed (Google ships it stripped): libdatastore_shared_counter.so
+  allowed (Google ships it stripped): libimage_processing_util_jni.so
+  allowed (Google ships it stripped): libsurface_util_jni.so
+OK: every native library present is one Google ships stripped. Play will still show its
+advisory 'no debug symbols' message; it cannot be satisfied for these three and it does
+not block publishing.
+```
+
+| Artefact | Size | sha256 |
+|---|---|---|
+| `app-release-aab` | 8.48 MB | `3b12450d144dff4ee1655f65987005eb79f23a95ef37e8ee622b3e00ebab4da4` |
+| `app-debug-apk-SIDELOAD-THIS` | 13.9 MB | `f6101f11dbda9f380311ff5b0046da957392866b269a8c3f3e588551600151b8` |
+| `ui-sweep-screenshots` | 40 MB | `6325a31f357d68b2f514ca1bd8bda592597d208e3a6b4f688fc45dba1c849727` |
+
+**Not yet done, and owed by the owner:** sideload `app-debug-apk-SIDELOAD-THIS`, type `@` in a
+comment, and confirm the suggestion list is fully on screen and in front of the send button.
+Until that is done the @mention fix is **VERIFIED on the web** and **DEFERRED on the phone**.
+
+## 31.10 · D-14 — OWNER DECISION PENDING: THE SYMBOLS ARCHIVE
+
+There is exactly one remaining action that would make the Play message disappear, and it is
+recorded here **unexecuted**, because it changes how the release bundle is assembled and because
+what it delivers must not be overstated.
+
+**The action.** Package the same 12 `.so` into a `native-debug-symbols.zip` and place it in
+`BUNDLE-METADATA/com.android.tools.build.debugsymbols/` (or upload it to the Play Console
+against this version).
+
+**What it actually delivers.** The dynamic symbol table only — exported function names. That is
+what `SYMBOL_TABLE` fidelity means. It is a real, Google-documented artefact and not a fabricated
+file, but there is no richer debug data in existence to ship, because Google does not publish it.
+Crash traces inside those three libraries would gain exported-symbol names and nothing more.
+
+**Why it is not done.** Standing owner rule: *do not manufacture a passing result.* Silencing a
+warning is not the same as fixing the condition the warning describes. Executing this needs the
+owner's explicit word. Status: **DEFERRED — awaiting D-14.**
+
+## 31.11 · CORRECTION REGISTER — C-36 THROUGH C-41
+
+Five of these six are mine. The original statements stand where they were made; these are the
+corrections filed beside them.
+
+**C-36 — my symbol-gate test harness reused one archive across three cases.** The three test
+cases were therefore not independent, and a case could have passed on another case's fixture.
+Found before the gate shipped; the harness was rebuilt so each case builds its own archive.
+
+**C-37 — the same harness read `tail`'s exit code instead of the script's**, and so reported a
+failing case as passing. Found before the gate shipped; rebuilt to capture the real `$?`.
+C-36 and C-37 together are the same failure pattern named at §25.6.1: *a test that agrees with
+the thing it is testing is not evidence.*
+
+**C-38 — I told the owner I would learn whether release signing was configured by reading a
+build log.** It was on the repository settings page. The statement was wrong and it cost a
+build cycle.
+
+**C-39 — builds #113 and #114 failed on defects introduced by my own 138-file promotion review**
+(a missing `.d.mts`; a deleted `caretPlaced` marker). §30.8 records the failures; this records
+the authorship. They were mine, not the workflow's.
+
+**C-40 — I told the owner, before it ran, that build #117 would carry `versionCode 1118`.**
+It carries **1117**. `versionCode` is `1000 + github.run_number`, and #117 is run 117.
+The statement was wrong; the build is correct.
+
+**C-41 — I told the owner that committing this ledger entry to `main` would trigger Android
+build #118.** False. `android-build.yml` triggers only on pushes touching
+`.github/workflows/android-build.yml` or the `ANDROID_BUILD_TRIGGER` file
+(`on: push: branches: [main], paths: [...]`, lines 302–307). A documentation commit triggers
+**no Android build**. Verified by reading the trigger block on `main` before writing this line.
+
+## 31.12 · SCOPE NOTE — WHAT THE CAMERA PLUGIN IS FOR (owner asked, 2026-09-01)
+
+`@capacitor/camera` has exactly one production use in this app: the in-app multi-select gallery
+picker for wall posts. `src/lib/native/gallery.ts` exposes `canUseNativeGallery()` and
+`pickGalleryFiles()` (which calls `Camera.pickImages`); `src/components/WallPosts.tsx` is the
+only caller, and it falls back to the OS picker when the plugin is unavailable. There is no
+in-app photo *capture* path. Removing the plugin would remove two of the three stripped native
+libraries but would **not** clear the Play advisory (§31.6) and would cost the multi-select
+picker. Status: **VERIFIED** by source inspection.
+
+## 31.13 · OPEN AT THE CLOSE OF REV-19
+
+Carried forward from §30.12, still open:
+
+* **F-47**, **F-50**, **F-54**, **F-55** — open.
+* **F-52** — strict typecheck still never runs on a PR. Open.
+* **F-56** (new, §31.6) — Play debug-symbols advisory, accepted condition. Open by design.
+* `apply-migration.yml` still cannot authenticate.
+* The two `COMMENT ON POLICY` statements from D-10 were never applied to production (§30.3.1).
+* Cloudflare production still has no `VITE_SITE_ORIGIN`.
+* `main` and `staging` histories still diverge (F-55).
+* The story-image failure is undiagnosed; the owner's link expired before it could be read.
+* **D-14** pending (§31.10).
+* Workflow warning, cosmetic: the `ANDROID_KEY_ALIAS` secret holds a value that is not an alias
+  in the keystore; the build falls back to the keystore's single alias `upload` and says so.
+  Deleting the secret or setting it to `upload` silences it. It affects neither the bundle nor
+  Play. Owner action, at leisure.
+* **Owner acceptance test outstanding:** the @mention list on a physical phone (§31.9).
+
+---
+
+**Prepared by the compiler. REV-19 records; it does not approve, and it closes nothing.**
