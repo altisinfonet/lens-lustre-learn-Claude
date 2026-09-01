@@ -22,26 +22,59 @@ name: Apply a database migration
 # ───────────────────────────────────────────────────────────────────────────
 # ⚠ ONE-TIME SETUP, AND IT IS THE OWNER'S HANDS ONLY.
 #
-#   Supabase dashboard → Project Settings → Database → Connection string →
-#   URI. Copy it. Then GitHub → Settings → Secrets and variables → Actions →
-#   New repository secret:
+#   ⚠ CORRECTED 2026-09-01 (F-57). THE TEXT THAT USED TO BE HERE NAMED A
+#   CONNECTION-STRING SHAPE THAT THIS FILE'S OWN GATE REJECTS. Following it
+#   produced a secret that could never work, and cost a day to diagnose. The
+#   original wording is preserved in the ledger; this is the corrected version.
+#
+#   Supabase dashboard → Connect (or Project Settings → Database) → Connection
+#   string → the **SESSION POOLER** tab. Then GitHub → Settings → Environments
+#   → `production` (or `staging`) → Environment secrets → SUPABASE_DB_URL:
 #
 #       Name:   SUPABASE_DB_URL
-#       Value:  postgresql://postgres:<password>@db.<ref>.supabase.co:5432/postgres
+#       Value:  postgresql://postgres.<ref>:<password>@aws-<n>-<region>.pooler.supabase.com:5432/postgres
 #
-#   Use the SESSION connection string (port 5432), not the transaction pooler
-#   (6543). The pooler does not support the multi-statement transactions these
-#   migrations depend on, and a migration that silently loses its BEGIN is
-#   exactly the failure this whole design exists to prevent.
+#   THREE THINGS MUST BE TRUE, AND EACH ONE IS ENFORCED OR RELIED ON BELOW:
+#
+#     1. The username is `postgres.<ref>` — WITH the dot and the project ref.
+#        The step "The credential must point at the target database" parses the
+#        ref out of the username to prove the credential matches the lane you
+#        chose. A DIRECT string (`postgres@db.<ref>.supabase.co`) has a bare
+#        `postgres` username, parses to nothing, and is REFUSED — correctly.
+#     2. The port is 5432, the SESSION pooler. NOT 6543, the transaction pooler:
+#        it does not support the multi-statement transactions these migrations
+#        depend on, and a migration that silently loses its BEGIN is exactly the
+#        failure this whole design exists to prevent.
+#     3. The password is the REAL password. Supabase's dialog shows the literal
+#        placeholder `[YOUR-PASSWORD]`; the actual password appears only once,
+#        on the screen where you reset it. Paste over the placeholder — if the
+#        stored string still contains `[` or `]`, authentication fails with
+#        `FATAL: password authentication failed`. URL-encode any of
+#        @ : / ? # [ ] % in the password, and leave no trailing newline.
+#
+#   The secret is an ENVIRONMENT secret, one per lane, because the job below
+#   declares `environment:`. A repository-level secret of the same name is
+#   SHADOWED by it and will never be read.
 #
 #   Until that secret exists this workflow refuses to run and says so. It
 #   cannot half-work.
 #
-# ⚠ RECOMMENDED, NOT REQUIRED: bind this to a GitHub Environment with a
-#   required reviewer (Settings → Environments → new environment "production"
-#   → Required reviewers → you). Then every dispatch waits for your approval
-#   before touching the database, even one dispatched by someone else.
-#   To enable, uncomment the `environment:` line in the job below.
+#   TO TEST A CREDENTIAL WITHOUT APPLYING ANYTHING, dispatch this workflow with
+#   `supabase/migrations/PROBE_credential_connectivity_readonly.sql`. It opens a
+#   transaction, asks the server four questions about itself, and commits. It
+#   changes nothing. First proved green on production, run #10, 2026-09-01.
+#
+# ⚠ CORRECTED 2026-09-01 (F-57). THIS PARAGRAPH USED TO SAY THE `environment:`
+#   LINE WAS COMMENTED OUT AND OPTIONAL. IT IS NEITHER. The job below carries
+#   `environment: ${{ inputs.target }}`, live, and has done for some time. The
+#   stale wording sent a reader looking for a repository secret that the job
+#   would never read.
+#
+#   Both Environments (`production`, `staging`) exist and each holds its own
+#   SUPABASE_DB_URL. What is still NOT configured, and is worth doing, is a
+#   required reviewer: Settings → Environments → production → Required
+#   reviewers → you. Then every dispatch waits for a human before touching the
+#   database, even one dispatched by someone else.
 #
 # ───────────────────────────────────────────────────────────────────────────
 # ⚠ MANUAL DISPATCH ONLY. There is deliberately no `push:` trigger.
