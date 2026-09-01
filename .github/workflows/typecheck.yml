@@ -19,5 +19,21 @@ jobs:
           node-version: 20
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
-      - name: TypeScript check
-        run: npx tsc --noEmit -p tsconfig.app.json
+      # ⚠ F-52 CLOSED HERE, 2026-09-01.
+      #
+      # This step used to run `-p tsconfig.app.json` and nothing else. That
+      # project sets "strict": false and "noImplicitAny": false, and it does not
+      # include `vite.config.ts`. The STRICT project — tsconfig.node.json,
+      # "strict": true — was compiled by `npx tsc -b tsconfig.json` inside
+      # android-build.yml AND NOWHERE ELSE, and that workflow only runs when
+      # its own file changes. So on a normal pull request the strict project was
+      # checked by nothing at all. That is how a missing `scripts/lane-config.d.mts`
+      # reached `main` and killed builds #113 and #114 after the merge, where it
+      # is expensive, instead of on the pull request, where it is free.
+      #
+      # `-b tsconfig.json` builds BOTH referenced projects. Do not change it back
+      # to `-p tsconfig.json`: tsconfig.json is a solution file (`files: []`),
+      # and without `-b` tsc ignores the references and exits 0 having checked
+      # zero files — proved with `--listFiles`.
+      - name: TypeScript check — BOTH projects, app and strict
+        run: npx tsc -b tsconfig.json
