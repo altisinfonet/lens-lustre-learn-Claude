@@ -3075,3 +3075,140 @@ at all.** Production carries `SITE_ORIGIN` and it is correct. What is missing is
 
 **Prepared by the compiler. REV-20 records; it does not approve, and it closes nothing that the
 evidence above does not close.**
+
+---
+
+# 33 · REV-21 — `apply-migration.yml` RAN. FOUR ATTEMPTS, FOUR DIFFERENT FAULTS, AND F-57.
+
+**Opened 2026-09-01. On 2026-08-13 the owner asked the compiler to run a migration and it
+could not. Today, run #10, it did — against production, with a file that changes nothing, on a
+credential the compiler has never seen. This entry records the chain honestly, including the two
+places where the compiler's own instructions were the fault.**
+
+## 33.1 · Class of this entry
+
+Compiler record. No owner approval is implied. Every claim below is `VERIFIED` against a named
+GitHub Actions run whose log the owner can open. The two corrections at §33.6 are against the
+compiler and are not softened.
+
+## 33.2 · WHAT WAS ACTUALLY WRONG — AND IT WAS NOT "THE SECRET IS MISSING"
+
+REV-20 §32.6 carried `apply-migration.yml` as **BLOCKED — owner action**, on the ground that
+`SUPABASE_DB_URL` did not exist. **That was false.** Read from the repository settings page on
+2026-09-01:
+
+| Secret | Scope | Last updated before today |
+|---|---|---|
+| `SUPABASE_DB_URL` | **Environment `production`** | Aug 31, 2026 |
+| `SUPABASE_DB_URL` | **Environment `staging`** | Aug 31, 2026 |
+
+Both existed. The job declares `environment: ${{ inputs.target }}`, so it reads the
+**environment** secret; a repository-level secret of the same name is shadowed and never read.
+The finding should have said *the stored credential does not work*, which is a different problem
+with a different owner action. Status: **VERIFIED**, and corrected at §33.6.
+
+## 33.3 · THE FOUR RUNS, EACH A DIFFERENT FAULT, NONE OF THEM REACHING DATA
+
+The workflow checks in this order: branch → credential present → credential's project ref matches
+the target → file allowlisted → echo the SQL → install psql → **connect and run**. The password
+is only ever exercised at the last step. That ordering is why each failure was further along than
+the last, and why none of them touched a row.
+
+| Run | Date | Died at | Verbatim | What it proved |
+|---|---|---|---|---|
+| **#7** | Aug 31 18:49 | **Run it** | `FATAL: password authentication failed for user "postgres"` | credential existed, shape was right, password wrong |
+| **#8** | Sep 1 16:53 | **credential ref gate** | `Error: secret points at 'postgres', target is 'production' — refusing` | a DIRECT connection string had been pasted; the gate refused it before connecting |
+| **#9** | Sep 1 ~17:1x | **Run it** | `FATAL: password authentication failed` at `aws-1-ap-northeast-2.pooler.supabase.com:5432` | pooler shape restored; password still wrong |
+| **#10** | Sep 1 | **nothing — SUCCESS in 38s** | all 12 steps green, `Run it` 2s, `Confirm` | **the credential authenticates and SQL executed** |
+
+Status: **VERIFIED** — runs `33396358959`, `33502273524`, `33504828791`, `33508525426`.
+
+**The cause of #7 and #9 was the same and is worth naming so nobody loses another day to it:**
+Supabase's Connect dialog does not display the database password. It prints the literal
+placeholder `[YOUR-PASSWORD]`. A string copied as-is sends those characters as the password. The
+real password is shown once, on the screen where it is reset.
+
+## 33.4 · THE PROBE — HOW A CREDENTIAL IS TESTED FROM NOW ON
+
+`supabase/migrations/PROBE_credential_connectivity_readonly.sql`, merged as PR #118 (1 file,
++45 / −0), synced to `staging` under STANDING RULE 20.
+
+It is not a migration. `BEGIN`, four `SELECT`s asking the server its own database, user, version
+and clock, `COMMIT`. No DDL, no DML, no grant, no policy. Idempotent by construction; the
+database is byte-for-byte unchanged after any number of runs.
+
+**A green run proves exactly three things and no more:** the stored credential authenticates; it
+reaches the database the chosen target names; and the connection supports a multi-statement
+transaction — which is the entire reason the SESSION pooler (5432) is required and the
+TRANSACTION pooler (6543) refused. **It proves nothing about any schema.** Recorded here so no
+later reader cites a green probe as evidence about a migration.
+
+## 33.5 · F-57 (NEW, AND CLOSED IN THE SAME BREATH) — THE FILE'S OWN INSTRUCTIONS WERE WRONG
+
+**Finding.** Two paragraphs in `apply-migration.yml`'s header described a system that did not
+exist, and both misdirections were acted on.
+
+1. The setup block told the reader to store the **DIRECT** connection string,
+   `postgresql://postgres:<password>@db.<ref>.supabase.co:5432/postgres`. The step *"The
+   credential must point at the target database"*, 100 lines below in the same file, parses the
+   project ref out of the username and **refuses** anything it cannot read a ref from. A direct
+   string has a bare `postgres` username. **A credential built by following this file could never
+   work.** Run #8 is that sentence executing.
+2. The second block said the `environment:` line was commented out and that binding it was
+   "RECOMMENDED, NOT REQUIRED". The line is live and has been. That wording is what sent the
+   compiler — and through it, the owner — to create a repository-level secret that an
+   environment-scoped job shadows and never reads.
+
+**Closed by PR #119, merged to `main`.** **Comments only**, and proved so: with comment lines
+stripped, the file is byte-identical to its predecessor; the YAML parses; the job still declares
+`environment: ${{ inputs.target }}`; all 9 steps unchanged. The corrected header now states the
+session-pooler shape, ties each of its three conditions to the gate that enforces it, names the
+`[YOUR-PASSWORD]` placeholder trap, states that the secret is environment-scoped and shadows any
+repository one, and points at the probe as the way to test a credential without applying
+anything. Synced to `staging`; `compare/main..staging` reads **0 changed files, 0 additions,
+0 deletions**. Status: **VERIFIED**.
+
+**STANDING RULE 21.** A comment that instructs is a control. When a comment and the code it
+describes disagree, that is a defect of the same class as a broken gate — it is filed as a
+finding, fixed in the file, and recorded here. Documentation drift is not cosmetic; it is how an
+hour becomes a day.
+
+## 33.6 · CORRECTION REGISTER — C-44 AND C-45
+
+**C-44 — the compiler told the owner `SUPABASE_DB_URL` did not exist and asked him to create it.**
+It had existed on both Environments since Aug 31. The claim came from REV-20's own open list,
+repeated without opening the settings page. The owner's paste created a third, repository-level
+copy that the workflow can never read. Wasted owner action, caused by the compiler restating a
+record instead of checking the system.
+
+**C-45 — the compiler told the owner the `environment:` line was commented out.** It is live. The
+claim came from the file's own stale header (§33.5) and was not checked against the file's code.
+
+Both are the failure pattern already named at §25.6.1 and repeated at C-38 and C-42: **asserting
+from a document instead of from the system.** Three occurrences is not three accidents. The
+mitigation adopted, and the reason F-57 was fixed rather than merely noted, is that the misleading
+document has been corrected at source so the same assertion cannot be made again.
+
+## 33.7 · OPEN AT THE CLOSE OF REV-21
+
+* **`apply-migration.yml` — no longer blocked. VERIFIED by execution, run #10.**
+* **Staging's credential is UNTESTED.** Its environment secret still dates from Aug 31 and may
+  carry the same fault. One dispatch settles it: branch `staging`, target `staging`, the probe
+  path. **DEFERRED** — the compiler cannot open the Run-workflow panel through its browser
+  access; this is a tooling limit, recorded as such and not as a choice.
+* **The duplicate repository-level `SUPABASE_DB_URL` should be deleted**, so there is exactly one
+  credential per lane and no shadowing to reason about. Owner action.
+* **Production Environment has no required reviewer**, and "Allow administrators to bypass
+  configured protection rules" is ticked. The workflow's header recommends a reviewer so every
+  dispatch waits for a human. Owner decision, recorded not urged.
+* **F-54** — blocked on a Cloudflare API token (owner). Unchanged.
+* **F-56** — accepted standing condition by ruling D-14. Unchanged.
+* `VITE_SITE_ORIGIN` on Cloudflare production — blocked by the dashboard UI (§32.5). Unchanged.
+* The story-image failure — undiagnosed, no reproduction. Unchanged.
+* **Owner acceptance test outstanding** — the @mention list on a physical phone, build #117's
+  debug APK (§31.9). Still `DEFERRED`.
+
+---
+
+**Prepared by the compiler. REV-21 records; it does not approve. What it closes, it closes because
+a run log says so.**
