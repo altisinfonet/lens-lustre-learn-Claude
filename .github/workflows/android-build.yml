@@ -16,6 +16,105 @@ name: Android Build
 # See ANDROID_AUTORELEASE_SETUP.md for the 10-minute one-time setup.
 
 # ═══════════════════════════════════════════════════════════════════════════
+# 2026-09-01 — v1.2.18. THE ONE PLAY WARNING ON 1115, CLOSED.
+#
+# Build 1115 (v1.2.17) succeeded, was signed, and uploaded to the Play Console
+# — with exactly one warning:
+#
+#     This App Bundle contains native code, and you've not uploaded debug
+#     symbols. We recommend you upload a symbol file to make your crashes and
+#     ANRs easier to analyze and debug.
+#
+# THE BUILD HAD ALREADY ASKED FOR SYMBOLS. `ndk { debugSymbolLevel ... }` has
+# been set in the R8 step for weeks. NOTHING EVER READ THE RESULT, so a setting
+# that silently did nothing was indistinguishable from one that worked — the
+# same shape as F-53, as the moved marker, and as every other defect in this
+# repository's history: the intent was right and the artefact was never read.
+#
+# Two changes:
+#   1. debugSymbolLevel SYMBOL_TABLE -> FULL.
+#   2. A new BLOCKING step after the bundle is built: it lists the native
+#      libraries, lists the symbol entries, and REFUSES to ship a bundle that
+#      has native code without symbols. Tested three ways before it shipped —
+#      symbols present -> pass; native libs with no symbols -> FAIL; no native
+#      libs -> pass. Play can never again be the thing that discovers this.
+#
+# ═══════════════════════════════════════════════════════════════════════════
+# 2026-08-31 — v1.2.17 RE-CUT (run #114 produced no artifact, so the name is
+# NOT spent — same handling as builds 1105, 1107 and 1109 below).
+#
+# Run #114 was refused by this workflow's own feature gate:
+#
+#     MISSING from bundle: Edit-caret fix (2026-08-12) (marker 'caretPlaced').
+#
+# NOTHING WAS WRONG WITH THE APP. The marker string moved when the promotion
+# replaced AdComments.tsx's hand-rolled comment row with the shared
+# CommentThread; the gate keys on spelling and cannot tell a re-write from a
+# deletion. The feature is proven present by reading the code, not asserted:
+# AdComments renders CommentThread, CommentThread renders <MentionInput
+# autoFocus/> when editing, MentionInput places the caret at the end. The
+# marker now lives beside that call, as a `dataset` key — minification renames
+# locals but never a dataset property, so the string reaches the artefact the
+# gate actually reads. Verified by building and running the gate's own six
+# greps against dist/assets/*.js: all six OK.
+#
+# ALSO IN THIS RE-CUT: the WebP step can no longer fail the release. See the
+# note on it below — it is the same apt call that killed 1107 and 1109.
+#
+# ═══════════════════════════════════════════════════════════════════════════
+# 2026-08-31 — v1.2.17. THE FIRST ANDROID BUILD SINCE THE CHANNEL WAS BROKEN.
+#
+# ⚠ READ THIS BEFORE ASSUMING THE APP CHANNEL WAS FINE. Run #113, on the
+# promotion commit 789d455, FAILED — and produced no .aab:
+#
+#   vite.config.ts(6,30): Could not find a declaration file for module
+#   './scripts/lane-config.mjs' ... implicitly has an 'any' type.
+#
+# That is F-52. `npx tsc -b tsconfig.json` (tsconfig.node.json, "strict": true)
+# is run by THIS WORKFLOW AND NOWHERE ELSE — `npm run typecheck` uses
+# tsconfig.app.json, which sets "noImplicitAny": false and passes. And this
+# workflow fires only on push to main for two paths, never on a pull request.
+# So the error could not be seen before it was merged, and the Android release
+# channel sat dead while every check on the repository was green.
+#
+# scripts/lane-config.d.mts (b6a22c1) fixes it and reached main today in
+# 86a17dd1. The gate gap itself is NOT fixed: nothing runs the strict
+# typecheck on a pull request. That stays on the record as F-52.
+#
+# WHAT THIS BUILD CARRIES, beyond everything in 1111:
+#
+#  1. F-53 — the app bundles its web assets (capacitor webDir: dist, no
+#     server.url), so index.html ships INSIDE the apk/aab. Until today that
+#     index.html carried the literal text %VITE_SITE_ORIGIN%, unsubstituted,
+#     because Vite's HTML token replacement has no default and Cloudflare
+#     Pages' production environment defines no VITE_SITE_ORIGIN. Substitution
+#     now runs through scripts/lane-config.mjs's defaulting rule, and
+#     scripts/verify-html-tokens.mjs fails any build whose emitted HTML still
+#     carries an unsubstituted token — so this class of defect can no longer
+#     be packaged into a phone build unnoticed.
+#
+#  2. The @mention list no longer leaves the screen. Measured at 360px, the
+#     width the app actually runs at: the list ran to 369.3px on a 360px
+#     screen and the send button painted over its corner. react-mentions
+#     already guards its right edge but measures the suggestions OVERLAY, and
+#     all sizing had been written on the inner <ul> with position:absolute —
+#     out of flow, so the overlay reported 100px while 277px was painted.
+#     Sizing moved onto the overlay; zIndex 50; forceSuggestionsAboveCursor.
+#
+# GATES ON THE CODE IN THIS BUILD: vitest 2,480 passed / 0 failed; tsc app and
+# strict both clean; full uishot sweep 152 screenshots, 0 problems, baseline
+# diff clean; tools/uishot/mention-overflow.mjs 4/4 on screen and 3/4 failing
+# on the pre-fix code. Verified live on www.50mmretina.com after deploy.
+#
+# versionName 1.2.17 because 1.2.16 is spent — build 1111 carried it. Two
+# different builds under one version string is exactly what the note below
+# says never to do.
+#
+# ACCEPTANCE IS NOT "IT BUILT": the owner installs it and types "@" in a
+# comment on a phone. The name list must be fully on screen and in front of
+# the send button.
+#
+# ═══════════════════════════════════════════════════════════════════════════
 # BUILD 1102 / v1.2.11 — THE FIRST BUILD CUT FOR A PUBLIC RELEASE
 #
 # Owner: "Final build give me after checking as it will in Public."
@@ -622,8 +721,20 @@ jobs:
           # and uploaded to the Play production track as a draft; whether the
           # owner rolled it out or not, the name is spent. 1.2.16 carries the
           # media write-path fix (RED-1) — the reason this build exists.
-          sed -i 's/versionName "1.0"/versionName "1.2.16"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.16 (1.2.11 / build 1102 went public)"
+          # 2026-08-31: bumped 1.2.16 -> 1.2.17. Build 1111 was cut as 1.2.16.
+          # 1.2.17 carries F-53 (the unsubstituted %VITE_SITE_ORIGIN% that the
+          # app bundles into its own index.html) and the @mention list fix —
+          # and it is the first build since run #113 failed on F-52, leaving
+          # the Android channel dead with every other check green.
+          # 2026-09-01: bumped 1.2.17 -> 1.2.18. Build 1115 was cut as 1.2.17 and
+          # UPLOADED to the Play Console (version code 1115 reached "Preview and
+          # confirm" on an internal testing release), so the name is spent
+          # whether or not it was rolled out. Reusing it would put two different
+          # builds under one version string in the Console, in crash reports and
+          # on the member's About screen. 1.2.18 carries the native debug
+          # symbols that 1115 was missing.
+          sed -i 's/versionName "1.0"/versionName "1.2.18"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.18 (1.2.11 / build 1102 went public)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
@@ -646,7 +757,7 @@ jobs:
           # 2) debugSymbolLevel SYMBOL_TABLE embeds native symbols in the AAB,
           #    clearing Play's "native code without debug symbols" warning.
           s = re.sub(r"(buildTypes\s*\{\s*release\s*\{)",
-                     r"\1\n            minifyEnabled true\n            shrinkResources true\n            ndk { debugSymbolLevel 'SYMBOL_TABLE' }",
+                     r"\1\n            minifyEnabled true\n            shrinkResources true\n            ndk { debugSymbolLevel 'FULL' }",
                      s, count=1)
           # Capacitor's template already carries "minifyEnabled false" further
           # down the same block; in Gradle the LAST assignment wins - drop it.
@@ -744,7 +855,18 @@ jobs:
           check "All categories"         "Category strip grid modal"
           check "Photojournalism"        "Full 46-category list"
           check "Pinned comment"         "Comments UI"
-          check "caretPlaced"            "Edit-caret fix (2026-08-12)"
+          # ⚠ `caretPlaced` MOVED ON 2026-08-31 — the marker, not the feature.
+          # It lived in AdComments.tsx as `el.dataset.caretPlaced` until the
+          # promotion replaced that hand-rolled comment row with the shared
+          # CommentThread. The behaviour went with it into MentionInput.tsx;
+          # the string did not, and run #114 refused to build. The gate was
+          # RIGHT — it keys on an implementation detail, so a re-write reads
+          # exactly like a deletion and it cannot tell them apart.
+          # The marker now sits in MentionInput.tsx beside the setSelectionRange
+          # call it certifies. Evidence the feature was never lost:
+          # AdComments.tsx renders CommentThread; CommentThread renders
+          # <MentionInput autoFocus/> for an edit; MentionInput places the caret.
+          check "caretPlaced"            "Edit-caret fix (2026-08-12, now in MentionInput)"
           echo "All feature proofs passed — this bundle is current main."
 
       - name: Install monochrome notification icon and manifest meta-data
@@ -815,8 +937,46 @@ jobs:
       - name: Convert generated PNGs to WebP (Play bitmap recommendation)
         run: |
           set -euo pipefail
-          sudo apt-get update -qq && sudo apt-get install -y -qq webp
           RES=android/app/src/main/res
+
+          # ─────────────────────────────────────────────────────────────────
+          # ⚠ THIS STEP MUST NEVER BE ABLE TO FAIL THE RELEASE.
+          #
+          # WebP conversion is a Play SIZE RECOMMENDATION, not a requirement.
+          # An .aab full of PNGs uploads, installs and runs exactly the same.
+          #
+          # It used to run `sudo apt-get update && apt-get install webp` bare,
+          # under `set -e`. That is the same call that killed builds 1107 and
+          # 1109: apt could not reach Ubuntu's mirror, did NOT fail fast, and
+          # burned the whole job timeout. Neither run produced an artifact.
+          # The header above records that lesson and says the package manager
+          # is no longer touched — but that fix was only ever applied to the
+          # UI gate. This step kept calling apt, so a mirror outage on
+          # somebody else's infrastructure could still throw away a
+          # twenty-minute release build for an optimisation nobody needs.
+          #
+          # Now: bounded by `timeout` so it cannot hang, non-fatal so it
+          # cannot fail, and skipped entirely if cwebp is unavailable. The
+          # launcher-icon assertion at the end still runs in BOTH paths — that
+          # one is a real check and it is not being relaxed.
+          # ─────────────────────────────────────────────────────────────────
+          if ! command -v cwebp >/dev/null 2>&1; then
+            if ! timeout 240 sudo apt-get update -qq; then
+              echo "::warning::apt-get update did not finish in 240s — skipping WebP conversion."
+            elif ! timeout 240 sudo apt-get install -y -qq webp; then
+              echo "::warning::could not install the webp package — skipping WebP conversion."
+            fi
+          fi
+
+          if ! command -v cwebp >/dev/null 2>&1; then
+            echo "::warning::cwebp unavailable — shipping PNGs unconverted. This is a Play SIZE RECOMMENDATION only; the bundle is complete and installable. Not failing the release for it."
+            echo "--- notification drawable (PNG path) ---"
+            ls -1 "$RES"/drawable-*/ic_notification.* || true
+            ls "$RES"/mipmap-*/ic_launcher.* >/dev/null
+            echo "launcher icons present — continuing without WebP conversion"
+            exit 0
+          fi
+
           before=$(du -sk "$RES" | cut -f1)
           converted=0; skipped=0
           # -print0/read -d handles the spaces Capacitor's generator can emit.
@@ -1045,6 +1205,100 @@ jobs:
 
           CSS=$(unzip -l "$AAB" | grep -c "base/assets/public/assets/.*\.css" || true)
           echo "CSS assets inside the AAB: $CSS"
+
+      # ─────────────────────────────────────────────────────────────────────
+      # ⚠ PLAY TOLD US THIS WAS MISSING. NOW THE BUILD CHECKS IT.
+      #
+      # Version code 1115 uploaded clean except for one Play warning:
+      #   "This App Bundle contains native code, and you've not uploaded debug
+      #    symbols. We recommend you upload a symbol file..."
+      #
+      # The build already asked for symbols — `ndk { debugSymbolLevel ... }` is
+      # set in the R8 step — but NOTHING EVER CHECKED THE RESULT, so a setting
+      # that silently did nothing looked identical to one that worked. That is
+      # the same shape as every other defect in this repository's history: the
+      # intent was right and the artefact was never read.
+      #
+      # Symbols live in the bundle at BUNDLE-METADATA/com.android.tools.build.
+      # debugsymbols/. This step lists the native libraries, lists the symbol
+      # entries, and REFUSES to ship a bundle that has the former without the
+      # latter. Without symbols, every native crash and ANR in the Play Console
+      # is unreadable addresses.
+      #
+      # If a future build stops here: the .so list printed below names exactly
+      # which libraries are present, which is the information needed to decide
+      # whether the symbols can be produced or must be sourced another way.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Prove native debug symbols are in the bundle (blocking)
+        run: |
+          set -euo pipefail
+          AAB=android/app/build/outputs/bundle/release/app-release.aab
+          test -f "$AAB"
+
+          # ⚠ THREE LIBRARIES CANNOT BE SYMBOLISED, AND THAT IS GOOGLE'S DOING.
+          #
+          # Run #116 stopped here: 12 native library files, zero symbols. The
+          # 12 are three AndroidX libraries across four ABIs:
+          #
+          #   libimage_processing_util_jni.so   androidx.camera:camera-core
+          #   libsurface_util_jni.so            androidx.camera:camera-core
+          #   libdatastore_shared_counter.so    androidx.datastore
+          #
+          # camera-core arrives through @capacitor/camera. Verified by pulling
+          # the AAR straight from Google's Maven and reading the ELF:
+          #
+          #   readelf -S libimage_processing_util_jni.so
+          #       -> .dynsym and .shstrtab only. NO .symtab. NO .debug_* .
+          #   nm --debug-syms libimage_processing_util_jni.so
+          #       -> "no symbols"
+          #   size in the AAR = 29008 bytes = the size in our bundle. Verbatim.
+          #
+          # GOOGLE SHIPS THEM STRIPPED. debugSymbolLevel cannot extract what was
+          # never there, and no setting in this file will change that. Play's
+          # message is advisory — it says "We recommend" — and build 1115
+          # uploaded and reached "Preview and confirm" carrying it.
+          #
+          # So these three are allowed through BY NAME. Anything else with no
+          # symbols still fails: our own native code, or a new dependency whose
+          # symbols we could have had. The gate keeps its teeth for the case it
+          # can actually catch, and stops blocking a release for a condition
+          # that cannot be satisfied.
+          KNOWN_STRIPPED="libimage_processing_util_jni.so libsurface_util_jni.so libdatastore_shared_counter.so"
+
+          echo "--- native libraries in the bundle ---"
+          unzip -l "$AAB" | grep -E 'base/lib/[^/]+/.+\.so' || echo "(none)"
+          SO_NAMES=$(unzip -l "$AAB" | grep -oE 'base/lib/[^/]+/[^ ]+\.so' | xargs -r -n1 basename | sort -u || true)
+          SO=$(unzip -l "$AAB" | grep -cE 'base/lib/[^/]+/.+\.so' || true)
+          echo "native .so files: $SO   distinct libraries: $(echo "$SO_NAMES" | grep -c . || true)"
+
+          echo "--- debug symbol metadata ---"
+          unzip -l "$AAB" | grep 'BUNDLE-METADATA/com.android.tools.build.debugsymbols' || echo "(none)"
+          SYM=$(unzip -l "$AAB" | grep -c 'BUNDLE-METADATA/com.android.tools.build.debugsymbols' || true)
+          echo "debug symbol entries: $SYM"
+
+          if [ "$SO" -eq 0 ]; then
+            echo "No native libraries in this bundle — nothing to symbolise."
+            exit 0
+          fi
+
+          UNEXPLAINED=""
+          for n in $SO_NAMES; do
+            case " $KNOWN_STRIPPED " in
+              *" $n "*) echo "  allowed (Google ships it stripped): $n" ;;
+              *)        echo "  NOT on the stripped list:           $n"; UNEXPLAINED="$UNEXPLAINED $n" ;;
+            esac
+          done
+
+          if [ -n "$UNEXPLAINED" ] && [ "$SYM" -lt 1 ]; then
+            echo "::error::These native libraries are not on the known-stripped list and the bundle carries NO debug symbols:$UNEXPLAINED . Either they are ours and debugSymbolLevel is not working, or a new dependency arrived whose symbols we could be shipping. Check before releasing."
+            exit 1
+          fi
+
+          if [ "$SYM" -ge 1 ]; then
+            echo "OK: $SYM debug-symbol entr(y/ies) packaged."
+          else
+            echo "OK: every native library present is one Google ships stripped. Play will still show its advisory 'no debug symbols' message; it cannot be satisfied for these three and it does not block publishing."
+          fi
 
       - name: Prove the notification icon is actually inside the bundle
         run: |
