@@ -2873,3 +2873,36 @@ Carried forward from §30.12, still open:
 ---
 
 **Prepared by the compiler. REV-19 records; it does not approve, and it closes nothing.**
+
+---
+
+## 31.14 · D-14 — RULED BY THE OWNER, 2026-09-01: **ACCEPTED**
+
+§31.10 stands exactly as written; it is not amended, and its `DEFERRED` status is not edited
+away. This subsection records the ruling that supersedes it.
+
+**Ruling.** The owner elected to **accept the Play debug-symbols advisory** and to publish build
+#117's bundle as it stands. The symbols-archive change described at §31.10 is **not to be built**.
+The release path is therefore unchanged: Gradle builds and signs the bundle, and nothing is
+injected into it after signing.
+
+**Consequences, recorded so no later reader has to infer them:**
+
+* **F-56 is now an accepted, standing condition**, not an open defect. Play will display the
+  advisory for every bundle this project produces, for the reason proved at §31.6. Under
+  STANDING RULE 19 it is never to be closed by making a check stop looking, and it is never to
+  be reported as fixed.
+* **D-14 is closed.** It is not carried into the next revision's open list.
+* Build **#117** (`ba200cf`, versionCode 1117, versionName 1.2.18, `app-release-aab` sha256
+  `3b12450d144dff4ee1655f65987005eb79f23a95ef37e8ee622b3e00ebab4da4`) is the release candidate
+  the owner takes to the Play Console. The upload itself is the owner's action; this ledger
+  records the candidate, not the upload.
+* Should the advisory ever be raised again, §31.6 is the evidence and §31.10 is the option that
+  was considered and declined — neither is to be re-litigated from memory.
+
+**Still open and unaffected by this ruling:** the phone acceptance test of the @mention list
+(§31.9), and every item at §31.13 other than D-14.
+
+---
+
+**Prepared by the compiler. §31.14 records an owner ruling; it approves nothing else.**
