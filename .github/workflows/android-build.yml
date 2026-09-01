@@ -16,6 +16,30 @@ name: Android Build
 # See ANDROID_AUTORELEASE_SETUP.md for the 10-minute one-time setup.
 
 # ═══════════════════════════════════════════════════════════════════════════
+# 2026-09-01 — v1.2.18. THE ONE PLAY WARNING ON 1115, CLOSED.
+#
+# Build 1115 (v1.2.17) succeeded, was signed, and uploaded to the Play Console
+# — with exactly one warning:
+#
+#     This App Bundle contains native code, and you've not uploaded debug
+#     symbols. We recommend you upload a symbol file to make your crashes and
+#     ANRs easier to analyze and debug.
+#
+# THE BUILD HAD ALREADY ASKED FOR SYMBOLS. `ndk { debugSymbolLevel ... }` has
+# been set in the R8 step for weeks. NOTHING EVER READ THE RESULT, so a setting
+# that silently did nothing was indistinguishable from one that worked — the
+# same shape as F-53, as the moved marker, and as every other defect in this
+# repository's history: the intent was right and the artefact was never read.
+#
+# Two changes:
+#   1. debugSymbolLevel SYMBOL_TABLE -> FULL.
+#   2. A new BLOCKING step after the bundle is built: it lists the native
+#      libraries, lists the symbol entries, and REFUSES to ship a bundle that
+#      has native code without symbols. Tested three ways before it shipped —
+#      symbols present -> pass; native libs with no symbols -> FAIL; no native
+#      libs -> pass. Play can never again be the thing that discovers this.
+#
+# ═══════════════════════════════════════════════════════════════════════════
 # 2026-08-31 — v1.2.17 RE-CUT (run #114 produced no artifact, so the name is
 # NOT spent — same handling as builds 1105, 1107 and 1109 below).
 #
@@ -702,8 +726,15 @@ jobs:
           # app bundles into its own index.html) and the @mention list fix —
           # and it is the first build since run #113 failed on F-52, leaving
           # the Android channel dead with every other check green.
-          sed -i 's/versionName "1.0"/versionName "1.2.17"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.17 (1.2.11 / build 1102 went public)"
+          # 2026-09-01: bumped 1.2.17 -> 1.2.18. Build 1115 was cut as 1.2.17 and
+          # UPLOADED to the Play Console (version code 1115 reached "Preview and
+          # confirm" on an internal testing release), so the name is spent
+          # whether or not it was rolled out. Reusing it would put two different
+          # builds under one version string in the Console, in crash reports and
+          # on the member's About screen. 1.2.18 carries the native debug
+          # symbols that 1115 was missing.
+          sed -i 's/versionName "1.0"/versionName "1.2.18"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.18 (1.2.11 / build 1102 went public)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
@@ -726,7 +757,7 @@ jobs:
           # 2) debugSymbolLevel SYMBOL_TABLE embeds native symbols in the AAB,
           #    clearing Play's "native code without debug symbols" warning.
           s = re.sub(r"(buildTypes\s*\{\s*release\s*\{)",
-                     r"\1\n            minifyEnabled true\n            shrinkResources true\n            ndk { debugSymbolLevel 'SYMBOL_TABLE' }",
+                     r"\1\n            minifyEnabled true\n            shrinkResources true\n            ndk { debugSymbolLevel 'FULL' }",
                      s, count=1)
           # Capacitor's template already carries "minifyEnabled false" further
           # down the same block; in Gradle the LAST assignment wins - drop it.
@@ -1174,6 +1205,55 @@ jobs:
 
           CSS=$(unzip -l "$AAB" | grep -c "base/assets/public/assets/.*\.css" || true)
           echo "CSS assets inside the AAB: $CSS"
+
+      # ─────────────────────────────────────────────────────────────────────
+      # ⚠ PLAY TOLD US THIS WAS MISSING. NOW THE BUILD CHECKS IT.
+      #
+      # Version code 1115 uploaded clean except for one Play warning:
+      #   "This App Bundle contains native code, and you've not uploaded debug
+      #    symbols. We recommend you upload a symbol file..."
+      #
+      # The build already asked for symbols — `ndk { debugSymbolLevel ... }` is
+      # set in the R8 step — but NOTHING EVER CHECKED THE RESULT, so a setting
+      # that silently did nothing looked identical to one that worked. That is
+      # the same shape as every other defect in this repository's history: the
+      # intent was right and the artefact was never read.
+      #
+      # Symbols live in the bundle at BUNDLE-METADATA/com.android.tools.build.
+      # debugsymbols/. This step lists the native libraries, lists the symbol
+      # entries, and REFUSES to ship a bundle that has the former without the
+      # latter. Without symbols, every native crash and ANR in the Play Console
+      # is unreadable addresses.
+      #
+      # If a future build stops here: the .so list printed below names exactly
+      # which libraries are present, which is the information needed to decide
+      # whether the symbols can be produced or must be sourced another way.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Prove native debug symbols are in the bundle (blocking)
+        run: |
+          set -euo pipefail
+          AAB=android/app/build/outputs/bundle/release/app-release.aab
+          test -f "$AAB"
+
+          echo "--- native libraries in the bundle ---"
+          SO=$(unzip -l "$AAB" | grep -cE 'base/lib/[^/]+/.+\.so' || true)
+          unzip -l "$AAB" | grep -E 'base/lib/[^/]+/.+\.so' || echo "(none)"
+          echo "native .so entries: $SO"
+
+          echo "--- debug symbol metadata ---"
+          SYM=$(unzip -l "$AAB" | grep -c 'BUNDLE-METADATA/com.android.tools.build.debugsymbols' || true)
+          unzip -l "$AAB" | grep 'BUNDLE-METADATA/com.android.tools.build.debugsymbols' || echo "(none)"
+          echo "debug symbol entries: $SYM"
+
+          if [ "$SO" -eq 0 ]; then
+            echo "No native libraries in this bundle — nothing to symbolise, and Play will not ask."
+            exit 0
+          fi
+          if [ "$SYM" -lt 1 ]; then
+            echo "::error::The bundle carries $SO native library file(s) but NO debug symbols. Play will warn that no symbol file was uploaded and every native crash will be unreadable. Refusing to ship."
+            exit 1
+          fi
+          echo "OK: $SO native library file(s), $SYM debug-symbol entr(y/ies) packaged."
 
       - name: Prove the notification icon is actually inside the bundle
         run: |
