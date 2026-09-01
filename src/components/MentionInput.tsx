@@ -93,6 +93,33 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
       const end = el.value.length;
       if (el.selectionStart === 0 && el.selectionEnd === 0 && end > 0) {
         el.setSelectionRange(end, end);
+        /**
+         * ⚠ THIS FLAG IS AN ARTEFACT MARKER. REMOVING IT BREAKS A RELEASE GATE.
+         *
+         * `android-build.yml`'s "Prove the synced app is TODAY'S app" step greps
+         * the BUILT bundle for six literal strings, one per feature it refuses
+         * to ship without. `caretPlaced` is the one for this fix (2026-08-12: a
+         * pre-filled edit box put the caret at index 0, so typing prepended).
+         *
+         * It used to live in AdComments.tsx as `el.dataset.caretPlaced`. The
+         * 2026-08-31 promotion replaced that hand-rolled comment row with the
+         * shared CommentThread, which renders THIS component — the behaviour
+         * moved here and the marker string did not follow. Android Build #114
+         * then refused to build:
+         *
+         *     MISSING from bundle: Edit-caret fix (2026-08-12) (marker
+         *     'caretPlaced'). This AAB would NOT contain that feature.
+         *
+         * The gate was right to stop; the feature was never lost. The marker now
+         * sits where the behaviour does. A `dataset` key is used deliberately:
+         * minification renames locals but never a dataset property, so the
+         * string genuinely reaches the artefact the gate reads.
+         *
+         * Predicted in this repository on 2026-08-13 —
+         * POST_REMEDIATION_FORENSIC_AUDIT: the gate "greps for six hardcoded
+         * feature strings from 2026-08-12 … it breaks on a copy change."
+         */
+        el.dataset.caretPlaced = "1";
       }
     });
     return () => cancelAnimationFrame(frame);
