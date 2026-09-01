@@ -1235,25 +1235,70 @@ jobs:
           AAB=android/app/build/outputs/bundle/release/app-release.aab
           test -f "$AAB"
 
+          # ⚠ THREE LIBRARIES CANNOT BE SYMBOLISED, AND THAT IS GOOGLE'S DOING.
+          #
+          # Run #116 stopped here: 12 native library files, zero symbols. The
+          # 12 are three AndroidX libraries across four ABIs:
+          #
+          #   libimage_processing_util_jni.so   androidx.camera:camera-core
+          #   libsurface_util_jni.so            androidx.camera:camera-core
+          #   libdatastore_shared_counter.so    androidx.datastore
+          #
+          # camera-core arrives through @capacitor/camera. Verified by pulling
+          # the AAR straight from Google's Maven and reading the ELF:
+          #
+          #   readelf -S libimage_processing_util_jni.so
+          #       -> .dynsym and .shstrtab only. NO .symtab. NO .debug_* .
+          #   nm --debug-syms libimage_processing_util_jni.so
+          #       -> "no symbols"
+          #   size in the AAR = 29008 bytes = the size in our bundle. Verbatim.
+          #
+          # GOOGLE SHIPS THEM STRIPPED. debugSymbolLevel cannot extract what was
+          # never there, and no setting in this file will change that. Play's
+          # message is advisory — it says "We recommend" — and build 1115
+          # uploaded and reached "Preview and confirm" carrying it.
+          #
+          # So these three are allowed through BY NAME. Anything else with no
+          # symbols still fails: our own native code, or a new dependency whose
+          # symbols we could have had. The gate keeps its teeth for the case it
+          # can actually catch, and stops blocking a release for a condition
+          # that cannot be satisfied.
+          KNOWN_STRIPPED="libimage_processing_util_jni.so libsurface_util_jni.so libdatastore_shared_counter.so"
+
           echo "--- native libraries in the bundle ---"
-          SO=$(unzip -l "$AAB" | grep -cE 'base/lib/[^/]+/.+\.so' || true)
           unzip -l "$AAB" | grep -E 'base/lib/[^/]+/.+\.so' || echo "(none)"
-          echo "native .so entries: $SO"
+          SO_NAMES=$(unzip -l "$AAB" | grep -oE 'base/lib/[^/]+/[^ ]+\.so' | xargs -r -n1 basename | sort -u || true)
+          SO=$(unzip -l "$AAB" | grep -cE 'base/lib/[^/]+/.+\.so' || true)
+          echo "native .so files: $SO   distinct libraries: $(echo "$SO_NAMES" | grep -c . || true)"
 
           echo "--- debug symbol metadata ---"
-          SYM=$(unzip -l "$AAB" | grep -c 'BUNDLE-METADATA/com.android.tools.build.debugsymbols' || true)
           unzip -l "$AAB" | grep 'BUNDLE-METADATA/com.android.tools.build.debugsymbols' || echo "(none)"
+          SYM=$(unzip -l "$AAB" | grep -c 'BUNDLE-METADATA/com.android.tools.build.debugsymbols' || true)
           echo "debug symbol entries: $SYM"
 
           if [ "$SO" -eq 0 ]; then
-            echo "No native libraries in this bundle — nothing to symbolise, and Play will not ask."
+            echo "No native libraries in this bundle — nothing to symbolise."
             exit 0
           fi
-          if [ "$SYM" -lt 1 ]; then
-            echo "::error::The bundle carries $SO native library file(s) but NO debug symbols. Play will warn that no symbol file was uploaded and every native crash will be unreadable. Refusing to ship."
+
+          UNEXPLAINED=""
+          for n in $SO_NAMES; do
+            case " $KNOWN_STRIPPED " in
+              *" $n "*) echo "  allowed (Google ships it stripped): $n" ;;
+              *)        echo "  NOT on the stripped list:           $n"; UNEXPLAINED="$UNEXPLAINED $n" ;;
+            esac
+          done
+
+          if [ -n "$UNEXPLAINED" ] && [ "$SYM" -lt 1 ]; then
+            echo "::error::These native libraries are not on the known-stripped list and the bundle carries NO debug symbols:$UNEXPLAINED . Either they are ours and debugSymbolLevel is not working, or a new dependency arrived whose symbols we could be shipping. Check before releasing."
             exit 1
           fi
-          echo "OK: $SO native library file(s), $SYM debug-symbol entr(y/ies) packaged."
+
+          if [ "$SYM" -ge 1 ]; then
+            echo "OK: $SYM debug-symbol entr(y/ies) packaged."
+          else
+            echo "OK: every native library present is one Google ships stripped. Play will still show its advisory 'no debug symbols' message; it cannot be satisfied for these three and it does not block publishing."
+          fi
 
       - name: Prove the notification icon is actually inside the bundle
         run: |
