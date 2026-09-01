@@ -16,6 +16,28 @@ name: Android Build
 # See ANDROID_AUTORELEASE_SETUP.md for the 10-minute one-time setup.
 
 # ═══════════════════════════════════════════════════════════════════════════
+# 2026-08-31 — v1.2.17 RE-CUT (run #114 produced no artifact, so the name is
+# NOT spent — same handling as builds 1105, 1107 and 1109 below).
+#
+# Run #114 was refused by this workflow's own feature gate:
+#
+#     MISSING from bundle: Edit-caret fix (2026-08-12) (marker 'caretPlaced').
+#
+# NOTHING WAS WRONG WITH THE APP. The marker string moved when the promotion
+# replaced AdComments.tsx's hand-rolled comment row with the shared
+# CommentThread; the gate keys on spelling and cannot tell a re-write from a
+# deletion. The feature is proven present by reading the code, not asserted:
+# AdComments renders CommentThread, CommentThread renders <MentionInput
+# autoFocus/> when editing, MentionInput places the caret at the end. The
+# marker now lives beside that call, as a `dataset` key — minification renames
+# locals but never a dataset property, so the string reaches the artefact the
+# gate actually reads. Verified by building and running the gate's own six
+# greps against dist/assets/*.js: all six OK.
+#
+# ALSO IN THIS RE-CUT: the WebP step can no longer fail the release. See the
+# note on it below — it is the same apt call that killed 1107 and 1109.
+#
+# ═══════════════════════════════════════════════════════════════════════════
 # 2026-08-31 — v1.2.17. THE FIRST ANDROID BUILD SINCE THE CHANNEL WAS BROKEN.
 #
 # ⚠ READ THIS BEFORE ASSUMING THE APP CHANNEL WAS FINE. Run #113, on the
@@ -802,7 +824,18 @@ jobs:
           check "All categories"         "Category strip grid modal"
           check "Photojournalism"        "Full 46-category list"
           check "Pinned comment"         "Comments UI"
-          check "caretPlaced"            "Edit-caret fix (2026-08-12)"
+          # ⚠ `caretPlaced` MOVED ON 2026-08-31 — the marker, not the feature.
+          # It lived in AdComments.tsx as `el.dataset.caretPlaced` until the
+          # promotion replaced that hand-rolled comment row with the shared
+          # CommentThread. The behaviour went with it into MentionInput.tsx;
+          # the string did not, and run #114 refused to build. The gate was
+          # RIGHT — it keys on an implementation detail, so a re-write reads
+          # exactly like a deletion and it cannot tell them apart.
+          # The marker now sits in MentionInput.tsx beside the setSelectionRange
+          # call it certifies. Evidence the feature was never lost:
+          # AdComments.tsx renders CommentThread; CommentThread renders
+          # <MentionInput autoFocus/> for an edit; MentionInput places the caret.
+          check "caretPlaced"            "Edit-caret fix (2026-08-12, now in MentionInput)"
           echo "All feature proofs passed — this bundle is current main."
 
       - name: Install monochrome notification icon and manifest meta-data
@@ -873,8 +906,46 @@ jobs:
       - name: Convert generated PNGs to WebP (Play bitmap recommendation)
         run: |
           set -euo pipefail
-          sudo apt-get update -qq && sudo apt-get install -y -qq webp
           RES=android/app/src/main/res
+
+          # ─────────────────────────────────────────────────────────────────
+          # ⚠ THIS STEP MUST NEVER BE ABLE TO FAIL THE RELEASE.
+          #
+          # WebP conversion is a Play SIZE RECOMMENDATION, not a requirement.
+          # An .aab full of PNGs uploads, installs and runs exactly the same.
+          #
+          # It used to run `sudo apt-get update && apt-get install webp` bare,
+          # under `set -e`. That is the same call that killed builds 1107 and
+          # 1109: apt could not reach Ubuntu's mirror, did NOT fail fast, and
+          # burned the whole job timeout. Neither run produced an artifact.
+          # The header above records that lesson and says the package manager
+          # is no longer touched — but that fix was only ever applied to the
+          # UI gate. This step kept calling apt, so a mirror outage on
+          # somebody else's infrastructure could still throw away a
+          # twenty-minute release build for an optimisation nobody needs.
+          #
+          # Now: bounded by `timeout` so it cannot hang, non-fatal so it
+          # cannot fail, and skipped entirely if cwebp is unavailable. The
+          # launcher-icon assertion at the end still runs in BOTH paths — that
+          # one is a real check and it is not being relaxed.
+          # ─────────────────────────────────────────────────────────────────
+          if ! command -v cwebp >/dev/null 2>&1; then
+            if ! timeout 240 sudo apt-get update -qq; then
+              echo "::warning::apt-get update did not finish in 240s — skipping WebP conversion."
+            elif ! timeout 240 sudo apt-get install -y -qq webp; then
+              echo "::warning::could not install the webp package — skipping WebP conversion."
+            fi
+          fi
+
+          if ! command -v cwebp >/dev/null 2>&1; then
+            echo "::warning::cwebp unavailable — shipping PNGs unconverted. This is a Play SIZE RECOMMENDATION only; the bundle is complete and installable. Not failing the release for it."
+            echo "--- notification drawable (PNG path) ---"
+            ls -1 "$RES"/drawable-*/ic_notification.* || true
+            ls "$RES"/mipmap-*/ic_launcher.* >/dev/null
+            echo "launcher icons present — continuing without WebP conversion"
+            exit 0
+          fi
+
           before=$(du -sk "$RES" | cut -f1)
           converted=0; skipped=0
           # -print0/read -d handles the spaces Capacitor's generator can emit.
