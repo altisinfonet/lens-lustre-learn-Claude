@@ -48,11 +48,25 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Resolve the lane
+        # ⚠ F-47 CLOSED HERE, 2026-09-01.
+        #
+        # These three values used to be pasted into the script TEXT by the
+        # `${{ }}` expansion, which happens before bash ever sees the line. A
+        # branch name is attacker-influenceable in the general case, and a name
+        # containing a quote would have ended the string and continued as shell
+        # syntax. Nothing about the old code was safe by design; it was safe
+        # only because no such branch had been created yet.
+        #
+        # Passing them through `env:` removes the class entirely: the runner
+        # sets them as environment variables and the script reads them as
+        # ordinary shell variables, so their CONTENT can never become CODE.
+        # The lane logic below is unchanged, character for character.
+        env:
+          BASE: ${{ github.base_ref }}
+          REF: ${{ github.ref_name }}
+          EVENT: ${{ github.event_name }}
         run: |
           set -euo pipefail
-          BASE='${{ github.base_ref }}'
-          REF='${{ github.ref_name }}'
-          EVENT='${{ github.event_name }}'
           if [ "$EVENT" = "pull_request" ]; then LANE="$BASE"; else LANE="$REF"; fi
           echo "event=$EVENT base_ref=$BASE ref_name=$REF -> lane=$LANE"
           case "$LANE" in
