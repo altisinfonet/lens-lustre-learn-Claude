@@ -1,7 +1,7 @@
 # ADDENDUM A — EXECUTION MASTER
 ## Workstream P · 35 units · two developers in parallel · one auditor · seven promotions
 
-**Version 1.0 — 2026-09-02**
+**Version 1.1 — 2026-09-02** (v1.0 as proposed; v1.1 records the Owner's three rulings, §9.0)
 **Source of work:** *FINAL Updated 50mm Master Plan — Addendum A, Workstream P* (Neil Basu, 1 September 2026), 35 units P1–P35, measured against the live platform 2026-09-01 10:44Z–11:22Z.
 **Status of this document:** PROPOSED. Nothing here is approved and nothing here has been executed.
 
@@ -126,7 +126,12 @@ The `PROBE_` and `UNAPPLIED_` prefixes already in use are preserved for their ex
 4. **Every PR body states:** the unit ID, the gate sentence verbatim, the paths touched, the objects reserved (D1), and the evidence artefact path.
 5. **Every PR must be exercised by its own checks.** A change to a CI rule proves itself by running on its own PR. A change to a query proves itself with a before/after measurement committed under `docs/evidence/`.
 6. **Repository constraint, already established:** this repository permits **squash merges only** — "Create a merge commit" and "Rebase and merge" are disabled. That is why `staging` and `main` diverge in commit count. **STANDING RULE 20 applies to every phase: after each promotion, `staging`'s tree is synced to `main`'s and `compare/main..staging` must read `0 changed files, 0 additions, 0 deletions` before new work starts.** A phase is not closed until that reads zero.
-7. **Assert from the system, never from a document.** Four corrections in this project (C-38, C-42, C-44, C-45) share one cause: a claim repeated from a document instead of checked against the running system. Before any developer states that a secret, a setting, a policy or a workflow behaves a certain way, they open it and look. **STANDING RULE 21:** an instructing comment is a control; when a comment and its code disagree, that is a finding, not cosmetics.
+7. **Two Claude sessions cannot see each other.** D1 and D2 are separate sessions (ruling D-15, §9.0). Neither can see the other's uncommitted work, unsent reasoning, or intent. Therefore:
+   - **Every handoff is a committed file.** An interface agreed in conversation does not exist. `docs/gates/P1-interface.md` exists or P1 has not started.
+   - **Every phase opens with a written kickoff** committed by the Auditor to `docs/gates/phase-N-kickoff.md`: unit list, owner per unit, objects reserved, dependency window holder, interface files that must exist first.
+   - **Every session begins by reading the Gate Register and `git log`, not by assuming.** A session that says "D1 has probably landed X" is asserting from memory. It opens the branch and looks.
+   - **A session never edits a file it does not own, even to fix an obvious typo.** It reports it to the Auditor. One-line courtesy edits are exactly how two-author conflicts start.
+8. **Assert from the system, never from a document.** Four corrections in this project (C-38, C-42, C-44, C-45) share one cause: a claim repeated from a document instead of checked against the running system. Before any developer states that a secret, a setting, a policy or a workflow behaves a certain way, they open it and look. **STANDING RULE 21:** an instructing comment is a control; when a comment and its code disagree, that is a finding, not cosmetics.
 
 ---
 
@@ -150,9 +155,11 @@ Seven phases. Seven promotions. The order is driven by **risk removed per day of
 | | D1 · Database & Runtime | D2 · Client & Delivery |
 |---|---|---|
 | **Work** | `scripts/db-baseline.mjs`: a read-only snapshot of `pg_stat_statements`, table sizes, dead-row ratios, index usage, publication list, policy counts, definer-function classification. Output committed as JSON under `docs/evidence/d1/baseline/`. | `scripts/web-baseline.mjs`: entry-bundle and per-chunk byte sizes, per-language chunk sizes, an LCP/INP/CLS capture on a mid-range Android profile. Output under `docs/evidence/d2/baseline/`. |
-| **Also** | Re-run the addendum's own queries and record whether each of its 2026-09-01 figures still holds. Disagreements are recorded, not resolved. | Stand up the Web-Vitals harness in **report-only** mode. It must not fail a build yet. |
+| **Also** | Re-run the addendum's own queries and record whether each of its 2026-09-01 figures still holds. Disagreements are recorded, not resolved. **Plus: build the 1-million-row staging seeder** (ruling D-16, §9.0) — deterministic, re-runnable, staging only, with a hard guard that refuses to run against the production project ref. | Stand up the Web-Vitals harness in **report-only** mode. It must not fail a build yet. |
 | **Objects reserved** | none (read-only) | none |
 | **Gate** | A committed baseline for every unit that claims a number, with the timestamp of measurement on every line. | Same, for every front-end unit. |
+
+**Phase 0 is now about a week, not two days.** The seeder is the reason, and it is worth it: P20 and P34 have gates that are unprovable at 106 rows, and every measurement taken in Phases 2–4 is more honest against seeded data than against a 106-member catalogue. Building it first means we never have to say "green at 106, unknown at scale".
 
 **Auditor:** publishes the **Gate Register** — one row per unit P1–P35, its verbatim gate sentence, its owner, its phase, its evidence path, status `NOT STARTED`. This register is the single source of truth for "is it done".
 
@@ -311,16 +318,15 @@ Stated so nobody quietly assumes it:
 
 ## 9 · What I need from the Owner, and what I recommend
 
-### Questions that change the shape of the plan
+### 9.0 · Owner rulings, 2026-09-02 — settled, and folded into the plan above
 
-**1 · Are D1 and D2 two Claude sessions, or two people?**
-It changes the coordination mechanism, not the ownership map. Two sessions cannot see each other's uncommitted work at all, so every interface must be a committed file rather than a conversation — the ownership map above is already written that way, but the phase kickoffs would need to be written artefacts too, not verbal.
+| Ruling | Question | Decision | What it changed |
+|---|---|---|---|
+| **D-15** | Who are the two developers? | **Two Claude sessions.** | §4 rule 7 added: every handoff is a committed file, every phase opens with a written kickoff, every session reads the register rather than assuming, and no session edits a file it does not own — not even a typo. |
+| **D-16** | Can staging be seeded to 1 M rows? | **Yes — build the seeder in Phase 0.** | Phase 0 gains the seeder as a D1 task and grows to roughly a week. P20 and P34's scale clauses become provable instead of BLOCKED. |
+| **D-17** | Phase order? | **The phase order in this document**, i.e. Part E ranking with the baseline first and P34 after X1/X2. | No change; the order in §6 stands as written. |
 
-**2 · How faithful is the staging database to production, and can it be seeded to 1 million rows?**
-P20 and P34 have gates that are *unprovable* at 106 rows. If seeding is possible, the seeder should be built in **Phase 0**, not Phase 7, because several earlier measurements would also be more honest against it.
-
-**3 · Strict Part E order, or the phase order above?**
-Part E ranks by risk removed per day: P33 → P30+P31 → P1 → P2+P3 → X1+X2+P34 → P4 → P25. My phases follow that ranking with two deliberate deviations: Phase 0 goes first (nothing is provable without a baseline), and P34 moves to Phase 4 because it depends on X1/X2 policy consolidation landing first. If you prefer strict Part E order, say so and I will re-cut the phases.
+These three are settled. They are not reopened without a new ruling recorded here.
 
 ### Recommendations I would make whether or not you ask
 
