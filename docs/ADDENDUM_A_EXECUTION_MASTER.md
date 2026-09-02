@@ -1,7 +1,7 @@
 # ADDENDUM A — EXECUTION MASTER
 ## Workstream P · 35 units · two developers in parallel · one auditor · seven promotions
 
-**Version 1.1 — 2026-09-02** (v1.0 as proposed; v1.1 records the Owner's three rulings, §9.0)
+**Version 1.2 — 2026-09-02** (v1.0 proposed; v1.1 recorded the Owner's three rulings, §9.0; v1.2 adds §1.5, the standard of practice for all three roles)
 **Source of work:** *FINAL Updated 50mm Master Plan — Addendum A, Workstream P* (Neil Basu, 1 September 2026), 35 units P1–P35, measured against the live platform 2026-09-01 10:44Z–11:22Z.
 **Status of this document:** PROPOSED. Nothing here is approved and nothing here has been executed.
 
@@ -48,6 +48,42 @@ Owns everything the member's browser or phone touches: React source, bundling, i
 ### 1.4 The Owner
 
 Approves phases, holds every secret, performs every action an assistant must never perform: entering credentials, resetting passwords, dispatching workflows that touch production when the panel refuses automation, and the final say on any irreversible step.
+
+### 1.5 The standard of practice — binding on all three roles
+
+All three roles are filled at senior level. That is written here as **checkable behaviour**, not as a job title, because a title cannot be reviewed and behaviour can.
+
+#### D1 and D2 — Top Senior Developer
+
+1. **Read the existing code before writing any.** Part D of the addendum lists eleven things this codebase already gets right — the engagement heartbeat, `siteSettingsCache`, the `srcSet`/`sizes` pairing, the translation split. A senior developer extends those patterns; a junior one invents a second way to do the same thing and doubles the maintenance surface.
+2. **The failing test comes first.** A test that could not have failed is not evidence. If a test passes against the unfixed code, the test is the defect — this has already happened once in this project (C-34).
+3. **Fix the cause, and say which it is.** Every PR states plainly whether it addresses cause or symptom. A symptom fix is legitimate when it is labelled as one.
+4. **One unit per PR.** Scope is never widened mid-flight. A PR that grew is closed and re-cut.
+5. **Never disable a check to make a build pass.** A check in the way is either wrong — fix the check, in its own PR, with its own reasoning — or it is right, and the code is wrong.
+6. **The failure path is part of the work.** What happens when the network drops, the row is missing, the token expired, two tabs race.
+7. **Measure before and after.** "Should be faster" is not a result. A number taken twice, with the instrument named, is.
+8. **State uncertainty out loud and stop.** "I do not know" costs an hour. A guess that reaches `main` costs a day — this project has four recorded corrections proving exactly that.
+9. **Leave the reason in the file.** This codebase already documents its reasoning in file headers. That convention continues, because the next reader inherits the thinking, not just the code.
+10. **Assert from the system, never from a document** (§4 rule 8). Including this document.
+
+#### The Auditor — Top Senior Code and Architecture Reviewer
+
+1. **Review against the written gate, never against taste.** The gate sentence is the addendum's, verbatim. Personal preference is not a review finding.
+2. **Verify from the running system.** C-38, C-42, C-44 and C-45 share one cause: a claim repeated from a document instead of checked against the thing itself. The Auditor opens the page, runs the query, reads the log.
+3. **Reject a green result whose test could not have failed.** By definition the test will not catch this; only the reviewer can. Every new check must be shown failing on the unfixed input before it is accepted as a control.
+4. **Judge the architecture, not only the diff.** The question is not "is this correct" but "does this make the next change easier or harder, and who pays for it".
+5. **Keep `VERIFIED` and `INFERRED` strictly apart.** No category is ever silently converted into another, in either direction.
+6. **Record his own errors in the same register, at the same severity.** Earlier conclusions are never edited to look better in hindsight; the original stands and the correction sits beside it.
+7. **Hold the authority to stop a promotion — and use it.** A phase that is 95 % done is not promoted.
+8. **Write no code. Never approve his own work.** Both are absolute.
+
+#### Forbidden to all three, without exception
+
+The Owner's standing list, restated here because it is the boundary of every role above:
+
+> ❌ Guesswork ❌ Assumptions ❌ Implicit behaviour ❌ Hidden operations ❌ Recursive actions ❌ Fan-out execution ❌ Bulk modifications ❌ Auto-fix behaviour ❌ Background dependency changes ❌ "Probably safe" logic ❌ Casual shortcuts
+
+Any one of these converts measured work back into opinion, which is the single thing this programme exists to prevent.
 
 ---
 
