@@ -1,0 +1,169 @@
+name: D1 · Seed staging
+
+# ═══════════════════════════════════════════════════════════════════════════
+# THIS WORKFLOW WRITES. IT IS STAGING ONLY, AND THAT IS ENFORCED FOUR TIMES.
+#
+# Ruling D-16: staging is seeded to 1 M rows in Phase 0, because P20, P29 and
+# P34 have gates that are unprovable at today's volume (17 posts on staging,
+# 343 on production, measured 2026-09-02). "Green at 17, unknown at 1 M" is not
+# evidence about anything.
+#
+# THE FOUR REFUSALS, and each one is blind to what the next one sees:
+#
+#   1. `production` IS NOT AN OPTION. There is no target input. The only
+#      database this workflow can be pointed at is staging, and that is a
+#      property of the file rather than of what somebody typed into a box.
+#   2. The branch must be `staging`, checked here.
+#   3. scripts/db-lane-guard.mjs refuses the production project ref BY NAME,
+#      before a socket is opened, and then refuses anything that is not the
+#      staging ref.
+#   4. The cluster's own system_identifier must match staging's. Checks 1–3
+#      read strings people supplied; this reads what the database says it is.
+#
+# ⚠ SEEDING IS A LOAD EVENT, NOT A QUIET ONE. public.posts is in the
+# supabase_realtime publication and carries nine user triggers. A million
+# inserts therefore produce a million change records for the realtime decoder,
+# a million queue messages for the five-second cron to work through, and one
+# user_notifications row per follower for every public post. The script's
+# --plan mode prints all of this and refuses to write without --yes. Run the
+# plan first, read it, then run the seed.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK IN THIS FILE — same
+# bright line as apply-migration.yml after F-47. Inputs are bound in `env:`.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "plan = print the consequences and write nothing. seed = write. status = report what is already there. teardown = remove exactly the seeded id set."
+        required: true
+        type: choice
+        options:
+          - plan
+          - status
+          - seed
+          - teardown
+      rows:
+        description: "How many post rows the seed set spans. 1000000 for the D-16 target."
+        required: true
+        default: "1000000"
+        type: string
+      confirm_rows:
+        description: "Type the SAME number again. A mis-click cannot fire this."
+        required: true
+        type: string
+      acknowledge_enqueue_jobs:
+        description: "Every seeded post enqueues a job through trg_enqueue_post_created; a 1M-row seed enqueues ~1M jobs for the 5-second cron to drain. The Owner decides. Tick only if that decision has been made."
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: d1-seed-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  seed:
+    name: Seed staging (mode from input)
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    environment: staging
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BRANCH_REF: ${{ github.ref_name }}
+      SEED_MODE: ${{ inputs.mode }}
+      SEED_ROWS: ${{ inputs.rows }}
+      SEED_CONFIRM: ${{ inputs.confirm_rows }}
+      SEED_ACK_ENQUEUE: ${{ inputs.acknowledge_enqueue_jobs }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The branch must be staging
+        run: |
+          set -euo pipefail
+          if [ "$BRANCH_REF" != "staging" ]; then
+            echo "::error::This workflow writes to the staging database and must be dispatched from the 'staging' branch. This run is on '$BRANCH_REF'. Refusing."
+            exit 1
+          fi
+          echo "Branch OK: staging."
+
+      - name: The two row counts must match
+        run: |
+          set -euo pipefail
+          if [ "$SEED_ROWS" != "$SEED_CONFIRM" ]; then
+            echo "::error::The two row counts do not match. Nothing was run."
+            echo "  rows:         $SEED_ROWS"
+            echo "  confirm_rows: $SEED_CONFIRM"
+            exit 1
+          fi
+          case "$SEED_ROWS" in
+            ''|*[!0-9]*) echo "::error::rows must be a positive integer. Got: $SEED_ROWS"; exit 1 ;;
+          esac
+          echo "Row count confirmed: $SEED_ROWS."
+
+      - name: Refuse to start without the database credential
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::SUPABASE_DB_URL is not set for the staging Environment. See the header of .github/workflows/apply-migration.yml."
+            exit 1
+          fi
+          echo "Credential present. Its value is never printed by this workflow."
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install psql
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+          psql --version
+
+      # The plan is printed on EVERY mode, including seed, so the log of a run
+      # that wrote a million rows contains the statement of what that would cost
+      # — taken before it happened, not reconstructed afterwards.
+      - name: Print the plan, whatever the mode
+        run: |
+          set -euo pipefail
+          node scripts/db-seed-staging.mjs --plan --rows "$SEED_ROWS"
+
+      - name: Run the requested mode
+        run: |
+          set -euo pipefail
+          case "$SEED_MODE" in
+            plan)
+              echo "Mode 'plan': the plan above is the whole run. Nothing was written."
+              ;;
+            status)
+              node scripts/db-seed-staging.mjs --status --rows "$SEED_ROWS"
+              ;;
+            seed)
+              # The enqueue acknowledgement is passed ONLY when the Owner ticked
+              # the box. Without it the script refuses before writing anything,
+              # and that refusal is the correct outcome, not a failure to fix.
+              if [ "$SEED_ACK_ENQUEUE" = "true" ]; then
+                node scripts/db-seed-staging.mjs --rows "$SEED_ROWS" --yes --ack-enqueue-jobs
+              else
+                node scripts/db-seed-staging.mjs --rows "$SEED_ROWS" --yes
+              fi
+              ;;
+            teardown)
+              node scripts/db-seed-staging.mjs --teardown --rows "$SEED_ROWS" --yes
+              ;;
+            *)
+              echo "::error::Unknown mode '$SEED_MODE'."
+              exit 1
+              ;;
+          esac
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ inputs.mode == 'seed' }}
+        with:
+          name: d1-seed-staging-${{ github.run_id }}
+          path: docs/evidence/d1/baseline/**/seed-*.json
+          if-no-files-found: warn
+          retention-days: 90
