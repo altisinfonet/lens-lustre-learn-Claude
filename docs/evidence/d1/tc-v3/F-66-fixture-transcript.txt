@@ -1,0 +1,19 @@
+F-66 · fixture transcript — does ALTER DEFAULT PRIVILEGES replace the built-in default, or add to it?
+Scratch PostgreSQL in the D1 container (F-65 rule: grant controls run on fixtures). Not a lane.
+server: PostgreSQL 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit
+
+STEP 1 — a function created with NO default-privilege rule in force
+  proacl = NULL
+  -> NULL. Not 'no grants': NULL means the built-in default, which is EXECUTE TO PUBLIC.
+
+STEP 2 — install production's measured rule, read from pg_default_acl at 2026-09-03 09:30:17Z
+  pg_default_acl = {anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+
+STEP 3 — create a function under that rule
+  proacl = {=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+  PUBLIC holds EXECUTE = true
+  -> the rule ADDED three roles. It did NOT replace the built-in PUBLIC grant.
+
+STEP 4 — apply the exact tail of the TC-v3 migration
+  proacl = {postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+  anon=true authenticated=true service_role=true PUBLIC=false
