@@ -2,7 +2,7 @@
 
 **Authority:** this file is the single source of truth for *"is unit P-n done?"*
 **Author:** the Auditor, and no one else. Developers never commit to this file.
-**Created:** 2026-09-02 · **Revision 4 — 2026-09-03** (Revisions 1–3 on 2026-09-02; see §6). Ledger entry for this phase: **REV-23, §35**.
+**Created:** 2026-09-02 · **Revision 5 — 2026-09-03** (Revisions 1–3 on 2026-09-02; see §6). Ledger entry for this phase: **REV-23, §35**.
 **Status of every unit at creation: NOT STARTED**
 **Companion documents:** `docs/ADDENDUM_A_EXECUTION_MASTER.md` (who, when, which branch) · `docs/PROMOTION_LEDGER.md` (what was promoted, and every correction)
 
@@ -137,6 +137,25 @@ A ruling the Owner gives in conversation binds the developers only once it is wr
 
 ---
 
+## 3.2 · Units outside Addendum A's numbering — status, owner, evidence
+
+Addendum A numbers P1–P35. Owner rulings create units outside that numbering. **They are
+tracked here or they are tracked nowhere** — D3 raised on 2026-09-03 that the TC-v3 unit had a
+frozen interface and no register row, which is correction **C-52** below.
+
+| Unit | Ruling | Owner | Status | Evidence |
+|---|---|---|---|---|
+| **OWNER-01** · certificate label "Authorized Signatory" | OWNER-RULING-2026-09-03-01 | D2 (client only) | **LANDED — PR #132, all checks green, awaiting the Owner's merge.** Four files sha256-verified after landing. Fail-first re-proved by the Auditor: `1 failed \| 13 passed` on unfixed source, same assertion. **Not live on either lane** — `staging` still reads `AUTHORIZED SIGNATURE`. | `docs/evidence/d2/owner-01/`. **Outstanding:** admin-preview screenshot. |
+| **TC-v3 · DB half** | OWNER-RULING-2026-09-03-02 | **D1** | **BUILT AND PROVED, NOT LANDED.** Branch `d1/TC-v3-recent-score-20260903`, commit `c38f796c`, tree `a76c3867`, three files, `git apply --check` clean against `origin/staging`. **The patch is with the Owner, not on origin** — D1 has no push authority and the Project is at its size cap. | v2/v3 equivalence on production 2026-09-03 08:45:05Z: same three ids, same order, same lifetime values; recent 7,055 / 6,978 / 6,823. Cross-member probe shown failing on five planted defects — dropping `WHERE rk.pos <= 3` leaks **41 members** to anon, re-measured on production 08:46:15Z. |
+| **TC-v3 · client half** | OWNER-RULING-2026-09-03-02 | **D3** | **BLOCKED — correctly.** `get_top_contributors_v3` absent from staging, measured on `pg_proc` 2026-09-03 09:04:22Z, matched on `get_top_contributors%` so a suffixed variant would have shown. Production identical 09:04:38Z. D3 wrote no `src/` and deliberately did **not** write the fail-first test: written now it would fail because the field exists nowhere, which is the wrong reason, and a test that goes green when an unrelated precondition lands is not the control C-34 asks for. **That judgement is correct and is recorded as such.** | `docs/evidence/d2/tc-v3/PRECONDITION-STOP-2026-09-03.md` — delivered, not yet on origin. |
+
+**The chain, and where it is stuck:** §4 step 1 (EXPAND — D1 lands v3) has not happened, so step 2
+(D3's client half) cannot start. **Neither developer is at fault; neither holds push authority.**
+The Auditor is the courier and does not hold D1's patch bytes either — they were delivered to the
+Owner. **This is the D-20 arrangement failing in the direction it was always going to fail.**
+
+---
+
 ## 4 · Phase and promotion map
 
 | Phase | Units | SQL apply | Promotion | Closing condition beyond the gates |
@@ -196,6 +215,15 @@ D1's reservation — no tables, functions, policies, publication entries or sett
 | **C-51** | The Auditor issued the OWNER-01 kickoff to D2 instructing it to work against a ruling recorded in `docs/gates/` — **while no such ruling existed on any ref.** D2 caught this, proceeded correctly on the verbatim gate in the message, and said so. This is the same failure as C-46, repeated after C-46 was written down. The ruling is filed in §3.1 of this revision; the original instruction stands in the record and this correction sits beside it. | **the Auditor** |
 | **F-60** | `src/__tests__/typecheckIsNotVacuous.test.ts` fails on `staging` today. It expects `typecheck.yml` to contain `tsc --noEmit -p tsconfig.app.json`; the workflow was deliberately widened to `tsc -b tsconfig.json` (F-52), which checks **both** projects. **The test is stale, not the workflow.** Found by D2 while landing OWNER-01, and **reproduced by the Auditor on pristine `staging` with all changes stashed** — `1 failed | 8 passed` both with and without D2's changes. Correctly kept out of #132. D2's file, its own PR, its own unit. | routed, not acted on |
 
+### Corrections and findings filed 2026-09-03, second sitting
+
+| # | Item | Against |
+|---|---|---|
+| **C-52** | **The Auditor froze `docs/gates/TC-v3-interface.md` and issued commands to three sessions for a unit that had no row in this register** — no status, no owner, no evidence path — in the very file the Auditor closes gates from. Raised by **D3**, which searched case-insensitively for `TC-v3`, `contributor` and the ruling ID and found zero hits, then declined to fix it because `docs/gates/**` is not its file. **That is the third time in two days a developer has caught a gap in the Auditor's own record** (C-46, C-51, C-52), and all three share one cause: the Auditor instructing work faster than the Auditor records it. §3.2 above is the fix. | **the Auditor** |
+| **F-62** | **`REVOKE EXECUTE … FROM anon` is a no-op on most of this database.** Measured by the Auditor on production 2026-09-03: **387** functions in `public`, **305** anon-executable, **222** reachable by anon **through PUBLIC** (leading `=X/` in `proacl`), plus **24** with `proacl IS NULL` (the default, also PUBLIC). For those, the REVOKE statement succeeds, the catalogue appears changed, and anon keeps access. **Phase 1 targets confirmed affected: `search_certificates` (P31) and `recompute_entry_from_tag_assignments` (P32)** — both would have landed green and closed nothing. `email_exists` (P30), `verify_staff_id` (P31) and the other seven volatile P32 functions carry clean grants and are unaffected. **Found by D1**, via a negative control that *failed to fail*: `REVOKE … FROM anon` on v2 left `has_function_privilege('anon', …) = TRUE`. Generalised and re-measured independently by the Auditor. | **finding — amends Phase 1's method** |
+| **F-63** | **v2's grants: the migration comment and the catalogue disagree.** `get_top_contributors_v2`'s own migration states it grants `anon` and `authenticated`; its real ACL is `{=X/postgres, postgres=X, anon=X, authenticated=X, service_role=X}` — the leading `=X` is PUBLIC, which the comment never mentions. **Standing Rule 21: an instructing comment is a control; when comment and code disagree that is a finding.** Raised by D1, which flagged it rather than silently copying the posture into v3. v3 revokes PUBLIC and grants the two named roles — narrower than v2, so "match, do not exceed" holds. | finding, routed |
+| **N-6** | **A stale git worktree held a staged −157-line reversal of `docs/PROMOTION_LEDGER.md` and a −40/+12 reversal of `docs/gates/GATE_REGISTER.md`** — both the Auditor's files, both forbidden to D1. Nobody authored it; the worktree's branch ref moved when D1 committed elsewhere, leaving an older tree diffed against a newer commit. **A "commit everything to satisfy the hook" reflex would have destroyed Revision 4 and REV-23.** D1 removed the worktree instead of committing it. **This is the second time in one day that a repository hook has pushed toward committing something that must not be committed.** Treat a hook's instruction as input, not as authority. | standing note |
+
 ### Findings raised in review, 2026-09-03 — Phase 0 PRs
 
 | # | Finding | Disposition |
@@ -226,5 +254,7 @@ D1's reservation — no tables, functions, policies, publication entries or sett
 | 2026-09-02 | **Revision 3** — H-4 tested and failing (runs `33617017865`, `33617572635`); standing notes N-4, N-5; corrections **C-47, C-48, C-49, C-50** and deviations D-18, D-19, all against the Auditor; Phase 0 progress updated for every deliverable including 0-D2-03; F-58 and F-59 routed; PR #126 review outcome. Ledger REV-22 (§34) written the same day and holds the five holds with imposed-by / released-by. | Auditor |
 
 | 2026-09-03 | **Revision 4** — the whole of Phase 0 landed on origin as PRs #129/#130/#131 (D1), #133/#134 (D2, the C-50 split), and #132 (OWNER-01); #126 closed as superseded. Transit risk CLOSED. New: §3.1 Owner rulings; deviation **D-20** (the Auditor is committer of six PRs, push authority never arrived); corrections **C-51** against the Auditor; finding **F-60** routed. Every landed file sha256-verified against its author's published hash *after* reaching origin. Every developer fix independently re-proved by the Auditor rather than accepted on report. | Auditor |
+
+| 2026-09-03 | **Revision 5** — §3.2 added: units outside Addendum A's numbering now carry status, owner and evidence (OWNER-01, TC-v3 DB half, TC-v3 client half). Correction **C-52** against the Auditor, raised by D3. Findings **F-62** (REVOKE-from-anon is a no-op on 222 of 387 functions; amends Phase 1's method) and **F-63** (v2 comment contradicts its ACL), both originating with D1. Standing note **N-6** — a hook nearly caused the destruction of Revision 4 and REV-23. | Auditor |
 
 *This register records. It does not approve, and it closes nothing on its own.*
