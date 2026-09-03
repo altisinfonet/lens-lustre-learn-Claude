@@ -9,7 +9,7 @@ import { join } from "node:path";
  * across ~700 lines of drawing code. Nothing tied a colour to the thing it
  * paints, so "make the name blue" was a hand-edit of one `setTextColor` among
  * fourteen, and getting the wrong one produced a certificate that still looked
- * plausible — a blue "AUTHORIZED SIGNATURE" label reads as a design choice,
+ * plausible — a blue "AUTHORIZED SIGNATORY" label reads as a design choice,
  * not as a bug, and nobody would catch it in review.
  *
  * On 2026-08-25 the owner moved two tiers at once:
@@ -111,7 +111,7 @@ describe("certificate palette — which element gets which colour", () => {
 
   it("the small print stays TEXT_SUBTLE — the change did not bleed into it", () => {
     expect(colourOf('d.text("DATE"')).toBe("TEXT_SUBTLE");
-    expect(colourOf('d.text("AUTHORIZED SIGNATURE"')).toBe("TEXT_SUBTLE");
+    expect(colourOf('d.text("AUTHORIZED SIGNATORY"')).toBe("TEXT_SUBTLE");
     expect(colourOf("d.text(`Certificate ID:")).toBe("TEXT_SUBTLE");
     expect(colourOf("d.text(`Verify at:")).toBe("TEXT_SUBTLE");
   });

@@ -1,0 +1,203 @@
+/**
+ * TC-v3 · Home card · FAIL-FIRST TEST — PREPARED, NOT INSTALLED, NOT RUN.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHY THIS FILE IS HERE AND NOT IN src/__tests__/
+ *
+ * The Owner's instruction of 2026-09-03 was "write (do not run) the fail-first
+ * test" and, in the same breath, "No src/ edits yet". Those are only compatible
+ * if the file does not land in src/. It is therefore parked in D2's own evidence
+ * path with a .prepared suffix, so vitest's include glob
+ * ("src/**\/*.{test,spec}.{ts,tsx}") cannot pick it up by accident.
+ *
+ * It moves to src/__tests__/topContributorsV3.home.test.ts, unchanged, in the
+ * same PR as the client change — and is shown FAILING against the current
+ * component before that change, per C-34. Not before v3 exists: run today it
+ * fails because recent_score exists nowhere, which is the wrong reason.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHY THESE ARE SOURCE-TEXT ASSERTIONS
+ *
+ * Extending the pattern src/__tests__/topContributorsV2.test.ts already sets,
+ * rather than inventing a second way: "what actually broke things here would be
+ * a component still reading a field the RPC no longer returns — a rendering bug
+ * that type-checks fine if anyone reaches for `any`." That is exactly the defect
+ * class TC-v3 is fixing, and `as any` is still on the rpc call today.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⚠ WHAT THIS FILE DELIBERATELY DOES NOT ASSERT — AND WHY
+ *
+ * The interface §3.1 obligation "long names must truncate with an ellipsis, not
+ * wrap and not overflow" CANNOT be proved here. vitest runs on jsdom
+ * (vitest.config.ts: environment "jsdom"), and **jsdom performs no layout**:
+ * every element reports clientWidth/scrollWidth 0, and `text-overflow: ellipsis`
+ * is a paint result jsdom never computes. A test asserting "the 21-character
+ * name truncates" would therefore pass on an element that is 0 px wide, on an
+ * element that overflows, and on an element that wraps. **It could not fail, so
+ * under C-34 it is not evidence** — writing it would be worse than not writing
+ * it, because it would look like the obligation was covered.
+ *
+ * What IS asserted below is the MECHANISM that produces truncation — Tailwind's
+ * `truncate` on the name and `min-w-0` on its flex parent. `min-w-0` is the
+ * load-bearing half: without it a flex child refuses to shrink below its content
+ * width and `truncate` silently does nothing. That is the realistic regression,
+ * and source text proves it.
+ *
+ * The ellipsis itself is proved by RENDER, in the after-measurement, at the
+ * card's real width — against production display names read-only, and against a
+ * staging render with the name below substituted locally. Auditor ruling,
+ * Register Rev 6 (08373ba).
+ */
+import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
+
+const HOOK = "src/hooks/useTopContributors.ts";
+const HOME = "src/pages/Index.tsx";
+const SIDEBAR = "src/components/sidebar/SidebarTopContributors.tsx";
+
+/**
+ * The longest display name on production eligible to reach the top three,
+ * measured read-only via pg_proc/profiles on jtdtehuqtinjxropkkcn at
+ * 2026-09-03 09:18:25.228393Z. 21 characters. Staging's longest eligible name
+ * is 12 ("Sofia Duarte", 09:18:06.955086Z) — SHORTER than "Amit Baran Sen" (14),
+ * the row §3.1 calls the tightest — which is why the render check substitutes
+ * this string rather than trusting staging data. Any render using it is
+ * labelled SUBSTITUTED.
+ */
+export const SUBSTITUTED_LONGEST_NAME = "Partha Sarathi Moulik";
+
+describe("TC-v3 · the hook returns the ranking number", () => {
+  const src = read(HOOK);
+
+  it("calls v3, not v2", () => {
+    expect(src).toContain("get_top_contributors_v3");
+    expect(src).not.toContain("rpc('get_top_contributors_v2'");
+    expect(src).not.toContain('rpc("get_top_contributors_v2"');
+  });
+
+  it("uses a query key that cannot serve cached v2 rows", () => {
+    // Same key + a new column = a mid-session member sees the old shape and the
+    // 30d line renders blank until they reload. Same trap as the v1→v2 switch.
+    expect(src).toContain("'top-contributors-v3'");
+    expect(src).not.toContain("queryKey: ['top-contributors-v2']");
+  });
+
+  it("drops the `as any` cast that hid the wrong-column bug", () => {
+    // Recorded coupling, interface §3.5: this cast is why a component reading
+    // the wrong column type-checked cleanly and shipped.
+    expect(src).not.toMatch(/rpc\(\s*['"]get_top_contributors_v3['"]\s+as\s+any\s*\)/);
+  });
+
+  it("hands the UI exactly eight fields — seven plus recent_score", () => {
+    const body = src.slice(src.indexOf("return rows.map("));
+    const obj = body.slice(body.indexOf("return {") + 8, body.indexOf("};"));
+    const keys = [...obj.matchAll(/^\s*(\w+):/gm)].map((m) => m[1]).sort();
+    expect(keys).toEqual([
+      "avatar_url", "badges", "contributor_score", "full_name",
+      "id", "rank_position", "recent_score", "roles",
+    ].sort());
+  });
+
+  it("retains contributor_score — it is still displayed, as the secondary line", () => {
+    expect(src).toContain("contributor_score");
+  });
+});
+
+describe("TC-v3 · Home card renders the 30-day score as its primary figure", () => {
+  const src = read(HOME);
+
+  it("renders recent_score", () => {
+    expect(src).toContain("recent_score");
+  });
+
+  it("labels the primary figure 30d", () => {
+    // §3.1: `✦ 2,480  30d`. The heading already says "Last 30 Days"; this is the
+    // per-row label that makes the number self-describing next to Lifetime.
+    expect(src).toMatch(/30d/);
+  });
+
+  it("renders a Lifetime secondary line", () => {
+    expect(src).toMatch(/Lifetime/);
+  });
+
+  it("scales the progress bar by recent_score, not contributor_score", () => {
+    // The bar previously divided by rank 1's LIFETIME score, which is not the
+    // maximum: 11,546 / 9,551 = 121%, clipped by overflow-hidden, so the
+    // last-placed row rendered the fullest bar. Scaling by recent_score cannot
+    // exceed 100% because rank 1 holds the maximum recent_score by construction.
+    expect(src).toContain("topContributors[0]?.recent_score");
+    expect(src).not.toContain("topContributors[0]?.contributor_score");
+  });
+
+  it("keeps tabular-nums on BOTH figures so the columns line up", () => {
+    const rows = (src.match(/tabular-nums/g) || []).length;
+    expect(rows).toBeGreaterThanOrEqual(2);
+  });
+
+  it("keeps the truncation mechanism intact on the name", () => {
+    // NOT a truncation test — see the header. This asserts the two classes that
+    // together produce the ellipsis. Removing min-w-0 while "tidying" the flex
+    // wrapper is the realistic regression, and it disables truncate silently.
+    expect(src).toContain("min-w-0");
+    expect(src).toMatch(/nameClassName="[^"]*\btruncate\b/);
+  });
+
+  it("still labels the window Last 30 Days", () => {
+    expect(src).toContain("home.last30Days");
+    expect(src).not.toContain("home.thisMonth");
+  });
+});
+
+describe("TC-v3 · signed-out sidebar does not drift from the Home card", () => {
+  const src = read(SIDEBAR);
+
+  it("renders recent_score as its primary figure", () => {
+    expect(src).toContain("recent_score");
+  });
+
+  it("renders the Lifetime secondary line", () => {
+    expect(src).toMatch(/Lifetime/);
+  });
+
+  it("keeps tabular-nums", () => {
+    expect(src).toContain("tabular-nums");
+  });
+});
+
+describe("TC-v3 · every other surface keeps the lifetime score", () => {
+  it("ContributorScore still reads get_contributor_scores, not the top-3 RPC", () => {
+    // §3.2: value and position unchanged everywhere else. The only addition is
+    // the hover. A regression here is the Owner's "Only Only Only on Home Page".
+    const src = read("src/components/ContributorScore.tsx");
+    expect(src).not.toContain("recent_score");
+    expect(src).not.toContain("get_top_contributors");
+  });
+
+  it("ContributorScore gains the Lifetime Contributor Score hover", () => {
+    const src = read("src/components/ContributorScore.tsx");
+    expect(src).toMatch(/Lifetime Contributor Score/);
+  });
+});
+
+describe("TC-v3 · v2 survives as the rollback", () => {
+  it("the v3 migration does not drop or replace v2", () => {
+    // Mirrors the v1 guard in topContributorsV2.test.ts. Read-only assertion on
+    // D1's file: D2 asserts against it, never edits it.
+    // ⚠ FILENAME IS AUDITOR-ATTESTED, NOT VERIFIED. Corrected from
+    // 20260903000000 to 20260903090000 on the Auditor's instruction of
+    // 2026-09-03. D1's migration is NOT on origin/staging — checked at
+    // 11:09Z, which holds only 20260725160000_top_contributors_exclude_staff
+    // and 20260811160000_top_contributors_v2 — so this session cannot confirm
+    // the name from the repository. RE-VERIFY against the real file before
+    // this test moves into src/__tests__/: a wrong path here makes the guard
+    // throw ENOENT and read as a failure of the rollback rule it exists to
+    // protect. Standing Rule 21 / the C-38..C-45 class: a name repeated from
+    // a message is not a name checked against the running thing.
+    const sql = read("supabase/migrations/20260903090000_top_contributors_v3.sql");
+    expect(sql).not.toMatch(/drop\s+function[^;]*get_top_contributors_v2/i);
+    expect(sql).not.toMatch(/create\s+or\s+replace\s+function\s+public\.get_top_contributors_v2/i);
+  });
+});

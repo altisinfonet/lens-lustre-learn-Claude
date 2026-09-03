@@ -1053,8 +1053,15 @@ const Index = () => {
                 <div className="space-y-2">
                   {topContributors.length > 0 ? topContributors.map((c, i) => {
                     const medals = ["🥇", "🥈", "🥉"];
-                    const barWidth = topContributors[0]?.contributor_score
-                      ? Math.round((c.contributor_score / topContributors[0].contributor_score) * 100)
+                    // Scaled by recent_score, the number the row DISPLAYS.
+                    // It used to divide by rank 1's LIFETIME score, which is not
+                    // the maximum: production 2026-09-03 gave rank 3
+                    // 11,546 / 9,551 = 121%, which overflow-hidden clipped to a
+                    // full bar — the last-placed row rendering the fullest bar on
+                    // the card. recent_score is descending by construction, so
+                    // rank 1 holds the maximum and this cannot exceed 100%.
+                    const barWidth = topContributors[0]?.recent_score
+                      ? Math.round((c.recent_score / topContributors[0].recent_score) * 100)
                       : 0;
                     return (
                       <motion.div
@@ -1088,7 +1095,27 @@ const Index = () => {
                             names as now." Under-the-name is the FEED and WALL
                             treatment (see PostCard) — not this list, where the
                             old post count sat here and the shape was right. */}
-                        <span className="text-[9px] text-muted-foreground/60 shrink-0 relative z-10 tabular-nums" style={{ fontFamily: "var(--font-heading)" }}>✦ {c.contributor_score.toLocaleString()}</span>
+                        {/* OPTION B — both numbers visible, no hover.
+                            OWNER-RULING-2026-09-03-02, frozen interface §3.1;
+                            OI-1 closed 2026-09-03 with the Owner choosing this
+                            over the hover the Auditor had recommended.
+
+                            Primary is recent_score, in the slot the single
+                            figure used to occupy, so the "Last 30 Days" heading
+                            above is finally true of the number beneath it.
+                            Secondary is the lifetime score, muted and smaller —
+                            always visible, never a tooltip.
+
+                            tabular-nums on BOTH so the two columns line up down
+                            the card instead of jittering per row. */}
+                        <div className="shrink-0 relative z-10 text-right leading-tight">
+                          <div className="text-[9px] text-muted-foreground/60 tabular-nums" style={{ fontFamily: "var(--font-heading)" }}>
+                            ✦ {c.recent_score.toLocaleString()} <span className="text-muted-foreground/40">30d</span>
+                          </div>
+                          <div className="text-[8px] text-muted-foreground/40 tabular-nums" style={{ fontFamily: "var(--font-heading)" }}>
+                            Lifetime {c.contributor_score.toLocaleString()}
+                          </div>
+                        </div>
                       </motion.div>
                     );
                   }) : (
