@@ -62,12 +62,19 @@ const SidebarTopContributors = () => {
             />
           </div>
           {/* Same shape as the Home page card: score on the right, name on the
-              left, one line. Under-the-name is the feed/wall treatment, not
-              this one. This block renders for SIGNED-OUT visitors only (see
-              FeedRightSidebar), so it must not drift from Index.tsx. */}
-          <span className="text-[9px] text-muted-foreground shrink-0 tabular-nums" style={{ fontFamily: "var(--font-heading)" }}>
-            ✦ {c.contributor_score.toLocaleString()}
-          </span>
+              left. Under-the-name is the feed/wall treatment, not this one.
+              This block renders for SIGNED-OUT visitors only (see
+              FeedRightSidebar), so it must not drift from Index.tsx — the two
+              now carry the SAME two-line Option B block, and a change to one
+              without the other is the drift this comment exists to prevent. */}
+          <div className="shrink-0 text-right leading-tight">
+            <div className="text-[9px] text-muted-foreground tabular-nums" style={{ fontFamily: "var(--font-heading)" }}>
+              ✦ {c.recent_score.toLocaleString()} <span className="text-muted-foreground/50">30d</span>
+            </div>
+            <div className="text-[8px] text-muted-foreground/50 tabular-nums" style={{ fontFamily: "var(--font-heading)" }}>
+              Lifetime {c.contributor_score.toLocaleString()}
+            </div>
+          </div>
         </Link>
       ))}
     </div>
