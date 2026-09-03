@@ -3212,3 +3212,160 @@ document has been corrected at source so the same assertion cannot be made again
 
 **Prepared by the compiler. REV-21 records; it does not approve. What it closes, it closes because
 a run log says so.**
+
+
+---
+
+# 34 · REV-22 — PHASE 0 OPENED. THE FIVE STANDING HOLDS. H-4 TESTED AND FAILING.
+
+**Opened 2026-09-02. This is the first entry written under the Addendum A execution master, by the
+role it names the Auditor — the same author the earlier entries call "the compiler". This entry
+records what Phase 0 imposed, what it found, and every place the Auditor's own hands were on
+something they should not have been.**
+
+## 34.1 · Class of this entry
+
+Auditor record. No owner approval is implied. Every negative statement carries the UTC time it was
+observed. Corrections at §34.6 are against the Auditor and are not softened.
+
+## 34.2 · What now exists, and where
+
+| Artefact | Where | Evidence |
+|---|---|---|
+| Four role skills — `50mm-code-auditor`, `50mm-security-reviewer`, `50mm-developer-1-db-runtime`, `50mm-developer-2-client-delivery` | the Owner's account, all sessions | saved 2026-09-02; account-scoped, not chat-scoped |
+| `docs/gates/GATE_REGISTER.md` — 35 rows, gate sentences verbatim | `main` via **PR #124** (06:59:58Z), synced to `staging` | sha256 as committed `bd252eb9…c16d6` |
+| `docs/gates/phase-0-kickoff.md` | same PR | `f83d12b0…aafe0` |
+| Gate Register **Revision 2** | `main` via **PR #125**, synced to `staging` | `dd60a65a…383fe`, identical on both lanes |
+| Phase-wise Development Plan (Owner-supplied) | Project, text rendering | the per-task plan all three sessions read |
+
+`compare/main..staging` read **0 changed files, 0 additions, 0 deletions** after each of the three
+syncs. Standing Rule 20 held throughout, with one gap of roughly forty minutes between PR #125
+merging and the staging sync, during which it did not, and which is recorded here rather than
+smoothed over.
+
+## 34.3 · THE FIVE STANDING HOLDS — IMPOSED, BY WHOM, RELEASED BY WHAT
+
+The register states each hold. This is the file that records when it was imposed and what it costs.
+A hold that lives only in the register can be relaxed later with nothing to point at; that is how
+C-2 became four numbers.
+
+| # | Hold | Imposed | Effect | Released only by |
+|---|---|---|---|---|
+| **H-1** | C-2 — unused-index counts unreconciled: 79 / 78 / 298-of-which-125 / 188 | Auditor, 2026-09-02, register rev 1 | **No index is dropped by anyone.** A PR that drops one is closed unreviewed. | The Phase 4 reconciliation unit, naming one method **with its schema scope in the same sentence**, and accounting for the 79. D1's 2026-09-02 candidate (five methods, 188/78/298/125/594) is `EVIDENCE FILED` and does not release it. |
+| **H-2** | X1 / X2 — 384 duplicate permissive policies across 82 tables, 29 per-row `auth.uid()` | Auditor, same | **P34 cannot close.** | X1 and X2 landing before Phase 4. D1 reproduced both counts exactly on 2026-09-02. |
+| **H-3** | D-002 — `post-images` bucket public, storage SELECT policy carries no privacy condition | carried forward from REV-18 | **`PrivacyGapNotice` stays shipped, its test stays green.** | Authorized delivery live. |
+| **H-4** | Staging `SUPABASE_DB_URL` untested since 2026-08-31 | Auditor, same | Phase 1 cannot open. | A green probe run against `staging`. **See §34.4 — it ran, and it is not green.** |
+| **H-5** | No required reviewer on the `production` Environment; administrator bypass ticked | Auditor, same | Phase 1 cannot open. | Owner sets the reviewer. Auditor reads the page in a real browser and records VERIFIED. |
+
+## 34.4 · H-4 EXECUTED — TWO RUNS, TWO FINDINGS, ZERO ROWS TOUCHED
+
+The Owner could not dispatch. The Auditor did, with the read-only probe file
+`supabase/migrations/PROBE_credential_connectivity_readonly.sql` (merged in PR #118; `BEGIN; SELECT
+…; COMMIT;` — it changes nothing).
+
+**Run #11, `33617017865`, branch `main`, target `staging`** — refused in 5 s before any step ran:
+
+> `Branch "main" is not allowed to deploy to staging due to environment protection rules.`
+
+**Finding N-4, new.** The `staging` GitHub Environment carries a deployment-branch rule admitting only
+`staging`; `production` admits only `main`. Nobody had written that down. It is a second, independent
+enforcement of lane separation, above the workflow's own ref gate. All ten previous runs of this
+workflow were from `main` against `production`, which is why it had never surfaced.
+
+**Run #12, `33617572635`, branch `staging`, target `staging`** — every gate passed, then the
+database refused:
+
+| Step | Result |
+|---|---|
+| The branch must match the target | ✓ |
+| Refuse to start without the database credential | ✓ — the secret exists |
+| The credential must point at the target database | ✓ — **ref `ztzutckwdhetphwghuzj`, correct** |
+| Validate the requested file | ✓ |
+| Install psql | ✓ |
+| Run it | ✗ `psql: error: connection to server at "aws-0-ap-northeast-2.pooler.supabase.com" (15.165.245.138), port 5432 failed: FATAL:  password authentication failed for user "postgres"` |
+
+**Right project, wrong password.** H-4 moves from *untested* to **tested and failing**. Found by a
+read-only probe that touched no row, instead of during Phase 1's A-1 apply where it would have cost
+a day. **Owner action, and only the Owner's: replace the `staging` environment secret.** The Auditor
+never sees or handles a credential.
+
+## 34.5 · PHASE 0 PROGRESS AT THE CLOSE OF THIS ENTRY
+
+| Task | Status | Basis |
+|---|---|---|
+| 0-AU-01 register + kickoff | **DONE** | PRs #124, #125 |
+| 0-AU-02 holds in register and ledger | **DONE** with this entry | §34.3 |
+| 0-D1-01/02/03 | **EVIDENCE FILED**, not on origin | Built twice — once in a session with no push authority, once as a rebuild in the Auditor's session (§34.6, D-18). Baseline artefact **exists**: 228 lines, 18 probes, every line stamped, transport named. Seeder guard proven refusing in five hazard cases; seeded run **BLOCKED** on H-4, no row count simulated. |
+| 0-D2-01/02 | **IN PROGRESS** | PR #126 against `staging`. Reviewed by a separate D2 session: three defects, each confirmed by the Auditor against the PR bytes — wrong unit numbers baked into emitted records (F-1), a harness that goes green with zero measurements (F-2), provenance lost in any worktree (F-3). **CHANGES REQUIRED.** |
+| 0-D2-03 client inventory | **EVIDENCE FILED**, not on origin | 223 raw `<img>` at `ef5d4a37`, against the Addendum's 158. Disagreement recorded, not resolved. See C-49. |
+| 0-OW-01 | **DONE, FAILING** | §34.4 |
+| 0-OW-02, 0-OW-03 | **OPEN** | Owner |
+
+## 34.6 · DEVIATIONS AND CORRECTIONS — ALL AGAINST THE AUDITOR
+
+**D-18 — D2 executed as a subagent of the Auditor's session, and the Auditor uploaded its bytes.**
+The Owner could not open a second session at the time and no push credential existed on the
+developer side. The Auditor did not write the code. Independence is nonetheless weaker than ruling
+D-15 specifies. Recorded in PR #126's body and here. Partly redeemed the same day: a separate D2
+session then reviewed #126 blind and found three defects the subagent's fourteen passing tests did
+not — which is exactly what D-15 exists to buy.
+
+**D-19 — PR #126's branch is `altisinfonet-patch-36`, not `d2/P00-…`.** GitHub's upload form ignored
+a branch name that was set and read back before submitting. Recorded rather than silently accepted.
+
+**C-46 — the Auditor issued both developer kickoff commands instructing each session to read
+`docs/gates/` first, while that directory existed on no ref.** D1's session ran 06:38Z–06:57Z; the
+register reached `main` at 06:59:58Z. D1's absence report was correct as measured, scanned every ref
+rather than two branches, and is superseded, not withdrawn.
+
+**C-47 — Register Revision 2 misattributes P9's 26.7-second statement.** D1 pinned the fingerprint:
+the actual P9 vault statement (`4292500501219224675`) means **3.00 ms** over 432,877 calls. The
+26.7 s belongs to a different statement in the same grouping. The finding stands; the attribution
+was the Auditor's and was wrong.
+
+**C-48 — Revision 2 recorded 329→332 definer functions and 149→157 triggers as figures that
+moved. They did not.** 329 and 149 are `public`-schema counts; 332 and 157 are all-schema. Nothing
+changed but the scope. **Third time this shape has produced a phantom** — H-1 is the same failure.
+Rule adopted from D1, binding from this entry: *a count of database objects is not a measurement
+unless its schema scope is in the same sentence.*
+
+**C-49 — the register's P11 note carries "158 raw `<img>` tags" with no method recorded.** D2
+measured **223** at `ef5d4a37` with every one of 65 false matches listed by file, line and reason,
+and could not reconstruct 158 by any method. The Auditor transcribed the Addendum's number into a
+note without its instrument. Both numbers now stand side by side; neither is "fixed".
+
+**C-50 — PR #126 bundles two deliverables (0.4 and 0.5).** The Auditor sent D1 back for exactly
+this an hour earlier, then did it himself as courier. Split required before merge.
+
+## 34.7 · NEW FINDINGS ROUTED, NOT ACTED ON
+
+* **F-58** — `.github/workflows/typecheck.yml` pins `node-version: 20`; `.node-version` reads
+  `22.22.2` and `package.json` requires `>=22.12.0`. `security.yml` and `health.yml` also pin 20.
+  Found independently by two D2 passes at `ef5d4a37`; verified by the Auditor on `main`. Typechecking
+  on a different major than the one that builds the site is F-52's shape again. D2's file, its own PR.
+* **F-59** — `enqueue_post_created_job` is unconditional (`pg_proc`, 11:26Z): every post INSERT
+  enqueues a job and `process-post-jobs` runs every 5 s. **A one-million-row seed enqueues a million
+  jobs.** The seeder refuses without `--ack-queue-load`. **Owner decision before the seed run.**
+* **N-5** — staging is `x86_64`, production `aarch64` (`version()`, 11:06–11:07Z). N-1 recorded only
+  the patch-level split. Latency proven on staging is proven on a different architecture; relevant to
+  P20's budget.
+* **`user_roles` has never been autovacuumed** — 29.22 % dead on 109 live rows, 54.86 % of scans
+  sequential (11:18:28Z). P34's table.
+* **20 of 21 client timers fail P10's gate today.** Only two files register `visibilitychange`, and
+  one of them (`AdZone.tsx`) only re-bases a counter; the 200 ms interval keeps firing while hidden.
+  The fastest timer in `src/**` is **30 ms** (`Index.tsx:191`), and P10's text does not mention it.
+* **Nine `<img>` tags live in HTML strings, not JSX**, seven in product code. P11's lint rule over
+  JSX cannot see them. Recorded so P11 does not declare victory over a surface it never covered.
+* **P27's thirteen tables overlap P35's no-PK tables and P33's RLS-no-policy list.** The three units
+  should be dispositioned together before any SQL.
+
+## 34.8 · OPEN AT THE CLOSE OF REV-22
+
+* **Staging password** — Owner. Nothing in Phase 1 moves until it is replaced.
+* **H-5 reviewer** — Owner. The Auditor was blocked by the safety layer from scripting a change to a
+  repository security setting and did not go around it.
+* **D1's three deliverables** — landing as three separate PRs against `staging`, courier step
+  recorded.
+* **PR #126** — F-1/F-2/F-3 fixes and the split, from D2.
+* **Register Revision 3** — C-47, C-48, C-49, N-4, N-5, F-58, F-59, the #126 review outcome.
+* **F-59 acknowledgement** — Owner, before any seed run.
