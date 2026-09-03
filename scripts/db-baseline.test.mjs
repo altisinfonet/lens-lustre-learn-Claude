@@ -128,7 +128,27 @@ check('scrubExternal DOES redact a URI psql echoed back at us', () => {
 });
 
 check('redactSecrets removes a JWT from data about to be written to a file', () => {
-  const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dBjftJeZ4CVPmB92K27uhbUJU1p1r_wW1gFWFOEjXk';
+  // ⟵ F-61. This fixture used to be the canonical jwt.io example token as a
+  // string literal. It is not a credential and grants nothing — but the secret
+  // scan (gitleaks, rule `jwt`) flagged it, and .gitleaks.toml allowlists exact
+  // literals only and says so in its own header. The control was working as
+  // designed, so the fixture changed, not the control. It is now BUILT at
+  // runtime from the same header and payload objects, so no JWT-shaped literal
+  // exists anywhere in the tree and the scan has nothing to find. The test's
+  // meaning is unchanged: redactSecrets() still receives a real-shaped JWT
+  // (three base64url segments, each well over the 10-character floor the
+  // redactor's pattern requires) and must remove it.
+  const b64url = (v) => Buffer.from(typeof v === 'string' ? v : JSON.stringify(v))
+    .toString('base64url');
+  const jwt = [
+    b64url({ alg: 'HS256', typ: 'JWT' }),
+    b64url({ sub: '1234567890' }),
+    b64url('a signature-shaped third segment, long enough to match'),
+  ].join('.');
+  // The fixture must have teeth: if it does not look like a JWT to the
+  // redactor's own pattern, a pass here would prove nothing.
+  assert(/^eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}$/.test(jwt),
+    `the runtime-built fixture is not JWT-shaped: ${jwt}`);
   const out = redactSecrets({ nested: [{ command: `curl -H "Authorization: Bearer ${jwt}"` }] });
   assert(!JSON.stringify(out).includes(jwt.slice(0, 40)), 'a JWT survived redactSecrets()');
 });
