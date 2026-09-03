@@ -106,23 +106,44 @@ describe("placement — feed and wall only", () => {
   });
 });
 
-describe("Home page keeps the score beside the name, not beneath it", () => {
-  it("Index.tsx renders the score in a shrink-0 span, not a block under the name", () => {
-    const src = read(HOME);
-    const i = src.indexOf("c.contributor_score.toLocaleString()");
-    expect(i).toBeGreaterThan(-1);
-    // Walk back to the element that opens this span and confirm it is the
-    // right-hand cell, not a div nested inside the name container.
-    const openTag = src.lastIndexOf("<", i);
-    const tag = src.slice(openTag, i);
-    expect(tag).toContain("shrink-0");
-  });
+/**
+ * ⚠ REWRITTEN 2026-09-03, and the reason matters more than the change.
+ *
+ * The claim these two tests defend is unchanged: the score belongs in the
+ * RIGHT-HAND CELL of the row, not nested inside the name column, because a
+ * score inside the name column steals width from the name and defeats the
+ * `truncate` + `min-w-0` pair that produces the ellipsis.
+ *
+ * What changed is the MECHANISM, and only because the old one was fragile.
+ * It walked back to the nearest `<` before the score and asserted `shrink-0`
+ * on that tag. Under OWNER-RULING-2026-09-03-02 (Option B) the right-hand cell
+ * became two lines — the 30-day figure over a muted `Lifetime …` line — so the
+ * nearest preceding tag is now the inner line's div, and the `shrink-0` sits
+ * one level out on the cell that still wraps both. The tests failed while the
+ * property they exist to protect was never broken.
+ *
+ * They now assert the CELL rather than the nearest tag, and additionally assert
+ * that the name column is not re-entered between the cell and the score — which
+ * is the thing that would actually be a regression. This is a correction of a
+ * check, NOT a relaxation of one: the new form fails on the arrangement the old
+ * form was written to catch, and the old form did not test re-entry at all.
+ */
+describe("Home page keeps the score in the right-hand cell, not inside the name column", () => {
+  for (const [label, path] of [
+    ["Index.tsx", HOME],
+    ["SidebarTopContributors", SIDEBAR],
+  ] as const) {
+    it(`${label} renders the score inside a shrink-0 cell`, () => {
+      const src = read(path);
+      const i = src.indexOf("c.contributor_score.toLocaleString()");
+      expect(i).toBeGreaterThan(-1);
 
-  it("SidebarTopContributors does the same", () => {
-    const src = read(SIDEBAR);
-    const i = src.indexOf("c.contributor_score.toLocaleString()");
-    expect(i).toBeGreaterThan(-1);
-    const tag = src.slice(src.lastIndexOf("<", i), i);
-    expect(tag).toContain("shrink-0");
-  });
+      const cellOpen = src.lastIndexOf('className="shrink-0', i);
+      expect(cellOpen).toBeGreaterThan(-1);
+
+      // The name column is `flex-1 min-w-0`. If it opens again between the
+      // right-hand cell and the score, the score is inside the name column.
+      expect(src.slice(cellOpen, i)).not.toContain("min-w-0");
+    });
+  }
 });

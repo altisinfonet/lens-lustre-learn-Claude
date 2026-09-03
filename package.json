@@ -19,7 +19,7 @@
     "ui:shot": "node tools/uishot/capture.mjs",
     "ui:gate": "node tools/uishot/gate.mjs",
     "ui:mention-overflow": "node tools/uishot/mention-overflow.mjs",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "typecheck": "tsc -b tsconfig.json",
     "gate": "npm run typecheck && npm run test && npm run build",
     "verify:isolation": "node scripts/verify-bundle-isolation.mjs",
     "verify:html-tokens": "node scripts/verify-html-tokens.mjs",
