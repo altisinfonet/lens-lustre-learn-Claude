@@ -140,12 +140,17 @@ const ContributorScore = ({ userId }: Props) => {
 
   if (score === null) return null;
 
+  // The hover says "Lifetime", explicitly, since 2026-09-03: the Home page card
+  // now shows the rolling 30-day score and this badge does not. Without the
+  // word, a member sees two different numbers for the same person with nothing
+  // to tell them apart. Value and position are UNCHANGED — interface §3.2 —
+  // this is the only addition anywhere outside the two Top Contributors cards.
   return (
     <span
       ref={ref}
       className="inline-flex items-center gap-0.5 text-primary/80 tabular-nums"
-      title="Contributor Score"
-      aria-label={`Contributor Score ${formatContributorScore(score)}`}
+      title="Lifetime Contributor Score"
+      aria-label={`Lifetime Contributor Score ${formatContributorScore(score)}`}
     >
       <span aria-hidden="true">✦</span>
       {/* aria-hidden on the climbing number: a screen reader should announce the
