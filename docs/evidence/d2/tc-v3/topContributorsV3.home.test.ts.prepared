@@ -186,7 +186,17 @@ describe("TC-v3 · v2 survives as the rollback", () => {
   it("the v3 migration does not drop or replace v2", () => {
     // Mirrors the v1 guard in topContributorsV2.test.ts. Read-only assertion on
     // D1's file: D2 asserts against it, never edits it.
-    const sql = read("supabase/migrations/20260903000000_top_contributors_v3.sql");
+    // ⚠ FILENAME IS AUDITOR-ATTESTED, NOT VERIFIED. Corrected from
+    // 20260903000000 to 20260903090000 on the Auditor's instruction of
+    // 2026-09-03. D1's migration is NOT on origin/staging — checked at
+    // 11:09Z, which holds only 20260725160000_top_contributors_exclude_staff
+    // and 20260811160000_top_contributors_v2 — so this session cannot confirm
+    // the name from the repository. RE-VERIFY against the real file before
+    // this test moves into src/__tests__/: a wrong path here makes the guard
+    // throw ENOENT and read as a failure of the rollback rule it exists to
+    // protect. Standing Rule 21 / the C-38..C-45 class: a name repeated from
+    // a message is not a name checked against the running thing.
+    const sql = read("supabase/migrations/20260903090000_top_contributors_v3.sql");
     expect(sql).not.toMatch(/drop\s+function[^;]*get_top_contributors_v2/i);
     expect(sql).not.toMatch(/create\s+or\s+replace\s+function\s+public\.get_top_contributors_v2/i);
   });
