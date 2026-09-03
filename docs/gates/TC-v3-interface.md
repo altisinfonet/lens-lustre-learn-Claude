@@ -112,10 +112,31 @@ report — not something to tune until it matches.
 
 ### 3.1 Home page card — the only surface that changes
 
-- Reads **`recent_score`** and displays it where `contributor_score` is displayed today.
-- Heading stays **"Last 30 Days"** — it is now true of the number beneath it.
-- **The number carries a label.** Final wording is §5, open item OI-1.
-- Lifetime remains reachable on the card. **Placement is §5, open item OI-1.**
+**OPTION B, chosen by the Owner 2026-09-03. Both scores are visible. No hover on the Home card.**
+
+Each of the three rows shows **two numbers, stacked, right-aligned**:
+
+```
+✦ 2,480  30d        ← primary: recent_score, the ranking number, at the size the
+Lifetime 9,551         single figure is today. Label "30d" beside it.
+                    ← secondary: contributor_score (lifetime), muted, smaller,
+                       prefixed with the word "Lifetime".
+```
+
+- Heading stays **"Last 30 Days"** — it is now true of the primary number beneath it.
+- The **primary** number is `recent_score`, in the slot `contributor_score` occupies today.
+- The **secondary** line is `contributor_score`, in the card's muted colour, at a smaller size,
+  reading `Lifetime <n>`. It is **always visible**; there is no tooltip on the Home card.
+- Both figures use `font-variant-numeric: tabular-nums` so the columns line up down the card.
+
+**This is a layout change, and it brings two obligations the hover option would not have:**
+
+1. **Rows grow taller.** The card must be checked at its real width in the sidebar — not only in
+   isolation — and the three rows must not push anything below them off-screen on a phone.
+2. **Names lose horizontal room.** `Amit Baran Sen` with a `Rising Star` pill and a two-line score
+   block is the tightest row. **Long names must truncate with an ellipsis, not wrap and not
+   overflow.** Check the longest real name on staging, not a short one.
+3. **Measured on a real mid-range Android**, per the D2 standard — an emulator is not the gate.
 
 ### 3.2 Every other surface — value and position unchanged
 
@@ -156,12 +177,13 @@ before Promotion P-0, because "no collision" is only true at the moment it was m
 
 ---
 
-## 5 · Open item — blocks D2 only, not D1
+## 5 · Open item — CLOSED
 
-| # | Open | Status |
+| # | Item | Status |
 |---|---|---|
-| **OI-1** | Where lifetime appears on the Home card, and the exact label on the 30-day number. Auditor's recommendation: the visible number is the 30-day score; **lifetime on hover — "Lifetime Contributor Score: N"**. The alternative, if the Owner prefers it always visible, is a muted secondary line under the name — a layout change. | **AWAITING THE OWNER.** v3 returns both numbers either way, so **D1 is not blocked by this.** |
+| **OI-1** | Where lifetime appears on the Home card. | **CLOSED 2026-09-03 — Owner chose Option B: both scores visible, lifetime as a muted secondary line, no hover on the Home card.** The Auditor had recommended the hover option; the Owner chose otherwise and the choice is recorded as made, not as accepted reluctantly. §3.1 is frozen accordingly. |
 
----
+**Nothing in this file is open. D1 and D2 may both proceed** — D1 on §2, D2 on §3 once v3 is on
+staging.
 
 *Frozen by the Auditor. This file constrains; it approves nothing and closes no gate.*
