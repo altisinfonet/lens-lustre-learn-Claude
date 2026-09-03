@@ -43,7 +43,11 @@ describe("the typecheck command points at a config that has files", () => {
 
   it("it names a project config — bare `tsc --noEmit` compiles NOTHING here", () => {
     // The exact trap: the root tsconfig has "files": [] and only references.
-    expect(pkg.scripts.typecheck).toMatch(/-p\s+tsconfig\.app\.json|--build/);
+    // `-b` is the short form of `--build`. F-52 moved CI to `-b tsconfig.json`
+    // (both projects, strict included); the script now matches it, so accept it.
+    expect(pkg.scripts.typecheck).toMatch(
+      /-p\s+tsconfig\.app\.json|--build|-b\s+tsconfig\.json/,
+    );
   });
 
   it("the root config really is the empty one, so this is not superstition", () => {
@@ -55,8 +59,23 @@ describe("the typecheck command points at a config that has files", () => {
   });
 
   it("CI runs the same command as the script — one of them being right is not enough", () => {
+    // ⚠ F-60 CLOSED HERE, 2026-09-03. This asserted the LITERAL STRING
+    // `tsc --noEmit -p tsconfig.app.json`, so when F-52 correctly moved CI to
+    // `npx tsc -b tsconfig.json` on 2026-09-01 the assertion started failing —
+    // and it failed for the right reason: package.json still carried the weak
+    // `-p tsconfig.app.json` command, so `npm run typecheck` locally checked a
+    // project with "strict": false while CI checked both projects strictly.
+    // The two really had drifted apart. The fix is package.json, not this file.
+    //
+    // Rewritten to assert the RELATIONSHIP the test's name claims — CI runs the same
+    // command as the script — instead of a hard-coded string that has to be
+    // edited by hand every time the command legitimately changes. A literal
+    // that must be maintained in lockstep with the thing it guards is not a
+    // guard; it is a second copy of the thing.
     const ci = readFileSync(join(root, ".github/workflows/typecheck.yml"), "utf8");
-    expect(ci).toMatch(/tsc --noEmit -p tsconfig\.app\.json/);
+    const cmd = String(pkg.scripts.typecheck).trim();
+    const runLines = [...ci.matchAll(/^\s*run:\s*(.+)$/gm)].map((m) => m[1].trim());
+    expect(runLines.some((l) => l === cmd || l === `npx ${cmd}`)).toBe(true);
   });
 
   it("the app config actually includes src", () => {
