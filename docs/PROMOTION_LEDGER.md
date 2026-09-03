@@ -374,12 +374,23 @@ editor, taking **staging's side on all six hunks**.
 
 **Which side is which — settled by the editor's own labels, not inferred:**
 
+*The five lines below are INDENTED BY TWO SPACES, and that indentation is not
+cosmetic. Verbatim, they begin in column 0 with `<<<<<<<`, `=======` and
+`>>>>>>>`, and GitHub's web conflict editor scans a file for lines of that shape
+without caring whether they sit inside a fenced block. On 2026-09-03 that made
+this documentation indistinguishable from a real conflict: three files of the
+staging→main promotion resolved and "Mark as resolved" stayed disabled on this
+one, reading these five lines as unresolved markers. Indenting them changes no
+word and breaks the column-0 match. Recorded here rather than done silently
+(§28 documentation freeze: this is the Auditor's own file, and the change is
+whitespace inside a code fence — the example itself is unaltered).*
+
 ```
-<<<<<<< staging (Current change)      ← taken
-  d.setTextColor(...TEXT_DARK);
-=======
-  d.setTextColor(...TEXT_MUTED);
->>>>>>> main (Incoming change)        ← discarded
+  <<<<<<< staging (Current change)      ← taken
+    d.setTextColor(...TEXT_DARK);
+  =======
+    d.setTextColor(...TEXT_MUTED);
+  >>>>>>> main (Incoming change)        ← discarded
 ```
 
 ### Post-merge verification — all measured on `9faf5a17`
