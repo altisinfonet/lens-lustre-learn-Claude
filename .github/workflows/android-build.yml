@@ -733,8 +733,31 @@ jobs:
           # builds under one version string in the Console, in crash reports and
           # on the member's About screen. 1.2.18 carries the native debug
           # symbols that 1115 was missing.
-          sed -i 's/versionName "1.0"/versionName "1.2.18"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.18 (1.2.11 / build 1102 went public)"
+          # 2026-09-03: bumped 1.2.18 -> 1.2.19, AND THIS ONE WAS CAUGHT BY THE
+          # OWNER, NOT BY THIS FILE. Build 1117 SUCCEEDED and was cut as 1.2.18.
+          # The rule three paragraphs up says to bump every time the store gets
+          # a new build; nobody did, so run 119 was about to produce a second,
+          # different build also called 1.2.18 — different code (the corrected
+          # Authorized Signatory label, the 30-day Top Contributors card, the
+          # withdrawn "Preview All Types" button) under a spent name. versionCode
+          # would have been unique (1000 + run number, so Play would have taken
+          # it) which is precisely why nothing failed and nothing complained:
+          # the code is generated and the name is typed, so only the typed half
+          # can rot, and only a person reading it can notice.
+          #
+          # F-70: THE VERSION NAME IS THE ONLY PART OF THIS BUILD NOBODY CHECKS.
+          # versionCode is derived, the AAB is gated on vitest, tsc, the security
+          # audit, the UI gate and the native-symbols check — and the string that
+          # every member reads on the About screen, and that the Play Console and
+          # every crash report key on, is a literal that eight prior comments in
+          # this very block record having to fix by hand. Eight corrections in
+          # three weeks is not a run of bad luck, it is a missing check. Raised
+          # for D2: the build should refuse a versionName that a previous
+          # SUCCESSFUL run already shipped, the same way it refuses a bundle with
+          # native code and no symbols. Not fixed in this unit, because a new
+          # blocking gate must be shown failing on unfixed input first (C-34).
+          sed -i 's/versionName "1.0"/versionName "1.2.19"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.19 (1.2.18 is spent - build 1117 succeeded carrying it)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
