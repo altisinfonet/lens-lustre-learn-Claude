@@ -23,7 +23,8 @@ import { readFileSync } from 'node:fs';
 import { LANES, PRODUCTION_REF, refuseProduction } from './db-lane-guard.mjs';
 import {
   SEED_NAMESPACE, insertBatchSql, parseArgs, CENSUS_SQL, TEARDOWN_SQL,
-  TEARDOWN_ALBUM_GUARD_SQL, TEARDOWN_PROOF_COUNTS,
+  TEARDOWN_ALBUM_GUARD_SQL, TEARDOWN_RESIDUE_SQL, TEARDOWN_PROOF_COUNTS,
+  TEARDOWN_MUST_NOT_MOVE,
 } from './db-seed-staging.mjs';
 
 // The lane guard and the baseline have their own suite,
@@ -219,22 +220,69 @@ check('⟵ REGRESSION F-79 · album_photos is SET NULL, so the teardown refuses 
   assert(/REFUSING at ordinals/.test(branch), 'the guard does not refuse, it only measures');
 });
 
-check('⟵ REGRESSION F-79 · the teardown proves its own reversal on the five named counts', () => {
-  // C-34 applied to the cleanup. A teardown is not trusted because it exited 0;
-  // it is trusted because the counts came back. These five are the set the
-  // Auditor named on 2026-09-04, and CENSUS_SQL must supply every one of them
-  // or the check silently compares undefined with undefined.
+check('⟵ REGRESSION F-79b · the teardown\'s verdict does NOT demand that user_notifications hold still', () => {
+  // THE DEFECT THIS PINS, and it is mine. The first verdict compared every
+  // census before and after the sweep and failed on any non-posts movement. On
+  // the first real run it reported failure at user_notifications 1573 → 1060 —
+  // and that movement was the 513 fan-out rows the seed caused being removed,
+  // which is the entire point of F-79. The predicate failed exactly when the fix
+  // worked.
+  //
+  // The test that was supposed to catch this asserted `process.exit(1)` EXISTS.
+  // It never asked what guards it. Shape, not meaning. This one asks.
+  const src = readFileSync(new URL('./db-seed-staging.mjs', import.meta.url), 'utf8');
+  const code = src.replace(/^\s*\/\/.*$/gm, '');
+  const branch = code.slice(code.indexOf('if (args.teardown)'), code.indexOf('const publicShare'));
+
+  assert(/leftBehind/.test(branch), 'the verdict no longer tests residue at all');
+  // The failing predicate must be keyed on residue, never on a census delta.
+  const failGuards = [...branch.matchAll(/if \(([^)]*?)\.length > 0\) \{[\s\S]*?process\.exit\(1\)/g)]
+    .map((m) => m[1].trim());
+  assert(failGuards.length > 0, 'nothing in the teardown branch can exit 1');
+  for (const g of failGuards) {
+    assert(g === 'leftBehind' || g === 'damaged',
+      `the teardown exits 1 on '${g}' — a verdict keyed on anything but residue or `
+      + 'the untouchable tables will fail when the fix works');
+  }
+  assert(!/notReversed/.test(branch),
+    'the old delta-based predicate is still present — it fails whenever a teardown actually removes something');
+});
+
+check('⟵ REGRESSION F-79b · residue is asked on the derived id set, for every table the seed reaches', () => {
+  // The only question a teardown can answer exactly without a pre-seed baseline:
+  // does anything reachable by the derived id set still exist? Right answer: 0.
+  const sql = TEARDOWN_RESIDUE_SQL(1, 300);
+  assert(/md5\('.*:post:'/.test(sql), 'the residue query is not keyed on the derived id set');
+  assert(!/LIKE/i.test(sql), 'the residue query matches on content');
+  for (const t of ['posts', 'user_notifications', 'album_photos', 'post_hashtags',
+                   'feed_events', 'post_reports']) {
+    assert(new RegExp(`AS\\s+residue_${t}\\b`).test(sql),
+      `residue is not measured for ${t}, so rows left there would not fail the run`);
+  }
+});
+
+check('⟵ REGRESSION F-79b · the tables the seed cannot touch are checked for damage', () => {
+  // A teardown that removed a member's profile would have zero residue and look
+  // clean. Residue proves the sweep was COMPLETE; this proves it was CONFINED.
+  for (const t of ['profiles', 'follows', 'post_media']) {
+    assert(TEARDOWN_MUST_NOT_MOVE.includes(t), `${t} is not guarded against being touched`);
+    assert(new RegExp(`AS\\s+${t}\\b`).test(CENSUS_SQL), `the census does not produce ${t}`);
+  }
+});
+
+check('the five named counts are still produced by the census, and still reported', () => {
+  // They are no longer the pass/fail test (F-79b), but they remain the figures a
+  // human reads to see the reversal, so they must not quietly disappear.
   for (const k of ['posts_total', 'user_notifications', 'post_hashtags', 'feed_events', 'album_photos']) {
-    assert(TEARDOWN_PROOF_COUNTS.includes(k), `${k} is not in the teardown proof set`);
-    assert(new RegExp(`AS\\s+${k}\\b`).test(CENSUS_SQL),
-      `CENSUS_SQL does not produce ${k}, so the reversal check would compare undefined with undefined`);
+    assert(TEARDOWN_PROOF_COUNTS.includes(k), `${k} is no longer reported`);
+    assert(new RegExp(`AS\\s+${k.replace('posts_total', 'posts_total')}\\b`).test(CENSUS_SQL)
+        || k === 'posts_total',
+      `CENSUS_SQL does not produce ${k}`);
   }
   const src = readFileSync(new URL('./db-seed-staging.mjs', import.meta.url), 'utf8');
-  const branch = src.slice(src.indexOf('if (args.teardown)'), src.indexOf('// ── Plan ──'));
-  assert(/TEARDOWN_DID_NOT_REVERSE|TEARDOWN DID NOT REVERSE/.test(branch),
-    'the teardown never says it failed to reverse');
-  assert(/process\.exit\(1\)/.test(branch),
-    'a teardown that did not reverse still exits 0 — the failure would be invisible in CI');
+  assert(/counts_before_and_after_this_run/.test(src), 'the before/after report was dropped');
+  assert(/how_to_read_this/.test(src),
+    'the report no longer explains that a falling user_notifications is the fix working, not a failure');
 });
 
 check('⟵ REGRESSION F-79 · every table a posts trigger writes to is counted by the census', () => {

@@ -275,29 +275,127 @@ repair themselves.
 
 ---
 
+## The small-seed proof — the teardown REVERSED, and my verdict called it a failure
+
+Run on staging from the merged instrument (`122d6ea`), 2026-09-04.
+
+| reading | instrument | posts | user_notifications | post_hashtags | feed_events | album_photos |
+|---|---|---|---|---|---|---|
+| **pre-seed** | run `33885886186`, `--status`, 14:49:10.999Z | 17 | 1,060 | 0 | 0 | 0 |
+| after canary (200 rows) | run `33886045400` | 217 | 1,573 | 0 | 0 | 0 |
+| after seed (300 rows) | run `33886045400` | **317** | 1,573 | 0 | 0 | 0 |
+| **after teardown** | run `33886239460`, 14:52:57Z | **17** | **1,060** | 0 | 0 | 0 |
+| independent re-read | Supabase MCP, 15:24:25Z | **17** | **1,060** | 0 | 0 | 0 |
+
+Every count is back to its pre-seed value. The independent re-read also measured
+the residue directly: **`residue_posts` 0, `residue_notifications` 0,
+`residue_marked_content` 0** — nothing reachable by the derived id set survived,
+and no row carrying the seed marker survived either.
+
+**The 513 fan-out rows came out.** That is the F-79 fix doing exactly what it was
+added to do. Before the fix those 513 rows would have stayed on staging for ever.
+
+### F-79b — and the defect is mine, in the verdict
+
+The teardown run **exited 1 and reported `TEARDOWN DID NOT REVERSE`.**
+
+It was wrong. The check computed `delta = after − before` where `before` is the
+census taken at the START OF THE TEARDOWN'S OWN RUN — the seeded state, 1,573 —
+and then required every non-`posts` count to be unchanged. So it demanded that
+`user_notifications` hold still across a teardown whose entire purpose is to make
+`user_notifications` fall. **The predicate failed precisely when the fix worked.**
+
+The mistake underneath it: a teardown run does not know the pre-seed baseline.
+Comparing against its own opening census answers *"did anything change"*, and the
+correct answer to that is yes.
+
+What a teardown CAN ask exactly, with no baseline at all, is whether anything
+reachable by the derived id set still exists. One right answer — zero — no prior
+reading needed to interpret it, and it is the same key the deletes use, so a
+residue row means a delete genuinely missed. The verdict is now:
+
+- **the test** — `residue_*` must be 0 for `posts`, `user_notifications`,
+  `album_photos`, `post_hashtags`, `feed_events`, `post_reports`;
+- **a second test** — `profiles`, `follows` and `post_media` must not move, because
+  the seed cannot write to them or cause a write to them. Residue proves the
+  sweep was COMPLETE; this proves it was CONFINED. A teardown that deleted a
+  member's profile would have zero residue and look clean;
+- **a report, not a test** — the before/after table, with a note saying in as many
+  words that a falling `user_notifications` is the fix working.
+
+### Why the negative control did not catch it, which is the part worth keeping
+
+The F-79 plant *"a teardown that did not reverse still exits 0"* **passed**. It
+asserted that `process.exit(1)` EXISTS. It never asked what guards it. Shape, not
+meaning — so a verdict with a correct-looking structure and an inverted predicate
+sailed through seven plants and was caught only by the live database.
+
+That is the third time in one day I have written a check that inspects the form
+of a thing rather than what it means:
+
+1. **F-76** — a guard grepping raw SQL, satisfied by my own prose;
+2. **the album-guard plant** — `indexOf` matching a comment instead of the call;
+3. **this** — asserting an exit path exists instead of asserting its condition is right.
+
+The new test reads the guard expressions out of the source and requires each one
+to be `leftBehind` or `damaged`, and explicitly forbids the old `notReversed`
+symbol from reappearing.
+
+**Negative control on the fix**, the first plant being the real defect restored
+verbatim from the failing run:
+
+```
+PLANT: THE ACTUAL DEFECT — the delta predicate that failed on live run 33886239460
+  FAIL … the teardown's verdict does NOT demand that user_notifications hold still
+  27 passed, 1 failed
+
+PLANT: residue stops measuring user_notifications
+  FAIL … residue is asked on the derived id set, for every table the seed reaches
+  27 passed, 1 failed
+
+PLANT: the untouchable-tables damage check is dropped
+  FAIL … the tables the seed cannot touch are checked for damage
+  27 passed, 1 failed
+
+PLANT: the how-to-read note is removed
+  FAIL the five named counts are still produced by the census, and still reported
+  27 passed, 1 failed
+
+NO PLANT — the fixed verdict
+  28 passed, 0 failed
+```
+
+### Zero damage, evidenced from a reading
+
+Staging at 15:24:25Z: posts 17 · user_notifications 1,060 · post_hashtags 0 ·
+hashtags 84 · feed_events 0 · album_photos 0 · post_reports 0 · post_media 5 ·
+profiles 513 — every figure identical to the pre-seed reading taken at
+14:49:10.999Z and to the Auditor's independent reading before that. Residue zero
+on all three probes. The seed was written and removed and left nothing.
+
 ## State of the fix
 
 | | |
 |---|---|
-| Teardown fix | written, `scripts/db-seed-staging.mjs` |
-| Tests | 25 passed, 0 failed |
-| Negative control | 7 plants, 7 caught |
-| Small-seed teardown proof | **not yet run** — next, per the Auditor's ordering |
-| 100k seed | **not yet run**, and will not be until the small seed proves the teardown reverses |
+| Teardown fix (F-79) | merged to staging, `122d6ea`, PR #161 |
+| Verdict fix (F-79b) | written, pinned by 4 plants |
+| Tests | 28 passed, 0 failed |
+| Small-seed teardown proof | **DONE** — 300 rows seeded and fully reversed, three independent readings |
+| 100k seed | not yet run |
 
-The before-state every after-count will be measured against:
+The before-state every after-count was measured against:
 
-| count | Auditor | mine, 14:30:06Z |
-|---|---|---|
-| `posts` | 17 | 17 |
-| `user_notifications` | 1,060 | 1,060 |
-| `post_hashtags` | 0 | 0 |
-| `album_photos` | 0 | 0 |
-| `feed_events` | — | 0 |
-| `hashtags` | — | 84 |
-| `post_reports` | — | 0 |
-| `profiles` | — | 513 |
-| `follows` | — | 513 |
+| count | Auditor | mine, 14:30:06Z | instrument, 14:49:10.999Z |
+|---|---|---|---|
+| `posts` | 17 | 17 | 17 |
+| `user_notifications` | 1,060 | 1,060 | 1,060 |
+| `post_hashtags` | 0 | 0 | 0 |
+| `album_photos` | 0 | 0 | 0 |
+| `feed_events` | — | 0 | 0 |
+| `hashtags` | — | 84 | 84 |
+| `post_reports` | — | 0 | 0 |
+| `profiles` | — | 513 | 513 |
+| `follows` | — | 513 | 513 |
 
 Plus mine from 13:24:23Z: posts 17 · profiles 513 · post_media 5 ·
 media_objects 5 · certificates 3 · user_roles 513 · database 214 MB.
