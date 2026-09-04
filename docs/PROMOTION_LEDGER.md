@@ -6,7 +6,7 @@
 
 **Repository path:** `docs/PROMOTION_LEDGER.md` (canonical, on `staging`)
 **Ledger ID:** `LEDGER-50MM-001`
-**Status of this revision:** `REV-16 · 2026-08-29T11:56Z` · **📕 DOCUMENTATION FREEZE IN FORCE — §28**
+**Status of this revision:** `REV-24 · 2026-09-04T14:44Z` · **📕 DOCUMENTATION FREEZE IN FORCE — §28**
 
 ---
 
@@ -3489,5 +3489,158 @@ only after promotion.
 * Watch #134's workflow run — the harness measuring something in CI is 0.5's VERIFIED evidence.
 * Promotion **P-0** only after every Phase 0 unit reads VERIFIED with an evidence path, then the
   nine-step checklist, then `compare/main..staging` = 0/0/0.
+
+*Auditor. This entry records; it approves nothing and closes nothing.*
+
+---
+
+# 36 · REV-24 — the six unrecorded promotions, and Phase 0 to date
+
+**Written by the Auditor · 2026-09-04 · transcribed and figure-checked by D3 (documentation lane)**
+**Committed under §28.2 exception (a):** every entry below is a material fact about the release — six
+promotions that reached `main`, the findings F-72 … F-79, and the Owner's rulings of 2026-09-04. No
+wording, labelling or formatting change to any existing section is included.
+
+> **⚠ THIS REVISION OPENS WITH A FINDING AGAINST THE AUDITOR.**
+> The canonical ledger's last revision is REV-23 · 2026-09-03. Since it was written, six promotions
+> have reached `main` and none was recorded. The ledger is the one document whose entire purpose is
+> that no promotion happens unrecorded. Recorded as **C-70**, against the Auditor, who owns this file.
+
+**C-70, precisely.** Seven promotions since REV-16; **#104** (`789d455`, 2026-08-31) is recorded in
+§29–§30; the six since REV-23 — **#142** `8ef3cf0`, **#144** `90b7dbb`, **#145** `9c91eeb`, **#146**
+`ecdad73`, **#152** `7e93dd8`, **#153** `493d4d4`, spanning `2026-09-03T15:50:05Z` →
+`2026-09-04T11:53:12Z` — are not. The header pointer (line 9) has been stale at REV-16 since
+2026-08-29.
+
+## 36.1 · THE SIX UNRECORDED PROMOTIONS
+
+| # | `main` SHA | what it carried | recorded before today |
+|---|---|---|---|
+| **#142** | `8ef3cf0` | staging accumulation | no |
+| **#144** | `90b7dbb` | staging accumulation | no |
+| **#145** | `9c91eeb` | staging accumulation — **carried OWNER-01, OWNER-02 and TC-v3's client half** | no |
+| **#146** | `ecdad73` | P30 + P31 migrations, rollbacks, probes, the frozen revocation list `docs/gates/P1-revocation-list.md`, the F-72/F-73 CI scripts. **Zero `src/` files** | no |
+| **#152** | `7e93dd8` | P30 + P31 **proven on staging** — carried #148's client half | no |
+| **#153** | `493d4d4` | P31 evidence, the app/web lane observation, the Android build trigger | no |
+
+**Current lane state, measured 2026-09-04:** `main` = `493d4d4` · `staging` = `a79494c`.
+
+**#146's "zero `src/` files" is a measurement, not a characterisation:** `git diff --name-only
+9c91eeb ecdad73` returns **20 paths, 0 of them under `src/`**. A promotion that moves migrations,
+probes and CI scripts and touches no client file is the shape the lane separation requires.
+
+## 36.2 · WHAT IS LIVE ON `main` AND WHAT IS NOT
+
+**Live and verified by the Auditor from the deployed bundle on www.50mmretina.com:**
+
+| feature | proof |
+|---|---|
+| **Authorized Signatory** | present in `generateCertificatePdf-*.js`; the old wording *"Authorized Signature"* returns **0 matches across all 141 shipped chunks** |
+| **"Preview All Types" withdrawn** | **0 matches across all 141 chunks** |
+| **Top Contributors 30-day** | `get_top_contributors_v3` and `recent_score` in the live bundle; `get_top_contributors_v2` **absent** |
+| **P31 client half** | `"Searching by name or course is no longer available…"`, the *Search Unavailable* heading, and both `42501` and `PGRST202` present in `VerifyCertificate-*.js` |
+
+**Cloudflare, read from the dashboard 2026-09-04:** project `lens-lustre-learn-claude`, **Automatic
+deployments ENABLED**, domains `50mmretina.com` + `www.50mmretina.com`, latest Production deployment
+`493d4d4` from `main`.
+
+**NOT live — the production database is UNCHANGED.** Measured, `SELECT` only, `jtdtehuqtinjxropkkcn`:
+`email_exists` anon EXECUTE = TRUE (OPEN) · `search_certificates` anon EXECUTE = TRUE (OPEN, + 1
+PUBLIC entry) · `get_top_contributors_v3` anon = TRUE (correct, must remain).
+
+**The two revocations exist as files on `main` and have never been applied to the production
+database.** A migration file on a branch is not a closed gate. **This distinction is the single most
+load-bearing fact in this revision.**
+
+## 36.3 · APPLIED AND PROVEN ON STAGING
+
+`ztzutckwdhetphwghuzj`, applied via `apply-migration.yml`, verified by the Auditor: `email_exists`
+anon EXECUTE = false, PUBLIC entries = 0 (**P30 CLOSED**) · `search_certificates` anon EXECUTE =
+false, PUBLIC entries = 0 (**P31 CLOSED**) · `get_top_contributors_v3` anon = true (correctly still
+public).
+
+**Proved over real HTTP as a genuine anonymous caller** — anon key only, no session bearer, from a
+real browser on `staging.50mmretina.com`:
+
+| call | result |
+|---|---|
+| `POST /rest/v1/rpc/search_certificates` | **401 `42501`** |
+| `POST /rest/v1/rpc/email_exists` | **401 `42501`** |
+| `POST /rest/v1/rpc/get_top_contributors_v3` | **200 with rows** (`rank_position` 1, `recent_score` 764) |
+
+**The third line carries as much weight as the first two:** two doors closed, and the one that had to
+stay open stayed open.
+
+**F-62 defused where it was real.** `search_certificates` carried a PUBLIC grant (`=X/postgres`). A
+`REVOKE … FROM anon` alone would have closed **nothing**. The mandated two-step form removed it —
+PUBLIC entries went **1 → 0**.
+
+## 36.4 · PHASE 0 — NOT CLOSED. Audited against the plan's six exit criteria.
+
+| # | criterion | verdict |
+|---|---|---|
+| 1 | baselines with a timestamp on every line | **MET in substance** — instruments named, sittings to the UTC minute, disagreements recorded not resolved |
+| 2 | seeder guard demonstrated failing + row counts committed | **guard MET** — `node scripts/db-seed-staging.test.mjs` prints **18/18 at run time (17 `check(` sites; one runs once per D1 workflow, 2 workflows)**, run by the Auditor; **row counts NOT MET — the seeder has never been executed** |
+| 3 | Web-Vitals harness runs, blocks nothing | **MET, both halves.** Runs: run #5, `a122cdf`, Success 3m41s, two `.ndjson` measurement files. Blocks-nothing: D2's two negative controls (a bad reading passes; the line-180 guard shown firing on a stubbed non-zero exit), transcript landed as `docs/evidence/d2/P0-05/negative-controls-transcript-20260904.txt` via #159; harness hash **byte-identical** afterwards |
+| 4 | evidence path on all 35 register rows | **MET** — 35 rows, 35 paths, 0 missing (parsed programmatically; **measured by the Auditor**) |
+| 5 | P-0 promoted, ledger written | **NOT MET** — harness on `staging`, not `main`. This revision closes the ledger half |
+| 6 | H-4 and H-5 settled | **MET** |
+
+**Outstanding: 0-D1-01's baseline JSON (never produced) and the seeder run — both D1's, both in
+flight. The seeder run is gated on F-79 (§36.5).**
+
+## 36.5 · FINDINGS OPENED
+
+| id | finding |
+|---|---|
+| **F-72** | the dependency gate was red because npm retired its audit endpoint — not because of a vulnerability. **CLOSED** |
+| **F-73** | the gate could not distinguish *"found a critical"* from *"could not look"*; both exited 1. Replaced with three outcomes and three exit codes, exit 2 = blind = still a failure. **CLOSED** |
+| **F-75** | migration filename collision — two units claimed `20260910_0001`. **CLOSED** |
+| **F-76** | the SECURITY DEFINER guard had no category for *deliberately public*, so it would have been disabled or ignored. Third category added and made expensive to claim. **CLOSED** |
+| **F-77** | *withdrawn* — see C-68 |
+| **F-78** | **`default_transaction_read_only` is NOT honoured through the Supabase session pooler.** D1 measured `CREATE TABLE` **succeeding** through the pooler while the identical statement was refused on a direct connection. Reproduced independently by the Auditor. The project's workflows use the pooler. Scripts believed read-only were not. **FIXED — #160 merged**: enforcement moved into the query stream as `BEGIN READ ONLY; … COMMIT;`, which no pooler can strip; proven on a fixture before the line was written (C-34). Highest-severity finding of the day |
+| **F-79** | **The seeder's teardown does not reverse what the seed causes.** `user_notifications` has **no foreign key to `posts`** (measured: 0), so the ~80,000 notification rows a 100k seed triggers would survive the teardown permanently. `album_photos` is `SET NULL`, not `CASCADE`. **Caught by D1 BEFORE the seed ran**, quantified by the Auditor: notifications on staging = 1,060, posts = 17. Teardown fix + small-seed reversal proof required before any seed. **OPEN** |
+
+## 36.6 · CORRECTIONS AGAINST THE AUDITOR — ten in one day, and an eleventh
+
+`C-62` "all four verification pages" was one page · `C-63` asserted a branch on origin that did not
+exist · `C-64` claimed a revoke would crash the page; it silently kills the counter instead · `C-65`
+read repo merge settings and concluded about `main`, ignoring branch protection · `C-66` claimed a
+promotion shipped three features already live — checked ancestry, reported content · `C-67` framed
+the plan's measurement windows as idle waiting when its own entry conditions overlap them · `C-68`
+**reported a production outage that did not exist** — grepped the live bundle for a sentence that
+existed only in an abandoned draft · `C-69` reported the seeder guard missing without opening its
+test file, where it passes · `C-70` the ledger six promotions behind · plus the process failure the
+Owner caught directly: instructing a promotion on green CI rather than on staging proof, in breach of
+a ruling the Auditor had written that morning.
+
+**C-71** — the Auditor's draft of this revision stated the ledger stopped at REV-16 and was six days
+behind; D3 measured the file: last section REV-23 dated 2026-09-03, gap about 20 hours; and the draft
+gave the guard count without its instrument. **Caught by D3 before transcription.**
+
+**Every one is the same error: a claim reported before its instrument was read.**
+
+## 36.7 · OWNER RULINGS RECORDED
+
+| id | ruling |
+|---|---|
+| **OWNER-RULING-2026-09-04-01** | **"Everything on staging first, then No Waiting. Once staging proved, then Main."** Abolishes all three calendar gates. *Proved* = an instrument produced a reading; green CI is not proof. Holding a proven change is now a defect |
+| **OWNER-RULING-2026-09-04-02** | **drop gate** — *delete once proven working, not by calendar* — four proofs required; **not dropping is always allowed** |
+| **sequence** | every minor point finished → tested on staging → live migration → **written up in this ledger** |
+| **votes** | store `public_votes` and `admin_votes` separately; display **`Total_Votes` only**, everywhere |
+| **blood group** | a **designed feature** of the public staff card, not a leak (C-60) |
+
+## 36.8 · OPEN AT THE CLOSE OF REV-24
+
+* **The production database is untouched.** P30 and P31 are closed on `staging` only. The revocation
+  files on `main` close nothing until `apply-migration.yml` runs against `jtdtehuqtinjxropkkcn`.
+* **F-79 — OPEN.** No seed may run until the teardown reverses what the seed causes, proven on a
+  small seed.
+* **0-D1-01's baseline JSON** — never produced. D1's, in flight.
+* **The seeder has never been executed**, so Phase 0 criterion 2's row counts do not exist.
+* **Phase 0 criterion 5 — NOT MET.** The harness is on `staging`, not `main`. This revision closes
+  the ledger half of that criterion and nothing else.
+
+**REV-25 follows once Phase 0's last two artefacts land**; its step 1 changes when they do.
 
 *Auditor. This entry records; it approves nothing and closes nothing.*
