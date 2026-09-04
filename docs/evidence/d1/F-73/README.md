@@ -158,6 +158,32 @@ next `scripts/` file does not have to guess. D1 did not edit `docs/gates/**` to 
 
 ---
 
+## 7b · ⚠ THE COST OF EXIT 2, AND WHY `--attempts` MUST NOT BE LOWERED TO 1
+
+Recorded at the Auditor's instruction, so that nobody later "fixes" the slowness by making the gate
+cheaper to blind.
+
+`--timeout-ms=120000` with `--attempts=3` means **a genuinely dead registry costs the job up to about
+six minutes before it reports blind** (3 × 120 s plus 5 s + 15 s backoff = 6 m 20 s). That is
+deliberate, and it is the right trade:
+
+**Exit 2 is a real failure and it must not be reachable cheaply.** The whole finding is that a gate
+which goes red for nothing teaches people to re-run it until it goes green. A gate that reports blind
+after a single 120-second attempt would hit that state constantly on a merely slow endpoint — and
+then exit 2 becomes the new noise, re-run reflexively, and F-73 returns wearing a fourth costume. The
+three attempts are what make "blind" mean *the registry is actually unreachable*, rather than *the
+registry was briefly busy*.
+
+Measured on the very first production run (§9): **attempt 1 went blind, attempt 2 completed.** With
+`--attempts=1` that run would have reported exit 2 and blocked PR #146 for nothing.
+
+**So: if this job is ever judged too slow, the thing to change is `--timeout-ms`, or the registry, or
+the informational step above it — NOT `--attempts`.** Lowering attempts to 1 does not make the gate
+faster in the common case (a healthy audit completes on attempt 1 in ~30 s); it only makes false
+blindness cheaper, which is the opposite of the point.
+
+---
+
 ## 8 · F-73b — the informational step delays the gate. And a correction to D1's own first account of it.
 
 ### 8.1 ⚠ CORRECTION FIRST, because the first version of this section was wrong
@@ -217,3 +243,48 @@ gate and left the informational step above it unbounded, so the first thing it d
 sit behind exactly the class of slowness it was written to diagnose. That much was right. The number
 attached to it was not, and the difference between "delayed five minutes" and "blocked for
 twenty-five" is the difference between a measurement and a story.
+
+---
+
+## 9 · The gate in production — its first real run, and it did the thing it was built to do
+
+Run `33861425081`, job `100986510380`, step 8, head `5e69ef4`. Log timestamps, verbatim:
+
+```
+10:09:32  Dependency gate — threshold: critical (production dependencies only, --omit=dev)
+          Tightening the threshold to "high" is a known open task; this run does not do it.
+
+10:11:33  attempt 1/3: THE AUDIT DID NOT COMPLETE — npm produced no output at all
+                       (killed after 120000 ms)
+              retrying in 5s — retrying ONLY because the audit did not complete
+
+10:12:15  counts: info 0 · low 3 · moderate 7 · high 17 · critical 0
+          ══════════════════════════════════════════════════════════════════
+            PASS — exit 0. The audit COMPLETED and found 0 findings at or above "critical".
+          ══════════════════════════════════════════════════════════════════
+```
+
+**This is the whole finding, resolved, on a live run:**
+
+- Attempt 1 **went blind** — the endpoint did not answer within the 120 s per-attempt bound. **The old
+  one-line gate would have exited 1 here and gone red on PR #146, for a non-vulnerability.** That is
+  F-73 exactly, and it happened on the first run after the fix landed.
+- The script retried **only because the audit did not complete**, and said so in its own words.
+- Attempt 2 **completed**. The verdict came from `metadata.vulnerabilities`, not from npm's exit code,
+  and it was final — a completed audit is never retried.
+- Result: **exit 0, correctly**, with the counts printed for the record.
+
+`low 3 · moderate 7 · high 17 · critical 0` — the same figures measured locally on 2026-09-04 and the
+same figures recorded independently in the F-72 comment. **Three instruments, one answer.**
+
+Step 7, the C-34 fixture test, also ran in CI here for the first time and passed, including its
+PART 5 measurement of the open task:
+
+```
+PART 5 — the threshold is `critical` today. Tightening to `high` is OPEN, not done here.
+  same completed audit at threshold "high": 17 finding(s) at/above -> exit 1
+```
+
+**What this run does not prove:** that the registry is fixed. It is not, and this change never
+claimed to fix it — attempt 1 failing is the proof it is still broken. What changed is that the job
+now *says which defect it hit* and still reaches the right verdict when it can.
