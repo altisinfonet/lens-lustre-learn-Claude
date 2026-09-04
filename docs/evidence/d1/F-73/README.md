@@ -155,3 +155,44 @@ covers a security script**. The precedent is the existing `scripts/security-audi
 invoked only by `security.yml` (a D1-owned workflow), so the two new files follow it as
 `security-audit-dependencies*.mjs`. **The Auditor may want to record that pairing explicitly** so the
 next `scripts/` file does not have to guess. D1 did not edit `docs/gates/**` to record it.
+
+---
+
+## 8 · F-73b — the fix bounded the wrong half first. Measured, and corrected.
+
+**Found by watching the very first run of the F-73 fix, on PR #146 head `5e69ef4`.** Workflow run
+`33861425081`, job `100986510380`, step states read from the API at ~10:29Z:
+
+```
+step 5  npm ci                     completed  10:04:32
+step 6  Report (all dependencies)  in_progress from 10:04:32 — still running 25 minutes later
+step 7  the C-34 fixture test      PENDING — never started
+step 8  the gate itself            PENDING — never started
+```
+
+**The bounded gate never ran.** The job was held by step 6 — the pre-existing informational
+`npm audit || true`, which F-73 did not touch.
+
+`|| true` stops that step **failing** the job. It does not stop it **hanging** the job, and that is a
+different defect. From npm's own defaults, read rather than guessed:
+
+```
+fetch-timeout=300000   (5 minutes PER ATTEMPT)
+fetch-retries=2
+-> 3 x 300s = 15 minutes for ONE request before npm gives up, and `npm audit` issues more than one
+```
+
+Which also explains run 842's 9m37s.
+
+**The correction:** `run: timeout 180 npm audit || true`.
+
+**This weakens nothing, and the distinction matters.** Step 6 is not a gate — it never could fail the
+job — and the real gate at step 8 is untouched and still authoritative. If the report times out, the
+lost thing is an informational listing, and the gate below prints the severity counts itself. **Losing
+a listing is not losing a check.** Verified locally that `timeout` kills on schedule (exit 124) and
+that `|| true` still absorbs it (exit 0), so the step remains incapable of failing the job.
+
+**Recorded rather than quietly patched.** The original F-73 fix bounded the gate and left the
+unbounded step above it, so the first thing it did in production was get stuck behind exactly the
+class of failure it was written to diagnose. That is worth writing down: *bounding a check is
+worthless if an unbounded step runs before it.*

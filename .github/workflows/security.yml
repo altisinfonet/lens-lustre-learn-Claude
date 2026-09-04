@@ -98,10 +98,34 @@ jobs:
         run: npm i -g npm@11
       - run: npm ci --no-audit --no-fund
       # Report everything for the record, then fail only on what ships to a
-      # member. `|| true` on the first line is deliberate: it is the report,
-      # not the gate.
+      # member. `|| true` here is deliberate: this is the report, not the gate.
+      #
+      # ⚠ F-73b, MEASURED 2026-09-04 ON THIS JOB, run 33861425081 job
+      # 100986510380. The `|| true` stops this step FAILING the job. It does not
+      # stop it HANGING the job, and that is a different defect:
+      #
+      #   step 5  npm ci                     completed 10:04:32
+      #   step 6  Report (all dependencies)  in_progress from 10:04:32, still
+      #                                      running 25 minutes later
+      #   step 7  the C-34 fixture test      PENDING — never started
+      #   step 8  the gate itself            PENDING — never started
+      #
+      # So the promotion was blocked by an UNBOUNDED INFORMATIONAL STEP, and the
+      # bounded gate below it never got the chance to report anything at all.
+      # Bounding the gate while leaving this unbounded fixed the wrong half.
+      #
+      # WHY IT HANGS, from npm's own defaults rather than from a guess:
+      # fetch-timeout=300000 (5 min PER ATTEMPT) and fetch-retries=2, so a single
+      # `npm audit` against a slow endpoint can sit for 15 minutes before npm
+      # gives up on its own — and `npm audit` issues more than one request.
+      #
+      # `timeout` bounds it externally. This weakens NOTHING: this step is not a
+      # gate, it never could fail the job, and the real gate at step 8 is
+      # untouched and still authoritative. If the report times out we lose an
+      # informational listing — and the gate below prints the severity counts
+      # itself, so the record survives. Losing a listing is not losing a check.
       - name: Report (all dependencies)
-        run: npm audit || true
+        run: timeout 180 npm audit || true
       # ⚠ F-73, 2026-09-04. THE GATE COULD NOT TELL "CLEAN" FROM "COULD NOT LOOK".
       #
       # `npm audit --omit=dev --audit-level=critical` exits non-zero for two
