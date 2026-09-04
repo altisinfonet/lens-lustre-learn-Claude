@@ -327,17 +327,45 @@ for (const wf of ['.github/workflows/d1-baseline.yml', '.github/workflows/d1-gua
 
 check('⟵ REGRESSION 0-D1-01 · the baseline is recoverable from the log, not only from the artifact', () => {
   // A baseline that was measured correctly and cannot be committed leaves the
-  // task open with nothing wrong with the measurement. That is what happened on
-  // 2026-09-04: run 9939163591's artifact returned 403 from the blob store, and
-  // the only other route was a step printing the first 4000 bytes — a preview,
-  // not a recovery, because a truncated JSON does not parse.
+  // task open with nothing wrong with the measurement. The artifact host answers
+  // 403 to this environment's egress proxy — twice on 2026-09-04, run
+  // 9939163591 and artifact 9945939598 — and it is a network policy, not a
+  // transient error.
   const src = readFileSync(new URL('../.github/workflows/d1-baseline.yml', import.meta.url), 'utf8');
-  assert(/base64 -w 100/.test(src), 'the workflow no longer emits the whole file as base64');
-  assert(/sha256sum/.test(src), 'the workflow emits base64 with no checksum — a transcription error would be silent');
-  assert(/BEGIN BASE64/.test(src) && /END BASE64/.test(src),
-    'the base64 block has no delimiters, so it cannot be sliced out of a log mechanically');
-  // Proved by round trip 2026-09-04: a 37,437-byte artefact recovered
-  // byte-identical, and flipping one base64 character changed the sha256.
+  assert(/base64 -w 100/.test(src), 'the workflow no longer emits the file as base64');
+  assert(/sha256sum/.test(src), 'base64 with no checksum — a transcription error would be silent');
+  assert(/BEGIN GZIP BASE64/.test(src) && /END GZIP BASE64/.test(src),
+    'the block has no delimiters, so it cannot be sliced out of a log mechanically');
+});
+
+check('⟵ REGRESSION 0-D1-01b · the emitted block is GZIPPED, or it is too big to recover', () => {
+  // MY OWN FIRST FIX, CORRECTED. It emitted the raw file as base64 and I proved
+  // the round trip on a 37,437-byte stand-in. The real artefact is ~1 MB, whose
+  // raw base64 filled roughly 13,200 log lines — about 1.7 MB to move through a
+  // tool result and write back out again, which is not a route anybody walks.
+  // The mechanism was proved at a scale unrepresentative of what it had to
+  // carry, which is the exact error a 1M-row seeder exists to prevent.
+  //
+  // Measured 2026-09-04 on an 1,854,281-byte stand-in: gzip -9 gives 317 base64
+  // lines where raw would give ~24,723 — 78x — round trip byte-identical, and a
+  // single corrupted character makes gunzip refuse the stream outright.
+  const src = readFileSync(new URL('../.github/workflows/d1-baseline.yml', import.meta.url), 'utf8');
+  assert(/gzip -9 -c "\$f" \| base64 -w 100/.test(src),
+    'the baseline is emitted uncompressed — at ~1 MB that is ~13,200 log lines and not recoverable');
+  assert(/base64 -d \| gunzip/.test(src), 'the recovery instructions do not decompress');
+});
+
+check('⟵ REGRESSION 0-D1-01b · the checksum is over the ORIGINAL json, never the gzip', () => {
+  // A checksum over the compressed form proves only that the compression
+  // arrived intact. What has to be proved is that the file finally COMMITTED is
+  // byte-for-byte the file the instrument wrote.
+  const src = readFileSync(new URL('../.github/workflows/d1-baseline.yml', import.meta.url), 'utf8');
+  assert(/SHA256\(json\)\s+\$\(sha256sum "\$f"/.test(src),
+    'the checksum is not taken over the original json file');
+  assert(!/sha256sum.*gzip|gzip.*\|.*sha256sum/.test(src),
+    'a checksum is taken over the compressed stream — that proves the wrong thing');
+  assert(/does not match is NOT the measurement/.test(src),
+    'the log no longer says that an unmatched checksum invalidates the recovery');
 });
 
 check('⟵ REGRESSION F-78 · the artefact does not claim PGOPTIONS is what enforces read-only', () => {
