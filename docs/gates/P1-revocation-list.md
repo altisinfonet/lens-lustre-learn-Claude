@@ -1,7 +1,11 @@
 # P1 · THE FROZEN REVOCATION LIST — task 1-AU-02
 
 **Auditor-owned. D1 does not write revocation SQL before this file exists, and does not vary from it.**
-Frozen 2026-09-04. Supersedes nothing; this is the first issue.
+
+**REVISION 2 — 2026-09-04, and it withdraws an item.** Revision 1 listed `verify_staff_id`'s
+`blood_group` column as a thing to remove. **The Owner challenged it and the Owner was right.**
+See §2.3 and correction **C-60**, recorded against the Auditor. Revision 1 is superseded on that
+one item and unchanged on every other.
 
 ---
 
@@ -63,8 +67,50 @@ Nothing else is cleared for revocation in this issue of the list.
 
 | object | what is actually wrong |
 |---|---|
-| `verify_staff_id(text)` | Returns **`blood_group`** — medical information about a named employee — to anonymous callers. Rate-limiting the function does not stop that; **the column should not be in the return type.** This is a "never return X" rule, like the media-path rule, not a queue item. |
+| ~~`verify_staff_id(text)`~~ | **WITHDRAWN — C-60. See §2.5.** The Addendum's original gate for it stands unchanged: *placed behind a session or a rate limit.* Nothing about its return type is to be altered. |
 | `entry_vote_counts` | Publishes **`adjustment_votes`** — `sum(admin_vote_adjustments.adjustment_value)` per entry — to anon. It is a **materialized view**, so there is no RLS to enable and `security_invoker` is not an available option. Remedies are exactly two: revoke `SELECT`, or drop the column and publish `final_votes` only. |
+
+### 2.5 · C-60 — the Auditor called a designed feature a leak
+
+Revision 1 said `blood_group` "should not be in the return type" of `verify_staff_id`, and called
+its presence there medical information leaking to anonymous callers. **That was wrong, and the
+Owner caught it by asking the obvious question: why would you remove the blood group from a staff
+ID?**
+
+Read from the code before writing this correction:
+
+- `src/pages/IDVerification.tsx:189-196` renders **Blood Group as a deliberate stat tile** — its own
+  card, a `Droplets` icon in red, a bold value. That is a designed feature, laid out with care.
+- `src/components/admin/AdminEmployee.tsx:44,144,267` — an administrator **types it in** on the
+  employee form and it is shown in the staff list.
+- The page's whole purpose is: somebody is handed a staff card and types the printed ID number in
+  to check the card is genuine. **The blood group is printed on the card they are already holding.**
+  Showing it back is not disclosure; it is the verification doing its job.
+
+And blood group is deliberately low-secrecy information by its nature. It is put on ID cards,
+bracelets and dog tags **precisely so a stranger can read it in an emergency**. Treating it as
+confidential inverts the reason it is collected.
+
+**What went wrong in the Auditor's reasoning.** A column name that pattern-matches to "medical
+data" was classified from the name alone, without reading the page that displays it — the exact
+failure this project has a standing rule against. `50mm-security-reviewer` says to judge a
+`SECURITY DEFINER` function by its `WHERE` clause and by what it actually exposes. The `WHERE`
+clause here is `id_number = $1` on a number printed on the artefact being verified. Had that rule
+been applied instead of a keyword reaction, Revision 1 would not have contained the item.
+
+**It is the same error class as C-49 and C-53** — a figure or a finding written down without its
+instrument — and it is worth naming plainly because the Auditor has recorded that class against
+others twice this week.
+
+**What the real risk is, and it is smaller and different.** `verify_staff_id` has no rate limit and
+no session check. If the staff table grows and ID numbers turn out to be guessable, the function
+becomes a **staff-directory harvester** — names, designations, photos, `about`, and yes, blood
+groups, but as one field among several, and the harvesting is the problem, not the field.
+Measured today: `office_staff` holds **1 row** with a **9-character non-sequential** ID, so this
+is not exploitable now.
+
+**Which is exactly what the Addendum already asked for**: *"`verify_staff_id` placed behind a
+session or a rate limit."* The original gate was right and needed nothing added to it.
 
 ### 2.4 · Deferred with a reason, not silently
 
@@ -94,7 +140,9 @@ entry_vote_counts  relkind=m (materialized view)  anon_select=true  rls_enabled=
   columns: entry_id, real_votes, adjustment_votes, final_votes
 ```
 
-**Both confirmed. Both are D1's finding, not the Auditor's.**
+**Both readings confirmed.** But a reading is not a finding: `entry_vote_counts` is a finding,
+and `verify_staff_id` is a designed feature that was misread as one — see §2.5. D1 reported both
+accurately; the Auditor's *classification* of the first was the error, not D1's measurement.
 
 ### And the scale, because a finding without its scale is not a measurement
 
