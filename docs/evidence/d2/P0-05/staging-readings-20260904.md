@@ -174,3 +174,85 @@ rows WITHOUT,             by prefix:  {'H': 6, 'N': 8}
 which are not gates. A first pass here counted 47 rows and looked like a finding; it was an
 over-broad pattern on D2's side, and the measurement cleared the claim rather than confirming a
 defect. Recorded because a finding withdrawn by measurement is worth the same as one confirmed.
+
+---
+
+# ADDENDUM 2 · THE TWO NEGATIVE CONTROLS, RUN AGAINST THE HARNESS ITSELF
+
+The Owner refused the cheaper path — accepting the harness on five clean runs and recording the two
+demonstrations as a gap. He was right: **five runs that happened not to block is a coincidence with
+a good track record, not a control.** Both are now shown on unfixed input, the same discipline
+applied to `search_certificates` and `increment_managed_page_view` earlier today.
+
+**Method.** The two guard steps and the vitals step were extracted **verbatim** from
+`.github/workflows/d2-web-vitals.yml` and run as the real three-step chain — step 9 (the harness),
+step 10 (the line-180 exit guard), step 11 (the content guard). Only
+`scripts/web-vitals-report.mjs` was stubbed, temporarily, per **F-65**: the control is proven on a
+fixture, never by weakening the real thing. **The workflow was not edited at all.**
+
+Full transcript: `negative-controls-transcript-20260904.txt`.
+
+## PROOF 2 — a catastrophic reading does NOT block · **DONE**
+
+Stub emits terrible numbers and **leaves the exit path untouched** (exits 0).
+Started `2026-09-04T13:36:42.400Z`.
+
+```
+--- step 9 ---
+web-vitals-report 0.5.0-STUB (report-only) — 3 records
+  /                status=measured LCP=180000ms CLS=2.5 INP~=90000ms
+  /feed            status=measured LCP=240000ms CLS=3.1 INP~=120000ms
+   [step exit 0]      steps.vitals.outputs.code = 0
+--- step 10 ---  web-vitals-report.mjs exited with 0                     [guard exit 0]
+--- step 11 ---  2 measured sample(s) … Values are report-only until P13. [guard exit 0]
+```
+
+**LCP 180 000 ms — three minutes — CLS 2.5, INP 90 s. Ten times worse than any threshold anyone
+would set, reported openly, and every step green.** That is "blocks nothing" as a measurement.
+
+## PROOF 3 — the guard at line 180 SHOWN FIRING · **DONE**
+
+Stub measures fine but **exits 3**. Started `2026-09-04T13:36:42.868Z`.
+
+```
+--- step 9 ---
+web-vitals-report 0.5.0-STUB — measured fine, but exiting 3
+   [step exit 0]      steps.vitals.outputs.code = 3
+--- step 10 ---
+web-vitals-report.mjs exited with 3
+::error::web-vitals-report.mjs exited 3. In Phase 0 this harness reports and never blocks; a
+non-zero exit means either the script gained a blocking path before P13 authorised one, or it
+crashed outside its own error handling. Both are defects in the harness, not in the site.
+   [guard exit 1]
+```
+
+**The only line in this unit capable of stopping a PR, fired for the first time.**
+
+⚠ **And note what step 9 did:** it exited **0** while the harness exited **3**. That is deliberate —
+`set -uo pipefail` without `-e`, so the code is *captured* into `steps.vitals.outputs.code` rather
+than propagated. **Which is precisely why line 180 has to exist**: without it a harness that
+crashed would sail through as a green step. The negative control demonstrates the guard and its
+reason in one reading.
+
+## THE INSTRUMENT IS BACK — a proof that alters what it proves is worthless
+
+```
+before  0149fd0216bf801ffd42cd715d2ce707de74c71db293b47e3cf92cc10eb803bc
+stubbed a74c0da28e155fcca695aac5d73c42fd42824ad5c2d618a4cec3992df99a22f5
+after   0149fd0216bf801ffd42cd715d2ce707de74c71db293b47e3cf92cc10eb803bc   IDENTICAL
+```
+
+Restored with `git checkout --`, from the committed object rather than from a local backup, so the
+authority is the repository and not D2's copy. `git diff HEAD -- scripts/web-vitals-report.mjs`:
+**no diff.** `0149fd02…` is the same hash the unit has carried since #126. **No stub is committed.**
+
+## ZERO DAMAGE — evidenced
+
+| reading | result |
+|---|---|
+| harness sha256 before vs after | **identical**, `0149fd02…` |
+| `git diff HEAD -- scripts/web-vitals-report.mjs` | **no diff** |
+| working tree after the runs | clean but for the transcript this file cites |
+| ndjson written into `docs/evidence/d2/baseline/` by the proofs | **0** — the stubs wrote to a scratch dir |
+| suite `13:37:09.674Z` → `13:38:20.710Z` | **182 files, 2510 passed, 1 skipped, zero failures** |
+| the workflow file | never edited; both guards were read from it, not modified |
