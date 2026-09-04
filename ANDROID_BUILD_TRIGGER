@@ -119,3 +119,7 @@ STILL OPEN, AND NOT CLAIMED
  - NO REELS. NO LIVE.
 
 Then promote the AAB.
+
+2026-09-03 — certificate label: "Authorized Signature" -> "Authorized Signatory" (OWNER-RULING-2026-09-03-01). Build fires so the AAB carries the corrected label.
+
+2026-09-03 (second fire) — Android Build #118 on 8ef3cf0 FAILED in build-aab: vitest, 6 failed / 2474 passed. Not an application defect: six guards that the merged, ruled-for changes had made obsolete, plus F-60. All six corrected (nothing disabled — Standing Rule 19) and promoted as #144 -> main 90b7dbb, verified locally at 2480 passed / 0 failed and `npx tsc -b tsconfig.json` exit 0. This line exists because android-build.yml fires only on changes to itself or to this file, so a fix that lands anywhere else cannot re-run the build that the fix is for (F-69). Build fires so the AAB carries the corrected Authorized Signatory label, the 30-day Top Contributors card and the withdrawn "Preview All Types" button.

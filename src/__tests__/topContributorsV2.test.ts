@@ -33,10 +33,15 @@ describe("useTopContributors calls v2", () => {
     expect(src).not.toContain('rpc("get_top_contributors_v1"');
   });
 
-  it("uses a query key that cannot serve cached v1 rows", () => {
+  it("uses a query key that cannot serve cached v1 OR v2 rows", () => {
     // Same key + different row shape = blank scores for anyone mid-session.
-    expect(src).toContain("'top-contributors-v2'");
+    // Updated 2026-09-03 for TC-v3 (OWNER-RULING-2026-09-03-02): the hook now
+    // keys on v3 because v3 adds recent_score, and a member holding a cached v2
+    // payload would render an empty 30d line until they reloaded. Exactly the
+    // trap this test was written for at the v1 -> v2 switch, one version on.
+    expect(src).toContain("'top-contributors-v3'");
     expect(src).not.toContain("queryKey: ['top-contributors-v1']");
+    expect(src).not.toContain("queryKey: ['top-contributors-v2']");
   });
 
   it("exposes contributor_score and rank_position", () => {
@@ -50,13 +55,15 @@ describe("useTopContributors calls v2", () => {
     }
   });
 
-  it("hands the UI exactly seven fields and nothing else", () => {
+  it("hands the UI exactly eight fields and nothing else", () => {
     // Asserting on the mapped object rather than searching the whole file: the
     // prose above it discusses engagement at length, and a keyword scan would
     // fail on the explanation of why engagement is absent.
     const body = src.slice(src.indexOf("return rows.map("));
     const obj = body.slice(body.indexOf("return {") + 8, body.indexOf("};"));
     const keys = [...obj.matchAll(/^\s*(\w+):/gm)].map((m) => m[1]).sort();
+    // Eight since TC-v3, not seven: recent_score joined the mapped object.
+    // contributor_score STAYS - it is still displayed, as the secondary line.
     expect(keys).toEqual([
       "avatar_url",
       "badges",
@@ -64,6 +71,7 @@ describe("useTopContributors calls v2", () => {
       "full_name",
       "id",
       "rank_position",
+      "recent_score",
       "roles",
     ].sort());
   });
@@ -98,8 +106,16 @@ describe("Home page card", () => {
     expect(src).not.toContain("home.thisMonth");
   });
 
-  it("scales the progress bar by the contributor score", () => {
-    expect(src).toContain("topContributors[0]?.contributor_score");
+  it("scales the progress bar by the 30-day score, not the lifetime score", () => {
+    // Updated 2026-09-03. Dividing by rank 1's LIFETIME score was wrong because
+    // the lifetime score is not the maximum: measured on production the same
+    // day, ranks 1/2/3 hold 9,143 / 9,551 / 11,546 lifetime against 7,233 /
+    // 7,055 / 6,823 recent. The old bar therefore computed 11,546 / 9,143 for
+    // the BRONZE row, clipped by overflow-hidden, so the last-placed member
+    // rendered the fullest bar. recent_score is descending by construction, so
+    // rank 1 holds the maximum and no row can exceed 100%.
+    expect(src).toContain("topContributors[0]?.recent_score");
+    expect(src).not.toContain("topContributors[0]?.contributor_score");
   });
 });
 

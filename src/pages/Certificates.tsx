@@ -314,15 +314,9 @@ const Certificates = () => {
               <h1 className="text-xl md:text-5xl font-light tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
                 {t("wal.my")} <em className="italic text-primary">{t("msheet.certificates")}</em>
               </h1>
-              {/* Preview-all entry point — opens modal in gallery mode (every cert.type) */}
-              <button
-                onClick={() => openPreview("winner", undefined, false)}
-                className="inline-flex items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase px-3 py-2 border border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300 rounded-md md:rounded-none"
-                style={{ fontFamily: "var(--font-heading)" }}
-              >
-                <Eye className="h-3 w-3" />
-                Preview All Types
-              </button>
+              {/* OWNER-RULING-2026-09-03-02: the all-types sample-gallery button is
+                  withdrawn for every member. Members preview only their own
+                  eligible/issued certificates via the per-card controls below. */}
             </div>
           </motion.div>
 

@@ -1081,7 +1081,7 @@ const CertificatePreviewCard = () => {
             <div className="h-8 w-24 border-b border-dashed border-[#b4a078]" />
           )}
           <div className="w-20 h-px bg-[#b4a078]" />
-          <p className="text-[7px] text-[#6e6964] tracking-wider uppercase">Authorized Signature</p>
+          <p className="text-[7px] text-[#6e6964] tracking-wider uppercase">Authorized Signatory</p>
         </div>
       </div>
     </div>

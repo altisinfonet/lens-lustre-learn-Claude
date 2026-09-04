@@ -413,7 +413,7 @@ const GOLD_LIGHT: [number, number, number] = [210, 185, 120];
  * the recipient, so it now carries the same weight as the two connector lines.
  *
  * ⚠ TEXT_SUBTLE IS STILL THE COLOUR OF THE ACTUAL SMALL PRINT — the DATE and
- * AUTHORIZED SIGNATURE labels, the certificate id, the verify URL and the
+ * AUTHORIZED SIGNATORY labels, the certificate id, the verify URL and the
  * "Scan to verify" caption. Those were NOT part of this change, and
  * certificatePalette.test.ts asserts each of them individually so a future
  * "make the text darker" cannot quietly sweep them up.
@@ -694,7 +694,7 @@ async function drawCertificate(d: CertificateSurface, {
   d.setFont("times", "normal");
   d.setFontSize(9);
   d.setTextColor(...TEXT_SUBTLE);
-  d.text("AUTHORIZED SIGNATURE", rightX, footerY + 8, { align: "center" });
+  d.text("AUTHORIZED SIGNATORY", rightX, footerY + 8, { align: "center" });
 
   // --- Certificate ID (no underline, no diamond) ---
   const displayId = displayCertificateId || certificateId;

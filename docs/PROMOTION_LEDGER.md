@@ -374,12 +374,23 @@ editor, taking **staging's side on all six hunks**.
 
 **Which side is which — settled by the editor's own labels, not inferred:**
 
+*The five lines below are INDENTED BY TWO SPACES, and that indentation is not
+cosmetic. Verbatim, they begin in column 0 with `<<<<<<<`, `=======` and
+`>>>>>>>`, and GitHub's web conflict editor scans a file for lines of that shape
+without caring whether they sit inside a fenced block. On 2026-09-03 that made
+this documentation indistinguishable from a real conflict: three files of the
+staging→main promotion resolved and "Mark as resolved" stayed disabled on this
+one, reading these five lines as unresolved markers. Indenting them changes no
+word and breaks the column-0 match. Recorded here rather than done silently
+(§28 documentation freeze: this is the Auditor's own file, and the change is
+whitespace inside a code fence — the example itself is unaltered).*
+
 ```
-<<<<<<< staging (Current change)      ← taken
-  d.setTextColor(...TEXT_DARK);
-=======
-  d.setTextColor(...TEXT_MUTED);
->>>>>>> main (Incoming change)        ← discarded
+  <<<<<<< staging (Current change)      ← taken
+    d.setTextColor(...TEXT_DARK);
+  =======
+    d.setTextColor(...TEXT_MUTED);
+  >>>>>>> main (Incoming change)        ← discarded
 ```
 
 ### Post-merge verification — all measured on `9faf5a17`
@@ -3369,3 +3380,114 @@ this an hour earlier, then did it himself as courier. Split required before merg
 * **PR #126** — F-1/F-2/F-3 fixes and the split, from D2.
 * **Register Revision 3** — C-47, C-48, C-49, N-4, N-5, F-58, F-59, the #126 review outcome.
 * **F-59 acknowledgement** — Owner, before any seed run.
+
+---
+
+# 35 · REV-23 — Phase 0 lands on origin
+
+**Written by the Auditor · 2026-09-03 · Gate Register Revision 4 is its companion**
+**Nothing was promoted in this entry. No SQL was applied. No gate was closed.**
+
+## 35.1 · What changed
+
+Every piece of Phase 0 work that existed only in the Project — a week of it, on one machine, one
+failure from gone — is now on origin. Six pull requests, none merged, all open for review:
+
+| PR | Unit | Base | Files |
+|---|---|---|---|
+| **#129** | 0.1 · 0-D1-01 — db-baseline instrument, lane guard, tests, two workflows | `staging` | 5 |
+| **#131** | 0.2 · 0-D1-02 — addendum re-measurement | `staging` | 1 |
+| **#130** | 0.3 · 0-D1-03 — 1 M-row seeder, guards, tests, two workflows | **#129** | 4 |
+| **#132** | OWNER-RULING-2026-09-03-01 — Authorized **Signatory**, web + Android | `staging` | 4 |
+| **#133** | 0.4 — web baseline instrument and tests, F-1 and F-3 corrected | `staging` | 2 |
+| **#134** | 0.5 — vitals harness and workflow, F-2 guard | **#133** | 2 |
+
+**PR #126 is closed as superseded, not rejected.** It bundled deliverables 0.4 and 0.5, which C-50
+forbids. Nothing in it was discarded: `web-vitals-report.mjs` is byte-identical in #134, and the
+instrument in #133 is #126's plus D2's own corrections.
+
+## 35.2 · How the bytes were checked, and when
+
+**After** each file reached origin — never before, because a hash taken on the copy you are about to
+send proves only that you can hash your own file:
+
+* **D1 — 10/10 MATCH** against `claude/d1-phase0/MANIFEST.md`.
+* **OWNER-01 — 4/4 MATCH** against what D2 delivered; the diff against `staging` is exactly the five
+  label sites plus the trigger line, nothing else.
+* **D2 split** — `web-baseline.mjs` is sha256 `410d79fd…`, exactly D2's published value for the
+  corrected instrument; `web-vitals-report.mjs` is `0149fd02…`, unchanged from #126.
+
+D1's branches are based on **current `staging` (`7f9b2ee`)**, not the stale `ef5d4a3` the manifest
+was cut against. The five D1 files are byte-identical either way; only the Auditor's own two files
+differ between those bases, which is why the manifest's tree hashes reproduce locally but not on
+origin. Recorded so nobody later reads that as tampering.
+
+## 35.3 · Every developer fix re-proved by the Auditor, not accepted on report
+
+Standing rule 3: reject a green result whose test could not have failed. Applied to all four fixes.
+
+* **F-3 (provenance)** — worktree branch disabled to reproduce the defect: `not ok 15`, `not ok 16`,
+  `16 tests / 14 pass / 2 fail`. Restored: 16/16.
+* **F-2 (green with zero measurements)** — three fixtures run against the new guard:
+  harness-never-launched → **exit 1**; ran-but-measured-nothing → **exit 1**; a deliberately awful
+  measured value (LCP 99999, CLS 0.9) → **exit 0**. The third is the one that matters: a bad number
+  must stay report-only until P13, and it does.
+* **F-1 (wrong gate numbers in emitted evidence)** — `grep "P16\|P21"` on the corrected instrument
+  returns nothing. F-47 re-checked on the modified workflow: no `run:` step interpolates `${{ }}`.
+* **OWNER-01** — the palette test reverted against unfixed source: `1 failed | 13 passed`,
+  `expected null to be 'TEXT_SUBTLE'`, the same assertion D2 reported. Restored: 14 passed.
+  `tsc -b tsconfig.json` exits 0.
+
+## 35.4 · The Owner's ruling, and its scope measured rather than assumed
+
+**OWNER-RULING-2026-09-03-01** — "Authorized Signature" is wrong; a member must see **"Authorized
+Signatory"**, and the Android app must carry it too.
+
+Before agreeing this was client-only, the Auditor searched **both** lanes for the old wording
+(2026-09-03 02:50Z): `site_settings` values, every `certificates` row, every `public` function body.
+**0 rows on production, 0 on staging.** The `certificates` table has no template or label column.
+**No SQL apply is required and none is authorised.** The Android half needs the trigger bump because
+`capacitor.config.ts` bundles the web build (`webDir: 'dist'`, no `server.url`), so the AAB exists
+only after promotion.
+
+## 35.5 · Recorded against the Auditor
+
+* **D-20** — the Auditor is the **committer of all six PRs**. The Owner chose to restore push
+  authority rather than have the Auditor courier; **that authority never arrived** (the git proxy
+  refused this session at 03:05Z, message quoted in the register). The choice was then: land the work
+  with the independence weakness recorded, or leave a week of work unreviewable on one machine. The
+  Auditor landed it and writes the weakness down. **It is cured the moment a developer session can
+  push, and not before.**
+* **C-51** — the Auditor instructed D2 to work against a ruling "recorded in `docs/gates/`" **while
+  no such ruling existed on any ref.** D2 caught it, proceeded on the verbatim gate, and said so.
+  This is C-46 repeated after C-46 was written down. The ruling is now filed in register §3.1.
+
+## 35.6 · Routed, not acted on
+
+* **F-60** — `typecheckIsNotVacuous.test.ts` fails on `staging`. It expects
+  `tsc --noEmit -p tsconfig.app.json`; the workflow was deliberately widened to `tsc -b tsconfig.json`
+  (F-52), which checks both projects. **The test is stale, not the workflow.** Found by D2 while
+  landing OWNER-01 and **reproduced by the Auditor on pristine `staging` with all changes stashed** —
+  `1 failed | 8 passed` either way. Correctly kept out of #132; D2's file, its own PR.
+
+## 35.7 · OPEN AT THE CLOSE OF REV-23
+
+**Owner, blocking Phase 1:**
+
+* **Staging `SUPABASE_DB_URL`** (H-4) — wrong password, run `33617572635`. 0.1's and 0.3's gate
+  artefacts cannot exist until it is replaced. Nothing in Phase 1 moves.
+* **Required reviewer on the `production` Environment** (H-5).
+* **`auth.users` seeding ruling** — P34's scale clause depends on it.
+* **F-59 acknowledgement** — a 1 M-row seed enqueues 1 M jobs. Required before any seed run.
+* **Push authority for a developer session** — the standing cure for D-18 and D-20.
+
+**Auditor, next:**
+
+* Review each of the six PRs against its verbatim gate and the ownership map.
+* Watch #130's `d1-seeder-guard-check` run — the production-ref refusal **demonstrated in CI** is
+  0.3's gate, and a local reading is not it.
+* Watch #134's workflow run — the harness measuring something in CI is 0.5's VERIFIED evidence.
+* Promotion **P-0** only after every Phase 0 unit reads VERIFIED with an evidence path, then the
+  nine-step checklist, then `compare/main..staging` = 0/0/0.
+
+*Auditor. This entry records; it approves nothing and closes nothing.*
