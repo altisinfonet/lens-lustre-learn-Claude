@@ -25,13 +25,56 @@ interface ManagedPage {
 
 const bodyFont = { fontFamily: "var(--font-body)" };
 
+/** The counter's own log prefix, so an operator can grep for it and so its
+ *  tests can tell this warning apart from unrelated console noise. */
+const VIEW_COUNT_LOG_PREFIX = "[managed-page-view]";
+
+/** One line per failed increment. Not rate-limited on purpose: this fires once
+ *  per page navigation, not on a timer, so there is no flood to suppress — and
+ *  suppressing repeats would hide the SCALE of an outage, which is the thing
+ *  worth seeing. */
+function warnViewCountFailed(cause: unknown) {
+  const message =
+    typeof cause === "object" && cause !== null && "message" in cause
+      ? String((cause as { message?: unknown }).message)
+      : String(cause);
+  console.warn(`${VIEW_COUNT_LOG_PREFIX} view count increment failed:`, message);
+}
+
 /** Fire-and-forget view count increment — never blocks render.
  * BUG-066: bump only the target page's counter via a SECURITY DEFINER RPC.
  * The old approach rewrote the entire managed_pages blob through site_settings,
  * which admin-only RLS blocked for public visitors (so counts never moved) and
- * which let an admin visit overwrite newer edits from a stale cache. */
+ * which let an admin visit overwrite newer edits from a stale cache.
+ *
+ * P31: this used to be `.then(() => {})` — no handler of any kind, on a PUBLIC
+ * page. Measured from the installed @supabase/postgrest-js: PostgrestBuilder
+ * .then() attaches its own .catch() whenever throwOnError() was not called (it
+ * is not called here), and that catch RETURNS a resolved
+ * `{ data: null, error, status: 0 }`. So a withdrawn grant does not crash the
+ * page — it resolves with `error.code = "42501"`, and the empty callback threw
+ * that on the floor. The counter would have stopped working permanently with
+ * nothing to notice it by.
+ *
+ * So both halves are handled, and neither is allowed to reach the visitor:
+ * the resolved-error path is the one a revoke actually takes, and the rejection
+ * handler covers the rejecting path that becomes reachable if this call site is
+ * ever given .throwOnError() or the client throws before the builder is reached.
+ * A view counter must never be able to break the page it counts. */
 function incrementViewCount(pageId: string) {
-  supabase.rpc("increment_managed_page_view", { _page_id: pageId }).then(() => {});
+  // Two-argument .then, not .then().catch(): PostgrestBuilder.then() is typed
+  // PromiseLike<T>, which has no .catch(). Passing the rejection handler as the
+  // second argument covers the same path and typechecks.
+  void supabase
+    .rpc("increment_managed_page_view", { _page_id: pageId })
+    .then(
+      ({ error }) => {
+        if (error) warnViewCountFailed(error);
+      },
+      (cause: unknown) => {
+        warnViewCountFailed(cause);
+      },
+    );
 }
 
 const ManagedPageView = () => {
