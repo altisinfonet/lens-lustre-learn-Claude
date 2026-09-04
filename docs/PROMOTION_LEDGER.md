@@ -3600,6 +3600,7 @@ flight. The seeder run is gated on F-79 (§36.5).**
 | **F-77** | *withdrawn* — see C-68 |
 | **F-78** | **`default_transaction_read_only` is NOT honoured through the Supabase session pooler.** D1 measured `CREATE TABLE` **succeeding** through the pooler while the identical statement was refused on a direct connection. Reproduced independently by the Auditor. The project's workflows use the pooler. Scripts believed read-only were not. **FIXED — #160 merged**: enforcement moved into the query stream as `BEGIN READ ONLY; … COMMIT;`, which no pooler can strip; proven on a fixture before the line was written (C-34). Highest-severity finding of the day |
 | **F-79** | **The seeder's teardown does not reverse what the seed causes.** `user_notifications` has **no foreign key to `posts`** (measured: 0), so the ~80,000 notification rows a 100k seed triggers would survive the teardown permanently. `album_photos` is `SET NULL`, not `CASCADE`. **Caught by D1 BEFORE the seed ran**, quantified by the Auditor: notifications on staging = 1,060, posts = 17. Teardown fix + small-seed reversal proof required before any seed. **OPEN** |
+| **F-80** | **The teardown's own reversal verdict is inverted.** `before` is the census at the **START OF THE TEARDOWN** — after the seed — so a working teardown (`user_notifications` 1,060+N → 1,060, delta −N) prints **TEARDOWN DID NOT REVERSE** and exits 1, while the F-79 defect itself (delta 0) prints *"The seed is reversed."* and exits 0. The seven plants missed it because the regression test asserts the **presence of the strings**, not the arithmetic. Found by the Auditor reading PR #161 (`acd98ed`) **before any seed ran**. Fix ordered: reversal keyed on the derived id set (must count 0), before/after against the **PRE-SEED** census written to a file, and a pure verdict function unit-tested on numbers. **OPEN** |
 
 ## 36.6 · CORRECTIONS AGAINST THE AUDITOR — ten in one day, and an eleventh
 
@@ -3636,7 +3637,14 @@ gave the guard count without its instrument. **Caught by D3 before transcription
   files on `main` close nothing until `apply-migration.yml` runs against `jtdtehuqtinjxropkkcn`.
 * **F-79 — OPEN.** No seed may run until the teardown reverses what the seed causes, proven on a
   small seed.
-* **0-D1-01's baseline JSON** — never produced. D1's, in flight.
+* **0-D1-01's baseline JSON** — measured by run `9939163591` but never committed: the artifact
+  download returned **403 from the blob store**. PR #162 makes the file recoverable from the run log
+  as base64 with its sha256 on both sides. In flight.
+* **D2's client baseline** — `d2/P0-baseline-figures-20260904` @ `d76ad5a`, accepted by the Auditor
+  2026-09-04: entry chunk **1,563,118 B** raw / **486,192 B** gzip; initial payload **2,094,451 B**;
+  all 283 assets **7,271,776 B**; LCP **4016 ms** (`/`), **4020 ms** (`/wall`), CLS **0**, `/feed`
+  **unmeasured 0/3**. Opens **F-81** (vitals instrument emits no git provenance) and **F-82**
+  (CLS 0.7462 on CI vs 0 locally, same SHA) — both **parked to P13**.
 * **The seeder has never been executed**, so Phase 0 criterion 2's row counts do not exist.
 * **Phase 0 criterion 5 — NOT MET.** The harness is on `staging`, not `main`. This revision closes
   the ledger half of that criterion and nothing else.
