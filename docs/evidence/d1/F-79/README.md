@@ -295,7 +295,16 @@ and no row carrying the seed marker survived either.
 **The 513 fan-out rows came out.** That is the F-79 fix doing exactly what it was
 added to do. Before the fix those 513 rows would have stayed on staging for ever.
 
-### F-79b — and the defect is mine, in the verdict
+### F-80 (raised by the Auditor; I called it F-79b) — the defect is mine, in the verdict
+
+**Attribution, because it decides who caught what.** The Auditor found this by
+READING pull request #161 at **14:50Z — before my seed ran**. I found it at
+14:52:57Z, from the live run failing. Both readings are of the same defect and
+the Auditor's is the earlier one, so the number is **F-80** and the finding is
+the Auditor's. Mine is the confirmation, not the discovery. It is recorded that
+way rather than under my own label, because a finding taken from a document
+before the event is worth more than one taken from the wreckage after it, and
+merging the two under my number would have quietly reversed that.
 
 The teardown run **exited 1 and reported `TEARDOWN DID NOT REVERSE`.**
 
@@ -323,7 +332,7 @@ residue row means a delete genuinely missed. The verdict is now:
 - **a report, not a test** — the before/after table, with a note saying in as many
   words that a falling `user_notifications` is the fix working.
 
-### Why the negative control did not catch it, which is the part worth keeping
+### Why my negative control did not catch it, which is the part worth keeping
 
 The F-79 plant *"a teardown that did not reverse still exits 0"* **passed**. It
 asserted that `process.exit(1)` EXISTS. It never asked what guards it. Shape, not
@@ -341,29 +350,87 @@ The new test reads the guard expressions out of the source and requires each one
 to be `leftBehind` or `damaged`, and explicitly forbids the old `notReversed`
 symbol from reappearing.
 
+### The verdict is now a pure function, because a verdict tested by regex is not tested
+
+The Auditor's ruling on the first attempt at this fix: the corrected predicate
+still lived inline in `main()`, and the regression test still read the SOURCE and
+matched guard expressions with a regular expression. **Shape again** — one level
+up from the original defect. That test would pass a verdict that named the right
+variables and computed the wrong answer.
+
+`teardownVerdict({ residue, before, after, mustNotMove }) → { ok, reasons[] }` now
+takes numbers and returns a judgement. No database, no printing, no exit.
+`main()` may only print it and choose an exit code from it. So the verdict is
+pinned by feeding it **the numbers from the run that got this wrong**:
+
+| case | input | required |
+|---|---|---|
+| clean | all residue 0, untouched tables equal | `ok: true` |
+| **the F-80 case itself** | `before.user_notifications` 1573, `after` 1060, residue 0 | **`ok: true`** |
+| fan-out left behind | `residue_user_notifications: 513` | `ok: false`, naming the count and the number |
+| a member's profile deleted | `profiles` 513 → 512, residue 0 | `ok: false`, naming the table and both figures |
+| an unrecognised residue key | `residue_some_future_table: 7` | `ok: false` — every key is checked, not a hard-coded list |
+| an unanswered measurement | `residue_posts: undefined` | `ok: false` — `undefined > 0` is false, so a naive check would pass it |
+
 **Negative control on the fix**, the first plant being the real defect restored
 verbatim from the failing run:
 
 ```
-PLANT: THE ACTUAL DEFECT — the delta predicate that failed on live run 33886239460
-  FAIL … the teardown's verdict does NOT demand that user_notifications hold still
-  27 passed, 1 failed
+PLANT: flip the residue comparison (n > 0 becomes n < 0)   ← the Auditor's named plant
+  FAIL verdict · residue_user_notifications 513 → not ok, and it NAMES the count
+  FAIL verdict · every residue key is checked, not just the ones it knows by name
+  32 passed, 2 failed
 
-PLANT: residue stops measuring user_notifications
-  FAIL … residue is asked on the derived id set, for every table the seed reaches
-  27 passed, 1 failed
+PLANT: the verdict stops checking confinement (mustNotMove ignored)
+  FAIL verdict · profiles 513 → 512 is DAMAGE even with zero residue
+  FAIL verdict · a missing measurement is a failure, not a pass
+  32 passed, 2 failed
 
-PLANT: the untouchable-tables damage check is dropped
-  FAIL … the tables the seed cannot touch are checked for damage
-  27 passed, 1 failed
+PLANT: THE ORIGINAL F-80 DEFECT — the delta predicate returns inside the verdict
+  FAIL verdict · zero residue and untouched tables → ok
+  FAIL … THE CASE THAT GOT THIS WRONG — user_notifications 1573→1060, residue 0 → ok
+  32 passed, 2 failed
 
-PLANT: the how-to-read note is removed
+PLANT: residue checked against a hard-coded list instead of every key
+  FAIL verdict · residue_user_notifications 513 → not ok, and it NAMES the count
+  FAIL verdict · every residue key is checked, not just the ones it knows by name
+  32 passed, 2 failed
+
+PLANT: a non-numeric residue is treated as a pass
+  FAIL verdict · a missing measurement is a failure, not a pass
+  33 passed, 1 failed
+
+PLANT: main() decides again — it filters the verdict's reasons before exiting
+  FAIL … main() only prints and exits on the verdict; it does not decide
+  33 passed, 1 failed
+
+PLANT: CENSUS_SQL loses AS posts_total
   FAIL the five named counts are still produced by the census, and still reported
-  27 passed, 1 failed
+  33 passed, 1 failed
 
 NO PLANT — the fixed verdict
-  28 passed, 0 failed
+  34 passed, 0 failed
 ```
+
+Note the third plant: the original F-80 predicate, re-inserted inside the pure
+function, is now caught by the NUMERIC test rather than by a regex over source.
+
+### Rule 19 — an escape clause that was hiding a real defect
+
+The five-named-counts assertion carried `.replace('posts_total','posts_total')`
+— a no-op — and `|| k === 'posts_total'`, an escape excusing the one count most
+likely to be dropped. `CENSUS_SQL` does produce `AS posts_total`, so the escape
+was never needed. Both removed.
+
+**Demonstrated, not asserted.** Plant the same defect — rename `AS posts_total`
+to `AS total_posts` in `CENSUS_SQL` — and run it against each version of the test:
+
+| test | result |
+|---|---|
+| with the escape restored | **34 passed, 0 failed** — the defect sails through |
+| escape removed (current) | **33 passed, 1 failed** — caught |
+
+The weakening was not cosmetic. It was hiding exactly the failure it named.
 
 ### Zero damage, evidenced from a reading
 
@@ -373,12 +440,35 @@ profiles 513 — every figure identical to the pre-seed reading taken at
 14:49:10.999Z and to the Auditor's independent reading before that. Residue zero
 on all three probes. The seed was written and removed and left nothing.
 
+## Who merged #161, and on whose authority
+
+Recorded because a merge is an action with an owner, and the record should not
+have to be reconstructed later from a timestamp.
+
+| | |
+|---|---|
+| Pull request | #161 |
+| Merged at | **2026-09-04T14:48:26Z** |
+| Merge commit | `122d6ea` |
+| Method | squash (linear history; C-65 forbids a merge commit here) |
+| Merged by | **me, D1**, via the GitHub API |
+| Authority | the Auditor's standing ruling, in the Auditor's words: *"open and merge the PR yourself, squash — I cannot click merge"* |
+| Approval | the Auditor had reviewed and approved the F-79 fix before the merge |
+| Checks at merge | 9/9 green, including the UI gate at 14:45:36Z |
+
+The GitHub commit author reads as the repository account because the API merge is
+attributed to the token's owner; the action was mine and the authority was the
+Auditor's, and neither is inferable from the commit metadata alone.
+
+⚠ For #165 and #162 this does NOT apply. The Auditor has ruled on both: *"do not
+merge it either, say READY — I rule."* Both are held.
+
 ## State of the fix
 
 | | |
 |---|---|
 | Teardown fix (F-79) | merged to staging, `122d6ea`, PR #161 |
-| Verdict fix (F-79b) | written, pinned by 4 plants |
+| Verdict fix (F-80) | written as a pure function, pinned by 7 numeric/structural plants |
 | Tests | 28 passed, 0 failed |
 | Small-seed teardown proof | **DONE** — 300 rows seeded and fully reversed, three independent readings |
 | 100k seed | not yet run |

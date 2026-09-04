@@ -354,6 +354,65 @@ const TEARDOWN_ALBUM_GUARD_SQL = (fromOrdinal, toOrdinal) => `
                          FROM generate_series(${fromOrdinal}, ${toOrdinal}) g)
 `;
 
+// ── The verdict · a pure function, because a verdict tested by regex is not ──
+// tested at all
+//
+// F-79b was a WRONG PREDICATE that lived inline in main(), where the only thing
+// a test could reach was its source text. The regression test I wrote for it
+// read the file and matched guard expressions with a regular expression — which
+// is the same mistake one level up: it checks the shape of the code rather than
+// what the code decides. It would pass against a verdict that named the right
+// variables and computed the wrong answer.
+//
+// So the decision is separated from the I/O. This function touches no database,
+// prints nothing and exits nothing; it takes numbers and returns a judgement.
+// main() may only print it and choose an exit code from it. That makes the
+// verdict testable the one way that actually pins it: feed it the numbers from
+// the run that got this wrong — before.user_notifications 1573, after 1060,
+// residue 0 — and require ok:true.
+//
+//   residue      { residue_posts, residue_user_notifications, ... }  all must be 0
+//   before/after the census either side of the sweep — REPORTED, never asserted
+//   mustNotMove  tables the seed cannot write to or cause a write to
+//
+// Returns { ok, reasons }. reasons is empty when ok. Every reason NAMES the
+// count that produced it, so a failing run says which one and by how much.
+export function teardownVerdict({ residue = {}, before = {}, after = {}, mustNotMove = [] } = {}) {
+  const reasons = [];
+
+  // 1. COMPLETENESS. Nothing reachable by the derived id set may survive a
+  //    sweep of that id set. This is the only question answerable exactly
+  //    without a pre-seed baseline, which a teardown run does not have.
+  for (const [key, value] of Object.entries(residue)) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) {
+      reasons.push(`${key} is not a number (${JSON.stringify(value)}) — the residue query did not answer`);
+    } else if (n > 0) {
+      reasons.push(`${key}=${n} — rows reachable by the derived id set survived the sweep`);
+    }
+  }
+
+  // 2. CONFINEMENT. Residue proves the sweep was complete; this proves it was
+  //    confined. A teardown that deleted a member's profile would leave zero
+  //    residue and look clean.
+  for (const key of mustNotMove) {
+    const b = Number(before[key]);
+    const a = Number(after[key]);
+    if (!Number.isFinite(b) || !Number.isFinite(a)) {
+      reasons.push(`${key} was not measured on both sides — a table that cannot be compared cannot be cleared`);
+    } else if (b !== a) {
+      reasons.push(`${key} ${b} → ${a} — the teardown touched a table the seed cannot write to`);
+    }
+  }
+
+  // 3. NOT A REASON, DELIBERATELY: a falling posts_total or user_notifications.
+  //    Those SHOULD fall — the fan-out rows the seed caused are exactly what
+  //    F-79 added the second delete to remove. The first version of this
+  //    verdict failed on that movement and called a working teardown broken.
+
+  return { ok: reasons.length === 0, reasons };
+}
+
 // ── Arguments ──────────────────────────────────────────────────────────────
 function parseArgs(argv) {
   const out = {
@@ -503,7 +562,9 @@ function main() {
     // what the run passes or fails on, because it is the only question whose
     // right answer is knowable without a pre-seed baseline this run never saw.
     const residue = queryOne(dsn, TEARDOWN_RESIDUE_SQL(1, args.rows));
-    const leftBehind = Object.entries(residue).filter(([, v]) => Number(v) > 0);
+    const verdict = teardownVerdict({
+      residue, before, after, mustNotMove: TEARDOWN_MUST_NOT_MOVE,
+    });
 
     const moved = TEARDOWN_PROOF_COUNTS.map((k) => ({
       count: k,
@@ -511,12 +572,10 @@ function main() {
       after: Number(after[k]),
       delta: Number(after[k]) - Number(before[k]),
     }));
-    const damaged = TEARDOWN_MUST_NOT_MOVE
-      .map((k) => ({ count: k, before_this_run: Number(before[k]), after: Number(after[k]) }))
-      .filter((r) => r.before_this_run !== r.after);
 
     console.log(`\nTeardown swept ordinals 1..${args.rows}.`);
     console.log(JSON.stringify({
+      verdict,
       residue_on_the_derived_id_set: residue,
       counts_before_and_after_this_run: moved,
       tables_the_seed_cannot_touch: TEARDOWN_MUST_NOT_MOVE.map((k) => ({
@@ -533,20 +592,9 @@ function main() {
         + 'reading taken BEFORE the seed; this run cannot do that for you and does not pretend to.',
     }, null, 2));
 
-    if (damaged.length > 0) {
-      console.error(
-        `\nTEARDOWN TOUCHED SOMETHING THAT WAS NOT THE SEED'S: `
-        + `${damaged.map((r) => `${r.count} ${r.before_this_run} → ${r.after}`).join('; ')}. `
-        + 'The seed cannot write to these tables or cause a write to them. Investigate before re-running.',
-      );
-      process.exit(1);
-    }
-    if (leftBehind.length > 0) {
-      console.error(
-        `\nTEARDOWN DID NOT REVERSE: ${leftBehind.map(([k, v]) => `${k}=${v}`).join('; ')}. `
-        + 'Rows reachable by the derived id set survived a sweep of that id set. '
-        + 'Do not report this run as clean.',
-      );
+    if (!verdict.ok) {
+      console.error(`\nTEARDOWN FAILED ITS OWN VERDICT:\n  - ${verdict.reasons.join('\n  - ')}\n`
+        + 'Do not report this run as clean.');
       process.exit(1);
     }
     console.log(

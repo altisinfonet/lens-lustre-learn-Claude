@@ -24,7 +24,7 @@ import { LANES, PRODUCTION_REF, refuseProduction } from './db-lane-guard.mjs';
 import {
   SEED_NAMESPACE, insertBatchSql, parseArgs, CENSUS_SQL, TEARDOWN_SQL,
   TEARDOWN_ALBUM_GUARD_SQL, TEARDOWN_RESIDUE_SQL, TEARDOWN_PROOF_COUNTS,
-  TEARDOWN_MUST_NOT_MOVE,
+  TEARDOWN_MUST_NOT_MOVE, teardownVerdict,
 } from './db-seed-staging.mjs';
 
 // The lane guard and the baseline have their own suite,
@@ -220,32 +220,113 @@ check('⟵ REGRESSION F-79 · album_photos is SET NULL, so the teardown refuses 
   assert(/REFUSING at ordinals/.test(branch), 'the guard does not refuse, it only measures');
 });
 
-check('⟵ REGRESSION F-79b · the teardown\'s verdict does NOT demand that user_notifications hold still', () => {
-  // THE DEFECT THIS PINS, and it is mine. The first verdict compared every
-  // census before and after the sweep and failed on any non-posts movement. On
-  // the first real run it reported failure at user_notifications 1573 → 1060 —
-  // and that movement was the 513 fan-out rows the seed caused being removed,
-  // which is the entire point of F-79. The predicate failed exactly when the fix
-  // worked.
-  //
-  // The test that was supposed to catch this asserted `process.exit(1)` EXISTS.
-  // It never asked what guards it. Shape, not meaning. This one asks.
+// ── The verdict, tested on NUMBERS ─────────────────────────────────────────
+// The first F-79b regression test read the source and matched guard expressions
+// with a regular expression. That is the same defect one level up: it checks
+// what the code LOOKS like, not what it DECIDES, and would pass a verdict that
+// named the right variables and computed the wrong answer. teardownVerdict is a
+// pure function precisely so these can be numbers.
+const CLEAN_RESIDUE = {
+  residue_posts: 0,
+  residue_user_notifications: 0,
+  residue_album_photos: 0,
+  residue_post_hashtags: 0,
+  residue_feed_events: 0,
+  residue_post_reports: 0,
+};
+const UNTOUCHED = { profiles: 513, follows: 513, post_media: 5 };
+
+check('verdict · zero residue and untouched tables → ok', () => {
+  const v = teardownVerdict({
+    residue: CLEAN_RESIDUE,
+    before: { ...UNTOUCHED },
+    after: { ...UNTOUCHED },
+    mustNotMove: TEARDOWN_MUST_NOT_MOVE,
+  });
+  assert(v.ok === true, `a clean teardown was judged failed: ${v.reasons.join('; ')}`);
+  assert(v.reasons.length === 0, 'a passing verdict carries reasons');
+});
+
+check('⟵ REGRESSION F-79b · THE CASE THAT GOT THIS WRONG — user_notifications 1573→1060, residue 0 → ok', () => {
+  // These are the actual numbers from live run 33886239460. The teardown had
+  // worked perfectly: the 513 fan-out rows the seed caused were removed. The old
+  // predicate compared against the census at the start of its own run and
+  // reported "TEARDOWN DID NOT REVERSE". It failed exactly when the fix worked.
+  const v = teardownVerdict({
+    residue: CLEAN_RESIDUE,
+    before: { ...UNTOUCHED, posts_total: 317, user_notifications: 1573 },
+    after: { ...UNTOUCHED, posts_total: 17, user_notifications: 1060 },
+    mustNotMove: TEARDOWN_MUST_NOT_MOVE,
+  });
+  assert(v.ok === true,
+    `the verdict again fails a working teardown: ${v.reasons.join('; ')}`);
+});
+
+check('verdict · residue_user_notifications 513 → not ok, and it NAMES the count', () => {
+  // This is the F-79 defect itself: the fan-out rows left behind. Before the
+  // teardown fix this is what a 300-row seed would have left.
+  const v = teardownVerdict({
+    residue: { ...CLEAN_RESIDUE, residue_user_notifications: 513 },
+    before: { ...UNTOUCHED },
+    after: { ...UNTOUCHED },
+    mustNotMove: TEARDOWN_MUST_NOT_MOVE,
+  });
+  assert(v.ok === false, 'rows left behind were judged clean');
+  assert(v.reasons.some((r) => /residue_user_notifications/.test(r) && /513/.test(r)),
+    `the reason does not name the count and the number: ${v.reasons.join('; ')}`);
+});
+
+check('verdict · profiles 513 → 512 is DAMAGE even with zero residue', () => {
+  // A teardown that deleted a member's profile leaves no residue and would look
+  // clean on completeness alone. Confinement is a separate question.
+  const v = teardownVerdict({
+    residue: CLEAN_RESIDUE,
+    before: { ...UNTOUCHED },
+    after: { ...UNTOUCHED, profiles: 512 },
+    mustNotMove: TEARDOWN_MUST_NOT_MOVE,
+  });
+  assert(v.ok === false, 'a deleted member profile was judged clean');
+  assert(v.reasons.some((r) => /profiles/.test(r) && /513/.test(r) && /512/.test(r)),
+    `the reason does not name the table and both figures: ${v.reasons.join('; ')}`);
+});
+
+check('verdict · every residue key is checked, not just the ones it knows by name', () => {
+  // The residue query gains a table when the schema does. A verdict that only
+  // looked at a hard-coded list would silently ignore the new one.
+  const v = teardownVerdict({
+    residue: { ...CLEAN_RESIDUE, residue_some_future_table: 7 },
+    before: { ...UNTOUCHED }, after: { ...UNTOUCHED }, mustNotMove: TEARDOWN_MUST_NOT_MOVE,
+  });
+  assert(v.ok === false, 'a residue key the verdict did not recognise was ignored');
+  assert(v.reasons.some((r) => /residue_some_future_table=7/.test(r)), 'the new key is not named');
+});
+
+check('verdict · a missing measurement is a failure, not a pass', () => {
+  // undefined > 0 is false in JavaScript, so a residue query that silently
+  // failed to answer would sail through a naive check.
+  const a = teardownVerdict({
+    residue: { residue_posts: undefined },
+    before: { ...UNTOUCHED }, after: { ...UNTOUCHED }, mustNotMove: TEARDOWN_MUST_NOT_MOVE,
+  });
+  assert(a.ok === false, 'an unanswered residue query was judged clean');
+  const b = teardownVerdict({
+    residue: CLEAN_RESIDUE,
+    before: { profiles: 513 }, after: { profiles: 513 }, mustNotMove: ['profiles', 'follows'],
+  });
+  assert(b.ok === false, 'a table missing from both censuses was judged clean');
+  assert(b.reasons.some((r) => /follows/.test(r)), 'the unmeasured table is not named');
+});
+
+check('⟵ REGRESSION F-79b · main() only prints and exits on the verdict; it does not decide', () => {
+  // The decision must not drift back inline, where only a regex could reach it.
   const src = readFileSync(new URL('./db-seed-staging.mjs', import.meta.url), 'utf8');
   const code = src.replace(/^\s*\/\/.*$/gm, '');
   const branch = code.slice(code.indexOf('if (args.teardown)'), code.indexOf('const publicShare'));
-
-  assert(/leftBehind/.test(branch), 'the verdict no longer tests residue at all');
-  // The failing predicate must be keyed on residue, never on a census delta.
-  const failGuards = [...branch.matchAll(/if \(([^)]*?)\.length > 0\) \{[\s\S]*?process\.exit\(1\)/g)]
-    .map((m) => m[1].trim());
-  assert(failGuards.length > 0, 'nothing in the teardown branch can exit 1');
-  for (const g of failGuards) {
-    assert(g === 'leftBehind' || g === 'damaged',
-      `the teardown exits 1 on '${g}' — a verdict keyed on anything but residue or `
-      + 'the untouchable tables will fail when the fix works');
-  }
-  assert(!/notReversed/.test(branch),
-    'the old delta-based predicate is still present — it fails whenever a teardown actually removes something');
+  assert(/teardownVerdict\(/.test(branch), 'the teardown branch no longer calls the verdict function');
+  assert(/if \(!verdict\.ok\)/.test(branch), 'the exit is not taken from the verdict');
+  assert(!/notReversed/.test(branch), 'the old delta-based predicate is back');
+  assert(!/\.filter\(/.test(branch.slice(branch.indexOf('teardownVerdict('))),
+    'main() filters counts after calling the verdict — it is deciding again');
 });
 
 check('⟵ REGRESSION F-79b · residue is asked on the derived id set, for every table the seed reaches', () => {
@@ -273,11 +354,15 @@ check('⟵ REGRESSION F-79b · the tables the seed cannot touch are checked for 
 check('the five named counts are still produced by the census, and still reported', () => {
   // They are no longer the pass/fail test (F-79b), but they remain the figures a
   // human reads to see the reversal, so they must not quietly disappear.
+  //
+  // ⚠ This assertion previously carried .replace('posts_total','posts_total') —
+  // a no-op — and `|| k === 'posts_total'`, an escape that excused the one count
+  // most likely to be dropped. CENSUS_SQL does produce AS posts_total, so the
+  // escape was never needed; it weakened the check to make it pass a problem
+  // that did not exist. Rule 19: removed, and the check is stricter for it.
   for (const k of ['posts_total', 'user_notifications', 'post_hashtags', 'feed_events', 'album_photos']) {
     assert(TEARDOWN_PROOF_COUNTS.includes(k), `${k} is no longer reported`);
-    assert(new RegExp(`AS\\s+${k.replace('posts_total', 'posts_total')}\\b`).test(CENSUS_SQL)
-        || k === 'posts_total',
-      `CENSUS_SQL does not produce ${k}`);
+    assert(new RegExp(`AS\\s+${k}\\b`).test(CENSUS_SQL), `CENSUS_SQL does not produce ${k}`);
   }
   const src = readFileSync(new URL('./db-seed-staging.mjs', import.meta.url), 'utf8');
   assert(/counts_before_and_after_this_run/.test(src), 'the before/after report was dropped');
