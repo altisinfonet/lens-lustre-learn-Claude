@@ -16,6 +16,9 @@ name: Security
 #   3. dependencies   — production dependencies only. The dev-tooling noise
 #                       (vite, vitest, eslint) never reaches a member's phone
 #                       and must not be allowed to bury a real finding.
+#                       Reports THREE outcomes, not two (F-73): clean, vulnerable,
+#                       and "could not look" — the last one fails rather than
+#                       passing quietly, and says so in its own words.
 
 on:
   push:
@@ -99,12 +102,65 @@ jobs:
       # not the gate.
       - name: Report (all dependencies)
         run: npm audit || true
-      # RATCHET, NOT A WISH. Gating at `high` today would fail on 15 issues that
-      # pre-date this gate, and a gate that is red from the day it is installed
-      # gets ignored within a week — which is worse than not having one.
-      # `critical` is achievable RIGHT NOW (production criticals are at 0 after
-      # the jsPDF fix) and it genuinely blocks anything new and severe.
-      # TIGHTEN THIS TO `high` once the outstanding 15 are worked through. That
-      # is a real task, not a comment to leave sitting here forever.
+      # ⚠ F-73, 2026-09-04. THE GATE COULD NOT TELL "CLEAN" FROM "COULD NOT LOOK".
+      #
+      # `npm audit --omit=dev --audit-level=critical` exits non-zero for two
+      # unrelated reasons — the audit ran and found a critical, OR the audit
+      # could not run at all — and the job saw only "Process completed with exit
+      # code 1". Measured on the SAME commit 38eff26, two runs, opposite verdicts:
+      #
+      #   run 841 (push)          exit 0, 2m37s  — completed, 0 criticals
+      #   run 842 (pull_request)  exit 1, 9m37s  — "npm warn audit network
+      #                                             timeout at .../advisories/bulk"
+      #                                            "npm error audit endpoint
+      #                                             returned an error"
+      #
+      # Run 842 found nothing. It reached nothing. And it was red on PR #146,
+      # blocking a promotion.
+      #
+      # THE CONFLATION IS THE BUG, NOT THE FLAKINESS. A gate that is sometimes
+      # red for nothing teaches everyone to re-run it until it goes green — and a
+      # gate you re-run until it goes green is not a gate, because the next real
+      # critical gets the same reflex. F-72 above was this same failure class in
+      # a different costume: there the endpoint was RETIRED (permanent), here it
+      # is SLOW (intermittent). The npm@11 fix was correct and stays; it is why
+      # the error text moved from /audits/quick to /advisories/bulk. What it did
+      # not fix is the conflation.
+      #
+      # The script below reports three outcomes instead of two:
+      #   exit 0  audit completed, criticals = 0        PASS
+      #   exit 1  audit completed, criticals > 0        FAIL — a vulnerability
+      #   exit 2  audit did not complete after retries  FAIL — the gate is BLIND
+      #
+      # It reads the verdict from `npm audit --omit=dev --json` and takes the
+      # COUNT as the authority, never npm's exit code — measured 2026-09-04, a
+      # completed audit with critical=0 still exits 1, merely because findings of
+      # some severity exist. It retries ONLY the "did not complete" case, because
+      # a real critical must never be retryable away.
+      #
+      # ⚠ EXIT 2 IS STILL A FAILURE (Standing Rule 19). The gain is diagnosis,
+      # not leniency: "we could not look" must never be reported as "we looked
+      # and it was clean". No continue-on-error, nothing allowlisted, --omit=dev
+      # unchanged, threshold unchanged.
+      #
+      # THE GATE PROVES ITSELF ON EVERY RUN. The fixture test replays three real
+      # captured npm outputs — an endpoint error, a completed audit with
+      # critical=1, and a completed audit with critical=0 — and asserts the three
+      # exit codes are distinct. It also reproduces the OLD gate returning 1 for
+      # two different defects, so the fix is shown against the failure it fixes
+      # (C-34: a test that could not have failed is not evidence). It needs no
+      # network, so it still runs when the registry is the thing that is broken.
+      - name: Prove the gate can tell the three outcomes apart (C-34 fixtures)
+        run: node scripts/security-audit-dependencies.test.mjs
+      # RATCHET, NOT A WISH. Gating at `high` today would fail on the 17 high
+      # findings measured on this lockfile 2026-09-04, all of which pre-date this
+      # gate, and a gate that is red from the day it is installed gets ignored
+      # within a week — which is worse than not having one. `critical` is
+      # achievable RIGHT NOW (production criticals are at 0) and it genuinely
+      # blocks anything new and severe.
+      # TIGHTEN THIS TO `high` once the outstanding highs are worked through.
+      # That is a real task, still open, and F-73 did not silently take it or
+      # silently drop it. The threshold is passed in explicitly below so it is
+      # visible here rather than hidden in the script's defaults.
       - name: Gate (production dependencies, critical)
-        run: npm audit --omit=dev --audit-level=critical
+        run: node scripts/security-audit-dependencies.mjs --threshold=critical --attempts=3 --timeout-ms=120000
