@@ -83,7 +83,12 @@ const VerifyCertificate = () => {
 
     const { data, error } = await supabase.rpc("verify_certificate", { _cert_id: trimmed });
 
-    if (error || !data || data.length === 0) {
+    // P31: the by-ID path carries the same defect the by-name path did, and it
+    // is the path the unavailable panel redirects people to. Splitting only the
+    // by-name branch would move the bug rather than remove it.
+    if (isSearchUnavailableError(error)) {
+      setSearchUnavailable(true);
+    } else if (error || !data || data.length === 0) {
       setNotFound(true);
     } else {
       setResults(data as VerifiedCert[]);
@@ -386,11 +391,12 @@ const VerifyCertificate = () => {
             >
               <Ban className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
               <p className="text-sm text-foreground mb-1" style={{ fontFamily: "var(--font-heading)" }}>
-                Search Unavailable
+                {mode === "id" ? "Verification Unavailable" : "Search Unavailable"}
               </p>
               <p className="text-xs text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                Searching by name or course is no longer available. You can still
-                verify a certificate using its certificate ID.
+                {mode === "id"
+                  ? "We could not complete this check just now. This does not mean the certificate is invalid — please try again shortly."
+                  : "Searching by name or course is no longer available. You can still verify a certificate using its certificate ID."}
               </p>
             </motion.div>
           )}

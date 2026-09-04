@@ -170,6 +170,41 @@ asserting a control that does not exist — and it was removed rather than left 
 
 ---
 
+## 3b · The by-ID collapse site (`:81`, `verify_certificate`) — added on the Auditor's ruling
+
+Raised as a finding, then ruled in scope: the *Search Unavailable* panel tells members to verify by
+certificate ID, so leaving the same defect on the by-ID path would move the bug rather than remove
+it. `verify_certificate` is **not** on §2.1 — nothing is blocked by this today.
+
+### FAIL-FIRST — by-ID path unpatched
+
+```
+× by-ID path > shows the unavailable panel, and NOT 'No Certificates Found', on 42501
+× by-ID path > uses by-ID wording, not the by-name wording, on the ID path
+× by-ID path > never shows a raw error message to a member on the ID path
+✓ by-ID path > GUARD still says 'No Certificates Found' for a genuine unknown ID
+Test Files  1 failed (1)
+     Tests  3 failed | 12 passed (15)
+```
+
+### AFTER
+
+```
+Test Files  1 passed (1)
+     Tests  15 passed (15)
+```
+
+The panel heading and body branch on `mode`: telling someone already on the by-ID path to "use the
+certificate ID" is circular, so the ID path reads *"Verification Unavailable — we could not
+complete this check just now. This does not mean the certificate is invalid."* A test asserts the
+by-name wording does **not** appear on the ID path, so the two cannot silently converge.
+
+Per the Auditor's ruling the mode toggle is **NOT** hidden: the tab vanishing underneath someone
+mid-mode is worse than the tab being there, and knowing the grant state before the call is a design
+decision rather than a one-liner. Closed, not deferred.
+
+---
+
 ## 4 · Findings raised against the frozen list
 
 See the PR body. In summary: §2.2's "all four verification pages" describes four *collapse sites*
@@ -184,10 +219,10 @@ BEFORE (staging, untouched)   Test Files  5 failed | 174 passed | 1 skipped (180
                                    Tests  2 failed | 2456 passed | 1 skipped (2459)
 
 AFTER  (this branch)          Test Files  5 failed | 176 passed | 1 skipped (182)
-                                   Tests  2 failed | 2471 passed | 1 skipped (2474)
+                                   Tests  2 failed | 2475 passed | 1 skipped (2478)
 ```
 
-+2 files, +15 tests, all passing. **The same 5 files and the same 2 tests fail before and after.**
++2 files, +19 tests, all passing. **The same 5 files and the same 2 tests fail before and after.**
 Nothing was broken and no existing test was loosened, skipped or disabled.
 
 `bunx vitest run` is **not green**, and was not green before this branch. Causes, all outside

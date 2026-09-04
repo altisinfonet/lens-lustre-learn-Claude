@@ -85,6 +85,25 @@ const REFUSAL_PGRST202 = {
   message: "Could not find the function public.search_certificates",
 };
 
+/** Drive the "By Certificate ID" path — verify_certificate, the OTHER collapse
+ *  site in this file. It is the path the Search Unavailable panel sends people
+ *  to, so it must not carry the same defect the panel is redirecting them away
+ *  from. verify_certificate is NOT on the revocation list; this is not blocking
+ *  a revoke, it is refusing to move the bug instead of removing it. */
+const runIdVerify = async () => {
+  render(
+    <MemoryRouter>
+      <VerifyCertificate />
+    </MemoryRouter>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: /by certificate id/i }));
+  fireEvent.change(screen.getByPlaceholderText(/a1b2c3d4/i), {
+    target: { value: "CERT-2026ABCD" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /^verify$/i }));
+  await waitFor(() => expect(rpcMock).toHaveBeenCalled());
+};
+
 beforeEach(() => {
   rpcMock.mockReset();
 });
@@ -170,5 +189,44 @@ describe("VerifyCertificate — a refusal must not be rendered as an absence", (
 
     await waitFor(() => expect(rpcMock).toHaveBeenCalled());
     expect(screen.queryByText(/search unavailable/i)).toBeNull();
+  });
+});
+
+describe("VerifyCertificate — the by-ID path must not carry the same defect", () => {
+  it("shows the unavailable panel, and NOT 'No Certificates Found', on 42501", async () => {
+    rpcMock.mockResolvedValue({ data: null, error: REFUSAL_42501 });
+    await runIdVerify();
+
+    await waitFor(() => expect(screen.getByText(/verification unavailable/i)).toBeTruthy());
+    expect(screen.queryByText(/no certificates found/i)).toBeNull();
+  });
+
+  it("uses by-ID wording, not the by-name wording, on the ID path", async () => {
+    rpcMock.mockResolvedValue({ data: null, error: REFUSAL_PGRST202 });
+    await runIdVerify();
+
+    await waitFor(() => expect(screen.getByText(/verification unavailable/i)).toBeTruthy());
+    // The by-name panel tells people to use the certificate ID. On the ID path
+    // that advice is circular, so it must not appear.
+    expect(screen.queryByText(/you can still verify a certificate using its certificate id/i)).toBeNull();
+    // and it must not imply the certificate is in doubt
+    expect(screen.getByText(/does not mean the certificate is invalid/i)).toBeTruthy();
+  });
+
+  it("never shows a raw error message to a member on the ID path", async () => {
+    rpcMock.mockResolvedValue({ data: null, error: REFUSAL_42501 });
+    await runIdVerify();
+
+    await waitFor(() => expect(screen.getByText(/verification unavailable/i)).toBeTruthy());
+    expect(screen.queryByText(/permission denied/i)).toBeNull();
+    expect(screen.queryByText(/42501/)).toBeNull();
+  });
+
+  it("GUARD still says 'No Certificates Found' for a genuine unknown ID", async () => {
+    rpcMock.mockResolvedValue({ data: [], error: null });
+    await runIdVerify();
+
+    await waitFor(() => expect(screen.getByText(/no certificates found/i)).toBeTruthy());
+    expect(screen.queryByText(/verification unavailable/i)).toBeNull();
   });
 });
