@@ -129,6 +129,41 @@ jobs:
           set -euo pipefail
           find docs/evidence/d1/baseline -name '*.json' -newermt '-30 minutes' -print -exec head -c 4000 {} \; -exec echo \;
 
+      # ⚠ THE ARTIFACT IS NOT ALWAYS REACHABLE, AND A BASELINE NOBODY CAN COMMIT
+      # IS NOT EVIDENCE.
+      #
+      # 0-D1-01 requires the JSON COMMITTED, not merely produced. The upload
+      # below has been the only route to it, and on 2026-09-04 that route was
+      # closed: run 9939163591's artifact returned 403 from the Azure blob store,
+      # so a baseline that had been measured correctly could not be committed and
+      # the task stayed open with nothing wrong with the measurement.
+      #
+      # The step above prints the first 4000 bytes, which is a preview and not a
+      # recovery: the file is larger, and a truncated JSON does not parse. This
+      # step emits the WHOLE file base64-encoded, with its sha256 on either side
+      # of it, so the exact bytes can be reconstructed from the log and CHECKED
+      # rather than retyped. Transcribing a document by eye and calling it the
+      # measurement is how a number becomes fiction.
+      #
+      # Safe to print: the artefact holds catalogue readings, the public project
+      # ref, and timings. SUPABASE_DB_URL never enters it — every error path in
+      # the script goes through scrub() — and this workflow never echoes it.
+      - name: Emit the baseline so it can be recovered from this log and verified
+        run: |
+          set -euo pipefail
+          find docs/evidence/d1/baseline -name '*.json' -newermt '-30 minutes' -print0 \
+          | while IFS= read -r -d '' f; do
+              echo "═══════════════════════════════════════════════════════════"
+              echo "FILE   $f"
+              echo "BYTES  $(wc -c < "$f")"
+              echo "SHA256 $(sha256sum "$f" | cut -d' ' -f1)"
+              echo "----- BEGIN BASE64 -----"
+              base64 -w 100 "$f"
+              echo "----- END BASE64 -----"
+              echo "SHA256 $(sha256sum "$f" | cut -d' ' -f1)"
+              echo "To recover:  base64 -d > \"$(basename "$f")\"   then sha256sum and compare."
+            done
+
       - uses: actions/upload-artifact@v4
         with:
           name: d1-baseline-${{ inputs.target }}-${{ github.run_id }}
@@ -138,6 +173,14 @@ jobs:
 
       - name: What to do with it
         run: |
-          echo "The JSON is attached to this run. It is NOT committed by this workflow, on purpose."
-          echo "Download it, put it under docs/evidence/d1/baseline/, and open a PR against staging."
+          echo "The JSON is attached to this run AND printed above as base64 with its sha256."
+          echo "It is NOT committed by this workflow, on purpose: this job holds a database credential"
+          echo "and has permissions: contents: read, so it cannot write to the repository."
+          echo ""
+          echo "Two routes to the committed file, and the second works when the first does not:"
+          echo "  1. Download the artifact, put it under docs/evidence/d1/baseline/, open a PR against staging."
+          echo "  2. Copy the base64 block above, decode it, and CHECK the sha256 matches before committing."
+          echo "     Route 1 was unavailable on 2026-09-04 (artifact 403 from the blob store), which is why"
+          echo "     route 2 exists. A recovered file whose sha256 does not match is not the measurement."
+          echo ""
           echo "The gate reads: a committed baseline for every unit that claims a number, with the timestamp of measurement on every line."
