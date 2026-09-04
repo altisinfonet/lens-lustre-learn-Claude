@@ -268,6 +268,38 @@ for (const wf of ['.github/workflows/d1-baseline.yml', '.github/workflows/d1-gua
 }
 
 
+check('⟵ REGRESSION 0-D1-01 · the baseline is recoverable from the log, not only from the artifact', () => {
+  // A baseline that was measured correctly and cannot be committed leaves the
+  // task open with nothing wrong with the measurement. That is what happened on
+  // 2026-09-04: run 9939163591's artifact returned 403 from the blob store, and
+  // the only other route was a step printing the first 4000 bytes — a preview,
+  // not a recovery, because a truncated JSON does not parse.
+  const src = readFileSync(new URL('../.github/workflows/d1-baseline.yml', import.meta.url), 'utf8');
+  assert(/base64 -w 100/.test(src), 'the workflow no longer emits the whole file as base64');
+  assert(/sha256sum/.test(src), 'the workflow emits base64 with no checksum — a transcription error would be silent');
+  assert(/BEGIN BASE64/.test(src) && /END BASE64/.test(src),
+    'the base64 block has no delimiters, so it cannot be sliced out of a log mechanically');
+  // Proved by round trip 2026-09-04: a 37,437-byte artefact recovered
+  // byte-identical, and flipping one base64 character changed the sha256.
+});
+
+check('⟵ REGRESSION F-78 · the artefact does not claim PGOPTIONS is what enforces read-only', () => {
+  // Standing Rule 21: an instructing comment is a control, and this string is
+  // worse than a comment — it is metadata that ships inside the committed
+  // evidence. F-78 measured that PGOPTIONS does not survive the Supabase session
+  // pooler; the wrapper does the work. A baseline whose own instrument block
+  // names the wrong mechanism is a document disagreeing with the system it
+  // claims to describe.
+  const src = readFileSync(new URL('./db-baseline.mjs', import.meta.url), 'utf8');
+  const block = src.slice(src.indexOf('read_only:'), src.indexOf('read_only:') + 700);
+  assert(/BEGIN READ ONLY/.test(block),
+    'the artefact does not say the read-only wrapper is what enforces read-only');
+  assert(/25006/.test(block), 'the artefact no longer names the negative control that proves it');
+  assert(/F-78/.test(block) && /pooler/.test(block),
+    'the artefact still presents PGOPTIONS without recording that F-78 measured it inoperative here');
+});
+
+
 check('d1-guard-check.yml holds no secret: placeholder password, RFC 2606 host, no secrets.* reference', () => {
   const src = readFileSync(new URL('../.github/workflows/d1-guard-check.yml', import.meta.url), 'utf8');
   assert(!/secrets\./.test(src), 'the guard check reads a secret — it must not need one');
