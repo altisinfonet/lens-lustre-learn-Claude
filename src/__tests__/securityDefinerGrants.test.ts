@@ -33,6 +33,21 @@
  * defect — and this test is what says so on the day it is written rather than
  * months later.
  *
+ * F-76 — AND THERE IS A THIRD LEGITIMATE CASE, WHICH THIS GUARD USED TO HAVE NO
+ * WAY TO EXPRESS. `get_top_contributors_v3` is the Home page Top Contributors
+ * card: SECURITY DEFINER, granted to anon on purpose, and it MUST work for a
+ * logged-out visitor. It is neither revoked nor internally gated, and it is not
+ * a defect. With only two categories this guard was permanently red on a
+ * correct function — and a guard that is permanently red is one someone
+ * eventually deletes. That is the same disease as F-72 and F-73.
+ *
+ * So a third category exists, and it is deliberately expensive to claim: the
+ * claim lives in the MIGRATION, not in an allow-list here (an allow-list is
+ * invisible from the file it excuses, and it rots), and it requires ALL of a
+ * named marker with real prose, the F-62-safe REVOKE-before-GRANT shape, and a
+ * non-VOLATILE function. See `support/publicByDesign.ts`, whose own refusals are
+ * proven in `publicByDesignMarker.test.ts`.
+ *
  * Migrations are resolved at RUN TIME, never by a hardcoded path (trap #8): a
  * test pinned to a superseded file passes forever while production drifts.
  * ─────────────────────────────────────────────────────────────────────────────
@@ -41,6 +56,8 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+
+import { publicByDesignVerdict } from "./support/publicByDesign";
 
 const MIGRATIONS = "supabase/migrations";
 const dir = join(process.cwd(), MIGRATIONS);
@@ -85,7 +102,7 @@ describe("every SECURITY DEFINER function a migration creates is closed to anon"
     if (secdef.length === 0) continue;
 
     for (const fn of secdef) {
-      it(`${file}: ${fn.name}() is revoked from anon and authenticated, or gates internally`, () => {
+      it(`${file}: ${fn.name}() is revoked from anon and authenticated, gates internally, or is a proven PUBLIC-BY-DESIGN function`, () => {
         // A trigger function cannot be invoked through PostgREST, so the grant
         // is irrelevant for it.
         const isTrigger = /RETURNS\s+trigger/i.test(fn.header);
@@ -131,13 +148,26 @@ describe("every SECURITY DEFINER function a migration creates is closed to anon"
 
         const gated = gatesItself || calleeGated;
 
-        expect(
-          revoked || gated,
-          `${fn.name}() is SECURITY DEFINER and is neither REVOKEd from anon by name ` +
+        // F-76 · the third category. Only consulted when the first two do not
+        // already clear the function, so an ordinary revoked/gated function is
+        // judged exactly as before.
+        const pbd = publicByDesignVerdict(sql, fn.name, fn.header);
+
+        const why = pbd.claimed
+          ? `${fn.name}() claims the ${"PUBLIC-BY-DESIGN"} category but does not meet it:\n` +
+            pbd.failures.map((f) => `  - ${f}`).join("\n") +
+            `\nThe marker is not a waiver: conditions (2) and (3) exist precisely ` +
+            `because no reason justifies a PUBLIC-granted or VOLATILE anon-callable ` +
+            `SECURITY DEFINER function.`
+          : `${fn.name}() is SECURITY DEFINER and is neither REVOKEd from anon by name ` +
             `nor gated on auth.uid()/has_role. ALTER DEFAULT PRIVILEGES grants EXECUTE ` +
             `on every new public function to anon, so this is reachable at ` +
-            `/rest/v1/rpc/${fn.name} by anyone with the public key.`,
-        ).toBe(true);
+            `/rest/v1/rpc/${fn.name} by anyone with the public key.\n` +
+            `If it is deliberately public, say so IN THE MIGRATION and meet all three ` +
+            `conditions:\n` +
+            pbd.failures.map((f) => `  - ${f}`).join("\n");
+
+        expect(revoked || gated || pbd.ok, why).toBe(true);
       });
     }
   }
