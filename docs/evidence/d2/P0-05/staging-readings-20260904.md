@@ -155,11 +155,34 @@ run produced an artefact and a step summary, and left `staging` exactly where th
 
 Identical to the reading taken before the 0.5 merge — correct, because 0.5 adds no `src`.
 
-**4 · What zero-damage does NOT cover, stated.** D2 cannot reach `staging.50mmretina.com`,
-`www.50mmretina.com` or `cdn-staging.50mmretina.com` from this container — all three answer
-`CONNECT tunnel failed, 403` under this session's network policy. **So "no damage to the deployed
-staging site" is asserted from the diff and the permissions, not from loading the site.** That is a
-named limitation, not a claim.
+**4 · What zero-damage did not originally cover — NOW CLOSED, by a reading D2 could not take.**
+
+D2 cannot reach `staging.50mmretina.com`, `www.50mmretina.com` or `cdn-staging.50mmretina.com` from
+this container — all three answer `CONNECT tunnel failed, 403` under this session's network policy,
+re-tested at `2026-09-04T13:35:44Z`. So D2's zero-damage evidence rested on the diff and the
+workflow's `contents: read` permission, **not** on loading the site, and that was recorded as a
+named gap rather than glossed.
+
+**The gap is CLOSED. The Auditor took the reading, from a real browser, cache-busted on every
+request, 2026-09-04:**
+
+| route | |
+|---|---|
+| `/` | **200** — app shell present |
+| `/feed` | **200** — title renders, 9 nav links resolve |
+| `/verify` | **200** |
+| `/competitions` | **200** |
+| `/journal` | **200** |
+
+**Auditor reading, 2026-09-04, five routes, all 200. The staging site is healthy.**
+
+⚠ **Attribution, because it matters more than the result:** this reading is the **Auditor's**, not
+D2's. D2 could not take it and does not claim it. It is cited here as a second party's instrument,
+with who held the instrument named — which is the whole point of the distinction the gap existed to
+preserve.
+
+**Zero damage to the deployed staging site is therefore evidenced by a LOADED SITE**, not only by a
+diff. Exception **CLOSED**, not standing.
 
 ## Register criterion re-measured, and it clears the Auditor
 
