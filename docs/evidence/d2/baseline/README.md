@@ -89,14 +89,40 @@ Ran `14:39:09Z` → `14:42:20Z`; written `14:42:20.561Z`. Script exit **0**.
 the pinned Playwright wants **1234**, the exact drift `web-vitals-report.mjs` warns about in its
 launch comment. Naming the binary is the flag's documented purpose; the harness is unmodified.
 
+### ⚠ SUPERSEDED — `web-vitals-2026-09-04T14-42-20-561Z-9a5e605c.ndjson`
+
+**This run is retained for the record and must NOT be used as a before-figure. Reason: F-83.**
+Two of its three routes were not measuring what the route list implied:
+
+| route | status | LCP | CLS | INP | |
+|---|---|---:|---:|---:|---|
+| `/` | measured | 4016 ms | 0 | ~64 ms | valid |
+| `/feed` | **unmeasured** | — | — | — | **redirects to `/login`** — `src/pages/Feed.tsx:88-90`, ~300 ms after mount. Unmeasurable by an anonymous harness by construction; a longer settle does not help, because waiting longer does not make a redirect stop happening. |
+| `/wall` | measured | 4020 ms | 0 | ~64 ms | **NOT A ROUTE.** Only grep hit is `/wallet` (`App.tsx:414`); `/wall` fell to the catch-all at `App.tsx:440`. **These figures measure the 404 handler.** |
+
+Cause, navigation chains and the verified replacements:
+[`feed-unmeasured-20260904.md`](./feed-unmeasured-20260904.md).
+
+### THE VITALS BASELINE OF RECORD — `web-vitals-2026-09-04T16-04-46-914Z-8e6ae2ec.ndjson`
+
+Route list corrected to `/,/competitions,/journal` (`d2-web-vitals.yml:119`). All three were loaded
+anonymously against the built `dist` and render fully with no redirect.
+
+```bash
+node scripts/web-vitals-report.mjs \
+  --dist=dist --routes="/,/competitions,/journal" --runs=3 \
+  --chromium=/opt/pw-browsers/chromium-1194/chrome-linux/chrome \
+  --out=docs/evidence/d2/baseline
+```
+
+Measured `16:02:11Z` → `16:04:46Z`; written `16:04:46.914Z`. **3/3 routes `status=measured`, zero
+unmeasured samples.**
+
 | route | status | LCP | CLS | INP |
 |---|---|---:|---:|---:|
-| `/` | measured | **4016 ms** | **0** | **~64 ms** |
-| `/feed` | **unmeasured** | — | — | — |
-| `/wall` | measured | **4020 ms** | **0** | **~64 ms** |
-
-`/feed` produced no measurement on any of its 3 samples:
-`page.evaluate: Execution context was destroyed, most likely because of a navigation`.
+| `/` | **measured** | **4064 ms** | **0** | **~96 ms** |
+| `/competitions` | **measured** | **4048 ms** | **0** | **~80 ms** |
+| `/journal` | **measured** | **4052 ms** | **0** | **~72 ms** |
 
 ### The caveat, in the harness's own words
 
