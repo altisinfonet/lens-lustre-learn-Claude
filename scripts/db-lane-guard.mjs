@@ -174,10 +174,44 @@ export function psql(dsn, sql, { readOnly = true, expectError = false, timeoutMs
     PGAPPNAME: process.env.PGAPPNAME || 'd1-script',
   };
 
+  // ⚠ F-78. PGOPTIONS ALONE DOES NOT SURVIVE THE SESSION POOLER, AND THE
+  // NEGATIVE CONTROL PROVED IT ON ITS FIRST END-TO-END RUN.
+  //
+  // The PGOPTIONS above is a STARTUP-PACKET parameter. Supabase's session
+  // pooler does not forward it to the backend, so `default_transaction_read_only`
+  // never reaches the server and the session is READ-WRITE while this file
+  // believed it was read-only. Measured 2026-09-04, same code, two transports:
+  //
+  //   direct (scratch PG 16 fixture)  current_setting -> 'on'
+  //                                   CREATE TABLE    -> ERROR 25006 ✓
+  //   Supabase session pooler (CI)    run 33877831292, job 101038963294:
+  //                                   CREATE TABLE    -> SUCCEEDED ✗
+  //                                   and left public.__d1_readonly_negative_control__
+  //                                   behind on staging, which had to be dropped by hand
+  //
+  // So the enforcement is moved INTO THE QUERY STREAM, where no pooler can
+  // strip it: an explicit `BEGIN READ ONLY` travels as ordinary SQL. PGOPTIONS
+  // is KEPT as well — belt and braces, and it still works on a direct
+  // connection — but it is no longer the thing being relied on.
+  //
+  // Proven on the fixture before this line was written (C-34):
+  //   without the wrapper, no PGOPTIONS  -> CREATE TABLE SUCCEEDS, setting 'off'
+  //   with the wrapper,    no PGOPTIONS  -> ERROR: cannot execute CREATE TABLE
+  //                                          in a read-only transaction
+  //   with the wrapper, a real SELECT    -> returns its rows normally
+  //
+  // Only the read-only path is wrapped. Every seeder call passes
+  // { readOnly: false } and is deliberately untouched, or the seeder could not
+  // write at all.
+  //
+  // `-q` keeps the BEGIN/COMMIT status lines off stdout, so callers that
+  // JSON.parse the output are unaffected — verified byte-exact on the fixture.
+  const payload = readOnly ? `BEGIN READ ONLY; ${sql}; COMMIT;` : sql;
+
   try {
     const stdout = execFileSync(
       'psql',
-      [dsn, '--no-psqlrc', '-X', '-A', '-t', '-q', '-v', 'ON_ERROR_STOP=1', '-c', sql],
+      [dsn, '--no-psqlrc', '-X', '-A', '-t', '-q', '-v', 'ON_ERROR_STOP=1', '-c', payload],
       { env, encoding: 'utf8', maxBuffer: 512 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] },
     );
     return { ok: true, stdout, stderr: '' };
