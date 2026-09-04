@@ -1,0 +1,104 @@
+P30 · fixture transcript — email_exists(text) revoke, shown failing before and passing after
+Scratch PostgreSQL in the D1 container. F-65 rule: grant controls run on fixtures, not on a lane.
+server: PostgreSQL 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit
+date:   2026-09-04T09:19:08Z
+
+================================================================================
+PART A — the measured pre-revoke state, reproduced
+================================================================================
+  fixture proacl : {postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+  lane proacl    : {postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+                   (staging ztzutckwdhetphwghuzj oid 17719 and production jtdtehuqtinjxropkkcn oid 34459,
+                    read by D1 2026-09-04, SELECT only — identical on both lanes)
+  -> byte-identical. PUBLIC entries: 0
+
+  anon can execute?          t
+  anon calling it for real:  t
+  -> the enumeration oracle, answering a question about a named person to an anonymous caller.
+
+================================================================================
+PART B — THE NEGATIVE CONTROL. The probe BEFORE the revoke. It must FAIL.
+         A test that could not have failed is not evidence (C-34).
+================================================================================
+NOTICE:  --- P30 gate probe: email_exists(text) @ 2026-09-04T09:19:08Z UTC ---
+NOTICE:      lane database: postgres  (current_database)
+NOTICE:  B5 exactly one function ............ PASS (oid 16405, acl {postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres})
+ERROR:  B2 FAILED — anon can still EXECUTE public.email_exists (oid 16405). The account-enumeration endpoint is open: any holder of the public API key can confirm whether an address has an account, one call per address. acl = {postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+   probe exit status: 3
+
+================================================================================
+PART C — apply supabase/migrations/20260910_0001_p30_email_exists_revoke.sql
+================================================================================
+  proacl after   : {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+  anon           : f
+  authenticated  : t   <- deliberately UNCHANGED, frozen list authorised public+anon only
+  service_role   : t   <- deliberately UNCHANGED
+  anon calling it for real:
+    ERROR:  permission denied for function email_exists
+
+================================================================================
+PART D — the probe AFTER the revoke. Same file, same instrument. It must PASS.
+================================================================================
+NOTICE:  --- P30 gate probe: email_exists(text) @ 2026-09-04T09:19:08Z UTC ---
+NOTICE:      lane database: postgres  (current_database)
+NOTICE:  B5 exactly one function ............ PASS (oid 16405, acl {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres})
+NOTICE:  B2 anon cannot execute (THE GATE) .. PASS (has_function_privilege anon = false)
+NOTICE:  B3 PUBLIC holds no EXECUTE ......... PASS (0 PUBLIC entries, proacl not NULL)
+NOTICE:  B4 no over-revoke .................. PASS (authenticated=true, service_role=true, as the list left them)
+NOTICE:  B1 function unchanged in kind ...... PASS (SECURITY DEFINER, STABLE)
+NOTICE:  --- ALL FIVE ASSERTIONS PASSED. Clause 1 of P30 holds on this lane. Nothing was written. ---
+NOTICE:      Clause 2 (signup and reset responses byte-identical) is NOT tested here — client measurement, F-53.
+   probe exit status: 0
+
+================================================================================
+PART E — apply supabase/rollback/20260910_0001_..._ROLLBACK.sql
+         The probe must FAIL again: the rollback genuinely reopens the gate,
+         and the probe is sensitive in BOTH directions, not just green-on-green.
+================================================================================
+  proacl after rollback : {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
+  proacl before apply   : {postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+
+  ⚠ NOT byte-equal: anon is re-appended at the END of the array, because REVOKE removes
+    the aclitem and GRANT adds a new one. The GRANTS are identical; only element order moved.
+    proacl::text string equality is the wrong instrument. The right one is set-wise:
+    grantee/privilege set after rollback:
+      anon/EXECUTE
+      authenticated/EXECUTE
+      postgres/EXECUTE
+      service_role/EXECUTE
+    PUBLIC (grantee 0) rows: 0 -- the rollback must NOT re-grant PUBLIC, which held nothing before
+    -> privilege-equivalent to the pre-apply lane reading. This is the honest claim.
+  anon calling it for real:  t
+NOTICE:  --- P30 gate probe: email_exists(text) @ 2026-09-04T09:19:08Z UTC ---
+NOTICE:      lane database: postgres  (current_database)
+NOTICE:  B5 exactly one function ............ PASS (oid 16405, acl {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres})
+ERROR:  B2 FAILED — anon can still EXECUTE public.email_exists (oid 16405). The account-enumeration endpoint is open: any holder of the public API key can confirm whether an address has an account, one call per address. acl = {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
+   probe exit status: 3
+
+================================================================================
+PART F — F-62 / F-66, DEMONSTRATED RATHER THAN ASSERTED.
+         Why 20260910_0001 revokes FROM public FIRST even though email_exists
+         carries a clean grant on both lanes today.
+================================================================================
+  email_exists TODAY has zero PUBLIC entries on both lanes, so anon-only WOULD have
+  worked. F-62's register row says the same. The public-first form is written for the
+  state the function enters the moment anyone recreates it (F-66). Building that state:
+
+  fresh CREATE FUNCTION, no grants issued at all:
+    proacl              : NULL
+    anon can execute?   : t   <- NULL proacl is the BUILT-IN DEFAULT = EXECUTE TO PUBLIC.
+                                          It is not 'no grants'. That is the trap.
+
+  now the obvious command, the one a hurried operator reaches for:
+    after REVOKE ... FROM anon:
+    proacl              : {=X/postgres,postgres=X/postgres}
+    anon can execute?   : t   <- STILL TRUE. The statement succeeded and closed NOTHING.
+                                          anon inherits EXECUTE through PUBLIC. This is F-62.
+
+  now the form 20260910_0001 actually uses — FROM public first, then FROM anon:
+    proacl              : {postgres=X/postgres}
+    anon can execute?   : f   <- closed.
+
+  -> The two-line form is a no-op today on email_exists and the correct form the day the
+     function is recreated. That is why the frozen list mandates it and why it is written
+     that way here, without claiming F-62 currently bites this particular function.

@@ -1,0 +1,104 @@
+-- ROLLBACK for 20260910_0001_p30_email_exists_revoke.sql — P30.
+--
+-- Restores anon's EXECUTE on public.email_exists(text), i.e. REOPENS the
+-- account-enumeration endpoint that P30 closed.
+--
+-- =============================================================================
+-- ⚠ WHAT RUNNING THIS COSTS, STATED BEFORE THE SQL RATHER THAN AFTER IT
+--
+-- This is not a neutral undo. Applying it puts back a function that answers,
+-- to any holder of the public anon key, the question "does an account exist for
+-- this address?" — one address per call, no session, no rate limit. That is the
+-- enumeration class: the output is a verified-address list, which is the input
+-- to phishing and credential stuffing. The member whose address is confirmed
+-- did nothing wrong and will never know.
+--
+-- Run it only to restore service, and only when the alternative is worse.
+--
+-- =============================================================================
+-- WHEN IT IS ACTUALLY NEEDED — AND WHEN IT IS NOT
+--
+-- The apply is expected to be behaviour-neutral for the application, because
+-- the only call site fails open (src/pages/ForgotPassword.tsx:37-45, re-read
+-- 2026-09-04: `exists` is initialised null, written only when checkError is
+-- falsy, and PostgREST answers 42501 after the revoke). A member loses the
+-- "No Account Found" screen and gets the generic reset result instead — which
+-- is what the P30 gate requires, NOT a regression.
+--
+-- ⚠ SO "the No Account Found screen is gone" IS NOT A ROLLBACK TRIGGER. It is
+-- the unit working. Rolling back for it undoes the gate on purpose.
+--
+-- The real triggers are an unhandled error surfacing to members on the reset
+-- screen, or any caller found after the fact that does NOT fail open — a code
+-- path missed by the inventory, a cached client bundle, a native build shipped
+-- before the client half. In that case restore first, diagnose second.
+--
+-- =============================================================================
+-- FIDELITY — WHAT THIS RESTORES, MEASURED, NOT ASSUMED
+--
+-- The pre-revoke ACL, read by D1 2026-09-04 with SELECT only, identical on both
+-- lanes (staging ztzutckwdhetphwghuzj oid 17719, production
+-- jtdtehuqtinjxropkkcn oid 34459):
+--
+--   {postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+--   aclexplode grantee=0 (PUBLIC) entries = 0
+--
+-- ⚠ THIS FILE GRANTS TO anon ONLY. It does NOT re-grant PUBLIC, because PUBLIC
+-- held nothing before the apply — there were zero PUBLIC entries on either lane.
+-- Re-granting PUBLIC "to be safe" would leave the function MORE open after a
+-- rollback than it was before the migration, which is how a rollback quietly
+-- becomes a widening. `authenticated` and `service_role` are not mentioned
+-- because the apply never revoked them; the apply's probe asserts they survived
+-- precisely so this file does not have to guess.
+--
+-- ⚠ AND ONE PRECISION, BECAUSE THE FIRST DRAFT OF THIS FILE GOT IT WRONG.
+-- An earlier revision of this comment claimed the ACL is "byte-identical" after
+-- the rollback. It is NOT, and the P30 fixture caught the claim rather than a
+-- reviewer having to (docs/evidence/d1/P30/P30-fixture-transcript.txt, PART E):
+--
+--   before apply    {postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+--   after rollback  {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
+--                                                                                ^^^^ re-appended at the end
+--
+-- REVOKE removes anon's aclitem from the array and GRANT appends a new one, so
+-- the ELEMENT ORDER differs while the GRANTS ARE IDENTICAL — same grantee set,
+-- same privilege, same grantor. Nothing about access differs; `proacl::text`
+-- string equality is simply the wrong instrument for asking whether it does.
+--
+-- So the restore is PRIVILEGE-EQUIVALENT, not byte-equal, and the correct check
+-- is set-wise over aclexplode rather than a string compare:
+--
+--   SELECT a.grantee::regrole::text, a.privilege_type
+--     FROM pg_proc p, aclexplode(p.proacl) a
+--    WHERE p.pronamespace = 'public'::regnamespace AND p.proname = 'email_exists'
+--    ORDER BY 1, 2;
+--
+--   expect exactly: anon/EXECUTE, authenticated/EXECUTE, postgres/EXECUTE,
+--                   service_role/EXECUTE  — and no row for PUBLIC (grantee 0).
+--
+-- Recorded rather than quietly reworded: Standing Rule 21 says an instructing
+-- comment is a control, and a comment that disagrees with its code is a
+-- finding, not cosmetics. This one was D1's own.
+--
+-- =============================================================================
+-- VERIFY AFTER RUNNING — the same instrument as the gate, inverted
+--
+--   SELECT has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_exec,
+--          p.proacl::text
+--     FROM pg_proc p
+--    WHERE p.pronamespace = 'public'::regnamespace
+--      AND p.proname = 'email_exists';
+--
+--   expect anon_exec = true, and the grantee set as quoted above — compared
+--   set-wise, not as a string. See the precision note above.
+--
+-- ⚠ PROBE_p30_email_exists_closed.sql WILL FAIL AFTER THIS RUNS, at assertion
+-- B2, and that is correct: it is the gate assertion, and the gate is
+-- deliberately reopened. A failing probe here means the rollback worked. Do not
+-- "fix" the probe.
+-- =============================================================================
+
+GRANT EXECUTE ON FUNCTION public.email_exists(text) TO anon;
+
+COMMENT ON FUNCTION public.email_exists(text) IS
+  'Account-existence check. Anon-executable. ⚠ P30 was ROLLED BACK — this function is an account-enumeration oracle reachable with the public API key, and the password-reset screen can again reveal whether an address is registered. Re-apply supabase/migrations/20260910_0001_p30_email_exists_revoke.sql once the reason for the rollback is resolved.';
