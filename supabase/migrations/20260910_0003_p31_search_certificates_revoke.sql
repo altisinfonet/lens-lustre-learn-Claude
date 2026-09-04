@@ -1,0 +1,168 @@
+-- P31 · search_certificates(text,text,date) — close the certificate DIRECTORY to anon.
+--
+-- ⚠⚠ DO NOT APPLY THIS FILE YET. IT IS PREPARED, NOT AUTHORISED, AND IT IS
+--    BLOCKED ON A CLIENT FIX THAT HAS NOT MERGED.
+--
+--    docs/gates/P1-revocation-list.md §2.2 blocks this revoke because all four
+--    verification pages collapse "error" and "empty" into one branch
+--    (VerifyCertificate.tsx:81, :103, CertificateVerifyByToken.tsx:46,
+--    IDVerification.tsx:63). Applied today, a real certificate holder is told,
+--    calmly and confidently, that their certificate could not be verified —
+--    which reads as a forgery and gets reported by nobody. A SILENT WRONG
+--    ANSWER IS WORSE THAN AN ERROR. D2 is landing that fix in its own PR.
+--
+--    PRECONDITION FOR APPLY: D2's client fix is merged and live on the lane
+--    being changed. Then the Auditor authorises. Staging first, always.
+--    Committing is not applying.
+--
+-- =============================================================================
+-- THE GATE — docs/gates/GATE_REGISTER.md, unit P31, verbatim:
+--
+--   "name-based certificate search removed from `anon`; verification by token
+--    retained and tested; `verify_staff_id` placed behind a session or a rate
+--    limit."
+--
+-- THREE CLAUSES. THIS FILE CLOSES ONE AND TESTS A SECOND. IT DOES NOT TOUCH
+-- THE THIRD, AND DOES NOT PRETEND TO.
+--
+--   1. name-based certificate search removed from anon
+--      → this file. Proved per-function, per-lane by
+--        PROBE_p31_search_certificates_closed.sql assertion C2.
+--
+--   2. verification by token retained and tested
+--      → NOT changed by this file, and that is the point: the probe ASSERTS
+--        verify_certificate_by_token is still anon-executable (C6) and still
+--        returns a row for a valid token (C7). "Retained" is a thing to be
+--        shown still working, not a thing to be left alone and assumed.
+--
+--   3. verify_staff_id placed behind a session or a rate limit
+--      → NOT this file. Out of scope by the Auditor's instruction, and it is
+--        not a revocation at all: C-60 withdrew the blood_group item because
+--        that column is a DESIGNED feature of the public staff-card page. Its
+--        gate is a rate limit, unchanged from the Addendum. A separate unit.
+--
+-- P31 does not close until all three close.
+--
+-- =============================================================================
+-- ⚠ THE DIFFERENCE FROM P30, AND IT IS THE WHOLE REASON THIS FILE IS SHAPED
+--   THE WAY IT IS: HERE F-62 GENUINELY BITES.
+--
+-- F-62: `REVOKE … FROM anon` is a no-op wherever PUBLIC holds the grant,
+-- because anon inherits EXECUTE through PUBLIC. In P30 that condition was NOT
+-- met — email_exists carried a clean grant on both lanes — and the P30 file
+-- says so rather than borrowing the finding. HERE IT IS MET, ON THE LIVE
+-- OBJECT.
+--
+-- Measured by D1 2026-09-04, SELECT only, on BOTH lanes:
+--
+--   production jtdtehuqtinjxropkkcn  search_certificates  oid 22560
+--   staging    ztzutckwdhetphwghuzj  search_certificates  oid 17985
+--
+--   both: proacl = {=X/postgres,postgres=X/postgres,anon=X/postgres,
+--                   authenticated=X/postgres,service_role=X/postgres}
+--         aclexplode grantee=0 (PUBLIC) EXECUTE entries = 1
+--         anon_exec=true  authenticated_exec=true
+--         prosecdef=true  provolatile=s
+--
+--   ⚠ THE LEADING `=X/postgres` IS THE PUBLIC GRANT. It is the entry with no
+--     grantee name. A reader skimming for "anon" sees anon=X and stops; the
+--     empty-left-hand-side entry is the one that actually decides this.
+--
+-- The two lanes are IDENTICAL in ACL shape (different oids, as expected).
+-- A divergence would itself have been a finding; there is none. Reported as a
+-- measurement, not as an absence assumed.
+--
+-- So on THIS object the obvious one-liner silently does nothing:
+--
+--     REVOKE EXECUTE ON FUNCTION public.search_certificates(text,text,date)
+--       FROM anon;
+--     -- has_function_privilege('anon', …, 'EXECUTE')  ->  STILL TRUE
+--
+-- The revoke below therefore takes PUBLIC first, and the probe asserts BOTH
+-- that PUBLIC holds nothing (C3) and that anon cannot execute (C2), because the
+-- two fail differently and the difference tells the reader which defect they
+-- have. The C-34 fixture reproduces THIS acl string — the one with the leading
+-- `=X/postgres` — and shows the anon-only form leaving the door open.
+--
+-- =============================================================================
+-- WHAT search_certificates ACTUALLY EXPOSES — read from the body, 2026-09-04
+--
+--   WHERE (at least one of _name / _course_title / _issued_date is non-blank)
+--     AND (_name         IS NULL OR p.full_name ILIKE '%' || _name || '%')
+--     AND (_course_title IS NULL OR c.title     ILIKE '%' || _course_title || '%')
+--     AND (_issued_date  IS NULL OR DATE(c.issued_at) = _issued_date)
+--   ORDER BY c.issued_at DESC
+--   LIMIT 50
+--
+-- ⚠ ONE THING IT DOES *NOT* DO, AND THE LIST SHOULD RECORD IT: it does NOT leak
+-- the verification token. The select list is `NULL::text AS verification_token`
+-- — the column is in the return type but is deliberately nulled. The capability
+-- model is intact and this revoke is not needed to protect the token. Saying
+-- otherwise would be a finding without its instrument.
+--
+-- WHAT IT DOES DO, which is the actual finding: a SUBSTRING match on a person's
+-- full name, up to 50 rows per call, returning recipient_name, title,
+-- description, type, issued_at, certificate_id and revocation status. `_name`
+-- of a single common letter returns a page of real people and what they were
+-- awarded. That is not verification; it is a browsable directory of who won
+-- what, reachable with the public API key. The all-blank bulk dump is already
+-- blocked by the first predicate — so somebody has thought about this once
+-- already — but a one-character search walks straight past that guard.
+--
+-- THE SHAPE OF THE FIX, and it is the frozen list's own principle:
+-- verify-by-unguessable-token stays public; search-by-identity does not.
+--
+-- SCALE, because a finding without its scale is not a measurement. Production
+-- 2026-09-04: 11 certificates, 11 with tokens, 11 distinct, 0 revoked. Eleven
+-- people, not a breach today — and the day a cohort is issued, the exposure is
+-- real and nothing will announce it.
+--
+-- =============================================================================
+-- NOT TOUCHED BY THIS FILE, each for a stated reason
+--
+--   verify_certificate_by_token(text)   RETAINED ON PURPOSE — gate clause 2.
+--                                       Asserted still working by C6/C7.
+--   verify_certificate(text)            NOT on the frozen list, and NOT in this
+--                                       unit's scope. See the reading filed as
+--                                       part of OI-3 in docs/evidence/d1/P31/.
+--   increment_managed_page_view(text)   §2.2 BLOCKED, separate unit, D2's
+--                                       rejection handler is not merged either.
+--   verify_staff_id(text)               C-60. Its gate is a rate limit.
+--
+-- =============================================================================
+-- SEQUENCE — BEHAVIOUR step. Nothing is dropped, the body is untouched, and the
+-- rollback restores the prior grants, so a redeploy can undo it.
+--
+-- FILENAME — F-75. `20260910_0001` is taken by P30 (merged at 12090ab). The
+-- directory's next free slot is `_0002`, but the frozen list §4.2 RESERVES
+-- `20260910_0002` for the P32 recompute re-cut, which is not in the tree yet.
+-- This unit takes `_0003` to leave that reservation intact. A gap in the
+-- numbering costs nothing; a collision costs an ordering ambiguity and a merge
+-- conflict. The stranded patch 5689cfb, which named this file `_0001`, is not
+-- in this repository and its number is wrong regardless.
+-- =============================================================================
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- The body, volatility, search_path and SECURITY DEFINER flag are NOT touched.
+-- This is a grant change only, and not using DROP+CREATE is itself the F-66
+-- mitigation: there is no moment at which the built-in EXECUTE-to-PUBLIC
+-- default is re-applied.
+--
+-- ⚠ ORDER MATTERS HERE IN A WAY IT DID NOT IN P30. The first statement is the
+-- one that does the work. Without it the second is a no-op (F-62).
+--
+-- Both statements are idempotent and safe to re-run on an already-closed lane.
+
+REVOKE ALL ON FUNCTION public.search_certificates(text, text, date) FROM public;
+REVOKE ALL ON FUNCTION public.search_certificates(text, text, date) FROM anon;
+
+-- `authenticated` and `service_role` keep EXECUTE via their explicit ACL
+-- entries, which the PUBLIC revoke does not disturb. The gate says "removed
+-- from the anon role" and this file does exactly that and no more. The same
+-- observation raised for email_exists applies here and is logged as OI-2:
+-- anyone may create an account, so `authenticated` is a smaller door, not a
+-- shut one, and its real remedy is a rate limit rather than a role. Deferred by
+-- the Auditor, NOT acted on here.
+
+COMMENT ON FUNCTION public.search_certificates(text, text, date) IS
+  'Name/title/date certificate search. NOT executable by anon — P31. Substring match on a person''s full name returning up to 50 rows turns certificate verification into a browsable directory of who won what, reachable with the public API key; the all-blank bulk dump is blocked by the first predicate but a one-character search walks past it. It does NOT return verification_token (the select list nulls it), so the capability model is unaffected. Verify-by-unguessable-token stays public via verify_certificate_by_token; search-by-identity does not. ⚠ PUBLIC held EXECUTE on this function, so REVOKE FROM anon alone was a no-op (F-62) — the revoke takes PUBLIC first. If this function is ever recreated with DROP+CREATE it REOPENS to PUBLIC (F-66) and the revoke must be re-applied and re-proved.';
