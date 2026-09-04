@@ -3720,38 +3720,40 @@ is written `— at promotion` and must be filled from the provider, not from thi
 | Promotion | **`staging` → `main`, squash** |
 | Base — `main` | **`493d4d49a79c0ffc036ba5af0053a11a94eed801`** |
 | Base tree | `e7b842d9dd194d5fd400b177494f31ee91a2e9e8` |
-| Head — `staging` | **`612c86891716c339ea6690271f30b90149c91589`** *(fourth measurement: `122d6ea` when §37 was written, then `db7bd76`, `95082b8`, now `612c868` — #169 and #170 landed since)* |
-| Head tree | `5e31d1fe99783d9278a982a504251907c57badef` |
-| Trees equal | **NO** — 21 files differ |
-| Commits ahead | **127** by `rev-list` at `612c868`, on a **full clone** (Standing Rule 22 candidate) — **not a measure of content under squash (Standing Rule 20)**; the twelve merges since the last back-merge of `main` (`7e93dd8`) are **#137, #160, #159, #161, #165, #162, #163, #166, #167, #168, #169, #170** |
+| Head — `staging` | **`faac06e6`** *(fifth and final Phase 0 measurement: `122d6ea` when §37 was written, then `db7bd76`, `95082b8`, `612c868`, now `faac06e6` — #171 landed since)* |
+| Head tree | `2b0ee7ad36d31e407f21863538ab430f27b86b19` |
+| Trees equal | **NO** — 23 files differ |
+| Commits ahead | **128** by `rev-list` at `faac06e6`, on a **full clone** (Standing Rule 22 candidate) — **not a measure of content under squash (Standing Rule 20)**; the thirteen merges since the last back-merge of `main` (`7e93dd8`) are **#137, #160, #159, #161, #165, #162, #163, #166, #167, #168, #169, #170, #171** |
 
 ```
 $ git diff --stat 493d4d4 origin/staging
- .github/workflows/d1-baseline.yml                  |  67 ++-
- .github/workflows/d2-web-vitals.yml                | 281 +++++++++++
- docs/evidence/d1/F-79/README.md                    | 491 +++++++++++++++++++
- docs/evidence/d1/F-84/README.md                    | 160 +++++++
- .../F-78-readonly-does-not-survive-the-pooler.md   |  93 ++++
- .../d1/baseline/staging/100k-seed-2026-09-04.md    | 120 +++++
- docs/evidence/d2/P0-05/gate-proof-20260904.md      | 127 +++++
- ...egative-controls-transcript-20260904-routes.txt |  35 ++
- .../negative-controls-transcript-20260904.txt      |  38 ++
- .../evidence/d2/P0-05/staging-readings-20260904.md | 281 +++++++++++
- docs/evidence/d2/baseline/README.md                | 224 +++++++++
- .../d2/baseline/feed-unmeasured-20260904.md        | 183 ++++++++
- ...seline-2026-09-04T14-38-52-984Z-7fc5124b.ndjson | 292 ++++++++++++
- ...vitals-2026-09-04T14-42-20-561Z-9a5e605c.ndjson |  13 +
- ...vitals-2026-09-04T16-04-46-914Z-8e6ae2ec.ndjson |  13 +
- scripts/db-baseline.mjs                            |   7 +-
- scripts/db-baseline.test.mjs                       | 121 ++++-
- scripts/db-lane-guard.mjs                          | 137 +++++-
- scripts/db-seed-staging.mjs                        | 281 ++++++++++-
- scripts/db-seed-staging.test.mjs                   | 269 ++++++++++-
- scripts/web-vitals-report.mjs                      | 520 +++++++++++++++++++++
- 21 files changed, 3738 insertions(+), 15 deletions(-)
+ .github/workflows/d1-baseline.yml                  |    67 +-
+ .github/workflows/d2-web-vitals.yml                |   281 +
+ docs/evidence/d1/F-79/README.md                    |   491 +
+ docs/evidence/d1/F-84/README.md                    |   160 +
+ .../F-78-readonly-does-not-survive-the-pooler.md   |    93 +
+ .../d1/baseline/staging/100k-seed-2026-09-04.md    |   120 +
+ docs/evidence/d1/baseline/staging/README.md        |    74 +
+ .../staging/baseline-2026-09-04T17-01-39-224Z.json | 24509 +++++++++++++++++++
+ docs/evidence/d2/P0-05/gate-proof-20260904.md      |   127 +
+ ...egative-controls-transcript-20260904-routes.txt |    35 +
+ .../negative-controls-transcript-20260904.txt      |    38 +
+ .../evidence/d2/P0-05/staging-readings-20260904.md |   281 +
+ docs/evidence/d2/baseline/README.md                |   224 +
+ .../d2/baseline/feed-unmeasured-20260904.md        |   183 +
+ ...seline-2026-09-04T14-38-52-984Z-7fc5124b.ndjson |   292 +
+ ...vitals-2026-09-04T14-42-20-561Z-9a5e605c.ndjson |    13 +
+ ...vitals-2026-09-04T16-04-46-914Z-8e6ae2ec.ndjson |    13 +
+ scripts/db-baseline.mjs                            |     7 +-
+ scripts/db-baseline.test.mjs                       |   121 +-
+ scripts/db-lane-guard.mjs                          |   137 +-
+ scripts/db-seed-staging.mjs                        |   281 +-
+ scripts/db-seed-staging.test.mjs                   |   269 +-
+ scripts/web-vitals-report.mjs                      |   520 +
+ 23 files changed, 28321 insertions(+), 15 deletions(-)
 ```
 
-**Every path, with the PR that brought it and its lane owner. 21 files, 0 deletions, 0 renames.**
+**Every path, with the PR that brought it and its lane owner. 23 files, 0 deletions, 0 renames.**
 
 | # | Path | Brought by | Lane owner |
 |---|---|---|---|
@@ -3761,23 +3763,25 @@ $ git diff --stat 493d4d4 origin/staging
 | 4 | `docs/evidence/d1/F-84/README.md` | **#168** `95082b8` | **D1** |
 | 5 | `docs/evidence/d1/baseline/F-78-readonly-does-not-survive-the-pooler.md` | **#160** `1a85b4b` | **D1** |
 | 6 | `docs/evidence/d1/baseline/staging/100k-seed-2026-09-04.md` | **#170** `612c868` | **D1** |
-| 7 | `docs/evidence/d2/P0-05/gate-proof-20260904.md` | **#137** `a122cdf` | **D2** |
-| 8 | `docs/evidence/d2/P0-05/negative-controls-transcript-20260904.txt` | **#159** `a79494c` | **D2** |
-| 9 | `docs/evidence/d2/P0-05/negative-controls-transcript-20260904-routes.txt` | **#167** `ca2359b` | **D2** |
-| 10 | `docs/evidence/d2/P0-05/staging-readings-20260904.md` | **#159** `a79494c` | **D2** |
-| 11 | `docs/evidence/d2/baseline/README.md` | **#163** `61b5501` → **#167** `ca2359b` → **#169** `0e425fa` | **D2** |
-| 12 | `docs/evidence/d2/baseline/feed-unmeasured-20260904.md` | **#166** `79b6d9c` | **D2** |
-| 13 | `docs/evidence/d2/baseline/web-baseline-…7fc5124b.ndjson` | **#163** `61b5501` | **D2** |
-| 14 | `docs/evidence/d2/baseline/web-vitals-…9a5e605c.ndjson` | **#163** `61b5501` | **D2** |
-| 15 | `docs/evidence/d2/baseline/web-vitals-…8e6ae2ec.ndjson` | **#167** `ca2359b` | **D2** |
-| 16 | `scripts/web-vitals-report.mjs` | **#137** `a122cdf` | **D2** |
-| 17 | `scripts/db-baseline.mjs` | **#162** `db7bd76` | **D1** |
-| 18 | `scripts/db-baseline.test.mjs` | **#162** `db7bd76` → **#170** `612c868` | **D1** |
-| 19 | `scripts/db-lane-guard.mjs` | **#160** `1a85b4b` → **#168** `95082b8` | **D1** |
-| 20 | `scripts/db-seed-staging.mjs` | **#161** `122d6ea` → **#165** `801d6ac` | **D1** |
-| 21 | `scripts/db-seed-staging.test.mjs` | **#161** `122d6ea` → **#165** `801d6ac` | **D1** |
+| 7 | `docs/evidence/d1/baseline/staging/README.md` | **#171** `faac06e6` | **D1** |
+| 8 | `docs/evidence/d1/baseline/staging/baseline-2026-09-04T17-01-39-224Z.json` | **#171** `faac06e6` | **D1** |
+| 9 | `docs/evidence/d2/P0-05/gate-proof-20260904.md` | **#137** `a122cdf` | **D2** |
+| 10 | `docs/evidence/d2/P0-05/negative-controls-transcript-20260904.txt` | **#159** `a79494c` | **D2** |
+| 11 | `docs/evidence/d2/P0-05/negative-controls-transcript-20260904-routes.txt` | **#167** `ca2359b` | **D2** |
+| 12 | `docs/evidence/d2/P0-05/staging-readings-20260904.md` | **#159** `a79494c` | **D2** |
+| 13 | `docs/evidence/d2/baseline/README.md` | **#163** `61b5501` → **#167** `ca2359b` → **#169** `0e425fa` | **D2** |
+| 14 | `docs/evidence/d2/baseline/feed-unmeasured-20260904.md` | **#166** `79b6d9c` | **D2** |
+| 15 | `docs/evidence/d2/baseline/web-baseline-…7fc5124b.ndjson` | **#163** `61b5501` | **D2** |
+| 16 | `docs/evidence/d2/baseline/web-vitals-…9a5e605c.ndjson` | **#163** `61b5501` | **D2** |
+| 17 | `docs/evidence/d2/baseline/web-vitals-…8e6ae2ec.ndjson` | **#167** `ca2359b` | **D2** |
+| 18 | `scripts/web-vitals-report.mjs` | **#137** `a122cdf` | **D2** |
+| 19 | `scripts/db-baseline.mjs` | **#162** `db7bd76` | **D1** |
+| 20 | `scripts/db-baseline.test.mjs` | **#162** `db7bd76` → **#170** `612c868` | **D1** |
+| 21 | `scripts/db-lane-guard.mjs` | **#160** `1a85b4b` → **#168** `95082b8` | **D1** |
+| 22 | `scripts/db-seed-staging.mjs` | **#161** `122d6ea` → **#165** `801d6ac` | **D1** |
+| 23 | `scripts/db-seed-staging.test.mjs` | **#161** `122d6ea` → **#165** `801d6ac` | **D1** |
 
-**Twelve PRs, two lanes, no crossing.** Every D2 path is under `.github/workflows/d2-*`,
+**Thirteen PRs, two lanes, no crossing.** Every D2 path is under `.github/workflows/d2-*`,
 `scripts/web-vitals-*` or `docs/evidence/d2/`; every D1 path is under `.github/workflows/d1-*`,
 `scripts/db-*` or `docs/evidence/d1/`. **No file in this promotion is owned by two lanes**, and no
 file has been touched by both.
@@ -3795,15 +3799,16 @@ not an ancestor of `staging`; the squash commit is.
 | **#168** | F-84 — the session settings that never reached the server | ✅ `95082b8` |
 | **#169** | D2 — the CI run's per-route figures beside the local baseline | ✅ `0e425fa` |
 | **#170** | D1 — the 100k seed, both censuses, and the gzip log-recovery fix | ✅ `612c868` |
+| **#171** | D1 — the staging baseline JSON, committed and checksum-verified | ✅ `faac06e6` |
 | **#164** | **REV-24 + §37 — this ledger entry itself** | ⚠ **OPEN — not in `staging`** |
 
-**One more D1 PR is in flight**: `d1/0-D1-01-baseline-json-committed-20260904`, carrying the baseline
-JSON itself. It is not in this scope and §37.1 must be measured again after it lands.
+**Every Phase 0 PR has now landed. This is the complete Phase 0 scope**, and #164 is the only PR
+outstanding anywhere in it.
 
 **This ledger revision is still not part of the promotion it describes** until #164 merges to
 `staging`. Whoever performs P-0 must re-read §37.1 against the tree as it stands at that moment;
-**the figures above are true of `612c868` and of nothing else.** They have now been measured four
-times — `122d6ea`, `db7bd76`, `95082b8`, `612c868` — inside three hours. **A scope figure in this section is a
+**the figures above are true of `faac06e6` and of nothing else.** They have now been measured five
+times — `122d6ea`, `db7bd76`, `95082b8`, `612c868`, `faac06e6` — inside three hours. **A scope figure in this section is a
 reading, not a constant**, and §37.1 is re-measured at the merge or it is not evidence.
 
 ## 37.2 · WHAT THIS PROMOTION CHANGES ON THE LIVE SITE — AND WHAT IT DOES NOT
@@ -3844,11 +3849,11 @@ production**, exactly as §36.2 records. **Merging this promotion closes no prod
 | 4 | **Seeder guard** | `node scripts/db-seed-staging.test.mjs` → **18/18 at run time** (17 `check(` sites; one runs once per D1 workflow, 2 workflows) | ✅ **MET** |
 | 5 | **Small-seed zero-damage proof** | §36.8 · runs `33885886186` / `33886045400` / `33886239460` on `122d6ea` · `docs/evidence/d1/F-79/README.md` | ✅ **MET** — residue 0/0/0, zero damage |
 | 6 | **100k seed + committed row counts** | **Censuses committed by #170** — `docs/evidence/d1/baseline/staging/100k-seed-2026-09-04.md`. `posts` **17 → 100,017** (seeded **100,000**); `user_notifications` **1,060 → 75,958**; `profiles` / `follows` / `post_media` **unchanged at 513 / 513 / 5**. Runs `33892144707` (pre), `33895597312` (resume), `33896288912` (post) | ✅ **MET** |
-| 7 | **0-D1-01 baseline JSON** | **JSON produced by run `33896446960`**, sha256 `598d3752…` | ⏳ **PRODUCED — committed copy pending D1's recovery PR** |
+| 7 | **0-D1-01 baseline JSON** | **COMMITTED by #171** (`faac06e6`) — `docs/evidence/d1/baseline/staging/baseline-2026-09-04T17-01-39-224Z.json`, sha256 **`98db5934f1914efb…`**, produced by run **`33898280809`**. Recovered from the run log by `base64 -d` then `gunzip` and checksum-matched against the digest the run printed **either side** of the block; the Auditor hashed the committed blob independently and got the same. **The earlier file from run `33896446960` (sha256 `598d3752…`) was never committable** — artifact host 403, and ~13,200 base64 log lines before the gzip fix — so it is *not* the file in the tree | ✅ **MET** |
 | 8 | **Ledger REV-24 + §37** | **#164** — this entry | ⚠ **PR OPEN — now the only Phase 0 PR not in `staging`** |
 
-**Seven of eight are MET.** Only row 7 (the baseline JSON's committed copy) and row 8 (this PR)
-remain. **P-0 cannot be performed while any row above is ❌, ⚠ or ⏳.**
+**Eight of eight MET on staging at `faac06e6`; the only open item is this ledger's own merge. P-0 is
+ready for the Owner's ruling.**
 
 ## 37.4 · §19.2 PROMOTION TABLE — **NOT PERFORMED**
 
