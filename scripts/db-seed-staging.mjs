@@ -79,6 +79,17 @@
 //     at row 640,000 is resumed by running it again, not by cleaning up first;
 //   * exactly reversible — --teardown deletes precisely the derived id set and
 //     nothing else, so seeded rows can never be mistaken for real ones;
+//
+//     ⚠ F-79, 2026-09-04: THIS LINE WAS TRUE OF THE ROWS THE SEED WRITES AND
+//     FALSE OF THE ROWS THE SEED CAUSES, and it is the second that matters. The
+//     teardown deleted from public.posts only. user_notifications has no foreign
+//     key to posts, so the ~80,000 rows a 100k seed fans out through
+//     trg_fan_out_new_post would have survived a teardown that printed success —
+//     on a staging database holding 1,060 of them. The claim is left standing
+//     here because it is now true, and the correction is left beside it because
+//     a claim that was wrong once should not be quietly rewritten into one that
+//     always looked right. Caught by reading the catalogue BEFORE the seed ran.
+//     See the TEARDOWN_SQL comment and docs/evidence/d1/F-79-*;
 //   * comparable — a measurement taken at 1 M rows on Tuesday and repeated in
 //     Phase 7 is taken against the same thousand-thousand rows.
 //
@@ -188,7 +199,15 @@ function insertBatchSql({ fromOrdinal, toOrdinal, privacyMix }) {
 // ── Census: what the seed has and has not touched ──────────────────────────
 // Deliberately counts by the DERIVED ID SET, not by the content marker. An id
 // set is exact; a LIKE on content is a guess that would also match a member who
-// happened to type the marker.
+// happened to type the marker. (The one marker count below is a cross-check on
+// the id set, never the thing the teardown acts on.)
+//
+// F-79 widened this. It used to count posts and two neighbours, which is enough
+// to see a seed arrive and not enough to see a teardown fail: the rows the seed
+// CAUSES live in tables the posts count cannot see. Every table named here is
+// one a trigger on public.posts writes to, or one a foreign key drags out with
+// the post. If a number here does not return to its before-value after a
+// teardown, the teardown did not reverse the seed.
 const CENSUS_SQL = `
   SELECT (SELECT count(*) FROM public.posts)                                   AS posts_total,
          (SELECT count(*) FROM public.posts p
@@ -196,12 +215,23 @@ const CENSUS_SQL = `
          (SELECT count(*) FROM public.profiles)                                AS profiles,
          (SELECT count(*) FROM public.follows)                                 AS follows,
          (SELECT count(*) FROM public.user_notifications)                      AS user_notifications,
+         (SELECT count(*) FROM public.post_hashtags)                           AS post_hashtags,
+         (SELECT count(*) FROM public.hashtags)                                AS hashtags,
+         (SELECT count(*) FROM public.feed_events)                             AS feed_events,
+         (SELECT count(*) FROM public.album_photos)                            AS album_photos,
+         (SELECT count(*) FROM public.post_reports)                            AS post_reports,
          (SELECT count(*) FROM public.post_media)                              AS post_media,
          pg_size_pretty(pg_total_relation_size('public.posts'))                AS posts_size,
          pg_size_pretty(pg_database_size(current_database()))                  AS database_size,
          to_char(clock_timestamp() AT TIME ZONE 'utc',
                  'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')                              AS measured_at_utc
 `;
+
+// The five counts the Auditor named on 2026-09-04 as the teardown's proof set.
+// Named once, here, so the evidence and the assertion cannot drift apart.
+const TEARDOWN_PROOF_COUNTS = [
+  'posts_total', 'user_notifications', 'post_hashtags', 'feed_events', 'album_photos',
+];
 
 // The highest contiguous ordinal already present. Resume starts at the first
 // gap, so an interrupted run is finished by re-running it.
@@ -212,10 +242,69 @@ const HIGHEST_ORDINAL_SQL = (max) => `
                   WHERE p.id = md5('${SEED_NAMESPACE}:post:' || g)::uuid)
 `;
 
+// ── Teardown · F-79 ────────────────────────────────────────────────────────
+// A teardown must remove what the seed CAUSES, not only what the seed WRITES.
+// This one used to do the second and claim the first.
+//
+// The seed writes into public.posts and nothing else. public.posts carries nine
+// triggers, and four of them write somewhere. Read from the deployed sources on
+// staging 2026-09-04 (pg_proc.prosrc, not from these files):
+//
+//   fan_out_new_post()         → public.user_notifications   ← NO FOREIGN KEY
+//   flag_post_for_review()     → public.post_reports           FK CASCADE ✔
+//   sync_post_hashtags()       → public.post_hashtags          FK CASCADE ✔
+//                              → public.hashtags             ← NO FOREIGN KEY
+//   enqueue_post_created_job() → pgmq queue 'post_jobs'      ← not a posts child
+//
+// Nine foreign keys reference public.posts. user_notifications is not one of
+// them, so deleting a seeded post removes NOTHING from it. At 100,000 rows and
+// today's follow graph that is roughly 80,000 notification rows surviving a
+// teardown that prints success, on a staging database holding 1,060 of them —
+// a 76-fold multiplication the cleanup would not touch. Caught by reading the
+// catalogue BEFORE the seed ran; see docs/evidence/d1/F-79-*.
+//
+// THE KEY IS THE SAME KEY. fan_out_new_post sets reference_id := NEW.id, so
+// every notification the seed causes is reachable by the derived id set — the
+// identical md5('<namespace>:post:' || n) the posts delete already uses. No
+// content match is used and none is needed: a member's notification can only be
+// swept by this delete if its reference_id collides with an md5 digest of a
+// string it has never seen. Deleting by `message LIKE '%seed%'` would have been
+// the exact trap this file's own test has forbidden for posts since it was
+// written.
+//
+// NO TYPE FILTER, deliberately. `AND type = 'new_post_from_following'` looks
+// safer and is worse: a member who reacts to a seeded post gets a notification
+// of a different type pointing at the same id, and leaving it behind leaves a
+// notification whose post no longer exists. The id set is already exact; a
+// filter on top of an exact key only subtracts correctness.
+//
+// The two statements reach the server in one string, so psql runs them in one
+// implicit transaction: either both apply or neither does. Notifications first,
+// because that delete reads the id set on its own and must not come to depend
+// on the posts row still being there.
 const TEARDOWN_SQL = (fromOrdinal, toOrdinal) => `
+  DELETE FROM public.user_notifications n
+   USING generate_series(${fromOrdinal}, ${toOrdinal}) g
+   WHERE n.reference_id = md5('${SEED_NAMESPACE}:post:' || g)::uuid;
   DELETE FROM public.posts p
    USING generate_series(${fromOrdinal}, ${toOrdinal}) g
    WHERE p.id = md5('${SEED_NAMESPACE}:post:' || g)::uuid
+`;
+
+// ── The one child the teardown must NOT touch, and must not ignore either ───
+// album_photos.post_id is ON DELETE SET NULL, alone among the nine. Deleting a
+// seeded post therefore does not remove such a row — it silently NULLs a column
+// on a member's album entry, and a nulled member row is damage, not a reversal.
+// The seed never creates album_photos rows, so today this is zero. "Today it is
+// zero" is not a contract. The teardown therefore LOOKS before it deletes and
+// REFUSES if it finds any, rather than choosing on a member's behalf between
+// deleting their album entry and quietly detaching it. Either choice belongs to
+// the Owner; the refusal is what puts it in front of him.
+const TEARDOWN_ALBUM_GUARD_SQL = (fromOrdinal, toOrdinal) => `
+  SELECT count(*)::bigint AS album_photos_pointing_at_seed
+    FROM public.album_photos a
+   WHERE a.post_id IN (SELECT md5('${SEED_NAMESPACE}:post:' || g)::uuid
+                         FROM generate_series(${fromOrdinal}, ${toOrdinal}) g)
 `;
 
 // ── Arguments ──────────────────────────────────────────────────────────────
@@ -340,15 +429,53 @@ function main() {
       console.error('--teardown removes every row whose id is derived from the seed namespace. Re-run with --yes.');
       process.exit(2);
     }
-    let removed = 0;
     for (let from = 1; from <= args.rows; from += args.batch) {
       const to = Math.min(from + args.batch - 1, args.rows);
+      // Look before deleting. See TEARDOWN_ALBUM_GUARD_SQL: a SET NULL child is
+      // not reversed by a delete, and nulling a member's row is damage.
+      const guard = queryOne(dsn, TEARDOWN_ALBUM_GUARD_SQL(from, to));
+      if (Number(guard.album_photos_pointing_at_seed) > 0) {
+        console.error(
+          `\n\nREFUSING at ordinals ${from}..${to}: ${guard.album_photos_pointing_at_seed} album_photos row(s) `
+          + 'point at a seeded post. That foreign key is ON DELETE SET NULL, so tearing the post down would not '
+          + 'remove them — it would null post_id on a member\'s album entry and report success. Whether those '
+          + 'rows are deleted or detached is the Owner\'s decision, not this script\'s. '
+          + 'Earlier batches in this run have already been torn down; nothing in this batch was.',
+        );
+        process.exit(2);
+      }
       psql(dsn, TEARDOWN_SQL(from, to), { readOnly: false, timeoutMs: 600000 });
-      removed += to - from + 1;
       process.stdout.write(`\r  torn down through ordinal ${to} of ${args.rows}`);
     }
     const after = queryOne(dsn, CENSUS_SQL);
-    console.log(`\nTeardown swept ordinals 1..${args.rows}. posts_total ${before.posts_total} → ${after.posts_total}.`);
+
+    // ── The teardown states its own verdict, on the Auditor's five counts ──
+    // C-34 applied to the cleanup: a teardown is not trusted because it ran
+    // without error, it is trusted because the counts came back. Printing the
+    // comparison is what makes a failure to reverse visible instead of silent.
+    const reversal = TEARDOWN_PROOF_COUNTS.map((k) => ({
+      count: k,
+      before: Number(before[k]),
+      after: Number(after[k]),
+      delta: Number(after[k]) - Number(before[k]),
+    }));
+    const notReversed = reversal.filter((r) => r.delta !== 0 && r.count !== 'posts_total');
+    console.log(`\nTeardown swept ordinals 1..${args.rows}.`);
+    console.log(JSON.stringify({
+      teardown_reversal_check: reversal,
+      seed_namespace: SEED_NAMESPACE,
+      note: 'posts_total is expected to fall by the seeded rows removed. Every OTHER count here '
+          + 'must return to its before-value; a non-zero delta on any of them is a teardown that '
+          + 'did not reverse what the seed caused (F-79).',
+    }, null, 2));
+    if (notReversed.length > 0) {
+      console.error(
+        `\nTEARDOWN DID NOT REVERSE: ${notReversed.map((r) => `${r.count} ${r.before} → ${r.after}`).join('; ')}. `
+        + 'Rows the seed caused are still present. Do not report this run as clean.',
+      );
+      process.exit(1);
+    }
+    console.log('\nAll non-posts counts returned to their before-values. The seed is reversed.');
     process.exit(0);
   }
 
@@ -368,8 +495,22 @@ function main() {
     census_before: before,
     consequences_you_are_accepting: [
       `posts is in the supabase_realtime publication: ~${args.rows.toLocaleString()} change records will be produced for the realtime decoder.`,
-      `trg_enqueue_post_created fires per row: expect ~${args.rows.toLocaleString()} queue messages, which the 5-second cron will then work through.`,
-      `trg_fan_out_new_post fires for public posts by authors with followers: ~${Math.round(args.rows * publicShare).toLocaleString()} public rows, each costing one user_notifications row per follower (cap 1000).`,
+      `trg_enqueue_post_created fires per row: it calls pgmq.send('post_jobs', …). MEASURED ON STAGING `
+        + '2026-09-04: the pgmq queue \'post_jobs\' DOES NOT EXIST there (pgmq holds only transactional_emails), '
+        + 'and enqueue_post_job swallows the failure as a RAISE WARNING. So on staging as it stands today this '
+        + `costs ~${args.rows.toLocaleString()} warnings in the log, not ${args.rows.toLocaleString()} queue messages. `
+        + 'The acknowledgement flag stays required anyway: the queue can be created by any migration, and a seeder '
+        + 'that quietly depends on a table being absent is a seeder that breaks the day someone adds it.',
+      `trg_fan_out_new_post fires for public posts by authors with followers: ~${Math.round(args.rows * publicShare).toLocaleString()} public rows, each costing one user_notifications row per follower (cap 1000). `
+        + 'user_notifications has NO foreign key to posts, so these are removed by the teardown\'s own delete on '
+        + 'reference_id and by nothing else (F-79). Before that fix they survived the teardown permanently.',
+      'trg_posts_unsync_hashtags fires BEFORE DELETE on teardown and recounts the hashtags it releases, so the '
+        + 'hashtag counters repair themselves. The hashtags VOCABULARY rows do not: public.hashtags has no foreign '
+        + 'key to posts. Seeded content contains no # character and extract_hashtags matches #[A-Za-z0-9_]{1,60}, '
+        + 'so the seed creates none today — measured, not assumed. Change the content template and that stops '
+        + 'being true.',
+      'album_photos.post_id is ON DELETE SET NULL, alone among the nine foreign keys to posts. The teardown '
+        + 'refuses rather than nulling a member\'s album entry; see TEARDOWN_ALBUM_GUARD_SQL.',
       'trg_posts_sync_hashtags fires per row and will write hashtag rows derived from the seeded content.',
       'trg_rate_limit_posts does NOT fire: seeded created_at is backdated outside its one-hour window.',
       'Author cardinality is bounded by the profiles that already exist. Any gate whose result depends on author cardinality must say so.',
@@ -464,7 +605,8 @@ function main() {
 
 export {
   SEED_NAMESPACE, SEED_CONTENT_MARKER, SEED_TABLES,
-  insertBatchSql, parseArgs, CENSUS_SQL, TEARDOWN_SQL, HIGHEST_ORDINAL_SQL,
+  insertBatchSql, parseArgs, CENSUS_SQL, TEARDOWN_SQL, TEARDOWN_ALBUM_GUARD_SQL,
+  TEARDOWN_PROOF_COUNTS, HIGHEST_ORDINAL_SQL,
 };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
