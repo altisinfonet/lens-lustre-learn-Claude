@@ -3599,7 +3599,7 @@ flight. The seeder run is gated on F-79 (§36.5).**
 | **F-76** | the SECURITY DEFINER guard had no category for *deliberately public*, so it would have been disabled or ignored. Third category added and made expensive to claim. **CLOSED** |
 | **F-77** | *withdrawn* — see C-68 |
 | **F-78** | **`default_transaction_read_only` is NOT honoured through the Supabase session pooler.** D1 measured `CREATE TABLE` **succeeding** through the pooler while the identical statement was refused on a direct connection. Reproduced independently by the Auditor. The project's workflows use the pooler. Scripts believed read-only were not. **FIXED — #160 merged**: enforcement moved into the query stream as `BEGIN READ ONLY; … COMMIT;`, which no pooler can strip; proven on a fixture before the line was written (C-34). Highest-severity finding of the day |
-| **F-79** | **The seeder's teardown does not reverse what the seed causes.** `user_notifications` has **no foreign key to `posts`** (measured: 0), so the ~80,000 notification rows a 100k seed triggers would survive the teardown permanently. `album_photos` is `SET NULL`, not `CASCADE`. **Caught by D1 BEFORE the seed ran**, quantified by the Auditor: notifications on staging = 1,060, posts = 17. Teardown fix + small-seed reversal proof required before any seed. **OPEN** |
+| **F-79** | **The seeder's teardown does not reverse what the seed causes.** `user_notifications` has **no foreign key to `posts`** (measured: 0), so the ~80,000 notification rows a 100k seed triggers would survive the teardown permanently. `album_photos` is `SET NULL`, not `CASCADE`. **Caught by D1 BEFORE the seed ran**, quantified by the Auditor: notifications on staging = 1,060, posts = 17. Teardown fix + small-seed reversal proof required before any seed. **FIXED on staging (`122d6ea`), proven on 300 rows — see §36.8** |
 | **F-80** | **The teardown's own reversal verdict is inverted.** `before` is the census at the **START OF THE TEARDOWN** — after the seed — so a working teardown (`user_notifications` 1,060+N → 1,060, delta −N) prints **TEARDOWN DID NOT REVERSE** and exits 1, while the F-79 defect itself (delta 0) prints *"The seed is reversed."* and exits 0. The seven plants missed it because the regression test asserts the **presence of the strings**, not the arithmetic. Found by the Auditor reading PR #161 (`acd98ed`) **before any seed ran**. Fix ordered: reversal keyed on the derived id set (must count 0), before/after against the **PRE-SEED** census written to a file, and a pure verdict function unit-tested on numbers. **OPEN** |
 
 ## 36.6 · CORRECTIONS AGAINST THE AUDITOR — ten in one day, and an eleventh
@@ -3648,6 +3648,20 @@ gave the guard count without its instrument. **Caught by D3 before transcription
 * **The seeder has never been executed**, so Phase 0 criterion 2's row counts do not exist.
 * **Phase 0 criterion 5 — NOT MET.** The harness is on `staging`, not `main`. This revision closes
   the ledger half of that criterion and nothing else.
+* **F-80 — OPEN.** The verdict that would have reported the small-seed proof was inverted; D1 found
+  it independently as **F-79b** when the first real teardown exited 1 on a correct reversal. Fix
+  under review as **PR #165** (`b869820`) — residue on the derived id set across six tables plus a
+  confinement check on `profiles` / `follows` / `post_media`; the Auditor has returned it once for a
+  pure verdict function tested on numbers.
+* **Small-seed teardown proof, 2026-09-04 — RUN ON STAGING.** #161 merged to `staging` as `122d6ea`.
+  `--status` 14:49:10Z: posts 17, `user_notifications` 1,060. Seed 300 rows, 14:50:56Z: posts 317,
+  `user_notifications` 1,573 (**513 fan-out rows caused**). Teardown 14:52:57Z: posts 17,
+  `user_notifications` 1,060; residue on the derived id set **0/0/0**. The Auditor's independent
+  `SELECT` at 15:28:25Z: posts 17, `user_notifications` 1,060, `post_hashtags` 0, `feed_events` 0,
+  `album_photos` 0, `profiles` 513, `post_media` 5, `certificates` 3, `hashtags` 84, `post_reports` 0;
+  database 214 → 217 MB, dead tuples pending autovacuum, **not residue**. **ZERO DAMAGE.** The
+  teardown run itself exited 1 — **that exit was F-80, not the database.** The 100k seed is **HELD**
+  until #165 is merged and re-read.
 
 **REV-25 follows once Phase 0's last two artefacts land**; its step 1 changes when they do.
 
