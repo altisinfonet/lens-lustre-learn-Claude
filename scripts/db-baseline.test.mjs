@@ -22,8 +22,7 @@ import { readFileSync } from 'node:fs';
 
 import {
   LANES, PRODUCTION_REF, assertLane, refParsedFromDsn, refuseProduction,
-  scrub, scrubExternal, redactSecrets,
-} from './db-lane-guard.mjs';
+  scrub, scrubExternal, redactSecrets, psqlPayload } from './db-lane-guard.mjs';
 import { PROBES, ADDENDUM_CLAIMS, wrap } from './db-baseline.mjs';
 
 // The seeder has its own suite, scripts/db-seed-staging.test.mjs. The two are
@@ -241,6 +240,64 @@ check('the C-2 claim is carried in the re-check list and still names four number
   assert(c2, 'C-2 is not in the re-check list at all');
   assert(/79/.test(c2.value) && /78/.test(c2.value) && /298/.test(c2.value) && /188/.test(c2.value),
     `the C-2 claim no longer carries all four unreconciled numbers: ${c2.value}`);
+});
+
+
+// ── F-84 · every session setting must travel as SQL, not as PGOPTIONS ───────
+console.log('\nF-84 · session settings through the pooler');
+
+check('⟵ REGRESSION F-84 · statement_timeout travels in the query stream, with the caller\'s value', () => {
+  // THE DEFECT. The 100k seed (run 33892294982) died at 80,200 rows with
+  // "canceling statement due to statement timeout" at 16:06:07.461Z, on a
+  // connection open exactly 120.14 s. The seeder had asked for 600 s — through
+  // PGOPTIONS, which F-78 had already proved the session pooler does not
+  // forward. The server's own 120 s stood. A limit set out of the way that was
+  // never actually moved.
+  const p = psqlPayload('INSERT INTO t VALUES (1)', { readOnly: false, timeoutMs: 600000 });
+  assert(/SET LOCAL statement_timeout = 600000;/.test(p),
+    `statement_timeout does not travel as SET LOCAL, or lost the caller's value: ${p}`);
+  assert(p.indexOf('SET LOCAL statement_timeout') < p.indexOf('INSERT'),
+    'the timeout is set after the statement it is supposed to bound');
+  // The write path opens its own transaction. Measured on the fixture: psql
+  // already wraps a multi-statement -c in one implicit transaction (txid 741,
+  // 741), so SET LOCAL would bite without this — the explicit BEGIN is here so
+  // the guarantee rests on the SQL we send rather than on a psql client
+  // behaviour that could change under us. That is the F-78/F-84 lesson: never
+  // let a control depend on how the transport happens to behave.
+  assert(/^BEGIN;/.test(p.trim()), `a write payload does not open a transaction: ${p}`);
+  assert(p.trim().endsWith('COMMIT;'), 'a write payload does not commit');
+  assert(p.indexOf('BEGIN;') < p.indexOf('SET LOCAL'),
+    'SET LOCAL lands before BEGIN, where it is a no-op');
+});
+
+check('⟵ REGRESSION F-84 · lock_timeout and idle_in_transaction travel too', () => {
+  // These were in the same PGOPTIONS string and had no second mechanism either.
+  // F-78 fixed one of four and its comment called the rest "belt and braces".
+  const p = psqlPayload('SELECT 1', { readOnly: false, timeoutMs: 1000 });
+  assert(/SET LOCAL lock_timeout = 5000;/.test(p), 'lock_timeout still relies on PGOPTIONS');
+  assert(/SET LOCAL idle_in_transaction_session_timeout = 120000;/.test(p),
+    'idle_in_transaction_session_timeout still relies on PGOPTIONS');
+  assert(!/SET (?!LOCAL)/.test(p),
+    `a session-level SET would leak to whatever reuses this pooled backend: ${p}`);
+});
+
+check('⟵ REGRESSION F-78 · the read-only wrapper is not regressed, and SET LOCAL sits INSIDE it', () => {
+  const p = psqlPayload('SELECT 1', { readOnly: true, timeoutMs: 180000 });
+  assert(/BEGIN READ ONLY;/.test(p), 'the read-only wrapper is gone — F-78 regressed');
+  // ⚠ The order is the OPPOSITE of what I first wrote. SET LOCAL must land
+  // INSIDE the transaction; before BEGIN it is a no-op outside any transaction.
+  assert(p.indexOf('BEGIN READ ONLY') < p.indexOf('SET LOCAL statement_timeout'),
+    'SET LOCAL lands before BEGIN READ ONLY, where it does nothing');
+  assert(p.indexOf('SET LOCAL statement_timeout') < p.indexOf('SELECT 1'),
+    'the timeout is set after the statement it bounds');
+});
+
+check('⟵ REGRESSION F-84 · a WRITE payload is never wrapped read-only', () => {
+  // The seeder passes readOnly:false on every call. If the wrapper or the
+  // read-only SET leaked into the write path the seeder could not write at all.
+  const p = psqlPayload('INSERT INTO t VALUES (1)', { readOnly: false, timeoutMs: 600000 });
+  assert(!/READ ONLY/.test(p), 'a write payload is wrapped in a read-only transaction');
+  assert(!/default_transaction_read_only/.test(p), 'a write payload sets default_transaction_read_only');
 });
 
 
