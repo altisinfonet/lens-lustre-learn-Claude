@@ -93,3 +93,84 @@ So the figures are **the staging-lane BUNDLE measured over localhost** — not t
 That is the right thing for a build-comparison instrument and the wrong thing to mistake for a
 field measurement. **Phase 5's before-figures must say which they are**, or P13 will set a ceiling
 against numbers that never included the network.
+
+---
+
+# ADDENDUM · stamped re-runs, and ZERO DAMAGE evidenced from a reading
+
+Proofs 2 and 3 above were taken in this session but were **not UTC-stamped**. Re-run stamped, so
+nothing in this file is an unstamped claim. Instruments unchanged: the `run:` blocks extracted
+verbatim from `.github/workflows/d2-web-vitals.yml` on `origin/staging` (`a122cdf`).
+
+## PROOF 2 re-run — BLOCKS NOTHING
+
+```
+2026-09-04T13:24:31.220Z  catastrophic  exit=0   LCP 60000ms · CLS 1.0 · INP 30000ms
+2026-09-04T13:24:31.640Z  real_staging  exit=0   the staging run's own /wall, CLS 0.7462
+2026-09-04T13:24:31.700Z  nothing       exit=1   ::error::no route produced a measurement
+```
+
+## PROOF 3 re-run — the one line that can stop a PR
+
+```
+2026-09-04T13:24:31.773Z  VITALS_EXIT=0     exit=0
+2026-09-04T13:24:31.783Z  VITALS_EXIT=1     exit=1   ::error::web-vitals-report.mjs exited 1 …
+2026-09-04T13:24:31.793Z  VITALS_EXIT=139   exit=1   ::error::web-vitals-report.mjs exited 139 …
+```
+
+## ZERO DAMAGE — measured, not argued from design intent
+
+Phase 0 changes no behaviour, so this *should* be trivially true. Said from a measurement anyway.
+
+**1 · The pending promotion touches no shipped code.**
+
+```
+git diff --stat origin/main origin/staging -- src supabase package.json package-lock.json \
+                                              bun.lock bun.lockb index.html vite.config.ts
+-> EMPTY
+```
+
+No `src/`, no `supabase/`, no dependency file, no build config differs between the lanes. The three
+files the promotion carries are a workflow, a Node script and an evidence document.
+
+**2 · The staging run wrote nothing to the repository.**
+
+```
+staging HEAD now       a122cdf
+the 0.5 merge commit   a122cdf
+commits authored by the workflow since the merge:  0
+```
+
+The workflow holds `permissions: contents: read` (line 81) and the catalogue agrees with it: the
+run produced an artefact and a step summary, and left `staging` exactly where the merge left it.
+
+**3 · The suite is unchanged.**
+
+```
+2026-09-04T13:24:31.802Z  start
+  Test Files  182 passed | 1 skipped (183)
+       Tests  2510 passed | 1 skipped (2511)      ZERO failures
+2026-09-04T13:25:42.510Z  end
+```
+
+Identical to the reading taken before the 0.5 merge — correct, because 0.5 adds no `src`.
+
+**4 · What zero-damage does NOT cover, stated.** D2 cannot reach `staging.50mmretina.com`,
+`www.50mmretina.com` or `cdn-staging.50mmretina.com` from this container — all three answer
+`CONNECT tunnel failed, 403` under this session's network policy. **So "no damage to the deployed
+staging site" is asserted from the diff and the permissions, not from loading the site.** That is a
+named limitation, not a claim.
+
+## Register criterion re-measured, and it clears the Auditor
+
+The Auditor's criterion 4 — *"35 rows, 35 paths, zero missing"* — was re-measured independently:
+
+```
+rows WITH an evidence path, by prefix:  {'P': 35}
+rows WITHOUT,             by prefix:  {'H': 6, 'N': 8}
+```
+
+**All 35 `P` gate rows carry an evidence path.** The 14 without are `H-*` holds and `N-*` notes,
+which are not gates. A first pass here counted 47 rows and looked like a finding; it was an
+over-broad pattern on D2's side, and the measurement cleared the claim rather than confirming a
+defect. Recorded because a finding withdrawn by measurement is worth the same as one confirmed.
