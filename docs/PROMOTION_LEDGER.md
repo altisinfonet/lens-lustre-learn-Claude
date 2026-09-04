@@ -3580,7 +3580,7 @@ PUBLIC entries went **1 → 0**.
 | # | criterion | verdict |
 |---|---|---|
 | 1 | baselines with a timestamp on every line | **MET in substance** — instruments named, sittings to the UTC minute, disagreements recorded not resolved |
-| 2 | seeder guard demonstrated failing + row counts committed | **guard MET** — `node scripts/db-seed-staging.test.mjs` prints **18/18 at run time (17 `check(` sites; one runs once per D1 workflow, 2 workflows)**, run by the Auditor; **row counts NOT MET — the seeder has never been executed** |
+| 2 | seeder guard demonstrated failing + row counts committed | **guard MET** — `node scripts/db-seed-staging.test.mjs` prints **18/18 at run time (17 `check(` sites; one runs once per D1 workflow, 2 workflows)**, run by the Auditor; **row counts NOT MET — the 300-row proof exists (§36.8) but the 100k run and its committed counts do not yet** |
 | 3 | Web-Vitals harness runs, blocks nothing | **MET, both halves.** Runs: run #5, `a122cdf`, Success 3m41s, two `.ndjson` measurement files. Blocks-nothing: D2's two negative controls (a bad reading passes; the line-180 guard shown firing on a stubbed non-zero exit), transcript landed as `docs/evidence/d2/P0-05/negative-controls-transcript-20260904.txt` via #159; harness hash **byte-identical** afterwards |
 | 4 | evidence path on all 35 register rows | **MET** — 35 rows, 35 paths, 0 missing (parsed programmatically; **measured by the Auditor**) |
 | 5 | P-0 promoted, ledger written | **NOT MET** — harness on `staging`, not `main`. This revision closes the ledger half |
@@ -3619,6 +3619,11 @@ a ruling the Auditor had written that morning.
 behind; D3 measured the file: last section REV-23 dated 2026-09-03, gap about 20 hours; and the draft
 gave the guard count without its instrument. **Caught by D3 before transcription.**
 
+**C-72** — two sentences in §36 were left stale after F-79's status changed: §36.8 still read
+*"F-79 — OPEN"* and *"The seeder has never been executed"* after the same revision recorded the
+fix and the 300-row proof. **Caught by D3**, who transcribed the ordered change and reported the
+contradiction rather than smoothing it over.
+
 **Every one is the same error: a claim reported before its instrument was read.**
 
 ## 36.7 · OWNER RULINGS RECORDED
@@ -3635,8 +3640,8 @@ gave the guard count without its instrument. **Caught by D3 before transcription
 
 * **The production database is untouched.** P30 and P31 are closed on `staging` only. The revocation
   files on `main` close nothing until `apply-migration.yml` runs against `jtdtehuqtinjxropkkcn`.
-* **F-79 — OPEN.** No seed may run until the teardown reverses what the seed causes, proven on a
-  small seed.
+* **F-79 — FIXED on staging (`122d6ea`) and proven on 300 rows** (see the small-seed bullet below).
+  The 100k seed is gated on F-80's fix (#165) being merged and re-read, **not** on F-79.
 * **0-D1-01's baseline JSON** — measured by run `9939163591` but never committed: the artifact
   download returned **403 from the blob store**. PR #162 makes the file recoverable from the run log
   as base64 with its sha256 on both sides. In flight.
@@ -3645,7 +3650,8 @@ gave the guard count without its instrument. **Caught by D3 before transcription
   all 283 assets **7,271,776 B**; LCP **4016 ms** (`/`), **4020 ms** (`/wall`), CLS **0**, `/feed`
   **unmeasured 0/3**. Opens **F-81** (vitals instrument emits no git provenance) and **F-82**
   (CLS 0.7462 on CI vs 0 locally, same SHA) — both **parked to P13**.
-* **The seeder has never been executed**, so Phase 0 criterion 2's row counts do not exist.
+* **The seeder has been executed once on staging** — 300 rows, 14:50:56Z, torn down at 14:52:57Z
+  with zero damage; the 100k run whose row counts Phase 0 criterion 2 requires **has not yet run**.
 * **Phase 0 criterion 5 — NOT MET.** The harness is on `staging`, not `main`. This revision closes
   the ledger half of that criterion and nothing else.
 * **F-80 — OPEN.** The verdict that would have reported the small-seed proof was inverted; D1 found
@@ -3666,3 +3672,143 @@ gave the guard count without its instrument. **Caught by D3 before transcription
 **REV-25 follows once Phase 0's last two artefacts land**; its step 1 changes when they do.
 
 *Auditor. This entry records; it approves nothing and closes nothing.*
+
+---
+
+# 37 · P-0 PROMOTION RECORD — **PREPARED, NOT PERFORMED**
+
+**Written by the Auditor · 2026-09-04 · transcribed and figure-checked by D3 (documentation lane)**
+**Committed under §28.2 exception (b):** the entries §19 and §20 require at promotion. Structured on
+§19/§20. **Nothing in this section is performed.** Every field that cannot be known before the merge
+is written `— at promotion` and must be filled from the provider, not from this document.
+
+## 37.1 · SCOPE — measured, Standing Rule 20 form
+
+| Field | Value |
+|---|---|
+| Promotion | **`staging` → `main`, squash** |
+| Base — `main` | **`493d4d49a79c0ffc036ba5af0053a11a94eed801`** |
+| Base tree | `e7b842d9dd194d5fd400b177494f31ee91a2e9e8` |
+| Head — `staging` | **`122d6eae5cc0b971d7d94b189dc95caca7e880aa`** |
+| Head tree | `8226569874014fe0e9d5428956376510be5c1954` |
+| Trees equal | **NO** — 10 files differ |
+| Commits ahead | 4 |
+
+```
+$ git diff --stat 493d4d4 origin/staging
+ .github/workflows/d2-web-vitals.yml                | 263 +++++++++++
+ docs/evidence/d1/F-79/README.md                    | 303 ++++++++++++
+ .../F-78-readonly-does-not-survive-the-pooler.md   |  93 ++++
+ docs/evidence/d2/P0-05/gate-proof-20260904.md      | 127 +++++
+ .../negative-controls-transcript-20260904.txt      |  38 ++
+ .../evidence/d2/P0-05/staging-readings-20260904.md | 281 +++++++++++
+ scripts/db-lane-guard.mjs                          |  36 +-
+ scripts/db-seed-staging.mjs                        | 156 ++++++-
+ scripts/db-seed-staging.test.mjs                   | 136 +++++-
+ scripts/web-vitals-report.mjs                      | 520 +++++++++++++++++++++
+ 10 files changed, 1944 insertions(+), 9 deletions(-)
+```
+
+**Every path, with the PR that brought it and its lane owner. 10 files, 0 deletions, 0 renames.**
+
+| # | Path | Brought by | Lane owner |
+|---|---|---|---|
+| 1 | `.github/workflows/d2-web-vitals.yml` | **#137** `a122cdf` | **D2** |
+| 2 | `scripts/web-vitals-report.mjs` | **#137** `a122cdf` | **D2** |
+| 3 | `docs/evidence/d2/P0-05/gate-proof-20260904.md` | **#137** `a122cdf` | **D2** |
+| 4 | `docs/evidence/d2/P0-05/negative-controls-transcript-20260904.txt` | **#159** `a79494c` | **D2** |
+| 5 | `docs/evidence/d2/P0-05/staging-readings-20260904.md` | **#159** `a79494c` | **D2** |
+| 6 | `scripts/db-lane-guard.mjs` | **#160** `1a85b4b` | **D1** |
+| 7 | `docs/evidence/d1/baseline/F-78-readonly-does-not-survive-the-pooler.md` | **#160** `1a85b4b` | **D1** |
+| 8 | `scripts/db-seed-staging.mjs` | **#161** `122d6ea` | **D1** |
+| 9 | `scripts/db-seed-staging.test.mjs` | **#161** `122d6ea` | **D1** |
+| 10 | `docs/evidence/d1/F-79/README.md` | **#161** `122d6ea` | **D1** |
+
+**Four PRs, two lanes, no crossing.** Every D2 path is under `.github/workflows/d2-*`,
+`scripts/web-vitals-*` or `docs/evidence/d2/`; every D1 path is under `scripts/db-*` or
+`docs/evidence/d1/`. No file in this promotion is owned by two lanes.
+
+**NOT IN THIS SCOPE — four PRs are open and none is in `staging`.** Verified: no head below is an
+ancestor of `122d6ea`.
+
+| PR | Head | Carries |
+|---|---|---|
+| **#162** | `56ec3e5` | 0-D1-01 baseline recoverable from the log |
+| **#163** | `d76ad5a` | D2's client baseline figures |
+| **#164** | *this branch* | **REV-24 — this ledger entry itself** |
+| **#165** | `ca4a75a` | F-80 / F-79b teardown verdict predicate |
+
+**This ledger revision is therefore not part of the promotion it describes** until #164 merges to
+`staging`. Whoever performs P-0 must re-read §37.1 against the tree as it stands at that moment;
+these figures are true of `122d6ea` and of nothing else.
+
+## 37.2 · WHAT THIS PROMOTION CHANGES ON THE LIVE SITE — AND WHAT IT DOES NOT
+
+**It changes nothing a visitor can see. Measured, not asserted:**
+
+```
+$ git diff --name-only 493d4d4 origin/staging -- src/ public/
+$                                                    (empty — 0 files)
+```
+
+| Question | Answer |
+|---|---|
+| Client bundle changed? | **NO** — 0 files under `src/` or `public/` |
+| Android build triggered? | **NO.** The build fires on client-lane files; `src/` is untouched, so no build is triggered and no new APK reaches app users |
+| Cloudflare Pages deployment? | A deployment fires on any push to `main`, but the built bundle is **byte-for-byte the current one** — nothing rendered changes |
+| Edge / Pages functions changed? | **NO** |
+| Migrations in this promotion? | **NONE.** No file under `supabase/migrations/` differs |
+
+**What it does carry:** one report-only CI workflow, one vitals harness, one lane guard, the seeder
+and its tests, and six evidence documents. **Instruments and their readings — not product.**
+
+**THE DATABASE REVOCATIONS ARE FILES AND REMAIN UNAPPLIED ON PRODUCTION.** P30 (`email_exists`) and
+P31 (`search_certificates`) are closed on `staging` and their migration files sit on `main` already.
+**This promotion does not apply them and cannot.** Applying them to `jtdtehuqtinjxropkkcn` is a
+production database write, an Owner action under his own authorisation, performed by
+`apply-migration.yml` against the `production` Environment — separately from this merge and after it.
+Until he authorises that run, `email_exists` and `search_certificates` remain **anon-executable on
+production**, exactly as §36.2 records. **Merging this promotion closes no production gate.**
+
+## 37.3 · THE PROOFS THE OWNER REQUIRES BEFORE HE MERGES
+
+| # | Proof | Evidence path | State |
+|---|---|---|---|
+| 1 | **Harness runs** | run #5, `a122cdf`, Success 3m41s, two `.ndjson` written · `docs/evidence/d2/P0-05/gate-proof-20260904.md` | ✅ **MET** |
+| 2 | **Harness blocks nothing** | #159 · `docs/evidence/d2/P0-05/negative-controls-transcript-20260904.txt` — a bad reading passes; the line-180 guard shown firing on a stubbed non-zero exit; harness hash byte-identical afterwards | ✅ **MET** |
+| 3 | **Client baseline committed** | **#163** `d76ad5a` · `docs/evidence/d2/baseline/` — README + two `.ndjson` | ⚠ **MEASURED, PR OPEN — not in `staging`** |
+| 4 | **Seeder guard** | `node scripts/db-seed-staging.test.mjs` → **18/18 at run time** (17 `check(` sites; one runs once per D1 workflow, 2 workflows) | ✅ **MET** |
+| 5 | **Small-seed zero-damage proof** | §36.8 · runs `33885886186` / `33886045400` / `33886239460` on `122d6ea` · `docs/evidence/d1/F-79/README.md` | ✅ **MET** — residue 0/0/0, zero damage |
+| 6 | **100k seed + committed row counts** | — | ❌ **PENDING — D1.** Gated on F-80's fix (#165) being merged and re-read |
+| 7 | **0-D1-01 baseline JSON** | **#162** `56ec3e5` makes it recoverable from the run log; the run itself still owes the file | ❌ **PENDING — #162 → run** |
+| 8 | **Ledger REV-24** | **#164** — this entry | ⚠ **PR OPEN — not in `staging`** |
+
+**Five of eight are MET. Two are pending work (6, 7); three (3, 8 and the fix behind 6) sit in open
+PRs.** P-0 cannot be performed while any row above is ❌ or ⚠.
+
+## 37.4 · §19.2 PROMOTION TABLE — **NOT PERFORMED**
+
+| Field | Value |
+|---|---|
+| Approval | **— at promotion** (§11 record unsigned) |
+| Tag | **— at promotion.** Repository currently holds **1 tag**, `RC-20260831-01`, which is **not** this promotion's tag |
+| Merge SHA | **— at promotion** |
+| Actor | **— at promotion** |
+| Timestamp | **— at promotion** |
+| Deployment | **— at promotion** |
+
+**§20's rule, restated because it governs the order of operations and is easy to get backwards:**
+**the tag is created BEFORE the merge**, and **tree equality is asserted against that tag**, never
+against the staging tree. A squash produces a commit whose tree may differ from both parents, so the
+tag taken at approval time is the only fixed object the merged tree can honestly be compared with.
+At promotion §20 must additionally record the build run ID, the deployment ID, and the
+production-served commit — each read from its provider, not inferred from this file.
+
+## 37.5 · ROLLBACK
+
+**Reverting the squash commit on `main` restores `493d4d4`'s tree exactly**, because this promotion
+adds 10 files and modifies none outside them; **and there is no database rollback to run, because
+this promotion performs no production database write** — the P30/P31 revocations remain unapplied
+(§37.2), so nothing in the production database is changed by it and nothing in it needs undoing.
+
+*Auditor. This entry prepares; it approves nothing, performs nothing and closes nothing.*
