@@ -3601,7 +3601,7 @@ flight. The seeder run is gated on F-79 (§36.5).**
 | **F-78** | **`default_transaction_read_only` is NOT honoured through the Supabase session pooler.** D1 measured `CREATE TABLE` **succeeding** through the pooler while the identical statement was refused on a direct connection. Reproduced independently by the Auditor. The project's workflows use the pooler. Scripts believed read-only were not. **FIXED — #160 merged**: enforcement moved into the query stream as `BEGIN READ ONLY; … COMMIT;`, which no pooler can strip; proven on a fixture before the line was written (C-34). Highest-severity finding of the day |
 | **F-79** | **The seeder's teardown does not reverse what the seed causes.** `user_notifications` has **no foreign key to `posts`** (measured: 0), so the ~80,000 notification rows a 100k seed triggers would survive the teardown permanently. `album_photos` is `SET NULL`, not `CASCADE`. **Caught by D1 BEFORE the seed ran**, quantified by the Auditor: notifications on staging = 1,060, posts = 17. Teardown fix + small-seed reversal proof required before any seed. **FIXED on staging (`122d6ea`), proven on 300 rows — see §36.8** |
 | **F-80** | **The teardown's own reversal verdict is inverted.** `before` is the census at the **START OF THE TEARDOWN** — after the seed — so a working teardown (`user_notifications` 1,060+N → 1,060, delta −N) prints **TEARDOWN DID NOT REVERSE** and exits 1, while the F-79 defect itself (delta 0) prints *"The seed is reversed."* and exits 0. The seven plants missed it because the regression test asserts the **presence of the strings**, not the arithmetic. Found by the Auditor reading PR #161 (`acd98ed`) **before any seed ran**. Fix ordered: reversal keyed on the derived id set (must count 0), before/after against the **PRE-SEED** census written to a file, and a pure verdict function unit-tested on numbers. **OPEN** |
-| **F-83** | **The vitals harness measured two routes that do not serve what their names imply.** Its route list names `/wall`, **which does not exist** — there is no such route in `src/App.tsx`, so it falls to the catch-all `<Route path="*" element={<NotFound />} />` at line 440 — and `/feed`, which **redirects itself to `/login`** for an anonymous visitor (`src/pages/Feed.tsx`, lines 88–90). **The committed vitals baseline is therefore valid for `/` only, and the `/wall` figures measure the not-found page.** Found by D2: `docs/evidence/d2/baseline/feed-unmeasured-20260904.md`, branch `d2/P0-feed-unmeasured-20260904`. Fix ordered: routes → `"/,/competitions,/journal"`, negative controls re-run, the new harness hash recorded, and a **run #6** baseline committed. **OPEN** |
+| **F-83** | **The vitals harness measured two routes that do not serve what their names imply.** Its route list names `/wall`, **which does not exist** — there is no such route in `src/App.tsx`, so it falls to the catch-all `<Route path="*" element={<NotFound />} />` at line 440 — and `/feed`, which **redirects itself to `/login`** for an anonymous visitor (`src/pages/Feed.tsx`, lines 88–90). **The committed vitals baseline is therefore valid for `/` only, and the `/wall` figures measure the not-found page.** Found by D2: `docs/evidence/d2/baseline/feed-unmeasured-20260904.md`, branch `d2/P0-feed-unmeasured-20260904`. Fix ordered: routes → `"/,/competitions,/journal"`, negative controls re-run, the new hash recorded, and a **run #6** baseline committed. **Fix under review as #167**, verified by the Auditor: **3/3 routes measured** (`/` 4064 ms, `/competitions` 4048 ms, `/journal` 4052 ms, CLS 0 on all three, 0 unmeasured); the route list is a **workflow** env var, so the workflow moved `fb457af187c1d54d…` → `14792e0957f678ed…` while the harness script stayed `0149fd0216bf801f…` **unchanged**. **OPEN until #167 merges** |
 
 ## 36.6 · CORRECTIONS AGAINST THE AUDITOR — ten in one day, and an eleventh
 
@@ -3624,6 +3624,13 @@ gave the guard count without its instrument. **Caught by D3 before transcription
 *"F-79 — OPEN"* and *"The seeder has never been executed"* after the same revision recorded the
 fix and the 300-row proof. **Caught by D3**, who transcribed the ordered change and reported the
 contradiction rather than smoothing it over.
+
+**C-73** — the Auditor's F-83 brief named `0149fd02…` as the lock to re-establish, calling it the
+workflow's hash. **It is the harness script's.** The route list is a workflow env var
+(`VITALS_ROUTES`), so the fix changes the workflow and leaves the harness byte-identical; the hash
+to watch move was `fb457af1…`, not `0149fd02…`. **Caught by D2 while executing the brief**, and the
+negative controls were re-run anyway — correctly, because the workflow is what carries the two
+guard steps.
 
 **Every one is the same error: a claim reported before its instrument was read.**
 
@@ -3669,7 +3676,21 @@ contradiction rather than smoothing it over.
   database 214 → 217 MB, dead tuples pending autovacuum, **not residue**. **ZERO DAMAGE.** The
   teardown run itself exited 1 — **that exit was F-80, not the database.** The 100k seed is **HELD**
   until #165 is merged and re-read.
-* **OI-4 — for the Owner, a product decision, not a defect.** `/discover` and `/certificates` are declared **outside** `RequireAuth` in `src/App.tsx` (the wrapper closes at line 394; they sit at 398 and 409) — yet both pages redirect an anonymous visitor to `/login` of their own accord (`src/pages/Discover.tsx:59`, `src/pages/Certificates.tsx:104`). The route table says public; the pages behave private. **Which is intended is the Owner's call.**
+* **OI-4 — for the Owner, a product decision, not a defect.** `/discover` and `/certificates` are
+  declared **outside** `RequireAuth` in `src/App.tsx` (the wrapper closes at line 394; they sit at
+  398 and 409) — yet both pages redirect an anonymous visitor to `/login` of their own accord
+  (`src/pages/Discover.tsx:59`, `src/pages/Certificates.tsx:104`). The route table says public;
+  the pages behave private. **Which is intended is the Owner's call.**
+* **STANDING RULE 22 — CANDIDATE, for ratification in REV-25: *a count taken from a shallow clone
+  is not a count.*** D3 reported `git rev-list --count 493d4d4..122d6ea` = 51 and held the
+  Auditor's 119 as unreproducible, reasoning that the whole history of `122d6ea` was 97 commits
+  so 119 was unreachable. **Both figures were the depth of a shallow checkout, not the
+  repository.** `.git/shallow` held three grafted boundaries; after `git fetch --unshallow
+  origin` the same commands return **119**, **121** and a total history of **1,616** — the
+  Auditor's figures exactly. The hold was still correct procedure: the figure did not reproduce
+  *where it was measured*, and saying so is what surfaced the cause. **The rule is to establish
+  the clone's depth before reporting any count derived from history, and to name the
+  instrument's state alongside the number.**
 
 **REV-25 follows once Phase 0's last two artefacts land**; its step 1 changes when they do.
 
@@ -3694,7 +3715,7 @@ is written `— at promotion` and must be filled from the provider, not from thi
 | Head — `staging` | **`db7bd76a630f07c5f7c76c7bcb518f5145cd7e4d`** *(was `122d6ea` when §37 was first written; #165 and #162 merged after)* |
 | Head tree | `4424bc50659ed838cdfb3f6864f13dbcd8ac99bf` |
 | Trees equal | **NO** — 13 files differ |
-| Commits ahead | 4 |
+| Commits ahead | **121** by `rev-list` at `db7bd76` (**119** at `122d6ea`) — **not a measure of content under squash (Standing Rule 20)**; the six merges since the last back-merge of `main` (`7e93dd8`) are **#137, #160, #159, #161, #165, #162** |
 
 ```
 $ git diff --stat 493d4d4 origin/staging
@@ -3789,7 +3810,7 @@ production**, exactly as §36.2 records. **Merging this promotion closes no prod
 | 3 | **Client baseline committed** | **#163** `d76ad5a` · `docs/evidence/d2/baseline/` — README + two `.ndjson` | ⚠ **MEASURED, PR OPEN — not in `staging`** |
 | 4 | **Seeder guard** | `node scripts/db-seed-staging.test.mjs` → **18/18 at run time** (17 `check(` sites; one runs once per D1 workflow, 2 workflows) | ✅ **MET** |
 | 5 | **Small-seed zero-damage proof** | §36.8 · runs `33885886186` / `33886045400` / `33886239460` on `122d6ea` · `docs/evidence/d1/F-79/README.md` | ✅ **MET** — residue 0/0/0, zero damage |
-| 6 | **100k seed + committed row counts** | Auditor's `SELECT` 15:58:37Z: posts 30,217, `user_notifications` 25,171 | ⏳ **RUNNING ON STAGING NOW.** #165 is IN `staging` as `801d6ac`, so the gate has lifted; the counts are not committed until the run completes |
+| 6 | **100k seed + committed row counts** | Auditor's `SELECT` 15:58:37Z: posts 30,217, `user_notifications` 25,171 | ⏳ **RUNNING ON STAGING NOW.** #165 is IN `staging` as `801d6ac`, so the gate has lifted; the counts are not committed until the run completes. **The seed stopped at 80,200 rows at 16:06Z on a 120 s statement timeout — F-84, D1, fix in progress; the seed resumes by gap.** |
 | 7 | **0-D1-01 baseline JSON** | **#162** is IN `staging` as `db7bd76` — the baseline is now recoverable from the run log as base64 with its sha256 on both sides | ⚠ **UNBLOCKED — the run still owes the file.** Recoverability landed; the committed JSON has not |
 | 8 | **Ledger REV-24** | **#164** — this entry | ⚠ **PR OPEN — not in `staging`** |
 
