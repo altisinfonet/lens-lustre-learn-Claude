@@ -229,9 +229,18 @@ const CENSUS_SQL = `
 
 // The five counts the Auditor named on 2026-09-04 as the teardown's proof set.
 // Named once, here, so the evidence and the assertion cannot drift apart.
+//
+// ⚠ THESE ARE REPORTED, NOT ASSERTED ON. Read F-79b below before using them as
+// a pass/fail test: two of the five are SUPPOSED to move during a teardown, and
+// a predicate demanding they hold still fails exactly when the fix works.
 const TEARDOWN_PROOF_COUNTS = [
   'posts_total', 'user_notifications', 'post_hashtags', 'feed_events', 'album_photos',
 ];
+
+// Tables the seed cannot write to and cannot cause a write to. If one of these
+// moves across a teardown, the teardown reached something that was never the
+// seed's, and that is damage rather than cleanup.
+const TEARDOWN_MUST_NOT_MOVE = ['profiles', 'follows', 'post_media'];
 
 // The highest contiguous ordinal already present. Resume starts at the first
 // gap, so an interrupted run is finished by re-running it.
@@ -300,12 +309,109 @@ const TEARDOWN_SQL = (fromOrdinal, toOrdinal) => `
 // REFUSES if it finds any, rather than choosing on a member's behalf between
 // deleting their album entry and quietly detaching it. Either choice belongs to
 // the Owner; the refusal is what puts it in front of him.
+// ── F-79b · WHAT A TEARDOWN CAN HONESTLY ASSERT ABOUT ITSELF ────────────────
+// The first version of the verdict compared each census before and after the
+// sweep and failed on any non-posts movement. It failed on the first real run —
+// user_notifications 1573 → 1060 — and the failure was the CHECK being wrong,
+// not the teardown. Those 513 rows were the fan-out the seed caused, and
+// removing them is the whole of F-79. The predicate demanded that the thing the
+// fix exists to do must not happen.
+//
+// The mistake underneath it: a teardown run does not know the pre-seed
+// baseline. Its "before" is the census at the start of its own run, which is
+// the SEEDED state. Comparing against that answers "did anything change", and
+// the answer must be yes.
+//
+// What it can ask exactly, without knowing any baseline, is whether ANYTHING
+// REACHABLE BY THE DERIVED ID SET STILL EXISTS. That question has one correct
+// answer — zero — it needs no prior reading to interpret, and it is the same
+// key the deletes use, so a residue row means a delete genuinely missed. The
+// before/after table stays, as a report a human reads; the residue is the test
+// a machine fails on.
+const TEARDOWN_RESIDUE_SQL = (fromOrdinal, toOrdinal) => `
+  WITH seeded AS (
+    SELECT md5('${SEED_NAMESPACE}:post:' || g)::uuid AS id
+      FROM generate_series(${fromOrdinal}, ${toOrdinal}) g
+  )
+  SELECT (SELECT count(*) FROM public.posts p
+           WHERE p.id IN (SELECT id FROM seeded))              AS residue_posts,
+         (SELECT count(*) FROM public.user_notifications n
+           WHERE n.reference_id IN (SELECT id FROM seeded))    AS residue_user_notifications,
+         (SELECT count(*) FROM public.album_photos a
+           WHERE a.post_id IN (SELECT id FROM seeded))         AS residue_album_photos,
+         (SELECT count(*) FROM public.post_hashtags h
+           WHERE h.post_id IN (SELECT id FROM seeded))         AS residue_post_hashtags,
+         (SELECT count(*) FROM public.feed_events f
+           WHERE f.post_id IN (SELECT id FROM seeded))         AS residue_feed_events,
+         (SELECT count(*) FROM public.post_reports r
+           WHERE r.post_id IN (SELECT id FROM seeded))         AS residue_post_reports
+`;
+
 const TEARDOWN_ALBUM_GUARD_SQL = (fromOrdinal, toOrdinal) => `
   SELECT count(*)::bigint AS album_photos_pointing_at_seed
     FROM public.album_photos a
    WHERE a.post_id IN (SELECT md5('${SEED_NAMESPACE}:post:' || g)::uuid
                          FROM generate_series(${fromOrdinal}, ${toOrdinal}) g)
 `;
+
+// ── The verdict · a pure function, because a verdict tested by regex is not ──
+// tested at all
+//
+// F-79b was a WRONG PREDICATE that lived inline in main(), where the only thing
+// a test could reach was its source text. The regression test I wrote for it
+// read the file and matched guard expressions with a regular expression — which
+// is the same mistake one level up: it checks the shape of the code rather than
+// what the code decides. It would pass against a verdict that named the right
+// variables and computed the wrong answer.
+//
+// So the decision is separated from the I/O. This function touches no database,
+// prints nothing and exits nothing; it takes numbers and returns a judgement.
+// main() may only print it and choose an exit code from it. That makes the
+// verdict testable the one way that actually pins it: feed it the numbers from
+// the run that got this wrong — before.user_notifications 1573, after 1060,
+// residue 0 — and require ok:true.
+//
+//   residue      { residue_posts, residue_user_notifications, ... }  all must be 0
+//   before/after the census either side of the sweep — REPORTED, never asserted
+//   mustNotMove  tables the seed cannot write to or cause a write to
+//
+// Returns { ok, reasons }. reasons is empty when ok. Every reason NAMES the
+// count that produced it, so a failing run says which one and by how much.
+export function teardownVerdict({ residue = {}, before = {}, after = {}, mustNotMove = [] } = {}) {
+  const reasons = [];
+
+  // 1. COMPLETENESS. Nothing reachable by the derived id set may survive a
+  //    sweep of that id set. This is the only question answerable exactly
+  //    without a pre-seed baseline, which a teardown run does not have.
+  for (const [key, value] of Object.entries(residue)) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) {
+      reasons.push(`${key} is not a number (${JSON.stringify(value)}) — the residue query did not answer`);
+    } else if (n > 0) {
+      reasons.push(`${key}=${n} — rows reachable by the derived id set survived the sweep`);
+    }
+  }
+
+  // 2. CONFINEMENT. Residue proves the sweep was complete; this proves it was
+  //    confined. A teardown that deleted a member's profile would leave zero
+  //    residue and look clean.
+  for (const key of mustNotMove) {
+    const b = Number(before[key]);
+    const a = Number(after[key]);
+    if (!Number.isFinite(b) || !Number.isFinite(a)) {
+      reasons.push(`${key} was not measured on both sides — a table that cannot be compared cannot be cleared`);
+    } else if (b !== a) {
+      reasons.push(`${key} ${b} → ${a} — the teardown touched a table the seed cannot write to`);
+    }
+  }
+
+  // 3. NOT A REASON, DELIBERATELY: a falling posts_total or user_notifications.
+  //    Those SHOULD fall — the fan-out rows the seed caused are exactly what
+  //    F-79 added the second delete to remove. The first version of this
+  //    verdict failed on that movement and called a working teardown broken.
+
+  return { ok: reasons.length === 0, reasons };
+}
 
 // ── Arguments ──────────────────────────────────────────────────────────────
 function parseArgs(argv) {
@@ -449,33 +555,52 @@ function main() {
     }
     const after = queryOne(dsn, CENSUS_SQL);
 
-    // ── The teardown states its own verdict, on the Auditor's five counts ──
-    // C-34 applied to the cleanup: a teardown is not trusted because it ran
-    // without error, it is trusted because the counts came back. Printing the
-    // comparison is what makes a failure to reverse visible instead of silent.
-    const reversal = TEARDOWN_PROOF_COUNTS.map((k) => ({
+    // ── The teardown states its own verdict ──────────────────────────────
+    // C-34 applied to the cleanup: a teardown is not trusted because it exited
+    // 0. But see F-79b above for what it can honestly test. The census
+    // comparison is REPORTED so a human can read what moved; the RESIDUE is
+    // what the run passes or fails on, because it is the only question whose
+    // right answer is knowable without a pre-seed baseline this run never saw.
+    const residue = queryOne(dsn, TEARDOWN_RESIDUE_SQL(1, args.rows));
+    const verdict = teardownVerdict({
+      residue, before, after, mustNotMove: TEARDOWN_MUST_NOT_MOVE,
+    });
+
+    const moved = TEARDOWN_PROOF_COUNTS.map((k) => ({
       count: k,
-      before: Number(before[k]),
+      before_this_run: Number(before[k]),
       after: Number(after[k]),
       delta: Number(after[k]) - Number(before[k]),
     }));
-    const notReversed = reversal.filter((r) => r.delta !== 0 && r.count !== 'posts_total');
+
     console.log(`\nTeardown swept ordinals 1..${args.rows}.`);
     console.log(JSON.stringify({
-      teardown_reversal_check: reversal,
+      verdict,
+      residue_on_the_derived_id_set: residue,
+      counts_before_and_after_this_run: moved,
+      tables_the_seed_cannot_touch: TEARDOWN_MUST_NOT_MOVE.map((k) => ({
+        count: k, before_this_run: Number(before[k]), after: Number(after[k]),
+      })),
       seed_namespace: SEED_NAMESPACE,
-      note: 'posts_total is expected to fall by the seeded rows removed. Every OTHER count here '
-          + 'must return to its before-value; a non-zero delta on any of them is a teardown that '
-          + 'did not reverse what the seed caused (F-79).',
+      how_to_read_this:
+        'The counts above are a REPORT, not the test. posts_total and '
+        + 'user_notifications are SUPPOSED to fall during a teardown — the fan-out rows the seed '
+        + 'caused are exactly what F-79 added the second delete to remove — so a non-zero delta on '
+        + 'them is the fix working. The TEST is residue_*: every one must be 0, because nothing '
+        + 'reachable by the derived id set may survive a sweep of that id set. To confirm the '
+        + 'database is back to its pre-seed state, compare the after-figures with a --status '
+        + 'reading taken BEFORE the seed; this run cannot do that for you and does not pretend to.',
     }, null, 2));
-    if (notReversed.length > 0) {
-      console.error(
-        `\nTEARDOWN DID NOT REVERSE: ${notReversed.map((r) => `${r.count} ${r.before} → ${r.after}`).join('; ')}. `
-        + 'Rows the seed caused are still present. Do not report this run as clean.',
-      );
+
+    if (!verdict.ok) {
+      console.error(`\nTEARDOWN FAILED ITS OWN VERDICT:\n  - ${verdict.reasons.join('\n  - ')}\n`
+        + 'Do not report this run as clean.');
       process.exit(1);
     }
-    console.log('\nAll non-posts counts returned to their before-values. The seed is reversed.');
+    console.log(
+      '\nZero residue on the derived id set, and nothing moved in the tables the seed cannot touch. '
+      + 'The seed is reversed.',
+    );
     process.exit(0);
   }
 
@@ -606,7 +731,7 @@ function main() {
 export {
   SEED_NAMESPACE, SEED_CONTENT_MARKER, SEED_TABLES,
   insertBatchSql, parseArgs, CENSUS_SQL, TEARDOWN_SQL, TEARDOWN_ALBUM_GUARD_SQL,
-  TEARDOWN_PROOF_COUNTS, HIGHEST_ORDINAL_SQL,
+  TEARDOWN_RESIDUE_SQL, TEARDOWN_PROOF_COUNTS, TEARDOWN_MUST_NOT_MOVE, HIGHEST_ORDINAL_SQL,
 };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
