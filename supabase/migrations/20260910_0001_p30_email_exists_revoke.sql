@@ -1,0 +1,185 @@
+-- P30 · email_exists(text) — close the account-enumeration endpoint to anon.
+--
+-- =============================================================================
+-- THE GATE THIS SERVES — docs/gates/GATE_REGISTER.md, unit P30, verbatim:
+--
+--   "email_exists removed from the anon role; signup and password-reset
+--    responses are identical whether or not the address is registered."
+--
+-- ⚠ TWO CLAUSES. THIS FILE CLOSES CLAUSE 1 ONLY, AND SAYS SO.
+--
+--   Clause 1  email_exists removed from the anon role.
+--             → this file. Proved per-function on the lane it is applied to by
+--               PROBE_p30_email_exists_closed.sql, assertion B2.
+--
+--   Clause 2  signup and password-reset responses identical whether or not the
+--             address is registered.
+--             → NOT closed here, and this file does not pretend to close it.
+--               It is an HTTP-response measurement taken from the client, and
+--               the register's own note says it "needs a test proving the two
+--               responses are byte-identical". A database grant cannot prove
+--               that. curl is not a browser (F-53). What this file does is
+--               remove the ONLY mechanism by which the application produced a
+--               differing response — see the call-site reading below — which is
+--               the precondition for clause 2, not the evidence for it.
+--
+-- The unit does not close until both clauses close. Recorded so that a green
+-- run on this file is not mistaken for a closed gate.
+--
+-- =============================================================================
+-- THE AUTHORITY — AND ITS LIMIT
+--
+-- docs/gates/P1-revocation-list.md, task 1-AU-02, REVISION 2, frozen by the
+-- Auditor at commit e74d977, blob 88c08093. §2.1 clears exactly one object for
+-- revocation in this issue of the list:
+--
+--   | email_exists(text) | REVOKE ALL … FROM public, anon |
+--
+-- Nothing else on that list is cleared, and this file touches nothing else.
+-- Specifically NOT touched, each for a reason recorded by the Auditor:
+--
+--   search_certificates(...)          §2.2 BLOCKED. All four verification pages
+--                                     collapse error and empty into one branch,
+--                                     so on revoke day a real certificate holder
+--                                     is told their certificate could not be
+--                                     verified. That reads as a forgery and
+--                                     nobody reports it. A silent wrong answer
+--                                     is worse than an error. D2's lane first.
+--   increment_managed_page_view(...)  §2.2 BLOCKED. ManagedPageView.tsx:34 has
+--                                     no rejection handler; a revoke becomes an
+--                                     unhandled rejection on a public page.
+--   verify_staff_id(text)             §2.3 WITHDRAWN as C-60. blood_group is a
+--                                     DESIGNED feature of the public staff-card
+--                                     page, not a leak — it is printed on the
+--                                     card the caller is already holding. Its
+--                                     real gate is unchanged from the Addendum:
+--                                     a session or a rate limit. Not a
+--                                     revocation, and not this file's business.
+--
+-- =============================================================================
+-- WHY THIS IS SAFE TO APPLY TODAY — READ FROM THE CODE, NOT FROM THE LIST
+--
+-- The frozen list records D2's finding that the only call site is fail-open.
+-- Standing Rule / §4.8 says assert from the system, so it was re-read rather
+-- than repeated. src/pages/ForgotPassword.tsx:37-45, read 2026-09-04:
+--
+--     let exists: boolean | null = null;
+--     try {
+--       const { data, error: checkError } = await (supabase as any)
+--         .rpc("email_exists", { _email: result.data });
+--       if (!checkError && typeof data === "boolean") exists = data;
+--     } catch {
+--       exists = null; // check unavailable — behave like before
+--     }
+--     if (exists === false) { setNotFound(true); setLoading(false); return; }
+--
+-- ⚠ ONE CORRECTION TO THE LIST'S WORDING, AND IT MAKES THE CASE STRONGER.
+-- The list says the call "is wrapped in try/catch, any error sets exists =
+-- null". The try/catch is not what carries it. supabase-js .rpc() resolves with
+-- { data, error } on an HTTP error — it does not throw — so after this revoke
+-- the catch block never runs. What holds is the `!checkError` guard on the
+-- assignment: `exists` is initialised to null and is only ever written when
+-- checkError is falsy. PostgREST returns 42501 "permission denied for function
+-- email_exists", checkError is set, the assignment is skipped, `exists` stays
+-- null, `exists === false` is false, and control falls through to
+-- resetPasswordForEmail. Fail-open either way, by two independent mechanisms
+-- rather than one. Reported as a wording refinement, not a defect in the list.
+--
+-- WHAT A MEMBER SEES CHANGE: the "No Account Found" screen
+-- (ForgotPassword.tsx:66-80) stops appearing. Everyone who submits the form now
+-- gets the generic "check your inbox" result. That is a deliberate loss of a UX
+-- affordance the Owner once chose — the comment at line 33 calls it "owner's UX
+-- decision: tell the user plainly whether the account exists" — and P30 exists
+-- precisely because that affordance is an account-enumeration oracle. The
+-- register's clause 2 is the same decision stated as a requirement.
+--
+-- Grep of the whole tree for other callers, 2026-09-04: one hit in src/**,
+-- ForgotPassword.tsx:39. No edge function, no Pages function, no script.
+--
+-- =============================================================================
+-- WHY `FROM public` COMES FIRST — AND AN HONEST NOTE ON F-62
+--
+-- F-62: a REVOKE … FROM anon is a no-op wherever PUBLIC holds the grant,
+-- because anon inherits EXECUTE through PUBLIC. The REVOKE succeeds, the
+-- catalogue looks changed, and anon keeps access. Measured on this platform on
+-- get_top_contributors_v2 by a negative control that failed to fail.
+--
+-- ⚠ THAT CONDITION IS NOT SATISFIED BY email_exists, AND SAYING OTHERWISE
+-- WOULD BE THE C-49 / C-53 ERROR — a finding quoted without its instrument.
+-- Measured by D1 2026-09-04, `SELECT` only, on BOTH lanes:
+--
+--   staging    ztzutckwdhetphwghuzj  oid 17719
+--   production jtdtehuqtinjxropkkcn  oid 34459
+--   both: proacl = {postgres=X/postgres,anon=X/postgres,
+--                   authenticated=X/postgres,service_role=X/postgres}
+--   both: aclexplode grantee=0 (PUBLIC) entries = 0
+--   both: anon_exec=true  authenticated_exec=true  prosecdef=true  provolatile=s
+--
+-- There is no PUBLIC entry. F-62's own register row says the same thing and is
+-- the reason it is quoted here rather than glossed: "email_exists (P30),
+-- verify_staff_id (P31) and the other seven volatile P32 functions carry clean
+-- grants and are unaffected." So on today's catalogue `REVOKE … FROM anon`
+-- alone WOULD have closed this one. This file does not claim otherwise.
+--
+-- The `FROM public` line is written first anyway, for three reasons, none of
+-- them cosmetic:
+--
+--   1. §1 of the frozen list MANDATES the shape: "Every revoke on this list is
+--      written REVOKE ALL … FROM public followed by the named grants." A
+--      developer does not vary a frozen instruction because today's catalogue
+--      makes it redundant.
+--   2. F-66: a closed function REOPENS on DROP+CREATE, because CREATE FUNCTION
+--      re-applies the built-in EXECUTE-to-PUBLIC default, and production's
+--      pg_default_acl ADDS roles rather than replacing that default (measured
+--      on a fixture, docs/evidence/d1/tc-v3/F-66-fixture-transcript.txt). The
+--      day anyone recreates email_exists, PUBLIC holds the grant and the
+--      anon-only form silently stops working. The public-first form still does.
+--   3. It costs one statement and is a no-op when PUBLIC holds nothing.
+--
+-- The fixture in docs/evidence/d1/P30/ demonstrates case 2 rather than asserting
+-- it: it builds the PUBLIC-holding variant, shows REVOKE … FROM anon leaving
+-- has_function_privilege true, and shows this file's two-line form closing it.
+--
+-- =============================================================================
+-- WHAT IS DELIBERATELY *NOT* REVOKED, AND WHY THAT IS NOT AN OVERSIGHT
+--
+-- `authenticated` KEEPS EXECUTE. The frozen list authorises "FROM public, anon"
+-- and no more. D1 does not vary from the list, so authenticated is untouched
+-- and the probe ASSERTS it is still true — an over-revoke is as much a defect
+-- as an under-revoke, and it would break the rollback's fidelity.
+--
+-- ⚠ RAISED FOR THE AUDITOR, NOT ACTED ON: anyone may create an account, so
+-- `authenticated` is not a meaningfully higher bar than `anon` against the
+-- enumeration class this unit exists to close — a signed-up attacker can still
+-- ask this function about any address. It is a smaller door, not a shut one,
+-- and it is rate-limitable and attributable in a way anon is not, which may be
+-- exactly why the list stopped where it did. Either way it is the Auditor's
+-- call and belongs in a revision of the frozen list, not in a developer's
+-- migration. Flagged here so it is on the record rather than in a chat.
+--
+-- `service_role` KEEPS EXECUTE. Server-side callers are not the attack class
+-- and the probe asserts it, so a future edit cannot quietly strip it.
+--
+-- =============================================================================
+-- SEQUENCE POSITION — this is a BEHAVIOUR step, not EXPAND.
+--
+-- It changes what the system does for anonymous callers on the day it applies.
+-- It is NOT a CONTRACT step: nothing is dropped, the function body is untouched,
+-- and the rollback restores the prior ACL exactly, so a redeploy CAN undo it.
+-- Staging first, always. The Auditor authorises the apply; committing this file
+-- is not applying it.
+-- =============================================================================
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- The function body, its volatility, its search_path and its SECURITY DEFINER
+-- flag are NOT touched. This is a grant change only. Not using DROP+CREATE is
+-- itself the F-66 mitigation: there is no moment at which the built-in
+-- EXECUTE-to-PUBLIC default is re-applied.
+--
+-- Both statements are idempotent and safe to re-run on an already-closed lane.
+
+REVOKE ALL ON FUNCTION public.email_exists(text) FROM public;
+REVOKE ALL ON FUNCTION public.email_exists(text) FROM anon;
+
+COMMENT ON FUNCTION public.email_exists(text) IS
+  'Account-existence check. NOT executable by anon — P30, frozen revocation list docs/gates/P1-revocation-list.md §2.1 (rev 2, blob 88c08093). Granting EXECUTE to anon turns the public API key into an account-enumeration oracle feeding phishing and credential-stuffing lists; the password-reset screen must answer identically whether or not the address is registered. authenticated and service_role retain EXECUTE — the frozen list authorised revoking from public and anon only. If this function is ever recreated with DROP+CREATE it REOPENS to PUBLIC (F-66) and the revoke must be re-applied and re-proved.';
