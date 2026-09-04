@@ -226,6 +226,49 @@ COMMENT ON FUNCTION public.get_top_contributors_v3() IS
 -- If the Auditor wants v3's grant posture byte-identical to v2's instead, the
 -- change is to delete the REVOKE line below. I recommend against it and have
 -- said so rather than making the choice silently.
+-- ─────────────────────────────────────────────────────────────────────────────
+-- F-76 · THE DELIBERATELY-PUBLIC CLAIM, MADE HERE RATHER THAN IN AN ALLOW-LIST.
+--
+-- D2's guard (securityDefinerGrants.test.ts) has three ways for a SECURITY
+-- DEFINER function to pass: revoked from anon by name, gated internally on the
+-- caller's own identity, or proven PUBLIC-BY-DESIGN. v3 is the third. It is
+-- neither revoked from anon nor internally gated, and that is correct rather
+-- than a defect — so the claim is written where the grant is, and the developer
+-- who wants to know "why is this public?" reads the answer next to the line
+-- that made it public.
+--
+-- ⚠ THE MARKER IS NOT A WAIVER. The guard still enforces two things no reason
+-- can excuse, and both are already satisfied below rather than by this comment:
+--   (2) the F-62-safe shape — REVOKE ALL … FROM public BEFORE the GRANT … TO
+--       anon. A bare GRANT fails even with a marker, because `REVOKE … FROM
+--       anon` is a no-op while PUBLIC holds the grant. Satisfied: the REVOKE is
+--       the line immediately below, and it precedes the GRANT.
+--   (3) not VOLATILE. A public VOLATILE definer function is the amplification
+--       class — an anonymous caller driving unbounded write work. Satisfied:
+--       the function is declared STABLE, explicitly, because PostgreSQL's
+--       default is VOLATILE and silence is not a claim.
+--
+-- Both re-checked against this file 2026-09-04 rather than assumed.
+--
+-- ⚠ A TRAP THIS COMMENT BLOCK FELL INTO ONCE, RECORDED SO THE NEXT WRITER DOES
+-- NOT. The guard's "gates internally" test greps the RAW SQL — comments
+-- included — for the caller-identity helpers, across the 8000 characters after
+-- the function header. An earlier draft of this very block NAMED those helpers
+-- in prose while explaining the three categories, and that alone made the guard
+-- believe v3 gates itself. It went green for a reason that had nothing to do
+-- with the marker: the negative control (delete the marker, expect red) came
+-- back GREEN, which is how it was caught. Do not write those identifiers
+-- literally anywhere after a SECURITY DEFINER header unless the function really
+-- does call them. Raised for D2 as a guard weakness in its own right.
+
+-- PUBLIC-BY-DESIGN: get_top_contributors_v3 — the Home page Top Contributors card is rendered for logged-out visitors, so anon MUST be able to execute this or the public home page shows an empty card; it takes no arguments, so there is no parameter through which a caller can ask about a member of their choosing, its output is caller-independent (measured identical for member A, member B and anon), and it returns only the three names and scores that are already printed on that public page.
+--
+-- The enumeration risk lives in the helper, not here: contributor_points_since
+-- returns EVERY eligible member's score for an arbitrary date, and its EXECUTE
+-- stays revoked from public, anon and authenticated. v3 reaches it only because
+-- v3 is DEFINER. PROBE_top_contributors_v3_cross_member.sql asserts that on
+-- every run (A3), along with the row cap (A1) whose removal was measured to
+-- turn 3 rows into 44.
 REVOKE ALL ON FUNCTION public.get_top_contributors_v3() FROM public;
 GRANT EXECUTE ON FUNCTION public.get_top_contributors_v3() TO anon, authenticated;
 
