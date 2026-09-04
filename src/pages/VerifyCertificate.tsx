@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Award, CheckCircle, Search, XCircle, Calendar, Shield, Ban } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { isSearchUnavailableError } from "@/pages/verifyCertificateErrors";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -56,6 +57,9 @@ const VerifyCertificate = () => {
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  // P31: a withdrawn grant is not an empty result. Held separately from
+  // notFound so this page can never render a refusal as an absence.
+  const [searchUnavailable, setSearchUnavailable] = useState(false);
 
   const handleVerifyById = async () => {
     const trimmed = certId.trim();
@@ -74,6 +78,7 @@ const VerifyCertificate = () => {
 
     setLoading(true);
     setNotFound(false);
+    setSearchUnavailable(false);
     setResults([]);
 
     const { data, error } = await supabase.rpc("verify_certificate", { _cert_id: trimmed });
@@ -96,6 +101,7 @@ const VerifyCertificate = () => {
 
     setLoading(true);
     setNotFound(false);
+    setSearchUnavailable(false);
     setResults([]);
 
     const { data, error } = await supabase.rpc("search_certificates", {
@@ -104,7 +110,13 @@ const VerifyCertificate = () => {
       _issued_date: date ?? null,
     });
 
-    if (error || !data || data.length === 0) {
+    // P31: the refusal is tested FIRST. The old single condition swallowed it
+    // and rendered "No Certificates Found", telling a member holding a REAL
+    // certificate that nothing matched. A silent wrong answer is worse than an
+    // error. Empty results and unrelated errors keep their existing branch.
+    if (isSearchUnavailableError(error)) {
+      setSearchUnavailable(true);
+    } else if (error || !data || data.length === 0) {
       setNotFound(true);
     } else {
       setResults(data as VerifiedCert[]);
@@ -155,7 +167,7 @@ const VerifyCertificate = () => {
           {/* Mode toggle */}
           <div className="flex justify-center gap-1 mb-8 p-1 border border-border inline-flex mx-auto w-full max-w-sm">
             <button
-              onClick={() => { setMode("id"); setSearched(false); setResults([]); setNotFound(false); }}
+              onClick={() => { setMode("id"); setSearched(false); setResults([]); setNotFound(false); setSearchUnavailable(false); }}
               className={`flex-1 text-[10px] tracking-[0.15em] uppercase py-2.5 transition-all duration-300 ${
                 mode === "id" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
@@ -164,7 +176,7 @@ const VerifyCertificate = () => {
               By Certificate ID
             </button>
             <button
-              onClick={() => { setMode("details"); setSearched(false); setResults([]); setNotFound(false); }}
+              onClick={() => { setMode("details"); setSearched(false); setResults([]); setNotFound(false); setSearchUnavailable(false); }}
               className={`flex-1 text-[10px] tracking-[0.15em] uppercase py-2.5 transition-all duration-300 ${
                 mode === "details" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
@@ -342,7 +354,7 @@ const VerifyCertificate = () => {
           )}
 
           {/* Not found */}
-          {searched && notFound && (
+          {searched && notFound && !searchUnavailable && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -357,6 +369,28 @@ const VerifyCertificate = () => {
                 {mode === "id"
                   ? "The certificate ID you entered does not match any records. Please double-check and try again."
                   : "No certificates match your search criteria. Try adjusting the name, course title, or date."}
+              </p>
+            </motion.div>
+          )}
+
+          {/* P31: search withdrawn — deliberately NOT the destructive style.
+              Nothing has gone wrong from the visitor's side, and the certificate
+              they hold is not in question. Says what to do instead, and never
+              shows the underlying error text. */}
+          {searched && searchUnavailable && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="border border-border p-8 text-center"
+            >
+              <Ban className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+              <p className="text-sm text-foreground mb-1" style={{ fontFamily: "var(--font-heading)" }}>
+                Search Unavailable
+              </p>
+              <p className="text-xs text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
+                Searching by name or course is no longer available. You can still
+                verify a certificate using its certificate ID.
               </p>
             </motion.div>
           )}
