@@ -113,10 +113,28 @@ jobs:
       # Playwright version cannot drift apart.
 
       EVIDENCE_DIR: docs/evidence/d2/baseline
-      # Home first, then the two heaviest surfaces a member actually opens.
-      # A route that does not exist still measures — the SPA serves index.html
-      # and the record says which route it was.
-      VITALS_ROUTES: /,/feed,/wall
+      # F-83: the previous list was /,/feed,/wall and TWO of the three were not
+      # measuring what anyone thought.
+      #   /feed  is declared outside RequireAuth (App.tsx:397) but redirects
+      #          itself — Feed.tsx:88-90 calls navigate("/login") once auth
+      #          resolves, ~300 ms after mount, which destroys the execution
+      #          context mid-measurement. An anonymous harness can never measure
+      #          it, and a longer settle does not help: waiting longer does not
+      #          make a redirect stop happening.
+      #   /wall  is not a declared route at all. The only grep hit is /wallet
+      #          (App.tsx:414), so it fell through to the catch-all at
+      #          App.tsx:440 and its figures measured the 404 handler.
+      #
+      # The comment that used to sit here said "a route that does not exist still
+      # measures — the SPA serves index.html and the record says which route it
+      # was." That was TRUE and it was the trap: it measures, so it looks like a
+      # result, and nothing says the number describes a 404 page. Standing Rule
+      # 21 — the comment was not wrong, it was reassuring about the wrong thing.
+      #
+      # All three below were loaded anonymously against the built dist and render
+      # fully with no redirect: evidence in
+      # docs/evidence/d2/baseline/feed-unmeasured-20260904.md.
+      VITALS_ROUTES: /,/competitions,/journal
       VITALS_RUNS: "3"
 
     steps:
