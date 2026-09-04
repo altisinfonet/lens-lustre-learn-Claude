@@ -104,6 +104,16 @@ const runIdVerify = async () => {
   await waitFor(() => expect(rpcMock).toHaveBeenCalled());
 };
 
+// A transport failure as @supabase/postgrest-js actually reports it: its own
+// .catch() returns a RESOLVED response with code as an EMPTY STRING (not
+// undefined, not a Postgres code). Read from PostgrestBuilder.ts:250-291.
+const TRANSPORT_FAILURE = {
+  message: "TypeError: Failed to fetch",
+  details: "FetchError: TypeError: Failed to fetch",
+  hint: "",
+  code: "",
+};
+
 beforeEach(() => {
   rpcMock.mockReset();
 });
@@ -228,5 +238,59 @@ describe("VerifyCertificate — the by-ID path must not carry the same defect", 
 
     await waitFor(() => expect(screen.getByText(/no certificates found/i)).toBeTruthy());
     expect(screen.queryByText(/verification unavailable/i)).toBeNull();
+  });
+});
+
+describe("VerifyCertificate — a transport failure is its own third state", () => {
+  it("by name: does NOT say 'No Certificates Found' when the network failed", async () => {
+    rpcMock.mockResolvedValue({ data: null, error: TRANSPORT_FAILURE });
+    await runDetailsSearch();
+
+    await waitFor(() => expect(screen.getByText(/could not be completed/i)).toBeTruthy());
+    expect(screen.queryByText(/no certificates found/i)).toBeNull();
+  });
+
+  it("by name: does NOT claim the search was withdrawn — it may work on retry", async () => {
+    rpcMock.mockResolvedValue({ data: null, error: TRANSPORT_FAILURE });
+    await runDetailsSearch();
+
+    await waitFor(() => expect(screen.getByText(/could not be completed/i)).toBeTruthy());
+    // "no longer available … use the certificate ID" is FALSE here: the search
+    // still exists and retrying may well work.
+    expect(screen.queryByText(/no longer available/i)).toBeNull();
+    expect(screen.getByText(/try again/i)).toBeTruthy();
+  });
+
+  it("by ID: does NOT say 'No Certificates Found' when the network failed", async () => {
+    rpcMock.mockResolvedValue({ data: null, error: TRANSPORT_FAILURE });
+    await runIdVerify();
+
+    await waitFor(() => expect(screen.getByText(/could not be completed/i)).toBeTruthy());
+    expect(screen.queryByText(/no certificates found/i)).toBeNull();
+  });
+
+  it("never leaks the transport error text to a member", async () => {
+    rpcMock.mockResolvedValue({ data: null, error: TRANSPORT_FAILURE });
+    await runDetailsSearch();
+
+    await waitFor(() => expect(screen.getByText(/could not be completed/i)).toBeTruthy());
+    expect(screen.queryByText(/failed to fetch/i)).toBeNull();
+    expect(screen.queryByText(/fetcherror/i)).toBeNull();
+  });
+
+  it("GUARD a refusal still shows the withdrawn-search panel, not the retry panel", async () => {
+    rpcMock.mockResolvedValue({ data: null, error: REFUSAL_42501 });
+    await runDetailsSearch();
+
+    await waitFor(() => expect(screen.getByText(/search unavailable/i)).toBeTruthy());
+    expect(screen.queryByText(/could not be completed/i)).toBeNull();
+  });
+
+  it("GUARD a genuine empty result still says 'No Certificates Found'", async () => {
+    rpcMock.mockResolvedValue({ data: [], error: null });
+    await runDetailsSearch();
+
+    await waitFor(() => expect(screen.getByText(/no certificates found/i)).toBeTruthy());
+    expect(screen.queryByText(/could not be completed/i)).toBeNull();
   });
 });

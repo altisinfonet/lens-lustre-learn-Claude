@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Award, CheckCircle, Search, XCircle, Calendar, Shield, Ban } from "lucide-react";
+import { Award, CheckCircle, Search, XCircle, Calendar, Shield, Ban, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { isSearchUnavailableError } from "@/pages/verifyCertificateErrors";
 import { Input } from "@/components/ui/input";
@@ -60,6 +60,12 @@ const VerifyCertificate = () => {
   // P31: a withdrawn grant is not an empty result. Held separately from
   // notFound so this page can never render a refusal as an absence.
   const [searchUnavailable, setSearchUnavailable] = useState(false);
+  // P31 (transport): and a lookup that never completed is neither of those. A
+  // dropped connection used to fall through to "No Certificates Found" — the
+  // same confident wrong answer about a member's own credential, arriving by a
+  // different road. Observed in a real browser, not theorised: the POST reset
+  // after 21s and the page said no certificates matched.
+  const [lookupFailed, setLookupFailed] = useState(false);
 
   const handleVerifyById = async () => {
     const trimmed = certId.trim();
@@ -79,6 +85,7 @@ const VerifyCertificate = () => {
     setLoading(true);
     setNotFound(false);
     setSearchUnavailable(false);
+    setLookupFailed(false);
     setResults([]);
 
     const { data, error } = await supabase.rpc("verify_certificate", { _cert_id: trimmed });
@@ -88,7 +95,12 @@ const VerifyCertificate = () => {
     // by-name branch would move the bug rather than remove it.
     if (isSearchUnavailableError(error)) {
       setSearchUnavailable(true);
-    } else if (error || !data || data.length === 0) {
+    } else if (error) {
+      // Any other error means the check did not complete. It is NOT an empty
+      // result and it is NOT a withdrawal — retrying may well succeed — so it
+      // gets its own honest state rather than borrowing either message.
+      setLookupFailed(true);
+    } else if (!data || data.length === 0) {
       setNotFound(true);
     } else {
       setResults(data as VerifiedCert[]);
@@ -107,6 +119,7 @@ const VerifyCertificate = () => {
     setLoading(true);
     setNotFound(false);
     setSearchUnavailable(false);
+    setLookupFailed(false);
     setResults([]);
 
     const { data, error } = await supabase.rpc("search_certificates", {
@@ -121,7 +134,12 @@ const VerifyCertificate = () => {
     // error. Empty results and unrelated errors keep their existing branch.
     if (isSearchUnavailableError(error)) {
       setSearchUnavailable(true);
-    } else if (error || !data || data.length === 0) {
+    } else if (error) {
+      // Any other error means the check did not complete. It is NOT an empty
+      // result and it is NOT a withdrawal — retrying may well succeed — so it
+      // gets its own honest state rather than borrowing either message.
+      setLookupFailed(true);
+    } else if (!data || data.length === 0) {
       setNotFound(true);
     } else {
       setResults(data as VerifiedCert[]);
@@ -172,7 +190,7 @@ const VerifyCertificate = () => {
           {/* Mode toggle */}
           <div className="flex justify-center gap-1 mb-8 p-1 border border-border inline-flex mx-auto w-full max-w-sm">
             <button
-              onClick={() => { setMode("id"); setSearched(false); setResults([]); setNotFound(false); setSearchUnavailable(false); }}
+              onClick={() => { setMode("id"); setSearched(false); setResults([]); setNotFound(false); setSearchUnavailable(false); setLookupFailed(false); }}
               className={`flex-1 text-[10px] tracking-[0.15em] uppercase py-2.5 transition-all duration-300 ${
                 mode === "id" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
@@ -181,7 +199,7 @@ const VerifyCertificate = () => {
               By Certificate ID
             </button>
             <button
-              onClick={() => { setMode("details"); setSearched(false); setResults([]); setNotFound(false); setSearchUnavailable(false); }}
+              onClick={() => { setMode("details"); setSearched(false); setResults([]); setNotFound(false); setSearchUnavailable(false); setLookupFailed(false); }}
               className={`flex-1 text-[10px] tracking-[0.15em] uppercase py-2.5 transition-all duration-300 ${
                 mode === "details" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
@@ -359,7 +377,7 @@ const VerifyCertificate = () => {
           )}
 
           {/* Not found */}
-          {searched && notFound && !searchUnavailable && (
+          {searched && notFound && !searchUnavailable && !lookupFailed && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -382,6 +400,30 @@ const VerifyCertificate = () => {
               Nothing has gone wrong from the visitor's side, and the certificate
               they hold is not in question. Says what to do instead, and never
               shows the underlying error text. */}
+          {/* P31 (transport): the check did not complete. Deliberately NOT the
+              withdrawal copy — "no longer available, use the certificate ID" is
+              FALSE when the connection dropped, because the search still exists
+              and a retry may work. Deliberately NOT the destructive style
+              either: nothing is wrong with the member's certificate, and saying
+              so plainly is the whole point of this state. */}
+          {searched && lookupFailed && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="border border-border p-8 text-center"
+            >
+              <RefreshCw className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+              <p className="text-sm text-foreground mb-1" style={{ fontFamily: "var(--font-heading)" }}>
+                Verification Could Not Be Completed
+              </p>
+              <p className="text-xs text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
+                We could not reach the verification service. This does not mean the
+                certificate is invalid — please check your connection and try again.
+              </p>
+            </motion.div>
+          )}
+
           {searched && searchUnavailable && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
