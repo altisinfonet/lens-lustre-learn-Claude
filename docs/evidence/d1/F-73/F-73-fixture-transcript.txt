@@ -1,0 +1,225 @@
+F-73 · fixture transcript — the dependency gate must tell "clean" from "could not look"
+Captured in the D1 container. C-34: shown failing before it is shown passing.
+node v22.22.2 · npm 11.19.1 via npx (the workflow installs npm@11)
+date: 2026-09-04T10:02:03Z
+
+================================================================================
+STEP 1 — THE TRAP, CAPTURED FROM npm ITSELF, NOT DESCRIBED
+================================================================================
+A registry answering 500 on /-/npm/v1/security/advisories/bulk — the exact
+endpoint named in run 842. Command: npm audit --omit=dev --json
+
+  npm's own exit code : 1        <- IDENTICAL to "a critical was found"
+  stdout is valid JSON: yes      <- so "did it parse?" is the wrong question
+  metadata.vulnerabilities present: no   <- THIS is the signal
+
+  stdout:
+    {
+      "message": "500 Internal Server Error - POST http://127.0.0.1:4873/-/npm/v1/security/advisories/bulk - Internal Server Error",
+      "method": "POST",
+      "uri": "http://127.0.0.1:4873/-/npm/v1/security/advisories/bulk",
+      "headers": {
+        "content-type": [
+          "application/json"
+        ],
+        "date": [
+          "Fri, 04 Sep 2026 09:54:24 GMT"
+        ],
+        "connection": [
+          "keep-alive"
+        ],
+        "keep-alive": [
+          "timeout=5"
+        ],
+        "transfer-encoding": [
+          "chunked"
+        ],
+        "x-fetch-attempts": [
+          "1"
+        ]
+      },
+      "statusCode": 500,
+      "body": {
+        "error": "Internal Server Error"
+      },
+      "error": {
+        "summary": "",
+        "detail": ""
+      }
+    }
+
+  stderr:
+    npm warn audit 500 Internal Server Error - POST http://127.0.0.1:4873/-/npm/v1/security/advisories/bulk - Internal Server Error
+    npm error audit endpoint returned an error
+    npm error A complete log of this run can be found in: /root/.npm/_logs/2026-09-04T09_54_23_978Z-debug-0.log
+
+================================================================================
+STEP 2 — AND THE SAME EXIT CODE FROM A HEALTHY, COMPLETED AUDIT
+================================================================================
+Real completed run against registry.npmjs.org, this repository's lockfile:
+
+  npm's own exit code : 1
+  metadata.vulnerabilities : {"info":0,"low":3,"moderate":7,"high":17,"critical":0,"total":27}
+
+  -> A COMPLETED audit with critical=0 ALSO exits 1, because npm exits
+     non-zero merely because findings of some severity exist. npm's exit
+     code answers a different question from the one the gate asks.
+     THE COUNT IS THE AUTHORITY. Measured, not assumed.
+
+     (These counts match the independent measurement already recorded in
+      the F-72 comment in security.yml: low 3, moderate 7, high 17,
+      critical 0. Two instruments, same numbers.)
+
+================================================================================
+STEP 3 — THE FIXTURE TEST. Part 1 reproduces the defect; Part 2 shows the fix.
+================================================================================
+F-73 · dependency gate fixture test
+fixtures: docs/evidence/d1/F-73/fixtures/ (read as committed, not copied)
+
+PART 1 — THE DEFECT. What the OLD one-line gate returned for each input.
+         `npm audit --omit=dev --audit-level=critical`
+
+  endpoint-error.json          old gate exit 1   audit could NOT run (real captured endpoint error)
+  completed-critical-1.json    old gate exit 1   audit completed, critical = 1
+  completed-critical-0.json    old gate exit 0   audit completed, critical = 0
+
+  ⚠ CONFLATED: "could not look" and "found a critical" BOTH exit 1.
+    The job cannot tell them apart, so the human re-runs it until it goes
+    green. THIS IS THE BUG — reproduced here before the fix is shown.
+
+PART 2 — THE FIX. What the new gate returns for the SAME three inputs.
+
+  PASS  endpoint-error.json          exit 2 (expected 2)  audit could NOT run (real captured endpoint error)
+        incomplete — audit did not complete — 500 Internal Server Error - POST http://127.0.0.1:4873/-/npm/v1/security/advisories/bulk - Internal Server Error
+  PASS  completed-critical-1.json    exit 1 (expected 1)  audit completed, critical = 1
+        complete, 1 at/above critical
+  PASS  completed-critical-0.json    exit 0 (expected 0)  audit completed, critical = 0
+        complete, 0 at/above critical
+
+PART 3 — the three exit codes must be mutually distinct, or nothing was fixed.
+  codes: [2, 1, 0]  distinct: YES
+
+PART 4 — a completed audit is never retried, and a blind one is not called clean.
+  PASS  blind classified incomplete, exit 2 — not PASS, not "vulnerability found"
+  PASS  empty npm output (killed by timeout) classified blind, exit 2
+  PASS  unparseable npm output classified blind, exit 2
+  PASS  non-numeric count classified blind, exit 2 — not coerced to 0
+
+PART 5 — the threshold is `critical` today. Tightening to `high` is OPEN, not done here.
+  same completed audit at threshold "high": 17 finding(s) at/above -> exit 1
+  i.e. flipping the threshold today would fail the gate on 17 pre-existing highs.
+  Recorded so the open task is visible and is not silently taken or silently dropped.
+
+ALL CASES BEHAVED AS SPECIFIED.
+
+   fixture test process exit = 0
+
+================================================================================
+STEP 4 — REAL PROCESS EXIT CODES, not just the decision function's return
+================================================================================
+
+$ node scripts/security-audit-dependencies.mjs --json-file=docs/evidence/d1/F-73/fixtures/endpoint-error.json
+  Dependency gate — threshold: critical (production dependencies only, --omit=dev)
+  Tightening the threshold to "high" is a known open task; this run does not do it.
+  
+  
+  ══════════════════════════════════════════════════════════════════
+    THE GATE IS BLIND — exit 2.
+  ══════════════════════════════════════════════════════════════════
+    The audit did not complete after 1 of 1 attempt(s).
+    Reason: audit did not complete — 500 Internal Server Error - POST http://127.0.0.1:4873/-/npm/v1/security/advisories/bulk - Internal Server Error
+  
+    ⚠ THIS IS NOT "no vulnerabilities found". Nothing was checked.
+      It is also NOT evidence of a vulnerability. It is the registry
+      being unreachable or too slow (F-73), and it fails deliberately
+      rather than passing quietly — "we could not look" must never be
+      recorded as "we looked and it was clean".
+  
+    What to do: re-run THIS JOB. Do not re-run a job that reported a
+    vulnerability — that verdict is final and is never retried.
+  >>> PROCESS EXIT CODE = 2
+
+$ node scripts/security-audit-dependencies.mjs --json-file=docs/evidence/d1/F-73/fixtures/completed-critical-1.json
+  Dependency gate — threshold: critical (production dependencies only, --omit=dev)
+  Tightening the threshold to "high" is a known open task; this run does not do it.
+  
+  
+    counts: info 0 · low 3 · moderate 7 · high 17 · critical 1
+  ══════════════════════════════════════════════════════════════════
+    FAIL — exit 1. 1 finding(s) at or above "critical".
+  ══════════════════════════════════════════════════════════════════
+    The audit COMPLETED and found a real vulnerability in a production
+    dependency. This is the gate doing its job. It is not retried.
+    Run `npm audit --omit=dev` locally for the detail.
+  >>> PROCESS EXIT CODE = 1
+
+$ node scripts/security-audit-dependencies.mjs --json-file=docs/evidence/d1/F-73/fixtures/completed-critical-0.json
+  Dependency gate — threshold: critical (production dependencies only, --omit=dev)
+  Tightening the threshold to "high" is a known open task; this run does not do it.
+  
+  
+    counts: info 0 · low 3 · moderate 7 · high 17 · critical 0
+  ══════════════════════════════════════════════════════════════════
+    PASS — exit 0. The audit COMPLETED and found 0 findings at or above "critical".
+  ══════════════════════════════════════════════════════════════════
+    Findings below the threshold are reported above and are not gated
+    today. Tightening the threshold to "high" is an open task.
+  >>> PROCESS EXIT CODE = 0
+
+  (exit codes re-captured without a pipe, so they are the real ones:)
+    endpoint-error.json            -> exit 2
+    completed-critical-1.json      -> exit 1
+    completed-critical-0.json      -> exit 0
+
+================================================================================
+STEP 5 — LIVE, END TO END, AGAINST THE REAL registry.npmjs.org
+================================================================================
+Not a fixture. F-73 is happening right now from this container, which is why
+this step could be run at all. Two independent live observations, 2026-09-04:
+
+  npx npm@11 audit --omit=dev --json
+    -> npm exit 1
+    -> stderr: "npm warn audit 503 Service Unavailable - POST
+                https://registry.npmjs.org/-/npm/v1/security/advisories/bulk"
+               "npm error audit endpoint returned an error"
+    -> metadata.vulnerabilities: undefined
+
+  node scripts/security-audit-dependencies.mjs --threshold=critical \
+       --attempts=2 --timeout-ms=50000
+
+    Dependency gate — threshold: critical (production dependencies only, --omit=dev)
+    Tightening the threshold to "high" is a known open task; this run does not do it.
+
+    attempt 1/2: THE AUDIT DID NOT COMPLETE — npm produced no output at all (killed after 50000 ms)
+        retrying in 5s — retrying ONLY because the audit did not complete
+
+    attempt 2/2: THE AUDIT DID NOT COMPLETE — npm produced no output at all (killed after 50000 ms)
+
+      THE GATE IS BLIND — exit 2.
+      The audit did not complete after 2 of 2 attempt(s).
+      Reason: npm produced no output at all
+
+    >>> PROCESS EXIT CODE = 2
+
+  -> The old gate would have printed "Process completed with exit code 1" here
+     and been indistinguishable from a critical vulnerability. The new gate says
+     which defect it is, in its own words, and STILL FAILS. That is the whole
+     change: diagnosis, not leniency.
+
+  -> A healthy completed audit on this lockfile takes roughly 30 s (STEP 2 was
+     captured on the first attempt of a retry loop), so the normal path is
+     unchanged. The bounded worst case for a blind run is 3 x 120 s + 5 s + 15 s
+     = 6 m 20 s, against run 842's 9 m 37 s for a single wrong answer.
+
+================================================================================
+WHAT THIS TRANSCRIPT DOES NOT PROVE — stated, not left to be assumed
+================================================================================
+* It does not prove GitHub Actions behaves identically to this container. The
+  fixture cases are container-independent (they read committed bytes and touch
+  no network), but STEP 5's live behaviour depends on the registry at that
+  moment and will differ run to run — that is the nature of the defect.
+* It does not prove the registry problem is fixed. It is not fixed and this
+  change does not attempt to fix it. It makes the gate SAY which problem it hit.
+* It does not change the threshold. `critical` today; tightening to `high` is
+  still an open task, and PART 5 of the fixture test measures exactly what that
+  would cost right now: 17 pre-existing high findings.
