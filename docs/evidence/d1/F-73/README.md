@@ -158,41 +158,62 @@ next `scripts/` file does not have to guess. D1 did not edit `docs/gates/**` to 
 
 ---
 
-## 8 · F-73b — the fix bounded the wrong half first. Measured, and corrected.
+## 8 · F-73b — the informational step delays the gate. And a correction to D1's own first account of it.
 
-**Found by watching the very first run of the F-73 fix, on PR #146 head `5e69ef4`.** Workflow run
-`33861425081`, job `100986510380`, step states read from the API at ~10:29Z:
+### 8.1 ⚠ CORRECTION FIRST, because the first version of this section was wrong
 
-```
-step 5  npm ci                     completed  10:04:32
-step 6  Report (all dependencies)  in_progress from 10:04:32 — still running 25 minutes later
-step 7  the C-34 fixture test      PENDING — never started
-step 8  the gate itself            PENDING — never started
-```
+The first version of §8 said the `Report (all dependencies)` step was **"still running 25 minutes
+later"** and that the gate steps **"never started"**. **Both statements were false**, and they were
+committed to `security.yml`, to this file and to a commit message before being checked.
 
-**The bounded gate never ran.** The job was held by step 6 — the pre-existing informational
-`npm audit || true`, which F-73 did not touch.
+They came from **assuming elapsed time from backgrounded `sleep` commands instead of reading a
+clock**. The sleeps had been launched but not waited on, so almost no wall-clock had passed; the
+elapsed figure was inferred, not measured.
 
-`|| true` stops that step **failing** the job. It does not stop it **hanging** the job, and that is a
-different defect. From npm's own defaults, read rather than guessed:
+**That is the C-49 / C-53 error — a figure written down without its instrument** — committed by the
+same developer who spent the morning citing that rule against a frozen list. Recorded here rather
+than quietly edited, because the project's rule is that a correction is a record, not a tidy-up.
 
-```
-fetch-timeout=300000   (5 minutes PER ATTEMPT)
-fetch-retries=2
--> 3 x 300s = 15 minutes for ONE request before npm gives up, and `npm audit` issues more than one
-```
+### 8.2 What the instrument actually says
 
-Which also explains run 842's 9m37s.
+Actions API step timestamps, run `33861425081`, job `100986510380`, head `5e69ef4` (the F-73 fix
+*before* any bound was added):
 
-**The correction:** `run: timeout 180 npm audit || true`.
+| step | | duration |
+|---|---|---|
+| 5 · `npm ci` | 10:04:21 → 10:04:32 | 11 s |
+| 6 · `Report (all dependencies)` | 10:04:32 → **10:09:32** | **300 s**, conclusion `success` |
+| 7 · the C-34 fixture test | 10:09:32 → 10:09:32 | instant, **pass** |
+| 8 · the gate itself | started 10:09:32 | — |
 
-**This weakens nothing, and the distinction matters.** Step 6 is not a gate — it never could fail the
-job — and the real gate at step 8 is untouched and still authoritative. If the report times out, the
-lost thing is an informational listing, and the gate below prints the severity counts itself. **Losing
-a listing is not losing a check.** Verified locally that `timeout` kills on schedule (exit 124) and
-that `|| true` still absorbs it (exit 0), so the step remains incapable of failing the job.
+**300 s is exactly npm's `fetch-timeout` default (300000 ms).** So step 6 was **one timed-out
+attempt**, not an indefinite hang, and it reported `success` only because `|| true` swallowed npm's
+error — **it produced no useful report at all**. Five minutes spent to print nothing, ahead of the
+step that actually decides the gate.
 
-**Recorded rather than quietly patched.** The original F-73 fix bounded the gate and left the
-unbounded step above it, so the first thing it did in production was get stuck behind exactly the
-class of failure it was written to diagnose. That is worth writing down: *bounding a check is
-worthless if an unbounded step runs before it.*
+Steps 7 and 8 then ran normally. **The gate was delayed, not prevented** — and the C-34 fixture test
+passed in CI, which is its first real run.
+
+### 8.3 The change, with its justification corrected to match the measurement
+
+`run: timeout -k 30 180 npm audit || true`
+
+The remaining risk is **real but smaller than first claimed**: npm's defaults are
+`fetch-timeout=300000` with `fetch-retries=2`, so a worse episode can cost multiples of the 300 s
+observed here. Capping a step that measurably burned five minutes to print nothing is worth doing —
+but on that evidence, not on the inflated account.
+
+`-k 30` was added so a SIGTERM-ignoring npm is still killed.
+
+**This weakens nothing.** Step 6 is not a gate and never could fail the job; the real gate at step 8
+is untouched and still authoritative. In the observed failure the report was **empty anyway**, so
+cutting it earlier loses nothing; when the registry is healthy it finishes in ~30 s and is
+unaffected. **Losing a listing is not losing a check.**
+
+### 8.4 The general lesson, which survives the correction
+
+*Bounding a check is worth little if an unbounded step runs before it* — the F-73 fix bounded the
+gate and left the informational step above it unbounded, so the first thing it did in production was
+sit behind exactly the class of slowness it was written to diagnose. That much was right. The number
+attached to it was not, and the difference between "delayed five minutes" and "blocked for
+twenty-five" is the difference between a measurement and a story.

@@ -100,32 +100,42 @@ jobs:
       # Report everything for the record, then fail only on what ships to a
       # member. `|| true` here is deliberate: this is the report, not the gate.
       #
-      # ⚠ F-73b, MEASURED 2026-09-04 ON THIS JOB, run 33861425081 job
-      # 100986510380. The `|| true` stops this step FAILING the job. It does not
-      # stop it HANGING the job, and that is a different defect:
+      # ⚠ F-73b. This step DELAYS the gate below it, measured on run 33861425081
+      # job 100986510380 (head 5e69ef4), timestamps read from the Actions API:
       #
-      #   step 5  npm ci                     completed 10:04:32
-      #   step 6  Report (all dependencies)  in_progress from 10:04:32, still
-      #                                      running 25 minutes later
-      #   step 7  the C-34 fixture test      PENDING — never started
-      #   step 8  the gate itself            PENDING — never started
+      #   step 5  npm ci                     10:04:21 -> 10:04:32   (11 s)
+      #   step 6  Report (all dependencies)  10:04:32 -> 10:09:32   (300 s)
+      #   step 7  the C-34 fixture test      10:09:32 -> 10:09:32   (instant, pass)
+      #   step 8  the gate itself            started 10:09:32
       #
-      # So the promotion was blocked by an UNBOUNDED INFORMATIONAL STEP, and the
-      # bounded gate below it never got the chance to report anything at all.
-      # Bounding the gate while leaving this unbounded fixed the wrong half.
+      # 300 s is EXACTLY npm's fetch-timeout default (300000 ms), so this is one
+      # timed-out attempt, and the step then "succeeded" only because `|| true`
+      # swallowed npm's error — it produced no useful report at all. Five minutes
+      # spent to print nothing, ahead of the step that actually decides the gate.
       #
-      # WHY IT HANGS, from npm's own defaults rather than from a guess:
-      # fetch-timeout=300000 (5 min PER ATTEMPT) and fetch-retries=2, so a single
-      # `npm audit` against a slow endpoint can sit for 15 minutes before npm
-      # gives up on its own — and `npm audit` issues more than one request.
+      # ⚠ CORRECTION, D1's own, recorded rather than quietly edited. The first
+      # version of this comment said step 6 was "still running 25 minutes later"
+      # and that steps 7 and 8 "never started". BOTH WERE FALSE. They came from
+      # assuming elapsed time from backgrounded sleeps instead of reading a
+      # clock; the API timestamps above show 300 s and show steps 7 and 8 running
+      # normally afterwards. That is the C-49 / C-53 error — a figure written
+      # down without its instrument — committed by the same developer who spent
+      # the morning citing that rule. The bound below is still worth having; the
+      # number that justified it was not measured, and now it is.
       #
-      # `timeout` bounds it externally. This weakens NOTHING: this step is not a
-      # gate, it never could fail the job, and the real gate at step 8 is
-      # untouched and still authoritative. If the report times out we lose an
-      # informational listing — and the gate below prints the severity counts
-      # itself, so the record survives. Losing a listing is not losing a check.
+      # The remaining risk is real but smaller than first claimed: npm's defaults
+      # are fetch-timeout=300000 with fetch-retries=2, so a worse episode can
+      # cost multiples of the 300 s observed here.
+      #
+      # `timeout` bounds it externally, and `-k 30` guarantees a kill if npm does
+      # not die on SIGTERM. This weakens NOTHING: this step is not a gate, it
+      # never could fail the job, and the real gate at step 8 is untouched and
+      # still authoritative. In the observed failure the report was empty anyway,
+      # so an earlier cut loses nothing; when the registry is healthy the report
+      # finishes in about 30 s and is unaffected. Losing a listing is not losing
+      # a check.
       - name: Report (all dependencies)
-        run: timeout 180 npm audit || true
+        run: timeout -k 30 180 npm audit || true
       # ⚠ F-73, 2026-09-04. THE GATE COULD NOT TELL "CLEAN" FROM "COULD NOT LOOK".
       #
       # `npm audit --omit=dev --audit-level=critical` exits non-zero for two
