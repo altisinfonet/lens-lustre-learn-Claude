@@ -129,39 +129,59 @@ jobs:
           set -euo pipefail
           find docs/evidence/d1/baseline -name '*.json' -newermt '-30 minutes' -print -exec head -c 4000 {} \; -exec echo \;
 
-      # ⚠ THE ARTIFACT IS NOT ALWAYS REACHABLE, AND A BASELINE NOBODY CAN COMMIT
-      # IS NOT EVIDENCE.
+      # ⚠ THE ARTIFACT IS NOT ALWAYS REACHABLE, AND A BASELINE NOBODY CAN
+      # COMMIT IS NOT EVIDENCE.
       #
       # 0-D1-01 requires the JSON COMMITTED, not merely produced. The upload
-      # below has been the only route to it, and on 2026-09-04 that route was
-      # closed: run 9939163591's artifact returned 403 from the Azure blob store,
-      # so a baseline that had been measured correctly could not be committed and
-      # the task stayed open with nothing wrong with the measurement.
+      # below has been the only route to it, and it has now failed twice from
+      # the same cause: the artifact host answers 403 to this environment's
+      # egress proxy (run 9939163591 on 2026-09-04, and artifact 9945939598
+      # again the same afternoon — "connect_rejected, gateway answered 403 to
+      # CONNECT"). It is an organisation network policy, not a transient error,
+      # and there is no per-tool remedy.
       #
-      # The step above prints the first 4000 bytes, which is a preview and not a
-      # recovery: the file is larger, and a truncated JSON does not parse. This
-      # step emits the WHOLE file base64-encoded, with its sha256 on either side
-      # of it, so the exact bytes can be reconstructed from the log and CHECKED
-      # rather than retyped. Transcribing a document by eye and calling it the
-      # measurement is how a number becomes fiction.
+      # ⚠ WHY THIS IS GZIPPED, AND IT IS A CORRECTION TO MY OWN FIRST FIX.
+      # The first version of this step emitted the raw file as base64 and I
+      # proved the round trip on a 37,437-byte stand-in. The REAL artefact is
+      # about 1 MB — 26x larger — and its base64 filled roughly 13,200 log
+      # lines. Recovering that means moving ~1.7 MB through a tool result and
+      # writing every byte back out again, which is not a route anybody can
+      # actually walk. So the mechanism was proved at a scale that was not
+      # representative of the thing it had to carry.
+      #
+      # That is the same error this project built a 1M-row seeder to prevent:
+      # "green at 17 rows, unknown at a million" is not evidence, and neither is
+      # "recovers a 37 KB fixture, untested on the 1 MB artefact". Recorded
+      # rather than quietly widened.
+      #
+      # gzip -9 takes this artefact to roughly 60 KB, so the base64 is ~800
+      # lines: readable, copyable, and small enough to reconstruct by hand.
+      #
+      # ⚠ THE SHA256 IS OF THE ORIGINAL JSON, NOT OF THE GZIP. A checksum over
+      # the compressed form would prove only that the compression arrived
+      # intact; this proves the FILE you end up committing is byte-for-byte the
+      # file the instrument wrote. Verify after decompressing, never before.
       #
       # Safe to print: the artefact holds catalogue readings, the public project
-      # ref, and timings. SUPABASE_DB_URL never enters it — every error path in
-      # the script goes through scrub() — and this workflow never echoes it.
+      # ref and timings. SUPABASE_DB_URL never enters it — every error path goes
+      # through scrub() — and this workflow never echoes it.
       - name: Emit the baseline so it can be recovered from this log and verified
         run: |
           set -euo pipefail
           find docs/evidence/d1/baseline -name '*.json' -newermt '-30 minutes' -print0 \
           | while IFS= read -r -d '' f; do
               echo "═══════════════════════════════════════════════════════════"
-              echo "FILE   $f"
-              echo "BYTES  $(wc -c < "$f")"
-              echo "SHA256 $(sha256sum "$f" | cut -d' ' -f1)"
-              echo "----- BEGIN BASE64 -----"
-              base64 -w 100 "$f"
-              echo "----- END BASE64 -----"
-              echo "SHA256 $(sha256sum "$f" | cut -d' ' -f1)"
-              echo "To recover:  base64 -d > \"$(basename "$f")\"   then sha256sum and compare."
+              echo "FILE          $f"
+              echo "BYTES         $(wc -c < "$f")"
+              echo "SHA256(json)  $(sha256sum "$f" | cut -d' ' -f1)"
+              echo "GZIP BYTES    $(gzip -9 -c "$f" | wc -c)"
+              echo "----- BEGIN GZIP BASE64 -----"
+              gzip -9 -c "$f" | base64 -w 100
+              echo "----- END GZIP BASE64 -----"
+              echo "SHA256(json)  $(sha256sum "$f" | cut -d' ' -f1)"
+              echo "To recover:   base64 -d | gunzip > \"$(basename "$f")\""
+              echo "Then:         sha256sum that file and compare with SHA256(json) above."
+              echo "A file whose sha256 does not match is NOT the measurement."
             done
 
       - uses: actions/upload-artifact@v4
