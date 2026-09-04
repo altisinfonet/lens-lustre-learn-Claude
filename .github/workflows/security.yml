@@ -64,6 +64,35 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      # ⚠ F-72, 2026-09-04. THE GATE WAS FAILING FOR A REASON THAT WAS NOT A
+      # VULNERABILITY, AND IT WOULD HAVE FAILED EVERY PR FROM NOW ON.
+      #
+      # npm retired the endpoint that npm 10's `npm audit` posts to. Run 840,
+      # job 100955545912, printed it verbatim:
+      #
+      #   npm notice This endpoint is being retired. Use the bulk advisory
+      #   endpoint instead.
+      #   npm warn audit 400 Bad Request - POST
+      #     https://registry.npmjs.org/-/npm/v1/security/audits/quick
+      #
+      # A 400 makes `npm audit` exit non-zero, which is indistinguishable at the
+      # job level from "a critical vulnerability was found". That is the worst
+      # possible failure mode for a security gate: it is red, so it looks like it
+      # is working, and it is red for a reason that has nothing to do with this
+      # repository. Left alone it would have been re-run, shrugged at, and then
+      # merged past — which is how a gate stops being a gate.
+      #
+      # THE FIX IS TO MAKE THE GATE RUN, NOT TO MAKE IT PASS. npm 11 uses the
+      # bulk advisory endpoint that replaced the retired one. The threshold below
+      # is untouched, `--omit=dev` is untouched, and nothing is allowlisted.
+      # Standing Rule 19 holds: a check is never weakened to get it green.
+      #
+      # Independently measured on staging e74d977 while diagnosing this, from a
+      # completed `npm audit --omit=dev --json`: production CRITICAL = 0
+      # (low 3, moderate 7, high 17). So the gate's own criterion was satisfied
+      # the whole time it was reporting failure.
+      - name: npm 11 — the retired audit endpoint is why this job failed (F-72)
+        run: npm i -g npm@11
       - run: npm ci --no-audit --no-fund
       # Report everything for the record, then fail only on what ships to a
       # member. `|| true` on the first line is deliberate: it is the report,
