@@ -123,3 +123,10 @@ Then promote the AAB.
 2026-09-03 — certificate label: "Authorized Signature" -> "Authorized Signatory" (OWNER-RULING-2026-09-03-01). Build fires so the AAB carries the corrected label.
 
 2026-09-03 (second fire) — Android Build #118 on 8ef3cf0 FAILED in build-aab: vitest, 6 failed / 2474 passed. Not an application defect: six guards that the merged, ruled-for changes had made obsolete, plus F-60. All six corrected (nothing disabled — Standing Rule 19) and promoted as #144 -> main 90b7dbb, verified locally at 2480 passed / 0 failed and `npx tsc -b tsconfig.json` exit 0. This line exists because android-build.yml fires only on changes to itself or to this file, so a fix that lands anywhere else cannot re-run the build that the fix is for (F-69). Build fires so the AAB carries the corrected Authorized Signatory label, the 30-day Top Contributors card and the withdrawn "Preview All Types" button.
+2026-09-04 · P31 client half reaches the app. Justified by BUNDLED assets, not by a promotion.
+  src/pages/VerifyCertificate.tsx      — a refusal renders "Search Unavailable", never "No Certificates Found"
+  src/pages/ManagedPageView.tsx        — the view counter no longer dies as an unhandled rejection
+  src/pages/verifyCertificateErrors.ts — the 42501 / PGRST202 classifier
+  Precondition run on ecdad73 -> 7e93dd8: 8 matches, of which 3 bundled (the rest are __tests__).
+  The app BUNDLES these (capacitor.config.ts: webDir 'dist', no server.url), so a web deploy alone
+  reaches app users NEVER — see docs/evidence/d1/observations/OBS-capacitor-bundled-assets.md
