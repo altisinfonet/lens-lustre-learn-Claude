@@ -34,6 +34,10 @@
 #     nothing honest to measure — no dist/, no JavaScript in it, no resolvable
 #     entry module. A baseline of zeroes reads as a tiny bundle, and that lie is
 #     exactly what this unit exists to prevent.
+#   * The browser failing to install, or the harness failing to measure any
+#     route. Both are the instrument being broken, not the site being slow. A
+#     harness that cannot measure must say so loudly; it must never report a
+#     green job with no numbers in it, which is precisely what F-2 caught.
 #
 # Neither of those is a performance verdict. No LCP, CLS, INP or byte count
 # reaches the exit code of this workflow.
@@ -97,10 +101,16 @@ jobs:
       VITE_CDN_HOST: cdn-staging.50mmretina.com
       VITE_SITE_ORIGIN: https://staging.50mmretina.com
 
-      # Where this runner keeps its browsers. Playwright is already a
-      # devDependency of this repository; nothing new is installed here, and the
-      # Phase 0 dependency window is closed.
-      PLAYWRIGHT_BROWSERS_PATH: /opt/pw-browsers
+      # ⚠ PLAYWRIGHT_BROWSERS_PATH IS DELIBERATELY NOT SET. It used to read
+      # `/opt/pw-browsers` with the comment "where this runner keeps its
+      # browsers" — which was FALSE for a GitHub runner (that path is a local
+      # dev-container convention) and is why the first real run of this workflow
+      # measured nothing: chromium could not launch from a directory that does
+      # not exist. Standing Rule 21 — the comment asserted a fact about the
+      # environment, the environment disagreed, and the comment was the defect.
+      # Unset, Playwright resolves its own writable cache and the install step
+      # below puts the matching revision there, so the binary and the pinned
+      # Playwright version cannot drift apart.
 
       EVIDENCE_DIR: docs/evidence/d2/baseline
       # Home first, then the two heaviest surfaces a member actually opens.
@@ -138,6 +148,16 @@ jobs:
       # exit code is already 0 on every path; a `|| true` would hide the day
       # that stops being true, which is the day P13 lands. The next step proves
       # the property instead of assuming it.
+      # The browser is a SEPARATE download from the npm package. `npm ci`
+      # installs the Playwright library; it does not fetch a chromium revision.
+      # Running this through the repo's own Playwright (not a floating `npx
+      # playwright@latest`) is what keeps the binary and the library in step —
+      # the drift scripts/web-vitals-report.mjs warns about in its launch
+      # comment. No dependency change: nothing is added to package.json, and the
+      # Phase 0 dependency window stays closed.
+      - name: Install the chromium the pinned Playwright expects
+        run: npx --no-install playwright install --with-deps chromium
+
       - name: Web Vitals on an emulated mid-range Android (report-only)
         id: vitals
         run: |
