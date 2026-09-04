@@ -1,0 +1,101 @@
+-- ROLLBACK for 20260910_0003_p31_search_certificates_revoke.sql — P31.
+--
+-- Restores anon's EXECUTE on public.search_certificates(text,text,date), i.e.
+-- REOPENS the certificate directory that P31 closed.
+--
+-- =============================================================================
+-- ⚠ WHAT RUNNING THIS COSTS — and it costs more than P30's rollback did
+--
+-- This puts back a function that answers, to any holder of the public anon key,
+-- a SUBSTRING search on a person's full name, returning up to 50 rows of
+-- recipient names, award titles, descriptions, dates, certificate ids and
+-- revocation status. A single common letter returns a page of real people and
+-- what they were awarded. That is a browsable directory of who won what.
+--
+-- ⚠ AND IT RE-GRANTS **PUBLIC**, NOT JUST anon. That is what the measured
+-- pre-revoke state was, so it is what a faithful restore must recreate — but it
+-- means this file hands EXECUTE to every role in the database, present and
+-- future, including any role added after today. Restoring accurately and
+-- restoring narrowly are different things, and this file restores accurately.
+-- If the Auditor prefers a narrower restore, the change is to drop the PUBLIC
+-- line and keep only the anon line; that would NOT match the pre-revoke state,
+-- and choosing it is a decision to be recorded, not a tidy-up.
+--
+-- It does NOT re-expose verification tokens. search_certificates nulls that
+-- column in its select list, measured 2026-09-04, and this file does not change
+-- the body.
+--
+-- =============================================================================
+-- WHEN IT IS ACTUALLY NEEDED — AND WHEN IT IS NOT
+--
+-- ⚠ P31 IS NOT EXPECTED TO BE BEHAVIOUR-NEUTRAL, and this is the opposite of
+-- P30. P30's only call site failed open. HERE THE CLIENT IS THE BLOCKER: all
+-- four verification pages collapse "error" and "empty" into one branch
+-- (VerifyCertificate.tsx:81, :103, CertificateVerifyByToken.tsx:46,
+-- IDVerification.tsx:63), so before D2's fix a revoke tells a real certificate
+-- holder their certificate could not be verified. That reads as a forgery.
+--
+-- So the honest statement of the rollback trigger is:
+--
+--   IF THIS FILE IS NEEDED, THE APPLY WENT AHEAD OF ITS PRECONDITION.
+--   The precondition is D2's client fix, merged and live on this lane.
+--
+-- The legitimate trigger is a verification surface telling holders their real
+-- certificate is unverifiable — restore first, diagnose second. What is NOT a
+-- trigger: "name search stopped working". That is the unit working as designed.
+--
+-- =============================================================================
+-- FIDELITY — measured, not assumed
+--
+-- Pre-revoke ACL, read by D1 2026-09-04 with SELECT only, IDENTICAL on both
+-- lanes (production jtdtehuqtinjxropkkcn oid 22560, staging
+-- ztzutckwdhetphwghuzj oid 17985):
+--
+--   {=X/postgres,postgres=X/postgres,anon=X/postgres,
+--    authenticated=X/postgres,service_role=X/postgres}
+--   aclexplode grantee=0 (PUBLIC) EXECUTE entries = 1
+--
+-- The leading `=X/postgres` is the PUBLIC grant — the entry with no grantee
+-- name. Both lines below are required to restore it: PUBLIC and anon were BOTH
+-- present, and re-granting only anon would leave the function in a state it was
+-- never in.
+--
+-- ⚠ THE RESTORE IS PRIVILEGE-EQUIVALENT, NOT BYTE-EQUAL. REVOKE removes an
+-- aclitem and GRANT appends a new one, so element ORDER differs while the
+-- grants are identical. `proacl::text` string equality is the wrong instrument;
+-- the right one is set-wise over aclexplode:
+--
+--   SELECT a.grantee::regrole::text, a.privilege_type
+--     FROM pg_proc p, aclexplode(p.proacl) a
+--    WHERE p.pronamespace='public'::regnamespace AND p.proname='search_certificates'
+--    ORDER BY 1, 2;
+--
+--   expect: PUBLIC (grantee 0) present, plus anon, authenticated, postgres,
+--           service_role — all EXECUTE.
+--
+-- (That precision is carried over from P30, where the first draft of the
+-- rollback claimed a byte-identical restore and the fixture caught it. The same
+-- claim would have been wrong here for the same reason.)
+--
+-- =============================================================================
+-- VERIFY AFTER RUNNING
+--
+--   SELECT has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_exec,
+--          (SELECT count(*) FROM aclexplode(p.proacl) a
+--            WHERE a.grantee = 0 AND a.privilege_type='EXECUTE') AS public_entries
+--     FROM pg_proc p
+--    WHERE p.pronamespace='public'::regnamespace AND p.proname='search_certificates';
+--
+--   expect anon_exec = true, public_entries = 1.
+--
+-- ⚠ PROBE_p31_search_certificates_closed.sql WILL FAIL AFTER THIS RUNS, at C2
+-- and C3, and that is correct: they are the gate assertions and the gate is
+-- deliberately reopened. A failing probe here means the rollback worked. Do not
+-- "fix" the probe.
+-- =============================================================================
+
+GRANT EXECUTE ON FUNCTION public.search_certificates(text, text, date) TO public;
+GRANT EXECUTE ON FUNCTION public.search_certificates(text, text, date) TO anon;
+
+COMMENT ON FUNCTION public.search_certificates(text, text, date) IS
+  'Name/title/date certificate search. Anon-executable, and PUBLIC-granted. ⚠ P31 was ROLLED BACK — this function is again a browsable directory of who won what, reachable with the public API key: a substring match on a person''s full name returning up to 50 rows of recipient names, titles, dates and certificate ids. It does not return verification_token. Re-apply supabase/migrations/20260910_0003_p31_search_certificates_revoke.sql once the reason for the rollback is resolved, and re-prove with PROBE_p31_search_certificates_closed.sql.';
