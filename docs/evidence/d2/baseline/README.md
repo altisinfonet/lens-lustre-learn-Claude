@@ -124,6 +124,44 @@ unmeasured samples.**
 | `/competitions` | **measured** | **4048 ms** | **0** | **~80 ms** |
 | `/journal` | **measured** | **4052 ms** | **0** | **~72 ms** |
 
+#### The same three routes on CI — `d2-web-vitals.yml` run #16, `33895388972`, 2026-09-04T16:32:57.527Z
+
+Recorded beside the local run rather than replacing it: the two disagree in a way
+that matters, and averaging them away would destroy the finding.
+
+| route | status | LCP | CLS | INP |
+|---|---|---:|---:|---:|
+| `/` | **measured** | **3560 ms** | **0** | ~56 ms |
+| `/competitions` | **measured** | **3556 ms** | **0.2539** | ~72 ms |
+| `/journal` | **measured** | **3992 ms** | **0.1119** | ~40 ms |
+
+`9 measured sample(s)` · `622 records, every one stamped UTC` · artefact
+`d2-baseline-33895388972` (id `9945643706`, 52 197 B). **3/3 measured in CI, matching
+the local run's 3/3 — F-83 is closed by measurement on both sides.**
+
+⚠ **WHICH RUN THIS IS, stated exactly.** The staging run fired by the F-83 merge
+itself — run #15, `33895356888`, head `ca2359b` — was **CANCELLED**, not completed:
+D1's F-84 merge (#168) pushed 20 seconds later and the workflow carries
+`concurrency: cancel-in-progress: true`. So the figures above are from **run #16 at
+`95082b8`**, D1's commit, which has the F-83 merge `ca2359b` as an ancestor
+(`git merge-base --is-ancestor` — verified) and whose own log shows
+`VITALS_ROUTES: /,/competitions,/journal`. It carried the corrected list; it was
+simply not triggered by the commit that introduced it.
+
+**That is itself worth knowing: a staging run tied to a specific commit may never
+exist, because the next merge cancels it.** Anyone citing "the run on commit X"
+should check the run was not cancelled before quoting it.
+
+⚠ **AND IT SHARPENS F-82.** The CLS figures are **identical** between the PR run
+(`33894335422`, `/competitions` 0.2539, `/journal` 0.1119) and this staging run —
+byte-for-byte the same values, on different runners, at different commits — while
+the local runs return **0** for both. CLS is therefore **deterministic within CI and
+systematically different from local**: not sampling noise, and not the `/wall`
+artefact this session first proposed as a candidate. **That candidate is disproven.**
+LCP, by contrast, agrees closely across environments (3556–3992 ms CI against
+4048–4064 ms local) and looks like something P13 could set a ceiling on. CLS does
+not.
+
 ### The caveat, in the harness's own words
 
 > `realDevice: false` — *"Emulated Chromium on CI. The standard of practice requires a real
