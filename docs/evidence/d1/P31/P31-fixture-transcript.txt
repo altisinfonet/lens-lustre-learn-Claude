@@ -1,0 +1,112 @@
+P31 · fixture transcript — search_certificates revoked from anon; verify-by-token retained
+Scratch PostgreSQL in the D1 container. F-65: grant controls run on fixtures, not on a lane.
+server: PostgreSQL 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit
+date:   2026-09-04T10:33:19Z
+
+================================================================================
+PART A — the MEASURED pre-revoke state, reproduced. Note the leading =X/postgres.
+================================================================================
+  fixture search_certificates : {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,=X/postgres,anon=X/postgres}
+  lane    (BOTH lanes)        : {=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+     production jtdtehuqtinjxropkkcn oid 22560 · staging ztzutckwdhetphwghuzj oid 17985
+     read by D1 2026-09-04, SELECT only. Identical ACL on both lanes; oids differ, as expected.
+  -> byte-identical, INCLUDING the PUBLIC entry. PUBLIC EXECUTE entries: 1
+
+  ⚠ THE LEADING `=X/postgres` IS THE PUBLIC GRANT — the entry with no grantee name.
+    This is the difference from P30, where email_exists had NO public entry.
+
+  anon can execute search_certificates?         t
+  anon searching for the single letter 'a':     3 row(s) returned
+  -> a one-character substring returns real people and what they were awarded.
+     The all-blank bulk dump IS blocked by the function's first predicate:
+     anon searching for '' (blank):              0 row(s)
+  -> so somebody thought about this once; a one-character search walks past it.
+
+  Does the directory leak the verification token? Checking the select list in practice:
+    verification_token returned as NULL for all rows: true
+  -> NO. The body selects NULL::text AS verification_token. The capability model is intact,
+     and this revoke is NOT needed to protect the token. Stated because the opposite would
+     have been an easy and wrong assumption.
+
+================================================================================
+PART B — NEGATIVE CONTROL. The probe BEFORE the revoke. It must FAIL. (C-34)
+================================================================================
+NOTICE:  --- P31 gate probe: search_certificates + verify_certificate_by_token @ 2026-09-04T10:33:19Z UTC ---
+NOTICE:      lane database: postgres
+NOTICE:  C1 exactly one search_certificates ....... PASS (oid 16447, acl {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,=X/postgres,anon=X/postgres})
+ERROR:  C2 FAILED — anon can still EXECUTE public.search_certificates (oid 16447). The certificate directory is open: a substring match on a person's full name returns up to 50 rows of recipient names, titles, dates and certificate ids to any holder of the public API key. acl = {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,=X/postgres,anon=X/postgres}
+   probe exit status: 3
+
+================================================================================
+PART C — F-62 ON THE REAL OBJECT. THIS IS THE P30 DIFFERENCE.
+         In P30 this trap had to be shown on a synthetic function because
+         email_exists carried no PUBLIC grant. Here it is the live shape.
+================================================================================
+  the obvious one-liner, the one a hurried operator reaches for:
+    after REVOKE ... FROM anon:
+      proacl            : {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,=X/postgres}
+      anon can execute? : t   <- STILL TRUE. Closed NOTHING.
+      anon still searching 'a': 3 row(s)     <- the directory is still open
+
+  -> The statement SUCCEEDED. The catalogue LOOKS changed — anon's own entry is gone.
+     anon keeps EXECUTE through PUBLIC. This is F-62, on the live object shape,
+     and it is why the migration revokes FROM public FIRST.
+
+  restoring the fixture to the measured pre-revoke state before applying properly:
+      proacl restored   : {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,=X/postgres,anon=X/postgres}
+
+================================================================================
+PART D — apply supabase/migrations/20260910_0003_p31_search_certificates_revoke.sql
+================================================================================
+  proacl after          : {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+  PUBLIC EXECUTE entries: 0
+  anon                  : f
+  anon searching 'a'    :
+    ERROR:  permission denied for function search_certificates
+
+  AND THE HALF THAT MUST KEEP WORKING — verify_certificate_by_token:
+    proacl            : {=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+    anon can execute? : t   <- UNTOUCHED, as the gate requires
+    anon verifying a real token: 1 row(s) returned
+    -> anon CAN still verify a real certificate by token. Token value never printed.
+    -> and note anon has NO direct SELECT on public.certificates:
+       ERROR:  permission denied for table certificates
+       which is correct: the DEFINER function is the only way in, and its WHERE
+       clause (exact match on a 256-bit token) is the only control.
+
+================================================================================
+PART E — the probe AFTER the revoke. Same file, same instrument. It must PASS.
+================================================================================
+NOTICE:  --- P31 gate probe: search_certificates + verify_certificate_by_token @ 2026-09-04T10:33:20Z UTC ---
+NOTICE:      lane database: postgres
+NOTICE:  C1 exactly one search_certificates ....... PASS (oid 16447, acl {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres})
+NOTICE:  C2 anon cannot execute (THE GATE) ........ PASS (has_function_privilege anon = false)
+NOTICE:  C3 PUBLIC holds no EXECUTE (F-62) ........ PASS (0 PUBLIC entries, proacl not NULL)
+NOTICE:  C4 no over-revoke ........................ PASS (authenticated=true, service_role=true)
+NOTICE:  C5 function unchanged in kind ............ PASS (SECURITY DEFINER, STABLE)
+NOTICE:  C6 verify-by-token retained .............. PASS (anon=true, PUBLIC entries=1)
+NOTICE:  C7 verify-by-token returns a row ......... PASS (1 row for a real token; value not printed)
+NOTICE:  --- ALL ASSERTIONS PASSED. Clause 1 closed and clause 2 shown retained, on this lane. Nothing was written. ---
+NOTICE:      Clause 3 (verify_staff_id behind a session or rate limit) is NOT tested here — separate unit, and it is not a revocation (C-60).
+NOTICE:      Not tested here: the four verification PAGES after the revoke. D2's half, a browser question, F-53.
+   probe exit status: 0
+
+================================================================================
+PART F — apply the ROLLBACK. The probe must FAIL again, at C2 and C3.
+         Sensitive in BOTH directions, not green-on-green.
+================================================================================
+  proacl after rollback : {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,=X/postgres,anon=X/postgres}
+  PUBLIC EXECUTE entries: 1   <- restored, as the pre-revoke state had it
+  anon                  : t
+  grantee/privilege set after rollback (the correct set-wise instrument):
+      PUBLIC/EXECUTE
+      anon/EXECUTE
+      authenticated/EXECUTE
+      postgres/EXECUTE
+      service_role/EXECUTE
+  -> privilege-equivalent to the pre-apply lane reading (element ORDER differs; grants do not).
+NOTICE:  --- P31 gate probe: search_certificates + verify_certificate_by_token @ 2026-09-04T10:33:20Z UTC ---
+NOTICE:      lane database: postgres
+NOTICE:  C1 exactly one search_certificates ....... PASS (oid 16447, acl {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,=X/postgres,anon=X/postgres})
+ERROR:  C2 FAILED — anon can still EXECUTE public.search_certificates (oid 16447). The certificate directory is open: a substring match on a person's full name returns up to 50 rows of recipient names, titles, dates and certificate ids to any holder of the public API key. acl = {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,=X/postgres,anon=X/postgres}
+   probe exit status: 3
