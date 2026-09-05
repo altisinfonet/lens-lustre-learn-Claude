@@ -85,6 +85,15 @@ CREATE OR REPLACE FUNCTION public.forbid_custom_url_change()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
 DECLARE
   _window   constant interval := interval '365 days';
+  -- ⚠ THIS TRIGGER STILL RAISES, AND ITS MESSAGE IS DELIBERATELY NOT THE ONE
+  -- MEMBERS SEE. Do not "make the two agree". change_custom_url returns a
+  -- timestamptz and the client composes the sentence in the member's own zone;
+  -- this is the BACKSTOP for anything that reaches the column WITHOUT going
+  -- through that RPC, and a backstop that returns a value instead of aborting
+  -- is not a backstop. It carries a UTC sentence because no member should ever
+  -- see it. If a member does, that is a defect in its own right — the route
+  -- that got them here bypassed the RPC.
+  --
   -- ⚠ ONE PLACE for the ordinal suffix, so overruling it is a one-line edit.
   -- 'th' is a Postgres template modifier, not a literal: it emits the CORRECT
   -- English ordinal per number. Verified on the lane across every trap —
@@ -209,7 +218,6 @@ CREATE OR REPLACE FUNCTION public.change_custom_url(_new_url text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
 DECLARE
   _window  constant interval := interval '365 days';
-  _date_fmt constant text     := 'FMDDth Mon YYYY';   -- see forbid_custom_url_change
   _user_id uuid;
   _cleaned text;
   _old_url text;
@@ -233,10 +241,23 @@ BEGIN
   -- short-circuited.
   IF public.custom_url_ever_held(_user_id) AND _last IS NOT NULL
      AND now() - _last < _window THEN
-    -- The entire message. See forbid_custom_url_change for why nothing may be
-    -- added to it, and for the until-not-through reading of the date.
-    RAISE EXCEPTION 'Can''t change until %.',
-      to_char((_last + _window) AT TIME ZONE 'utc', _date_fmt);
+    -- ⚠ RETURNS, DOES NOT RAISE — and no formatted date, no sentence, no
+    -- ordinal. Rendering the date here means rendering it in UTC, and that
+    -- does not merely look wrong to the ~all of our members who are not on
+    -- UTC: it BREAKS THE PROMISE. A member who changes at 23:00 UTC on
+    -- 31 Dec 2026 unlocks at 23:00 UTC on 31 Dec 2027, which is 04:30 on
+    -- 1 Jan 2028 in India. A UTC-rendered message tells them 31st Dec 2027,
+    -- they try on the 31st in their own calendar, and they are REFUSED on the
+    -- exact date the site told them to come back.
+    --
+    -- So the instant travels raw and the client composes the sentence in the
+    -- member's zone. The Owner's locked wording then lives in ONE place
+    -- instead of two, and the ordinal and the apostrophe never enter SQL.
+    RETURN jsonb_build_object(
+      'ok',             false,
+      'reason',         'window',
+      'next_change_at', _last + _window
+    );
   END IF;
 
   IF NOT public.custom_url_available(_cleaned, _user_id) THEN
