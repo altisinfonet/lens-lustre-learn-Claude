@@ -38,6 +38,21 @@
  * PLACE by CustomUrlProfile rather than reached by a redirect, which is exactly
  * the distinction under test.
  *
+ * F-89 UPDATE — THE MARKER CHANGED, THE PROPERTY DID NOT. These tests used to
+ * assert on the literal "404" glyph. F-89 removed it: the Owner's brief was
+ * explicit that the page must not shout an error code at a visitor, so the
+ * branded 404 now leads with its headline and the numeral is gone. The
+ * assertions therefore key on "This frame is empty" — the same page, the same
+ * property, a marker that still exists. Re-planted after the change to confirm
+ * they still go red on the F-85 defect; they do.
+ *
+ * One assertion was DROPPED rather than re-pointed: the 404 no longer prints the
+ * dead path on the page (F-89 cut the monospace chip; the path lives in the
+ * UI-8006 log now). The load-bearing half of that test — that the ADDRESS stays
+ * on what the member typed instead of becoming "/not-found" — is unchanged and
+ * still asserted from the location probe, which is where the finding actually
+ * lived.
+ *
  * THE GUARDS ARE NOT PADDING. `/profile/:userId` must keep working — existing
  * links depend on it and it is the fallback for a member with no custom_url —
  * and a fix that rendered NotFound unconditionally would satisfy the headline
@@ -154,23 +169,19 @@ describe("F-86 · the vanity url must survive", () => {
 describe("F-85 · the branded 404 must be reachable", () => {
   it("an unresolvable single-segment url renders the 404 instead of a blank page", async () => {
     renderAt("/zzz-definitely-not-a-page-98765");
-    expect(await screen.findByText("404")).toBeTruthy();
+    expect(await screen.findByText("This frame is empty")).toBeTruthy();
   });
 
-  it("the 404 keeps the typed path, so it echoes the real dead address", async () => {
+  it("the 404 keeps the typed path in the address bar, not /not-found", async () => {
     renderAt("/zzz-definitely-not-a-page-98765");
-    await screen.findByText("404");
+    await screen.findByText("This frame is empty");
     expect(path()).toBe("/zzz-definitely-not-a-page-98765");
-    // The 404 page echoes the path itself. Two nodes carry that text — this
-    // file's location probe and NotFound's own <span> — so assert on the one
-    // that is NOT the probe, or the assertion would pass on the probe alone.
-    const echoes = screen.getAllByText("/zzz-definitely-not-a-page-98765");
-    expect(echoes.some((el) => el.getAttribute("data-testid") !== "path")).toBe(true);
+    expect(path()).not.toBe("/not-found");
   });
 
   it("/not-found itself reaches the 404 rather than looping", async () => {
     renderAt("/not-found");
-    expect(await screen.findByText("404")).toBeTruthy();
+    expect(await screen.findByText("This frame is empty")).toBeTruthy();
   });
 });
 
@@ -187,7 +198,7 @@ describe("GUARDS · what must not break", () => {
 
   it("a dead MULTI-SEGMENT path still reaches the 404", async () => {
     renderAt("/foo/bar/baz-does-not-exist");
-    expect(await screen.findByText("404")).toBeTruthy();
+    expect(await screen.findByText("This frame is empty")).toBeTruthy();
   });
 
   it("a renamed url in flight never flashes the 404 over the new address", async () => {
@@ -205,6 +216,6 @@ describe("GUARDS · what must not break", () => {
       expect(rpcMock).toHaveBeenCalledTimes(2);
       expect(screen.getByText("Loading…")).toBeTruthy();
     });
-    expect(screen.queryByText("404")).toBeNull();
+    expect(screen.queryByText("This frame is empty")).toBeNull();
   });
 });
