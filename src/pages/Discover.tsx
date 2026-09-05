@@ -350,7 +350,8 @@ const Discover = () => {
                 {profiles.filter(p => !dismissedIds.has(p.id)).map((profile, i) => (
                   <motion.div
                     key={profile.id}
-                    initial={{ opacity: 0, y: 8 }}
+                    /* F-99 — a member card is always present, not summoned. */
+                    initial={{ opacity: 1, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, x: -60 }}
                     transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.03 }}

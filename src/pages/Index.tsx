@@ -49,13 +49,6 @@ const initialsAvatar = (name: string): string => {
 };
 
 
-const fadeIn: Variants = {
-  hidden: { opacity: 0 },
-  visible: (i: number) => ({
-    opacity: 1,
-    transition: { delay: i * 0.2, duration: 1.4, ease: slowEase },
-  }),
-};
 
 /* No hardcoded hero slides — loaded from DB hero_banners table */
 
@@ -646,7 +639,7 @@ const Index = () => {
               {t("home.selected", "Selected")} <em className="italic text-primary">{t("home.works", "Works")}</em>
             </motion.h2>
             <motion.p
-              variants={fadeIn}
+              variants={fadeUp}
               custom={2}
               className="text-sm text-muted-foreground mt-4 max-w-md mx-auto"
               style={{ fontFamily: "var(--font-body)" }}
@@ -770,7 +763,7 @@ const Index = () => {
                   {t("home.communitySub", "More than a portfolio — react, comment, share, and grow with photographers worldwide.")}
                 </motion.p>
               </div>
-              <motion.div variants={fadeIn} custom={2} className="hidden sm:block">
+              <motion.div variants={fadeUp} custom={2} className="hidden sm:block">
                 <Link
                   to={user ? "/feed" : "/signup"}
                   className="group inline-flex items-center gap-2 text-[10px] tracking-[0.2em] uppercase text-muted-foreground hover:text-primary transition-colors duration-500"

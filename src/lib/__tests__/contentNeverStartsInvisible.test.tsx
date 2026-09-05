@@ -84,47 +84,82 @@ describe("no page may declare its own copy of it", () => {
 
 describe("no page body starts invisible, on any route", () => {
   /**
-   * THE CHECK THAT WOULD HAVE CAUGHT /feed.
+   * NAME-INDEPENDENT AND SHAPE-COMPLETE, because the first version was neither.
    *
-   * F-89's check was written against the not-found SCENE and asserted that
-   * scene's first frame is opaque. It could not see fadeUp, which lived in nine
-   * page files it never scanned — and it could not see /feed either, which
-   * declares its reveal INLINE and is not one of the nine. The Auditor's sweep
-   * read "the pages that break are exactly the nine"; /feed is in the failing
-   * set and is not among them, so the nine-copy fix alone would have left the
-   * busiest page on the site broken.
+   * v1 asserted two things: that no file declares a local `fadeUp`, and that no
+   * JSX prop reads `initial={{ opacity: 0`. It missed Index.tsx's `fadeIn` — a
+   * SECOND variant four lines below the import in a file I had just edited,
+   * wrapping real page copy ("A curated collection of moments frozen in time")
+   * with a 1.4s duration and a 0.2s stagger, WORSE than the one I fixed. It
+   * also missed Dashboard.tsx's `tabContent`. Both are variant OBJECTS, so no
+   * amount of scanning JSX props reaches them, and both are named something
+   * other than fadeUp, so a name-scoped rule walks straight past.
    *
-   * So the rule is enforced by SHAPE, over every page file, regardless of what
-   * the variable is called or whether there is a variable at all:
+   * The eleventh copy will be called something else again. So this matches on
+   * SHAPE ONLY: any object literal that parks opacity at 0 in its starting
+   * state, and any JSX prop that does the same.
    *
-   *     page-body content may not animate from opacity 0.
+   * ⚠ AND `exit` IS NOT AN EXEMPTION. v1 treated any element declaring an exit
+   * as transient, which was wrong and let three tab panels and a member list
+   * through. F-89's own fix kept its exit and changed only the initial — fading
+   * OUT on the way to somewhere else is fine, starting invisible is not.
    *
-   * THE ONE EXEMPTION is an element that declares an `exit`. That is a genuinely
-   * transient thing — it is meant to arrive and leave — and starting it visible
-   * would make it flash. Seven such elements remain and are listed by the
-   * failure message rather than hidden by it.
+   * The real distinction is SUMMONED vs ALWAYS PRESENT. A modal, a lightbox, a
+   * back-to-top button, a new-posts banner and an expanding filter panel do not
+   * exist until an action creates them; they are guarded by a conditional or
+   * are fixed inset overlays, and starting them visible would make them flash.
+   * A tab panel, a list item and page copy are always there — if their reveal
+   * strands, the member is looking at a blank page.
    */
-  it("every reveal on page-body content starts at opacity 1", async () => {
+  // The `m` flag matters: without it `$` anchors to the end of the whole
+  // slice, not each line, and every conditionally-guarded overlay reads as
+  // page body. Caught by this check over-flagging Feed's new-posts banner and
+  // back-to-top button, both of which the Auditor had sorted correctly.
+  const SUMMONED = /&&\s*\(\s*$|fixed inset-0|z-\[100\]/m;
+
+  /**
+   * Elements INSIDE a summoned container, which no backward line scan can see.
+   * Listed explicitly rather than matched loosely, so each is auditable:
+   *   SubmissionDetail.tsx:177 — interior of the fixed inset-0 z-[100] overlay
+   *                              opened at :151. The overlay is summoned; its
+   *                              contents cannot outlive it.
+   */
+  const INSIDE_SUMMONED = new Set(["src/pages/SubmissionDetail.tsx:177"]);
+
+  it("no variant object and no JSX prop starts page-body content at opacity 0", async () => {
     const { readFileSync, readdirSync } = await import("node:fs");
     const { join } = await import("node:path");
     const dir = join(process.cwd(), "src/pages");
     const offenders: string[] = [];
+
     for (const file of readdirSync(dir).filter((f) => f.endsWith(".tsx"))) {
       const src = readFileSync(join(dir, file), "utf8");
+      const lines = src.split("\n");
+
+      // (a) variant OBJECTS, any name: { hidden: { opacity: 0 } } / { initial: ... }
+      for (const m of src.matchAll(/(hidden|initial)\s*:\s*\{[^}]*opacity:\s*0\b/g)) {
+        offenders.push(`src/pages/${file}:${src.slice(0, m.index!).split("\n").length}  variant object`);
+      }
+
+      // (b) JSX props, unless the element is SUMMONED rather than always present
       for (const m of src.matchAll(/initial=\{\{\s*opacity:\s*0\b/g)) {
+        const lineNo = src.slice(0, m.index!).split("\n").length;
         const start = src.lastIndexOf("<", m.index!);
         const end = src.indexOf(">", m.index! + m[0].length);
         const tag = end === -1 ? "" : src.slice(start, end + 1);
-        if (tag.includes("exit=")) continue; // transient by declaration
-        offenders.push(`src/pages/${file}:${src.slice(0, m.index!).split("\n").length}`);
+        const before = lines.slice(Math.max(0, lineNo - 4), lineNo - 1).join("\n");
+        if (SUMMONED.test(before) || SUMMONED.test(tag)) continue;
+        if (INSIDE_SUMMONED.has(`src/pages/${file}:${lineNo}`)) continue;
+        offenders.push(`src/pages/${file}:${lineNo}  jsx prop`);
       }
     }
+
     expect(
       offenders,
       `page-body content that animates FROM INVISIBLE. If the reveal does not ` +
-        `complete, the member reads nothing — measured on deployed staging as ` +
-        `ten blocks at opacity 0 on /feed and ten on /dashboard, eight seconds ` +
-        `after load:\n` + offenders.map((o) => `  ${o}`).join("\n"),
+        `complete the member reads nothing — measured on deployed staging as ten ` +
+        `blocks at opacity 0 on /feed and ten on /dashboard:\n` +
+        offenders.map((o) => `  ${o}`).join("\n"),
     ).toEqual([]);
   });
 });

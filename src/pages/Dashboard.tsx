@@ -43,8 +43,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { useT } from "@/i18n/I18nContext";
 /* ───── animation helpers ───── */
+/*
+ * F-99 — STARTS VISIBLE, AND KEEPS ITS EXIT. A tab panel is page body: it is
+ * always there, only its contents swap. `exit` is not a reason to start
+ * invisible — F-89's own fix kept its exit and changed only the initial. Fading
+ * OUT on the way to another tab is fine; starting at zero means a member whose
+ * reveal never completes is looking at an empty tab.
+ */
 const tabContent = {
-  initial: { opacity: 0, y: 8 },
+  initial: { opacity: 1, y: 8 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.35 } },
   exit: { opacity: 0, y: -8, transition: { duration: 0.2 } },
 };

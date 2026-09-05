@@ -580,7 +580,8 @@ const MyPhotos = () => {
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
-              initial={{ opacity: 0, y: 6 }}
+              /* F-99 — a tab panel is page body; the exit stays, the start does not. */
+              initial={{ opacity: 1, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.15 }}
