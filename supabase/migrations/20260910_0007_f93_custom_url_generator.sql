@@ -47,13 +47,21 @@ DECLARE
 BEGIN
   _folded := public.custom_url_fold_accents(_full_name);
 
-  -- Split on anything that is not a letter or digit. This is what removes
-  -- hyphens, apostrophes and spaces in one step: "O'Brien-Nakamura" becomes
-  -- three fragments, which are then rejoined WITHOUT separators inside the
-  -- surname so the value keeps its two-part shape.
-  _parts := regexp_split_to_array(_folded, '[^a-z0-9]+');
+  -- ⚠ SPLIT ON WHITESPACE ONLY, then strip inside each part. The order matters
+  -- and getting it backwards is a real bug that the awkward-case table caught
+  -- here before this shipped: splitting on '[^a-z0-9]+' instead makes a hyphen
+  -- or apostrophe act as a WORD separator, so "Jean-Luc Picard" becomes three
+  -- fragments and first+last yields 'jean.picard' — "Luc" silently dropped as
+  -- though it were a middle name. Likewise "Siobhan O'Connor" lost its "O" and
+  -- came out 'siobhan.connor'.
+  --
+  -- Stripping WITHIN a part is what the format actually calls for: the surname
+  -- "O'Brien-Nakamura" is ONE name, so it becomes 'obriennakamura' and the
+  -- value keeps its two-part first.last shape.
+  _parts := regexp_split_to_array(btrim(_folded), '\s+');
 
   FOREACH _p IN ARRAY coalesce(_parts, '{}') LOOP
+    _p := regexp_replace(_p, '[^a-z0-9]', '', 'g');   -- hyphens, apostrophes, dots, and any script the fold left alone
     IF _p <> '' THEN _clean := _clean || _p; END IF;
   END LOOP;
 
