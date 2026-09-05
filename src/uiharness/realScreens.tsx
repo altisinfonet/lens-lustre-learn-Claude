@@ -38,6 +38,7 @@ const PostDetail = lazy(() => import("@/pages/PostDetail"));
 const NotificationSettings = lazy(() => import("@/pages/NotificationSettings"));
 const PublicProfile = lazy(() => import("@/pages/PublicProfile"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
+const CustomUrlProfile = lazy(() => import("@/pages/CustomUrlProfile"));
 const MobileProfileSheet = lazy(() => import("@/components/MobileProfileSheet"));
 
 function Loading() {
@@ -193,6 +194,34 @@ export const REAL_SCREENS: Record<string, () => JSX.Element> = {
 
   "screen-not-found-signed-out": () =>
     screen(<NotFound />, "/zzz-definitely-not-a-page-98765", "*"),
+
+  /**
+   * THE 404 REACHED THE OTHER WAY — IN PLACE, THROUGH CustomUrlProfile.
+   *
+   * ⚠ THIS IS NOT THE SAME SCENE AS ABOVE, and the audit that produced it is
+   * the reason it exists. The two scenes above register NotFound against `*` —
+   * the CATCH-ALL. The path the Owner actually photographed is a SINGLE-SEGMENT
+   * url, which matches `/:customUrl`, mounts CustomUrlProfile, resolves nothing
+   * and renders <NotFound /> in place. Two different routes, and only this one
+   * was ever broken.
+   *
+   * Neither the developer's probe nor the auditor's covered it: both drove the
+   * catch-all, so their sidebar assertions passed on fixed and unfixed code
+   * alike and discriminated nothing. The bare-shell flag SHOULD cover both by
+   * construction, because it is raised by NotFound wherever NotFound renders
+   * rather than keyed on pathname — but "should by construction" is exactly the
+   * claim this project does not accept on trust. Hence a scene, so the in-place
+   * render is photographed and asserted like everything else.
+   *
+   * `resolve_custom_url` is fixtured empty (see fixtureRoutes) so the lookup
+   * completes and FAILS TO MATCH, rather than hanging as it does against a
+   * database this container cannot reach.
+   */
+  "screen-not-found-in-place": () =>
+    screen(<CustomUrlProfile />, "/zzz-definitely-not-a-page-98765", "/:customUrl"),
+
+  "screen-not-found-in-place-signed-out": () =>
+    screen(<CustomUrlProfile />, "/zzz-definitely-not-a-page-98765", "/:customUrl"),
 
   /** One post, open, with comments. `path` carries the id or the page
    *  renders its not-found state and photographs as a tidy empty screen. */

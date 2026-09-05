@@ -103,8 +103,11 @@ for (const c of CASES) {
     const ctx = await browser.newContext({ viewport: { width: c.w, height: c.h }, deviceScaleFactor: 2 });
     await ctx.addInitScript((t) => localStorage.setItem("theme", t), c.theme);
     const page = await ctx.newPage();
+    // argv[4] === "in-place" selects the CustomUrlProfile scenes (F-89-FOLLOWUP)
+    // rather than the catch-all ones. Two different routes to the same page.
+    const SCENE_BASE = process.argv[4] === "in-place" ? "screen-not-found-in-place" : "screen-not-found";
     const url = SCENE_MODE
-      ? `${BASE}/uiharness.html?scene=${signedOut ? "screen-not-found-signed-out" : "screen-not-found"}`
+      ? `${BASE}/uiharness.html?scene=${SCENE_BASE}${signedOut ? "-signed-out" : ""}`
       : `${BASE}${DEAD}`;
     await page.goto(url, { waitUntil: "domcontentloaded" });
     const bodyLen = await settle(page);
