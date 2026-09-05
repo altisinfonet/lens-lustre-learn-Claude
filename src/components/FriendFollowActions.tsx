@@ -155,15 +155,29 @@ export const FriendFollowButtons = ({ targetUserId }: Props) => {
    * lines while "Follow" sat on one — measured at 103px per button on desktop,
    * where the two-column shell squeezes this column hardest.
    *
-   * `whitespace-nowrap` ON ITS OWN WOULD BE WORSE, and that is why it is not
-   * used on its own: with a zero basis the label would stop wrapping and start
-   * OVERFLOWING the button instead — the same defect, now silent.
+   * TWO CLASSES ARE ADDED, AND EITHER ONE ALONE IS ALREADY SUFFICIENT. That is
+   * measured, not assumed — C-81, after an earlier draft of this comment
+   * claimed the opposite and was wrong:
    *
-   * So: `whitespace-nowrap` to forbid the wrap, `min-w-fit`
-   * (`min-width: fit-content`) so the flex algorithm may not compress a button
-   * below its own label, and `flex-1` kept so the two still share the row
-   * evenly whenever there is room. Equal widths remain the default; they stop
-   * being a straitjacket.
+   *   whitespace-nowrap alone (min-w-fit removed)  -> PASS, Telugu 174px
+   *   min-w-fit alone (whitespace-nowrap removed)  -> PASS
+   *   both, as shipped                             -> PASS, Telugu 174px
+   *
+   * The first two produce byte-identical widths to the third. The reason is
+   * that a flex item's default `min-width: auto` already resolves to
+   * `min-content`, and for a `nowrap` text run min-content IS the whole string
+   * — so `whitespace-nowrap` establishes the floor by itself and `min-w-fit`
+   * restates it.
+   *
+   * `min-w-fit` IS KEPT ANYWAY, AND ON PURPOSE. `min-w-0` is the single most
+   * common thing to add to a flex child, it explicitly cancels that default
+   * floor, and with it the row breaks again — measured: two Telugu buttons
+   * OVERFLOWING at desktop width. Stating the floor makes it survive that edit
+   * instead of depending on a default nobody can see. It is a belt-and-braces
+   * pair, not two halves of one mechanism, and it should be described that way.
+   *
+   * `flex-1` is kept so the two still share the row evenly whenever there is
+   * room. Equal widths remain the default; they stop being a straitjacket.
    *
    * MEASURED AGAINST THE LONGEST TRANSLATION, not against English. This label
    * is hardcoded English today (F-88-OBS below), but the same concept already

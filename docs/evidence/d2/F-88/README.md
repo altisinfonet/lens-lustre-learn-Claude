@@ -233,3 +233,72 @@ its providers and a Supabase session this container cannot reach. The same probe
 reproduce the F-88 wrap, because a synthetic full-width row is not the squeezed 103px profile
 column; the F-88 numbers in this document all come from the real `screen-wall-visitor` scene, and
 none of them come from the probe.
+
+---
+
+# Round 3 — C-81 accepted against myself, and F-88-OBS-3 filed
+
+## C-81 · the committed comment was FALSE and has been corrected
+
+The shipped comment claimed *"`whitespace-nowrap` on its own would be worse: with a zero basis the
+label would stop wrapping and start OVERFLOWING instead."* **That is not true**, and the Auditor's
+Plant A caught it. Reproduced here independently, same check, same command, one class changed at a
+time:
+
+```
+PLANT A  min-w-fit removed, whitespace-nowrap kept   -> exit 0, PASS
+PLANT B  whitespace-nowrap removed, min-w-fit kept   -> exit 0, PASS
+PLANT D  min-w-fit swapped for min-w-0               -> exit 1, FAIL, 2 overflowing
+SHIPPED  both guards                                 -> exit 0, PASS
+```
+
+Plant A and the shipped version produce **byte-identical widths** — Telugu 174px, Follow 88px at
+desktop, 174/142 at 360px — so `min-w-fit` is provably a restatement on today's code, not a second
+mechanism.
+
+**Why**: a flex item's default `min-width: auto` already resolves to `min-content`, and for a
+`nowrap` text run min-content is the *whole string*. `whitespace-nowrap` therefore establishes the
+floor by itself.
+
+**`min-w-fit` is kept anyway, and Plant D is the reason.** `min-w-0` is the commonest thing anyone
+adds to a flex child; it explicitly cancels that default floor, and the row breaks again — two
+Telugu buttons *overflowing* at desktop width. Stating the floor makes the fix survive that edit
+rather than depending on a default nobody can see. Belt and braces, and the comment now says so.
+
+Rule 21 caught this exactly as intended: the code was right, the sentence next to it was wrong, and
+the next maintainer would have believed the sentence.
+
+## F-88-OBS-3 · `PublicProfile.tsx:893` — same shape, no explicit guard, filed not fixed
+
+```jsx
+<Link to="/signup" className="inline-flex h-9 flex-1 items-center justify-center rounded-lg
+  bg-primary px-4 text-[13px] font-semibold text-primary-foreground …">
+  Follow
+</Link>
+```
+
+`flex-1`, fixed `h-9`, hardcoded English, **neither guard**. Measured in the real stylesheet at the
+real container widths (214px = the desktop profile column, 324px = the 360px-phone row):
+
+```
+container 214px                                 container 324px
+  sole child, English        w=214  ok            sole child, English        w=324  ok
+  sole child, 2-word label   w=214  ok            sole child, 2-word label   w=324  ok
+  +1 sibling, English        w=103  ok            +1 sibling, English        w=158  ok
+  +1 sibling, 2-word Hindi   w=103  ok            +1 sibling, 2-word Hindi   w=158  ok
+  +1 sibling, Telugu 1-word  w=103  ok            +1 sibling, Telugu 1-word  w=158  ok
+  +1 sibling, "Follow this photographer"  lines=2  WRAPPED   (both widths)
+  +1 sibling, 22-char single word        lines=1  ok, w=187  (both widths)
+```
+
+**C-82, a refinement rather than a disagreement.** The brief says this is *"one sibling element away
+from being F-88 again."* Measured, a sibling alone is **not** enough — English, two-word Hindi and
+one-word Telugu all still fit at 103px. It takes **a sibling AND a multi-word label**. The reason is
+the same default that C-81 turns on: without `whitespace-nowrap` the implicit floor is min-content =
+**the longest word**, so a single long word merely widens the button (187px, no wrap) while a
+multi-word label wraps.
+
+So it is safe today on **two independent accidents** — it is the sole child of its row, and "Follow"
+is one word — rather than on any expressed intent. That is why it is worth filing. It is **not**
+fixed here: it is a different file, a different finding, and changing it is not what this unit was
+asked for.
