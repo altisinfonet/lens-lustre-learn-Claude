@@ -22,6 +22,7 @@ import { canViewField, getPrivacy, type PrivacyLevel } from "@/components/Privac
 import ProfileStories from "@/components/profile/ProfileStories";
 import PublicProfileJoinWall from "@/components/PublicProfileJoinWall";
 import { useProfileCore, useProfileExtended } from "@/hooks/profile/useProfileData";
+import { useVanityUrlAddress } from "@/pages/useVanityUrlAddress";
 import ProfileSkeleton from "@/components/ProfileSkeleton";
 import PageSEO from "@/components/PageSEO";
 import { useEntryPublicStatus } from "@/hooks/judging/useEntryPublicStatus";
@@ -243,6 +244,9 @@ export const PublicProfileInner = ({ userId }: { userId: string }) => {
 
   // React Query: extended data (entries, badges, etc.) — only for authenticated
   const { data: extData } = useProfileExtended(userId, currentUser?.id);
+
+  // F-92 — see useVanityUrlAddress for why this is replaceState and not navigate().
+  useVanityUrlAddress(userId, coreProfile?.custom_url);
 
   // Local state for things that mutate (cover reposition, etc.)
   const [profile, setProfile] = useState<ProfileData | null>(null);
