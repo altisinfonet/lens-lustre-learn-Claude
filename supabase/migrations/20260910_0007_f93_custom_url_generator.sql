@@ -36,8 +36,15 @@ COMMENT ON FUNCTION public.custom_url_fold_accents(text) IS
 -- Returns NULL — never '' and never '.' — when the name carries no usable
 -- character at all. NULL is the honest answer and forces the caller to decide;
 -- an empty string would sail straight into a URL.
+-- ⚠ STABLE, NOT IMMUTABLE — and the downgrade is deliberate. This now depends
+-- on public.transliteration_map, so its answer is a function of table contents
+-- as well as its argument. Declaring it IMMUTABLE would be a lie the planner
+-- believes: it could cache a result computed before a mapping row was added.
+-- The determinism that actually matters (same name, same URL, every re-run)
+-- still holds, because the map only ever grows and never rewrites an existing
+-- character.
 CREATE OR REPLACE FUNCTION public.custom_url_slug(_full_name text)
-RETURNS text LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE AS $$
+RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public' AS $$
 DECLARE
   _folded text;
   _parts  text[];
@@ -45,7 +52,15 @@ DECLARE
   _p      text;
   _stem   text;
 BEGIN
-  _folded := public.custom_url_fold_accents(_full_name);
+  -- ORDER IS LOAD-BEARING:
+  --   lower()        so uppercase Cyrillic matches the map (Indic scripts have no case)
+  --   transliterate  non-Latin script  -> Latin letters      (নীল বসু -> nil basu)
+  --   fold accents   Latin diacritics  -> plain ASCII        (Zoë       -> zoe)
+  -- Transliterating first matters: the fold only knows Latin, so a Bengali
+  -- name reaching it untransliterated would survive to the strip step and be
+  -- deleted — which is precisely the behaviour the Owner's rule forbids.
+  _folded := public.custom_url_fold_accents(
+               public.custom_url_transliterate(lower(coalesce(_full_name, ''))));
 
   -- ⚠ SPLIT ON WHITESPACE ONLY, then strip inside each part. The order matters
   -- and getting it backwards is a real bug that the awkward-case table caught
@@ -66,7 +81,12 @@ BEGIN
   END LOOP;
 
   IF array_length(_clean, 1) IS NULL THEN
-    RETURN NULL;                                    -- only punctuation, or only emoji, or a non-Latin script
+    -- Nothing survived. After transliteration this means the name was only
+    -- punctuation or emoji, or was written in a script this deliberately does
+    -- not map (Han, Japanese, Korean — see 20260910_00065). NULL is the honest
+    -- answer; generate_custom_url() supplies member.<8 hex of id>, which the
+    -- member can now change once a year and an admin can change immediately.
+    RETURN NULL;
   ELSIF array_length(_clean, 1) = 1 THEN
     _stem := _clean[1];                             -- a single-word name: no dot to add
   ELSE
