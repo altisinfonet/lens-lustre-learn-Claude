@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
+import { validateCustomUrlValue } from "@/lib/customUrlRules";
 import { SITE_DISPLAY_HOST } from "@/lib/env";
 import { publicUrl } from "@/lib/publicUrl";
 import { Bell, Camera, CheckCircle2, Facebook, Instagram, Globe, KeyRound, Loader2, Mail, MapPin, Phone, Save, User, X, AlertCircle, ExternalLink, Twitter, Youtube, CloudOff, Cloud, CalendarIcon } from "lucide-react";
@@ -180,14 +181,8 @@ const EditProfile = () => {
 
   const RESERVED_URLS = ["login","signup","forgot-password","reset-password","dashboard","edit-profile","profile","friends","feed","discover","competitions","admin","judge","journal","courses","certificates","verify","winners","wallet","featured-artist","referrals","help-support","page","hashtag","not-found","root","system","api","support","help","contact","about","settings","user","users","www","mail","ftp","cdn","static","assets","media","photos","unsubscribe","cookie-policy","post","entry","certificate"];
 
-  const validateCustomUrl = (value: string): string => {
-    if (!value.trim()) return "";
-    if (value.trim().length < 3) return "Custom URL must be at least 3 characters.";
-    if (value.trim().length > 50) return "Custom URL must be less than 50 characters.";
-    if (!/^[a-zA-Z0-9._\-]+$/.test(value.trim())) return "Only letters, numbers, dots, hyphens, and underscores allowed.";
-    if (RESERVED_URLS.includes(value.trim().toLowerCase())) return "This URL is reserved.";
-    return "";
-  };
+  const validateCustomUrl = (value: string): string =>
+    validateCustomUrlValue(value, RESERVED_URLS);
 
   const customUrlTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -525,16 +520,26 @@ const EditProfile = () => {
             setSaving(false);
             return;
           }
-        } else if (existingUrl) {
-          // User cleared custom_url — use RPC to maintain history consistency
-          const { error: clearError } = await supabase.rpc("clear_custom_url" as any) as any;
-          if (clearError) {
-            toast({ title: "Error", description: "Failed to clear custom URL", variant: "destructive" });
-            setSaveStatus("error");
-            setSaving(false);
-            return;
-          }
         }
+        /*
+         * THERE IS NO "ELSE" HERE ANY MORE, AND THAT IS THE CHANGE.
+         *
+         * This branch called clear_custom_url when a member emptied the field.
+         * The Owner's rule is that having no profile URL is not a state a
+         * member may choose — and since F-92 and F-95 the consequence is
+         * concrete rather than theoretical: with no id address left to fall
+         * back on, a cleared handle leaves that member with no reachable
+         * profile URL at all and their name as plain text everywhere.
+         *
+         * An empty field is now refused by validateCustomUrl above, before this
+         * function reaches any request, so the branch is unreachable as well as
+         * unwanted. Refusing in the form rather than letting the request fail is
+         * deliberate: the member gets a sentence they can act on instead of
+         * whatever the backend would have said.
+         *
+         * Clearing still exists as a privileged action for the abuse case. It
+         * is not the client's to call.
+         */
       }
 
       await profileMutation.mutateAsync({
