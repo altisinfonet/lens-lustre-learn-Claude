@@ -383,7 +383,23 @@ export const dashboardInit = {
       id: `winner-${i}`,
       title: i === 0 ? "Monsoon Light" : "Harbour at Dawn",
       photos: [],
-      placement: i + 1,
+      /*
+       * ⚠ A REAL PLACEMENT STRING, NOT A NUMBER.
+       *
+       * This said `i + 1` and it took the whole app down: FeedRightSidebar's
+       * placementIcon() calls placement.toLowerCase(), so a number threw
+       * `p.toLowerCase is not a function` during render and EVERY scene with a
+       * right sidebar came back blank — 16 elements, zero anchors. The probe
+       * reported those pages as EMPTY, a cheerful zero, which is how it went
+       * unnoticed for several sweeps.
+       *
+       * dashboard-init's Q6 filters
+       *   .in("placement", ["gold","silver","bronze","winner","1st","2nd","3rd"])
+       * so those seven strings are the only values that can ever arrive. A
+       * fixture is the shape production sends; inventing a value it cannot send
+       * is not a conservative test, it is a different program.
+       */
+      placement: i === 0 ? "gold" : "silver",
       competition_title: "Monsoon 2026",
       user_id: p.id,
       user_name: p.full_name,
@@ -423,7 +439,30 @@ export const dashboardInit = {
       user_voted: false,
       created_at: "2026-09-01T00:00:00.000Z",
     })),
-    voting_thumbnails: [],
+    /*
+     * The SAME rows as voting_entries. dashboard-init builds voting_thumbnails
+     * as the first six photos of the same set (recentPhotos), so a fixture that
+     * left this empty while filling the other was modelling a payload the
+     * server does not send. The auditor's wire capture showed staging
+     * returning BOTH empty, which is why neither could be observed.
+     */
+    voting_thumbnails: profiles.slice(0, 2).map((p, i) => ({
+      id: `entry-${i}`,
+      entry_id: `entry-${i}`,
+      title: i === 0 ? "Monsoon Light" : "Harbour at Dawn",
+      entry_title: i === 0 ? "Monsoon Light" : "Harbour at Dawn",
+      photo_url: `/photos/fixture-${i}.jpg`,
+      photo_index: 0,
+      total_photos: 1,
+      competition_id: "comp-1",
+      competition_title: "Monsoon 2026",
+      user_id: p.id,
+      photographer_name: p.full_name,
+      photographer_handle: p.custom_url,
+      vote_count: 3 - i,
+      user_voted: false,
+      created_at: "2026-09-01T00:00:00.000Z",
+    })),
     /*
      * F-98b — THESE THREE WERE EMPTY, AND THAT IS WHY FIVE DEAD NAMES SHIPPED.
      *

@@ -75,9 +75,26 @@ const scenes = await probe.$$eval("a[href^='?scene=']", (as) =>
 await probe.close();
 
 let deadTotal = 0, liveTotal = 0;
-const empty = [], unmeasured = [];
+const empty = [], unmeasured = [], broken = [];
 for (const scene of scenes) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
+  /*
+   * A PAGE THAT THREW IS NOT A PAGE WITH NO MEMBERS.
+   *
+   * This probe reported "EMPTY — 0 live, 0 dead" for scenes that had CRASHED
+   * during render and rendered 16 elements and no body at all. A fixture of
+   * mine put a number where the app expected a placement string,
+   * placementIcon() called .toLowerCase() on it, and every scene with a right
+   * sidebar came back blank. The probe called that a clean scene with nobody in
+   * it, and several sweeps went by.
+   *
+   * "Nothing rendered" and "nothing to render" are the same number, which is
+   * the mistake this whole file exists to stop making. So an uncaught error is
+   * captured and the scene is BROKEN — reported by name, with the message, and
+   * it fails the run.
+   */
+  const pageErrors = [];
+  page.on("pageerror", (e) => pageErrors.push(String(e && e.message ? e.message : e).slice(0, 200)));
   await page.goto(`${BASE}/uiharness.html?scene=${scene}`, { waitUntil: "networkidle" });
   let settled = false;
   /*
@@ -145,11 +162,52 @@ for (const scene of scenes) {
         n++;
         if (node.parentElement && node.parentElement.closest("a")) live++;
       }
-      const key = `${n}:${live}`;
+      /*
+       * THE THIRD TERM, AND WHY IT IS NEEDED.
+       *
+       * Requiring n > 0 made 27 structurally memberless scenes burn the full
+       * deadline and report UNMEASURED. Dropping it did the mirror image:
+       * screen-discover and screen-friends settled at (0,0) and reported EMPTY
+       * roughly 750ms in, BEFORE their sidebar data had arrived. Both readings
+       * were wrong and in opposite directions, which is the tell that the
+       * condition was watching too little.
+       *
+       * The element count is what separates them. A scene with nothing to show
+       * has a DOM that stops changing almost at once, so it is EMPTY quickly
+       * and honestly. A scene still assembling itself keeps changing, so it
+       * cannot settle at zero — it waits until its people are there.
+       *
+       * This is a proxy, and this file's history says proxies fail here. It is
+       * used only to say "the page has stopped becoming", never to say
+       * anything about liveness: the two numbers that decide the RESULT are
+       * still the member names and the live links, and both are in the tuple.
+       * A scene that never stops changing burns the deadline and is
+       * UNMEASURED, which is loud rather than green.
+       */
+      const key = `${n}:${live}:${document.getElementsByTagName("*").length}`;
       window.__settle = window.__settle === undefined ? [] : window.__settle;
       window.__settle.push(key);
+      /*
+       * ASYMMETRIC EVIDENCE, BECAUSE ZERO IS THE DANGEROUS ANSWER.
+       *
+       * "This page has no members" and "this page has not finished rendering
+       * its members" produce the identical reading, and only one of them is a
+       * fact. Measured: screen-discover reported 0 while its right sidebar
+       * demonstrably renders seven member names — People You May Know 3,
+       * Winners 2, Milestones 2 — because the DOM went briefly still before
+       * the shared dashboard fetch resolved.
+       *
+       * So a scene claiming ZERO must hold that reading for 2 seconds, and a
+       * scene that has actually found people needs only 750ms. This is not a
+       * sleep tuned until the red went away: it costs more evidence for the
+       * conclusion that would silently pass, and nothing at all for the
+       * conclusion that would fail. The deadline still bounds both.
+       */
       const s = window.__settle;
-      return s.length >= 3 && s[s.length - 1] === s[s.length - 2] && s[s.length - 2] === s[s.length - 3];
+      const need = n === 0 ? 8 : 3;
+      if (s.length < need) return false;
+      const tail = s.slice(-need);
+      return tail.every((v) => v === tail[0]);
     },
     members.map((m) => m.name),
     { timeout: 15000, polling: 250 },
@@ -220,13 +278,21 @@ for (const scene of scenes) {
    * settled is UNSETTLED — not a clean result, a measurement that did not
    * happen. Both are counted and both fail the run.
    */
-  const status = dead.length ? "FAIL" : found.length === 0 ? (settled ? "EMPTY" : "UNMEASURED") : "ok  ";
-  if (found.length === 0 && !settled) unmeasured.push(scene);
-  if (found.length === 0 && settled) empty.push(scene);
+  const status = pageErrors.length
+    ? "BROKEN"
+    : dead.length
+      ? "FAIL"
+      : found.length === 0
+        ? (settled ? "EMPTY" : "UNMEASURED")
+        : "ok  ";
+  if (pageErrors.length) broken.push(`${scene}: ${pageErrors[0]}`);
+  else if (found.length === 0 && !settled) unmeasured.push(scene);
+  else if (found.length === 0 && settled) empty.push(scene);
   console.log(
     `${status.padEnd(5)} ${scene.padEnd(36)} ${live} live, ${dead.length} dead` +
       (settled ? "" : "   (settle deadline expired — state below is whatever was on screen)"),
   );
+  for (const e of pageErrors.slice(0, 2)) console.log(`        THREW  ${e}`);
   for (const d of dead) {
     console.log(`        DEAD  ${d.name.padEnd(20)} href=${d.href ?? "(no anchor)"}  expected ${d.expected}`);
     console.log(`              ${d.chain}`);
@@ -237,13 +303,17 @@ await browser.close();
 console.log(`\n${liveTotal} live, ${deadTotal} dead across ${scenes.length} scenes.`);
 if (empty.length) console.log(`EMPTY (settled, but rendered no known member): ${empty.join(", ")}`);
 if (unmeasured.length) console.log(`UNMEASURED (never settled AND rendered nobody): ${unmeasured.join(", ")}`);
+if (broken.length) {
+  console.log(`BROKEN (the page threw during render — measuring it would be measuring a crash):`);
+  for (const b of broken) console.log(`  ${b}`);
+}
 /*
  * A run is green only when names were found, none were dead, and no scene was
  * left unmeasured. "0 dead" on a page that rendered nobody is the same number
  * as "0 dead" on a page where everyone is linked, and the whole point of this
  * probe is that those two must never print the same thing.
  */
-process.exit(deadTotal > 0 || unmeasured.length > 0 ? 1 : 0);
+process.exit(deadTotal > 0 || unmeasured.length > 0 || broken.length > 0 ? 1 : 0);
 
 /*
  * PLANT REGISTER — C-90: no green counts until the instrument has been broken

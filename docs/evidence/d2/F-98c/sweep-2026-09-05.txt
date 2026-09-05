@@ -1,0 +1,55 @@
+server ready after 60 attempts
+known members: Avijit Sheel -> /avijit, Ranjana Bhattacharya Chowdhury -> /ranjana, Li Wei -> /liwei
+
+EMPTY calendar-dob                         0 live, 0 dead
+EMPTY calendar-plain                       0 live, 0 dead
+EMPTY composer-album                       0 live, 0 dead
+EMPTY composer-broken-src                  0 live, 0 dead
+EMPTY composer-full                        0 live, 0 dead
+EMPTY composer-pano-cover                  0 live, 0 dead
+EMPTY composer-portrait-cover              0 live, 0 dead
+EMPTY composer-single                      0 live, 0 dead
+EMPTY crop-modal-avatar                    0 live, 0 dead
+EMPTY crop-modal-behind-dialog             0 live, 0 dead
+EMPTY crop-modal-tall                      0 live, 0 dead
+EMPTY crop-modal-wide                      0 live, 0 dead
+EMPTY harness-selftest                     0 live, 0 dead
+EMPTY hashtag-list-below-box               0 live, 0 dead
+EMPTY hashtag-list-in-dialog               0 live, 0 dead
+EMPTY hashtag-list-inline-edit             0 live, 0 dead
+EMPTY hashtag-list-ranked-by-people        0 live, 0 dead
+ok    journey-create-from-feed             5 live, 0 dead
+ok    journey-create-from-wall             9 live, 0 dead
+EMPTY mention-list-over-comment-box        0 live, 0 dead
+EMPTY post-audience-chooser                0 live, 0 dead
+EMPTY privacy-gap-notice                   0 live, 0 dead
+EMPTY profile-grid                         0 live, 0 dead
+EMPTY profile-grid-no-band-yet             0 live, 0 dead
+EMPTY profile-grid-one-block               0 live, 0 dead
+EMPTY profile-grid-partial-row             0 live, 0 dead
+EMPTY profile-grid-shapes                  0 live, 0 dead
+EMPTY profile-grid-single                  0 live, 0 dead
+EMPTY screen-account-sheet                 0 live, 0 dead
+ok    screen-dashboard                     3 live, 0 dead
+ok    screen-discover                      9 live, 0 dead
+ok    screen-feed                          5 live, 0 dead
+ok    screen-friends                       9 live, 0 dead
+EMPTY screen-login                         0 live, 0 dead
+EMPTY screen-not-found                     0 live, 0 dead
+EMPTY screen-not-found-in-place            0 live, 0 dead
+EMPTY screen-not-found-in-place-signed-out 0 live, 0 dead
+EMPTY screen-not-found-signed-out          0 live, 0 dead
+ok    screen-notification-settings         9 live, 0 dead
+ok    screen-notifications                 9 live, 0 dead
+ok    screen-post-detail                   2 live, 0 dead
+EMPTY screen-profile                       0 live, 0 dead
+ok    screen-voting-lightbox               1 live, 0 dead
+ok    screen-wall                          9 live, 0 dead
+ok    screen-wall-about                    9 live, 0 dead
+ok    screen-wall-visitor                  9 live, 0 dead
+ok    screen-winners                       9 live, 0 dead
+EMPTY wall-view-toggle                     0 live, 0 dead
+
+97 live, 0 dead across 48 scenes.
+EMPTY (settled, but rendered no known member): calendar-dob, calendar-plain, composer-album, composer-broken-src, composer-full, composer-pano-cover, composer-portrait-cover, composer-single, crop-modal-avatar, crop-modal-behind-dialog, crop-modal-tall, crop-modal-wide, harness-selftest, hashtag-list-below-box, hashtag-list-in-dialog, hashtag-list-inline-edit, hashtag-list-ranked-by-people, mention-list-over-comment-box, post-audience-chooser, privacy-gap-notice, profile-grid, profile-grid-no-band-yet, profile-grid-one-block, profile-grid-partial-row, profile-grid-shapes, profile-grid-single, screen-account-sheet, screen-login, screen-not-found, screen-not-found-in-place, screen-not-found-in-place-signed-out, screen-not-found-signed-out, screen-profile, wall-view-toggle
+PROBE EXIT=0

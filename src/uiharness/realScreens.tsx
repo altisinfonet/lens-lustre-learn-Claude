@@ -22,7 +22,8 @@
 
 import { Suspense, lazy, type JSX } from "react";
 import AppShell from "./AppShell";
-import { posts, HARNESS_USER_ID } from "./fixtures";
+import { posts, HARNESS_USER_ID, dashboardInit } from "./fixtures";
+import { mapSidebarVotingEntriesToVotingPhotos } from "@/lib/competitionVotingPhotos";
 import { unmatched } from "./fakeBackend";
 
 /**
@@ -56,6 +57,37 @@ const Friends = lazy(() => import("@/pages/Friends"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const Winners = lazy(() => import("@/pages/Winners"));
 const Discover = lazy(() => import("@/pages/Discover"));
+const CompetitionLightbox = lazy(() => import("@/components/CompetitionLightbox"));
+
+/**
+ * The voting lightbox, open, on the first fixture photograph. The images are
+ * mapped through the SAME function the app uses (mapSidebarVotingEntriesToVotingPhotos)
+ * from the SAME fixture rows the sidebar reads, so if that mapper stops carrying
+ * photographerHandle this scene goes dead where a probe can see it.
+ */
+function VotingLightboxScene() {
+  const images = mapSidebarVotingEntriesToVotingPhotos(dashboardInit.sidebar.voting_thumbnails, {
+    sort: false,
+  });
+  return (
+    <CompetitionLightbox
+      images={images}
+      currentIndex={0}
+      isOpen
+      onClose={() => {}}
+      onPrev={() => {}}
+      onNext={() => {}}
+      onVote={() => {}}
+      /*
+       * NOT "judging". The photographer line is hidden during judging on
+       * purpose — anonymised scoring — so a scene set to that phase would
+       * render no name at all and report a cheerful zero. "voting" is the
+       * phase in which this lightbox actually shows a photographer.
+       */
+      competitionPhase="voting"
+    />
+  );
+}
 
 function Loading() {
   return (
@@ -313,4 +345,23 @@ export const REAL_SCREENS: Record<string, () => JSX.Element> = {
 
   /** Six dead. The page the owner found the regression on. */
   "screen-discover": () => screen(<Discover />, "/discover", "/discover"),
+
+  /**
+   * F-98c SOURCE FOUR — THE PHOTOGRAPHER'S NAME, WHERE IT ACTUALLY RENDERS.
+   *
+   * "by <photographer>" lives in CompetitionLightbox, which exists only after
+   * somebody clicks a voting thumbnail. No still screenshot of any scene
+   * contained it, so the name could not be walked and source four was
+   * UNMEASURED — and the auditor's wire capture showed staging returning
+   * voting_thumbnails EMPTY as well, so it could not be observed there either.
+   * Two independent reasons it had never been looked at.
+   *
+   * It is stated plainly rather than glossed: this mounts the real component,
+   * inside the real provider stack, with a row shaped exactly as
+   * dashboard-init's toVotingPhoto() builds it — but opened DIRECTLY rather
+   * than by a click. That is a real limitation of a still-screenshot harness
+   * and it is the difference between measuring the component and measuring the
+   * journey. It is not a claim that the click works.
+   */
+  "screen-voting-lightbox": () => screen(<VotingLightboxScene />, "/feed", "/feed"),
 };
