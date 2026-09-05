@@ -12,6 +12,7 @@
  * tap.
  */
 import { useMemo, useState } from "react";
+import { useMemberHandles } from "@/hooks/profile/useMemberHandles";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Bell, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -174,6 +175,17 @@ const Notifications = () => {
     [data],
   );
 
+  /*
+   * F-95 — handles for the notification types whose destination is a PERSON
+   * (new_follower, friend_accepted). ONE batched lookup for the whole list,
+   * never one per row. Their reference_id is the member.
+   */
+  const notifHandles = useMemberHandles(
+    groups
+      .filter((g) => g.type === "new_follower" || g.type === "friend_accepted")
+      .map((g) => g.reference_id),
+  );
+
   const { following, ready: followReady } = useFollowingSet(
     useMemo(
       () => groups.filter((g) => g.type === "new_follower").map((g) => g.actor_ids?.[0]).filter(Boolean) as string[],
@@ -198,7 +210,12 @@ const Notifications = () => {
         // Never block navigation on the read-marking write.
       }
     }
-    navigate(getNotifLink({ type: group.type, reference_id: group.reference_id }));
+    // F-95 — a person-destination notification opens their NAME url.
+    navigate(getNotifLink({
+      type: group.type,
+      reference_id: group.reference_id,
+      handle: notifHandles.get(group.reference_id || ""),
+    }));
   };
 
   /**

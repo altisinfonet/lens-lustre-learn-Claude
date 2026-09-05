@@ -72,3 +72,11 @@ unrelated to the backtick:
     src/pages/Profile.tsx:83, 364
     src/components/profile/ProfileLeftSidebar.tsx:41
 ────────────────────────────────────────────────────────────────────────────
+
+PLANT SWEEP AGAINST THE CORRECTED INSTRUMENT — every shape it was blind to:
+F  TERNARY fallback (the shape that defeated the old check) Tests  1 failed | 7 passed (8)
+G  OBJECT-LITERAL destination (to: not to=)                Tests  1 failed | 7 passed (8)
+H  NOT A LINK — an id url shown to be copied             Tests  1 failed | 7 passed (8)
+I  notification link reverted to an id destination         Tests  1 failed | 7 passed (8)
+J  id fallback restored INSIDE memberPath (helper level)   Tests  1 failed | 7 passed (8)
+RESTORED                                                   Tests  8 passed (8)

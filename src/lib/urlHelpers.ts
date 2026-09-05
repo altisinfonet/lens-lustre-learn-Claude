@@ -33,3 +33,16 @@ export function pageTitle(...parts: (string | undefined | null)[]) {
   if (filtered.length === 0) return "50mm Retina World";
   return [...filtered, "50mm Retina World"].join(" | ");
 }
+
+/**
+ * Where a member goes to claim a name-URL.
+ *
+ * F-95 — THIS IS THE ANSWER TO "THEN WHERE DOES THE LINK GO?". A member with no
+ * handle has nothing to link their own profile to, and the rule forbids the id.
+ * Sending them to a dead control would be a worse answer than the bug; sending
+ * them to the one screen that fixes the cause is a better one. F-93 assigns a
+ * handle BEFORE INSERT, so on a backfilled lane nobody sees this at all — it is
+ * for the rows that predate the backfill, and for anyone who clears their own
+ * handle under F-96.
+ */
+export const CLAIM_URL_PATH = "/edit-profile";

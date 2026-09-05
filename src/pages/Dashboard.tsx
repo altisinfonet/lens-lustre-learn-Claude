@@ -19,7 +19,7 @@ import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { useApplyForRole, usePasswordReset } from "@/hooks/dashboard/useDashboardMutations";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
-import { memberPath } from "@/lib/urlHelpers";
+import { memberPath, CLAIM_URL_PATH } from "@/lib/urlHelpers";
 import { useAcceptFriendRequest, useRemoveFriendship } from "@/hooks/social/useFriendshipMutations";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "@/hooks/core/use-toast";
@@ -1179,7 +1179,8 @@ const SocialTab = ({ friendRequests, recentPosts, user, profile, handleFriendAct
     <div className="flex flex-wrap gap-2">
       {[
         { icon: Users, labelKey: "dash.friendsNetwork", to: "/friends" },
-        { icon: MessageSquare, labelKey: "menu.myWall", to: `/profile/${user.id}?section=wall` },
+        // F-95 — by NAME, never by id. `profile` is the member's own row.
+        { icon: MessageSquare, labelKey: "menu.myWall", to: memberPath(profile?.custom_url) ? `${memberPath(profile?.custom_url)}?section=wall` : CLAIM_URL_PATH },
         { icon: Rss, labelKey: "nav.feed", to: "/feed" },
         { icon: Star, labelKey: "dash.discoverPhotographers", to: "/discover" },
       ].map(l => (
