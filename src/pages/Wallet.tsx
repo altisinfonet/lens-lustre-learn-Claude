@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { fadeUp } from "@/lib/motionVariants";
 import { useNavigate } from "react-router-dom";
 import { Wallet as WalletIcon, Plus, ArrowDownLeft, ArrowUpRight, Download, CreditCard, Loader2, Banknote, IndianRupee, AlertTriangle, Clock, ExternalLink } from "lucide-react";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -18,13 +19,6 @@ import RewardedAdEntry from "@/components/ads/RewardedAdEntry";
 import { useT } from "@/i18n/I18nContext";
 import { saveBlob } from "@/lib/saveFile";
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (i: number) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.1, duration: 0.8, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] },
-  }),
-};
 
 const txnTypeLabel: Record<string, string> = {
   deposit: "Deposit",
@@ -478,7 +472,7 @@ const Wallet = () => {
         {/* Payment return banner */}
         {returnBanner && (
           <motion.div
-            initial={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 1, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             className={
               "border p-4 md:p-5 mb-6 rounded-md flex flex-col md:flex-row md:items-center md:justify-between gap-3 " +
@@ -615,7 +609,7 @@ const Wallet = () => {
 
         {/* Add Money Form */}
         {showAddMoney && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="border border-primary/30 p-6 md:p-8 mb-8 space-y-4">
+          <motion.div initial={{ opacity: 1, y: -10 }} animate={{ opacity: 1, y: 0 }} className="border border-primary/30 p-6 md:p-8 mb-8 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-xs tracking-[0.2em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>{t("wallet.addMoney")}</span>
               <button onClick={() => setShowAddMoney(false)} className="text-muted-foreground hover:text-foreground text-sm">✕</button>
@@ -858,7 +852,7 @@ const Wallet = () => {
 
         {/* Pending Withdrawals */}
         {pendingWithdrawals.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="border border-yellow-500/30 bg-yellow-500/5 p-4 md:p-6 mb-4 space-y-3">
+          <motion.div initial={{ opacity: 1, y: -10 }} animate={{ opacity: 1, y: 0 }} className="border border-yellow-500/30 bg-yellow-500/5 p-4 md:p-6 mb-4 space-y-3">
             <span className="text-[9px] tracking-[0.3em] uppercase text-yellow-600 dark:text-yellow-400 flex items-center gap-2" style={{ fontFamily: "var(--font-heading)" }}>
               <Clock className="h-3.5 w-3.5" /> {t("wal.pendingWithdrawals")}
             </span>
@@ -877,7 +871,7 @@ const Wallet = () => {
 
         {/* Withdraw Form */}
         {showWithdraw && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="border border-primary/30 p-6 md:p-8 mb-8 space-y-4">
+          <motion.div initial={{ opacity: 1, y: -10 }} animate={{ opacity: 1, y: 0 }} className="border border-primary/30 p-6 md:p-8 mb-8 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-xs tracking-[0.2em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>{t("wal.withdrawToBank")}</span>
               <button onClick={() => setShowWithdraw(false)} className="text-muted-foreground hover:text-foreground text-sm">✕</button>

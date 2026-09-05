@@ -1,4 +1,5 @@
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { fadeUp } from "@/lib/motionVariants";
 import ProfileLink from "@/components/ProfileLink";
 import {
   User, Camera, Trophy, Calendar, Edit2, Shield, Briefcase, Send, CheckCircle,
@@ -42,13 +43,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { useT } from "@/i18n/I18nContext";
 /* ───── animation helpers ───── */
-const fadeUp = {
-  hidden: { opacity: 0, y: 14 },
-  visible: (i: number) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.08, duration: 0.5, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] },
-  }),
-};
 const tabContent = {
   initial: { opacity: 0, y: 8 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.35 } },

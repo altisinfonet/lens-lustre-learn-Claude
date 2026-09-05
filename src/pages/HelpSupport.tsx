@@ -224,7 +224,7 @@ const HelpSupport = () => {
     <main className="min-h-screen bg-background text-foreground">
       <div className="container mx-auto py-3 md:py-16 max-w-4xl">
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
+        <motion.div initial={{ opacity: 1, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
           <div className="flex items-center gap-3 mb-1 md:mb-2">
             <div className="w-8 md:w-12 h-px bg-primary hidden md:block" />
             <span className="text-[9px] md:text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>
@@ -248,7 +248,7 @@ const HelpSupport = () => {
 
           {/* New Ticket Form */}
           {showForm && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="border border-border rounded-xl md:rounded-none p-4 md:p-8 mb-4 md:mb-10 space-y-4 md:space-y-5">
+            <motion.div initial={{ opacity: 1, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="border border-border rounded-xl md:rounded-none p-4 md:p-8 mb-4 md:mb-10 space-y-4 md:space-y-5">
               <span className="text-xs tracking-[0.2em] uppercase text-primary block" style={{ fontFamily: "var(--font-heading)" }}>
                 {t("hs.submitNewTicket")}
               </span>

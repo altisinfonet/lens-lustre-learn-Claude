@@ -347,7 +347,7 @@ const Profile = () => {
       <div className="container mx-auto py-3 md:py-16 max-w-5xl">
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
         >
@@ -443,7 +443,7 @@ const Profile = () => {
           </div>
 
           {profile?.city && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.8 }} className="mb-12">
+            <motion.div initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.8 }} className="mb-12">
               <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>Location</span>
               <p className="text-sm text-muted-foreground flex items-center gap-2" style={{ fontFamily: "var(--font-body)" }}>
                 <MapPin className="h-3.5 w-3.5" />{[profile.city, profile.state, profile.country].filter(Boolean).join(", ")}
@@ -452,7 +452,7 @@ const Profile = () => {
           )}
 
           {profile?.phone && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25, duration: 0.8 }} className="mb-12">
+            <motion.div initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ delay: 0.25, duration: 0.8 }} className="mb-12">
               <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>Contact</span>
               <p className="text-sm text-muted-foreground flex items-center gap-2" style={{ fontFamily: "var(--font-body)" }}>
                 <Phone className="h-3.5 w-3.5" /> {profile.phone}
@@ -461,14 +461,14 @@ const Profile = () => {
           )}
 
           {profile?.bio && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.8 }} className="mb-12">
+            <motion.div initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.8 }} className="mb-12">
               <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>About</span>
               <p className="text-sm text-muted-foreground leading-relaxed max-w-xl" style={{ fontFamily: "var(--font-body)" }}>{profile.bio}</p>
             </motion.div>
           )}
 
           {profile?.portfolio_url && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3, duration: 0.8 }} className="mb-12">
+            <motion.div initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ delay: 0.3, duration: 0.8 }} className="mb-12">
               <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>Portfolio</span>
               <a href={profile.portfolio_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-primary hover:underline transition-all duration-500" style={{ fontFamily: "var(--font-body)" }}>
                 <Globe className="h-3.5 w-3.5" />{profile.portfolio_url.replace(/^https?:\/\//, "")}<ExternalLink className="h-3 w-3 opacity-50" />
@@ -477,7 +477,7 @@ const Profile = () => {
           )}
 
           {profile?.photography_interests && profile.photography_interests.length > 0 && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.8 }} className="mb-12">
+            <motion.div initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.8 }} className="mb-12">
               <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>Photography Interests</span>
               <div className="flex flex-wrap gap-2">
                 {profile.photography_interests.map((interest) => (
@@ -489,7 +489,7 @@ const Profile = () => {
             </motion.div>
           )}
 
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5, duration: 0.8 }} className="mb-12 border border-border p-8">
+          <motion.div initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ delay: 0.5, duration: 0.8 }} className="mb-12 border border-border p-8">
             <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-6" style={{ fontFamily: "var(--font-heading)" }}>Account Settings</span>
             <div className="mb-6">
               <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground block mb-2" style={{ fontFamily: "var(--font-heading)" }}>Email Address</span>
@@ -509,7 +509,7 @@ const Profile = () => {
           </motion.div>
 
           {!profile?.bio && !profile?.portfolio_url && (!profile?.photography_interests || profile.photography_interests.length === 0) && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.8 }} className="border border-border p-10 text-center">
+            <motion.div initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.8 }} className="border border-border p-10 text-center">
               <Camera className="h-8 w-8 text-muted-foreground/30 mx-auto mb-4" />
               <p className="text-sm text-muted-foreground mb-4" style={{ fontFamily: "var(--font-body)" }}>Your profile is looking a little empty. Add a bio, portfolio, and interests to let others know about your work.</p>
               <Link to="/edit-profile" className="inline-flex items-center gap-2 text-xs tracking-[0.15em] uppercase px-6 py-3 bg-primary text-primary-foreground hover:opacity-90 transition-opacity duration-500" style={{ fontFamily: "var(--font-heading)" }}>

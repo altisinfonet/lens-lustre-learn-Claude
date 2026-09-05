@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { fadeUp } from "@/lib/motionVariants";
 import { Link, useNavigate } from "react-router-dom";
 import { Users, Heart, UserMinus, UserX, UserCheck, Search, Clock } from "lucide-react";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -51,13 +52,6 @@ const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
 const displayFont = { fontFamily: "var(--font-display)" };
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (i: number) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.1, duration: 0.6, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] },
-  }),
-};
 
 const Friends = () => {
   const t = useT();

@@ -1,4 +1,5 @@
 import { Camera, ArrowRight, ArrowDown, Aperture, Eye, Layers, User, Rss, Users, Globe, MessageCircle, Facebook, Instagram, Twitter, Youtube, Linkedin, Github, Music2, MapPin, Phone as PhoneIcon, Send as SendIcon, Trophy } from "lucide-react";
+import { fadeUp } from "@/lib/motionVariants";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import PageSEO from "@/components/PageSEO";
 import { Link, useNavigate } from "react-router-dom";
@@ -47,14 +48,6 @@ const initialsAvatar = (name: string): string => {
   return "data:image/svg+xml," + encodeURIComponent(svg);
 };
 
-const fadeUp: Variants = {
-  hidden: { opacity: 0, y: 24 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.2, duration: 1.2, ease: classicEase },
-  }),
-};
 
 const fadeIn: Variants = {
   hidden: { opacity: 0 },
@@ -598,7 +591,7 @@ const Index = () => {
             </motion.div>
           </motion.div>
         </div>
-        <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 3, duration: 1 }} onClick={() => document.getElementById("spotlight")?.scrollIntoView({ behavior: "smooth" })} className="absolute bottom-20 md:bottom-10 left-1/2 -translate-x-1/2 z-20 group cursor-pointer" aria-label={t("home.aria.scrollSpotlight", "Scroll to spotlight")}>
+        <motion.button initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ delay: 3, duration: 1 }} onClick={() => document.getElementById("spotlight")?.scrollIntoView({ behavior: "smooth" })} className="absolute bottom-20 md:bottom-10 left-1/2 -translate-x-1/2 z-20 group cursor-pointer" aria-label={t("home.aria.scrollSpotlight", "Scroll to spotlight")}>
           <motion.div animate={{ y: [0, 8, 0] }} transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}>
             <ArrowDown className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors duration-500" />
           </motion.div>
@@ -794,7 +787,7 @@ const Index = () => {
 
             {/* Card 1 — Share Your Story (large, spans 7 cols) */}
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 1, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8, ease: classicEase }}
@@ -858,7 +851,7 @@ const Index = () => {
                   {["👍", "❤️", "😂", "😮", "😢", "😡"].map((e, i) => (
                     <motion.span
                       key={e}
-                      initial={{ opacity: 0, y: 6 }}
+                      initial={{ opacity: 1, y: 6 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
                       transition={{ delay: 0.6 + i * 0.06, duration: 0.25 }}
@@ -873,7 +866,7 @@ const Index = () => {
 
             {/* Card 2 — Build Your Circle (spans 5 cols) */}
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 1, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.1, duration: 0.8, ease: classicEase }}
@@ -897,7 +890,7 @@ const Index = () => {
                   ].map((m, i) => (
                     <motion.div
                       key={m.name}
-                      initial={{ opacity: 0, x: -12 }}
+                      initial={{ opacity: 1, x: -12 }}
                       whileInView={{ opacity: 1, x: 0 }}
                       viewport={{ once: true }}
                       transition={{ delay: 0.5 + i * 0.1, duration: 0.4 }}
@@ -919,7 +912,7 @@ const Index = () => {
 
             {/* Card 3 — Your Feed (spans 4 cols) */}
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 1, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.2, duration: 0.8, ease: classicEase }}
@@ -946,7 +939,7 @@ const Index = () => {
                   ].map((item, i) => (
                     <motion.div
                       key={i}
-                      initial={{ opacity: 0, x: -8 }}
+                      initial={{ opacity: 1, x: -8 }}
                       whileInView={{ opacity: 1, x: 0 }}
                       viewport={{ once: true }}
                       transition={{ delay: 0.5 + i * 0.08, duration: 0.35 }}
@@ -963,7 +956,7 @@ const Index = () => {
 
             {/* Card 4 — Privacy (spans 4 cols) */}
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 1, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.25, duration: 0.8, ease: classicEase }}
@@ -985,7 +978,7 @@ const Index = () => {
                   ].map((p, i) => (
                     <motion.div
                       key={p.label}
-                      initial={{ opacity: 0, y: 8 }}
+                      initial={{ opacity: 1, y: 8 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
                       transition={{ delay: 0.5 + i * 0.08, duration: 0.35 }}
@@ -1009,7 +1002,7 @@ const Index = () => {
 
             {/* Card 5 — CTA card (spans 4 cols) */}
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 1, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.3, duration: 0.8, ease: classicEase }}
@@ -1036,7 +1029,7 @@ const Index = () => {
 
             {/* Card 6 — Top Contributors (spans 4 cols) */}
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 1, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.35, duration: 0.8, ease: classicEase }}
@@ -1069,7 +1062,7 @@ const Index = () => {
                     return (
                       <motion.div
                         key={c.id}
-                        initial={{ opacity: 0, x: -12 }}
+                        initial={{ opacity: 1, x: -12 }}
                         whileInView={{ opacity: 1, x: 0 }}
                         viewport={{ once: true }}
                         transition={{ delay: 0.5 + i * 0.1, duration: 0.4 }}
@@ -1146,7 +1139,7 @@ const Index = () => {
         )}
         <div className="container mx-auto relative z-10 text-center">
           <motion.blockquote
-            initial={{ opacity: 0 }}
+            initial={{ opacity: 1 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 2, ease: slowEase }}

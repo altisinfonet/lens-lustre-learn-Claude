@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { fadeUp } from "@/lib/motionVariants";
 import { publicUrl, shareLink } from "@/lib/publicUrl";
 import { useNavigate } from "react-router-dom";
 import { Copy, Check, Users, Gift, Share2, Link as LinkIcon, Loader2, UserPlus, DollarSign, Mail, Send } from "lucide-react";
@@ -17,13 +18,6 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useT } from "@/i18n/I18nContext";
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (i: number) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.1, duration: 0.8, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] },
-  }),
-};
 
 interface Referral {
   id: string;

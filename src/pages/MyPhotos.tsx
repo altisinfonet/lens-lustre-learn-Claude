@@ -34,7 +34,7 @@ const SquarePhotoCard = ({ imageUrl, postId, index, overlay, onClick }: {
 }) => {
   const inner = (
     <motion.div
-      initial={{ opacity: 0, scale: 0.96 }}
+      initial={{ opacity: 1, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: Math.min(index * 0.03, 0.5) }}
       className="relative aspect-square rounded-md overflow-hidden bg-muted group cursor-pointer"
@@ -263,7 +263,7 @@ const AlbumCard = ({ album, index, isOwner, onClick, onDelete }: {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 1, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04 }}
       className="group relative"
