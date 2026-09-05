@@ -40,3 +40,10 @@ END;
 $$;
 
 DROP FUNCTION IF EXISTS public.custom_url_ever_held(uuid);
+
+-- ⚠ clear_custom_url's EXECUTE grant is NOT restored to authenticated, for the
+-- same reason the anon grants are not. Re-granting it would give every member
+-- a button that manufactures have_none — the state the Owner's hard rule
+-- forbids — and after F-92/F-95 a member in that state has no reachable
+-- profile URL at all. If it is genuinely wanted back, that is a decision with
+-- its own evidence, not a side effect of rolling back a migration.

@@ -224,6 +224,43 @@ END;
 $$;
 
 -- ---------------------------------------------------------------------------
+-- clear_custom_url STOPS BEING MEMBER-CALLABLE.
+--
+-- ⚠ DO NOT RE-GRANT THIS TO authenticated. The reasoning is recorded here
+-- because the obvious "fix" when an Edit Profile save fails is to hand the
+-- grant back, and that would reopen the rule this closes.
+--
+-- The Owner's hard rule is not "once a year" — that is the CHANGE rule. His
+-- hard rule is HAVE NONE MUST BE ZERO, on both lanes. A member-callable clear
+-- is a button that manufactures exactly the state he forbade, on demand, for
+-- any member.
+--
+-- A 12-month window on it would NOT fix that. It would only mean a member can
+-- make themselves nameless once a year instead of hourly — still breaking the
+-- rule, and worse than the bypass it would be patching: after F-92 and F-95
+-- there is no id address to fall back on, so a member with no handle has no
+-- reachable profile URL at all and their name renders as plain text
+-- everywhere it appears. Clearing does not give a member privacy. It makes
+-- them unreachable and unlinkable.
+--
+-- A member who dislikes their URL should CHANGE it. That is what the window
+-- is for. clear_custom_url survives as a PRIVILEGED action for the abuse case
+-- — an offensive or wrong URL that staff must clear and reassign.
+--
+-- This also collapses F-96 at the source: with clear out of member reach, both
+-- clear-then-change and clear-then-claim_username close because the first step
+-- is gone. The custom_url_ever_held() keying above stays regardless — defence
+-- in depth, and it is what makes the window mean "has never had one" rather
+-- than "has none right now".
+--
+-- ⚠ TWO-LANE CHANGE. src/pages/EditProfile.tsx:530 calls this when a member
+-- empties the URL field and saves. Revoking EXECUTE without the client half
+-- turns that save into a raw permission error. THIS MIGRATION MUST NOT BE
+-- APPLIED BEFORE D2's change, which refuses an emptied field in the form with
+-- a plain message: every member has a profile URL, it can be changed once a
+-- year, it cannot be removed.
+REVOKE EXECUTE ON FUNCTION public.clear_custom_url() FROM authenticated;
+
 -- ANON GRANTS. Hygiene, stated as hygiene: all three fail closed on
 -- auth.uid() IS NULL, so this was not exploitable. A mutating profile RPC
 -- should still not carry an EXECUTE grant for unauthenticated callers.
