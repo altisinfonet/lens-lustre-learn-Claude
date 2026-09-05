@@ -75,9 +75,11 @@ const scenes = await probe.$$eval("a[href^='?scene=']", (as) =>
 await probe.close();
 
 let deadTotal = 0, liveTotal = 0;
+const empty = [], unmeasured = [];
 for (const scene of scenes) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
   await page.goto(`${BASE}/uiharness.html?scene=${scene}`, { waitUntil: "networkidle" });
+  let settled = false;
   /*
    * SETTLE ON A CONDITION, NOT A SLEEP.
    *
@@ -122,7 +124,8 @@ for (const scene of scenes) {
     },
     members.map((m) => m.name),
     { timeout: 15000, polling: 250 },
-  ).catch(() => { /* deadline: measure it anyway and let the result speak */ });
+  ).then(() => { settled = true; })
+   .catch(() => { /* deadline: measured anyway, but recorded as UNSETTLED below */ });
 
   const found = await page.evaluate((members) => {
     const results = [];
@@ -171,19 +174,46 @@ for (const scene of scenes) {
   const live = found.length - dead.length;
   liveTotal += live;
   deadTotal += dead.length;
-  if (found.length) {
-    const flag = dead.length ? "FAIL" : "ok  ";
-    console.log(`${flag} ${scene.padEnd(36)} ${live} live, ${dead.length} dead`);
-    for (const d of dead) {
-      console.log(`        DEAD  ${d.name.padEnd(20)} href=${d.href ?? "(no anchor)"}  expected ${d.expected}`);
-      console.log(`              ${d.chain}`);
-    }
+  /*
+   * EVERY SCENE PRINTS A LINE, INCLUDING THE EMPTY ONES.
+   *
+   * This used to print only scenes where found.length > 0, and that is the
+   * silent zero this file's own header warns about — the fourth time the same
+   * mistake has been made here. Two runs of this probe against the SAME commit
+   * read 82 live and then 47 live; the difference was that screen-profile and
+   * screen-account-sheet rendered nobody on the second run and so printed
+   * NOTHING AT ALL. A scene that vanishes from the report looks exactly like a
+   * scene that passed. Only diffing two runs by eye caught it, which is not an
+   * instrument.
+   *
+   * A scene with no members is now EMPTY, and an EMPTY scene that also never
+   * settled is UNSETTLED — not a clean result, a measurement that did not
+   * happen. Both are counted and both fail the run.
+   */
+  const status = dead.length ? "FAIL" : found.length === 0 ? (settled ? "EMPTY" : "UNMEASURED") : "ok  ";
+  if (found.length === 0 && !settled) unmeasured.push(scene);
+  if (found.length === 0 && settled) empty.push(scene);
+  console.log(
+    `${status.padEnd(5)} ${scene.padEnd(36)} ${live} live, ${dead.length} dead` +
+      (settled ? "" : "   (settle deadline expired — state below is whatever was on screen)"),
+  );
+  for (const d of dead) {
+    console.log(`        DEAD  ${d.name.padEnd(20)} href=${d.href ?? "(no anchor)"}  expected ${d.expected}`);
+    console.log(`              ${d.chain}`);
   }
   await page.close();
 }
 await browser.close();
-console.log(`\n${liveTotal} live, ${deadTotal} dead across every scene.`);
-process.exit(deadTotal > 0 ? 1 : 0);
+console.log(`\n${liveTotal} live, ${deadTotal} dead across ${scenes.length} scenes.`);
+if (empty.length) console.log(`EMPTY (settled, but rendered no known member): ${empty.join(", ")}`);
+if (unmeasured.length) console.log(`UNMEASURED (never settled AND rendered nobody): ${unmeasured.join(", ")}`);
+/*
+ * A run is green only when names were found, none were dead, and no scene was
+ * left unmeasured. "0 dead" on a page that rendered nobody is the same number
+ * as "0 dead" on a page where everyone is linked, and the whole point of this
+ * probe is that those two must never print the same thing.
+ */
+process.exit(deadTotal > 0 || unmeasured.length > 0 ? 1 : 0);
 
 /*
  * PLANT REGISTER — C-90: no green counts until the instrument has been broken

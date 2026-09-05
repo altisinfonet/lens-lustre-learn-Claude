@@ -370,9 +370,59 @@ export const dashboardInit = {
     competitions: [],
     courses: [],
     journal: [],
-    winners: [],
+    /*
+     * F-98c source FIVE-B — this was `[]`, so the Winners card in the right
+     * sidebar rendered "No winners yet" in every scene and the dead
+     * photographer name inside it could not be photographed or walked. Same
+     * fault as the three lists above, one card over.
+     *
+     * Shaped exactly as dashboard-init/index.ts builds a winner, INCLUDING
+     * user_custom_url, which that file now carries.
+     */
+    winners: profiles.slice(0, 2).map((p, i) => ({
+      id: `winner-${i}`,
+      title: i === 0 ? "Monsoon Light" : "Harbour at Dawn",
+      photos: [],
+      placement: i + 1,
+      competition_title: "Monsoon 2026",
+      user_id: p.id,
+      user_name: p.full_name,
+      user_avatar: p.avatar_url,
+      user_custom_url: p.custom_url,
+    })),
     trending: [],
-    voting_entries: [],
+    /*
+     * F-98c source FOUR — these were `[]`, and the auditor's wire capture on
+     * 2026-09-05 showed staging returning them empty too. An empty array has no
+     * shape, so the photographer's name could not be observed by the page, by
+     * the probe, or by him. UNMEASURED, NOT GREEN — his words, and they are the
+     * whole lesson of the day.
+     *
+     * Shaped exactly as dashboard-init's toVotingPhoto() builds a row,
+     * INCLUDING photographer_handle, which that function now carries.
+     *
+     * ⚠ THIS STILL DOES NOT RENDER THE NAME. "by <photographer>" lives in
+     * CompetitionLightbox, which exists only after a click, so no still
+     * screenshot of any scene contains it. Recorded as an open coverage hole
+     * rather than counted as covered — see the PR.
+     */
+    voting_entries: profiles.slice(0, 2).map((p, i) => ({
+      id: `entry-${i}`,
+      entry_id: `entry-${i}`,
+      title: i === 0 ? "Monsoon Light" : "Harbour at Dawn",
+      entry_title: i === 0 ? "Monsoon Light" : "Harbour at Dawn",
+      photo_url: `/photos/fixture-${i}.jpg`,
+      photo_index: 0,
+      total_photos: 1,
+      competition_id: "comp-1",
+      competition_title: "Monsoon 2026",
+      user_id: p.id,
+      photographer_name: p.full_name,
+      photographer_handle: p.custom_url,
+      vote_count: 3 - i,
+      user_voted: false,
+      created_at: "2026-09-01T00:00:00.000Z",
+    })),
     voting_thumbnails: [],
     /*
      * F-98b — THESE THREE WERE EMPTY, AND THAT IS WHY FIVE DEAD NAMES SHIPPED.
@@ -382,28 +432,40 @@ export const dashboardInit = {
      * a name that was not there. An empty fixture is not a conservative
      * fixture — it is a surface the instruments cannot see.
      *
-     * ⚠ NO custom_url, DELIBERATELY. These arrive from the dashboard-init EDGE
-     * FUNCTION, and supabase/functions/dashboard-init/index.ts:452 builds each
-     * person as { id, full_name, avatar_url, mutual_count }. Adding a handle
-     * here would make the fixture kinder than production and hide exactly the
-     * defect it now reproduces: the component has to resolve the handle through
-     * useMemberHandles, and if it stops doing so these names go dead where an
-     * instrument can see it.
+     * F-98c — THEY NOW CARRY custom_url, AND THAT IS NOT THE FIXTURE GOING
+     * SOFT. It previously omitted the handle on purpose, to mirror
+     * dashboard-init/index.ts, which built each person as
+     * { id, full_name, avatar_url, mutual_count } and dropped it. The auditor
+     * traced the dead names to that omission on 2026-09-05 and the server was
+     * fixed at the source: the Q11 select now asks for custom_url and both
+     * literals carry it. A fixture's only job is to be the shape production
+     * sends, so it changed with production. Keeping the old shape would now be
+     * the fixture LYING in the other direction — testing a payload the server
+     * no longer emits, which is how the harness came to model a sidebar nobody
+     * ships.
+     *
+     * The handle is deliberately present on EVERY person here. A member with no
+     * handle is a real state, but it belongs in a unit test where the assertion
+     * can name it; in a rendered scene it is indistinguishable from the
+     * regression this fixture exists to catch.
      */
     milestones: profiles.slice(0, 2).map((p) => ({
       id: p.id,
       full_name: p.full_name,
       avatar_url: p.avatar_url,
+      custom_url: p.custom_url,
     })),
     birthdays: profiles.slice(1, 3).map((p) => ({
       id: p.id,
       full_name: p.full_name,
       avatar_url: p.avatar_url,
+      custom_url: p.custom_url,
     })),
     suggestions: profiles.slice(0, 3).map((p) => ({
       id: p.id,
       full_name: p.full_name,
       avatar_url: p.avatar_url,
+      custom_url: p.custom_url,
       mutual_count: 0,
     })),
   },

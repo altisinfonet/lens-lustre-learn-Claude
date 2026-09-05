@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useMemberHandles } from "@/hooks/profile/useMemberHandles";
 import { Link } from "react-router-dom";
 import { UserPlus, X, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import ProfileLink from "@/components/ProfileLink";
@@ -84,7 +83,17 @@ const FeedFriendSuggestions = () => {
    * s.custom_url directly and got undefined for every member, which is how
    * five names in People You May Know shipped dead.
    */
-  const handles = useMemberHandles(rawSuggestions.map((s: { id: string }) => s.id));
+  /*
+   * F-98c — THE HANDLE NOW TRAVELS WITH THE NAME.
+   *
+   * This read `useMemberHandles(...)`: a second, batched round trip that
+   * fetched custom_url for members whose names had already arrived without it.
+   * The auditor's ruling on 2026-09-05, and it is the right one — two
+   * mechanisms delivering one handle is how the two drift apart, which is the
+   * same argument this codebase already made about author_badges. The server
+   * now carries custom_url in the row (dashboard-init/index.ts suggestions
+   * literal), so the bridge is withdrawn rather than stacked on top of the fix.
+   */
 
   useEffect(() => {
     if (rawSuggestions.length === 0) return;
@@ -218,7 +227,7 @@ const FeedFriendSuggestions = () => {
                 <X className="h-3.5 w-3.5" />
               </button>
 
-              <ProfileLink userId={s.id} handle={handles.get(s.id)} className="shrink-0">
+              <ProfileLink userId={s.id} handle={s.custom_url} className="shrink-0">
                 {s.avatar_url ? (
                   <img
                     referrerPolicy="no-referrer"
@@ -248,7 +257,7 @@ const FeedFriendSuggestions = () => {
                 <UserIdentityBlock
                   userId={s.id}
                   name={s.full_name || "Photographer"}
-                  handle={handles.get(s.id)}
+                  handle={s.custom_url}
                   stack
                   align="center"
                   nameClassName="text-[11px] font-semibold text-foreground hover:text-primary transition-colors"

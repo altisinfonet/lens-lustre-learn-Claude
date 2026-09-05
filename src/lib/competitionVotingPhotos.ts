@@ -2,6 +2,18 @@ export interface CompetitionVotingPhoto {
   entryId: string;
   entryTitle: string;
   photographerName: string;
+  /**
+   * F-98c source FOUR — the photographer's handle, travelling WITH the name.
+   *
+   * dashboard-init emitted photographer_name as a bare string with no address
+   * beside it, so "by Somnath Pal" under a voting photo was structurally
+   * incapable of being a link however careful this file or the lightbox was.
+   * The edge function now carries photographer_handle; this is where it lands.
+   *
+   * null means the member has no handle. It is never an id: an id URL is the
+   * one address F-95 forbids.
+   */
+  photographerHandle: string | null;
   competitionTitle?: string | null;
   /** Full-resolution photo URL — used by lightbox, voting modal, and download. NEVER swap for thumbnail. */
   photoUrl: string;
@@ -75,7 +87,17 @@ export function mapCompetitionEntriesToVotingPhotos(entries: any[]): Competition
 
       return photos.map((photoUrl: string, photoIndex: number) => {
         // Per-photo "One Image, One Reject" — skip rejected photos site-wide.
-        const metaItem = meta[photoIndex];
+        /*
+         * Narrowed rather than cast. Adding photographerHandle to the interface
+         * above shifted every line in this function, which moved three
+         * BASELINED `as any` sites onto new line numbers and made the audit
+         * rule report them as NEW. Re-baselining them would have been making a
+         * red go away by editing the record of it — Standing Rule 19 — so the
+         * casts are gone instead. Same values, same fallbacks, no behaviour
+         * change; `meta` is still `any[]` from the caller and only this read of
+         * it is described.
+         */
+        const metaItem = meta[photoIndex] as { rejected?: boolean; title?: unknown } | undefined;
         if (metaItem && metaItem.rejected === true) return null;
         // Phase 2: prefer thumbnail for grid; fall back to full-res when null/missing/empty.
         const rawThumb = thumbs[photoIndex];
@@ -83,14 +105,14 @@ export function mapCompetitionEntriesToVotingPhotos(entries: any[]): Competition
         // FIX #3 (per-photo titles): every photo carries its OWN title from
         // photo_meta[i].title. Falls back to entry-level title (which is
         // photos[0].title at submission time) only when meta is missing.
+        const metaTitle = typeof metaItem?.title === "string" ? metaItem.title : "";
         const perPhotoTitle =
-          metaItem && typeof (metaItem as any).title === "string" && (metaItem as any).title.trim().length > 0
-            ? (metaItem as any).title
-            : (entry.title || "Untitled");
+          metaTitle.trim().length > 0 ? metaTitle : (entry.title || "Untitled");
         return {
           entryId: entry.id,
           entryTitle: perPhotoTitle,
           photographerName: entry.profiles?.full_name || "Anonymous",
+          photographerHandle: entry.profiles?.custom_url || null,
           competitionTitle: null,
           photoUrl,
           thumbnailUrl,
@@ -126,6 +148,7 @@ export function mapSidebarVotingEntriesToVotingPhotos(
         entryId,
         entryTitle: String(item?.entry_title ?? item?.title ?? "Untitled"),
         photographerName: String(item?.photographer_name ?? "Anonymous"),
+        photographerHandle: item?.photographer_handle ? String(item.photographer_handle) : null,
         competitionTitle: item?.competition_title ? String(item.competition_title) : null,
         photoUrl,
         thumbnailUrl,

@@ -40,6 +40,22 @@ const PublicProfile = lazy(() => import("@/pages/PublicProfile"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const CustomUrlProfile = lazy(() => import("@/pages/CustomUrlProfile"));
 const MobileProfileSheet = lazy(() => import("@/components/MobileProfileSheet"));
+/*
+ * F-98c — THE FIVE PAGES THIS HARNESS WAS BLIND TO.
+ *
+ * Before 2026-09-05 the harness had 42 scenes and they covered SIX routes:
+ * /login, /feed, /profile, the wall, post detail and /settings/notifications.
+ * The auditor counted dead member names on the deployed site name by name and
+ * got /notifications 20, /owen.blake 7, /feed 7, /discover 6, /friends 6,
+ * /dashboard 6, /winners 6. Only /feed and the wall were inside the 42, so a
+ * full sweep reading "0 dead" was true and meaningless — a floor, never a pass.
+ * These five close that, and they are added for exactly that reason.
+ */
+const Notifications = lazy(() => import("@/pages/Notifications"));
+const Friends = lazy(() => import("@/pages/Friends"));
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Winners = lazy(() => import("@/pages/Winners"));
+const Discover = lazy(() => import("@/pages/Discover"));
 
 function Loading() {
   return (
@@ -276,4 +292,25 @@ export const REAL_SCREENS: Record<string, () => JSX.Element> = {
   /** Settings — long forms, switches, and the tap-target rule. */
   "screen-notification-settings": () =>
     screen(<NotificationSettings />, "/settings/notifications", "/settings/notifications"),
+
+  /*
+   * ── THE FIVE THAT CARRY THE DEAD NAMES ────────────────────────────────────
+   * See the note beside their imports. Each one is a route the auditor counted
+   * dead names on and no instrument in this repository could render.
+   */
+
+  /** Twenty dead names, the most of any page. Its own defect, not the sidebar's. */
+  "screen-notifications": () => screen(<Notifications />, "/notifications", "/notifications"),
+
+  /** Six dead: the People You May Know sidebar, on a page nobody had rendered. */
+  "screen-friends": () => screen(<Friends />, "/friends", "/friends"),
+
+  /** Six dead, and the only page that shows the milestone anniversary names. */
+  "screen-dashboard": () => screen(<Dashboard />, "/dashboard", "/dashboard"),
+
+  /** Six dead, including the winners card's photographer name (source FIVE-B). */
+  "screen-winners": () => screen(<Winners />, "/winners", "/winners"),
+
+  /** Six dead. The page the owner found the regression on. */
+  "screen-discover": () => screen(<Discover />, "/discover", "/discover"),
 };

@@ -1,5 +1,4 @@
 import { useState, useRef, useMemo, useEffect } from "react";
-import { useMemberHandles } from "@/hooks/profile/useMemberHandles";
 import { getAdminIds } from "@/lib/adminBrand";
 import AdZone from "@/components/ads/AdZone";
 import { Link } from "react-router-dom";
@@ -68,7 +67,17 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
    * s.custom_url directly and got undefined for every member, which is how
    * five names in People You May Know shipped dead.
    */
-  const handles = useMemberHandles(rawSuggestions.map((s: { id: string }) => s.id));
+  /*
+   * F-98c — THE HANDLE NOW TRAVELS WITH THE NAME.
+   *
+   * This read `useMemberHandles(...)`: a second, batched round trip that
+   * fetched custom_url for members whose names had already arrived without it.
+   * The auditor's ruling on 2026-09-05, and it is the right one — two
+   * mechanisms delivering one handle is how the two drift apart, which is the
+   * same argument this codebase already made about author_badges. The server
+   * now carries custom_url in the row (dashboard-init/index.ts suggestions
+   * literal), so the bridge is withdrawn rather than stacked on top of the fix.
+   */
   const upcomingComps = sidebarData?.competitions ?? [];
   const coursePreviews = sidebarData?.courses ?? [];
   const winners = sidebarData?.winners ?? [];
@@ -150,7 +159,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
             ) : (
               suggestions.map((s: any) => (
                 <div key={s.id} className="flex items-center gap-3 px-4 py-3">
-                  <ProfileLink userId={s.id} handle={handles.get(s.id)} className="shrink-0">
+                  <ProfileLink userId={s.id} handle={s.custom_url} className="shrink-0">
                     {s.avatar_url ? (
                       <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={s.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
                     ) : (
@@ -165,7 +174,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
                     <UserIdentityBlock
                       userId={s.id}
                       name={s.full_name || "Photographer"}
-                      handle={handles.get(s.id)}
+                      handle={s.custom_url}
                       nameClassName="text-xs font-medium truncate hover:text-primary transition-colors"
                     />
                     {s.mutual_count > 0 && (
@@ -321,30 +330,55 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
           </div>
           {winners.length > 0 ? (
             <div className="divide-y divide-border">
+              {/*
+                * F-98c, source FIVE-B — this row was dead for BOTH reasons at
+                * once: the server dropped user_custom_url (it now carries it),
+                * and the client printed w.user_name in a bare span. Suggestions
+                * in this same file, ~180 lines up, use ProfileLink. One file,
+                * one list linked and the other not.
+                *
+                * THE WHOLE ROW USED TO BE ONE <Link to="/competitions">, so a
+                * member anchor inside it would have been an <a> inside an <a> —
+                * invalid HTML, and the browser silently un-nests it. So the row
+                * is a div now, and it carries TWO destinations rather than one
+                * broken one: the photograph and its title still go to the
+                * competitions page, and the photographer's name goes to the
+                * photographer. Nothing else about the row changed — same
+                * classes, same order, same hover.
+                */}
               {winners.map((w: any) => (
-                <Link key={w.id} to={`/competitions`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
-                  {w.photos?.[0] ? (
-                    <img loading="lazy" decoding="async" src={w.photos[0]} alt="" className="w-10 h-10 rounded-sm object-cover shrink-0" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-sm bg-primary/10 flex items-center justify-center shrink-0">
-                      <Award className="h-4 w-4 text-primary/50" />
-                    </div>
-                  )}
+                <div key={w.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
+                  <Link to={`/competitions`} className="shrink-0">
+                    {w.photos?.[0] ? (
+                      <img loading="lazy" decoding="async" src={w.photos[0]} alt="" className="w-10 h-10 rounded-sm object-cover shrink-0" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-sm bg-primary/10 flex items-center justify-center shrink-0">
+                        <Award className="h-4 w-4 text-primary/50" />
+                      </div>
+                    )}
+                  </Link>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       {w.user_avatar ? (
                         <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={w.user_avatar} alt="" className="w-4 h-4 rounded-full object-cover" />
                       ) : null}
-                      <span className="text-[9px] text-muted-foreground truncate" style={bodyFont}>
+                      <ProfileLink
+                        userId={w.user_id}
+                        handle={w.user_custom_url}
+                        className="text-[9px] text-muted-foreground truncate hover:underline"
+                        style={bodyFont}
+                      >
                         {w.user_name || "Photographer"}
-                      </span>
+                      </ProfileLink>
                     </div>
-                    <p className="text-xs font-medium truncate" style={headingFont}>{w.title}</p>
-                    <span className="text-[8px] text-muted-foreground" style={bodyFont}>
-                      {placementIcon(w.placement)} {w.competition_title}
-                    </span>
+                    <Link to={`/competitions`} className="block min-w-0">
+                      <p className="text-xs font-medium truncate" style={headingFont}>{w.title}</p>
+                      <span className="text-[8px] text-muted-foreground" style={bodyFont}>
+                        {placementIcon(w.placement)} {w.competition_title}
+                      </span>
+                    </Link>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           ) : (
