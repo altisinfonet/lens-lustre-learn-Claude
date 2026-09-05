@@ -263,6 +263,22 @@ export const profilesPublicData = profiles.map((p, i) => ({
   id: p.id,
   full_name: p.full_name,
   username: p.username,
+  /*
+   * C-84 / F-95 — CARRIED, and its absence was a real blind spot.
+   *
+   * The source rows above have always given every member a custom_url. This
+   * DERIVED projection never copied it, so every screen reading
+   * profiles_public_data saw undefined and only the no-handle fallback was ever
+   * exercised. Harmless while a missing handle only meant "fall back to the id
+   * url"; not harmless after F-95, where it means every profile link in every
+   * scene renders as plain text — which is exactly what the UI gate reported on
+   * e3160bf as three anchors "gone" on screen-post-detail and a vanished QR
+   * card on screen-profile.
+   *
+   * On staging 513 of 513 members carry a handle. A fixture in which none does
+   * is not a conservative fixture, it is the wrong one.
+   */
+  custom_url: p.custom_url,
   avatar_url: p.avatar_url,
   bio: p.bio,
   portfolio_url: i === 0 ? "https://example.test/avijit" : null,

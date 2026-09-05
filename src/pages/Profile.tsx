@@ -415,7 +415,14 @@ const Profile = () => {
                   {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
                 </button>
               </div>
-              <Link to={ownPath ?? CLAIM_URL_PATH} className="inline-flex items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase text-primary hover:underline transition-all duration-300" style={{ fontFamily: "var(--font-heading)" }}>
+              {/* F-93 — reported by the gate at 117x17, well under a tappable
+                  target. Same idiom, and the same reason, as the sibling
+                  control higher up this file: min-h-11 is the 44px target and
+                  `-my-3` takes the extra height back out of the flow so the
+                  row's height does not move. It shrank because the address
+                  beside it got shorter, which let the row fit on one line —
+                  the height was never deliberate, it was two lines of text. */}
+              <Link to={ownPath ?? CLAIM_URL_PATH} className="inline-flex min-h-11 -my-3 items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase text-primary hover:underline transition-all duration-300" style={{ fontFamily: "var(--font-heading)" }}>
                 <ExternalLink className="h-3 w-3" />View Public Profile
               </Link>
             </div>
