@@ -37,6 +37,8 @@ const Profile = lazy(() => import("@/pages/Profile"));
 const PostDetail = lazy(() => import("@/pages/PostDetail"));
 const NotificationSettings = lazy(() => import("@/pages/NotificationSettings"));
 const PublicProfile = lazy(() => import("@/pages/PublicProfile"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
+const CustomUrlProfile = lazy(() => import("@/pages/CustomUrlProfile"));
 const MobileProfileSheet = lazy(() => import("@/components/MobileProfileSheet"));
 
 function Loading() {
@@ -170,6 +172,53 @@ export const REAL_SCREENS: Record<string, () => JSX.Element> = {
    */
   "screen-wall-visitor": () =>
     screen(<PublicProfile />, "/profile/22222222-2222-4222-8222-222222222222", "/profile/:userId"),
+
+  /**
+   * THE 404, SIGNED IN AND SIGNED OUT — added 2026-09-05 for F-89.
+   *
+   * It had never been photographed once, which is how it shipped rendering
+   * inside the two-column feed shell with a "Sign Up Free" sidebar on one side
+   * and "Learn Photography" on the other, wrapped around a dead end. The
+   * Owner's verdict was "nonsense design, worthless".
+   *
+   * BOTH auth states are scenes because the page is auth-aware and the two are
+   * genuinely different products: a stranger needs a way to join, a member does
+   * not. One scene would certify half of it — the same lesson `screen-wall-visitor`
+   * taught when every wall scene had been the owner's own profile.
+   *
+   * The route is a real dead path, registered against `*` so this is the
+   * catch-all case exactly as App.tsx serves it.
+   */
+  "screen-not-found": () =>
+    screen(<NotFound />, "/zzz-definitely-not-a-page-98765", "*"),
+
+  "screen-not-found-signed-out": () =>
+    screen(<NotFound />, "/zzz-definitely-not-a-page-98765", "*"),
+
+  /**
+   * THE 404 REACHED THE OTHER WAY — IN PLACE, THROUGH CustomUrlProfile.
+   *
+   * ⚠ NOT THE SAME SCENE AS ABOVE, and the incident that produced it is the
+   * reason it exists. The two scenes above register NotFound against `*`, the
+   * CATCH-ALL. The path the Owner actually photographed is a SINGLE-SEGMENT
+   * url: it matches `/:customUrl`, mounts CustomUrlProfile, resolves nothing,
+   * and renders <NotFound /> in place. Two different routes.
+   *
+   * F-89 shipped green on every check either side of the review and then hung
+   * deployed staging in an unbounded remount loop — on this route and only this
+   * route, because on the catch-all NotFound is a direct child of the Outlet
+   * and nothing above it re-renders. Both instruments drove the catch-all, so
+   * both were blind to it. This scene is that blindness closed.
+   *
+   * `resolve_custom_url` is fixtured empty (fixtureRoutes) so the lookup
+   * COMPLETES and fails to match, rather than hanging as it does against a
+   * database this container cannot reach.
+   */
+  "screen-not-found-in-place": () =>
+    screen(<CustomUrlProfile />, "/zzz-definitely-not-a-page-98765", "/:customUrl"),
+
+  "screen-not-found-in-place-signed-out": () =>
+    screen(<CustomUrlProfile />, "/zzz-definitely-not-a-page-98765", "/:customUrl"),
 
   /** One post, open, with comments. `path` carries the id or the page
    *  renders its not-found state and photographs as a tidy empty screen. */
