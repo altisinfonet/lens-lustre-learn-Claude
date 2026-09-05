@@ -85,6 +85,11 @@ CREATE OR REPLACE FUNCTION public.forbid_custom_url_change()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
 DECLARE
   _window   constant interval := interval '365 days';
+  -- ⚠ ONE PLACE for the ordinal suffix, so overruling it is a one-line edit.
+  -- 'th' is a Postgres template modifier, not a literal: it emits the CORRECT
+  -- English ordinal per number. Verified on the lane across every trap —
+  -- 1st 2nd 3rd 11th 12th 13th 21st 22nd 23rd 31st. Do not hand-roll this.
+  _date_fmt constant text     := 'FMDDth Mon YYYY';
   _next     timestamptz;
   _jwt_role text;
 BEGIN
@@ -117,8 +122,16 @@ BEGIN
   THEN
     _next := OLD.custom_url_changed_at + _window;
     RAISE EXCEPTION
-      'You can change your profile URL once every 365 days. Your next change is available on % (UTC).',
-      to_char(_next AT TIME ZONE 'utc', 'FMDD Mon YYYY')
+      -- ⚠ THIS IS THE ENTIRE MESSAGE. Owner, twice: no more words. No leading
+      -- clause, no explanation of the rule, no trailing sentence. Adding any
+      -- is a defect, not an improvement.
+      --
+      -- ⚠ UNTIL, NOT THROUGH. The date printed is the day the change
+      -- SUCCEEDS, not the last day it is refused. A member who changes on
+      -- 31 Dec 2026 next changes on 31 Dec 2027 — the day of the change does
+      -- not count as day one.
+      'Can''t change until %.',
+      to_char(_next AT TIME ZONE 'utc', _date_fmt)
       USING ERRCODE = 'check_violation';
   END IF;
 
@@ -196,6 +209,7 @@ CREATE OR REPLACE FUNCTION public.change_custom_url(_new_url text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
 DECLARE
   _window  constant interval := interval '365 days';
+  _date_fmt constant text     := 'FMDDth Mon YYYY';   -- see forbid_custom_url_change
   _user_id uuid;
   _cleaned text;
   _old_url text;
@@ -219,8 +233,10 @@ BEGIN
   -- short-circuited.
   IF public.custom_url_ever_held(_user_id) AND _last IS NOT NULL
      AND now() - _last < _window THEN
-    RAISE EXCEPTION 'You can change your profile URL once every 365 days. Your next change is available on % (UTC).',
-      to_char((_last + _window) AT TIME ZONE 'utc', 'FMDD Mon YYYY');
+    -- The entire message. See forbid_custom_url_change for why nothing may be
+    -- added to it, and for the until-not-through reading of the date.
+    RAISE EXCEPTION 'Can''t change until %.',
+      to_char((_last + _window) AT TIME ZONE 'utc', _date_fmt);
   END IF;
 
   IF NOT public.custom_url_available(_cleaned, _user_id) THEN
