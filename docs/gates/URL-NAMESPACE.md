@@ -96,21 +96,25 @@ grepping single-segment routes and **silently missed every nested one**. A hand-
 wrong the moment someone adds a route and does not think about this file — and the failure mode is
 silent. **A derived list cannot drift; a hand-written one already has.**
 
-**Current derivation, measured on `staging` at the time of writing — 51 segments:**
+**THE LIST THAT IS ACTUALLY RUNNING HOLDS 68 ROWS.** It is the table
+`public.reserved_custom_urls`, seeded by
+`supabase/migrations/20260910_0006_f93_reserved_custom_urls.sql` and re-derived in CI by
+`scripts/check-reserved-urls.mjs`, which **fails the build when a route exists with no reserved
+row.** **The table is the source. This document quotes it; it does not define it.**
 
-| source | count | how |
+| kind | count | what it holds |
 |---|---|---|
-| first-segment route names in `src/App.tsx` | **39** | every `path="…"` value, first segment, `*` and `:params` excluded, lower-cased, de-duplicated |
-| top-level entries in `public/` | **12** | `avatars`, `images`, and the ten static files served at the site root |
-| **total** | **51** | |
+| **legacy** | **16** | `api` `www` `root` `system` `support` `help` `contact` `about` `user` `users` `mail` `ftp` `cdn` `static` `media` `not-found` |
+| **route** | **39** | every first-segment route name derived from `src/App.tsx`, including `__crop-test` and `idverification` |
+| **static** | **13** | `assets` `avatars` `images` `_headers` `favicon.png` `robots.txt` `sitemap.xml` `manifest.json` `llms.txt` `og-image.png` `placeholder.svg` `apple-touch-icon.png` `sw-image-cache.js` |
+| **TOTAL** | **68** | |
 
-**⚠ OPEN QUESTION FOR THE AUDITOR — `assets` is NOT in the 51.** The 51 is exactly
-`39 + 12`. The Vite build emits chunks under `/assets/`, which is a served path but never requested
-as a bare single segment, so a member at `/assets` would not actually shadow `/assets/index-*.js`.
-**The Auditor's brief named "assets, images, avatars and the static files", so either `assets` should
-be added — making 52 — or it was named loosely and 51 stands.** This document does not decide it.
-**Recorded rather than silently resolved, because a reserved list that quietly gains or loses an
-entry is the exact drift §2.1 exists to prevent.**
+**`assets` IS reserved, and the reason is measured rather than reasoned.** Against staging:
+`GET /assets` returns **404 `text/plain`**, `GET /assets/` returns **404 `text/plain`**, and the
+control `GET /sofia.duarte` returns **200 `text/html`**. **The Pages catch-all
+`functions/assets/[[path]].ts` swallows the bare single segment**, so a member whose slug were
+`assets` would be **unreachable** — not merely shadowed at two segments. **A reader who doubts this
+can take the three readings again rather than take our word.**
 
 ### 2.2 · Historical URLs are NOT free for reuse
 
@@ -133,6 +137,27 @@ one address**.
 **Enforced by a database constraint, not by application code.** A check in the client or in a
 function is advisory; two concurrent writes race past it. **The constraint is the only thing that
 cannot be bypassed**, and it must be case-insensitive.
+
+### 2.4 · THE GUARANTEES, AS MEASURED — not as intended
+
+**Read from the live table by the Auditor, not from notes. Lane: `staging`. Date: 2026-09-05.**
+
+| guarantee | measured | state |
+|---|---|---|
+| every member has a name-URL (§1.1) | **513 of 513** | ✅ **MET on staging** |
+| no reserved collisions (§2.1) | **0** | ✅ |
+| no duplicates (§2.3) | **0** | ✅ |
+| nothing outside `[a-z0-9.]` (§1.3) | **0 rows** | ✅ |
+
+**⚠ THE FIRST ROW IS TRUE OF THE 513 THAT EXIST, NOT OF THE NEXT MEMBER TO SIGN UP.**
+
+**F-93 IS NOT COMPLETE. Units 4, 4b and 5 are merged in code but NOT APPLIED to staging.**
+`handle_new_user` **does not mention `custom_url`**, and **there is no INSERT-time trigger** — so
+**a member signing up on staging right now still gets NULL.** D1 is applying them.
+
+**§1.1's guarantee is therefore PENDING-ON-APPLY**, and stays pending until the Auditor confirms.
+A backfill that fixes 513 rows and leaves the 514th broken has not met *"HAVE NONE must be zero"* —
+**the rule is a property of the system, not a one-off state of the table.**
 
 ---
 
@@ -186,9 +211,36 @@ generator prove itself.
 ## 4 · WHAT THIS FILE DOES NOT DO
 
 * It **implements nothing.** D1 owns the database half; D2 owns the client half.
-* It **does not decide** the `assets` question in §2.1 — that is the Auditor's.
+* It **does not define** the reserved list. `public.reserved_custom_urls` does; this file quotes it.
 * It **does not close** F-91. The seed is still narrow.
+* It **does not close** F-93 — §2.4's first guarantee is **pending-on-apply** until the Auditor
+  confirms units 4, 4b and 5 are applied to staging.
 * It records the specification **as of 2026-09-05**. Where the Owner rules differently, his ruling
   wins and this file is amended — **with the superseded text left visible**, as
   `docs/gates/P1-revocation-list.md` §2.2 was, because a gate that silently loses its own history is
   not a gate.
+
+### 4.1 · SUPERSEDED — this file recorded **51** and was wrong. **C-86.**
+
+**The superseded text, left visible per the convention above:**
+
+> *"Current derivation, measured on `staging` at the time of writing — 51 segments … 39 first-segment
+> route names in `src/App.tsx` … 12 top-level entries in `public/` … total 51 … ⚠ OPEN QUESTION FOR
+> THE AUDITOR — `assets` is NOT in the 51."*
+
+**Why it was wrong.** The count was **derived from the source tree** — `App.tsx` and `public/` — when
+**a table had already been applied that decided the question**. `reserved_custom_urls` holds **68**
+rows, not 51: the route half matched exactly, **the static half and the total were stale**, and the
+`assets` question the file raised **had been answered by the migration before the document was
+written.**
+
+**The route half was sound and is not withdrawn** — 39, independently derived twice, including
+`__crop-test` and `idverification`.
+
+**C-86, a Rule 21 finding against this document.** The specification and the applied schema
+disagreed, **and the specification is what would have been handed to the Owner as the description of
+the system.** A document that describes a list that is not the one running is worse than no document:
+it is confidently wrong, and it invites a reader to trust it instead of measuring.
+
+**The lesson is this project's oldest one, committed here in a new place:** *a claim reported before
+its instrument was read.* The instrument was the table. **This file now quotes the table and says so.**
