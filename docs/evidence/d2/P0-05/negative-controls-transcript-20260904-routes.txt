@@ -1,0 +1,35 @@
+############ NEGATIVE CONTROLS re-run against the CHANGED workflow
+############ workflow sha256 14792e0957f678ed…  (was fb457af187c1d54d…)
+############ harness  sha256 0149fd0216bf801f…  UNCHANGED — the route list is a workflow env var
+############ routes now: /,/competitions,/journal
+
+=== PROOF 2 · a catastrophic reading must not block · 2026-09-04T16:01:20.519Z ===
+--- step 9 ---
+web-vitals-report 0.5.0-STUB (report-only) — 4 records
+  /                status=measured LCP=180000ms CLS=2.5 INP~=90000ms
+  /competitions    status=measured LCP=240000ms CLS=3.5 INP~=90000ms
+  /journal         status=measured LCP=300000ms CLS=4.5 INP~=90000ms
+  written /tmp/claude-0/-home-user-lens-lustre-learn-Claude/eb1c56b2-2c18-5284-ad22-7af2846eeab2/scratchpad/ev3/web-vitals-2026-09-04T16-01-20-917Z-STUBBAD.ndjson
+   [step exit 0]
+   steps.vitals.outputs.code = 0
+--- step 10 (line-180 guard) ---
+web-vitals-report.mjs exited with 0
+   [guard exit 0]
+--- step 11 (content guard) ---
+3 measured sample(s) in web-vitals-2026-09-04T16-01-20-917Z-STUBBAD.ndjson — the harness ran. Values are report-only until P13.
+   [guard exit 0]
+
+=== PROOF 3 · the line-180 guard must fire · 2026-09-04T16:01:21.039Z ===
+--- step 9 ---
+web-vitals-report 0.5.0-STUB — measured fine, exiting 3
+   [step exit 0]
+   steps.vitals.outputs.code = 3
+--- step 10 (line-180 guard) ---
+web-vitals-report.mjs exited with 3
+::error::web-vitals-report.mjs exited 3. In Phase 0 this harness reports and never blocks; a non-zero exit means either the script gained a blocking path before P13 authorised one, or it crashed outside its own error handling. Both are defects in the harness, not in the site.
+   [guard exit 1]
+--- step 11 (content guard) ---
+1 measured sample(s) in web-vitals-2026-09-04T16-01-21-106Z-STUBEXIT.ndjson — the harness ran. Values are report-only until P13.
+   [guard exit 0]
+
+# finished 2026-09-04T16:01:21.187Z

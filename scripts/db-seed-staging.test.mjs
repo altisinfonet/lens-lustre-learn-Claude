@@ -21,7 +21,11 @@
 import { readFileSync } from 'node:fs';
 
 import { LANES, PRODUCTION_REF, refuseProduction } from './db-lane-guard.mjs';
-import { SEED_NAMESPACE, insertBatchSql, parseArgs, TEARDOWN_SQL } from './db-seed-staging.mjs';
+import {
+  SEED_NAMESPACE, insertBatchSql, parseArgs, CENSUS_SQL, TEARDOWN_SQL,
+  TEARDOWN_ALBUM_GUARD_SQL, TEARDOWN_RESIDUE_SQL, TEARDOWN_PROOF_COUNTS,
+  TEARDOWN_MUST_NOT_MOVE, teardownVerdict,
+} from './db-seed-staging.mjs';
 
 // The lane guard and the baseline have their own suite,
 // scripts/db-baseline.test.mjs. Separate files, separate PRs (0-D1-04).
@@ -115,6 +119,269 @@ check('teardown is keyed on the derived id set, never on the content marker', ()
   const sql = TEARDOWN_SQL(1, 1000);
   assert(/md5\('.*:post:'/.test(sql), 'teardown does not use the derived id set');
   assert(!/LIKE/i.test(sql), 'teardown matches on content — it could delete a real row');
+});
+
+check('⟵ REGRESSION F-79 · teardown removes the notifications the seed CAUSES, not only the posts it writes', () => {
+  // The defect: TEARDOWN_SQL deleted from public.posts and nothing else, and
+  // user_notifications has NO foreign key to posts. Measured on staging
+  // 2026-09-04 by two instruments independently — the Auditor listed the nine
+  // foreign keys referencing posts and user_notifications was not among them;
+  // I read fan_out_new_post()'s deployed source and found it inserting there on
+  // every public post. At 100k seeded rows that is ~80,000 rows surviving a
+  // teardown that prints success, on a database holding 1,060.
+  //
+  // This test would have passed before the fix if it only checked that posts
+  // are deleted. It checks the second delete, which did not exist.
+  const sql = TEARDOWN_SQL(1, 1000);
+  assert(/DELETE\s+FROM\s+public\.user_notifications/i.test(sql),
+    'teardown does not delete from user_notifications — the fan-out rows survive it (F-79)');
+  assert(/DELETE\s+FROM\s+public\.posts/i.test(sql),
+    'teardown no longer deletes the posts themselves');
+});
+
+check('⟵ REGRESSION F-79 · the notification teardown is keyed on the DERIVED ID SET, never on content', () => {
+  // The trap this file has forbidden for posts since it was written, now closed
+  // for notifications too. A member's notification must not be reachable by the
+  // teardown, and `message LIKE '%seed%'` would make every one of them
+  // reachable. fan_out_new_post sets reference_id := NEW.id, so the derived id
+  // set reaches exactly the rows the seed caused and nothing else.
+  const sql = TEARDOWN_SQL(1, 1000);
+  const notifDelete = sql.slice(
+    sql.search(/DELETE\s+FROM\s+public\.user_notifications/i),
+    sql.search(/DELETE\s+FROM\s+public\.posts/i),
+  );
+  assert(notifDelete.length > 0, 'could not isolate the notification delete');
+  assert(/reference_id\s*=\s*md5\('.*:post:'/.test(notifDelete),
+    'the notification delete is not keyed on the derived id set');
+  assert(!/LIKE/i.test(notifDelete),
+    'the notification delete matches on content — it could delete a member’s notification');
+  assert(!notifDelete.includes(`[seed ${SEED_NAMESPACE}]`),
+    'the notification delete references the content marker');
+  for (const col of ['message', 'title']) {
+    assert(!new RegExp(`n\\.${col}\\b`).test(notifDelete),
+      `the notification delete reads n.${col} — that is a content match by another name`);
+  }
+});
+
+check('⟵ REGRESSION F-79 · no type filter narrows the notification delete', () => {
+  // `AND type = 'new_post_from_following'` reads as caution and is the opposite.
+  // A member who reacts to a seeded post gets a DIFFERENT type pointing at the
+  // same id; filtering leaves that row behind, pointing at a post that no longer
+  // exists. The id set is already exact — an md5 digest collision is the only
+  // way a member's row is reached — so a filter on top of it only subtracts.
+  const sql = TEARDOWN_SQL(1, 1000);
+  const notifDelete = sql.slice(
+    sql.search(/DELETE\s+FROM\s+public\.user_notifications/i),
+    sql.search(/DELETE\s+FROM\s+public\.posts/i),
+  );
+  assert(!/\btype\s*=/i.test(notifDelete),
+    'the notification delete filters on type, so it leaves rows pointing at deleted posts');
+});
+
+check('⟵ REGRESSION F-79 · notifications are deleted BEFORE the posts, in one statement string', () => {
+  // Both deletes reach the server in one string, so psql runs them in a single
+  // implicit transaction — either both apply or neither does. Order still
+  // matters for readability of intent: the notification delete keys on the id
+  // set by itself and must never come to depend on the posts row surviving.
+  const sql = TEARDOWN_SQL(1, 1000);
+  assert(sql.search(/DELETE\s+FROM\s+public\.user_notifications/i)
+       < sql.search(/DELETE\s+FROM\s+public\.posts/i),
+    'posts are deleted before the notifications that reference them');
+  assert(/;/.test(sql), 'the two deletes are not separated — they cannot both run');
+});
+
+check('⟵ REGRESSION F-79 · album_photos is SET NULL, so the teardown refuses instead of nulling a member’s row', () => {
+  // album_photos.post_id is ON DELETE SET NULL, alone among the nine foreign
+  // keys to posts. A delete therefore does not reverse such a row; it silently
+  // detaches a member's album entry and reports success. It holds 0 rows today.
+  // "Today it is zero" is not a contract.
+  const guard = TEARDOWN_ALBUM_GUARD_SQL(1, 1000);
+  assert(/album_photos/.test(guard), 'the album guard does not read album_photos');
+  assert(/md5\('.*:post:'/.test(guard), 'the album guard is not keyed on the derived id set');
+  assert(!/DELETE|UPDATE/i.test(guard), 'the album guard writes — it must only look');
+
+  // ⚠ COMMENTS ARE STRIPPED BEFORE THIS SEARCH, and that is not fussiness.
+  // The first version of this assertion searched the raw source for the token
+  // TEARDOWN_ALBUM_GUARD_SQL. The negative control then moved the guard CALL
+  // below the delete and left the explanatory comment above it — and the test
+  // stayed green, because indexOf found the comment at offset 348 and the
+  // delete at 473. It was measuring prose. That is the same defect as F-76,
+  // where a guard grepped raw SQL and my own explanation of a function made it
+  // believe the function gated itself. A check that a comment can satisfy is
+  // not a check, so the comment is removed before the question is asked.
+  const src = readFileSync(new URL('./db-seed-staging.mjs', import.meta.url), 'utf8');
+  const code = src.replace(/^\s*\/\/.*$/gm, '');
+  const branch = code.slice(code.indexOf('if (args.teardown)'));
+  const guardCall = branch.indexOf('queryOne(dsn, TEARDOWN_ALBUM_GUARD_SQL(');
+  const deleteCall = branch.indexOf('psql(dsn, TEARDOWN_SQL(');
+  assert(guardCall > 0, 'the teardown branch never CALLS the album guard');
+  assert(deleteCall > 0, 'could not find the teardown delete');
+  assert(guardCall < deleteCall, 'the album guard runs AFTER the delete — the rows are already detached');
+  assert(/REFUSING at ordinals/.test(branch), 'the guard does not refuse, it only measures');
+});
+
+// ── The verdict, tested on NUMBERS ─────────────────────────────────────────
+// The first F-79b regression test read the source and matched guard expressions
+// with a regular expression. That is the same defect one level up: it checks
+// what the code LOOKS like, not what it DECIDES, and would pass a verdict that
+// named the right variables and computed the wrong answer. teardownVerdict is a
+// pure function precisely so these can be numbers.
+const CLEAN_RESIDUE = {
+  residue_posts: 0,
+  residue_user_notifications: 0,
+  residue_album_photos: 0,
+  residue_post_hashtags: 0,
+  residue_feed_events: 0,
+  residue_post_reports: 0,
+};
+const UNTOUCHED = { profiles: 513, follows: 513, post_media: 5 };
+
+check('verdict · zero residue and untouched tables → ok', () => {
+  const v = teardownVerdict({
+    residue: CLEAN_RESIDUE,
+    before: { ...UNTOUCHED },
+    after: { ...UNTOUCHED },
+    mustNotMove: TEARDOWN_MUST_NOT_MOVE,
+  });
+  assert(v.ok === true, `a clean teardown was judged failed: ${v.reasons.join('; ')}`);
+  assert(v.reasons.length === 0, 'a passing verdict carries reasons');
+});
+
+check('⟵ REGRESSION F-79b · THE CASE THAT GOT THIS WRONG — user_notifications 1573→1060, residue 0 → ok', () => {
+  // These are the actual numbers from live run 33886239460. The teardown had
+  // worked perfectly: the 513 fan-out rows the seed caused were removed. The old
+  // predicate compared against the census at the start of its own run and
+  // reported "TEARDOWN DID NOT REVERSE". It failed exactly when the fix worked.
+  const v = teardownVerdict({
+    residue: CLEAN_RESIDUE,
+    before: { ...UNTOUCHED, posts_total: 317, user_notifications: 1573 },
+    after: { ...UNTOUCHED, posts_total: 17, user_notifications: 1060 },
+    mustNotMove: TEARDOWN_MUST_NOT_MOVE,
+  });
+  assert(v.ok === true,
+    `the verdict again fails a working teardown: ${v.reasons.join('; ')}`);
+});
+
+check('verdict · residue_user_notifications 513 → not ok, and it NAMES the count', () => {
+  // This is the F-79 defect itself: the fan-out rows left behind. Before the
+  // teardown fix this is what a 300-row seed would have left.
+  const v = teardownVerdict({
+    residue: { ...CLEAN_RESIDUE, residue_user_notifications: 513 },
+    before: { ...UNTOUCHED },
+    after: { ...UNTOUCHED },
+    mustNotMove: TEARDOWN_MUST_NOT_MOVE,
+  });
+  assert(v.ok === false, 'rows left behind were judged clean');
+  assert(v.reasons.some((r) => /residue_user_notifications/.test(r) && /513/.test(r)),
+    `the reason does not name the count and the number: ${v.reasons.join('; ')}`);
+});
+
+check('verdict · profiles 513 → 512 is DAMAGE even with zero residue', () => {
+  // A teardown that deleted a member's profile leaves no residue and would look
+  // clean on completeness alone. Confinement is a separate question.
+  const v = teardownVerdict({
+    residue: CLEAN_RESIDUE,
+    before: { ...UNTOUCHED },
+    after: { ...UNTOUCHED, profiles: 512 },
+    mustNotMove: TEARDOWN_MUST_NOT_MOVE,
+  });
+  assert(v.ok === false, 'a deleted member profile was judged clean');
+  assert(v.reasons.some((r) => /profiles/.test(r) && /513/.test(r) && /512/.test(r)),
+    `the reason does not name the table and both figures: ${v.reasons.join('; ')}`);
+});
+
+check('verdict · every residue key is checked, not just the ones it knows by name', () => {
+  // The residue query gains a table when the schema does. A verdict that only
+  // looked at a hard-coded list would silently ignore the new one.
+  const v = teardownVerdict({
+    residue: { ...CLEAN_RESIDUE, residue_some_future_table: 7 },
+    before: { ...UNTOUCHED }, after: { ...UNTOUCHED }, mustNotMove: TEARDOWN_MUST_NOT_MOVE,
+  });
+  assert(v.ok === false, 'a residue key the verdict did not recognise was ignored');
+  assert(v.reasons.some((r) => /residue_some_future_table=7/.test(r)), 'the new key is not named');
+});
+
+check('verdict · a missing measurement is a failure, not a pass', () => {
+  // undefined > 0 is false in JavaScript, so a residue query that silently
+  // failed to answer would sail through a naive check.
+  const a = teardownVerdict({
+    residue: { residue_posts: undefined },
+    before: { ...UNTOUCHED }, after: { ...UNTOUCHED }, mustNotMove: TEARDOWN_MUST_NOT_MOVE,
+  });
+  assert(a.ok === false, 'an unanswered residue query was judged clean');
+  const b = teardownVerdict({
+    residue: CLEAN_RESIDUE,
+    before: { profiles: 513 }, after: { profiles: 513 }, mustNotMove: ['profiles', 'follows'],
+  });
+  assert(b.ok === false, 'a table missing from both censuses was judged clean');
+  assert(b.reasons.some((r) => /follows/.test(r)), 'the unmeasured table is not named');
+});
+
+check('⟵ REGRESSION F-79b · main() only prints and exits on the verdict; it does not decide', () => {
+  // The decision must not drift back inline, where only a regex could reach it.
+  const src = readFileSync(new URL('./db-seed-staging.mjs', import.meta.url), 'utf8');
+  const code = src.replace(/^\s*\/\/.*$/gm, '');
+  const branch = code.slice(code.indexOf('if (args.teardown)'), code.indexOf('const publicShare'));
+  assert(/teardownVerdict\(/.test(branch), 'the teardown branch no longer calls the verdict function');
+  assert(/if \(!verdict\.ok\)/.test(branch), 'the exit is not taken from the verdict');
+  assert(!/notReversed/.test(branch), 'the old delta-based predicate is back');
+  assert(!/\.filter\(/.test(branch.slice(branch.indexOf('teardownVerdict('))),
+    'main() filters counts after calling the verdict — it is deciding again');
+});
+
+check('⟵ REGRESSION F-79b · residue is asked on the derived id set, for every table the seed reaches', () => {
+  // The only question a teardown can answer exactly without a pre-seed baseline:
+  // does anything reachable by the derived id set still exist? Right answer: 0.
+  const sql = TEARDOWN_RESIDUE_SQL(1, 300);
+  assert(/md5\('.*:post:'/.test(sql), 'the residue query is not keyed on the derived id set');
+  assert(!/LIKE/i.test(sql), 'the residue query matches on content');
+  for (const t of ['posts', 'user_notifications', 'album_photos', 'post_hashtags',
+                   'feed_events', 'post_reports']) {
+    assert(new RegExp(`AS\\s+residue_${t}\\b`).test(sql),
+      `residue is not measured for ${t}, so rows left there would not fail the run`);
+  }
+});
+
+check('⟵ REGRESSION F-79b · the tables the seed cannot touch are checked for damage', () => {
+  // A teardown that removed a member's profile would have zero residue and look
+  // clean. Residue proves the sweep was COMPLETE; this proves it was CONFINED.
+  for (const t of ['profiles', 'follows', 'post_media']) {
+    assert(TEARDOWN_MUST_NOT_MOVE.includes(t), `${t} is not guarded against being touched`);
+    assert(new RegExp(`AS\\s+${t}\\b`).test(CENSUS_SQL), `the census does not produce ${t}`);
+  }
+});
+
+check('the five named counts are still produced by the census, and still reported', () => {
+  // They are no longer the pass/fail test (F-79b), but they remain the figures a
+  // human reads to see the reversal, so they must not quietly disappear.
+  //
+  // ⚠ This assertion previously carried .replace('posts_total','posts_total') —
+  // a no-op — and `|| k === 'posts_total'`, an escape that excused the one count
+  // most likely to be dropped. CENSUS_SQL does produce AS posts_total, so the
+  // escape was never needed; it weakened the check to make it pass a problem
+  // that did not exist. Rule 19: removed, and the check is stricter for it.
+  for (const k of ['posts_total', 'user_notifications', 'post_hashtags', 'feed_events', 'album_photos']) {
+    assert(TEARDOWN_PROOF_COUNTS.includes(k), `${k} is no longer reported`);
+    assert(new RegExp(`AS\\s+${k}\\b`).test(CENSUS_SQL), `CENSUS_SQL does not produce ${k}`);
+  }
+  const src = readFileSync(new URL('./db-seed-staging.mjs', import.meta.url), 'utf8');
+  assert(/counts_before_and_after_this_run/.test(src), 'the before/after report was dropped');
+  assert(/how_to_read_this/.test(src),
+    'the report no longer explains that a falling user_notifications is the fix working, not a failure');
+});
+
+check('⟵ REGRESSION F-79 · every table a posts trigger writes to is counted by the census', () => {
+  // The census used to count posts and two neighbours, which is enough to watch
+  // a seed arrive and not enough to watch a teardown fail. Read from the
+  // deployed trigger sources on staging 2026-09-04: fan_out_new_post →
+  // user_notifications, flag_post_for_review → post_reports, sync_post_hashtags
+  // → hashtags and post_hashtags. Plus the CASCADE child feed_events and the
+  // SET NULL child album_photos.
+  for (const t of ['user_notifications', 'post_reports', 'hashtags', 'post_hashtags',
+                   'feed_events', 'album_photos']) {
+    assert(new RegExp(`AS\\s+${t}\\b`).test(CENSUS_SQL),
+      `the census does not count ${t}, so a teardown that leaves rows there looks clean`);
+  }
 });
 
 check('--ack-enqueue-jobs is a distinct flag, parsed separately from --yes', () => {

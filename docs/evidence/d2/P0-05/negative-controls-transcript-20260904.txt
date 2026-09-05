@@ -1,0 +1,38 @@
+############################################################
+# PROOF 2 · A CATASTROPHIC READING MUST NOT BLOCK
+# stub: emits terrible numbers, exit path UNTOUCHED (exits 0)
+# started 2026-09-04T13:36:42.400Z
+############################################################
+--- step 9  'Web Vitals on an emulated mid-range Android (report-only)' ---
+web-vitals-report 0.5.0-STUB (report-only) — 3 records
+  /                status=measured LCP=180000ms CLS=2.5 INP~=90000ms
+  /feed            status=measured LCP=240000ms CLS=3.1 INP~=120000ms
+  written /tmp/claude-0/-home-user-lens-lustre-learn-Claude/eb1c56b2-2c18-5284-ad22-7af2846eeab2/scratchpad/ev2/web-vitals-2026-09-04T13-36-42-706Z-STUBBAD.ndjson
+   [step exit 0]
+   steps.vitals.outputs.code = 0
+--- step 10 'The vitals harness is still report-only'  (line 180) ---
+web-vitals-report.mjs exited with 0
+   [guard exit 0]
+--- step 11 'The harness measured something (a malfunction is not a value)' ---
+2 measured sample(s) in web-vitals-2026-09-04T13-36-42-706Z-STUBBAD.ndjson — the harness ran. Values are report-only until P13.
+   [guard exit 0]
+
+############################################################
+# PROOF 3 · THE GUARD AT LINE 180 MUST BE SHOWN FIRING
+# stub: measures fine, but EXITS NON-ZERO (3)
+# started 2026-09-04T13:36:42.868Z
+############################################################
+--- step 9  'Web Vitals on an emulated mid-range Android (report-only)' ---
+web-vitals-report 0.5.0-STUB — measured fine, but exiting 3 to simulate
+  a blocking path gained before P13, or a crash outside error handling
+   [step exit 0]
+   steps.vitals.outputs.code = 3
+--- step 10 'The vitals harness is still report-only'  (line 180) ---
+web-vitals-report.mjs exited with 3
+::error::web-vitals-report.mjs exited 3. In Phase 0 this harness reports and never blocks; a non-zero exit means either the script gained a blocking path before P13 authorised one, or it crashed outside its own error handling. Both are defects in the harness, not in the site.
+   [guard exit 1]
+--- step 11 'The harness measured something (a malfunction is not a value)' ---
+1 measured sample(s) in web-vitals-2026-09-04T13-36-42-930Z-STUBEXIT.ndjson — the harness ran. Values are report-only until P13.
+   [guard exit 0]
+
+# finished 2026-09-04T13:36:43.036Z
