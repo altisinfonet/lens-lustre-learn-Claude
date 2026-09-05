@@ -152,7 +152,7 @@ const VerifyCertificate = () => {
     <main className="min-h-screen bg-background text-foreground">
 
       <div className="container mx-auto py-12 md:py-20 max-w-2xl">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
+        <motion.div initial={{ opacity: 1, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
           {/* Header */}
           <div className="text-center mb-12">
             <div className="flex items-center justify-center gap-3 mb-4">
@@ -275,7 +275,7 @@ const VerifyCertificate = () => {
               {results.map((result, idx) => (
                 <motion.div
                   key={result.id}
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 1, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: idx * 0.1 }}
                   className={`border p-8 md:p-10 ${result.is_revoked ? "border-destructive/40 bg-destructive/5" : "border-primary/30"}`}
@@ -361,7 +361,7 @@ const VerifyCertificate = () => {
           {/* Not found */}
           {searched && notFound && !searchUnavailable && (
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 1, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
               className="border border-destructive/30 p-8 text-center"
@@ -384,7 +384,7 @@ const VerifyCertificate = () => {
               shows the underlying error text. */}
           {searched && searchUnavailable && (
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 1, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
               className="border border-border p-8 text-center"

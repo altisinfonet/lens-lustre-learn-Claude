@@ -135,7 +135,7 @@ export function useJudgeClassicData({
     const userIds = [...new Set(rawEntries.map((e) => e.user_id))];
 
     const [profiles, votes] = await Promise.all([
-      fetchInBatches((ids) => profilesPublic().select("id, full_name, avatar_url").in("id", ids), userIds),
+      fetchInBatches((ids) => profilesPublic().select("id, full_name, avatar_url, custom_url").in("id", ids), userIds),
       fetchInBatches((ids) => supabase.from("competition_votes").select("entry_id").in("entry_id", ids) as any, entryIds),
     ]);
 

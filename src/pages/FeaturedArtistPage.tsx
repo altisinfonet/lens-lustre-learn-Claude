@@ -367,7 +367,7 @@ const FeaturedArtistPage = () => {
           {/* Main column */}
           <article data-pdf-section="article" className="max-w-[720px] mx-auto lg:mx-0 w-full">
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 1, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
             >

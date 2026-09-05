@@ -49,7 +49,8 @@ import UserIdentityBlock from "../UserIdentityBlock";
 const draw = (props: Record<string, unknown>) =>
   render(
     <MemoryRouter>
-      <UserIdentityBlock userId="u1" name="Tanmay De" {...props} />
+      {/* handle defaults to null; the cases that care pass their own. */}
+      <UserIdentityBlock userId="u1" name="Tanmay De" handle={null} {...props} />
     </MemoryRouter>,
   );
 

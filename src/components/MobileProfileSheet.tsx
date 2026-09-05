@@ -252,6 +252,7 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
               <UserIdentityBlock
                 userId={user.id}
                 name={fullName}
+                handle={null} /* F-98 — deliberately not a link: this is the member's own name on the page they are already on. null is a stated answer, not an omission. */
                 nameClassName="text-[15px] font-bold tracking-wide truncate [font-family:var(--font-heading)]"
               />
               <span className="text-[11px] text-muted-foreground truncate block mt-0.5">{user.email}</span>

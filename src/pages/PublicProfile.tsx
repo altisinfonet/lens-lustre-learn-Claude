@@ -219,11 +219,6 @@ const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
 const displayFont = { fontFamily: "var(--font-display)" };
 
-const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 24 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.7, delay, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] },
-});
 
 /**
  * The profile itself, addressed by user id rather than by route.
@@ -652,6 +647,7 @@ export const PublicProfileInner = ({ userId }: { userId: string }) => {
                   <UserIdentityBlock
                     userId={userId || ""}
                     name={displayName}
+                    handle={null} /* F-98 — deliberately not a link: this is the member's own name on the page they are already on. null is a stated answer, not an omission. */
                     size="full"
                     nameClassName="text-base md:text-lg font-bold tracking-tight leading-none [font-family:var(--font-display)]"
                   />
@@ -796,6 +792,7 @@ export const PublicProfileInner = ({ userId }: { userId: string }) => {
                   <UserIdentityBlock
                     userId={userId || ""}
                     name={displayName}
+                    handle={null} /* F-98 — deliberately not a link: this is the member's own name on the page they are already on. null is a stated answer, not an omission. */
                     size="full"
                     className="items-start text-left"
                     nameClassName="text-[17px] font-semibold tracking-tight leading-tight [font-family:var(--font-display)]"
@@ -1086,7 +1083,7 @@ export const PublicProfileInner = ({ userId }: { userId: string }) => {
             {activeTab === "wall" && (
               <motion.div
                 key="wall"
-                initial={{ opacity: 0 }}
+                initial={{ opacity: 1 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.3 }}
               >
@@ -1098,7 +1095,7 @@ export const PublicProfileInner = ({ userId }: { userId: string }) => {
             {activeTab === "works" && (
               <motion.div
                 key="works"
-                initial={{ opacity: 0 }}
+                initial={{ opacity: 1 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.3 }}
                 className="space-y-8"
@@ -1466,7 +1463,7 @@ export const PublicProfileInner = ({ userId }: { userId: string }) => {
             {activeTab === "about" && (
               <motion.div
                 key="about"
-                initial={{ opacity: 0 }}
+                initial={{ opacity: 1 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.3 }}
                 className="space-y-4"

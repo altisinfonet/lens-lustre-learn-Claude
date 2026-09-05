@@ -53,7 +53,7 @@ const Journal = () => {
       <div className="container mx-auto py-6 md:py-24">
         {/* Title */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1 }}
         >
@@ -126,7 +126,7 @@ const Journal = () => {
               return (
                 <>
                   <motion.article
-                    initial={{ opacity: 0, y: 30 }}
+                    initial={{ opacity: 1, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 1 }}
                     className="mb-8 md:mb-16"
@@ -216,7 +216,7 @@ const Journal = () => {
                       {rest.map((article, i) => (
                         <motion.article
                           key={article.id}
-                          initial={{ opacity: 0, y: 20 }}
+                          initial={{ opacity: 1, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.1, duration: 0.8 }}
                         >

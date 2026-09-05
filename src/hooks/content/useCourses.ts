@@ -139,7 +139,7 @@ export const useCourseDetail = (slug: string | undefined, userId: string | undef
 
       const [{ data: lessonData }, { data: profile }, { data: moduleData }] = await Promise.all([
         supabase.from("lessons").select("id, title, sort_order, module_id").eq("course_id", courseData.id).order("sort_order"),
-        profilesPublic().select("full_name").eq("id", courseData.author_id).maybeSingle(),
+        profilesPublic().select("full_name, custom_url").eq("id", courseData.author_id).maybeSingle(),
         supabase.from("course_modules").select("*").eq("course_id", courseData.id).order("sort_order", { ascending: true }),
       ]);
 
