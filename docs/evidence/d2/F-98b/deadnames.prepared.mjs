@@ -97,35 +97,65 @@ for (const scene of scenes) {
    * across two consecutive samples, with a hard deadline so a genuinely stuck
    * page still gets measured rather than hanging the run.
    */
+  /*
+   * SETTLE ON BOTH NUMBERS THIS PROBE REPORTS, NOT ON ONE OF THEM.
+   *
+   * Three settle conditions have now failed here, each for the same reason:
+   * they watched something that goes still BEFORE the thing being measured
+   * does.
+   *
+   *   waitForTimeout(1200)  reported 7 dead on screen-account-sheet that were
+   *                         a race. Raising the number would have hidden it.
+   *   anchor count stable   a proxy. The link count settles while the member
+   *                         names are still arriving; a single-scene run read
+   *                         "0 live, 0 dead" on screen-feed where the full
+   *                         sweep read 12.
+   *   name count stable     better, and still wrong in the way that matters:
+   *                         a name renders as TEXT first and becomes a LINK
+   *                         when its handle arrives. The name count never
+   *                         changes across that transition, so the scene can
+   *                         be sampled in the window where every name is
+   *                         correct and dead. That is precisely the false red
+   *                         of the first attempt, reached by a different road.
+   *
+   * So it settles on the PAIR (names, live links). A name going live changes
+   * the second number and resets the streak; a name arriving changes the
+   * first. Three consecutive equal samples, which is 500ms of genuine
+   * stillness after networkidle rather than a guess at how long a machine
+   * takes.
+   *
+   * n > 0 IS NO LONGER REQUIRED, and that is a correction. Requiring it meant
+   * a scene with genuinely no members — 27 of the 47 mount one component with
+   * invented props and can never render a person — burned the full 15s
+   * deadline and then reported UNMEASURED, so the probe could never pass and
+   * a real unmeasured scene was buried among 27 that were fine. An empty
+   * scene is now EMPTY, quickly, and only a scene that never went still is
+   * UNMEASURED.
+   */
+  const settleSamples = [];
   await page.waitForFunction(
     (names) => {
-      // Settle on THE THING BEING MEASURED, not on a proxy for it.
-      //
-      // This first counted anchors, and that was a proxy: the link count goes
-      // stable while the member names are still arriving, so a scene could be
-      // sampled before its people rendered. Measured — the single-scene run
-      // read "0 live, 0 dead" on screen-feed where the full sweep read 12, and
-      // the difference was purely when the sample landed.
-      //
-      // Counting the member names themselves cannot go stable before they are
-      // there. Requiring n > 0 means a scene with no members waits out the
-      // deadline rather than passing instantly on an empty page — which is the
-      // safe direction, because a scene that renders nobody is exactly the
-      // condition that made the first plant a false green.
       let n = 0;
+      let live = 0;
       const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
       let node;
       while ((node = w.nextNode())) {
-        if (names.includes((node.textContent || "").trim())) n++;
+        const text = (node.textContent || "").trim();
+        if (!names.includes(text)) continue;
+        n++;
+        if (node.parentElement && node.parentElement.closest("a")) live++;
       }
-      const prev = window.__nameCount;
-      window.__nameCount = n;
-      return prev !== undefined && prev === n && n > 0;
+      const key = `${n}:${live}`;
+      window.__settle = window.__settle === undefined ? [] : window.__settle;
+      window.__settle.push(key);
+      const s = window.__settle;
+      return s.length >= 3 && s[s.length - 1] === s[s.length - 2] && s[s.length - 2] === s[s.length - 3];
     },
     members.map((m) => m.name),
     { timeout: 15000, polling: 250 },
   ).then(() => { settled = true; })
    .catch(() => { /* deadline: measured anyway, but recorded as UNSETTLED below */ });
+  void settleSamples;
 
   const found = await page.evaluate((members) => {
     const results = [];
