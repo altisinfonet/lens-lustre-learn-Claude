@@ -37,15 +37,53 @@ CREATE TRIGGER trg_custom_url_reject_reserved
 
 -- ---------------------------------------------------------------------------
 -- ASSIGN ON CREATE.
+-- ⚠ WHY A TRIGGER ON profiles RATHER THAN AN EDIT TO handle_new_user().
+-- handle_new_user() is the AFTER INSERT trigger on auth.users, and it is
+-- genuinely universal — the email form and every OAuth provider land in
+-- auth.users and it fires for all of them. But it is not the ONLY way a
+-- profiles row appears: an admin create, an import, a seeder or a future code
+-- path can insert directly and would bypass it entirely. A BEFORE INSERT
+-- trigger on public.profiles sits downstream of handle_new_user AND of every
+-- other writer, so it is strictly more general while still covering the whole
+-- signup surface. handle_new_user() is therefore left untouched.
+--
+-- ⚠ THIS MUST NEVER RAISE. It runs inside the auth signup transaction, so an
+-- exception here does not merely skip a URL — IT FAILS THE SIGNUP. A member
+-- must never be blocked from joining because we could not name them. Every
+-- failure path therefore yields NULL and lets the insert through, leaving the
+-- row for the backfill to pick up. Losing a URL is recoverable; losing the
+-- member is not.
 CREATE OR REPLACE FUNCTION public.tg_profiles_assign_custom_url()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
 BEGIN
-  IF NEW.custom_url IS NULL THEN
-    NEW.custom_url := public.generate_custom_url(NEW.full_name, NEW.id);
-    -- custom_url_changed_at is deliberately LEFT NULL. This is an assignment,
-    -- not a change; stamping it here would silently spend the member's one
-    -- change per 12 months on a name they never chose.
+  IF NEW.custom_url IS NOT NULL THEN
+    RETURN NEW;
   END IF;
+
+  -- MISSING NAME IS ITS OWN BRANCH, not a subset of the empty-string case.
+  -- Some OAuth providers send no name at all: handle_new_user() resolves
+  -- raw_user_meta_data->>'full_name' then ->>'name' and stores NULL when
+  -- neither is present. NULL and '' are different states and are logged
+  -- differently, but both take the id-derived fallback rather than aborting.
+  BEGIN
+    IF NEW.full_name IS NULL THEN
+      NEW.custom_url := public.generate_custom_url(NULL, NEW.id);
+    ELSE
+      NEW.custom_url := public.generate_custom_url(NEW.full_name, NEW.id);
+    END IF;
+  EXCEPTION WHEN others THEN
+    -- Deliberately swallowed. RAISE WARNING, never RAISE EXCEPTION: the
+    -- warning reaches the Postgres log for diagnosis while the signup
+    -- completes. The row is left with custom_url NULL and the backfill,
+    -- which runs outside any signup transaction, will assign one.
+    RAISE WARNING 'F-93: could not generate a custom_url for profile % (%): % — letting the signup through with NULL, the backfill will assign one',
+      NEW.id, SQLSTATE, SQLERRM;
+    NEW.custom_url := NULL;
+  END;
+
+  -- custom_url_changed_at is deliberately LEFT NULL. This is an assignment,
+  -- not a change; stamping it here would silently spend the member's one
+  -- change per 12 months on a name they never chose.
   RETURN NEW;
 END;
 $$;
