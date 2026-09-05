@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useEffect } from "react";
+import { useMemberHandles } from "@/hooks/profile/useMemberHandles";
 import { getAdminIds } from "@/lib/adminBrand";
 import AdZone from "@/components/ads/AdZone";
 import { Link } from "react-router-dom";
@@ -51,6 +52,23 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
   }, [sidebarData?.sections]);
 
   const rawSuggestions = sidebarData?.suggestions ?? [];
+  /*
+   * F-98b — dashboard-init does NOT return custom_url.
+   *
+   * These people arrive from the `dashboard-init` EDGE FUNCTION, not from a
+   * client query, which is why the tree-wide 'every select carrying
+   * full_name must carry custom_url' rule could not see them: there is no
+   * select here to widen. supabase/functions/dashboard-init/index.ts:452
+   * builds each row as { id, full_name, avatar_url, mutual_count } and that
+   * file is not this lane's to change.
+   *
+   * So the handle is resolved through the shared batched bridge — ONE lookup
+   * for the whole list, never one per link. FeedLeftSidebar already did this
+   * for birthdays and milestones from the same payload; this sidebar read
+   * s.custom_url directly and got undefined for every member, which is how
+   * five names in People You May Know shipped dead.
+   */
+  const handles = useMemberHandles(rawSuggestions.map((s: { id: string }) => s.id));
   const upcomingComps = sidebarData?.competitions ?? [];
   const coursePreviews = sidebarData?.courses ?? [];
   const winners = sidebarData?.winners ?? [];
@@ -132,7 +150,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
             ) : (
               suggestions.map((s: any) => (
                 <div key={s.id} className="flex items-center gap-3 px-4 py-3">
-                  <ProfileLink userId={s.id} handle={s.custom_url} className="shrink-0">
+                  <ProfileLink userId={s.id} handle={handles.get(s.id)} className="shrink-0">
                     {s.avatar_url ? (
                       <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={s.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
                     ) : (
@@ -147,7 +165,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
                     <UserIdentityBlock
                       userId={s.id}
                       name={s.full_name || "Photographer"}
-                      handle={s.custom_url}
+                      handle={handles.get(s.id)}
                       nameClassName="text-xs font-medium truncate hover:text-primary transition-colors"
                     />
                     {s.mutual_count > 0 && (

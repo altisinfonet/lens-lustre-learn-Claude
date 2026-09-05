@@ -23,6 +23,15 @@ import { fetchProfileMap } from "@/lib/profileMapCache";
  *   search_profiles_admin                admin search
  *   get_profile_admin                    AdminCommentReports.tsx
  *
+ * AND ONE EDGE FUNCTION, found by F-98b after five names shipped dead in the
+ * People You May Know sidebar:
+ *   dashboard-init                       suggestions, milestones, birthdays
+ *                                        (index.ts:452 builds each person as
+ *                                        { id, full_name, avatar_url,
+ *                                        mutual_count } — no handle)
+ * It is not an RPC, so no amount of widening client selects reaches it, and
+ * supabase/functions/ is not this lane's to change either.
+ *
  * (An eighth, verify_staff_id, also lacks it and is discounted: it carries no
  * member id and is not a profile link.)
  *

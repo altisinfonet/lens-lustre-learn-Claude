@@ -374,9 +374,38 @@ export const dashboardInit = {
     trending: [],
     voting_entries: [],
     voting_thumbnails: [],
-    milestones: [],
-    birthdays: [],
-    suggestions: [],
+    /*
+     * F-98b — THESE THREE WERE EMPTY, AND THAT IS WHY FIVE DEAD NAMES SHIPPED.
+     *
+     * The right sidebar rendered "No suggestions yet" in every scene, so the UI
+     * gate had never once photographed a sidebar member and no probe could walk
+     * a name that was not there. An empty fixture is not a conservative
+     * fixture — it is a surface the instruments cannot see.
+     *
+     * ⚠ NO custom_url, DELIBERATELY. These arrive from the dashboard-init EDGE
+     * FUNCTION, and supabase/functions/dashboard-init/index.ts:452 builds each
+     * person as { id, full_name, avatar_url, mutual_count }. Adding a handle
+     * here would make the fixture kinder than production and hide exactly the
+     * defect it now reproduces: the component has to resolve the handle through
+     * useMemberHandles, and if it stops doing so these names go dead where an
+     * instrument can see it.
+     */
+    milestones: profiles.slice(0, 2).map((p) => ({
+      id: p.id,
+      full_name: p.full_name,
+      avatar_url: p.avatar_url,
+    })),
+    birthdays: profiles.slice(1, 3).map((p) => ({
+      id: p.id,
+      full_name: p.full_name,
+      avatar_url: p.avatar_url,
+    })),
+    suggestions: profiles.slice(0, 3).map((p) => ({
+      id: p.id,
+      full_name: p.full_name,
+      avatar_url: p.avatar_url,
+      mutual_count: 0,
+    })),
   },
   user_id: HARNESS_USER_ID,
   cached: false,

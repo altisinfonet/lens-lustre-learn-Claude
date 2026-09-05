@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useMemberHandles } from "@/hooks/profile/useMemberHandles";
 import { Link } from "react-router-dom";
 import { UserPlus, X, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import ProfileLink from "@/components/ProfileLink";
@@ -67,6 +68,23 @@ const FeedFriendSuggestions = () => {
    */
   const [adminIds, setAdminIds] = useState<Set<string>>(new Set());
   const rawSuggestions = (sidebarData?.suggestions ?? []) as any[];
+  /*
+   * F-98b — dashboard-init does NOT return custom_url.
+   *
+   * These people arrive from the `dashboard-init` EDGE FUNCTION, not from a
+   * client query, which is why the tree-wide 'every select carrying
+   * full_name must carry custom_url' rule could not see them: there is no
+   * select here to widen. supabase/functions/dashboard-init/index.ts:452
+   * builds each row as { id, full_name, avatar_url, mutual_count } and that
+   * file is not this lane's to change.
+   *
+   * So the handle is resolved through the shared batched bridge — ONE lookup
+   * for the whole list, never one per link. FeedLeftSidebar already did this
+   * for birthdays and milestones from the same payload; this sidebar read
+   * s.custom_url directly and got undefined for every member, which is how
+   * five names in People You May Know shipped dead.
+   */
+  const handles = useMemberHandles(rawSuggestions.map((s: { id: string }) => s.id));
 
   useEffect(() => {
     if (rawSuggestions.length === 0) return;
@@ -200,7 +218,7 @@ const FeedFriendSuggestions = () => {
                 <X className="h-3.5 w-3.5" />
               </button>
 
-              <ProfileLink userId={s.id} handle={s.custom_url} className="shrink-0">
+              <ProfileLink userId={s.id} handle={handles.get(s.id)} className="shrink-0">
                 {s.avatar_url ? (
                   <img
                     referrerPolicy="no-referrer"
@@ -230,7 +248,7 @@ const FeedFriendSuggestions = () => {
                 <UserIdentityBlock
                   userId={s.id}
                   name={s.full_name || "Photographer"}
-                  handle={s.custom_url}
+                  handle={handles.get(s.id)}
                   stack
                   align="center"
                   nameClassName="text-[11px] font-semibold text-foreground hover:text-primary transition-colors"
