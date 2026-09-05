@@ -80,3 +80,31 @@ H  NOT A LINK — an id url shown to be copied             Tests  1 failed | 7 p
 I  notification link reverted to an id destination         Tests  1 failed | 7 passed (8)
 J  id fallback restored INSIDE memberPath (helper level)   Tests  1 failed | 7 passed (8)
 RESTORED                                                   Tests  8 passed (8)
+
+────────────────────────────────────────────────────────────────────────────
+C-88 — AN OPTIONAL FIELD MADE THE TYPE UNABLE TO FAIL. Same class as C-87.
+
+C-87 was a regex that could not match the shape that survived it. This is the
+same defect one level up: THE TYPE WAS THE INSTRUMENT, and declaring the field
+optional is what stopped it being able to fail.
+
+  author_handle?: string | null   on Post
+      -> tsc cannot enumerate the hydration sites that lack it.
+      -> PostDetail.tsx, AdComments.tsx, useAddComment.ts and three harness
+         post rows were all missed. The UI gate found ONE of them, twelve
+         anchors across four viewports; the rest were found only by auditing
+         by hand afterwards.
+
+  handle: string | null           required, on UserIdentityBlock
+      -> removing `linkTo` was a hard error, so tsc printed the COMPLETE list
+         of 30 call sites in a single run and missing one was impossible.
+
+Same change, two shapes, one checkable. The fix is not the six hydration sites;
+it is that author_handle is now REQUIRED on the harness fixture post type, so
+the compiler is a check again and a new fixture post cannot silently render a
+member with no reachable name.
+
+The rule this leaves behind: when a field is added BECAUSE every carrier of an
+identity must have it, optional is the wrong shape — optional says "some
+carriers may omit this", which is the exact thing being ruled out.
+────────────────────────────────────────────────────────────────────────────

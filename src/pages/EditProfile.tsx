@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
+import { changeRefusalMessage } from "@/lib/customUrlChangeWindow";
 import { validateCustomUrlValue } from "@/lib/customUrlRules";
 import { SITE_DISPLAY_HOST } from "@/lib/env";
 import { publicUrl } from "@/lib/publicUrl";
@@ -509,13 +510,45 @@ const EditProfile = () => {
       
       if (currentCustomUrl !== existingUrl) {
         if (currentCustomUrl) {
-          const { error: rpcError } = await supabase.rpc("change_custom_url" as any, {
+          const { data: changed, error: rpcError } = await supabase.rpc("change_custom_url" as any, {
             _new_url: currentCustomUrl,
           }) as any;
+
+          /*
+           * THE 12-MONTH WINDOW REFUSAL IS ONE SENTENCE AND NOTHING ELSE.
+           *
+           * change_custom_url no longer raises for this case — it returns
+           * { ok: false, reason, next_change_at } with next_change_at as a raw
+           * ISO timestamptz, and the sentence is composed here so it renders in
+           * the MEMBER'S timezone. See customUrlChangeWindow.ts for why that is
+           * load-bearing rather than cosmetic.
+           *
+           * NO TOAST. The toast that used to wrap this was titled t("ep.urlError")
+           * and prefixed "Failed to update custom URL" — which puts back the
+           * exact words the Owner removed. He has said no more words twice. The
+           * refusal is the inline field message, and that is the whole of it.
+           */
+          const refusal = changed && (changed as { ok?: boolean }).ok === false ? changed : null;
+          if (refusal) {
+            const nextAt = (refusal as { next_change_at?: string | null }).next_change_at;
+            setErrors((prev) => ({
+              ...prev,
+              customUrl: nextAt
+                ? changeRefusalMessage(nextAt)
+                : // Refused for a reason that is not the window (taken, reserved).
+                  // The field's own validator has already said which, so leave
+                  // that message standing rather than talking over it.
+                  prev.customUrl || t("ep.urlTaken"),
+            }));
+            setSaveStatus("error");
+            setSaving(false);
+            return;
+          }
+
           if (rpcError) {
-            const msg = (rpcError as any).message || "Failed to update custom URL";
-            setErrors((prev) => ({ ...prev, customUrl: msg }));
-            toast({ title: t("ep.urlError"), description: msg, variant: "destructive" });
+            // Still reachable until D1's change lands, and for anything the
+            // window rule does not cover. Inline, unwrapped, same as above.
+            setErrors((prev) => ({ ...prev, customUrl: (rpcError as any).message || t("ep.urlTaken") }));
             setSaveStatus("error");
             setSaving(false);
             return;
