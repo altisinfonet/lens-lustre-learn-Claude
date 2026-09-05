@@ -133,3 +133,103 @@ directly, so a Radix version may differ from the one `npm ci` installs in CI —
 hypothesis, not a measurement, and it is recorded as such.** Either the warnings are real and CI is
 not seeing them, or the local environment is generating them spuriously; either way one of the two
 is lying, and that is worth its own unit.
+
+---
+
+# Round 2 — C-34 red/green, light + dark, and the ReactorFriendAction question
+
+## C-34 · the check, planted red then green
+
+`f88check.prepared.mjs` exits **1** if any label in the row wraps or overflows, at either theme and
+either width. It was run twice with the **same command**; the only thing that changed between them
+is `btnBase` in `src/components/FriendFollowActions.tsx`.
+
+**Defect planted** (file restored byte-identical to `origin/staging`):
+
+```
+  FAIL desktop-1280  dark   english  "Add Friend"   lines=2 wrapped=true  w=103
+  FAIL desktop-1280  dark   telugu   …              lines=2 wrapped=true  w=131
+  FAIL desktop-1280  light  english  "Add Friend"   lines=2 wrapped=true  w=103
+  FAIL desktop-1280  light  telugu   …              lines=2 wrapped=true  w=131
+  FAIL android-360   dark   telugu   …              lines=2 wrapped=true  w=158
+  FAIL android-360   light  telugu   …              lines=2 wrapped=true  w=158
+
+F-88 CHECK: FAIL — 6 wrapped/overflowing label(s).
+```
+
+**Defect removed** (the fix):
+
+```
+  ok  … 16 of 16 rows …
+F-88 CHECK: PASS — nothing wrapped, nothing overflowed.
+TRUE EXIT CODE = 0
+```
+
+Note `android-360 / english` is **ok in both runs**. It is not a wrap case at that width, and it is
+kept in the check deliberately: a check that only contains cases which fail is a check that cannot
+tell you when you have broken something that used to work.
+
+## Light and dark, desktop and 360
+
+Eight new screenshots, `{BEFORE,AFTER}-{desktop-1280,android-360}--{dark,light}--{english,telugu}.png`.
+Theme is set by seeding `localStorage.theme` before the page loads, which is the mechanism
+`useTheme.tsx:14` actually reads — the app defaults to **dark**, so the original round of
+screenshots was dark-only. The defect and the fix are identical in both themes; only the palette
+moves.
+
+## Which language, and why it is the longest — measured, not assumed
+
+All six shipped `fr.addFriend` translations rendered in the real stylesheet and measured by
+**rendered width**, not by character count (Devanagari, Bengali, Tamil and Telugu do not compare by
+length):
+
+| lang | string | rendered px |
+|---|---|---|
+| **te** | స్నేహితుడిని జోడించు | **145** |
+| ta | நண்பரைச் சேர் | 113 |
+| en | Add Friend | 97 |
+| bn | বন্ধু যোগ করুন | 87 |
+| gu | મિત્ર ઉમેરો | 83 |
+| mr | मित्र जोडा | 75 |
+| hi | मित्र जोड़ें | 72 |
+
+**Telugu is the widest, by 32px over the next.** That is why it is the string the layout is sized
+against. Bengali — the example named in the brief — is in fact narrower than English.
+
+## C-80 · `ReactorFriendAction` does NOT carry this defect, and changing it would be wrong
+
+The instruction was "fix both or neither". Measured, there is nothing to fix, so the correct answer
+is **neither**, and this is the measurement rather than a reading of the class string.
+
+`ReactorFriendAction.tsx:69` — `base`, verbatim — contains **`whitespace-nowrap shrink-0`**, has
+**no `flex-1`**, and has **no fixed height** (`py-0.5`, not `h-9`). All three of the ingredients of
+F-88 are absent. Its two call sites put it in the correct arrangement, and both are identical:
+
+```jsx
+<div className="flex items-center gap-2">
+  <Link>…avatar…</Link>
+  <div className="flex-1 min-w-0"> …name, truncate… </div>   ← the NAME yields
+  <ReactorFriendAction … />                                   ← the ACTION does not
+</div>
+```
+
+That is the *opposite* of the F-88 arrangement: there the two buttons both took `flex-1` and fought
+over the row; here the name takes `flex-1 min-w-0` and truncates, and the action keeps its natural
+width. Rendered in the real stylesheet inside that exact container at 360px and 1280px, for all
+seven labels:
+
+```
+  360px  en/hi/bn/mr/gu/ta/te   RFA-as-shipped   lines=1  wrapped=false  rowOverflow=false
+ 1280px  en/hi/bn/mr/gu/ta/te   RFA-as-shipped   lines=1  wrapped=false  rowOverflow=false
+```
+
+Zero wraps, zero overflows, including Telugu at 145px inside a 360px row. Adding `min-w-fit` there
+would change nothing; adding `flex-1` would *introduce* F-88 into a component that does not have it.
+
+**Scope limit, stated rather than glossed:** that probe injects the real class strings into the real
+harness stylesheet inside a replica of the call-site container. It is a faithful measurement of the
+CSS contract, and it is **not** a render of the live component with its own data — which would need
+its providers and a Supabase session this container cannot reach. The same probe does **not**
+reproduce the F-88 wrap, because a synthetic full-width row is not the squeezed 103px profile
+column; the F-88 numbers in this document all come from the real `screen-wall-visitor` scene, and
+none of them come from the probe.
