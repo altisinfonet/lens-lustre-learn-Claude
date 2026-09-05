@@ -238,6 +238,45 @@ assertion runs against. **A green run here would have been a false negative dres
 ledger): the same seed that could not let the Owner spot-check a working fix also cannot let a
 generator prove itself.
 
+### 3.3 · METHOD NOTE — **a count produced by a pattern is a claim about the pattern**
+
+**The most valuable thing produced on 2026-09-05, and it came out of both parties being wrong.**
+
+**Five wrong counts in one night, from both sides:**
+
+| whose | the count | what the pattern actually matched |
+|---|---|---|
+| **Auditor** | the reserved list at **28** | grepped `path="/x"` and **silently skipped every nested route**. The answer was 39 — a 28-entry list shipped |
+| **Auditor** | **48 / 24** published bare | the number was right; **the instrument was not published**, which made it as unreproducible as a truncated quotation |
+| **D3** | static rows at **14** | the pattern also matched the `CHECK (kind IN (…))` constraint line. The answer was 13 |
+| **D3** | id-link sites at **50 / 25** | matched **grep's own output line, which begins with the file path** — three hits were files under `src/components/profile/`, none of them profile links |
+| **D3** | verification greps returning **0** | on case (`AND` vs `and`) and on a **line break** mid-sentence. **The file was correct; the grep was not — and D3 nearly reported the file as defective on that basis, for the second time** |
+
+**THE RULE THAT FOLLOWS:**
+
+> **A count produced by a pattern is a claim about the pattern until the pattern is published with
+> it.** And **a count that disagrees with another party's is a signal to publish BOTH instruments —
+> never to adopt the more authoritative person's number.**
+
+**Why the second clause is the load-bearing one.** Twice on 2026-09-05 the wrong move was available
+and declined:
+
+* **14 versus 13** — `16 + 39 + 14 = 69` sat next to the Auditor's 68. The tempting move was to
+  assume the Auditor had miscounted, or to quietly adopt 68 and move on. **Measuring twice found a
+  regex matching a `CHECK` constraint.**
+* **50 versus 48** — the tempting move was to adopt 48 because the Auditor is the authority.
+  **Publishing both instruments found that D3's pattern was matching a directory name**, and that
+  the Auditor's number was right for a reason neither party had guessed. **The Auditor's own guess
+  at the cause — line-splitting — was also wrong.**
+
+**Neither error would have been found by deference, and neither by argument. Both were found by
+publishing the instrument.**
+
+**Self-reported errors go in this file the same as found ones.** D3's are above, including the two
+of drafting: **§5 was written before §4** and had to be reordered, and the verification greps that
+returned 0. **A document that records only the errors someone else caught is a document that has
+learned to hide.**
+
 ---
 
 ## 4 · WHAT THIS FILE DOES NOT DO
@@ -289,26 +328,57 @@ pasted URL, a search result, a link from outside. **It cannot fix an in-app clic
 Function never sees one.** A client-side navigation is resolved by the router in the browser; no
 request leaves it. **The edge fix and the in-app case are disjoint, and only the first is done.**
 
-### 5.1 · The measurements — the Auditor's, both to be quoted
+### 5.1 · The measurements — **three figures, three instruments, NOT reconciled into one**
 
-| measurement | reading |
-|---|---|
-| source scan, navigational id-link sites | **48 sites across 24 files** |
-| `profileUrl()` used at | **exactly 2** |
-| deployed **signed-in staging feed** | **24 of the 53 anchors on the page point at `/profile/<uuid>`** |
+**They answer different questions. Collapsing them would lose the more useful one.**
 
-**Nearly half the links on the front page hand the visitor a UUID.** The helper that would produce
-the name form exists and is called **twice in the entire codebase.**
+| # | figure | what it measures | instrument |
+|---|---|---|---|
+| 1 | **48 sites / 24 files** | navigational **id literals** on the **pre-conversion** tree | the scan below, at `ecc365b` |
+| 2 | **65 sites / 30 files** | **every site the conversion actually had to touch** — D2's own C-34 baseline, **RED** | plumbing the handle through the query layer, which surfaced sites that were **not literal template links** |
+| 3 | **24 of 53 anchors** | the **running site** | a **DOM count** on the deployed signed-in staging feed |
 
-**D3's independent check of the two source figures, recorded because it did not fully reproduce:**
-`profileUrl()` at **exactly 2 call sites** reproduces precisely — `src/pages/Friends.tsx:538` and
-`:560`, the third occurrence being the definition in `src/lib/urlHelpers.ts:11`. **The 48/24 did
-not.** D3's scans **bracket** it — 43 sites / 22 files, 50 / 25, 54 / 27, 56 / 29 — depending on
-whether `navigate(` counts as navigational and whether tests are excluded. **The figure is
-plausible and is the Auditor's; the pattern that produced it is not recorded here.** ⚠ **A
-source-scan count without its pattern is not reproducible** — the same defect class as a truncated
-quotation (C-76) or a count taken on an unstated clone depth (Standing Rule 22). **The pattern should
-be recorded beside the number.**
+**Why 65 is higher than 48 and neither is wrong:** 48 counts what a regex can see in the source; 65
+counts what the work turned out to require. **A site that builds its link through the query layer is
+invisible to figure 1 and unavoidable in figure 2.** D2's number being *higher than both ours* is the
+finding, not a discrepancy.
+
+**Figure 3 is the one that cannot be gamed by a regex at all**, and it is the measurement the Auditor
+will **re-run to close F-95**. `profileUrl()` is used at **exactly 2** call sites —
+`src/pages/Friends.tsx:538` and `:560`; the third occurrence is the definition at
+`src/lib/urlHelpers.ts:11`.
+
+#### The instrument for figure 1, published so a reader can re-run it
+
+**Script: `aud/f95/scan-id-links.sh`**, from the repo root:
+
+```sh
+grep -rnE '(to=|href=|navigate\(|push\(|replace\(|location\.href[[:space:]]*=)[^;]*/profile/\$\{' \
+  src/ --include=*.tsx --include=*.ts | grep -v '__tests__'
+```
+
+**Site count** = the line count. **File count** = unique first colon-field. **Run on the F-92-REDO
+branch at commit `ecc365b`, it returns 48 sites across 24 files, exit 1.**
+
+**`navigate(` DOES count as navigational. Tests ARE excluded.** Those were the two axes an
+independent bracket was turning on.
+
+**D3 re-ran it and reproduced 48 / 24 exactly**, both on the working tree and on `ecc365b` itself.
+
+#### The 2-site delta, run down rather than assumed
+
+D3's nearest bracket was 50 / 25, and the Auditor's guess was that `[^;]*` handles a link split
+across lines. **It was not that. It was worse, and in D3's pattern.**
+
+D3's `(to=|href=)` … `/profile/` matched **grep's own output line, which begins with the file path** —
+so **three hits came from files under `src/components/profile/`** and were not profile links at all:
+`PhotoAlbums.tsx:37` (a `/post/` link), and two `ProfileLeftSidebar.tsx` lines pointing at
+`/edit-profile` and `/certificates`. Meanwhile D3's pattern **missed one genuine site** the
+Auditor's caught — `src/pages/CustomUrlProfile.tsx:80`, a `navigate(` call.
+
+**50 = 47 genuine + 3 path artefacts. 48 = those 47 + 1 that a `to=`/`href=`-only pattern cannot
+see.** The two numbers were never two opinions about one question; **one of them was measuring the
+directory layout.**
 
 ### 5.2 · WHY #189 MUST NOT MERGE ALONE — the part a reader will miss
 
