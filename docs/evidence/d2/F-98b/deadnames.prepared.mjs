@@ -96,12 +96,31 @@ for (const scene of scenes) {
    * page still gets measured rather than hanging the run.
    */
   await page.waitForFunction(
-    () => {
-      const n = document.querySelectorAll("a[href]").length;
-      const prev = window.__linkCount;
-      window.__linkCount = n;
+    (names) => {
+      // Settle on THE THING BEING MEASURED, not on a proxy for it.
+      //
+      // This first counted anchors, and that was a proxy: the link count goes
+      // stable while the member names are still arriving, so a scene could be
+      // sampled before its people rendered. Measured — the single-scene run
+      // read "0 live, 0 dead" on screen-feed where the full sweep read 12, and
+      // the difference was purely when the sample landed.
+      //
+      // Counting the member names themselves cannot go stable before they are
+      // there. Requiring n > 0 means a scene with no members waits out the
+      // deadline rather than passing instantly on an empty page — which is the
+      // safe direction, because a scene that renders nobody is exactly the
+      // condition that made the first plant a false green.
+      let n = 0;
+      const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = w.nextNode())) {
+        if (names.includes((node.textContent || "").trim())) n++;
+      }
+      const prev = window.__nameCount;
+      window.__nameCount = n;
       return prev !== undefined && prev === n && n > 0;
     },
+    members.map((m) => m.name),
     { timeout: 15000, polling: 250 },
   ).catch(() => { /* deadline: measure it anyway and let the result speak */ });
 
@@ -165,3 +184,25 @@ for (const scene of scenes) {
 await browser.close();
 console.log(`\n${liveTotal} live, ${deadTotal} dead across every scene.`);
 process.exit(deadTotal > 0 ? 1 : 0);
+
+/*
+ * PLANT REGISTER — C-90: no green counts until the instrument has been broken
+ * and watched to fail.
+ *
+ *   CONTROL   committed tree, screen-feed            12 live,  0 dead
+ *   PLANT AE  FeedRightSidebar handle stripped        9 live,  3 dead
+ *             DEAD Avijit Sheel                  href=(none)
+ *             DEAD Ranjana Bhattacharya Chowdhury href=(none)
+ *             DEAD Li Wei                        href=(none)
+ *   RESTORED                                        12 live,  0 dead
+ *
+ * That is the exact defect the Owner found — the same component, the same
+ * cause — and this probe now names the members rather than reporting a total.
+ *
+ * Two earlier verdicts from this same probe were WRONG and are kept here
+ * because a probe's history is the only evidence it can be trusted:
+ *   FALSE GREEN  the first plant PASSED — the harness fixture rendered no
+ *                sidebar members at all, so there was nothing to walk.
+ *   FALSE RED    a fixed 1200ms sleep reported 7 dead on screen-account-sheet
+ *                that were a race, not a defect.
+ */
