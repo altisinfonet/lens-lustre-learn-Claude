@@ -79,12 +79,51 @@ ONLY.**
 **This amendment covers `email_exists` ONLY and extends nothing else on this list.**
 
 
-### 2.2 · BLOCKED on a client change — do not revoke
+### 2.2 · BLOCKED on a client change — **BLOCK DISCHARGED 2026-09-05, NOT DELETED**
+
+> **The paragraph below is the original block and is deliberately left standing.** A gate that
+> silently loses its own history is not a gate: the next reader must be able to see that the concern
+> was raised, what answered it, and who decided. **Read the block first, then the discharge under it.**
+
 
 | object | blocker |
 |---|---|
 | `search_certificates(...)` | **D2's finding, and it is the most important thing in the inventory.** All four verification pages collapse error and empty into one branch (`VerifyCertificate.tsx:81`, `:103`, `CertificateVerifyByToken.tsx:46`, `IDVerification.tsx:63`). On revoke day a real certificate holder is told, calmly and confidently, that their certificate could not be verified — which reads as a forgery and gets reported by nobody. **A silent wrong answer is worse than an error.** D1 already holds the fix as `d1-P31-client-half-20260903.patch` (`5689cfb`); it is D2's lane to land. |
 | `increment_managed_page_view(...)` | `ManagedPageView.tsx:34` fires `.then(() => {})` with no rejection handler. A revoke turns it into an unhandled rejection on a public page. Client handler first. |
+
+#### `search_certificates` — **SATISFIED 2026-09-05 by AUDITOR-RULING-2026-09-05-02**
+
+**What satisfied it: D2's three-state refusal copy**, merged and **live in the production bundle.**
+The block was that error and empty collapsed into one branch, so a real certificate holder would be
+told, calmly, that their certificate could not be verified. **That is no longer what the pages do.**
+
+**Evidence, and it is two different messages on two different paths:**
+
+| path | what it now renders |
+|---|---|
+| by **name** | **"Search Unavailable"** |
+| by **ID** | **"Verification Unavailable"**, copy ending **"— please try again shortly"** |
+
+**Quote that copy WHOLE.** It reads *"We could not complete this check just now. This does not mean
+the certificate is invalid — please try again shortly."* — a quotation truncated at the first full
+stop greps to nothing and manufactures a false negative (**C-76**).
+
+**The Auditor confirmed the by-name / by-ID mapping after getting it wrong once**, and records that
+here rather than quietly: the two paths show different copy, and conflating them would have tested
+the wrong string against the right page.
+
+**Discharged on evidence, not on the passage of time.** The Owner's ruling of 2026-09-05 authorises
+the revoke: *"NO -> we close it. Members can still search when logged in. Anyone holding a
+certificate ID can still verify it publicly - that never breaks."*
+
+**⚠ THIS DISCHARGE IS NOT THE CLOSURE OF F-87.** F-87 is a **transport** failure still surfacing as
+**"No Certificates Found"** — the same *family* of defect as the one §2.2 raised, and **still open**,
+parked at **#156**. §2.2 was about error-versus-empty on the verification pages and is satisfied;
+F-87 is about a transport failure reading as a definitive negative and is not. **Nobody should read
+the discharge of §2.2 as closing F-87.**
+
+**`increment_managed_page_view` is NOT discharged** by this ruling and its block stands unchanged.
+
 
 ### 2.3 · NOT a revocation — these need a design decision, and the list will not pretend otherwise
 

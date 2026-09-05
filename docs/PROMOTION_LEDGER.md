@@ -6,7 +6,7 @@
 
 **Repository path:** `docs/PROMOTION_LEDGER.md` (canonical, on `staging`)
 **Ledger ID:** `LEDGER-50MM-001`
-**Status of this revision:** `REV-26 · 2026-09-05T02:55Z` · **📕 DOCUMENTATION FREEZE IN FORCE — §28**
+**Status of this revision:** `REV-27 · 2026-09-05T03:46Z` · **📕 DOCUMENTATION FREEZE IN FORCE — §28**
 
 ---
 
@@ -4205,3 +4205,101 @@ turns the suite red everywhere proves the suite is noisy, not that it is discrim
 
 *Auditor. This entry records findings proven on staging. It promotes nothing and closes no production
 gate.*
+
+---
+
+# 40 · REV-27 — F-91, THE SEED THE OWNER COULD NOT TEST; AND §2.2 DISCHARGED
+
+**Written by the Auditor · 2026-09-05 · transcribed and figure-checked by D3 (documentation lane)**
+**Committed under §28.2 exception (a)** — a finding, a gate ruling, and a recorded handover.
+
+**This is NOT part two.** Part two covers F-85, F-86, F-88, F-89 and the three staging-lane
+revocations, and **it is still waiting on the Auditor's green for F-88 and F-89.** F-88 has been
+audited with four planted defects and is one comment correction from approval; **F-89 has not been
+written yet.** Nothing in this revision promotes to `main`.
+
+## 40.1 · F-91 — A FEATURE ONLY TWO ACCOUNTS IN FIVE HUNDRED COULD EXERCISE
+
+**OPEN. Against the seed, not against the code. D1's lane to widen the staging seed.**
+
+**What happened.** The Owner opened a staging profile and reported that the name-URL was still
+broken. **It was not.** The account he opened is **Yusuf Moreau**,
+`ab56dac2-21c4-4ecc-b1fa-0403a154d34a`, and the Auditor read the row: **`custom_url` is NULL.** He was
+testing a name-URL on an account that has never had one.
+
+**The real defect is underneath, and it is ours.** Staging holds **513 profiles and exactly 2 with a
+`custom_url`** — `sofia.duarte` and `yuki.tanabe`. **A feature that only two accounts in five hundred
+can exercise is a feature the Owner cannot spot-check.**
+
+**WHAT IT COST, IN PLAIN TERMS — and this is why it is a finding and not a footnote:**
+
+* **It cost the Owner an hour**, spent proving a fault that did not exist.
+* **It cost his trust**, which is the expensive part and does not come back on the next commit.
+* **It cost the fix its credibility.** F-86 was working correctly at that moment. The seed made a
+  good fix look broken to the one person whose confidence the work exists to earn.
+
+**"The Owner could not verify a working fix" is a real defect class.** A change can be correct,
+tested, proven on the lane, and still fail — because the person who must believe it has no way to see
+it. **Test data is not scaffolding around the product; on a staging lane it IS the product's
+observable surface.** A seed that cannot exercise a feature has not merely failed to help, it has
+actively misinformed.
+
+**The near-miss worth naming:** had the Auditor accepted the Owner's report at face value, a working
+fix would have been sent back for repair. **The instrument to read was the `profiles` row, not the
+screen** — the same lesson as §39.3, where `/50mmretinaworld` 404'd correctly on a lane that does not
+hold that name. **Twice in one night, the screen could not distinguish "broken" from "not present on
+this lane."**
+
+## 40.2 · §2.2 OF THE FROZEN REVOCATION LIST — DISCHARGED, NOT DELETED
+
+**AUDITOR-RULING-2026-09-05-02.** `docs/gates/P1-revocation-list.md` §2.2 blocked the P31 revoke
+because all four verification pages collapsed *error* and *empty* into one branch — a real
+certificate holder told calmly that their certificate could not be verified. **A silent wrong answer
+is worse than an error.**
+
+**Discharged on evidence:** D2's three-state refusal copy is merged and live in the production
+bundle. The **by-name** path renders **"Search Unavailable"**; the **by-ID** path renders
+**"Verification Unavailable"**, copy ending **"— please try again shortly"**. **Two different
+messages on two different paths** — the Auditor confirmed the mapping **after getting it wrong once**
+and recorded that rather than quietly correcting it.
+
+**The original block is left standing above the discharge and is not struck out.** A gate that
+silently loses its own history is not a gate: the next reader must see that the concern was raised,
+what answered it, and who decided.
+
+**⚠ This is NOT the closure of F-87.** F-87 is a **transport** failure still surfacing as **"No
+Certificates Found"** — the same family of defect, **still open**, parked at **#156**. §2.2 was about
+error-versus-empty on the verification pages. **Nobody should read one as the other.**
+`increment_managed_page_view`'s block in §2.2 is **unchanged and still stands.**
+
+## 40.3 · HANDOVER RECORDED — D3 → D1, THE P31 MIGRATION BANNER
+
+`supabase/migrations/20260910_0003_p31_search_certificates_revoke.sql` opens with a
+**DO-NOT-APPLY** banner that is now false in both halves. **It must be rewritten, not deleted** — a
+file that once shouted DO NOT APPLY and now says nothing is worse than either state, because the next
+reader cannot tell whether the block was **lifted** or **forgotten**.
+
+**`supabase/**` is D1's lane.** D3 drafted the replacement wording and **handed it to D1**;
+**D3 wrote nothing into `supabase/`.** The handover is
+`docs/claude/HANDOFF_D3_TO_D1_P31_BANNER_2026-09-05.md`, recorded **so the authorship is
+unambiguous** — the same rule D1 observed when it declined to edit the Auditor's gate file and put
+its objection in a migration comment instead.
+
+**The banner already contained its own precondition** — *"D2's client fix is merged and live on the
+lane being changed. Then the Auditor authorises. Staging first, always. Committing is not applying."*
+**It is not being invented now; it is being shown met.** The draft cites the acl readings by
+timestamp — the Auditor's at **2026-09-05T03:20:23Z** on the staging lane, and D1's own before/after
+— **so a reader can re-measure rather than believe.** D1 must substitute its own readings; **D3 does
+not have them and must not invent them.**
+
+## 40.4 · THE ORDER, RESTATED BECAUSE IT IS NOT NEGOTIABLE
+
+**OWNER RULING 2026-09-05-04:** *"all you fix it staging 1st, you will test, give me report with
+green then merging process will start."*
+
+**staging → the Auditor verifies and reports green → the Owner approves → ONE promotion to `main` →
+the production apply behind his own click.** **Production run #23 is HELD.** Nothing about that order
+is negotiable, and the Owner has been told the run is held.
+
+*Auditor. This entry records a finding, a gate ruling and a handover. It promotes nothing and closes
+no production gate.*
