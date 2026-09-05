@@ -40,6 +40,8 @@ interface PostData {
   created_at: string;
   author_name: string | null;
   author_avatar: string | null;
+  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
+  author_handle: string | null;
   like_count: number;
   comment_count: number;
   share_count: number;
@@ -130,6 +132,7 @@ const PostDetail = () => {
         created_at: rawPost.created_at,
         author_name: profile?.full_name || null,
         author_avatar: profile?.avatar_url || null,
+        author_handle: profile?.custom_url ?? null,
         like_count: Object.values(reactionCounts).reduce((s, v) => s + v, 0),
         comment_count: commentCount || 0,
         share_count: shareCount || 0,

@@ -22,6 +22,8 @@ export interface OptimisticComment {
   is_pinned: boolean;
   author_name: string | null;
   author_avatar: string | null;
+  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
+  author_handle: string | null;
   author_badges: string[];
   like_count: number;
   is_liked: boolean;
@@ -109,6 +111,7 @@ export function useAddComment(
         is_pinned: false,
         author_name: cached?.full_name || "You",
         author_avatar: cached?.avatar_url || null,
+        author_handle: (cached as { custom_url?: string | null } | undefined)?.custom_url ?? null,
         author_badges: [],
         like_count: 0,
         is_liked: false,

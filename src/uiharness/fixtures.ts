@@ -113,6 +113,18 @@ export interface FixturePost {
   created_at: string;
   author_name: string;
   author_avatar: string | null;
+  /**
+   * F-95 — REQUIRED, not optional, and that is the lesson from the miss.
+   *
+   * On the app's own Post type this field is optional, so when I added it the
+   * compiler could not tell me which hydration sites still lacked it — and
+   * PostDetail was one, which is exactly what the UI gate caught as three
+   * author anchors gone. Where the same field was made REQUIRED (the linkTo
+   * to handle change on UserIdentityBlock) tsc produced the complete list in
+   * one run. Required here so a new fixture post cannot silently render a
+   * member with no reachable name.
+   */
+  author_handle: string | null;
   like_count: number;
   comment_count: number;
   share_count: number;
@@ -142,6 +154,7 @@ export const posts: FixturePost[] = [
     created_at: "2026-08-14T04:30:00.000Z",
     author_name: FIXTURE_NAMES[0],
     author_avatar: fixtureImage(3),
+    author_handle: "avijit",
     like_count: 12840, // five digits: the counter's widest realistic case
     comment_count: 312,
     share_count: 41,
@@ -165,6 +178,7 @@ export const posts: FixturePost[] = [
     created_at: "2026-08-13T18:05:00.000Z",
     author_name: FIXTURE_NAMES[1],
     author_avatar: null,
+    author_handle: "ranjana",
     like_count: 3,
     comment_count: 0,
     share_count: 0,
@@ -197,6 +211,7 @@ export const posts: FixturePost[] = [
     created_at: "2026-08-12T07:00:00.000Z",
     author_name: FIXTURE_NAMES[2],
     author_avatar: fixtureImage(9),
+    author_handle: "liwei",
     like_count: 87,
     comment_count: 9,
     share_count: 2,
@@ -229,6 +244,7 @@ export const postComments = [
     is_pinned: false,
     author_name: FIXTURE_NAMES[1],
     author_avatar: null,
+    author_handle: "ranjana",
   },
   {
     id: "ccccccc1-0000-4000-8000-000000000002",
@@ -243,6 +259,7 @@ export const postComments = [
     is_pinned: false,
     author_name: FIXTURE_NAMES[0],
     author_avatar: fixtureImage(3),
+    author_handle: "avijit",
   },
 ];
 
