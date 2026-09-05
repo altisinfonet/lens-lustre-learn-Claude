@@ -34,7 +34,6 @@ import { queryKeys } from "@/lib/queryKeys";
 import { useGlobalConversionTracker } from "@/hooks/core/useGlobalConversionTracker";
 import { supabase } from "@/integrations/supabase/client";
 import { AnimatePresence } from "framer-motion";
-import { BareLayoutProvider, useIsBareShell } from "@/components/BareLayoutContext";
 
 /** Pages where the Navbar should NOT be shown (auth screens) */
 const hideNavRoutes = ["/login", "/signup", "/forgot-password", "/reset-password", "/admin"];
@@ -46,11 +45,7 @@ const hideSidebarRoutes = ["/login", "/signup", "/forgot-password", "/reset-pass
 const Layout = () => {
   return (
     <DashboardProvider>
-      {/* F-89: must sit ABOVE LayoutInner so a page rendered into the Outlet
-          can raise the bare-shell flag and LayoutInner can read it. */}
-      <BareLayoutProvider>
-        <LayoutInner />
-      </BareLayoutProvider>
+      <LayoutInner />
     </DashboardProvider>
   );
 };
@@ -81,23 +76,7 @@ const LayoutInner = () => {
   const isSidebarHiddenRoute = hideSidebarRoutes.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
-  /**
-   * F-89 — A 404 HAS NO PATH, SO IT CANNOT BE ON A ROUTE LIST.
-   *
-   * `hideSidebarRoutes` above is matched against `pathname`. A 404 happens at
-   * an ARBITRARY address, so it can never match, and it was rendering inside
-   * the full two-column feed shell: a stranger who mistyped a URL got
-   * "Welcome / Sign Up Free / Popular Categories" on the left and
-   * "Competitions / Learn Photography" on the right, with the error squeezed
-   * between them. Three competing calls to action wrapped around a dead end.
-   *
-   * The page raises this flag itself (see BareLayoutContext), which is the only
-   * mechanism that covers BOTH ways the 404 is now reached — the catch-all
-   * route AND CustomUrlProfile rendering it in place at the member's own typed
-   * path. A pathname test passes the first and silently fails the second.
-   */
-  const bareShell = useIsBareShell();
-  const isSidebarEligibleRoute = !isHome && !isSidebarHiddenRoute && !bareShell;
+  const isSidebarEligibleRoute = !isHome && !isSidebarHiddenRoute;
 
   const [showOnboarding, setShowOnboarding] = useState(false);
   /** True when the profile photo is the last thing missing — see the effect below. */

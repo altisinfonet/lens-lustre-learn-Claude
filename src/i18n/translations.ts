@@ -747,11 +747,6 @@ const en: Dict = {
   "nf.pageGone": "The page you're looking for was moved, deleted, or never existed.",
   "nf.backToHome": "Back to Home",
   "nf.goBack": "Go Back",
-  // F-89 — the 404's own way back in. A signed-out stranger must not depend on
-  // the site header or a sidebar for this; those are chrome, not a 404 affordance.
-  "nf.signUpFree": "Sign Up Free",
-  "nf.logIn": "Log in",
-  "nf.discover": "Discover",
   "sd.photoOf": "of",
   "sd.removedByModeration": "Removed by Moderation",
   "sd.removedDefault": "This image was removed from the public gallery and judging by an administrator.",

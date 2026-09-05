@@ -37,7 +37,6 @@ const Profile = lazy(() => import("@/pages/Profile"));
 const PostDetail = lazy(() => import("@/pages/PostDetail"));
 const NotificationSettings = lazy(() => import("@/pages/NotificationSettings"));
 const PublicProfile = lazy(() => import("@/pages/PublicProfile"));
-const NotFound = lazy(() => import("@/pages/NotFound"));
 const MobileProfileSheet = lazy(() => import("@/components/MobileProfileSheet"));
 
 function Loading() {
@@ -171,28 +170,6 @@ export const REAL_SCREENS: Record<string, () => JSX.Element> = {
    */
   "screen-wall-visitor": () =>
     screen(<PublicProfile />, "/profile/22222222-2222-4222-8222-222222222222", "/profile/:userId"),
-
-  /**
-   * THE 404, SIGNED IN AND SIGNED OUT — added 2026-09-05 for F-89.
-   *
-   * It had never been photographed once, which is how it shipped rendering
-   * inside the two-column feed shell with a "Sign Up Free" sidebar on one side
-   * and "Learn Photography" on the other, wrapped around a dead end. The
-   * Owner's verdict was "nonsense design, worthless".
-   *
-   * BOTH auth states are scenes because the page is auth-aware and the two are
-   * genuinely different products: a stranger needs a way to join, a member does
-   * not. One scene would certify half of it — the same lesson `screen-wall-visitor`
-   * taught when every wall scene had been the owner's own profile.
-   *
-   * The route is a real dead path, registered against `*` so this is the
-   * catch-all case exactly as App.tsx serves it.
-   */
-  "screen-not-found": () =>
-    screen(<NotFound />, "/zzz-definitely-not-a-page-98765", "*"),
-
-  "screen-not-found-signed-out": () =>
-    screen(<NotFound />, "/zzz-definitely-not-a-page-98765", "*"),
 
   /** One post, open, with comments. `path` carries the id or the page
    *  renders its not-found state and photographs as a tidy empty screen. */
