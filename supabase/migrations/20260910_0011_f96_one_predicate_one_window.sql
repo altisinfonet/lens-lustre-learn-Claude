@@ -33,6 +33,42 @@
 -- custom_url_history already records every URL a member has ever held, so it
 -- is the natural key and it is what these functions now use.
 
+-- ═══ F-97: THE WINDOW ENFORCED ONE NUMBER AND DISPLAYED ANOTHER ═══
+-- The window was interval '12 months'. Postgres normalises a month to 30 days
+-- for interval COMPARISON, so the TEST (now() - _last < _window) unlocked after
+-- 360 days — measured on the lane, interval '12 months' = interval '360 days'
+-- returns true. The MESSAGE added the same constant to a timestamptz, where
+-- Postgres does real calendar arithmetic and lands on the same date next year.
+-- One constant, two meanings, one function:
+--
+--   changed 2026-12-31 23:00Z  message said 2027-12-31  really unlocked 2027-12-26
+--   changed 2028-02-29 12:00Z  message said 2029-02-28  really unlocked 2029-02-23
+--   changed 2027-03-01 12:00Z  message said 2028-03-01  really unlocked 2028-02-24
+--
+-- Note the DIRECTION: the message was LATER than reality, so a member who
+-- waited as instructed always succeeded. No refusal test could ever catch it —
+-- only a test of the ALLOW side at the boundary, which is why the C-34 red for
+-- this is "day 361 is allowed", not "day 361 is refused".
+--
+-- ⚠ THE WINDOW IS 365 DAYS. Owner's ruling: "do it 365 days not 360 days".
+-- NOT interval '12 months', NOT interval '1 year', NOT a calendar year. Do not
+-- "tidy" this into interval '1 year' — that reintroduces month normalisation
+-- and the two arithmetics diverge again. With a flat day count there are no
+-- months left to normalise, so the comparison and the displayed date agree BY
+-- CONSTRUCTION rather than by two derivations that happen to match.
+--
+-- This also disposes of 29 February entirely: 365 days from 2028-02-29 is
+-- 2029-02-28, a date that exists, so there is nothing for Postgres to round
+-- and nothing for us to decide.
+--
+-- The boundary is ONE expression in ONE place per function, so a change of
+-- mind stays a one-line edit.
+--
+-- The message now names its timezone. It renders AT TIME ZONE 'utc' and most
+-- members are not on UTC — a member in India reading a bare date near midnight
+-- would be told the wrong day. profiles carries no timezone column, so the
+-- honest fix is to say UTC rather than to guess the member's zone.
+
 -- ---------------------------------------------------------------------------
 -- Has this member ever held a URL? The single source for "inside the regime".
 CREATE OR REPLACE FUNCTION public.custom_url_ever_held(_user_id uuid)
@@ -48,7 +84,7 @@ COMMENT ON FUNCTION public.custom_url_ever_held(uuid) IS
 CREATE OR REPLACE FUNCTION public.forbid_custom_url_change()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
 DECLARE
-  _window   constant interval := interval '12 months';
+  _window   constant interval := interval '365 days';
   _next     timestamptz;
   _jwt_role text;
 BEGIN
@@ -81,7 +117,7 @@ BEGIN
   THEN
     _next := OLD.custom_url_changed_at + _window;
     RAISE EXCEPTION
-      'You can change your profile URL once every 12 months. Your next change is available on %.',
+      'You can change your profile URL once every 365 days. Your next change is available on % (UTC).',
       to_char(_next AT TIME ZONE 'utc', 'FMDD Mon YYYY')
       USING ERRCODE = 'check_violation';
   END IF;
@@ -159,7 +195,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.change_custom_url(_new_url text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
 DECLARE
-  _window  constant interval := interval '12 months';
+  _window  constant interval := interval '365 days';
   _user_id uuid;
   _cleaned text;
   _old_url text;
@@ -183,7 +219,7 @@ BEGIN
   -- short-circuited.
   IF public.custom_url_ever_held(_user_id) AND _last IS NOT NULL
      AND now() - _last < _window THEN
-    RAISE EXCEPTION 'You can change your profile URL once every 12 months. Your next change is available on %.',
+    RAISE EXCEPTION 'You can change your profile URL once every 365 days. Your next change is available on % (UTC).',
       to_char((_last + _window) AT TIME ZONE 'utc', 'FMDD Mon YYYY');
   END IF;
 
