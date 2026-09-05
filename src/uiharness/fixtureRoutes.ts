@@ -140,6 +140,18 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
   get_broadcast_feed: () => posts,
 
   /**
+   * F-89 — A VANITY URL THAT RESOLVES TO NOTHING.
+   *
+   * Empty ON PURPOSE. CustomUrlProfile asks this first, gets no row, falls
+   * through to the `profiles_public_data` ilike (also no match, since no
+   * fixture profile carries that handle) and renders <NotFound /> IN PLACE at
+   * the member's own typed path. That is the route the Owner photographed, and
+   * it is a DIFFERENT route from the catch-all — so it needs its own scene
+   * rather than being assumed equivalent to one.
+   */
+  resolve_custom_url: () => [],
+
+  /**
    * ── THE MEDIA READ PATH (Item E), AND WHY THIS ONE IS EMPTY ON PURPOSE ───
    *
    * Every media surface now asks `post_media_for` for the page's photographs

@@ -14,7 +14,11 @@
  * This is a list rather than a flag on the scene because the scene object does
  * not exist yet at the moment the question is asked — see above.
  */
-export const SIGNED_OUT_SCENES: readonly string[] = ["screen-login", "screen-not-found-signed-out"];
+export const SIGNED_OUT_SCENES: readonly string[] = [
+  "screen-login",
+  "screen-not-found-signed-out",
+  "screen-not-found-in-place-signed-out",
+];
 
 export function isSignedOutScene(name: string): boolean {
   return SIGNED_OUT_SCENES.includes(name);
