@@ -6,7 +6,7 @@
 
 **Repository path:** `docs/PROMOTION_LEDGER.md` (canonical, on `staging`)
 **Ledger ID:** `LEDGER-50MM-001`
-**Status of this revision:** `REV-25 · 2026-09-05T01:30Z` · **📕 DOCUMENTATION FREEZE IN FORCE — §28**
+**Status of this revision:** `REV-26 · 2026-09-05T02:55Z` · **📕 DOCUMENTATION FREEZE IN FORCE — §28**
 
 ---
 
@@ -4114,3 +4114,94 @@ deviation stands: DEV-P0-01, the tag that was never created.** **P30 is now CLOS
 the separate run in §38.8; P31 remains OPEN** and is the Owner's own next action.
 
 *Auditor. This entry records a promotion the Owner authorised. It closes no production gate.*
+
+---
+
+# 39 · REV-26 — F-85 AND F-86, PROVEN ON STAGING — **PART ONE OF TWO**
+
+**Written by the Auditor · 2026-09-05 · transcribed and figure-checked by D3 (documentation lane)**
+**Committed under §28.2 exception (a)** — findings, and an Owner-visible defect closed on staging.
+
+> **⚠ THIS IS PART ONE OF TWO, AND NOTHING HERE PROMOTES TO `main`.**
+> F-88 and F-89 are **in flight** and will be recorded in **part two, BEFORE any promotion of this
+> work to `main`**. **One promotion, not three.** A reader arriving at REV-26 alone is looking at
+> half of a change set that must travel whole.
+
+**Proven on `staging` at `bcf7e9b` (PR #178, merged 02:23:14Z).** The readings below were taken by
+the Auditor in the Owner's browser, on the live staging site. `staging` has since advanced to
+`c35cb6dc` (#176 OI-2, #177 OI-3 landed after); `bcf7e9b` is an ancestor of it, and these readings
+are true of `bcf7e9b`.
+
+## 39.1 · ONE ROOT CAUSE, TWO FINDINGS
+
+**`App.tsx:438`'s `<Route path="/:customUrl">` matched every single-segment path, so the catch-all at
+`:440` was unreachable — and `CustomUrlProfile` NAVIGATED instead of RENDERING.** Both findings below
+are that one mechanism seen from two sides. **They are recorded together so a future fix cannot close
+one and leave the other standing.**
+
+| id | finding |
+|---|---|
+| **F-85** | **The branded 404 was unreachable for every single-segment dead URL, and the member got a BLANK page.** The greedy vanity route swallowed the path; `CustomUrlProfile` then navigated to `/not-found`, which is **itself one segment**, re-matched `:438`, failed to resolve, and fell through to `return null` — the blank page. Measured on both lanes: `/zzz-definitely-not-a-page-98765` → **blank**; `/foo/bar/baz-does-not-exist` → the correct 404. **A multi-segment path got the right answer and a single-segment one got nothing, which is why this survived so long.** |
+| **F-86** | **The vanity URL did not survive — and the Owner reported this one himself.** `CustomUrlProfile.tsx:27` navigated to `/profile/<uuid>` with `{replace: true}`, so `www.50mmretina.com/50mmretinaworld` left the visitor at `/profile/4c200b33-ae64-46f0-ba5d-1a97152e6a6c`. **Back did not restore it, internal member UUIDs became the public address, and search engines never indexed the clean name.** Reproduced by the Auditor on production at 01:55Z. **Scale: 96 of 111 production profiles have `custom_url` set.** |
+
+## 39.2 · THE PROOF, TAKEN ON THE LIVE STAGING SITE
+
+| # | URL | After the fix | Before the fix |
+|---|---|---|---|
+| 1 | `https://staging.50mmretina.com/sofia.duarte` | Renders **Sofia Duarte's profile** AND the address bar **still reads `/sofia.duarte`** | Became `/profile/<uuid>` |
+| 2 | `https://staging.50mmretina.com/zzz-definitely-not-a-page-98765` | **Keeps the typed path** and renders the branded 404 — *"This frame is empty"* and *"/zzz-definitely-not-a-page-98765 didn't develop"* | **Blank page** |
+
+## 39.3 · THE READING THAT LOOKED LIKE A FAILURE AND WAS NOT
+
+**`/50mmretinaworld` returned the 404 on staging, AND THAT IS CORRECT.**
+
+The Auditor **checked the staging database before calling it a defect**: staging holds **exactly two
+vanity urls** — `sofia.duarte` and `yuki.tanabe`. **`50mmretinaworld` is a PRODUCTION url.** A 404 for
+a name that does not exist on that lane is the fix working, not failing.
+
+**Recorded because it is worth more than a reading that simply passed.** Had it been reported as a
+failure it **would have blocked a good fix**, and the cost of that is a defect the Owner already
+reported staying live while a correct change was sent back. **The instrument to read was the staging
+database, not the screen** — the screen alone could not distinguish "the fix is broken" from "that
+member is not on this lane."
+
+## 39.4 · THE AUDITOR'S VERIFICATION OF THE FIX ITSELF
+
+* **9 / 9 new tests green** in the Auditor's own clean checkout.
+* **Full suite: 2,519 passed / 0 failed.**
+* **Four defects re-planted, each caught by exactly the right test and nothing else**, green again
+  when restored:
+
+| # | defect re-planted | result |
+|---|---|---|
+| 1 | revert the `is_current` path | **caught** — by exactly one test |
+| 2 | revert **ONLY** the fallback path | **caught** — by exactly one test |
+| 3 | restore `return null` | **caught** — by exactly one test |
+| 4 | remove the stale-state resets | **caught** — by exactly one test |
+
+**"Caught by exactly the right test and nothing else" is the claim that matters** (C-34): a plant that
+turns the suite red everywhere proves the suite is noisy, not that it is discriminating.
+
+## 39.5 · CORRECTIONS AGAINST THE AUDITOR — three, all caught by D2
+
+| id | correction |
+|---|---|
+| **C-76** | The Auditor **quoted the refusal copy with a full stop**; it ends *"— please try again shortly"*. **Anyone grepping the Auditor's version finds nothing and wrongly calls the deploy broken.** Same class as C-68 — a quoted string that cannot be found is worse than no quotation, because it manufactures a false negative |
+| — | **The by-name / by-ID branch-mapping error on the P31 acceptance criteria.** The two paths show **different copy** and the Auditor conflated them. **D2 caught it before the wrong test ran** |
+| — | **The six-versus-seven redirect miscount** |
+
+**All three were caught by D2, and none reached a decision.**
+
+## 39.6 · OPEN, AND NOT PART OF THIS REVISION
+
+| id | state |
+|---|---|
+| **F-87** | A **transport** failure still shows *"No Certificates Found"* — a wrong answer live today. **#156 is its fix and stays parked** |
+| **F-88** | **The Add Friend button wraps.** D2 has measured it: **English wraps on DESKTOP, not mobile**, because the two-column shell squeezes each button to **103 px**; **Telugu needs 174 px against a 158 px share at 360 px**. **IN FLIGHT — part two** |
+| **F-89** | **The 404 renders inside the two-sidebar marketing shell**, because `Layout.tsx:42` decides sidebars by **PATH MATCHING** and a 404 has an arbitrary path. **The Owner called the design worthless and he is right. IN FLIGHT — part two** |
+
+**F-88 and F-89 are in flight and will be recorded in part two, BEFORE any promotion of this work to
+`main`. Nothing promotes until they are also proven. One promotion, not three.**
+
+*Auditor. This entry records findings proven on staging. It promotes nothing and closes no production
+gate.*
