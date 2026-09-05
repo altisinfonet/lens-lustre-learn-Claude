@@ -6,7 +6,7 @@
 
 **Repository path:** `docs/PROMOTION_LEDGER.md` (canonical, on `staging`)
 **Ledger ID:** `LEDGER-50MM-001`
-**Status of this revision:** `REV-24 · 2026-09-04T14:44Z` · **📕 DOCUMENTATION FREEZE IN FORCE — §28**
+**Status of this revision:** `REV-25 · 2026-09-05T01:30Z` · **📕 DOCUMENTATION FREEZE IN FORCE — §28**
 
 ---
 
@@ -3881,3 +3881,236 @@ this promotion performs no production database write** — the P30/P31 revocatio
 (§37.2), so nothing in the production database is changed by it and nothing in it needs undoing.
 
 *Auditor. This entry prepares; it approves nothing, performs nothing and closes nothing.*
+
+---
+
+# 38 · REV-25 — P-0 PROMOTION RECORD — **PERFORMED**
+
+**Written by the Auditor · 2026-09-04 · transcribed and figure-checked by D3 (documentation lane)**
+**Committed under §28.2 exception (b):** the entries §19 and §20 require at promotion. §37 prepared
+this promotion; **this section performs it.** Every field below is either measured from the
+repository or the provider, or reads `— awaiting D1's report` until the party who owns it reports.
+
+## 38.1 · THE OWNER'S AUTHORISATION
+
+**OWNER-RULING-2026-09-04-03 · 2026-09-04T17:33Z**, verbatim:
+
+> *"After complete merging in main and review give me report then... till then dont stop"*
+
+This is the word §37.4 was waiting for. §37 recorded P-0 as **prepared and held for the Owner's own
+word**; that word is above, and P-0 proceeds on it. Nothing in this section is authorised by the
+Auditor, by D1, or by D2 — the authority is the ruling, and it is quoted rather than paraphrased so
+that a later reader judges the scope of what was permitted from the Owner's own sentence.
+
+## 38.2 · §19.2 PROMOTION TABLE — **PERFORMED**
+
+| Field | Value |
+|---|---|
+| **Approval** | ✅ **OWNER-RULING-2026-09-04-03** · 2026-09-04T17:33Z (§38.1) |
+| **Tag** | ⚠ **`P0-20260904-01` WAS NOT CREATED — DEV-P0-01.** The push of `refs/tags/*` was refused **HTTP 403** from D1's environment. `git ls-remote --tags origin` returns **one** tag, `RC-20260831-01`. Tree equality was therefore asserted against **`fee41a9`** — see §38.4. **The Owner is to create the tag from the UI** |
+| **Merge SHA** | ✅ **`b309576e26b0b4ab83f0a2562221019e7179f50a`** — PR **#172**, squash. `main` `493d4d4` → `b309576` |
+| **Actor** | **`altisinfonet`** — the Owner, from the GitHub UI |
+| **Timestamp** | **2026-09-05T01:08:39Z** |
+| **Deployment** | ✅ Cloudflare Pages, production project. **Content unchanged** — see §38.3.1 |
+
+**§20's rule is that tree equality is asserted against the tag created at approval time, never against
+the staging tree**, because a squash produces a commit whose tree may differ from both parents and
+`staging` can move underneath the comparison. **That fixed object does not exist** (DEV-P0-01), so the
+assertion in §38.4 is made against `fee41a9` instead. **The trees agree; the control that would make
+them agree independently of `staging` was not obtained.** Recorded, not glossed.
+
+**The candidate, measured on `staging` at `fee41a9e` before the merge:**
+
+| Field | Value |
+|---|---|
+| Source | `staging` = **`fee41a9ea65a7a16ef85b61d835f4f946a5d8e95`** |
+| Source tree | **`f7909ac248847f9db0493d67186029cc5a0be96c`** |
+| Target | `main` = **`493d4d49a79c0ffc036ba5af0053a11a94eed801`** |
+| Scope | **24 files · +28,712 / −16** |
+| `src/` · `public/` · `supabase/` · `functions/` | **0 · 0 · 0 · 0** |
+
+## 38.3 · §20 RECONCILIATION CHAIN
+
+**`APPROVED RC → PR → MERGE → BUILD → DEPLOYMENT → PRODUCTION`** — each link carries the id read
+from its provider, never inferred from this document.
+
+| Link | State | Id, read from the provider |
+|---|---|---|
+| **APPROVED RC** | ✅ | **`fee41a9`** · approved by OWNER-RULING-2026-09-04-03 · tag **not created**, DEV-P0-01 |
+| **PR** | ✅ | **#172**, `main` ← `staging`, squash |
+| **MERGE** | ✅ | **`b309576`** · actor `altisinfonet` · 2026-09-05T01:08:39Z |
+| **BUILD** | ✅ | **Production lane build — `success`**, job `101221817545` of run `33935255983`, on `head_sha b309576e`. The lane inverted correctly: *Production lane build* ran and *Staging lane build* was `skipped` |
+| **DEPLOYMENT** | ✅ | Cloudflare Pages, production project. **The deployment fired and the content did not change** — 0 bundle inputs differ |
+| **PRODUCTION** | ✅ | Served bundle **byte-identical before and after**, verified — §38.3.1 |
+
+### 38.3.1 · The production site, measured before AND after — **IDENTICAL**
+
+| Instrument | **Before** · 2026-09-04T17:35:05Z | **After** · 2026-09-05T01:11:44Z |
+|---|---|---|
+| `index` etag | `de66909972b2719fa0a23428517b8fc2` | **`de66909972b2719fa0a23428517b8fc2`** |
+| `index.html` sha256 | `fc6310e586f2f7ea…` | **`fc6310e586f2f7ea…`** |
+| entry chunk | `assets/index-QwZFENIl.js` | **`assets/index-QwZFENIl.js`** |
+| asset references | 6 | **6, the same 6** |
+
+**Routes, after:** `www.50mmretina.com`, `/verify`, `/competitions`, `/journal`, `/login` — **all 200**.
+
+**THE AFTER-STATE BEING IDENTICAL IS THE RESULT, NOT AN ABSENCE OF ONE.** This promotion changes **0
+files under `src/`, `public/`, `supabase/` and `functions/`** (§38.2), so the built bundle cannot
+differ. **A changed etag or a changed entry-chunk name here would have meant something reached
+production that this promotion does not contain** — a finding, not a success. The reconciliation is
+closed by the two readings *agreeing*, and they agree on every instrument. Measured by the Auditor,
+both sides.
+
+## 38.4 · TREE EQUALITY — the §20 assertion
+
+| Object | Tree |
+|---|---|
+| `b309576^{tree}` — the merge on `main` | **`f7909ac248847f9db0493d67186029cc5a0be96c`** |
+| `fee41a9^{tree}` — `staging` at approval | **`f7909ac248847f9db0493d67186029cc5a0be96c`** |
+| `P0-20260904-01^{tree}` — the tag | ⚠ **does not exist** — DEV-P0-01 |
+
+**DISCHARGED, against `fee41a9` rather than against the tag.** `git rev-parse b309576^{tree}` and
+`git rev-parse fee41a9^{tree}` both return `f7909ac248847f9db0493d67186029cc5a0be96c`;
+`git diff --stat fee41a9 b309576` is **EMPTY**. `main` and `staging` now hold identical trees.
+
+**What was obtained, and what was not.** The trees are equal — that is measured, and the promotion
+carries exactly the approved content. But §20 requires the comparison to be made against an immutable
+object created before the merge, precisely so that it does not depend on `staging` staying still.
+`staging` did stay still; that is a fact about this afternoon, not a control. **DEV-P0-01 records the
+gap, and §20's ordering is restated for the next promotion: create the tag, PUSH it, verify it is on
+origin, then merge.**
+
+## 38.5 · WHAT DID NOT HAPPEN — measured, not assumed
+
+| Question | Answer |
+|---|---|
+| Production database changed **by this promotion**? | **NO. The promotion itself performed no database write** — `SELECT` on `jtdtehuqtinjxropkkcn` at **2026-09-05T01:11:55Z**, either side of the merge: `posts` **377**, `profiles` **111**, `certificates` **11**, `user_notifications` **5,855**, database **139 MB**. ⚠ **A SEPARATE, Owner-approved run applied P30 minutes later — recorded in §38.8.** That was not this promotion and must not be attributed to it |
+| **Seed rows leaked to production?** | **ZERO.** The derived id set was checked **directly** against production, not inferred from the row counts. The 100,000 seeded rows are on `staging` and nowhere else |
+| Are the revocations closed in production? | **At the moment of the merge, no** — both were still anon-executable. **P30 was closed 12 minutes later by the separate run in §38.8. P31 remains OPEN**, still a file only, still awaiting a separate Owner apply |
+| Migration applied? | **NO.** `0` files under `supabase/` differ |
+| Android build triggered? | **NO.** `0` files under `src/`. No new APK reaches app users |
+| Client bundle changed? | **NO.** `0` files under `src/`, `public/` or `functions/` — hence §38.3.1 |
+| Production gate closed? | **NONE.** Applying the revocations is a production database write, an Owner action under his own authorisation, performed by `apply-migration.yml` against the `production` Environment — **separately from this merge and after it** |
+
+**This promotion moves instruments and their readings onto `main`. It moves no product, and it closed
+no gate.** The gate that closed on production closed by a **separate Owner-approved run**, minutes
+later and by its own authority — §38.8. The two events are recorded apart because they *are* apart:
+conflating them would credit a documentation promotion with a production security change it did not
+make, and would leave a later reader unable to say which action to audit.
+
+**Rollback, stated here because it follows from the same measurements:** reverting the squash commit
+on `main` restores `493d4d4`'s tree exactly — this promotion adds files and modifies none outside
+them — and **there is no database rollback to run**, because there was no production database write.
+
+## 38.6 · HEADER POINTER
+
+Line 9 of this file moves **`REV-24` → `REV-25`** in the same commit that lands this section. The
+`📕 DOCUMENTATION FREEZE IN FORCE — §28` suffix is preserved; §28.2 exception (b) is what admits this
+entry, not a lifting of the freeze.
+
+| Field | Value |
+|---|---|
+| Before | `REV-24 · 2026-09-04T14:44Z` |
+| After | **`REV-25 · 2026-09-05T01:30Z`** |
+
+## 38.7 · STANDING RULE 22 — **RATIFIED**
+
+> **A count taken from a shallow clone is not a count.**
+
+Raised as a candidate in §36.8 and **ratified here.** The occasion: D3 reported
+`git rev-list --count 493d4d4..122d6ea` = 51 and held the Auditor's 119 as unreproducible, reasoning
+that the entire history of `122d6ea` was 97 commits and 119 was therefore unreachable. **Both figures
+were the depth of a shallow checkout, not the repository** — `.git/shallow` held three grafted
+boundaries. After `git fetch --unshallow origin`, the same commands returned **119**, **121** and a
+history of **1,616**.
+
+**The rule, operative:** establish the clone's depth before reporting any count derived from history,
+and **name the instrument's state alongside the number.** A count without its instrument's state is
+an assertion, not a measurement.
+
+**The hold was correct procedure and is not criticised by this rule.** The figure did not reproduce
+*where it was measured*; saying so is what surfaced the cause. Recorded against D3 as **D3-C-3**, and
+the ratification is of the lesson, not of the error.
+
+## 38.8 · PRODUCTION DATABASE — **P30 APPLIED**
+
+**A SECOND OWNER ACTION, AFTER THE PROMOTION AND BIGGER THAN IT.** §38.5 records that the promotion
+wrote nothing to the production database. **This did.** It is a separate event with its own
+authority, its own run, and its own evidence, and it is recorded apart from P-0 for that reason.
+
+| Field | Value |
+|---|---|
+| Run | **`33875099635`** · *"Apply a database migration"* **#22** |
+| Dispatched by | **`altisinfonet`** · 2026-09-04T12:53:42Z, against `main` `493d4d4` |
+| Environment | **`production`** |
+| Approved by | **`altisinfonet`** — the Owner, on the `production` Environment's own gate |
+| Executed | **2026-09-05** · step *"Apply SQL to production"* **SUCCESS in 17 s** |
+
+### 38.8.1 · The closure, measured before and after — `SELECT` only
+
+| | **Before** · 01:11:55Z | **After** · 01:20:26Z |
+|---|---|---|
+| `email_exists` anon `EXECUTE` | **true** | **FALSE** |
+
+**The full acl after:** `postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres`.
+
+**Read what is NOT in that string, because that is the finding.** There is **no `anon` entry** and
+**no leading `=X/postgres` PUBLIC entry**. F-62's whole subject was that a `REVOKE … FROM anon`
+alone leaves the PUBLIC grant standing and closes **nothing**; the mandated two-step form removes
+both. Both are gone. **This is a real closure, not a no-op.**
+
+### **P30 IS CLOSED ON PRODUCTION.**
+
+### 38.8.2 · What is still open, stated in the same breath
+
+| Function | anon `EXECUTE` | State |
+|---|---|---|
+| `search_certificates` | **true** — acl still carries `=X/postgres` (PUBLIC), `postgres=X`, `anon=X`, `authenticated=X`, `service_role=X` | ⚠ **P31 REMAINS OPEN ON PRODUCTION.** Still a file only, still awaiting a **separate** Owner apply |
+| `get_top_contributors_v3` | true | ✅ **Correct — must remain.** Public by design (F-76) |
+| `verify_certificate_by_token` | true | ✅ Unchanged — OI-3 |
+
+**P31 is not closed by this run and nothing in §38 says otherwise.** Its acl still carries both the
+PUBLIC entry and the `anon` entry — the exact pair P30's now lacks.
+
+### 38.8.3 · Zero damage, measured either side
+
+`posts` **377** · `profiles` **111** · `certificates` **11** · `user_notifications` **5,855** ·
+`user_roles` **113** · `post_media` **342** · database **139 MB** — **identical before and after.**
+
+### 38.8.4 · Proven over real anonymous HTTP — the only valid test
+
+Taken with the **production anon key**, as a genuine anonymous caller, at **01:21:24Z**:
+
+| Call | Result |
+|---|---|
+| `email_exists` | **401** · `{"code":"42501","message":"permission denied for function email_exists"}` |
+| `get_top_contributors_v3` | **200**, with rows |
+| `verify_certificate_by_token` | **200** |
+
+**THE ONLY VALID TEST OF AN ANON REVOKE IS AN ANON CALLER, AND IT WAS TAKEN.** A catalogue reading
+says what the acl holds; it does not say what the door does. Both were taken, and they agree. The
+second and third lines carry as much weight as the first: **two doors that had to stay open stayed
+open.**
+
+### 38.8.5 · The live site after, and why the client does not break
+
+**Routes:** `/`, `/verify`, `/competitions`, `/journal`, `/login`, `/forgot-password`, `/winners` —
+**all 200.** Bundle **byte-identical** (etag `de66909972b2719fa0a23428517b8fc2`, `index.html` sha256
+`fc6310e5…`). The home feed renders real member content.
+
+**CLIENT SAFETY, MEASURED NOT ASSUMED.** All **141** production chunks were grepped. The sole
+consumer of `email_exists` is **`ForgotPassword-BJl06yD9.js`**, and it is **fail-open by
+construction**: `exists` starts `null`, is assigned only when the call both succeeds and returns a
+boolean, and a **401 leaves it `null`**; only `exists === false` short-circuits. **The reset email
+still sends.** Confirmed independently at source by D3 in `src/pages/ForgotPassword.tsx` — the
+`catch` sets `exists = null` under the comment *"check unavailable — behave like before"*, and
+`resetPasswordForEmail` runs on every path except an explicit `false`.
+
+**A revoke that breaks a member's password reset would be a defect, not a closure.** It does not.
+
+**P-0 is PERFORMED.** `main` = `b309576`, `staging` = `fee41a9`, trees identical, production served
+bundle byte-identical, and the promotion itself wrote nothing to the production database. **One
+deviation stands: DEV-P0-01, the tag that was never created.** **P30 is now CLOSED on production by
+the separate run in §38.8; P31 remains OPEN** and is the Owner's own next action.
+
+*Auditor. This entry records a promotion the Owner authorised. It closes no production gate.*
