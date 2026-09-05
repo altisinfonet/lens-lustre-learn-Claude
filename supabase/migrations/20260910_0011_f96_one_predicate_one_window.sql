@@ -253,9 +253,17 @@ BEGIN
     -- So the instant travels raw and the client composes the sentence in the
     -- member's zone. The Owner's locked wording then lives in ONE place
     -- instead of two, and the ordinal and the apostrophe never enter SQL.
+    -- ⚠ SPECIFIC reason code, not a generic 'window'. The contract is mixed
+    -- for now — this refusal RETURNS while format/reserved/taken still RAISE,
+    -- because each of those needs its own member-visible sentence and only one
+    -- sentence is agreed. A specific code lets the client render the date ONLY
+    -- for the refusal it recognises and treat anything else as a plain
+    -- failure, so the mixed contract can produce a DULL message but never a
+    -- WRONG one. Uniforming all four refusals is filed as a follow-up, not a
+    -- prerequisite.
     RETURN jsonb_build_object(
       'ok',             false,
-      'reason',         'window',
+      'reason',         'change_window_not_elapsed',
       'next_change_at', _last + _window
     );
   END IF;
@@ -291,8 +299,18 @@ BEGIN
      SET custom_url = _cleaned, custom_url_changed_at = now()
    WHERE id = _user_id;
 
+  -- ⚠ next_change_available IS GONE, REPLACED BY next_change_at.
+  -- It was ((now() + _window) AT TIME ZONE 'utc')::date — the identical defect
+  -- F-97 just closed on the refusal path, sitting unread in the same function.
+  -- Nothing consumes it today, which is exactly why it had to go now: a
+  -- known-wrong field waiting for its first consumer is worse than a missing
+  -- one, because whoever wires it up will trust it. Dormant is not absent.
+  --
+  -- Both paths now hand the client the same key in the same form — a raw
+  -- instant — so every rendering decision belongs to the client and there is
+  -- no second place for a timezone bug to live.
   RETURN jsonb_build_object('success', true, 'custom_url', _cleaned,
-    'next_change_available', ((now() + _window) AT TIME ZONE 'utc')::date);
+    'next_change_at', now() + _window);
 END;
 $$;
 
