@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import ProfileLink from "@/components/ProfileLink";
 import { publicUrl, shareLink } from "@/lib/publicUrl";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -33,6 +34,8 @@ interface FeaturedArtistData {
 interface AuthorView {
   id: string | null;            // profile id if linked, else null
   name: string;
+  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
+  handle: string | null;
   avatar: string | null;
   bio: string | null;
   portfolio: string | null;
@@ -95,14 +98,14 @@ function ArtistSpotlight({
 
         <div className="min-w-0 flex-1">
           {author.id ? (
-            <Link to={`/profile/${author.id}`} className="block group">
+            <ProfileLink userId={author.id!} handle={author.handle} className="block group">
               <h3
                 className="text-2xl font-light tracking-tight text-foreground group-hover:text-primary transition-colors leading-tight"
                 style={{ fontFamily: "var(--font-display)" }}
               >
                 {author.name}
               </h3>
-            </Link>
+            </ProfileLink>
           ) : (
             <h3
               className="text-2xl font-light tracking-tight text-foreground leading-tight"
@@ -123,13 +126,13 @@ function ArtistSpotlight({
 
           <div className="mt-4 flex flex-col gap-2">
             {author.id && (
-              <Link
-                to={`/profile/${author.id}`}
+              <ProfileLink
+                userId={author.id!} handle={author.handle}
                 className="inline-flex items-center gap-1.5 text-[10px] tracking-[0.2em] uppercase text-primary hover:gap-2.5 transition-all"
                 style={{ fontFamily: "var(--font-heading)" }}
               >
                 View Profile <ArrowRight className="h-3 w-3" />
-              </Link>
+              </ProfileLink>
             )}
             {author.portfolio && (
               <a
@@ -204,7 +207,7 @@ const FeaturedArtistPage = () => {
       // Resolve author: prefer linked profile, fallback to embedded fields.
       if (art.author_profile_id) {
         const { data: p } = await profilesPublic()
-          .select("id, full_name, avatar_url, bio, portfolio_url")
+          .select("id, full_name, avatar_url, bio, portfolio_url, custom_url")
           .eq("id", art.author_profile_id)
           .maybeSingle();
         if (!cancelled) {
@@ -212,6 +215,7 @@ const FeaturedArtistPage = () => {
             setAuthor({
               id: p.id,
               name: p.full_name || art.artist_name || "Unknown",
+              handle: p.custom_url ?? null,
               avatar: p.avatar_url || art.artist_avatar_url,
               bio: p.bio || art.artist_bio,
               portfolio: p.portfolio_url || null,
@@ -221,6 +225,7 @@ const FeaturedArtistPage = () => {
             setAuthor({
               id: null,
               name: art.artist_name || "Unknown",
+              handle: null,
               avatar: art.artist_avatar_url,
               bio: art.artist_bio,
               portfolio: null,
@@ -231,6 +236,7 @@ const FeaturedArtistPage = () => {
         setAuthor({
           id: null,
           name: art.artist_name || "Unknown",
+          handle: null,
           avatar: art.artist_avatar_url,
           bio: art.artist_bio,
           portfolio: null,
@@ -419,7 +425,7 @@ const FeaturedArtistPage = () => {
                     <UserIdentityBlock
                       userId={author.id}
                       name={author.name}
-                      linkTo={`/profile/${author.id}`}
+                      handle={author.handle}
                       nameClassName="tracking-[0.1em] uppercase hover:text-primary hover:underline transition-colors"
                     />
                   ) : (

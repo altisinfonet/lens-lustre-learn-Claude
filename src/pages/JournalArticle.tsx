@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import ProfileLink from "@/components/ProfileLink";
 import { publicUrl, shareLink } from "@/lib/publicUrl";
 import { useParams, Link } from "react-router-dom";
 import DOMPurify from "dompurify";
@@ -32,6 +33,8 @@ interface AuthorInfo {
   full_name: string | null;
   avatar_url: string | null;
   bio: string | null;
+  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
+  custom_url?: string | null;
 }
 
 /** Convert legacy [img:URL] block format to HTML if needed */
@@ -64,6 +67,7 @@ const AuthorCard = ({
   variant: "inline" | "sidebar";
 }) => {
   const t = useT();
+  const authorHandle = author?.custom_url ?? null;
   const date = new Date(publishedAt).toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -79,7 +83,7 @@ const AuthorCard = ({
         >
           {t("jart.aboutAuthor")}
         </span>
-        <Link to={`/profile/${authorId}`} className="flex items-center gap-3 mb-3 group">
+        <ProfileLink userId={authorId} handle={authorHandle} className="flex items-center gap-3 mb-3 group">
           {author?.avatar_url ? (
             <img
               src={author.avatar_url}
@@ -101,20 +105,20 @@ const AuthorCard = ({
               {date}
             </div>
           </div>
-        </Link>
+        </ProfileLink>
         {author?.bio && (
           <p className="text-xs text-muted-foreground leading-relaxed mb-4 line-clamp-4"
             style={{ fontFamily: "var(--font-body)" }}>
             {author.bio}
           </p>
         )}
-        <Link
-          to={`/profile/${authorId}`}
+        <ProfileLink
+          userId={authorId} handle={authorHandle}
           className="inline-flex items-center gap-1 text-[11px] tracking-[0.15em] uppercase text-primary hover:gap-2 transition-all"
           style={{ fontFamily: "var(--font-heading)" }}
         >
           {t("dash.qa.viewProfile")} <ArrowRight className="h-3 w-3" />
-        </Link>
+        </ProfileLink>
       </div>
     );
   }
@@ -122,7 +126,7 @@ const AuthorCard = ({
   // inline (mobile/tablet)
   return (
     <div className="flex items-start gap-4 border-y border-border py-5 my-8">
-      <Link to={`/profile/${authorId}`} className="shrink-0">
+      <ProfileLink userId={authorId} handle={authorHandle} className="shrink-0">
         {author?.avatar_url ? (
           <img
             src={author.avatar_url}
@@ -135,7 +139,7 @@ const AuthorCard = ({
             {(author?.full_name || "?")[0]?.toUpperCase()}
           </div>
         )}
-      </Link>
+      </ProfileLink>
       <div className="flex-1 min-w-0">
         <span
           className="text-[9px] tracking-[0.25em] uppercase text-primary block mb-1"
@@ -143,12 +147,12 @@ const AuthorCard = ({
         >
           {t("jart.writtenBy")}
         </span>
-        <Link to={`/profile/${authorId}`} className="block">
+        <ProfileLink userId={authorId} handle={authorHandle} className="block">
           <div className="text-base font-medium text-foreground hover:text-primary transition-colors"
             style={{ fontFamily: "var(--font-display)" }}>
             {author?.full_name || "Unknown"}
           </div>
-        </Link>
+        </ProfileLink>
         {author?.bio && (
           <p className="text-sm text-muted-foreground leading-relaxed mt-1.5 line-clamp-3"
             style={{ fontFamily: "var(--font-body)" }}>
@@ -194,7 +198,7 @@ const JournalArticle = () => {
         setArticle(data);
         const [{ data: profile }, { data: otherRows }] = await Promise.all([
           profilesPublic()
-            .select("full_name, avatar_url, bio")
+            .select("full_name, avatar_url, bio, custom_url")
             .eq("id", data.author_id)
             .maybeSingle(),
           supabase
@@ -391,7 +395,7 @@ const JournalArticle = () => {
                   <UserIdentityBlock
                     userId={article.author_id}
                     name={author?.full_name || "Unknown"}
-                    linkTo={`/profile/${article.author_id}`}
+                    handle={(author as { custom_url?: string | null } | null)?.custom_url}
                     nameClassName="tracking-[0.1em] uppercase hover:text-primary hover:underline transition-colors"
                   />
                 </span>

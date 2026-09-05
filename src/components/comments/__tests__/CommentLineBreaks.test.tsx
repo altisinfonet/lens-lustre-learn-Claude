@@ -52,8 +52,15 @@
  * failed. It was then put back.
  */
 import { describe, it, expect, vi, beforeAll } from "vitest";
+vi.mock("@/hooks/profile/useProfileData", () => ({
+  // F-95 — the avatar link is now ProfileLink, which prefetches the profile
+  // on hover through this hook. Mocked to a no-op: this suite is about the
+  // comment body, not about prefetching.
+  usePrefetchProfile: () => () => {},
+}));
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const AUTHOR_ID = "bbbbbbbb-cccc-dddd-eeee-ffffffffffff";
 /** The owner's own test row on staging, character for character. */
@@ -95,6 +102,10 @@ beforeAll(() => {
 
 const draw = (comments: ThreadComment[]) =>
   render(
+    // F-95 — ProfileLink's hover prefetch reads the QueryClient, and the
+    // real app has always had one at the root (App.tsx). Supplying it here
+    // gives the component the environment it actually runs in.
+    <QueryClientProvider client={new QueryClient()}>
     <MemoryRouter>
       <CommentThread
         comments={comments}
@@ -105,7 +116,8 @@ const draw = (comments: ThreadComment[]) =>
         onEdit={async () => true}
         onDelete={() => {}}
       />
-    </MemoryRouter>,
+    </MemoryRouter>
+    </QueryClientProvider>,
   );
 
 /** The <p> that draws a comment body, found from the text it contains. */

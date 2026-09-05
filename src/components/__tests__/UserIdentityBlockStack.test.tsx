@@ -138,8 +138,22 @@ describe("nothing else moves", () => {
     expect(getByText("Tanmay De").className).toMatch(/text-center/);
   });
 
-  it("the name is still a link when linkTo is given", () => {
-    const { getByText } = draw({ stack: true, linkTo: "/profile/u1" });
-    expect(getByText("Tanmay De").tagName).toBe("A");
+  it("the name is a link to the member's NAME url when a handle is given", () => {
+    const { getByText } = draw({ stack: true, handle: "tanmay.de" });
+    const el = getByText("Tanmay De");
+    expect(el.tagName).toBe("A");
+    expect(el.getAttribute("href")).toBe("/tanmay.de");
+  });
+
+  it("F-95 — with NO handle the name is PLAIN TEXT, never an id address", () => {
+    // The prop used to be a finished path and every caller passed
+    // `/profile/${id}`, which is the one address the Owner's rule forbids: an
+    // in-app click never reaches the edge redirect, so the id would sit in the
+    // address bar and stay there. Plain text is the answer - the member is
+    // still named and still readable, and nothing offers that address.
+    const { getByText } = draw({ stack: true, handle: null });
+    const el = getByText("Tanmay De");
+    expect(el.tagName).toBe("SPAN");
+    expect(el.closest("a")).toBeNull();
   });
 });

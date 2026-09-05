@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import ProfileLink from "@/components/ProfileLink";
 import { createPortal } from "react-dom";
 import { Bell, UserPlus, Gift, Check, X, HelpCircle, MessageCircle, Heart, Award, Trophy, Eye, Vote, Users, Camera, BookOpen, GraduationCap, Star, Cake, Newspaper, Tag } from "lucide-react";
 import { toast } from "@/hooks/core/use-toast";
@@ -441,7 +442,7 @@ const NotificationBell = () => {
                       <NotifSection title="Friend Requests">
                         {friendRequests.map((fr) => (
                           <div key={fr.id} className="flex items-center gap-3 px-4 py-3 border-b border-border/50 hover:bg-muted/20 transition-colors">
-                            <Link to={`/profile/${fr.requester_id}`} onClick={() => setOpen(false)} className="shrink-0">
+                            <ProfileLink userId={fr.requester_id} handle={fr.requester_handle} onClick={() => setOpen(false)} className="shrink-0">
                               {fr.requester_avatar ? (
                                 <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={fr.requester_avatar} alt="" className="w-9 h-9 rounded-full object-cover" />
                               ) : (
@@ -449,13 +450,13 @@ const NotificationBell = () => {
                                   <UserPlus className="h-4 w-4 text-primary" />
                                 </div>
                               )}
-                            </Link>
+                            </ProfileLink>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs line-clamp-2" style={bodyFont}>
                                 <span className="inline-flex items-center gap-1 flex-wrap">
-                                  <Link to={`/profile/${fr.requester_id}`} onClick={() => setOpen(false)} className="font-medium hover:text-primary transition-colors">
+                                  <ProfileLink userId={fr.requester_id} handle={fr.requester_handle} onClick={() => setOpen(false)} className="font-medium hover:text-primary transition-colors">
                                     {fr.requester_name || "Someone"}
-                                  </Link>
+                                  </ProfileLink>
                                 </span>
                                 {" "}sent you a friend request
                               </p>

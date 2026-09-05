@@ -76,8 +76,17 @@ const CustomUrlProfile = () => {
             if (currentProfile && (currentProfile as any).custom_url) {
               navigate(`/${(currentProfile as any).custom_url}`, { replace: true });
             } else if (currentProfile) {
-              // No vanity URL of their own — /profile/<id> is the fallback.
-              navigate(`/profile/${(currentProfile as any).id}`, { replace: true });
+              /*
+               * They have no CURRENT handle, only the old one that was typed.
+               *
+               * F-95 — this used to redirect to /profile/<id>, which is the one
+               * address the Owner's rule forbids. Rendering in place instead
+               * keeps the address the visitor actually typed — an old name-URL,
+               * which custom_url_history still resolves — and shows the right
+               * member. An old name is a worse canonical address than a current
+               * one; it is a far better one than a UUID.
+               */
+              setResolvedUserId((currentProfile as any).id as string);
             }
           }
         } else {

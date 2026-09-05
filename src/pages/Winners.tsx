@@ -47,6 +47,8 @@ interface WinnerEntry {
   };
   profile: {
     full_name: string | null;
+  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
+    custom_url?: string | null;
     avatar_url: string | null;
   } | null;
   badges: string[];
@@ -105,7 +107,7 @@ const Winners = () => {
                 ends_at: comp.ends_at,
               },
               profile: prof
-                ? { full_name: prof.full_name, avatar_url: prof.avatar_url }
+                ? { full_name: prof.full_name, avatar_url: prof.avatar_url, custom_url: prof.custom_url }
                 : null,
               badges: resolveBadges(row.user_id, profileMap.get(row.user_id)?.badges || [], adminIds),
             };
@@ -263,7 +265,7 @@ const Winners = () => {
                     <UserIdentityBlock
                       userId={winner.user_id}
                       name={winner.profile?.full_name || "Photographer"}
-                      linkTo={`/profile/${winner.user_id}`}
+                      handle={winner.profile?.custom_url}
                       nameClassName="text-xs tracking-[0.1em] uppercase text-muted-foreground hover:text-primary hover:underline transition-colors"
                     />
                   </div>

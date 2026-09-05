@@ -46,6 +46,8 @@ export interface FriendRequest {
   created_at: string;
   requester_name: string | null;
   requester_avatar: string | null;
+  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
+  requester_handle: string | null;
 }
 
 export interface RecentPost {
@@ -131,12 +133,13 @@ export const useDashboardData = (userId: string | undefined) => {
       let friendRequests: FriendRequest[] = [];
       if (friendReqRes.data && friendReqRes.data.length > 0) {
         const requesterIds = friendReqRes.data.map((r) => r.requester_id);
-        const { data: profiles } = await profilesPublic().select("id, full_name, avatar_url").in("id", requesterIds);
+        const { data: profiles } = await profilesPublic().select("id, full_name, avatar_url, custom_url").in("id", requesterIds);
         const profileMap = new Map((profiles as any[] || []).map((p: any) => [p.id, p]));
         friendRequests = friendReqRes.data.map((r) => ({
           ...r,
           requester_name: profileMap.get(r.requester_id)?.full_name || null,
           requester_avatar: profileMap.get(r.requester_id)?.avatar_url || null,
+          requester_handle: profileMap.get(r.requester_id)?.custom_url ?? null,
         }));
       }
 
@@ -328,7 +331,7 @@ export const useDashboardData = (userId: string | undefined) => {
         supabase.from("competitions").select("id, slug, title, starts_at, ends_at, cover_image_url, category").eq("status", "upcoming").order("starts_at", { ascending: true }).limit(3),
         supabase.from("certificates").select("id, title, type, issued_at, reference_id").eq("user_id", userId).eq("is_revoked", false).order("issued_at", { ascending: false }).limit(20),
         supabase.from("course_enrollments").select("id, course_id, enrolled_at, courses(id, title, cover_image_url, slug)").eq("user_id", userId).order("enrolled_at", { ascending: false }).limit(3),
-        profilesPublic().select("id, full_name, avatar_url, bio").neq("id", userId).limit(5),
+        profilesPublic().select("id, full_name, avatar_url, bio, custom_url").neq("id", userId).limit(5),
       ]);
 
       return {

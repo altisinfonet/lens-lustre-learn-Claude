@@ -12,7 +12,7 @@ export interface JournalArticle {
   published_at: string | null;
   created_at: string;
   author_id: string;
-  profiles?: { full_name: string | null } | null;
+  profiles?: { full_name: string | null; custom_url?: string | null } | null;
 }
 
 export const useJournal = () => {
@@ -31,13 +31,19 @@ export const useJournal = () => {
       const authorIds = [...new Set(data.map((a) => a.author_id))];
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, full_name")
+        .select("id, full_name, custom_url")
         .in("id", authorIds);
 
       const profileMap = new Map(profiles?.map((p) => [p.id, p.full_name]) || []);
+      // F-95 — the handle comes back on the same row as the name, so the
+      // article byline can link to /<handle> without a second lookup.
+      const handleMap = new Map(profiles?.map((p) => [p.id, p.custom_url]) || []);
       return data.map((a) => ({
         ...a,
-        profiles: { full_name: profileMap.get(a.author_id) || null },
+        profiles: {
+          full_name: profileMap.get(a.author_id) || null,
+          custom_url: handleMap.get(a.author_id) ?? null,
+        },
       }));
     },
   });

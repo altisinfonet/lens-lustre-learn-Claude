@@ -46,6 +46,20 @@ export interface ProfileMapEntry {
   roles: string[];
   /** Presence heartbeat (5-min). Null for anon viewers or users who hide status. */
   last_active_at: string | null;
+  /**
+   * The member's name-URL handle. F-95 — IT TRAVELS WITH THE NAME, DELIBERATELY.
+   *
+   * Every address the app builds for a member has to be /<handle>, never
+   * /profile/<id>. Carrying the handle here means anywhere that can render a
+   * name can also build that address, in the same object, from the same round
+   * trip — no second lookup, no per-link resolve.
+   *
+   * Same correction as `author_badges` (see UserIdentityBlock's badges prop):
+   * an identity field that does not arrive with the name creates a state where
+   * the name is visible and the identity is not. There it cost a verified
+   * member their tick; here it would cost them their name-URL.
+   */
+  custom_url: string | null;
 }
 
 export type ProfileMap = Map<string, ProfileMapEntry>;
@@ -148,7 +162,7 @@ function isFresh(c: CachedEntity | undefined, now: number): c is CachedEntity {
 }
 
 function placeholder(id: string): ProfileMapEntry {
-  return { id, full_name: null, avatar_url: null, badges: [], roles: [], last_active_at: null };
+  return { id, full_name: null, avatar_url: null, badges: [], roles: [], last_active_at: null, custom_url: null };
 }
 
 /** Queue ids for the next batch and return a promise that settles when it lands. */
@@ -318,7 +332,7 @@ async function rawFetchProfileMap(
      * lookup to protect things nobody notices. The name is not a decoration.
      * It gets three attempts; the rest get one.
      */
-    withRetry(() => profilesPublic().select("id, full_name, avatar_url").in("id", sortedIds)),
+    withRetry(() => profilesPublic().select("id, full_name, avatar_url, custom_url").in("id", sortedIds)),
     supabase.from("user_badges").select("user_id, badge_type").in("user_id", sortedIds),
     // F2: anon-safe RPC; returns only registered_photographer/student/content_editor
     supabase.rpc("get_public_roles_for_users", { _user_ids: sortedIds } as any),
@@ -355,6 +369,7 @@ async function rawFetchProfileMap(
       id: p.id,
       full_name: p.full_name,
       avatar_url: p.avatar_url,
+      custom_url: p.custom_url ?? null,
       badges: badgeMap.get(p.id) || [],
       roles: roleMap.get(p.id) || [],
       last_active_at: presenceMap.get(p.id) ?? null,

@@ -53,6 +53,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const CREATIVE_ID = "11111111-2222-3333-4444-555555555555";
 const AUTHOR_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
@@ -102,6 +103,10 @@ vi.mock("@/hooks/core/useAuth", () => ({
 }));
 vi.mock("@/hooks/core/useIsAdmin", () => ({ useIsAdmin: () => ({ isAdmin: false }) }));
 vi.mock("@/hooks/profile/useProfileData", () => ({
+  // F-95 — the avatar link is now ProfileLink, which prefetches the profile
+  // on hover through this hook. Mocked to a no-op: this suite is about the
+  // comment body, not about prefetching.
+  usePrefetchProfile: () => () => {},
   useProfileCore: () => ({ data: { full_name: "A Viewer", avatar_url: null } }),
 }));
 vi.mock("@/hooks/profile/useProfileMap", () => ({
@@ -145,9 +150,14 @@ const oneComment = [
 /** The story card's engagement, with its thread opened the way a member opens it. */
 const openStoryCardThread = async () => {
   render(
+    // F-95 — ProfileLink's hover prefetch reads the QueryClient, and the
+    // real app has always had one at the root (App.tsx). Supplying it here
+    // gives the component the environment it actually runs in.
+    <QueryClientProvider client={new QueryClient()}>
     <MemoryRouter>
       <AdEngagementBar creativeId={CREATIVE_ID} />
-    </MemoryRouter>,
+    </MemoryRouter>
+    </QueryClientProvider>,
   );
   fireEvent.click(await screen.findByRole("button", { name: "Comment" }));
 };

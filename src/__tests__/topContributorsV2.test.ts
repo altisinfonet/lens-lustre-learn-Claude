@@ -55,7 +55,7 @@ describe("useTopContributors calls v2", () => {
     }
   });
 
-  it("hands the UI exactly eight fields and nothing else", () => {
+  it("hands the UI exactly nine fields and nothing else", () => {
     // Asserting on the mapped object rather than searching the whole file: the
     // prose above it discusses engagement at length, and a keyword scan would
     // fail on the explanation of why engagement is absent.
@@ -64,9 +64,17 @@ describe("useTopContributors calls v2", () => {
     const keys = [...obj.matchAll(/^\s*(\w+):/gm)].map((m) => m[1]).sort();
     // Eight since TC-v3, not seven: recent_score joined the mapped object.
     // contributor_score STAYS - it is still displayed, as the secondary line.
+    // NINE since F-95: custom_url joined it too. This count is deliberately
+    // brittle - it exists to catch a field arriving by accident - so widening it
+    // is a decision that has to be made here, in the open, and not a number
+    // nudged to make a run go green. The contributor row is a profile LINK, and
+    // the handle has to travel with the name that links; without it the top
+    // contributors would be the one list on the sidebar that could not be
+    // clicked.
     expect(keys).toEqual([
       "avatar_url",
       "badges",
+      "custom_url",
       "contributor_score",
       "full_name",
       "id",

@@ -2,6 +2,7 @@ import { useParams, Link } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
 import { Hash, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { memberPath } from "@/lib/urlHelpers";
 import { fetchPostMediaMap, resolvePostImageUrls } from "@/lib/media/postMediaRead";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -24,6 +25,8 @@ interface HashPost {
   created_at: string;
   author_name: string | null;
   author_avatar: string | null;
+  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
+  author_handle: string | null;
   author_badges: string[];
   author_last_active: string | null;
 }
@@ -102,6 +105,7 @@ const HashtagFeed = () => {
         ),
         author_name: resolveName(p.user_id, profileMap.get(p.user_id)?.full_name ?? null, adminIds),
         author_avatar: profileMap.get(p.user_id)?.avatar_url || null,
+        author_handle: profileMap.get(p.user_id)?.custom_url ?? null,
         author_badges: resolveBadges(p.user_id, profileMap.get(p.user_id)?.badges || [], adminIds),
         author_last_active: profileMap.get(p.user_id)?.last_active_at ?? null,
       }))
@@ -165,7 +169,7 @@ const HashtagFeed = () => {
               {/* Header */}
               <div className="flex items-center gap-3 p-4 pb-2">
                 <PresenceAvatar
-                  to={`/profile/${post.user_id}`}
+                  to={memberPath(post.author_handle) ?? undefined}
                   src={post.author_avatar}
                   name={post.author_name}
                   lastActiveAt={post.author_last_active}
@@ -175,7 +179,7 @@ const HashtagFeed = () => {
                   <UserIdentityBlock
                     userId={post.user_id}
                     name={post.author_name || "Photographer"}
-                    linkTo={`/profile/${post.user_id}`}
+                    handle={post.author_handle}
                     nameClassName="text-sm font-semibold text-foreground hover:underline"
                   />
                   <span className="text-xs text-muted-foreground">{timeAgo(post.created_at)}</span>

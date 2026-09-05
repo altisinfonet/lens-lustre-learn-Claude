@@ -42,6 +42,8 @@ export interface FriendRequest {
   created_at: string;
   requester_name: string | null;
   requester_avatar: string | null;
+  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
+  requester_handle?: string | null;
 }
 
 export interface GiftNotification {
@@ -208,11 +210,11 @@ async function fetchNotifications(
   }
 
   const requesterIds = (friendsRes.data || []).map((f) => f.requester_id);
-  let profileMap = new Map<string, { full_name: string | null; avatar_url: string | null }>();
+  let profileMap = new Map<string, { full_name: string | null; avatar_url: string | null; custom_url: string | null }>();
   const adminIds = await getAdminIds();
   if (requesterIds.length > 0) {
     const { data: profiles } = await profilesPublic()
-      .select("id, full_name, avatar_url")
+      .select("id, full_name, avatar_url, custom_url")
       .in("id", requesterIds);
     profileMap = new Map((profiles || []).map((p) => [p.id, p]));
   }
@@ -230,6 +232,7 @@ async function fetchNotifications(
         adminIds,
       ),
       requester_avatar: profileMap.get(f.requester_id)?.avatar_url || null,
+      requester_handle: profileMap.get(f.requester_id)?.custom_url ?? null,
     })),
     giftNotifications: giftsRes.data || [],
     adminNotifications,
@@ -431,7 +434,7 @@ export function useNotificationsQuery(
       onFriendRequest: async (friendship: any) => {
         if (friendship.status !== "pending") return;
         const { data: profile } = await profilesPublic()
-          .select("id, full_name, avatar_url")
+          .select("id, full_name, avatar_url, custom_url")
           .eq("id", friendship.requester_id)
           .single();
         const adminIds = await getAdminIds();
@@ -445,6 +448,7 @@ export function useNotificationsQuery(
             adminIds,
           ),
           requester_avatar: profile?.avatar_url || null,
+          requester_handle: profile?.custom_url ?? null,
         });
       },
       onFriendshipUpdate: (friendship: any) => {

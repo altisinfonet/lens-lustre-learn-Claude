@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { memberPath } from "@/lib/urlHelpers";
+import { useMemberHandles } from "@/hooks/profile/useMemberHandles";
 import { supabase } from "@/integrations/supabase/client";
 import { logger } from "@/lib/logger";
 import { toast } from "@/hooks/core/use-toast";
@@ -88,6 +90,10 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
   const ALL_ROLES = Array.from(ALL_ROLES_SET);
 
   const [users, setUsers] = useState<UserRow[]>([]);
+  // ONE batched lookup for the page — admin_search_users and
+  // admin_search_users_v2 do not return custom_url yet. See
+  // useMemberHandles for the seven and for why this is temporary.
+  const handles = useMemberHandles(users.map((u) => u.id));
   const [searchQuery, setSearchQuery] = useState("");
   const [searchBy, setSearchBy] = useState<UserSearchMode>("email");
   const [loading, setLoading] = useState(false);
@@ -948,9 +954,20 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
                       <button onClick={() => setBadgeTarget(u)} className="p-1.5 hover:text-amber-600 transition-colors rounded-sm hover:bg-amber-500/10" title="Manage Badges" disabled={actionLoading === u.id}>
                         <Award className="h-3.5 w-3.5" />
                       </button>
-                      <a href={`/profile/${u.id}`} target="_blank" rel="noopener noreferrer" className="p-1.5 hover:text-blue-600 transition-colors rounded-sm hover:bg-blue-500/10" title="View Profile">
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
+                      {/*
+                        F-95 — opens the member's NAME url in a new tab. This was
+                        href={`/profile/${u.id}`}: a new tab is a real HTTP
+                        request, so the edge redirect would in fact have caught
+                        it — but it would still have put the id in the address
+                        bar first, which is the thing the rule forbids. With no
+                        handle the control is simply not rendered; there is
+                        nothing to open.
+                      */}
+                      {memberPath(handles.get(u.id)) && (
+                        <a href={memberPath(handles.get(u.id))!} target="_blank" rel="noopener noreferrer" className="p-1.5 hover:text-blue-600 transition-colors rounded-sm hover:bg-blue-500/10" title="View Profile">
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      )}
                       <button onClick={() => { setEditTarget(u); setEditName(u.full_name || ""); setEditBio(u.bio || ""); }} className="p-1.5 hover:text-primary transition-colors rounded-sm hover:bg-primary/10" title="Edit" disabled={actionLoading === u.id}>
                         <Pencil className="h-3.5 w-3.5" />
                       </button>

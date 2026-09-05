@@ -1,0 +1,28 @@
+F-95 — C-34 register
+check: src/__tests__/noProfileIdLinks.test.ts
+measured 2026-09-05T10:38:24Z — vitest, this container
+
+BASELINE, clean tree before any conversion:
+  65 navigational /profile/<id> sites across 30 files   (check RED)
+
+This 65 is NOT the Auditor's 48/24 or my earlier 45/23, and the three are
+deliberately not reconciled. They measure different things:
+  45 / 23 files  my first grep — to=, href=, navigate(), push(), replace()
+  48 / 24 files  the Auditor's grep, same categories, on the tree as it stood
+  65 / 30 files  this check — adds linkTo=, which UserIdentityBlock passes
+                 straight into <Link to>, and <a href>. It is the count of
+                 sites the conversion actually had to touch, and it is the
+                 pass condition.
+
+PLANT                                                    RESULT
+A  one id link restored in the feed (PostCard)           Tests  1 failed | 3 passed (4)
+B  id fallback restored in the helper                    Tests  4 passed (4)   <-- FALSE GREEN
+   The scan reads CALL SITES, so it could not see the rule broken one level
+   down, inside memberPath(): every call site still read handle={...} while
+   every address in the app carried an id again. A behavioural assertion on
+   the helper was added because of this plant.
+B  (re-run, with that assertion in place)               Tests  1 failed | 4 passed (5)
+C  an admin <a href> id link restored                    Tests  1 failed | 3 passed (4)
+D  a mention reverted to an id link                      Tests  1 failed | 3 passed (4)
+E  linkTo-style prop reintroduced (UserIdentityBlock)    Tests  1 failed | 3 passed (4)
+RESTORED                                                 Tests  5 passed (5)

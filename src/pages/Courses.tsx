@@ -145,7 +145,7 @@ const Courses = () => {
                         <UserIdentityBlock
                           userId={course.author_id || ""}
                           name={course.author_name || "Unknown"}
-                          linkTo={`/profile/${course.author_id || ""}`}
+                          handle={course.author_handle}
                           nameClassName="text-[10px] hover:text-primary hover:underline transition-colors [font-family:var(--font-heading)]"
                         />
                       </div>

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { memberPath } from "@/lib/urlHelpers";
 import AutoBadge from "@/components/AutoBadge";
 import UserBadgeInline from "@/components/UserBadgeInline";
 import AutoRole from "@/components/AutoRole";
@@ -47,8 +48,28 @@ interface UserIdentityBlockProps {
    * Optional so unmigrated callers keep the lookup rather than lose the tick.
    */
   badges?: string[];
-  /** If provided, the name becomes a link to this path */
-  linkTo?: string;
+  /**
+   * The member's name-URL handle. When present the name becomes a link to
+   * /<handle>; when absent the name renders as PLAIN TEXT.
+   *
+   * F-95 — THIS REPLACED A `linkTo` STRING, AND THE CHANGE IS THE WHOLE FIX.
+   * Every caller used to pass `linkTo={`/profile/${id}`}`, which is a
+   * client-side navigation the edge redirect can never see, so the id went into
+   * the address bar and stayed there. Taking the handle instead of a finished
+   * path means no caller can express that address any more.
+   *
+   * A handle, not a lookup: this component must never resolve one itself. Doing
+   * so would be one request per name on screen — around 45 on a feed load — and
+   * would undo profileMapCache, which exists because that exact pattern cost 52
+   * requests per feed. The handle arrives with the name (ProfileMapEntry
+   * .custom_url) and is passed down beside it.
+   *
+   * NO ID FALLBACK when it is absent. Plain text is the answer: the member is
+   * still named and still readable, and nothing offers an address the rule
+   * forbids. `userId` stays because the badge lookup and hover prefetch are
+   * keyed by id, not by handle.
+   */
+  handle?: string | null;
   size?: "compact" | "full";
   /** Extra className on the outer wrapper */
   className?: string;
@@ -82,7 +103,7 @@ const UserIdentityBlock = ({
   userId,
   name,
   badges,
-  linkTo,
+  handle,
   size = "compact",
   className = "",
   nameClassName = "text-[13px] font-semibold text-foreground hover:underline leading-tight",
@@ -98,8 +119,9 @@ const UserIdentityBlock = ({
   const resolvedNameClassName =
     `${nameClassName} block min-w-0 truncate${align === "center" ? (stack ? " text-center" : " w-full text-center") : ""}`;
 
-  const nameEl = linkTo ? (
-    <Link to={linkTo} className={resolvedNameClassName}>
+  const href = memberPath(handle);
+  const nameEl = href ? (
+    <Link to={href} className={resolvedNameClassName}>
       {displayName}
     </Link>
   ) : (

@@ -1,10 +1,12 @@
 import { useState, useRef, useMemo } from "react";
+import ProfileLink from "@/components/ProfileLink";
 import { Link } from "react-router-dom";
 import { TrendingUp, Cake, Newspaper, Vote, Coins, PartyPopper } from "lucide-react";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useT } from "@/i18n/I18nContext";
 import CompetitionLightbox from "@/components/CompetitionLightbox";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
+import { useMemberHandles } from "@/hooks/profile/useMemberHandles";
 import AnonymousSidebarFallback from "@/components/AnonymousSidebarFallback";
 import type { SidebarData } from "@/hooks/core/useDashboardInit";
 import { useCompetitionVoting } from "@/hooks/competition/useCompetitionVoting";
@@ -78,6 +80,14 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
   const milestones = sidebarData?.milestones ?? [];
   const journalPreviews = sidebarData?.journal ?? [];
   const birthdayUsers = sidebarData?.birthdays ?? [];
+  // ONE batched lookup covering both lists that need it, not one per link.
+  // The milestone and birthday rows come from RPCs that do not return
+  // custom_url yet — see useMemberHandles for the seven and for why this goes
+  // away when D1 widens them.
+  const handles = useMemberHandles([
+    ...milestones.map((m: { id: string }) => m.id),
+    ...birthdayUsers.map((u: { id: string }) => u.id),
+  ]);
 
   if (loading || dashboardLoading) return <div className="space-y-5" />;
   if (!user && !hadUserRef.current) return <AnonymousSidebarFallback type="left" />;
@@ -175,7 +185,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
           <div className="divide-y divide-border">
             {milestones.map((m: any) => (
               <div key={m.id} className="flex items-center gap-3 px-4 py-3">
-                <Link to={`/profile/${m.id}`} className="shrink-0">
+                <ProfileLink userId={m.id} handle={handles.get(m.id)} className="shrink-0">
                   {m.avatar_url ? (
                     <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={m.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
                   ) : (
@@ -183,12 +193,12 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
                       <span className="text-[10px] text-primary" style={displayFont}>{(m.full_name || "?")[0]?.toUpperCase()}</span>
                     </div>
                   )}
-                </Link>
+                </ProfileLink>
                 <div className="flex-1 min-w-0">
                   <UserIdentityBlock
                     userId={m.id}
                     name={m.full_name || "Photographer"}
-                    linkTo={`/profile/${m.id}`}
+                    handle={handles.get(m.id)}
                     nameClassName="text-xs font-medium truncate hover:text-primary transition-colors"
                   />
                   <span className="text-[9px] text-muted-foreground" style={bodyFont}>
@@ -258,7 +268,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
             <div className="divide-y divide-border">
               {birthdayUsers.map((u: any) => (
                 <div key={u.id} className="flex items-center gap-3 px-4 py-3">
-                  <Link to={`/profile/${u.id}`} className="shrink-0">
+                  <ProfileLink userId={u.id} handle={handles.get(u.id)} className="shrink-0">
                     {u.avatar_url ? (
                       <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={u.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
                     ) : (
@@ -266,12 +276,12 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
                         <span className="text-[10px] text-primary" style={displayFont}>{(u.full_name || "?")[0]?.toUpperCase()}</span>
                       </div>
                     )}
-                  </Link>
+                  </ProfileLink>
                   <div className="flex-1 min-w-0">
                     <UserIdentityBlock
                       userId={u.id}
                       name={u.full_name || "Photographer"}
-                      linkTo={`/profile/${u.id}`}
+                      handle={handles.get(u.id)}
                       nameClassName="text-xs font-medium truncate hover:text-primary transition-colors"
                     />
                     <span className="text-[9px] text-muted-foreground" style={bodyFont}>
