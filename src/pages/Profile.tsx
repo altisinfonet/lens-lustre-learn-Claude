@@ -421,8 +421,20 @@ const Profile = () => {
                   `-my-3` takes the extra height back out of the flow so the
                   row's height does not move. It shrank because the address
                   beside it got shorter, which let the row fit on one line —
-                  the height was never deliberate, it was two lines of text. */}
-              <Link to={ownPath ?? CLAIM_URL_PATH} className="inline-flex min-h-11 -my-3 items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase text-primary hover:underline transition-all duration-300" style={{ fontFamily: "var(--font-heading)" }}>
+                  the height was never deliberate, it was two lines of text.
+
+                  ⚠ CLASS ORDER MATTERS HERE, AND ONLY BECAUSE OF THE GATE.
+                  min-h-11 and -my-3 sit AFTER items-center deliberately. The
+                  sweep identifies a control by its tag plus the FIRST TWO
+                  classes (tools/uishot/capture.mjs:237), so putting them first
+                  renamed this anchor from a.inline-flex.items-center to
+                  a.inline-flex.min-h-11 — the old name then resolved to the
+                  portfolio link next to it and the gate reported a control
+                  that had "shrank to 153x20" and another "gone". Neither was
+                  true: probed directly, this link is 117x44 with min-height
+                  44px applied. Order restored so the control keeps its
+                  identity. */}
+              <Link to={ownPath ?? CLAIM_URL_PATH} className="inline-flex items-center min-h-11 -my-3 gap-1.5 text-[10px] tracking-[0.15em] uppercase text-primary hover:underline transition-all duration-300" style={{ fontFamily: "var(--font-heading)" }}>
                 <ExternalLink className="h-3 w-3" />View Public Profile
               </Link>
             </div>
