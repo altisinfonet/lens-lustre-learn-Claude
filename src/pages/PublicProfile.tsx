@@ -225,7 +225,15 @@ const fadeUp = (delay = 0) => ({
   transition: { duration: 0.7, delay, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] },
 });
 
-const PublicProfileInner = ({ userId }: { userId: string }) => {
+/**
+ * The profile itself, addressed by user id rather than by route.
+ *
+ * EXPORTED for F-86: CustomUrlProfile renders this IN PLACE for a vanity URL
+ * instead of redirecting to /profile/<uuid>, so the member's own address
+ * survives. Keep it taking `userId` as a prop and reading nothing from the
+ * route — that is the entire reason it can be mounted from two places.
+ */
+export const PublicProfileInner = ({ userId }: { userId: string }) => {
   const { user: currentUser } = useAuth();
   const [searchParams] = useSearchParams();
   const wallSectionRef = useRef<HTMLDivElement>(null);
