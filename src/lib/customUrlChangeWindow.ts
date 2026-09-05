@@ -58,3 +58,48 @@ export function changeRefusalMessage(nextChangeAtIso: string, timeZone?: string)
   // The apostrophe is U+2019, one character, matching the text as written.
   return `Can’t change until ${day}${ordinalSuffix(day)} ${part("month")} ${part("year")}.`;
 }
+
+/**
+ * The reason code that means "inside the 12-month window", and the ONLY one
+ * that may produce a date.
+ *
+ * ⚠ PROVISIONAL LITERAL — IT MUST MATCH WHAT D1's change_custom_url RETURNS.
+ * At the time of writing the jsonb refusal shape is not yet in the tree; the
+ * function still RAISES for this case and its success path returns
+ * { success, custom_url, next_change_available }. This value is written down
+ * here so there is one place to correct rather than a pattern to loosen.
+ *
+ * A WRONG GUESS HERE IS SAFE BY CONSTRUCTION, and that is the design. An
+ * unrecognised reason falls through to the plain failure below with NO date in
+ * it, so a mismatch costs a dull message and can never produce a wrong one.
+ * Loosening this to "any refusal carrying a timestamp" is the change that would
+ * break that property — it would let a future refusal of some other kind render
+ * a date that means nothing.
+ */
+export const WINDOW_REFUSAL_REASONS = ["change_window_not_elapsed"] as const;
+
+/**
+ * The ISO instant to render, or null if this is not a window refusal.
+ *
+ * STRICT ON PURPOSE. Every one of these must hold: the payload is an object,
+ * ok is exactly false, reason is a string in the list above, next_change_at is
+ * a string, and it parses to a real date. Anything else — an unrecognised
+ * reason, a missing one, a raised error, a malformed timestamp, or the older
+ * shape that used `success` — returns null and the caller says nothing about
+ * dates.
+ *
+ * The rule this encodes: NEVER BUILD A DATE FROM A SHAPE YOU WERE NOT
+ * EXPECTING. The contract is mixed while D1's uniform-refusal change is
+ * deferred to a follow-up, so the format, reserved and taken refusals still
+ * arrive as raised errors and must keep working exactly as they do today.
+ */
+export function windowRefusalDate(payload: unknown): string | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  const p = payload as { ok?: unknown; reason?: unknown; next_change_at?: unknown };
+  if (p.ok !== false) return null;
+  if (typeof p.reason !== "string") return null;
+  if (!(WINDOW_REFUSAL_REASONS as readonly string[]).includes(p.reason)) return null;
+  if (typeof p.next_change_at !== "string") return null;
+  if (Number.isNaN(new Date(p.next_change_at).getTime())) return null;
+  return p.next_change_at;
+}

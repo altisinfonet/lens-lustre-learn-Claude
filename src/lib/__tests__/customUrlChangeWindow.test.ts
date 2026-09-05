@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { ordinalSuffix, changeRefusalMessage } from "@/lib/customUrlChangeWindow";
+import {
+  ordinalSuffix,
+  changeRefusalMessage,
+  windowRefusalDate,
+  WINDOW_REFUSAL_REASONS,
+} from "@/lib/customUrlChangeWindow";
 
 /**
  * THE OWNER LOCKED THIS TEXT AND HAS TWICE SAID NO MORE WORDS.
@@ -123,5 +128,48 @@ describe("the form shows the sentence and nothing around it", () => {
     // A literal date in the page would be right for one member and wrong for
     // everyone whose window opens on another day.
     expect(s).not.toMatch(/Can.t change until \d/);
+  });
+});
+
+describe("NEVER BUILD A DATE FROM A SHAPE YOU WERE NOT EXPECTING", () => {
+  /**
+   * D1's uniform ok:false-for-all-four-refusals change is deferred to a
+   * follow-up, so the contract is MIXED: the window refusal returns jsonb with
+   * a specific reason code, while format, reserved and taken still arrive as
+   * raised errors. Only the recognised window code may produce a date. Anything
+   * else — including anything that arrives in a shape this code has never seen
+   * — is a plain failure with no date in it, so the mixed contract can produce
+   * a dull message but never a wrong one.
+   */
+  const AT = "2027-12-31T09:00:00Z";
+  const reason = WINDOW_REFUSAL_REASONS[0];
+
+  it("recognises the window refusal and returns its instant", () => {
+    expect(windowRefusalDate({ ok: false, reason, next_change_at: AT })).toBe(AT);
+  });
+
+  it.each([
+    ["an unrecognised reason code", { ok: false, reason: "something_else", next_change_at: AT }],
+    ["no reason at all", { ok: false, next_change_at: AT }],
+    ["a reason that is not a string", { ok: false, reason: 7, next_change_at: AT }],
+    ["ok true", { ok: true, reason, next_change_at: AT }],
+    ["ok missing", { reason, next_change_at: AT }],
+    ["the older success-shaped payload", { success: false, next_change_available: AT }],
+    ["no timestamp", { ok: false, reason }],
+    ["a timestamp that is not a string", { ok: false, reason, next_change_at: 1767171600000 }],
+    ["an unparseable timestamp", { ok: false, reason, next_change_at: "whenever" }],
+    ["an empty timestamp", { ok: false, reason, next_change_at: "" }],
+    ["null", null],
+    ["undefined", undefined],
+    ["a bare string", "refused"],
+    ["an array", [{ ok: false, reason, next_change_at: AT }]],
+  ])("gives no date for %s", (_label, payload) => {
+    expect(windowRefusalDate(payload)).toBeNull();
+  });
+
+  it("a raised error carries no payload at all, so it cannot produce one", () => {
+    // The taken / reserved / format refusals still RAISE while the uniform
+    // change is deferred. supabase-js returns data null in that case.
+    expect(windowRefusalDate(null)).toBeNull();
   });
 });
