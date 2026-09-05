@@ -1,19 +1,61 @@
 -- P31 · search_certificates(text,text,date) — close the certificate DIRECTORY to anon.
 --
--- ⚠⚠ DO NOT APPLY THIS FILE YET. IT IS PREPARED, NOT AUTHORISED, AND IT IS
---    BLOCKED ON A CLIENT FIX THAT HAS NOT MERGED.
+-- ✅ THE BLOCKER IS LIFTED. PRECONDITION MET 2026-09-05.
 --
---    docs/gates/P1-revocation-list.md §2.2 blocks this revoke because all four
---    verification pages collapse "error" and "empty" into one branch
---    (VerifyCertificate.tsx:81, :103, CertificateVerifyByToken.tsx:46,
---    IDVerification.tsx:63). Applied today, a real certificate holder is told,
---    calmly and confidently, that their certificate could not be verified —
---    which reads as a forgery and gets reported by nobody. A SILENT WRONG
---    ANSWER IS WORSE THAN AN ERROR. D2 is landing that fix in its own PR.
+--    ⚠ THIS BLOCK PREVIOUSLY READ "DO NOT APPLY THIS FILE YET … BLOCKED ON A
+--    CLIENT FIX THAT HAS NOT MERGED." It is rewritten rather than deleted,
+--    under Standing Rule 21: an instructing comment IS a control, and a comment
+--    that forbids an action whose precondition is now satisfied will stop the
+--    next reader wrongly. What it forbade, and why, is preserved below.
 --
---    PRECONDITION FOR APPLY: D2's client fix is merged and live on the lane
---    being changed. Then the Auditor authorises. Staging first, always.
---    Committing is not applying.
+--    WHAT IT SAID, AND IT WAS RIGHT AT THE TIME: docs/gates/P1-revocation-list.md
+--    §2.2 blocked this revoke because the verification UI collapsed "error" and
+--    "empty" into one branch — `if (error || !data || data.length === 0)
+--    setNotFound(true)`. Applied then, a member holding a REAL certificate
+--    would have been told, calmly and confidently, that no certificate matched.
+--    That reads as a forgery, and nobody reports a forgery — they quietly stop
+--    trusting us. A SILENT WRONG ANSWER IS WORSE THAN AN ERROR.
+--
+--    THE FIX IS MERGED AND LIVE. Measured, not assumed:
+--
+--      SOURCE (D1, 2026-09-05, read on staging):
+--        src/pages/verifyCertificateErrors.ts — isSearchUnavailableError()
+--          keys on 42501 (Postgres insufficient_privilege) AND PGRST202
+--          (PostgREST schema cache no longer lists the function for the role),
+--          with a last-resort message fallback for a proxy that strips the
+--          code. Both codes are reachable and they are NOT the same failure:
+--          which one a caller gets depends on whether the schema cache has
+--          reloaded since the revoke.
+--        src/pages/VerifyCertificate.tsx:89-90 and :122-123 — the detector sets
+--          a DISTINCT `searchUnavailable` state, separate from `notFound`.
+--        src/pages/VerifyCertificate.tsx:394,:398 — its copy reads
+--          "Verification Unavailable" / "Search Unavailable" and "We could not
+--          complete this check just now. This does not mean the certificate is
+--          invalid — please try again shortly."
+--
+--      LIVE PRODUCTION BUNDLE (the Auditor, 2026-09-05): chunk
+--        VerifyCertificate-n0dgG3fG.js carries const X="42501", Y="PGRST202"
+--        and the same detector and copy. The precondition is met on the lane
+--        being changed, not merely in the repository.
+--
+--      STAGING (the Auditor, SELECT + anon HTTP): P31 is ALREADY APPLIED and
+--        proven there — search_certificates anon=false, PUBLIC entries 0,
+--        anon HTTP 401/42501. The behaviour this file produces has been seen
+--        working end to end on a real lane.
+--
+--    ⚠ C-62 — A CORRECTION TO THIS FILE'S OWN EARLIER TEXT. The block above
+--    named FOUR pages. There is ONE call site. Measured by D1 2026-09-05,
+--    whole tree: src/pages/VerifyCertificate.tsx:112 is the only caller.
+--    CertificateVerifyByToken.tsx and IDVerification.tsx do not call
+--    search_certificates at all; the remaining grep hits are generated types,
+--    a comment, and audit baselines. The old line overstated the blast radius,
+--    which made the blocker look larger than it was. Corrected on the record
+--    rather than quietly dropped.
+--
+--    WHAT IS STILL REQUIRED: the Auditor authorises the apply, and on
+--    production the environment gate is the OWNER'S CLICK — not this team's.
+--    Staging first, always. Committing is not applying, and neither is
+--    dispatching: a queued run that nobody approves changes nothing.
 --
 -- =============================================================================
 -- THE GATE — docs/gates/GATE_REGISTER.md, unit P31, verbatim:
