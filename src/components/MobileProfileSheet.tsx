@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { memberPath, CLAIM_URL_PATH } from "@/lib/urlHelpers";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { useUserRoles } from "@/hooks/profile/useUserRoles";
@@ -63,6 +64,8 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
   const { theme, toggleTheme } = useTheme();
   const { balance: walletBalance } = useWalletSummary(!isAdmin ? user?.id : undefined);
   const { data: profileCore } = useProfileCore(user?.id);
+  const ownPath = memberPath(profileCore?.custom_url);
+  const wallPath = ownPath ? `${ownPath}?section=wall` : CLAIM_URL_PATH;
   const avatarUrl = profileCore?.avatar_url ?? null;
   const fullName = profileCore?.full_name || "Photographer";
   const hasAdminPanelAccess = resolveAdminSubRoles(roles).length > 0;
@@ -118,7 +121,9 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
         { icon: Edit2, label: "Edit", to: "/edit-profile", show: true },
         { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard", show: true },
         { icon: Bell, label: "Notifications", to: "/notifications", show: true },
-        { icon: Rss, label: "My Wall", to: `/profile/${user.id}?section=wall`, show: true },
+        // F-95 — the member's own wall, by NAME. With no handle this points at
+        // the screen that claims one rather than at their id.
+        { icon: Rss, label: "My Wall", to: wallPath, show: true },
         { icon: Compass, label: "Feed", to: "/feed", show: true },
         { icon: Compass, label: "Discover", to: "/discover", show: true },
         { icon: ImageIcon, label: "Entries", to: "/dashboard?tab=submissions", show: true },

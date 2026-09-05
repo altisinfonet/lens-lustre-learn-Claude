@@ -1,4 +1,5 @@
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import ProfileLink from "@/components/ProfileLink";
 import {
   User, Camera, Trophy, Calendar, Edit2, Shield, Briefcase, Send, CheckCircle,
   Clock, XCircle, Award, GraduationCap, Wallet, UserCheck, UserX, Users,
@@ -18,6 +19,7 @@ import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { useApplyForRole, usePasswordReset } from "@/hooks/dashboard/useDashboardMutations";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
+import { memberPath, CLAIM_URL_PATH } from "@/lib/urlHelpers";
 import { useAcceptFriendRequest, useRemoveFriendship } from "@/hooks/social/useFriendshipMutations";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "@/hooks/core/use-toast";
@@ -375,7 +377,7 @@ const Dashboard = () => {
             <motion.div key="social" {...tabContent}>
               <SocialTab
                 friendRequests={friendRequests} recentPosts={recentPosts}
-                user={user} handleFriendAction={handleFriendAction}
+                user={user} profile={profile} handleFriendAction={handleFriendAction}
                 friendActionLoading={friendActionLoading}
               />
             </motion.div>
@@ -483,7 +485,7 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
       <motion.div variants={fadeUp} custom={1.2} initial="hidden" animate="visible">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.recentPosts")}</span>
-          <Link to={`/profile/${user.id}?section=wall`} className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.myWallArrow")}</Link>
+          <Link to={`${memberPath(profile?.custom_url) ?? ""}?section=wall`} className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.myWallArrow")}</Link>
         </div>
         <div className="rounded-2xl border border-border/50 bg-card/30 divide-y divide-border/40 overflow-hidden">
           {recentPosts.slice(0, 4).map((post: RecentPost) => (
@@ -501,7 +503,7 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
             <div className="p-6 text-center">
               <MessageSquare className="h-5 w-5 text-muted-foreground/20 mx-auto mb-1.5" />
               <p className="text-[10px] text-muted-foreground mb-2" style={{ fontFamily: "var(--font-body)" }}>{t("dash.noPostsYet")}</p>
-              <Link to={`/profile/${user.id}`} className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.writeFirstPostArrow")}</Link>
+              <Link to={memberPath(profile?.custom_url) ?? "/dashboard"} className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.writeFirstPostArrow")}</Link>
             </div>
           )}
         </div>
@@ -606,7 +608,7 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
         {/* Instagram-story-style strip: gradient-ring circular avatars */}
         <div className="flex gap-4 md:gap-5 overflow-x-auto pb-2 pt-1 px-1 scrollbar-hide">
           {suggestedPeople.map((person: any) => (
-            <Link key={person.id} to={`/profile/${person.id}`} className="shrink-0 w-[4.5rem] md:w-20 text-center group">
+            <ProfileLink key={person.id} userId={person.id} handle={person.custom_url} className="shrink-0 w-[4.5rem] md:w-20 text-center group">
               <div className="mx-auto w-fit p-[2px] rounded-full bg-gradient-to-tr from-primary via-sky-400 to-primary/30 group-hover:scale-105 transition-transform duration-300">
                 <div className="p-[2px] rounded-full bg-background">
                   {person.avatar_url ? (
@@ -626,7 +628,7 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
                 />
                 <p className="text-[8px] text-muted-foreground truncate mt-0.5" style={{ fontFamily: "var(--font-body)" }}>{person.bio?.slice(0, 30) || ""}</p>
               </div>
-            </Link>
+            </ProfileLink>
           ))}
         </div>
       </motion.div>
@@ -1170,14 +1172,15 @@ const SettingsTab = ({ user, profile, roles, applications, hasRole, canApplyFor,
 /* ================================================================
    SOCIAL TAB
    ================================================================ */
-const SocialTab = ({ friendRequests, recentPosts, user, handleFriendAction, friendActionLoading }: any) => {
+const SocialTab = ({ friendRequests, recentPosts, user, profile, handleFriendAction, friendActionLoading }: any) => {
   const t = useT();
   return (
   <div className="space-y-4">
     <div className="flex flex-wrap gap-2">
       {[
         { icon: Users, labelKey: "dash.friendsNetwork", to: "/friends" },
-        { icon: MessageSquare, labelKey: "menu.myWall", to: `/profile/${user.id}?section=wall` },
+        // F-95 — by NAME, never by id. `profile` is the member's own row.
+        { icon: MessageSquare, labelKey: "menu.myWall", to: memberPath(profile?.custom_url) ? `${memberPath(profile?.custom_url)}?section=wall` : CLAIM_URL_PATH },
         { icon: Rss, labelKey: "nav.feed", to: "/feed" },
         { icon: Star, labelKey: "dash.discoverPhotographers", to: "/discover" },
       ].map(l => (
@@ -1201,11 +1204,11 @@ const SocialTab = ({ friendRequests, recentPosts, user, handleFriendAction, frie
             const reqInitials = name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
             return (
               <div key={req.id} className="flex items-center gap-3 p-3">
-                <Link to={`/profile/${req.requester_id}`} className="shrink-0">
+                <ProfileLink userId={req.requester_id} handle={req.requester_handle} className="shrink-0">
                   {req.requester_avatar ? <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={req.requester_avatar} alt={name} className="w-9 h-9 rounded-full object-cover" /> : <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center"><span className="text-xs font-light text-primary">{reqInitials}</span></div>}
-                </Link>
+                </ProfileLink>
                 <div className="flex-1 min-w-0">
-                  <Link to={`/profile/${req.requester_id}`} className="text-xs font-light hover:text-primary transition-colors" style={{ fontFamily: "var(--font-heading)" }}>{name}</Link>
+                  <ProfileLink userId={req.requester_id} handle={req.requester_handle} className="text-xs font-light hover:text-primary transition-colors" style={{ fontFamily: "var(--font-heading)" }}>{name}</ProfileLink>
                   <p className="text-[9px] text-muted-foreground"><TimeAgo date={req.created_at} /></p>
                 </div>
                 <div className="flex gap-1.5 shrink-0">
@@ -1225,7 +1228,7 @@ const SocialTab = ({ friendRequests, recentPosts, user, handleFriendAction, frie
     <div>
       <div className="flex items-center justify-between mb-2">
         <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.wallPosts")}</span>
-        <Link to={`/profile/${user.id}`} className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.viewAllArrow")}</Link>
+        <Link to={memberPath(profile?.custom_url) ?? "/friends"} className="text-[9px] tracking-[0.15em] uppercase text-primary hover:underline" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.viewAllArrow")}</Link>
       </div>
       {recentPosts.length > 0 ? (
         <div className="rounded-2xl border border-border/50 bg-card/30 divide-y divide-border/40 overflow-hidden">

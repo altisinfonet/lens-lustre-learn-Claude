@@ -63,6 +63,7 @@ function post(i: number, overrides: Partial<UnifiedPost> = {}): UnifiedPost {
     created_at: "2026-08-01T09:00:00.000Z",
     author_name: "Avijit Sheel",
     author_avatar: null,
+    author_handle: "avijit",
     like_count: 0,
     comment_count: 3,
     share_count: 0,

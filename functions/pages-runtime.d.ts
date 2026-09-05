@@ -22,3 +22,16 @@ declare class HTMLRewriter {
   }): HTMLRewriter;
   transform(response: Response): Response;
 }
+
+/**
+ * The Workers Cache API, as much of it as functions/profile/[id].ts uses.
+ *
+ * `caches` itself is already declared by lib.dom as a CacheStorage, but the
+ * Workers-only `default` cache is not part of that interface. Declaring the
+ * one extra member by interface merging adds it without redeclaring the global
+ * — and without pulling in @cloudflare/workers-types wholesale, per the note
+ * above. The DOM `Cache` type already has the match/put shape used here.
+ */
+interface CacheStorage {
+  default: Cache;
+}

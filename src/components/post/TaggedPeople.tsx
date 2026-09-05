@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ProfileLink from "@/components/ProfileLink";
 import { Link } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import AutoBadge from "@/components/AutoBadge";
@@ -115,13 +116,13 @@ const TaggedPeople = ({ people }: Props) => {
             AutoBadge costs no extra request: enrichPosts already pulled every
             tagged profile into the same entity cache it reads from. */}
         <span className="inline-flex items-center gap-1 align-middle">
-          <Link
-            to={`/profile/${first.id}`}
+          <ProfileLink
+            userId={first.id} handle={first.handle}
             className="font-medium text-foreground hover:text-primary transition-colors"
             onClick={(e) => e.stopPropagation()}
           >
             {first.name}
-          </Link>
+          </ProfileLink>
           <TagBadge person={first} />
         </span>
         {others > 0 && (
@@ -160,9 +161,9 @@ const TaggedPeople = ({ people }: Props) => {
           </DialogHeader>
           <div className="overflow-y-auto -mx-2 px-2">
             {people.map((p) => (
-              <Link
+              <ProfileLink
                 key={p.id}
-                to={`/profile/${p.id}`}
+                userId={p.id} handle={p.handle}
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-3 rounded-md px-2 py-2.5 hover:bg-muted/50 transition-colors"
               >
@@ -174,7 +175,7 @@ const TaggedPeople = ({ people }: Props) => {
                   <span className="truncate text-sm">{p.name}</span>
                   <TagBadge person={p} />
                 </span>
-              </Link>
+              </ProfileLink>
             ))}
           </div>
         </DialogContent>

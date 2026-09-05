@@ -229,7 +229,7 @@ export const useCompetitionEntries = (competitionId: string | undefined, userId:
         return {
           ...entry,
           photo_meta: Array.isArray((entry as any).photo_meta) ? (entry as any).photo_meta : null,
-          profiles: prof ? { full_name: prof.full_name! } : null,
+          profiles: prof ? { full_name: prof.full_name!, custom_url: prof.custom_url } : null,
           vote_count: finalTotals[entry.id] ?? 0,
           user_voted: false, // per-photo voting — entry-level voted is deprecated
           badges: resolveBadges(entry.user_id, prof?.badges || [], adminIds),

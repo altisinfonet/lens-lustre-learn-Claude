@@ -1,0 +1,110 @@
+F-95 — C-34 register
+check: src/__tests__/noProfileIdLinks.test.ts
+measured 2026-09-05T10:38:24Z — vitest, this container
+
+BASELINE, clean tree before any conversion:
+  65 navigational /profile/<id> sites across 30 files   (check RED)
+
+This 65 is NOT the Auditor's 48/24 or my earlier 45/23, and the three are
+deliberately not reconciled. They measure different things:
+  45 / 23 files  my first grep — to=, href=, navigate(), push(), replace()
+  48 / 24 files  the Auditor's grep, same categories, on the tree as it stood
+  65 / 30 files  this check — adds linkTo=, which UserIdentityBlock passes
+                 straight into <Link to>, and <a href>. It is the count of
+                 sites the conversion actually had to touch, and it is the
+                 pass condition.
+
+PLANT                                                    RESULT
+A  one id link restored in the feed (PostCard)           Tests  1 failed | 3 passed (4)
+B  id fallback restored in the helper                    Tests  4 passed (4)   <-- FALSE GREEN
+   The scan reads CALL SITES, so it could not see the rule broken one level
+   down, inside memberPath(): every call site still read handle={...} while
+   every address in the app carried an id again. A behavioural assertion on
+   the helper was added because of this plant.
+B  (re-run, with that assertion in place)               Tests  1 failed | 4 passed (5)
+C  an admin <a href> id link restored                    Tests  1 failed | 3 passed (4)
+D  a mention reverted to an id link                      Tests  1 failed | 3 passed (4)
+E  linkTo-style prop reintroduced (UserIdentityBlock)    Tests  1 failed | 3 passed (4)
+RESTORED                                                 Tests  5 passed (5)
+
+────────────────────────────────────────────────────────────────────────────
+C-87 — THE CHECK ITSELF WAS THE DEFECT. Auditor's finding, accepted in full.
+
+The first version bridged from the nav token to the id url with
+[^`"'\n]{0,80} — a class that EXCLUDES BACKTICKS. In a ternary the first
+branch is a template literal, so a backtick always sits between them:
+
+    to={p?.custom_url ? `/${p.custom_url}` : `/profile/${user?.id}`}
+
+and the pattern could never reach the fallback. Reproduced directly:
+
+    plain   to={`/profile/${user?.id}`}                 -> matched
+    ternary to={... ? `/...` : `/profile/${user?.id}`}  -> NOT matched
+
+Every ternary fallback in the codebase was invisible. The check reported 0
+while four live sites survived in src/pages/Profile.tsx. It could not have
+failed on the shape that survived, which is a C-34 failure of the instrument.
+
+THE FIX DROPS THE BRIDGE ENTIRELY: any construction of a /profile/<id>
+address anywhere in src is an offender, with no navigation token required.
+Ternaries, line-splits and non-link uses are all caught, because proximity
+is no longer part of the rule.
+
+RED AFTER THE FIX: 14 sites across 8 files — not the 4 the Auditor found.
+The extra 10 are TWO MORE SHAPES the old check was blind to, for reasons
+unrelated to the backtick:
+
+  SHAPE 1 · ternary fallback (the Auditor's 4)      — blocked by the backtick
+    src/pages/Profile.tsx:133, 231, 352, 370
+
+  SHAPE 2 · object-literal destination (7)          — the token list had `to=`
+    but not `to:`; these are menu/search/notification entries whose value is
+    spread into a <Link to>, so they are navigational in every sense
+    src/components/UserMenu.tsx:133          to: `/profile/${user.id}?section=wall`
+    src/components/MobileProfileSheet.tsx:116 to: `/profile/${user.id}?section=wall`
+    src/components/MobileBottomNav.tsx:33     path: `/profile/${user.id}?section=wall`
+    src/pages/Dashboard.tsx:1136              to: `/profile/${user.id}?section=wall`
+    src/components/GlobalSearch.tsx:218       url: `/profile/${p.id}`
+    src/lib/notificationLinks.ts:50, 79       return `/profile/${reference_id}`
+
+  SHAPE 3 · not a link at all (3)                   — no token to bridge FROM
+    the member's own address, rendered for them to read, copy and QR-encode
+    src/pages/Profile.tsx:83, 364
+    src/components/profile/ProfileLeftSidebar.tsx:41
+────────────────────────────────────────────────────────────────────────────
+
+PLANT SWEEP AGAINST THE CORRECTED INSTRUMENT — every shape it was blind to:
+F  TERNARY fallback (the shape that defeated the old check) Tests  1 failed | 7 passed (8)
+G  OBJECT-LITERAL destination (to: not to=)                Tests  1 failed | 7 passed (8)
+H  NOT A LINK — an id url shown to be copied             Tests  1 failed | 7 passed (8)
+I  notification link reverted to an id destination         Tests  1 failed | 7 passed (8)
+J  id fallback restored INSIDE memberPath (helper level)   Tests  1 failed | 7 passed (8)
+RESTORED                                                   Tests  8 passed (8)
+
+────────────────────────────────────────────────────────────────────────────
+C-88 — AN OPTIONAL FIELD MADE THE TYPE UNABLE TO FAIL. Same class as C-87.
+
+C-87 was a regex that could not match the shape that survived it. This is the
+same defect one level up: THE TYPE WAS THE INSTRUMENT, and declaring the field
+optional is what stopped it being able to fail.
+
+  author_handle?: string | null   on Post
+      -> tsc cannot enumerate the hydration sites that lack it.
+      -> PostDetail.tsx, AdComments.tsx, useAddComment.ts and three harness
+         post rows were all missed. The UI gate found ONE of them, twelve
+         anchors across four viewports; the rest were found only by auditing
+         by hand afterwards.
+
+  handle: string | null           required, on UserIdentityBlock
+      -> removing `linkTo` was a hard error, so tsc printed the COMPLETE list
+         of 30 call sites in a single run and missing one was impossible.
+
+Same change, two shapes, one checkable. The fix is not the six hydration sites;
+it is that author_handle is now REQUIRED on the harness fixture post type, so
+the compiler is a check again and a new fixture post cannot silently render a
+member with no reachable name.
+
+The rule this leaves behind: when a field is added BECAUSE every carrier of an
+identity must have it, optional is the wrong shape — optional says "some
+carriers may omit this", which is the exact thing being ruled out.
+────────────────────────────────────────────────────────────────────────────

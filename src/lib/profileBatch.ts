@@ -3,7 +3,7 @@
  *
  * RAW FETCHERS (used as queryFn inside React Query):
  *   fetchProfilesByIds       → Map<id, full_name>
- *   fetchProfilesDetailByIds → Map<id, { full_name, avatar_url }>
+ *   fetchProfilesDetailByIds → Map<id, { full_name, avatar_url, custom_url }>
  *
  * CACHED WRAPPERS (for imperative / non-hook code):
  *   cachedFetchProfilesByIds       — deduplicates, sorts, caches via QueryClient
@@ -30,13 +30,17 @@ export async function fetchProfilesByIds(
 
 export async function fetchProfilesDetailByIds(
   ids: string[]
-): Promise<Map<string, { full_name: string | null; avatar_url: string | null }>> {
+): Promise<Map<string, { full_name: string | null; avatar_url: string | null; custom_url: string | null }>> {
   if (ids.length === 0) return new Map();
   const { data } = await (supabase.from("profiles_public_data" as any) as any)
-    .select("id, full_name, avatar_url")
+    .select("id, full_name, avatar_url, custom_url")
     .in("id", ids);
   return new Map(
-    (data as any[])?.map((p: any) => [p.id, { full_name: p.full_name, avatar_url: p.avatar_url }]) || []
+    (data as any[])?.map((p: any) => [
+      p.id,
+      // F-95 — the handle travels with the name, never resolved per link.
+      { full_name: p.full_name, avatar_url: p.avatar_url, custom_url: p.custom_url ?? null },
+    ]) || []
   );
 }
 
@@ -71,7 +75,7 @@ export async function cachedFetchProfilesByIds(
 
 export async function cachedFetchProfilesDetailByIds(
   ids: string[]
-): Promise<Map<string, { full_name: string | null; avatar_url: string | null }>> {
+): Promise<Map<string, { full_name: string | null; avatar_url: string | null; custom_url: string | null }>> {
   const sorted = dedupeAndSort(ids);
   if (sorted.length === 0) return new Map();
   if (!_qc) return fetchProfilesDetailByIds(sorted);

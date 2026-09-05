@@ -186,14 +186,36 @@ describe("F-85 · the branded 404 must be reachable", () => {
 });
 
 describe("GUARDS · what must not break", () => {
-  it("a member with NO custom_url still falls back to /profile/<id>", async () => {
+  it("F-95 — an old url for a member with NO handle renders in place, it does NOT become an id url", async () => {
+    /*
+     * THIS ASSERTION WAS REVERSED BY F-95, DELIBERATELY, AND THE OLD ONE IS
+     * QUOTED HERE SO THE CHANGE CANNOT BE MISTAKEN FOR A RE-BASELINE.
+     *
+     * It used to read:
+     *   await waitFor(() => expect(path()).toBe(`/profile/${USER_ID}`));
+     * and it was correct for F-85/F-86, whose rule was only that the branded
+     * 404 must be reachable and the vanity url must survive. The redirect to
+     * /profile/<id> was the documented fallback for a member with no handle.
+     *
+     * The Owner's rule since then is stronger: an id url must never be what a
+     * visitor is SHOWN, and an in-app navigate() is a client-side transition
+     * that the edge redirect in functions/profile/[id].ts can never intercept.
+     * So this leg no longer navigates at all. The visitor keeps the address
+     * they typed — an old name-url, which custom_url_history still resolves —
+     * and sees the right member. An old name is a worse canonical address than
+     * a current one; it is a far better one than a UUID.
+     *
+     * What F-85/F-86 proved is untouched: the address is still not rewritten to
+     * anything else, and the profile still renders rather than a 404.
+     */
     rpcMock.mockResolvedValue({ data: [{ user_id: USER_ID, is_current: false }] });
     maybeSingleMock.mockResolvedValue({ data: { id: USER_ID, custom_url: null } });
 
     renderAt("/oldname");
 
-    await waitFor(() => expect(path()).toBe(`/profile/${USER_ID}`));
-    expect(await screen.findByText("PROFILE VIA /profile ROUTE")).toBeTruthy();
+    expect(await screen.findByText(`PROFILE IN PLACE: ${USER_ID}`)).toBeTruthy();
+    expect(path()).toBe("/oldname");
+    expect(path()).not.toBe(`/profile/${USER_ID}`);
   });
 
   it("a dead MULTI-SEGMENT path still reaches the 404", async () => {

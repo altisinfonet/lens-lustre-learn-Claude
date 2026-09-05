@@ -1,4 +1,5 @@
 import { useAuth } from "@/hooks/core/useAuth";
+import { memberPath } from "@/lib/urlHelpers";
 import { publicUrl } from "@/lib/publicUrl";
 import FeaturedPhotos from "./FeaturedPhotos";
 import ProfileIntro from "./ProfileIntro";
@@ -36,9 +37,11 @@ const ProfileLeftSidebar = () => {
   if (!user) return null;
 
   const privacy = profile?.privacy_settings as Record<string, string> | null;
-  const profileUrl = profile?.custom_url
-    ? publicUrl(`/${profile.custom_url}`)
-    : publicUrl(`/profile/${user.id}`);
+  // F-95 — null rather than the id address. The QR card below is only
+  // rendered when there is a real name-url to encode: a QR code of a UUID is
+  // the id url shown, printed and scanned.
+  const ownPath = memberPath(profile?.custom_url);
+  const profileUrl = ownPath ? publicUrl(ownPath) : null;
   const displayName = profile?.full_name || "Photographer";
 
   return (
@@ -102,11 +105,13 @@ const ProfileLeftSidebar = () => {
       </div>
 
       {/* QR Profile Card - always public */}
+      {profileUrl && (
       <QRCodeCard
         profileUrl={profileUrl}
         displayName={displayName}
         avatarUrl={profile?.avatar_url}
       />
+      )}
     </div>
   );
 };

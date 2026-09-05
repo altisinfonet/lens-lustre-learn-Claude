@@ -10,6 +10,8 @@ interface MutualFriend {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
+  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
+  custom_url: string | null;
 }
 
 interface Props {
@@ -47,7 +49,7 @@ const MutualFriends = ({ targetUserId }: Props) => {
 
       const { data: profiles } = await supabase
         .from("profiles_public_data")
-        .select("id, full_name, avatar_url")
+        .select("id, full_name, avatar_url, custom_url")
         .in("id", friendIds);
 
       if (profiles) setMutuals(profiles as MutualFriend[]);
@@ -63,7 +65,7 @@ const MutualFriends = ({ targetUserId }: Props) => {
       {mutuals.length > 0 && (
         <div className="flex -space-x-2">
           {mutuals.slice(0, 4).map((m) => (
-            <ProfileLink key={m.id} userId={m.id}>
+            <ProfileLink key={m.id} userId={m.id} handle={m.custom_url}>
               {m.avatar_url ? (
                 <img loading="lazy" decoding="async"
                   src={m.avatar_url}

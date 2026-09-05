@@ -691,6 +691,14 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
       "None — it confirms the list is being used rather than ignored, which is the only way to tell a working typeahead from a decorative one.",
   },
   {
+    code: "EDGE-9101",
+    severity: "info",
+    description:
+      "A visitor requested a member's profile by internal id rather than by name, and the edge answered it.",
+    resolution:
+      "NOT AN APP LOG. This one is emitted by the Cloudflare Pages Function functions/profile/[id].ts and lands in the Workers log, never in the Error Log — the edge has no build step and cannot use the logger. It is a RATE, read by counting lines over a window, not by reading `n` (that counter is per-isolate and resets constantly). Every line means something handed a visitor a /profile/<uuid> link: the redirect works, but the link should have carried the member's name in the first place. A rising rate is F-95 — links bypassing urlHelpers.ts profileUrl() — and `ref` names the page that generated it. `cache:\"miss\"` dominating instead of `cache:\"hit\"` means the cache is not holding; `outcome:\"lookup-failed\"` means the profile lookup is failing and visitors are being served the app with the id still in the address bar.",
+  },
+  {
     code: "UI-8008",
     severity: "error",
     description:

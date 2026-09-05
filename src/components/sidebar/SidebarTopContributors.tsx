@@ -1,4 +1,5 @@
 import { useTopContributors } from "@/hooks/useTopContributors";
+import ProfileLink from "@/components/ProfileLink";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import { Trophy } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -39,9 +40,9 @@ const SidebarTopContributors = () => {
       </div>
 
       {contributors.slice(0, 3).map((c, i) => (
-        <Link
+        <ProfileLink
           key={c.id}
-          to={`/profile/${c.id}`}
+          userId={c.id} handle={c.custom_url}
           className="flex items-center gap-2.5 group"
         >
           <span className="text-xs shrink-0">{medals[i]}</span>
@@ -75,7 +76,7 @@ const SidebarTopContributors = () => {
               Lifetime {c.contributor_score.toLocaleString()}
             </div>
           </div>
-        </Link>
+        </ProfileLink>
       ))}
     </div>
   );

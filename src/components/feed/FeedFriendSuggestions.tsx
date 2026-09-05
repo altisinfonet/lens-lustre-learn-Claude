@@ -200,7 +200,7 @@ const FeedFriendSuggestions = () => {
                 <X className="h-3.5 w-3.5" />
               </button>
 
-              <ProfileLink userId={s.id} className="shrink-0">
+              <ProfileLink userId={s.id} handle={s.custom_url} className="shrink-0">
                 {s.avatar_url ? (
                   <img
                     referrerPolicy="no-referrer"
@@ -230,7 +230,7 @@ const FeedFriendSuggestions = () => {
                 <UserIdentityBlock
                   userId={s.id}
                   name={s.full_name || "Photographer"}
-                  linkTo={`/profile/${s.id}`}
+                  handle={s.custom_url}
                   stack
                   align="center"
                   nameClassName="text-[11px] font-semibold text-foreground hover:text-primary transition-colors"

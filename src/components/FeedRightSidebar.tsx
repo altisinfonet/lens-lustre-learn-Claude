@@ -132,7 +132,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
             ) : (
               suggestions.map((s: any) => (
                 <div key={s.id} className="flex items-center gap-3 px-4 py-3">
-                  <ProfileLink userId={s.id} className="shrink-0">
+                  <ProfileLink userId={s.id} handle={s.custom_url} className="shrink-0">
                     {s.avatar_url ? (
                       <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={s.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
                     ) : (
@@ -147,7 +147,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
                     <UserIdentityBlock
                       userId={s.id}
                       name={s.full_name || "Photographer"}
-                      linkTo={`/profile/${s.id}`}
+                      handle={s.custom_url}
                       nameClassName="text-xs font-medium truncate hover:text-primary transition-colors"
                     />
                     {s.mutual_count > 0 && (

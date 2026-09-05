@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
+import { memberPath, CLAIM_URL_PATH } from "@/lib/urlHelpers";
 import { formatUSDFixed } from "@/lib/currencyFormat";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
@@ -43,6 +44,8 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
   const { balance: walletBalance } = useWalletSummary(!isAdmin ? user?.id : undefined);
   const [open, setOpen] = useState(false);
   const { data: profileCore } = useProfileCore(user?.id);
+  const ownPath = memberPath(profileCore?.custom_url);
+  const wallPath = ownPath ? `${ownPath}?section=wall` : CLAIM_URL_PATH;
   const avatarUrl = profileCore?.avatar_url ?? null;
   const hasAdminPanelAccess = resolveAdminSubRoles(roles).length > 0;
 
@@ -131,7 +134,9 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
       title: "My Content",
       items: [
         { icon: ImageIcon, label: "My Submissions", to: "/dashboard?tab=submissions", show: true, tooltip: "Competition entries" },
-        { icon: MessageSquare, label: "My Wall", to: `/profile/${user.id}?section=wall`, show: true, tooltip: "Your posts & updates" },
+        // F-95 — the member's own wall, by NAME. With no handle this points at
+        // the screen that claims one rather than at their id.
+        { icon: MessageSquare, label: "My Wall", to: wallPath, show: true, tooltip: "Your posts & updates" },
         { icon: Camera, label: "My Photos", to: "/photos", show: true, tooltip: "Your photo collection" },
         { icon: Trophy, label: "Competitions", to: "/competitions", show: true, tooltip: "Browse & enter" },
         { icon: Award, label: "My Certificates", to: "/certificates", show: true, tooltip: "Your achievements" },

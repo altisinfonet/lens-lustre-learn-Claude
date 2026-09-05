@@ -5,7 +5,28 @@
  * handler, so the two can never drift apart. A push payload only carries
  * `type` and `reference_id`, which is all this needs.
  */
-export type NotifLinkInput = { type: string; reference_id?: string | null };
+export type NotifLinkInput = {
+  type: string;
+  reference_id?: string | null;
+  /**
+   * The referenced MEMBER's name-URL handle, for the two types whose
+   * destination is a person.
+   *
+   * F-95 — OPTIONAL, AND ITS ABSENCE IS NOT AN ID URL. This function used to
+   * return `/profile/${reference_id}` for new_follower and friend_accepted,
+   * which puts a UUID in the address bar and keeps it there, because an in-app
+   * navigate() is never seen by the edge redirect.
+   *
+   * The in-app bell and the notifications page resolve this from
+   * profileMapCache and pass it. A PUSH payload carries only type and
+   * reference_id, so it cannot — and there a tap falls through to the same
+   * destination this function has always used when reference_id is missing
+   * (/friends, /feed). Stated rather than hidden: tapping one of those two
+   * push types lands one screen wider than before. That is the honest cost of
+   * not shipping a UUID, and it is recoverable in one tap.
+   */
+  handle?: string | null;
+};
 
 export function getNotifLink(notif: NotifLinkInput): string {
   switch (notif.type) {
@@ -53,7 +74,7 @@ export function getNotifLink(notif: NotifLinkInput): string {
     // These are informational — the person is the destination.
     case "new_follower":
     case "friend_accepted":
-      return notif.reference_id ? `/profile/${notif.reference_id}` : "/friends";
+      return notif.handle ? `/${notif.handle}` : "/friends";
     case "role_approved":
     case "role_rejected":
       return "/dashboard";
@@ -82,7 +103,7 @@ export function getNotifLink(notif: NotifLinkInput): string {
     // so the destination is that person. reference_id is the celebrant, written
     // by emit_birthday_notifications().
     case "birthday":
-      return notif.reference_id ? `/profile/${notif.reference_id}` : "/feed";
+      return notif.handle ? `/${notif.handle}` : "/feed";
     default:
       return "/dashboard";
   }

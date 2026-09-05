@@ -45,6 +45,8 @@ import { Link } from "react-router-dom";
 import { PartyPopper } from "lucide-react";
 import { useDashboardContext } from "@/hooks/core/DashboardContext";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
+import ProfileLink from "@/components/ProfileLink";
+import { useMemberHandles } from "@/hooks/profile/useMemberHandles";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -57,6 +59,10 @@ const TodaysBirthdayStrip = () => {
   // owner would turn the section off and still see it on his phone.
   const enabled = sidebarData?.sections?.todays_birthday !== false;
   const people = sidebarData?.birthdays ?? [];
+  // ONE batched lookup for the whole strip — get_todays_birthdays does not
+  // return custom_url yet. See useMemberHandles for the full list and for why
+  // this is a bridge rather than the design.
+  const handles = useMemberHandles(people.map((u: { id: string }) => u.id));
 
   if (!enabled || people.length === 0) return null;
 
@@ -78,7 +84,7 @@ const TodaysBirthdayStrip = () => {
       <div className="divide-y divide-border">
         {people.map((u: any) => (
           <div key={u.id} className="flex items-center gap-3 px-4 py-3">
-            <Link to={`/profile/${u.id}`} className="shrink-0">
+            <ProfileLink userId={u.id} handle={handles.get(u.id)} className="shrink-0">
               {u.avatar_url ? (
                 <img
                   referrerPolicy="no-referrer"
@@ -95,12 +101,12 @@ const TodaysBirthdayStrip = () => {
                   </span>
                 </div>
               )}
-            </Link>
+            </ProfileLink>
             <div className="flex-1 min-w-0">
               <UserIdentityBlock
                 userId={u.id}
                 name={u.full_name || "Photographer"}
-                linkTo={`/profile/${u.id}`}
+                handle={handles.get(u.id)}
                 nameClassName="text-sm font-medium truncate hover:text-primary transition-colors"
               />
               <span className="text-[10px] text-muted-foreground" style={bodyFont}>

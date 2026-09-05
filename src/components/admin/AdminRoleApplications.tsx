@@ -21,7 +21,7 @@ interface RoleApp {
   experience: string | null;
   admin_message: string | null;
   created_at: string;
-  profiles: { full_name: string | null } | null;
+  profiles: { full_name: string | null; custom_url?: string | null } | null;
 }
 
 interface Props {
@@ -225,7 +225,7 @@ const AdminRoleApplications = ({ roleApps, onRefresh, userId }: Props) => {
               <Checkbox checked={selected.has(app.id)} onCheckedChange={() => toggleOne(app.id)} />
               <span className="text-[10px] tabular-nums text-muted-foreground w-5" style={bodyStyle}>#{idx + 1}</span>
               <div className="flex-1 min-w-0">
-                <ProfileLink userId={app.user_id} className="text-[13px] font-semibold text-primary leading-tight" style={headStyle}>
+                <ProfileLink userId={app.user_id} handle={app.profiles?.custom_url} className="text-[13px] font-semibold text-primary leading-tight" style={headStyle}>
                   {app.profiles?.full_name || "Unknown User"}
                 </ProfileLink>
               </div>
@@ -341,7 +341,7 @@ const AdminRoleApplications = ({ roleApps, onRefresh, userId }: Props) => {
                 <TableCell><Checkbox checked={selected.has(app.id)} onCheckedChange={() => toggleOne(app.id)} /></TableCell>
                 <TableCell className="text-xs tabular-nums text-muted-foreground" style={bodyStyle}>{idx + 1}</TableCell>
                 <TableCell>
-                  <ProfileLink userId={app.user_id} className="text-xs font-medium text-primary hover:underline transition-colors text-left" style={headStyle}>
+                  <ProfileLink userId={app.user_id} handle={app.profiles?.custom_url} className="text-xs font-medium text-primary hover:underline transition-colors text-left" style={headStyle}>
                     {app.profiles?.full_name || "Unknown User"}
                   </ProfileLink>
                 </TableCell>

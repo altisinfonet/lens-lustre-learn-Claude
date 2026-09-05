@@ -109,10 +109,19 @@ describe("the tagged-people line on a post header", () => {
     expect(within(dialog).getByText("Tagged (20)")).toBeTruthy();
   });
 
-  it("links every name to that member's profile", () => {
-    show([{ id: "abc123", name: "Avijit Sheel" }]);
+  it("links every name to that member's NAME url", () => {
+    // Was `/profile/abc123`. F-95 reversed that on purpose: an in-app click is
+    // a client-side navigation the edge redirect can never intercept, so an id
+    // built here would sit in the address bar and stay there.
+    show([{ id: "abc123", name: "Avijit Sheel", handle: "avijit.sheel" }]);
     const link = screen.getByText("Avijit Sheel").closest("a");
-    expect(link?.getAttribute("href")).toBe("/profile/abc123");
+    expect(link?.getAttribute("href")).toBe("/avijit.sheel");
+  });
+
+  it("F-95 — a tagged member with NO handle is named but not linked to an id", () => {
+    show([{ id: "abc123", name: "Avijit Sheel" }]);
+    expect(screen.getByText("Avijit Sheel")).toBeTruthy();
+    expect(screen.getByText("Avijit Sheel").closest("a")).toBeNull();
   });
 });
 

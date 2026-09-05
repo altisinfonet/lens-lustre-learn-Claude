@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ProfileLink from "@/components/ProfileLink";
 import PageSEO from "@/components/PageSEO";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -179,7 +180,7 @@ const Journal = () => {
                             </p>
                           )}
                           <div className="flex items-center gap-4 text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                            <Link to={`/profile/${hero.author_id}`} className="hover:text-primary hover:underline transition-colors">{hero.profiles?.full_name || "Unknown"}</Link>
+                            <ProfileLink userId={hero.author_id} handle={hero.profiles?.custom_url} className="hover:text-primary hover:underline transition-colors">{hero.profiles?.full_name || "Unknown"}</ProfileLink>
                             <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
                               {new Date(hero.published_at || hero.created_at).toLocaleDateString("en-US", {
@@ -255,7 +256,7 @@ const Journal = () => {
                               </p>
                             )}
                             <div className="flex items-center gap-4 text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                              <Link to={`/profile/${article.author_id}`} className="hover:text-primary hover:underline transition-colors">{article.profiles?.full_name || "Unknown"}</Link>
+                              <ProfileLink userId={article.author_id} handle={article.profiles?.custom_url} className="hover:text-primary hover:underline transition-colors">{article.profiles?.full_name || "Unknown"}</ProfileLink>
                               <span className="flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
                                 {new Date(article.published_at || article.created_at).toLocaleDateString("en-US", {

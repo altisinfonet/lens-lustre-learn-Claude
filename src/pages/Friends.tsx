@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import { getAdminIds, resolveName } from "@/lib/adminBrand";
-import { profileUrl } from "@/lib/urlHelpers";
+import ProfileLink from "@/components/ProfileLink";
 import { formatLastSeen, isActiveNow } from "@/hooks/core/useLastActive";
 import { useT } from "@/i18n/I18nContext";
 
@@ -80,7 +80,7 @@ const Friends = () => {
   }, [user, authLoading, navigate]);
 
   const [mutualCounts, setMutualCounts] = useState<Map<string, number>>(new Map());
-  const [mutualProfiles, setMutualProfiles] = useState<Map<string, { id: string; full_name: string | null; avatar_url: string | null }[]>>(new Map());
+  const [mutualProfiles, setMutualProfiles] = useState<Map<string, { id: string; full_name: string | null; avatar_url: string | null; custom_url: string | null }[]>>(new Map());
 
   const fetchAll = useCallback(async () => {
     if (!user) return;
@@ -134,7 +134,7 @@ const Friends = () => {
     // Batch fetch mutual friend counts — 2 queries total instead of N*2
     const otherIds = Array.from(userIds);
     const mcMap = new Map<string, number>();
-    const mpMap = new Map<string, { id: string; full_name: string | null; avatar_url: string | null }[]>();
+    const mpMap = new Map<string, { id: string; full_name: string | null; avatar_url: string | null; custom_url: string | null }[]>();
 
     if (otherIds.length > 0) {
       // Single batch RPC for counts
@@ -173,7 +173,7 @@ const Friends = () => {
       // Single batch profile fetch for all mutual friends
       if (allMutualFriendIds.size > 0) {
         const { data: mProfiles } = await profilesPublic()
-          .select("id, full_name, avatar_url")
+          .select("id, full_name, avatar_url, custom_url")
           .in("id", Array.from(allMutualFriendIds));
         const mProfileMap = new Map((mProfiles || []).map((p: any) => [p.id, p]));
 
@@ -526,7 +526,7 @@ const PersonRow = ({ profile, badges, subtitle, date, actions, mutualCount, mutu
   date: string;
   actions: React.ReactNode;
   mutualCount?: number;
-  mutualFriends?: { id: string; full_name: string | null; avatar_url: string | null }[];
+  mutualFriends?: { id: string; full_name: string | null; avatar_url: string | null; custom_url: string | null }[];
 }) => {
   const t = useT();
   const name = profile.full_name || "Unknown User";
@@ -535,7 +535,7 @@ const PersonRow = ({ profile, badges, subtitle, date, actions, mutualCount, mutu
 
   return (
     <div className="flex gap-3 p-3 md:p-5">
-      <Link to={profileUrl(profile)} className="shrink-0 mt-0.5 relative">
+      <ProfileLink userId={profile.id} handle={profile.custom_url} className="shrink-0 mt-0.5 relative">
         {profile.avatar_url ? (
           <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={profile.avatar_url} alt={name} className={`w-11 h-11 rounded-full object-cover ${online ? "ring-2 ring-green-500 ring-offset-2 ring-offset-background" : ""}`} />
         ) : (
@@ -549,7 +549,7 @@ const PersonRow = ({ profile, badges, subtitle, date, actions, mutualCount, mutu
             online ? "bg-green-500" : "bg-muted-foreground/30"
           }`}
         />
-      </Link>
+      </ProfileLink>
       <div className="flex-1 min-w-0">
         {/* Top row: name + date */}
         <div className="flex items-start justify-between gap-2">
@@ -557,7 +557,7 @@ const PersonRow = ({ profile, badges, subtitle, date, actions, mutualCount, mutu
             <UserIdentityBlock
               userId={profile.id}
               name={name}
-              linkTo={profileUrl(profile)}
+              handle={profile.custom_url}
               nameClassName="text-sm font-light hover:text-primary transition-colors duration-300 break-words [font-family:var(--font-heading)]"
             />
           </div>
@@ -570,7 +570,7 @@ const PersonRow = ({ profile, badges, subtitle, date, actions, mutualCount, mutu
             {/* Real avatars of mutual friends */}
             <div className="flex -space-x-1.5">
               {(mutualFriends || []).slice(0, 3).map((m) => (
-                <Link key={m.id} to={`/profile/${m.id}`} className="relative z-[1] hover:z-10 transition-transform hover:scale-110">
+                <ProfileLink key={m.id} userId={m.id} handle={m.custom_url} className="relative z-[1] hover:z-10 transition-transform hover:scale-110">
                   {m.avatar_url ? (
                     <img loading="lazy" decoding="async"
                       src={m.avatar_url}
@@ -584,21 +584,21 @@ const PersonRow = ({ profile, badges, subtitle, date, actions, mutualCount, mutu
                       </span>
                     </div>
                   )}
-                </Link>
+                </ProfileLink>
               ))}
             </div>
             <span className="text-[10px] text-muted-foreground" style={headingFont}>
               {mutualCount} {t("fr.mutualFriends")}
               {mutualFriends && mutualFriends.length > 0 && (
                 <> {t("fr.including")}{" "}
-                  <Link to={`/profile/${mutualFriends[0].id}`} className="text-foreground font-medium hover:text-primary transition-colors">
+                  <ProfileLink userId={mutualFriends[0].id} handle={mutualFriends[0].custom_url} className="text-foreground font-medium hover:text-primary transition-colors">
                     {mutualFriends[0].full_name || "a friend"}
-                  </Link>
+                  </ProfileLink>
                   {mutualCount > 1 && mutualFriends.length > 1 && (
                     <> and{" "}
-                      <Link to={`/profile/${mutualFriends[1].id}`} className="text-foreground font-medium hover:text-primary transition-colors">
+                      <ProfileLink userId={mutualFriends[1].id} handle={mutualFriends[1].custom_url} className="text-foreground font-medium hover:text-primary transition-colors">
                         {mutualFriends[1].full_name || "others"}
-                      </Link>
+                      </ProfileLink>
                     </>
                   )}
                 </>
