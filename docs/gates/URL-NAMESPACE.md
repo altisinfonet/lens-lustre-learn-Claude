@@ -151,13 +151,45 @@ cannot be bypassed**, and it must be case-insensitive.
 
 **⚠ THE FIRST ROW IS TRUE OF THE 513 THAT EXIST, NOT OF THE NEXT MEMBER TO SIGN UP.**
 
-**F-93 IS NOT COMPLETE. Units 4, 4b and 5 are merged in code but NOT APPLIED to staging.**
-`handle_new_user` **does not mention `custom_url`**, and **there is no INSERT-time trigger** — so
-**a member signing up on staging right now still gets NULL.** D1 is applying them.
+**F-93 IS NOT COMPLETE. Two separate unapplied things, and they are not the same thing.**
+
+**(a) Signup — units 4, 4b and 5**, merged in code, **NOT APPLIED to staging.** `handle_new_user`
+**does not mention `custom_url`**, and **there is no INSERT-time trigger** — so **a member signing up
+on staging right now still gets NULL.** D1 is applying them.
+
+**(b) The 12-month change window — UNIT 3**, migration
+`supabase/migrations/20260910_0008_f93_custom_url_change_window.sql`, **NOT APPLIED to staging.**
+**This is a named unit, not a general pending**, and it was previously described to D3 as part of
+units 4/4b/5, which was wrong.
+
+**Consequence today, stated plainly: `trg_forbid_custom_url_change` still raises UNCONDITIONALLY, so
+a member CANNOT CHANGE THEIR NAME-URL AT ALL.** §1.4 — the Owner's *"limited mean Once a year"* — is
+**specified and not yet in force.** The right the Owner granted after ruling the permanence a defect
+(§3.1) is **still the defect he ruled against**, until unit 3 is applied.
 
 **§1.1's guarantee is therefore PENDING-ON-APPLY**, and stays pending until the Auditor confirms.
 A backfill that fixes 513 rows and leaves the 514th broken has not met *"HAVE NONE must be zero"* —
 **the rule is a property of the system, not a one-off state of the table.**
+
+### 2.5 · WHAT THE SIGNUP PROOF DOES AND DOES NOT COVER
+
+**Stated here rather than left in a session, because a reader will otherwise believe the whole signup
+path was exercised.**
+
+**Staging's GoTrue is captcha-gated.** The fail-first proof D1 is running therefore cannot drive a
+real signup. It is driven by an **`auth.users` insert**, which fires:
+
+```
+auth.users INSERT → on_auth_user_created → handle_new_user() → public.profiles
+```
+
+**That trigger chain is what is under test. GoTrue's own HTTP layer is NOT covered by it.**
+
+**What this means for anyone reading a green result:** the proof establishes that *given a row in
+`auth.users`*, a profile is created with a name-URL. It establishes **nothing** about whether
+GoTrue's signup endpoint reaches that insert — captcha handling, rate limiting, email confirmation
+and every other GoTrue behaviour sit **above** the tested boundary. **A green here is a real result
+about a real chain, and it is not a proof that signup works.**
 
 ---
 
@@ -214,7 +246,8 @@ generator prove itself.
 * It **does not define** the reserved list. `public.reserved_custom_urls` does; this file quotes it.
 * It **does not close** F-91. The seed is still narrow.
 * It **does not close** F-93 — §2.4's first guarantee is **pending-on-apply** until the Auditor
-  confirms units 4, 4b and 5 are applied to staging.
+  confirms units 4, 4b and 5 are applied, and **unit 3** (the change window) is unapplied besides.
+* It **does not close** F-95 (§5). **F-92 is not green**, and #189 must not merge alone.
 * It records the specification **as of 2026-09-05**. Where the Owner rules differently, his ruling
   wins and this file is amended — **with the superseded text left visible**, as
   `docs/gates/P1-revocation-list.md` §2.2 was, because a gate that silently loses its own history is
@@ -244,3 +277,51 @@ it is confidently wrong, and it invites a reader to trust it instead of measurin
 
 **The lesson is this project's oldest one, committed here in a new place:** *a claim reported before
 its instrument was read.* The instrument was the table. **This file now quotes the table and says so.**
+
+---
+
+## 5 · F-95 — THE RULE IS NOT MET IN THE APP, AND THIS IS WHAT STANDS IN FRONT OF IT
+
+**The Owner's rule (§1.5): *"any link always show profilename link"*.**
+
+**F-92-REDO answers `/profile/<id>` AT THE EDGE.** That fixes **hard loads and external links** — a
+pasted URL, a search result, a link from outside. **It cannot fix an in-app click, because a Pages
+Function never sees one.** A client-side navigation is resolved by the router in the browser; no
+request leaves it. **The edge fix and the in-app case are disjoint, and only the first is done.**
+
+### 5.1 · The measurements — the Auditor's, both to be quoted
+
+| measurement | reading |
+|---|---|
+| source scan, navigational id-link sites | **48 sites across 24 files** |
+| `profileUrl()` used at | **exactly 2** |
+| deployed **signed-in staging feed** | **24 of the 53 anchors on the page point at `/profile/<uuid>`** |
+
+**Nearly half the links on the front page hand the visitor a UUID.** The helper that would produce
+the name form exists and is called **twice in the entire codebase.**
+
+**D3's independent check of the two source figures, recorded because it did not fully reproduce:**
+`profileUrl()` at **exactly 2 call sites** reproduces precisely — `src/pages/Friends.tsx:538` and
+`:560`, the third occurrence being the definition in `src/lib/urlHelpers.ts:11`. **The 48/24 did
+not.** D3's scans **bracket** it — 43 sites / 22 files, 50 / 25, 54 / 27, 56 / 29 — depending on
+whether `navigate(` counts as navigational and whether tests are excluded. **The figure is
+plausible and is the Auditor's; the pattern that produced it is not recorded here.** ⚠ **A
+source-scan count without its pattern is not reproducible** — the same defect class as a truncated
+quotation (C-76) or a count taken on an unstated clone depth (Standing Rule 22). **The pattern should
+be recorded beside the number.**
+
+### 5.2 · WHY #189 MUST NOT MERGE ALONE — the part a reader will miss
+
+**#189 removes the client-side rewrite.** Today an id link is **shown, then corrected** — the address
+appears as a UUID and is replaced. That is the behaviour F-86's fix produces.
+
+**Merged alone, #189 would turn an id that is currently SHOWN-THEN-CORRECTED into an id that is SHOWN
+AND KEPT.** The visible defect would get **worse**, not better, and it would look like a regression
+caused by the very work meant to fix it.
+
+**RULING: F-92 and F-95 MERGE TOGETHER. F-92 IS NOT GREEN.**
+
+**This is the shape of failure worth naming:** each change is correct in isolation and the pair is
+ordered wrongly. Nothing in either diff shows it. **It is visible only from the rule** — *any link
+always shows the name link* — **which is why the rule is written down in §1.5 and why this file
+exists.**
