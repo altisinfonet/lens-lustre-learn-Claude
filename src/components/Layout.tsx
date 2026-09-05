@@ -337,33 +337,49 @@ const LayoutInner = () => {
       )}
 
       {/* Page content with bottom nav padding on mobile */}
+      {/*
+        ⚠ ONE STRUCTURE, NOT TWO BRANCHES — AND THAT IS A BUG FIX, NOT A TIDY-UP.
+        F-89 shipped this as a ternary: a sidebar branch that wrapped <Outlet />
+        in div > div > AnimatePresence, and a bare branch with AnimatePresence at
+        the top. Those are DIFFERENT TREE SHAPES, so every flip of
+        isSidebarEligibleRoute destroyed and recreated the whole Outlet subtree.
+
+        On the catch-all route that cost one extra remount and settled, because
+        NotFound holds no state. On the SINGLE-SEGMENT route it was unbounded:
+        the remount reset CustomUrlProfile's `checking` back to true, NotFound
+        unmounted, its cleanup set the flag false, the shell came back, the
+        lookup completed, NotFound mounted, the flag went true, and the subtree
+        was destroyed again. Deployed staging logged UI-8006 about twice a
+        second for ever; the harness scene logs 41/sec. The page never drew.
+
+        So the layout must not change SHAPE when the flag changes — only its
+        classes and whether the asides render. The middle column keeps its
+        position in the children list either way, so React keeps its identity
+        and nothing below it remounts.
+      */}
       <div className="pb-12 lg:pb-0">
-        {isSidebarEligibleRoute ? (
-          <div className="flex gap-8 container mx-auto">
+        <div className={isSidebarEligibleRoute ? "flex gap-8 container mx-auto" : undefined}>
+          {isSidebarEligibleRoute ? (
             <aside className="hidden xl:block w-64 shrink-0 sticky top-24 self-start py-6 max-h-[calc(100vh-6rem)] overflow-y-auto scrollbar-hide">
               <>
                 <FeedLeftSidebar sidebarData={sidebarData} isLoading={dashboardLoading} />
                 {isProfilePage && <ProfileLeftSidebar />}
               </>
             </aside>
-            <div className="flex-1 min-w-0 w-full max-w-[590px] mx-auto">
-              <AnimatePresence mode="wait">
-                <PageTransition key={pathname}>
-                  <Outlet />
-                </PageTransition>
-              </AnimatePresence>
-            </div>
+          ) : null}
+          <div className={isSidebarEligibleRoute ? "flex-1 min-w-0 w-full max-w-[590px] mx-auto" : undefined}>
+            <AnimatePresence mode="wait">
+              <PageTransition key={pathname}>
+                <Outlet />
+              </PageTransition>
+            </AnimatePresence>
+          </div>
+          {isSidebarEligibleRoute ? (
             <aside className="hidden lg:block w-72 shrink-0 sticky top-24 self-start py-6 max-h-[calc(100vh-6rem)] overflow-y-auto scrollbar-hide">
               <FeedRightSidebar sidebarData={sidebarData} isLoading={dashboardLoading} />
             </aside>
-          </div>
-        ) : (
-          <AnimatePresence mode="wait">
-            <PageTransition key={pathname}>
-              <Outlet />
-            </PageTransition>
-          </AnimatePresence>
-        )}
+          ) : null}
+        </div>
       </div>
 
       {/* Site Footer — the policy/links footer.
