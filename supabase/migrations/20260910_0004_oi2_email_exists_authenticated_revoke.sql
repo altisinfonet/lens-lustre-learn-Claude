@@ -1,0 +1,127 @@
+-- OI-2 · email_exists(text) — close the enumeration oracle to `authenticated` too.
+--
+-- =============================================================================
+-- ⚠ THIS FILE GOES BEYOND THE FROZEN REVOCATION LIST. SAY SO PLAINLY.
+--
+-- docs/gates/P1-revocation-list.md §2.1 (rev 2, blob 88c08093) authorises
+-- revoking EXECUTE on this function "FROM public, anon" — AND NO MORE. P30's
+-- own migration says the same in its own words, and refused to vary:
+--
+--   "`authenticated` KEEPS EXECUTE. The frozen list authorises 'FROM public,
+--    anon' and no more. D1 does not vary from the list, so authenticated is
+--    untouched and the probe ASSERTS it is still true — an over-revoke is as
+--    much a defect as an under-revoke."
+--
+-- That was right then and this file does not pretend otherwise. What changed is
+-- not the reasoning; it is the AUTHORITY. P30 raised the gap for the Auditor
+-- rather than acting on it:
+--
+--   "⚠ RAISED FOR THE AUDITOR, NOT ACTED ON: anyone may create an account, so
+--    `authenticated` is not a meaningfully higher bar than `anon` against the
+--    enumeration class this unit exists to close … Either way it is the
+--    Auditor's call and belongs in a revision of the frozen list, not in a
+--    developer's migration."
+--
+-- The Auditor gave that call on 2026-09-05, in his own instruction, having
+-- first required the caller set to be PROVED rather than assumed.
+--
+-- ⚠ THE FROZEN LIST ITSELF IS NOW OUT OF STEP WITH THIS FILE, AND THAT IS A
+-- LOOSE END, NOT A DETAIL. §2.1 still reads "FROM public, anon". Until it is
+-- revised, a reader comparing the two will find a migration that exceeds its
+-- authorising document. D1 cannot edit the frozen list — it is the Auditor's,
+-- and the freeze is the point. Raised here so the discrepancy is on the record
+-- at the place where it bites. THE LIST SHOULD BE REVISED TO MATCH.
+--
+-- =============================================================================
+-- WHY authenticated IS NOT A MEANINGFUL BAR HERE
+--
+-- The class this closes is account enumeration: turning the API into an oracle
+-- that answers "does an account exist for this address?", one address at a
+-- time, feeding phishing and credential-stuffing lists.
+--
+-- ANYONE MAY CREATE AN ACCOUNT ON THIS PLATFORM. So `authenticated` is a
+-- turnstile, not a wall: an attacker signs up once and asks the same question
+-- about every address they like. It is a SMALLER DOOR, NOT A SHUT ONE.
+--
+-- What `authenticated` does buy, and it is not nothing: the caller is
+-- attributable and rate-limitable in a way `anon` is not. That is very likely
+-- why the frozen list stopped where it did. It is a reason to prefer
+-- authenticated over anon; it is not a reason to leave the door open once no
+-- caller needs it.
+--
+-- =============================================================================
+-- THE CALLER SET — PROVED BEFORE PROPOSING, NOT AFTER (the Auditor's condition)
+--
+-- Measured by D1 2026-09-05 over the whole repository at staging HEAD:
+--
+--   supabase/functions/   114 files   ZERO references to email_exists
+--   functions/              8 files   ZERO references to email_exists
+--   whole tree, no filename filter, excluding node_modules and .git:
+--     src/pages/ForgotPassword.tsx:39   ← the ONLY runtime caller
+--     src/pages/verifyCertificateErrors.ts:37   ← a comment, not a call
+--
+-- AUTH CONTEXT OF THAT ONE CALLER: src/App.tsx:376 routes /forgot-password
+-- alongside /login and /signup, outside any protected wrapper. It is an
+-- ANONYMOUS-VISITOR flow. A signed-in user has no reason to be on it, and the
+-- page does not require a session to work.
+--
+-- AND IT IS FAIL-OPEN, in source (ForgotPassword.tsx:37-52):
+--
+--     let exists: boolean | null = null;
+--     try {
+--       const { data, error: checkError } = await supabase.rpc("email_exists", …);
+--       if (!checkError && typeof data === "boolean") exists = data;
+--     } catch { exists = null; }
+--     if (exists === false) { setNotFound(true); … return; }
+--     … resetPasswordForEmail(…)
+--
+-- A refusal sets checkError, the assignment is skipped, `exists` stays null,
+-- and `null === false` is false — so control falls through and the reset email
+-- still sends. Two independent mechanisms, not one. Confirmed on the LIVE
+-- PRODUCTION BUNDLE by the Auditor, chunk ForgotPassword-BJl06yD9.js, across
+-- all 141 chunks.
+--
+-- CONCLUSION: no caller requires `authenticated`, and the single caller cannot
+-- break when the grant is withdrawn, because it already cannot break when the
+-- call fails.
+--
+-- =============================================================================
+-- F-62 DOES NOT APPLY HERE, AND THIS FILE DOES NOT BORROW THE FINDING
+--
+-- F-62: `REVOKE … FROM <role>` is a no-op wherever PUBLIC holds the grant.
+-- email_exists carries NO PUBLIC entry — measured on both lanes before P30, and
+-- P30's own two-step form left none behind. The Auditor's reading after the P30
+-- production apply, 2026-09-05T01:20:26Z:
+--
+--   acl = postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres
+--
+-- No leading `=X/postgres`. So `REVOKE … FROM authenticated` acts directly and
+-- needs no PUBLIC step to precede it. The `FROM public` line is written anyway,
+-- for the same F-66 reason P30 gave: the day anyone recreates this function
+-- with DROP+CREATE it reopens to PUBLIC, and a role-only revoke silently stops
+-- working. It is a no-op on today's catalogue and this file says so rather than
+-- claiming a bite it does not have (C-49 / C-53).
+--
+-- =============================================================================
+-- WHAT IS DELIBERATELY NOT REVOKED
+--
+-- `service_role` KEEPS EXECUTE. Server-side callers are not the attack class,
+-- there is no anonymous path to that key, and the probe ASSERTS it is still
+-- true so a future edit cannot quietly strip it. An over-revoke is as much a
+-- defect as an under-revoke.
+--
+-- =============================================================================
+-- SEQUENCE POSITION — BEHAVIOUR, not EXPAND, not CONTRACT.
+--
+-- It changes what the system does for signed-in callers on the day it applies.
+-- Nothing is dropped; the body, volatility, search_path and SECURITY DEFINER
+-- flag are untouched; the rollback restores the prior ACL. STAGING FIRST,
+-- ALWAYS. The Auditor authorises the apply; on production the environment gate
+-- is the Owner's click. Committing is not applying.
+-- =============================================================================
+
+REVOKE ALL ON FUNCTION public.email_exists(text) FROM public;
+REVOKE ALL ON FUNCTION public.email_exists(text) FROM authenticated;
+
+COMMENT ON FUNCTION public.email_exists(text) IS
+  'Account-existence check. NOT executable by anon (P30) and NOT by authenticated (OI-2). Anyone may create an account, so authenticated was a turnstile and not a wall against account enumeration; the sole caller, src/pages/ForgotPassword.tsx, is an anonymous-visitor flow and is fail-open, so withdrawing the grant cannot break it. service_role retains EXECUTE. ⚠ OI-2 goes beyond frozen revocation list §2.1, which authorises public+anon only; the Auditor authorised it on 2026-09-05 and the list should be revised to match. If this function is ever recreated with DROP+CREATE it REOPENS to PUBLIC (F-66) and both revokes must be re-applied and re-proved.';
