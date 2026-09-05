@@ -36,67 +36,78 @@ COMMENT ON FUNCTION public.custom_url_fold_accents(text) IS
 -- Returns NULL — never '' and never '.' — when the name carries no usable
 -- character at all. NULL is the honest answer and forces the caller to decide;
 -- an empty string would sail straight into a URL.
--- ⚠ STABLE, NOT IMMUTABLE — and the downgrade is deliberate. This now depends
--- on public.transliteration_map, so its answer is a function of table contents
--- as well as its argument. Declaring it IMMUTABLE would be a lie the planner
--- believes: it could cache a result computed before a mapping row was added.
--- The determinism that actually matters (same name, same URL, every re-run)
--- still holds, because the map only ever grows and never rewrites an existing
--- character.
+-- ⚠ STABLE, NOT IMMUTABLE — and the downgrade is deliberate. This depends on
+-- public.transliteration_map and public.name_part_spellings, so its answer is a
+-- function of table contents as well as its argument. Declaring it IMMUTABLE
+-- would be a lie the planner believes: it could cache a result computed before
+-- a mapping row existed. The determinism that matters (same name, same URL,
+-- every re-run) still holds, because both tables only grow.
+--
+-- ⚠ SPLIT FIRST, LOOK UP SECOND, TRANSLITERATE LAST. The order is the whole
+-- design. The conventional-spelling table is a WHOLE-PART equality match, so
+-- the split must happen on the ORIGINAL text before any character is rewritten.
+-- Transliterating first and matching afterwards would mean matching romanised
+-- fragments — which is substring matching by another name, and would corrupt
+-- unrelated names silently.
 CREATE OR REPLACE FUNCTION public.custom_url_slug(_full_name text)
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public' AS $$
 DECLARE
-  _folded text;
-  _parts  text[];
-  _clean  text[] := '{}';
-  _p      text;
-  _stem   text;
+  _parts text[];
+  _clean text[] := '{}';
+  _p     text;
+  _key   text;
+  _conv  text;
+  _stem  text;
 BEGIN
-  -- ORDER IS LOAD-BEARING:
-  --   lower()        so uppercase Cyrillic matches the map (Indic scripts have no case)
-  --   transliterate  non-Latin script  -> Latin letters      (নীল বসু -> nil basu)
-  --   fold accents   Latin diacritics  -> plain ASCII        (Zoë       -> zoe)
-  -- Transliterating first matters: the fold only knows Latin, so a Bengali
-  -- name reaching it untransliterated would survive to the strip step and be
-  -- deleted — which is precisely the behaviour the Owner's rule forbids.
-  _folded := public.custom_url_fold_accents(
-               public.custom_url_transliterate(lower(coalesce(_full_name, ''))));
+  IF _full_name IS NULL OR btrim(_full_name) = '' THEN
+    RETURN NULL;
+  END IF;
 
-  -- ⚠ SPLIT ON WHITESPACE ONLY, then strip inside each part. The order matters
-  -- and getting it backwards is a real bug that the awkward-case table caught
-  -- here before this shipped: splitting on '[^a-z0-9]+' instead makes a hyphen
-  -- or apostrophe act as a WORD separator, so "Jean-Luc Picard" becomes three
-  -- fragments and first+last yields 'jean.picard' — "Luc" silently dropped as
-  -- though it were a middle name. Likewise "Siobhan O'Connor" lost its "O" and
-  -- came out 'siobhan.connor'.
-  --
-  -- Stripping WITHIN a part is what the format actually calls for: the surname
-  -- "O'Brien-Nakamura" is ONE name, so it becomes 'obriennakamura' and the
-  -- value keeps its two-part first.last shape.
-  _parts := regexp_split_to_array(btrim(_folded), '\s+');
+  _parts := regexp_split_to_array(btrim(_full_name), '\s+');
 
   FOREACH _p IN ARRAY coalesce(_parts, '{}') LOOP
-    _p := regexp_replace(_p, '[^a-z0-9]', '', 'g');   -- hyphens, apostrophes, dots, and any script the fold left alone
+    -- Strip only SURROUNDING punctuation to form the lookup key. The part
+    -- itself is not otherwise altered, so the match stays an exact whole-part
+    -- comparison and can never fire on a substring.
+    _key := btrim(lower(_p), ' .,;:!?"''()[]{}<>');
+
+    SELECT latin INTO _conv FROM public.name_part_spellings WHERE part = _key;
+
+    IF _conv IS NOT NULL THEN
+      -- Convention beats phonetics. দত্ত is written "Dutta" by the people who
+      -- carry it, though the walk below would correctly produce "datta".
+      _p := _conv;
+    ELSE
+      -- Not a recorded spelling: sound it out.
+      --   lower()        so uppercase Cyrillic matches the map
+      --   transliterate  non-Latin script -> Latin letters
+      --   fold accents   Latin diacritics -> plain ASCII
+      -- Then strip whatever is left INSIDE the part — hyphens, apostrophes,
+      -- and any unmapped script — so a compound surname stays one name and
+      -- the value keeps its two-part first.last shape.
+      _p := public.custom_url_fold_accents(
+              public.custom_url_transliterate(lower(_p)));
+      _p := regexp_replace(_p, '[^a-z0-9]', '', 'g');
+    END IF;
+
     IF _p <> '' THEN _clean := _clean || _p; END IF;
   END LOOP;
 
   IF array_length(_clean, 1) IS NULL THEN
-    -- Nothing survived. After transliteration this means the name was only
-    -- punctuation or emoji, or was written in a script this deliberately does
-    -- not map (Han, Japanese, Korean — see 20260910_00065). NULL is the honest
-    -- answer; generate_custom_url() supplies member.<8 hex of id>, which the
-    -- member can now change once a year and an admin can change immediately.
+    -- Nothing survived: the name was only punctuation or emoji, or was written
+    -- in a script deliberately not mapped (Han, Japanese, Korean — see
+    -- 20260910_00065). NULL is the honest answer; generate_custom_url()
+    -- supplies member.<8 hex of id>, which the member can change once a year
+    -- and an admin can change immediately.
     RETURN NULL;
   ELSIF array_length(_clean, 1) = 1 THEN
     _stem := _clean[1];                             -- a single-word name: no dot to add
   ELSE
-    -- First token and LAST token. Middle names are dropped rather than joined,
-    -- because first.middle.last is a three-part shape that exists nowhere on
-    -- the site.
+    -- First part and LAST part. Middle names are dropped rather than joined:
+    -- first.middle.last is a three-part shape that exists nowhere on the site.
     _stem := _clean[1] || '.' || _clean[array_length(_clean, 1)];
   END IF;
 
-  -- Fit the column: 30 characters, and the last character may not be a dot.
   _stem := left(_stem, 30);
   _stem := regexp_replace(_stem, '[._]+$', '');
   _stem := regexp_replace(_stem, '^[.]+', '');
