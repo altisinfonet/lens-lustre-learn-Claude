@@ -90,3 +90,67 @@ eslint    PublicProfile.tsx 75 problems — IDENTICAL to the staging baseline (n
 typecheck clean apart from the pre-existing @lovable.dev/cloud-auth-js TS2307
 tests     11 passed in this file
 ```
+
+---
+
+# Two findings from trying to photograph this in the harness
+
+The plan was a fixture member with a handle plus a new scene, so the rewrite would be photographed
+like everything else. **Neither half survived contact with a measurement, and both failures are
+worth more than the scene would have been.**
+
+## C-84 — the fixture defect is real, but it is NOT "no member has a handle"
+
+I reported earlier that the harness fixture had no `custom_url`. That was wrong in an important way
+and I am correcting it: `fixtures.ts` gives **every** member one — `avijit`, `ranjana`, `liwei`.
+What drops it is the **derived projection** at `fixtures.ts:262`, `profilesPublicData = profiles.map(...)`,
+which simply never copied the column.
+
+So every screen reading `profiles_public_data` — which is nearly all of them — saw `custom_url:
+undefined`, and the harness could only ever exercise the no-handle fallback. The file's own comment
+two paragraphs above that map warns about precisely this: *"two lists of the same members that
+could drift apart is a bug waiting to be photographed as a feature."* It had drifted.
+
+## C-85 — NO HARNESS SCENE CAN EVER TEST THIS REWRITE, and the scene I added was fiction
+
+`AppShell.tsx:124` mounts scenes in a **`MemoryRouter`**. It never touches `window.location`. The
+hook reads `window.location.pathname` and writes `window.history` — both bypassed entirely. Driven
+in the harness, the address bar reads `/uiharness.html`, the guard returns early, and the scene
+photographs a page on which the rewrite provably did not run.
+
+Measured, rather than reasoned about after the fact:
+
+```
+FAIL screen-wall-visitor-vanity  address=/uiharness.html  expected=/liwei
+FAIL screen-wall-visitor         address=/uiharness.html  expected=/ranjana
+```
+
+**The scene has been removed.** A scene that cannot exercise the thing it is named after is worse
+than no scene: it is a green check that reads as coverage. That is the same failure as the 404
+probes that measured everything except whether the page could be read.
+
+Coverage for F-92 is therefore: the **jsdom router tests** above — which CAN see it, because they
+mount a real `BrowserRouter` against jsdom's real `window.location` — and the deployed reading,
+which is the Auditor's.
+
+## F-93 — a real UI defect the lossy fixture was hiding
+
+Carrying `custom_url` through the projection makes the harness render the `@handle` as the live app
+does. The gate immediately reported, on the very first run:
+
+```
+BASELINE REGRESSIONS (1) — a control got worse since the last approved run:
+    ✗ screen-profile--desktop-1280: "a.inline-flex.items-center" shrank to 117x17
+      (was 96x35, a tappable size)
+```
+
+A link on the account screen drops from 35px to **17px tall** — below a tappable size — once a
+handle is present. **This is not caused by the fixture change; it is revealed by it.** Every member
+on production with a `custom_url` (96 of 111) has been getting this, and the harness could not see
+it because the projection hid the column.
+
+**Not fixed here, and not re-baselined.** The fixture correction has been taken back OUT of this
+branch so F-92 ships clean and this gets its own unit: it is a different defect, in a different
+file, and re-baselining it away is exactly what Standing Rule 19 forbids. The fixture fix is a
+one-line change (`custom_url: p.custom_url ?? null`) and should land WITH whatever fixes the 17px
+link, not before it.
