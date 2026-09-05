@@ -56,6 +56,29 @@ followed by the named grants, and every closure is re-proved after any later mig
 
 Nothing else is cleared for revocation in this issue of the list.
 
+**AMENDED 2026-09-05 by AUDITOR-RULING-2026-09-05-01.** *The original clause above is unchanged and
+stays visible; this amendment sits below it and does not rewrite it.*
+
+Scope extended from **{public, anon}** to **{public, anon, authenticated}** for **`email_exists(text)`
+ONLY.**
+
+**Evidence, measured not assumed:**
+
+* D1's caller census returned **ZERO callers** across `supabase/functions/` (**114 files**) and
+  `functions/` (**8**).
+* The sole runtime caller is **`src/pages/ForgotPassword.tsx`**, an **anonymous-visitor flow**.
+* The Auditor read the **DEPLOYED production chunk `ForgotPassword-BJl06yD9.js`** and confirmed it is
+  **fail-open by construction** — the result variable starts `null`, a permission error leaves it
+  `null`, only an explicit `false` short-circuits, **so the password reset still sends**.
+
+**Why `authenticated` was never a control here:** because anyone may create an account,
+`authenticated` was **a turnstile and not a wall** against account enumeration.
+
+**`service_role` retains `EXECUTE`.**
+
+**This amendment covers `email_exists` ONLY and extends nothing else on this list.**
+
+
 ### 2.2 · BLOCKED on a client change — do not revoke
 
 | object | blocker |
