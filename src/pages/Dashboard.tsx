@@ -252,7 +252,21 @@ const Dashboard = () => {
           {/* Info */}
           <div className="flex-1 min-w-0 text-center sm:text-left">
             <div className="flex items-center gap-2 justify-center sm:justify-start flex-wrap">
-              <h1 className="text-lg md:text-xl font-light tracking-tight" style={{ fontFamily: "var(--font-display)" }}>{displayName}</h1>
+              {/*
+                * F-98c — THE MEMBER'S OWN NAME, ON THEIR OWN DASHBOARD.
+                *
+                * Found by the rendered probe, not by reading: screen-dashboard
+                * reported "1 dead — Avijit Sheel, H1, no anchor", and it is the
+                * sixth of the auditor's six dead names on /dashboard (the other
+                * five are the sidebar). It is deliberately NOT a link — sending
+                * someone to their own profile from their own dashboard header
+                * is not a destination — but until now that decision existed
+                * only in the absence of an anchor, which is indistinguishable
+                * from having forgotten. Same convention as UserIdentityBlock
+                * and PublicProfile:650/795: "deliberate" is a stated answer,
+                * "missing" is nobody having decided.
+                */}
+              <h1 className="text-lg md:text-xl font-light tracking-tight" style={{ fontFamily: "var(--font-display)" }} data-unlinked="deliberate">{displayName}</h1>
               {userBadges.length > 0 && <UserBadgeInline badges={userBadges} size="full" />}
               <TooltipProvider>
                 {hasRole("admin") && (

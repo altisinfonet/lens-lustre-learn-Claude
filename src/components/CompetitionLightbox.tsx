@@ -8,6 +8,7 @@ import PhaseWatermark from "@/components/competition/PhaseWatermark";
 import ZoomableImage from "@/components/media/ZoomableImage";
 import { toast } from "@/hooks/core/use-toast";
 import { buildCompetitionPhotoUrl, type CompetitionVotingPhoto } from "@/lib/competitionVotingPhotos";
+import ProfileLink from "@/components/ProfileLink";
 
 interface CompetitionLightboxProps {
   images: CompetitionVotingPhoto[];
@@ -198,11 +199,36 @@ const CompetitionLightbox = memo(({
                       {current.entryTitle}
                     </h3>
                     {competitionPhase !== "judging" && (
+                      /*
+                       * F-98c source FOUR — "by <name>" was plain text because
+                       * dashboard-init emitted photographer_name as a bare
+                       * string with no address beside it. The handle now
+                       * travels with the name (photographer_handle on the
+                       * wire, photographerHandle on CompetitionVotingPhoto)
+                       * and this is where it is spent.
+                       *
+                       * The word "by" stays outside the link: it is not part
+                       * of anybody's name, and a screen reader announcing
+                       * "by Somnath Pal" as one link label reads wrong.
+                       *
+                       * DURING JUDGING THIS WHOLE LINE IS HIDDEN and that is
+                       * deliberate and pre-existing — anonymised judging. A
+                       * link here must never become the way a judge learns
+                       * whose photograph they are scoring, so the condition is
+                       * untouched.
+                       */
                       <p
                         className="text-[10px] text-muted-foreground mt-0.5 tracking-wide"
                         style={{ fontFamily: "var(--font-body)" }}
                       >
-                        by {current.photographerName || "Anonymous"}
+                        by{" "}
+                        <ProfileLink
+                          userId={current.userId}
+                          handle={current.photographerHandle}
+                          className="hover:underline"
+                        >
+                          {current.photographerName || "Anonymous"}
+                        </ProfileLink>
                       </p>
                     )}
                     {current.competitionTitle && (

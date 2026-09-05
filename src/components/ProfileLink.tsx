@@ -44,8 +44,30 @@ const ProfileLink = ({ userId, handle, children, className, ...rest }: ProfileLi
 
   const href = memberPath(handle);
   if (!href) {
+    /*
+     * F-98c — TWO FAULTS FIXED IN THIS BRANCH, both found while linking the
+     * winners row.
+     *
+     * 1. `rest` was dropped here and spread only on the <Link> below, so a
+     *    caller that passed `style` (this codebase passes a font on almost
+     *    every name) silently lost it the moment a member had no handle. The
+     *    unlinked name rendered in a different typeface from the linked one.
+     * 2. There was no marker. UserIdentityBlock distinguishes a stated null
+     *    ("deliberate") from an absent handle ("missing"); this component
+     *    rendered both as a bare span, so a walking probe could not tell a
+     *    decision from an omission — the exact state the auditor said he would
+     *    not accept.
+     *
+     * `handle === null` is a caller SAYING there is no link. undefined is
+     * nobody having decided.
+     */
     return (
-      <span className={className} onMouseEnter={handleMouseEnter}>
+      <span
+        className={className}
+        onMouseEnter={handleMouseEnter}
+        data-unlinked={handle === null ? "deliberate" : "missing"}
+        {...(rest as React.HTMLAttributes<HTMLSpanElement>)}
+      >
         {children}
       </span>
     );

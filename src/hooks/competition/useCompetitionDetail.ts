@@ -42,7 +42,14 @@ export interface CompetitionEntry {
   status: string;
   created_at: string;
   placement: string | null;
-  profiles: { full_name: string | null } | null;
+  /*
+   * F-98c / C-88 — custom_url was ALREADY being carried at the assignment
+   * below and this type did not mention it, so nothing downstream could see
+   * it and the compiler could not point at a single place that should. That is
+   * the same class as the author_handle finding: an unlisted field stops the
+   * type enumerating the sites that need it.
+   */
+  profiles: { full_name: string | null; custom_url: string | null } | null;
   vote_count: number;
   user_voted: boolean;
   badges: string[];

@@ -370,13 +370,143 @@ export const dashboardInit = {
     competitions: [],
     courses: [],
     journal: [],
-    winners: [],
+    /*
+     * F-98c source FIVE-B — this was `[]`, so the Winners card in the right
+     * sidebar rendered "No winners yet" in every scene and the dead
+     * photographer name inside it could not be photographed or walked. Same
+     * fault as the three lists above, one card over.
+     *
+     * Shaped exactly as dashboard-init/index.ts builds a winner, INCLUDING
+     * user_custom_url, which that file now carries.
+     */
+    winners: profiles.slice(0, 2).map((p, i) => ({
+      id: `winner-${i}`,
+      title: i === 0 ? "Monsoon Light" : "Harbour at Dawn",
+      photos: [],
+      /*
+       * ⚠ A REAL PLACEMENT STRING, NOT A NUMBER.
+       *
+       * This said `i + 1` and it took the whole app down: FeedRightSidebar's
+       * placementIcon() calls placement.toLowerCase(), so a number threw
+       * `p.toLowerCase is not a function` during render and EVERY scene with a
+       * right sidebar came back blank — 16 elements, zero anchors. The probe
+       * reported those pages as EMPTY, a cheerful zero, which is how it went
+       * unnoticed for several sweeps.
+       *
+       * dashboard-init's Q6 filters
+       *   .in("placement", ["gold","silver","bronze","winner","1st","2nd","3rd"])
+       * so those seven strings are the only values that can ever arrive. A
+       * fixture is the shape production sends; inventing a value it cannot send
+       * is not a conservative test, it is a different program.
+       */
+      placement: i === 0 ? "gold" : "silver",
+      competition_title: "Monsoon 2026",
+      user_id: p.id,
+      user_name: p.full_name,
+      user_avatar: p.avatar_url,
+      user_custom_url: p.custom_url,
+    })),
     trending: [],
-    voting_entries: [],
-    voting_thumbnails: [],
-    milestones: [],
-    birthdays: [],
-    suggestions: [],
+    /*
+     * F-98c source FOUR — these were `[]`, and the auditor's wire capture on
+     * 2026-09-05 showed staging returning them empty too. An empty array has no
+     * shape, so the photographer's name could not be observed by the page, by
+     * the probe, or by him. UNMEASURED, NOT GREEN — his words, and they are the
+     * whole lesson of the day.
+     *
+     * Shaped exactly as dashboard-init's toVotingPhoto() builds a row,
+     * INCLUDING photographer_handle, which that function now carries.
+     *
+     * ⚠ THIS STILL DOES NOT RENDER THE NAME. "by <photographer>" lives in
+     * CompetitionLightbox, which exists only after a click, so no still
+     * screenshot of any scene contains it. Recorded as an open coverage hole
+     * rather than counted as covered — see the PR.
+     */
+    voting_entries: profiles.slice(0, 2).map((p, i) => ({
+      id: `entry-${i}`,
+      entry_id: `entry-${i}`,
+      title: i === 0 ? "Monsoon Light" : "Harbour at Dawn",
+      entry_title: i === 0 ? "Monsoon Light" : "Harbour at Dawn",
+      photo_url: `/photos/fixture-${i}.jpg`,
+      photo_index: 0,
+      total_photos: 1,
+      competition_id: "comp-1",
+      competition_title: "Monsoon 2026",
+      user_id: p.id,
+      photographer_name: p.full_name,
+      photographer_handle: p.custom_url,
+      vote_count: 3 - i,
+      user_voted: false,
+      created_at: "2026-09-01T00:00:00.000Z",
+    })),
+    /*
+     * The SAME rows as voting_entries. dashboard-init builds voting_thumbnails
+     * as the first six photos of the same set (recentPhotos), so a fixture that
+     * left this empty while filling the other was modelling a payload the
+     * server does not send. The auditor's wire capture showed staging
+     * returning BOTH empty, which is why neither could be observed.
+     */
+    voting_thumbnails: profiles.slice(0, 2).map((p, i) => ({
+      id: `entry-${i}`,
+      entry_id: `entry-${i}`,
+      title: i === 0 ? "Monsoon Light" : "Harbour at Dawn",
+      entry_title: i === 0 ? "Monsoon Light" : "Harbour at Dawn",
+      photo_url: `/photos/fixture-${i}.jpg`,
+      photo_index: 0,
+      total_photos: 1,
+      competition_id: "comp-1",
+      competition_title: "Monsoon 2026",
+      user_id: p.id,
+      photographer_name: p.full_name,
+      photographer_handle: p.custom_url,
+      vote_count: 3 - i,
+      user_voted: false,
+      created_at: "2026-09-01T00:00:00.000Z",
+    })),
+    /*
+     * F-98b — THESE THREE WERE EMPTY, AND THAT IS WHY FIVE DEAD NAMES SHIPPED.
+     *
+     * The right sidebar rendered "No suggestions yet" in every scene, so the UI
+     * gate had never once photographed a sidebar member and no probe could walk
+     * a name that was not there. An empty fixture is not a conservative
+     * fixture — it is a surface the instruments cannot see.
+     *
+     * F-98c — THEY NOW CARRY custom_url, AND THAT IS NOT THE FIXTURE GOING
+     * SOFT. It previously omitted the handle on purpose, to mirror
+     * dashboard-init/index.ts, which built each person as
+     * { id, full_name, avatar_url, mutual_count } and dropped it. The auditor
+     * traced the dead names to that omission on 2026-09-05 and the server was
+     * fixed at the source: the Q11 select now asks for custom_url and both
+     * literals carry it. A fixture's only job is to be the shape production
+     * sends, so it changed with production. Keeping the old shape would now be
+     * the fixture LYING in the other direction — testing a payload the server
+     * no longer emits, which is how the harness came to model a sidebar nobody
+     * ships.
+     *
+     * The handle is deliberately present on EVERY person here. A member with no
+     * handle is a real state, but it belongs in a unit test where the assertion
+     * can name it; in a rendered scene it is indistinguishable from the
+     * regression this fixture exists to catch.
+     */
+    milestones: profiles.slice(0, 2).map((p) => ({
+      id: p.id,
+      full_name: p.full_name,
+      avatar_url: p.avatar_url,
+      custom_url: p.custom_url,
+    })),
+    birthdays: profiles.slice(1, 3).map((p) => ({
+      id: p.id,
+      full_name: p.full_name,
+      avatar_url: p.avatar_url,
+      custom_url: p.custom_url,
+    })),
+    suggestions: profiles.slice(0, 3).map((p) => ({
+      id: p.id,
+      full_name: p.full_name,
+      avatar_url: p.avatar_url,
+      custom_url: p.custom_url,
+      mutual_count: 0,
+    })),
   },
   user_id: HARNESS_USER_ID,
   cached: false,

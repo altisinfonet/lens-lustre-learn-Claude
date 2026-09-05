@@ -6,7 +6,6 @@ import { useAuth } from "@/hooks/core/useAuth";
 import { useT } from "@/i18n/I18nContext";
 import CompetitionLightbox from "@/components/CompetitionLightbox";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
-import { useMemberHandles } from "@/hooks/profile/useMemberHandles";
 import AnonymousSidebarFallback from "@/components/AnonymousSidebarFallback";
 import type { SidebarData } from "@/hooks/core/useDashboardInit";
 import { useCompetitionVoting } from "@/hooks/competition/useCompetitionVoting";
@@ -80,14 +79,18 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
   const milestones = sidebarData?.milestones ?? [];
   const journalPreviews = sidebarData?.journal ?? [];
   const birthdayUsers = sidebarData?.birthdays ?? [];
-  // ONE batched lookup covering both lists that need it, not one per link.
-  // The milestone and birthday rows come from RPCs that do not return
-  // custom_url yet — see useMemberHandles for the seven and for why this goes
-  // away when D1 widens them.
-  const handles = useMemberHandles([
-    ...milestones.map((m: { id: string }) => m.id),
-    ...birthdayUsers.map((u: { id: string }) => u.id),
-  ]);
+  /*
+   * F-98c — THE HANDLE NOW TRAVELS WITH THE NAME.
+   *
+   * This read `useMemberHandles(...)`: a second, batched round trip that
+   * fetched custom_url for members whose names had already arrived without it.
+   * The auditor's ruling on 2026-09-05, and it is the right one — two
+   * mechanisms delivering one handle is how the two drift apart, which is the
+   * same argument this codebase already made about author_badges. The server
+   * now carries custom_url in the row (dashboard-init/index.ts, and
+   * get_todays_birthdays for the birthday rows), so the bridge is withdrawn
+   * rather than stacked on top of the fix.
+   */
 
   if (loading || dashboardLoading) return <div className="space-y-5" />;
   if (!user && !hadUserRef.current) return <AnonymousSidebarFallback type="left" />;
@@ -185,7 +188,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
           <div className="divide-y divide-border">
             {milestones.map((m: any) => (
               <div key={m.id} className="flex items-center gap-3 px-4 py-3">
-                <ProfileLink userId={m.id} handle={handles.get(m.id)} className="shrink-0">
+                <ProfileLink userId={m.id} handle={m.custom_url} className="shrink-0">
                   {m.avatar_url ? (
                     <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={m.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
                   ) : (
@@ -198,7 +201,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
                   <UserIdentityBlock
                     userId={m.id}
                     name={m.full_name || "Photographer"}
-                    handle={handles.get(m.id)}
+                    handle={m.custom_url}
                     nameClassName="text-xs font-medium truncate hover:text-primary transition-colors"
                   />
                   <span className="text-[9px] text-muted-foreground" style={bodyFont}>
@@ -268,7 +271,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
             <div className="divide-y divide-border">
               {birthdayUsers.map((u: any) => (
                 <div key={u.id} className="flex items-center gap-3 px-4 py-3">
-                  <ProfileLink userId={u.id} handle={handles.get(u.id)} className="shrink-0">
+                  <ProfileLink userId={u.id} handle={u.custom_url} className="shrink-0">
                     {u.avatar_url ? (
                       <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={u.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
                     ) : (
@@ -281,7 +284,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
                     <UserIdentityBlock
                       userId={u.id}
                       name={u.full_name || "Photographer"}
-                      handle={handles.get(u.id)}
+                      handle={u.custom_url}
                       nameClassName="text-xs font-medium truncate hover:text-primary transition-colors"
                     />
                     <span className="text-[9px] text-muted-foreground" style={bodyFont}>

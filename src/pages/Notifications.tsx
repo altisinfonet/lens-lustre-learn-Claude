@@ -12,6 +12,7 @@
  * tap.
  */
 import { useMemo, useState } from "react";
+import ActorPhrase from "@/components/notifications/ActorPhrase";
 import { useMemberHandles } from "@/hooks/profile/useMemberHandles";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Bell, X } from "lucide-react";
@@ -109,7 +110,7 @@ function NotificationRow({
         <span className="text-xs leading-relaxed text-foreground min-w-0" style={bodyFont}>
           {described.hasActor ? (
             <>
-              <span className="font-semibold">{described.actorText}</span> {described.action}
+              <span className="font-semibold"><ActorPhrase subject={subject} /></span> {described.action}
             </>
           ) : (
             described.text
