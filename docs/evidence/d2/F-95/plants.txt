@@ -26,3 +26,49 @@ C  an admin <a href> id link restored                    Tests  1 failed | 3 pas
 D  a mention reverted to an id link                      Tests  1 failed | 3 passed (4)
 E  linkTo-style prop reintroduced (UserIdentityBlock)    Tests  1 failed | 3 passed (4)
 RESTORED                                                 Tests  5 passed (5)
+
+────────────────────────────────────────────────────────────────────────────
+C-87 — THE CHECK ITSELF WAS THE DEFECT. Auditor's finding, accepted in full.
+
+The first version bridged from the nav token to the id url with
+[^`"'\n]{0,80} — a class that EXCLUDES BACKTICKS. In a ternary the first
+branch is a template literal, so a backtick always sits between them:
+
+    to={p?.custom_url ? `/${p.custom_url}` : `/profile/${user?.id}`}
+
+and the pattern could never reach the fallback. Reproduced directly:
+
+    plain   to={`/profile/${user?.id}`}                 -> matched
+    ternary to={... ? `/...` : `/profile/${user?.id}`}  -> NOT matched
+
+Every ternary fallback in the codebase was invisible. The check reported 0
+while four live sites survived in src/pages/Profile.tsx. It could not have
+failed on the shape that survived, which is a C-34 failure of the instrument.
+
+THE FIX DROPS THE BRIDGE ENTIRELY: any construction of a /profile/<id>
+address anywhere in src is an offender, with no navigation token required.
+Ternaries, line-splits and non-link uses are all caught, because proximity
+is no longer part of the rule.
+
+RED AFTER THE FIX: 14 sites across 8 files — not the 4 the Auditor found.
+The extra 10 are TWO MORE SHAPES the old check was blind to, for reasons
+unrelated to the backtick:
+
+  SHAPE 1 · ternary fallback (the Auditor's 4)      — blocked by the backtick
+    src/pages/Profile.tsx:133, 231, 352, 370
+
+  SHAPE 2 · object-literal destination (7)          — the token list had `to=`
+    but not `to:`; these are menu/search/notification entries whose value is
+    spread into a <Link to>, so they are navigational in every sense
+    src/components/UserMenu.tsx:133          to: `/profile/${user.id}?section=wall`
+    src/components/MobileProfileSheet.tsx:116 to: `/profile/${user.id}?section=wall`
+    src/components/MobileBottomNav.tsx:33     path: `/profile/${user.id}?section=wall`
+    src/pages/Dashboard.tsx:1136              to: `/profile/${user.id}?section=wall`
+    src/components/GlobalSearch.tsx:218       url: `/profile/${p.id}`
+    src/lib/notificationLinks.ts:50, 79       return `/profile/${reference_id}`
+
+  SHAPE 3 · not a link at all (3)                   — no token to bridge FROM
+    the member's own address, rendered for them to read, copy and QR-encode
+    src/pages/Profile.tsx:83, 364
+    src/components/profile/ProfileLeftSidebar.tsx:41
+────────────────────────────────────────────────────────────────────────────
