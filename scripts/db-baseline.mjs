@@ -769,7 +769,12 @@ function main() {
       script: 'scripts/db-baseline.mjs',
       transport: 'psql (postgresql-client) over the session pooler, one statement per invocation',
       node: process.version,
-      read_only: 'PGOPTIONS default_transaction_read_only=on, proved by negative control',
+      read_only:
+        'Each read-only statement is sent wrapped as `BEGIN READ ONLY; <sql>; COMMIT;`, proved by a '
+        + 'negative control that must come back SQLSTATE 25006. PGOPTIONS '
+        + 'default_transaction_read_only=on is ALSO set, but F-78 measured that it does not survive '
+        + 'the Supabase session pooler (a startup-packet parameter the pooler does not forward), so it '
+        + 'is belt-and-braces for a direct connection and is not what enforces read-only here.',
     },
     run: { started_utc: startedAt, finished_utc: finishedAt },
     controls,

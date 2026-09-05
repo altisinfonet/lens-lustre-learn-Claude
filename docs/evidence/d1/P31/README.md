@@ -164,3 +164,56 @@ on.** Flagged so the register stops being silently incomplete.
 **Committing is not applying.** Nothing in this unit has been run against either lane. Every lane
 reading was `SELECT`-only; every state change happened on a scratch fixture in the D1 container. The
 apply is blocked on D2's client fix and then on the Auditor's authorisation, staging first.
+
+---
+
+## 9 · ⚠ THE ONLY VALID TEST OF AN ANON REVOKE IS AN ANON CALLER
+
+**Recorded because the Auditor nearly filed P31 as failing, and the next person will make the same
+mistake.**
+
+The first attempt at proving P31 was to search a name in the browser UI on staging and read the
+result. It showed **"No Certificates Found"**, which looks exactly like the failure this whole unit
+exists to prevent.
+
+**It was not a failure. The browser was logged in.** `authenticated` still holds `EXECUTE` by design —
+the frozen list authorised revoking from `public` and `anon` only — so the RPC *succeeded* and
+honestly returned zero rows. **The UI was right and the instrument was wrong.**
+
+A logged-in browser **cannot see this behaviour at all**. Neither can a catalogue reading, which
+proves the grant but not the page.
+
+**The valid instrument**, and the one that produced the closing proof — Auditor, staging
+`ztzutckwdhetphwghuzj`, 2026-09-04: read the project URL and the **public anon key** out of the
+shipped bundle, then call `/rest/v1/rpc/…` with the **anon key only, no session bearer** — which is
+exactly what a logged-out visitor's browser sends.
+
+```
+search_certificates      HTTP 401  {"code":"42501","message":"permission denied for function search_certificates"}   P31 CLOSED
+email_exists             HTTP 401  {"code":"42501","message":"permission denied for function email_exists"}            P30 CLOSED
+get_top_contributors_v3  HTTP 200  [{"user_id":"d2bf6b95…","rank_position":1,"contributor_score":764,"recent_score":764}, …]
+                                                                                                    STILL PUBLIC, CORRECTLY
+```
+
+**The third line matters as much as the first two.** The revokes closed exactly two doors and left
+open the one that must stay open: the Home card still serves logged-out visitors. A revoke sweep that
+only proves things are shut has not proved it did not overshoot.
+
+And the code is **42501** — the *first* branch of D2's classifier — so the client renders
+**"Search Unavailable"**, not "No Certificates Found". That is P31 confirmed end to end.
+
+---
+
+## 10 · Observation — `PGRST202` is ambiguous, and it is not a defect
+
+Found by the Auditor while taking the proof above. A call with the **wrong parameter names** returns
+`PGRST202 "could not find the function … in the schema cache"` — **the same code a revoked function
+returns.**
+
+So `PGRST202` means *"revoked"* **or** *"you called it with the wrong signature"*, and D2's classifier
+treats it as "search unavailable". That is **correct for the revoke case**, and it would also mask a
+genuine signature bug behind a friendly panel.
+
+**Not a defect.** The fallback ordering is right, and `42501` is the real signal for this unit — the
+measured proof above returned `42501`, not `PGRST202`. Recorded as an observation against P31 so that
+a future signature bug on a verification path is not mistaken for a deliberate closure.

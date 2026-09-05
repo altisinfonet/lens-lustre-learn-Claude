@@ -22,8 +22,7 @@ import { readFileSync } from 'node:fs';
 
 import {
   LANES, PRODUCTION_REF, assertLane, refParsedFromDsn, refuseProduction,
-  scrub, scrubExternal, redactSecrets,
-} from './db-lane-guard.mjs';
+  scrub, scrubExternal, redactSecrets, psqlPayload } from './db-lane-guard.mjs';
 import { PROBES, ADDENDUM_CLAIMS, wrap } from './db-baseline.mjs';
 
 // The seeder has its own suite, scripts/db-seed-staging.test.mjs. The two are
@@ -244,6 +243,64 @@ check('the C-2 claim is carried in the re-check list and still names four number
 });
 
 
+// ── F-84 · every session setting must travel as SQL, not as PGOPTIONS ───────
+console.log('\nF-84 · session settings through the pooler');
+
+check('⟵ REGRESSION F-84 · statement_timeout travels in the query stream, with the caller\'s value', () => {
+  // THE DEFECT. The 100k seed (run 33892294982) died at 80,200 rows with
+  // "canceling statement due to statement timeout" at 16:06:07.461Z, on a
+  // connection open exactly 120.14 s. The seeder had asked for 600 s — through
+  // PGOPTIONS, which F-78 had already proved the session pooler does not
+  // forward. The server's own 120 s stood. A limit set out of the way that was
+  // never actually moved.
+  const p = psqlPayload('INSERT INTO t VALUES (1)', { readOnly: false, timeoutMs: 600000 });
+  assert(/SET LOCAL statement_timeout = 600000;/.test(p),
+    `statement_timeout does not travel as SET LOCAL, or lost the caller's value: ${p}`);
+  assert(p.indexOf('SET LOCAL statement_timeout') < p.indexOf('INSERT'),
+    'the timeout is set after the statement it is supposed to bound');
+  // The write path opens its own transaction. Measured on the fixture: psql
+  // already wraps a multi-statement -c in one implicit transaction (txid 741,
+  // 741), so SET LOCAL would bite without this — the explicit BEGIN is here so
+  // the guarantee rests on the SQL we send rather than on a psql client
+  // behaviour that could change under us. That is the F-78/F-84 lesson: never
+  // let a control depend on how the transport happens to behave.
+  assert(/^BEGIN;/.test(p.trim()), `a write payload does not open a transaction: ${p}`);
+  assert(p.trim().endsWith('COMMIT;'), 'a write payload does not commit');
+  assert(p.indexOf('BEGIN;') < p.indexOf('SET LOCAL'),
+    'SET LOCAL lands before BEGIN, where it is a no-op');
+});
+
+check('⟵ REGRESSION F-84 · lock_timeout and idle_in_transaction travel too', () => {
+  // These were in the same PGOPTIONS string and had no second mechanism either.
+  // F-78 fixed one of four and its comment called the rest "belt and braces".
+  const p = psqlPayload('SELECT 1', { readOnly: false, timeoutMs: 1000 });
+  assert(/SET LOCAL lock_timeout = 5000;/.test(p), 'lock_timeout still relies on PGOPTIONS');
+  assert(/SET LOCAL idle_in_transaction_session_timeout = 120000;/.test(p),
+    'idle_in_transaction_session_timeout still relies on PGOPTIONS');
+  assert(!/SET (?!LOCAL)/.test(p),
+    `a session-level SET would leak to whatever reuses this pooled backend: ${p}`);
+});
+
+check('⟵ REGRESSION F-78 · the read-only wrapper is not regressed, and SET LOCAL sits INSIDE it', () => {
+  const p = psqlPayload('SELECT 1', { readOnly: true, timeoutMs: 180000 });
+  assert(/BEGIN READ ONLY;/.test(p), 'the read-only wrapper is gone — F-78 regressed');
+  // ⚠ The order is the OPPOSITE of what I first wrote. SET LOCAL must land
+  // INSIDE the transaction; before BEGIN it is a no-op outside any transaction.
+  assert(p.indexOf('BEGIN READ ONLY') < p.indexOf('SET LOCAL statement_timeout'),
+    'SET LOCAL lands before BEGIN READ ONLY, where it does nothing');
+  assert(p.indexOf('SET LOCAL statement_timeout') < p.indexOf('SELECT 1'),
+    'the timeout is set after the statement it bounds');
+});
+
+check('⟵ REGRESSION F-84 · a WRITE payload is never wrapped read-only', () => {
+  // The seeder passes readOnly:false on every call. If the wrapper or the
+  // read-only SET leaked into the write path the seeder could not write at all.
+  const p = psqlPayload('INSERT INTO t VALUES (1)', { readOnly: false, timeoutMs: 600000 });
+  assert(!/READ ONLY/.test(p), 'a write payload is wrapped in a read-only transaction');
+  assert(!/default_transaction_read_only/.test(p), 'a write payload sets default_transaction_read_only');
+});
+
+
 console.log('\nWorkflows I own');
 
 for (const wf of ['.github/workflows/d1-baseline.yml', '.github/workflows/d1-guard-check.yml']) {
@@ -266,6 +323,66 @@ for (const wf of ['.github/workflows/d1-baseline.yml', '.github/workflows/d1-gua
     });
   });
 }
+
+
+check('⟵ REGRESSION 0-D1-01 · the baseline is recoverable from the log, not only from the artifact', () => {
+  // A baseline that was measured correctly and cannot be committed leaves the
+  // task open with nothing wrong with the measurement. The artifact host answers
+  // 403 to this environment's egress proxy — twice on 2026-09-04, run
+  // 9939163591 and artifact 9945939598 — and it is a network policy, not a
+  // transient error.
+  const src = readFileSync(new URL('../.github/workflows/d1-baseline.yml', import.meta.url), 'utf8');
+  assert(/base64 -w 100/.test(src), 'the workflow no longer emits the file as base64');
+  assert(/sha256sum/.test(src), 'base64 with no checksum — a transcription error would be silent');
+  assert(/BEGIN GZIP BASE64/.test(src) && /END GZIP BASE64/.test(src),
+    'the block has no delimiters, so it cannot be sliced out of a log mechanically');
+});
+
+check('⟵ REGRESSION 0-D1-01b · the emitted block is GZIPPED, or it is too big to recover', () => {
+  // MY OWN FIRST FIX, CORRECTED. It emitted the raw file as base64 and I proved
+  // the round trip on a 37,437-byte stand-in. The real artefact is ~1 MB, whose
+  // raw base64 filled roughly 13,200 log lines — about 1.7 MB to move through a
+  // tool result and write back out again, which is not a route anybody walks.
+  // The mechanism was proved at a scale unrepresentative of what it had to
+  // carry, which is the exact error a 1M-row seeder exists to prevent.
+  //
+  // Measured 2026-09-04 on an 1,854,281-byte stand-in: gzip -9 gives 317 base64
+  // lines where raw would give ~24,723 — 78x — round trip byte-identical, and a
+  // single corrupted character makes gunzip refuse the stream outright.
+  const src = readFileSync(new URL('../.github/workflows/d1-baseline.yml', import.meta.url), 'utf8');
+  assert(/gzip -9 -c "\$f" \| base64 -w 100/.test(src),
+    'the baseline is emitted uncompressed — at ~1 MB that is ~13,200 log lines and not recoverable');
+  assert(/base64 -d \| gunzip/.test(src), 'the recovery instructions do not decompress');
+});
+
+check('⟵ REGRESSION 0-D1-01b · the checksum is over the ORIGINAL json, never the gzip', () => {
+  // A checksum over the compressed form proves only that the compression
+  // arrived intact. What has to be proved is that the file finally COMMITTED is
+  // byte-for-byte the file the instrument wrote.
+  const src = readFileSync(new URL('../.github/workflows/d1-baseline.yml', import.meta.url), 'utf8');
+  assert(/SHA256\(json\)\s+\$\(sha256sum "\$f"/.test(src),
+    'the checksum is not taken over the original json file');
+  assert(!/sha256sum.*gzip|gzip.*\|.*sha256sum/.test(src),
+    'a checksum is taken over the compressed stream — that proves the wrong thing');
+  assert(/does not match is NOT the measurement/.test(src),
+    'the log no longer says that an unmatched checksum invalidates the recovery');
+});
+
+check('⟵ REGRESSION F-78 · the artefact does not claim PGOPTIONS is what enforces read-only', () => {
+  // Standing Rule 21: an instructing comment is a control, and this string is
+  // worse than a comment — it is metadata that ships inside the committed
+  // evidence. F-78 measured that PGOPTIONS does not survive the Supabase session
+  // pooler; the wrapper does the work. A baseline whose own instrument block
+  // names the wrong mechanism is a document disagreeing with the system it
+  // claims to describe.
+  const src = readFileSync(new URL('./db-baseline.mjs', import.meta.url), 'utf8');
+  const block = src.slice(src.indexOf('read_only:'), src.indexOf('read_only:') + 700);
+  assert(/BEGIN READ ONLY/.test(block),
+    'the artefact does not say the read-only wrapper is what enforces read-only');
+  assert(/25006/.test(block), 'the artefact no longer names the negative control that proves it');
+  assert(/F-78/.test(block) && /pooler/.test(block),
+    'the artefact still presents PGOPTIONS without recording that F-78 measured it inoperative here');
+});
 
 
 check('d1-guard-check.yml holds no secret: placeholder password, RFC 2606 host, no secrets.* reference', () => {
