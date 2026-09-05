@@ -95,10 +95,49 @@ describe("/notifications", () => {
       }),
     ]);
     renderPage();
-    expect(screen.getByText(/Anindita Hidayat, Vicky Roy/)).toBeInTheDocument();
+    // F-98c — the phrase is no longer one string. Each NAME is its own element
+    // because each name is now a LINK to that member, so the sentence spans
+    // several nodes and a single cross-boundary regex can no longer see it.
+    // Asserting the pieces individually is not a weaker check than the old one:
+    // it says more, because it names the address each person's name goes to.
+    const anindita = screen.getByRole("link", { name: "Anindita Hidayat" });
+    expect(anindita).toHaveAttribute("href", "/aninditahidayat");
+    const vicky = screen.getByRole("link", { name: "Vicky Roy" });
+    expect(vicky).toHaveAttribute("href", "/vickyroy87");
+    // …and the phrase still READS as one sentence, in this order, with the
+    // connectives in place. textContent of the wrapper, not of a leaf.
+    expect(anindita.parentElement).toHaveTextContent(
+      "Anindita Hidayat, Vicky Roy and 3 others",
+    );
     // 3 names came back but the true distinct count is 5 → "and 3 others".
-    expect(screen.getByText(/and 3 others/)).toBeInTheDocument();
+    expect(screen.getByText("3 others")).toBeInTheDocument();
     expect(screen.getByText(/shared 33 photos\./)).toBeInTheDocument();
+  });
+
+  it("links every named actor to their handle and never to their id", () => {
+    // The F-98 rule, on this page: a member's name is either a link built from
+    // their handle or it is plain text that says nobody knew the handle. It is
+    // never an id URL. Somnath is beyond the two we name, so he is not here at
+    // all — "3 others" is not a person and must not be clickable.
+    withGroups([
+      group({
+        type: "new_post_from_following",
+        actor_ids: ["a1", "a2"],
+        actor_names: ["Anindita Hidayat", "Vicky Roy"],
+        actor_usernames: ["aninditahidayat", ""],
+        actor_count: 2,
+        event_count: 2,
+      }),
+    ]);
+    const { container } = renderPage();
+    const hrefs = [...container.querySelectorAll("a")].map((a) => a.getAttribute("href"));
+    expect(hrefs).toContain("/aninditahidayat");
+    expect(hrefs.filter((h) => (h || "").includes("/profile/"))).toHaveLength(0);
+    // Vicky has no handle here, so her name is text that SAYS it is unlinked
+    // rather than text that merely happens to be.
+    const vicky = screen.getByText("Vicky Roy");
+    expect(vicky.tagName).toBe("SPAN");
+    expect(vicky).toHaveAttribute("data-unlinked", "missing");
   });
 
   it("falls back to the username when someone has no full name", () => {
