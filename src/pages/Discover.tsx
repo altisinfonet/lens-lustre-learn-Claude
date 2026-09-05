@@ -77,7 +77,7 @@ const Discover = () => {
     if (!user || hiddenIds === null) return null;
 
     let query = profilesPublic()
-      .select("id, full_name, avatar_url, bio, photography_interests, created_at")
+      .select("id, full_name, avatar_url, bio, photography_interests, created_at, custom_url")
       .eq("is_suspended", false)
       .eq("is_banned", false) // BUG-088: banned users must not surface in Discover
       .neq("id", user.id);

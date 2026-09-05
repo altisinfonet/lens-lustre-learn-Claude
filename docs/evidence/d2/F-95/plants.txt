@@ -108,3 +108,54 @@ The rule this leaves behind: when a field is added BECAUSE every carrier of an
 identity must have it, optional is the wrong shape — optional says "some
 carriers may omit this", which is the exact thing being ruled out.
 ────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────
+F-98 — C-87 IN A THIRD SHAPE, AND THIS TIME IT SHIPPED.
+
+The F-95 check asserted that no id address is ever built. It passed. It passed
+on /discover with 29 anchors and ZERO member links, because "no bad links" and
+"no links at all" are the same number. The bad thing was proven gone; the good
+thing was never once proven present.
+
+  /discover   29 anchors,  0 member links   every name a bare SPAN
+  /friends    31 anchors,  2 member links
+  /feed       58 anchors, 29 member links   correct
+
+Page by page: wherever the query carried custom_url the name linked, wherever
+it did not the name went dead — on 515 of 515 members who all HAVE a handle.
+The no-handle branch was firing on data that never carried the field.
+
+MEASURED EXTENT, larger than the three pages the Auditor sampled:
+  17 queries selected full_name WITHOUT custom_url
+  33 <UserIdentityBlock> call sites, of which 11 passed NO handle at all
+   7 surfaces rendered a dead name (Discover, Index, Search, caption mentions,
+     tag-people, mention input, profile activity feed)
+
+CAUSE, and it is mine: I made `handle` a PROP and never made it ARRIVE. My own
+PostCard author_badges argument — an identity field that does not travel with
+the name creates a state where the name is visible and the identity is not —
+applied to my own change one file later and I did not apply it. This codebase
+has now paid for that rule twice: once a verified member's tick, once every
+member's link.
+
+THE CHECK NOW ASSERTS BOTH DIRECTIONS and is COUPLED TO THE REAL QUERY. Every
+card was already passing handle={profile.custom_url} correctly, so a test that
+handed the component a well-formed object would have passed while /discover was
+broken. These build the row from the columns the page actually asks the
+database for, so the only way to pass is for the handle to genuinely arrive.
+
+  BASELINE, deployed tree                     8 failed | 3 passed
+  after                                      11 passed
+  S  Discover drops custom_url (what shipped) 2 failed
+  T  one other surface drops it               2 failed
+  U  name renders as text even WITH a handle  9 failed
+  RESTORED                                   11 passed
+
+C-88 APPLIED RATHER THAN QUOTED: `handle` is now REQUIRED on
+UserIdentityBlock. Optional is what made the failure silent — eleven callers
+passed nothing and got a dead name by accident. Required forces an answer, and
+`null` is a legitimate one: it means "this name is deliberately not a link",
+which is true of a member's own name on the page they are already on. Seven
+sites are that; four were genuinely missing data. The compiler printed all
+eleven in one run, which is exactly what optional had prevented.
+────────────────────────────────────────────────────────────────────────────

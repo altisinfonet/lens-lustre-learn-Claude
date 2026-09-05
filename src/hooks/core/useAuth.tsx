@@ -378,7 +378,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               try {
                 const { data: existing } = await supabase
                   .from("profiles")
-                  .select("full_name")
+                  .select("full_name, custom_url")
                   .eq("id", u.id)
                   .maybeSingle();
                 if (!existing) {

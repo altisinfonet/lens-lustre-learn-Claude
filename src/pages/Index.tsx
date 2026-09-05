@@ -238,7 +238,7 @@ const Index = () => {
   const [heroSlides, setHeroSlides] = useState<{src: string; title: string; category: string}[]>([]);
   const [heroReady, setHeroReady] = useState(false);
   const [galleryWorks, setGalleryWorks] = useState<PortfolioImage[]>([]);
-  const [latestPost, setLatestPost] = useState<{ user_id: string; user_name: string; avatar_url: string | null; content: string; image_url: string | null; created_at: string; badges: string[] } | null>(null);
+  const [latestPost, setLatestPost] = useState<{ user_id: string; user_name: string; user_handle: string | null; avatar_url: string | null; content: string; image_url: string | null; created_at: string; badges: string[] } | null>(null);
   const [recentMembers, setRecentMembers] = useState<{ id: string; full_name: string | null; avatar_url: string | null }[]>([]);
   const [communityStats, setCommunityStats] = useState({ users: 0, followers: 0, posts: 0 });
   // topContributors now comes from useTopContributors hook (newTop)
@@ -434,7 +434,7 @@ const Index = () => {
       try {
         const results = await Promise.allSettled([
           supabase.from("posts").select("id, user_id, content, image_url, created_at").eq("privacy", "public").order("created_at", { ascending: false }).limit(1),
-          (supabase.from("profiles_public_data" as any) as any).select("id, full_name, avatar_url").eq("is_suspended", false).order("created_at", { ascending: false }).limit(5),
+          (supabase.from("profiles_public_data" as any) as any).select("id, full_name, avatar_url, custom_url").eq("is_suspended", false).order("created_at", { ascending: false }).limit(5),
           (supabase.from("profiles_public_data" as any) as any).select("id", { count: "exact", head: true }).eq("is_suspended", false),
           supabase.from("follows").select("id", { count: "exact", head: true }),
           supabase.from("posts").select("id", { count: "exact", head: true }),
@@ -450,6 +450,8 @@ const Index = () => {
             setLatestPost({
               user_id: post.user_id,
               user_name: authorEntry?.full_name || "Photographer",
+              // F-98 — the handle was ALREADY in this entry and was dropped here.
+              user_handle: authorEntry?.custom_url ?? null,
               avatar_url: authorEntry?.avatar_url || null,
               content: post.content || "",
               image_url: post.image_url || null,
@@ -823,6 +825,7 @@ const Index = () => {
                           <UserIdentityBlock
                             userId={latestPost.user_id}
                             name={latestPost.user_name || t("home.photographer", "Photographer")}
+                            handle={latestPost.user_handle}
                             nameClassName="text-xs font-medium truncate [font-family:var(--font-body)]"
                           />
                           <span className="text-[10px] text-muted-foreground flex items-center gap-1">
@@ -1085,6 +1088,7 @@ const Index = () => {
                           <UserIdentityBlock
                             userId={c.id}
                             name={c.full_name || t("home.photographer", "Photographer")}
+                            handle={c.custom_url}
                             nameClassName="text-xs truncate [font-family:var(--font-body)]"
                           />
                         </div>

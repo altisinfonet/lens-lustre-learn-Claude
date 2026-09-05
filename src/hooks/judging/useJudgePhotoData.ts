@@ -112,7 +112,7 @@ async function fetchPhotoData(
 
   const commentJudgeIds = [...new Set((comments || []).map((c: any) => c.judge_id).filter(Boolean))];
   const judgeProfiles = commentJudgeIds.length > 0
-    ? await fetchInBatches((ids) => profilesPublic().select("id, full_name").in("id", ids), commentJudgeIds)
+    ? await fetchInBatches((ids) => profilesPublic().select("id, full_name, custom_url").in("id", ids), commentJudgeIds)
     : [];
   const profileMap = new Map(judgeProfiles.map((p: any) => [p.id, p.full_name]));
 

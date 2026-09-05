@@ -59,6 +59,7 @@ const SidebarTopContributors = () => {
             <UserIdentityBlock
               userId={c.id}
               name={c.full_name || "Photographer"}
+              handle={c.custom_url}
               nameClassName="text-xs truncate group-hover:text-primary transition-colors [font-family:var(--font-body)]"
             />
           </div>

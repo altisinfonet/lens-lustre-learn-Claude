@@ -92,7 +92,7 @@ const Referrals = () => {
       const userIds = refs.map((r) => r.referred_id);
       const { data: profiles } = await supabase
         .from("profiles_public")
-        .select("id, full_name")
+        .select("id, full_name, custom_url")
         .in("id", userIds);
       const nameMap = new Map(profiles?.map((p) => [p.id, p.full_name]) || []);
       setReferrals(refs.map((r) => ({ ...r, referred_name: nameMap.get(r.referred_id) || "Photographer" })));

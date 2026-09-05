@@ -101,7 +101,7 @@ const AdminWalletTab = ({ user }: { user: User | null }) => {
 
   const lookupUser = async () => {
     if (!targetEmail.trim()) return;
-    const { data } = await supabase.from("profiles").select("id, full_name").ilike("full_name", `%${targetEmail.trim()}%`).limit(1);
+    const { data } = await supabase.from("profiles").select("id, full_name, custom_url").ilike("full_name", `%${targetEmail.trim()}%`).limit(1);
     if (data && data.length > 0) {
       setTargetUserId(data[0].id);
       setTargetName(data[0].full_name || "User");

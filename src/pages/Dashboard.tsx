@@ -624,6 +624,7 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
                 <UserIdentityBlock
                   userId={person.id}
                   name={person.full_name || "Photographer"}
+                  handle={person.custom_url}
                   nameClassName="text-[10px] font-light truncate [font-family:var(--font-heading)]"
                 />
                 <p className="text-[8px] text-muted-foreground truncate mt-0.5" style={{ fontFamily: "var(--font-body)" }}>{person.bio?.slice(0, 30) || ""}</p>

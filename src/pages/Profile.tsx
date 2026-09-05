@@ -122,6 +122,7 @@ const Profile = () => {
             <UserIdentityBlock
               userId={user?.id || ""}
               name={displayName}
+              handle={null} /* F-98 — deliberately not a link: this is the member's own name on the page they are already on. null is a stated answer, not an omission. */
               size="full"
               nameClassName="text-base font-semibold leading-tight truncate"
             />
@@ -370,6 +371,7 @@ const Profile = () => {
                   <UserIdentityBlock
                     userId={user?.id || ""}
                     name={displayName}
+                    handle={null} /* F-98 — deliberately not a link: this is the member's own name on the page they are already on. null is a stated answer, not an omission. */
                     size="full"
                     nameClassName="text-xl md:text-2xl font-light tracking-tight"
                   />

@@ -68,7 +68,7 @@ export function useJuryUsers() {
         .in("role", ["judge", "admin"]);
       if (!data || data.length === 0) return [];
       const userIds = [...new Set(data.map((r) => r.user_id))];
-      const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", userIds);
+      const { data: profiles } = await supabase.from("profiles").select("id, full_name, custom_url").in("id", userIds);
       return userIds.map((uid) => ({
         user_id: uid,
         full_name: profiles?.find((p) => p.id === uid)?.full_name || null,

@@ -652,6 +652,7 @@ export const PublicProfileInner = ({ userId }: { userId: string }) => {
                   <UserIdentityBlock
                     userId={userId || ""}
                     name={displayName}
+                    handle={null} /* F-98 — deliberately not a link: this is the member's own name on the page they are already on. null is a stated answer, not an omission. */
                     size="full"
                     nameClassName="text-base md:text-lg font-bold tracking-tight leading-none [font-family:var(--font-display)]"
                   />
@@ -796,6 +797,7 @@ export const PublicProfileInner = ({ userId }: { userId: string }) => {
                   <UserIdentityBlock
                     userId={userId || ""}
                     name={displayName}
+                    handle={null} /* F-98 — deliberately not a link: this is the member's own name on the page they are already on. null is a stated answer, not an omission. */
                     size="full"
                     className="items-start text-left"
                     nameClassName="text-[17px] font-semibold tracking-tight leading-tight [font-family:var(--font-display)]"
