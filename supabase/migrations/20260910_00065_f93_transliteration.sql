@@ -409,6 +409,8 @@ DECLARE
   _m       record;
   _pending boolean := false;   -- a consonant's inherent 'a' not yet emitted
   _schwa   boolean := false;   -- does this string use a schwa-deleting script?
+  _prev_virama boolean := false;  -- the previous character was a virama
+  _in_conjunct boolean := false;  -- the current consonant closes a conjunct cluster
 BEGIN
   IF _s IS NULL OR _s = '' THEN RETURN ''; END IF;
 
@@ -432,36 +434,46 @@ BEGIN
       -- A separator ends a word, so the pending vowel is DROPPED there for the
       -- schwa-deleting scripts. It is still flushed before an alphanumeric, so
       -- a mixed name like "নীলX" does not lose the vowel mid-word.
+      -- ⚠ AND THE DELETION IS SUPPRESSED AFTER A CONJUNCT. Bengali drops the
+      -- final inherent vowel after a simple coda (নীল -> nil) but KEEPS it
+      -- after a consonant cluster (দত্ত -> datta, not "datt"). Without this the
+      -- Owner's second example lost its final syllable entirely.
       IF _pending THEN
-        IF _schwa AND _ch ~ '[^[:alnum:]]' THEN
+        IF _schwa AND _ch ~ '[^[:alnum:]]' AND NOT _in_conjunct THEN
           _pending := false;
         ELSE
           _out := _out || 'a'; _pending := false;
         END IF;
       END IF;
       _out := _out || _ch;
+      _prev_virama := false; _in_conjunct := false;
 
     ELSIF _m.kind = 'consonant' THEN
       IF _pending THEN _out := _out || 'a'; END IF;
       _out := _out || _m.latin;
       _pending := true;
+      _in_conjunct := _prev_virama;   -- a virama immediately before means this closes a cluster
+      _prev_virama := false;
 
     ELSIF _m.kind = 'matra' THEN
       _pending := false;                      -- the sign REPLACES the inherent vowel
       _out := _out || _m.latin;
+      _prev_virama := false; _in_conjunct := false;
 
     ELSIF _m.kind = 'virama' THEN
       _pending := false;                      -- the inherent vowel is cancelled outright
+      _prev_virama := true;
 
     ELSE                                      -- 'letter' (Cyrillic), 'vowel', 'sign'
       IF _pending THEN _out := _out || 'a'; _pending := false; END IF;
       _out := _out || _m.latin;
+      _prev_virama := false; _in_conjunct := false;
     END IF;
   END LOOP;
 
   -- Word-final inherent vowel. Kept for Tamil and Telugu, dropped for the
   -- schwa-deleting scripts — this is what makes নীল "nil" and not "nila".
-  IF _pending AND NOT _schwa THEN _out := _out || 'a'; END IF;
+  IF _pending AND (NOT _schwa OR _in_conjunct) THEN _out := _out || 'a'; END IF;
 
   RETURN _out;
 END;
