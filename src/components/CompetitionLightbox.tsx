@@ -90,7 +90,7 @@ const CompetitionLightbox = memo(({
           {/* Close */}
           <button
             onClick={onClose}
-            className="absolute top-5 right-5 z-20 w-10 h-10 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-foreground transition-colors"
+            className="absolute top-5 right-5 z-20 w-10 h-10 tap-44 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-foreground transition-colors"
             aria-label="Close"
           >
             <X className="h-5 w-5" />
@@ -246,7 +246,7 @@ const CompetitionLightbox = memo(({
                         navigator.clipboard.writeText(buildCompetitionPhotoUrl(SITE_ORIGIN, current.entryId, current.photoIndex));
                         toast({ title: "Photo link copied!" });
                       }}
-                      className="inline-flex items-center gap-1.5 mt-2 text-[10px] tracking-[0.1em] uppercase text-muted-foreground hover:text-primary transition-colors"
+                      className="inline-flex items-center tap-44 gap-1.5 mt-2 text-[10px] tracking-[0.1em] uppercase text-muted-foreground hover:text-primary transition-colors"
                       style={{ fontFamily: "var(--font-heading)" }}
                     >
                       <Copy className="h-3 w-3" /> Copy Photo Link

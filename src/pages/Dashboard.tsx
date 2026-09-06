@@ -295,7 +295,7 @@ const Dashboard = () => {
           <div className="flex items-center gap-7 md:gap-9 shrink-0 sm:pr-2">
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger>
+                <TooltipTrigger className="tap-44">
                   <div className="flex flex-col items-center cursor-default">
                     <span className="text-xl md:text-2xl font-light text-foreground leading-tight" style={{ fontFamily: "var(--font-display)" }}>{myEntries.length}</span>
                     <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("msheet.entries")}</span>
@@ -304,7 +304,7 @@ const Dashboard = () => {
                 <TooltipContent>Total competition entries submitted</TooltipContent>
               </Tooltip>
               <Tooltip>
-                <TooltipTrigger>
+                <TooltipTrigger className="tap-44">
                   <div className="flex flex-col items-center cursor-default">
                     <span className="text-xl md:text-2xl font-light text-foreground leading-tight" style={{ fontFamily: "var(--font-display)" }}>{totalVotes}</span>
                     <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.votes")}</span>
@@ -313,7 +313,7 @@ const Dashboard = () => {
                 <TooltipContent>Total votes received on entries</TooltipContent>
               </Tooltip>
               <Tooltip>
-                <TooltipTrigger>
+                <TooltipTrigger className="tap-44">
                   <div className="flex flex-col items-center cursor-default">
                     <span className="text-xl md:text-2xl font-light text-foreground leading-tight" style={{ fontFamily: "var(--font-display)" }}>{friendRequests.length}</span>
                     <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.requests")}</span>
@@ -639,7 +639,31 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
                 <UserIdentityBlock
                   userId={person.id}
                   name={person.full_name || "Photographer"}
-                  handle={person.custom_url}
+                  /*
+                   * ⚠ null, DELIBERATELY: THIS WHOLE TILE IS ALREADY A LINK.
+                   *
+                   * The <ProfileLink> above wraps this entire card, so passing
+                   * a handle here put an <a> inside an <a> — invalid HTML, and
+                   * React said so: "<a> cannot contain a nested <a>. This will
+                   * cause a hydration error." Caught by the UI gate on four
+                   * viewports of screen-dashboard.
+                   *
+                   * It was LATENT until tonight: UserIdentityBlock only renders
+                   * an anchor when it HAS a handle, and F-98 is what started
+                   * supplying one. The nesting has been written here for a
+                   * while; making handles arrive is what turned it into a real
+                   * defect.
+                   *
+                   * The Auditor's invariant decides the fix: a member's name
+                   * used as a CONTROL'S LABEL is not a link, and the control's
+                   * own destination governs. The control here is the tile, and
+                   * the tile already goes to this member — so the name is
+                   * reachable, and adding a second anchor gains nothing and
+                   * breaks the markup. This is the same call I made on the
+                   * winners row: restructure or defer to the outer control,
+                   * never nest.
+                   */
+                  handle={null}
                   nameClassName="text-[10px] font-light truncate [font-family:var(--font-heading)]"
                 />
                 <p className="text-[8px] text-muted-foreground truncate mt-0.5" style={{ fontFamily: "var(--font-body)" }}>{person.bio?.slice(0, 30) || ""}</p>

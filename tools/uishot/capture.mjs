@@ -824,7 +824,43 @@ for (const scene of scenes) {
 
           let reachable = null; // null = deliberately not judged
           if (!isDisabled && !clippedToASliver) {
-            const hit = document.elementFromPoint((vl + vr) / 2, (vt + vb) / 2);
+            /*
+             * ⚠ A WRAPPED INLINE LINK HAS NO MEANINGFUL "CENTRE".
+             *
+             * getBoundingClientRect() returns the UNION of an inline element's
+             * line fragments, so a link that wraps onto two lines has a box
+             * spanning both — and the union's centre sits in the gap BETWEEN
+             * them, on whatever text is behind. Measured on
+             * screen-notifications after F-98c made actor names into links:
+             *
+             *   "Avijit Sheel"                  64x14  centre owned = true
+             *   "Ranjana Bhattacharya Chowd"   145x34  centre owned = FALSE
+             *   "Amara Okonkwo"                 54x34  centre owned = FALSE
+             *
+             * 34px tall on a 14px line is two lines. A finger lands on the
+             * visible name perfectly well; the probe point was in the hole.
+             *
+             * So a fragmented element is probed at the centre of its LARGEST
+             * fragment, clamped into the visible box. This is a correction to
+             * WHERE we look, not to WHAT is required: a single-rect control is
+             * probed exactly as before, and a control genuinely covered by
+             * something else still fails, because the probe still asks
+             * elementFromPoint and still demands the answer be the control.
+             */
+            let px = (vl + vr) / 2, py = (vt + vb) / 2;
+            const frags = el.getClientRects();
+            if (frags.length > 1) {
+              let best = null, bestArea = -1;
+              for (const f of frags) {
+                const a = f.width * f.height;
+                if (a > bestArea) { bestArea = a; best = f; }
+              }
+              if (best) {
+                px = Math.min(Math.max(best.left + best.width / 2, vl), vr);
+                py = Math.min(Math.max(best.top + best.height / 2, vt), vb);
+              }
+            }
+            const hit = document.elementFromPoint(px, py);
             /**
              * Exception 3 — anything a modal deliberately covers, in BOTH of
              * the two shapes that actually occur:

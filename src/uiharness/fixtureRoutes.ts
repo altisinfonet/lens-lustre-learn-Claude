@@ -64,6 +64,33 @@ const EMPTY_BY_DESIGN: Record<string, string> = {
   stories: "a member with no active stories; the ordinary case",
   // Nobody has asked to be friends this minute.
   friendships: "no pending request and no accepted edge in this fixture set",
+  /*
+   * ── /dashboard's THREE, added 2026-09-06 with screen-dashboard. ──────────
+   *
+   * The scene was added without these and the gate said so, three times per
+   * viewport: "NO FIXTURE for GET /rest/v1/role_applications…", "…competitions
+   * ?status=eq.upcoming…", "…course_enrollments…". A screen rendering with
+   * missing data is not a screen that has been checked, and the harness is
+   * emphatic about that on purpose.
+   *
+   * EMPTY IS THE HONEST ANSWER FOR ALL THREE, and empty is a real state rather
+   * than an absence: a member who has applied for no role, entered no upcoming
+   * competition, and enrolled in no course is the state EVERY new member is in,
+   * and it is the layout that has to hold up without a single card to hang on.
+   * If a populated version of any of them is ever worth photographing it earns
+   * its own scene rather than becoming the default everything else is read
+   * through.
+   */
+  role_applications: "a member who has not applied for a role — every new member",
+  /*
+   * ⚠ THE TABLE, NOT THE SIDEBAR. dashboard-init already supplies
+   * sidebar.competitions, and that is what every other scene reads. Dashboard
+   * ALSO queries the competitions table directly for `status=eq.upcoming`, and
+   * that path had no fixture. Empty is the honest answer: between competitions
+   * is a real and frequent state, and the dashboard must look right in it.
+   */
+  competitions: "no upcoming competition; the between-competitions state",
+  course_enrollments: "a member enrolled in no course; the empty-state layout",
   // No unread gift. The banner it drives is a competition/credit feature and
   // has its own component scenes.
   gift_announcements: "no unread gift credit",

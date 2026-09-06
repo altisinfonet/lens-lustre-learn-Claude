@@ -91,7 +91,20 @@ const TodaysBirthdayStrip = () => {
       <div className="divide-y divide-border">
         {people.map((u: any) => (
           <div key={u.id} className="flex items-center gap-3 px-4 py-3">
-            <ProfileLink userId={u.id} handle={u.custom_url} className="shrink-0">
+            {/*
+              F-103 — 36x36 (w-9 h-9) and the strip is xl:hidden, so it fails at
+              every phone width and passes desktop-1280, which is exactly what
+              the gate reported. The avatar stays 36px; tap-44 grows only the
+              hit region.
+
+              ⚠ OVERLAP MEASURED BEFORE SHIPPING, because two hit regions that
+              intersect hand the shared strip to whichever paints later. The two
+              avatars are stacked vertically, same `left`, 31px apart. Adding
+              4px above and below each leaves 23px of clear space. No
+              intersection. If this strip ever becomes horizontal, re-measure:
+              31px of separation is not a large margin.
+            */}
+            <ProfileLink userId={u.id} handle={u.custom_url} className="shrink-0 tap-44">
               {u.avatar_url ? (
                 <img
                   referrerPolicy="no-referrer"
