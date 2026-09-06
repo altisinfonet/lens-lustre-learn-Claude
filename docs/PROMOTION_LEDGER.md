@@ -4709,7 +4709,7 @@ production gate.*
 
 ---
 
-# 44 · REV-31 — THE CORRECTED BEFORE-READING, A NINTH INSTRUMENT CLASS, AND F-105
+# 44 · REV-31 — THE CORRECTED BEFORE-READING, THREE MORE INSTRUMENT FAILURES, AND F-105
 
 **Written by the Auditor · 2026-09-06 · transcribed and figure-checked by D3 (documentation lane)**
 **Committed under §28.2 exception (a).**
