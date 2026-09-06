@@ -6,7 +6,7 @@
 
 **Repository path:** `docs/PROMOTION_LEDGER.md` (canonical, on `staging`)
 **Ledger ID:** `LEDGER-50MM-001`
-**Status of this revision:** `REV-29 · 2026-09-06T02:47Z` · **📕 DOCUMENTATION FREEZE IN FORCE — §28**
+**Status of this revision:** `REV-30 · 2026-09-06T02:58Z` · **📕 DOCUMENTATION FREEZE IN FORCE — §28**
 
 ---
 
@@ -4570,3 +4570,116 @@ twenty-two errors in one day rather than one loud failure.
 
 *Auditor. This entry records the Auditor's own failures alongside the work. It promotes nothing and
 closes no gate.*
+
+---
+
+# 43 · REV-30 — F-101 AND THE WALLET GREEN; FOUR CORRECTIONS TO THE AUDITOR'S OWN BRIEF
+
+**Written by the Auditor · 2026-09-06 · transcribed and figure-checked by D3 (documentation lane)**
+**Committed under §28.2 exception (a).** **Every item here is a correction to what the Auditor
+briefed, because the facts moved after he briefed it.**
+
+## 43.1 · F-101 — the Auditor prescribed the wrong number, and D2 measured it
+
+**The Auditor prescribed a 176 px cap. THE CORRECT VALUE IS 178.**
+
+**4 rows × 44 px = 176**, plus **the list's own 1 px border on each side**, and **Tailwind's
+`border-box` puts that border INSIDE the cap**. So the cap is **178** and the content band is
+**exactly 176**.
+
+**D2 measured it, found the error, and recorded it in
+`docs/evidence/d2/F-101/PLANT_REGISTER.md` under the Auditor's name, with the reason:**
+
+> **arithmetic done without reading the box it lives in**
+
+**This belongs beside the other twenty-two in §42.6, and it is the same fault:** *he did sums on a
+number instead of reading the thing the number describes.* **A number is a description of an object.
+Doing arithmetic on the description without opening the object is looking at the shape of a thing
+instead of reading the thing** — §42.6's pattern, committed once more, hours after it was written
+down.
+
+## 43.2 · F-101's PROVENANCE — **it would be easy and wrong to write this as our regression**
+
+**`src/components/MentionInput.tsx` on `main` and on `staging` differ by EXACTLY ONE LINE** — the
+`custom_url` select widening:
+
+```
+-        .select("id, full_name, avatar_url")
++        .select("id, full_name, avatar_url, custom_url")
+```
+
+**The F-53 fix is intact in both, and is in the shipped app 1.2.18. WE DID NOT BREAK IT.**
+
+**AND IT WAS STILL RED**, because **the Owner could not read his options.**
+
+**BOTH HALVES GO IN, because "not our regression" is not "not broken".** A defect that predates the
+work is still a defect in front of the Owner. Recording only the first half would be a true sentence
+assembled into a false impression — the page was broken, he could not use it, and whose commit
+introduced it is a question about blame rather than about the product.
+
+## 43.3 · THREE MORE INSTRUMENT FAILURES — **two of them new**
+
+**The count stays at EIGHT, and it is written as a count on purpose.** §42.5.2 already recorded
+eight; **the mention fixture below was among them.** The two after it are new and are named here for
+the first time. **This is not eleven. Do not add them twice.**
+
+| # | instrument failure | new? |
+|---|---|---|
+| 1 | **The harness fixture held THREE names under a FIVE-ROW cap**, so the list **could never scroll** and the defect was **structurally unreachable** — the same shape as the four empty sidebar arrays | already counted |
+| 2 | **`tools/uishot/mention-overflow.mjs` ran GREEN on the broken build — CORRECTLY.** It only asks whether the box leaves the screen, and **cannot fail on a sliced row** | **NEW** |
+| 3 | **That probe's per-item output reports every row as ZERO PIXELS WIDE in real Chromium**, which is **impossible** — a **dead measurement inside a live instrument**, unnoticed **because the pass/fail never read it** | **NEW** |
+
+**Failure 3 is the most alarming of the eight.** The probe was running, reporting, and passing, while
+one of its own outputs was physically impossible. **Nothing noticed, because nothing consumed that
+output.** An instrument can carry a dead sensor indefinitely if no verdict depends on it — and its
+green will look exactly like a real green.
+
+**Failure 2 is not a bug in the probe.** It answered its question correctly. **The question was the
+wrong one**, and a correct answer to the wrong question is the hardest kind of false green to see.
+
+## 43.4 · F-101 IS GREEN — and the WALLET IS GREEN
+
+**F-101:** cap **178**, content band **exactly 176**, **all four probe cases pass.**
+
+**THE WALLET IS GREEN ON STAGING, verified by the Auditor and not on anyone's say-so:**
+
+| reading | result |
+|---|---|
+| signed-in member | **200** |
+| anonymous | **401** — still refused |
+| razorpay | **enabled, public key present** |
+| secrets in the payload | **NONE** |
+| **the page itself** | renders **"Choose Payment Method / Razorpay / UPI, Cards, NetBanking"** — where **an hour ago it listed nothing** |
+
+**THE PAGE, NOT THE STATUS CODE, IS WHAT CLOSED IT.** A 200 says the endpoint answered. It does not
+say the member can pay. **An hour ago the same endpoint returned 200 and the page listed nothing** —
+the status code could not tell those two states apart, and the rendered page could.
+
+**The Owner enabled Razorpay on staging specifically so that last line could be measured**, and
+**staging is now configured identically to production.**
+
+## 43.5 · A MEASURED FACT ABOUT PRODUCTION
+
+**Production's rendered feed reports EIGHTEEN low-opacity text blocks. Staging reports ZERO.**
+
+**F-99 is still live on production because it has NEVER BEEN PROMOTED** — bundle
+`index-QwZFENIl.js` at `b309576`.
+
+**This is EXPECTED, not new damage.** It is the state the Owner is **currently choosing to leave in
+place**, and it argues for promotion more plainly than anything written in this ledger: **eighteen
+against zero, on the same feed, with the fix sitting on `staging` unpromoted.**
+
+## 43.6 · THE AUDITOR AS THE BOTTLENECK — the fifth time today
+
+**The Owner reported that everything stopped working. He was describing the Auditor, not the
+developers.**
+
+**All three developer sessions were left standing by at once.** **This is the fifth occurrence
+today**, and it is **the item on the Auditor's own error list that he keeps repeating.**
+
+**Recorded here because §42.6 records his damage and this is damage.** Three sessions idle is not a
+scheduling inconvenience; it is the throughput of the whole project set to zero by one party, and it
+happened five times in one day.
+
+*Auditor. This entry records four corrections to his own brief. It promotes nothing and closes no
+production gate.*
