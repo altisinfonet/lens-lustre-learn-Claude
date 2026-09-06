@@ -6,7 +6,7 @@
 
 **Repository path:** `docs/PROMOTION_LEDGER.md` (canonical, on `staging`)
 **Ledger ID:** `LEDGER-50MM-001`
-**Status of this revision:** `REV-27 · 2026-09-05T03:46Z` · **📕 DOCUMENTATION FREEZE IN FORCE — §28**
+**Status of this revision:** `REV-28 · 2026-09-05T13:26Z` · **📕 DOCUMENTATION FREEZE IN FORCE — §28**
 
 ---
 
@@ -4303,3 +4303,145 @@ is negotiable, and the Owner has been told the run is held.
 
 *Auditor. This entry records a finding, a gate ruling and a handover. It promotes nothing and closes
 no production gate.*
+
+---
+
+# 41 · REV-28 — **PART TWO OF TWO.** F-88, F-89, F-92 AND F-95 GREEN ON STAGING
+
+**Written by the Auditor · 2026-09-05 · transcribed and figure-checked by D3 (documentation lane)**
+**Committed under §28.2 exception (a)** — findings closed on measurement, and an Owner ruling.
+
+**This completes the pair opened at §39, which was marked PART ONE OF TWO and said nothing would
+promote until F-88 and F-89 were also proven.** They are proven. **Every figure below is the
+Auditor's, taken on the DEPLOYED lane rather than reported to him.**
+
+**The Auditor records that F-88 and F-89 were green hours before this entry and the word was not
+sent. That delay is his, not D3's.**
+
+## 41.1 · WHAT WENT GREEN
+
+| finding | what it was |
+|---|---|
+| **F-88** | the Add Friend button wrapped — English on **desktop**, not mobile, because the two-column shell squeezed each button to 103 px; Telugu needed 174 px against a 158 px share at 360 px |
+| **F-89** | the 404 rendered inside the two-sidebar marketing shell, because `Layout.tsx:42` decided sidebars by **path matching** and a 404 has an arbitrary path |
+| **F-92** | `/profile/<uuid>` was rendered and then corrected |
+| **F-95** | in-app clicks handed the visitor a UUID — the case the edge can never see |
+
+**F-92 and F-95 merged together as ruled in `docs/gates/URL-NAMESPACE.md` §5.2, as `0aa04ef` in
+#189, and were then deployed and measured on the running site.**
+
+## 41.2 · THE HARD LOAD — **zero bytes of HTML at an id URL**
+
+`GET /profile/<uuid>` on the deployed staging lane:
+
+| reading | value |
+|---|---|
+| status | **302** — never 301 |
+| `location` | **`/sofia.duarte`** |
+| `cache-control` | **`no-store`** |
+| **`content-length`** | **`0`** |
+| hops | **one** |
+
+**THE ZERO IS THE FINDING.** There are **zero bytes of HTML at an id URL**, so **there is no render
+to correct** — and *that is precisely what the rejected cosmetic version could not say.* A fix that
+renders the page and then rewrites the address has, at some instant, served the UUID. **This one
+never serves it at all.** The difference is not visible in a screenshot; it is visible in
+`content-length`.
+
+**302 and not 301** — a permanent redirect would be cached by browsers and intermediaries beyond the
+project's control, and the mapping from id to name is **not** permanent: §1.4 of the URL namespace
+gives the member a change right.
+
+**The neighbouring cases, each measured:** the query string is **carried**; `/profile/<id>/photos` is
+**not hijacked**; a **nonexistent uuid** and a **non-uuid** both **fall through with no 500**.
+
+**Three calls at 240 ms, 196 ms and 262 ms — the cache is serving.**
+
+## 41.3 · THE RENDERED PAGES, SIGNED IN
+
+| page | id links after | before |
+|---|---|---|
+| feed | **0 of 58 anchors** | **24 of 53** |
+| notifications | **0 of 29** | — |
+| friends | **0 of 31** | — |
+
+## 41.4 · THE IN-APP CLICK — the case the edge can never see
+
+A Pages Function never sees a client-side navigation. **This is the measurement that closes the half
+the edge fix cannot reach.**
+
+Clicked a member from `/friends`: the address bar went **from `/friends` straight to
+`/owen.blake`**. **Every sample read `/owen.blake`. The id never appeared for one frame.**
+
+## 41.5 · F-95's INSTRUMENT HISTORY — recorded in order, because it is the most useful thing here
+
+**THE AUDITOR'S 48 WAS NEVER THE RIGHT NUMBER.**
+
+| # | instrument | result |
+|---|---|---|
+| 1 | the Auditor's source scan | **48 sites across 24 files** |
+| 2 | D2's first check | **0** — a **FALSE GREEN**, blind to ternary fallbacks. **C-87** |
+| 3 | the Auditor's second instrument | found the **4** that D2's first check missed |
+| 4 | **D2's corrected check** — dropped the navigation-token requirement **entirely** and banned **BUILDING** the address at all | **14**, including `notificationLinks`, the notification bell, the user menu, mobile navigation, search and the mobile profile sheet — **none of which any instrument of the Auditor's could see** |
+
+**THE STRONGEST INSTRUMENT WAS THE ONE THAT DID NOT LOOK FOR A NAVIGATION TOKEN AT ALL.** Every
+earlier instrument asked *"is this address being navigated to?"* and therefore could only find
+addresses that looked like navigation. The corrected check asked *"is this address being **built**?"*
+— and found six surfaces that construct it without a `to=`, an `href=` or a `navigate(` anywhere near.
+
+**C-88 — the type system was hiding the rest.** An **optional** type field stopped the compiler
+enumerating the hydration sites; **six were missed.** Making the field **required** printed **all
+thirty in one run.** The compiler was a better instrument than any grep, and it was disabled by a
+question mark.
+
+**This is §3.3 of the URL namespace file proved again at a higher level:** a count is a claim about
+its instrument. Four instruments, four different numbers, and the useful one came last.
+
+## 41.6 · THE FOUR PLANTS — proof the corrected check can fail
+
+**C-34: a check that could not have failed is not evidence.** The Auditor planted four defects
+against D2's corrected check:
+
+| # | defect planted | result |
+|---|---|---|
+| 1 | ternary fallback | **caught** |
+| 2 | token and url **split across two lines** | **caught** |
+| 3 | string concatenation | **caught** |
+| 4 | an address **built but never navigated** | **caught** |
+
+**All four caught. Control clean before and after.**
+
+**Plant 4 is the one that matters:** it is the exact class D2's *first* check was blind to, and the
+corrected check catches it. **The instrument was tested against the failure that produced C-87.**
+
+## 41.7 · NOT GREEN — and NOT to be recorded as such
+
+| id | state |
+|---|---|
+| **F-96** | the window bypass — **NOT GREEN.** D1 is applying **#191** |
+| **F-96b** | the released-name hijack — **NOT GREEN** |
+| **F-97** | the 360-versus-365 discrepancy — **NOT GREEN** |
+
+**#189's commit subject names F-96, and that is code merged, not a finding proven. It is recorded
+here as NOT GREEN on the Auditor's word, and nothing in §41 should be read as closing it.**
+
+### OWNER RULING — the change window
+
+**The window is 365 DAYS. Not 12 months, and not a calendar year.**
+
+**The refusal message is exactly:**
+
+> `Can't change until 31st Dec 2027`
+
+**and nothing else.**
+
+## 41.8 · THE LANES AT THE CLOSE OF REV-28
+
+* **Production is UNTOUCHED at `b309576`.**
+* **Run #23 is HELD.**
+* **The production F-93 backfill comes BEFORE either promotion.**
+* **Nothing in this revision promotes to `main`.** §39 said one promotion, not three; F-96, F-96b and
+  F-97 are open, so the set is not yet whole.
+
+*Auditor. This entry records findings proven on staging. It promotes nothing and closes no production
+gate.*
