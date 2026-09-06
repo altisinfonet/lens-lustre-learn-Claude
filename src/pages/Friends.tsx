@@ -351,15 +351,50 @@ const Friends = () => {
                 * which is the whole reason F-108 asks whether an ancestor clips
                 * a region rather than only whether the region is 44px.
                 *
-                * THE FIX IS ROOM, NOT SIZE. Overflow clips at the PADDING BOX,
-                * so 7px of vertical padding gives a 44px region somewhere to
-                * live (31 + 7 + 7 = 45). An equal negative margin pulls the box
-                * back so NOTHING ON SCREEN MOVES. The tabs are NOT made 44px
-                * tall — that would be a redesign nobody asked for.
+                * THE FIX IS ROOM, NOT SIZE — the tabs are NOT made 44px tall,
+                * which would be a redesign nobody asked for. Overflow clips at
+                * the PADDING BOX, so vertical padding gives the region a place
+                * to live and an equal negative margin pulls the box back.
                 *
                 * This file already knew the technique: `-mx-2 px-2` is the same
                 * trick on the horizontal axis, two classes to the left. It had
                 * simply never been applied vertically.
+                *
+                * ⚠ F-108b — PADDING ALONE WAS A CONSTANT FITTED TO ONE FONT,
+                * AND IT SHIPPED BROKEN. The first fix was `py-[7px] -my-[7px]`
+                * and nothing else, sized against a tab measured at 31.4 — at
+                * 360px, the only width I checked. The DEPLOYED tab is 28.1:
+                * 28.1 + 7 + 7 = 42.1, short of 44, and the Auditor measured
+                * cutPx 1.9 on all five tabs at 1536. The harness reproduces it
+                * once asked at the right width — 28.5 painted, container 42.5,
+                * cutPx 1.5. A tab is not a fixed height: a font swap, a
+                * line-height change or a text-size setting moves it, and every
+                * such move would break a padding constant again.
+                *
+                * SO THE FLOOR IS DECLARED, NOT ARITHMETIC:
+                *
+                *   min-h-[44px]     the padding box can never be under 44,
+                *                    whatever the tab measures.
+                *   flex items-center  the tab sits at the CENTRE of that box.
+                *
+                * The second class is not decoration. `.tap-44`'s region is
+                * centred on its control, so it reaches (44 − tabH)/2 above and
+                * below. A 44px box with the tab at its TOP still clips 0.75px
+                * off the top at a 28.5 tab — the floor without the symmetry is
+                * a fix that measures right and taps wrong.
+                *
+                * Proven by FORCING the tab height rather than by trusting the
+                * one it happens to have — 24, 28, 34 and native, at 360 and
+                * 1536: cutPx 0 at every one. See docs/evidence/d2/F-108b/.
+                *
+                * ⚠ WHAT THIS COSTS, STATED PLAINLY: where the tab is under
+                * 30px the floor makes the row 30px instead, so content below
+                * moves DOWN by (30 − tabH) — 1.5px at the deployed 28.5, 6px
+                * at a forced 24. Nothing moves at 30px or taller. Guaranteeing
+                * a 44px clip window while keeping a sub-44 layout box is not
+                * possible without a negative margin that scales with the
+                * shortfall, which is the same fitted constant in another hat.
+                * The 1.5px is the honest price of the guarantee.
                 *
                 * The outer margins move to a wrapper so `-my` and `mb` cannot
                 * both set margin-bottom — Tailwind resolves that collision by
@@ -368,7 +403,7 @@ const Friends = () => {
                 * ═══════════════════════════════════════════════════════════════
                 */}
               <div className="mb-3 md:mb-6">
-              <div className="overflow-x-auto scrollbar-hide -mx-2 px-2 md:mx-0 md:px-0 py-[7px] -my-[7px]" style={{ WebkitOverflowScrolling: "touch" }}>
+              <div className="flex items-center min-h-[44px] overflow-x-auto scrollbar-hide -mx-2 px-2 md:mx-0 md:px-0 py-[7px] -my-[7px]" style={{ WebkitOverflowScrolling: "touch" }}>
                 <TabsList className="inline-flex gap-2 bg-transparent border-none p-0 h-auto w-max min-w-full md:min-w-0">
                 <TabsTrigger value="awaited" className="shrink-0 tap-44 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
                   <UserCheck className="h-3 w-3 shrink-0" /> Awaited ({receivedRequests.length})
