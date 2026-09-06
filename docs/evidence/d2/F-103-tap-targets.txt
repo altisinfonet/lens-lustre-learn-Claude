@@ -299,3 +299,65 @@ ok   wall-view-toggle                     4 controls, all >= 44px
 
 1212 interactive elements measured across 48 scenes at 360px.
 250 UNDER 44px.
+
+════════════════════════════════════════════════════════════════════════════
+F-103 — MEASURED GAPS BEFORE SHIPPING THE HIT REGIONS (2026-09-06)
+════════════════════════════════════════════════════════════════════════════
+
+Two 44px hit regions closer than 44px apart INTERSECT, and the later-painted
+one wins the overlap. So every pair was measured before anything shipped.
+
+  Entries 37w      <-> Votes 30w        28px gap,  10.5 consumed,  17.5 clear
+  Votes 30w        <-> Requests 51w     28px gap,   7   consumed,  21   clear
+  birthday avatar  <-> avatar           31px vert,  8   consumed,  23   clear
+  Delete           <-> nearest control  12px gap,   8   consumed,   4   clear
+  Delete           <-> Delete           65px vert, 16   consumed,  49   clear
+
+NOTHING INTERSECTS.
+
+The Auditor predicted the three stat tiles WOULD intersect and called it
+arithmetic rather than risk. It was arithmetic on an unchecked assumption —
+that three tiles side by side are adjacent. They are 28px apart. Recorded
+under his name at his instruction, not softened into a caveat: the fifth time
+in one day of reasoning about the shape of a thing instead of measuring it.
+The check was still right to demand — the same arithmetic left the avatars
+23px and Delete 4px.
+
+── THE 4px MARGIN AT DELETE ──────────────────────────────────────────────────
+
+The 4px margin at Delete is a positive margin and not a comfortable one, and if
+that row ever tightens it is the first thing to break.
+
+Its neighbours do not grow horizontally: Follow back is already 92.7px wide, so
+width:100% holds it and min-width:44px never applies, and the actor names are
+inline links with no hit region at all.
+
+AND THOSE 12px ARE DEAD SPACE, which is the sharper reading and it is the
+Auditor's. The row container is a plain div with gap-3 and NO onClick. Growing
+Delete 8px into that space therefore steals from no neighbour — it converts
+space where a tap did NOTHING into space where a tap DELETES, and deletion here
+has no undo. It is the only change tonight that makes a mis-tap worse rather
+than better.
+
+DELETE STAYS AT 44 x 44. The Auditor's ruling, his risk appetite, recorded as
+his: the Owner is blind and works from a phone, so the cost of a target he
+cannot reliably reach is paid EVERY time he uses the page while the cost of a
+mis-tap is paid occasionally, and trading a certain daily difficulty for a
+possible occasional one is the wrong direction. 44 is the figure WCAG 2.5.5 and
+Apple's guidance both give; 32 is only this project's floor for the SHORT side,
+a weaker standard and not one to park a destructive control on. 4px versus 10px
+does not change the class of the risk, only the number.
+
+THE CORRECT MITIGATION FOR A NO-UNDO ACTION IS AN UNDO, NOT A SMALLER TARGET.
+Recorded as F-106 — a toast with an Undo action and a short window, deletion
+deferred or reversible for that window, following what the Owner asked us to
+match. NOT in #196, and the Auditor takes it to him; it is not D2's to start.
+
+── THE ACTOR NAMES HAVE NO HIT REGION, AND THAT IS DELIBERATE ────────────────
+
+The inline member names in a notification sentence are links with NO enlarged
+hit region, and that is correct rather than an oversight. A name inside a
+sentence is not a 44px control, and giving it one would swallow the sentence
+around it — the 44px box would extend above and below the line and overlap the
+words on the neighbouring lines. Written here explicitly so the next reader does
+not file it as a miss.
