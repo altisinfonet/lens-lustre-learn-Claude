@@ -52,7 +52,7 @@
 --   custom_url-only UPDATE. Four are no-ops here (protect_admin_name and
 --   trg_guard_profile_moderation guard on columns this does not touch;
 --   trg_validate_profile_full_name raises only on a blank name, and none of the
---   18 is blank; trg_forbid_custom_url_change is guarded by OLD.custom_url IS
+--   17 is blank; trg_forbid_custom_url_change is guarded by OLD.custom_url IS
 --   NOT NULL). The fifth is the block above. The sixth WRITES:
 --   sync_profiles_public_data_trg upserts into public.profiles_public_data and
 --   its ON CONFLICT DO UPDATE SET carries custom_url, so the handle propagates
@@ -61,7 +61,7 @@
 --   photographers. Asserted below on BOTH tables.
 --
 -- ⚠ LANE. This is a one-time PRODUCTION data migration. Run against any lane
---   where the 18 names are not present-and-NULL it will RAISE and roll back,
+--   where the 17 names are not present-and-NULL it will RAISE and roll back,
 --   which is the intended behaviour, not an accident to be worked around.
 -- ═══════════════════════════════════════════════════════════════════════════
 
@@ -100,7 +100,7 @@ INSERT INTO _plan (full_name, nth, handle) VALUES
   ('Partha Kar',                1, 'partha.kar'),
   ('Partha Kar',                2, 'partha.kar2');
 
--- A1 · The plan itself is well-formed: 18 rows, 18 distinct handles.
+-- A1 · The plan itself is well-formed: 17 rows, 17 distinct handles.
 DO $a1$
 DECLARE _n int; _d int;
 BEGIN
@@ -112,7 +112,8 @@ END
 $a1$;
 
 -- A2 · Every planned name matches EXACTLY the number of NULL rows planned for
---      it. One for sixteen names, two for Partha Kar. Anything else aborts.
+--      it. One for FIFTEEN names, two for Partha Kar — 15 + 2 = 17, which is
+--      where the seventeen comes from. Anything else aborts.
 DO $a2$
 DECLARE r record; _expected int; _actual int;
 BEGIN
@@ -173,7 +174,7 @@ CREATE TEMP TABLE _resolved ON COMMIT DROP AS
     ) r
     JOIN _plan pl ON pl.full_name = r.full_name AND pl.nth = r.nth;
 
--- A5 · 18 rows resolved, 18 distinct ids, 18 distinct handles.
+-- A5 · 17 rows resolved, 17 distinct ids, 17 distinct handles.
 DO $a5$
 DECLARE _n int; _di int; _dh int;
 BEGIN
@@ -202,14 +203,14 @@ BEGIN
 END
 $a6$;
 
--- ── THE WRITE. One statement, one column, 18 rows. ──
+-- ── THE WRITE. One statement, one column, 17 rows. ──
 UPDATE public.profiles p
    SET custom_url = r.handle
   FROM _resolved r
  WHERE p.id = r.id
    AND p.custom_url IS NULL;
 
--- A7 · Exactly 18 rows changed.
+-- A7 · Exactly 17 rows changed.
 DO $a7$
 DECLARE _still_null int; _held int; _total int;
 BEGIN
@@ -247,7 +248,7 @@ BEGIN
      SELECT id, custom_url FROM _before_handles)
   ) d;
   IF _drift <> 0 THEN
-    RAISE EXCEPTION 'A8 FAILED — % pre-existing handle(s) differ from the snapshot. Nothing outside the 18 may change.', _drift;
+    RAISE EXCEPTION 'A8 FAILED — % pre-existing handle(s) differ from the snapshot. Nothing outside the 17 may change.', _drift;
   END IF;
 END
 $a8$;
