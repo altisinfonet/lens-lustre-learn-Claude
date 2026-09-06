@@ -85,9 +85,13 @@ describe("every type that actually exists on this platform has a destination", (
     ["post_comment", POST, `/post/${POST}`],
     ["comment_reply", POST, `/post/${POST}`],
     ["new_post_from_following", POST, `/post/${POST}`],
-    ["new_follower", PERSON, `/profile/${PERSON}`],
+    // F-95 — a person destination is the member's NAME url now, and this
+    // table row is called WITHOUT a handle, so it asserts the no-handle
+    // answer: the wider screen, never `/profile/<id>`. The with-handle
+    // case is asserted separately below.
+    ["new_follower", PERSON, "/friends"],
     ["friend_request", PERSON, "/friends"],
-    ["friend_accepted", PERSON, `/profile/${PERSON}`],
+    ["friend_accepted", PERSON, "/friends"],
     ["image_reaction", POST, "/discover"],
     ["entry_rejected", POST, `/competitions/${POST}`],
     ["course_published", POST, `/courses/${POST}`],
@@ -101,6 +105,41 @@ describe("every type that actually exists on this platform has a destination", (
   it.each(LIVE)("%s lands somewhere meant for it", (type, ref, expected) => {
     expect(getNotifLink({ type, reference_id: ref })).toBe(expected);
   });
+
+  /**
+   * F-95 — THE PERSON DESTINATIONS, AND WHY THE TABLE ABOVE CHANGED.
+   *
+   * new_follower and friend_accepted used to return `/profile/${reference_id}`.
+   * That is a client-side navigate() in both the bell and the history page, so
+   * the edge redirect never sees it and the UUID sits in the address bar and
+   * stays. The destination is now built from the member's HANDLE, which the
+   * bell and the history page resolve in one batched lookup and pass in.
+   *
+   * A PUSH payload carries only type and reference_id, so it has no handle, and
+   * there the tap falls through to the destination this function has always
+   * used when it cannot be specific. Stated rather than hidden: one of those
+   * two push types now lands one screen wider than before, recoverable in a
+   * single tap. That is the cost of not shipping a UUID.
+   */
+  it.each([["new_follower"], ["friend_accepted"]])(
+    "%s opens the member's NAME url when the handle is known",
+    (type) => {
+      expect(getNotifLink({ type, reference_id: PERSON, handle: "liwei" })).toBe("/liwei");
+    },
+  );
+
+  it.each([["new_follower"], ["friend_accepted"], ["birthday"]])(
+    "%s NEVER returns an id address, with or without a handle",
+    (type) => {
+      for (const input of [
+        { type, reference_id: PERSON },
+        { type, reference_id: PERSON, handle: null },
+        { type, reference_id: PERSON, handle: "liwei" },
+      ]) {
+        expect(getNotifLink(input).startsWith("/profile/")).toBe(false);
+      }
+    },
+  );
 
   it("means no live type falls through to the catch-all", () => {
     // /dashboard is the fallback. A live type reaching it is a type nobody
