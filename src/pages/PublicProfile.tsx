@@ -647,7 +647,22 @@ export const PublicProfileInner = ({ userId }: { userId: string }) => {
                   <UserIdentityBlock
                     userId={userId || ""}
                     name={displayName}
-                    handle={null} /* F-98 — deliberately not a link: this is the member's own name on the page they are already on. null is a stated answer, not an omission. */
+                    handle={null}
+                    /*
+                     * ITEM 10 — THIS IS THE PAGE'S HEADING, NOT AN UNLINKED
+                     * LINK. It names the page you are already on, and this page
+                     * had NO h1 at all before now — measured, zero occurrences
+                     * in this file. A self-referential link would announce
+                     * "link" to a screen reader for something that goes
+                     * nowhere, which is worse than no link.
+                     *
+                     * There are two of these, in the `hidden sm:block` desktop
+                     * block and the `flex sm:hidden` mobile one. Both sit in the
+                     * DOM; only one is displayed, and display:none removes the
+                     * other from the accessibility tree, so exactly one heading
+                     * is ever announced.
+                     */
+                    nameAs="h1"
                     size="full"
                     nameClassName="text-base md:text-lg font-bold tracking-tight leading-none [font-family:var(--font-display)]"
                   />
@@ -792,7 +807,22 @@ export const PublicProfileInner = ({ userId }: { userId: string }) => {
                   <UserIdentityBlock
                     userId={userId || ""}
                     name={displayName}
-                    handle={null} /* F-98 — deliberately not a link: this is the member's own name on the page they are already on. null is a stated answer, not an omission. */
+                    handle={null}
+                    /*
+                     * ITEM 10 — THIS IS THE PAGE'S HEADING, NOT AN UNLINKED
+                     * LINK. It names the page you are already on, and this page
+                     * had NO h1 at all before now — measured, zero occurrences
+                     * in this file. A self-referential link would announce
+                     * "link" to a screen reader for something that goes
+                     * nowhere, which is worse than no link.
+                     *
+                     * There are two of these, in the `hidden sm:block` desktop
+                     * block and the `flex sm:hidden` mobile one. Both sit in the
+                     * DOM; only one is displayed, and display:none removes the
+                     * other from the accessibility tree, so exactly one heading
+                     * is ever announced.
+                     */
+                    nameAs="h1"
                     size="full"
                     className="items-start text-left"
                     nameClassName="text-[17px] font-semibold tracking-tight leading-tight [font-family:var(--font-display)]"
