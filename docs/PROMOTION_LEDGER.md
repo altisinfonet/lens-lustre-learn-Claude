@@ -6,7 +6,7 @@
 
 **Repository path:** `docs/PROMOTION_LEDGER.md` (canonical, on `staging`)
 **Ledger ID:** `LEDGER-50MM-001`
-**Status of this revision:** `REV-28 · 2026-09-05T13:26Z` · **📕 DOCUMENTATION FREEZE IN FORCE — §28**
+**Status of this revision:** `REV-29 · 2026-09-06T02:47Z` · **📕 DOCUMENTATION FREEZE IN FORCE — §28**
 
 ---
 
@@ -4445,3 +4445,128 @@ here as NOT GREEN on the Auditor's word, and nothing in §41 should be read as c
 
 *Auditor. This entry records findings proven on staging. It promotes nothing and closes no production
 gate.*
+
+---
+
+# 42 · REV-29 — THE INVARIANT, F-98c, AND THE AUDITOR'S OWN DAMAGE
+
+**Written by the Auditor · 2026-09-05 · transcribed by D3 (documentation lane)**
+**Committed under §28.2 exception (a).** **Nothing here is softened. It is written so the next
+person does not repeat it.**
+
+## 42.1 · THE INVARIANT — recorded in `docs/gates/URL-NAMESPACE.md` §1.6
+
+> **EVERY MEMBER NAME THAT IS A REFERENCE TO A PERSON IS A LINK TO THAT PERSON.**
+
+Two things are **NOT exceptions but different element types**: the page's own **heading** (an `h1` —
+a heading that links to itself announces *"link"* to a screen reader for something that goes
+nowhere, **and the Owner uses a screen reader**), and a **control's label** (the control's own
+destination governs; a link inside a button is invalid HTML).
+
+**A hand-written exception list is precisely what missed the sidebar in F-98b and then missed
+`/notifications` in F-98c. A list needs maintaining and will drift. A type does not.**
+
+## 42.2 · CORRECTION AGAINST THE AUDITOR — a claim asserted from memory, and a migration cancelled
+
+**The Auditor told the Owner:** *"every major platform makes your own name in your own profile
+header a link — Facebook, Instagram, LinkedIn."*
+
+**HE ASSERTED THAT FROM MEMORY AND DID NOT CHECK IT.**
+
+**On the strength of it he ordered a DROP-and-CREATE migration on `get_feed_stories_bar` to add
+`custom_url`.**
+
+**THE CLAIM IS WITHDRAWN. THE MIGRATION IS CANCELLED. IT SHOULD NEVER BE WRITTEN.**
+
+The corrected reasoning rests on **W3C's headings guidance** and **WCAG 2.4.4 link purpose** — **not
+on a recollection of an app.**
+
+**This is in the ledger for one reason: a future reader could otherwise find the instruction and
+execute it.** A cancelled order that lives only in a chat message is an order still waiting to be
+obeyed.
+
+## 42.3 · THE SEVEN SOURCES OF F-98c — true state, one line each
+
+**`UNMEASURED` means unmeasured. It does not mean probably fine.**
+
+| # | source | state |
+|---|---|---|
+| 1 | suggestions | **LIVE**, measured **green** by the Auditor on the deployed pages |
+| 2 | milestones | server-ready, **UNMEASURED** — no anniversary today |
+| 3 | birthdays | **NOT FIXED.** Waits on the by-hand migration |
+| 4 | photographers | server-ready, client-pending, **UNMEASURED** |
+| 5 | winners | server-ready, client-pending, **UNMEASURED** |
+| 6 | `/notifications` | fixed on `ccf3685`, **NOT DEPLOYED**, measured **RED — fifteen names** |
+| 7 | stories bar | ruled **a control's label** — no change |
+
+**One of seven is green and measured. One is red and measured. Three are unmeasured. One is not
+fixed. One needed no change.**
+
+## 42.4 · THE COMPILE-TIME DOORWAY IS NOT DONE — **OPEN, against the Auditor**
+
+**Given its own heading because it is the item most likely to be quietly forgotten.**
+
+The Auditor required **four** things: three doorways — **the client query, the edge payload, the RPC
+signature** — **plus a type change making a nameless handle impossible to construct.**
+
+| # | required | state |
+|---|---|---|
+| 1 | the client query | doorway |
+| 2 | the edge payload | **lands in #196, with C-34 on it** |
+| 3 | the RPC signature | **lands in #196, with C-34 on it** |
+| 4 | **the type change** | ❌ **DOES NOT LAND. DEFERRED.** |
+
+**#196 MUST NOT BE READ AS CLOSING THE CLASS. It patches the instances and makes three doorways
+loud.** The thing that would make the defect **impossible to construct** is the type change, **and it
+is not in #196.**
+
+**OPEN, with the Auditor's name against it.**
+
+## 42.5 · THE INSTRUMENT FAILURES — the real subject of today
+
+### 42.5.1 · The tree-wide name rule is STRUCTURALLY INCAPABLE of covering an RPC-fed page
+
+**It reads a page's `.select()` string. `Notifications.tsx` has none.**
+
+**Plant 6 proved it: the defect was planted and ELEVEN TESTS PASSED.**
+
+**A page-specific test caught it — which is backwards from what a guard is for.** A guard exists so
+that the page-specific test is not the last line of defence. Here it was the only one.
+
+**THAT HOLE IS OPEN.**
+
+### 42.5.2 · Eight times today, the harness could not produce the failing shape
+
+**An instrument that cannot render the failing shape is not an instrument.**
+
+Three separate occasions are named: **four empty sidebar arrays**, and **a three-name mention fixture
+under a five-row cap.** The fixture could not express the condition the test claimed to check.
+
+**That is C-87, and today it happened EIGHT TIMES.**
+
+## 42.6 · THE AUDITOR'S DAMAGE — his section, not buried
+
+**Four rows he created on staging are still there.**
+
+**Two members he invented appear inside his own reported counts** — figures he reported were
+inflated by people who do not exist.
+
+**A cross-lane authorisation he granted TWICE, which the lane owner has still not reviewed.**
+
+**An `opacity:0` he planted in the shared animation file, whose restore was INTERRUPTED.** Contained,
+never pushed — **and the single most dangerous thing he did today.** A planted defect in a shared
+file with an unfinished restore is one interruption away from being someone else's mystery.
+
+**Twenty-two errors. The pattern is one sentence:**
+
+> ## **I LOOKED AT THE SHAPE OF A THING INSTEAD OF READING THE THING.**
+
+**A suffix instead of a signature. A match instead of a line. A tag instead of its parent. A
+permission instead of the trigger under it. A count instead of the page.**
+
+**Every one of those is the same move: taking the outline of a thing as evidence about the thing.**
+It is fast, it is usually right, and when it is wrong it is wrong silently — which is why it produced
+twenty-two errors in one day rather than one loud failure.
+
+*Auditor. This entry records the Auditor's own failures alongside the work. It promotes nothing and
+closes no gate.*
