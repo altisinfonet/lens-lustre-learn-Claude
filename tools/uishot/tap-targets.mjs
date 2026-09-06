@@ -121,6 +121,13 @@ for (const scene of scenes) {
   const found = await page.evaluate((floor) => {
     const SEL = 'button, a, [role="button"], input, select, textarea';
     const out = [];
+    const clipped = [], stolen = [];
+    const describe = (n) => {
+      const c = typeof n.className === "string"
+        ? n.className.split(/\s+/).filter(Boolean).slice(0, 2).join(".") : "";
+      const t = (n.getAttribute && (n.getAttribute("aria-label") || n.textContent) || "").trim().slice(0, 20);
+      return `${n.tagName.toLowerCase()}${c ? "." + c : ""}${t ? ` "${t}"` : ""}`;
+    };
     for (const el of document.querySelectorAll(SEL)) {
       const cs = getComputedStyle(el);
       if (cs.display === "none" || cs.visibility === "hidden" || cs.pointerEvents === "none") continue;
@@ -130,10 +137,111 @@ for (const scene of scenes) {
       // The ::after hit region, which the rect cannot see.
       const after = getComputedStyle(el, "::after");
       let hitW = r.width, hitH = r.height;
+      const region = { l: r.left, t: r.top, r: r.right, b: r.bottom, grown: false };
       if (after && after.content && after.content !== "none") {
         const px = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
         hitW = Math.max(hitW, px(after.minWidth), px(after.width));
         hitH = Math.max(hitH, px(after.minHeight), px(after.height));
+        region.grown = hitW > r.width + 0.5 || hitH > r.height + 0.5;
+        const cx = r.left + r.width / 2;
+        // `top: 0` means the region is anchored at the control's top and can
+        // only grow DOWNWARD (.tap-44-down). Anything else grows from centre.
+        const anchoredTop = after.top === "0px" || after.top === "0";
+        region.l = cx - hitW / 2;
+        region.r = cx + hitW / 2;
+        region.t = anchoredTop ? r.top : r.top - (hitH - r.height) / 2;
+        region.b = region.t + hitH;
+      }
+      /*
+       * ── F-108 / F-109: WHAT ELSE DOES THIS REGION TOUCH? ──────────────────
+       *
+       * Both found by the Auditor by hand, both invisible to a size check.
+       *
+       * F-108: a region that extends past its control can be CLIPPED by an
+       * ancestor with overflow:hidden, and getComputedStyle on a pseudo-element
+       * cannot see that. Only asking what is actually painted at a coordinate
+       * can. elementFromPoint at the region's corners is that question.
+       *
+       * F-109: a SYMMETRIC region is the wrong default next to text. Text is
+       * short and an inline link has no region of its own, so it loses every
+       * contested pixel. Measured in the deployed lightbox: Copy Photo Link
+       * grew 13.5px UP into a 15px name and took 27% of it — on the very link
+       * that night's work had created.
+       *
+       * Recorded so the next reader knows why this is two questions and not
+       * one: a region can claim a neighbour's CENTRE without any two regions
+       * intersecting, which is a weaker condition than overlap and is what
+       * caught Close taking the nav search button's centre.
+       */
+      if (region.grown) {
+        for (const [cx, cy, corner] of [
+          [region.l + 1, region.t + 1, "top-left"],
+          [region.r - 1, region.t + 1, "top-right"],
+          [region.l + 1, region.b - 1, "bottom-left"],
+          [region.r - 1, region.b - 1, "bottom-right"],
+        ]) {
+          if (cx < 0 || cy < 0 || cx > innerWidth || cy > innerHeight) continue;
+          const at = document.elementFromPoint(cx, cy);
+          // Clipped: the corner of our own hit region is painted by something
+          // that is neither us nor a descendant, and is not another control.
+          if (at && at !== el && !el.contains(at) && !at.matches(SEL)) {
+            clipped.push(`${describe(el)} ${corner} of its hit region is painted by ${describe(at)}`);
+            break;
+          }
+        }
+        for (const other of document.querySelectorAll(SEL)) {
+          if (other === el || el.contains(other) || other.contains(el)) continue;
+          const o = other.getBoundingClientRect();
+          if (o.width === 0 || o.height === 0) continue;
+          const ocx = o.left + o.width / 2, ocy = o.top + o.height / 2;
+          if (ocx >= region.l && ocx <= region.r && ocy >= region.t && ocy <= region.b) {
+            const at = document.elementFromPoint(ocx, ocy);
+            /*
+             * REPORT THE PAINTER, NOT MERELY THE COLLISION. Whether a claimed
+             * centre MATTERS depends on what was already covering that point:
+             * Close claiming the nav search button's centre was harmless
+             * because a full-screen modal already covered it, while the same
+             * mechanism next to a name took a quarter of the name. A bare
+             * collision count would shout about the first and say nothing
+             * useful about the second.
+             */
+            stolen.push(
+              `${describe(el)} hit region contains the centre of ${describe(other)}` +
+              ` — that point is painted by ${at ? describe(at) : "nothing"}`,
+            );
+            continue;
+          }
+          /*
+           * ⚠ THE CENTRE TEST ALONE IS NOT ENOUGH, AND A PLANT PROVED IT.
+           *
+           * Restoring the symmetric region on Copy Photo Link did NOT trip the
+           * centre test, correctly: the name's bottom sits 8px above the button
+           * (mt-2), the region reaches 13.5px up — 5.5px past the name's bottom
+           * — and the name's centre is 7px up. So it ate the name's bottom
+           * pixels WITHOUT EVER REACHING ITS CENTRE. That is the exact case
+           * that cost 27% of the photographer's name.
+           *
+           * So the region is also tested against the other control's BOX. Any
+           * real overlap where WE win the contested pixels is a fault: the
+           * neighbour loses part of its target to us.
+           */
+          const ox = Math.max(0, Math.min(region.r, o.right) - Math.max(region.l, o.left));
+          const oy = Math.max(0, Math.min(region.b, o.bottom) - Math.max(region.t, o.top));
+          if (ox > 0.5 && oy > 0.5) {
+            const mx = (Math.max(region.l, o.left) + Math.min(region.r, o.right)) / 2;
+            const my = (Math.max(region.t, o.top) + Math.min(region.b, o.bottom)) / 2;
+            const at2 = document.elementFromPoint(mx, my);
+            // Only a fault if WE take the pixels. If the neighbour still wins
+            // them, its target is intact and nothing was stolen.
+            if (at2 && (at2 === el || el.contains(at2))) {
+              const pct = Math.round((oy / o.height) * 100);
+              stolen.push(
+                `${describe(el)} hit region covers ${Math.round(ox)}x${Math.round(oy)}px of ` +
+                `${describe(other)} (${pct}% of its height) and WINS those pixels`,
+              );
+            }
+          }
+        }
       }
       if (hitW >= floor && hitH >= floor) continue;
       out.push({
@@ -145,7 +253,7 @@ for (const scene of scenes) {
         hitW: +hitW.toFixed(1), hitH: +hitH.toFixed(1),
       });
     }
-    return { total: document.querySelectorAll(SEL).length, small: out };
+    return { total: document.querySelectorAll(SEL).length, small: out, clipped, stolen };
   }, FLOOR);
 
   checked += found.total;
@@ -203,8 +311,20 @@ if (failures.length) {
   for (const f of failures) console.log(`  ${f}`);
 }
 /*
+ * ⚠ NOT RATCHETED. The size debt is hundreds of controls old and needs a
+ * baseline to stop the bleeding without demanding an impossible repair. A
+ * region that clips, or claims another control's centre, is DIFFERENT: it can
+ * only exist where somebody has ADDED a hit region, which is new work by
+ * definition, so there is no legacy to grandfather. Every one of these is ours
+ * and every one fails.
+ */
+if (regionFaults.length) {
+  console.log(`\n${regionFaults.length} hit-region fault(s) — a region that clips, or claims another control's centre:`);
+  for (const f of regionFaults) console.log(`  ${f}`);
+}
+/*
  * An unrecorded scene fails too. Otherwise a new surface arrives carrying any
  * number of untappable controls and the ratchet says nothing — which is the
  * silent-zero shape that has caught us repeatedly today.
  */
-process.exit(failures.length === 0 && unrecorded.length === 0 ? 0 : 1);
+process.exit(failures.length === 0 && unrecorded.length === 0 && regionFaults.length === 0 ? 0 : 1);

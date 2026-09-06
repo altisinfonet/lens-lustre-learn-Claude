@@ -288,7 +288,15 @@ const CompetitionLightbox = memo(({
                         navigator.clipboard.writeText(buildCompetitionPhotoUrl(SITE_ORIGIN, current.entryId, current.photoIndex));
                         toast({ title: "Photo link copied!" });
                       }}
-                      className="inline-flex items-center tap-44 gap-1.5 mt-2 text-[10px] tracking-[0.1em] uppercase text-muted-foreground hover:text-primary transition-colors"
+                      /*
+                       * F-109 — tap-44-down, NOT tap-44. This button sits
+                       * directly beneath the photographer's name, and a
+                       * symmetric region grew 13.5px UP into a 15px line and
+                       * took 27% of it. Anchored at the top it grows only into
+                       * the whitespace below. Still 44px; the answer was
+                       * direction, not size.
+                       */
+                      className="inline-flex items-center tap-44-down gap-1.5 mt-2 text-[10px] tracking-[0.1em] uppercase text-muted-foreground hover:text-primary transition-colors"
                       style={{ fontFamily: "var(--font-heading)" }}
                     >
                       <Copy className="h-3 w-3" /> Copy Photo Link
