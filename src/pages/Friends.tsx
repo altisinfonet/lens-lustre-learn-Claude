@@ -330,7 +330,45 @@ const Friends = () => {
             </div>
 
             <Tabs defaultValue={receivedRequests.length > 0 ? "awaited" : sentRequests.length > 0 ? "pending" : "friends"} className="w-full">
-              <div className="overflow-x-auto scrollbar-hide -mx-2 px-2 md:mx-0 md:px-0 mb-3 md:mb-6" style={{ WebkitOverflowScrolling: "touch" }}>
+              {/*
+                * ═══════════════════════════════════════════════════════════════
+                * F-108 — overflow-x: auto CLIPS VERTICALLY TOO.
+                *
+                * CSS does not let one axis scroll while the other overflows
+                * visibly: setting overflow-x to auto forces overflow-y to auto
+                * as well. Measured — getComputedStyle on this very element
+                * reports overflowY=auto — and this container is exactly
+                * tab-height, so the 44px hit regions on the five triggers were
+                * cut back to the painted 31px:
+                *
+                *   awaited    painted 105x31  region h=44  cutPx=12.6
+                *   friends    painted 102x31  region h=44  cutPx=12.6
+                *   followers  painted 113x31  region h=44  cutPx=12.6
+                *   following  painted 113x31  region h=44  cutPx=12.6
+                *
+                * clipped by div.overflow-x-auto.scrollbar-hide — this div. The
+                * tabs were no better off than before the hit region was added,
+                * which is the whole reason F-108 asks whether an ancestor clips
+                * a region rather than only whether the region is 44px.
+                *
+                * THE FIX IS ROOM, NOT SIZE. Overflow clips at the PADDING BOX,
+                * so 7px of vertical padding gives a 44px region somewhere to
+                * live (31 + 7 + 7 = 45). An equal negative margin pulls the box
+                * back so NOTHING ON SCREEN MOVES. The tabs are NOT made 44px
+                * tall — that would be a redesign nobody asked for.
+                *
+                * This file already knew the technique: `-mx-2 px-2` is the same
+                * trick on the horizontal axis, two classes to the left. It had
+                * simply never been applied vertically.
+                *
+                * The outer margins move to a wrapper so `-my` and `mb` cannot
+                * both set margin-bottom — Tailwind resolves that collision by
+                * stylesheet order, not by class order, which is not a thing to
+                * leave to chance.
+                * ═══════════════════════════════════════════════════════════════
+                */}
+              <div className="mb-3 md:mb-6">
+              <div className="overflow-x-auto scrollbar-hide -mx-2 px-2 md:mx-0 md:px-0 py-[7px] -my-[7px]" style={{ WebkitOverflowScrolling: "touch" }}>
                 <TabsList className="inline-flex gap-2 bg-transparent border-none p-0 h-auto w-max min-w-full md:min-w-0">
                 <TabsTrigger value="awaited" className="shrink-0 tap-44 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
                   <UserCheck className="h-3 w-3 shrink-0" /> Awaited ({receivedRequests.length})
@@ -350,6 +388,7 @@ const Friends = () => {
                   <Heart className="h-3 w-3 shrink-0" /> {t("fr.followingTab")} ({following.length})
                 </TabsTrigger>
                 </TabsList>
+              </div>
               </div>
 
               {/* Awaited — requests RECEIVED, accept one by one */}
