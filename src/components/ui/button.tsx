@@ -5,10 +5,23 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  // `tap-44` is FIRST so it cannot be dropped by a caller's className, and so
-  // every Button — including size:"icon", which is h-10 w-10 = 40px and is
-  // therefore four pixels short on its own — carries a 44px touch region.
-  "tap-44 inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  /*
+   * `tap-44` sits AFTER the first two classes, and that position is load-bearing.
+   *
+   * It was FIRST, on the reasoning that a caller's className could not then
+   * drop it. That renamed EVERY Button in the app: the UI gate identifies a
+   * control by tag plus its first two classes, so
+   * `button.inline-flex.items-center` became `button.tap-44.inline-flex` and
+   * the baseline diff reported hundreds of controls "gone (was present in the
+   * baseline)". Nothing was gone. I had documented this exact artefact on the
+   * raw buttons in Notifications.tsx an hour earlier and then walked into it
+   * here, on the shared component, where it applies to everything at once.
+   *
+   * The original worry was unfounded: `tap-44` is a custom class, not a
+   * Tailwind utility, so tailwind-merge has no conflicting utility to resolve
+   * it against and will not drop it from any position.
+   */
+  "inline-flex items-center tap-44 justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
