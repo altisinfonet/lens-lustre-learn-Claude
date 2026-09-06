@@ -407,9 +407,36 @@ for (const scene of scenes) {
           if (parseFloat(cs.opacity) < 0.9) continue;
 
           const r = el.getBoundingClientRect();
-          const long = Math.max(r.width, r.height);
-          const short = Math.min(r.width, r.height);
-          if (long < 44 || short < 32) small.push(`${path(el)} ${Math.round(r.width)}x${Math.round(r.height)}`);
+          /*
+           * ⚠ MEASURE WHERE THE FINGER LANDS, NOT WHAT IS PAINTED.
+           *
+           * F-103. The Owner cannot reliably tap Back or Delete on
+           * /notifications: both are 28 x 28. The fix is NOT to make the icon
+           * bigger — 28px is the design and nobody asked for a redesign — it is
+           * `.tap-44` in index.css, an ::after that paints nothing, sits out of
+           * flow so no layout moves, and extends the TOUCHABLE region to 44px.
+           *
+           * getBoundingClientRect() cannot see a pseudo-element. Left as it
+           * was, this check would report a correctly-fixed control as still
+           * broken, and the next person would "fix" it by enlarging the icon —
+           * the check driving the wrong repair.
+           *
+           * ⚠ THE FLOOR DOES NOT MOVE. 44 and 32 are unchanged, the opacity
+           * guard above is unchanged, and a control with no hit area still
+           * fails on its own rectangle. The only thing that changed is that a
+           * declared hit region now counts as the hit region, which is what a
+           * thumb actually meets.
+           */
+          const after = getComputedStyle(el, "::after");
+          let hw = r.width, hh = r.height;
+          if (after && after.content && after.content !== "none") {
+            const px = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
+            hw = Math.max(hw, px(after.minWidth), px(after.width));
+            hh = Math.max(hh, px(after.minHeight), px(after.height));
+          }
+          const long = Math.max(hw, hh);
+          const short = Math.min(hw, hh);
+          if (long < 44 || short < 32) small.push(`${path(el)} ${Math.round(hw)}x${Math.round(hh)}`);
         }
         if (small.length) out.push(`tap targets too small (${small.length}): ${small.slice(0, 6).join(", ")}`);
       }
