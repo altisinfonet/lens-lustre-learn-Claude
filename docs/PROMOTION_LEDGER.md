@@ -2283,6 +2283,29 @@ no deployment, no migration dispatch. `main` unchanged at `b671e1fb0c5bcf145d442
 > **That was false and self-contradictory** — C-8 and §3.1 record `25c0456` as **void**, so the
 > document's own closing line asserted an identity its §3 denies. Preserved here, not deleted.
 
+## 28.4 · STACKING RULE — added 2026-09-06, on the Auditor's ruling
+
+> **`staging` IS NOT THE LEDGER'S HEAD WHILE YOUR OWN PULL REQUESTS ARE OPEN.**
+> **A new section stacks on the NEWEST UNMERGED PR, not on `staging`.**
+
+**Why.** A section numbered off `staging` collides with, or leaves a gap before, a section already
+written in an open PR. **Both happened.** A second `REV-17` was proposed against an existing §29; and
+a §44 was written off `staging` while §43 sat unmerged, leaving §42 → §44 with **no §43**.
+
+**It happened FOUR TIMES in one night.** It is the documentation lane's equivalent of the pattern
+§42.6 names for the Auditor — **taking the shape of a thing for the thing.** `staging` *looks* like
+the head of the record. **It is only the head of the MERGED record**, and the difference is invisible
+until the numbering breaks.
+
+**The check, before appending anything:** list your own open PRs against this file, take the newest,
+and branch from **its head**. **Do not branch from `staging` and then verify the number afterwards** —
+verifying after the fact is how the gap was found three of the four times.
+
+**This subsection was APPENDED to §28 and rewrote none of it.** It is the **first change to the
+pre-existing record beyond the header pointer at line 9**, and is recorded as such so that the
+"byte-identical below line 9" proof quoted in earlier pull requests is read as holding **up to this
+addition and not beyond it.**
+
 
 ---
 
@@ -4751,7 +4774,7 @@ of the invariant and NOT a defect.**
 **36 to 88 controls per page under 44 px at desktop width — F-104, measured on the real site for the
 first time.**
 
-## 44.3 · A NINTH INSTRUMENT FAILURE CLASS — **THE COUNT MOVES FROM EIGHT TO ELEVEN**
+## 44.3 · THREE MORE INSTRUMENT FAILURES — **THE COUNT MOVES FROM EIGHT TO ELEVEN**
 
 **§43.3 held the count at eight deliberately. It now moves. 8 + 3 = 11.**
 
@@ -4813,7 +4836,8 @@ signed-in member can read whose birthdays are visible to another member.**
 **`0015` is not wrong. It reproduces today's ACL exactly, verified.**
 
 **Worse:** **both overloads of `process_referral_reward`** are granted to `authenticated`, are
-**SECURITY DEFINER**, **write to `wallets`**, and have **no role check.**
+**SECURITY DEFINER**, **call `wallet_transaction()`, which issues the credit**, and have
+**no role check.**
 
 * the **three-argument** one is called by the member client **behind a condition enforced IN THE
   BROWSER**
