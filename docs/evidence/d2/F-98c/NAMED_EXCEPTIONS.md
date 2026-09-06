@@ -75,7 +75,7 @@ RETURNS TABLE(user_id uuid, full_name text, avatar_url text, is_official boolean
 
 so if he wants the name to link, **the RPC signature changes** — a drop and
 recreate like `get_todays_birthdays` in
-`supabase/migrations/20260910_0013_f98c_birthdays_carry_handle.sql` — not just
+`supabase/migrations/20260910_0014_f98c_birthdays_carry_handle.sql` — not just
 the markup. This is source SEVEN of F-98c and it is unfixed by design.
 
 ## 4. Structurally incapable of carrying the defect — verified, leave alone

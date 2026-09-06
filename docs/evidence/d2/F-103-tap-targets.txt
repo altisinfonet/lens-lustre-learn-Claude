@@ -1,0 +1,301 @@
+ok   calendar-dob                         40 controls, all >= 44px
+ok   calendar-plain                       45 controls, all >= 44px
+ok   composer-album                       22 controls, all >= 44px
+ok   composer-broken-src                  9 controls, all >= 44px
+ok   composer-full                        41 controls, all >= 44px
+ok   composer-pano-cover                  14 controls, all >= 44px
+ok   composer-portrait-cover              14 controls, all >= 44px
+ok   composer-single                      6 controls, all >= 44px
+ok   crop-modal-avatar                    18 controls, all >= 44px
+FAIL crop-modal-behind-dialog             5 under 44px of 25 controls
+         42.8 x 44      button.h-11.shrink-0                  1:1
+         42.8 x 44      button.h-11.shrink-0                  4:5
+         42.8 x 44      button.h-11.shrink-0                  4:3
+         42.8 x 44      button.h-11.shrink-0                  3:2
+           16 x 16      button.absolute.right-4               Close
+FAIL crop-modal-tall                      4 under 44px of 24 controls
+         42.8 x 44      button.h-11.shrink-0                  1:1
+         42.8 x 44      button.h-11.shrink-0                  4:5
+         42.8 x 44      button.h-11.shrink-0                  4:3
+         42.8 x 44      button.h-11.shrink-0                  3:2
+FAIL crop-modal-wide                      4 under 44px of 24 controls
+         42.8 x 44      button.h-11.shrink-0                  1:1
+         42.8 x 44      button.h-11.shrink-0                  4:5
+         42.8 x 44      button.h-11.shrink-0                  4:3
+         42.8 x 44      button.h-11.shrink-0                  3:2
+ok   harness-selftest                     1 controls, all >= 44px
+FAIL hashtag-list-below-box               2 under 44px of 3 controls
+          326 x 36      button.flex.w-full                    #50mmRetinaWorld1 person · 11 
+          326 x 36      button.flex.w-full                    #50mmRetina1 person · 6 posts
+FAIL hashtag-list-in-dialog               3 under 44px of 6 controls
+          308 x 36      button.flex.w-full                    #StreetPhotography2 people · 3
+          308 x 36      button.flex.w-full                    #StreetLife1 person · 1 post
+           16 x 16      button.absolute.right-4               Close
+FAIL hashtag-list-inline-edit             2 under 44px of 5 controls
+          334 x 36      button.flex.w-full                    #StreetPhotography2 people · 3
+          334 x 36      button.flex.w-full                    #StreetLife1 person · 1 post
+FAIL hashtag-list-ranked-by-people        3 under 44px of 4 controls
+          326 x 36      button.flex.w-full                    #Aug_GalleryContest202613 peop
+          326 x 36      button.flex.w-full                    #ArtOfPhotography1 person · 2 
+          326 x 36      button.flex.w-full                    #A_Very_Long_Hashtag_That_Shou
+FAIL journey-create-from-feed             20 under 44px of 71 controls
+           36 x 62      button.absolute.right-0               All categories
+           75 x 20      a.text-sm.font-semibold          Avijit Sheel
+         43.6 x 48      button.cursor-pointer.inline-flex     See who shared (41)
+         69.6 x 15      a.font-semibold.text-foreground  Avijit Sheel
+          186 x 20      a.text-sm.font-semibold          Ranjana Bhattacharya Chowdhury
+         35.8 x 48      button.cursor-pointer.inline-flex     See who reacted (3)
+        140.2 x 36.1    a.font-semibold.text-foreground  Ranjana Bhattacharya Chowdhury
+           41 x 20      a.text-sm.font-semibold          Li Wei
+           44 x 32      button.grid.h-8                       Go to photo 1 of 4
+           44 x 32      button.grid.h-8                       Go to photo 2 of 4
+           44 x 32      button.grid.h-8                       Go to photo 3 of 4
+           44 x 32      button.grid.h-8                       Go to photo 4 of 4
+         43.6 x 48      button.cursor-pointer.inline-flex     See who reacted (87)
+         35.8 x 48      button.cursor-pointer.inline-flex     See who shared (2)
+         74.7 x 17.4    a.font-semibold.tracking-[0.15em] 50mm Retina
+         72.7 x 17.4    a.hover:text-primary.transition-colors Cookie Policy
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      button.flex.flex-col                  
+FAIL journey-create-from-wall             6 under 44px of 65 controls
+         74.7 x 17.4    a.font-semibold.tracking-[0.15em] 50mm Retina
+         72.7 x 17.4    a.hover:text-primary.transition-colors Cookie Policy
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      button.flex.flex-col                  
+FAIL mention-list-over-comment-box        1 under 44px of 1 controls
+          296 x 36      textarea.mention-input__input           
+FAIL post-audience-chooser                3 under 44px of 6 controls
+         88.7 x 32      button.mt-0.5.flex                    Public
+           96 x 32      button.mt-0.5.flex                    Friends
+        100.7 x 32      button.mt-0.5.flex                    Only Me
+ok   privacy-gap-notice                   0 controls, all >= 44px
+ok   profile-grid                         21 controls, all >= 44px
+ok   profile-grid-no-band-yet             9 controls, all >= 44px
+ok   profile-grid-one-block               10 controls, all >= 44px
+ok   profile-grid-partial-row             2 controls, all >= 44px
+ok   profile-grid-shapes                  20 controls, all >= 44px
+ok   profile-grid-single                  1 controls, all >= 44px
+ok   screen-account-sheet                 41 controls, all >= 44px
+FAIL screen-dashboard                     29 under 44px of 57 controls
+         37.4 x 42.4    button.                               0Entries
+           30 x 42.4    button.                               0Votes
+         50.7 x 42.4    button.                               0Requests
+           92 x 37.4    button.relative.flex                  Overview
+        129.4 x 37.4    button.relative.flex                  My Submissions
+         74.7 x 37.4    button.relative.flex                  Social
+         85.4 x 37.4    button.relative.flex                  Settings
+        225.6 x 40      input.flex.h-10                      
+        205.4 x 40      button.inline-flex.items-center       Upgrade to Photographer
+         57.1 x 17.4    a.text-[9px].tracking-[0.15em]   View All →
+          126 x 17.4    a.text-[9px].tracking-[0.15em]   Browse competitions →
+         57.6 x 17.4    a.text-[9px].tracking-[0.15em]   My Wall →
+         28.7 x 17.4    a.text-[9px].tracking-[0.15em]   All →
+         28.7 x 17.4    a.text-[9px].tracking-[0.15em]   All →
+         55.4 x 17.4    a.text-[9px].tracking-[0.15em]   Browse →
+           62 x 17.4    a.text-[9px].tracking-[0.15em]   Discover →
+         59.2 x 17.4    a.text-[10px].font-light         Avijit Sheel
+           72 x 17.4    a.text-[10px].font-light         Ranjana Bhattacharya Chowdhury
+         33.1 x 17.4    a.text-[10px].font-light         Li Wei
+           72 x 17.4    a.text-[10px].font-light         Amara Okonkwo
+           72 x 17.4    a.text-[10px].font-light         Rafael Santos
+           72 x 17.4    a.text-[10px].font-light         Hana Takahashi
+           72 x 17.4    a.text-[10px].font-light         Ayaan Farooqi
+         74.7 x 17.4    a.font-semibold.tracking-[0.15em] 50mm Retina
+         72.7 x 17.4    a.hover:text-primary.transition-colors Cookie Policy
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      button.flex.flex-col                  
+FAIL screen-discover                      8 under 44px of 21 controls
+        190.9 x 42      input.w-full.pl-10                   
+         88.7 x 42      button.px-4.py-2.5                    Filters
+         74.7 x 17.4    a.font-semibold.tracking-[0.15em] 50mm Retina
+         72.7 x 17.4    a.hover:text-primary.transition-colors Cookie Policy
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      button.flex.flex-col                  
+FAIL screen-feed                          20 under 44px of 71 controls
+           36 x 62      button.absolute.right-0               All categories
+           75 x 20      a.text-sm.font-semibold          Avijit Sheel
+         43.6 x 48      button.cursor-pointer.inline-flex     See who shared (41)
+         69.6 x 15      a.font-semibold.text-foreground  Avijit Sheel
+          186 x 20      a.text-sm.font-semibold          Ranjana Bhattacharya Chowdhury
+         35.8 x 48      button.cursor-pointer.inline-flex     See who reacted (3)
+        140.2 x 36.1    a.font-semibold.text-foreground  Ranjana Bhattacharya Chowdhury
+           41 x 20      a.text-sm.font-semibold          Li Wei
+           44 x 32      button.grid.h-8                       Go to photo 1 of 4
+           44 x 32      button.grid.h-8                       Go to photo 2 of 4
+           44 x 32      button.grid.h-8                       Go to photo 3 of 4
+           44 x 32      button.grid.h-8                       Go to photo 4 of 4
+         43.6 x 48      button.cursor-pointer.inline-flex     See who reacted (87)
+         35.8 x 48      button.cursor-pointer.inline-flex     See who shared (2)
+         74.7 x 17.4    a.font-semibold.tracking-[0.15em] 50mm Retina
+         72.7 x 17.4    a.hover:text-primary.transition-colors Cookie Policy
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      button.flex.flex-col                  
+FAIL screen-friends                       11 under 44px of 24 controls
+        275.6 x 40      input.flex.h-10                      
+        104.5 x 31.4    button.inline-flex.items-center       Awaited (0)
+          102 x 31.4    button.inline-flex.items-center       Friends (0)
+        113.4 x 31.4    button.inline-flex.items-center       Followers (0)
+        112.7 x 31.4    button.inline-flex.items-center       Following (1)
+         74.7 x 17.4    a.font-semibold.tracking-[0.15em] 50mm Retina
+         72.7 x 17.4    a.hover:text-primary.transition-colors Cookie Policy
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      button.flex.flex-col                  
+FAIL screen-login                         1 under 44px of 5 controls
+         59.4 x 14      a.text-primary.hover:underline   Create one
+FAIL screen-not-found                     7 under 44px of 21 controls
+         54.5 x 20      a.rounded-sm.text-sm             Discover
+         74.7 x 17.4    a.font-semibold.tracking-[0.15em] 50mm Retina
+         72.7 x 17.4    a.hover:text-primary.transition-colors Cookie Policy
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      button.flex.flex-col                  
+FAIL screen-not-found-in-place            7 under 44px of 21 controls
+         54.5 x 20      a.rounded-sm.text-sm             Discover
+         74.7 x 17.4    a.font-semibold.tracking-[0.15em] 50mm Retina
+         72.7 x 17.4    a.hover:text-primary.transition-colors Cookie Policy
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      button.flex.flex-col                  
+FAIL screen-not-found-in-place-signed-out 8 under 44px of 20 controls
+         38.2 x 20      a.rounded-sm.text-sm             Log in
+         75.4 x 16      a.rounded-sm.text-xs             Back to Home
+         74.7 x 17.4    a.font-semibold.tracking-[0.15em] 50mm Retina
+         72.7 x 17.4    a.hover:text-primary.transition-colors Cookie Policy
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+FAIL screen-not-found-signed-out          8 under 44px of 20 controls
+         38.2 x 20      a.rounded-sm.text-sm             Log in
+         75.4 x 16      a.rounded-sm.text-xs             Back to Home
+         74.7 x 17.4    a.font-semibold.tracking-[0.15em] 50mm Retina
+         72.7 x 17.4    a.hover:text-primary.transition-colors Cookie Policy
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+FAIL screen-notification-settings         29 under 44px of 42 controls
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+           44 x 24      button.peer.inline-flex               
+         74.7 x 17.4    a.font-semibold.tracking-[0.15em] 50mm Retina
+         72.7 x 17.4    a.hover:text-primary.transition-colors Cookie Policy
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      button.flex.flex-col                  
+FAIL screen-notifications                 15 under 44px of 63 controls
+           28 x 28      button.p-1.-ml-1                      Back
+         64.3 x 14      a.hover:underline                Avijit Sheel
+        145.4 x 33.5    a.hover:underline                Ranjana Bhattacharya Chowdhury
+           28 x 28      button.shrink-0.h-7                   Delete
+           54 x 33.5    a.hover:underline                Amara Okonkwo
+         92.7 x 29.4    button.shrink-0.px-3                  Follow back
+           28 x 28      button.shrink-0.h-7                   Delete
+           28 x 28      button.shrink-0.h-7                   Delete
+           28 x 28      button.shrink-0.h-7                   Delete
+         74.7 x 17.4    a.font-semibold.tracking-[0.15em] 50mm Retina
+         72.7 x 17.4    a.hover:text-primary.transition-colors Cookie Policy
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      button.flex.flex-col                  
+FAIL screen-post-detail                   9 under 44px of 30 controls
+           75 x 20      a.text-sm.font-semibold          Avijit Sheel
+         35.8 x 48      button.cursor-pointer.inline-flex     See who reacted (2)
+         69.6 x 15      a.font-semibold.text-foreground  Avijit Sheel
+         74.7 x 17.4    a.font-semibold.tracking-[0.15em] 50mm Retina
+         72.7 x 17.4    a.hover:text-primary.transition-colors Cookie Policy
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      button.flex.flex-col                  
+FAIL screen-profile                       10 under 44px of 34 controls
+          162 x 37.4    button.flex-1.py-2.5                  About
+          162 x 37.4    button.flex-1.py-2.5                  Settings
+        119.2 x 21.8    a.text-primary.truncate          example.test/avijit
+         37.8 x 44      a.inline-flex.w-fit              View
+         74.7 x 17.4    a.font-semibold.tracking-[0.15em] 50mm Retina
+         72.7 x 17.4    a.hover:text-primary.transition-colors Cookie Policy
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      button.flex.flex-col                  
+FAIL screen-voting-lightbox               9 under 44px of 25 controls
+         74.7 x 17.4    a.font-semibold.tracking-[0.15em] 50mm Retina
+         72.7 x 17.4    a.hover:text-primary.transition-colors Cookie Policy
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      button.flex.flex-col                  
+           40 x 40      button.absolute.top-5                 Close
+         59.2 x 14      a.hover:underline                Avijit Sheel
+        106.1 x 17.4    button.inline-flex.items-center       Copy Photo Link
+FAIL screen-wall                          6 under 44px of 65 controls
+         74.7 x 17.4    a.font-semibold.tracking-[0.15em] 50mm Retina
+         72.7 x 17.4    a.hover:text-primary.transition-colors Cookie Policy
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      button.flex.flex-col                  
+FAIL screen-wall-about                    6 under 44px of 59 controls
+         74.7 x 17.4    a.font-semibold.tracking-[0.15em] 50mm Retina
+         72.7 x 17.4    a.hover:text-primary.transition-colors Cookie Policy
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      button.flex.flex-col                  
+FAIL screen-wall-visitor                  8 under 44px of 63 controls
+        157.8 x 36      button.inline-flex.h-9                Add Friend
+        157.8 x 36      button.inline-flex.h-9                Follow
+         74.7 x 17.4    a.font-semibold.tracking-[0.15em] 50mm Retina
+         72.7 x 17.4    a.hover:text-primary.transition-colors Cookie Policy
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      button.flex.flex-col                  
+FAIL screen-winners                       6 under 44px of 19 controls
+         74.7 x 17.4    a.font-semibold.tracking-[0.15em] 50mm Retina
+         72.7 x 17.4    a.hover:text-primary.transition-colors Cookie Policy
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      a.flex.flex-col                  
+         70.4 x 36      button.flex.flex-col                  
+ok   wall-view-toggle                     4 controls, all >= 44px
+
+1212 interactive elements measured across 48 scenes at 360px.
+250 UNDER 44px.

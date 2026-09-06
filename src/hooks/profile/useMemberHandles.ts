@@ -29,7 +29,7 @@ import { fetchProfileMap } from "@/lib/profileMapCache";
  *   suggestions, milestones   dashboard-init/index.ts — Q11 select + both
  *                             object literals now carry custom_url
  *   birthdays                 get_todays_birthdays, dropped and recreated with
- *                             custom_url in migration 20260910_0013
+ *                             custom_url in migration 20260910_0014
  *   photographers             dashboard-init toVotingPhoto — photographer_handle
  *   winners                   dashboard-init winners — user_custom_url
  *
