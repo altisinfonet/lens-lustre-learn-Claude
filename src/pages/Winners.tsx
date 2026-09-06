@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { fadeUp } from "@/lib/motionVariants";
 import PageSEO from "@/components/PageSEO";
 import { Trophy, User } from "lucide-react";
 import { motion } from "framer-motion";
@@ -22,14 +23,6 @@ const WINNER_PUBLIC_KEYS = new Set<string>([
   "winner", // legacy entry.status value (pre-v3 catalog) for back-compat
 ]);
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.1, duration: 0.8, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] },
-  }),
-};
 
 interface WinnerEntry {
   id: string;
@@ -177,7 +170,7 @@ const Winners = () => {
             {winners.map((winner, i) => (
               <motion.article
                 key={winner.id}
-                initial={{ opacity: 0, y: 30 }}
+                initial={{ opacity: 1, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.12, duration: 0.8, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] }}
                 className="group relative"

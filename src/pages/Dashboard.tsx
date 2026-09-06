@@ -1,4 +1,5 @@
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { fadeUp } from "@/lib/motionVariants";
 import ProfileLink from "@/components/ProfileLink";
 import {
   User, Camera, Trophy, Calendar, Edit2, Shield, Briefcase, Send, CheckCircle,
@@ -42,15 +43,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { useT } from "@/i18n/I18nContext";
 /* ───── animation helpers ───── */
-const fadeUp = {
-  hidden: { opacity: 0, y: 14 },
-  visible: (i: number) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.08, duration: 0.5, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] },
-  }),
-};
+/*
+ * F-99 — STARTS VISIBLE, AND KEEPS ITS EXIT. A tab panel is page body: it is
+ * always there, only its contents swap. `exit` is not a reason to start
+ * invisible — F-89's own fix kept its exit and changed only the initial. Fading
+ * OUT on the way to another tab is fine; starting at zero means a member whose
+ * reveal never completes is looking at an empty tab.
+ */
 const tabContent = {
-  initial: { opacity: 0, y: 8 },
+  initial: { opacity: 1, y: 8 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.35 } },
   exit: { opacity: 0, y: -8, transition: { duration: 0.2 } },
 };
@@ -624,6 +625,7 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
                 <UserIdentityBlock
                   userId={person.id}
                   name={person.full_name || "Photographer"}
+                  handle={person.custom_url}
                   nameClassName="text-[10px] font-light truncate [font-family:var(--font-heading)]"
                 />
                 <p className="text-[8px] text-muted-foreground truncate mt-0.5" style={{ fontFamily: "var(--font-body)" }}>{person.bio?.slice(0, 30) || ""}</p>

@@ -69,7 +69,22 @@ interface UserIdentityBlockProps {
    * forbids. `userId` stays because the badge lookup and hover prefetch are
    * keyed by id, not by handle.
    */
-  handle?: string | null;
+  /**
+   * REQUIRED, NOT OPTIONAL — C-88, applied after F-98 proved the cost.
+   *
+   * This was `handle?: string | null`, and optional is what made the failure
+   * silent: eleven call sites passed nothing at all, the component fell to its
+   * plain-text branch, and /discover shipped with 29 anchors and ZERO member
+   * links while every one of those 515 members had a handle. The compiler could
+   * not enumerate the sites because optional says "some callers may omit this",
+   * which is the exact thing being ruled out.
+   *
+   * Required means every caller has to state an answer. `null` is a legitimate
+   * answer — it means "this name is deliberately not a link", which is true of
+   * a member's own name in their own menu. What is no longer possible is
+   * omitting it and getting a dead name by accident.
+   */
+  handle: string | null | undefined;
   size?: "compact" | "full";
   /** Extra className on the outer wrapper */
   className?: string;

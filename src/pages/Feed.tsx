@@ -421,8 +421,22 @@ const Feed = () => {
               */}
             {posts.map((post, i) => (
                 <Fragment key={post.id}>
+                  {/*
+                    F-99 — STARTS VISIBLE. This is page-body content, and it is
+                    the busiest page on the site.
+                    Measured on deployed staging: TEN blocks of real post text
+                    frozen at opacity ZERO, eight seconds after load. It was
+                    `initial={{ opacity: 1, y: 12 }}`, so a reveal that never
+                    completes leaves the member looking at an empty feed with
+                    every post present in the DOM.
+                    The feed is NOT one of the nine pages that declared their own
+                    fadeUp — it declares this inline — which is why fixing those
+                    nine would not have reached it. The rule is the pattern, not
+                    the variable name: content animates from visible, decoration
+                    may animate from nothing.
+                  */}
                   <motion.div
-                    initial={{ opacity: 0, y: 12 }}
+                    initial={{ opacity: 1, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.35, delay: Math.min(i, 5) * 0.03 }}
                   >

@@ -39,7 +39,7 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
         return;
       }
       const { data } = await profilesPublic()
-        .select("id, full_name, avatar_url")
+        .select("id, full_name, avatar_url, custom_url")
         .ilike("full_name", `%${query}%`)
         .limit(6);
       const suggestions: UserSuggestion[] = (data || []).map((u: any) => ({

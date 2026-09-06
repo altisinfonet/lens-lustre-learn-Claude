@@ -37,7 +37,7 @@ const Courses = () => {
       <PageSEO title="Courses" description="Photography courses and learning resources." />
 
       <div className="py-6 md:py-24 w-[90%] mx-auto">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1 }}>
+        <motion.div initial={{ opacity: 1, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1 }}>
           <div className="flex items-center gap-4 mb-4">
             <div className="w-12 h-px bg-primary" />
             <span className="text-[10px] tracking-[0.3em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>{t("courses.eyebrow")}</span>
@@ -77,7 +77,7 @@ const Courses = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 pb-6 md:pb-10">
             {filtered.map((course, i) => (
-              <motion.article key={course.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1, duration: 0.8 }}>
+              <motion.article key={course.id} initial={{ opacity: 1, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1, duration: 0.8 }}>
                 <Link to={`/courses/${course.slug}`} className="group block rounded-xl border border-border overflow-hidden transition-all duration-300 hover:shadow-md hover:border-primary/20">
                   {/* 1:1 Square image */}
                   <div className="relative aspect-square overflow-hidden">

@@ -183,6 +183,7 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
             <UserIdentityBlock
               userId={user.id}
               name={fullName}
+              handle={null} /* F-98 — deliberately not a link: this is the member's own name on the page they are already on. null is a stated answer, not an omission. */
               nameClassName="text-xs font-semibold tracking-wide truncate [font-family:var(--font-heading)]"
             />
           </div>
@@ -247,6 +248,7 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
               <UserIdentityBlock
                 userId={user.id}
                 name={fullName}
+                handle={null} /* F-98 — deliberately not a link: this is the member's own name on the page they are already on. null is a stated answer, not an omission. */
                 nameClassName="text-xs font-semibold tracking-wide truncate text-foreground [font-family:var(--font-heading)]"
               />
             </div>

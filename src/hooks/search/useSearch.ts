@@ -28,7 +28,7 @@ async function fetchSearchResults(query: string): Promise<SearchResults> {
 
   const [usersRes, postsRes] = await Promise.all([
     profilesPublic()
-      .select("id, full_name, avatar_url, bio")
+      .select("id, full_name, avatar_url, bio, custom_url")
       .eq("is_suspended", false)
       .ilike("full_name", term)
       .limit(10),

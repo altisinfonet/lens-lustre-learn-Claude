@@ -23,7 +23,7 @@ export async function fetchProfilesByIds(
   if (ids.length === 0) return new Map();
   // Use public view — base `profiles` table is RLS-locked to self/admins.
   const { data } = await (supabase.from("profiles_public_data" as any) as any)
-    .select("id, full_name")
+    .select("id, full_name, custom_url")
     .in("id", ids);
   return new Map((data as any[])?.map((p: any) => [p.id, p.full_name]) || []);
 }
