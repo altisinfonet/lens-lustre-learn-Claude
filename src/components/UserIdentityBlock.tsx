@@ -91,6 +91,30 @@ interface UserIdentityBlockProps {
   /** Text size class for the name */
   nameClassName?: string;
   /**
+   * ITEM 10 — A MEMBER'S OWN NAME ON THEIR OWN PAGE IS A PAGE HEADING.
+   *
+   * The Auditor's corrected ruling, and it is better and cheaper than the one it
+   * replaced. He had argued from impression that a self-name should become a
+   * link because other platforms do it, then withdrew that rather than let an
+   * unchecked recollection drive a migration:
+   *
+   *   "A member's own name at the top of their own profile is not an unlinked
+   *    link. It is A PAGE HEADING. It names the page you are already on.
+   *    Semantically that is an h1, not an anchor... for a screen reader user,
+   *    which the OWNER IS, it is actively worse: the reader announces 'link'
+   *    for something that goes nowhere."
+   *
+   * ⚠ AND THE PAGE HAD NO HEADING AT ALL. Measured before changing anything:
+   * `<h1` appears ZERO times in PublicProfile.tsx, and none in Layout or
+   * Navbar. A member's profile had nothing naming it, so a screen-reader user
+   * arriving there was told nothing about where they were. This is a repair,
+   * not a re-tag.
+   *
+   * Default stays "span": everywhere else a name is content, not a heading, and
+   * a page has one subject.
+   */
+  nameAs?: "span" | "h1";
+  /**
    * Put the badge on its OWN line under the name instead of beside it.
    *
    * Owner rule, standing: "on each and every place Name with Badge will show."
@@ -122,6 +146,7 @@ const UserIdentityBlock = ({
   size = "compact",
   className = "",
   nameClassName = "text-[13px] font-semibold text-foreground hover:underline leading-tight",
+  nameAs = "span",
   stack = false,
   align = "start",
 }: UserIdentityBlockProps) => {
@@ -156,12 +181,25 @@ const UserIdentityBlock = ({
       {displayName}
     </Link>
   ) : (
-    <span
-      className={resolvedNameClassName}
-      data-unlinked={handle === null ? "deliberate" : "missing"}
-    >
-      {displayName}
-    </span>
+    (() => {
+      /*
+       * `data-unlinked` is kept on the heading for now, deliberately. It goes
+       * when the h1 and the control-label cases are the only unlinked names
+       * left — at that point the marker describes two element TYPES rather than
+       * two decisions, and a type does not need a runtime flag. Deleting it
+       * before then would blind every probe to the "missing" case, which is the
+       * actual defect.
+       */
+      const NameTag = nameAs;
+      return (
+        <NameTag
+          className={resolvedNameClassName}
+          data-unlinked={handle === null ? "deliberate" : "missing"}
+        >
+          {displayName}
+        </NameTag>
+      );
+    })()
   );
 
   // Carried badges win over the lookup. SafeRender stays on BOTH paths: it is
