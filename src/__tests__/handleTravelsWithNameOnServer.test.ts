@@ -165,7 +165,7 @@ describe("F-98c — dashboard-init puts an address on the wire beside every name
   it("C: get_todays_birthdays returns custom_url", () => {
     const dir = join(process.cwd(), "supabase/migrations");
     // The LATEST definition wins — 20260804160000 created it without the
-    // column and 20260910_0014 dropped and recreated it with one. Reading the
+    // column and 20260910_0015 dropped and recreated it with one. Reading the
     // first match would report the state of a superseded migration.
     const defining = readdirSync(dir)
       .filter((f) => f.endsWith(".sql"))
