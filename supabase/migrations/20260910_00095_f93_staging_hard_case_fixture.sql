@@ -17,7 +17,7 @@
 -- it. The profiles rows, and their custom_urls, are produced by the same
 -- triggers a real member would hit.
 --
--- ⚠ STAGING ONLY, AND NOW ENFORCED. It fabricates 20 accounts in auth.users.
+-- ⚠ STAGING ONLY, AND NOW ENFORCED. It fabricates 21 accounts in auth.users.
 --   This is no longer a request to the reader: a lane guard below reads the
 --   cluster's system_identifier and RAISES on production or on any lane it
 --   does not recognise. See F-110.
@@ -76,7 +76,7 @@ BEGIN
 
     IF _sysid = '7656985631720456337' THEN
       RAISE EXCEPTION
-        'LANE GUARD REFUSED — this is PRODUCTION (system_identifier %). This migration fabricates 20 accounts in auth.users and must never run here. Nothing has been written. If you meant staging, dispatch with target=staging; the guard decides, not the operator.',
+        'LANE GUARD REFUSED — this is PRODUCTION (system_identifier %). This migration fabricates 21 accounts in auth.users and must never run here. Nothing has been written. If you meant staging, dispatch with target=staging; the guard decides, not the operator.',
         _sysid;
     END IF;
 
