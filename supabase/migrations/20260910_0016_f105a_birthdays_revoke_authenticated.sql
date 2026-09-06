@@ -1,0 +1,78 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- F-105a — get_todays_birthdays IS NOT MEMBER-CALLABLE. REVOKE ONLY.
+--
+-- ⚠ ORDERING. THIS MUST BE APPLIED **AFTER** 0015 (D2's birthdays DROP+CREATE),
+-- NOT BEFORE. 0015 drops and recreates the function, and a recreate resets the
+-- ACL to the creation-time default — so a revoke applied first would be undone
+-- by 0015 with nothing in either file to explain it. This is F-66 in its
+-- ordinary, non-adversarial form: the DROP is the eraser.
+--
+-- WHO GRANTED authenticated, WHICH IS THE QUESTION NOBODY ASKED
+--
+-- No line of any migration in this repository grants EXECUTE on this function
+-- to authenticated. It holds it anyway, on both lanes. The grant comes from
+--
+--     ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+--       GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role
+--
+-- which Supabase configures on the project. Measured on staging 2026-09-06,
+-- by creating a throwaway function as the migration role and reading proacl:
+--
+--   bare CREATE  ->  =X/postgres | postgres=X | anon=X | authenticated=X | service_role=X
+--
+-- Two mechanisms land at once: the built-in EXECUTE-to-PUBLIC default (the
+-- leading =X/, F-66) AND the three default-privilege grants. That is why
+-- 0015's `REVOKE ... FROM PUBLIC, anon` leaves authenticated standing, and
+-- why 0015 reproduces the current ACL exactly. **0015 is not wrong.** It
+-- restores what was there. What was there was never decided by anyone.
+--
+-- THE DOORWAY
+--
+-- get_todays_birthdays is SECURITY DEFINER, so it reads public.profiles and
+-- public.friendships with RLS bypassed. It takes the viewer's identity as an
+-- ARGUMENT, `_viewer uuid`, and never compares it to auth.uid() — the string
+-- does not appear in the body. So any signed-in member may POST
+--
+--     /rest/v1/rpc/get_todays_birthdays   { "_viewer": "<someone else's id>" }
+--
+-- and receive the rows the privacy predicate would have shown THAT member:
+-- which of today's birthday members are that person's accepted friends, plus
+-- those members' day and month of birth. Run daily against one id it maps a
+-- friend graph an edge at a time; the function was built to keep 18 members'
+-- birthdays private and hands them over to anyone who asks in someone else's
+-- name.
+--
+-- WHY THIS CANNOT BREAK THE FEATURE
+--
+-- One caller exists. supabase/functions/dashboard-init/index.ts builds its
+-- client at lines 45-46 with SUPABASE_SERVICE_ROLE_KEY and calls the RPC at
+-- line 203 as `admin`. service_role KEEPS EXECUTE below — deliberately, and an
+-- over-revoke would be as much a defect as an under-revoke. The client-side
+-- birthday surfaces (TodaysBirthdayStrip, the sidebar card) read the rows off
+-- the dashboard-init payload; no browser code calls this RPC, verified by
+-- grep over src/ and supabase/functions/.
+--
+-- WHY FROM PUBLIC, anon, authenticated AND NOT FROM authenticated
+--
+-- F-62/F-98. PUBLIC contains every role, so a revoke naming only the role you
+-- mean leaves PUBLIC's grant standing and the catalogue looks changed while
+-- nothing is. PUBLIC and anon are already absent here and the extra names are
+-- no-ops today — they are written anyway so this file is correct if it is ever
+-- re-run against a lane where 0015 has not run, or is amended.
+--
+-- VERIFICATION IS pg_proc.proacl, NOT has_function_privilege. The companion
+-- probe asserts the absent empty-grantee entry directly; the summary function
+-- cannot tell a direct grant from an inherited one and reported F-98's revoke
+-- as done when it was not.
+--
+-- ⚠ THIS CLOSES ONE FUNCTION, NOT THE DOORWAY. Every future function created
+-- in public by the migration role acquires anon + authenticated + PUBLIC the
+-- same way, silently, with no line in any file. The general fix is a schema
+-- policy, not a migration; filed as the F-105c sweep.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+REVOKE EXECUTE ON FUNCTION public.get_todays_birthdays(uuid)
+  FROM PUBLIC, anon, authenticated;
+
+COMMENT ON FUNCTION public.get_todays_birthdays(uuid) IS
+  'Members whose birthday is today, filtered by their own privacy_settings->>''dob_day_month'' (default: friends). No row limit — replaces a LIMIT 50 in dashboard-init that hid 28 of 68 members. Returns custom_url (F-98c) so the name can be a link. SERVER-SIDE ONLY (F-105a): revoked from PUBLIC, anon and authenticated. It is SECURITY DEFINER and takes _viewer as an argument without checking it against auth.uid(), so a member-callable grant lets anyone read anyone else''s friend-filtered birthday list. The only caller is dashboard-init, which holds service_role.';
