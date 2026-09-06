@@ -1,0 +1,64 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- F-105c (continued) — friend_count(uuid) IS NOT ANONYMOUSLY READABLE.
+--
+-- ⚠ WHY THIS IS 0018 AND NOT AN EDIT TO 0017. 0017 IS ALREADY APPLIED to
+-- staging (run #36, 2026-09-06T08:30:41Z). A migration that has run is a
+-- record of what ran. Amending its text and re-dispatching it would leave the
+-- repository holding a file whose name says "applied" and whose contents were
+-- never the contents that were applied — the audit trail would say one thing
+-- and the database another, which is the precise failure this project keeps
+-- finding under other names. D2 made the same call on the birthdays fix for the
+-- same reason: "The original migration is already applied and must not be
+-- rewritten, so the drop and the recreate live here, in a new file."
+--
+-- One change, one migration. 0017 closed three; this closes the fourth.
+--
+-- THE FUNCTION
+--
+--   friend_count(_user_id uuid) RETURNS integer
+--     SELECT COUNT(*)::integer FROM public.friendships
+--      WHERE status = 'accepted'
+--        AND (requester_id = _user_id OR addressee_id = _user_id);
+--
+-- SECURITY DEFINER, STABLE, no auth.uid() anywhere, and it carries the
+-- empty-grantee entry `=X/postgres` — so PUBLIC holds EXECUTE and a caller with
+-- only the publishable key and no account can ask how many friends any member
+-- has. Same table as 0017's three, same shape, missed in the same sweep.
+--
+-- ⚠ IT HAS NO CLIENT CALL SITE BUT IT DOES HAVE A DATABASE CALLER, and the
+-- distinction matters. Nothing in src/ or supabase/functions/ calls it; it
+-- survives only in the generated types. But public.check_friend_limit() calls
+-- it twice:
+--
+--     IF public.friend_count(NEW.requester_id) >= 10000 THEN RAISE ...
+--     IF public.friend_count(NEW.addressee_id) >= 10000 THEN RAISE ...
+--
+-- That is the trigger function behind `enforce_friend_limit ON friendships`,
+-- and it is SECURITY DEFINER. Inside a SECURITY DEFINER function current_user
+-- is the OWNER, so the EXECUTE check on friend_count is made against the owner
+-- and not against whoever caused the trigger to fire. Revoking anon and PUBLIC
+-- therefore cannot break the friend cap. Verified from pg_proc.prosecdef and
+-- pg_trigger, not assumed — this is the same reasoning that cleared
+-- are_friends' two callers in 0017, and it had to be re-checked here rather
+-- than inherited from them.
+--
+-- authenticated KEEPS EXECUTE, consistent with 0017: this closes the anonymous
+-- door only. No RLS policy references friend_count (0 rows in pg_policies).
+--
+-- WHY `FROM PUBLIC, anon` AND PUBLIC FIRST — F-62/F-98. The empty grantee is
+-- the finding. `REVOKE ... FROM anon` alone removes anon's own entry, leaves
+-- `=X/postgres` standing, and the function stays reachable by anon THROUGH
+-- PUBLIC while the catalogue looks changed.
+--
+-- VERIFICATION IS pg_proc.proacl WITH THE EMPTY-GRANTEE ENTRY ABSENT, never
+-- has_function_privilege (C-89).
+--
+-- BEFORE, staging, publishable key, no account:
+--     friend_count   HTTP 200   0
+--     are_friends    HTTP 401   permission denied      <- control, closed by 0017
+-- ═══════════════════════════════════════════════════════════════════════════
+
+REVOKE ALL ON FUNCTION public.friend_count(uuid) FROM PUBLIC, anon;
+
+COMMENT ON FUNCTION public.friend_count(uuid) IS
+  'Number of accepted friendships for a member. SIGNED-IN ONLY (F-105c): revoked from PUBLIC and anon. SECURITY DEFINER over friendships with no auth.uid() check, so an anonymous caller could ask how many friends any member has. Its only caller is check_friend_limit(), the SECURITY DEFINER trigger function behind enforce_friend_limit on friendships, which is unaffected because current_user inside it is the owner.';
