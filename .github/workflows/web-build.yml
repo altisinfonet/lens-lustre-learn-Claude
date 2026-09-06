@@ -156,6 +156,44 @@ jobs:
           grep -q '<loc>' dist/sitemap.xml
           echo "production robots.txt is indexable and advertises the production sitemap"
 
+      # ─────────────────────────────────────────────────────────────────────
+      # KEEP THE BUNDLE THIS JOB ALREADY BUILT INSTEAD OF DISCARDING IT.
+      #
+      # WHY, 2026-09-06. Nobody has ever run the client against the PRODUCTION
+      # database. "I found no missing dependency" is not "I ran it and it
+      # worked", and the Owner asked for a preview before the readable-URL
+      # promotion rather than after it. This job already produces exactly the
+      # artefact that preview needs — the same `npm run build` Pages runs, with
+      # the production Supabase URL and publishable key from this file's env,
+      # after the bundle-isolation guard has confirmed no staging identifier
+      # survived into it — and then throws it away.
+      #
+      # ⚠ THIS UPLOADS, IT DOES NOT DEPLOY. There is no deploy step anywhere in
+      # this repository and this does not add one: Pages builds the live site on
+      # Cloudflare's own infrastructure from the Git integration (see this
+      # file's header). Nothing here can publish to a domain, change a Pages
+      # project, or touch www.50mmretina.com. It writes a zip to the workflow
+      # run and stops.
+      #
+      # The preview is then a `wrangler pages deploy` of this bundle to a NEW
+      # Pages project. New matters and is the whole safety argument: a project
+      # created for this has no custom domain, no production branch and no
+      # relationship to the live one, so it CANNOT repoint the live site by
+      # construction rather than by care. Deploying to the existing project
+      # with `--branch` would also work and is deliberately not the advice,
+      # because it puts the live site one mistyped flag away.
+      #
+      # 7 days, matching ui-gate.yml's screenshots: long enough to open and
+      # measure, short enough that a stale bundle is never mistaken for today's.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Keep the production bundle for the preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-bundle
+          path: dist
+          retention-days: 7
+          if-no-files-found: error
+
   build-staging:
     name: Staging lane build
     if: github.base_ref == 'staging' || (github.event_name != 'pull_request' && github.ref_name == 'staging')
