@@ -17,7 +17,10 @@
 -- it. The profiles rows, and their custom_urls, are produced by the same
 -- triggers a real member would hit.
 --
--- ⚠ STAGING ONLY. Never apply this to production: it fabricates accounts.
+-- ⚠ STAGING ONLY, AND NOW ENFORCED. It fabricates 20 accounts in auth.users.
+--   This is no longer a request to the reader: a lane guard below reads the
+--   cluster's system_identifier and RAISES on production or on any lane it
+--   does not recognise. See F-110.
 --
 -- ⚠ DOES NOT TOUCH sofia.duarte OR yuki.tanabe. Those two are cited in the
 -- F-85/F-86 evidence and moving them would invalidate a proof already written.
@@ -35,6 +38,56 @@ BEGIN
   IF current_setting('server_version_num')::int < 130000 THEN
     RAISE EXCEPTION 'unexpected server version';
   END IF;
+
+  -- ── F-110 LANE GUARD. A COMMENT IS NOT A LOCK. ──────────────────────────
+  -- Line 20 of this file has said "STAGING ONLY. Never apply this to
+  -- production" since the day it was written. That sentence has never stopped
+  -- anything: apply-migration.yml takes a path and a target chosen by whoever
+  -- fills the form, and nothing in the SQL cared which database answered. One
+  -- mis-set dropdown and twenty fabricated accounts land in production's
+  -- auth.users, where they cannot be cleanly withdrawn — they are real login
+  -- identities, and the five AFTER INSERT triggers on public.profiles fire on
+  -- each one.
+  --
+  -- The guard reads the cluster's own system_identifier from pg_control_system().
+  -- It is assigned at initdb, it is unique per cluster, no application code can
+  -- change it, and it does not depend on a connection string, an environment
+  -- variable or a setting anyone can pass in. That is the whole point: the
+  -- operator does not get a vote.
+  --
+  -- IT FAILS CLOSED. An unrecognised identifier is REFUSED, not permitted — so
+  -- a branch database, a restored copy, a clone or a lane nobody has registered
+  -- is refused by default. The dangerous default is "allow unless recognised";
+  -- this is "refuse unless recognised".
+  --
+  -- ⚠ IF THIS FILE IS EVER LEGITIMATELY NEEDED ON A NEW LANE, add that lane's
+  -- identifier here in its own migration and say why. Do NOT relax the check,
+  -- and do NOT delete the production arm — Rule 19: never weaken a control to
+  -- get green.
+  --
+  -- PROVEN IN BOTH DIRECTIONS BEFORE THIS FILE WAS COMMITTED, against the real
+  -- clusters, read-only:
+  --   production 7656985631720456337 -> RAISED, transaction discarded
+  --   staging    7666007964130682852 -> passed, 'lane ok — staging'
+  DECLARE
+    _sysid text;
+  BEGIN
+    SELECT system_identifier::text INTO _sysid FROM pg_control_system();
+
+    IF _sysid = '7656985631720456337' THEN
+      RAISE EXCEPTION
+        'LANE GUARD REFUSED — this is PRODUCTION (system_identifier %). This migration fabricates 20 accounts in auth.users and must never run here. Nothing has been written. If you meant staging, dispatch with target=staging; the guard decides, not the operator.',
+        _sysid;
+    END IF;
+
+    IF _sysid IS DISTINCT FROM '7666007964130682852' THEN
+      RAISE EXCEPTION
+        'LANE GUARD REFUSED — unrecognised lane (system_identifier %). This fixture runs ONLY on the staging cluster 7666007964130682852. It fails CLOSED: an unknown database is refused, not permitted. Nothing has been written.',
+        _sysid;
+    END IF;
+
+    RAISE NOTICE 'F-110 lane guard: ok — staging (%)', _sysid;
+  END;
 
   FOR _r IN
     SELECT * FROM (VALUES
