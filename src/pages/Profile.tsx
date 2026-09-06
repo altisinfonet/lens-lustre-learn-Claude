@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
+import { memberPath, CLAIM_URL_PATH } from "@/lib/urlHelpers";
 import { SITE_DISPLAY_HOST } from "@/lib/env";
 import { publicUrl } from "@/lib/publicUrl";
 import { Camera, Copy, Check, Edit2, ExternalLink, Globe, KeyRound, Lock, Mail, MapPin, MessageSquare, Phone, Share2, Users } from "lucide-react";
@@ -78,11 +79,22 @@ const Profile = () => {
     ? new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })
     : null;
 
-  const profileUrl = (profile as any)?.custom_url
-    ? publicUrl(`/${(profile as any).custom_url}`)
-    : publicUrl(`/profile/${user?.id}`);
+  /*
+   * F-95 — NULL WHEN THERE IS NO HANDLE, never the id address.
+   *
+   * This used to fall back to publicUrl(`/profile/${user?.id}`) and put the
+   * member's own UUID on screen for them to read, copy and QR-encode. That is
+   * the id url being SHOWN, which is the rule, even though it is not a link.
+   *
+   * Where this is null the member is offered the thing that fixes it — claiming
+   * a name-url — rather than a dead control or a UUID.
+   */
+  const ownHandle = (profile as any)?.custom_url as string | null | undefined;
+  const ownPath = memberPath(ownHandle);
+  const profileUrl = ownPath ? publicUrl(ownPath) : null;
 
   const handleCopyUrl = () => {
+    if (!profileUrl) return;
     navigator.clipboard.writeText(profileUrl);
     setCopied(true);
     toast({ title: "Profile URL copied!" });
@@ -110,6 +122,7 @@ const Profile = () => {
             <UserIdentityBlock
               userId={user?.id || ""}
               name={displayName}
+              handle={null} /* F-98 — deliberately not a link: this is the member's own name on the page they are already on. null is a stated answer, not an omission. */
               size="full"
               nameClassName="text-base font-semibold leading-tight truncate"
             />
@@ -148,7 +161,7 @@ const Profile = () => {
           <Link to="/edit-profile" className="flex min-h-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-muted/50 text-[13px] font-semibold transition-colors" style={{ fontFamily: "var(--font-heading)" }}>
             <Edit2 className="h-4 w-4 shrink-0" /> Edit Profile
           </Link>
-          <Link to={(profile as any)?.custom_url ? `/${(profile as any).custom_url}?section=wall` : `/profile/${user?.id}?section=wall`} className="flex min-h-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-muted/50 text-[13px] font-semibold transition-colors" style={{ fontFamily: "var(--font-heading)" }}>
+          <Link to={ownPath ? `${ownPath}?section=wall` : CLAIM_URL_PATH} className="flex min-h-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-muted/50 text-[13px] font-semibold transition-colors" style={{ fontFamily: "var(--font-heading)" }}>
             <MessageSquare className="h-4 w-4 shrink-0" /> My Wall
           </Link>
           <Link to="/friends" aria-label="Friends" className="grid min-h-11 min-w-11 place-items-center rounded-lg bg-muted/50 transition-colors" style={{ fontFamily: "var(--font-heading)" }}>
@@ -263,7 +276,7 @@ const Profile = () => {
                     the word. It carries an icon, so it is a control, not the
                     running text the sweep deliberately leaves alone. */}
                 <Link
-                  to={(profile as any)?.custom_url ? `/${(profile as any).custom_url}` : `/profile/${user?.id}`}
+                  to={ownPath ?? CLAIM_URL_PATH}
                   className="inline-flex w-fit min-h-11 -my-3 items-center text-[10px] text-primary font-medium flex-shrink-0 ml-2"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
@@ -334,7 +347,7 @@ const Profile = () => {
       <div className="container mx-auto py-3 md:py-16 max-w-5xl">
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
         >
@@ -358,6 +371,7 @@ const Profile = () => {
                   <UserIdentityBlock
                     userId={user?.id || ""}
                     name={displayName}
+                    handle={null} /* F-98 — deliberately not a link: this is the member's own name on the page they are already on. null is a stated answer, not an omission. */
                     size="full"
                     nameClassName="text-xl md:text-2xl font-light tracking-tight"
                   />
@@ -385,7 +399,7 @@ const Profile = () => {
               <Link to="/edit-profile" className="inline-flex items-center gap-2 text-xs tracking-[0.15em] uppercase px-5 py-2.5 border border-border hover:border-primary hover:text-primary transition-all duration-500" style={{ fontFamily: "var(--font-heading)" }}>
                 <Edit2 className="h-3 w-3" /> Edit Profile
               </Link>
-              <Link to={(profile as any)?.custom_url ? `/${(profile as any).custom_url}?section=wall` : `/profile/${user?.id}?section=wall`} className="inline-flex items-center gap-2 text-xs tracking-[0.15em] uppercase px-5 py-2.5 border border-border hover:border-primary hover:text-primary transition-all duration-500" style={{ fontFamily: "var(--font-heading)" }}>
+              <Link to={ownPath ? `${ownPath}?section=wall` : CLAIM_URL_PATH} className="inline-flex items-center gap-2 text-xs tracking-[0.15em] uppercase px-5 py-2.5 border border-border hover:border-primary hover:text-primary transition-all duration-500" style={{ fontFamily: "var(--font-heading)" }}>
                 <MessageSquare className="h-3 w-3" /> My Wall
               </Link>
               <Link to="/friends" className="inline-flex items-center gap-2 text-xs tracking-[0.15em] uppercase px-5 py-2.5 border border-border hover:border-primary hover:text-primary transition-all duration-500" style={{ fontFamily: "var(--font-heading)" }}>
@@ -397,20 +411,39 @@ const Profile = () => {
               <div className="flex items-center gap-2 px-4 py-2.5 bg-muted/50 border border-border rounded-sm max-w-full overflow-hidden">
                 <Share2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                 <span className="text-[10px] tracking-[0.1em] text-muted-foreground truncate" style={{ fontFamily: "var(--font-heading)" }}>
-                  {(profile as any)?.custom_url ? `${SITE_DISPLAY_HOST}/${(profile as any).custom_url}` : publicUrl(`/profile/${user?.id}`)}
+                  {ownHandle ? `${SITE_DISPLAY_HOST}/${ownHandle}` : "Claim your name URL"}
                 </span>
                 <button onClick={handleCopyUrl} className="flex-shrink-0 p-1 hover:text-primary transition-colors duration-300" title="Copy profile URL">
                   {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
                 </button>
               </div>
-              <Link to={(profile as any)?.custom_url ? `/${(profile as any).custom_url}` : `/profile/${user?.id}`} className="inline-flex items-center gap-1.5 text-[10px] tracking-[0.15em] uppercase text-primary hover:underline transition-all duration-300" style={{ fontFamily: "var(--font-heading)" }}>
+              {/* F-93 — reported by the gate at 117x17, well under a tappable
+                  target. Same idiom, and the same reason, as the sibling
+                  control higher up this file: min-h-11 is the 44px target and
+                  `-my-3` takes the extra height back out of the flow so the
+                  row's height does not move. It shrank because the address
+                  beside it got shorter, which let the row fit on one line —
+                  the height was never deliberate, it was two lines of text.
+
+                  ⚠ CLASS ORDER MATTERS HERE, AND ONLY BECAUSE OF THE GATE.
+                  min-h-11 and -my-3 sit AFTER items-center deliberately. The
+                  sweep identifies a control by its tag plus the FIRST TWO
+                  classes (tools/uishot/capture.mjs:237), so putting them first
+                  renamed this anchor from a.inline-flex.items-center to
+                  a.inline-flex.min-h-11 — the old name then resolved to the
+                  portfolio link next to it and the gate reported a control
+                  that had "shrank to 153x20" and another "gone". Neither was
+                  true: probed directly, this link is 117x44 with min-height
+                  44px applied. Order restored so the control keeps its
+                  identity. */}
+              <Link to={ownPath ?? CLAIM_URL_PATH} className="inline-flex items-center min-h-11 -my-3 gap-1.5 text-[10px] tracking-[0.15em] uppercase text-primary hover:underline transition-all duration-300" style={{ fontFamily: "var(--font-heading)" }}>
                 <ExternalLink className="h-3 w-3" />View Public Profile
               </Link>
             </div>
           </div>
 
           {profile?.city && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.8 }} className="mb-12">
+            <motion.div initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.8 }} className="mb-12">
               <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>Location</span>
               <p className="text-sm text-muted-foreground flex items-center gap-2" style={{ fontFamily: "var(--font-body)" }}>
                 <MapPin className="h-3.5 w-3.5" />{[profile.city, profile.state, profile.country].filter(Boolean).join(", ")}
@@ -419,7 +452,7 @@ const Profile = () => {
           )}
 
           {profile?.phone && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25, duration: 0.8 }} className="mb-12">
+            <motion.div initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ delay: 0.25, duration: 0.8 }} className="mb-12">
               <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>Contact</span>
               <p className="text-sm text-muted-foreground flex items-center gap-2" style={{ fontFamily: "var(--font-body)" }}>
                 <Phone className="h-3.5 w-3.5" /> {profile.phone}
@@ -428,14 +461,14 @@ const Profile = () => {
           )}
 
           {profile?.bio && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.8 }} className="mb-12">
+            <motion.div initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.8 }} className="mb-12">
               <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>About</span>
               <p className="text-sm text-muted-foreground leading-relaxed max-w-xl" style={{ fontFamily: "var(--font-body)" }}>{profile.bio}</p>
             </motion.div>
           )}
 
           {profile?.portfolio_url && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3, duration: 0.8 }} className="mb-12">
+            <motion.div initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ delay: 0.3, duration: 0.8 }} className="mb-12">
               <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>Portfolio</span>
               <a href={profile.portfolio_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-primary hover:underline transition-all duration-500" style={{ fontFamily: "var(--font-body)" }}>
                 <Globe className="h-3.5 w-3.5" />{profile.portfolio_url.replace(/^https?:\/\//, "")}<ExternalLink className="h-3 w-3 opacity-50" />
@@ -444,7 +477,7 @@ const Profile = () => {
           )}
 
           {profile?.photography_interests && profile.photography_interests.length > 0 && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.8 }} className="mb-12">
+            <motion.div initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.8 }} className="mb-12">
               <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-4" style={{ fontFamily: "var(--font-heading)" }}>Photography Interests</span>
               <div className="flex flex-wrap gap-2">
                 {profile.photography_interests.map((interest) => (
@@ -456,7 +489,7 @@ const Profile = () => {
             </motion.div>
           )}
 
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5, duration: 0.8 }} className="mb-12 border border-border p-8">
+          <motion.div initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ delay: 0.5, duration: 0.8 }} className="mb-12 border border-border p-8">
             <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-6" style={{ fontFamily: "var(--font-heading)" }}>Account Settings</span>
             <div className="mb-6">
               <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground block mb-2" style={{ fontFamily: "var(--font-heading)" }}>Email Address</span>
@@ -476,7 +509,7 @@ const Profile = () => {
           </motion.div>
 
           {!profile?.bio && !profile?.portfolio_url && (!profile?.photography_interests || profile.photography_interests.length === 0) && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.8 }} className="border border-border p-10 text-center">
+            <motion.div initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.8 }} className="border border-border p-10 text-center">
               <Camera className="h-8 w-8 text-muted-foreground/30 mx-auto mb-4" />
               <p className="text-sm text-muted-foreground mb-4" style={{ fontFamily: "var(--font-body)" }}>Your profile is looking a little empty. Add a bio, portfolio, and interests to let others know about your work.</p>
               <Link to="/edit-profile" className="inline-flex items-center gap-2 text-xs tracking-[0.15em] uppercase px-6 py-3 bg-primary text-primary-foreground hover:opacity-90 transition-opacity duration-500" style={{ fontFamily: "var(--font-heading)" }}>

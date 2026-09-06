@@ -146,8 +146,47 @@ export const FriendFollowButtons = ({ targetUserId }: Props) => {
    * muted surface instead, which is what makes Instagram's read as native
    * rather than as a web form.
    */
+  /**
+   * F-88 — `flex-1` ALONE FORCED BOTH BUTTONS TO EQUAL WIDTH AND WRAPPED THE
+   * LONGER LABEL INSIDE A FIXED h-9 BOX.
+   *
+   * `flex-1` is `flex: 1 1 0%`: a zero basis, so the row is divided evenly with
+   * no regard for what is written on each button. "Add Friend" wrapped onto two
+   * lines while "Follow" sat on one — measured at 103px per button on desktop,
+   * where the two-column shell squeezes this column hardest.
+   *
+   * TWO CLASSES ARE ADDED, AND EITHER ONE ALONE IS ALREADY SUFFICIENT. That is
+   * measured, not assumed — C-81, after an earlier draft of this comment
+   * claimed the opposite and was wrong:
+   *
+   *   whitespace-nowrap alone (min-w-fit removed)  -> PASS, Telugu 174px
+   *   min-w-fit alone (whitespace-nowrap removed)  -> PASS
+   *   both, as shipped                             -> PASS, Telugu 174px
+   *
+   * The first two produce byte-identical widths to the third. The reason is
+   * that a flex item's default `min-width: auto` already resolves to
+   * `min-content`, and for a `nowrap` text run min-content IS the whole string
+   * — so `whitespace-nowrap` establishes the floor by itself and `min-w-fit`
+   * restates it.
+   *
+   * `min-w-fit` IS KEPT ANYWAY, AND ON PURPOSE. `min-w-0` is the single most
+   * common thing to add to a flex child, it explicitly cancels that default
+   * floor, and with it the row breaks again — measured: two Telugu buttons
+   * OVERFLOWING at desktop width. Stating the floor makes it survive that edit
+   * instead of depending on a default nobody can see. It is a belt-and-braces
+   * pair, not two halves of one mechanism, and it should be described that way.
+   *
+   * `flex-1` is kept so the two still share the row evenly whenever there is
+   * room. Equal widths remain the default; they stop being a straitjacket.
+   *
+   * MEASURED AGAINST THE LONGEST TRANSLATION, not against English. This label
+   * is hardcoded English today (F-88-OBS below), but the same concept already
+   * ships translated as `fr.addFriend` in six languages, and the widest of them
+   * is more than twice the width of "Add Friend". This row has to survive the
+   * day the text is translated; English alone is not the test.
+   */
   const btnBase =
-    "inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg px-3 text-[14px] font-semibold transition-colors disabled:opacity-50";
+    "inline-flex h-9 min-w-fit flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[14px] font-semibold transition-colors disabled:opacity-50";
 
   return (
     <div className="flex w-full items-center gap-2">
@@ -160,6 +199,21 @@ export const FriendFollowButtons = ({ targetUserId }: Props) => {
           style={headingFont}
         >
           <UserPlus className="h-3.5 w-3.5" />
+          {/*
+           * F-88-OBS — HARDCODED ENGLISH, AND DELIBERATELY LEFT THAT WAY HERE.
+           *
+           * DiscoverCard.tsx:129 renders this same concept through
+           * `t("fr.addFriend")`, which ships in six languages. Every label in
+           * this component is a bare English literal instead, so a member who
+           * has chosen another language sees this row untranslated while the
+           * Discover card beside it is translated.
+           *
+           * That inconsistency is REPORTED, NOT FIXED IN THIS CHANGE: switching
+           * these to `t()` alters what members see, and this unit was asked for
+           * a layout fix. The layout above is sized for the translated strings
+           * regardless, so the switch — when it is asked for — is a one-line
+           * change that cannot reintroduce the wrap.
+           */}
           Add Friend
         </button>
       )}

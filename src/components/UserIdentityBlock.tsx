@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { memberPath } from "@/lib/urlHelpers";
 import AutoBadge from "@/components/AutoBadge";
 import UserBadgeInline from "@/components/UserBadgeInline";
 import AutoRole from "@/components/AutoRole";
@@ -47,13 +48,72 @@ interface UserIdentityBlockProps {
    * Optional so unmigrated callers keep the lookup rather than lose the tick.
    */
   badges?: string[];
-  /** If provided, the name becomes a link to this path */
-  linkTo?: string;
+  /**
+   * The member's name-URL handle. When present the name becomes a link to
+   * /<handle>; when absent the name renders as PLAIN TEXT.
+   *
+   * F-95 — THIS REPLACED A `linkTo` STRING, AND THE CHANGE IS THE WHOLE FIX.
+   * Every caller used to pass `linkTo={`/profile/${id}`}`, which is a
+   * client-side navigation the edge redirect can never see, so the id went into
+   * the address bar and stayed there. Taking the handle instead of a finished
+   * path means no caller can express that address any more.
+   *
+   * A handle, not a lookup: this component must never resolve one itself. Doing
+   * so would be one request per name on screen — around 45 on a feed load — and
+   * would undo profileMapCache, which exists because that exact pattern cost 52
+   * requests per feed. The handle arrives with the name (ProfileMapEntry
+   * .custom_url) and is passed down beside it.
+   *
+   * NO ID FALLBACK when it is absent. Plain text is the answer: the member is
+   * still named and still readable, and nothing offers an address the rule
+   * forbids. `userId` stays because the badge lookup and hover prefetch are
+   * keyed by id, not by handle.
+   */
+  /**
+   * REQUIRED, NOT OPTIONAL — C-88, applied after F-98 proved the cost.
+   *
+   * This was `handle?: string | null`, and optional is what made the failure
+   * silent: eleven call sites passed nothing at all, the component fell to its
+   * plain-text branch, and /discover shipped with 29 anchors and ZERO member
+   * links while every one of those 515 members had a handle. The compiler could
+   * not enumerate the sites because optional says "some callers may omit this",
+   * which is the exact thing being ruled out.
+   *
+   * Required means every caller has to state an answer. `null` is a legitimate
+   * answer — it means "this name is deliberately not a link", which is true of
+   * a member's own name in their own menu. What is no longer possible is
+   * omitting it and getting a dead name by accident.
+   */
+  handle: string | null | undefined;
   size?: "compact" | "full";
   /** Extra className on the outer wrapper */
   className?: string;
   /** Text size class for the name */
   nameClassName?: string;
+  /**
+   * ITEM 10 — A MEMBER'S OWN NAME ON THEIR OWN PAGE IS A PAGE HEADING.
+   *
+   * The Auditor's corrected ruling, and it is better and cheaper than the one it
+   * replaced. He had argued from impression that a self-name should become a
+   * link because other platforms do it, then withdrew that rather than let an
+   * unchecked recollection drive a migration:
+   *
+   *   "A member's own name at the top of their own profile is not an unlinked
+   *    link. It is A PAGE HEADING. It names the page you are already on.
+   *    Semantically that is an h1, not an anchor... for a screen reader user,
+   *    which the OWNER IS, it is actively worse: the reader announces 'link'
+   *    for something that goes nowhere."
+   *
+   * ⚠ AND THE PAGE HAD NO HEADING AT ALL. Measured before changing anything:
+   * `<h1` appears ZERO times in PublicProfile.tsx, and none in Layout or
+   * Navbar. A member's profile had nothing naming it, so a screen-reader user
+   * arriving there was told nothing about where they were. This is a repair,
+   * not a re-tag.
+   *
+   * Default stays "span": everywhere else a name is content, not a heading, and
+   * a page has one subject.
+   */
+  nameAs?: "span" | "h1";
   /**
    * Put the badge on its OWN line under the name instead of beside it.
    *
@@ -82,10 +142,11 @@ const UserIdentityBlock = ({
   userId,
   name,
   badges,
-  linkTo,
+  handle,
   size = "compact",
   className = "",
   nameClassName = "text-[13px] font-semibold text-foreground hover:underline leading-tight",
+  nameAs = "span",
   stack = false,
   align = "start",
 }: UserIdentityBlockProps) => {
@@ -98,12 +159,47 @@ const UserIdentityBlock = ({
   const resolvedNameClassName =
     `${nameClassName} block min-w-0 truncate${align === "center" ? (stack ? " text-center" : " w-full text-center") : ""}`;
 
-  const nameEl = linkTo ? (
-    <Link to={linkTo} className={resolvedNameClassName}>
+  const href = memberPath(handle);
+  /*
+   * F-98b — WHY AN UNLINKED NAME SAYS WHY IT IS UNLINKED.
+   *
+   * A DOM-walking probe can see that a name is not a link. It cannot see
+   * whether that was a decision or an accident, and those are opposite facts:
+   * a member's own name on their own profile is deliberately plain text, while
+   * five names in People You May Know were plain text because the handle never
+   * arrived. Both render as a bare span, so a probe must either flag the
+   * deliberate ones (noise, and it gets ignored) or exempt them by guessing.
+   *
+   * The type already carries the distinction and it was invisible at runtime:
+   *   null       a caller's stated answer — "this name is not a link"
+   *   undefined  no handle arrived — nobody decided anything
+   * So it is written into the DOM. `deliberate` is exempt; `missing` is the
+   * defect, and it names itself in any probe that walks the page.
+   */
+  const nameEl = href ? (
+    <Link to={href} className={resolvedNameClassName}>
       {displayName}
     </Link>
   ) : (
-    <span className={resolvedNameClassName}>{displayName}</span>
+    (() => {
+      /*
+       * `data-unlinked` is kept on the heading for now, deliberately. It goes
+       * when the h1 and the control-label cases are the only unlinked names
+       * left — at that point the marker describes two element TYPES rather than
+       * two decisions, and a type does not need a runtime flag. Deleting it
+       * before then would blind every probe to the "missing" case, which is the
+       * actual defect.
+       */
+      const NameTag = nameAs;
+      return (
+        <NameTag
+          className={resolvedNameClassName}
+          data-unlinked={handle === null ? "deliberate" : "missing"}
+        >
+          {displayName}
+        </NameTag>
+      );
+    })()
   );
 
   // Carried badges win over the lookup. SafeRender stays on BOTH paths: it is

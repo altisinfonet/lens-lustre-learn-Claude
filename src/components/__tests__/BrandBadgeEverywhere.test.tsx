@@ -89,28 +89,28 @@ beforeEach(() => {
 
 describe("a name with no badges of its own still gets the brand tick", () => {
   it("draws the tick for the admin, whose user_badges row does not exist", async () => {
-    draw(<UserIdentityBlock userId={ADMIN_ID} name="50mm Retina World" />);
+    draw(<UserIdentityBlock userId={ADMIN_ID} name="50mm Retina World" handle={null} /* these assert badges, not links */ />);
     expect(screen.getByText("50mm Retina World")).toBeInTheDocument();
     // The tick arrives with the admin-id lookup, which is a query.
     await waitFor(() => expect(screen.getByLabelText("Verified")).toBeInTheDocument());
   });
 
   it("does NOT invent a tick for an ordinary member", async () => {
-    draw(<UserIdentityBlock userId={MEMBER_ID} name="An Ordinary Member" />);
+    draw(<UserIdentityBlock userId={MEMBER_ID} name="An Ordinary Member" handle={null} /* these assert badges, not links */ />);
     expect(screen.getByText("An Ordinary Member")).toBeInTheDocument();
     // Give the same lookup the same chance to resolve before concluding.
     await waitFor(() => expect(screen.queryByLabelText("Verified")).toBeNull());
   });
 
   it("draws it in the stacked layout too, where the tick stays on the name's line", async () => {
-    draw(<UserIdentityBlock userId={ADMIN_ID} name="50mm Retina World" stack align="center" />);
+    draw(<UserIdentityBlock userId={ADMIN_ID} name="50mm Retina World" stack align="center" handle={null} /* these assert badges, not links */ />);
     await waitFor(() => expect(screen.getAllByLabelText("Verified")).toHaveLength(1));
   });
 });
 
 describe("a caller that already has the badges does not wait for a lookup", () => {
   it("renders the tick from carried badges, synchronously", () => {
-    draw(<UserIdentityBlock userId={MEMBER_ID} name="Carried" badges={["verified"]} />);
+    draw(<UserIdentityBlock userId={MEMBER_ID} name="Carried" badges={["verified"]} handle={null} /* these assert badges, not links */ />);
     // No waitFor: carried badges must not depend on any query resolving.
     expect(screen.getByLabelText("Verified")).toBeInTheDocument();
   });

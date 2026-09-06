@@ -35,6 +35,8 @@ interface Comment {
   created_at: string;
   profile_name: string | null;
   avatar_url: string | null;
+  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
+  author_handle: string | null;
   badges: string[];
   is_pinned?: boolean;
   is_admin_seed?: boolean;
@@ -105,6 +107,7 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props)
       ...c,
       profile_name: resolveName(c.user_id, profileMap.get(c.user_id)?.full_name ?? null, adminIds),
       avatar_url: profileMap.get(c.user_id)?.avatar_url || null,
+      author_handle: profileMap.get(c.user_id)?.custom_url ?? null,
       badges: resolveBadges(c.user_id, profileMap.get(c.user_id)?.badges || [], adminIds),
     }));
 
@@ -260,7 +263,7 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props)
             <UserIdentityBlock
               userId={comment.user_id}
               name={comment.profile_name}
-              linkTo={`/profile/${comment.user_id}`}
+              handle={comment.author_handle}
               nameClassName="text-[10px] font-medium hover:text-primary hover:underline transition-colors"
             />
             <span className="text-[9px] text-muted-foreground">{timeAgo(comment.created_at)}</span>

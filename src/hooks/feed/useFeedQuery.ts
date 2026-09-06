@@ -281,6 +281,10 @@ async function enrichPosts(
           tagProfiles.get(r.tagged_user_id)?.full_name ?? null,
           adminIds,
         ),
+        // Same reasoning as `badges` below and as the author line: the handle
+        // is already in `tagProfiles`, so carrying it costs nothing and stops
+        // "name visible, no name-URL" being a reachable state.
+        handle: tagProfiles.get(r.tagged_user_id)?.custom_url ?? null,
         pending: r.status === "pending",
         // Already in `tagProfiles` — it used to be dropped here and re-fetched
         // per name at render time, which is how a verified tagged member ended
@@ -370,6 +374,7 @@ async function enrichPosts(
         (rpcHasIdentity ? p.author_avatar : null) ??
         profileMap.get(p.user_id)?.avatar_url ??
         null,
+      author_handle: profileMap.get(p.user_id)?.custom_url ?? null,
       author_last_active: profileMap.get(p.user_id)?.last_active_at ?? null,
       author_badges: resolveBadges(
         p.user_id,

@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { memberPath, CLAIM_URL_PATH } from "@/lib/urlHelpers";
 import { Home, Trophy, Rss, LogIn, User, Newspaper, BookOpen, FileText } from "lucide-react";
 import { useSiteLogo } from "@/hooks/core/useSiteLogo";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -23,15 +24,20 @@ const MobileBottomNav = () => {
   const { pathname } = useLocation();
   const siteLogo = useSiteLogo();
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [profileData, setProfileData] = useState<{ avatar_url: string | null; full_name: string | null } | null>(null);
+  const [profileData, setProfileData] = useState<{ avatar_url: string | null; full_name: string | null; custom_url: string | null } | null>(null);
 
-  // Build tabs — Wall route depends on user.id, Home is the elevated center
+  // F-95 — the wall tab is built from the member's HANDLE, not their id.
+  const ownWallPath = memberPath(profileData?.custom_url);
+
+  // Build tabs — Wall route depends on the member's handle, Home is the elevated center
   const tabs: Tab[] = [
     // Feed carries the RSS mark (the universal "feed" symbol); the personal
     // Wall carries the Newspaper. They were the wrong way round — owner,
     // 2026-08-12: "Feed and Wall icons are exchanged … correct them."
     { path: "/feed", icon: Rss, label: "Feed", labelKey: "nav.feed", auth: true },
-    { path: user ? `/profile/${user.id}?section=wall` : "/login", icon: Newspaper, label: "Wall", labelKey: "nav.wall", auth: true },
+    // F-95 — the member's own wall by NAME. Signed out it is still /login;
+    // signed in with no handle it is the screen that claims one.
+    { path: !user ? "/login" : (ownWallPath ? `${ownWallPath}?section=wall` : CLAIM_URL_PATH), icon: Newspaper, label: "Wall", labelKey: "nav.wall", auth: true },
     { path: "/courses", icon: BookOpen, label: "Courses", labelKey: "nav.courses", guest: true },
     { path: "/journal", icon: FileText, label: "Journal", labelKey: "nav.journal", guest: true },
     { path: user ? "/home" : "/", icon: Home, label: "Home", labelKey: "nav.home", isCenter: true },
@@ -43,7 +49,7 @@ const MobileBottomNav = () => {
   useEffect(() => {
     if (!user) { setProfileData(null); return; }
     profilesPublic()
-      .select("avatar_url, full_name")
+      .select("avatar_url, full_name, custom_url")
       .eq("id", user.id)
       .single()
       .then(({ data }) => {

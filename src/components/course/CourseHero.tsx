@@ -17,6 +17,8 @@ interface CourseHeroProps {
   price: number | null;
   authorId: string;
   authorName: string | null;
+  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
+  authorHandle?: string | null;
   coverImageUrl: string | null;
   adminStudents: number;
   adminRating: number;
@@ -34,6 +36,7 @@ const CourseHero = ({
   price,
   authorId,
   authorName,
+  authorHandle,
   coverImageUrl,
   adminStudents,
   adminRating,
@@ -133,7 +136,7 @@ const CourseHero = ({
             <UserIdentityBlock
               userId={authorId}
               name={authorName || "Unknown"}
-              linkTo={`/profile/${authorId}`}
+              handle={authorHandle}
               nameClassName="tracking-[0.1em] uppercase text-white/80 hover:text-primary hover:underline transition-colors"
             />
             <span className="flex items-center gap-1">

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import ProfileLink from "@/components/ProfileLink";
 import { publicUrl } from "@/lib/publicUrl";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,6 +55,8 @@ interface EntryData {
   competition_id: string;
   competition_title: string;
   author_name: string | null;
+  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
+  author_handle?: string | null;
   author_avatar: string | null;
   vote_count: number;
   user_voted: boolean;
@@ -150,6 +153,7 @@ const EntryDetail = () => {
         competition_id: raw.competition_id,
         competition_title: comp.title || "Competition",
         author_name: profile?.full_name || null,
+        author_handle: profile?.custom_url ?? null,
         author_avatar: profile?.avatar_url || null,
         vote_count: Number(finalTotals[entryId] ?? 0),
         user_voted: false, // deprecated for per-photo
@@ -251,7 +255,7 @@ const EntryDetail = () => {
           {/* Header */}
           <div className="p-3 pb-2">
             <div className="flex items-center gap-2.5 mb-2">
-              <Link to={`/profile/${entry.user_id}`} className="shrink-0">
+              <ProfileLink userId={entry.user_id} handle={(entry as { author_handle?: string | null }).author_handle} className="shrink-0">
                 {entry.author_avatar ? (
                   <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={entry.author_avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
                 ) : (
@@ -259,12 +263,12 @@ const EntryDetail = () => {
                     <span className="text-sm text-primary" style={displayFont}>{(entry.author_name || "?")[0]?.toUpperCase()}</span>
                   </div>
                 )}
-              </Link>
+              </ProfileLink>
               <div className="flex-1 min-w-0">
                 <UserIdentityBlock
                   userId={entry.user_id}
                   name={entry.author_name || "Photographer"}
-                  linkTo={`/profile/${entry.user_id}`}
+                  handle={(entry as { author_handle?: string | null }).author_handle}
                   nameClassName="text-sm font-light hover:text-primary transition-colors truncate [font-family:var(--font-heading)]"
                 />
                 <Link to={`/competitions/${entry.competition_id}`} className="text-[10px] text-muted-foreground hover:text-primary transition-colors" style={headingFont}>

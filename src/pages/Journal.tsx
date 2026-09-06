@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ProfileLink from "@/components/ProfileLink";
 import PageSEO from "@/components/PageSEO";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -52,7 +53,7 @@ const Journal = () => {
       <div className="container mx-auto py-6 md:py-24">
         {/* Title */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1 }}
         >
@@ -125,7 +126,7 @@ const Journal = () => {
               return (
                 <>
                   <motion.article
-                    initial={{ opacity: 0, y: 30 }}
+                    initial={{ opacity: 1, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 1 }}
                     className="mb-8 md:mb-16"
@@ -179,7 +180,7 @@ const Journal = () => {
                             </p>
                           )}
                           <div className="flex items-center gap-4 text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                            <Link to={`/profile/${hero.author_id}`} className="hover:text-primary hover:underline transition-colors">{hero.profiles?.full_name || "Unknown"}</Link>
+                            <ProfileLink userId={hero.author_id} handle={hero.profiles?.custom_url} className="hover:text-primary hover:underline transition-colors">{hero.profiles?.full_name || "Unknown"}</ProfileLink>
                             <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
                               {new Date(hero.published_at || hero.created_at).toLocaleDateString("en-US", {
@@ -215,7 +216,7 @@ const Journal = () => {
                       {rest.map((article, i) => (
                         <motion.article
                           key={article.id}
-                          initial={{ opacity: 0, y: 20 }}
+                          initial={{ opacity: 1, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.1, duration: 0.8 }}
                         >
@@ -255,7 +256,7 @@ const Journal = () => {
                               </p>
                             )}
                             <div className="flex items-center gap-4 text-[10px] text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                              <Link to={`/profile/${article.author_id}`} className="hover:text-primary hover:underline transition-colors">{article.profiles?.full_name || "Unknown"}</Link>
+                              <ProfileLink userId={article.author_id} handle={article.profiles?.custom_url} className="hover:text-primary hover:underline transition-colors">{article.profiles?.full_name || "Unknown"}</ProfileLink>
                               <span className="flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
                                 {new Date(article.published_at || article.created_at).toLocaleDateString("en-US", {

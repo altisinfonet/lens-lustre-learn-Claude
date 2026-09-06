@@ -1,4 +1,5 @@
 import { Camera, ArrowRight, ArrowDown, Aperture, Eye, Layers, User, Rss, Users, Globe, MessageCircle, Facebook, Instagram, Twitter, Youtube, Linkedin, Github, Music2, MapPin, Phone as PhoneIcon, Send as SendIcon, Trophy } from "lucide-react";
+import { fadeUp } from "@/lib/motionVariants";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import PageSEO from "@/components/PageSEO";
 import { Link, useNavigate } from "react-router-dom";
@@ -47,22 +48,7 @@ const initialsAvatar = (name: string): string => {
   return "data:image/svg+xml," + encodeURIComponent(svg);
 };
 
-const fadeUp: Variants = {
-  hidden: { opacity: 0, y: 24 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.2, duration: 1.2, ease: classicEase },
-  }),
-};
 
-const fadeIn: Variants = {
-  hidden: { opacity: 0 },
-  visible: (i: number) => ({
-    opacity: 1,
-    transition: { delay: i * 0.2, duration: 1.4, ease: slowEase },
-  }),
-};
 
 /* No hardcoded hero slides — loaded from DB hero_banners table */
 
@@ -238,7 +224,7 @@ const Index = () => {
   const [heroSlides, setHeroSlides] = useState<{src: string; title: string; category: string}[]>([]);
   const [heroReady, setHeroReady] = useState(false);
   const [galleryWorks, setGalleryWorks] = useState<PortfolioImage[]>([]);
-  const [latestPost, setLatestPost] = useState<{ user_id: string; user_name: string; avatar_url: string | null; content: string; image_url: string | null; created_at: string; badges: string[] } | null>(null);
+  const [latestPost, setLatestPost] = useState<{ user_id: string; user_name: string; user_handle: string | null; avatar_url: string | null; content: string; image_url: string | null; created_at: string; badges: string[] } | null>(null);
   const [recentMembers, setRecentMembers] = useState<{ id: string; full_name: string | null; avatar_url: string | null }[]>([]);
   const [communityStats, setCommunityStats] = useState({ users: 0, followers: 0, posts: 0 });
   // topContributors now comes from useTopContributors hook (newTop)
@@ -434,7 +420,7 @@ const Index = () => {
       try {
         const results = await Promise.allSettled([
           supabase.from("posts").select("id, user_id, content, image_url, created_at").eq("privacy", "public").order("created_at", { ascending: false }).limit(1),
-          (supabase.from("profiles_public_data" as any) as any).select("id, full_name, avatar_url").eq("is_suspended", false).order("created_at", { ascending: false }).limit(5),
+          (supabase.from("profiles_public_data" as any) as any).select("id, full_name, avatar_url, custom_url").eq("is_suspended", false).order("created_at", { ascending: false }).limit(5),
           (supabase.from("profiles_public_data" as any) as any).select("id", { count: "exact", head: true }).eq("is_suspended", false),
           supabase.from("follows").select("id", { count: "exact", head: true }),
           supabase.from("posts").select("id", { count: "exact", head: true }),
@@ -450,6 +436,8 @@ const Index = () => {
             setLatestPost({
               user_id: post.user_id,
               user_name: authorEntry?.full_name || "Photographer",
+              // F-98 — the handle was ALREADY in this entry and was dropped here.
+              user_handle: authorEntry?.custom_url ?? null,
               avatar_url: authorEntry?.avatar_url || null,
               content: post.content || "",
               image_url: post.image_url || null,
@@ -596,7 +584,7 @@ const Index = () => {
             </motion.div>
           </motion.div>
         </div>
-        <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 3, duration: 1 }} onClick={() => document.getElementById("spotlight")?.scrollIntoView({ behavior: "smooth" })} className="absolute bottom-20 md:bottom-10 left-1/2 -translate-x-1/2 z-20 group cursor-pointer" aria-label={t("home.aria.scrollSpotlight", "Scroll to spotlight")}>
+        <motion.button initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ delay: 3, duration: 1 }} onClick={() => document.getElementById("spotlight")?.scrollIntoView({ behavior: "smooth" })} className="absolute bottom-20 md:bottom-10 left-1/2 -translate-x-1/2 z-20 group cursor-pointer" aria-label={t("home.aria.scrollSpotlight", "Scroll to spotlight")}>
           <motion.div animate={{ y: [0, 8, 0] }} transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}>
             <ArrowDown className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors duration-500" />
           </motion.div>
@@ -651,7 +639,7 @@ const Index = () => {
               {t("home.selected", "Selected")} <em className="italic text-primary">{t("home.works", "Works")}</em>
             </motion.h2>
             <motion.p
-              variants={fadeIn}
+              variants={fadeUp}
               custom={2}
               className="text-sm text-muted-foreground mt-4 max-w-md mx-auto"
               style={{ fontFamily: "var(--font-body)" }}
@@ -775,7 +763,7 @@ const Index = () => {
                   {t("home.communitySub", "More than a portfolio — react, comment, share, and grow with photographers worldwide.")}
                 </motion.p>
               </div>
-              <motion.div variants={fadeIn} custom={2} className="hidden sm:block">
+              <motion.div variants={fadeUp} custom={2} className="hidden sm:block">
                 <Link
                   to={user ? "/feed" : "/signup"}
                   className="group inline-flex items-center gap-2 text-[10px] tracking-[0.2em] uppercase text-muted-foreground hover:text-primary transition-colors duration-500"
@@ -792,7 +780,7 @@ const Index = () => {
 
             {/* Card 1 — Share Your Story (large, spans 7 cols) */}
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 1, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8, ease: classicEase }}
@@ -823,6 +811,7 @@ const Index = () => {
                           <UserIdentityBlock
                             userId={latestPost.user_id}
                             name={latestPost.user_name || t("home.photographer", "Photographer")}
+                            handle={latestPost.user_handle}
                             nameClassName="text-xs font-medium truncate [font-family:var(--font-body)]"
                           />
                           <span className="text-[10px] text-muted-foreground flex items-center gap-1">
@@ -855,7 +844,7 @@ const Index = () => {
                   {["👍", "❤️", "😂", "😮", "😢", "😡"].map((e, i) => (
                     <motion.span
                       key={e}
-                      initial={{ opacity: 0, y: 6 }}
+                      initial={{ opacity: 1, y: 6 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
                       transition={{ delay: 0.6 + i * 0.06, duration: 0.25 }}
@@ -870,7 +859,7 @@ const Index = () => {
 
             {/* Card 2 — Build Your Circle (spans 5 cols) */}
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 1, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.1, duration: 0.8, ease: classicEase }}
@@ -894,7 +883,7 @@ const Index = () => {
                   ].map((m, i) => (
                     <motion.div
                       key={m.name}
-                      initial={{ opacity: 0, x: -12 }}
+                      initial={{ opacity: 1, x: -12 }}
                       whileInView={{ opacity: 1, x: 0 }}
                       viewport={{ once: true }}
                       transition={{ delay: 0.5 + i * 0.1, duration: 0.4 }}
@@ -916,7 +905,7 @@ const Index = () => {
 
             {/* Card 3 — Your Feed (spans 4 cols) */}
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 1, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.2, duration: 0.8, ease: classicEase }}
@@ -943,7 +932,7 @@ const Index = () => {
                   ].map((item, i) => (
                     <motion.div
                       key={i}
-                      initial={{ opacity: 0, x: -8 }}
+                      initial={{ opacity: 1, x: -8 }}
                       whileInView={{ opacity: 1, x: 0 }}
                       viewport={{ once: true }}
                       transition={{ delay: 0.5 + i * 0.08, duration: 0.35 }}
@@ -960,7 +949,7 @@ const Index = () => {
 
             {/* Card 4 — Privacy (spans 4 cols) */}
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 1, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.25, duration: 0.8, ease: classicEase }}
@@ -982,7 +971,7 @@ const Index = () => {
                   ].map((p, i) => (
                     <motion.div
                       key={p.label}
-                      initial={{ opacity: 0, y: 8 }}
+                      initial={{ opacity: 1, y: 8 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
                       transition={{ delay: 0.5 + i * 0.08, duration: 0.35 }}
@@ -1006,7 +995,7 @@ const Index = () => {
 
             {/* Card 5 — CTA card (spans 4 cols) */}
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 1, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.3, duration: 0.8, ease: classicEase }}
@@ -1033,7 +1022,7 @@ const Index = () => {
 
             {/* Card 6 — Top Contributors (spans 4 cols) */}
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 1, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.35, duration: 0.8, ease: classicEase }}
@@ -1066,7 +1055,7 @@ const Index = () => {
                     return (
                       <motion.div
                         key={c.id}
-                        initial={{ opacity: 0, x: -12 }}
+                        initial={{ opacity: 1, x: -12 }}
                         whileInView={{ opacity: 1, x: 0 }}
                         viewport={{ once: true }}
                         transition={{ delay: 0.5 + i * 0.1, duration: 0.4 }}
@@ -1085,6 +1074,7 @@ const Index = () => {
                           <UserIdentityBlock
                             userId={c.id}
                             name={c.full_name || t("home.photographer", "Photographer")}
+                            handle={c.custom_url}
                             nameClassName="text-xs truncate [font-family:var(--font-body)]"
                           />
                         </div>
@@ -1142,7 +1132,7 @@ const Index = () => {
         )}
         <div className="container mx-auto relative z-10 text-center">
           <motion.blockquote
-            initial={{ opacity: 0 }}
+            initial={{ opacity: 1 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 2, ease: slowEase }}

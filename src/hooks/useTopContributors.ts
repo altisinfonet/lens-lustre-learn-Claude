@@ -57,6 +57,8 @@ export interface TopContributor {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
+  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
+  custom_url: string | null;
   badges: string[];
   roles: string[];
   /**
@@ -123,6 +125,7 @@ export const useTopContributors = () => {
           id: d.user_id,
           full_name: profile?.full_name ?? 'Photographer',
           avatar_url: profile?.avatar_url ?? null,
+          custom_url: profile?.custom_url ?? null,
           badges: profile?.badges ?? [],
           roles: profile?.roles ?? [],
           contributor_score: Number(d.contributor_score) || 0,

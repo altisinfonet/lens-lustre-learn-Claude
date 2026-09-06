@@ -1,4 +1,5 @@
 import { memo, useState, useEffect } from "react";
+import ProfileLink from "@/components/ProfileLink";
 import { Link } from "react-router-dom";
 import { UserPlus, Clock, UserCheck, UserMinus, Users, X } from "lucide-react";
 import { useFriendFollow } from "@/hooks/social/useFriendFollow";
@@ -15,6 +16,8 @@ interface DiscoverProfile {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
+  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
+  custom_url?: string | null;
 }
 
 interface Props {
@@ -30,7 +33,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
   } = useFriendFollow(profile.id);
   const t = useT();
 
-  const [mutualFriends, setMutualFriends] = useState<{ id: string; full_name: string | null; avatar_url: string | null }[]>([]);
+  const [mutualFriends, setMutualFriends] = useState<{ id: string; full_name: string | null; avatar_url: string | null; custom_url: string | null }[]>([]);
 
   useEffect(() => {
     if (!user || !profile.id || user.id === profile.id || mutualFriendsCount === 0) return;
@@ -38,7 +41,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
       const { data } = await supabase.rpc("mutual_friend_ids" as any, { _user_a: user.id, _user_b: profile.id, _limit: 3 });
       const ids = ((data as any[]) || []).map((r: any) => r.friend_id);
       if (ids.length === 0) return;
-      const { data: profiles } = await profilesPublic().select("id, full_name, avatar_url").in("id", ids);
+      const { data: profiles } = await profilesPublic().select("id, full_name, avatar_url, custom_url").in("id", ids);
       if (profiles) setMutualFriends(profiles as any);
     };
     load();
@@ -52,7 +55,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
   return (
     <div className="flex items-start gap-3 px-3 md:px-4 py-3 border-b border-border">
       {/* Large circular avatar — clickable */}
-      <Link to={`/profile/${profile.id}`} className="shrink-0">
+      <ProfileLink userId={profile.id} handle={profile.custom_url} className="shrink-0">
         {profile.avatar_url ? (
           <img loading="lazy" decoding="async"
             src={profile.avatar_url}
@@ -66,7 +69,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
             </span>
           </div>
         )}
-      </Link>
+      </ProfileLink>
 
       {/* Right content */}
       <div className="flex-1 min-w-0">
@@ -74,7 +77,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
         <UserIdentityBlock
           userId={profile.id}
           name={profile.full_name || "Photographer"}
-          linkTo={`/profile/${profile.id}`}
+          handle={profile.custom_url}
           size="compact"
           nameClassName="text-sm md:text-[13px] font-semibold hover:text-primary transition-colors truncate"
         />
@@ -85,7 +88,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
             <div className="flex -space-x-1.5">
               {mutualFriends.length > 0
                 ? mutualFriends.slice(0, 3).map((m) => (
-                    <Link key={m.id} to={`/profile/${m.id}`} className="relative z-[1] hover:z-10 transition-transform hover:scale-110">
+                    <ProfileLink key={m.id} userId={m.id} handle={m.custom_url} className="relative z-[1] hover:z-10 transition-transform hover:scale-110">
                       {m.avatar_url ? (
                         <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={m.avatar_url} alt={m.full_name || ""} className="h-5 w-5 rounded-full border-2 border-background object-cover" />
                       ) : (
@@ -93,7 +96,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
                           <span className="text-[7px] font-semibold text-muted-foreground">{(m.full_name || "?")[0]?.toUpperCase()}</span>
                         </div>
                       )}
-                    </Link>
+                    </ProfileLink>
                   ))
                 : Array.from({ length: Math.min(mutualFriendsCount, 2) }).map((_, i) => (
                     <div key={i} className="h-5 w-5 rounded-full bg-muted border-2 border-background flex items-center justify-center">
@@ -106,9 +109,9 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
               {mutualFriendsCount} {t("fr.mutualFriends")}
               {mutualFriends.length > 0 && (
                 <> {t("fr.including")}{" "}
-                  <Link to={`/profile/${mutualFriends[0].id}`} className="text-foreground font-medium hover:text-primary transition-colors">
+                  <ProfileLink userId={mutualFriends[0].id} handle={mutualFriends[0].custom_url} className="text-foreground font-medium hover:text-primary transition-colors">
                     {mutualFriends[0].full_name || "a friend"}
-                  </Link>
+                  </ProfileLink>
                 </>
               )}
             </span>

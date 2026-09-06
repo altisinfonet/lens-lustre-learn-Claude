@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import ProfileLink from "@/components/ProfileLink";
 import { Link } from "react-router-dom";
 import { MessageCircle, ThumbsUp, MoreHorizontal, Trash2, Flag, Pin, Pencil, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -33,7 +34,7 @@ interface Comment {
   created_at: string;
   updated_at: string;
   is_pinned: boolean;
-  profile: { full_name: string | null; avatar_url: string | null } | null;
+  profile: { full_name: string | null; avatar_url: string | null; custom_url: string | null } | null;
   last_active: string | null;
   badges: string[];
   like_count: number;
@@ -150,6 +151,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
         profile: {
           full_name: resolveName(c.user_id, profileMap[c.user_id]?.full_name ?? null, adminIds),
           avatar_url: profileMap[c.user_id]?.avatar_url ?? null,
+          custom_url: profileMap[c.user_id]?.custom_url ?? null,
         },
         last_active: profileMap[c.user_id]?.last_active_at ?? null,
         badges: resolveBadges(c.user_id, profileMap[c.user_id]?.badges || [], adminIds),
@@ -217,7 +219,11 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
       updated_at: new Date().toISOString(),
       is_pinned: false,
       last_active: null,
-      profile: { full_name: currentProfile?.full_name || "You", avatar_url: currentProfile?.avatar_url || null },
+      profile: {
+        full_name: currentProfile?.full_name || "You",
+        avatar_url: currentProfile?.avatar_url || null,
+        custom_url: (currentProfile as { custom_url?: string | null } | null)?.custom_url ?? null,
+      },
       badges: [],
       like_count: 0,
       is_liked: false,
@@ -382,9 +388,9 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
       // Key moved here — see the note above renderComment.
       <div key={comment.id} className={`${depth > 0 ? "ml-10" : ""}`}>
         <div className="flex gap-2 group/comment py-0.5">
-          <Link to={`/profile/${comment.user_id}`} className="shrink-0 mt-0.5">
+          <ProfileLink userId={comment.user_id} handle={comment.profile?.custom_url} className="shrink-0 mt-0.5">
             <Avatar src={comment.profile?.avatar_url} name={comment.profile?.full_name} size={depth > 0 ? "xs" : "sm"} lastActiveAt={comment.last_active} />
-          </Link>
+          </ProfileLink>
           <div className="flex-1 min-w-0">
             {editingId === comment.id ? (
               <div className="flex gap-2 items-end">
@@ -415,7 +421,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
                     <UserIdentityBlock
                       userId={comment.user_id}
                       name={comment.profile?.full_name || "Anonymous"}
-                      linkTo={`/profile/${comment.user_id}`}
+                      handle={comment.profile?.custom_url}
                     />
                     {/* `whitespace-pre-wrap` for the same reason as in
                         src/components/comments/CommentThread.tsx: without it a

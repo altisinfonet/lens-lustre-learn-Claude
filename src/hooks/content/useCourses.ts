@@ -17,6 +17,8 @@ export interface CourseListItem {
   published_at: string | null;
   author_id?: string;
   author_name?: string | null;
+  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
+  author_handle?: string | null;
   lesson_count?: number;
   is_featured?: boolean;
   labels?: string[];
@@ -61,11 +63,13 @@ export const useCourses = () => {
 
       const authorIds = [...new Set(data.map((c: any) => c.author_id))];
       const [{ data: profiles }, { data: lessons }] = await Promise.all([
-        profilesPublic().select("id, full_name").in("id", authorIds),
+        profilesPublic().select("id, full_name, custom_url").in("id", authorIds),
         supabase.from("lessons").select("id, course_id"),
       ]);
 
       const profileMap = new Map(profiles?.map((p) => [p.id, p.full_name]) || []);
+      // F-95 — the handle rides along on the same row as the name.
+      const handleMap = new Map(profiles?.map((p) => [p.id, p.custom_url]) || []);
       const lessonCounts = new Map<string, number>();
       lessons?.forEach((l) => {
         lessonCounts.set(l.course_id, (lessonCounts.get(l.course_id) || 0) + 1);
@@ -74,6 +78,7 @@ export const useCourses = () => {
       return data.map((c: any) => ({
         ...c,
         author_name: profileMap.get(c.author_id),
+        author_handle: handleMap.get(c.author_id) ?? null,
         lesson_count: lessonCounts.get(c.id) || 0,
       }));
     },
@@ -134,7 +139,7 @@ export const useCourseDetail = (slug: string | undefined, userId: string | undef
 
       const [{ data: lessonData }, { data: profile }, { data: moduleData }] = await Promise.all([
         supabase.from("lessons").select("id, title, sort_order, module_id").eq("course_id", courseData.id).order("sort_order"),
-        profilesPublic().select("full_name").eq("id", courseData.author_id).maybeSingle(),
+        profilesPublic().select("full_name, custom_url").eq("id", courseData.author_id).maybeSingle(),
         supabase.from("course_modules").select("*").eq("course_id", courseData.id).order("sort_order", { ascending: true }),
       ]);
 

@@ -45,6 +45,7 @@ import { Link } from "react-router-dom";
 import { PartyPopper } from "lucide-react";
 import { useDashboardContext } from "@/hooks/core/DashboardContext";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
+import ProfileLink from "@/components/ProfileLink";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -57,6 +58,18 @@ const TodaysBirthdayStrip = () => {
   // owner would turn the section off and still see it on his phone.
   const enabled = sidebarData?.sections?.todays_birthday !== false;
   const people = sidebarData?.birthdays ?? [];
+  /*
+   * F-98c — THE HANDLE NOW TRAVELS WITH THE NAME.
+   *
+   * This read `useMemberHandles(...)`: a second, batched round trip that
+   * fetched custom_url for members whose names had already arrived without it.
+   * The auditor's ruling on 2026-09-05, and it is the right one — two
+   * mechanisms delivering one handle is how the two drift apart, which is the
+   * same argument this codebase already made about author_badges. The server
+   * now carries custom_url in the row (dashboard-init/index.ts, and
+   * get_todays_birthdays for the birthday rows), so the bridge is withdrawn
+   * rather than stacked on top of the fix.
+   */
 
   if (!enabled || people.length === 0) return null;
 
@@ -78,7 +91,20 @@ const TodaysBirthdayStrip = () => {
       <div className="divide-y divide-border">
         {people.map((u: any) => (
           <div key={u.id} className="flex items-center gap-3 px-4 py-3">
-            <Link to={`/profile/${u.id}`} className="shrink-0">
+            {/*
+              F-103 — 36x36 (w-9 h-9) and the strip is xl:hidden, so it fails at
+              every phone width and passes desktop-1280, which is exactly what
+              the gate reported. The avatar stays 36px; tap-44 grows only the
+              hit region.
+
+              ⚠ OVERLAP MEASURED BEFORE SHIPPING, because two hit regions that
+              intersect hand the shared strip to whichever paints later. The two
+              avatars are stacked vertically, same `left`, 31px apart. Adding
+              4px above and below each leaves 23px of clear space. No
+              intersection. If this strip ever becomes horizontal, re-measure:
+              31px of separation is not a large margin.
+            */}
+            <ProfileLink userId={u.id} handle={u.custom_url} className="shrink-0 tap-44">
               {u.avatar_url ? (
                 <img
                   referrerPolicy="no-referrer"
@@ -95,12 +121,12 @@ const TodaysBirthdayStrip = () => {
                   </span>
                 </div>
               )}
-            </Link>
+            </ProfileLink>
             <div className="flex-1 min-w-0">
               <UserIdentityBlock
                 userId={u.id}
                 name={u.full_name || "Photographer"}
-                linkTo={`/profile/${u.id}`}
+                handle={u.custom_url}
                 nameClassName="text-sm font-medium truncate hover:text-primary transition-colors"
               />
               <span className="text-[10px] text-muted-foreground" style={bodyFont}>
