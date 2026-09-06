@@ -6,7 +6,7 @@
 
 **Repository path:** `docs/PROMOTION_LEDGER.md` (canonical, on `staging`)
 **Ledger ID:** `LEDGER-50MM-001`
-**Status of this revision:** `REV-30 · 2026-09-06T02:58Z` · **📕 DOCUMENTATION FREEZE IN FORCE — §28**
+**Status of this revision:** `REV-31 · 2026-09-06T04:45Z` · **📕 DOCUMENTATION FREEZE IN FORCE — §28**
 
 ---
 
@@ -2282,6 +2282,29 @@ no deployment, no migration dispatch. `main` unchanged at `b671e1fb0c5bcf145d442
 > **Footer corrected at REV-16 (C-11).** Every revision to REV-15 ended *"T unchanged at `25c0456`"*.
 > **That was false and self-contradictory** — C-8 and §3.1 record `25c0456` as **void**, so the
 > document's own closing line asserted an identity its §3 denies. Preserved here, not deleted.
+
+## 28.4 · STACKING RULE — added 2026-09-06, on the Auditor's ruling
+
+> **`staging` IS NOT THE LEDGER'S HEAD WHILE YOUR OWN PULL REQUESTS ARE OPEN.**
+> **A new section stacks on the NEWEST UNMERGED PR, not on `staging`.**
+
+**Why.** A section numbered off `staging` collides with, or leaves a gap before, a section already
+written in an open PR. **Both happened.** A second `REV-17` was proposed against an existing §29; and
+a §44 was written off `staging` while §43 sat unmerged, leaving §42 → §44 with **no §43**.
+
+**It happened FOUR TIMES in one night.** It is the documentation lane's equivalent of the pattern
+§42.6 names for the Auditor — **taking the shape of a thing for the thing.** `staging` *looks* like
+the head of the record. **It is only the head of the MERGED record**, and the difference is invisible
+until the numbering breaks.
+
+**The check, before appending anything:** list your own open PRs against this file, take the newest,
+and branch from **its head**. **Do not branch from `staging` and then verify the number afterwards** —
+verifying after the fact is how the gap was found three of the four times.
+
+**This subsection was APPENDED to §28 and rewrote none of it.** It is the **first change to the
+pre-existing record beyond the header pointer at line 9**, and is recorded as such so that the
+"byte-identical below line 9" proof quoted in earlier pull requests is read as holding **up to this
+addition and not beyond it.**
 
 
 ---
@@ -4683,3 +4706,185 @@ happened five times in one day.
 
 *Auditor. This entry records four corrections to his own brief. It promotes nothing and closes no
 production gate.*
+
+---
+
+# 44 · REV-31 — THE CORRECTED BEFORE-READING, THREE MORE INSTRUMENT FAILURES, AND F-105
+
+**Written by the Auditor · 2026-09-06 · transcribed and figure-checked by D3 (documentation lane)**
+**Committed under §28.2 exception (a).**
+
+> # ⚠ NOTHING IN THIS REVISION IS GREEN.
+> **Nothing has merged. Nothing has shipped. No after-reading has been taken.** The after-reading and
+> the Auditor's seven written predictions are **held** and will be a **separate entry**. **Any reader
+> treating §44 as a completion report has misread it.**
+
+## 44.1 · TWO MORE CORRECTIONS TO THE AUDITOR'S OWN NUMBERS — the same fault, the fourth time today
+
+**He published a before-reading of the deployed staging site and told the Owner and D2 that `/feed`
+had 1 dead member name and `/dashboard` had 2, one of them the voting-photo caption — F-98c source
+four.**
+
+**ALL OF THAT WAS WRONG.**
+
+**Every entry was the string `50mm Retina World`** — which is **both the brand and a real profile
+name** — so **his name list matched the page furniture.**
+
+**Reading the actual text settled it in one pass:**
+
+| element | what it actually is |
+|---|---|
+| the `h1` | **the site title** |
+| `p.text-[10px].text-muted-foreground` | **"Welcome to 50mm Retina World"** |
+| the muted `span` | **the footer** |
+
+**He called the middle one a photographer caption BECAUSE ITS CSS CLASSES MATCH `CompetitionLightbox`.**
+
+**THAT IS §42.6's PATTERN AGAIN — THE FOURTH TIME IN A DAY: he read the SHAPE of the element instead
+of the TEXT INSIDE IT.** The classes were a true fact about the element and told him nothing about
+what it said. **The text was one property away and he did not read it.**
+
+**CORRECTED: `/feed` 0. `/dashboard` 0.** Confirmed over **three consecutive loads** of one and
+**two** of the other.
+
+## 44.2 · THE CORRECTED BEFORE-READING — deployed staging, head `be161c5`, 1536 px, the Auditor's own probe
+
+**`/notifications` is the ONLY page with dead member names: 24.** **Itemised by person, so the
+after-reading cannot hide one inside a total:**
+
+| member | count |
+|---|---|
+| Aiko Rahman | 3 |
+| Meera Okafor | 3 |
+| Neha Mehta | 3 |
+| Aarav Sharma | 2 |
+| Kabir Larsen | 2 |
+| Sofia Dutta | 2 |
+| Marlowe Ashgrove · Rowan Ashgrove · Arjun Iyer · Dev Nakamura · Luca Tanaka · Mateo Bose · Rohan Rossi · Zara Kim · Ishita Haddad | 1 each |
+| **TOTAL** | **24** |
+
+**Itemising is the point.** A total can be met by a fix that removes six and introduces six. **Fifteen
+named people cannot.**
+
+**Every other page: 0.** **`/owen.blake`: 2 — both his own name on his own page**, which is **item 8
+of the invariant and NOT a defect.**
+
+**Zero invisible blocks. Zero sideways scroll. Zero broken images. All ten pages.**
+
+**36 to 88 controls per page under 44 px at desktop width — F-104, measured on the real site for the
+first time.**
+
+## 44.3 · THREE MORE INSTRUMENT FAILURES — **THE COUNT MOVES FROM EIGHT TO ELEVEN**
+
+**§43.3 held the count at eight deliberately. It now moves. 8 + 3 = 11.**
+
+**All three were found by the Auditor tonight in PR #196's own instruments, and all three are
+follow-ups he explicitly did NOT let block the merge** — **because he checked each against the
+measurement he was about to run and each could not mislead it.**
+
+| # | failure |
+|---|---|
+| i | **`tools/uishot/tap-targets.mjs` settles as soon as two polls agree.** A scene rendering **ZERO controls settles instantly**, scores **0 under 44 px**, prints **"BETTER ratchet down"**, and **invites the operator to re-record the baseline at zero** — **a crashed scene recorded as the standard** |
+| ii | the same file measures **whether the hit box is 44 px** and **never whether it can be hit**. **Nothing reads `pointer-events` on the `::after`** |
+| iii | **the REPAIRED `mention-overflow` probe passes on an EMPTY list**: with zero rows `rowH` is 0, `capIsWholeRows` is `null`, `slicedCount` is 0 — **and it prints a tick** |
+
+**The pattern name is already in this ledger — a zero read as a pass — and it has now been committed
+inside the very file written to stop it.**
+
+*(These three are in #196 and are not on `staging`: `tap-targets.mjs` does not exist there, and the
+repaired `mention-overflow.mjs` is the PR's version. They are the Auditor's readings of the PR.)*
+
+## 44.4 · THE INSTRUMENT IDENTITY FINDING — `path()` cannot tell GONE from RENAMED
+
+**`tools/uishot/capture.mjs` identifies a control by its tag plus its FIRST TWO CLASS NAMES**
+(`capture.mjs:237`, `.slice(0, 2)` — verified at source by D3).
+
+**D2 put `tap-44` first in the shared `Button`. Every `Button` in the app was renamed. The gate
+reported 340 CONTROLS GONE, across every scene at every width, as ONE DISTINCT MESSAGE.**
+
+**NOTHING HAD GONE.**
+
+**The Auditor ran `cn()` over the real base string — four size variants against twelve caller shapes,
+48 combinations:**
+
+| placement | renamed |
+|---|---|
+| `tap-44` **third** | **20 of 48** |
+| `tap-44` **last** | **0 of 48** |
+
+**`tap-44` survives `twMerge` in all 48 either way, so the position it was placed for bought
+nothing.**
+
+**THE BASELINE WAS NOT RE-RECORDED TO CLEAR IT, AND THAT MATTERED TONIGHT MORE THAN ON ANY OTHER
+NIGHT.** Tonight is **the one run in which every `Button` signature changes at once**, so **a control
+GENUINELY REMOVED tonight would have been indistinguishable from the 340 renames and written into
+the new baseline as normal.** Re-recording would not have hidden a defect by accident; it would have
+hidden it **at the exact moment the instrument was blindest.**
+
+**The finding: `path()` cannot tell GONE from RENAMED** — and the same measurement showed **the
+identity already moves under ordinary caller edits that remove nothing.**
+
+## 44.5 · F-105 — PRODUCTION. **REPORT ONLY. THE AUDITOR CALLED NOTHING.**
+
+**Found while checking whether D2's `0015` restores grants. Read from `pg_proc.proacl`, NEVER from
+`has_function_privilege`.**
+
+**`get_todays_birthdays`** holds `authenticated` **by a Supabase DEFAULT PRIVILEGE, granted by no
+migration line**, and takes `_viewer` as an argument **without checking `auth.uid()`** — **any
+signed-in member can read whose birthdays are visible to another member.**
+
+**`0015` is not wrong. It reproduces today's ACL exactly, verified.**
+
+**Worse:** **both overloads of `process_referral_reward`** are granted to `authenticated`, are
+**SECURITY DEFINER**, **call `wallet_transaction()`, which issues the credit**, and have
+**no role check.**
+
+* the **three-argument** one is called by the member client **behind a condition enforced IN THE
+  BROWSER**
+* the **two-argument** one is the **ADMIN Approve button** and has **no enabled check, no minimum
+  check, no manual-approval check and no monthly-cap check**
+
+**SIZED HONESTLY: production has ZERO referral rows and no `referral_reward` setting, so it returns
+at its first statement every time and is NOT EXPLOITABLE TODAY.**
+
+**ARMED, NOT LOADED.** The distinction is the whole record: **nothing to steal today, and nothing
+standing between a first referral row and a wallet write.**
+
+## 44.6 · THE PRODUCTION BACKFILL IS KNOWN IN ADVANCE
+
+**All 17 handle-less production members produce a clean slug:**
+
+| property | value |
+|---|---|
+| distinct | **17 of 17** |
+| already taken | **0** |
+| reserved | **0** |
+| needing a digit suffix | **0** |
+
+**Cyrillic → `sasha.brazhkin`. Bengali → `shirshendu.dutta`.**
+
+**D1's digit tripwire now has an EXACT EXPECTED VALUE OF ZERO, so ANY DIGIT AT ALL IS A STOP.** A
+tripwire with a known expected value is a different instrument from one with a plausible range: **it
+cannot be argued with after the fact.**
+
+**CONDITION RECORDED:** the Auditor **ran the staging generator against production names**, and
+**will compare function source and the reserved table across lanes before the backfill step.** The
+prediction is only as good as the two lanes being the same generator, and that has not yet been
+shown.
+
+## 44.7 · TONIGHT'S CI, FACTUALLY
+
+**#196 FAILED TWICE AND HAS NOT MERGED.**
+
+**First failure — the 340 renames.** The Auditor's diagnosis; **D2 reached it independently**; fixed
+**without touching the baseline.**
+
+**Second failure — 15 lines of tap targets too small. THIS ONE IS HONEST.** D2's edit to that check
+**only ADDS the hit-area reading and can only make it MORE PERMISSIVE**, so **it cannot have caused a
+failure.** The cause is that **enlarging the fixtures and adding real-screen scenes made the gate see
+controls that had never been rendered in a test.**
+
+**OLD DEFECTS, NEWLY VISIBLE. MAKING A DEFECT VISIBLE IS NOT CAUSING IT.**
+
+*Auditor. Nothing in this entry is green. It promotes nothing, closes nothing, and reports one
+production finding that was called to no one.*
