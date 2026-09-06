@@ -6,22 +6,36 @@ import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
   /*
-   * `tap-44` sits AFTER the first two classes, and that position is load-bearing.
+   * ⚠ `tap-44` IS LAST, AND THE POSITION IS LOAD-BEARING. DO NOT MOVE IT.
    *
    * It was FIRST, on the reasoning that a caller's className could not then
-   * drop it. That renamed EVERY Button in the app: the UI gate identifies a
-   * control by tag plus its first two classes, so
-   * `button.inline-flex.items-center` became `button.tap-44.inline-flex` and
-   * the baseline diff reported hundreds of controls "gone (was present in the
-   * baseline)". Nothing was gone. I had documented this exact artefact on the
-   * raw buttons in Notifications.tsx an hour earlier and then walked into it
-   * here, on the shared component, where it applies to everything at once.
+   * drop it. That renamed EVERY Button in the app: capture.mjs builds a
+   * control's identity as tag + id + THE FIRST TWO CLASS NAMES, so
+   * `button.inline-flex.items-center` became `button.tap-44.inline-flex`, and
+   * the gate reported 340 lines of "is gone (was present in the baseline)"
+   * across every scene at every width. Nothing was gone. The Auditor's proof
+   * that it was a rename and not a removal: a real removal cannot hit every
+   * scene at every width identically.
    *
-   * The original worry was unfounded: `tap-44` is a custom class, not a
-   * Tailwind utility, so tailwind-merge has no conflicting utility to resolve
-   * it against and will not drop it from any position.
+   * I then moved it to position THREE, which fixes the common case and not the
+   * measured one. The Auditor ran cn() against five caller shapes: when a
+   * caller passes "inline-flex items-center", twMerge removes the BASE copies
+   * and the first two names become whatever follows. At position three that
+   * yields `tap-44.justify-center` — still not the baseline. LAST, it can never
+   * reach the first two positions however much twMerge removes.
+   *
+   * The worry that put it first was measured to be unfounded: across ten runs,
+   * five caller shapes × first and last, tap-44 SURVIVED EVERY TIME, because
+   * twMerge only drops classes it recognises as conflicting Tailwind utilities
+   * and tap-44 is not one. The protection does not depend on the position.
+   *
+   * ⚠ AND THE BASELINE WAS NOT RE-RECORDED. Re-recording would also have
+   * cleared the red, and this is the one run in which every shared Button's
+   * signature changes at once — so a control that genuinely vanished tonight
+   * would have been indistinguishable from the 340 renames and would have been
+   * written into the new baseline as normal.
    */
-  "inline-flex items-center tap-44 justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 tap-44",
   {
     variants: {
       variant: {
