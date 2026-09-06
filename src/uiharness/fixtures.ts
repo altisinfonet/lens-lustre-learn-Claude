@@ -368,6 +368,28 @@ export const profilesPublicData = profiles.map((p, i) => ({
   // Fixed, never "now": a relative "active 3 minutes ago" would make two runs
   // of the same scene render different words.
   last_active_at: "2026-08-15T08:30:00.000Z",
+  /**
+   * THE TWO FLAGS DISCOVER FILTERS ON, AND WITHOUT WHICH IT SHOWED NOBODY.
+   *
+   * Discover.tsx:80-81 asks for `.eq("is_suspended", false).eq("is_banned",
+   * false)`, and `applyFilters` in fixtureRoutes.ts only keeps a row when the
+   * column actually EXISTS on it (`key in r`) — deliberately, so a fixture
+   * cannot answer a filter it has no data for. This projection carried neither
+   * flag, so both filters matched zero rows and `screen-discover` rendered
+   * "No people found matching your criteria."
+   *
+   * ⚠ THAT SCENE HAS THEREFORE NEVER PHOTOGRAPHED A DiscoverCard. It has been
+   * in the sweep since #196 reporting a live, error-free page — of an empty
+   * state. Every reading anyone took from it, mine included, was of the empty
+   * state and said nothing about the card. This is C-87 again: a zero read as
+   * a pass, and the reason a scene must be judged by what it CONTAINS and not
+   * by whether it rendered.
+   *
+   * FALSE for both, on every row, because a suspended or banned member is a
+   * separate scene and not the default one.
+   */
+  is_suspended: false,
+  is_banned: false,
 }));
 
 /**
