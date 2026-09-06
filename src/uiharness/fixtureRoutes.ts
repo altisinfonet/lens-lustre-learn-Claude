@@ -192,6 +192,112 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
   // that must be right for the member who has just caught up.
   get_my_unread_notifications_grouped: () => [],
 
+  /**
+   * ── /notifications, AND THE FALSE GREEN IT ALMOST GAVE ME ────────────────
+   *
+   * screen-notifications was added on 2026-09-05 to measure F-98c's fix, and
+   * this route was NOT. The gate said it plainly:
+   *
+   *   NO FIXTURE for POST /rest/v1/rpc/get_my_notifications_grouped
+   *   — this screen is rendering with missing data
+   *
+   * Meanwhile the dead-name sweep reported "screen-notifications 9 live,
+   * 0 dead" and I passed that number on as evidence. Those nine were the
+   * SIDEBAR — People You May Know 3, winners 2, milestones 2, birthdays 2 —
+   * and not one notification row had rendered. The scene was measuring
+   * everything except the thing it was built for.
+   *
+   * So the rows are here, and they are shaped to exercise the phrase rather
+   * than to look tidy:
+   *   - two named actors plus a remainder, so ActorPhrase renders
+   *     "A, B and N others" and each name must become its own link;
+   *   - actor_usernames populated, because that is profiles.custom_url and the
+   *     whole defect was that it arrived and was printed as text;
+   *   - one actor with NO username, so the data-unlinked="missing" branch is
+   *     rendered too rather than only reasoned about;
+   *   - one impersonal type carrying no actor at all.
+   */
+  get_my_notifications_grouped: () => [
+    {
+      group_key: "g-following",
+      type: "new_post_from_following",
+      notification_ids: ["n1", "n2", "n3"],
+      actor_ids: [profiles[0].id, profiles[1].id, profiles[2].id],
+      actor_names: [profiles[0].full_name, profiles[1].full_name, profiles[2].full_name],
+      actor_usernames: [profiles[0].custom_url, profiles[1].custom_url, profiles[2].custom_url],
+      actor_avatars: [profiles[0].avatar_url ?? "", "", profiles[2].avatar_url ?? ""],
+      actor_count: 5,
+      event_count: 33,
+      unread_count: 2,
+      reference_id: null,
+      thumbnail_url: null,
+      title: "New photos",
+      message: "New photos from people you follow",
+      latest_at: "2026-09-05T09:00:00.000Z",
+    },
+    {
+      group_key: "g-follower",
+      type: "new_follower",
+      notification_ids: ["n4"],
+      actor_ids: [profiles[3].id],
+      actor_names: [profiles[3].full_name],
+      actor_usernames: [profiles[3].custom_url],
+      actor_avatars: [profiles[3].avatar_url ?? ""],
+      actor_count: 1,
+      event_count: 1,
+      unread_count: 1,
+      reference_id: profiles[3].id,
+      thumbnail_url: null,
+      title: "New follower",
+      message: "started following you",
+      latest_at: "2026-09-05T08:30:00.000Z",
+    },
+    {
+      // No handle. The "missing" branch, rendered rather than reasoned about.
+      group_key: "g-comment",
+      type: "post_comment",
+      notification_ids: ["n5"],
+      actor_ids: ["99999999-9999-4999-8999-999999999999"],
+      actor_names: ["Noor Abadi"],
+      actor_usernames: [""],
+      actor_avatars: [""],
+      actor_count: 1,
+      event_count: 1,
+      unread_count: 0,
+      reference_id: null,
+      thumbnail_url: null,
+      title: "Comment",
+      message: "commented on your photo",
+      latest_at: "2026-09-04T18:00:00.000Z",
+    },
+    {
+      // Something that happened TO you: no person belongs on the front of it.
+      group_key: "g-entry",
+      type: "entry_approved",
+      notification_ids: ["n6"],
+      actor_ids: [],
+      actor_names: [],
+      actor_usernames: [],
+      actor_avatars: [],
+      actor_count: 0,
+      event_count: 1,
+      unread_count: 0,
+      reference_id: null,
+      thumbnail_url: null,
+      title: "Entry approved",
+      message: "Your entry in \"Monsoon\" has been approved!",
+      latest_at: "2026-09-03T12:00:00.000Z",
+    },
+  ],
+
+  /**
+   * Telemetry sink. The lightbox writes UI-8007 through this on an image it
+   * cannot load, and with no fixture the harness reported the WRITE as missing
+   * data on top of the thing it was reporting. A scene should not fail because
+   * its own error reporting has nowhere to go.
+   */
+  log_app_event: () => [],
+
   // No active stories anywhere, matching the empty `stories` table. The two
   // must agree — a ring here and an empty table there would photograph a
   // combination the app can never actually be in.

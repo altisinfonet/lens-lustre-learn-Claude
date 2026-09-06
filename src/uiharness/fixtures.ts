@@ -489,7 +489,17 @@ export const dashboardInit = {
       entry_id: `entry-${i}`,
       title: i === 0 ? "Monsoon Light" : "Harbour at Dawn",
       entry_title: i === 0 ? "Monsoon Light" : "Harbour at Dawn",
-      photo_url: `/photos/fixture-${i}.jpg`,
+      /*
+       * fixtureImage(), NOT AN INVENTED PATH.
+       *
+       * This said `/photos/fixture-${i}.jpg`, a URL that does not exist, and
+       * the UI gate reported "images not rendered" on SIX SCENES THAT WERE
+       * PASSING BEFORE I TOUCHED THEM — post-detail, profile, wall, wall-about,
+       * wall-visitor and winners. I damaged six to add one. Same class as
+       * writing a number where the app expected a placement string, three hours
+       * later, in the same file. The helper has always been there.
+       */
+      photo_url: fixtureImage(20 + i, "ENTRY"),
       photo_index: 0,
       total_photos: 1,
       competition_id: "comp-1",
@@ -513,7 +523,17 @@ export const dashboardInit = {
       entry_id: `entry-${i}`,
       title: i === 0 ? "Monsoon Light" : "Harbour at Dawn",
       entry_title: i === 0 ? "Monsoon Light" : "Harbour at Dawn",
-      photo_url: `/photos/fixture-${i}.jpg`,
+      /*
+       * fixtureImage(), NOT AN INVENTED PATH.
+       *
+       * This said `/photos/fixture-${i}.jpg`, a URL that does not exist, and
+       * the UI gate reported "images not rendered" on SIX SCENES THAT WERE
+       * PASSING BEFORE I TOUCHED THEM — post-detail, profile, wall, wall-about,
+       * wall-visitor and winners. I damaged six to add one. Same class as
+       * writing a number where the app expected a placement string, three hours
+       * later, in the same file. The helper has always been there.
+       */
+      photo_url: fixtureImage(20 + i, "ENTRY"),
       photo_index: 0,
       total_photos: 1,
       competition_id: "comp-1",
