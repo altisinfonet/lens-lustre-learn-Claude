@@ -99,6 +99,68 @@ export const profiles: FixtureProfile[] = [
     avatar_url: fixtureImage(9),
     bio: "Long exposure.",
   },
+  /*
+   * ───────────────────────────────────────────────────────────────────────────
+   * FOUR MORE, SO THE @MENTION LIST CAN OVERFLOW AT ALL.
+   *
+   * With three members the suggestion list was 3 × 44 = 132px against a 176px
+   * cap, so it NEVER SCROLLED in the harness. Measured by the Auditor:
+   * scrollable false, rowsFullyVisibleNow 3. The Owner's sliced-row defect was
+   * STRUCTURALLY UNREACHABLE in the one scene built to look at that list —
+   * exactly like the empty sidebar arrays were, and exactly like the empty
+   * suggestions list before F-98b. Three times now, the same shape: a fixture
+   * too small to contain the fault.
+   *
+   * MentionInput queries `.ilike("full_name", "%query%").limit(6)`, so SIX is
+   * the most rows that can ever appear and the list must be able to reach six.
+   * Every name here contains an "a", because "@a" is what the probe types and a
+   * name that cannot match is a row that cannot render.
+   *
+   * They carry custom_url like everybody else — a fixture member without a
+   * handle would show up as a dead name in the F-98 sweep, which is the
+   * opposite of what a fixture is for.
+   * ───────────────────────────────────────────────────────────────────────────
+   */
+  {
+    id: "44444444-4444-4444-8444-444444444444",
+    full_name: "Amara Okonkwo",
+    username: "amara",
+    onboarding_completed: true,
+    user_type: "photographer",
+    custom_url: "amara.okonkwo",
+    avatar_url: fixtureImage(1),
+    bio: null,
+  },
+  {
+    id: "55555555-5555-4555-8555-555555555555",
+    full_name: "Rafael Santos",
+    username: "rafael",
+    onboarding_completed: true,
+    user_type: "photographer",
+    custom_url: "rafael.santos",
+    avatar_url: null, // second initials-fallback row, inside a scrolling list
+    bio: null,
+  },
+  {
+    id: "66666666-6666-4666-8666-666666666666",
+    full_name: "Hana Takahashi",
+    username: "hana",
+    onboarding_completed: true,
+    user_type: "enthusiast",
+    custom_url: "hana.takahashi",
+    avatar_url: fixtureImage(5),
+    bio: null,
+  },
+  {
+    id: "77777777-7777-4777-8777-777777777777",
+    full_name: "Ayaan Farooqi",
+    username: "ayaan",
+    onboarding_completed: true,
+    user_type: "photographer",
+    custom_url: "ayaan.farooqi",
+    avatar_url: fixtureImage(7),
+    bio: null,
+  },
 ];
 
 export interface FixturePost {

@@ -3,6 +3,71 @@ import { Send } from "lucide-react";
 import { MentionsInput, Mention, SuggestionDataItem } from "react-mentions";
 import { profilesPublic } from "@/lib/profilesPublic";
 
+/*
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE SUGGESTION LIST'S HEIGHT IS A WHOLE NUMBER OF ROWS. IT WAS NOT.
+ *
+ * The Owner, on Android 1.2.18, typed "@s" in a comment and sent a screenshot:
+ * the list opens above the input and the entries are cut — he cannot read a
+ * whole option. "you damaged all mention light box which was fix in earlier
+ * version."
+ *
+ * It is arithmetic, and it was never right. The cap was a flat 200px against a
+ * 44px row: 200 / 44 = 4.55, so a member who matched six people got four whole
+ * rows and FIFTY-FIVE PERCENT OF A FIFTH — a row sliced through the middle.
+ * That is his screenshot.
+ *
+ * PROVENANCE, checked before anyone was blamed: MentionInput.tsx on main and on
+ * staging differ by exactly one line, the custom_url select widening. Nothing
+ * about size, position or z-index. F-53's fix is present in both and is in the
+ * shipped app. This is NOT a regression and NOT a revert of F-53 — it has been
+ * wrong since the cap was written, and nothing could see it.
+ *
+ * THE ROW HEIGHT IS DERIVED, NOT COPIED. renderSuggestion draws a `w-7 h-7`
+ * avatar (28px) inside a row padded 8px top and bottom, so the row is
+ * 28 + 8 + 8 = 44. Writing `44` on its own would be a second magic number that
+ * drifts the day somebody changes the avatar to `w-8`; writing the sum means
+ * the arithmetic is visible where the change would be made.
+ *
+ * FOUR ROWS, NOT FIVE. On a phone the list opens ABOVE the input with the
+ * keyboard up, and 5 × 44 = 220px eats a quarter of a 800px viewport before
+ * the keyboard is counted. Four is the Auditor's instinct and mine.
+ *
+ * ⚠ THE ARITHMETIC IS GUARDED, NOT TRUSTED. tools/uishot/mention-overflow.mjs
+ * measures the RENDERED row and fails if it is not what these constants
+ * declare, and fails if any row is not wholly inside the list box. Constants
+ * that agree with each other and disagree with the browser are how this defect
+ * survived in the first place.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+/** `w-7 h-7` on the avatar in renderSuggestion below. */
+const SUGGESTION_AVATAR_PX = 28;
+/** The `padding: "8px 12px"` on `item` below, top and bottom. */
+const SUGGESTION_ROW_PADDING_Y_PX = 8;
+/** 28 + 8 + 8 = 44. Measured in real Chromium and asserted by the probe. */
+export const SUGGESTION_ROW_HEIGHT_PX =
+  SUGGESTION_AVATAR_PX + SUGGESTION_ROW_PADDING_Y_PX * 2;
+/** Whole rows visible before the list scrolls. Never a fraction. */
+export const SUGGESTION_ROWS_VISIBLE = 4;
+/**
+ * The `border: "1px solid"` on `list` below.
+ *
+ * ⚠ IT COUNTS, BECAUSE TAILWIND'S PREFLIGHT MAKES EVERYTHING border-box.
+ * maxHeight therefore includes the border, so a flat 4 × 44 = 176px cap leaves
+ * only 174px of CONTENT and the fourth row is cut by 1px at the bottom. That is
+ * the same defect as the Owner's, two pixels smaller, and it is exactly what
+ * you get from fixing the arithmetic without measuring the result: the probe
+ * caught it on the first run after the fix.
+ */
+const SUGGESTION_LIST_BORDER_PX = 1;
+/**
+ * 4 × 44 + 2 × 1 = 178, so the CONTENT band is exactly 176 = four whole rows.
+ * The cap must stay a whole number of rows plus its own border — that is the
+ * defect, and the probe fails if the rendered band is not a whole multiple.
+ */
+export const SUGGESTION_LIST_MAX_HEIGHT_PX =
+  SUGGESTION_ROW_HEIGHT_PX * SUGGESTION_ROWS_VISIBLE + SUGGESTION_LIST_BORDER_PX * 2;
+
 interface MentionInputProps {
   value: string;
   onChange: (value: string) => void;
@@ -415,18 +480,25 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
             backgroundColor: "transparent",
             list: {
               backgroundColor: "hsl(var(--popover))",
-              border: "1px solid hsl(var(--border))",
+              border: `${SUGGESTION_LIST_BORDER_PX}px solid hsl(var(--border))`,
               borderRadius: "8px",
               fontSize: "14px",
               boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-              maxHeight: "200px",
+              // 178px = 4 × 44 + 2 × 1 border, so 176px of content = four whole
+              // rows. Was a flat "200px" — 4.55 rows, so the fifth was always
+              // sliced. See the note at the top of this file.
+              maxHeight: `${SUGGESTION_LIST_MAX_HEIGHT_PX}px`,
               overflowY: "auto",
               // ⚠ NO position/left/width/maxWidth HERE. See the note above:
               // taking this <ul> out of flow is what disarmed the guard.
               overflowX: "hidden",
             },
             item: {
-              padding: "8px 12px",
+              // The Y half of this padding is SUGGESTION_ROW_PADDING_Y_PX and
+              // the row height is derived from it. Changing it here without
+              // changing it there makes the cap a fraction of a row again —
+              // which the probe now fails on.
+              padding: `${SUGGESTION_ROW_PADDING_Y_PX}px 12px`,
               // A name longer than the box ends in an ellipsis rather than
               // widening the list.
               overflow: "hidden",
