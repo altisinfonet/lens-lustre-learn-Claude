@@ -73,6 +73,35 @@ only one is displayed.
 
 ---
 
+### 1.6 · THE INVARIANT
+
+> # EVERY MEMBER NAME THAT IS A REFERENCE TO A PERSON IS A LINK TO THAT PERSON.
+
+**Then exactly two things which are NOT exceptions to that rule but DIFFERENT ELEMENT TYPES:**
+
+**(a) The page's own heading** — the name of the profile you are standing on. **It is an `h1`.**
+A heading that links to itself **announces "link" to a screen reader for something that goes
+nowhere**, and **the Owner uses a screen reader.**
+
+**(b) A control's label** — a story tile, a tag-people picker row. **The control's own destination
+governs**, and **a link inside a button is invalid HTML anyway.**
+
+#### WHY THIS IS NOT AN EXCEPTION LIST — and the distinction is the whole point
+
+**A hand-written exception list is precisely what missed the sidebar in F-98b and then missed
+`/notifications` in F-98c.**
+
+**A list needs maintaining and will drift. A type does not.**
+
+An exception list says *"names are links, except here, here and here"* — and every new surface is a
+silent omission until someone remembers to add it. **The invariant above says something different:
+a name that REFERENCES a person is a link, and a heading and a control's label are not references
+to a person — they are a heading and a control.** Nothing needs adding when a new page appears,
+because the question is answered by **what the element IS**, not by whether someone remembered to
+list it.
+
+**Test any new surface by asking which of the three it is. Do not ask whether it is on a list.**
+
 ## 2 · THE ENGINEERING CONSTRAINTS, each with why it exists
 
 ### 2.1 · The reserved list — and why a member could otherwise vanish
