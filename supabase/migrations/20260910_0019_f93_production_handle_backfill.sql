@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- F-93 · PRODUCTION HANDLE BACKFILL — the last 18 members get a name-URL.
+-- F-93 · PRODUCTION HANDLE BACKFILL — the last 17 members get a name-URL.
 --
 -- Owner's authorisation, verbatim: "go ahead with your suggestion", and on the
 -- duplicate name: "Partha Kar can me 1M in the same name, your naming policy is
@@ -15,13 +15,25 @@
 -- re-run. If any name matches a number of rows other than the number planned
 -- for it, this file RAISES and the whole transaction is discarded.
 --
--- ⚠ TWO NAMES ARE NOT STORED IN LATIN SCRIPT, AND THIS IS THE REASON THE
---   DERIVATION IS NOT OPTIONAL. The brief named them as "Sasha Brazhkin" and
---   "Shirshendu Dutta". Production stores them as 'Саша Бражкин' and
---   'শীর্ষেন্দু দত্ত'. Matching on the Latin forms would have matched ZERO rows
---   for both, and the run would have aborted — or, in a version without the
---   count assertion, silently skipped two members. The handles are still the
---   Latin ones the Owner approved; only the LOOKUP KEY is the stored value.
+-- ⚠ THE NAMES ARE NOT ALL STORED IN LATIN SCRIPT, AND THAT IS WHY THE
+--   DERIVATION IS NOT OPTIONAL. The brief named two members as "Sasha Brazhkin"
+--   and "Shirshendu Dutta". Production stores 'Саша Бражкин' and
+--   'শীর্ষেন্দু দত্ত'. Matching the Latin forms would have matched ZERO rows for
+--   both — and, in a version without the count assertion, would have silently
+--   skipped them while reporting success on the rest. A SILENT PARTIAL. The
+--   handle is still the Latin one approved; only the LOOKUP KEY is the stored
+--   value. 'শীর্ষেন্দু দত্ত' remains in the plan below and carries that lesson.
+--
+-- ⚠ SEVENTEEN, NOT EIGHTEEN — THE SET MOVED AGAIN. When this file was first
+--   written production held 117 profiles and 18 without a handle. Re-measured
+--   before opening the PR: 116 and 17. The profile for 'Саша Бражкин' has been
+--   DELETED — not renamed and not given a handle. Verified: zero rows carry
+--   that name with any handle, zero carry the surname in any form, the mirror
+--   is consistent at 116/116 with no orphan, and 'sasha.brazhkin' is unused.
+--   That row is removed from the plan. This is the third time in one day the
+--   handle-less set has moved underneath a plan written against it, which is
+--   the whole argument for A3: a plan is only safe if it refuses to run when
+--   the set no longer matches it.
 --
 -- ⚠ THE TRIGGER THAT WOULD OTHERWISE ABORT ROW ONE. public.profiles carries
 --   block_custom_url_update, BEFORE UPDATE WHEN (old.custom_url IS DISTINCT
@@ -80,7 +92,6 @@ INSERT INTO _plan (full_name, nth, handle) VALUES
   ('Ayan Mukherjee',            1, 'ayan.mukherjee'),
   ('Shyama Prasad Chakraborty', 1, 'shyama.chakraborty'),
   ('Samiran',                   1, 'samiran'),
-  ('Саша Бражкин',              1, 'sasha.brazhkin'),
   ('Solomon Bekele',            1, 'solomon.bekele'),
   ('Udayan Joarder',            1, 'udayan.joarder'),
   ('Aniket Pal',                1, 'aniket.pal'),
@@ -94,8 +105,8 @@ DO $a1$
 DECLARE _n int; _d int;
 BEGIN
   SELECT count(*), count(DISTINCT handle) INTO _n, _d FROM _plan;
-  IF _n <> 18 OR _d <> 18 THEN
-    RAISE EXCEPTION 'A1 FAILED — plan holds % rows and % distinct handles; expected 18 and 18.', _n, _d;
+  IF _n <> 17 OR _d <> 17 THEN
+    RAISE EXCEPTION 'A1 FAILED — plan holds % rows and % distinct handles; expected 17 and 17.', _n, _d;
   END IF;
 END
 $a1$;
@@ -167,8 +178,8 @@ DO $a5$
 DECLARE _n int; _di int; _dh int;
 BEGIN
   SELECT count(*), count(DISTINCT id), count(DISTINCT handle) INTO _n, _di, _dh FROM _resolved;
-  IF _n <> 18 OR _di <> 18 OR _dh <> 18 THEN
-    RAISE EXCEPTION 'A5 FAILED — resolved % rows, % distinct ids, % distinct handles; expected 18/18/18.', _n, _di, _dh;
+  IF _n <> 17 OR _di <> 17 OR _dh <> 17 THEN
+    RAISE EXCEPTION 'A5 FAILED — resolved % rows, % distinct ids, % distinct handles; expected 17/17/17.', _n, _di, _dh;
   END IF;
 END
 $a5$;
@@ -208,8 +219,8 @@ BEGIN
   IF _still_null <> 0 THEN
     RAISE EXCEPTION 'A7 FAILED — % rows still have no handle. HAVE NONE must be zero.', _still_null;
   END IF;
-  IF _held <> (SELECT held_rows + 18 FROM _before_counts) THEN
-    RAISE EXCEPTION 'A7 FAILED — handles held went from % to %, not +18.',
+  IF _held <> (SELECT held_rows + 17 FROM _before_counts) THEN
+    RAISE EXCEPTION 'A7 FAILED — handles held went from % to %, not +17.',
       (SELECT held_rows FROM _before_counts), _held;
   END IF;
   IF _total <> (SELECT profiles_total FROM _before_counts) THEN
