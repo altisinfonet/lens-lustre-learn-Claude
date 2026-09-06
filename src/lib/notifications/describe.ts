@@ -147,19 +147,56 @@ export function actorDisplayName(actor: NotificationActor | undefined): string {
  * Never invents a number: `actorCount` is the true total from the database even
  * though at most three names come back with it.
  */
-export function actorPhrase(subject: NotificationSubject): string {
+/**
+ * One piece of the actor phrase. A segment carrying an `actor` is that person's
+ * NAME; a segment without one is connective text (" and ", ", ", "3 others").
+ */
+export interface ActorSegment {
+  text: string;
+  actor?: NotificationActor;
+}
+
+/**
+ * The actor phrase, BROKEN INTO PARTS so a surface can link the names.
+ *
+ * F-98c — /notifications rendered twenty member names as dead text. The handle
+ * was already arriving: get_my_notifications_grouped() returns actor_usernames,
+ * which is profiles.custom_url. Nothing was missing from the data — the phrase
+ * was assembled into a single string before it reached the page, so there was
+ * no seam at which a name could become a link.
+ *
+ * The wording lives HERE and only here. actorPhrase() below is the join of
+ * these parts, so the string form and the linked form can never drift into two
+ * different sentences — the failure mode this codebase has already paid for
+ * with author_badges and with the harness fixture projection.
+ *
+ * Only the first two actors are ever named, and the remainder collapses to
+ * "N others", which is not a person and carries no actor.
+ */
+export function actorPhraseParts(subject: NotificationSubject): ActorSegment[] {
   const actors = subject.actors ?? [];
   const shown = Math.min(actors.length, 2);
-  if (shown === 0) return "";
+  if (shown === 0) return [];
 
-  const names = actors.slice(0, shown).map((a) => actorDisplayName(a));
+  const named = actors.slice(0, shown);
   const remaining = Math.max(0, (subject.actorCount ?? shown) - shown);
+  const seg = (a: NotificationActor): ActorSegment => ({ text: actorDisplayName(a), actor: a });
 
   if (remaining === 0) {
-    return shown === 1 ? names[0] : `${names[0]} and ${names[1]}`;
+    return shown === 1
+      ? [seg(named[0])]
+      : [seg(named[0]), { text: " and " }, seg(named[1])];
   }
-  const others = `${remaining} ${remaining === 1 ? "other" : "others"}`;
-  return shown === 1 ? `${names[0]} and ${others}` : `${names[0]}, ${names[1]} and ${others}`;
+  const others = { text: `${remaining} ${remaining === 1 ? "other" : "others"}` };
+  return shown === 1
+    ? [seg(named[0]), { text: " and " }, others]
+    : [seg(named[0]), { text: ", " }, seg(named[1]), { text: " and " }, others];
+}
+
+export function actorPhrase(subject: NotificationSubject): string {
+  return actorPhraseParts(subject)
+    .map((p) => p.text)
+    .join("");
 }
 
 export interface ActionEntry {

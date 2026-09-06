@@ -252,7 +252,21 @@ const Dashboard = () => {
           {/* Info */}
           <div className="flex-1 min-w-0 text-center sm:text-left">
             <div className="flex items-center gap-2 justify-center sm:justify-start flex-wrap">
-              <h1 className="text-lg md:text-xl font-light tracking-tight" style={{ fontFamily: "var(--font-display)" }}>{displayName}</h1>
+              {/*
+                * F-98c — THE MEMBER'S OWN NAME, ON THEIR OWN DASHBOARD.
+                *
+                * Found by the rendered probe, not by reading: screen-dashboard
+                * reported "1 dead — Avijit Sheel, H1, no anchor", and it is the
+                * sixth of the auditor's six dead names on /dashboard (the other
+                * five are the sidebar). It is deliberately NOT a link — sending
+                * someone to their own profile from their own dashboard header
+                * is not a destination — but until now that decision existed
+                * only in the absence of an anchor, which is indistinguishable
+                * from having forgotten. Same convention as UserIdentityBlock
+                * and PublicProfile:650/795: "deliberate" is a stated answer,
+                * "missing" is nobody having decided.
+                */}
+              <h1 className="text-lg md:text-xl font-light tracking-tight" style={{ fontFamily: "var(--font-display)" }} data-unlinked="deliberate">{displayName}</h1>
               {userBadges.length > 0 && <UserBadgeInline badges={userBadges} size="full" />}
               <TooltipProvider>
                 {hasRole("admin") && (
@@ -281,7 +295,7 @@ const Dashboard = () => {
           <div className="flex items-center gap-7 md:gap-9 shrink-0 sm:pr-2">
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger>
+                <TooltipTrigger className="tap-44">
                   <div className="flex flex-col items-center cursor-default">
                     <span className="text-xl md:text-2xl font-light text-foreground leading-tight" style={{ fontFamily: "var(--font-display)" }}>{myEntries.length}</span>
                     <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("msheet.entries")}</span>
@@ -290,7 +304,7 @@ const Dashboard = () => {
                 <TooltipContent>Total competition entries submitted</TooltipContent>
               </Tooltip>
               <Tooltip>
-                <TooltipTrigger>
+                <TooltipTrigger className="tap-44">
                   <div className="flex flex-col items-center cursor-default">
                     <span className="text-xl md:text-2xl font-light text-foreground leading-tight" style={{ fontFamily: "var(--font-display)" }}>{totalVotes}</span>
                     <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.votes")}</span>
@@ -299,7 +313,7 @@ const Dashboard = () => {
                 <TooltipContent>Total votes received on entries</TooltipContent>
               </Tooltip>
               <Tooltip>
-                <TooltipTrigger>
+                <TooltipTrigger className="tap-44">
                   <div className="flex flex-col items-center cursor-default">
                     <span className="text-xl md:text-2xl font-light text-foreground leading-tight" style={{ fontFamily: "var(--font-display)" }}>{friendRequests.length}</span>
                     <span className="text-[8px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{t("dash.requests")}</span>
@@ -625,7 +639,31 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
                 <UserIdentityBlock
                   userId={person.id}
                   name={person.full_name || "Photographer"}
-                  handle={person.custom_url}
+                  /*
+                   * ⚠ null, DELIBERATELY: THIS WHOLE TILE IS ALREADY A LINK.
+                   *
+                   * The <ProfileLink> above wraps this entire card, so passing
+                   * a handle here put an <a> inside an <a> — invalid HTML, and
+                   * React said so: "<a> cannot contain a nested <a>. This will
+                   * cause a hydration error." Caught by the UI gate on four
+                   * viewports of screen-dashboard.
+                   *
+                   * It was LATENT until tonight: UserIdentityBlock only renders
+                   * an anchor when it HAS a handle, and F-98 is what started
+                   * supplying one. The nesting has been written here for a
+                   * while; making handles arrive is what turned it into a real
+                   * defect.
+                   *
+                   * The Auditor's invariant decides the fix: a member's name
+                   * used as a CONTROL'S LABEL is not a link, and the control's
+                   * own destination governs. The control here is the tile, and
+                   * the tile already goes to this member — so the name is
+                   * reachable, and adding a second anchor gains nothing and
+                   * breaks the markup. This is the same call I made on the
+                   * winners row: restructure or defer to the outer control,
+                   * never nest.
+                   */
+                  handle={null}
                   nameClassName="text-[10px] font-light truncate [font-family:var(--font-heading)]"
                 />
                 <p className="text-[8px] text-muted-foreground truncate mt-0.5" style={{ fontFamily: "var(--font-body)" }}>{person.bio?.slice(0, 30) || ""}</p>

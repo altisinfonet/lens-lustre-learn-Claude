@@ -8,6 +8,7 @@ import PhaseWatermark from "@/components/competition/PhaseWatermark";
 import ZoomableImage from "@/components/media/ZoomableImage";
 import { toast } from "@/hooks/core/use-toast";
 import { buildCompetitionPhotoUrl, type CompetitionVotingPhoto } from "@/lib/competitionVotingPhotos";
+import ProfileLink from "@/components/ProfileLink";
 
 interface CompetitionLightboxProps {
   images: CompetitionVotingPhoto[];
@@ -85,11 +86,53 @@ const CompetitionLightbox = memo(({
           transition={{ duration: 0.25 }}
           className="fixed inset-0 z-[100] bg-background backdrop-blur-md"
           onClick={onClose}
+          /*
+           * ═══════════════════════════════════════════════════════════════════
+           * F-107 — THIS IS A MODAL. IT NEVER SAID SO.
+           *
+           * The root was a bare motion.div: fixed inset-0 z-[100], portalled to
+           * document.body, with NO role, NO aria-modal and NO accessible name.
+           * ImageCropModal, AppUpdatePrompt, NotificationBell, CategoryStrip and
+           * CinemaFullView all declare role="dialog". This was the odd one out,
+           * not the house style.
+           *
+           * WHAT IT COSTS THE OWNER, who is blind and works from a phone with a
+           * screen reader: a fixed overlay with no role and no aria-modal DOES
+           * NOT EXIST AS A MODAL to assistive technology. Nothing announces that
+           * anything opened, focus is not constrained to it, and the feed
+           * underneath stays in the accessibility tree because nothing tells the
+           * reader to ignore it. He can open a competition photo to vote and be
+           * reading the page BEHIND the picture without knowing it. Invisible to
+           * sighted testing, which is exactly why it survived.
+           *
+           * aria-modal="true" is the attribute that tells assistive technology
+           * to ignore everything outside this subtree. Escape is already handled
+           * and the portal is already correct — the wiring was nearly all here;
+           * only the semantics were missing.
+           *
+           * ⚠ AND IT IS WHY THE UI GATE REPORTED CONTROLS BEHIND THIS OVERLAY AS
+           * UNREACHABLE. capture.mjs's Exception 3 excuses the page behind an
+           * open modal — but it finds modals via dialogOf(), which looks for
+           * role="dialog". With no role, dialogOf() returned null for both the
+           * control and the thing painting it, openDialogs was empty, and the
+           * exception could not apply. The gate was not missing a case: it was
+           * accurately reporting that a page was covered by something not
+           * declared to be a modal. Declaring it fixes the DEFECT, and the
+           * exception then applies on its own terms with no line weakened.
+           *
+           * Deliberately NOT widened tonight: no focus-trap rewrite, no
+           * aria-hidden on the app root. aria-modal is enough and is the
+           * attribute for the job.
+           * ═══════════════════════════════════════════════════════════════════
+           */
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${current.entryTitle || "Photograph"} — full size`}
         >
           {/* Close */}
           <button
             onClick={onClose}
-            className="absolute top-5 right-5 z-20 w-10 h-10 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-foreground transition-colors"
+            className="absolute top-5 right-5 z-20 w-10 h-10 tap-44 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-foreground transition-colors"
             aria-label="Close"
           >
             <X className="h-5 w-5" />
@@ -198,11 +241,36 @@ const CompetitionLightbox = memo(({
                       {current.entryTitle}
                     </h3>
                     {competitionPhase !== "judging" && (
+                      /*
+                       * F-98c source FOUR — "by <name>" was plain text because
+                       * dashboard-init emitted photographer_name as a bare
+                       * string with no address beside it. The handle now
+                       * travels with the name (photographer_handle on the
+                       * wire, photographerHandle on CompetitionVotingPhoto)
+                       * and this is where it is spent.
+                       *
+                       * The word "by" stays outside the link: it is not part
+                       * of anybody's name, and a screen reader announcing
+                       * "by Somnath Pal" as one link label reads wrong.
+                       *
+                       * DURING JUDGING THIS WHOLE LINE IS HIDDEN and that is
+                       * deliberate and pre-existing — anonymised judging. A
+                       * link here must never become the way a judge learns
+                       * whose photograph they are scoring, so the condition is
+                       * untouched.
+                       */
                       <p
                         className="text-[10px] text-muted-foreground mt-0.5 tracking-wide"
                         style={{ fontFamily: "var(--font-body)" }}
                       >
-                        by {current.photographerName || "Anonymous"}
+                        by{" "}
+                        <ProfileLink
+                          userId={current.userId}
+                          handle={current.photographerHandle}
+                          className="hover:underline"
+                        >
+                          {current.photographerName || "Anonymous"}
+                        </ProfileLink>
                       </p>
                     )}
                     {current.competitionTitle && (
@@ -220,7 +288,7 @@ const CompetitionLightbox = memo(({
                         navigator.clipboard.writeText(buildCompetitionPhotoUrl(SITE_ORIGIN, current.entryId, current.photoIndex));
                         toast({ title: "Photo link copied!" });
                       }}
-                      className="inline-flex items-center gap-1.5 mt-2 text-[10px] tracking-[0.1em] uppercase text-muted-foreground hover:text-primary transition-colors"
+                      className="inline-flex items-center tap-44 gap-1.5 mt-2 text-[10px] tracking-[0.1em] uppercase text-muted-foreground hover:text-primary transition-colors"
                       style={{ fontFamily: "var(--font-heading)" }}
                     >
                       <Copy className="h-3 w-3" /> Copy Photo Link

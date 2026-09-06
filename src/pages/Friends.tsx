@@ -332,21 +332,21 @@ const Friends = () => {
             <Tabs defaultValue={receivedRequests.length > 0 ? "awaited" : sentRequests.length > 0 ? "pending" : "friends"} className="w-full">
               <div className="overflow-x-auto scrollbar-hide -mx-2 px-2 md:mx-0 md:px-0 mb-3 md:mb-6" style={{ WebkitOverflowScrolling: "touch" }}>
                 <TabsList className="inline-flex gap-2 bg-transparent border-none p-0 h-auto w-max min-w-full md:min-w-0">
-                <TabsTrigger value="awaited" className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
+                <TabsTrigger value="awaited" className="shrink-0 tap-44 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
                   <UserCheck className="h-3 w-3 shrink-0" /> Awaited ({receivedRequests.length})
                 </TabsTrigger>
                 {sentRequests.length > 0 && (
-                  <TabsTrigger value="pending" className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
+                  <TabsTrigger value="pending" className="shrink-0 tap-44 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
                     <Clock className="h-3 w-3 shrink-0" /> {t("fr.pending")} ({sentRequests.length})
                   </TabsTrigger>
                 )}
-                <TabsTrigger value="friends" className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
+                <TabsTrigger value="friends" className="shrink-0 tap-44 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
                   <Users className="h-3 w-3 shrink-0" /> {t("menu.friends")} ({friends.length})
                 </TabsTrigger>
-                <TabsTrigger value="followers" className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
+                <TabsTrigger value="followers" className="shrink-0 tap-44 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
                   <Heart className="h-3 w-3 shrink-0" /> {t("fr.followers")} ({followers.length})
                 </TabsTrigger>
-                <TabsTrigger value="following" className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
+                <TabsTrigger value="following" className="shrink-0 tap-44 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
                   <Heart className="h-3 w-3 shrink-0" /> {t("fr.followingTab")} ({following.length})
                 </TabsTrigger>
                 </TabsList>

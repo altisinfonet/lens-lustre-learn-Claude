@@ -184,7 +184,14 @@ Deno.serve(async (req) => {
       // birthdays only. Milestones and suggestions have the same weakness and
       // are recorded as open items, not silently altered here.
       admin.from("profiles")
-        .select("id, full_name, avatar_url, created_at, date_of_birth")
+        // F-98c — custom_url added 2026-09-05. Every name this row becomes
+        // (milestones at ~L421, suggestions at ~L452) was rendered as dead
+        // text on six routes because the handle was never selected. The same
+        // file already knows the rule: the profiles map below selects
+        // "id, full_name, avatar_url, custom_url". One block knew it and four
+        // did not. The handle must travel WITH the name, not be fetched
+        // afterwards by the client — a second round trip is how the two drift.
+        .select("id, full_name, avatar_url, created_at, date_of_birth, custom_url")
         .eq("is_suspended", false)
         .limit(50),
 
@@ -321,7 +328,10 @@ Deno.serve(async (req) => {
         // Per-photo admin adjustments — combined with real votes so sidebar matches
         // the entry_final_votes view (real_votes + adjustment_total) at the photo level.
         voteEntryIds.length > 0 ? admin.from("admin_vote_adjustments").select("entry_id, photo_index, adjustment_value").in("entry_id", voteEntryIds) : Promise.resolve({ data: [] as any[] }),
-        photographerIds.length > 0 ? admin.from("profiles_public_data").select("id, full_name").in("id", photographerIds) : Promise.resolve({ data: [] as any[] }),
+        // F-98c — was .select("id, full_name"). The photographer's name was
+        // then emitted as a BARE STRING (photographer_name below), which is
+        // structurally incapable of being a link however careful the client is.
+        photographerIds.length > 0 ? admin.from("profiles_public_data").select("id, full_name, custom_url").in("id", photographerIds) : Promise.resolve({ data: [] as any[] }),
       ]);
 
       const photoVoteCounts = new Map<string, number>();
@@ -339,8 +349,12 @@ Deno.serve(async (req) => {
       const userVotedKeys = new Set(
         (userVoteRowsRes.data ?? []).map((v: any) => `${v.entry_id}::${typeof v.photo_index === "number" ? v.photo_index : 0}`),
       );
-      const photographerMap: Record<string, string> = {};
-      (votingProfilesRes.data ?? []).forEach((p: any) => { photographerMap[p.id] = p.full_name ?? "Anonymous"; });
+      // F-98c — this was Record<string, string>: a name and nothing else, so
+      // the handle had nowhere to live even once it was fetched.
+      const photographerMap: Record<string, { name: string; handle: string | null }> = {};
+      (votingProfilesRes.data ?? []).forEach((p: any) => {
+        photographerMap[p.id] = { name: p.full_name ?? "Anonymous", handle: p.custom_url ?? null };
+      });
 
       // Per-photo "One Image, One Reject" — admin-rejected photos must never reach voters.
       const isRejected = (entry: any, pi: number) => {
@@ -361,7 +375,11 @@ Deno.serve(async (req) => {
           competition_id: entry.competition_id,
           competition_title: compMap[entry.competition_id] || "Competition",
           user_id: entry.user_id,
-          photographer_name: photographerMap[entry.user_id] || "Anonymous",
+          photographer_name: photographerMap[entry.user_id]?.name || "Anonymous",
+          // F-98c — the row already carried user_id; it now carries the handle
+          // too, so a voting card can address the photographer without a
+          // second lookup.
+          photographer_handle: photographerMap[entry.user_id]?.handle ?? null,
           vote_count: photoVoteCounts.get(key) || 0,
           user_voted: userVotedKeys.has(key),
           created_at: entry.created_at,
@@ -422,6 +440,10 @@ Deno.serve(async (req) => {
               id: p.id,
               full_name: p.full_name,
               avatar_url: p.avatar_url,
+              // F-98c — without this the anniversary names on /dashboard are
+              // dead text. Nobody had reported it; the auditor found it by
+              // reading, not by being told.
+              custom_url: p.custom_url,
               created_at: p.created_at,
               years: now.getFullYear() - created.getFullYear(),
             });
@@ -449,7 +471,9 @@ Deno.serve(async (req) => {
       // Reuse profileDates which already has id, full_name, avatar_url
       const eligible = (profileDates as any[])
         .filter((p: any) => p.id && !excludeArr.includes(p.id))
-        .map((p: any) => ({ id: p.id, full_name: p.full_name, avatar_url: p.avatar_url, mutual_count: 0 }));
+        // F-98c — custom_url is the five dead names in People You May Know, on
+        // every route that renders the sidebar.
+        .map((p: any) => ({ id: p.id, full_name: p.full_name, avatar_url: p.avatar_url, custom_url: p.custom_url, mutual_count: 0 }));
 
       // Shuffle deterministically per day
       const seed = now.getDate() + now.getMonth() * 31;
@@ -547,6 +571,11 @@ Deno.serve(async (req) => {
       user_id: e.user_id,
       user_name: profiles[e.user_id]?.full_name ?? null,
       user_avatar: profiles[e.user_id]?.avatar_url ?? null,
+      // F-98c — the worst of the six, because nothing had to be fetched. Two
+      // properties were read off this object and the third, forty lines above
+      // at the profiles map, was already populated and in scope. The handle was
+      // in the variable.
+      user_custom_url: profiles[e.user_id]?.custom_url ?? null,
     }));
 
     // ── User meta (ban status, notification prefs) ──

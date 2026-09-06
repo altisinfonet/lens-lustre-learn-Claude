@@ -135,12 +135,33 @@ const UserIdentityBlock = ({
     `${nameClassName} block min-w-0 truncate${align === "center" ? (stack ? " text-center" : " w-full text-center") : ""}`;
 
   const href = memberPath(handle);
+  /*
+   * F-98b — WHY AN UNLINKED NAME SAYS WHY IT IS UNLINKED.
+   *
+   * A DOM-walking probe can see that a name is not a link. It cannot see
+   * whether that was a decision or an accident, and those are opposite facts:
+   * a member's own name on their own profile is deliberately plain text, while
+   * five names in People You May Know were plain text because the handle never
+   * arrived. Both render as a bare span, so a probe must either flag the
+   * deliberate ones (noise, and it gets ignored) or exempt them by guessing.
+   *
+   * The type already carries the distinction and it was invisible at runtime:
+   *   null       a caller's stated answer — "this name is not a link"
+   *   undefined  no handle arrived — nobody decided anything
+   * So it is written into the DOM. `deliberate` is exempt; `missing` is the
+   * defect, and it names itself in any probe that walks the page.
+   */
   const nameEl = href ? (
     <Link to={href} className={resolvedNameClassName}>
       {displayName}
     </Link>
   ) : (
-    <span className={resolvedNameClassName}>{displayName}</span>
+    <span
+      className={resolvedNameClassName}
+      data-unlinked={handle === null ? "deliberate" : "missing"}
+    >
+      {displayName}
+    </span>
   );
 
   // Carried badges win over the lookup. SafeRender stays on BOTH paths: it is

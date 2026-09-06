@@ -730,3 +730,50 @@
 .rc-fine-handles .ord-ne::after { top: 50%; right: 50%; border-top-width: 2px; border-right-width: 2px; }
 .rc-fine-handles .ord-sw::after { bottom: 50%; left: 50%; border-bottom-width: 2px; border-left-width: 2px; }
 .rc-fine-handles .ord-se::after { bottom: 50%; right: 50%; border-bottom-width: 2px; border-right-width: 2px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOUCH TARGETS — THE HIT AREA GROWS, THE DESIGN DOES NOT MOVE.
+
+   The Owner is on Android and he is blind. On /notifications, Back and Delete
+   measure 28 x 28 — 41% of the required tap area — and Delete appears on every
+   row. Measured twice independently, at desktop by the Auditor and at 360px
+   DPR3 by D2, and the two readings agreed to the decimal.
+
+   ⚠ THIS DOES NOT MAKE ANYTHING BIGGER ON SCREEN. 28px is the design and the
+   Owner did not ask for a redesign. The painted box is untouched; an ::after
+   pseudo-element, which is out of flow and paints nothing, extends the
+   TOUCHABLE region to at least 44px centred on the control. Not one pixel of
+   layout moves — which matters tonight, because layout movement is a new risk
+   and a hit area is not.
+
+   The alternative was padding with the visual box sized inside it. Rejected:
+   it changes the box, so it changes flex/grid sizing around every control it
+   touches. Chosen by that difference, not by preference.
+
+   ⚠ IT LIVES ON THE SHARED BUTTON so a control CANNOT BE BORN under 44px.
+   Enlarging controls one at a time is an exception list by another name, and
+   an exception list is what missed the sidebar and then missed Notifications.
+   Anything that does NOT route through src/components/ui/button.tsx bypasses
+   this, and that is a finding to report rather than a case to special-case.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+  .tap-44 {
+    position: relative;
+  }
+  .tap-44::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    min-width: 44px;
+    min-height: 44px;
+    /* Paints nothing and captures nothing that the button would not: pointer
+       events land on the button because the pseudo-element is its own child
+       box. Explicitly transparent so a future background on .tap-44 cannot
+       accidentally make this visible. */
+    background: transparent;
+  }
+}

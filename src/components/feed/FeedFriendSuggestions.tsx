@@ -67,6 +67,33 @@ const FeedFriendSuggestions = () => {
    */
   const [adminIds, setAdminIds] = useState<Set<string>>(new Set());
   const rawSuggestions = (sidebarData?.suggestions ?? []) as any[];
+  /*
+   * F-98b — dashboard-init does NOT return custom_url.
+   *
+   * These people arrive from the `dashboard-init` EDGE FUNCTION, not from a
+   * client query, which is why the tree-wide 'every select carrying
+   * full_name must carry custom_url' rule could not see them: there is no
+   * select here to widen. supabase/functions/dashboard-init/index.ts:452
+   * builds each row as { id, full_name, avatar_url, mutual_count } and that
+   * file is not this lane's to change.
+   *
+   * So the handle is resolved through the shared batched bridge — ONE lookup
+   * for the whole list, never one per link. FeedLeftSidebar already did this
+   * for birthdays and milestones from the same payload; this sidebar read
+   * s.custom_url directly and got undefined for every member, which is how
+   * five names in People You May Know shipped dead.
+   */
+  /*
+   * F-98c — THE HANDLE NOW TRAVELS WITH THE NAME.
+   *
+   * This read `useMemberHandles(...)`: a second, batched round trip that
+   * fetched custom_url for members whose names had already arrived without it.
+   * The auditor's ruling on 2026-09-05, and it is the right one — two
+   * mechanisms delivering one handle is how the two drift apart, which is the
+   * same argument this codebase already made about author_badges. The server
+   * now carries custom_url in the row (dashboard-init/index.ts suggestions
+   * literal), so the bridge is withdrawn rather than stacked on top of the fix.
+   */
 
   useEffect(() => {
     if (rawSuggestions.length === 0) return;
