@@ -29,8 +29,15 @@
  * the person who reacted must be nameable.
  */
 import { describe, it, expect, vi } from "vitest";
+vi.mock("@/hooks/profile/useProfileData", () => ({
+  // F-95 — the avatar link is now ProfileLink, which prefetches the profile
+  // on hover through this hook. Mocked to a no-op: this suite is about the
+  // comment body, not about prefetching.
+  usePrefetchProfile: () => () => {},
+}));
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const CREATIVE_ID = "933bf711-ee95-4414-b399-5ca8c33e85e5";
 const REACTOR_ID = "cccccccc-dddd-eeee-ffff-000000000000";
@@ -116,9 +123,14 @@ import AdEngagementBar from "@/components/ads/AdEngagementBar";
 
 const drawStoryCard = async () => {
   render(
+    // F-95 — ProfileLink's hover prefetch reads the QueryClient, and the
+    // real app has always had one at the root (App.tsx). Supplying it here
+    // gives the component the environment it actually runs in.
+    <QueryClientProvider client={new QueryClient()}>
     <MemoryRouter>
       <AdEngagementBar creativeId={CREATIVE_ID} />
-    </MemoryRouter>,
+    </MemoryRouter>
+    </QueryClientProvider>,
   );
   // The counts arrive from the engagement RPC, so wait for the row to have them.
   await screen.findByText("3");

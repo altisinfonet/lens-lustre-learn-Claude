@@ -1,0 +1,39 @@
+
+═══ AFTER — item 5 fixed · 2026-09-07T13:26:45.857Z ═══
+
+ITEM 5a — /discover, the main-list row (DiscoverCard)
+   [RRanjana Bhattacharya ChowdhuryAdd FriendRemove]
+      anchors=2 ["/ranjana","/ranjana"] unlinked=[]
+   [Li WeiAdd FriendRemove]
+      anchors=2 ["/liwei","/liwei"] unlinked=[]
+   [Amara OkonkwoAdd FriendRemove]
+      anchors=2 ["/amara.okonkwo","/amara.okonkwo"] unlinked=[]
+   [RRafael SantosAdd FriendRemove]
+      anchors=2 ["/rafael.santos","/rafael.santos"] unlinked=[]
+   [Hana TakahashiAdd FriendRemove]
+      anchors=2 ["/hana.takahashi","/hana.takahashi"] unlinked=[]
+   [Ayaan FarooqiAdd FriendRemove]
+      anchors=2 ["/ayaan.farooqi","/ayaan.farooqi"] unlinked=[]
+  PASS  the page rendered 6 people rows
+  PASS  every row has a link on BOTH the avatar and the name (min 2)
+  PASS  no row renders an unlinked name (0 found)
+  PASS  every href is the handle-based /<handle> form, never /profile/<id> (F-95)
+
+ITEM 5b — People You May Know, right sidebar (FeedRightSidebar)
+   [Avijit Sheel Add]
+      anchors=2 ["/avijit","/avijit"] unlinked=[]
+   [RRanjana Bhattacharya Chowdhury Add]
+      anchors=2 ["/ranjana","/ranjana"] unlinked=[]
+   [Li Wei Add]
+      anchors=2 ["/liwei","/liwei"] unlinked=[]
+  PASS  the widget rendered 3 people rows
+  PASS  every row has a link on BOTH the avatar and the name (min 2)
+  PASS  no row renders an unlinked name (0 found)
+  PASS  every href is the handle-based /<handle> form, never /profile/<id> (F-95)
+
+ITEM 5c — every unlinked name left on /feed, by widget
+   none
+   total unlinked names on the page: 0
+
+ITEM 5 CLEAR
+

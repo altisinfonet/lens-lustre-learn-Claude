@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import ProfileLink from "@/components/ProfileLink";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchProfileMap } from "@/lib/profileMapCache";
@@ -28,6 +29,8 @@ interface SharerUser {
   user_id: string;
   full_name: string | null;
   avatar_url: string | null;
+  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
+  custom_url: string | null;
   created_at: string;
 }
 
@@ -53,6 +56,7 @@ const ShareSummaryTooltip = ({ shareCount, postId, children }: ShareSummaryToolt
           user_id: r.user_id,
           full_name: profileMap.get(r.user_id)?.full_name || "Unknown",
           avatar_url: profileMap.get(r.user_id)?.avatar_url || null,
+          custom_url: profileMap.get(r.user_id)?.custom_url ?? null,
           created_at: r.created_at,
         }))
       );
@@ -150,8 +154,8 @@ const ShareSummaryTooltip = ({ shareCount, postId, children }: ShareSummaryToolt
                     key={`${sharer.user_id}-${i}`}
                     className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-muted/50 transition-colors group"
                   >
-                    <Link
-                      to={`/profile/${sharer.user_id}`}
+                    <ProfileLink
+                      userId={sharer.user_id} handle={sharer.custom_url}
                       onClick={() => setOpen(false)}
                       className="relative shrink-0"
                     >
@@ -162,12 +166,12 @@ const ShareSummaryTooltip = ({ shareCount, postId, children }: ShareSummaryToolt
                           {(sharer.full_name || "?")[0]?.toUpperCase()}
                         </div>
                       )}
-                    </Link>
+                    </ProfileLink>
                     <div className="flex-1 min-w-0">
                       <UserIdentityBlock
                         userId={sharer.user_id}
                         name={sharer.full_name}
-                        linkTo={`/profile/${sharer.user_id}`}
+                        handle={sharer.custom_url}
                         nameClassName="text-sm font-medium group-hover:text-primary transition-colors truncate"
                       />
                     </div>

@@ -99,6 +99,68 @@ export const profiles: FixtureProfile[] = [
     avatar_url: fixtureImage(9),
     bio: "Long exposure.",
   },
+  /*
+   * ───────────────────────────────────────────────────────────────────────────
+   * FOUR MORE, SO THE @MENTION LIST CAN OVERFLOW AT ALL.
+   *
+   * With three members the suggestion list was 3 × 44 = 132px against a 176px
+   * cap, so it NEVER SCROLLED in the harness. Measured by the Auditor:
+   * scrollable false, rowsFullyVisibleNow 3. The Owner's sliced-row defect was
+   * STRUCTURALLY UNREACHABLE in the one scene built to look at that list —
+   * exactly like the empty sidebar arrays were, and exactly like the empty
+   * suggestions list before F-98b. Three times now, the same shape: a fixture
+   * too small to contain the fault.
+   *
+   * MentionInput queries `.ilike("full_name", "%query%").limit(6)`, so SIX is
+   * the most rows that can ever appear and the list must be able to reach six.
+   * Every name here contains an "a", because "@a" is what the probe types and a
+   * name that cannot match is a row that cannot render.
+   *
+   * They carry custom_url like everybody else — a fixture member without a
+   * handle would show up as a dead name in the F-98 sweep, which is the
+   * opposite of what a fixture is for.
+   * ───────────────────────────────────────────────────────────────────────────
+   */
+  {
+    id: "44444444-4444-4444-8444-444444444444",
+    full_name: "Amara Okonkwo",
+    username: "amara",
+    onboarding_completed: true,
+    user_type: "photographer",
+    custom_url: "amara.okonkwo",
+    avatar_url: fixtureImage(1),
+    bio: null,
+  },
+  {
+    id: "55555555-5555-4555-8555-555555555555",
+    full_name: "Rafael Santos",
+    username: "rafael",
+    onboarding_completed: true,
+    user_type: "photographer",
+    custom_url: "rafael.santos",
+    avatar_url: null, // second initials-fallback row, inside a scrolling list
+    bio: null,
+  },
+  {
+    id: "66666666-6666-4666-8666-666666666666",
+    full_name: "Hana Takahashi",
+    username: "hana",
+    onboarding_completed: true,
+    user_type: "enthusiast",
+    custom_url: "hana.takahashi",
+    avatar_url: fixtureImage(5),
+    bio: null,
+  },
+  {
+    id: "77777777-7777-4777-8777-777777777777",
+    full_name: "Ayaan Farooqi",
+    username: "ayaan",
+    onboarding_completed: true,
+    user_type: "photographer",
+    custom_url: "ayaan.farooqi",
+    avatar_url: fixtureImage(7),
+    bio: null,
+  },
 ];
 
 export interface FixturePost {
@@ -113,6 +175,18 @@ export interface FixturePost {
   created_at: string;
   author_name: string;
   author_avatar: string | null;
+  /**
+   * F-95 — REQUIRED, not optional, and that is the lesson from the miss.
+   *
+   * On the app's own Post type this field is optional, so when I added it the
+   * compiler could not tell me which hydration sites still lacked it — and
+   * PostDetail was one, which is exactly what the UI gate caught as three
+   * author anchors gone. Where the same field was made REQUIRED (the linkTo
+   * to handle change on UserIdentityBlock) tsc produced the complete list in
+   * one run. Required here so a new fixture post cannot silently render a
+   * member with no reachable name.
+   */
+  author_handle: string | null;
   like_count: number;
   comment_count: number;
   share_count: number;
@@ -142,6 +216,7 @@ export const posts: FixturePost[] = [
     created_at: "2026-08-14T04:30:00.000Z",
     author_name: FIXTURE_NAMES[0],
     author_avatar: fixtureImage(3),
+    author_handle: "avijit",
     like_count: 12840, // five digits: the counter's widest realistic case
     comment_count: 312,
     share_count: 41,
@@ -165,6 +240,7 @@ export const posts: FixturePost[] = [
     created_at: "2026-08-13T18:05:00.000Z",
     author_name: FIXTURE_NAMES[1],
     author_avatar: null,
+    author_handle: "ranjana",
     like_count: 3,
     comment_count: 0,
     share_count: 0,
@@ -197,6 +273,7 @@ export const posts: FixturePost[] = [
     created_at: "2026-08-12T07:00:00.000Z",
     author_name: FIXTURE_NAMES[2],
     author_avatar: fixtureImage(9),
+    author_handle: "liwei",
     like_count: 87,
     comment_count: 9,
     share_count: 2,
@@ -229,6 +306,7 @@ export const postComments = [
     is_pinned: false,
     author_name: FIXTURE_NAMES[1],
     author_avatar: null,
+    author_handle: "ranjana",
   },
   {
     id: "ccccccc1-0000-4000-8000-000000000002",
@@ -243,6 +321,7 @@ export const postComments = [
     is_pinned: false,
     author_name: FIXTURE_NAMES[0],
     author_avatar: fixtureImage(3),
+    author_handle: "avijit",
   },
 ];
 
@@ -263,8 +342,42 @@ export const profilesPublicData = profiles.map((p, i) => ({
   id: p.id,
   full_name: p.full_name,
   username: p.username,
+  /*
+   * C-84 / F-95 — CARRIED, and its absence was a real blind spot.
+   *
+   * The source rows above have always given every member a custom_url. This
+   * DERIVED projection never copied it, so every screen reading
+   * profiles_public_data saw undefined and only the no-handle fallback was ever
+   * exercised. Harmless while a missing handle only meant "fall back to the id
+   * url"; not harmless after F-95, where it means every profile link in every
+   * scene renders as plain text — which is exactly what the UI gate reported on
+   * e3160bf as three anchors "gone" on screen-post-detail and a vanished QR
+   * card on screen-profile.
+   *
+   * On staging 513 of 513 members carry a handle. A fixture in which none does
+   * is not a conservative fixture, it is the wrong one.
+   */
+  custom_url: p.custom_url,
   avatar_url: p.avatar_url,
   bio: p.bio,
+  /*
+   * THE TWO MODERATION FLAGS, ADDED 2026-09-07 — and their absence hid a whole
+   * page.
+   *
+   * `profiles_public_data` really does carry these (types.ts:4097-4098), and
+   * Discover.tsx filters on BOTH: `.eq("is_suspended", false)
+   * .eq("is_banned", false)` — BUG-088, banned members must not surface there.
+   * The harness's filter drops any row that does not carry the key at all, so
+   * every profile was filtered out and `screen-discover` photographed "No
+   * people found matching your criteria" — a tidy empty state, which is the
+   * exact lie fakeBackend.ts's own header warns about, produced by a fixture
+   * that was a column short rather than by anything wrong with the page.
+   *
+   * `false` is the state 511 of 513 staging members are in; a fixture where
+   * nobody is visible is not the conservative choice, it is the wrong shape.
+   */
+  is_suspended: false,
+  is_banned: false,
   portfolio_url: i === 0 ? "https://example.test/avijit" : null,
   photography_interests: i === 0 ? ["street", "portrait"] : [],
   facebook_url: null,
@@ -337,13 +450,177 @@ export const dashboardInit = {
     competitions: [],
     courses: [],
     journal: [],
-    winners: [],
+    /*
+     * F-98c source FIVE-B — this was `[]`, so the Winners card in the right
+     * sidebar rendered "No winners yet" in every scene and the dead
+     * photographer name inside it could not be photographed or walked. Same
+     * fault as the three lists above, one card over.
+     *
+     * Shaped exactly as dashboard-init/index.ts builds a winner, INCLUDING
+     * user_custom_url, which that file now carries.
+     */
+    winners: profiles.slice(0, 2).map((p, i) => ({
+      id: `winner-${i}`,
+      title: i === 0 ? "Monsoon Light" : "Harbour at Dawn",
+      photos: [],
+      /*
+       * ⚠ A REAL PLACEMENT STRING, NOT A NUMBER.
+       *
+       * This said `i + 1` and it took the whole app down: FeedRightSidebar's
+       * placementIcon() calls placement.toLowerCase(), so a number threw
+       * `p.toLowerCase is not a function` during render and EVERY scene with a
+       * right sidebar came back blank — 16 elements, zero anchors. The probe
+       * reported those pages as EMPTY, a cheerful zero, which is how it went
+       * unnoticed for several sweeps.
+       *
+       * dashboard-init's Q6 filters
+       *   .in("placement", ["gold","silver","bronze","winner","1st","2nd","3rd"])
+       * so those seven strings are the only values that can ever arrive. A
+       * fixture is the shape production sends; inventing a value it cannot send
+       * is not a conservative test, it is a different program.
+       */
+      placement: i === 0 ? "gold" : "silver",
+      competition_title: "Monsoon 2026",
+      user_id: p.id,
+      user_name: p.full_name,
+      user_avatar: p.avatar_url,
+      user_custom_url: p.custom_url,
+    })),
     trending: [],
-    voting_entries: [],
-    voting_thumbnails: [],
-    milestones: [],
-    birthdays: [],
-    suggestions: [],
+    /*
+     * F-98c source FOUR — these were `[]`, and the auditor's wire capture on
+     * 2026-09-05 showed staging returning them empty too. An empty array has no
+     * shape, so the photographer's name could not be observed by the page, by
+     * the probe, or by him. UNMEASURED, NOT GREEN — his words, and they are the
+     * whole lesson of the day.
+     *
+     * Shaped exactly as dashboard-init's toVotingPhoto() builds a row,
+     * INCLUDING photographer_handle, which that function now carries.
+     *
+     * ⚠ THIS STILL DOES NOT RENDER THE NAME. "by <photographer>" lives in
+     * CompetitionLightbox, which exists only after a click, so no still
+     * screenshot of any scene contains it. Recorded as an open coverage hole
+     * rather than counted as covered — see the PR.
+     */
+    voting_entries: profiles.slice(0, 2).map((p, i) => ({
+      id: `entry-${i}`,
+      entry_id: `entry-${i}`,
+      title: i === 0 ? "Monsoon Light" : "Harbour at Dawn",
+      entry_title: i === 0 ? "Monsoon Light" : "Harbour at Dawn",
+      /*
+       * fixtureImage(), NOT AN INVENTED PATH.
+       *
+       * This said `/photos/fixture-${i}.jpg`, a URL that does not exist, and
+       * the UI gate reported "images not rendered" on SIX SCENES THAT WERE
+       * PASSING BEFORE I TOUCHED THEM — post-detail, profile, wall, wall-about,
+       * wall-visitor and winners. I damaged six to add one. Same class as
+       * writing a number where the app expected a placement string, three hours
+       * later, in the same file. The helper has always been there.
+       */
+      photo_url: fixtureImage(20 + i, "ENTRY"),
+      photo_index: 0,
+      total_photos: 1,
+      competition_id: "comp-1",
+      competition_title: "Monsoon 2026",
+      user_id: p.id,
+      photographer_name: p.full_name,
+      photographer_handle: p.custom_url,
+      vote_count: 3 - i,
+      user_voted: false,
+      created_at: "2026-09-01T00:00:00.000Z",
+    })),
+    /*
+     * The SAME rows as voting_entries. dashboard-init builds voting_thumbnails
+     * as the first six photos of the same set (recentPhotos), so a fixture that
+     * left this empty while filling the other was modelling a payload the
+     * server does not send. The auditor's wire capture showed staging
+     * returning BOTH empty, which is why neither could be observed.
+     */
+    voting_thumbnails: profiles.slice(0, 2).map((p, i) => ({
+      id: `entry-${i}`,
+      entry_id: `entry-${i}`,
+      title: i === 0 ? "Monsoon Light" : "Harbour at Dawn",
+      entry_title: i === 0 ? "Monsoon Light" : "Harbour at Dawn",
+      /*
+       * fixtureImage(), NOT AN INVENTED PATH.
+       *
+       * This said `/photos/fixture-${i}.jpg`, a URL that does not exist, and
+       * the UI gate reported "images not rendered" on SIX SCENES THAT WERE
+       * PASSING BEFORE I TOUCHED THEM — post-detail, profile, wall, wall-about,
+       * wall-visitor and winners. I damaged six to add one. Same class as
+       * writing a number where the app expected a placement string, three hours
+       * later, in the same file. The helper has always been there.
+       */
+      photo_url: fixtureImage(20 + i, "ENTRY"),
+      photo_index: 0,
+      total_photos: 1,
+      competition_id: "comp-1",
+      competition_title: "Monsoon 2026",
+      user_id: p.id,
+      photographer_name: p.full_name,
+      photographer_handle: p.custom_url,
+      vote_count: 3 - i,
+      user_voted: false,
+      created_at: "2026-09-01T00:00:00.000Z",
+    })),
+    /*
+     * F-98b — THESE THREE WERE EMPTY, AND THAT IS WHY FIVE DEAD NAMES SHIPPED.
+     *
+     * The right sidebar rendered "No suggestions yet" in every scene, so the UI
+     * gate had never once photographed a sidebar member and no probe could walk
+     * a name that was not there. An empty fixture is not a conservative
+     * fixture — it is a surface the instruments cannot see.
+     *
+     * ⚠ 2026-09-07 — THE HANDLE IS BACK OFF `suggestions` AND `milestones`, AND
+     * THE COMMENT THAT PUT IT THERE WAS ASSERTING SOMETHING THIS TREE DOES NOT
+     * CONTAIN.
+     *
+     * It said: "the server was fixed at the source: the Q11 select now asks for
+     * custom_url and both literals carry it." Checked against the file it names,
+     * in this tree, on this branch:
+     *
+     *   Q11 (index.ts:187)   .select("id, full_name, avatar_url, created_at,
+     *                                 date_of_birth")        — no custom_url
+     *   suggestions literal  { id, full_name, avatar_url, mutual_count }
+     *                        (index.ts:452)                  — no custom_url
+     *   grep custom_url      TWO hits in the whole file, both in the `profiles`
+     *                        map for the viewer and the winners (483, 503)
+     *
+     * That change exists on staging. It is NOT on the promotion branch, and this
+     * fixture had been changed to the shape of a server that is not the one this
+     * branch ships — which is precisely the direction the note itself warned
+     * about, taken by the note itself. Live proof: the Auditor found ZERO anchor
+     * tags in People You May Know on both 75f14f80 and 0e30d46e, while this
+     * harness reported seven links in the same widget.
+     *
+     * A fixture's only job is to be the shape production sends. So these two
+     * carry no handle, and the client is expected to cope — see the bridge in
+     * FeedRightSidebar. `birthdays` KEEPS its handle, and that is not
+     * inconsistency: get_todays_birthdays really does return custom_url in this
+     * tree (migration 20260910_0020_f98c_birthdays_carry_handle_and_close.sql).
+     * The two lists differ because the two sources differ.
+     */
+    milestones: profiles.slice(0, 2).map((p) => ({
+      id: p.id,
+      full_name: p.full_name,
+      avatar_url: p.avatar_url,
+      // No custom_url — dashboard-init builds milestones from Q11, which does
+      // not select it. See the note above.
+    })),
+    birthdays: profiles.slice(1, 3).map((p) => ({
+      id: p.id,
+      full_name: p.full_name,
+      avatar_url: p.avatar_url,
+      custom_url: p.custom_url,
+    })),
+    suggestions: profiles.slice(0, 3).map((p) => ({
+      id: p.id,
+      full_name: p.full_name,
+      avatar_url: p.avatar_url,
+      // No custom_url — this is dashboard-init/index.ts:452 verbatim on this
+      // branch: { id, full_name, avatar_url, mutual_count }. See the note above.
+      mutual_count: 0,
+    })),
   },
   user_id: HARNESS_USER_ID,
   cached: false,

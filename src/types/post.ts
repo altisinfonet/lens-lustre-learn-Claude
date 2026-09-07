@@ -24,6 +24,14 @@ export interface UnifiedPost {
   created_at: string;
   author_name: string | null;
   author_avatar: string | null;
+  /**
+   * The author's name-URL handle. F-95 — it travels with the name for the same
+   * reason author_badges does: an identity field that arrives separately
+   * creates a state where the name is visible and the identity is not.
+   * Absent means the author has no handle; the name then renders as plain text
+   * and NEVER as /profile/<id>.
+   */
+  author_handle?: string | null;
   author_last_active?: string | null;
   author_badges?: string[];
   like_count: number;
@@ -76,6 +84,8 @@ export interface UnifiedPost {
 
 /** One tag, already name-resolved for display. */
 export interface TaggedPerson {
+  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
+  handle?: string | null;
   id: string;
   name: string;
   /**

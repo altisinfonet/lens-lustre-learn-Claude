@@ -1,0 +1,54 @@
+
+═══ BEFORE — item 5, unfixed product code, honest harness · 2026-09-07T13:26:32.041Z ═══
+
+ITEM 5a — /discover, the main-list row (DiscoverCard)
+   [RRanjana Bhattacharya ChowdhuryAdd FriendRemove]
+      anchors=0 [] unlinked=[{"mark":"missing","text":"R"},{"mark":"missing","text":"Ranjana Bhattacharya Chowdhury"}]
+   [Li WeiAdd FriendRemove]
+      anchors=0 [] unlinked=[{"mark":"missing","text":""},{"mark":"missing","text":"Li Wei"}]
+   [Amara OkonkwoAdd FriendRemove]
+      anchors=0 [] unlinked=[{"mark":"missing","text":""},{"mark":"missing","text":"Amara Okonkwo"}]
+   [RRafael SantosAdd FriendRemove]
+      anchors=0 [] unlinked=[{"mark":"missing","text":"R"},{"mark":"missing","text":"Rafael Santos"}]
+   [Hana TakahashiAdd FriendRemove]
+      anchors=0 [] unlinked=[{"mark":"missing","text":""},{"mark":"missing","text":"Hana Takahashi"}]
+   [Ayaan FarooqiAdd FriendRemove]
+      anchors=0 [] unlinked=[{"mark":"missing","text":""},{"mark":"missing","text":"Ayaan Farooqi"}]
+  PASS  the page rendered 6 people rows
+  FAIL  every row has a link on BOTH the avatar and the name (min 0)
+  FAIL  no row renders an unlinked name (12 found)
+  PASS  every href is the handle-based /<handle> form, never /profile/<id> (F-95)
+
+ITEM 5b — People You May Know, right sidebar (FeedRightSidebar)
+   [Avijit Sheel Add]
+      anchors=0 [] unlinked=[{"mark":"missing","text":""},{"mark":"missing","text":"Avijit Sheel"}]
+   [Avijit Sheel]
+      anchors=0 [] unlinked=[{"mark":"missing","text":"Avijit Sheel"}]
+   [RRanjana Bhattacharya Chowdhury Add]
+      anchors=0 [] unlinked=[{"mark":"missing","text":"R"},{"mark":"missing","text":"Ranjana Bhattacharya Chowdhury"}]
+   [Ranjana Bhattacharya Chowdhury]
+      anchors=0 [] unlinked=[{"mark":"missing","text":"Ranjana Bhattacharya Chowdhury"}]
+   [Li Wei Add]
+      anchors=0 [] unlinked=[{"mark":"missing","text":""},{"mark":"missing","text":"Li Wei"}]
+   [Li Wei]
+      anchors=0 [] unlinked=[{"mark":"missing","text":"Li Wei"}]
+  PASS  the widget rendered 6 people rows
+  FAIL  every row has a link on BOTH the avatar and the name (min 0)
+  FAIL  no row renders an unlinked name (9 found)
+  PASS  every href is the handle-based /<handle> form, never /profile/<id> (F-95)
+
+ITEM 5c — every unlinked name left on /feed, by widget
+   [Membership Anniversaries] missing: ""
+   [Avijit Sheel] missing: "Avijit Sheel"
+   [R] missing: "R"
+   [Ranjana Bhattacharya Chowdhury] missing: "Ranjana Bhattacharya Chowdhury"
+   [People You May Know] missing: ""
+   [Avijit Sheel] missing: "Avijit Sheel"
+   [R] missing: "R"
+   [Ranjana Bhattacharya Chowdhury] missing: "Ranjana Bhattacharya Chowdhury"
+   [People You May Know] missing: ""
+   [Li Wei] missing: "Li Wei"
+   total unlinked names on the page: 10
+
+4 CHECK(S) FAILING
+

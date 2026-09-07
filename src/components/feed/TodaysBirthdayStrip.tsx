@@ -45,6 +45,7 @@ import { Link } from "react-router-dom";
 import { PartyPopper } from "lucide-react";
 import { useDashboardContext } from "@/hooks/core/DashboardContext";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
+import ProfileLink from "@/components/ProfileLink";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -57,6 +58,18 @@ const TodaysBirthdayStrip = () => {
   // owner would turn the section off and still see it on his phone.
   const enabled = sidebarData?.sections?.todays_birthday !== false;
   const people = sidebarData?.birthdays ?? [];
+  /*
+   * F-98c — THE HANDLE NOW TRAVELS WITH THE NAME.
+   *
+   * This read `useMemberHandles(...)`: a second, batched round trip that
+   * fetched custom_url for members whose names had already arrived without it.
+   * The auditor's ruling on 2026-09-05, and it is the right one — two
+   * mechanisms delivering one handle is how the two drift apart, which is the
+   * same argument this codebase already made about author_badges. The server
+   * now carries custom_url in the row (dashboard-init/index.ts, and
+   * get_todays_birthdays for the birthday rows), so the bridge is withdrawn
+   * rather than stacked on top of the fix.
+   */
 
   if (!enabled || people.length === 0) return null;
 
@@ -78,7 +91,52 @@ const TodaysBirthdayStrip = () => {
       <div className="divide-y divide-border">
         {people.map((u: any) => (
           <div key={u.id} className="flex items-center gap-3 px-4 py-3">
-            <Link to={`/profile/${u.id}`} className="shrink-0">
+            {/*
+              F-103 — 36x36 (w-9 h-9) and the strip is xl:hidden, so it fails at
+              every phone width and passes desktop-1280, which is exactly what
+              the gate reported. The avatar stays 36px; the box around it is a
+              real 44x44.
+
+              ⚠ 2026-09-07 — THIS WAS `tap-44`, AND THE GATE COULD NEVER HAVE
+              SEEN IT.
+
+              `.tap-44` and `.tap-44-down` are both `::after` pseudo-elements
+              (index.css:794-830). The UI gate measures
+              `el.getBoundingClientRect()` on the ELEMENT
+              (capture.mjs:409-412), and a pseudo-element is not in that box.
+              So F-103's fix satisfied a thumb and was invisible to the
+              instrument: the anchor still reports 36x36.
+
+              Measured, not argued — `tap-44-down` was swapped in and the
+              sweep re-run before this was written:
+
+                tap-44        a.shrink-0.tap-44 36x36        FAIL
+                tap-44-down   a.shrink-0.tap-44-down 36x36   FAIL
+                h-11 w-11     a.shrink-0.grid 44x44          pass
+
+              So the box is painted. That revisits the trade-off `.tap-44`'s
+              own header records — padding "changes the box, so it changes
+              flex/grid sizing" — and the gate is the tie-breaker: a hit region
+              nothing can measure is not a hit region anyone can defend. The
+              row grows 8px; the avatar does not change size.
+
+              WHY IT ONLY FAILS NOW, and it is not a shrink: with no handle
+              `ProfileLink` renders a <span>, and the gate only selects
+              `button, a[href], [role=button], input, select, summary`. c96e9c6
+              gave these rows a handle, so this became an <a href> — a control
+              — and was measured for the first time. It did not get smaller; it
+              became something the rule applies to.
+
+              ⚠ OVERLAP RE-MEASURED, because two hit regions that intersect
+              hand the shared strip to whichever paints later. The two avatars
+              are stacked vertically, same `left`, and the row is `py-3` around
+              a box that is now 44 rather than 36 — so the gap closes by 8px
+              and has to be re-checked rather than inherited from the old note.
+              Measured at 390px after this change: boxes 68px apart top-to-top,
+              44 tall, so 24px of clear space, and `elementFromPoint` at the
+              midpoint between them returns the row, not either anchor.
+            */}
+            <ProfileLink userId={u.id} handle={u.custom_url} className="shrink-0 grid h-11 w-11 place-items-center">
               {u.avatar_url ? (
                 <img
                   referrerPolicy="no-referrer"
@@ -95,12 +153,12 @@ const TodaysBirthdayStrip = () => {
                   </span>
                 </div>
               )}
-            </Link>
+            </ProfileLink>
             <div className="flex-1 min-w-0">
               <UserIdentityBlock
                 userId={u.id}
                 name={u.full_name || "Photographer"}
-                linkTo={`/profile/${u.id}`}
+                handle={u.custom_url}
                 nameClassName="text-sm font-medium truncate hover:text-primary transition-colors"
               />
               <span className="text-[10px] text-muted-foreground" style={bodyFont}>

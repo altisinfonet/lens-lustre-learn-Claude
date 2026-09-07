@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import ProfileLink from "@/components/ProfileLink";
 import { publicUrl } from "@/lib/publicUrl";
 import { Link } from "react-router-dom";
 import { Share2, Copy, MoreHorizontal, Trash2, Flag, Eye, Pencil, UserPlus, UserCheck, UserMinus, Users } from "lucide-react";
@@ -300,7 +301,7 @@ const PostCard = ({
             behind an unchanged one — the anchor's own box is what grows, which
             is why the checker can see it. `-ml-1.5` is absorbed by the row's
             `gap-2.5`, so the avatar sits exactly where it did. */}
-        <Link to={`/profile/${post.user_id}`} className="shrink-0 grid place-items-center p-1.5 -m-1.5">
+        <ProfileLink userId={post.user_id} handle={post.author_handle} className="shrink-0 grid place-items-center p-1.5 -m-1.5">
           <span className="relative inline-block w-8 h-8">
             {post.author_avatar ? (
               <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={post.author_avatar} alt="" className="w-8 h-8 rounded-full object-cover" />
@@ -313,7 +314,7 @@ const PostCard = ({
               <span aria-label="Online" title="Online" className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-card" />
             )}
           </span>
-        </Link>
+        </ProfileLink>
         <div className="flex-1 min-w-0">
           {/* Name, then "with <tagged people>" on the same line — the Instagram
               shape the owner asked for on 2026-08-10. `flex-wrap` lets the tag
@@ -342,7 +343,7 @@ const PostCard = ({
               // tick (owner, 2026-08-14). The name and the badge now travel
               // together, exactly like author_name itself.
               badges={post.author_badges}
-              linkTo={`/profile/${post.user_id}`}
+              handle={post.author_handle}
               nameClassName="text-sm font-semibold hover:text-primary transition-colors truncate [font-family:var(--font-heading)]"
             />
             <TaggedPeople people={post.tagged_people ?? []} />
@@ -527,6 +528,9 @@ const PostCard = ({
           <PostMedia
             urls={imageUrls}
             thumbUrls={thumbUrls}
+            /* RED #5 + #8 — the card already knows whose photograph this is;
+               the viewer did not. Same three fields the header link uses. */
+            author={{ userId: post.user_id, name: post.author_name ?? null, handle: post.author_handle ?? null }}
             onDoubleTapLike={() => {
               if (currentUserId && !post.user_reaction) onReact(post.id, "like");
             }}
@@ -707,12 +711,12 @@ const PostCard = ({
         <Caption
           content={post.content}
           prefix={
-            <Link
-              to={`/profile/${post.user_id}`}
+            <ProfileLink
+              userId={post.user_id} handle={post.author_handle}
               className="font-semibold text-foreground hover:text-primary transition-colors mr-1.5"
             >
               {post.author_name || "Photographer"}
-            </Link>
+            </ProfileLink>
           }
         />
       )}

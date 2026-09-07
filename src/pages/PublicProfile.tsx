@@ -219,13 +219,16 @@ const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
 const displayFont = { fontFamily: "var(--font-display)" };
 
-const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 24 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.7, delay, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] },
-});
 
-const PublicProfileInner = ({ userId }: { userId: string }) => {
+/**
+ * The profile itself, addressed by user id rather than by route.
+ *
+ * EXPORTED for F-86: CustomUrlProfile renders this IN PLACE for a vanity URL
+ * instead of redirecting to /profile/<uuid>, so the member's own address
+ * survives. Keep it taking `userId` as a prop and reading nothing from the
+ * route — that is the entire reason it can be mounted from two places.
+ */
+export const PublicProfileInner = ({ userId }: { userId: string }) => {
   const { user: currentUser } = useAuth();
   const [searchParams] = useSearchParams();
   const wallSectionRef = useRef<HTMLDivElement>(null);
@@ -644,6 +647,22 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                   <UserIdentityBlock
                     userId={userId || ""}
                     name={displayName}
+                    handle={null}
+                    /*
+                     * ITEM 10 — THIS IS THE PAGE'S HEADING, NOT AN UNLINKED
+                     * LINK. It names the page you are already on, and this page
+                     * had NO h1 at all before now — measured, zero occurrences
+                     * in this file. A self-referential link would announce
+                     * "link" to a screen reader for something that goes
+                     * nowhere, which is worse than no link.
+                     *
+                     * There are two of these, in the `hidden sm:block` desktop
+                     * block and the `flex sm:hidden` mobile one. Both sit in the
+                     * DOM; only one is displayed, and display:none removes the
+                     * other from the accessibility tree, so exactly one heading
+                     * is ever announced.
+                     */
+                    nameAs="h1"
                     size="full"
                     nameClassName="text-base md:text-lg font-bold tracking-tight leading-none [font-family:var(--font-display)]"
                   />
@@ -788,6 +807,22 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
                   <UserIdentityBlock
                     userId={userId || ""}
                     name={displayName}
+                    handle={null}
+                    /*
+                     * ITEM 10 — THIS IS THE PAGE'S HEADING, NOT AN UNLINKED
+                     * LINK. It names the page you are already on, and this page
+                     * had NO h1 at all before now — measured, zero occurrences
+                     * in this file. A self-referential link would announce
+                     * "link" to a screen reader for something that goes
+                     * nowhere, which is worse than no link.
+                     *
+                     * There are two of these, in the `hidden sm:block` desktop
+                     * block and the `flex sm:hidden` mobile one. Both sit in the
+                     * DOM; only one is displayed, and display:none removes the
+                     * other from the accessibility tree, so exactly one heading
+                     * is ever announced.
+                     */
+                    nameAs="h1"
                     size="full"
                     className="items-start text-left"
                     nameClassName="text-[17px] font-semibold tracking-tight leading-tight [font-family:var(--font-display)]"
@@ -1078,7 +1113,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
             {activeTab === "wall" && (
               <motion.div
                 key="wall"
-                initial={{ opacity: 0 }}
+                initial={{ opacity: 1 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.3 }}
               >
@@ -1090,7 +1125,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
             {activeTab === "works" && (
               <motion.div
                 key="works"
-                initial={{ opacity: 0 }}
+                initial={{ opacity: 1 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.3 }}
                 className="space-y-8"
@@ -1458,7 +1493,7 @@ const PublicProfileInner = ({ userId }: { userId: string }) => {
             {activeTab === "about" && (
               <motion.div
                 key="about"
-                initial={{ opacity: 0 }}
+                initial={{ opacity: 1 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.3 }}
                 className="space-y-4"

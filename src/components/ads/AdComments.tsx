@@ -114,6 +114,7 @@ const AdComments = ({ creativeId, onCountChange }: Props) => {
       is_liked: false,
       author_name: resolveName(r.user_id, profileMap[r.user_id]?.full_name ?? null, adminIds),
       author_avatar: profileMap[r.user_id]?.avatar_url ?? null,
+      author_handle: profileMap[r.user_id]?.custom_url ?? null,
       author_badges: resolveBadges(r.user_id, profileMap[r.user_id]?.badges || [], adminIds),
       author_last_active: profileMap[r.user_id]?.last_active_at ?? null,
       replies: [],

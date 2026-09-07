@@ -60,6 +60,7 @@
  *   and src/__tests__/noComponentDefinedInRender.test.ts holds it to that.
  */
 import { useState } from "react";
+import ProfileLink from "@/components/ProfileLink";
 import { Link } from "react-router-dom";
 import { MoreHorizontal, Trash2, Flag, Pin, Pencil, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -86,6 +87,8 @@ export interface ThreadComment {
   parent_id: string | null;
   is_pinned: boolean;
   author_name: string | null;
+  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
+  author_handle?: string | null;
   author_avatar: string | null;
   author_badges: string[];
   author_last_active: string | null;
@@ -304,9 +307,9 @@ const CommentThread = ({
       // comment is deleted mid-list.
       <div key={comment.id} className={depth > 0 ? "ml-10" : ""}>
         <div className="flex gap-2 group/comment py-0.5">
-          <Link to={`/profile/${comment.user_id}`} className="shrink-0 mt-0.5">
+          <ProfileLink userId={comment.user_id} handle={comment.author_handle} className="shrink-0 mt-0.5">
             <Avatar src={comment.author_avatar} name={comment.author_name} size={depth > 0 ? "xs" : "sm"} lastActiveAt={comment.author_last_active} />
-          </Link>
+          </ProfileLink>
           <div className="flex-1 min-w-0">
             {/* Editing mode */}
             {editingId === comment.id ? (
@@ -355,7 +358,7 @@ const CommentThread = ({
                        * missing" stops being a reachable state.
                        */
                       badges={comment.author_badges}
-                      linkTo={`/profile/${comment.user_id}`}
+                      handle={comment.author_handle}
                     />
                     {/*
                       ⚠ `whitespace-pre-wrap` IS LOAD-BEARING. (Fixed 2026-08-28.)

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { fadeUp } from "@/lib/motionVariants";
 import { Link, useNavigate } from "react-router-dom";
 import { Users, Heart, UserMinus, UserX, UserCheck, Search, Clock } from "lucide-react";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -13,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import { getAdminIds, resolveName } from "@/lib/adminBrand";
-import { profileUrl } from "@/lib/urlHelpers";
+import ProfileLink from "@/components/ProfileLink";
 import { formatLastSeen, isActiveNow } from "@/hooks/core/useLastActive";
 import { useT } from "@/i18n/I18nContext";
 
@@ -51,13 +52,6 @@ const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
 const displayFont = { fontFamily: "var(--font-display)" };
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (i: number) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.1, duration: 0.6, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] },
-  }),
-};
 
 const Friends = () => {
   const t = useT();
@@ -80,7 +74,7 @@ const Friends = () => {
   }, [user, authLoading, navigate]);
 
   const [mutualCounts, setMutualCounts] = useState<Map<string, number>>(new Map());
-  const [mutualProfiles, setMutualProfiles] = useState<Map<string, { id: string; full_name: string | null; avatar_url: string | null }[]>>(new Map());
+  const [mutualProfiles, setMutualProfiles] = useState<Map<string, { id: string; full_name: string | null; avatar_url: string | null; custom_url: string | null }[]>>(new Map());
 
   const fetchAll = useCallback(async () => {
     if (!user) return;
@@ -134,7 +128,7 @@ const Friends = () => {
     // Batch fetch mutual friend counts — 2 queries total instead of N*2
     const otherIds = Array.from(userIds);
     const mcMap = new Map<string, number>();
-    const mpMap = new Map<string, { id: string; full_name: string | null; avatar_url: string | null }[]>();
+    const mpMap = new Map<string, { id: string; full_name: string | null; avatar_url: string | null; custom_url: string | null }[]>();
 
     if (otherIds.length > 0) {
       // Single batch RPC for counts
@@ -173,7 +167,7 @@ const Friends = () => {
       // Single batch profile fetch for all mutual friends
       if (allMutualFriendIds.size > 0) {
         const { data: mProfiles } = await profilesPublic()
-          .select("id, full_name, avatar_url")
+          .select("id, full_name, avatar_url, custom_url")
           .in("id", Array.from(allMutualFriendIds));
         const mProfileMap = new Map((mProfiles || []).map((p: any) => [p.id, p]));
 
@@ -336,26 +330,100 @@ const Friends = () => {
             </div>
 
             <Tabs defaultValue={receivedRequests.length > 0 ? "awaited" : sentRequests.length > 0 ? "pending" : "friends"} className="w-full">
-              <div className="overflow-x-auto scrollbar-hide -mx-2 px-2 md:mx-0 md:px-0 mb-3 md:mb-6" style={{ WebkitOverflowScrolling: "touch" }}>
+              {/*
+                * ═══════════════════════════════════════════════════════════════
+                * F-108 — overflow-x: auto CLIPS VERTICALLY TOO.
+                *
+                * CSS does not let one axis scroll while the other overflows
+                * visibly: setting overflow-x to auto forces overflow-y to auto
+                * as well. Measured — getComputedStyle on this very element
+                * reports overflowY=auto — and this container is exactly
+                * tab-height, so the 44px hit regions on the five triggers were
+                * cut back to the painted 31px:
+                *
+                *   awaited    painted 105x31  region h=44  cutPx=12.6
+                *   friends    painted 102x31  region h=44  cutPx=12.6
+                *   followers  painted 113x31  region h=44  cutPx=12.6
+                *   following  painted 113x31  region h=44  cutPx=12.6
+                *
+                * clipped by div.overflow-x-auto.scrollbar-hide — this div. The
+                * tabs were no better off than before the hit region was added,
+                * which is the whole reason F-108 asks whether an ancestor clips
+                * a region rather than only whether the region is 44px.
+                *
+                * THE FIX IS ROOM, NOT SIZE — the tabs are NOT made 44px tall,
+                * which would be a redesign nobody asked for. Overflow clips at
+                * the PADDING BOX, so vertical padding gives the region a place
+                * to live and an equal negative margin pulls the box back.
+                *
+                * This file already knew the technique: `-mx-2 px-2` is the same
+                * trick on the horizontal axis, two classes to the left. It had
+                * simply never been applied vertically.
+                *
+                * ⚠ F-108b — PADDING ALONE WAS A CONSTANT FITTED TO ONE FONT,
+                * AND IT SHIPPED BROKEN. The first fix was `py-[7px] -my-[7px]`
+                * and nothing else, sized against a tab measured at 31.4 — at
+                * 360px, the only width I checked. The DEPLOYED tab is 28.1:
+                * 28.1 + 7 + 7 = 42.1, short of 44, and the Auditor measured
+                * cutPx 1.9 on all five tabs at 1536. The harness reproduces it
+                * once asked at the right width — 28.5 painted, container 42.5,
+                * cutPx 1.5. A tab is not a fixed height: a font swap, a
+                * line-height change or a text-size setting moves it, and every
+                * such move would break a padding constant again.
+                *
+                * SO THE FLOOR IS DECLARED, NOT ARITHMETIC:
+                *
+                *   min-h-[44px]     the padding box can never be under 44,
+                *                    whatever the tab measures.
+                *   flex items-center  the tab sits at the CENTRE of that box.
+                *
+                * The second class is not decoration. `.tap-44`'s region is
+                * centred on its control, so it reaches (44 − tabH)/2 above and
+                * below. A 44px box with the tab at its TOP still clips 0.75px
+                * off the top at a 28.5 tab — the floor without the symmetry is
+                * a fix that measures right and taps wrong.
+                *
+                * Proven by FORCING the tab height rather than by trusting the
+                * one it happens to have — 24, 28, 34 and native, at 360 and
+                * 1536: cutPx 0 at every one. See docs/evidence/d2/F-108b/.
+                *
+                * ⚠ WHAT THIS COSTS, STATED PLAINLY: where the tab is under
+                * 30px the floor makes the row 30px instead, so content below
+                * moves DOWN by (30 − tabH) — 1.5px at the deployed 28.5, 6px
+                * at a forced 24. Nothing moves at 30px or taller. Guaranteeing
+                * a 44px clip window while keeping a sub-44 layout box is not
+                * possible without a negative margin that scales with the
+                * shortfall, which is the same fitted constant in another hat.
+                * The 1.5px is the honest price of the guarantee.
+                *
+                * The outer margins move to a wrapper so `-my` and `mb` cannot
+                * both set margin-bottom — Tailwind resolves that collision by
+                * stylesheet order, not by class order, which is not a thing to
+                * leave to chance.
+                * ═══════════════════════════════════════════════════════════════
+                */}
+              <div className="mb-3 md:mb-6">
+              <div className="flex items-center min-h-[44px] overflow-x-auto scrollbar-hide -mx-2 px-2 md:mx-0 md:px-0 py-[7px] -my-[7px]" style={{ WebkitOverflowScrolling: "touch" }}>
                 <TabsList className="inline-flex gap-2 bg-transparent border-none p-0 h-auto w-max min-w-full md:min-w-0">
-                <TabsTrigger value="awaited" className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
+                <TabsTrigger value="awaited" className="shrink-0 tap-44 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
                   <UserCheck className="h-3 w-3 shrink-0" /> Awaited ({receivedRequests.length})
                 </TabsTrigger>
                 {sentRequests.length > 0 && (
-                  <TabsTrigger value="pending" className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
+                  <TabsTrigger value="pending" className="shrink-0 tap-44 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
                     <Clock className="h-3 w-3 shrink-0" /> {t("fr.pending")} ({sentRequests.length})
                   </TabsTrigger>
                 )}
-                <TabsTrigger value="friends" className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
+                <TabsTrigger value="friends" className="shrink-0 tap-44 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
                   <Users className="h-3 w-3 shrink-0" /> {t("menu.friends")} ({friends.length})
                 </TabsTrigger>
-                <TabsTrigger value="followers" className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
+                <TabsTrigger value="followers" className="shrink-0 tap-44 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
                   <Heart className="h-3 w-3 shrink-0" /> {t("fr.followers")} ({followers.length})
                 </TabsTrigger>
-                <TabsTrigger value="following" className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
+                <TabsTrigger value="following" className="shrink-0 tap-44 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
                   <Heart className="h-3 w-3 shrink-0" /> {t("fr.followingTab")} ({following.length})
                 </TabsTrigger>
                 </TabsList>
+              </div>
               </div>
 
               {/* Awaited — requests RECEIVED, accept one by one */}
@@ -526,7 +594,7 @@ const PersonRow = ({ profile, badges, subtitle, date, actions, mutualCount, mutu
   date: string;
   actions: React.ReactNode;
   mutualCount?: number;
-  mutualFriends?: { id: string; full_name: string | null; avatar_url: string | null }[];
+  mutualFriends?: { id: string; full_name: string | null; avatar_url: string | null; custom_url: string | null }[];
 }) => {
   const t = useT();
   const name = profile.full_name || "Unknown User";
@@ -535,7 +603,7 @@ const PersonRow = ({ profile, badges, subtitle, date, actions, mutualCount, mutu
 
   return (
     <div className="flex gap-3 p-3 md:p-5">
-      <Link to={profileUrl(profile)} className="shrink-0 mt-0.5 relative">
+      <ProfileLink userId={profile.id} handle={profile.custom_url} className="shrink-0 mt-0.5 relative">
         {profile.avatar_url ? (
           <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={profile.avatar_url} alt={name} className={`w-11 h-11 rounded-full object-cover ${online ? "ring-2 ring-green-500 ring-offset-2 ring-offset-background" : ""}`} />
         ) : (
@@ -549,7 +617,7 @@ const PersonRow = ({ profile, badges, subtitle, date, actions, mutualCount, mutu
             online ? "bg-green-500" : "bg-muted-foreground/30"
           }`}
         />
-      </Link>
+      </ProfileLink>
       <div className="flex-1 min-w-0">
         {/* Top row: name + date */}
         <div className="flex items-start justify-between gap-2">
@@ -557,7 +625,7 @@ const PersonRow = ({ profile, badges, subtitle, date, actions, mutualCount, mutu
             <UserIdentityBlock
               userId={profile.id}
               name={name}
-              linkTo={profileUrl(profile)}
+              handle={profile.custom_url}
               nameClassName="text-sm font-light hover:text-primary transition-colors duration-300 break-words [font-family:var(--font-heading)]"
             />
           </div>
@@ -570,7 +638,7 @@ const PersonRow = ({ profile, badges, subtitle, date, actions, mutualCount, mutu
             {/* Real avatars of mutual friends */}
             <div className="flex -space-x-1.5">
               {(mutualFriends || []).slice(0, 3).map((m) => (
-                <Link key={m.id} to={`/profile/${m.id}`} className="relative z-[1] hover:z-10 transition-transform hover:scale-110">
+                <ProfileLink key={m.id} userId={m.id} handle={m.custom_url} className="relative z-[1] hover:z-10 transition-transform hover:scale-110">
                   {m.avatar_url ? (
                     <img loading="lazy" decoding="async"
                       src={m.avatar_url}
@@ -584,21 +652,21 @@ const PersonRow = ({ profile, badges, subtitle, date, actions, mutualCount, mutu
                       </span>
                     </div>
                   )}
-                </Link>
+                </ProfileLink>
               ))}
             </div>
             <span className="text-[10px] text-muted-foreground" style={headingFont}>
               {mutualCount} {t("fr.mutualFriends")}
               {mutualFriends && mutualFriends.length > 0 && (
                 <> {t("fr.including")}{" "}
-                  <Link to={`/profile/${mutualFriends[0].id}`} className="text-foreground font-medium hover:text-primary transition-colors">
+                  <ProfileLink userId={mutualFriends[0].id} handle={mutualFriends[0].custom_url} className="text-foreground font-medium hover:text-primary transition-colors">
                     {mutualFriends[0].full_name || "a friend"}
-                  </Link>
+                  </ProfileLink>
                   {mutualCount > 1 && mutualFriends.length > 1 && (
                     <> and{" "}
-                      <Link to={`/profile/${mutualFriends[1].id}`} className="text-foreground font-medium hover:text-primary transition-colors">
+                      <ProfileLink userId={mutualFriends[1].id} handle={mutualFriends[1].custom_url} className="text-foreground font-medium hover:text-primary transition-colors">
                         {mutualFriends[1].full_name || "others"}
-                      </Link>
+                      </ProfileLink>
                     </>
                   )}
                 </>

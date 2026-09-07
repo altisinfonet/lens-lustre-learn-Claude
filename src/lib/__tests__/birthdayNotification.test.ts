@@ -129,10 +129,19 @@ describe("it cannot double-send", () => {
 describe("where it takes you when you tap it", () => {
   const PERSON = "11111111-1111-4111-8111-111111111111";
 
-  it("opens the birthday member's profile", () => {
-    // reference_id is the celebrant, written by the emitter.
-    expect(getNotifLink({ type: "birthday", reference_id: PERSON })).toBe(`/profile/${PERSON}`);
+  it("opens the birthday member's profile, by NAME", () => {
+    // reference_id is the celebrant, written by the emitter — and F-95 turned
+    // the destination from `/profile/${reference_id}` into their name url. The
+    // whole point of this notification is to go and wish them, so it still
+    // opens the celebrant; it just no longer does it through a UUID.
+    expect(getNotifLink({ type: "birthday", reference_id: PERSON, handle: "liwei" })).toBe("/liwei");
     expect(sql).toMatch(/r\.actor_id,\s*$/m);
+  });
+
+  it("F-95 — with no handle it goes to the feed, never to an id address", () => {
+    const link = getNotifLink({ type: "birthday", reference_id: PERSON });
+    expect(link).toBe("/feed");
+    expect(link.startsWith("/profile/")).toBe(false);
   });
 
   it("does not fall through to the /dashboard catch-all", () => {

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import { memberPath } from "@/lib/urlHelpers";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -220,7 +221,10 @@ const GlobalSearch = () => {
           id: p.id,
           title: p.full_name || "Photographer",
           type: "person" as const,
-          url: `/profile/${p.id}`,
+          // F-95 — a person result opens their NAME url. Without a handle the
+          // result stays in the list and stays readable; it just has no
+          // destination, which is better than a destination showing a UUID.
+          url: memberPath(p.custom_url),
           subtitle: followedIdsRef.current.has(p.id) ? "Following" : undefined,
           avatarUrl: p.avatar_url,
           handle: p.custom_url || undefined,

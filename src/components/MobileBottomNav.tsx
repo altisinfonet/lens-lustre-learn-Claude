@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { memberPath, CLAIM_URL_PATH } from "@/lib/urlHelpers";
 import { Home, Trophy, Rss, LogIn, User, Newspaper, BookOpen, FileText } from "lucide-react";
 import { useSiteLogo } from "@/hooks/core/useSiteLogo";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -6,6 +7,7 @@ import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import MobileProfileSheet from "@/components/MobileProfileSheet";
 import { profilesPublic } from "@/lib/profilesPublic";
+import { useT } from "@/i18n/I18nContext";
 
 type Tab = {
   path: string;
@@ -19,19 +21,25 @@ type Tab = {
 };
 
 const MobileBottomNav = () => {
+  const t = useT();
   const { user } = useAuth();
   const { pathname } = useLocation();
   const siteLogo = useSiteLogo();
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [profileData, setProfileData] = useState<{ avatar_url: string | null; full_name: string | null } | null>(null);
+  const [profileData, setProfileData] = useState<{ avatar_url: string | null; full_name: string | null; custom_url: string | null } | null>(null);
 
-  // Build tabs — Wall route depends on user.id, Home is the elevated center
+  // F-95 — the wall tab is built from the member's HANDLE, not their id.
+  const ownWallPath = memberPath(profileData?.custom_url);
+
+  // Build tabs — Wall route depends on the member's handle, Home is the elevated center
   const tabs: Tab[] = [
     // Feed carries the RSS mark (the universal "feed" symbol); the personal
     // Wall carries the Newspaper. They were the wrong way round — owner,
     // 2026-08-12: "Feed and Wall icons are exchanged … correct them."
     { path: "/feed", icon: Rss, label: "Feed", labelKey: "nav.feed", auth: true },
-    { path: user ? `/profile/${user.id}?section=wall` : "/login", icon: Newspaper, label: "Wall", labelKey: "nav.wall", auth: true },
+    // F-95 — the member's own wall by NAME. Signed out it is still /login;
+    // signed in with no handle it is the screen that claims one.
+    { path: !user ? "/login" : (ownWallPath ? `${ownWallPath}?section=wall` : CLAIM_URL_PATH), icon: Newspaper, label: "Wall", labelKey: "nav.wall", auth: true },
     { path: "/courses", icon: BookOpen, label: "Courses", labelKey: "nav.courses", guest: true },
     { path: "/journal", icon: FileText, label: "Journal", labelKey: "nav.journal", guest: true },
     { path: user ? "/home" : "/", icon: Home, label: "Home", labelKey: "nav.home", isCenter: true },
@@ -43,7 +51,7 @@ const MobileBottomNav = () => {
   useEffect(() => {
     if (!user) { setProfileData(null); return; }
     profilesPublic()
-      .select("avatar_url, full_name")
+      .select("avatar_url, full_name, custom_url")
       .eq("id", user.id)
       .single()
       .then(({ data }) => {
@@ -147,6 +155,32 @@ const MobileBottomNav = () => {
                 <button
                   key="profile-sheet"
                   onClick={() => setSheetOpen(true)}
+                  /*
+                   * ───────────────────────────────────────────────────────────
+                   * THE ICONS LOST THEIR NAMES WHEN THEY LOST THEIR CAPTIONS.
+                   *
+                   * The owner removed the words under these icons on
+                   * 2026-08-10 — "Instagram's bar has no words under the
+                   * icons" — and that instruction was about PIXELS. The
+                   * captions were the only thing naming these controls, so
+                   * taking them off the screen also took them out of the
+                   * accessibility tree, and this bar has been silent since.
+                   *
+                   * Measured by the Auditor on the deployed preview,
+                   * 2026-09-07: on /discover, "one button on the page has no
+                   * accessible name at all". THIS is that button — it is the
+                   * only <button> in this nav, and its three possible children
+                   * are an <img alt="">, two initials, or a bare icon. None of
+                   * them is a name.
+                   *
+                   * `tab.label`/`tab.labelKey` were never deleted; they are
+                   * still on every row of `tabs` above. Announcing them costs
+                   * nothing on screen and restores exactly what the caption
+                   * used to say — which is why this is the right fix rather
+                   * than inventing new wording.
+                   * ───────────────────────────────────────────────────────────
+                   */
+                  aria-label={t(tab.labelKey ?? "nav.profile", tab.label)}
                   className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 transition-colors duration-200 relative ${
                     sheetOpen || active ? "text-primary" : "text-muted-foreground"
                   }`}
@@ -180,6 +214,11 @@ const MobileBottomNav = () => {
               <Link
                 key={tab.label}
                 to={tab.path}
+                /* Same cause as the button above, three lines down: these tabs
+                   are icons with no text, so they announce nothing either.
+                   Fixed here rather than left for a later sweep — an exception
+                   list is how the last one missed the sidebar. */
+                aria-label={t(tab.labelKey ?? "", tab.label)}
                 className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 transition-colors duration-200 relative ${
                   active ? "text-primary" : "text-muted-foreground"
                 }`}

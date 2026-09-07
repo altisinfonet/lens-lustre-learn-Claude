@@ -35,6 +35,8 @@ interface Comment {
   created_at: string;
   profile_name: string | null;
   avatar_url: string | null;
+  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
+  author_handle: string | null;
   badges: string[];
   is_pinned?: boolean;
   is_admin_seed?: boolean;
@@ -51,6 +53,11 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props)
   const [reactions, setReactions] = useState<Record<string, Reaction>>({});
   const [comments, setComments] = useState<Comment[]>([]);
   const [showComments, setShowComments] = useState(false);
+  /** `true` while the comments panel's height animation is moving. The clip on
+   *  that panel is bound to it, so it stops clipping the @mention list once the
+   *  panel has arrived — see the note on the box, and the longer one in
+   *  PostCommentsSection.tsx. */
+  const [commentsRolling, setCommentsRolling] = useState(true);
   const [newComment, setNewComment] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
@@ -105,6 +112,7 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props)
       ...c,
       profile_name: resolveName(c.user_id, profileMap.get(c.user_id)?.full_name ?? null, adminIds),
       avatar_url: profileMap.get(c.user_id)?.avatar_url || null,
+      author_handle: profileMap.get(c.user_id)?.custom_url ?? null,
       badges: resolveBadges(c.user_id, profileMap.get(c.user_id)?.badges || [], adminIds),
     }));
 
@@ -260,7 +268,7 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props)
             <UserIdentityBlock
               userId={comment.user_id}
               name={comment.profile_name}
-              linkTo={`/profile/${comment.user_id}`}
+              handle={comment.author_handle}
               nameClassName="text-[10px] font-medium hover:text-primary hover:underline transition-colors"
             />
             <span className="text-[9px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
@@ -375,10 +383,21 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props)
       <AnimatePresence>
         {showComments && (
           <motion.div
+            /*
+             * THE SAME CLIP, ONE SCREEN OVER — see the long note in
+             * PostCommentsSection.tsx. This box holds the same MentionInput,
+             * and here the composer sits at the TOP of the section, so an
+             * upward-opening @mention list crosses this edge immediately
+             * rather than eventually. Fixed together with the feed's, because
+             * fixing only the surface that was reported is how the last sweep
+             * missed the sidebar.
+             */
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="mt-2 overflow-hidden"
+            onAnimationStart={() => setCommentsRolling(true)}
+            onAnimationComplete={() => setCommentsRolling(false)}
+            className={`mt-2 ${commentsRolling ? "overflow-hidden" : ""}`}
           >
             {/* New Comment Input */}
             {user ? (

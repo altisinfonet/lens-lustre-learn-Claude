@@ -38,6 +38,7 @@ const PostDetail = lazy(() => import("@/pages/PostDetail"));
 const NotificationSettings = lazy(() => import("@/pages/NotificationSettings"));
 const PublicProfile = lazy(() => import("@/pages/PublicProfile"));
 const MobileProfileSheet = lazy(() => import("@/components/MobileProfileSheet"));
+const Discover = lazy(() => import("@/pages/Discover"));
 
 function Loading() {
   return (
@@ -170,6 +171,23 @@ export const REAL_SCREENS: Record<string, () => JSX.Element> = {
    */
   "screen-wall-visitor": () =>
     screen(<PublicProfile />, "/profile/22222222-2222-4222-8222-222222222222", "/profile/:userId"),
+
+  /**
+   * DISCOVER — the people page, and the ONLY place the Add Friend / Remove
+   * row appears eleven times over.
+   *
+   * ADDED 2026-09-07. Its absence was the same hole `screen-wall-visitor`
+   * closed a month earlier: the Auditor measured eleven identically-announced
+   * "Add Friend" buttons on the deployed preview, and nothing here could
+   * render the page to reproduce it. `DiscoverCard` had never been
+   * photographed on the page that hosts it, at any width, in any mode.
+   *
+   * Everything it reads already has a fixture: `profiles_public_data` for the
+   * list, `get_public_role_user_ids` for the judge-privacy filter (empty, so
+   * nobody is hidden), `mutual_friend_ids` and `are_friends` for each card,
+   * `categories` for the filter chips.
+   */
+  "screen-discover": () => screen(<Discover />, "/discover", "/discover"),
 
   /** One post, open, with comments. `path` carries the id or the page
    *  renders its not-found state and photographs as a tidy empty screen. */

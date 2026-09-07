@@ -74,7 +74,7 @@ interface EntryCardProps {
      * @deprecated Same as `status` — read `publicPlacement` instead.
      */
     placement: string | null;
-    profiles: { full_name: string | null } | null;
+    profiles: { full_name: string | null; custom_url?: string | null } | null;
     vote_count: number;
     user_voted: boolean;
     badges: string[];
@@ -360,7 +360,7 @@ const EntryCard: React.FC<EntryCardProps> = ({
               <UserIdentityBlock
                 userId={entry.user_id}
                 name={entry.profiles?.full_name || "Anonymous"}
-                linkTo={`/profile/${entry.user_id}`}
+                handle={entry.profiles?.custom_url}
                 nameClassName="text-[9px] truncate hover:text-primary hover:underline transition-colors [font-family:var(--font-body)]"
               />
             </div>
@@ -443,7 +443,7 @@ const EntryCard: React.FC<EntryCardProps> = ({
               <UserIdentityBlock
                 userId={entry.user_id}
                 name={entry.profiles?.full_name || "Anonymous"}
-                linkTo={`/profile/${entry.user_id}`}
+                handle={entry.profiles?.custom_url}
                 nameClassName="text-[9px] truncate hover:text-primary hover:underline transition-colors [font-family:var(--font-body)]"
               />
             </div>

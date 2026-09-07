@@ -1,10 +1,12 @@
 import { useState, useRef, useMemo } from "react";
+import ProfileLink from "@/components/ProfileLink";
 import { Link } from "react-router-dom";
 import { TrendingUp, Cake, Newspaper, Vote, Coins, PartyPopper } from "lucide-react";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useT } from "@/i18n/I18nContext";
 import CompetitionLightbox from "@/components/CompetitionLightbox";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
+import { useRowHandles } from "@/hooks/profile/useMemberHandles";
 import AnonymousSidebarFallback from "@/components/AnonymousSidebarFallback";
 import type { SidebarData } from "@/hooks/core/useDashboardInit";
 import { useCompetitionVoting } from "@/hooks/competition/useCompetitionVoting";
@@ -76,8 +78,37 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
   }, [lightboxSelection, votingPhotos]);
   const trendingPhotos = sidebarData?.trending ?? [];
   const milestones = sidebarData?.milestones ?? [];
+  /*
+   * NOT IN THE ORDER, AND FIXED ANYWAY — because the item-5 probe measured it
+   * dead on the way past. Membership Anniversaries comes from the same
+   * dashboard-init payload as People You May Know and through the same Q11
+   * select, so its names and avatars are unlinked spans for the identical
+   * reason. Leaving it would be the exception list this codebase already
+   * names. BIRTHDAYS BELOW ARE UNTOUCHED and must stay that way: those rows
+   * come from get_todays_birthdays, which really does return custom_url in
+   * this tree, so they carry a handle and this bridge would ask for nothing.
+   */
+  const handleFor = useRowHandles(milestones as Array<{ id: string; custom_url?: string | null }>);
   const journalPreviews = sidebarData?.journal ?? [];
   const birthdayUsers = sidebarData?.birthdays ?? [];
+  /*
+   * F-98c — THE HANDLE TRAVELS WITH THE NAME FOR *THESE* ROWS, AND THAT IS WHY
+   * THEY NEED NO BRIDGE.
+   *
+   * This read `useMemberHandles(...)`: a second, batched round trip that
+   * fetched custom_url for members whose names had already arrived without it.
+   * The auditor withdrew it on 2026-09-05 — two mechanisms delivering one
+   * handle is how the two drift apart, the same argument this codebase already
+   * made about author_badges.
+   *
+   * ⚠ 2026-09-07 — THAT RULING WAS RIGHT FOR BIRTHDAYS AND WRONG FOR
+   * MILESTONES, because the two come from different sources and only one of
+   * them was actually fixed. `get_todays_birthdays` really was recreated with
+   * custom_url (migration 20260910_0020, in this tree), so the birthday rows
+   * below carry a handle and are left exactly as they are. The milestone rows
+   * come from dashboard-init's Q11 select, which asks for no handle on this
+   * branch — see the note on `handleFor` above.
+   */
 
   if (loading || dashboardLoading) return <div className="space-y-5" />;
   if (!user && !hadUserRef.current) return <AnonymousSidebarFallback type="left" />;
@@ -144,16 +175,57 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
           </div>
           {trendingPhotos.length > 0 ? (
             <div className="grid grid-cols-2 gap-1 p-2">
-              {trendingPhotos.map((photo: any) => (
-                <div key={photo.id} className="relative group aspect-square overflow-hidden rounded-sm">
-                  <img src={photo.image_url} alt={photo.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="absolute bottom-1 left-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <p className="text-[8px] text-white truncate" style={headingFont}>{photo.title}</p>
-                    <span className="text-[7px] text-white/70" style={bodyFont}>❤️ {photo.reaction_count}</span>
+              {trendingPhotos.map((photo: any) => {
+                /*
+                 * ⚠ THESE TILES HAD NO INTERACTIVE WRAPPER AT ALL. Measured by
+                 * the Auditor on the deployed preview by walking the ancestor
+                 * chain: no <a>, no <button>, no tabindex, no role. A keyboard
+                 * could not reach them and a screen reader announced four
+                 * decorative images. The main feed already does this correctly
+                 * with real anchors, so this matches that pattern rather than
+                 * inventing a clickable div.
+                 *
+                 * ⚠ AND ONE SOURCE STILL CANNOT BE LINKED, honestly. The
+                 * dashboard-init payload carries { id, image_url, title,
+                 * reaction_count, source }: an entry id resolves to /entry/:id
+                 * and a post id to /post/:id, but a `portfolio` row carries no
+                 * owner id, and there is no route that takes a portfolio image
+                 * id. A <button> that navigates nowhere would be worse than a
+                 * plain tile — it would announce itself as a control and then
+                 * do nothing — so a portfolio tile stays a figure, and the
+                 * missing field is reported to D1, whose function that is.
+                 */
+                const href =
+                  photo.source === "entry" ? `/entry/${photo.id}`
+                  : photo.source === "post" ? `/post/${photo.id}`
+                  : null;
+
+                const inner = (
+                  <>
+                    <img src={photo.image_url} alt={photo.title || "Trending photograph"} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" decoding="async" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="absolute bottom-1 left-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <p className="text-[8px] text-white truncate" style={headingFont}>{photo.title}</p>
+                      <span className="text-[7px] text-white/70" style={bodyFont}>❤️ {photo.reaction_count}</span>
+                    </div>
+                  </>
+                );
+
+                return href ? (
+                  <Link
+                    key={photo.id}
+                    to={href}
+                    aria-label={photo.title ? `Open ${photo.title}` : "Open trending photograph"}
+                    className="relative group aspect-square overflow-hidden rounded-sm block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    {inner}
+                  </Link>
+                ) : (
+                  <div key={photo.id} className="relative group aspect-square overflow-hidden rounded-sm">
+                    {inner}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="p-4 text-center">
@@ -175,7 +247,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
           <div className="divide-y divide-border">
             {milestones.map((m: any) => (
               <div key={m.id} className="flex items-center gap-3 px-4 py-3">
-                <Link to={`/profile/${m.id}`} className="shrink-0">
+                <ProfileLink userId={m.id} handle={handleFor(m)} className="shrink-0">
                   {m.avatar_url ? (
                     <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={m.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
                   ) : (
@@ -183,12 +255,12 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
                       <span className="text-[10px] text-primary" style={displayFont}>{(m.full_name || "?")[0]?.toUpperCase()}</span>
                     </div>
                   )}
-                </Link>
+                </ProfileLink>
                 <div className="flex-1 min-w-0">
                   <UserIdentityBlock
                     userId={m.id}
                     name={m.full_name || "Photographer"}
-                    linkTo={`/profile/${m.id}`}
+                    handle={handleFor(m)}
                     nameClassName="text-xs font-medium truncate hover:text-primary transition-colors"
                   />
                   <span className="text-[9px] text-muted-foreground" style={bodyFont}>
@@ -258,7 +330,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
             <div className="divide-y divide-border">
               {birthdayUsers.map((u: any) => (
                 <div key={u.id} className="flex items-center gap-3 px-4 py-3">
-                  <Link to={`/profile/${u.id}`} className="shrink-0">
+                  <ProfileLink userId={u.id} handle={u.custom_url} className="shrink-0">
                     {u.avatar_url ? (
                       <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={u.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
                     ) : (
@@ -266,12 +338,12 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
                         <span className="text-[10px] text-primary" style={displayFont}>{(u.full_name || "?")[0]?.toUpperCase()}</span>
                       </div>
                     )}
-                  </Link>
+                  </ProfileLink>
                   <div className="flex-1 min-w-0">
                     <UserIdentityBlock
                       userId={u.id}
                       name={u.full_name || "Photographer"}
-                      linkTo={`/profile/${u.id}`}
+                      handle={u.custom_url}
                       nameClassName="text-xs font-medium truncate hover:text-primary transition-colors"
                     />
                     <span className="text-[9px] text-muted-foreground" style={bodyFont}>
