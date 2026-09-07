@@ -1,0 +1,43 @@
+
+═══ AFTER — the same four items with the fix applied · 2026-09-07T11:21:27.706Z ═══
+
+ITEM 1 — /discover control names
+   cards: 6 · nameless buttons on the page: 0
+   [Ranjana Bhattacharya Chowdhury] -> ["Add Friend — Ranjana Bhattacharya Chowdhury","Remove — Ranjana Bhattacharya Chowdhury"]
+   [Li Wei] -> ["Add Friend — Li Wei","Remove — Li Wei"]
+   [Amara Okonkwo] -> ["Add Friend — Amara Okonkwo","Remove — Amara Okonkwo"]
+   [Rafael Santos] -> ["Add Friend — Rafael Santos","Remove — Rafael Santos"]
+   [Hana Takahashi] -> ["Add Friend — Hana Takahashi","Remove — Hana Takahashi"]
+   [Ayaan Farooqi] -> ["Add Friend — Ayaan Farooqi","Remove — Ayaan Farooqi"]
+  PASS  the page rendered 6 people cards
+  PASS  every card button's accessible name carries that person's name
+  PASS  no button on /discover is nameless (found 0)
+
+ITEM 2 — People You May Know, right sidebar
+   [Avijit Sheel] name="Add Friend — Avijit Sheel" painted=55.4x27.4 hit=55.4x44.0 anchor=centre (grows BOTH ways)
+   [Ranjana Bhattacharya Chowdhury] name="Add Friend — Ranjana Bhattacharya Chowdhury" painted=55.4x27.4 hit=55.4x44.0 anchor=centre (grows BOTH ways)
+   [Li Wei] name="Add Friend — Li Wei" painted=55.4x27.4 hit=55.4x44.0 anchor=centre (grows BOTH ways)
+  PASS  every Add button's accessible name carries that person's name
+  PASS  every Add button's hit region is at least 44px tall
+   F-109 rect check: 7 links in the widget, regions ["55.4x44.0","55.4x44.0","55.4x44.0"]
+  PASS  no enlarged Add region overlaps a link (0 overlaps)
+  PASS  no two Add regions overlap each other (0)
+
+ITEM 3 — @mention suggestions inside a real post's comment box
+   1440x900: {"reached":true,"rowCount":7,"list":{"top":327.8,"bottom":635.8,"right":777.3},"clipTop":-31.8,"clipper":"bleed-phone mb-4 overflow-hidden","hiddenPx":0,"hiddenPct":0,"offRight":0}
+  PASS  1440px — no part of the list is clipped by an ancestor (hidden 0px = 0%, clipper "bleed-phone mb-4 overflow-hidden")
+  PASS  1440px — the list stays on screen (F-101's guard still armed; over by 0px)
+   390x844: {"reached":true,"rowCount":7,"list":{"top":334.5,"bottom":642.5,"right":368.3},"clipTop":74.2,"clipper":"bleed-phone mb-4 overflow-hidden","hiddenPx":0,"hiddenPct":0,"offRight":0}
+  PASS  390px — no part of the list is clipped by an ancestor (hidden 0px = 0%, clipper "bleed-phone mb-4 overflow-hidden")
+  PASS  390px — the list stays on screen (F-101's guard still armed; over by 0px)
+
+ITEM 4 — the feed lightbox (PostMedia CarouselLightbox)
+   {"opened":true,"role":"dialog","ariaModal":"true","ariaLabel":"Photograph by Avijit Sheel — full size","buttonNames":["Download photo","Close photo viewer"],"anchors":["Avijit Sheel"]}
+  PASS  the viewer has role="dialog" (got "dialog")
+  PASS  it is aria-modal (got "true")
+  PASS  it has an accessible name (got "Photograph by Avijit Sheel — full size")
+  PASS  every control in it has a name (got ["Download photo","Close photo viewer"])
+  PASS  the photographer is a link inside it (got ["Avijit Sheel"])
+
+ALL FOUR CLEAR
+

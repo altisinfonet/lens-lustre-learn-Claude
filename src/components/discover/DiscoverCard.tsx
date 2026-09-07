@@ -49,6 +49,32 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
 
   if (isSelf) return null;
 
+  /**
+   * ─────────────────────────────────────────────────────────────────────────
+   * EVERY CONTROL ON THIS CARD SAYS WHOSE CARD IT IS.
+   *
+   * Measured by the Auditor on the deployed preview, 2026-09-07: /discover
+   * rendered ELEVEN "Add Friend" buttons and ELEVEN "Remove" buttons, and a
+   * screen reader announced all twenty-two identically — "Add Friend, Add
+   * Friend, Add Friend…". The visible label is correct and must not change;
+   * sighted members read the name from the card the button sits in. A screen
+   * reader does not: it reaches a control with no card around it.
+   *
+   * So the NAME goes into the accessible name and nowhere else. Not a
+   * `title` (it would paint a tooltip nobody asked for), not visible text (it
+   * would change a layout the owner has already signed off), not
+   * `aria-labelledby` pointing at the name block (that block is a link with
+   * its own name and a badge, so the button would announce the badge too).
+   *
+   * `personName` is the same fallback UserIdentityBlock above renders, so the
+   * button can never announce a different name from the one on the card.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  const personName = profile.full_name || "Photographer";
+  /** "Add Friend — Ranjana Bhattacharya Chowdhury". The dash is what a screen
+   *  reader turns into a pause, so the action is heard before the name. */
+  const named = (action: string) => `${action} — ${personName}`;
+
   const btnBase =
     "inline-flex items-center justify-center gap-1.5 text-[11px] md:text-xs font-semibold tracking-wide px-3 py-1.5 rounded-md transition-all duration-200 disabled:opacity-40";
 
@@ -125,6 +151,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
               <button
                 onClick={sendFriendRequest}
                 disabled={loading}
+                aria-label={named(t("fr.addFriend"))}
                 className={`${btnBase} bg-primary text-primary-foreground hover:bg-primary/90`}
                 style={headingFont}
               >
@@ -133,6 +160,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
               </button>
               <button
                 onClick={() => onDismiss(profile.id)}
+                aria-label={named(t("fr.remove"))}
                 className={`${btnBase} bg-muted text-muted-foreground hover:bg-muted/80`}
                 style={headingFont}
               >
@@ -145,6 +173,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
               <button
                 onClick={removeFriend}
                 disabled={loading}
+                aria-label={named(t("fr.requestSent"))}
                 className={`${btnBase} bg-muted text-muted-foreground`}
                 style={headingFont}
               >
@@ -153,6 +182,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
               </button>
               <button
                 onClick={() => onDismiss(profile.id)}
+                aria-label={named(t("fr.remove"))}
                 className={`${btnBase} bg-muted/60 text-muted-foreground hover:bg-muted/80`}
                 style={headingFont}
               >
@@ -165,6 +195,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
               <button
                 onClick={acceptFriendRequest}
                 disabled={loading}
+                aria-label={named(t("dash.accept"))}
                 className={`${btnBase} bg-primary text-primary-foreground hover:bg-primary/90`}
                 style={headingFont}
               >
@@ -173,6 +204,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
               </button>
               <button
                 onClick={() => onDismiss(profile.id)}
+                aria-label={named(t("fr.remove"))}
                 className={`${btnBase} bg-muted text-muted-foreground hover:bg-muted/80`}
                 style={headingFont}
               >
@@ -184,6 +216,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
             <button
               onClick={removeFriend}
               disabled={loading}
+              aria-label={named(t("fr.unfriend"))}
               className={`${btnBase} bg-muted text-destructive hover:bg-destructive/10`}
               style={headingFont}
             >

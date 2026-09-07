@@ -190,7 +190,46 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
                   ) : (
                     <button
                       onClick={() => sendFriendRequest(s.id)}
-                      className="inline-flex items-center gap-1 text-[8px] tracking-[0.15em] uppercase px-2 py-1 border border-primary/40 text-primary hover:bg-primary/10 transition-all rounded-sm"
+                      /*
+                       * ─────────────────────────────────────────────────────
+                       * "ADD" IS NOT A SENTENCE, AND 27px IS NOT A TAP TARGET.
+                       *
+                       * Measured by the Auditor on the deployed preview,
+                       * 2026-09-07: five buttons in this widget, all reading
+                       * "Add", all with aria-label null, all 57x27. Measured
+                       * again here in the harness at 1440px: 55.4x27.4, name
+                       * "Add", no hit region of any kind.
+                       *
+                       * THE NAME. Same treatment as DiscoverCard: the person
+                       * goes into the accessible name only. `t("fr.addFriend")`
+                       * is the string the Discover card already uses for this
+                       * exact action in six languages, so the two surfaces
+                       * cannot drift apart — the visible "Add" stays "Add"
+                       * because this column is 8px wide and the owner sized it.
+                       *
+                       * THE TARGET, AND WHY `.tap-44` AND NOT `.tap-44-down`.
+                       * F-109's ruling is that the DIRECTION matters, and that
+                       * clearance is "a claim to be measured, not assumed". So
+                       * it was measured, with elementFromPoint 6px above and
+                       * 6px below the painted button in this row:
+                       *
+                       *   above -> <DIV> (the row itself)   not a link
+                       *   below -> <DIV> (the row itself)   not a link
+                       *
+                       * The name link in this row sits to the LEFT, not above:
+                       * this is a three-column row, not a caption over a
+                       * control. Nothing is contested vertically — the row is
+                       * ~60px tall around a 27px button, so a 44px region
+                       * centred on it still lands 8px inside the row's own
+                       * padding and cannot reach the row above or below. That
+                       * is the case `.tap-44`'s own comment reserves for
+                       * itself: "where there is clearance on every side".
+                       * `.tap-44-down` would push 17px past the bottom edge
+                       * and into the divider, which is the worse choice here.
+                       * ─────────────────────────────────────────────────────
+                       */
+                      aria-label={`${t("fr.addFriend")} — ${s.full_name || "Photographer"}`}
+                      className="tap-44 inline-flex items-center gap-1 text-[8px] tracking-[0.15em] uppercase px-2 py-1 border border-primary/40 text-primary hover:bg-primary/10 transition-all rounded-sm"
                       style={headingFont}
                     >
                       <UserPlus className="h-3 w-3" /> Add

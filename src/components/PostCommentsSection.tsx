@@ -221,15 +221,72 @@ const PostCommentsSection = ({ postId, postOwnerId, expanded, onCommentCountChan
     }
   };
 
+  /**
+   * `true` while the height animation is moving, `false` once it has arrived.
+   * The clip below is bound to it — see the long note on the box itself.
+   *
+   * ⚠ THIS WAS FIRST WRITTEN AS framer's `transitionEnd: { overflow: "visible" }`,
+   * which is the tidier spelling and DOES NOT WORK HERE. Measured in the
+   * harness rather than assumed: the element's inline style stayed
+   * `height: auto; opacity: 1; overflow: hidden` at 200ms, 600ms, 1200ms and
+   * 2500ms after opening. An earlier probe run appeared to pass on it, which is
+   * exactly why a green that cannot be explained is not a green. The callback
+   * fires; the declarative end-value did not.
+   */
+  const [rolling, setRolling] = useState(true);
+
   if (!expanded) return null;
 
   return (
+      /*
+       * ─────────────────────────────────────────────────────────────────────
+       * `overflow-hidden` IS FOR THE ANIMATION, AND IT WAS OUTLIVING IT.
+       *
+       * A height animation has to clip — that is what makes the content
+       * appear to unroll instead of jumping. But the class stayed on after
+       * the animation finished, so this box went on clipping for as long as
+       * the comments were open, and the ONE thing it clipped was the one
+       * thing that has to escape it: the @mention list.
+       *
+       * `MentionInput` opens that list UPWARD (`forceSuggestionsAboveCursor`,
+       * because the composer sits at the bottom of the thread and a downward
+       * list lands off the screen). Upward, from a composer near the top of
+       * this box, means straight through this edge. Measured by the Auditor on
+       * the deployed preview, 2026-09-07: typing "@san" on /feed produced a
+       * popup "rendered visually cut in half, sliced by the post content
+       * above it", twice. Measured again here in the harness at 1440x900:
+       * the list's own union box began 3.6px above this element's top edge
+       * and that 3.6px was invisible — the amount is whatever the composer's
+       * distance from this edge happens to be, so it is a slice of anything
+       * from a hairline to most of the list.
+       *
+       * `transitionEnd` hands the clip back the moment the roll-down is done:
+       * hidden while the height is moving, visible once it has arrived, and
+       * hidden again the instant `exit` starts. The class is gone from
+       * `className` on purpose — one source of truth for overflow, or the
+       * next person moves the class and the fix quietly stops working.
+       *
+       * ⚠ WHY NOT `suggestionsPortalHost`. react-mentions can portal that
+       * list to <body>, which escapes every clipping ancestor at once and
+       * looks like the more structural answer. It was rejected on a
+       * measurement, not a preference: the portalled overlay carries
+       * `zIndex: 50`, and this same composer also renders inside
+       * CompetitionLightbox — `fixed inset-0 z-[100]` — so at body level the
+       * list would land UNDERNEATH that viewer. That is precisely the fault
+       * the owner reported on 2026-08-31 ("during tagging in a coments,
+       * options are hiding not coming in fornt"), reintroduced one stacking
+       * context higher. The list stays in flow, where its z-50 still beats
+       * the send button and still sits inside the card that owns it.
+       * ─────────────────────────────────────────────────────────────────────
+       */
     <motion.div
       initial={{ height: 0, opacity: 0 }}
       animate={{ height: "auto", opacity: 1 }}
       exit={{ height: 0, opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="overflow-hidden border-t border-border"
+      onAnimationStart={() => setRolling(true)}
+      onAnimationComplete={() => setRolling(false)}
+      className={`border-t border-border ${rolling ? "overflow-hidden" : ""}`}
     >
       <CommentThread
         comments={comments}
