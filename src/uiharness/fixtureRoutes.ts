@@ -259,8 +259,50 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
  * not see. `limit=1` is the honest proxy available here. Getting it wrong is
  * immediately visible — the screen renders nothing — so simple is safe.
  */
+/**
+ * ⚠ `select` WAS IGNORED HERE, AND THAT IS HOW A PAGE COULD FORGET A COLUMN
+ * AND STILL LOOK PERFECT IN EVERY SCREENSHOT.
+ *
+ * Found 2026-09-07 while reproducing the Auditor's item 5. `Discover.tsx`
+ * asks for
+ *
+ *   .select("id, full_name, avatar_url, bio, photography_interests, created_at")
+ *
+ * — no `custom_url`. On the deployed preview every name and avatar in that
+ * list is therefore an unlinked span, which is exactly what he measured: zero
+ * anchor tags in the row. In this harness the same page rendered two working
+ * links per row, because this function handed back the WHOLE fixture row
+ * whatever the page had asked for. The instrument could not have failed on the
+ * fault it exists to catch.
+ *
+ * So the projection is applied. Conservatively: a `select` containing `*` or an
+ * embedded resource — `posts(id,title)` — is left alone rather than
+ * approximated, on the same principle `applyFilters` states above. A missing
+ * `select` is PostgREST's "everything", and stays everything.
+ *
+ * `alias:column` is projected under the ALIAS, which is what PostgREST returns
+ * and what the caller then reads.
+ */
+function project(rows: unknown[], params: URLSearchParams): unknown[] {
+  const select = params.get("select");
+  if (!select || select.includes("*") || select.includes("(")) return rows;
+  const cols = select.split(",").map((c) => c.trim()).filter(Boolean);
+  if (cols.length === 0) return rows;
+  return (rows as Array<Record<string, unknown>>).map((row) => {
+    const out: Record<string, unknown> = {};
+    for (const col of cols) {
+      const [left, right] = col.includes(":") ? col.split(":", 2) : [col, col];
+      const key = right.trim();
+      const as = left.trim();
+      if (key in row) out[as] = row[key];
+    }
+    return out;
+  });
+}
+
 function narrow(rows: unknown[], params: URLSearchParams): unknown {
-  return Number(params.get("limit") ?? "") === 1 ? rows.slice(0, 1) : rows;
+  const projected = project(rows, params);
+  return Number(params.get("limit") ?? "") === 1 ? projected.slice(0, 1) : projected;
 }
 
 /**

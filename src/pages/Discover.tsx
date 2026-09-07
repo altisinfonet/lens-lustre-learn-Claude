@@ -33,6 +33,17 @@ interface DiscoverProfile {
   bio: string | null;
   photography_interests: string[] | null;
   created_at: string | null;
+  /**
+   * F-95 — THE NAME-URL HANDLE, AND IT WAS MISSING FROM BOTH THE TYPE AND THE
+   * QUERY. `DiscoverCard` has always accepted it and passes it to
+   * `ProfileLink` and `UserIdentityBlock`; the page simply never asked the
+   * view for it, so every card received `undefined` and rendered the name and
+   * the avatar as unlinked spans. Measured live by the Auditor on 75f14f80 and
+   * 0e30d46e: zero anchor tags in a /discover row, clicking the name leaves
+   * location.href unchanged. `profiles_public_data` carries the column; it just
+   * had to be selected.
+   */
+  custom_url: string | null;
 }
 
 
@@ -77,7 +88,7 @@ const Discover = () => {
     if (!user || hiddenIds === null) return null;
 
     let query = profilesPublic()
-      .select("id, full_name, avatar_url, bio, photography_interests, created_at")
+      .select("id, full_name, avatar_url, bio, photography_interests, created_at, custom_url")
       .eq("is_suspended", false)
       .eq("is_banned", false) // BUG-088: banned users must not surface in Discover
       .neq("id", user.id);

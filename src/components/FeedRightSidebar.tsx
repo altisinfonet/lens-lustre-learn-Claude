@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useT } from "@/i18n/I18nContext";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
+import { useRowHandles } from "@/hooks/profile/useMemberHandles";
 import AnonymousSidebarFallback from "@/components/AnonymousSidebarFallback";
 import SidebarTopContributors from "@/components/sidebar/SidebarTopContributors";
 import type { SidebarData } from "@/hooks/core/useDashboardInit";
@@ -102,6 +103,28 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
 
   const suggestions = rawSuggestions.filter((s: any) => !adminIds.has(s.id));
 
+  /*
+   * ITEM 5 — THE NAME AND THE AVATAR WERE NOT LINKS AT ALL.
+   *
+   * Measured by the Auditor on the deployed preview, on BOTH 75f14f80 and
+   * 0e30d46e: walking up from the name text to the row container finds ZERO
+   * anchor tags; only Add is interactive; clicking the name leaves
+   * location.href unchanged. Reproduced here once the fixture was corrected to
+   * the payload this branch's dashboard-init actually sends: zero anchors,
+   * nine spans carrying ProfileLink's own `data-unlinked="missing"` marker.
+   *
+   * The rows are wrapped correctly and always have been — `ProfileLink` on the
+   * avatar, `UserIdentityBlock` on the name. Neither can produce an <a> without
+   * a handle, because F-95 forbids falling back to /profile/<id> and
+   * `noProfileIdLinks.test.ts` enforces it. The handle simply never arrives:
+   * dashboard-init builds each suggestion as
+   * { id, full_name, avatar_url, mutual_count }. See the long note on
+   * `useRowHandles`, including why this is not the second mechanism the
+   * Auditor ruled out, and what D1 has to change for this lookup to fall
+   * silent on its own.
+   */
+  const handleFor = useRowHandles(suggestions as Array<{ id: string; custom_url?: string | null }>);
+
   const sendFriendRequest = async (targetId: string) => {
     if (!user) return;
     const { error } = await supabase.from("friendships").insert({
@@ -159,7 +182,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
             ) : (
               suggestions.map((s: any) => (
                 <div key={s.id} className="flex items-center gap-3 px-4 py-3">
-                  <ProfileLink userId={s.id} handle={s.custom_url} className="shrink-0">
+                  <ProfileLink userId={s.id} handle={handleFor(s)} className="shrink-0">
                     {s.avatar_url ? (
                       <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={s.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
                     ) : (
@@ -174,7 +197,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
                     <UserIdentityBlock
                       userId={s.id}
                       name={s.full_name || "Photographer"}
-                      handle={s.custom_url}
+                      handle={handleFor(s)}
                       nameClassName="text-xs font-medium truncate hover:text-primary transition-colors"
                     />
                     {s.mutual_count > 0 && (

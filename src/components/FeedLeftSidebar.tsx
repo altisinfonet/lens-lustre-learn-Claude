@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/core/useAuth";
 import { useT } from "@/i18n/I18nContext";
 import CompetitionLightbox from "@/components/CompetitionLightbox";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
+import { useRowHandles } from "@/hooks/profile/useMemberHandles";
 import AnonymousSidebarFallback from "@/components/AnonymousSidebarFallback";
 import type { SidebarData } from "@/hooks/core/useDashboardInit";
 import { useCompetitionVoting } from "@/hooks/competition/useCompetitionVoting";
@@ -77,19 +78,36 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
   }, [lightboxSelection, votingPhotos]);
   const trendingPhotos = sidebarData?.trending ?? [];
   const milestones = sidebarData?.milestones ?? [];
+  /*
+   * NOT IN THE ORDER, AND FIXED ANYWAY — because the item-5 probe measured it
+   * dead on the way past. Membership Anniversaries comes from the same
+   * dashboard-init payload as People You May Know and through the same Q11
+   * select, so its names and avatars are unlinked spans for the identical
+   * reason. Leaving it would be the exception list this codebase already
+   * names. BIRTHDAYS BELOW ARE UNTOUCHED and must stay that way: those rows
+   * come from get_todays_birthdays, which really does return custom_url in
+   * this tree, so they carry a handle and this bridge would ask for nothing.
+   */
+  const handleFor = useRowHandles(milestones as Array<{ id: string; custom_url?: string | null }>);
   const journalPreviews = sidebarData?.journal ?? [];
   const birthdayUsers = sidebarData?.birthdays ?? [];
   /*
-   * F-98c — THE HANDLE NOW TRAVELS WITH THE NAME.
+   * F-98c — THE HANDLE TRAVELS WITH THE NAME FOR *THESE* ROWS, AND THAT IS WHY
+   * THEY NEED NO BRIDGE.
    *
    * This read `useMemberHandles(...)`: a second, batched round trip that
    * fetched custom_url for members whose names had already arrived without it.
-   * The auditor's ruling on 2026-09-05, and it is the right one — two
-   * mechanisms delivering one handle is how the two drift apart, which is the
-   * same argument this codebase already made about author_badges. The server
-   * now carries custom_url in the row (dashboard-init/index.ts, and
-   * get_todays_birthdays for the birthday rows), so the bridge is withdrawn
-   * rather than stacked on top of the fix.
+   * The auditor withdrew it on 2026-09-05 — two mechanisms delivering one
+   * handle is how the two drift apart, the same argument this codebase already
+   * made about author_badges.
+   *
+   * ⚠ 2026-09-07 — THAT RULING WAS RIGHT FOR BIRTHDAYS AND WRONG FOR
+   * MILESTONES, because the two come from different sources and only one of
+   * them was actually fixed. `get_todays_birthdays` really was recreated with
+   * custom_url (migration 20260910_0020, in this tree), so the birthday rows
+   * below carry a handle and are left exactly as they are. The milestone rows
+   * come from dashboard-init's Q11 select, which asks for no handle on this
+   * branch — see the note on `handleFor` above.
    */
 
   if (loading || dashboardLoading) return <div className="space-y-5" />;
@@ -229,7 +247,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
           <div className="divide-y divide-border">
             {milestones.map((m: any) => (
               <div key={m.id} className="flex items-center gap-3 px-4 py-3">
-                <ProfileLink userId={m.id} handle={m.custom_url} className="shrink-0">
+                <ProfileLink userId={m.id} handle={handleFor(m)} className="shrink-0">
                   {m.avatar_url ? (
                     <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={m.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
                   ) : (
@@ -242,7 +260,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
                   <UserIdentityBlock
                     userId={m.id}
                     name={m.full_name || "Photographer"}
-                    handle={m.custom_url}
+                    handle={handleFor(m)}
                     nameClassName="text-xs font-medium truncate hover:text-primary transition-colors"
                   />
                   <span className="text-[9px] text-muted-foreground" style={bodyFont}>

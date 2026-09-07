@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { UserPlus, X, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import ProfileLink from "@/components/ProfileLink";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
+import { useRowHandles } from "@/hooks/profile/useMemberHandles";
 import { useDashboardContext } from "@/hooks/core/DashboardContext";
 import { useSendFriendRequest } from "@/hooks/social/useFriendshipMutations";
 import { getAdminIds } from "@/lib/adminBrand";
@@ -84,15 +85,29 @@ const FeedFriendSuggestions = () => {
    * five names in People You May Know shipped dead.
    */
   /*
-   * F-98c — THE HANDLE NOW TRAVELS WITH THE NAME.
+   * F-98c — THE HANDLE WAS SUPPOSED TO TRAVEL WITH THE NAME, AND ON THIS
+   * BRANCH IT DOES NOT.
    *
    * This read `useMemberHandles(...)`: a second, batched round trip that
    * fetched custom_url for members whose names had already arrived without it.
-   * The auditor's ruling on 2026-09-05, and it is the right one — two
-   * mechanisms delivering one handle is how the two drift apart, which is the
-   * same argument this codebase already made about author_badges. The server
+   * The auditor's ruling on 2026-09-05 withdrew it — two mechanisms delivering
+   * one handle is how the two drift apart, the same argument this codebase
+   * already made about author_badges — on the stated ground that "the server
    * now carries custom_url in the row (dashboard-init/index.ts suggestions
-   * literal), so the bridge is withdrawn rather than stacked on top of the fix.
+   * literal)".
+   *
+   * ⚠ 2026-09-07 — THAT SENTENCE IS NOT TRUE IN THIS TREE, and it is the whole
+   * of the Auditor's item 5. dashboard-init/index.ts:452 builds each suggestion
+   * as { id, full_name, avatar_url, mutual_count }; custom_url appears exactly
+   * twice in that entire file, both in the `profiles` map for the viewer and
+   * the winners. The server change is on staging, not on the promotion branch,
+   * so every name and avatar in this list is an unlinked span — measured live
+   * on 75f14f80 and 0e30d46e: zero anchor tags in the row.
+   *
+   * `useRowHandles` below is the bridge again, but only for the rows whose own
+   * source sent nothing, so there is no second mechanism to drift from and it
+   * falls silent by itself the moment D1's two words land. See the long note on
+   * that hook.
    */
 
   useEffect(() => {
@@ -105,6 +120,15 @@ const FeedFriendSuggestions = () => {
     })();
     return () => { cancelled = true; };
   }, [rawSuggestions]);
+
+  /*
+   * ITEM 5, THE APP'S OWN COPY. This component returns null on web, so the
+   * Auditor's Chromium check could not reach it — but it reads the SAME
+   * `sidebarData.suggestions` rows, so on a phone every name and avatar here
+   * is the same unlinked span. Fixed with the sidebar rather than after it:
+   * the surface he could not measure is not a different bug.
+   */
+  const handleFor = useRowHandles(rawSuggestions as Array<{ id: string; custom_url?: string | null }>);
 
   const people = useMemo(() => {
     const raw = rawSuggestions;
@@ -227,7 +251,7 @@ const FeedFriendSuggestions = () => {
                 <X className="h-3.5 w-3.5" />
               </button>
 
-              <ProfileLink userId={s.id} handle={s.custom_url} className="shrink-0">
+              <ProfileLink userId={s.id} handle={handleFor(s)} className="shrink-0">
                 {s.avatar_url ? (
                   <img
                     referrerPolicy="no-referrer"
@@ -257,7 +281,7 @@ const FeedFriendSuggestions = () => {
                 <UserIdentityBlock
                   userId={s.id}
                   name={s.full_name || "Photographer"}
-                  handle={s.custom_url}
+                  handle={handleFor(s)}
                   stack
                   align="center"
                   nameClassName="text-[11px] font-semibold text-foreground hover:text-primary transition-colors"

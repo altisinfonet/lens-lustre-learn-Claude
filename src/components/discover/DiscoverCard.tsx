@@ -16,8 +16,18 @@ interface DiscoverProfile {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
-  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
-  custom_url?: string | null;
+  /**
+   * F-95 — the name-URL handle, carried beside the name it belongs to.
+   *
+   * ⚠ NO LONGER OPTIONAL, 2026-09-07. It was `custom_url?:`, and the one page
+   * that renders this card never selected the column — so `undefined` was a
+   * legal value and every card on /discover rendered an unlinked name and an
+   * unlinked avatar. The `?` was what made a whole page of dead names a valid
+   * program. A caller that cannot supply a handle must now say so with an
+   * explicit `null`, which ProfileLink records as a decision rather than an
+   * omission, and which the typecheck forces someone to write down.
+   */
+  custom_url: string | null;
 }
 
 interface Props {
