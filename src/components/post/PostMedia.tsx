@@ -16,6 +16,8 @@ import { CDN_HOST as LANE_CDN_HOST, SITE_ORIGIN } from "@/lib/env";
 import { X, ChevronLeft, ChevronRight, Heart } from "lucide-react";
 import { useDownloadImage } from "@/hooks/core/useDownloadImage";
 import DownloadButton from "@/components/DownloadButton";
+import ProfileLink from "@/components/ProfileLink";
+import type { PhotoAuthor } from "@/components/FacebookPhotoGrid";
 import ZoomableImage from "@/components/media/ZoomableImage";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { frameAspectFor, frameAspectForUrls, parseImageDims } from "@/lib/imageFrame";
@@ -43,6 +45,13 @@ interface PostMediaProps {
    * uses, because there the figures appear on hover and never steal a click.
    */
   interceptFirstTap?: () => boolean;
+  /**
+   * The photograph's author, for the fullscreen viewer — RED #5 and #8.
+   * PostMedia carries its own copy of the viewer (the Auditor measured the one
+   * in FacebookPhotoGrid; this one had the identical defect), so it takes the
+   * identical prop rather than growing a second shape for the same fact.
+   */
+  author?: PhotoAuthor;
 }
 
 /**
@@ -68,7 +77,7 @@ interface PostMediaProps {
  * A photo WITH dimensions in its name is never measured, so new posts still
  * have zero reflow.
  */
-const PostMedia = ({ urls, thumbUrls, onDoubleTapLike, interceptFirstTap }: PostMediaProps) => {
+const PostMedia = ({ urls, thumbUrls, onDoubleTapLike, interceptFirstTap, author }: PostMediaProps) => {
   const first = urls[0];
   // One frame per card, taken from the first photo — see src/lib/imageFrame.ts.
   // An album must not resize between slides: the buttons would move under the
@@ -94,9 +103,9 @@ const PostMedia = ({ urls, thumbUrls, onDoubleTapLike, interceptFirstTap }: Post
 
   const frameAspect = measuredAspect ?? declaredAspect;
   if (urls.length === 1) {
-    return <SingleImagePost src={first} thumb={thumbUrls?.[0]} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} />;
+    return <SingleImagePost src={first} thumb={thumbUrls?.[0]} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} author={author} />;
   }
-  return <AlbumCarousel urls={urls} thumbUrls={thumbUrls} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} />;
+  return <AlbumCarousel urls={urls} thumbUrls={thumbUrls} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} author={author} />;
 };
 
 /* ── Supabase render-endpoint helpers ──
@@ -548,7 +557,7 @@ function useTapOrDoubleTap(
 }
 
 /* ── Single Image ── */
-const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLike, interceptFirstTap }: { src: string; thumb?: string | null; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean }) => {
+const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLike, interceptFirstTap, author }: { src: string; thumb?: string | null; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean; author?: PhotoAuthor }) => {
   const [heart, setHeart] = useState<{ x: number; y: number; id: number } | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const { downloading, download } = useDownloadImage();
@@ -582,7 +591,7 @@ const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLi
       {/* The viewer is handed the ORIGINAL url, never the 800px render copy
           the card displays. Zooming a downscaled thumbnail would magnify the
           downscale, which is the opposite of the point. */}
-      <CarouselLightbox urls={[src]} currentIndex={lightboxOpen ? 0 : null} onClose={() => setLightboxOpen(false)} onNavigate={() => {}} />
+      <CarouselLightbox urls={[src]} currentIndex={lightboxOpen ? 0 : null} onClose={() => setLightboxOpen(false)} onNavigate={() => {}} author={author} />
     </>
   );
 };
@@ -594,7 +603,7 @@ function preloadImage(url: string | undefined) { if (!url) return; const img = n
 const SWIPE_THRESHOLD = 50;
 const SWIPE_VELOCITY = 300;
 
-const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTapLike, interceptFirstTap }: { urls: string[]; thumbUrls?: (string | null | undefined)[]; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean }) => {
+const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTapLike, interceptFirstTap, author }: { urls: string[]; thumbUrls?: (string | null | undefined)[]; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean; author?: PhotoAuthor }) => {
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -697,15 +706,15 @@ const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTa
         </div>
       </div>
 
-      <CarouselLightbox urls={urls} currentIndex={lightboxOpen ? current : null} onClose={() => setLightboxOpen(false)} onNavigate={setCurrent} />
+      <CarouselLightbox urls={urls} currentIndex={lightboxOpen ? current : null} onClose={() => setLightboxOpen(false)} onNavigate={setCurrent} author={author} />
     </>
   );
 };
 
 /* ── Full-screen Lightbox ── */
-interface CarouselLightboxProps { urls: string[]; currentIndex: number | null; onClose: () => void; onNavigate: (index: number) => void; }
+interface CarouselLightboxProps { urls: string[]; currentIndex: number | null; onClose: () => void; onNavigate: (index: number) => void; author?: PhotoAuthor; }
 
-const CarouselLightbox = ({ urls, currentIndex, onClose, onNavigate }: CarouselLightboxProps) => {
+const CarouselLightbox = ({ urls, currentIndex, onClose, onNavigate, author }: CarouselLightboxProps) => {
   const isOpen = currentIndex !== null;
   const { downloading, download } = useDownloadImage();
   const [zoomed, setZoomed] = useState(false);
@@ -725,7 +734,31 @@ const CarouselLightbox = ({ urls, currentIndex, onClose, onNavigate }: CarouselL
     <AnimatePresence>
       {isOpen && currentIndex !== null && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}
+          /* ⚠ Dialog semantics — the same repair as FacebookPhotoGrid's copy of
+             this viewer, made in the same commit. Measured by the Auditor on the
+             deployed preview: a fixed overlay with no role, no aria-modal and no
+             accessible name, so a screen reader kept walking the feed behind an
+             open photograph. See the long note there for why aria-modal alone is
+             the right instrument. */
+          role="dialog"
+          aria-modal="true"
+          aria-label={author?.name ? `Photograph by ${author.name} — full size` : "Photograph — full size"}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm" onClick={onClose}>
+          {/* RED #5 + #8 — the name comes FIRST in the dialog, before the
+              chrome, so it is what a reader announces and what the first Tab
+              reaches. Top-left, in open space: nothing sits above it, so the
+              44px region can only grow into emptiness (F-109). */}
+          {author?.name && (
+            <div className="absolute top-4 left-4 z-10 max-w-[60vw]" onClick={(e) => e.stopPropagation()}>
+              <ProfileLink
+                userId={author.userId}
+                handle={author.handle}
+                className="inline-flex items-center tap-44-down text-sm text-white/90 hover:text-white underline-offset-4 hover:underline truncate"
+              >
+                {author.name}
+              </ProfileLink>
+            </div>
+          )}
           <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
             <span className="text-sm text-white/60 mr-2">{currentIndex + 1} / {urls.length}</span>
             <DownloadButton
@@ -733,17 +766,18 @@ const CarouselLightbox = ({ urls, currentIndex, onClose, onNavigate }: CarouselL
               onClick={(e) => { e.stopPropagation(); download(urls[currentIndex]); }}
               className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors disabled:opacity-60"
               iconSize="h-5 w-5"
+              ariaLabel="Download photo"
             />
-            <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
+            <button onClick={onClose} aria-label="Close photo viewer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
               <X className="h-5 w-5" />
             </button>
           </div>
           {urls.length > 1 && !zoomed && (
             <>
-              <button onClick={(e) => { e.stopPropagation(); goPrev(); }} className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all">
+              <button onClick={(e) => { e.stopPropagation(); goPrev(); }} aria-label="Previous photo" className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all">
                 <ChevronLeft className="h-6 w-6" />
               </button>
-              <button onClick={(e) => { e.stopPropagation(); goNext(); }} className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all">
+              <button onClick={(e) => { e.stopPropagation(); goNext(); }} aria-label="Next photo" className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all">
                 <ChevronRight className="h-6 w-6" />
               </button>
             </>

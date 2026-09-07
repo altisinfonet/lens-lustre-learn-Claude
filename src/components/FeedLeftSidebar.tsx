@@ -157,16 +157,57 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
           </div>
           {trendingPhotos.length > 0 ? (
             <div className="grid grid-cols-2 gap-1 p-2">
-              {trendingPhotos.map((photo: any) => (
-                <div key={photo.id} className="relative group aspect-square overflow-hidden rounded-sm">
-                  <img src={photo.image_url} alt={photo.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="absolute bottom-1 left-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <p className="text-[8px] text-white truncate" style={headingFont}>{photo.title}</p>
-                    <span className="text-[7px] text-white/70" style={bodyFont}>❤️ {photo.reaction_count}</span>
+              {trendingPhotos.map((photo: any) => {
+                /*
+                 * ⚠ THESE TILES HAD NO INTERACTIVE WRAPPER AT ALL. Measured by
+                 * the Auditor on the deployed preview by walking the ancestor
+                 * chain: no <a>, no <button>, no tabindex, no role. A keyboard
+                 * could not reach them and a screen reader announced four
+                 * decorative images. The main feed already does this correctly
+                 * with real anchors, so this matches that pattern rather than
+                 * inventing a clickable div.
+                 *
+                 * ⚠ AND ONE SOURCE STILL CANNOT BE LINKED, honestly. The
+                 * dashboard-init payload carries { id, image_url, title,
+                 * reaction_count, source }: an entry id resolves to /entry/:id
+                 * and a post id to /post/:id, but a `portfolio` row carries no
+                 * owner id, and there is no route that takes a portfolio image
+                 * id. A <button> that navigates nowhere would be worse than a
+                 * plain tile — it would announce itself as a control and then
+                 * do nothing — so a portfolio tile stays a figure, and the
+                 * missing field is reported to D1, whose function that is.
+                 */
+                const href =
+                  photo.source === "entry" ? `/entry/${photo.id}`
+                  : photo.source === "post" ? `/post/${photo.id}`
+                  : null;
+
+                const inner = (
+                  <>
+                    <img src={photo.image_url} alt={photo.title || "Trending photograph"} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" decoding="async" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="absolute bottom-1 left-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <p className="text-[8px] text-white truncate" style={headingFont}>{photo.title}</p>
+                      <span className="text-[7px] text-white/70" style={bodyFont}>❤️ {photo.reaction_count}</span>
+                    </div>
+                  </>
+                );
+
+                return href ? (
+                  <Link
+                    key={photo.id}
+                    to={href}
+                    aria-label={photo.title ? `Open ${photo.title}` : "Open trending photograph"}
+                    className="relative group aspect-square overflow-hidden rounded-sm block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    {inner}
+                  </Link>
+                ) : (
+                  <div key={photo.id} className="relative group aspect-square overflow-hidden rounded-sm">
+                    {inner}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="p-4 text-center">

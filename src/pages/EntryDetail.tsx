@@ -308,7 +308,7 @@ const EntryDetail = () => {
                 </div>
               ) : (
                 <div className="relative">
-                  <FacebookPhotoGrid urls={entry.photos} />
+                  <FacebookPhotoGrid urls={entry.photos} author={{ userId: entry.user_id, name: entry.author_name ?? null, handle: entry.author_handle ?? null }} />
                   <PhaseWatermark
                     phase={entry.competitionPhase}
                     currentRound={entry.competitionCurrentRound}

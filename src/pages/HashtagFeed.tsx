@@ -197,7 +197,7 @@ const HashtagFeed = () => {
 
               {/* Images */}
               {post.image_urls.length > 0 && (
-                <FacebookPhotoGrid urls={post.image_urls} />
+                <FacebookPhotoGrid urls={post.image_urls} author={{ userId: post.user_id, name: post.author_name ?? null, handle: post.author_handle ?? null }} />
               )}
             </div>
           ))}
