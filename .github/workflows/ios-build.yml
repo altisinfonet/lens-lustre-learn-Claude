@@ -152,8 +152,6 @@ jobs:
 
       - name: Archive
         env:
-          TEAM_ID: ${{ steps.profile.outputs.team_id }}
-          PROFILE_UUID: ${{ steps.profile.outputs.uuid }}
           CONTAINER_FLAG: ${{ steps.verify.outputs.container_flag }}
           CONTAINER_PATH: ${{ steps.verify.outputs.container_path }}
         run: |
@@ -161,26 +159,25 @@ jobs:
 
           # Capacitor 8's SPM integration resolves each plugin (IONCameraLib,
           # IONFilesystemLib, etc.) as its own Swift Package library target in
-          # the same build graph as the App target. xcodebuild CLI overrides
-          # like PROVISIONING_PROFILE=... apply globally to every target in
-          # the build - but library-type SPM targets aren't signable bundles,
-          # and error out ("does not support provisioning profiles") if one is
-          # force-applied to them. Scope manual signing to just the App target
-          # via an xcconfig using Xcode's [target=Name] qualifier instead of
-          # global CLI overrides, so SPM package targets are left alone.
-          cat > "$RUNNER_TEMP/Signing.xcconfig" <<XCCONFIG
-          CODE_SIGN_STYLE[target=App] = Manual
-          CODE_SIGN_IDENTITY[target=App] = Apple Distribution
-          DEVELOPMENT_TEAM[target=App] = $TEAM_ID
-          PROVISIONING_PROFILE[target=App] = $PROFILE_UUID
-          XCCONFIG
-
+          # the same build graph as the App target. Any code-signing settings
+          # applied during the archive build - CLI overrides, or an xcconfig -
+          # get forced onto every target in that graph, and library-type SPM
+          # targets aren't signable bundles, so they error out ("does not
+          # support provisioning profiles"). Xcode's xcconfig format has no
+          # per-target qualifier to scope around this (there is no such thing
+          # as `SETTING[target=Name]` - that was tried and rejected by
+          # xcodebuild as malformed). The standard workaround: skip signing
+          # entirely during archive, and let the "Export IPA" step - which
+          # already uses ExportOptions.plist with signingStyle: manual and the
+          # specific certificate/profile - perform the actual signing
+          # afterward, on just the App bundle.
           xcodebuild "$CONTAINER_FLAG" "$CONTAINER_PATH" \
             -scheme App \
             -configuration Release \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
             -destination 'generic/platform=iOS' \
-            -xcconfig "$RUNNER_TEMP/Signing.xcconfig" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
             PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
             clean archive
 
