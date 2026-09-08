@@ -142,6 +142,7 @@ jobs:
           fi
 
       - name: Import Distribution Certificate + Provisioning Profile
+        id: cert
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           BUILD_CERTIFICATE_PASSWORD: ${{ secrets.BUILD_CERTIFICATE_PASSWORD }}
@@ -170,6 +171,32 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed 's/"//g')
 
+          # GUARD: prove the identity is actually usable for code signing before
+          # spending four minutes building. Importing a .p12 can succeed while
+          # leaving no usable identity (wrong password, cert without its private
+          # key, key not in the partition list). Until now nothing verified
+          # this, because every build so far either skipped signing or used
+          # cloud signing - so a broken identity would only have surfaced as a
+          # confusing failure much later.
+          echo "Code signing identities in build keychain:"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
+          # Accept either naming. Apple renamed the distribution certificate
+          # type from "iPhone Distribution" to "Apple Distribution"; both are
+          # valid for App Store submission, and hard-coding one would reject a
+          # perfectly good certificate.
+          IDENTITIES=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" || true)
+          if echo "$IDENTITIES" | grep -q "Apple Distribution"; then
+            SIGN_IDENTITY="Apple Distribution"
+          elif echo "$IDENTITIES" | grep -q "iPhone Distribution"; then
+            SIGN_IDENTITY="iPhone Distribution"
+          else
+            echo "::error::No distribution code signing identity in the keychain after importing BUILD_CERTIFICATE_BASE64. The .p12 must contain an 'Apple Distribution' (or legacy 'iPhone Distribution') certificate AND its private key, and BUILD_CERTIFICATE_PASSWORD must match. Identities found above."
+            exit 1
+          fi
+          echo "Using signing identity: $SIGN_IDENTITY"
+          echo "sign_identity=$SIGN_IDENTITY" >> "$GITHUB_OUTPUT"
+
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp "$PROFILE_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
 
@@ -178,8 +205,46 @@ jobs:
         run: |
           set -euo pipefail
           PROFILE="$RUNNER_TEMP/profile.mobileprovision"
-          UUID=$(security cms -D -i "$PROFILE" | plutil -extract UUID xml1 -o - - | sed -n 's/.*<string>\(.*\)<\/string>.*/\1/p')
-          TEAM_ID=$(security cms -D -i "$PROFILE" | plutil -extract TeamIdentifier.0 xml1 -o - - | sed -n 's/.*<string>\(.*\)<\/string>.*/\1/p')
+          PLIST=$(security cms -D -i "$PROFILE")
+          # `|| true` matters: this step runs under `set -euo pipefail`, and
+          # plutil exits non-zero for a key that is absent (Name and
+          # application-identifier are both optional in principle). Without it,
+          # a missing key aborts the step with no diagnostic at all.
+          extract() { echo "$PLIST" | plutil -extract "$1" xml1 -o - - 2>/dev/null | sed -n 's/.*<string>\(.*\)<\/string>.*/\1/p' || true; }
+
+          UUID=$(extract UUID)
+          TEAM_ID=$(extract TeamIdentifier.0)
+          NAME=$(extract Name)
+          APP_ID=$(extract Entitlements.application-identifier)
+
+          echo "Profile name : $NAME"
+          echo "Profile UUID : $UUID"
+          echo "Team ID      : $TEAM_ID"
+          echo "App ID       : $APP_ID"
+
+          # GUARD: catch a mismatched or wrong-type profile now, with a clear
+          # message, instead of as an opaque signing failure minutes later.
+          if [ -z "$UUID" ] || [ -z "$TEAM_ID" ]; then
+            echo "::error::Could not read UUID/TeamIdentifier from the provisioning profile. Is BUILD_PROVISION_PROFILE_BASE64 a valid .mobileprovision?"
+            exit 1
+          fi
+          # application-identifier is "<TEAMID>.<bundle id>"; it must match this
+          # app (or be a wildcard ending in .*).
+          case "$APP_ID" in
+            *".$BUNDLE_ID") : ;;
+            *".*") echo "Note: wildcard profile in use." ;;
+            *)
+              echo "::error::Provisioning profile is for '$APP_ID' but this build produces '$BUNDLE_ID'. Upload a profile matching the bundle id."
+              exit 1
+              ;;
+          esac
+          # An App Store profile has no ProvisionedDevices key. A development or
+          # ad-hoc profile does - and it cannot be used for an App Store export.
+          if echo "$PLIST" | plutil -extract ProvisionedDevices xml1 -o - - >/dev/null 2>&1; then
+            echo "::error::This profile contains ProvisionedDevices, so it is a Development/Ad Hoc profile. App Store export needs an App Store distribution profile."
+            exit 1
+          fi
+
           echo "uuid=$UUID" >> "$GITHUB_OUTPUT"
           echo "team_id=$TEAM_ID" >> "$GITHUB_OUTPUT"
 
@@ -200,9 +265,10 @@ jobs:
           APP_STORE_KEY_BASE64: ${{ secrets.APP_STORE_KEY_BASE64 }}
         run: |
           set -euo pipefail
-          # One key file, used by three consumers: xcodebuild archive,
-          # xcodebuild -exportArchive (both via -authenticationKey*), and
-          # altool (which insists on ~/.appstoreconnect/private_keys).
+          # Used by the altool upload at the end, which requires the key in
+          # ~/.appstoreconnect/private_keys. Archive and export deliberately do
+          # NOT use this key: passing it to xcodebuild enables cloud signing,
+          # which is what build #14 failed on.
           KEYDIR="$RUNNER_TEMP/private_keys"
           mkdir -p "$KEYDIR" ~/.appstoreconnect/private_keys
           KEYPATH="$KEYDIR/AuthKey_${APP_STORE_KEY_ID}.p8"
@@ -210,74 +276,140 @@ jobs:
           cp "$KEYPATH" ~/.appstoreconnect/private_keys/
           echo "key_path=$KEYPATH" >> "$GITHUB_OUTPUT"
 
+      - name: Configure manual signing on the App target only
+        env:
+          TEAM_ID: ${{ steps.profile.outputs.team_id }}
+          PROFILE_UUID: ${{ steps.profile.outputs.uuid }}
+          SIGN_IDENTITY: ${{ steps.cert.outputs.sign_identity }}
+        run: |
+          set -euo pipefail
+          # THE point of this step: xcodebuild CLI settings (KEY=VALUE) are
+          # GLOBAL - they hit every target in the graph, including Capacitor's
+          # SPM plugin targets and the embedded IONCameraLib/IONFilesystemLib
+          # frameworks. Provisioning profiles are only meaningful on an app
+          # bundle, so any global profile setting makes those targets fail with
+          # "does not support provisioning profiles". Xcode's xcconfig format
+          # has no per-target qualifier either. The supported way to scope a
+          # setting to ONE target is to write it into the project file, which
+          # is what this does - the App target gets manual signing with the
+          # real profile, and every other target is left completely alone to be
+          # signed with just the identity, which is correct for frameworks.
+          #
+          # ios/ is not committed (cap add ios regenerates it every run), so
+          # this patch has to happen here in CI, after sync and before archive.
+          #
+          # xcodeproj ships as a CocoaPods dependency and CocoaPods is
+          # preinstalled on the macOS runner image - but it may live under a
+          # different ruby than the default `ruby` on PATH, so verify rather
+          # than assume, and install it if the require fails.
+          if ! ruby -e 'require "xcodeproj"' 2>/dev/null; then
+            echo "xcodeproj gem not visible to the default ruby - installing it."
+            sudo gem install xcodeproj --no-document
+          fi
+          ruby -e 'require "xcodeproj"' || { echo "::error::xcodeproj gem unavailable; cannot scope signing to the App target."; exit 1; }
+
+          ruby -e '
+            require "xcodeproj"
+            path = "ios/App/App.xcodeproj"
+            project = Xcodeproj::Project.open(path)
+            target = project.targets.find { |t| t.name == "App" }
+            abort("::error::No App target found in #{path}") unless target
+            target.build_configurations.each do |config|
+              config.build_settings["CODE_SIGN_STYLE"] = "Manual"
+              config.build_settings["DEVELOPMENT_TEAM"] = ENV["TEAM_ID"]
+              config.build_settings["PROVISIONING_PROFILE_SPECIFIER"] = ENV["PROFILE_UUID"]
+              config.build_settings["CODE_SIGN_IDENTITY"] = ENV["SIGN_IDENTITY"]
+              config.build_settings["PRODUCT_BUNDLE_IDENTIFIER"] = ENV["BUNDLE_ID"]
+            end
+            project.save
+            puts "Signing configured on App target only (#{target.build_configurations.size} configurations)."
+          '
+
+          # GUARD: read the settings back out of the saved project and fail here
+          # if they did not stick, rather than discovering it during signing.
+          ruby -e '
+            require "xcodeproj"
+            project = Xcodeproj::Project.open("ios/App/App.xcodeproj")
+            target = project.targets.find { |t| t.name == "App" }
+            release = target.build_configurations.find { |c| c.name == "Release" }
+            got = release.build_settings
+            expected = {
+              "CODE_SIGN_STYLE" => "Manual",
+              "DEVELOPMENT_TEAM" => ENV["TEAM_ID"],
+              "PROVISIONING_PROFILE_SPECIFIER" => ENV["PROFILE_UUID"],
+              "PRODUCT_BUNDLE_IDENTIFIER" => ENV["BUNDLE_ID"]
+            }
+            bad = expected.reject { |k, v| got[k] == v }
+            unless bad.empty?
+              bad.each { |k, v| STDERR.puts "::error::App target Release setting #{k} is #{got[k].inspect}, expected #{v.inspect}" }
+              exit 1
+            end
+            puts "Verified on App/Release: #{expected.keys.join(", ")}."
+            others = project.targets.reject { |t| t.name == "App" }
+            leaked = others.select { |t| t.build_configurations.any? { |c| c.build_settings["PROVISIONING_PROFILE_SPECIFIER"] } }
+            unless leaked.empty?
+              STDERR.puts "::error::Provisioning profile leaked onto non-app targets: #{leaked.map(&:name).join(", ")}"
+              exit 1
+            end
+            puts "Verified no other target carries a provisioning profile."
+          '
+
       - name: Archive
         env:
           CONTAINER_FLAG: ${{ steps.verify.outputs.container_flag }}
           CONTAINER_PATH: ${{ steps.verify.outputs.container_path }}
-          TEAM_ID: ${{ steps.profile.outputs.team_id }}
-          KEY_PATH: ${{ steps.asckey.outputs.key_path }}
-          APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
-          APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
         run: |
           set -euo pipefail
 
-          # SIGNING MODEL - read this before changing any flag here.
+          # SIGNING MODEL - read this before adding any KEY=VALUE flag here.
           #
-          # Capacitor 8's SPM integration puts each plugin in the build graph
-          # as its own target, and two of them (IONCameraLib, IONFilesystemLib)
-          # end up as embedded dynamic *frameworks* inside the .app. That
-          # creates two traps, and this workflow has now hit both:
+          # Deliberately NO signing settings on this command line. All of them
+          # are now set on the App target alone by the previous step, because
+          # CLI settings are global and Capacitor's SPM plugin targets and the
+          # embedded IONCameraLib/IONFilesystemLib frameworks cannot take a
+          # provisioning profile. This workflow has already burned three builds
+          # learning that, in three different disguises:
           #
-          # 1. Forcing PROVISIONING_PROFILE / PROVISIONING_PROFILE_SPECIFIER as
-          #    a global CLI override applies it to every target. Frameworks and
-          #    SPM library targets cannot carry a provisioning profile, so the
-          #    build dies with "does not support provisioning profiles".
+          #   #12 and earlier - global PROVISIONING_PROFILE -> archive failed
+          #                     with "does not support provisioning profiles".
+          #   #13            - archived with CODE_SIGNING_ALLOWED=NO, which
+          #                     left the frameworks unsigned, so manual export
+          #                     tried to find profiles for them and failed the
+          #                     same way one step later.
+          #   #14            - switched to automatic/cloud signing, which needs
+          #                     the App Store Connect API key to hold signing
+          #                     permission it does not have: "Cloud signing
+          #                     permission error / No profiles for
+          #                     com.fiftymmretina.app were found".
           #
-          # 2. Reacting to (1) by archiving with CODE_SIGNING_ALLOWED=NO leaves
-          #    those embedded frameworks UNSIGNED in the archive. -exportArchive
-          #    must then sign them, and under signingStyle: manual it resolves a
-          #    profile per bundle - including the frameworks - so it fails with
-          #    the exact same message, just one step later. That is what build
-          #    #13 hit, after ARCHIVE SUCCEEDED.
-          #
-          # The way out is not another override: it is to let Xcode sign
-          # normally, with automatic signing driven by the App Store Connect
-          # API key. Xcode then gives the App target a real profile and signs
-          # the embedded frameworks with the identity alone - frameworks never
-          # get profiles, which is precisely the rule both failures were
-          # violating. DEVELOPMENT_TEAM and CODE_SIGN_STYLE are safe as global
-          # overrides (every target accepts them); PROVISIONING_PROFILE* is
-          # not, and is deliberately absent.
+          # The distribution certificate and the App Store profile are already
+          # in the keychain from the import step, so no cloud signing and no
+          # extra Apple permissions are needed - just point the App target at
+          # them, which is exactly what the previous step did.
           xcodebuild "$CONTAINER_FLAG" "$CONTAINER_PATH" \
             -scheme App \
             -configuration Release \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
             -destination 'generic/platform=iOS' \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$KEY_PATH" \
-            -authenticationKeyID "$APP_STORE_KEY_ID" \
-            -authenticationKeyIssuerID "$APP_STORE_ISSUER_ID" \
-            CODE_SIGN_STYLE=Automatic \
-            DEVELOPMENT_TEAM="$TEAM_ID" \
-            PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
             clean archive
 
       - name: Export IPA
         env:
           TEAM_ID: ${{ steps.profile.outputs.team_id }}
-          KEY_PATH: ${{ steps.asckey.outputs.key_path }}
-          APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
-          APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
+          PROFILE_UUID: ${{ steps.profile.outputs.uuid }}
         run: |
           set -euo pipefail
-          # signingStyle: automatic to match the archive, and NO
-          # provisioningProfiles dict. Under manual style Xcode looks up a
-          # profile for every bundle it signs, including the embedded
-          # IONCameraLib/IONFilesystemLib frameworks, which cannot have one -
-          # that is the "does not support provisioning profiles" export
-          # failure. Automatic style signs frameworks with the identity only
-          # and reserves profiles for the app bundle, which is the correct
-          # model for an app with embedded frameworks.
+          # Manual signing, matching the archive. The provisioningProfiles dict
+          # names ONLY the app bundle id - frameworks are absent on purpose and
+          # get signed with the identity inherited from the app. This is safe
+          # here (where it was not in build #13) because the archive is now
+          # properly signed, so export is re-signing already-signed frameworks
+          # rather than having to provision them from scratch.
+          #
+          # No -allowProvisioningUpdates and no -authenticationKey* flags:
+          # those trigger cloud signing, which is what build #14 failed on
+          # ("Cloud signing permission error"). Everything needed is already
+          # in the keychain.
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -288,9 +420,14 @@ jobs:
             <key>teamID</key>
             <string>$TEAM_ID</string>
             <key>signingStyle</key>
-            <string>automatic</string>
+            <string>manual</string>
             <key>uploadSymbols</key>
             <true/>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>$BUNDLE_ID</key>
+              <string>$PROFILE_UUID</string>
+            </dict>
           </dict>
           </plist>
           PLIST
@@ -298,11 +435,7 @@ jobs:
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
-            -exportPath "$RUNNER_TEMP/export" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$KEY_PATH" \
-            -authenticationKeyID "$APP_STORE_KEY_ID" \
-            -authenticationKeyIssuerID "$APP_STORE_ISSUER_ID"
+            -exportPath "$RUNNER_TEMP/export"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
