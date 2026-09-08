@@ -19,11 +19,13 @@ name: iOS Build
 # the App ID used to generate the provisioning profile).
 #
 # SCOPE NOTE: this first iOS build wires up the core, iOS-safe plugins only
-# (share, splash-screen, filesystem, camera, app, browser). Firebase push
+# (share, filesystem, camera, app, browser). Firebase push
 # (@capacitor-firebase/messaging) and Play-style in-app updates
 # (@capawesome/capacitor-app-update) are Android-specific setups — push needs
 # an APNs key + proper iOS setup, and in-app updates don't work that way on
 # iOS at all. Add push as a deliberate follow-up, not by just flipping it on.
+# splash-screen is temporarily excluded too - see the note on the plugin
+# install step below (upstream Capacitor version incompatibility on iOS).
 #
 # NODE 22, NOT 20 - matches android-build.yml. @capacitor/cli 8.5.0 requires it.
 #
@@ -68,9 +70,21 @@ jobs:
 
       - name: Install Capacitor + iOS-safe native plugins (pinned)
         run: |
+          # @capacitor/splash-screen@8.0.2 (the latest published version as of
+          # writing) is intentionally excluded here: its iOS Swift source
+          # predates breaking changes in @capacitor/core@8.5.0's Swift API
+          # (CAPBridgeProtocol.viewController, CAPPluginCall.reject,
+          # PluginConfig.getString, and a UIColor.capacitor.color argument
+          # label all changed), so it fails to compile against this core
+          # version - splash-screen 8.0.2 shipped 2026-07-15, core 8.5.0
+          # shipped 2026-07-31, and no newer splash-screen release has fixed
+          # this yet. Nothing in src/ imports this plugin directly, so
+          # dropping it here does not affect the web bundle. Re-add it once
+          # Capacitor ships a compatible splash-screen release; android-build
+          # is unaffected (separate Kotlin implementation, not broken).
           npm install --no-audit --no-fund \
             @capacitor/core@8.5.0 @capacitor/cli@8.5.0 @capacitor/ios@8.5.0 \
-            @capacitor/share@8.0.1 @capacitor/splash-screen@8.0.2 \
+            @capacitor/share@8.0.1 \
             @capacitor/filesystem@8.1.2 @capacitor/camera@8.2.2 \
             @capacitor/app@8.1.1 @capacitor/browser@8.0.4
 
