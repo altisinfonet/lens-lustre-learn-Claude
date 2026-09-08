@@ -101,6 +101,11 @@ jobs:
           echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERT_PATH"
           echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$PROFILE_PATH"
 
+          echo "DEBUG: cert file size=$(wc -c < "$CERT_PATH") sha256=$(shasum -a 256 "$CERT_PATH" | awk '{print $1}')"
+          echo "DEBUG: profile file size=$(wc -c < "$PROFILE_PATH") sha256=$(shasum -a 256 "$PROFILE_PATH" | awk '{print $1}')"
+          echo "DEBUG: password length=${#BUILD_CERTIFICATE_PASSWORD}"
+          echo "DEBUG: base64 secret length=${#BUILD_CERTIFICATE_BASE64}"
+
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
