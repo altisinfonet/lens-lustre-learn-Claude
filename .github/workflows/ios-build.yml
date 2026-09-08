@@ -81,10 +81,27 @@ jobs:
         run: npx cap sync ios
 
       - name: Verify synced assets exist
+        id: verify
         run: |
           set -euo pipefail
           PUB="ios/App/App/public"
           test -f "$PUB/index.html" || { echo "::error::No synced web assets at $PUB - cap sync did not run?"; exit 1; }
+
+          # Capacitor 8+ integrates iOS native deps via Swift Package Manager by
+          # default (writes Package.swift, no CocoaPods `pod install`), so no
+          # CocoaPods-generated App.xcworkspace exists - only App.xcodeproj.
+          # Detect whichever container cap sync actually produced so Archive
+          # stays correct whether SPM or CocoaPods integration is in use.
+          if [ -d "ios/App/App.xcworkspace" ]; then
+            echo "container_flag=-workspace" >> "$GITHUB_OUTPUT"
+            echo "container_path=ios/App/App.xcworkspace" >> "$GITHUB_OUTPUT"
+          elif [ -d "ios/App/App.xcodeproj" ]; then
+            echo "container_flag=-project" >> "$GITHUB_OUTPUT"
+            echo "container_path=ios/App/App.xcodeproj" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Neither ios/App/App.xcworkspace nor ios/App/App.xcodeproj exists after cap sync"
+            exit 1
+          fi
 
       - name: Import Distribution Certificate + Provisioning Profile
         env:
@@ -137,9 +154,11 @@ jobs:
         env:
           TEAM_ID: ${{ steps.profile.outputs.team_id }}
           PROFILE_UUID: ${{ steps.profile.outputs.uuid }}
+          CONTAINER_FLAG: ${{ steps.verify.outputs.container_flag }}
+          CONTAINER_PATH: ${{ steps.verify.outputs.container_path }}
         run: |
           set -euo pipefail
-          xcodebuild -workspace ios/App/App.xcworkspace \
+          xcodebuild "$CONTAINER_FLAG" "$CONTAINER_PATH" \
             -scheme App \
             -configuration Release \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
