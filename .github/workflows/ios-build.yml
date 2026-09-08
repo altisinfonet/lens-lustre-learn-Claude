@@ -158,15 +158,29 @@ jobs:
           CONTAINER_PATH: ${{ steps.verify.outputs.container_path }}
         run: |
           set -euo pipefail
+
+          # Capacitor 8's SPM integration resolves each plugin (IONCameraLib,
+          # IONFilesystemLib, etc.) as its own Swift Package library target in
+          # the same build graph as the App target. xcodebuild CLI overrides
+          # like PROVISIONING_PROFILE=... apply globally to every target in
+          # the build - but library-type SPM targets aren't signable bundles,
+          # and error out ("does not support provisioning profiles") if one is
+          # force-applied to them. Scope manual signing to just the App target
+          # via an xcconfig using Xcode's [target=Name] qualifier instead of
+          # global CLI overrides, so SPM package targets are left alone.
+          cat > "$RUNNER_TEMP/Signing.xcconfig" <<XCCONFIG
+          CODE_SIGN_STYLE[target=App] = Manual
+          CODE_SIGN_IDENTITY[target=App] = Apple Distribution
+          DEVELOPMENT_TEAM[target=App] = $TEAM_ID
+          PROVISIONING_PROFILE[target=App] = $PROFILE_UUID
+          XCCONFIG
+
           xcodebuild "$CONTAINER_FLAG" "$CONTAINER_PATH" \
             -scheme App \
             -configuration Release \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
             -destination 'generic/platform=iOS' \
-            DEVELOPMENT_TEAM="$TEAM_ID" \
-            PROVISIONING_PROFILE="$PROFILE_UUID" \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
+            -xcconfig "$RUNNER_TEMP/Signing.xcconfig" \
             PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
             clean archive
 
