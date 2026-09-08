@@ -115,6 +115,55 @@ jobs:
       - name: Add iOS platform
         run: npx cap add ios
 
+      - name: Generate app icon and splash screens from resources/
+        run: |
+          set -euo pipefail
+          # WHY THIS EXISTS: `cap add ios` scaffolds Capacitor's DEFAULT
+          # placeholder icon. Nothing replaced it, so builds 1-16 shipped that
+          # placeholder instead of the real logo - App Store Connect showed it
+          # as the app icon, because Apple takes the icon from the binary and
+          # there is nowhere to upload one by hand. android-build.yml has run
+          # `capacitor-assets generate --android` all along; the iOS workflow
+          # simply never had the equivalent step.
+          #
+          # resources/icon.png is 1024x1024 RGB with no alpha channel, which is
+          # what the App Store requires (an alpha channel in the marketing icon
+          # is an automatic rejection).
+          ICONSET="ios/App/App/Assets.xcassets/AppIcon.appiconset"
+          BEFORE=$(find "$ICONSET" -name '*.png' -exec shasum -a 256 {} + 2>/dev/null | shasum -a 256 | awk '{print $1}')
+          echo "Placeholder iconset checksum: $BEFORE"
+
+          npm install --no-audit --no-fund -D @capacitor/assets@3.0.5
+          npx capacitor-assets generate --ios \
+            --iconBackgroundColor '#0f172a' --splashBackgroundColor '#0f172a'
+
+          AFTER=$(find "$ICONSET" -name '*.png' -exec shasum -a 256 {} + 2>/dev/null | shasum -a 256 | awk '{print $1}')
+          echo "Generated iconset checksum:   $AFTER"
+
+          # GUARD: no `|| true` here on purpose. If generation silently no-ops,
+          # the build must fail loudly rather than ship the placeholder again.
+          if [ "$BEFORE" = "$AFTER" ]; then
+            echo "::error::capacitor-assets did not change the app icons - the placeholder icon is still in place. Check that resources/icon.png exists and is readable."
+            exit 1
+          fi
+
+          # GUARD: the marketing icon must be exactly 1024x1024 and have no
+          # alpha channel, or App Store Connect rejects the binary.
+          BIG=$(find "$ICONSET" -name '*.png' -exec sh -c 'echo "$(sips -g pixelWidth "$1" | awk "/pixelWidth/{print \$2}") $1"' _ {} \; | sort -rn | head -1 | cut -d' ' -f2-)
+          echo "Largest generated icon: $BIG"
+          W=$(sips -g pixelWidth "$BIG" | awk '/pixelWidth/{print $2}')
+          H=$(sips -g pixelHeight "$BIG" | awk '/pixelHeight/{print $2}')
+          A=$(sips -g hasAlpha "$BIG" | awk '/hasAlpha/{print $2}')
+          echo "Marketing icon: ${W}x${H}, hasAlpha=${A}"
+          if [ "$W" != "1024" ] || [ "$H" != "1024" ]; then
+            echo "::error::Marketing icon is ${W}x${H}, expected 1024x1024."
+            exit 1
+          fi
+          if [ "$A" = "yes" ]; then
+            echo "::error::Marketing icon has an alpha channel. Apple rejects this. Flatten resources/icon.png onto an opaque background."
+            exit 1
+          fi
+
       - name: Sync web assets into iOS project
         run: npx cap sync ios
 
