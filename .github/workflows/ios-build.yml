@@ -185,6 +185,27 @@ jobs:
           # already uses ExportOptions.plist with signingStyle: manual and the
           # specific certificate/profile - perform the actual signing
           # afterward, on just the App bundle.
+          #
+          # OTHER_SWIFT_FLAGS: the prebuilt Capacitor.xcframework (fetched by
+          # SPM from ionic-team/capacitor-swift-pm) ships a textual .swiftinterface
+          # where every single-argument convenience accessor on CAPPluginCall -
+          # getString(_:), getBool(_:), getArray(_:), and reject(_:) with its
+          # default parameters - is wrapped in `#if compiler(>=5.3) &&
+          # $NonescapableTypes`. That conditional is keyed off whether the
+          # *consuming* target has the Swift 6 "NonescapableTypes" upcoming
+          # feature turned on, not off whether the framework itself was built
+          # with it. Xcode's default build settings leave it off, so the
+          # compiler hides those overloads entirely - which is exactly why
+          # @capacitor/share's SharePlugin.swift failed with "has no member
+          # 'reject'" and "missing argument for parameter #2" on getString: it
+          # calls the single-arg forms that vanished. Confirmed directly by
+          # extracting and reading the real arm64-apple-ios.swiftinterface out
+          # of the released Capacitor.xcframework.zip - this isn't a stale
+          # plugin, it's this feature gate. Passing both the upcoming- and
+          # experimental-feature spellings here is defensive: whichever one
+          # this Xcode/Swift toolchain actually recognizes turns the gate on,
+          # and an unrecognized feature name is a compiler warning, not a
+          # build failure.
           xcodebuild "$CONTAINER_FLAG" "$CONTAINER_PATH" \
             -scheme App \
             -configuration Release \
@@ -193,6 +214,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
+            OTHER_SWIFT_FLAGS="-enable-upcoming-feature NonescapableTypes -enable-experimental-feature NonescapableTypes" \
             clean archive
 
       - name: Export IPA
