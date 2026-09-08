@@ -25,9 +25,14 @@ name: iOS Build
 # an APNs key + proper iOS setup, and in-app updates don't work that way on
 # iOS at all. Add push as a deliberate follow-up, not by just flipping it on.
 # splash-screen is temporarily excluded too - see the note on the plugin
-# install step below (upstream Capacitor version incompatibility on iOS).
+# install step below (it is NOT an upstream incompatibility; it can be
+# restored as a follow-up now that the toolchain is fixed).
 #
 # NODE 22, NOT 20 - matches android-build.yml. @capacitor/cli 8.5.0 requires it.
+#
+# TOOLCHAIN: this workflow requires a runner with Xcode 26.x (Swift 6.2+).
+# See the comment on `runs-on` below before changing the runner image or the
+# Xcode version - building on Swift 6.0 cannot work, for a concrete reason.
 #
 # Trigger: manual only (workflow_dispatch) until a first build is verified
 # end-to-end. Once a build lands cleanly in TestFlight, uncomment the `push`
@@ -45,7 +50,21 @@ concurrency:
 
 jobs:
   build-ios:
-    runs-on: macos-14
+    # macos-15, NOT macos-14. This is a hard requirement, not a preference.
+    # Capacitor 8.5.0 ships its iOS runtime as a prebuilt binary xcframework
+    # (ionic-team/capacitor-swift-pm) whose .swiftinterface header records
+    # "Apple Swift version 6.2". Inside it, every single-argument convenience
+    # accessor on CAPPluginCall - getString(_:), getBool(_:), getArray(_:),
+    # and reject(_:) with its default parameters - is wrapped in
+    # `#if compiler(>=5.3) && $NonescapableTypes`. A `$Feature` conditional in
+    # a textual module interface is true only when the *reading* compiler
+    # implements that feature. macos-14 images top out at Xcode 16.2 =
+    # Swift 6.0, which does not have NonescapableTypes, so those declarations
+    # are invisible and every Capacitor plugin that calls them fails to
+    # compile. No build flag can fix that - the feature simply isn't in that
+    # compiler. macos-15 carries Xcode 26.x (Swift 6.2+), where the gate
+    # evaluates true and the API is visible as intended.
+    runs-on: macos-15
     timeout-minutes: 60
     env:
       BUNDLE_ID: com.fiftymmretina.app
@@ -70,18 +89,23 @@ jobs:
 
       - name: Install Capacitor + iOS-safe native plugins (pinned)
         run: |
-          # @capacitor/splash-screen@8.0.2 (the latest published version as of
-          # writing) is intentionally excluded here: its iOS Swift source
-          # predates breaking changes in @capacitor/core@8.5.0's Swift API
-          # (CAPBridgeProtocol.viewController, CAPPluginCall.reject,
-          # PluginConfig.getString, and a UIColor.capacitor.color argument
-          # label all changed), so it fails to compile against this core
-          # version - splash-screen 8.0.2 shipped 2026-07-15, core 8.5.0
-          # shipped 2026-07-31, and no newer splash-screen release has fixed
-          # this yet. Nothing in src/ imports this plugin directly, so
-          # dropping it here does not affect the web bundle. Re-add it once
-          # Capacitor ships a compatible splash-screen release; android-build
-          # is unaffected (separate Kotlin implementation, not broken).
+          # @capacitor/splash-screen@8.0.2 is still excluded here, but the
+          # original reason recorded for it was WRONG and is corrected for the
+          # record: it was not a stale plugin that "predates breaking API
+          # changes in core 8.5.0". Its failures were the same Swift-version
+          # gate described on the runs-on block above. Checked against the
+          # real .swiftinterface, every API it touches is either ungated
+          # (bridge.viewController, UIColor.capacitor.color(fromHex:) - the
+          # argument label never changed, getBoolean, getInt) or gated by
+          # $NonescapableTypes and therefore restored by Swift 6.2
+          # (CAPPluginCall.reject, PluginConfig.getString). The reported
+          # viewController/UIColor errors were knock-on diagnostics from the
+          # gated calls failing to type-check earlier in the same file.
+          # It stays out of THIS commit only to keep the toolchain fix a
+          # single isolated variable - nothing in src/ imports it, so its
+          # absence costs only the native splash screen. Re-add it as a
+          # follow-up once this pipeline is green; no upstream release is
+          # needed. android-build was never affected (separate Kotlin impl).
           npm install --no-audit --no-fund \
             @capacitor/core@8.5.0 @capacitor/cli@8.5.0 @capacitor/ios@8.5.0 \
             @capacitor/share@8.0.1 \
@@ -162,7 +186,12 @@ jobs:
       - name: Set up Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          # Pinned to a 26.x release, not `latest-stable`. Swift 6.2 or newer
+          # is required to see Capacitor's $NonescapableTypes-gated API (see
+          # the note on runs-on above); Xcode 26.x is the first line that
+          # provides it. `latest-stable` is what silently selected Xcode 16.2
+          # on the old macos-14 runner and caused the compile failures.
+          xcode-version: '26.3'
 
       - name: Archive
         env:
@@ -186,26 +215,15 @@ jobs:
           # specific certificate/profile - perform the actual signing
           # afterward, on just the App bundle.
           #
-          # OTHER_SWIFT_FLAGS: the prebuilt Capacitor.xcframework (fetched by
-          # SPM from ionic-team/capacitor-swift-pm) ships a textual .swiftinterface
-          # where every single-argument convenience accessor on CAPPluginCall -
-          # getString(_:), getBool(_:), getArray(_:), and reject(_:) with its
-          # default parameters - is wrapped in `#if compiler(>=5.3) &&
-          # $NonescapableTypes`. That conditional is keyed off whether the
-          # *consuming* target has the Swift 6 "NonescapableTypes" upcoming
-          # feature turned on, not off whether the framework itself was built
-          # with it. Xcode's default build settings leave it off, so the
-          # compiler hides those overloads entirely - which is exactly why
-          # @capacitor/share's SharePlugin.swift failed with "has no member
-          # 'reject'" and "missing argument for parameter #2" on getString: it
-          # calls the single-arg forms that vanished. Confirmed directly by
-          # extracting and reading the real arm64-apple-ios.swiftinterface out
-          # of the released Capacitor.xcframework.zip - this isn't a stale
-          # plugin, it's this feature gate. Passing both the upcoming- and
-          # experimental-feature spellings here is defensive: whichever one
-          # this Xcode/Swift toolchain actually recognizes turns the gate on,
-          # and an unrecognized feature name is a compiler warning, not a
-          # build failure.
+          # NOTE: an earlier revision passed OTHER_SWIFT_FLAGS here with
+          # -enable-upcoming-feature/-enable-experimental-feature
+          # NonescapableTypes, on the theory that the gate was an opt-in build
+          # setting. It was verified from the build log that those flags did
+          # reach swiftc and the compile failed identically - a `$Feature`
+          # gate in a module interface tracks what the compiler *implements*,
+          # not what the project opts into, so no flag can enable it. The
+          # actual fix is the Xcode/Swift version pinned above; the flags were
+          # removed rather than left in as dead weight.
           xcodebuild "$CONTAINER_FLAG" "$CONTAINER_PATH" \
             -scheme App \
             -configuration Release \
@@ -214,7 +232,6 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
-            OTHER_SWIFT_FLAGS="-enable-upcoming-feature NonescapableTypes -enable-experimental-feature NonescapableTypes" \
             clean archive
 
       - name: Export IPA
