@@ -4,7 +4,7 @@ import { publicUrl } from "@/lib/publicUrl";
 import { Link } from "react-router-dom";
 import { Share2, Copy, MoreHorizontal, Trash2, Flag, Eye, Pencil, UserPlus, UserCheck, UserMinus, Users } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import { isActiveNow } from "@/hooks/core/useLastActive";
@@ -18,7 +18,7 @@ import PostMedia from "@/components/post/PostMedia";
 import Caption from "@/components/post/Caption";
 import HashtagSuggestions from "@/components/post/HashtagSuggestions";
 import { useCaptionHashtags } from "@/hooks/feed/useCaptionHashtags";
-import PostCommentsSection from "@/components/PostCommentsSection";
+import { useCommentsOverlay } from "@/contexts/CommentsOverlayContext";
 import { timeAgo, privacyIcon } from "@/lib/postUtils";
 import { formatNumber } from "@/lib/postAnalytics";
 import { displayEngagement, formatEngagementCount } from "@/lib/displayEngagement";
@@ -69,7 +69,7 @@ const PostCard = ({
 }: PostCardProps) => {
   const t = useT();
   const queryClient = useQueryClient();
-  const [commentsExpanded, setCommentsExpanded] = useState(false);
+  const { openComments } = useCommentsOverlay();
   const [reportingOpen, setReportingOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
@@ -602,7 +602,7 @@ const PostCard = ({
         shareCount={post.share_count}
         reactionCounts={post.reaction_counts}
         reactionSource={{ kind: "post", postId: post.id }}
-        onCommentClick={() => setCommentsExpanded(!commentsExpanded)}
+        onCommentClick={() => openComments(post, onCommentCountChange)}
         commentLabel={t("post.comment")}
         shareLabel={t("post.share")}
         shareMenu={
@@ -717,18 +717,6 @@ const PostCard = ({
           }
         />
       )}
-
-      {/* ── Comments ── */}
-      <AnimatePresence>
-        {commentsExpanded && (
-          <PostCommentsSection
-            postId={post.id}
-            postOwnerId={post.user_id}
-            expanded={commentsExpanded}
-            onCommentCountChange={(delta) => onCommentCountChange?.(post.id, delta)}
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
 };

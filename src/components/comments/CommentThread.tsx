@@ -143,6 +143,16 @@ export interface CommentThreadProps {
   editSubmitting?: boolean;
   maxLength?: number;
   composerPlaceholder?: string;
+  /**
+   * Omit the top-level "new comment" composer from this component's own
+   * output. Set this when the caller renders <CommentComposer> itself,
+   * pinned outside this thread's scroll container (the web modal and the
+   * mobile bottom sheet both do — the comments panel scrolls, the composer
+   * must not). Reply and edit boxes are unaffected: they stay inline, under
+   * the comment they belong to, exactly as before. Default false so every
+   * existing caller (the post's inline thread, the ad thread) is unchanged.
+   */
+  hideComposer?: boolean;
   /** Shown in place of the list when there is nothing in it. Omit to show nothing. */
   emptyLabel?: string;
   features?: ThreadFeatures;
@@ -168,7 +178,12 @@ export interface CommentThreadProps {
   onReport?: (id: string, reason: string) => void;
 }
 
-const Avatar = ({
+/**
+ * Exported so CommentComposer.tsx can draw the same avatar beside the
+ * top-level composer when the composer is rendered OUTSIDE this component
+ * (see `hideComposer` below) — one avatar treatment, not two.
+ */
+export const Avatar = ({
   src,
   name,
   size = "sm",
@@ -218,6 +233,7 @@ const CommentThread = ({
   editSubmitting = false,
   maxLength = 2200,
   composerPlaceholder = COMMENT_PLACEHOLDER,
+  hideComposer = false,
   emptyLabel,
   features,
   maxReplyDepth = Number.POSITIVE_INFINITY,
@@ -570,8 +586,9 @@ const CommentThread = ({
         </div>
       )}
 
-      {/* New comment input */}
-      {currentUserId && (
+      {/* New comment input — omitted when the caller pins its own
+          <CommentComposer> outside this thread's scroll area. */}
+      {!hideComposer && currentUserId && (
         <div className="flex gap-2 pt-2 pb-1">
           <Avatar src={viewer?.avatar_url} name={viewer?.full_name} size="sm" />
           <MentionInput

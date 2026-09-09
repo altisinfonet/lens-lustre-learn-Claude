@@ -26,6 +26,8 @@ import { useAuth } from "@/hooks/core/useAuth";
 import { useLastActive } from "@/hooks/core/useLastActive";
 import { useEngagementHeartbeat } from "@/hooks/core/useEngagementHeartbeat";
 import { DashboardProvider, useDashboardContext } from "@/hooks/core/DashboardContext";
+import { CommentsOverlayProvider } from "@/contexts/CommentsOverlayContext";
+import CommentsOverlay from "@/components/comments/CommentsOverlay";
 
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { useEffect, useState } from "react";
@@ -49,7 +51,15 @@ const Layout = () => {
       {/* F-89: must sit ABOVE LayoutInner so a page rendered into the Outlet
           can raise the bare-shell flag and LayoutInner can read it. */}
       <BareLayoutProvider>
-        <LayoutInner />
+        {/* CommentsOverlayProvider wraps LayoutInner (not just the Outlet) so
+            the ONE CommentsOverlay mount below sits beside every page's
+            content, not inside it — the same reason GlobalComposer is a
+            shell-level mount rather than something each page renders for
+            itself. Every PostCard, wherever it is rendered, opens the same
+            overlay instance through this context. */}
+        <CommentsOverlayProvider>
+          <LayoutInner />
+        </CommentsOverlayProvider>
       </BareLayoutProvider>
     </DashboardProvider>
   );
@@ -310,6 +320,13 @@ const LayoutInner = () => {
       {user && isNativeCapacitorApp() && (
         <GlobalComposer userId={user.id} />
       )}
+
+      {/* THE Comments surface — one mount for every PostCard on every page,
+          web modal or app bottom sheet depending on viewport. See
+          CommentsOverlayContext and CommentsOverlay for why this lives here
+          rather than inside PostCard or the feed. Renders nothing until a
+          comment icon is actually tapped. */}
+      <CommentsOverlay />
 
       {user && showOnboarding && (
         <OnboardingModal
