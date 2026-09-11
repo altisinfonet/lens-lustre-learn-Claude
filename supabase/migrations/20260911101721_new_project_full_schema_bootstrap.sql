@@ -17,9 +17,15 @@
 -- =====================================================================
 
 
-CREATE TYPE public.app_role AS ENUM ('user', 'judge', 'content_editor', 'admin', 'registered_photographer', 'student');
+DO $$ BEGIN
+  CREATE TYPE public.app_role AS ENUM ('user', 'judge', 'content_editor', 'admin', 'registered_photographer', 'student');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TYPE public.post_tag_status AS ENUM ('pending', 'approved', 'declined', 'removed');
+DO $$ BEGIN
+  CREATE TYPE public.post_tag_status AS ENUM ('pending', 'approved', 'declined', 'removed');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- =====================================================================
 -- ===== SEQUENCES =====
