@@ -1916,404 +1916,2344 @@ CREATE TABLE IF NOT EXISTS public.withdrawal_requests (
 -- ===== CONSTRAINTS (PRIMARY KEY / UNIQUE) =====
 -- =====================================================================
 
-ALTER TABLE ONLY public._v3_quarantine_decisions ADD CONSTRAINT _v3_quarantine_decisions_pkey PRIMARY KEY (quarantine_id);
-ALTER TABLE ONLY public._v3_quarantine_tag_assignments ADD CONSTRAINT _v3_quarantine_tag_assignments_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.activity_logs ADD CONSTRAINT activity_logs_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.ad_conversions ADD CONSTRAINT ad_conversions_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.ad_creative_comments ADD CONSTRAINT ad_creative_comments_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.ad_creative_reactions ADD CONSTRAINT ad_creative_reactions_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.ad_creative_shares ADD CONSTRAINT ad_creative_shares_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.ad_creatives ADD CONSTRAINT ad_creatives_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.ad_impressions ADD CONSTRAINT ad_impressions_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.admin_notifications ADD CONSTRAINT admin_notifications_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.admin_vote_adjustments ADD CONSTRAINT admin_vote_adjustments_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.ai_chat_usage ADD CONSTRAINT ai_chat_usage_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.album_photos ADD CONSTRAINT album_photos_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.auth_login_attempts ADD CONSTRAINT auth_login_attempts_pkey PRIMARY KEY (user_id);
-ALTER TABLE ONLY public.badge_definitions ADD CONSTRAINT badge_definitions_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.bank_details ADD CONSTRAINT bank_details_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.blocked_keywords ADD CONSTRAINT blocked_keywords_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.categories ADD CONSTRAINT categories_pkey PRIMARY KEY (slug);
-ALTER TABLE ONLY public.certificate_testimonials ADD CONSTRAINT certificate_testimonials_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.certificates ADD CONSTRAINT certificates_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.chat_questions ADD CONSTRAINT chat_questions_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.client_errors ADD CONSTRAINT client_errors_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.comment_reactions ADD CONSTRAINT comment_reactions_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.comment_reports ADD CONSTRAINT comment_reports_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.comments ADD CONSTRAINT comments_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.competition_entries ADD CONSTRAINT competition_entries_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.competition_entry_counts ADD CONSTRAINT competition_entry_counts_pkey PRIMARY KEY (competition_id, status);
-ALTER TABLE ONLY public.competition_judges ADD CONSTRAINT competition_judges_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.competition_judging_tags ADD CONSTRAINT competition_judging_tags_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.competition_orders ADD CONSTRAINT competition_orders_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.competition_payment_details ADD CONSTRAINT competition_payment_details_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.competition_round_publish ADD CONSTRAINT competition_round_publish_pkey PRIMARY KEY (competition_id, round_number);
-ALTER TABLE ONLY public.competition_votes ADD CONSTRAINT competition_votes_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.competitions ADD CONSTRAINT competitions_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.contributor_engagement_daily ADD CONSTRAINT contributor_engagement_daily_pkey PRIMARY KEY (user_id, utc_date);
-ALTER TABLE ONLY public.course_enrollments ADD CONSTRAINT course_enrollments_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.course_modules ADD CONSTRAINT course_modules_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.courses ADD CONSTRAINT courses_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.custom_url_history ADD CONSTRAINT custom_url_history_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.db_audit_logs ADD CONSTRAINT db_audit_logs_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.email_send_log ADD CONSTRAINT email_send_log_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.email_send_state ADD CONSTRAINT email_send_state_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.email_templates ADD CONSTRAINT email_templates_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.email_unsubscribe_tokens ADD CONSTRAINT email_unsubscribe_tokens_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.entry_score_cache ADD CONSTRAINT entry_score_cache_pkey PRIMARY KEY (entry_id);
-ALTER TABLE ONLY public.faq_entries ADD CONSTRAINT faq_entries_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.featured_artists ADD CONSTRAINT featured_artists_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.featured_photos ADD CONSTRAINT featured_photos_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.feed_events ADD CONSTRAINT feed_events_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.follows ADD CONSTRAINT follows_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.friendships ADD CONSTRAINT friendships_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.gift_announcements ADD CONSTRAINT gift_announcements_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.gift_credits ADD CONSTRAINT gift_credits_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.hashtags ADD CONSTRAINT hashtags_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.held_result_notifications ADD CONSTRAINT held_result_notifications_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.hero_banners ADD CONSTRAINT hero_banners_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.highlight_items ADD CONSTRAINT highlight_items_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.highlights ADD CONSTRAINT highlights_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.image_comments ADD CONSTRAINT image_comments_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.image_reactions ADD CONSTRAINT image_reactions_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.journal_articles ADD CONSTRAINT journal_articles_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.judge_activity_logs ADD CONSTRAINT judge_activity_logs_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.judge_award_tags ADD CONSTRAINT judge_award_tags_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.judge_comments ADD CONSTRAINT judge_comments_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.judge_decisions ADD CONSTRAINT judge_decisions_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.judge_entry_assignments ADD CONSTRAINT judge_entry_assignments_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.judge_entry_locks ADD CONSTRAINT judge_entry_locks_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT judge_scores_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.judge_sessions ADD CONSTRAINT judge_sessions_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.judge_tag_assignments ADD CONSTRAINT judge_tag_assignments_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.judging_config ADD CONSTRAINT judging_config_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.judging_preflight_log ADD CONSTRAINT judging_preflight_log_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.judging_rounds ADD CONSTRAINT judging_rounds_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.judging_tags ADD CONSTRAINT judging_tags_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.lesson_progress ADD CONSTRAINT lesson_progress_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.lessons ADD CONSTRAINT lessons_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.media_repair_audit ADD CONSTRAINT media_repair_audit_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.member_activity_minutes ADD CONSTRAINT member_activity_minutes_pkey PRIMARY KEY (user_id, minute_bucket);
-ALTER TABLE ONLY public.name_part_spellings ADD CONSTRAINT name_part_spellings_pkey PRIMARY KEY (part);
-ALTER TABLE ONLY public.newsletter_subscribers ADD CONSTRAINT newsletter_subscribers_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.notification_emit_log ADD CONSTRAINT notification_emit_log_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.notification_preferences ADD CONSTRAINT notification_preferences_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.office_staff ADD CONSTRAINT office_staff_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.photo_albums ADD CONSTRAINT photo_albums_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.photo_of_the_day ADD CONSTRAINT photo_of_the_day_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.portfolio_images ADD CONSTRAINT portfolio_images_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.post_comment_reactions ADD CONSTRAINT post_comment_reactions_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.post_comments ADD CONSTRAINT post_comments_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.post_drafts ADD CONSTRAINT post_drafts_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.post_hashtags ADD CONSTRAINT post_hashtags_pkey PRIMARY KEY (post_id, hashtag_id);
-ALTER TABLE ONLY public.post_media ADD CONSTRAINT post_media_pkey PRIMARY KEY (post_id, ord);
-ALTER TABLE ONLY public.post_reactions ADD CONSTRAINT post_reactions_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.post_reports ADD CONSTRAINT post_reports_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.post_shares ADD CONSTRAINT post_shares_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.post_tags ADD CONSTRAINT post_tags_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.posts ADD CONSTRAINT posts_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.profile_stats ADD CONSTRAINT profile_stats_pkey PRIMARY KEY (user_id);
-ALTER TABLE ONLY public.profile_views ADD CONSTRAINT profile_views_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.profiles ADD CONSTRAINT profiles_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.profiles_public_data ADD CONSTRAINT profiles_public_data_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.push_config ADD CONSTRAINT push_config_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.push_delivery_log ADD CONSTRAINT push_delivery_log_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.push_tokens ADD CONSTRAINT push_tokens_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.raw_commitments ADD CONSTRAINT raw_commitments_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.referral_codes ADD CONSTRAINT referral_codes_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.referrals ADD CONSTRAINT referrals_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.reports ADD CONSTRAINT reports_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.reserved_custom_urls ADD CONSTRAINT reserved_custom_urls_pkey PRIMARY KEY (value);
-ALTER TABLE ONLY public.role_applications ADD CONSTRAINT role_applications_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.role_display_config ADD CONSTRAINT role_display_config_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.round_snapshots ADD CONSTRAINT round_snapshots_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.scheduled_boosts ADD CONSTRAINT scheduled_boosts_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.scheduled_posts ADD CONSTRAINT scheduled_posts_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.search_recents ADD CONSTRAINT search_recents_pkey PRIMARY KEY (user_id, item_type, item_id);
-ALTER TABLE ONLY public.site_settings ADD CONSTRAINT site_settings_pkey PRIMARY KEY (key);
-ALTER TABLE ONLY public.stories ADD CONSTRAINT stories_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.story_views ADD CONSTRAINT story_views_pkey PRIMARY KEY (story_id, viewer_id);
-ALTER TABLE ONLY public.support_tickets ADD CONSTRAINT support_tickets_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.suppressed_emails ADD CONSTRAINT suppressed_emails_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.system_flags ADD CONSTRAINT system_flags_pkey PRIMARY KEY (key);
-ALTER TABLE ONLY public.system_tag_decision_map ADD CONSTRAINT system_tag_decision_map_pkey PRIMARY KEY (tag_id);
-ALTER TABLE ONLY public.test_agent_config ADD CONSTRAINT test_agent_config_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.test_agent_runs ADD CONSTRAINT test_agent_runs_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.ticket_replies ADD CONSTRAINT ticket_replies_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.transliteration_map ADD CONSTRAINT transliteration_map_pkey PRIMARY KEY (ch);
-ALTER TABLE ONLY public.user_badges ADD CONSTRAINT user_badges_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.user_devices ADD CONSTRAINT user_devices_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.user_notifications ADD CONSTRAINT user_notifications_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.user_roles ADD CONSTRAINT user_roles_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.v3_mirror_log ADD CONSTRAINT v3_mirror_log_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.v3_stage_catalog ADD CONSTRAINT v3_stage_catalog_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.v3_tag_label_alias ADD CONSTRAINT v3_tag_label_alias_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.vote_adjustment_cleanup_log ADD CONSTRAINT vote_adjustment_cleanup_log_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.wallet_ledger_audit_log ADD CONSTRAINT wallet_ledger_audit_log_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.wallet_ledger_idempotency ADD CONSTRAINT wallet_ledger_idempotency_pkey PRIMARY KEY (op, idempotency_key);
-ALTER TABLE ONLY public.wallet_ledger_shadow_log ADD CONSTRAINT wallet_ledger_shadow_log_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.wallet_ledger_v2_diff_log ADD CONSTRAINT wallet_ledger_v2_diff_log_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.wallet_ledger_v2_rows ADD CONSTRAINT wallet_ledger_v2_rows_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.wallet_reconciliation_log ADD CONSTRAINT wallet_reconciliation_log_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.wallet_transactions ADD CONSTRAINT wallet_transactions_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.wallets ADD CONSTRAINT wallets_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.withdrawal_requests ADD CONSTRAINT withdrawal_requests_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.ad_creative_reactions ADD CONSTRAINT ad_creative_reactions_one_per_member UNIQUE (creative_id, user_id);
-ALTER TABLE ONLY public.ad_creative_shares ADD CONSTRAINT ad_creative_shares_one_per_member UNIQUE (creative_id, user_id);
-ALTER TABLE ONLY public.ai_chat_usage ADD CONSTRAINT ai_chat_usage_user_device_date UNIQUE (user_id, device_id, session_date);
-ALTER TABLE ONLY public.badge_definitions ADD CONSTRAINT badge_definitions_type_key_key UNIQUE (type_key);
-ALTER TABLE ONLY public.bank_details ADD CONSTRAINT bank_details_user_id_key UNIQUE (user_id);
-ALTER TABLE ONLY public.categories ADD CONSTRAINT categories_sort_unique UNIQUE (sort_order);
-ALTER TABLE ONLY public.certificates ADD CONSTRAINT certificates_certificate_id_unique UNIQUE (certificate_id);
-ALTER TABLE ONLY public.certificates ADD CONSTRAINT certificates_verification_token_unique UNIQUE (verification_token);
-ALTER TABLE ONLY public.certificates ADD CONSTRAINT unique_user_course_certificate UNIQUE (user_id, reference_id, type);
-ALTER TABLE ONLY public.comment_reactions ADD CONSTRAINT comment_reactions_comment_id_user_id_key UNIQUE (comment_id, user_id);
-ALTER TABLE ONLY public.competition_judges ADD CONSTRAINT competition_judges_competition_id_judge_id_key UNIQUE (competition_id, judge_id);
-ALTER TABLE ONLY public.competition_judging_tags ADD CONSTRAINT competition_judging_tags_competition_id_tag_id_key UNIQUE (competition_id, tag_id);
-ALTER TABLE ONLY public.competition_orders ADD CONSTRAINT competition_orders_order_no_key UNIQUE (order_no);
-ALTER TABLE ONLY public.competition_payment_details ADD CONSTRAINT competition_payment_details_competition_id_key UNIQUE (competition_id);
-ALTER TABLE ONLY public.competition_votes ADD CONSTRAINT competition_votes_entry_user_photo_unique UNIQUE (entry_id, user_id, photo_index);
-ALTER TABLE ONLY public.competitions ADD CONSTRAINT competitions_slug_unique UNIQUE (slug);
-ALTER TABLE ONLY public.course_enrollments ADD CONSTRAINT course_enrollments_user_id_course_id_key UNIQUE (user_id, course_id);
-ALTER TABLE ONLY public.courses ADD CONSTRAINT courses_slug_key UNIQUE (slug);
-ALTER TABLE ONLY public.email_templates ADD CONSTRAINT email_templates_template_key_key UNIQUE (template_key);
-ALTER TABLE ONLY public.email_unsubscribe_tokens ADD CONSTRAINT email_unsubscribe_tokens_email_key UNIQUE (email);
-ALTER TABLE ONLY public.email_unsubscribe_tokens ADD CONSTRAINT email_unsubscribe_tokens_token_key UNIQUE (token);
-ALTER TABLE ONLY public.featured_artists ADD CONSTRAINT featured_artists_slug_key UNIQUE (slug);
-ALTER TABLE ONLY public.follows ADD CONSTRAINT follows_follower_id_following_id_key UNIQUE (follower_id, following_id);
-ALTER TABLE ONLY public.friendships ADD CONSTRAINT friendships_requester_id_addressee_id_key UNIQUE (requester_id, addressee_id);
-ALTER TABLE ONLY public.hashtags ADD CONSTRAINT hashtags_tag_key UNIQUE (tag);
-ALTER TABLE ONLY public.held_result_notifications ADD CONSTRAINT held_result_notifications_uq UNIQUE (entity_id, round_number, recipient_user_id);
-ALTER TABLE ONLY public.image_reactions ADD CONSTRAINT image_reactions_user_image_photo_type_unique UNIQUE (user_id, image_type, image_id, photo_index, reaction_type);
-ALTER TABLE ONLY public.journal_articles ADD CONSTRAINT journal_articles_slug_key UNIQUE (slug);
-ALTER TABLE ONLY public.judge_award_tags ADD CONSTRAINT judge_award_tags_unique UNIQUE (entry_id, judge_id, round_number, photo_index, stage_key);
-ALTER TABLE ONLY public.judge_decisions ADD CONSTRAINT judge_decisions_entry_judge_round_photo_unique UNIQUE (entry_id, judge_id, round_number, photo_index);
-ALTER TABLE ONLY public.judge_entry_assignments ADD CONSTRAINT judge_entry_assignments_competition_id_judge_id_entry_id_key UNIQUE (competition_id, judge_id, entry_id);
-ALTER TABLE ONLY public.judge_entry_locks ADD CONSTRAINT judge_entry_locks_entry_id_photo_index_key UNIQUE (entry_id, photo_index);
-ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT judge_scores_entry_judge_round_photo_key UNIQUE (entry_id, judge_id, round_number, photo_index);
-ALTER TABLE ONLY public.judge_sessions ADD CONSTRAINT judge_sessions_judge_id_competition_id_key UNIQUE (judge_id, competition_id);
-ALTER TABLE ONLY public.judge_tag_assignments ADD CONSTRAINT judge_tag_assignments_entry_tag_judge_round_photo_key UNIQUE (entry_id, tag_id, judge_id, round_number, photo_index);
-ALTER TABLE ONLY public.judging_config ADD CONSTRAINT judging_config_competition_id_round_number_key UNIQUE (competition_id, round_number);
-ALTER TABLE ONLY public.judging_rounds ADD CONSTRAINT judging_rounds_competition_id_round_number_key UNIQUE (competition_id, round_number);
-ALTER TABLE ONLY public.judging_tags ADD CONSTRAINT unique_tag_label_per_round UNIQUE (label, visible_in_round);
-ALTER TABLE ONLY public.lesson_progress ADD CONSTRAINT lesson_progress_user_id_lesson_id_key UNIQUE (user_id, lesson_id);
-ALTER TABLE ONLY public.newsletter_subscribers ADD CONSTRAINT newsletter_subscribers_email_unique UNIQUE (email);
-ALTER TABLE ONLY public.notification_preferences ADD CONSTRAINT notification_preferences_user_id_key UNIQUE (user_id);
-ALTER TABLE ONLY public.post_comment_reactions ADD CONSTRAINT post_comment_reactions_comment_id_user_id_key UNIQUE (comment_id, user_id);
-ALTER TABLE ONLY public.post_reactions ADD CONSTRAINT post_reactions_post_id_user_id_reaction_type_key UNIQUE (post_id, user_id, reaction_type);
-ALTER TABLE ONLY public.post_reactions ADD CONSTRAINT post_reactions_post_id_user_id_unique UNIQUE (post_id, user_id);
-ALTER TABLE ONLY public.post_reports ADD CONSTRAINT post_reports_post_id_reporter_id_key UNIQUE (post_id, reporter_id);
-ALTER TABLE ONLY public.post_shares ADD CONSTRAINT post_shares_post_id_user_id_key UNIQUE (post_id, user_id);
-ALTER TABLE ONLY public.push_tokens ADD CONSTRAINT push_tokens_token_key UNIQUE (token);
-ALTER TABLE ONLY public.referral_codes ADD CONSTRAINT referral_codes_code_key UNIQUE (code);
-ALTER TABLE ONLY public.referral_codes ADD CONSTRAINT referral_codes_user_id_key UNIQUE (user_id);
-ALTER TABLE ONLY public.referrals ADD CONSTRAINT referrals_referred_id_key UNIQUE (referred_id);
-ALTER TABLE ONLY public.role_display_config ADD CONSTRAINT role_display_config_role_key_key UNIQUE (role_key);
-ALTER TABLE ONLY public.suppressed_emails ADD CONSTRAINT suppressed_emails_email_key UNIQUE (email);
-ALTER TABLE ONLY public.user_badges ADD CONSTRAINT user_badges_user_id_badge_type_key UNIQUE (user_id, badge_type);
-ALTER TABLE ONLY public.user_devices ADD CONSTRAINT user_devices_user_id_device_id_key UNIQUE (user_id, device_id);
-ALTER TABLE ONLY public.user_roles ADD CONSTRAINT user_roles_user_id_role_key UNIQUE (user_id, role);
-ALTER TABLE ONLY public.v3_stage_catalog ADD CONSTRAINT v3_stage_catalog_round_label_uniq UNIQUE (round_number, tag_label_canonical);
-ALTER TABLE ONLY public.v3_stage_catalog ADD CONSTRAINT v3_stage_catalog_stage_key_key UNIQUE (stage_key);
-ALTER TABLE ONLY public.wallet_ledger_v2_rows ADD CONSTRAINT wallet_ledger_v2_rows_op_idem_unique UNIQUE (op, idempotency_key);
-ALTER TABLE ONLY public.wallets ADD CONSTRAINT wallets_user_id_key UNIQUE (user_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY public._v3_quarantine_decisions ADD CONSTRAINT _v3_quarantine_decisions_pkey PRIMARY KEY (quarantine_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public._v3_quarantine_tag_assignments ADD CONSTRAINT _v3_quarantine_tag_assignments_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.activity_logs ADD CONSTRAINT activity_logs_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.ad_conversions ADD CONSTRAINT ad_conversions_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.ad_creative_comments ADD CONSTRAINT ad_creative_comments_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.ad_creative_reactions ADD CONSTRAINT ad_creative_reactions_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.ad_creative_shares ADD CONSTRAINT ad_creative_shares_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.ad_creatives ADD CONSTRAINT ad_creatives_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.ad_impressions ADD CONSTRAINT ad_impressions_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.admin_notifications ADD CONSTRAINT admin_notifications_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.admin_vote_adjustments ADD CONSTRAINT admin_vote_adjustments_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.ai_chat_usage ADD CONSTRAINT ai_chat_usage_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.album_photos ADD CONSTRAINT album_photos_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.auth_login_attempts ADD CONSTRAINT auth_login_attempts_pkey PRIMARY KEY (user_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.badge_definitions ADD CONSTRAINT badge_definitions_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.bank_details ADD CONSTRAINT bank_details_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.blocked_keywords ADD CONSTRAINT blocked_keywords_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.categories ADD CONSTRAINT categories_pkey PRIMARY KEY (slug);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.certificate_testimonials ADD CONSTRAINT certificate_testimonials_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.certificates ADD CONSTRAINT certificates_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.chat_questions ADD CONSTRAINT chat_questions_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.client_errors ADD CONSTRAINT client_errors_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.comment_reactions ADD CONSTRAINT comment_reactions_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.comment_reports ADD CONSTRAINT comment_reports_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.comments ADD CONSTRAINT comments_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_entries ADD CONSTRAINT competition_entries_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_entry_counts ADD CONSTRAINT competition_entry_counts_pkey PRIMARY KEY (competition_id, status);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_judges ADD CONSTRAINT competition_judges_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_judging_tags ADD CONSTRAINT competition_judging_tags_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_orders ADD CONSTRAINT competition_orders_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_payment_details ADD CONSTRAINT competition_payment_details_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_round_publish ADD CONSTRAINT competition_round_publish_pkey PRIMARY KEY (competition_id, round_number);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_votes ADD CONSTRAINT competition_votes_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competitions ADD CONSTRAINT competitions_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.contributor_engagement_daily ADD CONSTRAINT contributor_engagement_daily_pkey PRIMARY KEY (user_id, utc_date);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.course_enrollments ADD CONSTRAINT course_enrollments_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.course_modules ADD CONSTRAINT course_modules_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.courses ADD CONSTRAINT courses_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.custom_url_history ADD CONSTRAINT custom_url_history_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.db_audit_logs ADD CONSTRAINT db_audit_logs_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.email_send_log ADD CONSTRAINT email_send_log_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.email_send_state ADD CONSTRAINT email_send_state_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.email_templates ADD CONSTRAINT email_templates_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.email_unsubscribe_tokens ADD CONSTRAINT email_unsubscribe_tokens_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.entry_score_cache ADD CONSTRAINT entry_score_cache_pkey PRIMARY KEY (entry_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.faq_entries ADD CONSTRAINT faq_entries_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.featured_artists ADD CONSTRAINT featured_artists_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.featured_photos ADD CONSTRAINT featured_photos_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.feed_events ADD CONSTRAINT feed_events_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.follows ADD CONSTRAINT follows_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.friendships ADD CONSTRAINT friendships_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.gift_announcements ADD CONSTRAINT gift_announcements_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.gift_credits ADD CONSTRAINT gift_credits_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.hashtags ADD CONSTRAINT hashtags_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.held_result_notifications ADD CONSTRAINT held_result_notifications_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.hero_banners ADD CONSTRAINT hero_banners_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.highlight_items ADD CONSTRAINT highlight_items_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.highlights ADD CONSTRAINT highlights_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.image_comments ADD CONSTRAINT image_comments_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.image_reactions ADD CONSTRAINT image_reactions_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.journal_articles ADD CONSTRAINT journal_articles_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_activity_logs ADD CONSTRAINT judge_activity_logs_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_award_tags ADD CONSTRAINT judge_award_tags_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_comments ADD CONSTRAINT judge_comments_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_decisions ADD CONSTRAINT judge_decisions_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_entry_assignments ADD CONSTRAINT judge_entry_assignments_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_entry_locks ADD CONSTRAINT judge_entry_locks_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT judge_scores_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_sessions ADD CONSTRAINT judge_sessions_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_tag_assignments ADD CONSTRAINT judge_tag_assignments_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judging_config ADD CONSTRAINT judging_config_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judging_preflight_log ADD CONSTRAINT judging_preflight_log_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judging_rounds ADD CONSTRAINT judging_rounds_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judging_tags ADD CONSTRAINT judging_tags_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.lesson_progress ADD CONSTRAINT lesson_progress_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.lessons ADD CONSTRAINT lessons_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.media_repair_audit ADD CONSTRAINT media_repair_audit_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.member_activity_minutes ADD CONSTRAINT member_activity_minutes_pkey PRIMARY KEY (user_id, minute_bucket);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.name_part_spellings ADD CONSTRAINT name_part_spellings_pkey PRIMARY KEY (part);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.newsletter_subscribers ADD CONSTRAINT newsletter_subscribers_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.notification_emit_log ADD CONSTRAINT notification_emit_log_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.notification_preferences ADD CONSTRAINT notification_preferences_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.office_staff ADD CONSTRAINT office_staff_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.photo_albums ADD CONSTRAINT photo_albums_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.photo_of_the_day ADD CONSTRAINT photo_of_the_day_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.portfolio_images ADD CONSTRAINT portfolio_images_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_comment_reactions ADD CONSTRAINT post_comment_reactions_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_comments ADD CONSTRAINT post_comments_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_drafts ADD CONSTRAINT post_drafts_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_hashtags ADD CONSTRAINT post_hashtags_pkey PRIMARY KEY (post_id, hashtag_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_media ADD CONSTRAINT post_media_pkey PRIMARY KEY (post_id, ord);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_reactions ADD CONSTRAINT post_reactions_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_reports ADD CONSTRAINT post_reports_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_shares ADD CONSTRAINT post_shares_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_tags ADD CONSTRAINT post_tags_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.posts ADD CONSTRAINT posts_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.profile_stats ADD CONSTRAINT profile_stats_pkey PRIMARY KEY (user_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.profile_views ADD CONSTRAINT profile_views_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.profiles ADD CONSTRAINT profiles_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.profiles_public_data ADD CONSTRAINT profiles_public_data_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.push_config ADD CONSTRAINT push_config_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.push_delivery_log ADD CONSTRAINT push_delivery_log_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.push_tokens ADD CONSTRAINT push_tokens_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.raw_commitments ADD CONSTRAINT raw_commitments_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.referral_codes ADD CONSTRAINT referral_codes_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.referrals ADD CONSTRAINT referrals_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.reports ADD CONSTRAINT reports_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.reserved_custom_urls ADD CONSTRAINT reserved_custom_urls_pkey PRIMARY KEY (value);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.role_applications ADD CONSTRAINT role_applications_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.role_display_config ADD CONSTRAINT role_display_config_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.round_snapshots ADD CONSTRAINT round_snapshots_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.scheduled_boosts ADD CONSTRAINT scheduled_boosts_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.scheduled_posts ADD CONSTRAINT scheduled_posts_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.search_recents ADD CONSTRAINT search_recents_pkey PRIMARY KEY (user_id, item_type, item_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.site_settings ADD CONSTRAINT site_settings_pkey PRIMARY KEY (key);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.stories ADD CONSTRAINT stories_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.story_views ADD CONSTRAINT story_views_pkey PRIMARY KEY (story_id, viewer_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.support_tickets ADD CONSTRAINT support_tickets_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.suppressed_emails ADD CONSTRAINT suppressed_emails_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.system_flags ADD CONSTRAINT system_flags_pkey PRIMARY KEY (key);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.system_tag_decision_map ADD CONSTRAINT system_tag_decision_map_pkey PRIMARY KEY (tag_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.test_agent_config ADD CONSTRAINT test_agent_config_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.test_agent_runs ADD CONSTRAINT test_agent_runs_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.ticket_replies ADD CONSTRAINT ticket_replies_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.transliteration_map ADD CONSTRAINT transliteration_map_pkey PRIMARY KEY (ch);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.user_badges ADD CONSTRAINT user_badges_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.user_devices ADD CONSTRAINT user_devices_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.user_notifications ADD CONSTRAINT user_notifications_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.user_roles ADD CONSTRAINT user_roles_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.v3_mirror_log ADD CONSTRAINT v3_mirror_log_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.v3_stage_catalog ADD CONSTRAINT v3_stage_catalog_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.v3_tag_label_alias ADD CONSTRAINT v3_tag_label_alias_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.vote_adjustment_cleanup_log ADD CONSTRAINT vote_adjustment_cleanup_log_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.wallet_ledger_audit_log ADD CONSTRAINT wallet_ledger_audit_log_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.wallet_ledger_idempotency ADD CONSTRAINT wallet_ledger_idempotency_pkey PRIMARY KEY (op, idempotency_key);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.wallet_ledger_shadow_log ADD CONSTRAINT wallet_ledger_shadow_log_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.wallet_ledger_v2_diff_log ADD CONSTRAINT wallet_ledger_v2_diff_log_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.wallet_ledger_v2_rows ADD CONSTRAINT wallet_ledger_v2_rows_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.wallet_reconciliation_log ADD CONSTRAINT wallet_reconciliation_log_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.wallet_transactions ADD CONSTRAINT wallet_transactions_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.wallets ADD CONSTRAINT wallets_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.withdrawal_requests ADD CONSTRAINT withdrawal_requests_pkey PRIMARY KEY (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.ad_creative_reactions ADD CONSTRAINT ad_creative_reactions_one_per_member UNIQUE (creative_id, user_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.ad_creative_shares ADD CONSTRAINT ad_creative_shares_one_per_member UNIQUE (creative_id, user_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.ai_chat_usage ADD CONSTRAINT ai_chat_usage_user_device_date UNIQUE (user_id, device_id, session_date);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.badge_definitions ADD CONSTRAINT badge_definitions_type_key_key UNIQUE (type_key);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.bank_details ADD CONSTRAINT bank_details_user_id_key UNIQUE (user_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.categories ADD CONSTRAINT categories_sort_unique UNIQUE (sort_order);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.certificates ADD CONSTRAINT certificates_certificate_id_unique UNIQUE (certificate_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.certificates ADD CONSTRAINT certificates_verification_token_unique UNIQUE (verification_token);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.certificates ADD CONSTRAINT unique_user_course_certificate UNIQUE (user_id, reference_id, type);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.comment_reactions ADD CONSTRAINT comment_reactions_comment_id_user_id_key UNIQUE (comment_id, user_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_judges ADD CONSTRAINT competition_judges_competition_id_judge_id_key UNIQUE (competition_id, judge_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_judging_tags ADD CONSTRAINT competition_judging_tags_competition_id_tag_id_key UNIQUE (competition_id, tag_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_orders ADD CONSTRAINT competition_orders_order_no_key UNIQUE (order_no);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_payment_details ADD CONSTRAINT competition_payment_details_competition_id_key UNIQUE (competition_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_votes ADD CONSTRAINT competition_votes_entry_user_photo_unique UNIQUE (entry_id, user_id, photo_index);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competitions ADD CONSTRAINT competitions_slug_unique UNIQUE (slug);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.course_enrollments ADD CONSTRAINT course_enrollments_user_id_course_id_key UNIQUE (user_id, course_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.courses ADD CONSTRAINT courses_slug_key UNIQUE (slug);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.email_templates ADD CONSTRAINT email_templates_template_key_key UNIQUE (template_key);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.email_unsubscribe_tokens ADD CONSTRAINT email_unsubscribe_tokens_email_key UNIQUE (email);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.email_unsubscribe_tokens ADD CONSTRAINT email_unsubscribe_tokens_token_key UNIQUE (token);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.featured_artists ADD CONSTRAINT featured_artists_slug_key UNIQUE (slug);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.follows ADD CONSTRAINT follows_follower_id_following_id_key UNIQUE (follower_id, following_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.friendships ADD CONSTRAINT friendships_requester_id_addressee_id_key UNIQUE (requester_id, addressee_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.hashtags ADD CONSTRAINT hashtags_tag_key UNIQUE (tag);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.held_result_notifications ADD CONSTRAINT held_result_notifications_uq UNIQUE (entity_id, round_number, recipient_user_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.image_reactions ADD CONSTRAINT image_reactions_user_image_photo_type_unique UNIQUE (user_id, image_type, image_id, photo_index, reaction_type);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.journal_articles ADD CONSTRAINT journal_articles_slug_key UNIQUE (slug);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_award_tags ADD CONSTRAINT judge_award_tags_unique UNIQUE (entry_id, judge_id, round_number, photo_index, stage_key);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_decisions ADD CONSTRAINT judge_decisions_entry_judge_round_photo_unique UNIQUE (entry_id, judge_id, round_number, photo_index);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_entry_assignments ADD CONSTRAINT judge_entry_assignments_competition_id_judge_id_entry_id_key UNIQUE (competition_id, judge_id, entry_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_entry_locks ADD CONSTRAINT judge_entry_locks_entry_id_photo_index_key UNIQUE (entry_id, photo_index);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT judge_scores_entry_judge_round_photo_key UNIQUE (entry_id, judge_id, round_number, photo_index);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_sessions ADD CONSTRAINT judge_sessions_judge_id_competition_id_key UNIQUE (judge_id, competition_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_tag_assignments ADD CONSTRAINT judge_tag_assignments_entry_tag_judge_round_photo_key UNIQUE (entry_id, tag_id, judge_id, round_number, photo_index);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judging_config ADD CONSTRAINT judging_config_competition_id_round_number_key UNIQUE (competition_id, round_number);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judging_rounds ADD CONSTRAINT judging_rounds_competition_id_round_number_key UNIQUE (competition_id, round_number);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judging_tags ADD CONSTRAINT unique_tag_label_per_round UNIQUE (label, visible_in_round);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.lesson_progress ADD CONSTRAINT lesson_progress_user_id_lesson_id_key UNIQUE (user_id, lesson_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.newsletter_subscribers ADD CONSTRAINT newsletter_subscribers_email_unique UNIQUE (email);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.notification_preferences ADD CONSTRAINT notification_preferences_user_id_key UNIQUE (user_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_comment_reactions ADD CONSTRAINT post_comment_reactions_comment_id_user_id_key UNIQUE (comment_id, user_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_reactions ADD CONSTRAINT post_reactions_post_id_user_id_reaction_type_key UNIQUE (post_id, user_id, reaction_type);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_reactions ADD CONSTRAINT post_reactions_post_id_user_id_unique UNIQUE (post_id, user_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_reports ADD CONSTRAINT post_reports_post_id_reporter_id_key UNIQUE (post_id, reporter_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_shares ADD CONSTRAINT post_shares_post_id_user_id_key UNIQUE (post_id, user_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.push_tokens ADD CONSTRAINT push_tokens_token_key UNIQUE (token);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.referral_codes ADD CONSTRAINT referral_codes_code_key UNIQUE (code);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.referral_codes ADD CONSTRAINT referral_codes_user_id_key UNIQUE (user_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.referrals ADD CONSTRAINT referrals_referred_id_key UNIQUE (referred_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.role_display_config ADD CONSTRAINT role_display_config_role_key_key UNIQUE (role_key);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.suppressed_emails ADD CONSTRAINT suppressed_emails_email_key UNIQUE (email);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.user_badges ADD CONSTRAINT user_badges_user_id_badge_type_key UNIQUE (user_id, badge_type);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.user_devices ADD CONSTRAINT user_devices_user_id_device_id_key UNIQUE (user_id, device_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.user_roles ADD CONSTRAINT user_roles_user_id_role_key UNIQUE (user_id, role);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.v3_stage_catalog ADD CONSTRAINT v3_stage_catalog_round_label_uniq UNIQUE (round_number, tag_label_canonical);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.v3_stage_catalog ADD CONSTRAINT v3_stage_catalog_stage_key_key UNIQUE (stage_key);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.wallet_ledger_v2_rows ADD CONSTRAINT wallet_ledger_v2_rows_op_idem_unique UNIQUE (op, idempotency_key);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.wallets ADD CONSTRAINT wallets_user_id_key UNIQUE (user_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
 
 -- =====================================================================
 -- ===== CONSTRAINTS (FOREIGN KEY) =====
 -- =====================================================================
 
-ALTER TABLE ONLY public.ad_creative_comments ADD CONSTRAINT ad_creative_comments_creative_id_fkey FOREIGN KEY (creative_id) REFERENCES ad_creatives(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.ad_creative_comments ADD CONSTRAINT ad_creative_comments_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES ad_creative_comments(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.ad_creative_reactions ADD CONSTRAINT ad_creative_reactions_creative_id_fkey FOREIGN KEY (creative_id) REFERENCES ad_creatives(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.ad_creative_shares ADD CONSTRAINT ad_creative_shares_creative_id_fkey FOREIGN KEY (creative_id) REFERENCES ad_creatives(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.admin_vote_adjustments ADD CONSTRAINT admin_vote_adjustments_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.admin_vote_adjustments ADD CONSTRAINT admin_vote_adjustments_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.album_photos ADD CONSTRAINT album_photos_album_id_fkey FOREIGN KEY (album_id) REFERENCES photo_albums(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.album_photos ADD CONSTRAINT album_photos_post_id_fkey FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE SET NULL;
-ALTER TABLE ONLY public.blocked_keywords ADD CONSTRAINT blocked_keywords_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-ALTER TABLE ONLY public.certificate_testimonials ADD CONSTRAINT certificate_testimonials_certificate_id_fkey FOREIGN KEY (certificate_id) REFERENCES certificates(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.certificates ADD CONSTRAINT certificates_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.comment_reactions ADD CONSTRAINT comment_reactions_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.comment_reports ADD CONSTRAINT comment_reports_ad_comment_id_fkey FOREIGN KEY (ad_comment_id) REFERENCES ad_creative_comments(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.comment_reports ADD CONSTRAINT comment_reports_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES image_comments(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.comment_reports ADD CONSTRAINT comment_reports_post_comment_id_fkey FOREIGN KEY (post_comment_id) REFERENCES post_comments(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.comments ADD CONSTRAINT comments_article_id_fkey FOREIGN KEY (article_id) REFERENCES journal_articles(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.comments ADD CONSTRAINT comments_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.comments ADD CONSTRAINT comments_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.competition_entries ADD CONSTRAINT competition_entries_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.competition_entries ADD CONSTRAINT competition_entries_stage_key_fkey FOREIGN KEY (stage_key) REFERENCES v3_stage_catalog(stage_key) ON UPDATE CASCADE;
-ALTER TABLE ONLY public.competition_judges ADD CONSTRAINT competition_judges_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.competition_judging_tags ADD CONSTRAINT competition_judging_tags_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.competition_judging_tags ADD CONSTRAINT competition_judging_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES judging_tags(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.competition_orders ADD CONSTRAINT competition_orders_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.competition_orders ADD CONSTRAINT competition_orders_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE SET NULL;
-ALTER TABLE ONLY public.competition_orders ADD CONSTRAINT competition_orders_wallet_txn_id_fkey FOREIGN KEY (wallet_txn_id) REFERENCES wallet_transactions(id) ON DELETE SET NULL;
-ALTER TABLE ONLY public.competition_round_publish ADD CONSTRAINT competition_round_publish_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.competition_votes ADD CONSTRAINT competition_votes_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.course_enrollments ADD CONSTRAINT course_enrollments_course_id_fkey FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.course_enrollments ADD CONSTRAINT course_enrollments_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.course_modules ADD CONSTRAINT course_modules_course_id_fkey FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.courses ADD CONSTRAINT courses_author_id_fkey FOREIGN KEY (author_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.custom_url_history ADD CONSTRAINT custom_url_history_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.entry_score_cache ADD CONSTRAINT entry_score_cache_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.featured_artists ADD CONSTRAINT featured_artists_author_profile_id_fkey FOREIGN KEY (author_profile_id) REFERENCES profiles(id) ON DELETE SET NULL;
-ALTER TABLE ONLY public.feed_events ADD CONSTRAINT feed_events_post_id_fkey FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.gift_announcements ADD CONSTRAINT gift_announcements_gift_credit_id_fkey FOREIGN KEY (gift_credit_id) REFERENCES gift_credits(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.highlight_items ADD CONSTRAINT highlight_items_highlight_id_fkey FOREIGN KEY (highlight_id) REFERENCES highlights(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.image_comments ADD CONSTRAINT image_comments_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES image_comments(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.journal_articles ADD CONSTRAINT journal_articles_author_id_fkey FOREIGN KEY (author_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.judge_activity_logs ADD CONSTRAINT judge_activity_logs_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.judge_activity_logs ADD CONSTRAINT judge_activity_logs_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.judge_award_tags ADD CONSTRAINT judge_award_tags_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.judge_award_tags ADD CONSTRAINT judge_award_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES judging_tags(id) ON DELETE SET NULL;
-ALTER TABLE ONLY public.judge_comments ADD CONSTRAINT judge_comments_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.judge_comments ADD CONSTRAINT judge_comments_round_id_fkey FOREIGN KEY (round_id) REFERENCES judging_rounds(id) ON DELETE SET NULL;
-ALTER TABLE ONLY public.judge_decisions ADD CONSTRAINT judge_decisions_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.judge_entry_assignments ADD CONSTRAINT judge_entry_assignments_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.judge_entry_assignments ADD CONSTRAINT judge_entry_assignments_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.judge_entry_locks ADD CONSTRAINT judge_entry_locks_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT judge_scores_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT judge_scores_judge_id_fkey FOREIGN KEY (judge_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.judge_sessions ADD CONSTRAINT judge_sessions_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.judge_sessions ADD CONSTRAINT judge_sessions_last_entry_id_fkey FOREIGN KEY (last_entry_id) REFERENCES competition_entries(id) ON DELETE SET NULL;
-ALTER TABLE ONLY public.judge_sessions ADD CONSTRAINT judge_sessions_round_id_fkey FOREIGN KEY (round_id) REFERENCES judging_rounds(id) ON DELETE SET NULL;
-ALTER TABLE ONLY public.judge_tag_assignments ADD CONSTRAINT judge_tag_assignments_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.judge_tag_assignments ADD CONSTRAINT judge_tag_assignments_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES judging_tags(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.judging_config ADD CONSTRAINT judging_config_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.judging_rounds ADD CONSTRAINT judging_rounds_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.lesson_progress ADD CONSTRAINT lesson_progress_lesson_id_fkey FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.lesson_progress ADD CONSTRAINT lesson_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.lessons ADD CONSTRAINT lessons_course_id_fkey FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.lessons ADD CONSTRAINT lessons_module_id_fkey FOREIGN KEY (module_id) REFERENCES course_modules(id) ON DELETE SET NULL;
-ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.notification_preferences ADD CONSTRAINT notification_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.post_comment_reactions ADD CONSTRAINT post_comment_reactions_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES post_comments(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.post_comments ADD CONSTRAINT post_comments_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES post_comments(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.post_comments ADD CONSTRAINT post_comments_post_id_fkey FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.post_hashtags ADD CONSTRAINT post_hashtags_author_id_fkey FOREIGN KEY (author_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.post_hashtags ADD CONSTRAINT post_hashtags_hashtag_id_fkey FOREIGN KEY (hashtag_id) REFERENCES hashtags(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.post_hashtags ADD CONSTRAINT post_hashtags_post_id_fkey FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.post_media ADD CONSTRAINT post_media_media_id_fkey FOREIGN KEY (media_id) REFERENCES media_objects(id) ON DELETE RESTRICT;
-ALTER TABLE ONLY public.post_media ADD CONSTRAINT post_media_post_id_fkey FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.post_reactions ADD CONSTRAINT post_reactions_post_id_fkey FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.post_reports ADD CONSTRAINT post_reports_post_id_fkey FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.post_shares ADD CONSTRAINT post_shares_post_id_fkey FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.post_tags ADD CONSTRAINT post_tags_post_id_fkey FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.profile_stats ADD CONSTRAINT profile_stats_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.profiles ADD CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.push_tokens ADD CONSTRAINT push_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.raw_commitments ADD CONSTRAINT raw_commitments_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.raw_commitments ADD CONSTRAINT raw_commitments_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.referrals ADD CONSTRAINT referrals_referral_code_id_fkey FOREIGN KEY (referral_code_id) REFERENCES referral_codes(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.role_applications ADD CONSTRAINT role_applications_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES auth.users(id);
-ALTER TABLE ONLY public.role_applications ADD CONSTRAINT role_applications_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.round_snapshots ADD CONSTRAINT round_snapshots_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.search_recents ADD CONSTRAINT search_recents_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.story_views ADD CONSTRAINT story_views_story_id_fkey FOREIGN KEY (story_id) REFERENCES stories(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.story_views ADD CONSTRAINT story_views_viewer_id_fkey FOREIGN KEY (viewer_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.system_tag_decision_map ADD CONSTRAINT system_tag_decision_map_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES judging_tags(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.test_agent_config ADD CONSTRAINT test_agent_config_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-ALTER TABLE ONLY public.ticket_replies ADD CONSTRAINT ticket_replies_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.user_roles ADD CONSTRAINT user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.v3_tag_label_alias ADD CONSTRAINT v3_tag_label_alias_canonical_stage_key_fkey FOREIGN KEY (canonical_stage_key) REFERENCES v3_stage_catalog(stage_key) ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.ad_creative_comments ADD CONSTRAINT ad_creative_comments_creative_id_fkey FOREIGN KEY (creative_id) REFERENCES ad_creatives(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.ad_creative_comments ADD CONSTRAINT ad_creative_comments_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES ad_creative_comments(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.ad_creative_reactions ADD CONSTRAINT ad_creative_reactions_creative_id_fkey FOREIGN KEY (creative_id) REFERENCES ad_creatives(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.ad_creative_shares ADD CONSTRAINT ad_creative_shares_creative_id_fkey FOREIGN KEY (creative_id) REFERENCES ad_creatives(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.admin_vote_adjustments ADD CONSTRAINT admin_vote_adjustments_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.admin_vote_adjustments ADD CONSTRAINT admin_vote_adjustments_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.album_photos ADD CONSTRAINT album_photos_album_id_fkey FOREIGN KEY (album_id) REFERENCES photo_albums(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.album_photos ADD CONSTRAINT album_photos_post_id_fkey FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE SET NULL;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.blocked_keywords ADD CONSTRAINT blocked_keywords_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.certificate_testimonials ADD CONSTRAINT certificate_testimonials_certificate_id_fkey FOREIGN KEY (certificate_id) REFERENCES certificates(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.certificates ADD CONSTRAINT certificates_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.comment_reactions ADD CONSTRAINT comment_reactions_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.comment_reports ADD CONSTRAINT comment_reports_ad_comment_id_fkey FOREIGN KEY (ad_comment_id) REFERENCES ad_creative_comments(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.comment_reports ADD CONSTRAINT comment_reports_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES image_comments(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.comment_reports ADD CONSTRAINT comment_reports_post_comment_id_fkey FOREIGN KEY (post_comment_id) REFERENCES post_comments(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.comments ADD CONSTRAINT comments_article_id_fkey FOREIGN KEY (article_id) REFERENCES journal_articles(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.comments ADD CONSTRAINT comments_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.comments ADD CONSTRAINT comments_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_entries ADD CONSTRAINT competition_entries_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_entries ADD CONSTRAINT competition_entries_stage_key_fkey FOREIGN KEY (stage_key) REFERENCES v3_stage_catalog(stage_key) ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_judges ADD CONSTRAINT competition_judges_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_judging_tags ADD CONSTRAINT competition_judging_tags_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_judging_tags ADD CONSTRAINT competition_judging_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES judging_tags(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_orders ADD CONSTRAINT competition_orders_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_orders ADD CONSTRAINT competition_orders_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE SET NULL;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_orders ADD CONSTRAINT competition_orders_wallet_txn_id_fkey FOREIGN KEY (wallet_txn_id) REFERENCES wallet_transactions(id) ON DELETE SET NULL;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_round_publish ADD CONSTRAINT competition_round_publish_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_votes ADD CONSTRAINT competition_votes_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.course_enrollments ADD CONSTRAINT course_enrollments_course_id_fkey FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.course_enrollments ADD CONSTRAINT course_enrollments_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.course_modules ADD CONSTRAINT course_modules_course_id_fkey FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.courses ADD CONSTRAINT courses_author_id_fkey FOREIGN KEY (author_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.custom_url_history ADD CONSTRAINT custom_url_history_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.entry_score_cache ADD CONSTRAINT entry_score_cache_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.featured_artists ADD CONSTRAINT featured_artists_author_profile_id_fkey FOREIGN KEY (author_profile_id) REFERENCES profiles(id) ON DELETE SET NULL;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.feed_events ADD CONSTRAINT feed_events_post_id_fkey FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.gift_announcements ADD CONSTRAINT gift_announcements_gift_credit_id_fkey FOREIGN KEY (gift_credit_id) REFERENCES gift_credits(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.highlight_items ADD CONSTRAINT highlight_items_highlight_id_fkey FOREIGN KEY (highlight_id) REFERENCES highlights(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.image_comments ADD CONSTRAINT image_comments_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES image_comments(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.journal_articles ADD CONSTRAINT journal_articles_author_id_fkey FOREIGN KEY (author_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_activity_logs ADD CONSTRAINT judge_activity_logs_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_activity_logs ADD CONSTRAINT judge_activity_logs_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_award_tags ADD CONSTRAINT judge_award_tags_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_award_tags ADD CONSTRAINT judge_award_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES judging_tags(id) ON DELETE SET NULL;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_comments ADD CONSTRAINT judge_comments_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_comments ADD CONSTRAINT judge_comments_round_id_fkey FOREIGN KEY (round_id) REFERENCES judging_rounds(id) ON DELETE SET NULL;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_decisions ADD CONSTRAINT judge_decisions_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_entry_assignments ADD CONSTRAINT judge_entry_assignments_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_entry_assignments ADD CONSTRAINT judge_entry_assignments_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_entry_locks ADD CONSTRAINT judge_entry_locks_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT judge_scores_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT judge_scores_judge_id_fkey FOREIGN KEY (judge_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_sessions ADD CONSTRAINT judge_sessions_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_sessions ADD CONSTRAINT judge_sessions_last_entry_id_fkey FOREIGN KEY (last_entry_id) REFERENCES competition_entries(id) ON DELETE SET NULL;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_sessions ADD CONSTRAINT judge_sessions_round_id_fkey FOREIGN KEY (round_id) REFERENCES judging_rounds(id) ON DELETE SET NULL;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_tag_assignments ADD CONSTRAINT judge_tag_assignments_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_tag_assignments ADD CONSTRAINT judge_tag_assignments_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES judging_tags(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judging_config ADD CONSTRAINT judging_config_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judging_rounds ADD CONSTRAINT judging_rounds_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.lesson_progress ADD CONSTRAINT lesson_progress_lesson_id_fkey FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.lesson_progress ADD CONSTRAINT lesson_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.lessons ADD CONSTRAINT lessons_course_id_fkey FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.lessons ADD CONSTRAINT lessons_module_id_fkey FOREIGN KEY (module_id) REFERENCES course_modules(id) ON DELETE SET NULL;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.notification_preferences ADD CONSTRAINT notification_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_comment_reactions ADD CONSTRAINT post_comment_reactions_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES post_comments(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_comments ADD CONSTRAINT post_comments_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES post_comments(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_comments ADD CONSTRAINT post_comments_post_id_fkey FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_hashtags ADD CONSTRAINT post_hashtags_author_id_fkey FOREIGN KEY (author_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_hashtags ADD CONSTRAINT post_hashtags_hashtag_id_fkey FOREIGN KEY (hashtag_id) REFERENCES hashtags(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_hashtags ADD CONSTRAINT post_hashtags_post_id_fkey FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_media ADD CONSTRAINT post_media_media_id_fkey FOREIGN KEY (media_id) REFERENCES media_objects(id) ON DELETE RESTRICT;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_media ADD CONSTRAINT post_media_post_id_fkey FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_reactions ADD CONSTRAINT post_reactions_post_id_fkey FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_reports ADD CONSTRAINT post_reports_post_id_fkey FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_shares ADD CONSTRAINT post_shares_post_id_fkey FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_tags ADD CONSTRAINT post_tags_post_id_fkey FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.profile_stats ADD CONSTRAINT profile_stats_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.profiles ADD CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.push_tokens ADD CONSTRAINT push_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.raw_commitments ADD CONSTRAINT raw_commitments_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.raw_commitments ADD CONSTRAINT raw_commitments_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES competition_entries(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.referrals ADD CONSTRAINT referrals_referral_code_id_fkey FOREIGN KEY (referral_code_id) REFERENCES referral_codes(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.role_applications ADD CONSTRAINT role_applications_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES auth.users(id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.role_applications ADD CONSTRAINT role_applications_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.round_snapshots ADD CONSTRAINT round_snapshots_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.search_recents ADD CONSTRAINT search_recents_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.story_views ADD CONSTRAINT story_views_story_id_fkey FOREIGN KEY (story_id) REFERENCES stories(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.story_views ADD CONSTRAINT story_views_viewer_id_fkey FOREIGN KEY (viewer_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.system_tag_decision_map ADD CONSTRAINT system_tag_decision_map_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES judging_tags(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.test_agent_config ADD CONSTRAINT test_agent_config_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.ticket_replies ADD CONSTRAINT ticket_replies_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.user_roles ADD CONSTRAINT user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.v3_tag_label_alias ADD CONSTRAINT v3_tag_label_alias_canonical_stage_key_fkey FOREIGN KEY (canonical_stage_key) REFERENCES v3_stage_catalog(stage_key) ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
 
 -- =====================================================================
 -- ===== CONSTRAINTS (CHECK) =====
 -- =====================================================================
 
-ALTER TABLE ONLY public.ad_creative_comments ADD CONSTRAINT ad_creative_comments_length CHECK ((length(content) <= 2000));
-ALTER TABLE ONLY public.ad_creative_comments ADD CONSTRAINT ad_creative_comments_not_empty CHECK ((length(btrim(content)) > 0));
-ALTER TABLE ONLY public.ad_creative_reactions ADD CONSTRAINT ad_creative_reactions_known_type CHECK ((reaction_type = ANY (ARRAY['like'::text, 'love'::text, 'haha'::text, 'wow'::text, 'sad'::text, 'angry'::text])));
-ALTER TABLE ONLY public.ad_creatives ADD CONSTRAINT ad_creatives_image_url_not_blank CHECK ((length(btrim(image_url)) > 0));
-ALTER TABLE ONLY public.admin_vote_adjustments ADD CONSTRAINT adjustment_value_within_cap CHECK ((abs(adjustment_value) <= 1000));
-ALTER TABLE ONLY public.categories ADD CONSTRAINT categories_slug_format CHECK ((slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text));
-ALTER TABLE ONLY public.certificates ADD CONSTRAINT certificates_heading_only_for_custom CHECK (((heading IS NULL) OR ((type = 'custom'::text) AND ((length(btrim(heading)) >= 1) AND (length(btrim(heading)) <= 60)))));
-ALTER TABLE ONLY public.certificates ADD CONSTRAINT certificates_type_check CHECK ((type = ANY (ARRAY['achievement'::text, 'custom'::text, 'course_completion'::text, 'competition_winner'::text, 'competition_runner_up_1'::text, 'competition_runner_up_2'::text, 'competition_honorary_mention'::text, 'competition_special_jury'::text, 'competition_top_50'::text, 'competition_top_100'::text, 'winner'::text, 'finalist'::text, 'participation_r1'::text, 'participation_r2'::text, 'participation_r3'::text, 'participation_r4'::text])));
-ALTER TABLE ONLY public.comments ADD CONSTRAINT comments_target_check CHECK ((((article_id IS NOT NULL) AND (entry_id IS NULL)) OR ((article_id IS NULL) AND (entry_id IS NOT NULL))));
-ALTER TABLE ONLY public.competition_entries ADD CONSTRAINT competition_entries_current_round_valid CHECK (((current_round IS NULL) OR (current_round = ANY (ARRAY['1'::text, '2'::text, '3'::text, '4'::text]))));
-ALTER TABLE ONLY public.competition_entries ADD CONSTRAINT competition_entries_status_check CHECK ((status = ANY (ARRAY['submitted'::text, 'approved'::text, 'rejected'::text, 'round1_qualified'::text, 'shortlisted'::text, 'round2_qualified'::text, 'round3_qualified'::text, 'finalist'::text, 'winner'::text, 'needs_review'::text])));
-ALTER TABLE ONLY public.competition_round_publish ADD CONSTRAINT competition_round_publish_round_number_check CHECK (((round_number >= 1) AND (round_number <= 4)));
-ALTER TABLE ONLY public.competitions ADD CONSTRAINT competitions_current_round_valid CHECK (((current_round IS NULL) OR (current_round = ANY (ARRAY['1'::text, '2'::text, '3'::text, '4'::text]))));
-ALTER TABLE ONLY public.competitions ADD CONSTRAINT competitions_status_check CHECK ((status = ANY (ARRAY['upcoming'::text, 'open'::text, 'submission_open'::text, 'judging'::text, 'result'::text, 'closed'::text, 'archived'::text])));
-ALTER TABLE ONLY public.email_send_log ADD CONSTRAINT email_send_log_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'suppressed'::text, 'failed'::text, 'bounced'::text, 'complained'::text, 'dlq'::text, 'rate_limited'::text])));
-ALTER TABLE ONLY public.email_send_state ADD CONSTRAINT email_send_state_id_check CHECK ((id = 1));
-ALTER TABLE ONLY public.feed_events ADD CONSTRAINT feed_events_event_type_check CHECK ((event_type = ANY (ARRAY['view'::text, 'like'::text, 'skip'::text, 'comment'::text, 'share'::text, 'click'::text])));
-ALTER TABLE ONLY public.follows ADD CONSTRAINT no_self_follow CHECK ((follower_id <> following_id));
-ALTER TABLE ONLY public.friendships ADD CONSTRAINT no_self_friend CHECK ((requester_id <> addressee_id));
-ALTER TABLE ONLY public.gift_credits ADD CONSTRAINT gift_credits_target_type_check CHECK ((target_type = ANY (ARRAY['email'::text, 'role'::text, 'all'::text, 'new_registration'::text])));
-ALTER TABLE ONLY public.hashtags ADD CONSTRAINT hashtags_tag_shape CHECK ((tag ~ '^[a-z0-9_]{1,60}$'::text));
-ALTER TABLE ONLY public.judge_award_tags ADD CONSTRAINT judge_award_tags_photo_index_check CHECK ((photo_index >= 0));
-ALTER TABLE ONLY public.judge_award_tags ADD CONSTRAINT judge_award_tags_round_number_check CHECK ((round_number = 4));
-ALTER TABLE ONLY public.judge_comments ADD CONSTRAINT comment_length_check CHECK ((length(comment) <= 500));
-ALTER TABLE ONLY public.judge_comments ADD CONSTRAINT judge_comments_photo_index_check CHECK ((photo_index >= 0));
-ALTER TABLE ONLY public.judge_decisions ADD CONSTRAINT judge_decisions_decision_check_v2 CHECK ((decision = ANY (ARRAY['accept'::text, 'reject'::text, 'shortlist'::text, 'needs_review'::text, 'needs_verification'::text, 'qualified_r3'::text, 'qualified_final'::text, 'shortlisted_final'::text, 'not_selected_r3'::text, 'not_selected_final'::text, 'winner'::text, 'runner_up_1'::text, 'runner_up_2'::text, 'honorary_mention'::text, 'special_jury'::text, 'top_50'::text, 'top_100'::text, 'finalist_only'::text])));
-ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT feedback_length_check CHECK (((feedback IS NULL) OR (length(feedback) <= 500)));
-ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT judge_scores_editing_range CHECK (((editing_score IS NULL) OR ((editing_score >= 0) AND (editing_score <= 10))));
-ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT judge_scores_moment_range CHECK (((moment_score IS NULL) OR ((moment_score >= 0) AND (moment_score <= 10))));
-ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT judge_scores_photo_index_check CHECK ((photo_index >= 0));
-ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT judge_scores_round_number_check CHECK (((round_number >= 1) AND (round_number <= 4)));
-ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT judge_scores_score_check CHECK ((((score)::numeric >= (0)::numeric) AND ((score)::numeric <= (10)::numeric)));
-ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT judge_scores_story_range CHECK (((story_score IS NULL) OR ((story_score >= 0) AND (story_score <= 10))));
-ALTER TABLE ONLY public.judge_tag_assignments ADD CONSTRAINT judge_tag_assignments_photo_index_check CHECK ((photo_index >= 0));
-ALTER TABLE ONLY public.judge_tag_assignments ADD CONSTRAINT judge_tag_assignments_round_number_check CHECK (((round_number >= 1) AND (round_number <= 4)));
-ALTER TABLE ONLY public.judging_config ADD CONSTRAINT judging_config_min_judges_check CHECK (((min_judges >= 1) AND (min_judges <= 50)));
-ALTER TABLE ONLY public.judging_config ADD CONSTRAINT judging_config_threshold_check CHECK (((threshold > (0)::numeric) AND (threshold <= (1)::numeric)));
-ALTER TABLE ONLY public.judging_tags ADD CONSTRAINT chk_visible_round_not_empty CHECK (((visible_in_round IS NOT NULL) AND (array_length(visible_in_round, 1) > 0)));
-ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_bytes_check CHECK ((bytes > 0));
-ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_height_check CHECK (((height > 0) AND (height <= 100000)));
-ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_mime_check CHECK ((mime = ANY (ARRAY['image/webp'::text, 'image/jpeg'::text, 'image/png'::text, 'image/avif'::text])));
-ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_quarantine_has_reason CHECK (((state <> 'quarantined'::text) OR (quarantine_reason IS NOT NULL)));
-ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_ready_has_derivatives CHECK (((state <> 'ready'::text) OR (derivatives ? 'original'::text)));
-ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_sha256_len CHECK ((octet_length(sha256) = 32));
-ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_state_check CHECK ((state = ANY (ARRAY['pending'::text, 'verified'::text, 'ready'::text, 'quarantined'::text])));
-ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_verified_has_ts CHECK (((state = ANY (ARRAY['pending'::text, 'quarantined'::text])) OR (verified_at IS NOT NULL)));
-ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_visibility_check CHECK ((visibility = ANY (ARRAY['public'::text, 'restricted'::text, 'private'::text])));
-ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_width_check CHECK (((width > 0) AND (width <= 100000)));
-ALTER TABLE ONLY public.member_activity_minutes ADD CONSTRAINT member_activity_minutes_surface_check CHECK ((surface = ANY (ARRAY['public'::text, 'internal'::text])));
-ALTER TABLE ONLY public.name_part_spellings ADD CONSTRAINT name_part_spellings_latin_check CHECK ((latin ~ '^[a-z0-9]+$'::text));
-ALTER TABLE ONLY public.office_staff ADD CONSTRAINT office_staff_job_status_check CHECK ((job_status = ANY (ARRAY['active'::text, 'inactive'::text])));
-ALTER TABLE ONLY public.photo_albums ADD CONSTRAINT valid_album_type CHECK ((album_type = ANY (ARRAY['profile_pictures'::text, 'cover_photos'::text, 'custom'::text])));
-ALTER TABLE ONLY public.post_drafts ADD CONSTRAINT post_drafts_max_5_categories CHECK ((cardinality(categories) <= 5));
-ALTER TABLE ONLY public.post_drafts ADD CONSTRAINT post_drafts_privacy_check CHECK ((privacy = ANY (ARRAY['public'::text, 'friends'::text, 'private'::text])));
-ALTER TABLE ONLY public.post_media ADD CONSTRAINT post_media_ord_check CHECK ((ord >= 0));
-ALTER TABLE ONLY public.post_tags ADD CONSTRAINT post_tags_no_self_tag CHECK ((tagger_id <> tagged_user_id));
-ALTER TABLE ONLY public.post_tags ADD CONSTRAINT post_tags_x_position_check CHECK (((x_position >= (0)::numeric) AND (x_position <= (100)::numeric)));
-ALTER TABLE ONLY public.post_tags ADD CONSTRAINT post_tags_y_position_check CHECK (((y_position >= (0)::numeric) AND (y_position <= (100)::numeric)));
-ALTER TABLE ONLY public.posts ADD CONSTRAINT posts_categories_max_5 CHECK ((cardinality(categories) <= 5));
-ALTER TABLE ONLY public.posts ADD CONSTRAINT posts_post_kind_check CHECK ((post_kind = ANY (ARRAY['member'::text, 'system'::text])));
-ALTER TABLE ONLY public.posts ADD CONSTRAINT posts_privacy_check CHECK ((privacy = ANY (ARRAY['private'::text, 'friends'::text, 'public'::text])));
-ALTER TABLE ONLY public.profile_stats ADD CONSTRAINT profile_stats_followers_count_check CHECK ((followers_count >= 0));
-ALTER TABLE ONLY public.profile_stats ADD CONSTRAINT profile_stats_following_count_check CHECK ((following_count >= 0));
-ALTER TABLE ONLY public.profile_stats ADD CONSTRAINT profile_stats_friends_count_check CHECK ((friends_count >= 0));
-ALTER TABLE ONLY public.profiles ADD CONSTRAINT profiles_custom_url_format CHECK (((custom_url IS NULL) OR ((custom_url ~ '^[a-z0-9_][a-z0-9._]{1,28}[a-z0-9_]$'::text) AND (custom_url !~ '\.\.'::text))));
-ALTER TABLE ONLY public.profiles ADD CONSTRAINT profiles_gender_check CHECK (((gender IS NULL) OR (gender = ANY (ARRAY['male'::text, 'female'::text]))));
-ALTER TABLE ONLY public.profiles ADD CONSTRAINT profiles_last_platform_check CHECK ((last_platform = ANY (ARRAY['app'::text, 'web'::text])));
-ALTER TABLE ONLY public.push_config ADD CONSTRAINT push_config_id_check CHECK (id);
-ALTER TABLE ONLY public.push_delivery_log ADD CONSTRAINT push_delivery_log_outcome_chk CHECK ((outcome = ANY (ARRAY['queued'::text, 'skipped_self'::text, 'skipped_preference'::text, 'skipped_unconfigured'::text, 'error'::text])));
-ALTER TABLE ONLY public.push_tokens ADD CONSTRAINT push_tokens_platform_check CHECK ((platform = ANY (ARRAY['ios'::text, 'android'::text, 'web'::text])));
-ALTER TABLE ONLY public.raw_commitments ADD CONSTRAINT raw_commitments_photo_index_check CHECK ((photo_index >= 0));
-ALTER TABLE ONLY public.raw_commitments ADD CONSTRAINT raw_commitments_source_check CHECK ((source = ANY (ARRAY['submit'::text, 'admin_request'::text, 'delivery'::text, 'revoked'::text])));
-ALTER TABLE ONLY public.referrals ADD CONSTRAINT referrals_no_self_referral CHECK ((referrer_id <> referred_id));
-ALTER TABLE ONLY public.reports ADD CONSTRAINT reports_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'resolved'::text, 'rejected'::text])));
-ALTER TABLE ONLY public.reports ADD CONSTRAINT reports_target_type_check CHECK ((target_type = ANY (ARRAY['post'::text, 'user'::text, 'comment'::text])));
-ALTER TABLE ONLY public.reserved_custom_urls ADD CONSTRAINT reserved_custom_urls_kind_check CHECK ((kind = ANY (ARRAY['route'::text, 'static'::text, 'legacy'::text])));
-ALTER TABLE ONLY public.role_applications ADD CONSTRAINT role_applications_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])));
-ALTER TABLE ONLY public.scheduled_posts ADD CONSTRAINT scheduled_posts_privacy_check CHECK ((privacy = ANY (ARRAY['private'::text, 'friends'::text, 'public'::text])));
-ALTER TABLE ONLY public.scheduled_posts ADD CONSTRAINT scheduled_posts_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'publishing'::text, 'published'::text, 'failed'::text, 'cancelled'::text])));
-ALTER TABLE ONLY public.suppressed_emails ADD CONSTRAINT suppressed_emails_reason_check CHECK ((reason = ANY (ARRAY['unsubscribe'::text, 'bounce'::text, 'complaint'::text])));
-ALTER TABLE ONLY public.system_tag_decision_map ADD CONSTRAINT system_tag_decision_map_round_number_check CHECK (((round_number >= 1) AND (round_number <= 4)));
-ALTER TABLE ONLY public.test_agent_config ADD CONSTRAINT test_agent_config_id_check CHECK ((id = true));
-ALTER TABLE ONLY public.test_agent_config ADD CONSTRAINT test_agent_config_interval_minutes_check CHECK ((interval_minutes = ANY (ARRAY[5, 15, 30, 60])));
-ALTER TABLE ONLY public.test_agent_runs ADD CONSTRAINT test_agent_runs_status_check CHECK ((status = ANY (ARRAY['passed'::text, 'failed'::text, 'partial'::text])));
-ALTER TABLE ONLY public.test_agent_runs ADD CONSTRAINT test_agent_runs_trigger_check CHECK ((trigger = ANY (ARRAY['push'::text, 'pull_request'::text, 'schedule'::text, 'workflow_dispatch'::text, 'manual'::text])));
-ALTER TABLE ONLY public.transliteration_map ADD CONSTRAINT transliteration_map_kind_check CHECK ((kind = ANY (ARRAY['letter'::text, 'vowel'::text, 'matra'::text, 'consonant'::text, 'virama'::text, 'sign'::text])));
-ALTER TABLE ONLY public.v3_mirror_log ADD CONSTRAINT v3_mirror_log_action_chk CHECK ((action = ANY (ARRAY['upsert'::text, 'delete'::text, 'noop'::text, 'bypassed'::text, 'error'::text, 'r4_award_upsert'::text, 'r4_award_delete'::text, 'alias_resolved'::text, 'upsert_via_alias'::text, 'noop_alias_miss'::text])));
-ALTER TABLE ONLY public.v3_stage_catalog ADD CONSTRAINT v3_stage_catalog_advances_chk CHECK (((advances_to_round IS NULL) OR ((advances_to_round >= 2) AND (advances_to_round <= 4))));
-ALTER TABLE ONLY public.v3_stage_catalog ADD CONSTRAINT v3_stage_catalog_blocks_chk CHECK (((blocks_from_round IS NULL) OR ((blocks_from_round >= 2) AND (blocks_from_round <= 4))));
-ALTER TABLE ONLY public.v3_stage_catalog ADD CONSTRAINT v3_stage_catalog_family_chk CHECK ((family = ANY (ARRAY['progression_pass'::text, 'progression_fail'::text, 'rejection'::text, 'needs_review'::text, 'verification'::text, 'award'::text])));
-ALTER TABLE ONLY public.v3_stage_catalog ADD CONSTRAINT v3_stage_catalog_round_chk CHECK (((round_number >= 1) AND (round_number <= 4)));
-ALTER TABLE ONLY public.v3_tag_label_alias ADD CONSTRAINT v3_tag_label_alias_round_number_check CHECK (((round_number >= 1) AND (round_number <= 4)));
+DO $$ BEGIN
+  ALTER TABLE ONLY public.ad_creative_comments ADD CONSTRAINT ad_creative_comments_length CHECK ((length(content) <= 2000));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.ad_creative_comments ADD CONSTRAINT ad_creative_comments_not_empty CHECK ((length(btrim(content)) > 0));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.ad_creative_reactions ADD CONSTRAINT ad_creative_reactions_known_type CHECK ((reaction_type = ANY (ARRAY['like'::text, 'love'::text, 'haha'::text, 'wow'::text, 'sad'::text, 'angry'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.ad_creatives ADD CONSTRAINT ad_creatives_image_url_not_blank CHECK ((length(btrim(image_url)) > 0));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.admin_vote_adjustments ADD CONSTRAINT adjustment_value_within_cap CHECK ((abs(adjustment_value) <= 1000));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.categories ADD CONSTRAINT categories_slug_format CHECK ((slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.certificates ADD CONSTRAINT certificates_heading_only_for_custom CHECK (((heading IS NULL) OR ((type = 'custom'::text) AND ((length(btrim(heading)) >= 1) AND (length(btrim(heading)) <= 60)))));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.certificates ADD CONSTRAINT certificates_type_check CHECK ((type = ANY (ARRAY['achievement'::text, 'custom'::text, 'course_completion'::text, 'competition_winner'::text, 'competition_runner_up_1'::text, 'competition_runner_up_2'::text, 'competition_honorary_mention'::text, 'competition_special_jury'::text, 'competition_top_50'::text, 'competition_top_100'::text, 'winner'::text, 'finalist'::text, 'participation_r1'::text, 'participation_r2'::text, 'participation_r3'::text, 'participation_r4'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.comments ADD CONSTRAINT comments_target_check CHECK ((((article_id IS NOT NULL) AND (entry_id IS NULL)) OR ((article_id IS NULL) AND (entry_id IS NOT NULL))));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_entries ADD CONSTRAINT competition_entries_current_round_valid CHECK (((current_round IS NULL) OR (current_round = ANY (ARRAY['1'::text, '2'::text, '3'::text, '4'::text]))));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_entries ADD CONSTRAINT competition_entries_status_check CHECK ((status = ANY (ARRAY['submitted'::text, 'approved'::text, 'rejected'::text, 'round1_qualified'::text, 'shortlisted'::text, 'round2_qualified'::text, 'round3_qualified'::text, 'finalist'::text, 'winner'::text, 'needs_review'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competition_round_publish ADD CONSTRAINT competition_round_publish_round_number_check CHECK (((round_number >= 1) AND (round_number <= 4)));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competitions ADD CONSTRAINT competitions_current_round_valid CHECK (((current_round IS NULL) OR (current_round = ANY (ARRAY['1'::text, '2'::text, '3'::text, '4'::text]))));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.competitions ADD CONSTRAINT competitions_status_check CHECK ((status = ANY (ARRAY['upcoming'::text, 'open'::text, 'submission_open'::text, 'judging'::text, 'result'::text, 'closed'::text, 'archived'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.email_send_log ADD CONSTRAINT email_send_log_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'suppressed'::text, 'failed'::text, 'bounced'::text, 'complained'::text, 'dlq'::text, 'rate_limited'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.email_send_state ADD CONSTRAINT email_send_state_id_check CHECK ((id = 1));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.feed_events ADD CONSTRAINT feed_events_event_type_check CHECK ((event_type = ANY (ARRAY['view'::text, 'like'::text, 'skip'::text, 'comment'::text, 'share'::text, 'click'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.follows ADD CONSTRAINT no_self_follow CHECK ((follower_id <> following_id));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.friendships ADD CONSTRAINT no_self_friend CHECK ((requester_id <> addressee_id));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.gift_credits ADD CONSTRAINT gift_credits_target_type_check CHECK ((target_type = ANY (ARRAY['email'::text, 'role'::text, 'all'::text, 'new_registration'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.hashtags ADD CONSTRAINT hashtags_tag_shape CHECK ((tag ~ '^[a-z0-9_]{1,60}$'::text));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_award_tags ADD CONSTRAINT judge_award_tags_photo_index_check CHECK ((photo_index >= 0));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_award_tags ADD CONSTRAINT judge_award_tags_round_number_check CHECK ((round_number = 4));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_comments ADD CONSTRAINT comment_length_check CHECK ((length(comment) <= 500));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_comments ADD CONSTRAINT judge_comments_photo_index_check CHECK ((photo_index >= 0));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_decisions ADD CONSTRAINT judge_decisions_decision_check_v2 CHECK ((decision = ANY (ARRAY['accept'::text, 'reject'::text, 'shortlist'::text, 'needs_review'::text, 'needs_verification'::text, 'qualified_r3'::text, 'qualified_final'::text, 'shortlisted_final'::text, 'not_selected_r3'::text, 'not_selected_final'::text, 'winner'::text, 'runner_up_1'::text, 'runner_up_2'::text, 'honorary_mention'::text, 'special_jury'::text, 'top_50'::text, 'top_100'::text, 'finalist_only'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT feedback_length_check CHECK (((feedback IS NULL) OR (length(feedback) <= 500)));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT judge_scores_editing_range CHECK (((editing_score IS NULL) OR ((editing_score >= 0) AND (editing_score <= 10))));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT judge_scores_moment_range CHECK (((moment_score IS NULL) OR ((moment_score >= 0) AND (moment_score <= 10))));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT judge_scores_photo_index_check CHECK ((photo_index >= 0));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT judge_scores_round_number_check CHECK (((round_number >= 1) AND (round_number <= 4)));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT judge_scores_score_check CHECK ((((score)::numeric >= (0)::numeric) AND ((score)::numeric <= (10)::numeric)));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_scores ADD CONSTRAINT judge_scores_story_range CHECK (((story_score IS NULL) OR ((story_score >= 0) AND (story_score <= 10))));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_tag_assignments ADD CONSTRAINT judge_tag_assignments_photo_index_check CHECK ((photo_index >= 0));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judge_tag_assignments ADD CONSTRAINT judge_tag_assignments_round_number_check CHECK (((round_number >= 1) AND (round_number <= 4)));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judging_config ADD CONSTRAINT judging_config_min_judges_check CHECK (((min_judges >= 1) AND (min_judges <= 50)));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judging_config ADD CONSTRAINT judging_config_threshold_check CHECK (((threshold > (0)::numeric) AND (threshold <= (1)::numeric)));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.judging_tags ADD CONSTRAINT chk_visible_round_not_empty CHECK (((visible_in_round IS NOT NULL) AND (array_length(visible_in_round, 1) > 0)));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_bytes_check CHECK ((bytes > 0));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_height_check CHECK (((height > 0) AND (height <= 100000)));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_mime_check CHECK ((mime = ANY (ARRAY['image/webp'::text, 'image/jpeg'::text, 'image/png'::text, 'image/avif'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_quarantine_has_reason CHECK (((state <> 'quarantined'::text) OR (quarantine_reason IS NOT NULL)));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_ready_has_derivatives CHECK (((state <> 'ready'::text) OR (derivatives ? 'original'::text)));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_sha256_len CHECK ((octet_length(sha256) = 32));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_state_check CHECK ((state = ANY (ARRAY['pending'::text, 'verified'::text, 'ready'::text, 'quarantined'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_verified_has_ts CHECK (((state = ANY (ARRAY['pending'::text, 'quarantined'::text])) OR (verified_at IS NOT NULL)));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_visibility_check CHECK ((visibility = ANY (ARRAY['public'::text, 'restricted'::text, 'private'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.media_objects ADD CONSTRAINT media_objects_width_check CHECK (((width > 0) AND (width <= 100000)));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.member_activity_minutes ADD CONSTRAINT member_activity_minutes_surface_check CHECK ((surface = ANY (ARRAY['public'::text, 'internal'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.name_part_spellings ADD CONSTRAINT name_part_spellings_latin_check CHECK ((latin ~ '^[a-z0-9]+$'::text));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.office_staff ADD CONSTRAINT office_staff_job_status_check CHECK ((job_status = ANY (ARRAY['active'::text, 'inactive'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.photo_albums ADD CONSTRAINT valid_album_type CHECK ((album_type = ANY (ARRAY['profile_pictures'::text, 'cover_photos'::text, 'custom'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_drafts ADD CONSTRAINT post_drafts_max_5_categories CHECK ((cardinality(categories) <= 5));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_drafts ADD CONSTRAINT post_drafts_privacy_check CHECK ((privacy = ANY (ARRAY['public'::text, 'friends'::text, 'private'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_media ADD CONSTRAINT post_media_ord_check CHECK ((ord >= 0));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_tags ADD CONSTRAINT post_tags_no_self_tag CHECK ((tagger_id <> tagged_user_id));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_tags ADD CONSTRAINT post_tags_x_position_check CHECK (((x_position >= (0)::numeric) AND (x_position <= (100)::numeric)));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.post_tags ADD CONSTRAINT post_tags_y_position_check CHECK (((y_position >= (0)::numeric) AND (y_position <= (100)::numeric)));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.posts ADD CONSTRAINT posts_categories_max_5 CHECK ((cardinality(categories) <= 5));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.posts ADD CONSTRAINT posts_post_kind_check CHECK ((post_kind = ANY (ARRAY['member'::text, 'system'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.posts ADD CONSTRAINT posts_privacy_check CHECK ((privacy = ANY (ARRAY['private'::text, 'friends'::text, 'public'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.profile_stats ADD CONSTRAINT profile_stats_followers_count_check CHECK ((followers_count >= 0));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.profile_stats ADD CONSTRAINT profile_stats_following_count_check CHECK ((following_count >= 0));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.profile_stats ADD CONSTRAINT profile_stats_friends_count_check CHECK ((friends_count >= 0));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.profiles ADD CONSTRAINT profiles_custom_url_format CHECK (((custom_url IS NULL) OR ((custom_url ~ '^[a-z0-9_][a-z0-9._]{1,28}[a-z0-9_]$'::text) AND (custom_url !~ '\.\.'::text))));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.profiles ADD CONSTRAINT profiles_gender_check CHECK (((gender IS NULL) OR (gender = ANY (ARRAY['male'::text, 'female'::text]))));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.profiles ADD CONSTRAINT profiles_last_platform_check CHECK ((last_platform = ANY (ARRAY['app'::text, 'web'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.push_config ADD CONSTRAINT push_config_id_check CHECK (id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.push_delivery_log ADD CONSTRAINT push_delivery_log_outcome_chk CHECK ((outcome = ANY (ARRAY['queued'::text, 'skipped_self'::text, 'skipped_preference'::text, 'skipped_unconfigured'::text, 'error'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.push_tokens ADD CONSTRAINT push_tokens_platform_check CHECK ((platform = ANY (ARRAY['ios'::text, 'android'::text, 'web'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.raw_commitments ADD CONSTRAINT raw_commitments_photo_index_check CHECK ((photo_index >= 0));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.raw_commitments ADD CONSTRAINT raw_commitments_source_check CHECK ((source = ANY (ARRAY['submit'::text, 'admin_request'::text, 'delivery'::text, 'revoked'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.referrals ADD CONSTRAINT referrals_no_self_referral CHECK ((referrer_id <> referred_id));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.reports ADD CONSTRAINT reports_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'resolved'::text, 'rejected'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.reports ADD CONSTRAINT reports_target_type_check CHECK ((target_type = ANY (ARRAY['post'::text, 'user'::text, 'comment'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.reserved_custom_urls ADD CONSTRAINT reserved_custom_urls_kind_check CHECK ((kind = ANY (ARRAY['route'::text, 'static'::text, 'legacy'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.role_applications ADD CONSTRAINT role_applications_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.scheduled_posts ADD CONSTRAINT scheduled_posts_privacy_check CHECK ((privacy = ANY (ARRAY['private'::text, 'friends'::text, 'public'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.scheduled_posts ADD CONSTRAINT scheduled_posts_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'publishing'::text, 'published'::text, 'failed'::text, 'cancelled'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.suppressed_emails ADD CONSTRAINT suppressed_emails_reason_check CHECK ((reason = ANY (ARRAY['unsubscribe'::text, 'bounce'::text, 'complaint'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.system_tag_decision_map ADD CONSTRAINT system_tag_decision_map_round_number_check CHECK (((round_number >= 1) AND (round_number <= 4)));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.test_agent_config ADD CONSTRAINT test_agent_config_id_check CHECK ((id = true));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.test_agent_config ADD CONSTRAINT test_agent_config_interval_minutes_check CHECK ((interval_minutes = ANY (ARRAY[5, 15, 30, 60])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.test_agent_runs ADD CONSTRAINT test_agent_runs_status_check CHECK ((status = ANY (ARRAY['passed'::text, 'failed'::text, 'partial'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.test_agent_runs ADD CONSTRAINT test_agent_runs_trigger_check CHECK ((trigger = ANY (ARRAY['push'::text, 'pull_request'::text, 'schedule'::text, 'workflow_dispatch'::text, 'manual'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.transliteration_map ADD CONSTRAINT transliteration_map_kind_check CHECK ((kind = ANY (ARRAY['letter'::text, 'vowel'::text, 'matra'::text, 'consonant'::text, 'virama'::text, 'sign'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.v3_mirror_log ADD CONSTRAINT v3_mirror_log_action_chk CHECK ((action = ANY (ARRAY['upsert'::text, 'delete'::text, 'noop'::text, 'bypassed'::text, 'error'::text, 'r4_award_upsert'::text, 'r4_award_delete'::text, 'alias_resolved'::text, 'upsert_via_alias'::text, 'noop_alias_miss'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.v3_stage_catalog ADD CONSTRAINT v3_stage_catalog_advances_chk CHECK (((advances_to_round IS NULL) OR ((advances_to_round >= 2) AND (advances_to_round <= 4))));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.v3_stage_catalog ADD CONSTRAINT v3_stage_catalog_blocks_chk CHECK (((blocks_from_round IS NULL) OR ((blocks_from_round >= 2) AND (blocks_from_round <= 4))));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.v3_stage_catalog ADD CONSTRAINT v3_stage_catalog_family_chk CHECK ((family = ANY (ARRAY['progression_pass'::text, 'progression_fail'::text, 'rejection'::text, 'needs_review'::text, 'verification'::text, 'award'::text])));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.v3_stage_catalog ADD CONSTRAINT v3_stage_catalog_round_chk CHECK (((round_number >= 1) AND (round_number <= 4)));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE ONLY public.v3_tag_label_alias ADD CONSTRAINT v3_tag_label_alias_round_number_check CHECK (((round_number >= 1) AND (round_number <= 4)));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN invalid_table_definition THEN NULL;
+END $$;
 
 -- =====================================================================
 -- ===== INDEXES =====
