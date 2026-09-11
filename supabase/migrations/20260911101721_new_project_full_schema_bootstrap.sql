@@ -447,7 +447,7 @@ CREATE TABLE IF NOT EXISTS public.competition_entries (
   public_placement_derived text,
   public_progression_note_derived text,
   public_r4_tags_derived text[],
-  current_round_int integer DEFAULT (NULLIF(regexp_replace(COALESCE(current_round, ''::text), '\D'::text, ''::text, 'g'::text), ''::text))::integer
+  current_round_int integer GENERATED ALWAYS AS ((NULLIF(regexp_replace(COALESCE(current_round, ''::text), '\D'::text, ''::text, 'g'::text), ''::text))::integer) STORED
 );
 
 CREATE TABLE IF NOT EXISTS public.competition_entry_counts (
@@ -1313,7 +1313,7 @@ CREATE TABLE IF NOT EXISTS public.posts (
   indexing_disabled boolean DEFAULT false NOT NULL,
   categories text[] DEFAULT '{}'::text[] NOT NULL,
   post_kind text DEFAULT 'member'::text NOT NULL,
-  is_public boolean DEFAULT (privacy = 'public'::text),
+  is_public boolean GENERATED ALWAYS AS (privacy = 'public'::text) STORED,
   rand_key double precision DEFAULT random() NOT NULL,
   viewer_count integer DEFAULT 0 NOT NULL,
   viewer_bucket_stable integer DEFAULT 0 NOT NULL,
