@@ -2718,956 +2718,6 @@ ALTER TABLE public.wallets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.withdrawal_requests ENABLE ROW LEVEL SECURITY;
 
 -- =====================================================================
--- ===== ROW LEVEL SECURITY (POLICIES) =====
--- =====================================================================
-
-CREATE POLICY snapshot_admin_read_ce ON public._v3_preflight_snapshot_competition_entries FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY snapshot_admin_read_jd ON public._v3_preflight_snapshot_judge_decisions FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY snapshot_admin_read_jta ON public._v3_preflight_snapshot_judge_tag_assignments FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY snapshot_admin_read_jt ON public._v3_preflight_snapshot_judging_tags FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "v3_quarantine_decisions admin read" ON public._v3_quarantine_decisions FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Admins can insert quarantined tag assignments" ON public._v3_quarantine_tag_assignments FOR INSERT TO authenticated WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Admins can view quarantined tag assignments" ON public._v3_quarantine_tag_assignments FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public._v3_quarantine_tag_assignments AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public._v3_quarantine_tag_assignments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public._v3_quarantine_tag_assignments AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Admins can manage activity logs" ON public.activity_logs FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.activity_logs AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.activity_logs AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.activity_logs AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can insert own activity logs" ON public.activity_logs FOR INSERT TO authenticated WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can view all conversions" ON public.ad_conversions FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Authenticated users can insert conversions" ON public.ad_conversions FOR INSERT TO authenticated WITH CHECK (((char_length(ad_id) >= 1) AND (char_length(ad_id) <= 120) AND (placement = ANY (ARRAY['header'::text, 'sidebar'::text, 'in-content'::text, 'between-entries'::text, 'lightbox-overlay'::text, 'above-journal'::text, 'below-journal'::text, 'anchor-bottom'::text])) AND (conversion_type = ANY (ARRAY['form_submission'::text, 'payment_success'::text, 'whatsapp_click'::text, 'cta_click'::text])) AND (device = ANY (ARRAY['desktop'::text, 'mobile'::text, 'tablet'::text]))));
-CREATE POLICY "Ad comments follow the ad's visibility" ON public.ad_creative_comments AS RESTRICTIVE FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
-   FROM ad_creatives c
-  WHERE ((c.id = ad_creative_comments.creative_id) AND (c.is_active OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role))))));
-CREATE POLICY "Banned users cannot comment on ads" ON public.ad_creative_comments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK ((NOT is_banned(( SELECT auth.uid() AS uid))));
-CREATE POLICY "Deleted accounts cannot delete" ON public.ad_creative_comments AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.ad_creative_comments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.ad_creative_comments AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Members comment as themselves" ON public.ad_creative_comments FOR INSERT TO authenticated WITH CHECK ((auth.uid() = user_id));
-CREATE POLICY "Members edit their own ad comment" ON public.ad_creative_comments FOR UPDATE TO authenticated USING ((auth.uid() = user_id)) WITH CHECK ((auth.uid() = user_id));
-CREATE POLICY "Members or admins delete an ad comment" ON public.ad_creative_comments FOR DELETE TO authenticated USING (((auth.uid() = user_id) OR has_role(auth.uid(), 'admin'::app_role)));
-CREATE POLICY "Members read ad comments" ON public.ad_creative_comments FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Deleted accounts cannot delete" ON public.ad_creative_reactions AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.ad_creative_reactions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.ad_creative_reactions AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Members change their own ad reaction" ON public.ad_creative_reactions FOR UPDATE TO authenticated USING ((auth.uid() = user_id)) WITH CHECK ((auth.uid() = user_id));
-CREATE POLICY "Members react as themselves" ON public.ad_creative_reactions FOR INSERT TO authenticated WITH CHECK ((auth.uid() = user_id));
-CREATE POLICY "Members read ad reactions" ON public.ad_creative_reactions FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Members remove their own ad reaction" ON public.ad_creative_reactions FOR DELETE TO authenticated USING ((auth.uid() = user_id));
-CREATE POLICY "Deleted accounts cannot delete" ON public.ad_creative_shares AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.ad_creative_shares AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.ad_creative_shares AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Members read ad shares" ON public.ad_creative_shares FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Members remove their own ad share" ON public.ad_creative_shares FOR DELETE TO authenticated USING ((auth.uid() = user_id));
-CREATE POLICY "Members share as themselves" ON public.ad_creative_shares FOR INSERT TO authenticated WITH CHECK ((auth.uid() = user_id));
-CREATE POLICY "Deleted accounts cannot delete" ON public.ad_creatives AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.ad_creatives AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.ad_creatives AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY ad_creatives_admin_all ON public.ad_creatives FOR ALL TO public USING (has_role(auth.uid(), 'admin'::app_role)) WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
-CREATE POLICY ad_creatives_public_read_active ON public.ad_creatives FOR SELECT TO public USING (is_active);
-CREATE POLICY "Admins can view impressions" ON public.ad_impressions FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Authenticated impression inserts" ON public.ad_impressions FOR INSERT TO authenticated WITH CHECK (((char_length(slot_id) >= 1) AND (char_length(slot_id) <= 120) AND (placement = ANY (ARRAY['header'::text, 'sidebar'::text, 'in-content'::text, 'between-entries'::text, 'lightbox-overlay'::text, 'above-journal'::text, 'below-journal'::text, 'anchor-bottom'::text])) AND (event_type = ANY (ARRAY['impression'::text, 'click'::text, 'viewable_impression'::text])) AND (device = ANY (ARRAY['desktop'::text, 'mobile'::text, 'tablet'::text])) AND (ad_source = ANY (ARRAY['internal'::text, 'adsense'::text])) AND ((country IS NULL) OR ((char_length(country) >= 2) AND (char_length(country) <= 100)))));
-CREATE POLICY "Admins can delete admin notifications" ON public.admin_notifications FOR DELETE TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Admins can manage admin notifications" ON public.admin_notifications FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.admin_notifications AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.admin_notifications AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.admin_notifications AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Admins can delete vote adjustments" ON public.admin_vote_adjustments FOR DELETE TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Admins can insert vote adjustments" ON public.admin_vote_adjustments FOR INSERT TO authenticated WITH CHECK (((admin_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
-CREATE POLICY "Admins can read vote adjustments" ON public.admin_vote_adjustments FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.admin_vote_adjustments AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.admin_vote_adjustments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.admin_vote_adjustments AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Admins can view all chat usage" ON public.ai_chat_usage FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Deleted accounts cannot delete" ON public.ai_chat_usage AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.ai_chat_usage AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.ai_chat_usage AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can update own usage" ON public.ai_chat_usage FOR UPDATE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can view own chat usage" ON public.ai_chat_usage FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can manage all album photos" ON public.album_photos FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view album photos" ON public.album_photos FOR SELECT TO public USING (true);
-CREATE POLICY "Deleted accounts cannot delete" ON public.album_photos AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.album_photos AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.album_photos AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can add photos to own albums" ON public.album_photos FOR INSERT TO authenticated WITH CHECK (owns_album(album_id, ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can delete own album photos" ON public.album_photos FOR DELETE TO authenticated USING (owns_album(album_id, ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can update own album photos" ON public.album_photos FOR UPDATE TO authenticated USING (owns_album(album_id, ( SELECT auth.uid() AS uid)));
-CREATE POLICY "auth admin manages login attempts" ON public.auth_login_attempts FOR ALL TO supabase_auth_admin USING (true) WITH CHECK (true);
-CREATE POLICY "Admins can manage badge definitions" ON public.badge_definitions FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view badge definitions" ON public.badge_definitions FOR SELECT TO public USING (true);
-CREATE POLICY "Deleted accounts cannot delete" ON public.badge_definitions AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.badge_definitions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.badge_definitions AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Admins can manage bank details" ON public.bank_details FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.bank_details AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.bank_details AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.bank_details AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can insert own bank details" ON public.bank_details FOR INSERT TO public WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can update own bank details" ON public.bank_details FOR UPDATE TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can view own bank details" ON public.bank_details FOR SELECT TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can manage blocked keywords" ON public.blocked_keywords FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Authenticated users can read active keywords" ON public.blocked_keywords FOR SELECT TO authenticated USING ((is_active = true));
-CREATE POLICY "Deleted accounts cannot delete" ON public.blocked_keywords AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.blocked_keywords AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.blocked_keywords AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Admins manage categories" ON public.categories FOR ALL TO public USING (has_role(auth.uid(), 'admin'::app_role)) WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
-CREATE POLICY "Anyone can read categories" ON public.categories FOR SELECT TO public USING (true);
-CREATE POLICY "Admins can manage testimonials" ON public.certificate_testimonials FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view visible testimonials" ON public.certificate_testimonials FOR SELECT TO public USING ((is_visible = true));
-CREATE POLICY "Deleted accounts cannot delete" ON public.certificate_testimonials AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.certificate_testimonials AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.certificate_testimonials AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Admins can manage certificates" ON public.certificates FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.certificates AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.certificates AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.certificates AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can insert own competition certificates" ON public.certificates FOR INSERT TO authenticated WITH CHECK (((user_id = ( SELECT auth.uid() AS uid)) AND (type = ANY (ARRAY['winner'::text, 'finalist'::text, 'participation_r1'::text, 'participation_r2'::text, 'participation_r3'::text, 'participation_r4'::text]))));
-CREATE POLICY "Users can view own certificates" ON public.certificates FOR SELECT TO authenticated USING (((user_id = ( SELECT auth.uid() AS uid)) AND ((type !~~ 'competition\_%'::text) OR (published_at IS NOT NULL))));
-CREATE POLICY "Admins can view chat questions" ON public.chat_questions FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Service role can manage chat questions" ON public.chat_questions FOR ALL TO public USING ((( SELECT auth.role() AS role) = 'service_role'::text)) WITH CHECK ((( SELECT auth.role() AS role) = 'service_role'::text));
-CREATE POLICY "Admins can manage comment reactions" ON public.comment_reactions FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view comment reactions" ON public.comment_reactions FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated users can react" ON public.comment_reactions FOR INSERT TO authenticated WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Deleted accounts cannot delete" ON public.comment_reactions AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.comment_reactions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.comment_reactions AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can remove own reactions" ON public.comment_reactions FOR DELETE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can manage reports" ON public.comment_reports FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.comment_reports AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.comment_reports AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.comment_reports AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can report comments" ON public.comment_reports FOR INSERT TO public WITH CHECK ((( SELECT auth.uid() AS uid) = reporter_id));
-CREATE POLICY "Users can view own reports" ON public.comment_reports FOR SELECT TO public USING ((reporter_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can manage comments" ON public.comments FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view comments" ON public.comments FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated users can create comments" ON public.comments FOR INSERT TO authenticated WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-CREATE POLICY "Banned users cannot comment on entries" ON public.comments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK ((NOT is_banned(( SELECT auth.uid() AS uid))));
-CREATE POLICY "Deleted accounts cannot delete" ON public.comments AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.comments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.comments AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can delete own comments" ON public.comments FOR DELETE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can update own comments" ON public.comments FOR UPDATE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can manage entries" ON public.competition_entries FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Authenticated can view public-status entries" ON public.competition_entries FOR SELECT TO authenticated USING ((status = ANY (ARRAY['submitted'::text, 'approved'::text, 'winner'::text, 'runner_up'::text, 'honorary'::text, 'finalist'::text, 'shortlisted'::text, 'qualified'::text, 'round1_qualified'::text, 'round2_qualified'::text, 'round3_qualified'::text])));
-CREATE POLICY "Deleted accounts cannot delete" ON public.competition_entries AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.competition_entries AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.competition_entries AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can submit entries" ON public.competition_entries FOR INSERT TO public WITH CHECK (((( SELECT auth.uid() AS uid) = user_id) AND (EXISTS ( SELECT 1
-   FROM competitions c
-  WHERE ((c.id = competition_entries.competition_id) AND (c.phase = 'submission_open'::text) AND (now() <= c.ends_at)))) AND (NOT is_banned(( SELECT auth.uid() AS uid)))));
-CREATE POLICY "Users can update own metadata only" ON public.competition_entries FOR UPDATE TO authenticated USING (((user_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1
-   FROM competitions c
-  WHERE ((c.id = competition_entries.competition_id) AND (c.phase = 'submission_open'::text) AND (now() <= c.ends_at) AND (c.status <> ALL (ARRAY['archived'::text, 'cancelled'::text]))))))) WITH CHECK (((user_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1
-   FROM competitions c
-  WHERE ((c.id = competition_entries.competition_id) AND (c.phase = 'submission_open'::text) AND (now() <= c.ends_at) AND (c.status <> ALL (ARRAY['archived'::text, 'cancelled'::text]))))) AND (NOT (status IS DISTINCT FROM ( SELECT ce2.status
-   FROM competition_entries ce2
-  WHERE (ce2.id = competition_entries.id)))) AND (NOT (placement IS DISTINCT FROM ( SELECT ce2.placement
-   FROM competition_entries ce2
-  WHERE (ce2.id = competition_entries.id)))) AND (NOT (stage_key IS DISTINCT FROM ( SELECT ce2.stage_key
-   FROM competition_entries ce2
-  WHERE (ce2.id = competition_entries.id)))) AND (NOT (progression_decision IS DISTINCT FROM ( SELECT ce2.progression_decision
-   FROM competition_entries ce2
-  WHERE (ce2.id = competition_entries.id)))) AND (NOT (current_round IS DISTINCT FROM ( SELECT ce2.current_round
-   FROM competition_entries ce2
-  WHERE (ce2.id = competition_entries.id)))) AND (NOT (current_round_int IS DISTINCT FROM ( SELECT ce2.current_round_int
-   FROM competition_entries ce2
-  WHERE (ce2.id = competition_entries.id)))) AND (NOT (is_ai_generated IS DISTINCT FROM ( SELECT ce2.is_ai_generated
-   FROM competition_entries ce2
-  WHERE (ce2.id = competition_entries.id)))) AND (NOT (is_ai_advisory IS DISTINCT FROM ( SELECT ce2.is_ai_advisory
-   FROM competition_entries ce2
-  WHERE (ce2.id = competition_entries.id)))) AND (NOT (ai_detection_result IS DISTINCT FROM ( SELECT ce2.ai_detection_result
-   FROM competition_entries ce2
-  WHERE (ce2.id = competition_entries.id)))) AND (NOT (is_pinned IS DISTINCT FROM ( SELECT ce2.is_pinned
-   FROM competition_entries ce2
-  WHERE (ce2.id = competition_entries.id)))) AND (NOT (user_id IS DISTINCT FROM ( SELECT ce2.user_id
-   FROM competition_entries ce2
-  WHERE (ce2.id = competition_entries.id)))) AND (NOT (competition_id IS DISTINCT FROM ( SELECT ce2.competition_id
-   FROM competition_entries ce2
-  WHERE (ce2.id = competition_entries.id))))));
-CREATE POLICY cec_read_authenticated ON public.competition_entry_counts FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Admins can manage competition judges" ON public.competition_judges FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.competition_judges AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.competition_judges AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.competition_judges AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Judges can view own assignments" ON public.competition_judges FOR SELECT TO authenticated USING ((judge_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can manage competition judging tags" ON public.competition_judging_tags FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.competition_judging_tags AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.competition_judging_tags AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.competition_judging_tags AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Judges can link tags to assigned competitions" ON public.competition_judging_tags FOR INSERT TO authenticated WITH CHECK ((has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND (EXISTS ( SELECT 1
-   FROM competition_judges cj
-  WHERE ((cj.competition_id = competition_judging_tags.competition_id) AND (cj.judge_id = ( SELECT auth.uid() AS uid)))))));
-CREATE POLICY "Judges can view competition tags" ON public.competition_judging_tags FOR SELECT TO authenticated USING ((has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
-CREATE POLICY admins_read_all_orders ON public.competition_orders FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY users_read_own_orders ON public.competition_orders FOR SELECT TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id));
-CREATE POLICY "Admins can manage competition payment details" ON public.competition_payment_details FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.competition_payment_details AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.competition_payment_details AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.competition_payment_details AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Admins can manage round publish state" ON public.competition_round_publish FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone authenticated can read round publish state" ON public.competition_round_publish FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Deleted accounts cannot delete" ON public.competition_round_publish AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.competition_round_publish AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.competition_round_publish AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Public can read published rounds" ON public.competition_round_publish FOR SELECT TO anon USING ((published_at IS NOT NULL));
-CREATE POLICY "Deleted accounts cannot delete" ON public.competition_votes AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.competition_votes AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.competition_votes AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "View vote counts (phase-gated)" ON public.competition_votes FOR SELECT TO authenticated USING (((NOT is_vote_phase_locked(entry_id)) OR (user_id = ( SELECT auth.uid() AS uid)) OR is_entry_owner(entry_id, ( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
-CREATE POLICY no_self_vote ON public.competition_votes FOR INSERT TO authenticated WITH CHECK (((user_id = ( SELECT auth.uid() AS uid)) AND (NOT (EXISTS ( SELECT 1
-   FROM competition_entries e
-  WHERE ((e.id = competition_votes.entry_id) AND (e.user_id = ( SELECT auth.uid() AS uid)))))) AND (NOT is_banned(( SELECT auth.uid() AS uid)))));
-CREATE POLICY "Admins can manage competitions" ON public.competitions FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view competitions" ON public.competitions FOR SELECT TO public USING (true);
-CREATE POLICY "Deleted accounts cannot delete" ON public.competitions AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.competitions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.competitions AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Admins can view all enrollments" ON public.course_enrollments FOR SELECT TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.course_enrollments AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.course_enrollments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.course_enrollments AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can enroll themselves" ON public.course_enrollments FOR INSERT TO public WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can view own enrollments" ON public.course_enrollments FOR SELECT TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins manage modules" ON public.course_modules FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.course_modules AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.course_modules AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.course_modules AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Public can view modules" ON public.course_modules FOR SELECT TO public USING (true);
-CREATE POLICY "Admins can manage courses" ON public.courses FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view published courses" ON public.courses FOR SELECT TO public USING (((status = 'published'::text) OR (author_id = ( SELECT auth.uid() AS uid))));
-CREATE POLICY "Content editors can create courses" ON public.courses FOR INSERT TO public WITH CHECK ((has_role(( SELECT auth.uid() AS uid), 'content_editor'::app_role) AND (author_id = ( SELECT auth.uid() AS uid))));
-CREATE POLICY "Content editors can delete own courses" ON public.courses FOR DELETE TO public USING ((has_role(( SELECT auth.uid() AS uid), 'content_editor'::app_role) AND (author_id = ( SELECT auth.uid() AS uid))));
-CREATE POLICY "Content editors can update own courses" ON public.courses FOR UPDATE TO public USING ((has_role(( SELECT auth.uid() AS uid), 'content_editor'::app_role) AND (author_id = ( SELECT auth.uid() AS uid))));
-CREATE POLICY "Deleted accounts cannot delete" ON public.courses AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.courses AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.courses AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Admins read all URL history" ON public.custom_url_history FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Users read own URL history" ON public.custom_url_history FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can read audit logs" ON public.db_audit_logs FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Service role can insert send log" ON public.email_send_log FOR INSERT TO public WITH CHECK ((( SELECT auth.role() AS role) = 'service_role'::text));
-CREATE POLICY "Service role can read send log" ON public.email_send_log FOR SELECT TO public USING ((( SELECT auth.role() AS role) = 'service_role'::text));
-CREATE POLICY "Service role can update send log" ON public.email_send_log FOR UPDATE TO public USING ((( SELECT auth.role() AS role) = 'service_role'::text)) WITH CHECK ((( SELECT auth.role() AS role) = 'service_role'::text));
-CREATE POLICY "Service role can manage send state" ON public.email_send_state FOR ALL TO public USING ((( SELECT auth.role() AS role) = 'service_role'::text)) WITH CHECK ((( SELECT auth.role() AS role) = 'service_role'::text));
-CREATE POLICY "Admins can manage email templates" ON public.email_templates FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.email_templates AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.email_templates AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.email_templates AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Service role can insert tokens" ON public.email_unsubscribe_tokens FOR INSERT TO public WITH CHECK ((( SELECT auth.role() AS role) = 'service_role'::text));
-CREATE POLICY "Service role can mark tokens as used" ON public.email_unsubscribe_tokens FOR UPDATE TO public USING ((( SELECT auth.role() AS role) = 'service_role'::text)) WITH CHECK ((( SELECT auth.role() AS role) = 'service_role'::text));
-CREATE POLICY "Service role can read tokens" ON public.email_unsubscribe_tokens FOR SELECT TO public USING ((( SELECT auth.role() AS role) = 'service_role'::text));
-CREATE POLICY "Admins read score cache" ON public.entry_score_cache FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Judges read score cache" ON public.entry_score_cache FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'judge'::text));
-CREATE POLICY "Admins can delete FAQs" ON public.faq_entries FOR DELETE TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Admins can insert FAQs" ON public.faq_entries FOR INSERT TO authenticated WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Admins can update FAQs" ON public.faq_entries FOR UPDATE TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Admins can view all FAQs" ON public.faq_entries FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Anyone can read active FAQs" ON public.faq_entries FOR SELECT TO anon, authenticated USING ((is_active = true));
-CREATE POLICY "Deleted accounts cannot delete" ON public.faq_entries AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.faq_entries AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.faq_entries AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Admins can manage featured artists" ON public.featured_artists FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view active featured artists" ON public.featured_artists FOR SELECT TO anon, authenticated USING ((is_active = true));
-CREATE POLICY "Deleted accounts cannot delete" ON public.featured_artists AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.featured_artists AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.featured_artists AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Admins can manage featured photos" ON public.featured_photos FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view featured photos" ON public.featured_photos FOR SELECT TO public USING (true);
-CREATE POLICY "Deleted accounts cannot delete" ON public.featured_photos AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.featured_photos AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.featured_photos AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can manage own featured photos" ON public.featured_photos FOR ALL TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins read all feed events" ON public.feed_events FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Deleted accounts cannot delete" ON public.feed_events AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.feed_events AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.feed_events AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users insert own feed events" ON public.feed_events FOR INSERT TO authenticated WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-CREATE POLICY "Users read own feed events" ON public.feed_events FOR SELECT TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id));
-CREATE POLICY "Admins can manage follows" ON public.follows FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view follows" ON public.follows FOR SELECT TO public USING (true);
-CREATE POLICY "Deleted accounts cannot delete" ON public.follows AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.follows AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.follows AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can follow" ON public.follows FOR INSERT TO authenticated WITH CHECK ((follower_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can unfollow" ON public.follows FOR DELETE TO authenticated USING ((follower_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can manage friendships" ON public.friendships FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.friendships AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.friendships AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.friendships AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can delete own friendships" ON public.friendships FOR DELETE TO authenticated USING (((requester_id = ( SELECT auth.uid() AS uid)) OR (addressee_id = ( SELECT auth.uid() AS uid))));
-CREATE POLICY "Users can send friend requests" ON public.friendships FOR INSERT TO authenticated WITH CHECK ((requester_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can update own friendships" ON public.friendships FOR UPDATE TO authenticated USING (((addressee_id = ( SELECT auth.uid() AS uid)) AND (status = 'pending'::text))) WITH CHECK ((status = 'accepted'::text));
-CREATE POLICY "Users can view own friendships" ON public.friendships FOR SELECT TO authenticated USING (((requester_id = ( SELECT auth.uid() AS uid)) OR (addressee_id = ( SELECT auth.uid() AS uid))));
-CREATE POLICY "Admins can manage announcements" ON public.gift_announcements FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.gift_announcements AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.gift_announcements AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.gift_announcements AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can update own announcements" ON public.gift_announcements FOR UPDATE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can view own announcements" ON public.gift_announcements FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can manage gift credits" ON public.gift_credits FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.gift_credits AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.gift_credits AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.gift_credits AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY hashtags_read_all ON public.hashtags FOR SELECT TO public USING (true);
-CREATE POLICY "admins read held_result_notifications" ON public.held_result_notifications FOR SELECT TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Admins can manage banners" ON public.hero_banners FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view active banners" ON public.hero_banners FOR SELECT TO public USING ((is_active = true));
-CREATE POLICY "Deleted accounts cannot delete" ON public.hero_banners AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.hero_banners AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.hero_banners AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Admins can manage highlight items" ON public.highlight_items FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view highlight items" ON public.highlight_items FOR SELECT TO public USING (true);
-CREATE POLICY "Deleted accounts cannot delete" ON public.highlight_items AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.highlight_items AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.highlight_items AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can delete own highlight items" ON public.highlight_items FOR DELETE TO authenticated USING ((EXISTS ( SELECT 1
-   FROM highlights
-  WHERE ((highlights.id = highlight_items.highlight_id) AND (highlights.user_id = ( SELECT auth.uid() AS uid))))));
-CREATE POLICY "Users can manage own highlight items" ON public.highlight_items FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
-   FROM highlights
-  WHERE ((highlights.id = highlight_items.highlight_id) AND (highlights.user_id = ( SELECT auth.uid() AS uid))))));
-CREATE POLICY "Admins can manage highlights" ON public.highlights FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view highlights" ON public.highlights FOR SELECT TO public USING (true);
-CREATE POLICY "Deleted accounts cannot delete" ON public.highlights AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.highlights AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.highlights AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can manage own highlights" ON public.highlights FOR ALL TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can manage all comments" ON public.image_comments FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Authenticated users can post comments" ON public.image_comments FOR INSERT TO public WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-CREATE POLICY "Banned users cannot comment on images" ON public.image_comments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK ((NOT is_banned(( SELECT auth.uid() AS uid))));
-CREATE POLICY "Deleted accounts cannot delete" ON public.image_comments AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.image_comments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.image_comments AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can delete own comments" ON public.image_comments FOR DELETE TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can update own comments" ON public.image_comments FOR UPDATE TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "View non-flagged comments (phase-gated)" ON public.image_comments FOR SELECT TO public USING ((((is_flagged = false) OR (user_id = ( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) AND ((NOT is_engagement_phase_locked(image_type, image_id)) OR (user_id = ( SELECT auth.uid() AS uid)) OR ((( SELECT auth.uid() AS uid) IS NOT NULL) AND is_entry_owner(image_id, ( SELECT auth.uid() AS uid))) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role))));
-CREATE POLICY "Authenticated users can add reactions" ON public.image_reactions FOR INSERT TO public WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-CREATE POLICY "Banned users cannot react to images" ON public.image_reactions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK ((NOT is_banned(( SELECT auth.uid() AS uid))));
-CREATE POLICY "Deleted accounts cannot delete" ON public.image_reactions AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.image_reactions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.image_reactions AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can remove own reactions" ON public.image_reactions FOR DELETE TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "View reactions (phase-gated)" ON public.image_reactions FOR SELECT TO public USING (((NOT is_engagement_phase_locked(image_type, image_id)) OR ((( SELECT auth.uid() AS uid) IS NOT NULL) AND is_entry_owner(image_id, ( SELECT auth.uid() AS uid))) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
-CREATE POLICY "Admins can manage articles" ON public.journal_articles FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view published articles" ON public.journal_articles FOR SELECT TO public USING (((status = 'published'::text) OR (author_id = ( SELECT auth.uid() AS uid))));
-CREATE POLICY "Content editors can create articles" ON public.journal_articles FOR INSERT TO public WITH CHECK ((has_role(( SELECT auth.uid() AS uid), 'content_editor'::app_role) AND (author_id = ( SELECT auth.uid() AS uid))));
-CREATE POLICY "Content editors can delete own articles" ON public.journal_articles FOR DELETE TO public USING ((has_role(( SELECT auth.uid() AS uid), 'content_editor'::app_role) AND (author_id = ( SELECT auth.uid() AS uid))));
-CREATE POLICY "Content editors can update own articles" ON public.journal_articles FOR UPDATE TO public USING ((has_role(( SELECT auth.uid() AS uid), 'content_editor'::app_role) AND (author_id = ( SELECT auth.uid() AS uid))));
-CREATE POLICY "Deleted accounts cannot delete" ON public.journal_articles AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.journal_articles AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.journal_articles AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Admins can manage judge activity logs" ON public.judge_activity_logs FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.judge_activity_logs AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.judge_activity_logs AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.judge_activity_logs AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Judges can insert own activity logs" ON public.judge_activity_logs FOR INSERT TO authenticated WITH CHECK (((judge_id = ( SELECT auth.uid() AS uid)) AND (has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role))));
-CREATE POLICY "Judges can view own activity logs" ON public.judge_activity_logs FOR SELECT TO authenticated USING (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role)));
-CREATE POLICY judge_award_tags_select_admin ON public.judge_award_tags FOR SELECT TO authenticated USING ((has_role(( SELECT auth.uid() AS uid), 'admin'::text) OR has_role(( SELECT auth.uid() AS uid), 'super_admin'::text)));
-CREATE POLICY judge_award_tags_select_self ON public.judge_award_tags FOR SELECT TO authenticated USING ((judge_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can manage judge comments" ON public.judge_comments FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.judge_comments AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.judge_comments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.judge_comments AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Judges can create own comments" ON public.judge_comments FOR INSERT TO authenticated WITH CHECK (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid))));
-CREATE POLICY "Judges can delete own comments" ON public.judge_comments FOR DELETE TO authenticated USING (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid))));
-CREATE POLICY "Judges can update own comments" ON public.judge_comments FOR UPDATE TO authenticated USING (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid))));
-CREATE POLICY "Judges can view all comments" ON public.judge_comments FOR SELECT TO authenticated USING (((has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND (EXISTS ( SELECT 1
-   FROM (competition_entries ce
-     JOIN competition_judges cj ON ((cj.competition_id = ce.competition_id)))
-  WHERE ((ce.id = judge_comments.entry_id) AND (cj.judge_id = ( SELECT auth.uid() AS uid)))))) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
-CREATE POLICY "Admins can manage judge decisions" ON public.judge_decisions FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.judge_decisions AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.judge_decisions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.judge_decisions AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Judges can insert own decisions" ON public.judge_decisions FOR INSERT TO authenticated WITH CHECK (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid)) AND judge_round_open_by_number(entry_id, round_number)));
-CREATE POLICY "Judges can update own decisions" ON public.judge_decisions FOR UPDATE TO authenticated USING (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid)) AND judge_round_open_by_number(entry_id, round_number))) WITH CHECK (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid)) AND judge_round_open_by_number(entry_id, round_number)));
-CREATE POLICY "Judges can view decisions" ON public.judge_decisions FOR SELECT TO authenticated USING (((has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND (EXISTS ( SELECT 1
-   FROM (competition_entries ce
-     JOIN competition_judges cj ON ((cj.competition_id = ce.competition_id)))
-  WHERE ((ce.id = judge_decisions.entry_id) AND (cj.judge_id = ( SELECT auth.uid() AS uid)))))) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
-CREATE POLICY "Admins can manage judge entry assignments" ON public.judge_entry_assignments FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Deleted accounts cannot delete" ON public.judge_entry_assignments AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.judge_entry_assignments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.judge_entry_assignments AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Judges can view own assignments" ON public.judge_entry_assignments FOR SELECT TO authenticated USING (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::text)));
-CREATE POLICY "Admins can manage locks" ON public.judge_entry_locks FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.judge_entry_locks AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.judge_entry_locks AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.judge_entry_locks AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Judges can create locks" ON public.judge_entry_locks FOR INSERT TO authenticated WITH CHECK (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role)));
-CREATE POLICY "Judges can release locks" ON public.judge_entry_locks FOR DELETE TO authenticated USING (((judge_id = ( SELECT auth.uid() AS uid)) OR (expires_at < now())));
-CREATE POLICY "Judges can update own locks" ON public.judge_entry_locks FOR UPDATE TO authenticated USING ((judge_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Judges can view locks" ON public.judge_entry_locks FOR SELECT TO authenticated USING ((has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
-CREATE POLICY "Admins can manage scores" ON public.judge_scores FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.judge_scores AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.judge_scores AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.judge_scores AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Judges can delete own scores" ON public.judge_scores FOR DELETE TO authenticated USING (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid)) AND judge_round_open_by_number(entry_id, round_number)));
-CREATE POLICY "Judges can insert own scores" ON public.judge_scores FOR INSERT TO authenticated WITH CHECK (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid)) AND judge_round_open_by_number(entry_id, round_number)));
-CREATE POLICY "Judges can update own scores" ON public.judge_scores FOR UPDATE TO authenticated USING (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid)) AND judge_round_open_by_number(entry_id, round_number))) WITH CHECK (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid)) AND judge_round_open_by_number(entry_id, round_number)));
-CREATE POLICY "Judges can view scores" ON public.judge_scores FOR SELECT TO authenticated USING (((has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND (EXISTS ( SELECT 1
-   FROM (competition_entries ce
-     JOIN competition_judges cj ON ((cj.competition_id = ce.competition_id)))
-  WHERE ((ce.id = judge_scores.entry_id) AND (cj.judge_id = ( SELECT auth.uid() AS uid)))))) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
-CREATE POLICY "Deleted accounts cannot delete" ON public.judge_sessions AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.judge_sessions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.judge_sessions AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Judges can insert own sessions" ON public.judge_sessions FOR INSERT TO authenticated WITH CHECK (((judge_id = ( SELECT auth.uid() AS uid)) AND (has_role(( SELECT auth.uid() AS uid), 'admin'::text) OR (EXISTS ( SELECT 1
-   FROM competition_judges cj
-  WHERE ((cj.judge_id = ( SELECT auth.uid() AS uid)) AND (cj.competition_id = judge_sessions.competition_id)))))));
-CREATE POLICY "Judges can update own sessions" ON public.judge_sessions FOR UPDATE TO authenticated USING ((judge_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Judges can view own sessions" ON public.judge_sessions FOR SELECT TO authenticated USING (((judge_id = ( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::text)));
-CREATE POLICY "Admins can manage tag assignments" ON public.judge_tag_assignments FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.judge_tag_assignments AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.judge_tag_assignments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.judge_tag_assignments AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Judges can assign tags" ON public.judge_tag_assignments FOR INSERT TO authenticated WITH CHECK (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid)) AND judge_round_open_by_number(entry_id, round_number)));
-CREATE POLICY "Judges can view tag assignments" ON public.judge_tag_assignments FOR SELECT TO authenticated USING (((has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND (EXISTS ( SELECT 1
-   FROM (competition_entries ce
-     JOIN competition_judges cj ON ((cj.competition_id = ce.competition_id)))
-  WHERE ((ce.id = judge_tag_assignments.entry_id) AND (cj.judge_id = ( SELECT auth.uid() AS uid)))))) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
-CREATE POLICY "Admins can manage judging config" ON public.judging_config FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.judging_config AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.judging_config AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.judging_config AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Judges can view judging config" ON public.judging_config FOR SELECT TO public USING (has_role(( SELECT auth.uid() AS uid), 'judge'::app_role));
-CREATE POLICY judging_preflight_log_self_read ON public.judging_preflight_log FOR SELECT TO authenticated USING (((caller_id = ( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::text)));
-CREATE POLICY "Admins can manage judging rounds" ON public.judging_rounds FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.judging_rounds AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.judging_rounds AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.judging_rounds AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Judges can view rounds" ON public.judging_rounds FOR SELECT TO authenticated USING ((has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
-CREATE POLICY "Admins can manage judging tags" ON public.judging_tags FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "All users can view active tags" ON public.judging_tags FOR SELECT TO authenticated USING ((is_active = true));
-CREATE POLICY "Deleted accounts cannot delete" ON public.judging_tags AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.judging_tags AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.judging_tags AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Judges can view active tags" ON public.judging_tags FOR SELECT TO authenticated USING (((is_active = true) AND (has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role))));
-CREATE POLICY "Public can read R4 award tag definitions" ON public.judging_tags FOR SELECT TO anon, authenticated USING ((label = ANY (ARRAY['Top 100'::text, 'Top 50'::text, 'Winner'::text, '1st Runner-Up'::text, '2nd Runner-Up'::text, 'Honorary Mention'::text, 'Special Jury'::text])));
-CREATE POLICY "Deleted accounts cannot delete" ON public.lesson_progress AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.lesson_progress AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.lesson_progress AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can track own progress" ON public.lesson_progress FOR INSERT TO public WITH CHECK (((user_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1
-   FROM (lessons l
-     JOIN courses c ON ((c.id = l.course_id)))
-  WHERE ((l.id = lesson_progress.lesson_id) AND (c.is_free OR (c.author_id = ( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR (EXISTS ( SELECT 1
-           FROM course_enrollments e
-          WHERE ((e.user_id = ( SELECT auth.uid() AS uid)) AND (e.course_id = l.course_id))))))))));
-CREATE POLICY "Users can update own progress" ON public.lesson_progress FOR UPDATE TO public USING ((user_id = ( SELECT auth.uid() AS uid))) WITH CHECK (((user_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1
-   FROM (lessons l
-     JOIN courses c ON ((c.id = l.course_id)))
-  WHERE ((l.id = lesson_progress.lesson_id) AND (c.is_free OR (c.author_id = ( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR (EXISTS ( SELECT 1
-           FROM course_enrollments e
-          WHERE ((e.user_id = ( SELECT auth.uid() AS uid)) AND (e.course_id = l.course_id))))))))));
-CREATE POLICY "Users can view own progress" ON public.lesson_progress FOR SELECT TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can manage lessons" ON public.lessons FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view lessons of published courses" ON public.lessons FOR SELECT TO public USING ((EXISTS ( SELECT 1
-   FROM courses
-  WHERE ((courses.id = lessons.course_id) AND ((courses.status = 'published'::text) OR (courses.author_id = ( SELECT auth.uid() AS uid)))))));
-CREATE POLICY "Content editors can delete own course lessons" ON public.lessons FOR DELETE TO public USING ((has_role(( SELECT auth.uid() AS uid), 'content_editor'::app_role) AND (EXISTS ( SELECT 1
-   FROM courses
-  WHERE ((courses.id = lessons.course_id) AND (courses.author_id = ( SELECT auth.uid() AS uid)))))));
-CREATE POLICY "Content editors can manage own course lessons" ON public.lessons FOR INSERT TO public WITH CHECK ((has_role(( SELECT auth.uid() AS uid), 'content_editor'::app_role) AND (EXISTS ( SELECT 1
-   FROM courses
-  WHERE ((courses.id = lessons.course_id) AND (courses.author_id = ( SELECT auth.uid() AS uid)))))));
-CREATE POLICY "Content editors can update own course lessons" ON public.lessons FOR UPDATE TO public USING ((has_role(( SELECT auth.uid() AS uid), 'content_editor'::app_role) AND (EXISTS ( SELECT 1
-   FROM courses
-  WHERE ((courses.id = lessons.course_id) AND (courses.author_id = ( SELECT auth.uid() AS uid)))))));
-CREATE POLICY "Deleted accounts cannot delete" ON public.lessons AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.lessons AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.lessons AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY media_objects_insert_own ON public.media_objects FOR INSERT TO public WITH CHECK ((owner_id = auth.uid()));
-CREATE POLICY media_objects_select ON public.media_objects FOR SELECT TO public USING (((owner_id = auth.uid()) OR (EXISTS ( SELECT 1
-   FROM (post_media pm
-     JOIN posts p ON ((p.id = pm.post_id)))
-  WHERE ((pm.media_id = media_objects.id) AND can_view_post(auth.uid(), p.user_id, p.privacy))))));
-CREATE POLICY name_part_spellings_readable ON public.name_part_spellings FOR SELECT TO public USING (true);
-CREATE POLICY "Admins can delete subscribers" ON public.newsletter_subscribers FOR DELETE TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Admins can update subscribers" ON public.newsletter_subscribers FOR UPDATE TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Admins can view all subscribers" ON public.newsletter_subscribers FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Deleted accounts cannot delete" ON public.newsletter_subscribers AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.newsletter_subscribers AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.newsletter_subscribers AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users delete own subscription" ON public.newsletter_subscribers FOR DELETE TO authenticated USING (((user_id IS NOT NULL) AND (user_id = ( SELECT auth.uid() AS uid))));
-CREATE POLICY "Users read own subscription" ON public.newsletter_subscribers FOR SELECT TO authenticated USING (((user_id IS NOT NULL) AND (user_id = ( SELECT auth.uid() AS uid))));
-CREATE POLICY "Users update own subscription" ON public.newsletter_subscribers FOR UPDATE TO authenticated USING (((user_id IS NOT NULL) AND (user_id = ( SELECT auth.uid() AS uid)))) WITH CHECK (((user_id IS NOT NULL) AND (user_id = ( SELECT auth.uid() AS uid))));
-CREATE POLICY "Validated inserts allowed" ON public.newsletter_subscribers FOR INSERT TO anon, authenticated WITH CHECK (((email IS NOT NULL) AND ((length(email) >= 5) AND (length(email) <= 255)) AND (email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'::text)));
-CREATE POLICY "admins read notification_emit_log" ON public.notification_emit_log FOR SELECT TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Deleted accounts cannot delete" ON public.notification_preferences AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.notification_preferences AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.notification_preferences AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can insert own preferences" ON public.notification_preferences FOR INSERT TO authenticated WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can read own preferences" ON public.notification_preferences FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can update own preferences" ON public.notification_preferences FOR UPDATE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid))) WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Deleted accounts cannot delete" ON public.office_staff AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.office_staff AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.office_staff AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "admins manage office_staff" ON public.office_staff FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Admins can manage all albums" ON public.photo_albums FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view photo albums" ON public.photo_albums FOR SELECT TO public USING (true);
-CREATE POLICY "Deleted accounts cannot delete" ON public.photo_albums AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.photo_albums AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.photo_albums AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can create own albums" ON public.photo_albums FOR INSERT TO authenticated WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can delete own custom albums" ON public.photo_albums FOR DELETE TO authenticated USING (((user_id = ( SELECT auth.uid() AS uid)) AND (album_type = 'custom'::text)));
-CREATE POLICY "Users can update own albums" ON public.photo_albums FOR UPDATE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can manage POTD" ON public.photo_of_the_day FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view active POTD" ON public.photo_of_the_day FOR SELECT TO public USING ((is_active = true));
-CREATE POLICY "Deleted accounts cannot delete" ON public.photo_of_the_day AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.photo_of_the_day AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.photo_of_the_day AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Admins can manage portfolio images" ON public.portfolio_images FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view visible portfolio images" ON public.portfolio_images FOR SELECT TO public USING ((is_visible = true));
-CREATE POLICY "Deleted accounts cannot delete" ON public.portfolio_images AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.portfolio_images AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.portfolio_images AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Admins can manage comment reactions" ON public.post_comment_reactions FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view comment reactions" ON public.post_comment_reactions FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated users can react to comments" ON public.post_comment_reactions FOR INSERT TO authenticated WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Deleted accounts cannot delete" ON public.post_comment_reactions AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.post_comment_reactions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.post_comment_reactions AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can remove own reactions" ON public.post_comment_reactions FOR DELETE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can manage post comments" ON public.post_comments FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Authenticated users can comment on visible posts" ON public.post_comments FOR INSERT TO public WITH CHECK (((user_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1
-   FROM posts
-  WHERE ((posts.id = post_comments.post_id) AND can_view_post(( SELECT auth.uid() AS uid), posts.user_id, posts.privacy))))));
-CREATE POLICY "Banned users cannot comment on posts" ON public.post_comments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK ((NOT is_banned(( SELECT auth.uid() AS uid))));
-CREATE POLICY "Deleted accounts cannot comment" ON public.post_comments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot edit comments" ON public.post_comments AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot remove comments" ON public.post_comments AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can delete own comments" ON public.post_comments FOR DELETE TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can update own comments" ON public.post_comments FOR UPDATE TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can view comments on visible posts" ON public.post_comments FOR SELECT TO public USING ((EXISTS ( SELECT 1
-   FROM posts
-  WHERE ((posts.id = post_comments.post_id) AND can_view_post(( SELECT auth.uid() AS uid), posts.user_id, posts.privacy)))));
-CREATE POLICY pd_delete_own ON public.post_drafts FOR DELETE TO public USING ((auth.uid() = user_id));
-CREATE POLICY pd_insert_own ON public.post_drafts FOR INSERT TO public WITH CHECK ((auth.uid() = user_id));
-CREATE POLICY pd_select_own ON public.post_drafts FOR SELECT TO public USING (((auth.uid() = user_id) AND (expiring_at IS NULL)));
-CREATE POLICY pd_update_own ON public.post_drafts FOR UPDATE TO public USING (((auth.uid() = user_id) AND (expiring_at IS NULL))) WITH CHECK ((auth.uid() = user_id));
-CREATE POLICY post_hashtags_no_client_read ON public.post_hashtags FOR SELECT TO public USING (false);
-CREATE POLICY post_media_delete_own ON public.post_media FOR DELETE TO public USING ((EXISTS ( SELECT 1
-   FROM posts p
-  WHERE ((p.id = post_media.post_id) AND (p.user_id = auth.uid())))));
-CREATE POLICY post_media_select ON public.post_media FOR SELECT TO public USING ((EXISTS ( SELECT 1
-   FROM posts p
-  WHERE ((p.id = post_media.post_id) AND can_view_post(auth.uid(), p.user_id, p.privacy)))));
-CREATE POLICY post_media_write_own ON public.post_media FOR INSERT TO public WITH CHECK ((EXISTS ( SELECT 1
-   FROM posts p
-  WHERE ((p.id = post_media.post_id) AND (p.user_id = auth.uid())))));
-CREATE POLICY "Admins can manage post reactions" ON public.post_reactions FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Authenticated users can react" ON public.post_reactions FOR INSERT TO public WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Banned users cannot react to posts" ON public.post_reactions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK ((NOT is_banned(( SELECT auth.uid() AS uid))));
-CREATE POLICY "Deleted accounts cannot delete" ON public.post_reactions AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.post_reactions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.post_reactions AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can remove own reactions" ON public.post_reactions FOR DELETE TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can view reactions on visible posts" ON public.post_reactions FOR SELECT TO public USING ((EXISTS ( SELECT 1
-   FROM posts
-  WHERE ((posts.id = post_reactions.post_id) AND can_view_post(( SELECT auth.uid() AS uid), posts.user_id, posts.privacy)))));
-CREATE POLICY "Admins can manage post reports" ON public.post_reports FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.post_reports AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.post_reports AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.post_reports AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can report posts" ON public.post_reports FOR INSERT TO authenticated WITH CHECK (((reporter_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1
-   FROM posts
-  WHERE ((posts.id = post_reports.post_id) AND (posts.user_id <> ( SELECT auth.uid() AS uid)))))));
-CREATE POLICY "Users can view own reports" ON public.post_reports FOR SELECT TO authenticated USING ((reporter_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Authenticated users can view shares" ON public.post_shares FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Deleted accounts cannot delete" ON public.post_shares AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.post_shares AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.post_shares AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can share posts" ON public.post_shares FOR INSERT TO authenticated WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-CREATE POLICY "Users can unshare" ON public.post_shares FOR DELETE TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id));
-CREATE POLICY "Anyone views approved tags" ON public.post_tags FOR SELECT TO public USING ((status = ANY (ARRAY['approved'::post_tag_status, 'pending'::post_tag_status])));
-CREATE POLICY "Deleted accounts cannot delete" ON public.post_tags AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.post_tags AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.post_tags AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Members create tags as themselves" ON public.post_tags FOR INSERT TO public WITH CHECK ((auth.uid() = tagger_id));
-CREATE POLICY "Post owner views all tags on their post" ON public.post_tags FOR SELECT TO public USING ((EXISTS ( SELECT 1
-   FROM posts p
-  WHERE ((p.id = post_tags.post_id) AND (p.user_id = ( SELECT auth.uid() AS uid))))));
-CREATE POLICY "Tagged user deletes tags about them" ON public.post_tags FOR DELETE TO public USING ((( SELECT auth.uid() AS uid) = tagged_user_id));
-CREATE POLICY "Tagged user updates tag status" ON public.post_tags FOR UPDATE TO public USING ((( SELECT auth.uid() AS uid) = tagged_user_id));
-CREATE POLICY "Tagger deletes own tags" ON public.post_tags FOR DELETE TO public USING ((( SELECT auth.uid() AS uid) = tagger_id));
-CREATE POLICY "View own tags as tagged user" ON public.post_tags FOR SELECT TO public USING ((( SELECT auth.uid() AS uid) = tagged_user_id));
-CREATE POLICY "View own tags as tagger" ON public.post_tags FOR SELECT TO public USING ((( SELECT auth.uid() AS uid) = tagger_id));
-CREATE POLICY "Admins can manage posts" ON public.posts FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Banned users cannot create posts" ON public.posts AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK ((NOT is_banned(( SELECT auth.uid() AS uid))));
-CREATE POLICY "Deleted accounts cannot delete" ON public.posts AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.posts AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.posts AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can delete own posts" ON public.posts FOR DELETE TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can insert own posts" ON public.posts FOR INSERT TO public WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can update own posts" ON public.posts FOR UPDATE TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can view posts based on privacy" ON public.posts FOR SELECT TO public USING (can_view_post(( SELECT auth.uid() AS uid), user_id, privacy));
-CREATE POLICY "profile_stats are public" ON public.profile_stats FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY "Admins can manage profile views" ON public.profile_views FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Authenticated profile view inserts" ON public.profile_views FOR INSERT TO authenticated WITH CHECK (((profile_id IS NOT NULL) AND (viewer_id = ( SELECT auth.uid() AS uid))));
-CREATE POLICY "Deleted accounts cannot delete" ON public.profile_views AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.profile_views AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.profile_views AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can view own profile views" ON public.profile_views FOR SELECT TO authenticated USING ((profile_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can delete profiles" ON public.profiles FOR DELETE TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Admins can update profiles" ON public.profiles FOR UPDATE TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Admins can view all profiles" ON public.profiles FOR SELECT TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.profiles AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.profiles AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.profiles AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT TO public WITH CHECK ((id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE TO authenticated USING ((id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can view own profile" ON public.profiles FOR SELECT TO authenticated USING ((id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can manage public profile data" ON public.profiles_public_data FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anon can view limited public profile data" ON public.profiles_public_data FOR SELECT TO anon USING (true);
-CREATE POLICY "Authenticated users can view public profile data" ON public.profiles_public_data FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Deleted accounts cannot delete" ON public.profiles_public_data AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.profiles_public_data AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.profiles_public_data AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "service role manages push config" ON public.push_config FOR ALL TO public USING ((auth.role() = 'service_role'::text)) WITH CHECK ((auth.role() = 'service_role'::text));
-CREATE POLICY "Deleted accounts cannot delete" ON public.push_tokens AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.push_tokens AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.push_tokens AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "delete own push tokens" ON public.push_tokens FOR DELETE TO authenticated USING ((user_id = auth.uid()));
-CREATE POLICY "read own push tokens" ON public.push_tokens FOR SELECT TO authenticated USING ((user_id = auth.uid()));
-CREATE POLICY "Admins can view all raw commitments" ON public.raw_commitments FOR SELECT TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Judges can view commitments for their competitions" ON public.raw_commitments FOR SELECT TO public USING ((EXISTS ( SELECT 1
-   FROM competition_judges cj
-  WHERE ((cj.competition_id = raw_commitments.competition_id) AND (cj.judge_id = ( SELECT auth.uid() AS uid))))));
-CREATE POLICY "Owners can view their raw commitments" ON public.raw_commitments FOR SELECT TO public USING ((( SELECT auth.uid() AS uid) = user_id));
-CREATE POLICY "Admins can manage referral codes" ON public.referral_codes FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.referral_codes AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.referral_codes AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.referral_codes AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can insert own referral code" ON public.referral_codes FOR INSERT TO public WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can view own referral code" ON public.referral_codes FOR SELECT TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can manage referrals" ON public.referrals FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.referrals AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.referrals AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.referrals AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "System can insert referrals" ON public.referrals FOR INSERT TO public WITH CHECK ((referred_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can view own referrals as referrer" ON public.referrals FOR SELECT TO public USING ((referrer_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can update reports" ON public.reports FOR UPDATE TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Admins can view all reports" ON public.reports FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Deleted accounts cannot delete" ON public.reports AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.reports AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.reports AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can create reports" ON public.reports FOR INSERT TO authenticated WITH CHECK ((reporter_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can view own reports" ON public.reports FOR SELECT TO authenticated USING ((reporter_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY reserved_custom_urls_readable ON public.reserved_custom_urls FOR SELECT TO public USING (true);
-CREATE POLICY "Admins can delete applications" ON public.role_applications FOR DELETE TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Admins can update applications" ON public.role_applications FOR UPDATE TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Admins can view all applications" ON public.role_applications FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.role_applications AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.role_applications AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.role_applications AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can create applications" ON public.role_applications FOR INSERT TO authenticated WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can view own applications" ON public.role_applications FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can manage role display config" ON public.role_display_config FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view role display config" ON public.role_display_config FOR SELECT TO public USING (true);
-CREATE POLICY "Deleted accounts cannot delete" ON public.role_display_config AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.role_display_config AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.role_display_config AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Admins can manage round snapshots" ON public.round_snapshots FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Admins can manage snapshots" ON public.round_snapshots FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Deleted accounts cannot delete" ON public.round_snapshots AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.round_snapshots AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.round_snapshots AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Admins can manage boosts" ON public.scheduled_boosts FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.scheduled_boosts AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.scheduled_boosts AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.scheduled_boosts AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot delete" ON public.scheduled_posts AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.scheduled_posts AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.scheduled_posts AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY sp_delete_own_pending ON public.scheduled_posts FOR DELETE TO authenticated USING (((( SELECT auth.uid() AS uid) = user_id) AND (status = 'pending'::text)));
-CREATE POLICY sp_insert_own ON public.scheduled_posts FOR INSERT TO authenticated WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-CREATE POLICY sp_select_own ON public.scheduled_posts FOR SELECT TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id));
-CREATE POLICY sp_update_own_pending ON public.scheduled_posts FOR UPDATE TO authenticated USING (((( SELECT auth.uid() AS uid) = user_id) AND (status = 'pending'::text))) WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-CREATE POLICY "Deleted accounts cannot delete" ON public.search_recents AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.search_recents AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.search_recents AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Own recents delete" ON public.search_recents FOR DELETE TO authenticated USING ((user_id = auth.uid()));
-CREATE POLICY "Own recents read" ON public.search_recents FOR SELECT TO authenticated USING ((user_id = auth.uid()));
-CREATE POLICY "Own recents update" ON public.search_recents FOR UPDATE TO authenticated USING ((user_id = auth.uid())) WITH CHECK ((user_id = auth.uid()));
-CREATE POLICY "Own recents write" ON public.search_recents FOR INSERT TO authenticated WITH CHECK ((user_id = auth.uid()));
-CREATE POLICY "Admins can manage settings" ON public.site_settings FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Admins can read all settings" ON public.site_settings FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.site_settings AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.site_settings AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.site_settings AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Public can read non-sensitive settings" ON public.site_settings FOR SELECT TO anon, authenticated USING ((key <> ALL (ARRAY['s3_storage_settings'::text, 'smtp_settings'::text, 'whatsapp_settings'::text, 'payment_gateways'::text, 'ai_model_settings'::text])));
-CREATE POLICY "Admins can manage stories" ON public.stories FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view non-expired stories" ON public.stories FOR SELECT TO public USING ((expires_at > now()));
-CREATE POLICY "Deleted accounts cannot delete" ON public.stories AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.stories AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.stories AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can create own stories" ON public.stories FOR INSERT TO authenticated WITH CHECK (((user_id = ( SELECT auth.uid() AS uid)) AND (NOT is_banned(( SELECT auth.uid() AS uid)))));
-CREATE POLICY "Users can delete own stories" ON public.stories FOR DELETE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Deleted accounts cannot delete" ON public.story_views AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.story_views AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.story_views AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users insert own story views" ON public.story_views FOR INSERT TO authenticated WITH CHECK ((viewer_id = auth.uid()));
-CREATE POLICY "Users read own story views" ON public.story_views FOR SELECT TO authenticated USING ((viewer_id = auth.uid()));
-CREATE POLICY "Admins can manage all tickets" ON public.support_tickets FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.support_tickets AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.support_tickets AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.support_tickets AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can create own tickets" ON public.support_tickets FOR INSERT TO public WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can view own tickets" ON public.support_tickets FOR SELECT TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Service role can insert suppressed emails" ON public.suppressed_emails FOR INSERT TO public WITH CHECK ((( SELECT auth.role() AS role) = 'service_role'::text));
-CREATE POLICY "Service role can read suppressed emails" ON public.suppressed_emails FOR SELECT TO public USING ((( SELECT auth.role() AS role) = 'service_role'::text));
-CREATE POLICY "Admins can manage flags" ON public.system_flags FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Anyone can read flags" ON public.system_flags FOR SELECT TO public USING (true);
-CREATE POLICY "Deleted accounts cannot delete" ON public.system_flags AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.system_flags AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.system_flags AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "system_tag_decision_map readable by authenticated" ON public.system_tag_decision_map FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Admins can read test agent config" ON public.test_agent_config FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Admins can update test agent config" ON public.test_agent_config FOR UPDATE TO public USING ((has_role(( SELECT auth.uid() AS uid), 'admin'::text) OR has_role(( SELECT auth.uid() AS uid), 'super_admin'::text))) WITH CHECK ((has_role(( SELECT auth.uid() AS uid), 'admin'::text) OR has_role(( SELECT auth.uid() AS uid), 'super_admin'::text)));
-CREATE POLICY "Deleted accounts cannot delete" ON public.test_agent_config AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.test_agent_config AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.test_agent_config AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Admins can delete test agent runs" ON public.test_agent_runs FOR DELETE TO public USING ((has_role(( SELECT auth.uid() AS uid), 'admin'::text) OR has_role(( SELECT auth.uid() AS uid), 'super_admin'::text)));
-CREATE POLICY "Deleted accounts cannot delete" ON public.test_agent_runs AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.test_agent_runs AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.test_agent_runs AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY admin_read_test_agent_runs ON public.test_agent_runs FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Admins can manage all replies" ON public.ticket_replies FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.ticket_replies AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.ticket_replies AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.ticket_replies AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can reply to own tickets" ON public.ticket_replies FOR INSERT TO authenticated WITH CHECK (((user_id = ( SELECT auth.uid() AS uid)) AND ((is_admin = false) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) AND (EXISTS ( SELECT 1
-   FROM support_tickets st
-  WHERE ((st.id = ticket_replies.ticket_id) AND (st.user_id = ( SELECT auth.uid() AS uid)))))));
-CREATE POLICY "Users can view replies on own tickets" ON public.ticket_replies FOR SELECT TO public USING ((EXISTS ( SELECT 1
-   FROM support_tickets
-  WHERE ((support_tickets.id = ticket_replies.ticket_id) AND (support_tickets.user_id = ( SELECT auth.uid() AS uid))))));
-CREATE POLICY transliteration_map_readable ON public.transliteration_map FOR SELECT TO public USING (true);
-CREATE POLICY "Admins can manage badges" ON public.user_badges FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Anyone can view badges" ON public.user_badges FOR SELECT TO public USING (true);
-CREATE POLICY "Deleted accounts cannot delete" ON public.user_badges AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.user_badges AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.user_badges AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Admins can manage all devices" ON public.user_devices FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.user_devices AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.user_devices AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.user_devices AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can delete own devices" ON public.user_devices FOR DELETE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can insert own devices" ON public.user_devices FOR INSERT TO authenticated WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can update own devices" ON public.user_devices FOR UPDATE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can view own devices" ON public.user_devices FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can insert notifications" ON public.user_notifications FOR INSERT TO authenticated WITH CHECK (((user_id IS NOT NULL) AND has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
-CREATE POLICY "Deleted accounts cannot delete" ON public.user_notifications AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.user_notifications AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.user_notifications AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can delete own notifications" ON public.user_notifications FOR DELETE TO public USING ((( SELECT auth.uid() AS uid) = user_id));
-CREATE POLICY "Users can update own notifications" ON public.user_notifications FOR UPDATE TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Users can view own notifications" ON public.user_notifications FOR SELECT TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can manage roles" ON public.user_roles FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Admins can view all roles" ON public.user_roles FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.user_roles AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.user_roles AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.user_roles AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can self-assign photographer role" ON public.user_roles FOR INSERT TO authenticated WITH CHECK (((user_id = ( SELECT auth.uid() AS uid)) AND (role = 'registered_photographer'::text)));
-CREATE POLICY "Users can view own roles" ON public.user_roles FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY v3_mirror_log_read_admin ON public.v3_mirror_log FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.v3_stage_catalog AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.v3_stage_catalog AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.v3_stage_catalog AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY v3_stage_catalog_insert_admin ON public.v3_stage_catalog FOR INSERT TO authenticated WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY v3_stage_catalog_read_authenticated ON public.v3_stage_catalog FOR SELECT TO authenticated USING (true);
-CREATE POLICY v3_stage_catalog_update_admin ON public.v3_stage_catalog FOR UPDATE TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.v3_tag_label_alias AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.v3_tag_label_alias AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.v3_tag_label_alias AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY v3_tag_label_alias_admin_write ON public.v3_tag_label_alias FOR ALL TO authenticated USING ((has_role(( SELECT auth.uid() AS uid), 'admin'::text) OR has_role(( SELECT auth.uid() AS uid), 'super_admin'::text))) WITH CHECK ((has_role(( SELECT auth.uid() AS uid), 'admin'::text) OR has_role(( SELECT auth.uid() AS uid), 'super_admin'::text)));
-CREATE POLICY v3_tag_label_alias_select_all ON public.v3_tag_label_alias FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Admins can view cleanup log" ON public.vote_adjustment_cleanup_log FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Admins read wallet_ledger_audit_log" ON public.wallet_ledger_audit_log FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Admins read wallet_ledger_idempotency" ON public.wallet_ledger_idempotency FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Admins read wallet_ledger_shadow_log" ON public.wallet_ledger_shadow_log FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "wallet_ledger_v2_diff_log admin read" ON public.wallet_ledger_v2_diff_log FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Admins read wallet_ledger_v2_rows" ON public.wallet_ledger_v2_rows FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Admins can insert reconciliation log" ON public.wallet_reconciliation_log FOR INSERT TO authenticated WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Admins can view reconciliation log" ON public.wallet_reconciliation_log FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
-CREATE POLICY "Deleted accounts cannot delete" ON public.wallet_reconciliation_log AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.wallet_reconciliation_log AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.wallet_reconciliation_log AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Admins can manage transactions" ON public.wallet_transactions FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.wallet_transactions AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.wallet_transactions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.wallet_transactions AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can view own transactions" ON public.wallet_transactions FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can manage wallets" ON public.wallets FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.wallets AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.wallets AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.wallets AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can view own wallet" ON public.wallets FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-CREATE POLICY "Admins can manage withdrawals" ON public.withdrawal_requests FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
-CREATE POLICY "Deleted accounts cannot delete" ON public.withdrawal_requests AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot insert" ON public.withdrawal_requests AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Deleted accounts cannot update" ON public.withdrawal_requests AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
-CREATE POLICY "Users can view own withdrawals" ON public.withdrawal_requests FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-
--- =====================================================================
--- ===== TRIGGERS =====
--- =====================================================================
-
-CREATE TRIGGER trg_ad_comment_updated_at BEFORE UPDATE ON ad_creative_comments FOR EACH ROW EXECUTE FUNCTION set_ad_comment_updated_at();
-CREATE TRIGGER trg_enforce_ad_comment_blocklist BEFORE INSERT OR UPDATE ON ad_creative_comments FOR EACH ROW EXECUTE FUNCTION enforce_comment_blocklist();
-CREATE TRIGGER trg_flag_ad_comment_for_review AFTER INSERT OR UPDATE OF content ON ad_creative_comments FOR EACH ROW EXECUTE FUNCTION flag_ad_comment_for_review();
-CREATE TRIGGER trg_notify_ad_comment_reply AFTER INSERT ON ad_creative_comments FOR EACH ROW EXECUTE FUNCTION notify_ad_comment_reply();
-CREATE TRIGGER trg_ad_creatives_updated_at BEFORE UPDATE ON ad_creatives FOR EACH ROW EXECUTE FUNCTION ad_creatives_touch_updated_at();
-CREATE TRIGGER audit_admin_vote_adjustments AFTER INSERT OR DELETE OR UPDATE ON admin_vote_adjustments FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
-CREATE TRIGGER audit_certificates AFTER INSERT OR DELETE OR UPDATE ON certificates FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
-CREATE TRIGGER trg_cleanup_certificate_references BEFORE DELETE ON certificates FOR EACH ROW EXECUTE FUNCTION cleanup_certificate_references();
-CREATE TRIGGER trg_generate_certificate_identifiers BEFORE INSERT ON certificates FOR EACH ROW EXECUTE FUNCTION generate_certificate_identifiers();
-CREATE TRIGGER trg_notify_certificate_issued AFTER INSERT ON certificates FOR EACH ROW EXECUTE FUNCTION notify_certificate_issued();
-CREATE TRIGGER trg_auto_promote_faq BEFORE UPDATE ON chat_questions FOR EACH ROW WHEN (new.ask_count >= 3 AND old.promoted_to_faq = false) EXECUTE FUNCTION auto_promote_chat_to_faq();
-CREATE TRIGGER trg_admin_notify_comment_report AFTER INSERT ON comment_reports FOR EACH ROW EXECUTE FUNCTION notify_admin_comment_report();
-CREATE TRIGGER trg_enforce_comment_blocklist BEFORE INSERT ON comments FOR EACH ROW EXECUTE FUNCTION enforce_comment_blocklist();
-CREATE TRIGGER trg_rate_limit_comments BEFORE INSERT ON comments FOR EACH ROW EXECUTE FUNCTION rate_limit_comments();
-CREATE TRIGGER audit_competition_entries AFTER INSERT OR DELETE OR UPDATE ON competition_entries FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
-CREATE TRIGGER trg_auto_certificate_r4_award AFTER UPDATE ON competition_entries FOR EACH ROW EXECUTE FUNCTION auto_certificate_on_r4_award();
-CREATE TRIGGER trg_competition_entry_counts AFTER INSERT OR DELETE OR UPDATE OF competition_id, status ON competition_entries FOR EACH ROW EXECUTE FUNCTION maintain_competition_entry_counts();
-CREATE TRIGGER trg_enforce_ai_image BEFORE INSERT OR UPDATE ON competition_entries FOR EACH ROW EXECUTE FUNCTION enforce_ai_image_policy();
-CREATE TRIGGER trg_enforce_entry_fee BEFORE INSERT ON competition_entries FOR EACH ROW EXECUTE FUNCTION enforce_entry_fee();
-CREATE TRIGGER trg_enforce_max_entries BEFORE INSERT ON competition_entries FOR EACH ROW EXECUTE FUNCTION enforce_max_entries_per_user();
-CREATE TRIGGER trg_enforce_photo_limit BEFORE INSERT OR UPDATE ON competition_entries FOR EACH ROW EXECUTE FUNCTION enforce_photo_limit();
-CREATE TRIGGER trg_enforce_status_round BEFORE UPDATE ON competition_entries FOR EACH ROW WHEN (old.status IS DISTINCT FROM new.status OR old.current_round IS DISTINCT FROM new.current_round) EXECUTE FUNCTION enforce_status_round_consistency();
-CREATE TRIGGER trg_entry_public_status_recompute AFTER INSERT OR UPDATE OF stage_key, status, current_round, placement, progression_decision ON competition_entries FOR EACH ROW EXECUTE FUNCTION _tg_entry_public_status_recompute();
-CREATE TRIGGER trg_guard_stage_key_immutability BEFORE UPDATE OF stage_key ON competition_entries FOR EACH ROW EXECUTE FUNCTION guard_stage_key_immutability();
-CREATE TRIGGER trg_log_raw_commitments AFTER INSERT OR UPDATE OF photo_meta ON competition_entries FOR EACH ROW EXECUTE FUNCTION log_raw_commitments();
-CREATE TRIGGER trg_notify_entry_status AFTER UPDATE ON competition_entries FOR EACH ROW EXECUTE FUNCTION notify_entry_status_change();
-CREATE TRIGGER trg_progression_decision_pending_gate BEFORE INSERT OR UPDATE OF progression_decision ON competition_entries FOR EACH ROW EXECUTE FUNCTION enforce_progression_decision_pending_gate();
-CREATE TRIGGER trg_progression_decision_vocabulary_gate BEFORE INSERT OR UPDATE OF progression_decision ON competition_entries FOR EACH ROW EXECUTE FUNCTION enforce_progression_decision_vocabulary();
-CREATE TRIGGER trg_rate_limit_competition_entry BEFORE INSERT ON competition_entries FOR EACH ROW EXECUTE FUNCTION rate_limit_competition_entry();
-CREATE TRIGGER trg_throttle_competition_entry_inserts BEFORE INSERT ON competition_entries FOR EACH ROW EXECUTE FUNCTION throttle_competition_entry_inserts();
-CREATE TRIGGER trg_validate_competition_entry_ai_advisory BEFORE INSERT OR UPDATE OF is_ai_advisory, ai_detection_result ON competition_entries FOR EACH ROW EXECUTE FUNCTION validate_competition_entry_ai_advisory();
-CREATE TRIGGER trg_validate_competition_entry_photo_meta BEFORE INSERT OR UPDATE OF photos, photo_meta ON competition_entries FOR EACH ROW EXECUTE FUNCTION validate_competition_entry_photo_meta();
-CREATE TRIGGER trg_validate_competition_entry_status_transition BEFORE INSERT OR UPDATE OF status ON competition_entries FOR EACH ROW EXECUTE FUNCTION validate_competition_entry_status_transition();
-CREATE TRIGGER trg_one_judge_per_competition BEFORE INSERT OR UPDATE ON competition_judges FOR EACH ROW EXECUTE FUNCTION tg_one_judge_per_competition();
-CREATE TRIGGER trg_competition_orders_updated_at BEFORE UPDATE ON competition_orders FOR EACH ROW EXECUTE FUNCTION _set_competition_orders_updated_at();
-CREATE TRIGGER trg_notify_round_published AFTER UPDATE ON competition_round_publish FOR EACH ROW EXECUTE FUNCTION notify_round_published();
-CREATE TRIGGER trg_notify_round_published_insert AFTER INSERT ON competition_round_publish FOR EACH ROW EXECUTE FUNCTION notify_round_published_insert();
-CREATE TRIGGER trg_release_award_certs_on_publish AFTER INSERT OR UPDATE OF published_at ON competition_round_publish FOR EACH ROW EXECUTE FUNCTION release_award_certs_on_publish();
-CREATE TRIGGER trg_round_publish_recompute AFTER INSERT OR DELETE OR UPDATE ON competition_round_publish FOR EACH ROW EXECUTE FUNCTION _tg_round_publish_recompute();
-CREATE TRIGGER trg_round_publish_updated BEFORE UPDATE ON competition_round_publish FOR EACH ROW EXECUTE FUNCTION touch_round_publish_updated();
-CREATE TRIGGER trg_sync_competition_result_state_from_round_publish AFTER INSERT OR UPDATE OF published_at ON competition_round_publish FOR EACH ROW EXECUTE FUNCTION sync_competition_result_state_from_round_publish();
-CREATE TRIGGER audit_competition_votes AFTER INSERT OR DELETE OR UPDATE ON competition_votes FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
-CREATE TRIGGER trg_notify_competition_vote AFTER INSERT ON competition_votes FOR EACH ROW EXECUTE FUNCTION notify_competition_vote();
-CREATE TRIGGER trg_prevent_self_vote BEFORE INSERT ON competition_votes FOR EACH ROW EXECUTE FUNCTION prevent_self_vote();
-CREATE TRIGGER trg_rate_limit_votes BEFORE INSERT ON competition_votes FOR EACH ROW EXECUTE FUNCTION rate_limit_competition_votes();
-CREATE TRIGGER set_competition_slug BEFORE INSERT OR UPDATE ON competitions FOR EACH ROW EXECUTE FUNCTION generate_competition_slug();
-CREATE TRIGGER trg_auto_create_rounds AFTER INSERT ON competitions FOR EACH ROW EXECUTE FUNCTION auto_create_judging_rounds();
-CREATE TRIGGER trg_notify_new_competition BEFORE INSERT OR UPDATE OF status ON competitions FOR EACH ROW EXECUTE FUNCTION notify_new_competition();
-CREATE TRIGGER trg_seed_round_publish AFTER INSERT ON competitions FOR EACH ROW EXECUTE FUNCTION seed_round_publish_rows();
-CREATE TRIGGER trg_notify_course_published BEFORE UPDATE ON courses FOR EACH ROW EXECUTE FUNCTION notify_course_published();
-CREATE TRIGGER trg_notify_featured_artist AFTER INSERT ON featured_artists FOR EACH ROW EXECUTE FUNCTION notify_featured_artist();
-CREATE TRIGGER trg_feed_events_viewer_count AFTER INSERT ON feed_events FOR EACH ROW EXECUTE FUNCTION tg_feed_events_viewer_count();
-CREATE TRIGGER trg_rate_limit_feed_events BEFORE INSERT ON feed_events FOR EACH ROW EXECUTE FUNCTION rate_limit_feed_events();
-CREATE TRIGGER trg_validate_feed_event_author BEFORE INSERT ON feed_events FOR EACH ROW EXECUTE FUNCTION validate_feed_event_author();
-CREATE TRIGGER trg_follows_counts AFTER INSERT OR DELETE ON follows FOR EACH ROW EXECUTE FUNCTION trg_follows_counts();
-CREATE TRIGGER trg_notify_new_follower AFTER INSERT ON follows FOR EACH ROW EXECUTE FUNCTION notify_new_follower();
-CREATE TRIGGER trg_prevent_unfollow_official BEFORE DELETE ON follows FOR EACH ROW EXECUTE FUNCTION prevent_unfollow_official();
-CREATE TRIGGER enforce_friend_limit BEFORE INSERT OR UPDATE ON friendships FOR EACH ROW EXECUTE FUNCTION check_friend_limit();
-CREATE TRIGGER trg_block_friend_requests_to_admins BEFORE INSERT ON friendships FOR EACH ROW EXECUTE FUNCTION block_friend_requests_to_admins();
-CREATE TRIGGER trg_friendships_counts AFTER INSERT OR DELETE OR UPDATE ON friendships FOR EACH ROW EXECUTE FUNCTION trg_friendships_counts();
-CREATE TRIGGER trg_notify_friend_accepted AFTER UPDATE ON friendships FOR EACH ROW EXECUTE FUNCTION notify_friend_request_accepted();
-CREATE TRIGGER trg_notify_friend_request AFTER INSERT ON friendships FOR EACH ROW EXECUTE FUNCTION notify_friend_request_received();
-CREATE TRIGGER trg_enforce_comment_blocklist BEFORE INSERT ON image_comments FOR EACH ROW EXECUTE FUNCTION enforce_comment_blocklist();
-CREATE TRIGGER trg_flag_image_comment_review AFTER INSERT ON image_comments FOR EACH ROW EXECUTE FUNCTION flag_image_comment_for_review();
-CREATE TRIGGER trg_notify_image_comment AFTER INSERT ON image_comments FOR EACH ROW EXECUTE FUNCTION notify_image_comment();
-CREATE TRIGGER trg_rate_limit_image_comments BEFORE INSERT ON image_comments FOR EACH ROW EXECUTE FUNCTION rate_limit_image_comments();
-CREATE TRIGGER trg_notify_image_reaction AFTER INSERT ON image_reactions FOR EACH ROW EXECUTE FUNCTION notify_image_reaction();
-CREATE TRIGGER trg_notify_journal_published BEFORE UPDATE ON journal_articles FOR EACH ROW EXECUTE FUNCTION notify_journal_published();
-CREATE TRIGGER trg_judge_award_tags_touch BEFORE UPDATE ON judge_award_tags FOR EACH ROW EXECUTE FUNCTION set_updated_at_column();
-CREATE TRIGGER audit_judge_comments AFTER INSERT OR DELETE OR UPDATE ON judge_comments FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
-CREATE TRIGGER trg_enforce_round_lock BEFORE INSERT OR DELETE OR UPDATE ON judge_comments FOR EACH ROW EXECUTE FUNCTION enforce_round_lock();
-CREATE TRIGGER audit_judge_decisions AFTER INSERT OR DELETE OR UPDATE ON judge_decisions FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
-CREATE TRIGGER trg_audit_nr_drift_at_r2_plus AFTER INSERT OR UPDATE OF decision, round_number ON judge_decisions FOR EACH ROW EXECUTE FUNCTION audit_nr_drift_at_r2_plus();
-CREATE TRIGGER trg_enforce_round_lock BEFORE INSERT OR DELETE OR UPDATE ON judge_decisions FOR EACH ROW EXECUTE FUNCTION enforce_round_lock();
-CREATE TRIGGER trg_guard_needs_review_round1_only BEFORE INSERT OR UPDATE OF decision, round_number ON judge_decisions FOR EACH ROW EXECUTE FUNCTION guard_needs_review_round1_only();
-CREATE TRIGGER audit_judge_scores AFTER INSERT OR DELETE OR UPDATE ON judge_scores FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
-CREATE TRIGGER trg_enforce_round_lock BEFORE INSERT OR DELETE OR UPDATE ON judge_scores FOR EACH ROW EXECUTE FUNCTION enforce_round_lock();
-CREATE TRIGGER trg_rate_limit_judge_scores BEFORE INSERT ON judge_scores FOR EACH ROW EXECUTE FUNCTION rate_limit_judge_scores();
-CREATE TRIGGER trg_refresh_score_cache AFTER INSERT OR DELETE OR UPDATE ON judge_scores FOR EACH ROW EXECUTE FUNCTION refresh_score_cache();
-CREATE TRIGGER trg_validate_judge_score_range BEFORE INSERT OR UPDATE ON judge_scores FOR EACH ROW EXECUTE FUNCTION validate_judge_score_range();
-CREATE TRIGGER validate_criteria_scores BEFORE INSERT OR UPDATE ON judge_scores FOR EACH ROW EXECUTE FUNCTION validate_judge_criteria_scores();
-CREATE TRIGGER audit_judge_tag_assignments AFTER INSERT OR DELETE OR UPDATE ON judge_tag_assignments FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
-CREATE TRIGGER trg_enforce_round_lock BEFORE INSERT OR DELETE OR UPDATE ON judge_tag_assignments FOR EACH ROW EXECUTE FUNCTION enforce_round_lock();
-CREATE TRIGGER trg_mirror_system_tag_to_decision AFTER INSERT OR DELETE OR UPDATE ON judge_tag_assignments FOR EACH ROW EXECUTE FUNCTION mirror_system_tag_to_decision();
-CREATE TRIGGER trg_mirror_system_tag_to_decision_del AFTER DELETE ON judge_tag_assignments FOR EACH ROW EXECUTE FUNCTION mirror_system_tag_to_decision();
-CREATE TRIGGER trg_mirror_system_tag_to_decision_ins AFTER INSERT ON judge_tag_assignments FOR EACH ROW EXECUTE FUNCTION mirror_system_tag_to_decision();
-CREATE TRIGGER protect_system_tags BEFORE DELETE OR UPDATE ON judging_tags FOR EACH ROW EXECUTE FUNCTION protect_system_tags_fn();
-CREATE TRIGGER trg_enforce_non_system_tags_round4 BEFORE INSERT OR UPDATE OF visible_in_round, is_system ON judging_tags FOR EACH ROW EXECUTE FUNCTION enforce_non_system_tags_round4();
-CREATE TRIGGER trg_protect_system_tags_fn BEFORE DELETE OR UPDATE ON judging_tags FOR EACH ROW EXECUTE FUNCTION protect_system_tags_fn();
-CREATE TRIGGER trg_media_state_transition BEFORE UPDATE ON media_objects FOR EACH ROW EXECUTE FUNCTION tg_media_state_transition();
-CREATE TRIGGER trg_rate_limit_newsletter BEFORE INSERT ON newsletter_subscribers FOR EACH ROW EXECUTE FUNCTION rate_limit_newsletter_subscribe();
-CREATE TRIGGER trg_office_staff_touch BEFORE UPDATE ON office_staff FOR EACH ROW EXECUTE FUNCTION touch_office_staff_updated();
-CREATE TRIGGER trg_notify_potd_featured AFTER INSERT ON photo_of_the_day FOR EACH ROW EXECUTE FUNCTION notify_potd_featured();
-CREATE TRIGGER trg_enforce_comment_blocklist BEFORE INSERT ON post_comments FOR EACH ROW EXECUTE FUNCTION enforce_comment_blocklist();
-CREATE TRIGGER trg_flag_post_comment_review AFTER INSERT ON post_comments FOR EACH ROW EXECUTE FUNCTION flag_post_comment_for_review();
-CREATE TRIGGER trg_notify_post_comment AFTER INSERT ON post_comments FOR EACH ROW EXECUTE FUNCTION notify_post_comment();
-CREATE TRIGGER trg_rate_limit_post_comments BEFORE INSERT ON post_comments FOR EACH ROW EXECUTE FUNCTION rate_limit_post_comments();
-CREATE TRIGGER trg_update_post_comments_count AFTER INSERT OR DELETE ON post_comments FOR EACH ROW EXECUTE FUNCTION update_post_comments_count();
-CREATE TRIGGER trg_enforce_post_draft_rules BEFORE INSERT OR UPDATE ON post_drafts FOR EACH ROW EXECUTE FUNCTION enforce_post_draft_rules();
-CREATE TRIGGER trg_post_media_requires_ready BEFORE INSERT OR UPDATE ON post_media FOR EACH ROW EXECUTE FUNCTION tg_post_media_requires_ready();
-CREATE TRIGGER trg_notify_post_reaction AFTER INSERT ON post_reactions FOR EACH ROW EXECUTE FUNCTION notify_post_reaction();
-CREATE TRIGGER trg_rate_limit_post_reactions BEFORE INSERT ON post_reactions FOR EACH ROW EXECUTE FUNCTION rate_limit_post_reactions();
-CREATE TRIGGER trg_update_post_likes_count AFTER INSERT OR DELETE ON post_reactions FOR EACH ROW EXECUTE FUNCTION update_post_likes_count();
-CREATE TRIGGER trg_admin_notify_post_report AFTER INSERT ON post_reports FOR EACH ROW EXECUTE FUNCTION notify_admin_post_report();
-CREATE TRIGGER trg_update_post_shares_count AFTER INSERT OR DELETE ON post_shares FOR EACH ROW EXECUTE FUNCTION update_post_shares_count();
-CREATE TRIGGER trg_notify_post_tag AFTER INSERT ON post_tags FOR EACH ROW EXECUTE FUNCTION notify_post_tag();
-CREATE TRIGGER trg_post_tags_updated_at BEFORE UPDATE ON post_tags FOR EACH ROW EXECUTE FUNCTION set_post_tags_updated_at();
-CREATE TRIGGER trg_validate_post_tag_insert BEFORE INSERT ON post_tags FOR EACH ROW EXECUTE FUNCTION validate_post_tag_insert();
-CREATE TRIGGER trg_validate_post_tag_update BEFORE UPDATE ON post_tags FOR EACH ROW EXECUTE FUNCTION validate_post_tag_update();
-CREATE TRIGGER trg_detect_duplicate_post BEFORE INSERT ON posts FOR EACH ROW EXECUTE FUNCTION detect_duplicate_post();
-CREATE TRIGGER trg_enforce_post_caption_only_update BEFORE UPDATE ON posts FOR EACH ROW EXECUTE FUNCTION enforce_post_caption_only_update();
-CREATE TRIGGER trg_enqueue_post_created AFTER INSERT ON posts FOR EACH ROW EXECUTE FUNCTION enqueue_post_created_job();
-CREATE TRIGGER trg_fan_out_new_post AFTER INSERT ON posts FOR EACH ROW EXECUTE FUNCTION fan_out_new_post();
-CREATE TRIGGER trg_flag_post_review AFTER INSERT ON posts FOR EACH ROW EXECUTE FUNCTION flag_post_for_review();
-CREATE TRIGGER trg_moderate_post_content BEFORE INSERT OR UPDATE ON posts FOR EACH ROW EXECUTE FUNCTION moderate_post_content();
-CREATE TRIGGER trg_posts_sync_hashtags AFTER INSERT OR UPDATE OF content, privacy, user_id ON posts FOR EACH ROW EXECUTE FUNCTION sync_post_hashtags();
-CREATE TRIGGER trg_posts_unsync_hashtags BEFORE DELETE ON posts FOR EACH ROW EXECUTE FUNCTION unsync_post_hashtags();
-CREATE TRIGGER trg_rate_limit_posts BEFORE INSERT ON posts FOR EACH ROW EXECUTE FUNCTION rate_limit_posts();
-CREATE TRIGGER trg_validate_post_categories BEFORE INSERT OR UPDATE ON posts FOR EACH ROW EXECUTE FUNCTION enforce_post_categories();
-CREATE TRIGGER block_custom_url_update BEFORE UPDATE ON profiles FOR EACH ROW WHEN (old.custom_url IS DISTINCT FROM new.custom_url) EXECUTE FUNCTION prevent_direct_custom_url_update();
-CREATE TRIGGER on_first_admin_assignment AFTER INSERT ON profiles FOR EACH ROW EXECUTE FUNCTION handle_first_admin();
-CREATE TRIGGER protect_admin_name BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION protect_admin_full_name();
-CREATE TRIGGER sync_profiles_public_data_trg AFTER INSERT OR DELETE OR UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION sync_profiles_public_data();
-CREATE TRIGGER trg_auto_follow_official AFTER INSERT ON profiles FOR EACH ROW EXECUTE FUNCTION auto_follow_official();
-CREATE TRIGGER trg_auto_subscribe_newsletter AFTER INSERT ON profiles FOR EACH ROW EXECUTE FUNCTION auto_subscribe_newsletter();
-CREATE TRIGGER trg_custom_url_reject_reserved BEFORE INSERT OR UPDATE OF custom_url ON profiles FOR EACH ROW EXECUTE FUNCTION tg_custom_url_reject_reserved();
-CREATE TRIGGER trg_ensure_member_always_has_picture BEFORE INSERT OR UPDATE OF avatar_url ON profiles FOR EACH ROW EXECUTE FUNCTION ensure_member_always_has_picture();
-CREATE TRIGGER trg_forbid_custom_url_change BEFORE UPDATE OF custom_url ON profiles FOR EACH ROW EXECUTE FUNCTION forbid_custom_url_change();
-CREATE TRIGGER trg_guard_profile_moderation BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION guard_profile_moderation_columns();
-CREATE TRIGGER trg_profiles_normalise_name BEFORE INSERT OR UPDATE OF full_name ON profiles FOR EACH ROW EXECUTE FUNCTION tg_profiles_normalise_name();
-CREATE TRIGGER trg_profiles_record_custom_url_history AFTER INSERT ON profiles FOR EACH ROW EXECUTE FUNCTION tg_profiles_record_custom_url_history();
-CREATE TRIGGER trg_profiles_zz_assign_custom_url BEFORE INSERT ON profiles FOR EACH ROW EXECUTE FUNCTION tg_profiles_assign_custom_url();
-CREATE TRIGGER trg_sync_fallback_avatar_to_gender BEFORE UPDATE OF gender ON profiles FOR EACH ROW EXECUTE FUNCTION sync_fallback_avatar_to_gender();
-CREATE TRIGGER trg_validate_profile_full_name BEFORE INSERT OR UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION validate_profile_full_name();
-CREATE TRIGGER trg_admin_notify_role_application AFTER INSERT ON role_applications FOR EACH ROW EXECUTE FUNCTION notify_admin_role_application();
-CREATE TRIGGER trg_notify_role_decision AFTER UPDATE ON role_applications FOR EACH ROW EXECUTE FUNCTION notify_role_application_decision();
-CREATE TRIGGER trg_scheduled_posts_updated_at BEFORE UPDATE ON scheduled_posts FOR EACH ROW EXECUTE FUNCTION set_updated_at_column();
-CREATE TRIGGER trg_validate_scheduled_post_window BEFORE INSERT OR UPDATE ON scheduled_posts FOR EACH ROW EXECUTE FUNCTION validate_scheduled_post_window();
-CREATE TRIGGER audit_site_settings AFTER INSERT OR DELETE OR UPDATE ON site_settings FOR EACH ROW EXECUTE FUNCTION audit_site_settings_table();
-CREATE TRIGGER on_new_support_ticket AFTER INSERT ON support_tickets FOR EACH ROW EXECUTE FUNCTION notify_admin_new_ticket();
-CREATE TRIGGER on_admin_ticket_reply AFTER INSERT ON ticket_replies FOR EACH ROW EXECUTE FUNCTION notify_user_ticket_reply();
-CREATE TRIGGER trg_notify_badge_awarded AFTER INSERT ON user_badges FOR EACH ROW EXECUTE FUNCTION notify_badge_awarded();
-CREATE TRIGGER trg_push_on_notification AFTER INSERT ON user_notifications FOR EACH ROW EXECUTE FUNCTION push_on_notification();
-CREATE TRIGGER trg_send_notification_email AFTER INSERT ON user_notifications FOR EACH ROW EXECUTE FUNCTION send_notification_email();
-CREATE TRIGGER audit_user_roles AFTER INSERT OR DELETE OR UPDATE ON user_roles FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
-CREATE TRIGGER set_admin_brand_name AFTER INSERT ON user_roles FOR EACH ROW EXECUTE FUNCTION enforce_admin_brand_name();
-CREATE TRIGGER tr_v3_stage_catalog_touch BEFORE UPDATE ON v3_stage_catalog FOR EACH ROW EXECUTE FUNCTION tg_v3_stage_catalog_touch();
-CREATE TRIGGER trg_sync_decision_map_on_catalog AFTER INSERT OR UPDATE ON v3_stage_catalog FOR EACH ROW EXECUTE FUNCTION sync_system_tag_decision_map_from_catalog();
-CREATE TRIGGER trg_v3_catalog_recompute AFTER DELETE OR UPDATE ON v3_stage_catalog FOR EACH ROW EXECUTE FUNCTION _tg_v3_catalog_recompute();
-CREATE TRIGGER trg_v3_tag_label_alias_touch BEFORE UPDATE ON v3_tag_label_alias FOR EACH ROW EXECUTE FUNCTION set_updated_at_column();
-CREATE TRIGGER audit_wallet_transactions AFTER INSERT OR DELETE OR UPDATE ON wallet_transactions FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
-CREATE TRIGGER audit_withdrawal_requests AFTER INSERT OR DELETE OR UPDATE ON withdrawal_requests FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
-
--- =====================================================================
 -- ===== FUNCTIONS =====
 -- =====================================================================
 
@@ -18672,6 +17722,957 @@ END;
 $function$
 ;
 
+
+
+-- =====================================================================
+-- ===== ROW LEVEL SECURITY (POLICIES) =====
+-- =====================================================================
+
+CREATE POLICY snapshot_admin_read_ce ON public._v3_preflight_snapshot_competition_entries FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY snapshot_admin_read_jd ON public._v3_preflight_snapshot_judge_decisions FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY snapshot_admin_read_jta ON public._v3_preflight_snapshot_judge_tag_assignments FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY snapshot_admin_read_jt ON public._v3_preflight_snapshot_judging_tags FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "v3_quarantine_decisions admin read" ON public._v3_quarantine_decisions FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Admins can insert quarantined tag assignments" ON public._v3_quarantine_tag_assignments FOR INSERT TO authenticated WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Admins can view quarantined tag assignments" ON public._v3_quarantine_tag_assignments FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public._v3_quarantine_tag_assignments AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public._v3_quarantine_tag_assignments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public._v3_quarantine_tag_assignments AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Admins can manage activity logs" ON public.activity_logs FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.activity_logs AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.activity_logs AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.activity_logs AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can insert own activity logs" ON public.activity_logs FOR INSERT TO authenticated WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can view all conversions" ON public.ad_conversions FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Authenticated users can insert conversions" ON public.ad_conversions FOR INSERT TO authenticated WITH CHECK (((char_length(ad_id) >= 1) AND (char_length(ad_id) <= 120) AND (placement = ANY (ARRAY['header'::text, 'sidebar'::text, 'in-content'::text, 'between-entries'::text, 'lightbox-overlay'::text, 'above-journal'::text, 'below-journal'::text, 'anchor-bottom'::text])) AND (conversion_type = ANY (ARRAY['form_submission'::text, 'payment_success'::text, 'whatsapp_click'::text, 'cta_click'::text])) AND (device = ANY (ARRAY['desktop'::text, 'mobile'::text, 'tablet'::text]))));
+CREATE POLICY "Ad comments follow the ad's visibility" ON public.ad_creative_comments AS RESTRICTIVE FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
+   FROM ad_creatives c
+  WHERE ((c.id = ad_creative_comments.creative_id) AND (c.is_active OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role))))));
+CREATE POLICY "Banned users cannot comment on ads" ON public.ad_creative_comments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK ((NOT is_banned(( SELECT auth.uid() AS uid))));
+CREATE POLICY "Deleted accounts cannot delete" ON public.ad_creative_comments AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.ad_creative_comments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.ad_creative_comments AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Members comment as themselves" ON public.ad_creative_comments FOR INSERT TO authenticated WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Members edit their own ad comment" ON public.ad_creative_comments FOR UPDATE TO authenticated USING ((auth.uid() = user_id)) WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Members or admins delete an ad comment" ON public.ad_creative_comments FOR DELETE TO authenticated USING (((auth.uid() = user_id) OR has_role(auth.uid(), 'admin'::app_role)));
+CREATE POLICY "Members read ad comments" ON public.ad_creative_comments FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Deleted accounts cannot delete" ON public.ad_creative_reactions AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.ad_creative_reactions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.ad_creative_reactions AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Members change their own ad reaction" ON public.ad_creative_reactions FOR UPDATE TO authenticated USING ((auth.uid() = user_id)) WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Members react as themselves" ON public.ad_creative_reactions FOR INSERT TO authenticated WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Members read ad reactions" ON public.ad_creative_reactions FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Members remove their own ad reaction" ON public.ad_creative_reactions FOR DELETE TO authenticated USING ((auth.uid() = user_id));
+CREATE POLICY "Deleted accounts cannot delete" ON public.ad_creative_shares AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.ad_creative_shares AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.ad_creative_shares AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Members read ad shares" ON public.ad_creative_shares FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Members remove their own ad share" ON public.ad_creative_shares FOR DELETE TO authenticated USING ((auth.uid() = user_id));
+CREATE POLICY "Members share as themselves" ON public.ad_creative_shares FOR INSERT TO authenticated WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Deleted accounts cannot delete" ON public.ad_creatives AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.ad_creatives AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.ad_creatives AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY ad_creatives_admin_all ON public.ad_creatives FOR ALL TO public USING (has_role(auth.uid(), 'admin'::app_role)) WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
+CREATE POLICY ad_creatives_public_read_active ON public.ad_creatives FOR SELECT TO public USING (is_active);
+CREATE POLICY "Admins can view impressions" ON public.ad_impressions FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Authenticated impression inserts" ON public.ad_impressions FOR INSERT TO authenticated WITH CHECK (((char_length(slot_id) >= 1) AND (char_length(slot_id) <= 120) AND (placement = ANY (ARRAY['header'::text, 'sidebar'::text, 'in-content'::text, 'between-entries'::text, 'lightbox-overlay'::text, 'above-journal'::text, 'below-journal'::text, 'anchor-bottom'::text])) AND (event_type = ANY (ARRAY['impression'::text, 'click'::text, 'viewable_impression'::text])) AND (device = ANY (ARRAY['desktop'::text, 'mobile'::text, 'tablet'::text])) AND (ad_source = ANY (ARRAY['internal'::text, 'adsense'::text])) AND ((country IS NULL) OR ((char_length(country) >= 2) AND (char_length(country) <= 100)))));
+CREATE POLICY "Admins can delete admin notifications" ON public.admin_notifications FOR DELETE TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Admins can manage admin notifications" ON public.admin_notifications FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.admin_notifications AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.admin_notifications AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.admin_notifications AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Admins can delete vote adjustments" ON public.admin_vote_adjustments FOR DELETE TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Admins can insert vote adjustments" ON public.admin_vote_adjustments FOR INSERT TO authenticated WITH CHECK (((admin_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
+CREATE POLICY "Admins can read vote adjustments" ON public.admin_vote_adjustments FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.admin_vote_adjustments AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.admin_vote_adjustments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.admin_vote_adjustments AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Admins can view all chat usage" ON public.ai_chat_usage FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Deleted accounts cannot delete" ON public.ai_chat_usage AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.ai_chat_usage AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.ai_chat_usage AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can update own usage" ON public.ai_chat_usage FOR UPDATE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can view own chat usage" ON public.ai_chat_usage FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can manage all album photos" ON public.album_photos FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view album photos" ON public.album_photos FOR SELECT TO public USING (true);
+CREATE POLICY "Deleted accounts cannot delete" ON public.album_photos AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.album_photos AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.album_photos AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can add photos to own albums" ON public.album_photos FOR INSERT TO authenticated WITH CHECK (owns_album(album_id, ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can delete own album photos" ON public.album_photos FOR DELETE TO authenticated USING (owns_album(album_id, ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can update own album photos" ON public.album_photos FOR UPDATE TO authenticated USING (owns_album(album_id, ( SELECT auth.uid() AS uid)));
+CREATE POLICY "auth admin manages login attempts" ON public.auth_login_attempts FOR ALL TO supabase_auth_admin USING (true) WITH CHECK (true);
+CREATE POLICY "Admins can manage badge definitions" ON public.badge_definitions FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view badge definitions" ON public.badge_definitions FOR SELECT TO public USING (true);
+CREATE POLICY "Deleted accounts cannot delete" ON public.badge_definitions AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.badge_definitions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.badge_definitions AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Admins can manage bank details" ON public.bank_details FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.bank_details AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.bank_details AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.bank_details AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can insert own bank details" ON public.bank_details FOR INSERT TO public WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can update own bank details" ON public.bank_details FOR UPDATE TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can view own bank details" ON public.bank_details FOR SELECT TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can manage blocked keywords" ON public.blocked_keywords FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Authenticated users can read active keywords" ON public.blocked_keywords FOR SELECT TO authenticated USING ((is_active = true));
+CREATE POLICY "Deleted accounts cannot delete" ON public.blocked_keywords AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.blocked_keywords AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.blocked_keywords AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Admins manage categories" ON public.categories FOR ALL TO public USING (has_role(auth.uid(), 'admin'::app_role)) WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
+CREATE POLICY "Anyone can read categories" ON public.categories FOR SELECT TO public USING (true);
+CREATE POLICY "Admins can manage testimonials" ON public.certificate_testimonials FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view visible testimonials" ON public.certificate_testimonials FOR SELECT TO public USING ((is_visible = true));
+CREATE POLICY "Deleted accounts cannot delete" ON public.certificate_testimonials AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.certificate_testimonials AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.certificate_testimonials AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Admins can manage certificates" ON public.certificates FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.certificates AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.certificates AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.certificates AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can insert own competition certificates" ON public.certificates FOR INSERT TO authenticated WITH CHECK (((user_id = ( SELECT auth.uid() AS uid)) AND (type = ANY (ARRAY['winner'::text, 'finalist'::text, 'participation_r1'::text, 'participation_r2'::text, 'participation_r3'::text, 'participation_r4'::text]))));
+CREATE POLICY "Users can view own certificates" ON public.certificates FOR SELECT TO authenticated USING (((user_id = ( SELECT auth.uid() AS uid)) AND ((type !~~ 'competition\_%'::text) OR (published_at IS NOT NULL))));
+CREATE POLICY "Admins can view chat questions" ON public.chat_questions FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Service role can manage chat questions" ON public.chat_questions FOR ALL TO public USING ((( SELECT auth.role() AS role) = 'service_role'::text)) WITH CHECK ((( SELECT auth.role() AS role) = 'service_role'::text));
+CREATE POLICY "Admins can manage comment reactions" ON public.comment_reactions FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view comment reactions" ON public.comment_reactions FOR SELECT TO public USING (true);
+CREATE POLICY "Authenticated users can react" ON public.comment_reactions FOR INSERT TO authenticated WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Deleted accounts cannot delete" ON public.comment_reactions AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.comment_reactions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.comment_reactions AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can remove own reactions" ON public.comment_reactions FOR DELETE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can manage reports" ON public.comment_reports FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.comment_reports AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.comment_reports AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.comment_reports AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can report comments" ON public.comment_reports FOR INSERT TO public WITH CHECK ((( SELECT auth.uid() AS uid) = reporter_id));
+CREATE POLICY "Users can view own reports" ON public.comment_reports FOR SELECT TO public USING ((reporter_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can manage comments" ON public.comments FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view comments" ON public.comments FOR SELECT TO public USING (true);
+CREATE POLICY "Authenticated users can create comments" ON public.comments FOR INSERT TO authenticated WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
+CREATE POLICY "Banned users cannot comment on entries" ON public.comments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK ((NOT is_banned(( SELECT auth.uid() AS uid))));
+CREATE POLICY "Deleted accounts cannot delete" ON public.comments AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.comments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.comments AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can delete own comments" ON public.comments FOR DELETE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can update own comments" ON public.comments FOR UPDATE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can manage entries" ON public.competition_entries FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Authenticated can view public-status entries" ON public.competition_entries FOR SELECT TO authenticated USING ((status = ANY (ARRAY['submitted'::text, 'approved'::text, 'winner'::text, 'runner_up'::text, 'honorary'::text, 'finalist'::text, 'shortlisted'::text, 'qualified'::text, 'round1_qualified'::text, 'round2_qualified'::text, 'round3_qualified'::text])));
+CREATE POLICY "Deleted accounts cannot delete" ON public.competition_entries AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.competition_entries AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.competition_entries AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can submit entries" ON public.competition_entries FOR INSERT TO public WITH CHECK (((( SELECT auth.uid() AS uid) = user_id) AND (EXISTS ( SELECT 1
+   FROM competitions c
+  WHERE ((c.id = competition_entries.competition_id) AND (c.phase = 'submission_open'::text) AND (now() <= c.ends_at)))) AND (NOT is_banned(( SELECT auth.uid() AS uid)))));
+CREATE POLICY "Users can update own metadata only" ON public.competition_entries FOR UPDATE TO authenticated USING (((user_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1
+   FROM competitions c
+  WHERE ((c.id = competition_entries.competition_id) AND (c.phase = 'submission_open'::text) AND (now() <= c.ends_at) AND (c.status <> ALL (ARRAY['archived'::text, 'cancelled'::text]))))))) WITH CHECK (((user_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1
+   FROM competitions c
+  WHERE ((c.id = competition_entries.competition_id) AND (c.phase = 'submission_open'::text) AND (now() <= c.ends_at) AND (c.status <> ALL (ARRAY['archived'::text, 'cancelled'::text]))))) AND (NOT (status IS DISTINCT FROM ( SELECT ce2.status
+   FROM competition_entries ce2
+  WHERE (ce2.id = competition_entries.id)))) AND (NOT (placement IS DISTINCT FROM ( SELECT ce2.placement
+   FROM competition_entries ce2
+  WHERE (ce2.id = competition_entries.id)))) AND (NOT (stage_key IS DISTINCT FROM ( SELECT ce2.stage_key
+   FROM competition_entries ce2
+  WHERE (ce2.id = competition_entries.id)))) AND (NOT (progression_decision IS DISTINCT FROM ( SELECT ce2.progression_decision
+   FROM competition_entries ce2
+  WHERE (ce2.id = competition_entries.id)))) AND (NOT (current_round IS DISTINCT FROM ( SELECT ce2.current_round
+   FROM competition_entries ce2
+  WHERE (ce2.id = competition_entries.id)))) AND (NOT (current_round_int IS DISTINCT FROM ( SELECT ce2.current_round_int
+   FROM competition_entries ce2
+  WHERE (ce2.id = competition_entries.id)))) AND (NOT (is_ai_generated IS DISTINCT FROM ( SELECT ce2.is_ai_generated
+   FROM competition_entries ce2
+  WHERE (ce2.id = competition_entries.id)))) AND (NOT (is_ai_advisory IS DISTINCT FROM ( SELECT ce2.is_ai_advisory
+   FROM competition_entries ce2
+  WHERE (ce2.id = competition_entries.id)))) AND (NOT (ai_detection_result IS DISTINCT FROM ( SELECT ce2.ai_detection_result
+   FROM competition_entries ce2
+  WHERE (ce2.id = competition_entries.id)))) AND (NOT (is_pinned IS DISTINCT FROM ( SELECT ce2.is_pinned
+   FROM competition_entries ce2
+  WHERE (ce2.id = competition_entries.id)))) AND (NOT (user_id IS DISTINCT FROM ( SELECT ce2.user_id
+   FROM competition_entries ce2
+  WHERE (ce2.id = competition_entries.id)))) AND (NOT (competition_id IS DISTINCT FROM ( SELECT ce2.competition_id
+   FROM competition_entries ce2
+  WHERE (ce2.id = competition_entries.id))))));
+CREATE POLICY cec_read_authenticated ON public.competition_entry_counts FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Admins can manage competition judges" ON public.competition_judges FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.competition_judges AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.competition_judges AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.competition_judges AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Judges can view own assignments" ON public.competition_judges FOR SELECT TO authenticated USING ((judge_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can manage competition judging tags" ON public.competition_judging_tags FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.competition_judging_tags AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.competition_judging_tags AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.competition_judging_tags AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Judges can link tags to assigned competitions" ON public.competition_judging_tags FOR INSERT TO authenticated WITH CHECK ((has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND (EXISTS ( SELECT 1
+   FROM competition_judges cj
+  WHERE ((cj.competition_id = competition_judging_tags.competition_id) AND (cj.judge_id = ( SELECT auth.uid() AS uid)))))));
+CREATE POLICY "Judges can view competition tags" ON public.competition_judging_tags FOR SELECT TO authenticated USING ((has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
+CREATE POLICY admins_read_all_orders ON public.competition_orders FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY users_read_own_orders ON public.competition_orders FOR SELECT TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id));
+CREATE POLICY "Admins can manage competition payment details" ON public.competition_payment_details FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.competition_payment_details AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.competition_payment_details AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.competition_payment_details AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Admins can manage round publish state" ON public.competition_round_publish FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone authenticated can read round publish state" ON public.competition_round_publish FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Deleted accounts cannot delete" ON public.competition_round_publish AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.competition_round_publish AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.competition_round_publish AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Public can read published rounds" ON public.competition_round_publish FOR SELECT TO anon USING ((published_at IS NOT NULL));
+CREATE POLICY "Deleted accounts cannot delete" ON public.competition_votes AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.competition_votes AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.competition_votes AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "View vote counts (phase-gated)" ON public.competition_votes FOR SELECT TO authenticated USING (((NOT is_vote_phase_locked(entry_id)) OR (user_id = ( SELECT auth.uid() AS uid)) OR is_entry_owner(entry_id, ( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
+CREATE POLICY no_self_vote ON public.competition_votes FOR INSERT TO authenticated WITH CHECK (((user_id = ( SELECT auth.uid() AS uid)) AND (NOT (EXISTS ( SELECT 1
+   FROM competition_entries e
+  WHERE ((e.id = competition_votes.entry_id) AND (e.user_id = ( SELECT auth.uid() AS uid)))))) AND (NOT is_banned(( SELECT auth.uid() AS uid)))));
+CREATE POLICY "Admins can manage competitions" ON public.competitions FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view competitions" ON public.competitions FOR SELECT TO public USING (true);
+CREATE POLICY "Deleted accounts cannot delete" ON public.competitions AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.competitions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.competitions AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Admins can view all enrollments" ON public.course_enrollments FOR SELECT TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.course_enrollments AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.course_enrollments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.course_enrollments AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can enroll themselves" ON public.course_enrollments FOR INSERT TO public WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can view own enrollments" ON public.course_enrollments FOR SELECT TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins manage modules" ON public.course_modules FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.course_modules AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.course_modules AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.course_modules AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Public can view modules" ON public.course_modules FOR SELECT TO public USING (true);
+CREATE POLICY "Admins can manage courses" ON public.courses FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view published courses" ON public.courses FOR SELECT TO public USING (((status = 'published'::text) OR (author_id = ( SELECT auth.uid() AS uid))));
+CREATE POLICY "Content editors can create courses" ON public.courses FOR INSERT TO public WITH CHECK ((has_role(( SELECT auth.uid() AS uid), 'content_editor'::app_role) AND (author_id = ( SELECT auth.uid() AS uid))));
+CREATE POLICY "Content editors can delete own courses" ON public.courses FOR DELETE TO public USING ((has_role(( SELECT auth.uid() AS uid), 'content_editor'::app_role) AND (author_id = ( SELECT auth.uid() AS uid))));
+CREATE POLICY "Content editors can update own courses" ON public.courses FOR UPDATE TO public USING ((has_role(( SELECT auth.uid() AS uid), 'content_editor'::app_role) AND (author_id = ( SELECT auth.uid() AS uid))));
+CREATE POLICY "Deleted accounts cannot delete" ON public.courses AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.courses AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.courses AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Admins read all URL history" ON public.custom_url_history FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Users read own URL history" ON public.custom_url_history FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can read audit logs" ON public.db_audit_logs FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Service role can insert send log" ON public.email_send_log FOR INSERT TO public WITH CHECK ((( SELECT auth.role() AS role) = 'service_role'::text));
+CREATE POLICY "Service role can read send log" ON public.email_send_log FOR SELECT TO public USING ((( SELECT auth.role() AS role) = 'service_role'::text));
+CREATE POLICY "Service role can update send log" ON public.email_send_log FOR UPDATE TO public USING ((( SELECT auth.role() AS role) = 'service_role'::text)) WITH CHECK ((( SELECT auth.role() AS role) = 'service_role'::text));
+CREATE POLICY "Service role can manage send state" ON public.email_send_state FOR ALL TO public USING ((( SELECT auth.role() AS role) = 'service_role'::text)) WITH CHECK ((( SELECT auth.role() AS role) = 'service_role'::text));
+CREATE POLICY "Admins can manage email templates" ON public.email_templates FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.email_templates AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.email_templates AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.email_templates AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Service role can insert tokens" ON public.email_unsubscribe_tokens FOR INSERT TO public WITH CHECK ((( SELECT auth.role() AS role) = 'service_role'::text));
+CREATE POLICY "Service role can mark tokens as used" ON public.email_unsubscribe_tokens FOR UPDATE TO public USING ((( SELECT auth.role() AS role) = 'service_role'::text)) WITH CHECK ((( SELECT auth.role() AS role) = 'service_role'::text));
+CREATE POLICY "Service role can read tokens" ON public.email_unsubscribe_tokens FOR SELECT TO public USING ((( SELECT auth.role() AS role) = 'service_role'::text));
+CREATE POLICY "Admins read score cache" ON public.entry_score_cache FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Judges read score cache" ON public.entry_score_cache FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'judge'::text));
+CREATE POLICY "Admins can delete FAQs" ON public.faq_entries FOR DELETE TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Admins can insert FAQs" ON public.faq_entries FOR INSERT TO authenticated WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Admins can update FAQs" ON public.faq_entries FOR UPDATE TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Admins can view all FAQs" ON public.faq_entries FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Anyone can read active FAQs" ON public.faq_entries FOR SELECT TO anon, authenticated USING ((is_active = true));
+CREATE POLICY "Deleted accounts cannot delete" ON public.faq_entries AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.faq_entries AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.faq_entries AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Admins can manage featured artists" ON public.featured_artists FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view active featured artists" ON public.featured_artists FOR SELECT TO anon, authenticated USING ((is_active = true));
+CREATE POLICY "Deleted accounts cannot delete" ON public.featured_artists AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.featured_artists AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.featured_artists AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Admins can manage featured photos" ON public.featured_photos FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view featured photos" ON public.featured_photos FOR SELECT TO public USING (true);
+CREATE POLICY "Deleted accounts cannot delete" ON public.featured_photos AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.featured_photos AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.featured_photos AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can manage own featured photos" ON public.featured_photos FOR ALL TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins read all feed events" ON public.feed_events FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Deleted accounts cannot delete" ON public.feed_events AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.feed_events AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.feed_events AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users insert own feed events" ON public.feed_events FOR INSERT TO authenticated WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
+CREATE POLICY "Users read own feed events" ON public.feed_events FOR SELECT TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id));
+CREATE POLICY "Admins can manage follows" ON public.follows FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view follows" ON public.follows FOR SELECT TO public USING (true);
+CREATE POLICY "Deleted accounts cannot delete" ON public.follows AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.follows AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.follows AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can follow" ON public.follows FOR INSERT TO authenticated WITH CHECK ((follower_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can unfollow" ON public.follows FOR DELETE TO authenticated USING ((follower_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can manage friendships" ON public.friendships FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.friendships AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.friendships AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.friendships AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can delete own friendships" ON public.friendships FOR DELETE TO authenticated USING (((requester_id = ( SELECT auth.uid() AS uid)) OR (addressee_id = ( SELECT auth.uid() AS uid))));
+CREATE POLICY "Users can send friend requests" ON public.friendships FOR INSERT TO authenticated WITH CHECK ((requester_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can update own friendships" ON public.friendships FOR UPDATE TO authenticated USING (((addressee_id = ( SELECT auth.uid() AS uid)) AND (status = 'pending'::text))) WITH CHECK ((status = 'accepted'::text));
+CREATE POLICY "Users can view own friendships" ON public.friendships FOR SELECT TO authenticated USING (((requester_id = ( SELECT auth.uid() AS uid)) OR (addressee_id = ( SELECT auth.uid() AS uid))));
+CREATE POLICY "Admins can manage announcements" ON public.gift_announcements FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.gift_announcements AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.gift_announcements AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.gift_announcements AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can update own announcements" ON public.gift_announcements FOR UPDATE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can view own announcements" ON public.gift_announcements FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can manage gift credits" ON public.gift_credits FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.gift_credits AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.gift_credits AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.gift_credits AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY hashtags_read_all ON public.hashtags FOR SELECT TO public USING (true);
+CREATE POLICY "admins read held_result_notifications" ON public.held_result_notifications FOR SELECT TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Admins can manage banners" ON public.hero_banners FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view active banners" ON public.hero_banners FOR SELECT TO public USING ((is_active = true));
+CREATE POLICY "Deleted accounts cannot delete" ON public.hero_banners AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.hero_banners AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.hero_banners AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Admins can manage highlight items" ON public.highlight_items FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view highlight items" ON public.highlight_items FOR SELECT TO public USING (true);
+CREATE POLICY "Deleted accounts cannot delete" ON public.highlight_items AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.highlight_items AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.highlight_items AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can delete own highlight items" ON public.highlight_items FOR DELETE TO authenticated USING ((EXISTS ( SELECT 1
+   FROM highlights
+  WHERE ((highlights.id = highlight_items.highlight_id) AND (highlights.user_id = ( SELECT auth.uid() AS uid))))));
+CREATE POLICY "Users can manage own highlight items" ON public.highlight_items FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
+   FROM highlights
+  WHERE ((highlights.id = highlight_items.highlight_id) AND (highlights.user_id = ( SELECT auth.uid() AS uid))))));
+CREATE POLICY "Admins can manage highlights" ON public.highlights FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view highlights" ON public.highlights FOR SELECT TO public USING (true);
+CREATE POLICY "Deleted accounts cannot delete" ON public.highlights AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.highlights AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.highlights AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can manage own highlights" ON public.highlights FOR ALL TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can manage all comments" ON public.image_comments FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Authenticated users can post comments" ON public.image_comments FOR INSERT TO public WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
+CREATE POLICY "Banned users cannot comment on images" ON public.image_comments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK ((NOT is_banned(( SELECT auth.uid() AS uid))));
+CREATE POLICY "Deleted accounts cannot delete" ON public.image_comments AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.image_comments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.image_comments AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can delete own comments" ON public.image_comments FOR DELETE TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can update own comments" ON public.image_comments FOR UPDATE TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "View non-flagged comments (phase-gated)" ON public.image_comments FOR SELECT TO public USING ((((is_flagged = false) OR (user_id = ( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) AND ((NOT is_engagement_phase_locked(image_type, image_id)) OR (user_id = ( SELECT auth.uid() AS uid)) OR ((( SELECT auth.uid() AS uid) IS NOT NULL) AND is_entry_owner(image_id, ( SELECT auth.uid() AS uid))) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role))));
+CREATE POLICY "Authenticated users can add reactions" ON public.image_reactions FOR INSERT TO public WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
+CREATE POLICY "Banned users cannot react to images" ON public.image_reactions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK ((NOT is_banned(( SELECT auth.uid() AS uid))));
+CREATE POLICY "Deleted accounts cannot delete" ON public.image_reactions AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.image_reactions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.image_reactions AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can remove own reactions" ON public.image_reactions FOR DELETE TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "View reactions (phase-gated)" ON public.image_reactions FOR SELECT TO public USING (((NOT is_engagement_phase_locked(image_type, image_id)) OR ((( SELECT auth.uid() AS uid) IS NOT NULL) AND is_entry_owner(image_id, ( SELECT auth.uid() AS uid))) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
+CREATE POLICY "Admins can manage articles" ON public.journal_articles FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view published articles" ON public.journal_articles FOR SELECT TO public USING (((status = 'published'::text) OR (author_id = ( SELECT auth.uid() AS uid))));
+CREATE POLICY "Content editors can create articles" ON public.journal_articles FOR INSERT TO public WITH CHECK ((has_role(( SELECT auth.uid() AS uid), 'content_editor'::app_role) AND (author_id = ( SELECT auth.uid() AS uid))));
+CREATE POLICY "Content editors can delete own articles" ON public.journal_articles FOR DELETE TO public USING ((has_role(( SELECT auth.uid() AS uid), 'content_editor'::app_role) AND (author_id = ( SELECT auth.uid() AS uid))));
+CREATE POLICY "Content editors can update own articles" ON public.journal_articles FOR UPDATE TO public USING ((has_role(( SELECT auth.uid() AS uid), 'content_editor'::app_role) AND (author_id = ( SELECT auth.uid() AS uid))));
+CREATE POLICY "Deleted accounts cannot delete" ON public.journal_articles AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.journal_articles AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.journal_articles AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Admins can manage judge activity logs" ON public.judge_activity_logs FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.judge_activity_logs AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.judge_activity_logs AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.judge_activity_logs AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Judges can insert own activity logs" ON public.judge_activity_logs FOR INSERT TO authenticated WITH CHECK (((judge_id = ( SELECT auth.uid() AS uid)) AND (has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role))));
+CREATE POLICY "Judges can view own activity logs" ON public.judge_activity_logs FOR SELECT TO authenticated USING (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role)));
+CREATE POLICY judge_award_tags_select_admin ON public.judge_award_tags FOR SELECT TO authenticated USING ((has_role(( SELECT auth.uid() AS uid), 'admin'::text) OR has_role(( SELECT auth.uid() AS uid), 'super_admin'::text)));
+CREATE POLICY judge_award_tags_select_self ON public.judge_award_tags FOR SELECT TO authenticated USING ((judge_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can manage judge comments" ON public.judge_comments FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.judge_comments AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.judge_comments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.judge_comments AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Judges can create own comments" ON public.judge_comments FOR INSERT TO authenticated WITH CHECK (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid))));
+CREATE POLICY "Judges can delete own comments" ON public.judge_comments FOR DELETE TO authenticated USING (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid))));
+CREATE POLICY "Judges can update own comments" ON public.judge_comments FOR UPDATE TO authenticated USING (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid))));
+CREATE POLICY "Judges can view all comments" ON public.judge_comments FOR SELECT TO authenticated USING (((has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND (EXISTS ( SELECT 1
+   FROM (competition_entries ce
+     JOIN competition_judges cj ON ((cj.competition_id = ce.competition_id)))
+  WHERE ((ce.id = judge_comments.entry_id) AND (cj.judge_id = ( SELECT auth.uid() AS uid)))))) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
+CREATE POLICY "Admins can manage judge decisions" ON public.judge_decisions FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.judge_decisions AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.judge_decisions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.judge_decisions AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Judges can insert own decisions" ON public.judge_decisions FOR INSERT TO authenticated WITH CHECK (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid)) AND judge_round_open_by_number(entry_id, round_number)));
+CREATE POLICY "Judges can update own decisions" ON public.judge_decisions FOR UPDATE TO authenticated USING (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid)) AND judge_round_open_by_number(entry_id, round_number))) WITH CHECK (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid)) AND judge_round_open_by_number(entry_id, round_number)));
+CREATE POLICY "Judges can view decisions" ON public.judge_decisions FOR SELECT TO authenticated USING (((has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND (EXISTS ( SELECT 1
+   FROM (competition_entries ce
+     JOIN competition_judges cj ON ((cj.competition_id = ce.competition_id)))
+  WHERE ((ce.id = judge_decisions.entry_id) AND (cj.judge_id = ( SELECT auth.uid() AS uid)))))) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
+CREATE POLICY "Admins can manage judge entry assignments" ON public.judge_entry_assignments FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Deleted accounts cannot delete" ON public.judge_entry_assignments AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.judge_entry_assignments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.judge_entry_assignments AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Judges can view own assignments" ON public.judge_entry_assignments FOR SELECT TO authenticated USING (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::text)));
+CREATE POLICY "Admins can manage locks" ON public.judge_entry_locks FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.judge_entry_locks AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.judge_entry_locks AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.judge_entry_locks AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Judges can create locks" ON public.judge_entry_locks FOR INSERT TO authenticated WITH CHECK (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role)));
+CREATE POLICY "Judges can release locks" ON public.judge_entry_locks FOR DELETE TO authenticated USING (((judge_id = ( SELECT auth.uid() AS uid)) OR (expires_at < now())));
+CREATE POLICY "Judges can update own locks" ON public.judge_entry_locks FOR UPDATE TO authenticated USING ((judge_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Judges can view locks" ON public.judge_entry_locks FOR SELECT TO authenticated USING ((has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
+CREATE POLICY "Admins can manage scores" ON public.judge_scores FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.judge_scores AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.judge_scores AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.judge_scores AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Judges can delete own scores" ON public.judge_scores FOR DELETE TO authenticated USING (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid)) AND judge_round_open_by_number(entry_id, round_number)));
+CREATE POLICY "Judges can insert own scores" ON public.judge_scores FOR INSERT TO authenticated WITH CHECK (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid)) AND judge_round_open_by_number(entry_id, round_number)));
+CREATE POLICY "Judges can update own scores" ON public.judge_scores FOR UPDATE TO authenticated USING (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid)) AND judge_round_open_by_number(entry_id, round_number))) WITH CHECK (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid)) AND judge_round_open_by_number(entry_id, round_number)));
+CREATE POLICY "Judges can view scores" ON public.judge_scores FOR SELECT TO authenticated USING (((has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND (EXISTS ( SELECT 1
+   FROM (competition_entries ce
+     JOIN competition_judges cj ON ((cj.competition_id = ce.competition_id)))
+  WHERE ((ce.id = judge_scores.entry_id) AND (cj.judge_id = ( SELECT auth.uid() AS uid)))))) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
+CREATE POLICY "Deleted accounts cannot delete" ON public.judge_sessions AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.judge_sessions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.judge_sessions AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Judges can insert own sessions" ON public.judge_sessions FOR INSERT TO authenticated WITH CHECK (((judge_id = ( SELECT auth.uid() AS uid)) AND (has_role(( SELECT auth.uid() AS uid), 'admin'::text) OR (EXISTS ( SELECT 1
+   FROM competition_judges cj
+  WHERE ((cj.judge_id = ( SELECT auth.uid() AS uid)) AND (cj.competition_id = judge_sessions.competition_id)))))));
+CREATE POLICY "Judges can update own sessions" ON public.judge_sessions FOR UPDATE TO authenticated USING ((judge_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Judges can view own sessions" ON public.judge_sessions FOR SELECT TO authenticated USING (((judge_id = ( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::text)));
+CREATE POLICY "Admins can manage tag assignments" ON public.judge_tag_assignments FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.judge_tag_assignments AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.judge_tag_assignments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.judge_tag_assignments AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Judges can assign tags" ON public.judge_tag_assignments FOR INSERT TO authenticated WITH CHECK (((judge_id = ( SELECT auth.uid() AS uid)) AND has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND judge_can_access_entry(entry_id, ( SELECT auth.uid() AS uid)) AND judge_round_open_by_number(entry_id, round_number)));
+CREATE POLICY "Judges can view tag assignments" ON public.judge_tag_assignments FOR SELECT TO authenticated USING (((has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) AND (EXISTS ( SELECT 1
+   FROM (competition_entries ce
+     JOIN competition_judges cj ON ((cj.competition_id = ce.competition_id)))
+  WHERE ((ce.id = judge_tag_assignments.entry_id) AND (cj.judge_id = ( SELECT auth.uid() AS uid)))))) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
+CREATE POLICY "Admins can manage judging config" ON public.judging_config FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.judging_config AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.judging_config AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.judging_config AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Judges can view judging config" ON public.judging_config FOR SELECT TO public USING (has_role(( SELECT auth.uid() AS uid), 'judge'::app_role));
+CREATE POLICY judging_preflight_log_self_read ON public.judging_preflight_log FOR SELECT TO authenticated USING (((caller_id = ( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::text)));
+CREATE POLICY "Admins can manage judging rounds" ON public.judging_rounds FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.judging_rounds AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.judging_rounds AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.judging_rounds AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Judges can view rounds" ON public.judging_rounds FOR SELECT TO authenticated USING ((has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
+CREATE POLICY "Admins can manage judging tags" ON public.judging_tags FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "All users can view active tags" ON public.judging_tags FOR SELECT TO authenticated USING ((is_active = true));
+CREATE POLICY "Deleted accounts cannot delete" ON public.judging_tags AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.judging_tags AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.judging_tags AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Judges can view active tags" ON public.judging_tags FOR SELECT TO authenticated USING (((is_active = true) AND (has_role(( SELECT auth.uid() AS uid), 'judge'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role))));
+CREATE POLICY "Public can read R4 award tag definitions" ON public.judging_tags FOR SELECT TO anon, authenticated USING ((label = ANY (ARRAY['Top 100'::text, 'Top 50'::text, 'Winner'::text, '1st Runner-Up'::text, '2nd Runner-Up'::text, 'Honorary Mention'::text, 'Special Jury'::text])));
+CREATE POLICY "Deleted accounts cannot delete" ON public.lesson_progress AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.lesson_progress AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.lesson_progress AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can track own progress" ON public.lesson_progress FOR INSERT TO public WITH CHECK (((user_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1
+   FROM (lessons l
+     JOIN courses c ON ((c.id = l.course_id)))
+  WHERE ((l.id = lesson_progress.lesson_id) AND (c.is_free OR (c.author_id = ( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR (EXISTS ( SELECT 1
+           FROM course_enrollments e
+          WHERE ((e.user_id = ( SELECT auth.uid() AS uid)) AND (e.course_id = l.course_id))))))))));
+CREATE POLICY "Users can update own progress" ON public.lesson_progress FOR UPDATE TO public USING ((user_id = ( SELECT auth.uid() AS uid))) WITH CHECK (((user_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1
+   FROM (lessons l
+     JOIN courses c ON ((c.id = l.course_id)))
+  WHERE ((l.id = lesson_progress.lesson_id) AND (c.is_free OR (c.author_id = ( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR (EXISTS ( SELECT 1
+           FROM course_enrollments e
+          WHERE ((e.user_id = ( SELECT auth.uid() AS uid)) AND (e.course_id = l.course_id))))))))));
+CREATE POLICY "Users can view own progress" ON public.lesson_progress FOR SELECT TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can manage lessons" ON public.lessons FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view lessons of published courses" ON public.lessons FOR SELECT TO public USING ((EXISTS ( SELECT 1
+   FROM courses
+  WHERE ((courses.id = lessons.course_id) AND ((courses.status = 'published'::text) OR (courses.author_id = ( SELECT auth.uid() AS uid)))))));
+CREATE POLICY "Content editors can delete own course lessons" ON public.lessons FOR DELETE TO public USING ((has_role(( SELECT auth.uid() AS uid), 'content_editor'::app_role) AND (EXISTS ( SELECT 1
+   FROM courses
+  WHERE ((courses.id = lessons.course_id) AND (courses.author_id = ( SELECT auth.uid() AS uid)))))));
+CREATE POLICY "Content editors can manage own course lessons" ON public.lessons FOR INSERT TO public WITH CHECK ((has_role(( SELECT auth.uid() AS uid), 'content_editor'::app_role) AND (EXISTS ( SELECT 1
+   FROM courses
+  WHERE ((courses.id = lessons.course_id) AND (courses.author_id = ( SELECT auth.uid() AS uid)))))));
+CREATE POLICY "Content editors can update own course lessons" ON public.lessons FOR UPDATE TO public USING ((has_role(( SELECT auth.uid() AS uid), 'content_editor'::app_role) AND (EXISTS ( SELECT 1
+   FROM courses
+  WHERE ((courses.id = lessons.course_id) AND (courses.author_id = ( SELECT auth.uid() AS uid)))))));
+CREATE POLICY "Deleted accounts cannot delete" ON public.lessons AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.lessons AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.lessons AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY media_objects_insert_own ON public.media_objects FOR INSERT TO public WITH CHECK ((owner_id = auth.uid()));
+CREATE POLICY media_objects_select ON public.media_objects FOR SELECT TO public USING (((owner_id = auth.uid()) OR (EXISTS ( SELECT 1
+   FROM (post_media pm
+     JOIN posts p ON ((p.id = pm.post_id)))
+  WHERE ((pm.media_id = media_objects.id) AND can_view_post(auth.uid(), p.user_id, p.privacy))))));
+CREATE POLICY name_part_spellings_readable ON public.name_part_spellings FOR SELECT TO public USING (true);
+CREATE POLICY "Admins can delete subscribers" ON public.newsletter_subscribers FOR DELETE TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Admins can update subscribers" ON public.newsletter_subscribers FOR UPDATE TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Admins can view all subscribers" ON public.newsletter_subscribers FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Deleted accounts cannot delete" ON public.newsletter_subscribers AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.newsletter_subscribers AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.newsletter_subscribers AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users delete own subscription" ON public.newsletter_subscribers FOR DELETE TO authenticated USING (((user_id IS NOT NULL) AND (user_id = ( SELECT auth.uid() AS uid))));
+CREATE POLICY "Users read own subscription" ON public.newsletter_subscribers FOR SELECT TO authenticated USING (((user_id IS NOT NULL) AND (user_id = ( SELECT auth.uid() AS uid))));
+CREATE POLICY "Users update own subscription" ON public.newsletter_subscribers FOR UPDATE TO authenticated USING (((user_id IS NOT NULL) AND (user_id = ( SELECT auth.uid() AS uid)))) WITH CHECK (((user_id IS NOT NULL) AND (user_id = ( SELECT auth.uid() AS uid))));
+CREATE POLICY "Validated inserts allowed" ON public.newsletter_subscribers FOR INSERT TO anon, authenticated WITH CHECK (((email IS NOT NULL) AND ((length(email) >= 5) AND (length(email) <= 255)) AND (email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'::text)));
+CREATE POLICY "admins read notification_emit_log" ON public.notification_emit_log FOR SELECT TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Deleted accounts cannot delete" ON public.notification_preferences AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.notification_preferences AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.notification_preferences AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can insert own preferences" ON public.notification_preferences FOR INSERT TO authenticated WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can read own preferences" ON public.notification_preferences FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can update own preferences" ON public.notification_preferences FOR UPDATE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid))) WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Deleted accounts cannot delete" ON public.office_staff AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.office_staff AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.office_staff AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "admins manage office_staff" ON public.office_staff FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Admins can manage all albums" ON public.photo_albums FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view photo albums" ON public.photo_albums FOR SELECT TO public USING (true);
+CREATE POLICY "Deleted accounts cannot delete" ON public.photo_albums AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.photo_albums AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.photo_albums AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can create own albums" ON public.photo_albums FOR INSERT TO authenticated WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can delete own custom albums" ON public.photo_albums FOR DELETE TO authenticated USING (((user_id = ( SELECT auth.uid() AS uid)) AND (album_type = 'custom'::text)));
+CREATE POLICY "Users can update own albums" ON public.photo_albums FOR UPDATE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can manage POTD" ON public.photo_of_the_day FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view active POTD" ON public.photo_of_the_day FOR SELECT TO public USING ((is_active = true));
+CREATE POLICY "Deleted accounts cannot delete" ON public.photo_of_the_day AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.photo_of_the_day AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.photo_of_the_day AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Admins can manage portfolio images" ON public.portfolio_images FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view visible portfolio images" ON public.portfolio_images FOR SELECT TO public USING ((is_visible = true));
+CREATE POLICY "Deleted accounts cannot delete" ON public.portfolio_images AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.portfolio_images AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.portfolio_images AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Admins can manage comment reactions" ON public.post_comment_reactions FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view comment reactions" ON public.post_comment_reactions FOR SELECT TO public USING (true);
+CREATE POLICY "Authenticated users can react to comments" ON public.post_comment_reactions FOR INSERT TO authenticated WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Deleted accounts cannot delete" ON public.post_comment_reactions AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.post_comment_reactions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.post_comment_reactions AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can remove own reactions" ON public.post_comment_reactions FOR DELETE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can manage post comments" ON public.post_comments FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Authenticated users can comment on visible posts" ON public.post_comments FOR INSERT TO public WITH CHECK (((user_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1
+   FROM posts
+  WHERE ((posts.id = post_comments.post_id) AND can_view_post(( SELECT auth.uid() AS uid), posts.user_id, posts.privacy))))));
+CREATE POLICY "Banned users cannot comment on posts" ON public.post_comments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK ((NOT is_banned(( SELECT auth.uid() AS uid))));
+CREATE POLICY "Deleted accounts cannot comment" ON public.post_comments AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot edit comments" ON public.post_comments AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot remove comments" ON public.post_comments AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can delete own comments" ON public.post_comments FOR DELETE TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can update own comments" ON public.post_comments FOR UPDATE TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can view comments on visible posts" ON public.post_comments FOR SELECT TO public USING ((EXISTS ( SELECT 1
+   FROM posts
+  WHERE ((posts.id = post_comments.post_id) AND can_view_post(( SELECT auth.uid() AS uid), posts.user_id, posts.privacy)))));
+CREATE POLICY pd_delete_own ON public.post_drafts FOR DELETE TO public USING ((auth.uid() = user_id));
+CREATE POLICY pd_insert_own ON public.post_drafts FOR INSERT TO public WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY pd_select_own ON public.post_drafts FOR SELECT TO public USING (((auth.uid() = user_id) AND (expiring_at IS NULL)));
+CREATE POLICY pd_update_own ON public.post_drafts FOR UPDATE TO public USING (((auth.uid() = user_id) AND (expiring_at IS NULL))) WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY post_hashtags_no_client_read ON public.post_hashtags FOR SELECT TO public USING (false);
+CREATE POLICY post_media_delete_own ON public.post_media FOR DELETE TO public USING ((EXISTS ( SELECT 1
+   FROM posts p
+  WHERE ((p.id = post_media.post_id) AND (p.user_id = auth.uid())))));
+CREATE POLICY post_media_select ON public.post_media FOR SELECT TO public USING ((EXISTS ( SELECT 1
+   FROM posts p
+  WHERE ((p.id = post_media.post_id) AND can_view_post(auth.uid(), p.user_id, p.privacy)))));
+CREATE POLICY post_media_write_own ON public.post_media FOR INSERT TO public WITH CHECK ((EXISTS ( SELECT 1
+   FROM posts p
+  WHERE ((p.id = post_media.post_id) AND (p.user_id = auth.uid())))));
+CREATE POLICY "Admins can manage post reactions" ON public.post_reactions FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Authenticated users can react" ON public.post_reactions FOR INSERT TO public WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Banned users cannot react to posts" ON public.post_reactions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK ((NOT is_banned(( SELECT auth.uid() AS uid))));
+CREATE POLICY "Deleted accounts cannot delete" ON public.post_reactions AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.post_reactions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.post_reactions AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can remove own reactions" ON public.post_reactions FOR DELETE TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can view reactions on visible posts" ON public.post_reactions FOR SELECT TO public USING ((EXISTS ( SELECT 1
+   FROM posts
+  WHERE ((posts.id = post_reactions.post_id) AND can_view_post(( SELECT auth.uid() AS uid), posts.user_id, posts.privacy)))));
+CREATE POLICY "Admins can manage post reports" ON public.post_reports FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.post_reports AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.post_reports AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.post_reports AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can report posts" ON public.post_reports FOR INSERT TO authenticated WITH CHECK (((reporter_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1
+   FROM posts
+  WHERE ((posts.id = post_reports.post_id) AND (posts.user_id <> ( SELECT auth.uid() AS uid)))))));
+CREATE POLICY "Users can view own reports" ON public.post_reports FOR SELECT TO authenticated USING ((reporter_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Authenticated users can view shares" ON public.post_shares FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Deleted accounts cannot delete" ON public.post_shares AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.post_shares AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.post_shares AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can share posts" ON public.post_shares FOR INSERT TO authenticated WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
+CREATE POLICY "Users can unshare" ON public.post_shares FOR DELETE TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id));
+CREATE POLICY "Anyone views approved tags" ON public.post_tags FOR SELECT TO public USING ((status = ANY (ARRAY['approved'::post_tag_status, 'pending'::post_tag_status])));
+CREATE POLICY "Deleted accounts cannot delete" ON public.post_tags AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.post_tags AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.post_tags AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Members create tags as themselves" ON public.post_tags FOR INSERT TO public WITH CHECK ((auth.uid() = tagger_id));
+CREATE POLICY "Post owner views all tags on their post" ON public.post_tags FOR SELECT TO public USING ((EXISTS ( SELECT 1
+   FROM posts p
+  WHERE ((p.id = post_tags.post_id) AND (p.user_id = ( SELECT auth.uid() AS uid))))));
+CREATE POLICY "Tagged user deletes tags about them" ON public.post_tags FOR DELETE TO public USING ((( SELECT auth.uid() AS uid) = tagged_user_id));
+CREATE POLICY "Tagged user updates tag status" ON public.post_tags FOR UPDATE TO public USING ((( SELECT auth.uid() AS uid) = tagged_user_id));
+CREATE POLICY "Tagger deletes own tags" ON public.post_tags FOR DELETE TO public USING ((( SELECT auth.uid() AS uid) = tagger_id));
+CREATE POLICY "View own tags as tagged user" ON public.post_tags FOR SELECT TO public USING ((( SELECT auth.uid() AS uid) = tagged_user_id));
+CREATE POLICY "View own tags as tagger" ON public.post_tags FOR SELECT TO public USING ((( SELECT auth.uid() AS uid) = tagger_id));
+CREATE POLICY "Admins can manage posts" ON public.posts FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Banned users cannot create posts" ON public.posts AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK ((NOT is_banned(( SELECT auth.uid() AS uid))));
+CREATE POLICY "Deleted accounts cannot delete" ON public.posts AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.posts AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.posts AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can delete own posts" ON public.posts FOR DELETE TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can insert own posts" ON public.posts FOR INSERT TO public WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can update own posts" ON public.posts FOR UPDATE TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can view posts based on privacy" ON public.posts FOR SELECT TO public USING (can_view_post(( SELECT auth.uid() AS uid), user_id, privacy));
+CREATE POLICY "profile_stats are public" ON public.profile_stats FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "Admins can manage profile views" ON public.profile_views FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Authenticated profile view inserts" ON public.profile_views FOR INSERT TO authenticated WITH CHECK (((profile_id IS NOT NULL) AND (viewer_id = ( SELECT auth.uid() AS uid))));
+CREATE POLICY "Deleted accounts cannot delete" ON public.profile_views AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.profile_views AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.profile_views AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can view own profile views" ON public.profile_views FOR SELECT TO authenticated USING ((profile_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can delete profiles" ON public.profiles FOR DELETE TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Admins can update profiles" ON public.profiles FOR UPDATE TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Admins can view all profiles" ON public.profiles FOR SELECT TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.profiles AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.profiles AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.profiles AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT TO public WITH CHECK ((id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE TO authenticated USING ((id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can view own profile" ON public.profiles FOR SELECT TO authenticated USING ((id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can manage public profile data" ON public.profiles_public_data FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anon can view limited public profile data" ON public.profiles_public_data FOR SELECT TO anon USING (true);
+CREATE POLICY "Authenticated users can view public profile data" ON public.profiles_public_data FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Deleted accounts cannot delete" ON public.profiles_public_data AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.profiles_public_data AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.profiles_public_data AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "service role manages push config" ON public.push_config FOR ALL TO public USING ((auth.role() = 'service_role'::text)) WITH CHECK ((auth.role() = 'service_role'::text));
+CREATE POLICY "Deleted accounts cannot delete" ON public.push_tokens AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.push_tokens AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.push_tokens AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "delete own push tokens" ON public.push_tokens FOR DELETE TO authenticated USING ((user_id = auth.uid()));
+CREATE POLICY "read own push tokens" ON public.push_tokens FOR SELECT TO authenticated USING ((user_id = auth.uid()));
+CREATE POLICY "Admins can view all raw commitments" ON public.raw_commitments FOR SELECT TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Judges can view commitments for their competitions" ON public.raw_commitments FOR SELECT TO public USING ((EXISTS ( SELECT 1
+   FROM competition_judges cj
+  WHERE ((cj.competition_id = raw_commitments.competition_id) AND (cj.judge_id = ( SELECT auth.uid() AS uid))))));
+CREATE POLICY "Owners can view their raw commitments" ON public.raw_commitments FOR SELECT TO public USING ((( SELECT auth.uid() AS uid) = user_id));
+CREATE POLICY "Admins can manage referral codes" ON public.referral_codes FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.referral_codes AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.referral_codes AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.referral_codes AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can insert own referral code" ON public.referral_codes FOR INSERT TO public WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can view own referral code" ON public.referral_codes FOR SELECT TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can manage referrals" ON public.referrals FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.referrals AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.referrals AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.referrals AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "System can insert referrals" ON public.referrals FOR INSERT TO public WITH CHECK ((referred_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can view own referrals as referrer" ON public.referrals FOR SELECT TO public USING ((referrer_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can update reports" ON public.reports FOR UPDATE TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Admins can view all reports" ON public.reports FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Deleted accounts cannot delete" ON public.reports AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.reports AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.reports AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can create reports" ON public.reports FOR INSERT TO authenticated WITH CHECK ((reporter_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can view own reports" ON public.reports FOR SELECT TO authenticated USING ((reporter_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY reserved_custom_urls_readable ON public.reserved_custom_urls FOR SELECT TO public USING (true);
+CREATE POLICY "Admins can delete applications" ON public.role_applications FOR DELETE TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Admins can update applications" ON public.role_applications FOR UPDATE TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Admins can view all applications" ON public.role_applications FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.role_applications AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.role_applications AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.role_applications AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can create applications" ON public.role_applications FOR INSERT TO authenticated WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can view own applications" ON public.role_applications FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can manage role display config" ON public.role_display_config FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view role display config" ON public.role_display_config FOR SELECT TO public USING (true);
+CREATE POLICY "Deleted accounts cannot delete" ON public.role_display_config AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.role_display_config AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.role_display_config AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Admins can manage round snapshots" ON public.round_snapshots FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Admins can manage snapshots" ON public.round_snapshots FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Deleted accounts cannot delete" ON public.round_snapshots AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.round_snapshots AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.round_snapshots AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Admins can manage boosts" ON public.scheduled_boosts FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.scheduled_boosts AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.scheduled_boosts AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.scheduled_boosts AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot delete" ON public.scheduled_posts AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.scheduled_posts AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.scheduled_posts AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY sp_delete_own_pending ON public.scheduled_posts FOR DELETE TO authenticated USING (((( SELECT auth.uid() AS uid) = user_id) AND (status = 'pending'::text)));
+CREATE POLICY sp_insert_own ON public.scheduled_posts FOR INSERT TO authenticated WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
+CREATE POLICY sp_select_own ON public.scheduled_posts FOR SELECT TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id));
+CREATE POLICY sp_update_own_pending ON public.scheduled_posts FOR UPDATE TO authenticated USING (((( SELECT auth.uid() AS uid) = user_id) AND (status = 'pending'::text))) WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
+CREATE POLICY "Deleted accounts cannot delete" ON public.search_recents AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.search_recents AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.search_recents AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Own recents delete" ON public.search_recents FOR DELETE TO authenticated USING ((user_id = auth.uid()));
+CREATE POLICY "Own recents read" ON public.search_recents FOR SELECT TO authenticated USING ((user_id = auth.uid()));
+CREATE POLICY "Own recents update" ON public.search_recents FOR UPDATE TO authenticated USING ((user_id = auth.uid())) WITH CHECK ((user_id = auth.uid()));
+CREATE POLICY "Own recents write" ON public.search_recents FOR INSERT TO authenticated WITH CHECK ((user_id = auth.uid()));
+CREATE POLICY "Admins can manage settings" ON public.site_settings FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Admins can read all settings" ON public.site_settings FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.site_settings AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.site_settings AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.site_settings AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Public can read non-sensitive settings" ON public.site_settings FOR SELECT TO anon, authenticated USING ((key <> ALL (ARRAY['s3_storage_settings'::text, 'smtp_settings'::text, 'whatsapp_settings'::text, 'payment_gateways'::text, 'ai_model_settings'::text])));
+CREATE POLICY "Admins can manage stories" ON public.stories FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view non-expired stories" ON public.stories FOR SELECT TO public USING ((expires_at > now()));
+CREATE POLICY "Deleted accounts cannot delete" ON public.stories AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.stories AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.stories AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can create own stories" ON public.stories FOR INSERT TO authenticated WITH CHECK (((user_id = ( SELECT auth.uid() AS uid)) AND (NOT is_banned(( SELECT auth.uid() AS uid)))));
+CREATE POLICY "Users can delete own stories" ON public.stories FOR DELETE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Deleted accounts cannot delete" ON public.story_views AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.story_views AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.story_views AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users insert own story views" ON public.story_views FOR INSERT TO authenticated WITH CHECK ((viewer_id = auth.uid()));
+CREATE POLICY "Users read own story views" ON public.story_views FOR SELECT TO authenticated USING ((viewer_id = auth.uid()));
+CREATE POLICY "Admins can manage all tickets" ON public.support_tickets FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.support_tickets AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.support_tickets AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.support_tickets AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can create own tickets" ON public.support_tickets FOR INSERT TO public WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can view own tickets" ON public.support_tickets FOR SELECT TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Service role can insert suppressed emails" ON public.suppressed_emails FOR INSERT TO public WITH CHECK ((( SELECT auth.role() AS role) = 'service_role'::text));
+CREATE POLICY "Service role can read suppressed emails" ON public.suppressed_emails FOR SELECT TO public USING ((( SELECT auth.role() AS role) = 'service_role'::text));
+CREATE POLICY "Admins can manage flags" ON public.system_flags FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Anyone can read flags" ON public.system_flags FOR SELECT TO public USING (true);
+CREATE POLICY "Deleted accounts cannot delete" ON public.system_flags AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.system_flags AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.system_flags AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "system_tag_decision_map readable by authenticated" ON public.system_tag_decision_map FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Admins can read test agent config" ON public.test_agent_config FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Admins can update test agent config" ON public.test_agent_config FOR UPDATE TO public USING ((has_role(( SELECT auth.uid() AS uid), 'admin'::text) OR has_role(( SELECT auth.uid() AS uid), 'super_admin'::text))) WITH CHECK ((has_role(( SELECT auth.uid() AS uid), 'admin'::text) OR has_role(( SELECT auth.uid() AS uid), 'super_admin'::text)));
+CREATE POLICY "Deleted accounts cannot delete" ON public.test_agent_config AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.test_agent_config AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.test_agent_config AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Admins can delete test agent runs" ON public.test_agent_runs FOR DELETE TO public USING ((has_role(( SELECT auth.uid() AS uid), 'admin'::text) OR has_role(( SELECT auth.uid() AS uid), 'super_admin'::text)));
+CREATE POLICY "Deleted accounts cannot delete" ON public.test_agent_runs AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.test_agent_runs AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.test_agent_runs AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY admin_read_test_agent_runs ON public.test_agent_runs FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Admins can manage all replies" ON public.ticket_replies FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.ticket_replies AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.ticket_replies AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.ticket_replies AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can reply to own tickets" ON public.ticket_replies FOR INSERT TO authenticated WITH CHECK (((user_id = ( SELECT auth.uid() AS uid)) AND ((is_admin = false) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) AND (EXISTS ( SELECT 1
+   FROM support_tickets st
+  WHERE ((st.id = ticket_replies.ticket_id) AND (st.user_id = ( SELECT auth.uid() AS uid)))))));
+CREATE POLICY "Users can view replies on own tickets" ON public.ticket_replies FOR SELECT TO public USING ((EXISTS ( SELECT 1
+   FROM support_tickets
+  WHERE ((support_tickets.id = ticket_replies.ticket_id) AND (support_tickets.user_id = ( SELECT auth.uid() AS uid))))));
+CREATE POLICY transliteration_map_readable ON public.transliteration_map FOR SELECT TO public USING (true);
+CREATE POLICY "Admins can manage badges" ON public.user_badges FOR ALL TO public USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Anyone can view badges" ON public.user_badges FOR SELECT TO public USING (true);
+CREATE POLICY "Deleted accounts cannot delete" ON public.user_badges AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.user_badges AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.user_badges AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Admins can manage all devices" ON public.user_devices FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.user_devices AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.user_devices AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.user_devices AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can delete own devices" ON public.user_devices FOR DELETE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can insert own devices" ON public.user_devices FOR INSERT TO authenticated WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can update own devices" ON public.user_devices FOR UPDATE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can view own devices" ON public.user_devices FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can insert notifications" ON public.user_notifications FOR INSERT TO authenticated WITH CHECK (((user_id IS NOT NULL) AND has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)));
+CREATE POLICY "Deleted accounts cannot delete" ON public.user_notifications AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.user_notifications AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.user_notifications AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can delete own notifications" ON public.user_notifications FOR DELETE TO public USING ((( SELECT auth.uid() AS uid) = user_id));
+CREATE POLICY "Users can update own notifications" ON public.user_notifications FOR UPDATE TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Users can view own notifications" ON public.user_notifications FOR SELECT TO public USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can manage roles" ON public.user_roles FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Admins can view all roles" ON public.user_roles FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.user_roles AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.user_roles AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.user_roles AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can self-assign photographer role" ON public.user_roles FOR INSERT TO authenticated WITH CHECK (((user_id = ( SELECT auth.uid() AS uid)) AND (role = 'registered_photographer'::text)));
+CREATE POLICY "Users can view own roles" ON public.user_roles FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY v3_mirror_log_read_admin ON public.v3_mirror_log FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.v3_stage_catalog AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.v3_stage_catalog AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.v3_stage_catalog AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY v3_stage_catalog_insert_admin ON public.v3_stage_catalog FOR INSERT TO authenticated WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY v3_stage_catalog_read_authenticated ON public.v3_stage_catalog FOR SELECT TO authenticated USING (true);
+CREATE POLICY v3_stage_catalog_update_admin ON public.v3_stage_catalog FOR UPDATE TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.v3_tag_label_alias AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.v3_tag_label_alias AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.v3_tag_label_alias AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY v3_tag_label_alias_admin_write ON public.v3_tag_label_alias FOR ALL TO authenticated USING ((has_role(( SELECT auth.uid() AS uid), 'admin'::text) OR has_role(( SELECT auth.uid() AS uid), 'super_admin'::text))) WITH CHECK ((has_role(( SELECT auth.uid() AS uid), 'admin'::text) OR has_role(( SELECT auth.uid() AS uid), 'super_admin'::text)));
+CREATE POLICY v3_tag_label_alias_select_all ON public.v3_tag_label_alias FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Admins can view cleanup log" ON public.vote_adjustment_cleanup_log FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Admins read wallet_ledger_audit_log" ON public.wallet_ledger_audit_log FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Admins read wallet_ledger_idempotency" ON public.wallet_ledger_idempotency FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Admins read wallet_ledger_shadow_log" ON public.wallet_ledger_shadow_log FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "wallet_ledger_v2_diff_log admin read" ON public.wallet_ledger_v2_diff_log FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Admins read wallet_ledger_v2_rows" ON public.wallet_ledger_v2_rows FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Admins can insert reconciliation log" ON public.wallet_reconciliation_log FOR INSERT TO authenticated WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Admins can view reconciliation log" ON public.wallet_reconciliation_log FOR SELECT TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::text));
+CREATE POLICY "Deleted accounts cannot delete" ON public.wallet_reconciliation_log AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.wallet_reconciliation_log AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.wallet_reconciliation_log AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Admins can manage transactions" ON public.wallet_transactions FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.wallet_transactions AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.wallet_transactions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.wallet_transactions AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can view own transactions" ON public.wallet_transactions FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can manage wallets" ON public.wallets FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.wallets AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.wallets AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.wallets AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can view own wallet" ON public.wallets FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+CREATE POLICY "Admins can manage withdrawals" ON public.withdrawal_requests FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
+CREATE POLICY "Deleted accounts cannot delete" ON public.withdrawal_requests AS RESTRICTIVE FOR DELETE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot insert" ON public.withdrawal_requests AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Deleted accounts cannot update" ON public.withdrawal_requests AS RESTRICTIVE FOR UPDATE TO authenticated USING (( SELECT account_is_live() AS account_is_live));
+CREATE POLICY "Users can view own withdrawals" ON public.withdrawal_requests FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+
+-- =====================================================================
+-- ===== TRIGGERS =====
+-- =====================================================================
+
+CREATE TRIGGER trg_ad_comment_updated_at BEFORE UPDATE ON ad_creative_comments FOR EACH ROW EXECUTE FUNCTION set_ad_comment_updated_at();
+CREATE TRIGGER trg_enforce_ad_comment_blocklist BEFORE INSERT OR UPDATE ON ad_creative_comments FOR EACH ROW EXECUTE FUNCTION enforce_comment_blocklist();
+CREATE TRIGGER trg_flag_ad_comment_for_review AFTER INSERT OR UPDATE OF content ON ad_creative_comments FOR EACH ROW EXECUTE FUNCTION flag_ad_comment_for_review();
+CREATE TRIGGER trg_notify_ad_comment_reply AFTER INSERT ON ad_creative_comments FOR EACH ROW EXECUTE FUNCTION notify_ad_comment_reply();
+CREATE TRIGGER trg_ad_creatives_updated_at BEFORE UPDATE ON ad_creatives FOR EACH ROW EXECUTE FUNCTION ad_creatives_touch_updated_at();
+CREATE TRIGGER audit_admin_vote_adjustments AFTER INSERT OR DELETE OR UPDATE ON admin_vote_adjustments FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
+CREATE TRIGGER audit_certificates AFTER INSERT OR DELETE OR UPDATE ON certificates FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
+CREATE TRIGGER trg_cleanup_certificate_references BEFORE DELETE ON certificates FOR EACH ROW EXECUTE FUNCTION cleanup_certificate_references();
+CREATE TRIGGER trg_generate_certificate_identifiers BEFORE INSERT ON certificates FOR EACH ROW EXECUTE FUNCTION generate_certificate_identifiers();
+CREATE TRIGGER trg_notify_certificate_issued AFTER INSERT ON certificates FOR EACH ROW EXECUTE FUNCTION notify_certificate_issued();
+CREATE TRIGGER trg_auto_promote_faq BEFORE UPDATE ON chat_questions FOR EACH ROW WHEN (new.ask_count >= 3 AND old.promoted_to_faq = false) EXECUTE FUNCTION auto_promote_chat_to_faq();
+CREATE TRIGGER trg_admin_notify_comment_report AFTER INSERT ON comment_reports FOR EACH ROW EXECUTE FUNCTION notify_admin_comment_report();
+CREATE TRIGGER trg_enforce_comment_blocklist BEFORE INSERT ON comments FOR EACH ROW EXECUTE FUNCTION enforce_comment_blocklist();
+CREATE TRIGGER trg_rate_limit_comments BEFORE INSERT ON comments FOR EACH ROW EXECUTE FUNCTION rate_limit_comments();
+CREATE TRIGGER audit_competition_entries AFTER INSERT OR DELETE OR UPDATE ON competition_entries FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
+CREATE TRIGGER trg_auto_certificate_r4_award AFTER UPDATE ON competition_entries FOR EACH ROW EXECUTE FUNCTION auto_certificate_on_r4_award();
+CREATE TRIGGER trg_competition_entry_counts AFTER INSERT OR DELETE OR UPDATE OF competition_id, status ON competition_entries FOR EACH ROW EXECUTE FUNCTION maintain_competition_entry_counts();
+CREATE TRIGGER trg_enforce_ai_image BEFORE INSERT OR UPDATE ON competition_entries FOR EACH ROW EXECUTE FUNCTION enforce_ai_image_policy();
+CREATE TRIGGER trg_enforce_entry_fee BEFORE INSERT ON competition_entries FOR EACH ROW EXECUTE FUNCTION enforce_entry_fee();
+CREATE TRIGGER trg_enforce_max_entries BEFORE INSERT ON competition_entries FOR EACH ROW EXECUTE FUNCTION enforce_max_entries_per_user();
+CREATE TRIGGER trg_enforce_photo_limit BEFORE INSERT OR UPDATE ON competition_entries FOR EACH ROW EXECUTE FUNCTION enforce_photo_limit();
+CREATE TRIGGER trg_enforce_status_round BEFORE UPDATE ON competition_entries FOR EACH ROW WHEN (old.status IS DISTINCT FROM new.status OR old.current_round IS DISTINCT FROM new.current_round) EXECUTE FUNCTION enforce_status_round_consistency();
+CREATE TRIGGER trg_entry_public_status_recompute AFTER INSERT OR UPDATE OF stage_key, status, current_round, placement, progression_decision ON competition_entries FOR EACH ROW EXECUTE FUNCTION _tg_entry_public_status_recompute();
+CREATE TRIGGER trg_guard_stage_key_immutability BEFORE UPDATE OF stage_key ON competition_entries FOR EACH ROW EXECUTE FUNCTION guard_stage_key_immutability();
+CREATE TRIGGER trg_log_raw_commitments AFTER INSERT OR UPDATE OF photo_meta ON competition_entries FOR EACH ROW EXECUTE FUNCTION log_raw_commitments();
+CREATE TRIGGER trg_notify_entry_status AFTER UPDATE ON competition_entries FOR EACH ROW EXECUTE FUNCTION notify_entry_status_change();
+CREATE TRIGGER trg_progression_decision_pending_gate BEFORE INSERT OR UPDATE OF progression_decision ON competition_entries FOR EACH ROW EXECUTE FUNCTION enforce_progression_decision_pending_gate();
+CREATE TRIGGER trg_progression_decision_vocabulary_gate BEFORE INSERT OR UPDATE OF progression_decision ON competition_entries FOR EACH ROW EXECUTE FUNCTION enforce_progression_decision_vocabulary();
+CREATE TRIGGER trg_rate_limit_competition_entry BEFORE INSERT ON competition_entries FOR EACH ROW EXECUTE FUNCTION rate_limit_competition_entry();
+CREATE TRIGGER trg_throttle_competition_entry_inserts BEFORE INSERT ON competition_entries FOR EACH ROW EXECUTE FUNCTION throttle_competition_entry_inserts();
+CREATE TRIGGER trg_validate_competition_entry_ai_advisory BEFORE INSERT OR UPDATE OF is_ai_advisory, ai_detection_result ON competition_entries FOR EACH ROW EXECUTE FUNCTION validate_competition_entry_ai_advisory();
+CREATE TRIGGER trg_validate_competition_entry_photo_meta BEFORE INSERT OR UPDATE OF photos, photo_meta ON competition_entries FOR EACH ROW EXECUTE FUNCTION validate_competition_entry_photo_meta();
+CREATE TRIGGER trg_validate_competition_entry_status_transition BEFORE INSERT OR UPDATE OF status ON competition_entries FOR EACH ROW EXECUTE FUNCTION validate_competition_entry_status_transition();
+CREATE TRIGGER trg_one_judge_per_competition BEFORE INSERT OR UPDATE ON competition_judges FOR EACH ROW EXECUTE FUNCTION tg_one_judge_per_competition();
+CREATE TRIGGER trg_competition_orders_updated_at BEFORE UPDATE ON competition_orders FOR EACH ROW EXECUTE FUNCTION _set_competition_orders_updated_at();
+CREATE TRIGGER trg_notify_round_published AFTER UPDATE ON competition_round_publish FOR EACH ROW EXECUTE FUNCTION notify_round_published();
+CREATE TRIGGER trg_notify_round_published_insert AFTER INSERT ON competition_round_publish FOR EACH ROW EXECUTE FUNCTION notify_round_published_insert();
+CREATE TRIGGER trg_release_award_certs_on_publish AFTER INSERT OR UPDATE OF published_at ON competition_round_publish FOR EACH ROW EXECUTE FUNCTION release_award_certs_on_publish();
+CREATE TRIGGER trg_round_publish_recompute AFTER INSERT OR DELETE OR UPDATE ON competition_round_publish FOR EACH ROW EXECUTE FUNCTION _tg_round_publish_recompute();
+CREATE TRIGGER trg_round_publish_updated BEFORE UPDATE ON competition_round_publish FOR EACH ROW EXECUTE FUNCTION touch_round_publish_updated();
+CREATE TRIGGER trg_sync_competition_result_state_from_round_publish AFTER INSERT OR UPDATE OF published_at ON competition_round_publish FOR EACH ROW EXECUTE FUNCTION sync_competition_result_state_from_round_publish();
+CREATE TRIGGER audit_competition_votes AFTER INSERT OR DELETE OR UPDATE ON competition_votes FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
+CREATE TRIGGER trg_notify_competition_vote AFTER INSERT ON competition_votes FOR EACH ROW EXECUTE FUNCTION notify_competition_vote();
+CREATE TRIGGER trg_prevent_self_vote BEFORE INSERT ON competition_votes FOR EACH ROW EXECUTE FUNCTION prevent_self_vote();
+CREATE TRIGGER trg_rate_limit_votes BEFORE INSERT ON competition_votes FOR EACH ROW EXECUTE FUNCTION rate_limit_competition_votes();
+CREATE TRIGGER set_competition_slug BEFORE INSERT OR UPDATE ON competitions FOR EACH ROW EXECUTE FUNCTION generate_competition_slug();
+CREATE TRIGGER trg_auto_create_rounds AFTER INSERT ON competitions FOR EACH ROW EXECUTE FUNCTION auto_create_judging_rounds();
+CREATE TRIGGER trg_notify_new_competition BEFORE INSERT OR UPDATE OF status ON competitions FOR EACH ROW EXECUTE FUNCTION notify_new_competition();
+CREATE TRIGGER trg_seed_round_publish AFTER INSERT ON competitions FOR EACH ROW EXECUTE FUNCTION seed_round_publish_rows();
+CREATE TRIGGER trg_notify_course_published BEFORE UPDATE ON courses FOR EACH ROW EXECUTE FUNCTION notify_course_published();
+CREATE TRIGGER trg_notify_featured_artist AFTER INSERT ON featured_artists FOR EACH ROW EXECUTE FUNCTION notify_featured_artist();
+CREATE TRIGGER trg_feed_events_viewer_count AFTER INSERT ON feed_events FOR EACH ROW EXECUTE FUNCTION tg_feed_events_viewer_count();
+CREATE TRIGGER trg_rate_limit_feed_events BEFORE INSERT ON feed_events FOR EACH ROW EXECUTE FUNCTION rate_limit_feed_events();
+CREATE TRIGGER trg_validate_feed_event_author BEFORE INSERT ON feed_events FOR EACH ROW EXECUTE FUNCTION validate_feed_event_author();
+CREATE TRIGGER trg_follows_counts AFTER INSERT OR DELETE ON follows FOR EACH ROW EXECUTE FUNCTION trg_follows_counts();
+CREATE TRIGGER trg_notify_new_follower AFTER INSERT ON follows FOR EACH ROW EXECUTE FUNCTION notify_new_follower();
+CREATE TRIGGER trg_prevent_unfollow_official BEFORE DELETE ON follows FOR EACH ROW EXECUTE FUNCTION prevent_unfollow_official();
+CREATE TRIGGER enforce_friend_limit BEFORE INSERT OR UPDATE ON friendships FOR EACH ROW EXECUTE FUNCTION check_friend_limit();
+CREATE TRIGGER trg_block_friend_requests_to_admins BEFORE INSERT ON friendships FOR EACH ROW EXECUTE FUNCTION block_friend_requests_to_admins();
+CREATE TRIGGER trg_friendships_counts AFTER INSERT OR DELETE OR UPDATE ON friendships FOR EACH ROW EXECUTE FUNCTION trg_friendships_counts();
+CREATE TRIGGER trg_notify_friend_accepted AFTER UPDATE ON friendships FOR EACH ROW EXECUTE FUNCTION notify_friend_request_accepted();
+CREATE TRIGGER trg_notify_friend_request AFTER INSERT ON friendships FOR EACH ROW EXECUTE FUNCTION notify_friend_request_received();
+CREATE TRIGGER trg_enforce_comment_blocklist BEFORE INSERT ON image_comments FOR EACH ROW EXECUTE FUNCTION enforce_comment_blocklist();
+CREATE TRIGGER trg_flag_image_comment_review AFTER INSERT ON image_comments FOR EACH ROW EXECUTE FUNCTION flag_image_comment_for_review();
+CREATE TRIGGER trg_notify_image_comment AFTER INSERT ON image_comments FOR EACH ROW EXECUTE FUNCTION notify_image_comment();
+CREATE TRIGGER trg_rate_limit_image_comments BEFORE INSERT ON image_comments FOR EACH ROW EXECUTE FUNCTION rate_limit_image_comments();
+CREATE TRIGGER trg_notify_image_reaction AFTER INSERT ON image_reactions FOR EACH ROW EXECUTE FUNCTION notify_image_reaction();
+CREATE TRIGGER trg_notify_journal_published BEFORE UPDATE ON journal_articles FOR EACH ROW EXECUTE FUNCTION notify_journal_published();
+CREATE TRIGGER trg_judge_award_tags_touch BEFORE UPDATE ON judge_award_tags FOR EACH ROW EXECUTE FUNCTION set_updated_at_column();
+CREATE TRIGGER audit_judge_comments AFTER INSERT OR DELETE OR UPDATE ON judge_comments FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
+CREATE TRIGGER trg_enforce_round_lock BEFORE INSERT OR DELETE OR UPDATE ON judge_comments FOR EACH ROW EXECUTE FUNCTION enforce_round_lock();
+CREATE TRIGGER audit_judge_decisions AFTER INSERT OR DELETE OR UPDATE ON judge_decisions FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
+CREATE TRIGGER trg_audit_nr_drift_at_r2_plus AFTER INSERT OR UPDATE OF decision, round_number ON judge_decisions FOR EACH ROW EXECUTE FUNCTION audit_nr_drift_at_r2_plus();
+CREATE TRIGGER trg_enforce_round_lock BEFORE INSERT OR DELETE OR UPDATE ON judge_decisions FOR EACH ROW EXECUTE FUNCTION enforce_round_lock();
+CREATE TRIGGER trg_guard_needs_review_round1_only BEFORE INSERT OR UPDATE OF decision, round_number ON judge_decisions FOR EACH ROW EXECUTE FUNCTION guard_needs_review_round1_only();
+CREATE TRIGGER audit_judge_scores AFTER INSERT OR DELETE OR UPDATE ON judge_scores FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
+CREATE TRIGGER trg_enforce_round_lock BEFORE INSERT OR DELETE OR UPDATE ON judge_scores FOR EACH ROW EXECUTE FUNCTION enforce_round_lock();
+CREATE TRIGGER trg_rate_limit_judge_scores BEFORE INSERT ON judge_scores FOR EACH ROW EXECUTE FUNCTION rate_limit_judge_scores();
+CREATE TRIGGER trg_refresh_score_cache AFTER INSERT OR DELETE OR UPDATE ON judge_scores FOR EACH ROW EXECUTE FUNCTION refresh_score_cache();
+CREATE TRIGGER trg_validate_judge_score_range BEFORE INSERT OR UPDATE ON judge_scores FOR EACH ROW EXECUTE FUNCTION validate_judge_score_range();
+CREATE TRIGGER validate_criteria_scores BEFORE INSERT OR UPDATE ON judge_scores FOR EACH ROW EXECUTE FUNCTION validate_judge_criteria_scores();
+CREATE TRIGGER audit_judge_tag_assignments AFTER INSERT OR DELETE OR UPDATE ON judge_tag_assignments FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
+CREATE TRIGGER trg_enforce_round_lock BEFORE INSERT OR DELETE OR UPDATE ON judge_tag_assignments FOR EACH ROW EXECUTE FUNCTION enforce_round_lock();
+CREATE TRIGGER trg_mirror_system_tag_to_decision AFTER INSERT OR DELETE OR UPDATE ON judge_tag_assignments FOR EACH ROW EXECUTE FUNCTION mirror_system_tag_to_decision();
+CREATE TRIGGER trg_mirror_system_tag_to_decision_del AFTER DELETE ON judge_tag_assignments FOR EACH ROW EXECUTE FUNCTION mirror_system_tag_to_decision();
+CREATE TRIGGER trg_mirror_system_tag_to_decision_ins AFTER INSERT ON judge_tag_assignments FOR EACH ROW EXECUTE FUNCTION mirror_system_tag_to_decision();
+CREATE TRIGGER protect_system_tags BEFORE DELETE OR UPDATE ON judging_tags FOR EACH ROW EXECUTE FUNCTION protect_system_tags_fn();
+CREATE TRIGGER trg_enforce_non_system_tags_round4 BEFORE INSERT OR UPDATE OF visible_in_round, is_system ON judging_tags FOR EACH ROW EXECUTE FUNCTION enforce_non_system_tags_round4();
+CREATE TRIGGER trg_protect_system_tags_fn BEFORE DELETE OR UPDATE ON judging_tags FOR EACH ROW EXECUTE FUNCTION protect_system_tags_fn();
+CREATE TRIGGER trg_media_state_transition BEFORE UPDATE ON media_objects FOR EACH ROW EXECUTE FUNCTION tg_media_state_transition();
+CREATE TRIGGER trg_rate_limit_newsletter BEFORE INSERT ON newsletter_subscribers FOR EACH ROW EXECUTE FUNCTION rate_limit_newsletter_subscribe();
+CREATE TRIGGER trg_office_staff_touch BEFORE UPDATE ON office_staff FOR EACH ROW EXECUTE FUNCTION touch_office_staff_updated();
+CREATE TRIGGER trg_notify_potd_featured AFTER INSERT ON photo_of_the_day FOR EACH ROW EXECUTE FUNCTION notify_potd_featured();
+CREATE TRIGGER trg_enforce_comment_blocklist BEFORE INSERT ON post_comments FOR EACH ROW EXECUTE FUNCTION enforce_comment_blocklist();
+CREATE TRIGGER trg_flag_post_comment_review AFTER INSERT ON post_comments FOR EACH ROW EXECUTE FUNCTION flag_post_comment_for_review();
+CREATE TRIGGER trg_notify_post_comment AFTER INSERT ON post_comments FOR EACH ROW EXECUTE FUNCTION notify_post_comment();
+CREATE TRIGGER trg_rate_limit_post_comments BEFORE INSERT ON post_comments FOR EACH ROW EXECUTE FUNCTION rate_limit_post_comments();
+CREATE TRIGGER trg_update_post_comments_count AFTER INSERT OR DELETE ON post_comments FOR EACH ROW EXECUTE FUNCTION update_post_comments_count();
+CREATE TRIGGER trg_enforce_post_draft_rules BEFORE INSERT OR UPDATE ON post_drafts FOR EACH ROW EXECUTE FUNCTION enforce_post_draft_rules();
+CREATE TRIGGER trg_post_media_requires_ready BEFORE INSERT OR UPDATE ON post_media FOR EACH ROW EXECUTE FUNCTION tg_post_media_requires_ready();
+CREATE TRIGGER trg_notify_post_reaction AFTER INSERT ON post_reactions FOR EACH ROW EXECUTE FUNCTION notify_post_reaction();
+CREATE TRIGGER trg_rate_limit_post_reactions BEFORE INSERT ON post_reactions FOR EACH ROW EXECUTE FUNCTION rate_limit_post_reactions();
+CREATE TRIGGER trg_update_post_likes_count AFTER INSERT OR DELETE ON post_reactions FOR EACH ROW EXECUTE FUNCTION update_post_likes_count();
+CREATE TRIGGER trg_admin_notify_post_report AFTER INSERT ON post_reports FOR EACH ROW EXECUTE FUNCTION notify_admin_post_report();
+CREATE TRIGGER trg_update_post_shares_count AFTER INSERT OR DELETE ON post_shares FOR EACH ROW EXECUTE FUNCTION update_post_shares_count();
+CREATE TRIGGER trg_notify_post_tag AFTER INSERT ON post_tags FOR EACH ROW EXECUTE FUNCTION notify_post_tag();
+CREATE TRIGGER trg_post_tags_updated_at BEFORE UPDATE ON post_tags FOR EACH ROW EXECUTE FUNCTION set_post_tags_updated_at();
+CREATE TRIGGER trg_validate_post_tag_insert BEFORE INSERT ON post_tags FOR EACH ROW EXECUTE FUNCTION validate_post_tag_insert();
+CREATE TRIGGER trg_validate_post_tag_update BEFORE UPDATE ON post_tags FOR EACH ROW EXECUTE FUNCTION validate_post_tag_update();
+CREATE TRIGGER trg_detect_duplicate_post BEFORE INSERT ON posts FOR EACH ROW EXECUTE FUNCTION detect_duplicate_post();
+CREATE TRIGGER trg_enforce_post_caption_only_update BEFORE UPDATE ON posts FOR EACH ROW EXECUTE FUNCTION enforce_post_caption_only_update();
+CREATE TRIGGER trg_enqueue_post_created AFTER INSERT ON posts FOR EACH ROW EXECUTE FUNCTION enqueue_post_created_job();
+CREATE TRIGGER trg_fan_out_new_post AFTER INSERT ON posts FOR EACH ROW EXECUTE FUNCTION fan_out_new_post();
+CREATE TRIGGER trg_flag_post_review AFTER INSERT ON posts FOR EACH ROW EXECUTE FUNCTION flag_post_for_review();
+CREATE TRIGGER trg_moderate_post_content BEFORE INSERT OR UPDATE ON posts FOR EACH ROW EXECUTE FUNCTION moderate_post_content();
+CREATE TRIGGER trg_posts_sync_hashtags AFTER INSERT OR UPDATE OF content, privacy, user_id ON posts FOR EACH ROW EXECUTE FUNCTION sync_post_hashtags();
+CREATE TRIGGER trg_posts_unsync_hashtags BEFORE DELETE ON posts FOR EACH ROW EXECUTE FUNCTION unsync_post_hashtags();
+CREATE TRIGGER trg_rate_limit_posts BEFORE INSERT ON posts FOR EACH ROW EXECUTE FUNCTION rate_limit_posts();
+CREATE TRIGGER trg_validate_post_categories BEFORE INSERT OR UPDATE ON posts FOR EACH ROW EXECUTE FUNCTION enforce_post_categories();
+CREATE TRIGGER block_custom_url_update BEFORE UPDATE ON profiles FOR EACH ROW WHEN (old.custom_url IS DISTINCT FROM new.custom_url) EXECUTE FUNCTION prevent_direct_custom_url_update();
+CREATE TRIGGER on_first_admin_assignment AFTER INSERT ON profiles FOR EACH ROW EXECUTE FUNCTION handle_first_admin();
+CREATE TRIGGER protect_admin_name BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION protect_admin_full_name();
+CREATE TRIGGER sync_profiles_public_data_trg AFTER INSERT OR DELETE OR UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION sync_profiles_public_data();
+CREATE TRIGGER trg_auto_follow_official AFTER INSERT ON profiles FOR EACH ROW EXECUTE FUNCTION auto_follow_official();
+CREATE TRIGGER trg_auto_subscribe_newsletter AFTER INSERT ON profiles FOR EACH ROW EXECUTE FUNCTION auto_subscribe_newsletter();
+CREATE TRIGGER trg_custom_url_reject_reserved BEFORE INSERT OR UPDATE OF custom_url ON profiles FOR EACH ROW EXECUTE FUNCTION tg_custom_url_reject_reserved();
+CREATE TRIGGER trg_ensure_member_always_has_picture BEFORE INSERT OR UPDATE OF avatar_url ON profiles FOR EACH ROW EXECUTE FUNCTION ensure_member_always_has_picture();
+CREATE TRIGGER trg_forbid_custom_url_change BEFORE UPDATE OF custom_url ON profiles FOR EACH ROW EXECUTE FUNCTION forbid_custom_url_change();
+CREATE TRIGGER trg_guard_profile_moderation BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION guard_profile_moderation_columns();
+CREATE TRIGGER trg_profiles_normalise_name BEFORE INSERT OR UPDATE OF full_name ON profiles FOR EACH ROW EXECUTE FUNCTION tg_profiles_normalise_name();
+CREATE TRIGGER trg_profiles_record_custom_url_history AFTER INSERT ON profiles FOR EACH ROW EXECUTE FUNCTION tg_profiles_record_custom_url_history();
+CREATE TRIGGER trg_profiles_zz_assign_custom_url BEFORE INSERT ON profiles FOR EACH ROW EXECUTE FUNCTION tg_profiles_assign_custom_url();
+CREATE TRIGGER trg_sync_fallback_avatar_to_gender BEFORE UPDATE OF gender ON profiles FOR EACH ROW EXECUTE FUNCTION sync_fallback_avatar_to_gender();
+CREATE TRIGGER trg_validate_profile_full_name BEFORE INSERT OR UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION validate_profile_full_name();
+CREATE TRIGGER trg_admin_notify_role_application AFTER INSERT ON role_applications FOR EACH ROW EXECUTE FUNCTION notify_admin_role_application();
+CREATE TRIGGER trg_notify_role_decision AFTER UPDATE ON role_applications FOR EACH ROW EXECUTE FUNCTION notify_role_application_decision();
+CREATE TRIGGER trg_scheduled_posts_updated_at BEFORE UPDATE ON scheduled_posts FOR EACH ROW EXECUTE FUNCTION set_updated_at_column();
+CREATE TRIGGER trg_validate_scheduled_post_window BEFORE INSERT OR UPDATE ON scheduled_posts FOR EACH ROW EXECUTE FUNCTION validate_scheduled_post_window();
+CREATE TRIGGER audit_site_settings AFTER INSERT OR DELETE OR UPDATE ON site_settings FOR EACH ROW EXECUTE FUNCTION audit_site_settings_table();
+CREATE TRIGGER on_new_support_ticket AFTER INSERT ON support_tickets FOR EACH ROW EXECUTE FUNCTION notify_admin_new_ticket();
+CREATE TRIGGER on_admin_ticket_reply AFTER INSERT ON ticket_replies FOR EACH ROW EXECUTE FUNCTION notify_user_ticket_reply();
+CREATE TRIGGER trg_notify_badge_awarded AFTER INSERT ON user_badges FOR EACH ROW EXECUTE FUNCTION notify_badge_awarded();
+CREATE TRIGGER trg_push_on_notification AFTER INSERT ON user_notifications FOR EACH ROW EXECUTE FUNCTION push_on_notification();
+CREATE TRIGGER trg_send_notification_email AFTER INSERT ON user_notifications FOR EACH ROW EXECUTE FUNCTION send_notification_email();
+CREATE TRIGGER audit_user_roles AFTER INSERT OR DELETE OR UPDATE ON user_roles FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
+CREATE TRIGGER set_admin_brand_name AFTER INSERT ON user_roles FOR EACH ROW EXECUTE FUNCTION enforce_admin_brand_name();
+CREATE TRIGGER tr_v3_stage_catalog_touch BEFORE UPDATE ON v3_stage_catalog FOR EACH ROW EXECUTE FUNCTION tg_v3_stage_catalog_touch();
+CREATE TRIGGER trg_sync_decision_map_on_catalog AFTER INSERT OR UPDATE ON v3_stage_catalog FOR EACH ROW EXECUTE FUNCTION sync_system_tag_decision_map_from_catalog();
+CREATE TRIGGER trg_v3_catalog_recompute AFTER DELETE OR UPDATE ON v3_stage_catalog FOR EACH ROW EXECUTE FUNCTION _tg_v3_catalog_recompute();
+CREATE TRIGGER trg_v3_tag_label_alias_touch BEFORE UPDATE ON v3_tag_label_alias FOR EACH ROW EXECUTE FUNCTION set_updated_at_column();
+CREATE TRIGGER audit_wallet_transactions AFTER INSERT OR DELETE OR UPDATE ON wallet_transactions FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
+CREATE TRIGGER audit_withdrawal_requests AFTER INSERT OR DELETE OR UPDATE ON withdrawal_requests FOR EACH ROW EXECUTE FUNCTION audit_sensitive_table();
 
 -- =====================================================================
 -- ===== VIEWS (addition beyond the literal 9-section spec -- see note in that section) =====
