@@ -12,6 +12,12 @@
 --  functions; pgcrypto/uuid-ossp back gen_random_uuid()/uuid generation;
 --  pg_net backs push-notification HTTP calls from triggers.)
 
+-- Disable function-body validation so later CREATE FUNCTION statements do not require
+-- their same-language dependencies to already exist yet (this matches pg_dump's default
+-- preamble; without it, mutually/forward-referencing LANGUAGE sql functions fail to be
+-- created with errors like "function ... does not exist").
+SET check_function_bodies = false;
+
 -- =====================================================================
 -- ===== TYPES =====
 -- =====================================================================
