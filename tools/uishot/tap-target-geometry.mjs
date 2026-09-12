@@ -66,9 +66,53 @@ async function measure(scene, selector, widgetName) {
         const r = e.getBoundingClientRect();
         return r.width > 0 && r.height > 0 && parseFloat(getComputedStyle(e).opacity) >= 0.9;
       });
-      const boxes = els.map((e) => e.getBoundingClientRect());
+      /*
+       * ⚠ THE HIT REGION, NOT THE PAINTED BOX — CORRECTED 2026-09-12.
+       *
+       * This file measured `getBoundingClientRect()` and judged everything on
+       * it, and its own header said that was "the box the GATE reads, and the
+       * only one it can read". That sentence stopped being true at F-103:
+       * capture.mjs:429-435 now reads the `::after` pseudo-element's
+       * min-width/min-height and counts THAT as the hit region, because a
+       * `.tap-44` control "satisfied a thumb and was invisible to the
+       * instrument" otherwise.
+       *
+       * So the two instruments disagreed, and this one was the stale half —
+       * it reported a correctly-fixed control as UNDER floor while the gate
+       * passed it. Standing Rule 21: a comment that disagrees with its code is
+       * a finding, not cosmetics.
+       *
+       * It matters most for the OVERLAP checks below, which is the question
+       * this file exists to answer. Two painted boxes 16px apart do not
+       * intersect; their 44px hit regions can. Judging overlap on painted
+       * rectangles answered a question nobody asked.
+       *
+       * The anchor differs per utility and changes WHERE the region sits:
+       * `.tap-44` centres on the control, `.tap-44-down` pins to its top so it
+       * can only grow downward (F-109). Read from the class rather than
+       * re-deriving it from the computed transform, because the class is what
+       * the author chose and what a reviewer reads.
+       */
+      const hitRect = (el) => {
+        const r = el.getBoundingClientRect();
+        const a = getComputedStyle(el, "::after");
+        if (!a || !a.content || a.content === "none") return r;
+        const px = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
+        const w = Math.max(r.width, px(a.minWidth), px(a.width));
+        const h = Math.max(r.height, px(a.minHeight), px(a.height));
+        const cx = r.left + r.width / 2;
+        const top = el.classList.contains("tap-44-down") ? r.top : r.top + r.height / 2 - h / 2;
+        return {
+          left: cx - w / 2, right: cx + w / 2,
+          top, bottom: top + h,
+          width: w, height: h,
+        };
+      };
+      const painted = els.map((e) => e.getBoundingClientRect());
+      const boxes = els.map(hitRect);
       const rows = els.map((el, i) => {
-        const r = boxes[i];
+        const r = painted[i];
+        const hit = boxes[i];
         const cx = r.left + r.width / 2;
         const probes = {};
         for (const [where, x, y] of [
@@ -85,7 +129,10 @@ async function measure(scene, selector, widgetName) {
         }
         return {
           painted: `${r.width.toFixed(1)}x${r.height.toFixed(1)}`,
-          meetsFloor: floor(r),
+          hit: `${hit.width.toFixed(1)}x${hit.height.toFixed(1)}`,
+          enlarged: hit.width !== r.width || hit.height !== r.height,
+          // The FLOOR is judged on the hit region, as the gate judges it.
+          meetsFloor: floor(hit),
           probes,
         };
       });
@@ -128,12 +175,27 @@ async function measure(scene, selector, widgetName) {
             overlaps.push({ with: (o.textContent || "").trim().slice(0, 24), over: `${ox.toFixed(1)}x${oy.toFixed(1)}` });
         }
       }
+      /*
+       * ⚠ EVERY PAIR, IN BOTH AXES. This counted only boxes STACKED VERTICALLY
+       * at the same `left` — which cannot see the case the comment row
+       * actually presents: Reply and the overflow menu sit SIDE BY SIDE, and
+       * their hit regions grow toward each other across the flex gap. The old
+       * heuristic would have reported "no clash" while they overlapped.
+       */
       let selfClash = 0;
+      const clashes = [];
+      for (let i = 0; i < boxes.length; i++) {
+        for (let j = i + 1; j < boxes.length; j++) {
+          const a = boxes[i], c = boxes[j];
+          const ox = Math.min(a.right, c.right) - Math.max(a.left, c.left);
+          const oy = Math.min(a.bottom, c.bottom) - Math.max(a.top, c.top);
+          if (ox > 0 && oy > 0) { selfClash++; clashes.push(`${ox.toFixed(1)}x${oy.toFixed(1)}`); }
+        }
+      }
       const sorted = [...boxes].sort((a, c) => a.top - c.top);
-      for (let i = 1; i < sorted.length; i++) if (sorted[i].top < sorted[i - 1].bottom && Math.abs(sorted[i].left - sorted[i - 1].left) < 1) selfClash++;
       const gaps = [];
       for (let i = 1; i < sorted.length; i++) gaps.push(+(sorted[i].top - sorted[i - 1].top).toFixed(1));
-      return { count: els.length, rows, overlaps, selfClash, gaps };
+      return { count: els.length, rows, overlaps, selfClash, clashes, gaps };
     },
     [selector, FLOOR],
   );
@@ -141,18 +203,28 @@ async function measure(scene, selector, widgetName) {
 
   console.log(`\n${widgetName} — ${scene} @ 390x844`);
   console.log(`   ${out.count} control(s)`);
-  for (const r of out.rows) console.log(`   painted ${r.painted}  floor=${r.meetsFloor ? "ok" : "UNDER"}  ${JSON.stringify(r.probes)}`);
+  for (const r of out.rows) console.log(`   painted ${r.painted}${r.enlarged ? `  hit ${r.hit}` : ""}  floor=${r.meetsFloor ? "ok" : "UNDER"}  ${JSON.stringify(r.probes)}`);
   if (out.gaps.length) console.log(`   top-to-top gaps: ${JSON.stringify(out.gaps)}`);
   say(out.count > 0, `${widgetName}: the controls rendered`);
   say(out.rows.every((r) => r.meetsFloor), `${widgetName}: every painted box clears the gate's floor (long>=44, short>=32)`);
   say(out.overlaps.length === 0, `${widgetName}: no box overlaps a neighbouring link (${out.overlaps.length})`);
   if (out.overlaps.length) for (const o of out.overlaps) console.log(`      OVERLAP with ${JSON.stringify(o.with)} over ${o.over}`);
-  say(out.selfClash === 0, `${widgetName}: no two of these boxes intersect each other (${out.selfClash})`);
+  say(out.selfClash === 0, `${widgetName}: no two hit regions intersect each other (${out.selfClash})${out.selfClash ? " over " + out.clashes.join(", ") : ""}`);
   return out;
 }
 
 await measure("screen-feed", "a.shrink-0.grid, a.shrink-0.tap-44, a.shrink-0.tap-44-down", "birthday-strip avatar link");
 await measure("screen-discover", "div.border-b.border-border button.inline-flex", "/discover row buttons");
+/*
+ * The comment row's controls. Reply and the overflow menu sit directly under a
+ * comment body full of @mention links, and — unlike the two widgets above —
+ * their two enlarged regions travel toward EACH OTHER across the action row's
+ * gap. That is the case this file's self-clash check exists for, and it is why
+ * the gap was widened rather than the classes simply added. The avatar link is
+ * included because a REPLY's avatar is 24px wide (size "xs"), under the
+ * short-side floor, while a top-level one at 32px is not.
+ */
+await measure("comments-panel", "button.tap-44-down, a.shrink-0.mt-0\\.5", "comment row controls");
 
 console.log(`\n${failures === 0 ? "GEOMETRY CLEAR" : failures + " CHECK(S) FAILING"}\n`);
 await b.close();
