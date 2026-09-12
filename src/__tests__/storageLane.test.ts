@@ -29,7 +29,7 @@ import {
 } from "../../supabase/functions/_shared/s3";
 
 const PROD_URL = `https://${PRODUCTION_PROJECT_REF}.supabase.co`;
-const STAGING_REF = "ztzutckwdhetphwghuzj";
+const STAGING_REF = "fpszggreishhuvdpkmdr";
 const STAGING_URL = `https://${STAGING_REF}.supabase.co`;
 
 describe("assertStorageLane — each lane keeps its own objects", () => {

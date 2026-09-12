@@ -37,6 +37,17 @@
 #
 # ⚠ DO NOT "FIX" A FINDING ON THESE BY ROTATING THE KEY. An anon key is public
 # by construction; rotating it churns every client and buys no security.
+#
+# ⚠ WHY A THIRD ENTRY EXISTS (added 2026-09-12).
+#
+# Staging was migrated to a new Supabase project (fpszggreishhuvdpkmdr),
+# replacing ztzutckwdhetphwghuzj end-to-end. The OLD staging anon key's
+# allowlist entry below is intentionally KEPT, not replaced: git history still
+# contains commits carrying that literal (full-history scan), and removing its
+# entry would turn every one of those historical commits into a fresh leaks
+# finding. The NEW staging anon key is added as a third entry alongside it,
+# re-validated the same way as the other two (role = "anon", ref =
+# fpszggreishhuvdpkmdr, not a service_role key).
 # ─────────────────────────────────────────────────────────────────────────────
 [extend]
 useDefault = true
@@ -46,6 +57,9 @@ description = "The public Supabase anon keys, one per lane (role=anon, RLS-guard
 regexes = [
   # production — ref jtdtehuqtinjxropkkcn
   '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0ZHRlaHVxdGluanhyb3Bra2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzI3MjEsImV4cCI6MjA5OTE0ODcyMX0\.qY8BI5LXb6uLzTwbpf8AleZ6UZyfeaOA0q4_TC5CEpo''',
-  # staging — ref ztzutckwdhetphwghuzj  (AF-19, added 2026-08-29)
+  # staging (RETIRED 2026-09-12, project deleted) — ref ztzutckwdhetphwghuzj  (AF-19, added 2026-08-29)
+  # Kept so full-history scans of old commits still recognize this literal — do not remove.
   '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0enV0Y2t3ZGhldHBod2dodXpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczMjY3MDYsImV4cCI6MjEwMjkwMjcwNn0\.yXoPpBeyTIxMLL0dh7lGIjsDHKNrg8ewKF8Rbt9qoKI''',
+  # staging (current) — ref fpszggreishhuvdpkmdr  (added 2026-09-12, staging migration)
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwc3pnZ3JlaXNoaHV2ZHBrbWRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxMDcyNDUsImV4cCI6MjEwNDY4MzI0NX0\.h3t2eZ8hwXDev6JydjsDnA8CpXFlKve4CaUlXp_mwiQ''',
 ]

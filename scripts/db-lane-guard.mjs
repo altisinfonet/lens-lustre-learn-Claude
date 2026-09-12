@@ -39,12 +39,26 @@
 //      pg_control_system() on each project:
 //
 //        production  jtdtehuqtinjxropkkcn  →  7656985631720456337
-//        staging     ztzutckwdhetphwghuzj  →  7666007964130682852
+//        staging     ztzutckwdhetphwghuzj  →  7666007964130682852  (retired 2026-09-12, see below)
 //
 //      ⚠ IF A FINGERPRINT EVER DISAGREES, THAT IS A FINDING TO REPORT.
 //      It is not a constant to update so the run passes. A cluster's system
 //      identifier changes when the cluster is restored from a base backup or
 //      recreated — both of which are things somebody must know happened.
+//
+//      UPDATE 2026-09-12: the staging row above is exactly such a case, and it
+//      is recorded here rather than silently overwritten. Staging was migrated
+//      to a NEW Supabase project end-to-end (schema, data, auth, storage, cron,
+//      edge functions) — a deliberate, verified infrastructure change, not a
+//      guessed fix for a failing check. The old project (ztzutckwdhetphwghuzj)
+//      was independently verified as fully superseded (functional checks against
+//      the new backend passed: posting, wallet, judging, editor content access)
+//      before it was permanently deleted by the project owner. The table below
+//      reflects the new project, with its fingerprint read live via SELECT
+//      system_identifier FROM pg_control_system() against fpszggreishhuvdpkmdr:
+//
+//        production  jtdtehuqtinjxropkkcn  →  7656985631720456337  (unchanged)
+//        staging     fpszggreishhuvdpkmdr  →  7678069749886157684  (recorded 2026-09-12)
 //
 //   3. READ-ONLY, PROVED. For scripts that claim to read only: the session is
 //      set read-only at the server, and then a write is deliberately attempted
@@ -66,8 +80,12 @@ export const LANES = {
     branch: 'main',
   },
   staging: {
-    ref: 'ztzutckwdhetphwghuzj',
-    system_identifier: '7666007964130682852',
+    // Updated 2026-09-12: staging migrated to a new Supabase project. Both the
+    // ref and the system_identifier below were read live from the new project
+    // (fpszggreishhuvdpkmdr), not carried over — see the header comment above
+    // for why this is a legitimate update to the table, not a silenced check.
+    ref: 'fpszggreishhuvdpkmdr',
+    system_identifier: '7678069749886157684',
     site: 'staging.50mmretina.com',
     branch: 'staging',
   },

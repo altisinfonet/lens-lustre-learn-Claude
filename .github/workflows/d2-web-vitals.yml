@@ -95,9 +95,9 @@ jobs:
       # omitted variable falls back to the PRODUCTION default in
       # scripts/lane-config.mjs, which would measure a staging commit against
       # production's origin and CDN.
-      VITE_SUPABASE_URL: https://ztzutckwdhetphwghuzj.supabase.co
-      VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0enV0Y2t3ZGhldHBod2dodXpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczMjY3MDYsImV4cCI6MjEwMjkwMjcwNn0.yXoPpBeyTIxMLL0dh7lGIjsDHKNrg8ewKF8Rbt9qoKI
-      VITE_SUPABASE_PROJECT_ID: ztzutckwdhetphwghuzj
+      VITE_SUPABASE_URL: https://fpszggreishhuvdpkmdr.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwc3pnZ3JlaXNoaHV2ZHBrbWRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxMDcyNDUsImV4cCI6MjEwNDY4MzI0NX0.h3t2eZ8hwXDev6JydjsDnA8CpXFlKve4CaUlXp_mwiQ
+      VITE_SUPABASE_PROJECT_ID: fpszggreishhuvdpkmdr
       VITE_CDN_HOST: cdn-staging.50mmretina.com
       VITE_SITE_ORIGIN: https://staging.50mmretina.com
 
