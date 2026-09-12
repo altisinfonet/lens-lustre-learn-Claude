@@ -360,6 +360,24 @@ export const profilesPublicData = profiles.map((p, i) => ({
   custom_url: p.custom_url,
   avatar_url: p.avatar_url,
   bio: p.bio,
+  /*
+   * THE TWO MODERATION FLAGS, ADDED 2026-09-07 — and their absence hid a whole
+   * page.
+   *
+   * `profiles_public_data` really does carry these (types.ts:4097-4098), and
+   * Discover.tsx filters on BOTH: `.eq("is_suspended", false)
+   * .eq("is_banned", false)` — BUG-088, banned members must not surface there.
+   * The harness's filter drops any row that does not carry the key at all, so
+   * every profile was filtered out and `screen-discover` photographed "No
+   * people found matching your criteria" — a tidy empty state, which is the
+   * exact lie fakeBackend.ts's own header warns about, produced by a fixture
+   * that was a column short rather than by anything wrong with the page.
+   *
+   * `false` is the state 511 of 513 staging members are in; a fixture where
+   * nobody is visible is not the conservative choice, it is the wrong shape.
+   */
+  is_suspended: false,
+  is_banned: false,
   portfolio_url: i === 0 ? "https://example.test/avijit" : null,
   photography_interests: i === 0 ? ["street", "portrait"] : [],
   facebook_url: null,

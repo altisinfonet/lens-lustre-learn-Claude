@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useT } from "@/i18n/I18nContext";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
+import { useRowHandles } from "@/hooks/profile/useMemberHandles";
 import AnonymousSidebarFallback from "@/components/AnonymousSidebarFallback";
 import SidebarTopContributors from "@/components/sidebar/SidebarTopContributors";
 import type { SidebarData } from "@/hooks/core/useDashboardInit";
@@ -102,6 +103,28 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
 
   const suggestions = rawSuggestions.filter((s: any) => !adminIds.has(s.id));
 
+  /*
+   * ITEM 5 — THE NAME AND THE AVATAR WERE NOT LINKS AT ALL.
+   *
+   * Measured by the Auditor on the deployed preview, on BOTH 75f14f80 and
+   * 0e30d46e: walking up from the name text to the row container finds ZERO
+   * anchor tags; only Add is interactive; clicking the name leaves
+   * location.href unchanged. Reproduced here once the fixture was corrected to
+   * the payload this branch's dashboard-init actually sends: zero anchors,
+   * nine spans carrying ProfileLink's own `data-unlinked="missing"` marker.
+   *
+   * The rows are wrapped correctly and always have been — `ProfileLink` on the
+   * avatar, `UserIdentityBlock` on the name. Neither can produce an <a> without
+   * a handle, because F-95 forbids falling back to /profile/<id> and
+   * `noProfileIdLinks.test.ts` enforces it. The handle simply never arrives:
+   * dashboard-init builds each suggestion as
+   * { id, full_name, avatar_url, mutual_count }. See the long note on
+   * `useRowHandles`, including why this is not the second mechanism the
+   * Auditor ruled out, and what D1 has to change for this lookup to fall
+   * silent on its own.
+   */
+  const handleFor = useRowHandles(suggestions as Array<{ id: string; custom_url?: string | null }>);
+
   const sendFriendRequest = async (targetId: string) => {
     if (!user) return;
     const { error } = await supabase.from("friendships").insert({
@@ -159,7 +182,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
             ) : (
               suggestions.map((s: any) => (
                 <div key={s.id} className="flex items-center gap-3 px-4 py-3">
-                  <ProfileLink userId={s.id} handle={s.custom_url} className="shrink-0">
+                  <ProfileLink userId={s.id} handle={handleFor(s)} className="shrink-0">
                     {s.avatar_url ? (
                       <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={s.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
                     ) : (
@@ -174,7 +197,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
                     <UserIdentityBlock
                       userId={s.id}
                       name={s.full_name || "Photographer"}
-                      handle={s.custom_url}
+                      handle={handleFor(s)}
                       nameClassName="text-xs font-medium truncate hover:text-primary transition-colors"
                     />
                     {s.mutual_count > 0 && (
@@ -190,7 +213,46 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
                   ) : (
                     <button
                       onClick={() => sendFriendRequest(s.id)}
-                      className="inline-flex items-center gap-1 text-[8px] tracking-[0.15em] uppercase px-2 py-1 border border-primary/40 text-primary hover:bg-primary/10 transition-all rounded-sm"
+                      /*
+                       * ─────────────────────────────────────────────────────
+                       * "ADD" IS NOT A SENTENCE, AND 27px IS NOT A TAP TARGET.
+                       *
+                       * Measured by the Auditor on the deployed preview,
+                       * 2026-09-07: five buttons in this widget, all reading
+                       * "Add", all with aria-label null, all 57x27. Measured
+                       * again here in the harness at 1440px: 55.4x27.4, name
+                       * "Add", no hit region of any kind.
+                       *
+                       * THE NAME. Same treatment as DiscoverCard: the person
+                       * goes into the accessible name only. `t("fr.addFriend")`
+                       * is the string the Discover card already uses for this
+                       * exact action in six languages, so the two surfaces
+                       * cannot drift apart — the visible "Add" stays "Add"
+                       * because this column is 8px wide and the owner sized it.
+                       *
+                       * THE TARGET, AND WHY `.tap-44` AND NOT `.tap-44-down`.
+                       * F-109's ruling is that the DIRECTION matters, and that
+                       * clearance is "a claim to be measured, not assumed". So
+                       * it was measured, with elementFromPoint 6px above and
+                       * 6px below the painted button in this row:
+                       *
+                       *   above -> <DIV> (the row itself)   not a link
+                       *   below -> <DIV> (the row itself)   not a link
+                       *
+                       * The name link in this row sits to the LEFT, not above:
+                       * this is a three-column row, not a caption over a
+                       * control. Nothing is contested vertically — the row is
+                       * ~60px tall around a 27px button, so a 44px region
+                       * centred on it still lands 8px inside the row's own
+                       * padding and cannot reach the row above or below. That
+                       * is the case `.tap-44`'s own comment reserves for
+                       * itself: "where there is clearance on every side".
+                       * `.tap-44-down` would push 17px past the bottom edge
+                       * and into the divider, which is the worse choice here.
+                       * ─────────────────────────────────────────────────────
+                       */
+                      aria-label={`${t("fr.addFriend")} — ${s.full_name || "Photographer"}`}
+                      className="tap-44 inline-flex items-center gap-1 text-[8px] tracking-[0.15em] uppercase px-2 py-1 border border-primary/40 text-primary hover:bg-primary/10 transition-all rounded-sm"
                       style={headingFont}
                     >
                       <UserPlus className="h-3 w-3" /> Add

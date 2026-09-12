@@ -1,0 +1,38 @@
+
+═══ AFTER — painted boxes · 2026-09-07T15:10:23.599Z ═══
+
+birthday-strip avatar link — screen-feed @ 390x844
+   5 control(s)
+   painted 44.0x44.0  floor=ok  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 44.0x44.0  floor=ok  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 44.0x44.0  floor=ok  {"above":"div","below":"div","left":"div","right":"a -> \"Avijit Sheel\""}
+   painted 44.0x44.0  floor=ok  {"above":"nothing","below":"nothing","left":"nothing","right":"nothing"}
+   painted 44.0x44.0  floor=ok  {"above":"nothing","below":"nothing","left":"nothing","right":"nothing"}
+   top-to-top gaps: [69,169,430.3,464.3]
+  PASS  birthday-strip avatar link: the controls rendered
+  PASS  birthday-strip avatar link: every painted box clears the gate's floor (long>=44, short>=32)
+  PASS  birthday-strip avatar link: no box overlaps a neighbouring link (0)
+  PASS  birthday-strip avatar link: no two of these boxes intersect each other (0)
+
+/discover row buttons — screen-discover @ 390x844
+   12 control(s)
+   painted 107.3x36.0  floor=ok  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 70.7x36.0  floor=ok  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 107.3x36.0  floor=ok  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 70.7x36.0  floor=ok  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 107.3x36.0  floor=ok  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 70.7x36.0  floor=ok  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 107.3x36.0  floor=ok  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 70.7x36.0  floor=ok  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 107.3x36.0  floor=ok  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 70.7x36.0  floor=ok  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 107.3x36.0  floor=ok  {"above":"div","below":"img","left":"a -> \"\"","right":"a -> \"\""}
+   painted 70.7x36.0  floor=ok  {"above":"div","below":"path","left":"a -> \"\"","right":"button"}
+   top-to-top gaps: [0,91,0,91,0,91,0,91,0,91,0]
+  PASS  /discover row buttons: the controls rendered
+  PASS  /discover row buttons: every painted box clears the gate's floor (long>=44, short>=32)
+  PASS  /discover row buttons: no box overlaps a neighbouring link (0)
+  PASS  /discover row buttons: no two of these boxes intersect each other (0)
+
+GEOMETRY CLEAR
+

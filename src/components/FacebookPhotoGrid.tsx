@@ -2,16 +2,36 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useDownloadImage } from "@/hooks/core/useDownloadImage";
 import DownloadButton from "@/components/DownloadButton";
+import ProfileLink from "@/components/ProfileLink";
 import ZoomableImage from "@/components/media/ZoomableImage";
 import { motion, AnimatePresence } from "framer-motion";
+
+/**
+ * The photograph's author, for the fullscreen viewer.
+ *
+ * ⚠ RED #5 and RED #8, Auditor measurement on the deployed preview 2026-09-06:
+ * "No photographer name is shown or announced anywhere inside the lightbox at
+ * all — there's currently nothing for a tap or a screen reader to land on."
+ * Optional because two of the four call sites open a viewer over photographs
+ * whose author the caller genuinely does not have in hand; where it is absent
+ * the viewer is no worse than it was, and where it is present the name is the
+ * first thing in the dialog.
+ */
+export interface PhotoAuthor {
+  userId: string;
+  name: string | null;
+  /** The name-URL handle (F-95). null means "no handle", not "not decided". */
+  handle: string | null;
+}
 
 interface FacebookPhotoGridProps {
   urls: string[];
   onPhotoClick?: (index: number) => void;
+  author?: PhotoAuthor;
   initialIndex?: number;
 }
 
-const FacebookPhotoGrid = ({ urls, onPhotoClick, initialIndex }: FacebookPhotoGridProps) => {
+const FacebookPhotoGrid = ({ urls, onPhotoClick, initialIndex, author }: FacebookPhotoGridProps) => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const { downloading, download } = useDownloadImage();
   const lastAppliedInitialRef = useRef<number | null>(null);
@@ -79,15 +99,15 @@ const FacebookPhotoGrid = ({ urls, onPhotoClick, initialIndex }: FacebookPhotoGr
   return (
     <>
       {grid}
-      <PostLightbox urls={urls} currentIndex={lightboxIndex} onClose={() => setLightboxIndex(null)} onNavigate={navigateLightbox} />
+      <PostLightbox urls={urls} currentIndex={lightboxIndex} onClose={() => setLightboxIndex(null)} onNavigate={navigateLightbox} author={author} />
     </>
   );
 };
 
 /* ── Full-screen Lightbox ── */
-interface PostLightboxProps { urls: string[]; currentIndex: number | null; onClose: () => void; onNavigate: (index: number) => void; }
+interface PostLightboxProps { urls: string[]; currentIndex: number | null; onClose: () => void; onNavigate: (index: number) => void; author?: PhotoAuthor; }
 
-const PostLightbox = ({ urls, currentIndex, onClose, onNavigate }: PostLightboxProps) => {
+const PostLightbox = ({ urls, currentIndex, onClose, onNavigate, author }: PostLightboxProps) => {
   const isOpen = currentIndex !== null;
   const { downloading, download } = useDownloadImage();
   const [zoomed, setZoomed] = useState(false);
@@ -107,7 +127,46 @@ const PostLightbox = ({ urls, currentIndex, onClose, onNavigate }: PostLightboxP
     <AnimatePresence>
       {isOpen && currentIndex !== null && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}
+          /*
+           * ⚠ DIALOG SEMANTICS, added 2026-09-07. The Auditor measured this
+           * overlay on the deployed preview: `div.fixed.inset-0.z-[100]` with
+           * NO role, NO aria-modal and NO accessible name. To a screen reader
+           * that is not a dialog at all — it is an unnamed region that appears
+           * while the page behind it stays fully reachable, so the reader keeps
+           * walking the feed underneath a photograph the member is looking at.
+           *
+           * CompetitionLightbox, ImageCropModal and CinemaFullView all already
+           * declare role="dialog"; this viewer and PostMedia's copy of it were
+           * the two that did not. aria-modal is what tells assistive technology
+           * the rest of the document is inert — it is enough, and it is why
+           * nothing here reaches for aria-hidden on the app root.
+           */
+          role="dialog"
+          aria-modal="true"
+          aria-label={author?.name ? `Photograph by ${author.name} — full size` : "Photograph — full size"}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm" onClick={onClose}>
+          {/*
+            * RED #5 + #8 — THE NAME IS FIRST IN THE DIALOG, not an afterthought.
+            *
+            * It is placed here, ahead of the controls in DOM order, so a screen
+            * reader entering the dialog announces whose photograph this is
+            * before it offers Close/Previous/Next, and so the first Tab lands
+            * on the photographer rather than on a chrome button. The 44px
+            * target is the ProfileLink's own; it sits in open space at the top
+            * left with nothing above it, so it cannot repeat F-109 (a grown
+            * region eating the line above).
+            */}
+          {author?.name && (
+            <div className="absolute top-4 left-4 z-10 max-w-[60vw]" onClick={(e) => e.stopPropagation()}>
+              <ProfileLink
+                userId={author.userId}
+                handle={author.handle}
+                className="inline-flex items-center tap-44-down text-sm text-white/90 hover:text-white underline-offset-4 hover:underline truncate"
+              >
+                {author.name}
+              </ProfileLink>
+            </div>
+          )}
           <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
             <span className="text-sm text-white/60 mr-2">{currentIndex + 1} / {urls.length}</span>
             <DownloadButton
@@ -115,17 +174,18 @@ const PostLightbox = ({ urls, currentIndex, onClose, onNavigate }: PostLightboxP
               onClick={(e) => { e.stopPropagation(); download(urls[currentIndex]); }}
               className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors disabled:opacity-60"
               iconSize="h-5 w-5"
+              ariaLabel="Download photo"
             />
-            <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
+            <button onClick={onClose} aria-label="Close photo viewer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
               <X className="h-5 w-5" />
             </button>
           </div>
           {urls.length > 1 && !zoomed && (
             <>
-              <button onClick={(e) => { e.stopPropagation(); goPrev(); }} className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all">
+              <button onClick={(e) => { e.stopPropagation(); goPrev(); }} aria-label="Previous photo" className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all">
                 <ChevronLeft className="h-6 w-6" />
               </button>
-              <button onClick={(e) => { e.stopPropagation(); goNext(); }} className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all">
+              <button onClick={(e) => { e.stopPropagation(); goNext(); }} aria-label="Next photo" className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all">
                 <ChevronRight className="h-6 w-6" />
               </button>
             </>

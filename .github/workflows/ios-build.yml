@@ -1,0 +1,589 @@
+name: iOS Build
+
+# 50mm Retina World — iOS build, sign, and TestFlight upload.
+#
+# This is the iOS counterpart to android-build.yml. It builds the same React
+# web bundle (dist/), wraps it in a fresh Capacitor iOS project, signs it with
+# the Distribution Certificate + App Store provisioning profile, and uploads
+# the resulting .ipa to TestFlight via the App Store Connect API.
+#
+# Required secrets (Settings -> Secrets and variables -> Actions):
+#   BUILD_CERTIFICATE_BASE64        - distribution.p12, base64-encoded
+#   BUILD_CERTIFICATE_PASSWORD      - export password for the .p12
+#   BUILD_PROVISION_PROFILE_BASE64  - App Store provisioning profile, base64-encoded
+#   APP_STORE_KEY_ID                - App Store Connect API Key ID
+#   APP_STORE_ISSUER_ID             - App Store Connect API Issuer ID
+#   APP_STORE_KEY_BASE64            - App Store Connect API private key (.p8), base64-encoded
+#
+# Bundle ID: com.fiftymmretina.app (must match capacitor.config.ts appId and
+# the App ID used to generate the provisioning profile).
+#
+# SCOPE NOTE: this first iOS build wires up the core, iOS-safe plugins only
+# (share, filesystem, camera, app, browser). Firebase push
+# (@capacitor-firebase/messaging) and Play-style in-app updates
+# (@capawesome/capacitor-app-update) are Android-specific setups — push needs
+# an APNs key + proper iOS setup, and in-app updates don't work that way on
+# iOS at all. Add push as a deliberate follow-up, not by just flipping it on.
+# splash-screen is temporarily excluded too - see the note on the plugin
+# install step below (it is NOT an upstream incompatibility; it can be
+# restored as a follow-up now that the toolchain is fixed).
+#
+# NODE 22, NOT 20 - matches android-build.yml. @capacitor/cli 8.5.0 requires it.
+#
+# TOOLCHAIN: this workflow requires a runner with Xcode 26.x (Swift 6.2+).
+# See the comment on `runs-on` below before changing the runner image or the
+# Xcode version - building on Swift 6.0 cannot work, for a concrete reason.
+#
+# Trigger: manual only (workflow_dispatch) until a first build is verified
+# end-to-end. Once a build lands cleanly in TestFlight, uncomment the `push`
+# trigger below to build iOS automatically on every push to main, same as
+# Android does.
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-ios:
+    # macos-15, NOT macos-14. This is a hard requirement, not a preference.
+    # Capacitor 8.5.0 ships its iOS runtime as a prebuilt binary xcframework
+    # (ionic-team/capacitor-swift-pm) whose .swiftinterface header records
+    # "Apple Swift version 6.2". Inside it, every single-argument convenience
+    # accessor on CAPPluginCall - getString(_:), getBool(_:), getArray(_:),
+    # and reject(_:) with its default parameters - is wrapped in
+    # `#if compiler(>=5.3) && $NonescapableTypes`. A `$Feature` conditional in
+    # a textual module interface is true only when the *reading* compiler
+    # implements that feature. macos-14 images top out at Xcode 16.2 =
+    # Swift 6.0, which does not have NonescapableTypes, so those declarations
+    # are invisible and every Capacitor plugin that calls them fails to
+    # compile. No build flag can fix that - the feature simply isn't in that
+    # compiler. macos-15 carries Xcode 26.x (Swift 6.2+), where the gate
+    # evaluates true and the API is visible as intended.
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      BUNDLE_ID: com.fiftymmretina.app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build web bundle
+        env:
+          VITE_SUPABASE_URL: https://jtdtehuqtinjxropkkcn.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0ZHRlaHVxdGluanhyb3Bra2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzI3MjEsImV4cCI6MjA5OTE0ODcyMX0.qY8BI5LXb6uLzTwbpf8AleZ6UZyfeaOA0q4_TC5CEpo
+          VITE_SUPABASE_PROJECT_ID: jtdtehuqtinjxropkkcn
+        run: npm run build
+
+      - name: Install Capacitor + iOS-safe native plugins (pinned)
+        run: |
+          # @capacitor/splash-screen@8.0.2 is still excluded here, but the
+          # original reason recorded for it was WRONG and is corrected for the
+          # record: it was not a stale plugin that "predates breaking API
+          # changes in core 8.5.0". Its failures were the same Swift-version
+          # gate described on the runs-on block above. Checked against the
+          # real .swiftinterface, every API it touches is either ungated
+          # (bridge.viewController, UIColor.capacitor.color(fromHex:) - the
+          # argument label never changed, getBoolean, getInt) or gated by
+          # $NonescapableTypes and therefore restored by Swift 6.2
+          # (CAPPluginCall.reject, PluginConfig.getString). The reported
+          # viewController/UIColor errors were knock-on diagnostics from the
+          # gated calls failing to type-check earlier in the same file.
+          # It stays out of THIS commit only to keep the toolchain fix a
+          # single isolated variable - nothing in src/ imports it, so its
+          # absence costs only the native splash screen. Re-add it as a
+          # follow-up once this pipeline is green; no upstream release is
+          # needed. android-build was never affected (separate Kotlin impl).
+          npm install --no-audit --no-fund \
+            @capacitor/core@8.5.0 @capacitor/cli@8.5.0 @capacitor/ios@8.5.0 \
+            @capacitor/share@8.0.1 \
+            @capacitor/filesystem@8.1.2 @capacitor/camera@8.2.2 \
+            @capacitor/app@8.1.1 @capacitor/browser@8.0.4
+
+      - name: Add iOS platform
+        run: npx cap add ios
+
+      - name: Generate app icon and splash screens from resources/
+        run: |
+          set -euo pipefail
+          # WHY THIS EXISTS: `cap add ios` scaffolds Capacitor's DEFAULT
+          # placeholder icon. Nothing replaced it, so builds 1-16 shipped that
+          # placeholder instead of the real logo - App Store Connect showed it
+          # as the app icon, because Apple takes the icon from the binary and
+          # there is nowhere to upload one by hand. android-build.yml has run
+          # `capacitor-assets generate --android` all along; the iOS workflow
+          # simply never had the equivalent step.
+          #
+          # resources/icon.png is 1024x1024 RGB with no alpha channel, which is
+          # what the App Store requires (an alpha channel in the marketing icon
+          # is an automatic rejection).
+          ICONSET="ios/App/App/Assets.xcassets/AppIcon.appiconset"
+          BEFORE=$(find "$ICONSET" -name '*.png' -exec shasum -a 256 {} + 2>/dev/null | shasum -a 256 | awk '{print $1}')
+          echo "Placeholder iconset checksum: $BEFORE"
+
+          npm install --no-audit --no-fund -D @capacitor/assets@3.0.5
+          npx capacitor-assets generate --ios \
+            --iconBackgroundColor '#0f172a' --splashBackgroundColor '#0f172a'
+
+          AFTER=$(find "$ICONSET" -name '*.png' -exec shasum -a 256 {} + 2>/dev/null | shasum -a 256 | awk '{print $1}')
+          echo "Generated iconset checksum:   $AFTER"
+
+          # GUARD: no `|| true` here on purpose. If generation silently no-ops,
+          # the build must fail loudly rather than ship the placeholder again.
+          if [ "$BEFORE" = "$AFTER" ]; then
+            echo "::error::capacitor-assets did not change the app icons - the placeholder icon is still in place. Check that resources/icon.png exists and is readable."
+            exit 1
+          fi
+
+          # GUARD: the marketing icon must be exactly 1024x1024 and have no
+          # alpha channel, or App Store Connect rejects the binary.
+          BIG=$(find "$ICONSET" -name '*.png' -exec sh -c 'echo "$(sips -g pixelWidth "$1" | awk "/pixelWidth/{print \$2}") $1"' _ {} \; | sort -rn | head -1 | cut -d' ' -f2-)
+          echo "Largest generated icon: $BIG"
+          W=$(sips -g pixelWidth "$BIG" | awk '/pixelWidth/{print $2}')
+          H=$(sips -g pixelHeight "$BIG" | awk '/pixelHeight/{print $2}')
+          A=$(sips -g hasAlpha "$BIG" | awk '/hasAlpha/{print $2}')
+          echo "Marketing icon: ${W}x${H}, hasAlpha=${A}"
+          if [ "$W" != "1024" ] || [ "$H" != "1024" ]; then
+            echo "::error::Marketing icon is ${W}x${H}, expected 1024x1024."
+            exit 1
+          fi
+          if [ "$A" = "yes" ]; then
+            echo "::error::Marketing icon has an alpha channel. Apple rejects this. Flatten resources/icon.png onto an opaque background."
+            exit 1
+          fi
+
+      - name: Sync web assets into iOS project
+        run: npx cap sync ios
+
+      - name: Verify synced assets exist
+        id: verify
+        run: |
+          set -euo pipefail
+          PUB="ios/App/App/public"
+          test -f "$PUB/index.html" || { echo "::error::No synced web assets at $PUB - cap sync did not run?"; exit 1; }
+
+          # Capacitor 8+ integrates iOS native deps via Swift Package Manager by
+          # default (writes Package.swift, no CocoaPods `pod install`), so no
+          # CocoaPods-generated App.xcworkspace exists - only App.xcodeproj.
+          # Detect whichever container cap sync actually produced so Archive
+          # stays correct whether SPM or CocoaPods integration is in use.
+          if [ -d "ios/App/App.xcworkspace" ]; then
+            echo "container_flag=-workspace" >> "$GITHUB_OUTPUT"
+            echo "container_path=ios/App/App.xcworkspace" >> "$GITHUB_OUTPUT"
+          elif [ -d "ios/App/App.xcodeproj" ]; then
+            echo "container_flag=-project" >> "$GITHUB_OUTPUT"
+            echo "container_path=ios/App/App.xcodeproj" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Neither ios/App/App.xcworkspace nor ios/App/App.xcodeproj exists after cap sync"
+            exit 1
+          fi
+
+      - name: Add privacy purpose strings and build number to Info.plist
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+          MARKETING_VERSION: "1.0"
+        run: |
+          set -euo pipefail
+          # Apple rejected build #15 AFTER upload with:
+          #   90683: Missing purpose string in Info.plist ...
+          #   should contain a NSPhotoLibraryUsageDescription key
+          #
+          # @capacitor/camera links the photo library and camera APIs, and iOS
+          # requires a user-facing purpose string for each one. Capacitor does
+          # NOT generate them - they are the app's responsibility - and ios/ is
+          # regenerated by `cap add ios` every run, so they must be written
+          # here rather than committed.
+          #
+          # All three camera-related keys are set, not just the one Apple named:
+          # the plugin references reading the library, saving to it, and the
+          # camera itself, and a missing string is a hard upload rejection.
+          # These strings are user-facing and are read by App Review, so they
+          # state specifically what the app does with each permission.
+          PLIST="ios/App/App/Info.plist"
+          test -f "$PLIST" || { echo "::error::$PLIST not found after cap sync"; exit 1; }
+
+          add_or_set() {
+            if /usr/libexec/PlistBuddy -c "Print :$1" "$PLIST" >/dev/null 2>&1; then
+              /usr/libexec/PlistBuddy -c "Set :$1 $2" "$PLIST"
+            else
+              /usr/libexec/PlistBuddy -c "Add :$1 string $2" "$PLIST"
+            fi
+          }
+
+          add_or_set NSCameraUsageDescription "50mm Retina World uses the camera so you can take a photo to enter a competition, add to a post, or update your profile picture."
+          add_or_set NSPhotoLibraryUsageDescription "50mm Retina World needs access to your photo library so you can choose existing photos to enter competitions, add to posts, or set your profile picture."
+          add_or_set NSPhotoLibraryAddUsageDescription "50mm Retina World saves images to your photo library when you download a photo or a certificate you have earned."
+
+          # BUILD NUMBER. Apple refuses an upload whose build number was already
+          # delivered, and build "1" was consumed by the rejected build #15
+          # delivery. Capacitor's generated Info.plist hardcodes CFBundleVersion
+          # to 1, so every run would collide from here on. github.run_number is
+          # unique and monotonically increasing, which is exactly what Apple
+          # requires, so this can never clash again.
+          add_or_set CFBundleVersion "$BUILD_NUMBER"
+          add_or_set CFBundleShortVersionString "$MARKETING_VERSION"
+
+          echo "Purpose strings now in Info.plist:"
+          for KEY in NSCameraUsageDescription NSPhotoLibraryUsageDescription NSPhotoLibraryAddUsageDescription; do
+            VALUE=$(/usr/libexec/PlistBuddy -c "Print :$KEY" "$PLIST" 2>/dev/null || true)
+            if [ -z "$VALUE" ]; then
+              echo "::error::$KEY missing from Info.plist after patching."
+              exit 1
+            fi
+            echo "  $KEY = $VALUE"
+          done
+          echo "CFBundleShortVersionString = $(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PLIST")"
+          echo "CFBundleVersion (build number) = $(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST")"
+
+      - name: Import Distribution Certificate + Provisioning Profile
+        id: cert
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          BUILD_CERTIFICATE_PASSWORD: ${{ secrets.BUILD_CERTIFICATE_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
+          CERT_PATH="$RUNNER_TEMP/distribution.p12"
+          PROFILE_PATH="$RUNNER_TEMP/profile.mobileprovision"
+
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERT_PATH"
+          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$PROFILE_PATH"
+
+          echo "DEBUG: cert file size=$(wc -c < "$CERT_PATH") sha256=$(shasum -a 256 "$CERT_PATH" | awk '{print $1}')"
+          echo "DEBUG: profile file size=$(wc -c < "$PROFILE_PATH") sha256=$(shasum -a 256 "$PROFILE_PATH" | awk '{print $1}')"
+          echo "DEBUG: password length=${#BUILD_CERTIFICATE_PASSWORD}"
+          echo "DEBUG: base64 secret length=${#BUILD_CERTIFICATE_BASE64}"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          security import "$CERT_PATH" -P "$BUILD_CERTIFICATE_PASSWORD" -A \
+            -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed 's/"//g')
+
+          # GUARD: prove the identity is actually usable for code signing before
+          # spending four minutes building. Importing a .p12 can succeed while
+          # leaving no usable identity (wrong password, cert without its private
+          # key, key not in the partition list). Until now nothing verified
+          # this, because every build so far either skipped signing or used
+          # cloud signing - so a broken identity would only have surfaced as a
+          # confusing failure much later.
+          echo "Code signing identities in build keychain:"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
+          # Accept either naming. Apple renamed the distribution certificate
+          # type from "iPhone Distribution" to "Apple Distribution"; both are
+          # valid for App Store submission, and hard-coding one would reject a
+          # perfectly good certificate.
+          IDENTITIES=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" || true)
+          if echo "$IDENTITIES" | grep -q "Apple Distribution"; then
+            SIGN_IDENTITY="Apple Distribution"
+          elif echo "$IDENTITIES" | grep -q "iPhone Distribution"; then
+            SIGN_IDENTITY="iPhone Distribution"
+          else
+            echo "::error::No distribution code signing identity in the keychain after importing BUILD_CERTIFICATE_BASE64. The .p12 must contain an 'Apple Distribution' (or legacy 'iPhone Distribution') certificate AND its private key, and BUILD_CERTIFICATE_PASSWORD must match. Identities found above."
+            exit 1
+          fi
+          echo "Using signing identity: $SIGN_IDENTITY"
+          echo "sign_identity=$SIGN_IDENTITY" >> "$GITHUB_OUTPUT"
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp "$PROFILE_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+
+      - name: Read provisioning profile UUID and Team ID
+        id: profile
+        run: |
+          set -euo pipefail
+          PROFILE="$RUNNER_TEMP/profile.mobileprovision"
+          PLIST=$(security cms -D -i "$PROFILE")
+          # `|| true` matters: this step runs under `set -euo pipefail`, and
+          # plutil exits non-zero for a key that is absent (Name and
+          # application-identifier are both optional in principle). Without it,
+          # a missing key aborts the step with no diagnostic at all.
+          extract() { echo "$PLIST" | plutil -extract "$1" xml1 -o - - 2>/dev/null | sed -n 's/.*<string>\(.*\)<\/string>.*/\1/p' || true; }
+
+          UUID=$(extract UUID)
+          TEAM_ID=$(extract TeamIdentifier.0)
+          NAME=$(extract Name)
+          APP_ID=$(extract Entitlements.application-identifier)
+
+          echo "Profile name : $NAME"
+          echo "Profile UUID : $UUID"
+          echo "Team ID      : $TEAM_ID"
+          echo "App ID       : $APP_ID"
+
+          # GUARD: catch a mismatched or wrong-type profile now, with a clear
+          # message, instead of as an opaque signing failure minutes later.
+          if [ -z "$UUID" ] || [ -z "$TEAM_ID" ]; then
+            echo "::error::Could not read UUID/TeamIdentifier from the provisioning profile. Is BUILD_PROVISION_PROFILE_BASE64 a valid .mobileprovision?"
+            exit 1
+          fi
+          # application-identifier is "<TEAMID>.<bundle id>"; it must match this
+          # app (or be a wildcard ending in .*).
+          case "$APP_ID" in
+            *".$BUNDLE_ID") : ;;
+            *".*") echo "Note: wildcard profile in use." ;;
+            *)
+              echo "::error::Provisioning profile is for '$APP_ID' but this build produces '$BUNDLE_ID'. Upload a profile matching the bundle id."
+              exit 1
+              ;;
+          esac
+          # An App Store profile has no ProvisionedDevices key. A development or
+          # ad-hoc profile does - and it cannot be used for an App Store export.
+          if echo "$PLIST" | plutil -extract ProvisionedDevices xml1 -o - - >/dev/null 2>&1; then
+            echo "::error::This profile contains ProvisionedDevices, so it is a Development/Ad Hoc profile. App Store export needs an App Store distribution profile."
+            exit 1
+          fi
+
+          echo "uuid=$UUID" >> "$GITHUB_OUTPUT"
+          echo "team_id=$TEAM_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          # Pinned to a 26.x release, not `latest-stable`. Swift 6.2 or newer
+          # is required to see Capacitor's $NonescapableTypes-gated API (see
+          # the note on runs-on above); Xcode 26.x is the first line that
+          # provides it. `latest-stable` is what silently selected Xcode 16.2
+          # on the old macos-14 runner and caused the compile failures.
+          xcode-version: '26.3'
+
+      - name: Prepare App Store Connect API key
+        id: asckey
+        env:
+          APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
+          APP_STORE_KEY_BASE64: ${{ secrets.APP_STORE_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+          # Used by the altool upload at the end, which requires the key in
+          # ~/.appstoreconnect/private_keys. Archive and export deliberately do
+          # NOT use this key: passing it to xcodebuild enables cloud signing,
+          # which is what build #14 failed on.
+          KEYDIR="$RUNNER_TEMP/private_keys"
+          mkdir -p "$KEYDIR" ~/.appstoreconnect/private_keys
+          KEYPATH="$KEYDIR/AuthKey_${APP_STORE_KEY_ID}.p8"
+          echo -n "$APP_STORE_KEY_BASE64" | base64 --decode -o "$KEYPATH"
+          cp "$KEYPATH" ~/.appstoreconnect/private_keys/
+          echo "key_path=$KEYPATH" >> "$GITHUB_OUTPUT"
+
+      - name: Configure manual signing on the App target only
+        env:
+          TEAM_ID: ${{ steps.profile.outputs.team_id }}
+          PROFILE_UUID: ${{ steps.profile.outputs.uuid }}
+          SIGN_IDENTITY: ${{ steps.cert.outputs.sign_identity }}
+        run: |
+          set -euo pipefail
+          # THE point of this step: xcodebuild CLI settings (KEY=VALUE) are
+          # GLOBAL - they hit every target in the graph, including Capacitor's
+          # SPM plugin targets and the embedded IONCameraLib/IONFilesystemLib
+          # frameworks. Provisioning profiles are only meaningful on an app
+          # bundle, so any global profile setting makes those targets fail with
+          # "does not support provisioning profiles". Xcode's xcconfig format
+          # has no per-target qualifier either. The supported way to scope a
+          # setting to ONE target is to write it into the project file, which
+          # is what this does - the App target gets manual signing with the
+          # real profile, and every other target is left completely alone to be
+          # signed with just the identity, which is correct for frameworks.
+          #
+          # ios/ is not committed (cap add ios regenerates it every run), so
+          # this patch has to happen here in CI, after sync and before archive.
+          #
+          # xcodeproj ships as a CocoaPods dependency and CocoaPods is
+          # preinstalled on the macOS runner image - but it may live under a
+          # different ruby than the default `ruby` on PATH, so verify rather
+          # than assume, and install it if the require fails.
+          if ! ruby -e 'require "xcodeproj"' 2>/dev/null; then
+            echo "xcodeproj gem not visible to the default ruby - installing it."
+            sudo gem install xcodeproj --no-document
+          fi
+          ruby -e 'require "xcodeproj"' || { echo "::error::xcodeproj gem unavailable; cannot scope signing to the App target."; exit 1; }
+
+          ruby -e '
+            require "xcodeproj"
+            path = "ios/App/App.xcodeproj"
+            project = Xcodeproj::Project.open(path)
+            target = project.targets.find { |t| t.name == "App" }
+            abort("::error::No App target found in #{path}") unless target
+            target.build_configurations.each do |config|
+              config.build_settings["CODE_SIGN_STYLE"] = "Manual"
+              config.build_settings["DEVELOPMENT_TEAM"] = ENV["TEAM_ID"]
+              config.build_settings["PROVISIONING_PROFILE_SPECIFIER"] = ENV["PROFILE_UUID"]
+              config.build_settings["CODE_SIGN_IDENTITY"] = ENV["SIGN_IDENTITY"]
+              config.build_settings["PRODUCT_BUNDLE_IDENTIFIER"] = ENV["BUNDLE_ID"]
+            end
+            project.save
+            puts "Signing configured on App target only (#{target.build_configurations.size} configurations)."
+          '
+
+          # GUARD: read the settings back out of the saved project and fail here
+          # if they did not stick, rather than discovering it during signing.
+          ruby -e '
+            require "xcodeproj"
+            project = Xcodeproj::Project.open("ios/App/App.xcodeproj")
+            target = project.targets.find { |t| t.name == "App" }
+            release = target.build_configurations.find { |c| c.name == "Release" }
+            got = release.build_settings
+            expected = {
+              "CODE_SIGN_STYLE" => "Manual",
+              "DEVELOPMENT_TEAM" => ENV["TEAM_ID"],
+              "PROVISIONING_PROFILE_SPECIFIER" => ENV["PROFILE_UUID"],
+              "PRODUCT_BUNDLE_IDENTIFIER" => ENV["BUNDLE_ID"]
+            }
+            bad = expected.reject { |k, v| got[k] == v }
+            unless bad.empty?
+              bad.each { |k, v| STDERR.puts "::error::App target Release setting #{k} is #{got[k].inspect}, expected #{v.inspect}" }
+              exit 1
+            end
+            puts "Verified on App/Release: #{expected.keys.join(", ")}."
+            others = project.targets.reject { |t| t.name == "App" }
+            leaked = others.select { |t| t.build_configurations.any? { |c| c.build_settings["PROVISIONING_PROFILE_SPECIFIER"] } }
+            unless leaked.empty?
+              STDERR.puts "::error::Provisioning profile leaked onto non-app targets: #{leaked.map(&:name).join(", ")}"
+              exit 1
+            end
+            puts "Verified no other target carries a provisioning profile."
+          '
+
+      - name: Archive
+        env:
+          CONTAINER_FLAG: ${{ steps.verify.outputs.container_flag }}
+          CONTAINER_PATH: ${{ steps.verify.outputs.container_path }}
+        run: |
+          set -euo pipefail
+
+          # SIGNING MODEL - read this before adding any KEY=VALUE flag here.
+          #
+          # Deliberately NO signing settings on this command line. All of them
+          # are now set on the App target alone by the previous step, because
+          # CLI settings are global and Capacitor's SPM plugin targets and the
+          # embedded IONCameraLib/IONFilesystemLib frameworks cannot take a
+          # provisioning profile. This workflow has already burned three builds
+          # learning that, in three different disguises:
+          #
+          #   #12 and earlier - global PROVISIONING_PROFILE -> archive failed
+          #                     with "does not support provisioning profiles".
+          #   #13            - archived with CODE_SIGNING_ALLOWED=NO, which
+          #                     left the frameworks unsigned, so manual export
+          #                     tried to find profiles for them and failed the
+          #                     same way one step later.
+          #   #14            - switched to automatic/cloud signing, which needs
+          #                     the App Store Connect API key to hold signing
+          #                     permission it does not have: "Cloud signing
+          #                     permission error / No profiles for
+          #                     com.fiftymmretina.app were found".
+          #
+          # The distribution certificate and the App Store profile are already
+          # in the keychain from the import step, so no cloud signing and no
+          # extra Apple permissions are needed - just point the App target at
+          # them, which is exactly what the previous step did.
+          xcodebuild "$CONTAINER_FLAG" "$CONTAINER_PATH" \
+            -scheme App \
+            -configuration Release \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -destination 'generic/platform=iOS' \
+            clean archive
+
+      - name: Export IPA
+        env:
+          TEAM_ID: ${{ steps.profile.outputs.team_id }}
+          PROFILE_UUID: ${{ steps.profile.outputs.uuid }}
+        run: |
+          set -euo pipefail
+          # Manual signing, matching the archive. The provisioningProfiles dict
+          # names ONLY the app bundle id - frameworks are absent on purpose and
+          # get signed with the identity inherited from the app. This is safe
+          # here (where it was not in build #13) because the archive is now
+          # properly signed, so export is re-signing already-signed frameworks
+          # rather than having to provision them from scratch.
+          #
+          # No -allowProvisioningUpdates and no -authenticationKey* flags:
+          # those trigger cloud signing, which is what build #14 failed on
+          # ("Cloud signing permission error"). Everything needed is already
+          # in the keychain.
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>teamID</key>
+            <string>$TEAM_ID</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>$BUNDLE_ID</key>
+              <string>$PROFILE_UUID</string>
+            </dict>
+          </dict>
+          </plist>
+          PLIST
+
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: ${{ runner.temp }}/export/*.ipa
+          retention-days: 14
+
+      - name: Upload to TestFlight
+        env:
+          APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
+          APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
+          APP_STORE_KEY_BASE64: ${{ secrets.APP_STORE_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+          # The key was already written by "Prepare App Store Connect API key"
+          # into ~/.appstoreconnect/private_keys, which is where altool looks.
+
+          IPA_PATH=$(find "$RUNNER_TEMP/export" -name "*.ipa" | head -n 1)
+          test -n "$IPA_PATH" || { echo "::error::No .ipa produced by Export IPA"; exit 1; }
+          echo "Validating: $IPA_PATH"
+
+          # VALIDATE FIRST. This is not optional politeness - build #15 exited
+          # 0 here and reported success, while App Store Connect separately
+          # marked the upload Failed ("90683: Missing purpose string"). altool
+          # --upload-app hands the binary off and returns before Apple finishes
+          # checking it, so a green job did not mean a delivered build.
+          # --validate-app runs those same checks synchronously, so this class
+          # of rejection now fails the workflow loudly instead of silently.
+          xcrun altool --validate-app \
+            --type ios \
+            --file "$IPA_PATH" \
+            --apiKey "$APP_STORE_KEY_ID" \
+            --apiIssuer "$APP_STORE_ISSUER_ID"
+
+          echo "Validation passed. Uploading: $IPA_PATH"
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA_PATH" \
+            --apiKey "$APP_STORE_KEY_ID" \
+            --apiIssuer "$APP_STORE_ISSUER_ID"
+
+      - name: Clean up keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/app-signing.keychain-db" || true

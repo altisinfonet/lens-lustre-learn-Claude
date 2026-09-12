@@ -1,0 +1,46 @@
+
+═══ BEFORE — the four items on the unfixed tree · 2026-09-07T11:20:55.159Z ═══
+
+ITEM 1 — /discover control names
+   cards: 6 · nameless buttons on the page: 1
+   [Ranjana Bhattacharya Chowdhury] -> ["Add Friend","Remove"]
+   [Li Wei] -> ["Add Friend","Remove"]
+   [Amara Okonkwo] -> ["Add Friend","Remove"]
+   [Rafael Santos] -> ["Add Friend","Remove"]
+   [Hana Takahashi] -> ["Add Friend","Remove"]
+   [Ayaan Farooqi] -> ["Add Friend","Remove"]
+  PASS  the page rendered 6 people cards
+  FAIL  every card button's accessible name carries that person's name
+  FAIL  no button on /discover is nameless (found 1)
+   nameless: [
+  '<button class="flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 transition-colors duration-200 relative t'
+]
+
+ITEM 2 — People You May Know, right sidebar
+   [Avijit Sheel] name="Add" painted=55.4x27.4 hit=55.4x27.4 anchor=none
+   [Ranjana Bhattacharya Chowdhury] name="Add" painted=55.4x27.4 hit=55.4x27.4 anchor=none
+   [Li Wei] name="Add" painted=55.4x27.4 hit=55.4x27.4 anchor=none
+  FAIL  every Add button's accessible name carries that person's name
+  FAIL  every Add button's hit region is at least 44px tall
+   F-109 rect check: 7 links in the widget, regions ["55.4x27.4","55.4x27.4","55.4x27.4"]
+  PASS  no enlarged Add region overlaps a link (0 overlaps)
+  PASS  no two Add regions overlap each other (0)
+
+ITEM 3 — @mention suggestions inside a real post's comment box
+   1440x900: {"reached":true,"rowCount":7,"list":{"top":327.8,"bottom":635.8,"right":777.3},"clipTop":515.8,"clipper":"overflow-hidden border-t border-border","hiddenPx":188,"hiddenPct":61,"offRight":0}
+  FAIL  1440px — no part of the list is clipped by an ancestor (hidden 188px = 61%, clipper "overflow-hidden border-t border-border")
+  PASS  1440px — the list stays on screen (F-101's guard still armed; over by 0px)
+   390x844: {"reached":true,"rowCount":7,"list":{"top":334.5,"bottom":642.5,"right":368.3},"clipTop":522.5,"clipper":"overflow-hidden border-t border-border","hiddenPx":188,"hiddenPct":61,"offRight":0}
+  FAIL  390px — no part of the list is clipped by an ancestor (hidden 188px = 61%, clipper "overflow-hidden border-t border-border")
+  PASS  390px — the list stays on screen (F-101's guard still armed; over by 0px)
+
+ITEM 4 — the feed lightbox (PostMedia CarouselLightbox)
+   {"opened":true,"role":"dialog","ariaModal":"true","ariaLabel":"Photograph by Avijit Sheel — full size","buttonNames":["Download photo","Close photo viewer"],"anchors":["Avijit Sheel"]}
+  PASS  the viewer has role="dialog" (got "dialog")
+  PASS  it is aria-modal (got "true")
+  PASS  it has an accessible name (got "Photograph by Avijit Sheel — full size")
+  PASS  every control in it has a name (got ["Download photo","Close photo viewer"])
+  PASS  the photographer is a link inside it (got ["Avijit Sheel"])
+
+6 CHECK(S) FAILING
+

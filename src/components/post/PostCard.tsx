@@ -528,6 +528,9 @@ const PostCard = ({
           <PostMedia
             urls={imageUrls}
             thumbUrls={thumbUrls}
+            /* RED #5 + #8 — the card already knows whose photograph this is;
+               the viewer did not. Same three fields the header link uses. */
+            author={{ userId: post.user_id, name: post.author_name ?? null, handle: post.author_handle ?? null }}
             onDoubleTapLike={() => {
               if (currentUserId && !post.user_reaction) onReact(post.id, "like");
             }}

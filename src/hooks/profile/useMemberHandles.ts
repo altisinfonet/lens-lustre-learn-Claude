@@ -88,3 +88,63 @@ export function useMemberHandles(ids: Array<string | null | undefined>): Map<str
 
   return handles;
 }
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE SAME BRIDGE, BUT ONLY FOR THE ROWS THAT ARRIVED WITHOUT A HANDLE.
+ *
+ * Added 2026-09-07, for the Auditor's item 5: in People You May Know the name
+ * and the avatar are not links at all — zero anchor tags in the row, on both
+ * 75f14f80 and 0e30d46e.
+ *
+ * ⚠ THE HEADER ABOVE ASSERTS SOMETHING THIS TREE DOES NOT CONTAIN, AND THAT IS
+ * THE WHOLE CAUSE. It says the bridge was withdrawn from FeedLeftSidebar,
+ * FeedRightSidebar, FeedFriendSuggestions and TodaysBirthdayStrip because
+ * "suggestions, milestones — dashboard-init/index.ts — Q11 select + both
+ * object literals now carry custom_url". Checked against that file, in this
+ * tree, on this branch:
+ *
+ *   Q11 (index.ts:187)    .select("id, full_name, avatar_url, created_at,
+ *                                  date_of_birth")            no custom_url
+ *   suggestions literal   { id, full_name, avatar_url, mutual_count }
+ *                         (index.ts:452)                      no custom_url
+ *   grep custom_url       TWO hits in the entire file (483, 503), both in the
+ *                         `profiles` map, which is keyed by the VIEWER and the
+ *                         WINNERS — suggestion ids are never added to that set
+ *
+ * That server change is on staging. It is not on the promotion branch, so four
+ * member-facing lists were stripped of their fallback on the strength of a fix
+ * that has not arrived here. Standing Rule 21: a comment is a control, and a
+ * comment that disagrees with the code beside it is a finding, not a note.
+ * Reported to D1 — the remedy in that file is two words, and it is not this
+ * lane's to make. `birthdays` is genuinely fine and stays untouched: the RPC
+ * really was recreated with custom_url (migration
+ * 20260910_0020_f98c_birthdays_carry_handle_and_close.sql, in this tree).
+ *
+ * ⚠ WHY THIS IS NOT THE "TWO MECHANISMS" THE AUDITOR RULED OUT.
+ *
+ * His objection was drift: two independent sources for one handle eventually
+ * disagree. That cannot happen here, because this asks about ONLY the rows
+ * whose own source sent nothing — `custom_url === undefined`, which ProfileLink
+ * already distinguishes from a stated `null`. Where the server does carry the
+ * handle, the id set is empty, `useMemberHandles` issues no request, and this
+ * costs one comparison per row. It is a fallback that disappears the moment the
+ * designed path works, not a second mechanism running beside it. When D1's
+ * change lands, nothing here needs deleting for the request to stop.
+ *
+ * `undefined` is preserved while the lookup is still in flight, so a row reads
+ * "nobody has decided yet" rather than "decided: no link" for those few frames.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export function useRowHandles<T extends { id: string; custom_url?: string | null }>(
+  rows: readonly T[],
+): (row: T) => string | null | undefined {
+  const missing = rows.filter((r) => r.custom_url === undefined).map((r) => r.id);
+  const bridged = useMemberHandles(missing);
+  return (row: T) =>
+    row.custom_url !== undefined
+      ? row.custom_url
+      : bridged.has(row.id)
+        ? bridged.get(row.id)
+        : undefined;
+}

@@ -1,0 +1,38 @@
+
+═══ BEFORE — the gate's two findings, unfixed · 2026-09-07T15:10:10.575Z ═══
+
+birthday-strip avatar link — screen-feed @ 390x844
+   5 control(s)
+   painted 36.0x36.0  floor=UNDER  {"above":"a (THIS CONTROL)","below":"div","left":"a (THIS CONTROL)","right":"div"}
+   painted 36.0x36.0  floor=UNDER  {"above":"a (THIS CONTROL)","below":"div","left":"a (THIS CONTROL)","right":"div"}
+   painted 44.0x44.0  floor=ok  {"above":"div","below":"div","left":"div","right":"a -> \"Avijit Sheel\""}
+   painted 44.0x44.0  floor=ok  {"above":"nothing","below":"nothing","left":"nothing","right":"nothing"}
+   painted 44.0x44.0  floor=ok  {"above":"nothing","below":"nothing","left":"nothing","right":"nothing"}
+   top-to-top gaps: [67.4,164.2,430.3,464.3]
+  PASS  birthday-strip avatar link: the controls rendered
+  FAIL  birthday-strip avatar link: every painted box clears the gate's floor (long>=44, short>=32)
+  PASS  birthday-strip avatar link: no box overlaps a neighbouring link (0)
+  PASS  birthday-strip avatar link: no two of these boxes intersect each other (0)
+
+/discover row buttons — screen-discover @ 390x844
+   12 control(s)
+   painted 107.3x29.4  floor=UNDER  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 70.7x29.4  floor=UNDER  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 107.3x29.4  floor=UNDER  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 70.7x29.4  floor=UNDER  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 107.3x29.4  floor=UNDER  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 70.7x29.4  floor=UNDER  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 107.3x29.4  floor=UNDER  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 70.7x29.4  floor=UNDER  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 107.3x29.4  floor=UNDER  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 70.7x29.4  floor=UNDER  {"above":"div","below":"div","left":"div","right":"div"}
+   painted 107.3x29.4  floor=UNDER  {"above":"div","below":"img","left":"div","right":"div"}
+   painted 70.7x29.4  floor=UNDER  {"above":"div","below":"svg","left":"div","right":"div"}
+   top-to-top gaps: [0,89,0,89,0,89,0,89,0,89,0]
+  PASS  /discover row buttons: the controls rendered
+  FAIL  /discover row buttons: every painted box clears the gate's floor (long>=44, short>=32)
+  PASS  /discover row buttons: no box overlaps a neighbouring link (0)
+  PASS  /discover row buttons: no two of these boxes intersect each other (0)
+
+2 CHECK(S) FAILING
+

@@ -123,6 +123,14 @@ const Profile = () => {
               userId={user?.id || ""}
               name={displayName}
               handle={null} /* F-98 — deliberately not a link: this is the member's own name on the page they are already on. null is a stated answer, not an omission. */
+              /* The name of the page you are on IS the page heading. Measured
+                 by the Auditor on the deployed preview: heading role present on
+                 nearby elements, absent on the name itself, so a screen-reader
+                 user landing here was told nothing about where they were.
+                 `nameAs` already existed (F-98, PublicProfile); this page had
+                 simply never passed it. One h1: the mobile and desktop layouts
+                 are separate returns and only one ever mounts. */
+              nameAs="h1"
               size="full"
               nameClassName="text-base font-semibold leading-tight truncate"
             />
@@ -372,6 +380,10 @@ const Profile = () => {
                     userId={user?.id || ""}
                     name={displayName}
                     handle={null} /* F-98 — deliberately not a link: this is the member's own name on the page they are already on. null is a stated answer, not an omission. */
+                    /* The desktop half of the same repair — see the mobile
+                       return above. Only one of the two returns ever mounts, so
+                       the page has exactly one h1. */
+                    nameAs="h1"
                     size="full"
                     nameClassName="text-xl md:text-2xl font-light tracking-tight"
                   />

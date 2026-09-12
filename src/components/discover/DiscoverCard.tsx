@@ -16,8 +16,18 @@ interface DiscoverProfile {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
-  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
-  custom_url?: string | null;
+  /**
+   * F-95 — the name-URL handle, carried beside the name it belongs to.
+   *
+   * ⚠ NO LONGER OPTIONAL, 2026-09-07. It was `custom_url?:`, and the one page
+   * that renders this card never selected the column — so `undefined` was a
+   * legal value and every card on /discover rendered an unlinked name and an
+   * unlinked avatar. The `?` was what made a whole page of dead names a valid
+   * program. A caller that cannot supply a handle must now say so with an
+   * explicit `null`, which ProfileLink records as a decision rather than an
+   * omission, and which the typecheck forces someone to write down.
+   */
+  custom_url: string | null;
 }
 
 interface Props {
@@ -49,8 +59,70 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
 
   if (isSelf) return null;
 
+  /**
+   * ─────────────────────────────────────────────────────────────────────────
+   * EVERY CONTROL ON THIS CARD SAYS WHOSE CARD IT IS.
+   *
+   * Measured by the Auditor on the deployed preview, 2026-09-07: /discover
+   * rendered ELEVEN "Add Friend" buttons and ELEVEN "Remove" buttons, and a
+   * screen reader announced all twenty-two identically — "Add Friend, Add
+   * Friend, Add Friend…". The visible label is correct and must not change;
+   * sighted members read the name from the card the button sits in. A screen
+   * reader does not: it reaches a control with no card around it.
+   *
+   * So the NAME goes into the accessible name and nowhere else. Not a
+   * `title` (it would paint a tooltip nobody asked for), not visible text (it
+   * would change a layout the owner has already signed off), not
+   * `aria-labelledby` pointing at the name block (that block is a link with
+   * its own name and a badge, so the button would announce the badge too).
+   *
+   * `personName` is the same fallback UserIdentityBlock above renders, so the
+   * button can never announce a different name from the one on the card.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  const personName = profile.full_name || "Photographer";
+  /** "Add Friend — Ranjana Bhattacharya Chowdhury". The dash is what a screen
+   *  reader turns into a pause, so the action is heard before the name. */
+  const named = (action: string) => `${action} — ${personName}`;
+
+  /**
+   * ───────────────────────────────────────────────────────────────────────────
+   * `min-h-9` — 36px, AND IT IS A PAINTED BOX, NOT A PSEUDO-ELEMENT PAD.
+   *
+   * The UI gate reported twelve of these on `screen-discover`, at every phone
+   * width and in app mode, passing only desktop-1280 (the rule is mobile-only):
+   *
+   *   button.inline-flex.items-center 107x29
+   *   button.inline-flex.items-center  71x29
+   *
+   * The floor is `long >= 44 && short >= 32` (capture.mjs:409-412) — not 44x44;
+   * that relaxation is recorded in the gate's own comment. The long side was
+   * already fine at 107 and 71. `py-1.5` around 11px type gives 29, so the
+   * SHORT side was three pixels under.
+   *
+   * ⚠ THIS IS A PRE-EXISTING DEFECT THAT BECAME VISIBLE, NOT A NEW ONE.
+   * `git log -S` puts these classes here long before any of this branch's
+   * commits; what changed is that f3260d0 added the `screen-discover` scene, so
+   * the sweep photographed this page for the first time. The precedent is
+   * already written down in SummaryTriggerTapTarget.test.ts: becoming visible
+   * is what surfaced the defect, not what caused it, and reverting the scene
+   * would only put the blindfold back on.
+   *
+   * ⚠ AND IT HAD TO BE A REAL BOX. `.tap-44` and `.tap-44-down` are both
+   * `::after` pseudo-elements (index.css:794-830); the gate measures
+   * `getBoundingClientRect()` on the element, which does not include them.
+   * Measured on the birthday strip in the same sitting: `tap-44` reports 36x36
+   * and `tap-44-down` reports 36x36 — the utility does not move the number the
+   * gate reads, whichever of the two is used.
+   *
+   * 36 rather than 32: 32 sits exactly on the floor, where a font metric or a
+   * sub-pixel rounding puts it back under. Four pixels of margin costs one
+   * step of vertical rhythm in a list row and buys a check that stays green
+   * for a reason rather than by a hair.
+   * ───────────────────────────────────────────────────────────────────────────
+   */
   const btnBase =
-    "inline-flex items-center justify-center gap-1.5 text-[11px] md:text-xs font-semibold tracking-wide px-3 py-1.5 rounded-md transition-all duration-200 disabled:opacity-40";
+    "inline-flex min-h-9 items-center justify-center gap-1.5 text-[11px] md:text-xs font-semibold tracking-wide px-3 py-1.5 rounded-md transition-all duration-200 disabled:opacity-40";
 
   return (
     <div className="flex items-start gap-3 px-3 md:px-4 py-3 border-b border-border">
@@ -125,6 +197,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
               <button
                 onClick={sendFriendRequest}
                 disabled={loading}
+                aria-label={named(t("fr.addFriend"))}
                 className={`${btnBase} bg-primary text-primary-foreground hover:bg-primary/90`}
                 style={headingFont}
               >
@@ -133,6 +206,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
               </button>
               <button
                 onClick={() => onDismiss(profile.id)}
+                aria-label={named(t("fr.remove"))}
                 className={`${btnBase} bg-muted text-muted-foreground hover:bg-muted/80`}
                 style={headingFont}
               >
@@ -145,6 +219,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
               <button
                 onClick={removeFriend}
                 disabled={loading}
+                aria-label={named(t("fr.requestSent"))}
                 className={`${btnBase} bg-muted text-muted-foreground`}
                 style={headingFont}
               >
@@ -153,6 +228,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
               </button>
               <button
                 onClick={() => onDismiss(profile.id)}
+                aria-label={named(t("fr.remove"))}
                 className={`${btnBase} bg-muted/60 text-muted-foreground hover:bg-muted/80`}
                 style={headingFont}
               >
@@ -165,6 +241,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
               <button
                 onClick={acceptFriendRequest}
                 disabled={loading}
+                aria-label={named(t("dash.accept"))}
                 className={`${btnBase} bg-primary text-primary-foreground hover:bg-primary/90`}
                 style={headingFont}
               >
@@ -173,6 +250,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
               </button>
               <button
                 onClick={() => onDismiss(profile.id)}
+                aria-label={named(t("fr.remove"))}
                 className={`${btnBase} bg-muted text-muted-foreground hover:bg-muted/80`}
                 style={headingFont}
               >
@@ -184,6 +262,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
             <button
               onClick={removeFriend}
               disabled={loading}
+              aria-label={named(t("fr.unfriend"))}
               className={`${btnBase} bg-muted text-destructive hover:bg-destructive/10`}
               style={headingFont}
             >
