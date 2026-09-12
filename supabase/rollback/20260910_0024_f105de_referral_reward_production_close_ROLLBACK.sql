@@ -24,15 +24,39 @@
 --   2-arg restored to md5 7999749b88688973dc95680d68ae5e86 (1416 bytes)
 --   3-arg restored to md5 5a69d3fa10a09745b9bfd1a5a7d48690 (2224 bytes)
 --
--- The 2-arg value is MEASURED (run #69). The 3-arg value is INFERRED and is
--- only correct if 0024's P2b gate passed on the way in — which is the only
--- circumstance in which this file would ever be run.
+-- BOTH values are now MEASURED: the 2-arg by run #69's refusal, the 3-arg by
+-- run #70's source dump. The inference that production carried the same
+-- bootstrap-snapshot body on both overloads was correct, and is no longer an
+-- inference.
 --
--- THE ACL IS RESTORED TO THE SUPABASE DEFAULT DELIBERATELY: PUBLIC, anon,
--- authenticated and service_role all holding EXECUTE. That is the pre-0024
--- truth, not an improvement on it. A rollback that quietly kept the revokes
--- would land in a state that is neither the before nor the after, with nothing
--- to say so.
+-- ⚠ THE ACL. CORRECTED 2026-09-12 AFTER RUN #70 MEASURED IT, AND THE EARLIER
+-- VERSION OF THIS FILE WAS WRONG IN A DIRECTION THAT MATTERS.
+--
+-- It used to grant EXECUTE `TO PUBLIC, anon, authenticated, service_role`, on
+-- the reasoning that the pre-0024 state was Supabase's default for a function
+-- in schema public. **That was an assumption, it was never measured, and it is
+-- false.** Run #70 read production's live proacl on both overloads:
+--
+--     postgres=X/postgres | service_role=X/postgres | authenticated=X/postgres
+--
+-- No PUBLIC entry. No anon entry. Production had already closed both, by some
+-- route that left no migration on main — the same way it acquired BUG-047 and
+-- BUG-049.
+--
+-- So the old grant line did not restore the pre-state: it would have ADDED
+-- PUBLIC and anon to a VOLATILE SECURITY DEFINER function that calls
+-- wallet_transaction(), on a database that did not have them. A rollback that
+-- leaves the system MORE open than it found it is not a rollback; it is an
+-- incident with a reassuring filename.
+--
+-- This file now restores exactly what run #70 measured: authenticated and
+-- service_role, nothing else. If 0024 is ever rolled back, the ACL ends where
+-- it started.
+--
+-- The wider point, and it is the same one F-105 keeps making: "the default" is
+-- not a measurement. The only reason this was caught before it ran is that the
+-- ACL was written down as UNMEASURED rather than assumed, and someone then went
+-- and measured it.
 --
 -- ONE TRANSACTION, for the same reason 0024 is: the DROP resets the ACL and the
 -- window between the recreate and the grants must not be observable.
@@ -176,7 +200,13 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.process_referral_reward(uuid, text)          TO PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.process_referral_reward(uuid, text, numeric) TO PUBLIC, anon, authenticated, service_role;
+-- The pre-0024 ACL as MEASURED by run #70 — no PUBLIC, no anon. Every role is
+-- named in the REVOKE first, including the two then granted, so the restored
+-- state is written here rather than inherited from what the recreate landed.
+REVOKE ALL    ON FUNCTION public.process_referral_reward(uuid, text)          FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL    ON FUNCTION public.process_referral_reward(uuid, text, numeric) FROM PUBLIC, anon, authenticated, service_role;
+
+GRANT EXECUTE ON FUNCTION public.process_referral_reward(uuid, text)          TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.process_referral_reward(uuid, text, numeric) TO authenticated, service_role;
 
 COMMIT;

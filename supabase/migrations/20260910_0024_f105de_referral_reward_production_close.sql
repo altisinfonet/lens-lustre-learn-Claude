@@ -86,25 +86,47 @@
 --
 -- ═══ WHAT IS MEASURED ON PRODUCTION, AND WHAT STILL IS NOT ═══
 --
--- MEASURED, by run #69's own refusal — the only production readings that exist:
---   * P1 passed: EXACTLY TWO overloads exist, both resolvable by the identity
---     signatures this file uses.
---   * the 2-arg body is md5 7999749b88688973dc95680d68ae5e86, 1416 bytes.
+-- ⚠ UPDATED 2026-09-12 AFTER RUN #70. The source-dump probe has now been run
+-- against production, so most of what this section used to list as inferred is
+-- measured. Every expectation this file gates on was CONFIRMED:
 --
--- NOT MEASURED, because P2 raised before reaching them:
---   * the 3-arg body. This file expects the bootstrap's 5a69d3fa… / 2224 bytes,
---     which is an INFERENCE from the 2-arg matching, not a reading.
---   * whether the DEFAULT is still present on the 3-arg (P3 never ran).
---   * the ACL on either overload.
---   * whether production's PostgREST returns PGRST203 for a two-key call. Still
---     inferred; no production HTTP request has ever been issued.
+--   MEASURED, run #69's refusal:
+--     * EXACTLY TWO overloads, both resolvable by the identity signatures used
+--       here (oids 20345 and 20346).
+--     * 2-arg body md5 7999749b88688973dc95680d68ae5e86, 1416 bytes.  -> P2a ✓
 --
--- ⚠ RUN PROBE_process_referral_reward_source_dump_readonly.sql FIRST. It is
--- read-only, touches no member data, and prints both live definitions plus the
--- md5, byte length, default count and ACL this file pins. That turns every
--- inference above into a reading, before anything is changed. If its output
--- disagrees with the P2 values below, RE-DERIVE FROM THAT OUTPUT — do not
--- weaken the gate, and do not force this file.
+--   MEASURED, run #70's source dump:
+--     * 3-arg body md5 5a69d3fa10a09745b9bfd1a5a7d48690, 2224 bytes.  -> P2b ✓
+--       (this was the INFERENCE, and it was correct)
+--     * 3-arg parameter defaults = 1, i.e. the unfixed state.          -> P3  ✓
+--     * both bodies carry BUG-049's FOR UPDATE and BUG-047's self-referral
+--       guard, confirming production is on the bootstrap-snapshot bodies.
+--     * the ACL, on BOTH overloads:
+--
+--           postgres=X/postgres | service_role=X/postgres | authenticated=X/postgres
+--
+--       ⚠ NO PUBLIC ENTRY AND NO anon ENTRY. Production is NOT on Supabase's
+--       default ACL — it had already closed both by some route that left no
+--       migration on main, the same way it acquired BUG-047/049. That is the
+--       ONE reading that disagreed with an assumption, and it did not change
+--       this file: the end state declared in section 3 is exactly what
+--       production already has, so the ACL statements are a no-op here and the
+--       end-state gate still proves it. **It did change the ROLLBACK**, which
+--       had been written to re-grant PUBLIC and anon and would have left
+--       production more open than it found it. Corrected; see that file.
+--
+-- STILL NOT MEASURED:
+--   * whether production's PostgREST returns PGRST203 for a two-key call. It
+--     remains an inference from the two overloads and the DEFAULT — both of
+--     which are now confirmed present, so the inference is better supported
+--     than it was, but no production HTTP request has ever been issued.
+--
+-- ⚠ IF THIS FILE IS RE-DISPATCHED AFTER A DELAY, RUN
+-- PROBE_process_referral_reward_source_dump_readonly.sql AGAIN FIRST. It is
+-- read-only and touches no member data. The readings above are from
+-- 2026-09-12; a database is not a document, and the whole reason this file has
+-- a precondition gate is that the last thing anyone assumed about production
+-- turned out to be false.
 --
 -- ⚠ FILENAME. 0023 is taken by the superseded attempt (PR #232, to be closed
 -- unmerged); 0020 and 0021 are taken on main; staging holds 0019 and 0022. 0024
@@ -147,14 +169,12 @@ BEGIN
       _md2, (SELECT length(prosrc) FROM pg_proc WHERE oid=_oid2);
   END IF;
 
-  -- P2b · THE 3-ARG BODY. ⚠ THIS VALUE IS INFERRED, NOT MEASURED. Run #69
-  -- raised at P2a and never read the 3-arg. It is the bootstrap snapshot's
-  -- 3-arg body, expected because the 2-arg matched that same snapshot exactly.
-  -- A failure here is the inference being wrong, which is an ordinary outcome
-  -- and not an error in this file.
+  -- P2b · THE 3-ARG BODY. MEASURED by run #70's source dump (it was an
+  -- inference when this file was written, and run #70 confirmed it). A failure
+  -- here now means production has changed since 2026-09-12.
   IF _md3 <> '5a69d3fa10a09745b9bfd1a5a7d48690' THEN
     RAISE EXCEPTION
-      'P2b FAILED — live 3-arg body is md5 % (% bytes), not 5a69d3fa10a09745b9bfd1a5a7d48690 (2224 bytes). ⚠ THIS EXPECTATION WAS INFERRED, NOT MEASURED: run #69 stopped at the 2-arg and never read this one. The inference was that production carries the same bootstrap-snapshot bodies on both overloads. It does not. Run PROBE_process_referral_reward_source_dump_readonly.sql, re-derive the 3-arg from what it prints, and leave the 2-arg alone — it is confirmed.',
+      'P2b FAILED — live 3-arg body is md5 % (% bytes), not 5a69d3fa10a09745b9bfd1a5a7d48690 (2224 bytes). This value was MEASURED on production by run #70 on 2026-09-12, so a mismatch means production has changed since. Run PROBE_process_referral_reward_source_dump_readonly.sql and re-derive from what it prints. DO NOT weaken this check.',
       _md3, (SELECT length(prosrc) FROM pg_proc WHERE oid=_oid3);
   END IF;
 
@@ -165,9 +185,17 @@ BEGIN
       'P3 FAILED — the 3-arg overload has % parameter default(s); this file expects the unfixed state (exactly 1, on _txn_amount). If it is already 0, F-105e is closed on this database and this file has already run.', _n;
   END IF;
 
+  -- P4 · RECORD THE PRE-ACL. Deliberately a NOTICE and not an assertion:
+  -- correcting the ACL is part of this file's job, so refusing because the ACL
+  -- is wrong would refuse exactly the case it exists to fix. Recording it puts
+  -- the before-state in the same audit-trailed log as the after-state, which is
+  -- what a rollback author needs and what this unit got wrong once already.
+  RAISE NOTICE 'P4 · pre-ACL 2-arg = %', (SELECT coalesce(array_to_string(proacl,' | '),'(null = Supabase default)') FROM pg_proc WHERE oid=_oid2);
+  RAISE NOTICE 'P4 · pre-ACL 3-arg = %', (SELECT coalesce(array_to_string(proacl,' | '),'(null = Supabase default)') FROM pg_proc WHERE oid=_oid3);
+
   RAISE NOTICE 'P1 ok — exactly two overloads, oids % (2-arg) and % (3-arg)', _oid2, _oid3;
   RAISE NOTICE 'P2a ok — 2-arg body matches the value MEASURED on production by run #69';
-  RAISE NOTICE 'P2b ok — 3-arg body matches the inferred bootstrap-snapshot body';
+  RAISE NOTICE 'P2b ok — 3-arg body matches the value MEASURED on production by run #70';
   RAISE NOTICE 'P3 ok — the DEFAULT is present, i.e. this is the unfixed state';
 END
 $pre$;
