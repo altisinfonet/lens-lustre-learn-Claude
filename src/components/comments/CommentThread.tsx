@@ -62,7 +62,7 @@
 import { useState } from "react";
 import ProfileLink from "@/components/ProfileLink";
 import { Link } from "react-router-dom";
-import { MoreHorizontal, Trash2, Flag, Pin, Pencil, ChevronDown } from "lucide-react";
+import { MoreHorizontal, Trash2, Flag, Pin, Pencil, ChevronDown, Heart, SmilePlus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { isActiveNow } from "@/hooks/core/useLastActive";
 import MentionInput from "@/components/MentionInput";
@@ -122,6 +122,27 @@ export interface ThreadFeatures {
  * feed met both. This is the string, and the ad surface no longer overrides it.
  */
 export const COMMENT_PLACEHOLDER = "Write a comment...";
+
+/**
+ * THE HANDLE-AWARE PLACEHOLDER — DERIVED FROM THE ONE STRING ABOVE, NOT A
+ * SECOND COPY OF IT.
+ *
+ * The reference composer names whose post you are about to comment on
+ * ("Add a comment for villagesquarei…"), which is genuinely useful on a sheet
+ * that can be opened from a feed of dozens of posts. The note above this is
+ * the reason it is a FUNCTION and not a second exported literal: two strings
+ * written twice is exactly what left "Write a comment..." and "Add a comment…"
+ * in the same bundle. A post with no handle falls back to COMMENT_PLACEHOLDER,
+ * so there is still exactly one default in the codebase.
+ */
+export const HANDLE_PLACEHOLDER_MAX = 14;
+export const commentPlaceholderFor = (handle?: string | null): string => {
+  const clean = handle?.trim().replace(/^@/, "");
+  if (!clean) return COMMENT_PLACEHOLDER;
+  const shown =
+    clean.length > HANDLE_PLACEHOLDER_MAX ? `${clean.slice(0, HANDLE_PLACEHOLDER_MAX)}…` : clean;
+  return `Add a comment for ${shown}`;
+};
 
 /**
  * THE REACTION SET. `post_comment_reactions.reaction_type` is free-form
@@ -349,8 +370,8 @@ const CommentThread = ({
       // The key belongs HERE: the call sites are function calls and a call
       // cannot carry a key. Without it React re-uses the wrong node when a
       // comment is deleted mid-list.
-      <div key={comment.id} className={depth > 0 ? "ml-10" : ""}>
-        <div className="flex gap-2 group/comment py-0.5">
+      <div key={comment.id} className={depth > 0 ? "ml-11" : ""}>
+        <div className="flex gap-3 group/comment py-2">
           <ProfileLink userId={comment.user_id} handle={comment.author_handle} className="shrink-0 mt-0.5">
             <Avatar src={comment.author_avatar} name={comment.author_name} size={depth > 0 ? "xs" : "sm"} lastActiveAt={comment.author_last_active} />
           </ProfileLink>
@@ -374,136 +395,103 @@ const CommentThread = ({
               </div>
             ) : (
               <>
-                {/* Pinned badge */}
+                {/* PINNED — a chip above the name rather than a line of body
+                    text, so it reads as metadata about the comment and never as
+                    something the author wrote. */}
                 {comment.is_pinned && (
-                  <div className="flex items-center gap-1 text-[10px] text-primary font-medium mb-0.5">
-                    <Pin className="h-3 w-3" /> Pinned comment
+                  <div className="mb-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-[3px] text-[10px] font-semibold uppercase tracking-[0.04em] text-primary">
+                    <Pin className="h-2.5 w-2.5" /> Pinned
                   </div>
                 )}
 
-                {/* Bubble */}
-                <div className="relative inline-block max-w-full">
-                  <div className="bg-popover rounded-2xl px-3 py-2 inline-block max-w-full">
-                    <UserIdentityBlock
-                      userId={comment.user_id}
-                      name={comment.author_name || "Photographer"}
-                      /**
-                       * ⚠ PASS THE BADGES THE CALLER ALREADY RESOLVED.
-                       *
-                       * Both adapters run every author through `resolveBadges`,
-                       * which is what injects the brand tick for an admin — the
-                       * admin account has no row in user_badges at all. This
-                       * computed them and threw them away, so the row fell back
-                       * to a second per-name lookup that could not know about
-                       * the brand rule, and the owner saw a verified name with
-                       * no tick in every comment (2026-08-28). Same correction
-                       * PostCard's header took on 2026-08-14: if the name and
-                       * the badge arrive together, "name visible, badge
-                       * missing" stops being a reachable state.
-                       */
-                      badges={comment.author_badges}
-                      handle={comment.author_handle}
-                    />
-                    {/*
-                      ⚠ `whitespace-pre-wrap` IS LOAD-BEARING. (Fixed 2026-08-28.)
+                {/*
+                  ⚠ ONE IDENTITY LINE — NAME, BADGE, WHEN — THEN THE TEXT UNDER IT.
 
-                      A comment written as two paragraphs rendered as ONE line.
-                      The newline survived everything except the last step: the
-                      database stored it (post_comments 95c6f07c is 'para one' +
-                      chr(10) + 'para two'), React put it in the DOM (textContent
-                      was "para one\npara two") — and then HTML did what HTML
-                      does. Under the default `white-space: normal` a newline is
-                      just another run of whitespace and collapses to a single
-                      space. Measured: 18px rendered against a 20px line-height.
+                  This replaced a chat-style bubble (`bg-popover rounded-2xl`)
+                  with the timestamp and actions stacked BELOW it and the like
+                  count floating on the bubble's corner. The bubble cost a row
+                  of horizontal padding on both sides of every comment, wrapped
+                  the text earlier on a 360px phone, and put four separate
+                  vertical bands (name, bubble, count badge, action row) between
+                  one comment and the next.
 
-                      Nothing in the data path was wrong, which is why it looked
-                      so puzzling; the fault was one missing CSS declaration on
-                      the element that draws the text.
-
-                      PRE-WRAP, NEVER PRE: `pre` would preserve the newlines and
-                      stop long lines wrapping, so a pasted URL would run off the
-                      card — the same failure `break-words` exists to prevent one
-                      property along. `pre-wrap` keeps the breaks AND still wraps.
-
-                      It is inherited, so it reaches RichContentRenderer's inner
-                      <span> too, and this is the one comment row both the post
-                      card and the sponsored ad card render — replies included.
-                      Caption.tsx has carried the identical pair since it was
-                      written; see the note there.
-                    */}
-                    <p className="text-[15px] text-foreground leading-[1.33] whitespace-pre-wrap break-words">
-                      <RichContentRenderer content={comment.content} />
-                    </p>
-                    {isEdited(comment) && (
-                      <span className="text-[10px] text-muted-foreground italic ml-1">Edited</span>
-                    )}
-                  </div>
-
-                  {/* Reaction badge on bubble — up to 3 distinct emoji, by count, plus the total. */}
-                  {canReact && comment.like_count > 0 && (
-                    <span className="absolute -bottom-2 right-2 bg-card border border-border rounded-full px-1.5 py-0.5 text-[10px] font-medium text-foreground shadow-sm flex items-center gap-0.5">
-                      {Object.entries(comment.reaction_counts || {})
-                        .filter(([, count]) => count > 0)
-                        .sort((a, b) => b[1] - a[1])
-                        .slice(0, 3)
-                        .map(([type]) => REACTION_BY_TYPE.get(type)?.emoji ?? "👍")
-                        .join("")}
-                      {" "}{comment.like_count}
-                    </span>
+                  Flat rows are what a THREAD wants: the eye runs down one
+                  left-hand avatar rail, and reply indentation — not a coloured
+                  container — is what says which comment answers which. The
+                  bubble is still right where it is used for a two-party chat;
+                  this is not one.
+                */}
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2">
+                  <UserIdentityBlock
+                    userId={comment.user_id}
+                    name={comment.author_name || "Photographer"}
+                    /**
+                     * ⚠ PASS THE BADGES THE CALLER ALREADY RESOLVED.
+                     *
+                     * Both adapters run every author through `resolveBadges`,
+                     * which is what injects the brand tick for an admin — the
+                     * admin account has no row in user_badges at all. This
+                     * computed them and threw them away, so the row fell back
+                     * to a second per-name lookup that could not know about
+                     * the brand rule, and the owner saw a verified name with
+                     * no tick in every comment (2026-08-28). Same correction
+                     * PostCard's header took on 2026-08-14: if the name and
+                     * the badge arrive together, "name visible, badge
+                     * missing" stops being a reachable state.
+                     */
+                    badges={comment.author_badges}
+                    handle={comment.author_handle}
+                    className="min-w-0"
+                  />
+                  <span className="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">
+                    {timeAgo(comment.created_at, { weeks: true })}
+                  </span>
+                  {isEdited(comment) && (
+                    <span className="shrink-0 text-[11px] italic text-muted-foreground">Edited</span>
                   )}
                 </div>
 
-                {/* Action row */}
-                <div className="flex items-center gap-3 mt-1 px-1">
-                  <span className="text-xs text-muted-foreground font-medium">{timeAgo(comment.created_at)}</span>
-                  {canReact && currentUserId && (
-                    <div className="relative">
-                      {/* Plain tap = the default reaction (fast path, unchanged from before
-                          reactions existed). The word and its color reflect whichever
-                          reaction — if any — the viewer currently has on this comment. */}
-                      <button
-                        onClick={() => onToggleLike?.(comment.id)}
-                        className={`text-xs font-semibold transition-colors ${
-                          comment.user_reaction
-                            ? REACTION_BY_TYPE.get(comment.user_reaction)?.color ?? "text-primary"
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        {comment.user_reaction ? REACTION_BY_TYPE.get(comment.user_reaction)?.label ?? "Like" : "Like"}
-                      </button>
-                      {/* Caret opens the full emoji picker — a separate control from the
-                          word above so a slow tap never accidentally fires the default
-                          reaction instead of opening the picker. */}
-                      <button
-                        type="button"
-                        aria-label="Choose a reaction"
-                        aria-expanded={reactionPickerId === comment.id}
-                        onClick={() => setReactionPickerId((id) => (id === comment.id ? null : comment.id))}
-                        className="ml-0.5 text-[9px] text-muted-foreground hover:text-foreground align-text-top"
-                      >
-                        ▾
-                      </button>
-                      {reactionPickerId === comment.id && (
-                        <div
-                          role="menu"
-                          className="absolute bottom-full left-0 mb-1 flex gap-0.5 bg-popover border border-border rounded-full px-1.5 py-1 shadow-md z-10"
-                        >
-                          {REACTIONS.map((r) => (
-                            <button
-                              key={r.type}
-                              type="button"
-                              title={r.label}
-                              aria-label={r.label}
-                              onClick={() => { onReact?.(comment.id, r.type); setReactionPickerId(null); }}
-                              className="text-base leading-none p-1 rounded-full hover:scale-125 hover:bg-muted transition-transform"
-                            >
-                              {r.emoji}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                {/*
+                  ⚠ `whitespace-pre-wrap` IS LOAD-BEARING. (Fixed 2026-08-28.)
+
+                  A comment written as two paragraphs rendered as ONE line.
+                  The newline survived everything except the last step: the
+                  database stored it (post_comments 95c6f07c is 'para one' +
+                  chr(10) + 'para two'), React put it in the DOM (textContent
+                  was "para one\npara two") — and then HTML did what HTML
+                  does. Under the default `white-space: normal` a newline is
+                  just another run of whitespace and collapses to a single
+                  space. Measured: 18px rendered against a 20px line-height.
+
+                  Nothing in the data path was wrong, which is why it looked
+                  so puzzling; the fault was one missing CSS declaration on
+                  the element that draws the text.
+
+                  PRE-WRAP, NEVER PRE: `pre` would preserve the newlines and
+                  stop long lines wrapping, so a pasted URL would run off the
+                  card — the same failure `break-words` exists to prevent one
+                  property along. `pre-wrap` keeps the breaks AND still wraps.
+
+                  It is inherited, so it reaches RichContentRenderer's inner
+                  <span> too, and this is the one comment row both the post
+                  card and the sponsored ad card render — replies included.
+                  Caption.tsx has carried the identical pair since it was
+                  written; see the note there.
+
+                  The leading is 1.45 rather than the old 1.33: without a
+                  bubble behind it the text is read against the page, and
+                  1.33 on a 15px body is tight enough to grey out a long
+                  comment on a phone.
+                */}
+                <p className="mt-0.5 text-[15px] leading-[1.45] text-foreground whitespace-pre-wrap break-words">
+                  <RichContentRenderer content={comment.content} />
+                </p>
+
+                {/* Action row. The timestamp moved UP to the identity line and
+                    Like moved OUT to the heart rail on the right, so what is
+                    left here is Reply and the overflow menu — and the row no
+                    longer competes with the comment text for attention. */}
+                <div className="mt-1 flex items-center gap-4">
                   {currentUserId && depth < maxReplyDepth && (
                     <button
                       onClick={() => {
@@ -516,24 +504,43 @@ const CommentThread = ({
                           setReplyInput("");
                         }
                       }}
-                      className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                      className="text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
                     >
                       Reply
                     </button>
                   )}
 
                   {/* 3-dot menu */}
-                  {currentUserId && (isOwn || canDelete || canPinHere || canReport) && (
+                  {currentUserId && (isOwn || canDelete || canPinHere || canReport || canReact) && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
                           aria-label="Comment options"
-                          className="opacity-0 group-hover/comment:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted"
+                          className="rounded p-0.5 opacity-0 transition-opacity hover:bg-muted focus-visible:opacity-100 group-hover/comment:opacity-100 md:opacity-0 max-md:opacity-100"
                         >
                           <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start" className="w-44">
+                        {/*
+                          ⚠ THE PICKER KEEPS A KEYBOARD ROUTE.
+
+                          The six reaction types are real rows in
+                          post_comment_reactions and the heart rail can only
+                          ever send the default one, so the picker cannot
+                          simply be deleted with the old ▾ caret it used to
+                          hang off. Opening it from this menu keeps every type
+                          reachable by keyboard and screen reader — a
+                          long-press would not be.
+                        */}
+                        {canReact && (
+                          <DropdownMenuItem
+                            onClick={() => setReactionPickerId(comment.id)}
+                            className="cursor-pointer"
+                          >
+                            <SmilePlus className="mr-2 h-3.5 w-3.5" /> React…
+                          </DropdownMenuItem>
+                        )}
                         {isOwn && (
                           <DropdownMenuItem onClick={() => { setEditingId(comment.id); setEditInput(comment.content); }} className="cursor-pointer">
                             <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
@@ -610,6 +617,101 @@ const CommentThread = ({
               </>
             )}
           </div>
+
+          {/*
+            THE HEART RAIL — the like, and its count, in the row's right margin.
+
+            It used to be the word "Like" plus a "▾" caret in the action row
+            under the bubble, with the count floating on the bubble's corner as
+            a third, separate element. Three places said one thing. The rail is
+            one control: tap it to like, and the number under it is that same
+            like_count.
+
+            ⚠ THE HEART DRAWS THE DEFAULT REACTION, NOT A SEVENTH TYPE.
+            `onToggleLike` writes REACTIONS[0] — reaction_type 'like' — exactly
+            as it did before this row was redrawn; nothing about what is stored
+            changed here. When the viewer has picked one of the OTHER five from
+            the picker, their own emoji is drawn in place of the heart, because
+            showing a filled heart for a 😢 would misreport what they actually
+            sent.
+
+            `title` carries the per-type breakdown that the corner badge used to
+            show, so the detail is still reachable without giving every row a
+            second cluster of emoji to read past.
+          */}
+          {canReact && editingId !== comment.id && (
+            <div className="relative flex shrink-0 flex-col items-center pt-0.5">
+              <button
+                type="button"
+                onClick={() => onToggleLike?.(comment.id)}
+                disabled={!currentUserId}
+                aria-pressed={!!comment.user_reaction}
+                aria-label={comment.user_reaction ? "Remove your reaction" : "Like this comment"}
+                title={
+                  Object.entries(comment.reaction_counts || {})
+                    .filter(([, count]) => count > 0)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([type, count]) => `${REACTION_BY_TYPE.get(type)?.label ?? type} ${count}`)
+                    .join(" · ") || undefined
+                }
+                className="flex h-8 w-8 items-center justify-center rounded-full transition-transform duration-150 hover:bg-muted/50 active:scale-90 disabled:cursor-default disabled:opacity-60 motion-reduce:transition-none motion-reduce:active:scale-100"
+              >
+                {comment.user_reaction && comment.user_reaction !== "like" ? (
+                  <span className="text-base leading-none">
+                    {REACTION_BY_TYPE.get(comment.user_reaction)?.emoji ?? "👍"}
+                  </span>
+                ) : (
+                  /*
+                    ⚠ THE FILLED HEART IS `primary`, NOT A RAW RED.
+
+                    REACTIONS[0] — the type this heart actually writes — already
+                    declares its colour as `text-primary` a hundred lines up, so
+                    a red heart here would have been a second, contradicting
+                    answer to "what colour is a like on this platform", and one
+                    the eslint rule audit-v6/no-raw-tailwind-colors exists to
+                    catch. `fill-primary` is written out in full rather than
+                    interpolated from REACTIONS because Tailwind scans source
+                    text and never generates a class it cannot see.
+                  */
+                  <Heart
+                    className={`h-[18px] w-[18px] transition-colors ${
+                      comment.user_reaction
+                        ? "fill-primary text-primary"
+                        : "text-muted-foreground"
+                    }`}
+                    strokeWidth={1.9}
+                  />
+                )}
+              </button>
+              {comment.like_count > 0 && (
+                <span className="mt-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
+                  {comment.like_count}
+                </span>
+              )}
+
+              {/* The full picker, opened from the row menu's "React…" item. */}
+              {reactionPickerId === comment.id && (
+                <div
+                  role="menu"
+                  aria-label="Choose a reaction"
+                  className="absolute right-0 top-full z-10 mt-1 flex gap-0.5 rounded-full border border-border bg-popover px-1.5 py-1 shadow-lg"
+                >
+                  {REACTIONS.map((r) => (
+                    <button
+                      key={r.type}
+                      type="button"
+                      title={r.label}
+                      aria-label={r.label}
+                      onClick={() => { onReact?.(comment.id, r.type); setReactionPickerId(null); }}
+                      className="rounded-full p-1 text-base leading-none transition-transform hover:scale-125 hover:bg-muted motion-reduce:transition-none motion-reduce:hover:scale-100"
+                    >
+                      {r.emoji}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Replies */}
