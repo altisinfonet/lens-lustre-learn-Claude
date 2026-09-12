@@ -56,7 +56,7 @@ describe("rule 1 — engagement only attaches to a real creative", () => {
 
   it("renders the bar only for the story card AND only when a library creative was picked", () => {
     expect(adZone).toMatch(
-      /zone === "story-card" && chosen && <AdEngagementBar creativeId=\{chosen\.id\} \/>/,
+      /zone === "story-card" && chosen && <AdEngagementBar creativeId=\{chosen\.id\} imageUrl=\{cr\.image_url \|\| null\} \/>/,
     );
   });
 

@@ -24,28 +24,57 @@
  *
  * Neither shape draws a comment row, fetches a comment, or posts one — that
  * is PostCommentsSection (thread + pinned composer) and, under it,
- * usePostComments. This file is chrome: the backdrop, the close affordance,
- * and which half of the screen the post's photo gets (web only).
+ * usePostComments — or, for a sponsored ad, AdComments and adEngagement.ts.
+ * This file is chrome: the backdrop, the close affordance, and which half of
+ * the screen the subject's photo gets (web only). Which of the two threads to
+ * draw is the ONE thing this file decides per subject.kind; everything else
+ * about the shell is identical for a post and an ad, which is the point —
+ * "Like Comment share is required like a normal post" (owner, 2026-08-11)
+ * means an ad's thread opens exactly the way a post's does, not a second,
+ * ad-shaped modal beside this one.
  */
+import type { ReactNode } from "react";
 import { useCommentsOverlay } from "@/contexts/CommentsOverlayContext";
 import { useIsMobile } from "@/hooks/core/use-mobile";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import PostCommentsSection from "@/components/PostCommentsSection";
+import AdComments from "@/components/ads/AdComments";
 
 const CommentsOverlay = () => {
-  const { post, isOpen, closeComments, notifyCommentCountChange } = useCommentsOverlay();
+  const { subject, isOpen, closeComments, notifyCommentCountChange, notifyAdCommentsChanged } = useCommentsOverlay();
   const isMobile = useIsMobile();
 
   // Nothing has ever been opened yet — render nothing rather than mount a
   // Dialog/Drawer with no content to show while a post loads. There is no
-  // "loading the post" state here at all: openComments is only ever called
-  // with a post already in hand (see PostCard), so post is either the exact
-  // thing that was tapped or nothing.
-  if (!post) return null;
+  // "loading the post" state here at all: openPostComments/openAdComments are
+  // only ever called with the subject already in hand (see PostCard,
+  // AdEngagementBar), so subject is either the exact thing that was tapped or
+  // nothing.
+  if (!subject) return null;
 
-  const imageUrls = post.image_urls?.length ? post.image_urls : post.image_url ? [post.image_url] : [];
-  const coverImage = imageUrls[0];
+  let coverImage: string | undefined;
+  let thread: ReactNode;
+  if (subject.kind === "post") {
+    const { post } = subject;
+    const imageUrls = post.image_urls?.length ? post.image_urls : post.image_url ? [post.image_url] : [];
+    coverImage = imageUrls[0];
+    thread = (
+      <PostCommentsSection
+        postId={post.id}
+        postOwnerId={post.user_id}
+        onCommentCountChange={notifyCommentCountChange}
+      />
+    );
+  } else {
+    coverImage = subject.imageUrl ?? undefined;
+    thread = (
+      <AdComments
+        creativeId={subject.creativeId}
+        onCountChange={notifyAdCommentsChanged}
+      />
+    );
+  }
 
   if (isMobile) {
     return (
@@ -64,11 +93,7 @@ const CommentsOverlay = () => {
         >
           <DrawerTitle className="sr-only">Comments</DrawerTitle>
           <div className="flex-1 min-h-0 flex flex-col">
-            <PostCommentsSection
-              postId={post.id}
-              postOwnerId={post.user_id}
-              onCommentCountChange={notifyCommentCountChange}
-            />
+            {thread}
           </div>
         </DrawerContent>
       </Drawer>
@@ -86,9 +111,9 @@ const CommentsOverlay = () => {
       >
         <DialogTitle className="sr-only">Comments</DialogTitle>
 
-        {/* Post context — the photograph the comments belong to, so the panel
-            never reads as a comment list floating with no idea what it is
-            attached to. Hidden below md: on a narrow viewport the modal is
+        {/* Subject context — the photograph the comments belong to, so the
+            panel never reads as a comment list floating with no idea what it
+            is attached to. Hidden below md: on a narrow viewport the modal is
             comments-only, matching the sheet, and there isn't room for both. */}
         {coverImage && (
           <div className="hidden md:flex items-center justify-center bg-black">
@@ -101,11 +126,7 @@ const CommentsOverlay = () => {
         )}
 
         <div className="flex flex-col min-h-0 h-full">
-          <PostCommentsSection
-            postId={post.id}
-            postOwnerId={post.user_id}
-            onCommentCountChange={notifyCommentCountChange}
-          />
+          {thread}
         </div>
       </DialogContent>
     </Dialog>
