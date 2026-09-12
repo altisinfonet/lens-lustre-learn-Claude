@@ -1,4 +1,41 @@
 -- ═══════════════════════════════════════════════════════════════════════════
+-- ⛔ WITHDRAWN 2026-09-12. DO NOT RUN THIS FILE. SUPERSEDED BY
+--    supabase/migrations/20260910_0024_f105de_referral_reward_production_close.sql
+--
+-- It was dispatched against production as run #69 and REFUSED ITSELF at its own
+-- P2 precondition gate:
+--
+--     live 2-arg body md5 7999749b88688973dc95680d68ae5e86 (1416 bytes),
+--     expected a82168c949cbc3eef0dad32e17961730 (1371 bytes) per main's
+--     20260228101821.
+--
+-- Nothing was applied; the transaction rolled back. **The gate worked**, and
+-- this file is retained because its refusal is the measurement that produced
+-- 0024 — not as something anyone should try again.
+--
+-- WHY IT IS WRONG. Its bodies come from main's 20260228101821 / 20260228102118,
+-- which do NOT describe production: they are stale. Run #70's source dump
+-- confirmed production runs the bootstrap-snapshot bodies, carrying BUG-049's
+-- FOR UPDATE lock and BUG-047's self-referral guard. Applying this file would
+-- STRIP BOTH from production inside a security migration. Its own P2 gate would
+-- refuse before that happened — but a file whose only protection is that it
+-- refuses itself does not belong in the runnable set.
+--
+-- ⚠ ITS ROLLBACK IS MORE DANGEROUS THAN THIS FILE, because a rollback carries no
+-- precondition gate. See
+-- supabase/rollback/UNAPPLIED_20260910_0023_..._ROLLBACK.sql.
+--
+-- The UNAPPLIED_ prefix is this repository's existing convention for SQL that is
+-- kept in the tree but must not be dispatched — the same marker
+-- UNAPPLIED_20260824000000_admin_user_list_pagination.sql and its siblings
+-- carry. Renaming it is not rewriting an applied migration's identity: this
+-- file NEVER APPLIED. Nothing in any run log becomes untrue, and run #69 is
+-- preserved in git history and in PR #232.
+--
+-- Original header follows, unchanged.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- ═══════════════════════════════════════════════════════════════════════════
 -- F-105d + F-105e — process_referral_reward STOPS TRUSTING THE CALLER'S CLAIM
 -- ABOUT WHO IT IS **AND** THE ADMIN APPROVE BUTTON STARTS RESOLVING, IN ONE
 -- TRANSACTION, SO THERE IS NO WINDOW BETWEEN THEM.

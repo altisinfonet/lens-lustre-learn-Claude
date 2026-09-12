@@ -1,3 +1,34 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- ⛔ WITHDRAWN 2026-09-12. DO NOT RUN THIS FILE, NOW OR EVER. IT IS THE MOST
+--    DANGEROUS FILE IN THIS DIRECTORY.
+--
+-- SUPERSEDED BY
+--   supabase/rollback/20260910_0024_f105de_referral_reward_production_close_ROLLBACK.sql
+--
+-- Its migration (UNAPPLIED_20260910_0023_…) never applied — run #69's
+-- precondition gate refused it. A rollback has NO SUCH GATE. Run by hand
+-- against production this file would, in one transaction and without objecting:
+--
+--   1. REPLACE both bodies with main's stale 20260228 versions, STRIPPING
+--      BUG-049 (the FOR UPDATE lock that stops a double-credit) and BUG-047
+--      (the guard that stops a self-referral being rewarded). Run #70 measured
+--      production carrying both.
+--
+--   2. GRANT EXECUTE TO PUBLIC AND anon on a VOLATILE SECURITY DEFINER function
+--      that calls wallet_transaction(). Run #70 measured production's ACL as
+--      `postgres | service_role | authenticated` — no PUBLIC, no anon. This
+--      file would not restore that state; it would open it.
+--
+-- Both faults come from the same root: it was written from main's migration
+-- source and from an assumption about Supabase's default ACL, and neither
+-- described production. Neither was measured at the time. Both have been since.
+--
+-- A rollback that leaves the system more open than it found it is not a
+-- rollback. Retained under the UNAPPLIED_ prefix for the audit trail only.
+--
+-- Original header follows, unchanged.
+-- ═══════════════════════════════════════════════════════════════════════════
+
 -- F-105d + F-105e ROLLBACK (production) — RESTORES BOTH DEFECTS. Read first.
 --
 -- This returns public.process_referral_reward to EXACTLY the state main's own
