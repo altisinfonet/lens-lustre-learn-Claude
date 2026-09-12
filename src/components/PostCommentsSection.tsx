@@ -31,17 +31,34 @@
  * comment changed in this move — that is all still usePostComments and
  * CommentThread, untouched by the layout around them.
  */
-import CommentThread from "@/components/comments/CommentThread";
+import { useMemo, useState } from "react";
+import CommentThread, { commentPlaceholderFor } from "@/components/comments/CommentThread";
 import CommentComposer from "@/components/comments/CommentComposer";
+import CommentSearchBar from "@/components/comments/CommentSearchBar";
+import { countComments, filterComments } from "@/lib/commentSearch";
 import { usePostComments } from "@/hooks/feed/usePostComments";
 
 interface Props {
   postId: string;
   postOwnerId: string;
+  /**
+   * The post owner's name-URL handle, for the composer's placeholder
+   * ("Add a comment for …"). Absent — the owner has no handle — falls back to
+   * the one shared COMMENT_PLACEHOLDER; see commentPlaceholderFor.
+   */
+  postOwnerHandle?: string | null;
+  /** The post's first line, shown at rest in the search row for orientation. */
+  subjectLabel?: string | null;
   onCommentCountChange?: (delta: number) => void;
 }
 
-const PostCommentsSection = ({ postId, postOwnerId, onCommentCountChange }: Props) => {
+const PostCommentsSection = ({
+  postId,
+  postOwnerId,
+  postOwnerHandle,
+  subjectLabel,
+  onCommentCountChange,
+}: Props) => {
   const {
     comments,
     loading,
@@ -60,8 +77,37 @@ const PostCommentsSection = ({ postId, postOwnerId, onCommentCountChange }: Prop
     reportComment,
   } = usePostComments(postId, postOwnerId, onCommentCountChange, true);
 
+  /**
+   * SEARCH IS A VIEW OVER THE LOADED THREAD — it re-reads nothing.
+   *
+   * The query lives here rather than inside CommentSearchBar because THIS is
+   * what hands the array to CommentThread; a box holding its own copy would be
+   * a second source for one string. The filter itself is a pure function in
+   * src/lib/commentSearch.ts so its rules (a matching reply keeps its parent as
+   * context; a matching parent keeps all of its replies) are testable without
+   * mounting a drawer — see src/lib/__tests__/commentSearch.test.ts.
+   */
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searching = searchQuery.trim().length > 0;
+  const visibleComments = useMemo(
+    () => filterComments(comments, searchQuery),
+    [comments, searchQuery],
+  );
+
   return (
     <div className="flex flex-col h-full min-h-0">
+      {/* BAND ONE — search. shrink-0, so it never eats the thread's height. */}
+      <div className="shrink-0 border-b border-border/60">
+        <CommentSearchBar
+          value={searchQuery}
+          onChange={setSearchQuery}
+          expanded={searchOpen}
+          onExpandedChange={setSearchOpen}
+          subjectLabel={subjectLabel}
+          resultCount={countComments(visibleComments)}
+        />
+      </div>
       {/* THE ONLY SCROLLING BAND. min-h-0 is load-bearing on a flex child —
           without it the thread refuses to shrink below its content and the
           composer below gets pushed off the bottom instead of staying pinned,
@@ -69,7 +115,7 @@ const PostCommentsSection = ({ postId, postOwnerId, onCommentCountChange }: Prop
           documents for this same flex pattern. */}
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
         <CommentThread
-          comments={comments}
+          comments={visibleComments}
           loading={loading}
           currentUserId={currentUserId}
           viewer={viewer}
@@ -79,7 +125,7 @@ const PostCommentsSection = ({ postId, postOwnerId, onCommentCountChange }: Prop
           editSubmitting={editSubmitting}
           maxLength={2200}
           hideComposer
-          emptyLabel="No comments yet. Be the first to comment."
+          emptyLabel={searching ? undefined : "No comments yet. Be the first to comment."}
           onAdd={(content, parentId) => addComment(content, parentId)}
           onEdit={editComment}
           onDelete={deleteComment}
@@ -103,6 +149,8 @@ const PostCommentsSection = ({ postId, postOwnerId, onCommentCountChange }: Prop
             viewer={viewer}
             submitting={submitting}
             maxLength={2200}
+            quickReactions
+            placeholder={commentPlaceholderFor(postOwnerHandle)}
             onSubmit={(content) => addComment(content, null)}
           />
         </div>
