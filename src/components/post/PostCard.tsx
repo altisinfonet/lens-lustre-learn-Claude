@@ -69,7 +69,7 @@ const PostCard = ({
 }: PostCardProps) => {
   const t = useT();
   const queryClient = useQueryClient();
-  const { openComments } = useCommentsOverlay();
+  const { openPostComments } = useCommentsOverlay();
   const [reportingOpen, setReportingOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
@@ -602,7 +602,7 @@ const PostCard = ({
         shareCount={post.share_count}
         reactionCounts={post.reaction_counts}
         reactionSource={{ kind: "post", postId: post.id }}
-        onCommentClick={() => openComments(post, onCommentCountChange)}
+        onCommentClick={() => openPostComments(post, onCommentCountChange)}
         commentLabel={t("post.comment")}
         shareLabel={t("post.share")}
         shareMenu={

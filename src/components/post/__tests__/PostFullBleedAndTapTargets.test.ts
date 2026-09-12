@@ -152,7 +152,7 @@ const MEDIA_ANCHOR = "── Media ──";
  * AnimatePresence around PostCommentsSection, toggled by local
  * `commentsExpanded` state, pushing every post below it down the feed. That
  * inline strip is what the Comments overlay replaced — the action row's
- * comment icon now calls `openComments(post, …)` (CommentsOverlayContext) and
+ * comment icon now calls `openPostComments(post, …)` (CommentsOverlayContext) and
  * PostCard renders nothing else for it. So "the caption is the last section"
  * is the correct shape now, not a gap in this test; see it asserted below and
  * in src/components/comments/__tests__/CommentsOverlay.test.tsx for the
@@ -403,7 +403,7 @@ describe("the card is laid out in Instagram's order", () => {
     expect(postCard, "the old inline toggle is back").not.toContain("commentsExpanded");
     expect(postCard, "a hand-rendered comments section is back inside the card")
       .not.toMatch(/<PostCommentsSection\b/);
-    expect(postCard, "the action row must still trigger the overlay").toContain("openComments(post");
+    expect(postCard, "the action row must still trigger the overlay").toContain("openPostComments(post");
   });
 
   it("shows each count beside its own icon instead of on a separate row", () => {

@@ -38,6 +38,18 @@ vi.mock("@/hooks/feed/usePostComments", () => ({
   }),
 }));
 
+/**
+ * The ad thread's own boundary — same choice as usePostComments above. This
+ * suite is about the overlay's OWN job (which chrome, which thread it hands
+ * the chrome to), not AdComments' data plumbing — that is
+ * StoryCardComments.test.tsx's surface.
+ */
+vi.mock("@/components/ads/AdComments", () => ({
+  default: ({ creativeId }: { creativeId: string }) => (
+    <div data-testid="ad-comments-stub">ad thread for {creativeId}</div>
+  ),
+}));
+
 const MOCK_POST = {
   id: "post-1",
   user_id: "author-1",
@@ -59,8 +71,17 @@ const MOCK_POST = {
 
 /** Exercises the context the way PostCard actually does — via the hook, not by reaching into it. */
 const OpenButton = () => {
-  const { openComments } = useCommentsOverlay();
-  return <button onClick={() => openComments(MOCK_POST)}>open comments</button>;
+  const { openPostComments } = useCommentsOverlay();
+  return <button onClick={() => openPostComments(MOCK_POST)}>open comments</button>;
+};
+
+const AD_CREATIVE_ID = "ad-creative-1";
+const AD_IMAGE_URL = "https://example.com/ad.jpg";
+
+/** Exercises the context the way AdEngagementBar actually does. */
+const OpenAdButton = () => {
+  const { openAdComments } = useCommentsOverlay();
+  return <button onClick={() => openAdComments(AD_CREATIVE_ID, AD_IMAGE_URL)}>open ad comments</button>;
 };
 
 const setViewportWidth = (width: number) => {
@@ -73,6 +94,7 @@ const draw = () =>
     <MemoryRouter initialEntries={["/feed"]}>
       <CommentsOverlayProvider>
         <OpenButton />
+        <OpenAdButton />
         <CommentsOverlay />
       </CommentsOverlayProvider>
     </MemoryRouter>,
@@ -122,8 +144,55 @@ describe("on a mobile viewport", () => {
   });
 });
 
+/**
+ * "In the Ads section same type of commenting not happening exactly like
+ * posts" (owner, 2026-09-12) — the sponsored story card still expanded its
+ * thread inline while a post's opened in this overlay. These three tests are
+ * the ad-side mirror of the post ones above: same modal, same close-clears-
+ * state guarantee, same sheet on mobile — proving it is the ONE overlay, not
+ * a second implementation for ads.
+ */
+describe("the same overlay opens an ad's thread", () => {
+  it("on desktop, as a Dialog with the ad's own picture beside it", () => {
+    draw();
+    fireEvent.click(screen.getByText("open ad comments"));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByAltText("")).toHaveAttribute("src", AD_IMAGE_URL);
+    expect(within(dialog).getByTestId("ad-comments-stub")).toHaveTextContent(AD_CREATIVE_ID);
+  });
+
+  it("on mobile, as a sheet with no photo of its own", () => {
+    setViewportWidth(375);
+    draw();
+    fireEvent.click(screen.getByText("open ad comments"));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).queryByRole("img")).toBeNull();
+    expect(within(dialog).getByTestId("ad-comments-stub")).toBeInTheDocument();
+  });
+
+  it("closing clears the state a reopen would otherwise depend on staying wrong", () => {
+    draw();
+    fireEvent.click(screen.getByText("open ad comments"));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape", code: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("never opens a post's thread and an ad's thread as the same subject", () => {
+    // Opening the ad after the post replaces the subject rather than merging
+    // it — there is one panel open at a time, whichever was tapped last.
+    draw();
+    fireEvent.click(screen.getByText("open comments"));
+    expect(screen.getByRole("dialog")).toHaveTextContent(/no comments yet/i);
+    fireEvent.click(screen.getByText("open ad comments"));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByTestId("ad-comments-stub")).toBeInTheDocument();
+    expect(dialog).not.toHaveTextContent(/no comments yet/i);
+  });
+});
+
 describe("the overlay draws no comment renderer or composer of its own", () => {
-  it("only ever renders through PostCommentsSection / CommentThread / CommentComposer", async () => {
+  it("only ever renders through PostCommentsSection / AdComments / CommentThread / CommentComposer", async () => {
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
     const src = readFileSync(join(process.cwd(), "src/components/comments/CommentsOverlay.tsx"), "utf8");
@@ -131,5 +200,8 @@ describe("the overlay draws no comment renderer or composer of its own", () => {
       .not.toMatch(/const render(Comment|Row)\s*=/);
     expect(src, "a second composer is exactly the drift CommentComposer was extracted to prevent")
       .not.toMatch(/<(MentionInput|Textarea|input|textarea)\b/);
+    // The ad path hands off to AdComments the same way the post path hands
+    // off to PostCommentsSection — not a hand-rolled ad thread drawn here.
+    expect(src).toMatch(/<AdComments\b/);
   });
 });

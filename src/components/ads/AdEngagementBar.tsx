@@ -21,6 +21,21 @@
  * writes, and the one place the two surfaces genuinely differ.
  *
  * ─────────────────────────────────────────────────────────────────────────────
+ * THE STORY-CARD TAP OPENS THE SAME OVERLAY A POST'S DOES (2026-09-12)
+ *
+ * Owner: "In the Ads section same type of commenting not happening exactly
+ * like posts." He was right — "like a normal post" covered the row and the
+ * thread (both above), but not WHERE the thread appears. It still expanded
+ * inline under the card, pushing every post below it down the feed — the
+ * exact pattern src/contexts/CommentsOverlayContext.tsx replaced for posts on
+ * 2026-09-09, left standing here only because nobody had come back to it.
+ *
+ * `commentsAlwaysOpen` (below) is untouched: the /ad/<id> page's thread IS the
+ * page, same as PostDetail's, and neither belongs in an overlay over itself.
+ * Only the feed-card tap now calls `openAdComments`, so it opens the SAME
+ * Dialog/Drawer a post's comment icon does, not a second ad-shaped one.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
  * THE ONE PLACE THEY DIFFER: "SHARE TO YOUR WALL"
  *
  * On a post that republishes the post under the sharer's name; doing it with an
@@ -42,6 +57,7 @@ import { Copy } from "lucide-react";
 import { toast } from "@/hooks/core/use-toast";
 import { useAuth } from "@/hooks/core/useAuth";
 import { publicUrl } from "@/lib/publicUrl";
+import { useCommentsOverlay } from "@/contexts/CommentsOverlayContext";
 import type { ReactionType } from "@/components/ReactionPicker";
 import PostActionRow from "@/components/post/PostActionRow";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -58,18 +74,22 @@ import AdComments from "@/components/ads/AdComments";
 
 interface Props {
   creativeId: string;
+  /** The creative's own picture — shown beside the thread in the overlay, same as a post's photo. Unused when `commentsAlwaysOpen`. */
+  imageUrl?: string | null;
   /**
-   * The feed card toggles its thread open underneath itself. The /ad/<id> page
-   * has nothing to toggle — the thread is the page — so it passes
-   * `commentsAlwaysOpen` and the comment button scrolls rather than collapses.
+   * The feed card opens its thread in the SAME comments overlay a post's
+   * comment icon opens (CommentsOverlayContext) — never a second, ad-shaped
+   * modal. The /ad/<id> page has nothing to open — the thread is the page —
+   * so it passes `commentsAlwaysOpen` and renders the thread inline instead.
    */
   commentsAlwaysOpen?: boolean;
 }
 
-const AdEngagementBar = ({ creativeId, commentsAlwaysOpen = false }: Props) => {
+const AdEngagementBar = ({ creativeId, imageUrl = null, commentsAlwaysOpen = false }: Props) => {
   const { user } = useAuth();
+  const { openAdComments } = useCommentsOverlay();
   const [eng, setEng] = useState<AdEngagement>(() => emptyEngagement(creativeId));
-  const [open, setOpen] = useState(commentsAlwaysOpen);
+  const [inlineOpen, setInlineOpen] = useState(commentsAlwaysOpen);
   const [busy, setBusy] = useState(false);
 
   const reload = useCallback(async () => {
@@ -138,7 +158,18 @@ const AdEngagementBar = ({ creativeId, commentsAlwaysOpen = false }: Props) => {
   // of expanding. No caller ever passed it, and an unused branch in a component
   // this small is just a lie about how it behaves. The card expands; the page
   // opens the thread already.
-  const onCommentClick = () => setOpen((v) => !v);
+  //
+  // 2026-09-12: "expands" now means the shared overlay, not an inline strip —
+  // see the file banner above. commentsAlwaysOpen (the /ad/<id> page) still
+  // toggles the thread it already renders inline; that page has no overlay to
+  // open in the first place.
+  const onCommentClick = () => {
+    if (commentsAlwaysOpen) {
+      setInlineOpen((v) => !v);
+      return;
+    }
+    openAdComments(creativeId, imageUrl, reload);
+  };
 
   return (
     <>
@@ -162,7 +193,9 @@ const AdEngagementBar = ({ creativeId, commentsAlwaysOpen = false }: Props) => {
         }
       />
 
-      {open && (
+      {/* Only the /ad/<id> page reaches this — the feed card's thread now
+          lives in the shared overlay, opened by onCommentClick above. */}
+      {commentsAlwaysOpen && inlineOpen && (
         <AdComments
           creativeId={creativeId}
           onCountChange={reload}
