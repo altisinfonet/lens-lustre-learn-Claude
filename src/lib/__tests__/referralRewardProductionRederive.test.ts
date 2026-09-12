@@ -195,12 +195,31 @@ describe("the precondition gate pins the MEASURED state, not main's", () => {
     expect(sql).not.toMatch(/12b13af9a3bfce42f6294d12d3e7d9cf/);
   });
 
-  it("separates the measured 2-arg check from the inferred 3-arg check", () => {
-    // They are not equally trustworthy and the file must not present them as if
-    // they were: P2a was measured by run #69, P2b never has been.
+  it("keeps the two body checks separate, and both are now measured", () => {
+    // P2a was measured by run #69's refusal, P2b by run #70's source dump.
+    // When P2b was still an inference the file said so; now that it is a
+    // reading, the file must not still claim it is unmeasured.
     expect(sql).toMatch(/P2a FAILED/);
     expect(sql).toMatch(/P2b FAILED/);
-    expect(MIGRATION).toMatch(/THIS EXPECTATION WAS INFERRED, NOT MEASURED/);
+    expect(MIGRATION).toMatch(/MEASURED on production by run #70/);
+    expect(MIGRATION).not.toMatch(/THIS EXPECTATION WAS INFERRED, NOT MEASURED/);
+  });
+
+  it("records the pre-ACL as a NOTICE, never as a refusal", () => {
+    // Correcting the ACL is part of this file's job, so refusing because the
+    // ACL is wrong would refuse exactly the case it exists to fix. Recording it
+    // puts the before-state in the same log as the after-state — which is what
+    // a rollback author needs, and what this unit got wrong once already.
+    expect(sql).toMatch(/RAISE NOTICE 'P4 · pre-ACL 2-arg = %'/);
+    expect(sql).toMatch(/RAISE NOTICE 'P4 · pre-ACL 3-arg = %'/);
+    expect(sql).not.toMatch(/P4 FAILED/);
+  });
+
+  it("still flags the one thing production has NOT told us", () => {
+    // The PGRST203 behaviour. Better supported now that both overloads and the
+    // DEFAULT are confirmed, but no production HTTP request has been issued.
+    expect(MIGRATION).toMatch(/STILL NOT MEASURED/);
+    expect(MIGRATION).toMatch(/no production HTTP request has ever been issued/);
   });
 
   it("runs before any DDL, and asserts the end state before COMMIT", () => {
@@ -270,8 +289,33 @@ describe("the rollback restores the state production actually has", () => {
     expect(ROLLBACK).not.toMatch(/IS DISTINCT FROM _caller/);
   });
 
+  it("restores the ACL run #70 MEASURED — never grants PUBLIC or anon", () => {
+    // ⚠ THIS IS THE ASSERTION THAT WOULD HAVE CAUGHT THE DEFECT. The first
+    // version of this rollback granted `TO PUBLIC, anon, authenticated,
+    // service_role`, on the assumption that production sat on Supabase's
+    // default ACL for a function in schema public. Run #70 measured it and it
+    // does not:
+    //
+    //     postgres=X/postgres | service_role=X/postgres | authenticated=X/postgres
+    //
+    // No PUBLIC, no anon. So that grant would not have restored the pre-state —
+    // it would have ADDED anon EXECUTE to a VOLATILE SECURITY DEFINER function
+    // that calls wallet_transaction(), on a database that had already closed
+    // it. A rollback that leaves the system more open than it found it is an
+    // incident with a reassuring filename.
+    expect(ROLLBACK).not.toMatch(/GRANT EXECUTE[^;]*TO PUBLIC/);
+    expect(ROLLBACK).not.toMatch(/GRANT EXECUTE[^;]*\banon\b/);
+    expect(ROLLBACK.match(/GRANT EXECUTE ON FUNCTION[^;]*TO authenticated, service_role;/g)).toHaveLength(2);
+    // and it declares the whole ACL rather than inheriting what the recreate landed
+    expect(ROLLBACK.match(/REVOKE ALL[^;]*FROM PUBLIC, anon, authenticated, service_role;/g)).toHaveLength(2);
+  });
+
   it("warns that 0023's rollback would strip BUG-047/049", () => {
     expect(ROLLBACK).toMatch(/0023 and its rollback are superseded/);
+  });
+
+  it("records that the ACL was corrected after measurement, not quietly changed", () => {
+    expect(ROLLBACK).toMatch(/CORRECTED 2026-09-12 AFTER RUN #70 MEASURED IT/);
   });
 });
 
