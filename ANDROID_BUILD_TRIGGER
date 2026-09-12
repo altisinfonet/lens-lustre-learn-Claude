@@ -1,3 +1,83 @@
+Build 1.2.20 - 2026-09-12 - THE COMMENT SECTION REDESIGN, CHERRY-PICKED ONTO MAIN
+
+  typecheck 0 (both projects) · comment suites 75 passed · UI gate 200
+  screenshots / 0 problems, baseline clean against 148 keys
+  full-suite delta vs main: 12 failed / 188 passed / 1 skipped (main) against
+  12 failed / 190 passed / 1 skipped (the branch) — the same 12, the +2 being
+  this unit's own new tests. Zero new failures.
+
+VERSION IS 1.2.20. 1.2.19 is spent: run 121 SUCCEEDED on 493d4d49, which
+carries the 1.2.19 bump landed in ecdad73 on 2026-09-04. Verified from the run
+list and `git merge-base --is-ancestor` before this entry was written, not
+assumed from the date — F-70 records that this string is the one part of the
+build nobody checks.
+
+WHY THIS BUILD EXISTS
+
+The comment section on a post was redrawn to the structure in the owner's two
+reference screenshots. It merged to staging (#236) and was then brought to main
+as a NARROW CHERRY-PICK (#241, a168d886) rather than a promotion.
+
+The cherry-pick is the whole point. main was 78 commits behind staging, last
+promoted around 2026-09-04, and a full staging -> main merge would have carried
+three weeks of unrelated work that nobody had reviewed — decided solo, at
+night, to fire one build. So three commits were taken and nothing else:
+
+  706f34b -> 900b55a   the sheet, search, flat rows, quick emoji
+  51d2804 -> f4b069e   44px heart, the placeholder that fits 360px
+  7e6d75b -> 8c6000d   row controls meet the tap floor, and the instrument
+
+Each carries its `cherry picked from` line. The staging merge commit and #239's
+baseline squash were deliberately excluded — main already had that correction
+via #240. main is STILL 78 commits behind staging; this build does not change
+that, and the promotion is still owed.
+
+A cherry-pick across 78 commits can apply cleanly and still not work, so the
+question actually checked was whether the redesign depended on anything that
+exists only on staging. It does not: typecheck passed on main's codebase, and
+so did the production lane build, which is the check that would catch something
+surviving compile and failing at build.
+
+WHAT THIS BUILD CARRIES
+
+The app BUNDLES its web assets (capacitor.config.ts: webDir 'dist', no
+server.url), so a web deploy alone reaches app members NEVER. That is why this
+build exists rather than a deploy.
+
+  - The comments surface is a bottom sheet at 78vh over the post, with the
+    post still visible behind it. It was h-screen, which made it
+    indistinguishable from a navigation: the photograph the comments are ABOUT
+    disappeared on tap. The "Comments" title was sr-only and is now visible.
+  - Search within the loaded thread. A matching parent keeps its replies; a
+    non-matching parent is kept as context for the replies that did match.
+  - Flat rows: name, badge and age on one line, text beneath, and the like
+    moved out to a heart rail in the right margin with its count under it.
+    That replaced a chat bubble whose corner badge overlapped the last line of
+    text.
+  - Replies stay indented under the comment they answer, with the reply box
+    inline.
+  - An eight-emoji quick row above the composer. A tap APPENDS to the draft and
+    does not post: an instant post has no undo on a surface where the thumb is
+    already moving, and appending keeps every comment on the one send path the
+    keyword blocklist and the AI moderation call already guard.
+  - The composer names the post's owner ("Add a comment for villagesqu…"),
+    truncated to fit one line at 360px — measured in the harness after a
+    capture showed it wrapping and being clipped.
+
+DELIBERATELY ABSENT, AND NOT A REGRESSION
+
+Image attach and GIF. post_comments has no media column and no comment-media
+table, so neither control could store anything; supabase/** is D1's lane. They
+were left out rather than shipped as dead buttons or smuggled through the
+content column. The schema request is #238 — post_comment_media
+(comment_id, ord, media_id), mirroring the existing post_media join so comment
+attachments reuse the media_objects engine instead of adding a second media
+path. The client half follows once that column exists.
+
+No native change. versionCode 1000 + run number, versionName 1.2.20.
+
+==============================================================================
+
 Build 1.2.16 - 2026-08-20 - THE APP WAS THE LAST OPEN WRITE PATH, AND IT WAS GROWING THE DELTA
 
   typecheck 0 · 2,261 tests pass · production build 0

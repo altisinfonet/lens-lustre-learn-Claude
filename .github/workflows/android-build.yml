@@ -756,8 +756,19 @@ jobs:
           # SUCCESSFUL run already shipped, the same way it refuses a bundle with
           # native code and no symbols. Not fixed in this unit, because a new
           # blocking gate must be shown failing on unfixed input first (C-34).
-          sed -i 's/versionName "1.0"/versionName "1.2.19"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.19 (1.2.18 is spent - build 1117 succeeded carrying it)"
+          # 2026-09-12: bumped 1.2.19 -> 1.2.20. Run 121 SUCCEEDED on 493d4d49,
+          # which carries the 1.2.19 bump (it landed in ecdad73 on 2026-09-04),
+          # so 1.2.19 reached the store and the name is spent. Checked before
+          # firing rather than after: the run list was read, the bump commit was
+          # found with `git log -S`, and `git merge-base --is-ancestor` confirmed
+          # run 121's sha carries it — F-70 says this string is the one part of
+          # the build nobody checks, so it was checked by hand again. 1.2.20
+          # carries the comment section redesign (PR #241, a168d886).
+          # The guard F-70 asks for is still NOT built. It is a separate unit,
+          # and it must be shown failing on unfixed input first (C-34); writing
+          # it in the same commit as a bump it would have caught proves nothing.
+          sed -i 's/versionName "1.0"/versionName "1.2.20"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.20 (1.2.19 is spent - build 1121 succeeded carrying it)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
