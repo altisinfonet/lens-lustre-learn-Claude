@@ -200,7 +200,7 @@ const LessonView = () => {
       <div className="flex flex-1 overflow-hidden">
         {/* Left Panel — Content */}
         <div className="flex-1 overflow-y-auto">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+          <motion.div initial={{ opacity: 1, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
             {/* Mobile curriculum toggle */}
             <div className="lg:hidden px-4 pt-4">
               <Sheet>

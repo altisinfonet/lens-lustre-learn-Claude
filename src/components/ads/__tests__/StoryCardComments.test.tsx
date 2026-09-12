@@ -134,6 +134,8 @@ vi.mock("@/components/UserIdentityBlock", () => ({
 }));
 
 import AdEngagementBar from "@/components/ads/AdEngagementBar";
+import CommentsOverlay from "@/components/comments/CommentsOverlay";
+import { CommentsOverlayProvider } from "@/contexts/CommentsOverlayContext";
 
 const oneComment = [
   {
@@ -147,7 +149,14 @@ const oneComment = [
   },
 ];
 
-/** The story card's engagement, with its thread opened the way a member opens it. */
+/**
+ * The story card's engagement, with its thread opened the way a member opens
+ * it. 2026-09-12: that thread is the SAME comments overlay a post's comment
+ * icon opens (see AdEngagementBar's file banner), not an inline strip under
+ * the card any more — so this now mounts CommentsOverlayProvider/CommentsOverlay
+ * alongside the bar, exactly as PostCard's own tests do for the post side, and
+ * waits for the dialog/sheet the click actually opens.
+ */
 const openStoryCardThread = async () => {
   render(
     // F-95 — ProfileLink's hover prefetch reads the QueryClient, and the
@@ -155,11 +164,15 @@ const openStoryCardThread = async () => {
     // gives the component the environment it actually runs in.
     <QueryClientProvider client={new QueryClient()}>
     <MemoryRouter>
-      <AdEngagementBar creativeId={CREATIVE_ID} />
+      <CommentsOverlayProvider>
+        <AdEngagementBar creativeId={CREATIVE_ID} />
+        <CommentsOverlay />
+      </CommentsOverlayProvider>
     </MemoryRouter>
     </QueryClientProvider>,
   );
   fireEvent.click(await screen.findByRole("button", { name: "Comment" }));
+  await screen.findByRole("dialog");
 };
 
 beforeEach(() => {
@@ -207,5 +220,31 @@ describe("an empty thread says so, rather than saying nothing", () => {
     await openStoryCardThread();
     expect(await screen.findByText("No comments yet.")).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("renderRow");
+  });
+});
+
+/**
+ * "In the Ads section same type of commenting not happening exactly like
+ * posts" (owner, 2026-09-12). The anti-drift check for THAT fix, same shape
+ * as PostFullBleedAndTapTargets.test.ts's "opens comments through the
+ * overlay, not as a fourth in-card section": the story card must not go back
+ * to expanding its own thread inline underneath itself.
+ */
+describe("the story card's thread lives in the shared overlay, not inline again", () => {
+  it("opens the SAME dialog CommentsOverlay renders, not a second one of its own", async () => {
+    await openStoryCardThread();
+    // If the card were still expanding inline, the click above would have
+    // produced the thread with no role="dialog" anywhere in the tree.
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  });
+
+  it("AdEngagementBar calls openAdComments for the card, not a local toggle", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const src = readFileSync(join(process.cwd(), "src/components/ads/AdEngagementBar.tsx"), "utf8");
+    expect(src, "the card must open the shared overlay").toContain("openAdComments(creativeId");
+    expect(src, "the old inline-only render is back unconditioned").not.toMatch(
+      /\{open && <AdComments/,
+    );
   });
 });

@@ -571,41 +571,28 @@ export const dashboardInit = {
      * a name that was not there. An empty fixture is not a conservative
      * fixture — it is a surface the instruments cannot see.
      *
-     * ⚠ 2026-09-07 — THE HANDLE IS BACK OFF `suggestions` AND `milestones`, AND
-     * THE COMMENT THAT PUT IT THERE WAS ASSERTING SOMETHING THIS TREE DOES NOT
-     * CONTAIN.
+     * F-98c — THEY NOW CARRY custom_url, AND THAT IS NOT THE FIXTURE GOING
+     * SOFT. It previously omitted the handle on purpose, to mirror
+     * dashboard-init/index.ts, which built each person as
+     * { id, full_name, avatar_url, mutual_count } and dropped it. The auditor
+     * traced the dead names to that omission on 2026-09-05 and the server was
+     * fixed at the source: the Q11 select now asks for custom_url and both
+     * literals carry it. A fixture's only job is to be the shape production
+     * sends, so it changed with production. Keeping the old shape would now be
+     * the fixture LYING in the other direction — testing a payload the server
+     * no longer emits, which is how the harness came to model a sidebar nobody
+     * ships.
      *
-     * It said: "the server was fixed at the source: the Q11 select now asks for
-     * custom_url and both literals carry it." Checked against the file it names,
-     * in this tree, on this branch:
-     *
-     *   Q11 (index.ts:187)   .select("id, full_name, avatar_url, created_at,
-     *                                 date_of_birth")        — no custom_url
-     *   suggestions literal  { id, full_name, avatar_url, mutual_count }
-     *                        (index.ts:452)                  — no custom_url
-     *   grep custom_url      TWO hits in the whole file, both in the `profiles`
-     *                        map for the viewer and the winners (483, 503)
-     *
-     * That change exists on staging. It is NOT on the promotion branch, and this
-     * fixture had been changed to the shape of a server that is not the one this
-     * branch ships — which is precisely the direction the note itself warned
-     * about, taken by the note itself. Live proof: the Auditor found ZERO anchor
-     * tags in People You May Know on both 75f14f80 and 0e30d46e, while this
-     * harness reported seven links in the same widget.
-     *
-     * A fixture's only job is to be the shape production sends. So these two
-     * carry no handle, and the client is expected to cope — see the bridge in
-     * FeedRightSidebar. `birthdays` KEEPS its handle, and that is not
-     * inconsistency: get_todays_birthdays really does return custom_url in this
-     * tree (migration 20260910_0020_f98c_birthdays_carry_handle_and_close.sql).
-     * The two lists differ because the two sources differ.
+     * The handle is deliberately present on EVERY person here. A member with no
+     * handle is a real state, but it belongs in a unit test where the assertion
+     * can name it; in a rendered scene it is indistinguishable from the
+     * regression this fixture exists to catch.
      */
     milestones: profiles.slice(0, 2).map((p) => ({
       id: p.id,
       full_name: p.full_name,
       avatar_url: p.avatar_url,
-      // No custom_url — dashboard-init builds milestones from Q11, which does
-      // not select it. See the note above.
+      custom_url: p.custom_url,
     })),
     birthdays: profiles.slice(1, 3).map((p) => ({
       id: p.id,
@@ -617,8 +604,7 @@ export const dashboardInit = {
       id: p.id,
       full_name: p.full_name,
       avatar_url: p.avatar_url,
-      // No custom_url — this is dashboard-init/index.ts:452 verbatim on this
-      // branch: { id, full_name, avatar_url, mutual_count }. See the note above.
+      custom_url: p.custom_url,
       mutual_count: 0,
     })),
   },

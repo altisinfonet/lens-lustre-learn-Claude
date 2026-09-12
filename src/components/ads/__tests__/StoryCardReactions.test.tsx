@@ -120,6 +120,7 @@ vi.mock("@/components/UserIdentityBlock", () => ({
 }));
 
 import AdEngagementBar from "@/components/ads/AdEngagementBar";
+import { CommentsOverlayProvider } from "@/contexts/CommentsOverlayContext";
 
 const drawStoryCard = async () => {
   render(
@@ -128,7 +129,13 @@ const drawStoryCard = async () => {
     // gives the component the environment it actually runs in.
     <QueryClientProvider client={new QueryClient()}>
     <MemoryRouter>
-      <AdEngagementBar creativeId={CREATIVE_ID} />
+      {/* AdEngagementBar reads useCommentsOverlay() unconditionally (its
+          Comment tap opens the shared overlay) — this suite is about
+          reactions and never taps Comment, so the provider is here only to
+          satisfy the hook, with no <CommentsOverlay /> mounted alongside. */}
+      <CommentsOverlayProvider>
+        <AdEngagementBar creativeId={CREATIVE_ID} />
+      </CommentsOverlayProvider>
     </MemoryRouter>
     </QueryClientProvider>,
   );

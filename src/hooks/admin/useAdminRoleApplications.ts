@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { queryKeys } from "@/lib/queryKeys";
-import { cachedFetchProfilesByIds } from "@/lib/profileBatch";
+import { cachedFetchProfilesDetailByIds } from "@/lib/profileBatch";
 
 export interface AdminRoleApp {
   id: string;
@@ -13,7 +13,7 @@ export interface AdminRoleApp {
   experience: string | null;
   admin_message: string | null;
   created_at: string;
-  profiles: { full_name: string | null } | null;
+  profiles: { full_name: string | null; custom_url?: string | null } | null;
 }
 
 const fetchAdminRoleApplications = async (): Promise<AdminRoleApp[]> => {
@@ -25,12 +25,18 @@ const fetchAdminRoleApplications = async (): Promise<AdminRoleApp[]> => {
   if (!data || data.length === 0) return [];
 
   const userIds = [...new Set(data.map((a) => a.user_id))];
-  const profileMap = await cachedFetchProfilesByIds(userIds);
+  // F-95 — the detail fetcher carries custom_url, so the applicant's name can
+  // link to /<handle> without a second lookup.
+  const profileMap = await cachedFetchProfilesDetailByIds(userIds);
 
   return data.map((a) => ({
     ...a,
     profiles: profileMap.get(a.user_id)
-      ? { id: a.user_id, full_name: profileMap.get(a.user_id)! }
+      ? {
+          id: a.user_id,
+          full_name: profileMap.get(a.user_id)!.full_name,
+          custom_url: profileMap.get(a.user_id)!.custom_url,
+        }
       : null,
   }));
 };

@@ -144,8 +144,21 @@ describe("a post reaches both edges of the phone", () => {
    ───────────────────────────────────────────────────────────────────────── */
 const ACTION_ANCHOR = "── ACTION ROW — ICONS WITH THEIR COUNTS BESIDE THEM ──";
 const CAPTION_ANCHOR = "── Caption, UNDER the actions";
-const COMMENTS_ANCHOR = "── Comments ──";
 const MEDIA_ANCHOR = "── Media ──";
+/**
+ * ⚠ THE FOURTH SECTION IS GONE FROM THIS FILE, ON PURPOSE (2026-09-09).
+ *
+ * "── Comments ──" used to be the last thing PostCard rendered: an
+ * AnimatePresence around PostCommentsSection, toggled by local
+ * `commentsExpanded` state, pushing every post below it down the feed. That
+ * inline strip is what the Comments overlay replaced — the action row's
+ * comment icon now calls `openPostComments(post, …)` (CommentsOverlayContext) and
+ * PostCard renders nothing else for it. So "the caption is the last section"
+ * is the correct shape now, not a gap in this test; see it asserted below and
+ * in src/components/comments/__tests__/CommentsOverlay.test.tsx for the
+ * overlay itself (which chrome it picks per breakpoint, that closing clears
+ * its state).
+ */
 
 /**
  * ⚠ THE ROW ITSELF NOW LIVES IN ITS OWN FILE, AND SO DO THESE ASSERTIONS.
@@ -372,17 +385,25 @@ describe("the count triggers are controls, not clickable divs", () => {
 });
 
 describe("the card is laid out in Instagram's order", () => {
-  it("puts the photo first, then the icons, then the caption, then the comments", () => {
+  it("puts the photo first, then the icons, then the caption", () => {
     const media = postCard.indexOf(MEDIA_ANCHOR);
     const actions = postCard.indexOf(ACTION_ANCHOR);
     const caption = postCard.indexOf(CAPTION_ANCHOR);
-    const comments = postCard.indexOf(COMMENTS_ANCHOR);
-    for (const [name, at] of [["media", media], ["actions", actions], ["caption", caption], ["comments", comments]] as const) {
+    for (const [name, at] of [["media", media], ["actions", actions], ["caption", caption]] as const) {
       expect(at, `the ${name} section is missing`).toBeGreaterThan(-1);
     }
     expect(actions, "the icon row must come after the photo").toBeGreaterThan(media);
     expect(caption, "the caption must come after the icon row").toBeGreaterThan(actions);
-    expect(comments, "the comments must come last").toBeGreaterThan(caption);
+  });
+
+  it("opens comments through the overlay, not as a fourth in-card section", () => {
+    // The inline strip this replaced would show up here as a `commentsExpanded`
+    // state or a directly-rendered <PostCommentsSection>. Neither may come back
+    // without also bringing back the height-push it caused.
+    expect(postCard, "the old inline toggle is back").not.toContain("commentsExpanded");
+    expect(postCard, "a hand-rendered comments section is back inside the card")
+      .not.toMatch(/<PostCommentsSection\b/);
+    expect(postCard, "the action row must still trigger the overlay").toContain("openPostComments(post");
   });
 
   it("shows each count beside its own icon instead of on a separate row", () => {
@@ -413,7 +434,7 @@ describe("the card is laid out in Instagram's order", () => {
     // made the text jump the height of the picture. Owner had it corrected on
     // 2026-08-10. They are now the two halves of one ternary, so the editor
     // cannot be left behind if the caption ever moves again.
-    const captionBlock = postCard.slice(postCard.indexOf(CAPTION_ANCHOR), postCard.indexOf(COMMENTS_ANCHOR));
+    const captionBlock = postCard.slice(postCard.indexOf(CAPTION_ANCHOR)); // caption is the last section now — see the note by MEDIA_ANCHOR above
     expect(captionBlock, "the editor is not in the caption's slot").toContain("{isEditing ? (");
     expect(captionBlock).toContain("<Textarea");
     expect(captionBlock).toContain("handleSaveCaption");
@@ -428,7 +449,7 @@ describe("the card is laid out in Instagram's order", () => {
     // Instagram's "<name> caption". Passed as Caption's `prefix` so it sits
     // INSIDE the clamped paragraph — above it, the name would survive on its
     // own line while the sentence it introduces was collapsed.
-    const captionBlock = postCard.slice(postCard.indexOf(CAPTION_ANCHOR), postCard.indexOf(COMMENTS_ANCHOR));
+    const captionBlock = postCard.slice(postCard.indexOf(CAPTION_ANCHOR)); // caption is the last section now — see the note by MEDIA_ANCHOR above
     expect(captionBlock).toContain("prefix={");
     expect(captionBlock).toContain("post.author_name");
     const caption = read("src/components/post/Caption.tsx");

@@ -230,7 +230,7 @@ const CompetitionDetail = () => {
       {/* Judging in Progress banner — visible to all users during judging phase */}
       {competition.phase === "judging" && (
         <motion.div
-          initial={{ opacity: 0, y: -8 }}
+          initial={{ opacity: 1, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           className="container mx-auto mt-4 md:mt-6"
@@ -298,7 +298,7 @@ const CompetitionDetail = () => {
               </div>
 
               {photoItems.length === 0 ? (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-center py-20 border border-dashed border-border rounded-xl">
+                <motion.div initial={{ opacity: 1, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-center py-20 border border-dashed border-border rounded-xl">
                   <Camera className="h-10 w-10 text-muted-foreground/15 mx-auto mb-4" />
                   <p className="text-sm font-medium text-muted-foreground mb-1" style={{ fontFamily: "var(--font-heading)" }}>
                     {t("cdet.noSubmissions")}

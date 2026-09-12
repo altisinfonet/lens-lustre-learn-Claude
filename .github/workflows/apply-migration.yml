@@ -88,7 +88,7 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: "Which database. staging = ztzutckwdhetphwghuzj, production = jtdtehuqtinjxropkkcn."
+        description: "Which database. staging = fpszggreishhuvdpkmdr, production = jtdtehuqtinjxropkkcn."
         required: true
         type: choice
         options:
@@ -202,7 +202,7 @@ jobs:
           REF=$(printf '%s' "$DB_URL" | sed -E 's|^postgres(ql)?://([^:]+):.*|\2|' | cut -d. -f2)
           case "$TARGET_LANE" in
             production) EXPECT=jtdtehuqtinjxropkkcn ;;
-            staging)    EXPECT=ztzutckwdhetphwghuzj ;;
+            staging)    EXPECT=fpszggreishhuvdpkmdr ;;
             *) echo "::error::Unknown target '$TARGET_LANE'."; exit 1 ;;
           esac
           # A DIRECT (non-pooler) URI has username `postgres` with no `.<ref>`,

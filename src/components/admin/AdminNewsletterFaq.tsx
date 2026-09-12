@@ -86,7 +86,7 @@ const NewsletterSection = () => {
     if (userIds.length > 0) {
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, full_name")
+        .select("id, full_name, custom_url")
         .in("id", userIds.slice(0, 500));
       const nameMap = new Map((profiles || []).map((p: any) => [p.id, p.full_name]));
       subs.forEach(s => { if (s.user_id) s.user_name = nameMap.get(s.user_id) || null; });

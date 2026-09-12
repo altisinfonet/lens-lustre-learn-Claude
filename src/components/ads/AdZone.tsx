@@ -485,7 +485,7 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
 
           Only the story card gets it: the sidebar and lightbox zones are small
           banners beside content, not posts in a feed. */}
-      {zone === "story-card" && chosen && <AdEngagementBar creativeId={chosen.id} />}
+      {zone === "story-card" && chosen && <AdEngagementBar creativeId={chosen.id} imageUrl={cr.image_url || null} />}
 
       {/* OWN — raw sanitized HTML (single-image path only; libraries are pictures) */}
       {c.mode === "own" && !chosen && c.own.image_source === "code" && c.own.ad_code && (

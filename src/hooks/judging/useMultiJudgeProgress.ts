@@ -42,7 +42,7 @@ export function useMultiJudgeProgress(
       // 2. Get profiles for names/avatars
       const { data: profiles } = await supabase
         .from("profiles_public_data")
-        .select("id, full_name, avatar_url")
+        .select("id, full_name, avatar_url, custom_url")
         .in("id", judgeIds);
 
       const profileMap = new Map<string, { name: string; avatar: string | null }>();

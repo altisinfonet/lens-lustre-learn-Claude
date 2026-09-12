@@ -65,7 +65,12 @@ const HOT_FILES = [
   "src/pages/Index.tsx",
   "src/pages/PublicProfile.tsx",
   "src/pages/PostDetail.tsx",
-  "src/components/PostCommentsSection.tsx",
+  // THE LIST FOLLOWED THE CODE (2026-09-09) — the post comment adapter's
+  // queries (post_comments, post_comment_reactions) moved out of
+  // PostCommentsSection.tsx, which is now layout only, into
+  // src/hooks/feed/usePostComments.ts. See BrandBadgeEverywhere.test.tsx for
+  // the same move.
+  "src/hooks/feed/usePostComments.ts",
   "src/components/CommentsSection.tsx",
   "src/lib/profileBatch.ts",
   "src/lib/profileMapCache.ts",

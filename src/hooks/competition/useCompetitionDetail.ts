@@ -42,7 +42,14 @@ export interface CompetitionEntry {
   status: string;
   created_at: string;
   placement: string | null;
-  profiles: { full_name: string | null } | null;
+  /*
+   * F-98c / C-88 — custom_url was ALREADY being carried at the assignment
+   * below and this type did not mention it, so nothing downstream could see
+   * it and the compiler could not point at a single place that should. That is
+   * the same class as the author_handle finding: an unlisted field stops the
+   * type enumerating the sites that need it.
+   */
+  profiles: { full_name: string | null; custom_url: string | null } | null;
   vote_count: number;
   user_voted: boolean;
   badges: string[];
@@ -229,7 +236,7 @@ export const useCompetitionEntries = (competitionId: string | undefined, userId:
         return {
           ...entry,
           photo_meta: Array.isArray((entry as any).photo_meta) ? (entry as any).photo_meta : null,
-          profiles: prof ? { full_name: prof.full_name! } : null,
+          profiles: prof ? { full_name: prof.full_name!, custom_url: prof.custom_url } : null,
           vote_count: finalTotals[entry.id] ?? 0,
           user_voted: false, // per-photo voting — entry-level voted is deprecated
           badges: resolveBadges(entry.user_id, prof?.badges || [], adminIds),

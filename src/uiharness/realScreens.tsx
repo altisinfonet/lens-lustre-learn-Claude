@@ -22,7 +22,8 @@
 
 import { Suspense, lazy, type JSX } from "react";
 import AppShell from "./AppShell";
-import { posts, HARNESS_USER_ID } from "./fixtures";
+import { posts, HARNESS_USER_ID, dashboardInit } from "./fixtures";
+import { mapSidebarVotingEntriesToVotingPhotos } from "@/lib/competitionVotingPhotos";
 import { unmatched } from "./fakeBackend";
 
 /**
@@ -37,8 +38,56 @@ const Profile = lazy(() => import("@/pages/Profile"));
 const PostDetail = lazy(() => import("@/pages/PostDetail"));
 const NotificationSettings = lazy(() => import("@/pages/NotificationSettings"));
 const PublicProfile = lazy(() => import("@/pages/PublicProfile"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
+const CustomUrlProfile = lazy(() => import("@/pages/CustomUrlProfile"));
 const MobileProfileSheet = lazy(() => import("@/components/MobileProfileSheet"));
+/*
+ * F-98c — THE FIVE PAGES THIS HARNESS WAS BLIND TO.
+ *
+ * Before 2026-09-05 the harness had 42 scenes and they covered SIX routes:
+ * /login, /feed, /profile, the wall, post detail and /settings/notifications.
+ * The auditor counted dead member names on the deployed site name by name and
+ * got /notifications 20, /owen.blake 7, /feed 7, /discover 6, /friends 6,
+ * /dashboard 6, /winners 6. Only /feed and the wall were inside the 42, so a
+ * full sweep reading "0 dead" was true and meaningless — a floor, never a pass.
+ * These five close that, and they are added for exactly that reason.
+ */
+const Notifications = lazy(() => import("@/pages/Notifications"));
+const Friends = lazy(() => import("@/pages/Friends"));
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Winners = lazy(() => import("@/pages/Winners"));
 const Discover = lazy(() => import("@/pages/Discover"));
+const CompetitionLightbox = lazy(() => import("@/components/CompetitionLightbox"));
+
+/**
+ * The voting lightbox, open, on the first fixture photograph. The images are
+ * mapped through the SAME function the app uses (mapSidebarVotingEntriesToVotingPhotos)
+ * from the SAME fixture rows the sidebar reads, so if that mapper stops carrying
+ * photographerHandle this scene goes dead where a probe can see it.
+ */
+function VotingLightboxScene() {
+  const images = mapSidebarVotingEntriesToVotingPhotos(dashboardInit.sidebar.voting_thumbnails, {
+    sort: false,
+  });
+  return (
+    <CompetitionLightbox
+      images={images}
+      currentIndex={0}
+      isOpen
+      onClose={() => {}}
+      onPrev={() => {}}
+      onNext={() => {}}
+      onVote={() => {}}
+      /*
+       * NOT "judging". The photographer line is hidden during judging on
+       * purpose — anonymised scoring — so a scene set to that phase would
+       * render no name at all and report a cheerful zero. "voting" is the
+       * phase in which this lightbox actually shows a photographer.
+       */
+      competitionPhase="voting"
+    />
+  );
+}
 
 function Loading() {
   return (
@@ -173,21 +222,51 @@ export const REAL_SCREENS: Record<string, () => JSX.Element> = {
     screen(<PublicProfile />, "/profile/22222222-2222-4222-8222-222222222222", "/profile/:userId"),
 
   /**
-   * DISCOVER — the people page, and the ONLY place the Add Friend / Remove
-   * row appears eleven times over.
+   * THE 404, SIGNED IN AND SIGNED OUT — added 2026-09-05 for F-89.
    *
-   * ADDED 2026-09-07. Its absence was the same hole `screen-wall-visitor`
-   * closed a month earlier: the Auditor measured eleven identically-announced
-   * "Add Friend" buttons on the deployed preview, and nothing here could
-   * render the page to reproduce it. `DiscoverCard` had never been
-   * photographed on the page that hosts it, at any width, in any mode.
+   * It had never been photographed once, which is how it shipped rendering
+   * inside the two-column feed shell with a "Sign Up Free" sidebar on one side
+   * and "Learn Photography" on the other, wrapped around a dead end. The
+   * Owner's verdict was "nonsense design, worthless".
    *
-   * Everything it reads already has a fixture: `profiles_public_data` for the
-   * list, `get_public_role_user_ids` for the judge-privacy filter (empty, so
-   * nobody is hidden), `mutual_friend_ids` and `are_friends` for each card,
-   * `categories` for the filter chips.
+   * BOTH auth states are scenes because the page is auth-aware and the two are
+   * genuinely different products: a stranger needs a way to join, a member does
+   * not. One scene would certify half of it — the same lesson `screen-wall-visitor`
+   * taught when every wall scene had been the owner's own profile.
+   *
+   * The route is a real dead path, registered against `*` so this is the
+   * catch-all case exactly as App.tsx serves it.
    */
-  "screen-discover": () => screen(<Discover />, "/discover", "/discover"),
+  "screen-not-found": () =>
+    screen(<NotFound />, "/zzz-definitely-not-a-page-98765", "*"),
+
+  "screen-not-found-signed-out": () =>
+    screen(<NotFound />, "/zzz-definitely-not-a-page-98765", "*"),
+
+  /**
+   * THE 404 REACHED THE OTHER WAY — IN PLACE, THROUGH CustomUrlProfile.
+   *
+   * ⚠ NOT THE SAME SCENE AS ABOVE, and the incident that produced it is the
+   * reason it exists. The two scenes above register NotFound against `*`, the
+   * CATCH-ALL. The path the Owner actually photographed is a SINGLE-SEGMENT
+   * url: it matches `/:customUrl`, mounts CustomUrlProfile, resolves nothing,
+   * and renders <NotFound /> in place. Two different routes.
+   *
+   * F-89 shipped green on every check either side of the review and then hung
+   * deployed staging in an unbounded remount loop — on this route and only this
+   * route, because on the catch-all NotFound is a direct child of the Outlet
+   * and nothing above it re-renders. Both instruments drove the catch-all, so
+   * both were blind to it. This scene is that blindness closed.
+   *
+   * `resolve_custom_url` is fixtured empty (fixtureRoutes) so the lookup
+   * COMPLETES and fails to match, rather than hanging as it does against a
+   * database this container cannot reach.
+   */
+  "screen-not-found-in-place": () =>
+    screen(<CustomUrlProfile />, "/zzz-definitely-not-a-page-98765", "/:customUrl"),
+
+  "screen-not-found-in-place-signed-out": () =>
+    screen(<CustomUrlProfile />, "/zzz-definitely-not-a-page-98765", "/:customUrl"),
 
   /** One post, open, with comments. `path` carries the id or the page
    *  renders its not-found state and photographs as a tidy empty screen. */
@@ -245,4 +324,44 @@ export const REAL_SCREENS: Record<string, () => JSX.Element> = {
   /** Settings — long forms, switches, and the tap-target rule. */
   "screen-notification-settings": () =>
     screen(<NotificationSettings />, "/settings/notifications", "/settings/notifications"),
+
+  /*
+   * ── THE FIVE THAT CARRY THE DEAD NAMES ────────────────────────────────────
+   * See the note beside their imports. Each one is a route the auditor counted
+   * dead names on and no instrument in this repository could render.
+   */
+
+  /** Twenty dead names, the most of any page. Its own defect, not the sidebar's. */
+  "screen-notifications": () => screen(<Notifications />, "/notifications", "/notifications"),
+
+  /** Six dead: the People You May Know sidebar, on a page nobody had rendered. */
+  "screen-friends": () => screen(<Friends />, "/friends", "/friends"),
+
+  /** Six dead, and the only page that shows the milestone anniversary names. */
+  "screen-dashboard": () => screen(<Dashboard />, "/dashboard", "/dashboard"),
+
+  /** Six dead, including the winners card's photographer name (source FIVE-B). */
+  "screen-winners": () => screen(<Winners />, "/winners", "/winners"),
+
+  /** Six dead. The page the owner found the regression on. */
+  "screen-discover": () => screen(<Discover />, "/discover", "/discover"),
+
+  /**
+   * F-98c SOURCE FOUR — THE PHOTOGRAPHER'S NAME, WHERE IT ACTUALLY RENDERS.
+   *
+   * "by <photographer>" lives in CompetitionLightbox, which exists only after
+   * somebody clicks a voting thumbnail. No still screenshot of any scene
+   * contained it, so the name could not be walked and source four was
+   * UNMEASURED — and the auditor's wire capture showed staging returning
+   * voting_thumbnails EMPTY as well, so it could not be observed there either.
+   * Two independent reasons it had never been looked at.
+   *
+   * It is stated plainly rather than glossed: this mounts the real component,
+   * inside the real provider stack, with a row shaped exactly as
+   * dashboard-init's toVotingPhoto() builds it — but opened DIRECTLY rather
+   * than by a click. That is a real limitation of a still-screenshot harness
+   * and it is the difference between measuring the component and measuring the
+   * journey. It is not a claim that the click works.
+   */
+  "screen-voting-lightbox": () => screen(<VotingLightboxScene />, "/feed", "/feed"),
 };

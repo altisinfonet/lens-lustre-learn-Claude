@@ -1,0 +1,84 @@
+-- OI-3 · verify_certificate_by_token(text) — disarm the F-62 trap, change NOTHING else.
+--
+-- =============================================================================
+-- ⚠ THIS FUNCTION MUST REMAIN ANON-CALLABLE. THAT IS NOT A RISK BEING ACCEPTED,
+--   IT IS THE REQUIREMENT.
+--
+-- Public certificate verification is the feature. Someone handed a certificate
+-- must be able to check it without an account — that is the whole point of an
+-- unguessable token. P31's own probe asserts it, at C6 and C7, and P31's
+-- migration says so in as many words: "Verify-by-unguessable-token stays public
+-- via verify_certificate_by_token; search-by-identity does not."
+--
+-- SO THIS FILE DOES NOT CLOSE ANYTHING. It removes ONE redundant ACL entry and
+-- leaves observable behaviour byte-for-byte identical.
+--
+-- =============================================================================
+-- WHAT IS ACTUALLY WRONG — THE F-62 SHAPE, MEASURED
+--
+-- The Auditor's reading on production jtdtehuqtinjxropkkcn, 2026-09-05:
+--
+--   acl = =X/postgres | postgres=X | anon=X | authenticated=X | service_role=X
+--          ^^^^^^^^^^                ^^^^^^
+--          PUBLIC grant              explicit anon grant
+--
+-- BOTH are present. anon can execute twice over: once through PUBLIC, which
+-- every role inherits, and once through its own entry. The function works
+-- either way, so nothing is broken today.
+--
+-- THE TRAP IS WHAT HAPPENS NEXT. F-62: `REVOKE … FROM anon` is a no-op wherever
+-- PUBLIC holds the grant. So the day anyone decides this function should stop
+-- being anon-callable — a change of policy, a security review, a new gate —
+-- they will write the obvious statement, the catalogue will appear to change,
+-- has_function_privilege('anon', …) will still return TRUE, and the revoke will
+-- have closed NOTHING. That is not hypothetical: it is exactly how F-62 was
+-- discovered, on get_top_contributors_v2, by a negative control that failed to
+-- fail.
+--
+-- Removing the PUBLIC entry now means that future statement would work. The
+-- door stays open, but the lock starts working.
+--
+-- =============================================================================
+-- WHY REMOVING PUBLIC CANNOT CHANGE BEHAVIOUR HERE
+--
+-- Because anon holds its OWN grant, independently. PUBLIC and anon are separate
+-- grantees; revoking one does not touch the other. After this migration:
+--
+--   acl = postgres=X | anon=X | authenticated=X | service_role=X
+--
+-- anon still executes — through its explicit entry — so every caller sees the
+-- same thing. This is asserted rather than argued: the probe requires
+-- has_function_privilege('anon', oid, 'EXECUTE') to be TRUE **after** the
+-- migration, and requires a real token to still return a row. A migration that
+-- closed public verification would fail its own probe.
+--
+-- ⚠ IF anon DID NOT HOLD AN EXPLICIT GRANT, THIS FILE WOULD BE AN OUTAGE. It
+-- does, on both lanes, measured. The probe's E2 asserts it as a precondition so
+-- that a future lane where it is not true fails loudly instead of going dark.
+--
+-- =============================================================================
+-- THE ONE CALLER
+--
+-- src/pages/CertificateVerifyByToken.tsx:44 — an anonymous-visitor route.
+-- Measured 2026-09-05: zero references in supabase/functions/ and functions/.
+-- Nothing about its auth context changes here, because nothing about the grant
+-- it uses changes.
+--
+-- =============================================================================
+-- F-66 REMAINS, AND THIS FILE DOES NOT PRETEND TO FIX IT
+--
+-- If this function is ever recreated with DROP+CREATE, CREATE FUNCTION
+-- re-applies the built-in EXECUTE-to-PUBLIC default and the PUBLIC entry comes
+-- back — re-arming the very trap this file disarms. There is no migration that
+-- prevents that; only a re-apply and a re-proof after any recreate. The probe
+-- is the instrument for noticing.
+--
+-- SEQUENCE POSITION — BEHAVIOUR by classification, though the observable
+-- behaviour is unchanged by construction. Nothing is dropped. STAGING FIRST,
+-- ALWAYS. Committing is not applying.
+-- =============================================================================
+
+REVOKE ALL ON FUNCTION public.verify_certificate_by_token(text) FROM public;
+
+COMMENT ON FUNCTION public.verify_certificate_by_token(text) IS
+  'Public certificate verification by unguessable token. DELIBERATELY anon-executable — this is the feature, and P31''s probe asserts it at C6/C7. OI-3 removed the redundant PUBLIC grant while KEEPING anon''s explicit grant, so behaviour is unchanged and a future REVOKE ... FROM anon would actually work instead of being a silent no-op (F-62). ⚠ If this function is ever recreated with DROP+CREATE it REOPENS to PUBLIC (F-66) and OI-3 must be re-applied and re-proved.';

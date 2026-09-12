@@ -1,0 +1,187 @@
+
+> vite_react_shadcn_ts@0.0.0 ui:gate
+> node tools/uishot/gate.mjs
+
+[ui:gate] starting the harness on http://127.0.0.1:5199
+[ui:gate] harness is up; sweeping every scene at every viewport
+✓ calendar-dob                 android-360   /tmp/shots/calendar-dob--android-360.png
+✓ calendar-dob                 iphone-390    /tmp/shots/calendar-dob--iphone-390.png
+✓ calendar-dob                 desktop-1280  /tmp/shots/calendar-dob--desktop-1280.png
+✓ calendar-dob                 app-360       /tmp/shots/calendar-dob--app-360.png
+✓ calendar-plain               android-360   /tmp/shots/calendar-plain--android-360.png
+✓ calendar-plain               iphone-390    /tmp/shots/calendar-plain--iphone-390.png
+✓ calendar-plain               desktop-1280  /tmp/shots/calendar-plain--desktop-1280.png
+✓ calendar-plain               app-360       /tmp/shots/calendar-plain--app-360.png
+✓ composer-album               android-360   /tmp/shots/composer-album--android-360.png
+✓ composer-album               iphone-390    /tmp/shots/composer-album--iphone-390.png
+✓ composer-album               desktop-1280  /tmp/shots/composer-album--desktop-1280.png
+✓ composer-album               app-360       /tmp/shots/composer-album--app-360.png
+✓ composer-broken-src          android-360   /tmp/shots/composer-broken-src--android-360.png
+✓ composer-broken-src          iphone-390    /tmp/shots/composer-broken-src--iphone-390.png
+✓ composer-broken-src          desktop-1280  /tmp/shots/composer-broken-src--desktop-1280.png
+✓ composer-broken-src          app-360       /tmp/shots/composer-broken-src--app-360.png
+✓ composer-full                android-360   /tmp/shots/composer-full--android-360.png
+✓ composer-full                iphone-390    /tmp/shots/composer-full--iphone-390.png
+✓ composer-full                desktop-1280  /tmp/shots/composer-full--desktop-1280.png
+✓ composer-full                app-360       /tmp/shots/composer-full--app-360.png
+✓ composer-pano-cover          android-360   /tmp/shots/composer-pano-cover--android-360.png
+✓ composer-pano-cover          iphone-390    /tmp/shots/composer-pano-cover--iphone-390.png
+✓ composer-pano-cover          desktop-1280  /tmp/shots/composer-pano-cover--desktop-1280.png
+✓ composer-pano-cover          app-360       /tmp/shots/composer-pano-cover--app-360.png
+✓ composer-portrait-cover      android-360   /tmp/shots/composer-portrait-cover--android-360.png
+✓ composer-portrait-cover      iphone-390    /tmp/shots/composer-portrait-cover--iphone-390.png
+✓ composer-portrait-cover      desktop-1280  /tmp/shots/composer-portrait-cover--desktop-1280.png
+✓ composer-portrait-cover      app-360       /tmp/shots/composer-portrait-cover--app-360.png
+✓ composer-single              android-360   /tmp/shots/composer-single--android-360.png
+✓ composer-single              iphone-390    /tmp/shots/composer-single--iphone-390.png
+✓ composer-single              desktop-1280  /tmp/shots/composer-single--desktop-1280.png
+✓ composer-single              app-360       /tmp/shots/composer-single--app-360.png
+✓ crop-modal-avatar            android-360   /tmp/shots/crop-modal-avatar--android-360.png
+✓ crop-modal-avatar            iphone-390    /tmp/shots/crop-modal-avatar--iphone-390.png
+✓ crop-modal-avatar            desktop-1280  /tmp/shots/crop-modal-avatar--desktop-1280.png
+✓ crop-modal-avatar            app-360       /tmp/shots/crop-modal-avatar--app-360.png
+✗ crop-modal-behind-dialog     android-360   /tmp/shots/crop-modal-behind-dialog--android-360.png
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+✗ crop-modal-behind-dialog     iphone-390    /tmp/shots/crop-modal-behind-dialog--iphone-390.png
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+✗ crop-modal-behind-dialog     desktop-1280  /tmp/shots/crop-modal-behind-dialog--desktop-1280.png
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+✗ crop-modal-behind-dialog     app-360       /tmp/shots/crop-modal-behind-dialog--app-360.png
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+✓ crop-modal-tall              android-360   /tmp/shots/crop-modal-tall--android-360.png
+✓ crop-modal-tall              iphone-390    /tmp/shots/crop-modal-tall--iphone-390.png
+✓ crop-modal-tall              desktop-1280  /tmp/shots/crop-modal-tall--desktop-1280.png
+✓ crop-modal-tall              app-360       /tmp/shots/crop-modal-tall--app-360.png
+✓ crop-modal-wide              android-360   /tmp/shots/crop-modal-wide--android-360.png
+✓ crop-modal-wide              iphone-390    /tmp/shots/crop-modal-wide--iphone-390.png
+✓ crop-modal-wide              desktop-1280  /tmp/shots/crop-modal-wide--desktop-1280.png
+✓ crop-modal-wide              app-360       /tmp/shots/crop-modal-wide--app-360.png
+✓ harness-selftest             android-360   /tmp/shots/harness-selftest--android-360.png
+✓ harness-selftest             iphone-390    /tmp/shots/harness-selftest--iphone-390.png
+✓ harness-selftest             desktop-1280  /tmp/shots/harness-selftest--desktop-1280.png
+✓ harness-selftest             app-360       /tmp/shots/harness-selftest--app-360.png
+✓ hashtag-list-below-box       android-360   /tmp/shots/hashtag-list-below-box--android-360.png
+✓ hashtag-list-below-box       iphone-390    /tmp/shots/hashtag-list-below-box--iphone-390.png
+✓ hashtag-list-below-box       desktop-1280  /tmp/shots/hashtag-list-below-box--desktop-1280.png
+✓ hashtag-list-below-box       app-360       /tmp/shots/hashtag-list-below-box--app-360.png
+✗ hashtag-list-in-dialog       android-360   /tmp/shots/hashtag-list-in-dialog--android-360.png
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+✗ hashtag-list-in-dialog       iphone-390    /tmp/shots/hashtag-list-in-dialog--iphone-390.png
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+✗ hashtag-list-in-dialog       desktop-1280  /tmp/shots/hashtag-list-in-dialog--desktop-1280.png
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+✗ hashtag-list-in-dialog       app-360       /tmp/shots/hashtag-list-in-dialog--app-360.png
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+✓ hashtag-list-inline-edit     android-360   /tmp/shots/hashtag-list-inline-edit--android-360.png
+✓ hashtag-list-inline-edit     iphone-390    /tmp/shots/hashtag-list-inline-edit--iphone-390.png
+✓ hashtag-list-inline-edit     desktop-1280  /tmp/shots/hashtag-list-inline-edit--desktop-1280.png
+✓ hashtag-list-inline-edit     app-360       /tmp/shots/hashtag-list-inline-edit--app-360.png
+✓ hashtag-list-ranked-by-people android-360   /tmp/shots/hashtag-list-ranked-by-people--android-360.png
+✓ hashtag-list-ranked-by-people iphone-390    /tmp/shots/hashtag-list-ranked-by-people--iphone-390.png
+✓ hashtag-list-ranked-by-people desktop-1280  /tmp/shots/hashtag-list-ranked-by-people--desktop-1280.png
+✓ hashtag-list-ranked-by-people app-360       /tmp/shots/hashtag-list-ranked-by-people--app-360.png
+✓ journey-create-from-feed     android-360   /tmp/shots/journey-create-from-feed--android-360.png
+✓ journey-create-from-feed     iphone-390    /tmp/shots/journey-create-from-feed--iphone-390.png
+✓ journey-create-from-feed     desktop-1280  /tmp/shots/journey-create-from-feed--desktop-1280.png
+✓ journey-create-from-feed     app-360       /tmp/shots/journey-create-from-feed--app-360.png
+✓ journey-create-from-wall     android-360   /tmp/shots/journey-create-from-wall--android-360.png
+✓ journey-create-from-wall     iphone-390    /tmp/shots/journey-create-from-wall--iphone-390.png
+✓ journey-create-from-wall     desktop-1280  /tmp/shots/journey-create-from-wall--desktop-1280.png
+✓ journey-create-from-wall     app-360       /tmp/shots/journey-create-from-wall--app-360.png
+✓ mention-list-over-comment-box android-360   /tmp/shots/mention-list-over-comment-box--android-360.png
+✓ mention-list-over-comment-box iphone-390    /tmp/shots/mention-list-over-comment-box--iphone-390.png
+✓ mention-list-over-comment-box desktop-1280  /tmp/shots/mention-list-over-comment-box--desktop-1280.png
+✓ mention-list-over-comment-box app-360       /tmp/shots/mention-list-over-comment-box--app-360.png
+✓ post-audience-chooser        android-360   /tmp/shots/post-audience-chooser--android-360.png
+✓ post-audience-chooser        iphone-390    /tmp/shots/post-audience-chooser--iphone-390.png
+✓ post-audience-chooser        desktop-1280  /tmp/shots/post-audience-chooser--desktop-1280.png
+✓ post-audience-chooser        app-360       /tmp/shots/post-audience-chooser--app-360.png
+✓ privacy-gap-notice           android-360   /tmp/shots/privacy-gap-notice--android-360.png
+✓ privacy-gap-notice           iphone-390    /tmp/shots/privacy-gap-notice--iphone-390.png
+✓ privacy-gap-notice           desktop-1280  /tmp/shots/privacy-gap-notice--desktop-1280.png
+✓ privacy-gap-notice           app-360       /tmp/shots/privacy-gap-notice--app-360.png
+✓ profile-grid                 android-360   /tmp/shots/profile-grid--android-360.png
+✓ profile-grid                 iphone-390    /tmp/shots/profile-grid--iphone-390.png
+✓ profile-grid                 desktop-1280  /tmp/shots/profile-grid--desktop-1280.png
+✓ profile-grid                 app-360       /tmp/shots/profile-grid--app-360.png
+✓ profile-grid-no-band-yet     android-360   /tmp/shots/profile-grid-no-band-yet--android-360.png
+✓ profile-grid-no-band-yet     iphone-390    /tmp/shots/profile-grid-no-band-yet--iphone-390.png
+✓ profile-grid-no-band-yet     desktop-1280  /tmp/shots/profile-grid-no-band-yet--desktop-1280.png
+✓ profile-grid-no-band-yet     app-360       /tmp/shots/profile-grid-no-band-yet--app-360.png
+✓ profile-grid-one-block       android-360   /tmp/shots/profile-grid-one-block--android-360.png
+✓ profile-grid-one-block       iphone-390    /tmp/shots/profile-grid-one-block--iphone-390.png
+✓ profile-grid-one-block       desktop-1280  /tmp/shots/profile-grid-one-block--desktop-1280.png
+✓ profile-grid-one-block       app-360       /tmp/shots/profile-grid-one-block--app-360.png
+✓ profile-grid-partial-row     android-360   /tmp/shots/profile-grid-partial-row--android-360.png
+✓ profile-grid-partial-row     iphone-390    /tmp/shots/profile-grid-partial-row--iphone-390.png
+✓ profile-grid-partial-row     desktop-1280  /tmp/shots/profile-grid-partial-row--desktop-1280.png
+✓ profile-grid-partial-row     app-360       /tmp/shots/profile-grid-partial-row--app-360.png
+✓ profile-grid-shapes          android-360   /tmp/shots/profile-grid-shapes--android-360.png
+✓ profile-grid-shapes          iphone-390    /tmp/shots/profile-grid-shapes--iphone-390.png
+✓ profile-grid-shapes          desktop-1280  /tmp/shots/profile-grid-shapes--desktop-1280.png
+✓ profile-grid-shapes          app-360       /tmp/shots/profile-grid-shapes--app-360.png
+✓ profile-grid-single          android-360   /tmp/shots/profile-grid-single--android-360.png
+✓ profile-grid-single          iphone-390    /tmp/shots/profile-grid-single--iphone-390.png
+✓ profile-grid-single          desktop-1280  /tmp/shots/profile-grid-single--desktop-1280.png
+✓ profile-grid-single          app-360       /tmp/shots/profile-grid-single--app-360.png
+✗ screen-account-sheet         android-360   /tmp/shots/screen-account-sheet--android-360.png
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+✗ screen-account-sheet         iphone-390    /tmp/shots/screen-account-sheet--iphone-390.png
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+✗ screen-account-sheet         desktop-1280  /tmp/shots/screen-account-sheet--desktop-1280.png
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+✗ screen-account-sheet         app-360       /tmp/shots/screen-account-sheet--app-360.png
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+    warning: Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+✓ screen-feed                  android-360   /tmp/shots/screen-feed--android-360.png
+✓ screen-feed                  iphone-390    /tmp/shots/screen-feed--iphone-390.png
+✓ screen-feed                  desktop-1280  /tmp/shots/screen-feed--desktop-1280.png
+✓ screen-feed                  app-360       /tmp/shots/screen-feed--app-360.png
+✓ screen-login                 android-360   /tmp/shots/screen-login--android-360.png
+✓ screen-login                 iphone-390    /tmp/shots/screen-login--iphone-390.png
+✓ screen-login                 desktop-1280  /tmp/shots/screen-login--desktop-1280.png
+✓ screen-login                 app-360       /tmp/shots/screen-login--app-360.png
+✓ screen-notification-settings android-360   /tmp/shots/screen-notification-settings--android-360.png
+✓ screen-notification-settings iphone-390    /tmp/shots/screen-notification-settings--iphone-390.png
+✓ screen-notification-settings desktop-1280  /tmp/shots/screen-notification-settings--desktop-1280.png
+✓ screen-notification-settings app-360       /tmp/shots/screen-notification-settings--app-360.png
+✓ screen-post-detail           android-360   /tmp/shots/screen-post-detail--android-360.png
+✓ screen-post-detail           iphone-390    /tmp/shots/screen-post-detail--iphone-390.png
+✓ screen-post-detail           desktop-1280  /tmp/shots/screen-post-detail--desktop-1280.png
+✓ screen-post-detail           app-360       /tmp/shots/screen-post-detail--app-360.png
+✓ screen-profile               android-360   /tmp/shots/screen-profile--android-360.png
+✓ screen-profile               iphone-390    /tmp/shots/screen-profile--iphone-390.png
+✓ screen-profile               desktop-1280  /tmp/shots/screen-profile--desktop-1280.png
+✓ screen-profile               app-360       /tmp/shots/screen-profile--app-360.png
+✓ screen-wall                  android-360   /tmp/shots/screen-wall--android-360.png
+✓ screen-wall                  iphone-390    /tmp/shots/screen-wall--iphone-390.png
+✓ screen-wall                  desktop-1280  /tmp/shots/screen-wall--desktop-1280.png
+✓ screen-wall                  app-360       /tmp/shots/screen-wall--app-360.png
+✓ screen-wall-about            android-360   /tmp/shots/screen-wall-about--android-360.png
+✓ screen-wall-about            iphone-390    /tmp/shots/screen-wall-about--iphone-390.png
+✓ screen-wall-about            desktop-1280  /tmp/shots/screen-wall-about--desktop-1280.png
+✓ screen-wall-about            app-360       /tmp/shots/screen-wall-about--app-360.png
+✓ screen-wall-visitor          android-360   /tmp/shots/screen-wall-visitor--android-360.png
+✓ screen-wall-visitor          iphone-390    /tmp/shots/screen-wall-visitor--iphone-390.png
+✓ screen-wall-visitor          desktop-1280  /tmp/shots/screen-wall-visitor--desktop-1280.png
+✓ screen-wall-visitor          app-360       /tmp/shots/screen-wall-visitor--app-360.png
+✓ wall-view-toggle             android-360   /tmp/shots/wall-view-toggle--android-360.png
+✓ wall-view-toggle             iphone-390    /tmp/shots/wall-view-toggle--iphone-390.png
+✓ wall-view-toggle             desktop-1280  /tmp/shots/wall-view-toggle--desktop-1280.png
+✓ wall-view-toggle             app-360       /tmp/shots/wall-view-toggle--app-360.png
+
+152 screenshots, 24 problem(s) reported.
+
+baseline diff: clean against 148 recorded scene/viewport keys.
+[ui:gate] FAIL (exit 1)
