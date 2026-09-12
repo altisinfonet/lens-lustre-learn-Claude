@@ -22,12 +22,23 @@ const DrawerOverlay = React.forwardRef<
 ));
 DrawerOverlay.displayName = DrawerPrimitive.Overlay.displayName;
 
+/**
+ * `overlayClassName` is additive and OPTIONAL — omitting it leaves the backdrop
+ * exactly as every existing sheet in this app draws it (`bg-black/80`). It
+ * exists because the Comments sheet is specified to keep the post READABLE
+ * behind it, and at 80% black a photograph is a dark rectangle. Only that
+ * caller passes it; nothing else moves.
+ */
+interface DrawerContentProps extends React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> {
+  overlayClassName?: string;
+}
+
 const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  DrawerContentProps
+>(({ className, children, overlayClassName, ...props }, ref) => (
   <DrawerPortal>
-    <DrawerOverlay />
+    <DrawerOverlay className={overlayClassName} />
     <DrawerPrimitive.Content
       ref={ref}
       className={cn(

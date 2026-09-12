@@ -19,6 +19,11 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import PostComposerPreview from "@/components/post/PostComposerPreview";
 import HashtagSuggestions from "@/components/post/HashtagSuggestions";
 import MentionInput from "@/components/MentionInput";
+import CommentThread, { type ThreadComment } from "@/components/comments/CommentThread";
+import CommentComposer from "@/components/comments/CommentComposer";
+import CommentSearchBar from "@/components/comments/CommentSearchBar";
+import { commentPlaceholderFor } from "@/components/comments/CommentThread";
+import { filterComments, countComments } from "@/lib/commentSearch";
 import { Textarea } from "@/components/ui/textarea";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -205,6 +210,179 @@ function CommentComposerHarness() {
         <MentionInput value={value} onChange={setValue} onSubmit={() => {}} placeholder="Write a comment..." />
       </div>
     </div>
+  );
+}
+
+/**
+ * THE COMMENTS PANEL, with the fixed thread below.
+ *
+ * ⚠ WHAT THIS SCENE DOES AND DOES NOT PROVE. It renders the three components
+ * that draw the panel — CommentSearchBar, CommentThread, CommentComposer —
+ * assembled exactly as PostCommentsSection assembles them, with literal data
+ * and no network. It does NOT render the vaul Drawer around them, so it says
+ * nothing about the sheet's 78vh height or its backdrop; those belong to
+ * CommentsOverlay and are asserted in CommentsOverlay.test.tsx. The sheet
+ * chrome drawn here (handle, title) is a STAND-IN for the screenshot's sake
+ * and is marked as such below.
+ *
+ * Ages are pinned to fixed offsets from render time rather than to real dates,
+ * so "5w" stays "5w" and two runs produce identical pixels (the scene rule).
+ */
+const WEEKS = (n: number) => new Date(Date.now() - n * 7 * 86_400_000).toISOString();
+
+let fixtureSeq = 0;
+const fixtureComment = (over: Partial<ThreadComment> = {}): ThreadComment => ({
+  id: `fx${++fixtureSeq}`,
+  user_id: `fxu${fixtureSeq}`,
+  content: "",
+  created_at: WEEKS(5),
+  updated_at: WEEKS(5),
+  parent_id: null,
+  is_pinned: false,
+  author_name: "Neil Basu",
+  author_handle: "neilbasu",
+  author_avatar: null,
+  author_badges: [],
+  author_last_active: null,
+  like_count: 0,
+  is_liked: false,
+  replies: [],
+  ...over,
+});
+
+const FIXTURE_THREAD: ThreadComment[] = [
+  fixtureComment({ content: "Congratulations", author_name: "Neil Basu", author_handle: "neilbasu", like_count: 1 }),
+  fixtureComment({
+    content: "❤️ congratulations",
+    author_name: "Sandeep Kale",
+    author_handle: "sandeep.artist.photographer",
+    like_count: 1,
+    replies: [
+      fixtureComment({
+        content: "Thank you for all your support and appreciation",
+        author_name: "Somnath Roy",
+        author_handle: "somnath_photolover22",
+        parent_id: "fx2",
+      }),
+    ],
+  }),
+  fixtureComment({ content: "Congratulations", author_name: "My India Adventures", author_handle: "myindiaadventures", like_count: 1 }),
+  fixtureComment({
+    content: "Beautiful capture of the Kathi Holi.\nThe light on the headdresses is superb.",
+    author_name: "Framo Grapher",
+    author_handle: "framo_grapher",
+    like_count: 4,
+    user_reaction: "like",
+  }),
+];
+
+/** The sheet's handle and title — a stand-in for the screenshot, see above. */
+function SheetChrome({ children }: { children: JSX.Element }) {
+  return (
+    <div className="flex h-screen flex-col bg-background">
+      <div className="mx-auto mt-4 h-2 w-[100px] shrink-0 rounded-full bg-muted" />
+      <div className="shrink-0 pt-3 pb-2.5 text-center text-[15px] font-semibold tracking-tight text-foreground">
+        Comments
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The panel as it ships: search row, scrolling thread, pinned composer with
+ * the quick-reaction row above it.
+ */
+function CommentsPanelHarness() {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const visible = filterComments(FIXTURE_THREAD, query);
+  return (
+    <SheetChrome>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="shrink-0 border-b border-border/60">
+          <CommentSearchBar
+            value={query}
+            onChange={setQuery}
+            expanded={open}
+            onExpandedChange={setOpen}
+            subjectLabel="Kathi Holi Nandurbar"
+            resultCount={countComments(visible)}
+          />
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <CommentThread
+            comments={visible}
+            loading={false}
+            currentUserId="harness-viewer"
+            viewer={{ full_name: "Harness Viewer", avatar_url: null }}
+            isAdmin={false}
+            hideComposer
+            onAdd={() => {}}
+            onEdit={async () => true}
+            onDelete={() => {}}
+            onToggleLike={() => {}}
+            onReact={() => {}}
+          />
+        </div>
+        <div
+          className="shrink-0 border-t border-border bg-background px-3 py-2.5"
+          style={{ paddingBottom: "max(0.625rem, env(safe-area-inset-bottom))" }}
+        >
+          <CommentComposer
+            currentUserId="harness-viewer"
+            viewer={{ full_name: "Harness Viewer", avatar_url: null }}
+            quickReactions
+            placeholder={commentPlaceholderFor("villagesquareindia")}
+            onSubmit={() => {}}
+          />
+        </div>
+      </div>
+    </SheetChrome>
+  );
+}
+
+/**
+ * THE SAME THREAD WITH ONLY THE TWO COMPONENTS THAT EXISTED BEFORE THIS UNIT.
+ *
+ * This scene passes no prop that post-dates the redesign, so it renders on the
+ * PREVIOUS revision of CommentThread/CommentComposer as happily as on this one.
+ * That is its whole purpose: check out the previous revision of those two files,
+ * capture this scene, restore, capture it again, and the pair is an honest
+ * before/after of the comment ROW and the composer — not two different scenes
+ * photographed once each.
+ */
+function CommentsPanelThreadOnlyHarness() {
+  return (
+    <SheetChrome>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <CommentThread
+            comments={FIXTURE_THREAD}
+            loading={false}
+            currentUserId="harness-viewer"
+            viewer={{ full_name: "Harness Viewer", avatar_url: null }}
+            isAdmin={false}
+            hideComposer
+            onAdd={() => {}}
+            onEdit={async () => true}
+            onDelete={() => {}}
+            onToggleLike={() => {}}
+            onReact={() => {}}
+          />
+        </div>
+        <div
+          className="shrink-0 border-t border-border bg-background px-3 py-2.5"
+          style={{ paddingBottom: "max(0.625rem, env(safe-area-inset-bottom))" }}
+        >
+          <CommentComposer
+            currentUserId="harness-viewer"
+            viewer={{ full_name: "Harness Viewer", avatar_url: null }}
+            onSubmit={() => {}}
+          />
+        </div>
+      </div>
+    </SheetChrome>
   );
 }
 
@@ -703,6 +881,16 @@ export const SCENES: Record<string, () => JSX.Element> = {
    * invented prop.
    */
   "mention-list-over-comment-box": () => <CommentComposerHarness />,
+
+  /** The comments panel as it ships — search row, thread, composer. */
+  "comments-panel": () => <CommentsPanelHarness />,
+
+  /**
+   * The row and composer ALONE, using no prop newer than the redesign, so the
+   * same scene renders on the previous revision and the two captures are a
+   * true before/after. See CommentsPanelThreadOnlyHarness.
+   */
+  "comments-panel-thread-only": () => <CommentsPanelThreadOnlyHarness />,
 
   /**
    * Proves the harness itself renders the app's real styling — Tailwind

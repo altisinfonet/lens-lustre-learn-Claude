@@ -63,6 +63,8 @@ const CommentsOverlay = () => {
       <PostCommentsSection
         postId={post.id}
         postOwnerId={post.user_id}
+        postOwnerHandle={post.author_handle}
+        subjectLabel={post.content}
         onCommentCountChange={notifyCommentCountChange}
       />
     );
@@ -87,11 +89,31 @@ const CommentsOverlay = () => {
             DrawerContent's own `bg-background` already follows the member's
             light/dark toggle — nothing extra needed here.
             Safe areas handled by Capacitor config (iOS notch, Android edge-to-edge). */}
+        {/*
+          ⚠ 78vh, NOT h-screen — THE POST STAYS ON SCREEN BEHIND THE SHEET.
+
+          This was full-height, which made the sheet indistinguishable from a
+          navigation: the photograph a member was reading the comments ABOUT
+          disappeared the moment they tapped the icon, and the only way to see
+          it again was to dismiss the thread. Leaving the top fifth of the
+          screen to the post keeps the subject in view, and it also gives the
+          swipe-down dismiss somewhere obvious to go.
+
+          `vh`, NOT `dvh`, deliberately — the same reason TagPeopleModal states:
+          `dvh` needs Chromium 108+, the members on old Android System WebViews
+          are exactly who this has to work for, and an unsupported unit is
+          dropped SILENTLY, which here would leave the sheet its content height.
+        */}
         <DrawerContent
-          className="h-screen flex flex-col motion-reduce:!animate-none motion-reduce:!duration-0"
+          className="h-[78vh] flex flex-col rounded-t-2xl motion-reduce:!animate-none motion-reduce:!duration-0"
+          overlayClassName="bg-black/60 backdrop-blur-[2px]"
           aria-describedby={undefined}
         >
-          <DrawerTitle className="sr-only">Comments</DrawerTitle>
+          {/* The title is VISIBLE now, not sr-only: the drag handle alone did
+              not say what had just slid up over the post. */}
+          <DrawerTitle className="shrink-0 pt-3 pb-2.5 text-center text-[15px] font-semibold tracking-tight text-foreground">
+            Comments
+          </DrawerTitle>
           <div className="flex-1 min-h-0 flex flex-col">
             {thread}
           </div>
@@ -109,8 +131,6 @@ const CommentsOverlay = () => {
         className="max-w-3xl w-[calc(100vw-2rem)] h-[85vh] max-h-[720px] p-0 gap-0 overflow-hidden grid grid-cols-1 md:grid-cols-[1.1fr_1fr] motion-reduce:!animate-none motion-reduce:!duration-0"
         aria-describedby={undefined}
       >
-        <DialogTitle className="sr-only">Comments</DialogTitle>
-
         {/* Subject context — the photograph the comments belong to, so the
             panel never reads as a comment list floating with no idea what it
             is attached to. Hidden below md: on a narrow viewport the modal is
@@ -126,6 +146,12 @@ const CommentsOverlay = () => {
         )}
 
         <div className="flex flex-col min-h-0 h-full">
+          {/* Same header as the sheet — one surface, two shapes, not two
+              different-looking panels. Visible here too, so the modal's
+              accessible name is also its heading. */}
+          <DialogTitle className="shrink-0 border-b border-border px-4 py-3 text-[15px] font-semibold tracking-tight text-foreground">
+            Comments
+          </DialogTitle>
           {thread}
         </div>
       </DialogContent>
