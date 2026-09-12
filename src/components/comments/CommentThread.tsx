@@ -387,7 +387,7 @@ const CommentThread = ({
       // comment is deleted mid-list.
       <div key={comment.id} className={depth > 0 ? "ml-11" : ""}>
         <div className="flex gap-3 group/comment py-2">
-          <ProfileLink userId={comment.user_id} handle={comment.author_handle} className="shrink-0 mt-0.5">
+          <ProfileLink userId={comment.user_id} handle={comment.author_handle} className="shrink-0 mt-0.5 flex min-w-8 justify-center">
             <Avatar src={comment.author_avatar} name={comment.author_name} size={depth > 0 ? "xs" : "sm"} lastActiveAt={comment.author_last_active} />
           </ProfileLink>
           <div className="flex-1 min-w-0">
@@ -502,11 +502,52 @@ const CommentThread = ({
                   <RichContentRenderer content={comment.content} />
                 </p>
 
+                {/*
+                  ⚠ REAL 44px CONTROLS. `.tap-44-down` WAS TRIED HERE AND
+                  MEASURED WRONG — THIS IS THE SECOND ANSWER, NOT THE FIRST.
+
+                  Reply and the overflow menu paint 33x16 and 18x18, under the
+                  gate's floor (long >= 44, short >= 32). They are not new:
+                  they carry the same geometry on staging. This unit is the
+                  first thing to PHOTOGRAPH the comments panel, and capture.mjs
+                  counts a new scene's tap-target errors toward its exit code,
+                  so measuring them made them ours to clear.
+
+                  THE FIRST ATTEMPT WAS `.tap-44-down`, and it was chosen from a
+                  half-measurement. elementFromPoint 8px above each control
+                  returns the comment body — text full of @mention LINKS — so a
+                  symmetric `.tap-44` was correctly ruled out by F-109. What was
+                  NOT checked was the other direction, and `.tap-44-down` grows
+                  44px DOWNWARD from the control's top while Reply is the LAST
+                  thing in its row. Measured once tap-target-geometry.mjs was
+                  taught to read hit regions instead of painted boxes:
+
+                    OVERLAP with "Framo Grapher" over 49.4x12.0
+                    OVERLAP with "Somnath Roy"   over 43.7x10.0
+                    two hit regions intersect    over 32.0x10.0, 32.0x9.0
+
+                  The region reached into the NEXT comment's author-name link —
+                  F-109 again, one direction over. And the sweep still passed it,
+                  because capture.mjs measures SIZE and never overlap: it would
+                  have shipped green.
+
+                  A real box cannot do this. `h-11` reserves its 44px in the
+                  row, so nothing can be taken from a neighbour — the same
+                  conclusion TodaysBirthdayStrip reached on 2026-09-07, where
+                  `h-11 w-11` replaced a `.tap-44` that "satisfied a thumb and
+                  was invisible to the instrument". Reply needs only the HEIGHT
+                  (32.7px wide already clears the 32px short side); the menu
+                  needs both axes. The cost is an action row 44px tall instead
+                  of 16px, and that cost is the honest price of the fix.
+
+                  `gap-4` is back: the widened gap existed solely to keep two
+                  invisible regions from colliding, and there are none now.
+                */}
                 {/* Action row. The timestamp moved UP to the identity line and
                     Like moved OUT to the heart rail on the right, so what is
                     left here is Reply and the overflow menu — and the row no
                     longer competes with the comment text for attention. */}
-                <div className="mt-1 flex items-center gap-4">
+                <div className="flex items-center gap-4">
                   {currentUserId && depth < maxReplyDepth && (
                     <button
                       onClick={() => {
@@ -519,7 +560,7 @@ const CommentThread = ({
                           setReplyInput("");
                         }
                       }}
-                      className="text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                      className="flex h-11 items-center text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
                     >
                       Reply
                     </button>
@@ -531,7 +572,7 @@ const CommentThread = ({
                       <DropdownMenuTrigger asChild>
                         <button
                           aria-label="Comment options"
-                          className="rounded p-0.5 opacity-0 transition-opacity hover:bg-muted focus-visible:opacity-100 group-hover/comment:opacity-100 md:opacity-0 max-md:opacity-100"
+                          className="flex h-11 w-11 items-center justify-center rounded opacity-0 transition-opacity hover:bg-muted focus-visible:opacity-100 group-hover/comment:opacity-100 md:opacity-0 max-md:opacity-100"
                         >
                           <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
                         </button>
@@ -772,7 +813,7 @@ const CommentThread = ({
         <div className="flex items-center gap-1 mb-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1">
+              <button className="flex h-11 items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground">
                 {sortMode === "relevant" ? "Most relevant" : "Newest first"}
                 <ChevronDown className="h-3 w-3" />
               </button>
