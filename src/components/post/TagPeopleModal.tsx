@@ -110,7 +110,7 @@ export default function TagPeopleModal({
         // PostgREST types expect, and it keeps this free of `as any`.
         let filtered = supabase
           .from("profiles_public_data")
-          .select("id, full_name, avatar_url")
+          .select("id, full_name, avatar_url, custom_url")
           .neq("id", user.id);
         if (q) filtered = filtered.ilike("full_name", `%${q}%`);
 

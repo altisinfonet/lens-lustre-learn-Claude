@@ -145,9 +145,48 @@ describe("the UI gate is wired into the build and cannot be silently bypassed", 
   });
 
   it("GATE 1 — the universal reachability check is still in the sweep", () => {
+    /*
+     * ⚠ THIS PATTERN CHANGED ON 2026-09-06, AND THE ASSERTION GOT STRONGER.
+     *
+     * It used to pin one literal expression:
+     *   elementFromPoint((vl + vr) / 2, (vt + vb) / 2)
+     * and it FAILED THIS BUILD, correctly, when that expression was rewritten.
+     * The check itself was not removed — it was corrected. An inline element
+     * that wraps has one rect PER LINE, and the union's centre falls in the gap
+     * BETWEEN the lines, so a wrapped link was reported unreachable while a
+     * finger lands on it perfectly well.
+     *
+     * A guard that pins a literal string cannot tell a correction from a
+     * removal, which is the same class of fault as path() identifying a control
+     * by its first two class names. So it now asserts the FOUR THINGS THAT
+     * MATTER, any one of which going missing is the check being gutted:
+     *   1. the probe still calls elementFromPoint;
+     *   2. its DEFAULT point is still the union centre — so a single-rect
+     *      control is probed exactly as it always was;
+     *   3. the fragment correction reads getClientRects(), i.e. the per-line
+     *      boxes, rather than skipping inline elements — an exemption with
+     *      extra steps would show up here as its absence;
+     *   4. the VERDICT is unchanged: the element must own what was hit.
+     *
+     * Four assertions where there was one. Proven by plant: a wrapped inline
+     * link genuinely covered by an overlay still FAILS the corrected check —
+     * see docs/evidence/d2/F-103-tap-targets.txt.
+     */
     expect(
-      /elementFromPoint\(\(vl \+ vr\) \/ 2, \(vt \+ vb\) \/ 2\)/.test(capture),
+      /elementFromPoint\(px, py\)/.test(capture),
       "the reachability hit test is gone — this is the check that catches the DOB class of bug",
+    ).toBe(true);
+    expect(
+      /let px = \(vl \+ vr\) \/ 2, py = \(vt \+ vb\) \/ 2/.test(capture),
+      "the default probe point is no longer the control's centre — single-rect controls are now probed somewhere else",
+    ).toBe(true);
+    expect(
+      /getClientRects\(\)/.test(capture),
+      "the per-line fragment correction is gone — wrapped inline controls are being skipped rather than measured, which is an exemption with extra steps",
+    ).toBe(true);
+    expect(
+      /reachable = !!hit && \(hit === el \|\| el\.contains\(hit\)\)/.test(capture),
+      "the reachability VERDICT is gone — the probe may still run but nothing judges its answer",
     ).toBe(true);
     expect(/controls not reachable at their own centre/.test(capture)).toBe(true);
   });

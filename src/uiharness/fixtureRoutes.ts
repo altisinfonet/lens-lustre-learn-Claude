@@ -64,6 +64,33 @@ const EMPTY_BY_DESIGN: Record<string, string> = {
   stories: "a member with no active stories; the ordinary case",
   // Nobody has asked to be friends this minute.
   friendships: "no pending request and no accepted edge in this fixture set",
+  /*
+   * ── /dashboard's THREE, added 2026-09-06 with screen-dashboard. ──────────
+   *
+   * The scene was added without these and the gate said so, three times per
+   * viewport: "NO FIXTURE for GET /rest/v1/role_applications…", "…competitions
+   * ?status=eq.upcoming…", "…course_enrollments…". A screen rendering with
+   * missing data is not a screen that has been checked, and the harness is
+   * emphatic about that on purpose.
+   *
+   * EMPTY IS THE HONEST ANSWER FOR ALL THREE, and empty is a real state rather
+   * than an absence: a member who has applied for no role, entered no upcoming
+   * competition, and enrolled in no course is the state EVERY new member is in,
+   * and it is the layout that has to hold up without a single card to hang on.
+   * If a populated version of any of them is ever worth photographing it earns
+   * its own scene rather than becoming the default everything else is read
+   * through.
+   */
+  role_applications: "a member who has not applied for a role — every new member",
+  /*
+   * ⚠ THE TABLE, NOT THE SIDEBAR. dashboard-init already supplies
+   * sidebar.competitions, and that is what every other scene reads. Dashboard
+   * ALSO queries the competitions table directly for `status=eq.upcoming`, and
+   * that path had no fixture. Empty is the honest answer: between competitions
+   * is a real and frequent state, and the dashboard must look right in it.
+   */
+  competitions: "no upcoming competition; the between-competitions state",
+  course_enrollments: "a member enrolled in no course; the empty-state layout",
   // No unread gift. The banner it drives is a competition/credit feature and
   // has its own component scenes.
   gift_announcements: "no unread gift credit",
@@ -140,6 +167,18 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
   get_broadcast_feed: () => posts,
 
   /**
+   * F-89 — A VANITY URL THAT RESOLVES TO NOTHING.
+   *
+   * Empty ON PURPOSE. CustomUrlProfile asks this first, gets no row, falls
+   * through to the `profiles_public_data` ilike (also no match, since no
+   * fixture profile carries that handle) and renders <NotFound /> IN PLACE at
+   * the member's own typed path. That is the route the Owner photographed, and
+   * it is a DIFFERENT route from the catch-all — so it needs its own scene
+   * rather than being assumed equivalent to one.
+   */
+  resolve_custom_url: () => [],
+
+  /**
    * ── THE MEDIA READ PATH (Item E), AND WHY THIS ONE IS EMPTY ON PURPOSE ───
    *
    * Every media surface now asks `post_media_for` for the page's photographs
@@ -179,6 +218,112 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
   // An inbox with nothing unread: the bell shows no dot, which is the layout
   // that must be right for the member who has just caught up.
   get_my_unread_notifications_grouped: () => [],
+
+  /**
+   * ── /notifications, AND THE FALSE GREEN IT ALMOST GAVE ME ────────────────
+   *
+   * screen-notifications was added on 2026-09-05 to measure F-98c's fix, and
+   * this route was NOT. The gate said it plainly:
+   *
+   *   NO FIXTURE for POST /rest/v1/rpc/get_my_notifications_grouped
+   *   — this screen is rendering with missing data
+   *
+   * Meanwhile the dead-name sweep reported "screen-notifications 9 live,
+   * 0 dead" and I passed that number on as evidence. Those nine were the
+   * SIDEBAR — People You May Know 3, winners 2, milestones 2, birthdays 2 —
+   * and not one notification row had rendered. The scene was measuring
+   * everything except the thing it was built for.
+   *
+   * So the rows are here, and they are shaped to exercise the phrase rather
+   * than to look tidy:
+   *   - two named actors plus a remainder, so ActorPhrase renders
+   *     "A, B and N others" and each name must become its own link;
+   *   - actor_usernames populated, because that is profiles.custom_url and the
+   *     whole defect was that it arrived and was printed as text;
+   *   - one actor with NO username, so the data-unlinked="missing" branch is
+   *     rendered too rather than only reasoned about;
+   *   - one impersonal type carrying no actor at all.
+   */
+  get_my_notifications_grouped: () => [
+    {
+      group_key: "g-following",
+      type: "new_post_from_following",
+      notification_ids: ["n1", "n2", "n3"],
+      actor_ids: [profiles[0].id, profiles[1].id, profiles[2].id],
+      actor_names: [profiles[0].full_name, profiles[1].full_name, profiles[2].full_name],
+      actor_usernames: [profiles[0].custom_url, profiles[1].custom_url, profiles[2].custom_url],
+      actor_avatars: [profiles[0].avatar_url ?? "", "", profiles[2].avatar_url ?? ""],
+      actor_count: 5,
+      event_count: 33,
+      unread_count: 2,
+      reference_id: null,
+      thumbnail_url: null,
+      title: "New photos",
+      message: "New photos from people you follow",
+      latest_at: "2026-09-05T09:00:00.000Z",
+    },
+    {
+      group_key: "g-follower",
+      type: "new_follower",
+      notification_ids: ["n4"],
+      actor_ids: [profiles[3].id],
+      actor_names: [profiles[3].full_name],
+      actor_usernames: [profiles[3].custom_url],
+      actor_avatars: [profiles[3].avatar_url ?? ""],
+      actor_count: 1,
+      event_count: 1,
+      unread_count: 1,
+      reference_id: profiles[3].id,
+      thumbnail_url: null,
+      title: "New follower",
+      message: "started following you",
+      latest_at: "2026-09-05T08:30:00.000Z",
+    },
+    {
+      // No handle. The "missing" branch, rendered rather than reasoned about.
+      group_key: "g-comment",
+      type: "post_comment",
+      notification_ids: ["n5"],
+      actor_ids: ["99999999-9999-4999-8999-999999999999"],
+      actor_names: ["Noor Abadi"],
+      actor_usernames: [""],
+      actor_avatars: [""],
+      actor_count: 1,
+      event_count: 1,
+      unread_count: 0,
+      reference_id: null,
+      thumbnail_url: null,
+      title: "Comment",
+      message: "commented on your photo",
+      latest_at: "2026-09-04T18:00:00.000Z",
+    },
+    {
+      // Something that happened TO you: no person belongs on the front of it.
+      group_key: "g-entry",
+      type: "entry_approved",
+      notification_ids: ["n6"],
+      actor_ids: [],
+      actor_names: [],
+      actor_usernames: [],
+      actor_avatars: [],
+      actor_count: 0,
+      event_count: 1,
+      unread_count: 0,
+      reference_id: null,
+      thumbnail_url: null,
+      title: "Entry approved",
+      message: "Your entry in \"Monsoon\" has been approved!",
+      latest_at: "2026-09-03T12:00:00.000Z",
+    },
+  ],
+
+  /**
+   * Telemetry sink. The lightbox writes UI-8007 through this on an image it
+   * cannot load, and with no fixture the harness reported the WRITE as missing
+   * data on top of the thing it was reporting. A scene should not fail because
+   * its own error reporting has nowhere to go.
+   */
+  log_app_event: () => [],
 
   // No active stories anywhere, matching the empty `stories` table. The two
   // must agree — a ring here and an empty table there would photograph a

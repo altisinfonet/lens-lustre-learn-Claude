@@ -70,7 +70,7 @@ export function useCaptionMentions({ textareaRef, value, setValue, maxAutoGrowPx
     const t = setTimeout(async () => {
       const startedAt = Date.now();
       const { data, error } = await profilesPublic()
-        .select("id, full_name, avatar_url")
+        .select("id, full_name, avatar_url, custom_url")
         .ilike("full_name", `%${q}%`)
         .limit(6);
       if (cancelled) return;

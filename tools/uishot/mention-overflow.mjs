@@ -78,10 +78,79 @@ for (const c of CASES) {
       bottom: Math.max(...rects.map(r => r.bottom)),
     };
     b.width = b.right - b.left; b.height = b.bottom - b.top;
-    const items = [...el.querySelectorAll("li")].map(li => {
-      const s = li.querySelector("span[class*=display]") || li;
-      return { text: s.textContent, scrollW: s.scrollWidth, clientW: s.clientWidth };
+    /*
+     * ⚠ THIS MEASUREMENT WAS DEAD AND REPORTED ZEROS FOR EVERY ROW.
+     *
+     * It read `scrollWidth`/`clientWidth` off `span[class*=display]`, and a
+     * non-replaced INLINE element has clientWidth 0 by definition — so both
+     * numbers were structurally incapable of being anything but 0, in real
+     * Chromium, for a span that is plainly painted. Nobody noticed because the
+     * pass/fail verdict only read the overflow figures: a dead measurement
+     * sitting inside a live instrument, found by the Auditor by accident.
+     *
+     * getBoundingClientRect() is what a painted inline box actually reports.
+     * Truncation is then the rendered width being narrower than the content.
+     */
+    const ul = el.querySelector("ul");
+    /*
+     * THE VISIBLE BAND IS THE CONTENT BOX, NOT THE BORDER BOX.
+     *
+     * getBoundingClientRect() includes the list's 1px border, and Tailwind's
+     * preflight makes everything border-box, so the band a row can actually
+     * occupy is 2px shorter than the rect. Measuring against the rect said
+     * "4 whole rows fit" while the fourth was cut by 1px — the probe would have
+     * blessed a list that still slices, which is the whole failure mode this
+     * file exists to stop. clientTop/clientHeight are the content band.
+     */
+    const listBox = ul
+      ? (() => {
+          const r = ul.getBoundingClientRect();
+          return {
+            top: r.top + ul.clientTop,
+            bottom: r.top + ul.clientTop + ul.clientHeight,
+            height: ul.clientHeight,
+          };
+        })()
+      : null;
+    const items = [...el.querySelectorAll("li")].map((li) => {
+      const span = li.querySelector("span[class*=display]") || li;
+      const sr = span.getBoundingClientRect();
+      const lr = li.getBoundingClientRect();
+      return {
+        text: (span.textContent || "").trim(),
+        // Rendered vs intrinsic. `range` gives the unclipped text width even
+        // for an inline box, which scrollWidth refused to.
+        renderedW: +sr.width.toFixed(1),
+        rowH: +lr.height.toFixed(1),
+        /*
+         * IS THIS WHOLE ROW INSIDE THE LIST BOX?
+         *
+         * This is the Owner's actual complaint and no instrument asked it. The
+         * old probe only asked whether the box left the SCREEN, so it was
+         * GREEN on the exact build he is complaining about — correctly, and
+         * uselessly. A row half-inside a scrolling box is on screen.
+         *
+         * A row scrolled out of view is not sliced, so only rows that OVERLAP
+         * the visible band are judged: a row is whole if the part of it inside
+         * the band is the whole of it.
+         */
+        slicedBy: listBox
+          ? +Math.max(
+              0,
+              Math.max(0, listBox.top - lr.top) + Math.max(0, lr.bottom - listBox.bottom),
+            ).toFixed(1)
+          : 0,
+        overlapsBand: listBox ? lr.bottom > listBox.top && lr.top < listBox.bottom : false,
+      };
     });
+    /*
+     * A row is SLICED when it overlaps the visible band and part of it is
+     * outside. 0.5px of tolerance for sub-pixel layout, nothing more — the
+     * defect is 55% of a row, not a rounding error.
+     */
+    const sliced = items.filter((i) => i.overlapsBand && i.slicedBy > 0.5);
+    const rowH = items.length ? items[0].rowH : 0;
+    const bandH = listBox ? +listBox.height.toFixed(1) : 0;
     return { found:true,
       left:+b.left.toFixed(1), right:+b.right.toFixed(1), top:+b.top.toFixed(1), bottom:+b.bottom.toFixed(1),
       w:+b.width.toFixed(1), deviceWidth, innerWidth, vh:innerHeight,
@@ -99,15 +168,43 @@ for (const c of CASES) {
       /** The page must not scroll sideways at all. */
       docScrollWidth: document.documentElement.scrollWidth,
       docScrollsSideways: document.documentElement.scrollWidth > deviceWidth,
-      zIndex:getComputedStyle(el).zIndex, items };
+      zIndex:getComputedStyle(el).zIndex,
+      /*
+       * THE CAP MUST BE A WHOLE NUMBER OF ROWS. This is the arithmetic the
+       * Owner's screenshot is: 200 / 44 = 4.55 rows, so the fifth was always
+       * cut through the middle. Reported whether or not the list scrolls, so
+       * the number is visible even in a scene too small to overflow — which is
+       * how it stayed invisible for so long.
+       */
+      rowH, bandH,
+      wholeRowsInBand: rowH > 0 ? +(bandH / rowH).toFixed(2) : null,
+      capIsWholeRows: rowH > 0 ? Math.abs((bandH / rowH) - Math.round(bandH / rowH)) < 0.02 : null,
+      scrollable: ul ? ul.scrollHeight > ul.clientHeight + 1 : false,
+      slicedCount: sliced.length,
+      slicedRows: sliced.map((i) => `${i.text} (${i.slicedBy}px outside)`),
+      items };
   }, c.vp.w);
   const off = r.found && (r.overflowRight>0 || r.overflowLeft>0 || r.overflowTop>0 || r.overflowBottom>0 || r.docScrollsSideways);
-  if (!r.found || off) bad++;
-  console.log(`\n--- ${c.name} (${c.vp.w}px) --- ${r.found ? (off ? "OFF-SCREEN ✗" : "fully on screen ✓") : "NOT FOUND ✗"}`);
+  /*
+   * TWO INDEPENDENT VERDICTS, because this probe was GREEN on the build the
+   * Owner is complaining about. "Does the box leave the screen" and "can a
+   * member read a whole option" are different questions, and only the first
+   * was ever asked. A sliced row is on screen.
+   */
+  const sliced = r.found && (r.slicedCount > 0 || r.capIsWholeRows === false);
+  if (!r.found || off || sliced) bad++;
+  const verdict = !r.found ? "NOT FOUND ✗"
+    : off ? "OFF-SCREEN ✗"
+    : sliced ? `ROWS CUT ✗ (${r.wholeRowsInBand} rows fit in the box)`
+    : "on screen, whole rows ✓";
+  console.log(`\n--- ${c.name} (${c.vp.w}px) --- ${verdict}`);
+  if (r.found && r.slicedRows && r.slicedRows.length) {
+    for (const row of r.slicedRows) console.log(`      SLICED  ${row}`);
+  }
   console.log(JSON.stringify(r));
   await page.screenshot({ path:`/tmp/shots/stress-${label}-${c.name}.png` });
   await ctx.close();
 }
 await b.close();
-console.log(`\n==== ${bad === 0 ? "ALL CASES ON SCREEN" : bad + " CASE(S) FAILED"} ====`);
+console.log(`\n==== ${bad === 0 ? "ALL CASES ON SCREEN AND EVERY ROW WHOLE" : bad + " CASE(S) FAILED"} ====`);
 process.exit(bad === 0 ? 0 : 1);

@@ -6,7 +6,7 @@
 
 **Repository path:** `docs/PROMOTION_LEDGER.md` (canonical, on `staging`)
 **Ledger ID:** `LEDGER-50MM-001`
-**Status of this revision:** `REV-24 · 2026-09-04T14:44Z` · **📕 DOCUMENTATION FREEZE IN FORCE — §28**
+**Status of this revision:** `REV-31 · 2026-09-06T04:45Z` · **📕 DOCUMENTATION FREEZE IN FORCE — §28**
 
 ---
 
@@ -2283,6 +2283,29 @@ no deployment, no migration dispatch. `main` unchanged at `b671e1fb0c5bcf145d442
 > **That was false and self-contradictory** — C-8 and §3.1 record `25c0456` as **void**, so the
 > document's own closing line asserted an identity its §3 denies. Preserved here, not deleted.
 
+## 28.4 · STACKING RULE — added 2026-09-06, on the Auditor's ruling
+
+> **`staging` IS NOT THE LEDGER'S HEAD WHILE YOUR OWN PULL REQUESTS ARE OPEN.**
+> **A new section stacks on the NEWEST UNMERGED PR, not on `staging`.**
+
+**Why.** A section numbered off `staging` collides with, or leaves a gap before, a section already
+written in an open PR. **Both happened.** A second `REV-17` was proposed against an existing §29; and
+a §44 was written off `staging` while §43 sat unmerged, leaving §42 → §44 with **no §43**.
+
+**It happened FOUR TIMES in one night.** It is the documentation lane's equivalent of the pattern
+§42.6 names for the Auditor — **taking the shape of a thing for the thing.** `staging` *looks* like
+the head of the record. **It is only the head of the MERGED record**, and the difference is invisible
+until the numbering breaks.
+
+**The check, before appending anything:** list your own open PRs against this file, take the newest,
+and branch from **its head**. **Do not branch from `staging` and then verify the number afterwards** —
+verifying after the fact is how the gap was found three of the four times.
+
+**This subsection was APPENDED to §28 and rewrote none of it.** It is the **first change to the
+pre-existing record beyond the header pointer at line 9**, and is recorded as such so that the
+"byte-identical below line 9" proof quoted in earlier pull requests is read as holding **up to this
+addition and not beyond it.**
+
 
 ---
 
@@ -3881,3 +3904,987 @@ this promotion performs no production database write** — the P30/P31 revocatio
 (§37.2), so nothing in the production database is changed by it and nothing in it needs undoing.
 
 *Auditor. This entry prepares; it approves nothing, performs nothing and closes nothing.*
+
+---
+
+# 38 · REV-25 — P-0 PROMOTION RECORD — **PERFORMED**
+
+**Written by the Auditor · 2026-09-04 · transcribed and figure-checked by D3 (documentation lane)**
+**Committed under §28.2 exception (b):** the entries §19 and §20 require at promotion. §37 prepared
+this promotion; **this section performs it.** Every field below is either measured from the
+repository or the provider, or reads `— awaiting D1's report` until the party who owns it reports.
+
+## 38.1 · THE OWNER'S AUTHORISATION
+
+**OWNER-RULING-2026-09-04-03 · 2026-09-04T17:33Z**, verbatim:
+
+> *"After complete merging in main and review give me report then... till then dont stop"*
+
+This is the word §37.4 was waiting for. §37 recorded P-0 as **prepared and held for the Owner's own
+word**; that word is above, and P-0 proceeds on it. Nothing in this section is authorised by the
+Auditor, by D1, or by D2 — the authority is the ruling, and it is quoted rather than paraphrased so
+that a later reader judges the scope of what was permitted from the Owner's own sentence.
+
+## 38.2 · §19.2 PROMOTION TABLE — **PERFORMED**
+
+| Field | Value |
+|---|---|
+| **Approval** | ✅ **OWNER-RULING-2026-09-04-03** · 2026-09-04T17:33Z (§38.1) |
+| **Tag** | ⚠ **`P0-20260904-01` WAS NOT CREATED — DEV-P0-01.** The push of `refs/tags/*` was refused **HTTP 403** from D1's environment. `git ls-remote --tags origin` returns **one** tag, `RC-20260831-01`. Tree equality was therefore asserted against **`fee41a9`** — see §38.4. **The Owner is to create the tag from the UI** |
+| **Merge SHA** | ✅ **`b309576e26b0b4ab83f0a2562221019e7179f50a`** — PR **#172**, squash. `main` `493d4d4` → `b309576` |
+| **Actor** | **`altisinfonet`** — the Owner, from the GitHub UI |
+| **Timestamp** | **2026-09-05T01:08:39Z** |
+| **Deployment** | ✅ Cloudflare Pages, production project. **Content unchanged** — see §38.3.1 |
+
+**§20's rule is that tree equality is asserted against the tag created at approval time, never against
+the staging tree**, because a squash produces a commit whose tree may differ from both parents and
+`staging` can move underneath the comparison. **That fixed object does not exist** (DEV-P0-01), so the
+assertion in §38.4 is made against `fee41a9` instead. **The trees agree; the control that would make
+them agree independently of `staging` was not obtained.** Recorded, not glossed.
+
+**The candidate, measured on `staging` at `fee41a9e` before the merge:**
+
+| Field | Value |
+|---|---|
+| Source | `staging` = **`fee41a9ea65a7a16ef85b61d835f4f946a5d8e95`** |
+| Source tree | **`f7909ac248847f9db0493d67186029cc5a0be96c`** |
+| Target | `main` = **`493d4d49a79c0ffc036ba5af0053a11a94eed801`** |
+| Scope | **24 files · +28,712 / −16** |
+| `src/` · `public/` · `supabase/` · `functions/` | **0 · 0 · 0 · 0** |
+
+## 38.3 · §20 RECONCILIATION CHAIN
+
+**`APPROVED RC → PR → MERGE → BUILD → DEPLOYMENT → PRODUCTION`** — each link carries the id read
+from its provider, never inferred from this document.
+
+| Link | State | Id, read from the provider |
+|---|---|---|
+| **APPROVED RC** | ✅ | **`fee41a9`** · approved by OWNER-RULING-2026-09-04-03 · tag **not created**, DEV-P0-01 |
+| **PR** | ✅ | **#172**, `main` ← `staging`, squash |
+| **MERGE** | ✅ | **`b309576`** · actor `altisinfonet` · 2026-09-05T01:08:39Z |
+| **BUILD** | ✅ | **Production lane build — `success`**, job `101221817545` of run `33935255983`, on `head_sha b309576e`. The lane inverted correctly: *Production lane build* ran and *Staging lane build* was `skipped` |
+| **DEPLOYMENT** | ✅ | Cloudflare Pages, production project. **The deployment fired and the content did not change** — 0 bundle inputs differ |
+| **PRODUCTION** | ✅ | Served bundle **byte-identical before and after**, verified — §38.3.1 |
+
+### 38.3.1 · The production site, measured before AND after — **IDENTICAL**
+
+| Instrument | **Before** · 2026-09-04T17:35:05Z | **After** · 2026-09-05T01:11:44Z |
+|---|---|---|
+| `index` etag | `de66909972b2719fa0a23428517b8fc2` | **`de66909972b2719fa0a23428517b8fc2`** |
+| `index.html` sha256 | `fc6310e586f2f7ea…` | **`fc6310e586f2f7ea…`** |
+| entry chunk | `assets/index-QwZFENIl.js` | **`assets/index-QwZFENIl.js`** |
+| asset references | 6 | **6, the same 6** |
+
+**Routes, after:** `www.50mmretina.com`, `/verify`, `/competitions`, `/journal`, `/login` — **all 200**.
+
+**THE AFTER-STATE BEING IDENTICAL IS THE RESULT, NOT AN ABSENCE OF ONE.** This promotion changes **0
+files under `src/`, `public/`, `supabase/` and `functions/`** (§38.2), so the built bundle cannot
+differ. **A changed etag or a changed entry-chunk name here would have meant something reached
+production that this promotion does not contain** — a finding, not a success. The reconciliation is
+closed by the two readings *agreeing*, and they agree on every instrument. Measured by the Auditor,
+both sides.
+
+## 38.4 · TREE EQUALITY — the §20 assertion
+
+| Object | Tree |
+|---|---|
+| `b309576^{tree}` — the merge on `main` | **`f7909ac248847f9db0493d67186029cc5a0be96c`** |
+| `fee41a9^{tree}` — `staging` at approval | **`f7909ac248847f9db0493d67186029cc5a0be96c`** |
+| `P0-20260904-01^{tree}` — the tag | ⚠ **does not exist** — DEV-P0-01 |
+
+**DISCHARGED, against `fee41a9` rather than against the tag.** `git rev-parse b309576^{tree}` and
+`git rev-parse fee41a9^{tree}` both return `f7909ac248847f9db0493d67186029cc5a0be96c`;
+`git diff --stat fee41a9 b309576` is **EMPTY**. `main` and `staging` now hold identical trees.
+
+**What was obtained, and what was not.** The trees are equal — that is measured, and the promotion
+carries exactly the approved content. But §20 requires the comparison to be made against an immutable
+object created before the merge, precisely so that it does not depend on `staging` staying still.
+`staging` did stay still; that is a fact about this afternoon, not a control. **DEV-P0-01 records the
+gap, and §20's ordering is restated for the next promotion: create the tag, PUSH it, verify it is on
+origin, then merge.**
+
+## 38.5 · WHAT DID NOT HAPPEN — measured, not assumed
+
+| Question | Answer |
+|---|---|
+| Production database changed **by this promotion**? | **NO. The promotion itself performed no database write** — `SELECT` on `jtdtehuqtinjxropkkcn` at **2026-09-05T01:11:55Z**, either side of the merge: `posts` **377**, `profiles` **111**, `certificates` **11**, `user_notifications` **5,855**, database **139 MB**. ⚠ **A SEPARATE, Owner-approved run applied P30 minutes later — recorded in §38.8.** That was not this promotion and must not be attributed to it |
+| **Seed rows leaked to production?** | **ZERO.** The derived id set was checked **directly** against production, not inferred from the row counts. The 100,000 seeded rows are on `staging` and nowhere else |
+| Are the revocations closed in production? | **At the moment of the merge, no** — both were still anon-executable. **P30 was closed 12 minutes later by the separate run in §38.8. P31 remains OPEN**, still a file only, still awaiting a separate Owner apply |
+| Migration applied? | **NO.** `0` files under `supabase/` differ |
+| Android build triggered? | **NO.** `0` files under `src/`. No new APK reaches app users |
+| Client bundle changed? | **NO.** `0` files under `src/`, `public/` or `functions/` — hence §38.3.1 |
+| Production gate closed? | **NONE.** Applying the revocations is a production database write, an Owner action under his own authorisation, performed by `apply-migration.yml` against the `production` Environment — **separately from this merge and after it** |
+
+**This promotion moves instruments and their readings onto `main`. It moves no product, and it closed
+no gate.** The gate that closed on production closed by a **separate Owner-approved run**, minutes
+later and by its own authority — §38.8. The two events are recorded apart because they *are* apart:
+conflating them would credit a documentation promotion with a production security change it did not
+make, and would leave a later reader unable to say which action to audit.
+
+**Rollback, stated here because it follows from the same measurements:** reverting the squash commit
+on `main` restores `493d4d4`'s tree exactly — this promotion adds files and modifies none outside
+them — and **there is no database rollback to run**, because there was no production database write.
+
+## 38.6 · HEADER POINTER
+
+Line 9 of this file moves **`REV-24` → `REV-25`** in the same commit that lands this section. The
+`📕 DOCUMENTATION FREEZE IN FORCE — §28` suffix is preserved; §28.2 exception (b) is what admits this
+entry, not a lifting of the freeze.
+
+| Field | Value |
+|---|---|
+| Before | `REV-24 · 2026-09-04T14:44Z` |
+| After | **`REV-25 · 2026-09-05T01:30Z`** |
+
+## 38.7 · STANDING RULE 22 — **RATIFIED**
+
+> **A count taken from a shallow clone is not a count.**
+
+Raised as a candidate in §36.8 and **ratified here.** The occasion: D3 reported
+`git rev-list --count 493d4d4..122d6ea` = 51 and held the Auditor's 119 as unreproducible, reasoning
+that the entire history of `122d6ea` was 97 commits and 119 was therefore unreachable. **Both figures
+were the depth of a shallow checkout, not the repository** — `.git/shallow` held three grafted
+boundaries. After `git fetch --unshallow origin`, the same commands returned **119**, **121** and a
+history of **1,616**.
+
+**The rule, operative:** establish the clone's depth before reporting any count derived from history,
+and **name the instrument's state alongside the number.** A count without its instrument's state is
+an assertion, not a measurement.
+
+**The hold was correct procedure and is not criticised by this rule.** The figure did not reproduce
+*where it was measured*; saying so is what surfaced the cause. Recorded against D3 as **D3-C-3**, and
+the ratification is of the lesson, not of the error.
+
+## 38.8 · PRODUCTION DATABASE — **P30 APPLIED**
+
+**A SECOND OWNER ACTION, AFTER THE PROMOTION AND BIGGER THAN IT.** §38.5 records that the promotion
+wrote nothing to the production database. **This did.** It is a separate event with its own
+authority, its own run, and its own evidence, and it is recorded apart from P-0 for that reason.
+
+| Field | Value |
+|---|---|
+| Run | **`33875099635`** · *"Apply a database migration"* **#22** |
+| Dispatched by | **`altisinfonet`** · 2026-09-04T12:53:42Z, against `main` `493d4d4` |
+| Environment | **`production`** |
+| Approved by | **`altisinfonet`** — the Owner, on the `production` Environment's own gate |
+| Executed | **2026-09-05** · step *"Apply SQL to production"* **SUCCESS in 17 s** |
+
+### 38.8.1 · The closure, measured before and after — `SELECT` only
+
+| | **Before** · 01:11:55Z | **After** · 01:20:26Z |
+|---|---|---|
+| `email_exists` anon `EXECUTE` | **true** | **FALSE** |
+
+**The full acl after:** `postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres`.
+
+**Read what is NOT in that string, because that is the finding.** There is **no `anon` entry** and
+**no leading `=X/postgres` PUBLIC entry**. F-62's whole subject was that a `REVOKE … FROM anon`
+alone leaves the PUBLIC grant standing and closes **nothing**; the mandated two-step form removes
+both. Both are gone. **This is a real closure, not a no-op.**
+
+### **P30 IS CLOSED ON PRODUCTION.**
+
+### 38.8.2 · What is still open, stated in the same breath
+
+| Function | anon `EXECUTE` | State |
+|---|---|---|
+| `search_certificates` | **true** — acl still carries `=X/postgres` (PUBLIC), `postgres=X`, `anon=X`, `authenticated=X`, `service_role=X` | ⚠ **P31 REMAINS OPEN ON PRODUCTION.** Still a file only, still awaiting a **separate** Owner apply |
+| `get_top_contributors_v3` | true | ✅ **Correct — must remain.** Public by design (F-76) |
+| `verify_certificate_by_token` | true | ✅ Unchanged — OI-3 |
+
+**P31 is not closed by this run and nothing in §38 says otherwise.** Its acl still carries both the
+PUBLIC entry and the `anon` entry — the exact pair P30's now lacks.
+
+### 38.8.3 · Zero damage, measured either side
+
+`posts` **377** · `profiles` **111** · `certificates` **11** · `user_notifications` **5,855** ·
+`user_roles` **113** · `post_media` **342** · database **139 MB** — **identical before and after.**
+
+### 38.8.4 · Proven over real anonymous HTTP — the only valid test
+
+Taken with the **production anon key**, as a genuine anonymous caller, at **01:21:24Z**:
+
+| Call | Result |
+|---|---|
+| `email_exists` | **401** · `{"code":"42501","message":"permission denied for function email_exists"}` |
+| `get_top_contributors_v3` | **200**, with rows |
+| `verify_certificate_by_token` | **200** |
+
+**THE ONLY VALID TEST OF AN ANON REVOKE IS AN ANON CALLER, AND IT WAS TAKEN.** A catalogue reading
+says what the acl holds; it does not say what the door does. Both were taken, and they agree. The
+second and third lines carry as much weight as the first: **two doors that had to stay open stayed
+open.**
+
+### 38.8.5 · The live site after, and why the client does not break
+
+**Routes:** `/`, `/verify`, `/competitions`, `/journal`, `/login`, `/forgot-password`, `/winners` —
+**all 200.** Bundle **byte-identical** (etag `de66909972b2719fa0a23428517b8fc2`, `index.html` sha256
+`fc6310e5…`). The home feed renders real member content.
+
+**CLIENT SAFETY, MEASURED NOT ASSUMED.** All **141** production chunks were grepped. The sole
+consumer of `email_exists` is **`ForgotPassword-BJl06yD9.js`**, and it is **fail-open by
+construction**: `exists` starts `null`, is assigned only when the call both succeeds and returns a
+boolean, and a **401 leaves it `null`**; only `exists === false` short-circuits. **The reset email
+still sends.** Confirmed independently at source by D3 in `src/pages/ForgotPassword.tsx` — the
+`catch` sets `exists = null` under the comment *"check unavailable — behave like before"*, and
+`resetPasswordForEmail` runs on every path except an explicit `false`.
+
+**A revoke that breaks a member's password reset would be a defect, not a closure.** It does not.
+
+**P-0 is PERFORMED.** `main` = `b309576`, `staging` = `fee41a9`, trees identical, production served
+bundle byte-identical, and the promotion itself wrote nothing to the production database. **One
+deviation stands: DEV-P0-01, the tag that was never created.** **P30 is now CLOSED on production by
+the separate run in §38.8; P31 remains OPEN** and is the Owner's own next action.
+
+*Auditor. This entry records a promotion the Owner authorised. It closes no production gate.*
+
+---
+
+# 39 · REV-26 — F-85 AND F-86, PROVEN ON STAGING — **PART ONE OF TWO**
+
+**Written by the Auditor · 2026-09-05 · transcribed and figure-checked by D3 (documentation lane)**
+**Committed under §28.2 exception (a)** — findings, and an Owner-visible defect closed on staging.
+
+> **⚠ THIS IS PART ONE OF TWO, AND NOTHING HERE PROMOTES TO `main`.**
+> F-88 and F-89 are **in flight** and will be recorded in **part two, BEFORE any promotion of this
+> work to `main`**. **One promotion, not three.** A reader arriving at REV-26 alone is looking at
+> half of a change set that must travel whole.
+
+**Proven on `staging` at `bcf7e9b` (PR #178, merged 02:23:14Z).** The readings below were taken by
+the Auditor in the Owner's browser, on the live staging site. `staging` has since advanced to
+`c35cb6dc` (#176 OI-2, #177 OI-3 landed after); `bcf7e9b` is an ancestor of it, and these readings
+are true of `bcf7e9b`.
+
+## 39.1 · ONE ROOT CAUSE, TWO FINDINGS
+
+**`App.tsx:438`'s `<Route path="/:customUrl">` matched every single-segment path, so the catch-all at
+`:440` was unreachable — and `CustomUrlProfile` NAVIGATED instead of RENDERING.** Both findings below
+are that one mechanism seen from two sides. **They are recorded together so a future fix cannot close
+one and leave the other standing.**
+
+| id | finding |
+|---|---|
+| **F-85** | **The branded 404 was unreachable for every single-segment dead URL, and the member got a BLANK page.** The greedy vanity route swallowed the path; `CustomUrlProfile` then navigated to `/not-found`, which is **itself one segment**, re-matched `:438`, failed to resolve, and fell through to `return null` — the blank page. Measured on both lanes: `/zzz-definitely-not-a-page-98765` → **blank**; `/foo/bar/baz-does-not-exist` → the correct 404. **A multi-segment path got the right answer and a single-segment one got nothing, which is why this survived so long.** |
+| **F-86** | **The vanity URL did not survive — and the Owner reported this one himself.** `CustomUrlProfile.tsx:27` navigated to `/profile/<uuid>` with `{replace: true}`, so `www.50mmretina.com/50mmretinaworld` left the visitor at `/profile/4c200b33-ae64-46f0-ba5d-1a97152e6a6c`. **Back did not restore it, internal member UUIDs became the public address, and search engines never indexed the clean name.** Reproduced by the Auditor on production at 01:55Z. **Scale: 96 of 111 production profiles have `custom_url` set.** |
+
+## 39.2 · THE PROOF, TAKEN ON THE LIVE STAGING SITE
+
+| # | URL | After the fix | Before the fix |
+|---|---|---|---|
+| 1 | `https://staging.50mmretina.com/sofia.duarte` | Renders **Sofia Duarte's profile** AND the address bar **still reads `/sofia.duarte`** | Became `/profile/<uuid>` |
+| 2 | `https://staging.50mmretina.com/zzz-definitely-not-a-page-98765` | **Keeps the typed path** and renders the branded 404 — *"This frame is empty"* and *"/zzz-definitely-not-a-page-98765 didn't develop"* | **Blank page** |
+
+## 39.3 · THE READING THAT LOOKED LIKE A FAILURE AND WAS NOT
+
+**`/50mmretinaworld` returned the 404 on staging, AND THAT IS CORRECT.**
+
+The Auditor **checked the staging database before calling it a defect**: staging holds **exactly two
+vanity urls** — `sofia.duarte` and `yuki.tanabe`. **`50mmretinaworld` is a PRODUCTION url.** A 404 for
+a name that does not exist on that lane is the fix working, not failing.
+
+**Recorded because it is worth more than a reading that simply passed.** Had it been reported as a
+failure it **would have blocked a good fix**, and the cost of that is a defect the Owner already
+reported staying live while a correct change was sent back. **The instrument to read was the staging
+database, not the screen** — the screen alone could not distinguish "the fix is broken" from "that
+member is not on this lane."
+
+## 39.4 · THE AUDITOR'S VERIFICATION OF THE FIX ITSELF
+
+* **9 / 9 new tests green** in the Auditor's own clean checkout.
+* **Full suite: 2,519 passed / 0 failed.**
+* **Four defects re-planted, each caught by exactly the right test and nothing else**, green again
+  when restored:
+
+| # | defect re-planted | result |
+|---|---|---|
+| 1 | revert the `is_current` path | **caught** — by exactly one test |
+| 2 | revert **ONLY** the fallback path | **caught** — by exactly one test |
+| 3 | restore `return null` | **caught** — by exactly one test |
+| 4 | remove the stale-state resets | **caught** — by exactly one test |
+
+**"Caught by exactly the right test and nothing else" is the claim that matters** (C-34): a plant that
+turns the suite red everywhere proves the suite is noisy, not that it is discriminating.
+
+## 39.5 · CORRECTIONS AGAINST THE AUDITOR — three, all caught by D2
+
+| id | correction |
+|---|---|
+| **C-76** | The Auditor **quoted the refusal copy with a full stop**; it ends *"— please try again shortly"*. **Anyone grepping the Auditor's version finds nothing and wrongly calls the deploy broken.** Same class as C-68 — a quoted string that cannot be found is worse than no quotation, because it manufactures a false negative |
+| — | **The by-name / by-ID branch-mapping error on the P31 acceptance criteria.** The two paths show **different copy** and the Auditor conflated them. **D2 caught it before the wrong test ran** |
+| — | **The six-versus-seven redirect miscount** |
+
+**All three were caught by D2, and none reached a decision.**
+
+## 39.6 · OPEN, AND NOT PART OF THIS REVISION
+
+| id | state |
+|---|---|
+| **F-87** | A **transport** failure still shows *"No Certificates Found"* — a wrong answer live today. **#156 is its fix and stays parked** |
+| **F-88** | **The Add Friend button wraps.** D2 has measured it: **English wraps on DESKTOP, not mobile**, because the two-column shell squeezes each button to **103 px**; **Telugu needs 174 px against a 158 px share at 360 px**. **IN FLIGHT — part two** |
+| **F-89** | **The 404 renders inside the two-sidebar marketing shell**, because `Layout.tsx:42` decides sidebars by **PATH MATCHING** and a 404 has an arbitrary path. **The Owner called the design worthless and he is right. IN FLIGHT — part two** |
+
+**F-88 and F-89 are in flight and will be recorded in part two, BEFORE any promotion of this work to
+`main`. Nothing promotes until they are also proven. One promotion, not three.**
+
+*Auditor. This entry records findings proven on staging. It promotes nothing and closes no production
+gate.*
+
+---
+
+# 40 · REV-27 — F-91, THE SEED THE OWNER COULD NOT TEST; AND §2.2 DISCHARGED
+
+**Written by the Auditor · 2026-09-05 · transcribed and figure-checked by D3 (documentation lane)**
+**Committed under §28.2 exception (a)** — a finding, a gate ruling, and a recorded handover.
+
+**This is NOT part two.** Part two covers F-85, F-86, F-88, F-89 and the three staging-lane
+revocations, and **it is still waiting on the Auditor's green for F-88 and F-89.** F-88 has been
+audited with four planted defects and is one comment correction from approval; **F-89 has not been
+written yet.** Nothing in this revision promotes to `main`.
+
+## 40.1 · F-91 — A FEATURE ONLY TWO ACCOUNTS IN FIVE HUNDRED COULD EXERCISE
+
+**OPEN. Against the seed, not against the code. D1's lane to widen the staging seed.**
+
+**What happened.** The Owner opened a staging profile and reported that the name-URL was still
+broken. **It was not.** The account he opened is **Yusuf Moreau**,
+`ab56dac2-21c4-4ecc-b1fa-0403a154d34a`, and the Auditor read the row: **`custom_url` is NULL.** He was
+testing a name-URL on an account that has never had one.
+
+**The real defect is underneath, and it is ours.** Staging holds **513 profiles and exactly 2 with a
+`custom_url`** — `sofia.duarte` and `yuki.tanabe`. **A feature that only two accounts in five hundred
+can exercise is a feature the Owner cannot spot-check.**
+
+**WHAT IT COST, IN PLAIN TERMS — and this is why it is a finding and not a footnote:**
+
+* **It cost the Owner an hour**, spent proving a fault that did not exist.
+* **It cost his trust**, which is the expensive part and does not come back on the next commit.
+* **It cost the fix its credibility.** F-86 was working correctly at that moment. The seed made a
+  good fix look broken to the one person whose confidence the work exists to earn.
+
+**"The Owner could not verify a working fix" is a real defect class.** A change can be correct,
+tested, proven on the lane, and still fail — because the person who must believe it has no way to see
+it. **Test data is not scaffolding around the product; on a staging lane it IS the product's
+observable surface.** A seed that cannot exercise a feature has not merely failed to help, it has
+actively misinformed.
+
+**The near-miss worth naming:** had the Auditor accepted the Owner's report at face value, a working
+fix would have been sent back for repair. **The instrument to read was the `profiles` row, not the
+screen** — the same lesson as §39.3, where `/50mmretinaworld` 404'd correctly on a lane that does not
+hold that name. **Twice in one night, the screen could not distinguish "broken" from "not present on
+this lane."**
+
+## 40.2 · §2.2 OF THE FROZEN REVOCATION LIST — DISCHARGED, NOT DELETED
+
+**AUDITOR-RULING-2026-09-05-02.** `docs/gates/P1-revocation-list.md` §2.2 blocked the P31 revoke
+because all four verification pages collapsed *error* and *empty* into one branch — a real
+certificate holder told calmly that their certificate could not be verified. **A silent wrong answer
+is worse than an error.**
+
+**Discharged on evidence:** D2's three-state refusal copy is merged and live in the production
+bundle. The **by-name** path renders **"Search Unavailable"**; the **by-ID** path renders
+**"Verification Unavailable"**, copy ending **"— please try again shortly"**. **Two different
+messages on two different paths** — the Auditor confirmed the mapping **after getting it wrong once**
+and recorded that rather than quietly correcting it.
+
+**The original block is left standing above the discharge and is not struck out.** A gate that
+silently loses its own history is not a gate: the next reader must see that the concern was raised,
+what answered it, and who decided.
+
+**⚠ This is NOT the closure of F-87.** F-87 is a **transport** failure still surfacing as **"No
+Certificates Found"** — the same family of defect, **still open**, parked at **#156**. §2.2 was about
+error-versus-empty on the verification pages. **Nobody should read one as the other.**
+`increment_managed_page_view`'s block in §2.2 is **unchanged and still stands.**
+
+## 40.3 · HANDOVER RECORDED — D3 → D1, THE P31 MIGRATION BANNER
+
+`supabase/migrations/20260910_0003_p31_search_certificates_revoke.sql` opens with a
+**DO-NOT-APPLY** banner that is now false in both halves. **It must be rewritten, not deleted** — a
+file that once shouted DO NOT APPLY and now says nothing is worse than either state, because the next
+reader cannot tell whether the block was **lifted** or **forgotten**.
+
+**`supabase/**` is D1's lane.** D3 drafted the replacement wording and **handed it to D1**;
+**D3 wrote nothing into `supabase/`.** The handover is
+`docs/claude/HANDOFF_D3_TO_D1_P31_BANNER_2026-09-05.md`, recorded **so the authorship is
+unambiguous** — the same rule D1 observed when it declined to edit the Auditor's gate file and put
+its objection in a migration comment instead.
+
+**The banner already contained its own precondition** — *"D2's client fix is merged and live on the
+lane being changed. Then the Auditor authorises. Staging first, always. Committing is not applying."*
+**It is not being invented now; it is being shown met.** The draft cites the acl readings by
+timestamp — the Auditor's at **2026-09-05T03:20:23Z** on the staging lane, and D1's own before/after
+— **so a reader can re-measure rather than believe.** D1 must substitute its own readings; **D3 does
+not have them and must not invent them.**
+
+## 40.4 · THE ORDER, RESTATED BECAUSE IT IS NOT NEGOTIABLE
+
+**OWNER RULING 2026-09-05-04:** *"all you fix it staging 1st, you will test, give me report with
+green then merging process will start."*
+
+**staging → the Auditor verifies and reports green → the Owner approves → ONE promotion to `main` →
+the production apply behind his own click.** **Production run #23 is HELD.** Nothing about that order
+is negotiable, and the Owner has been told the run is held.
+
+*Auditor. This entry records a finding, a gate ruling and a handover. It promotes nothing and closes
+no production gate.*
+
+---
+
+# 41 · REV-28 — **PART TWO OF TWO.** F-88, F-89, F-92 AND F-95 GREEN ON STAGING
+
+**Written by the Auditor · 2026-09-05 · transcribed and figure-checked by D3 (documentation lane)**
+**Committed under §28.2 exception (a)** — findings closed on measurement, and an Owner ruling.
+
+**This completes the pair opened at §39, which was marked PART ONE OF TWO and said nothing would
+promote until F-88 and F-89 were also proven.** They are proven. **Every figure below is the
+Auditor's, taken on the DEPLOYED lane rather than reported to him.**
+
+**The Auditor records that F-88 and F-89 were green hours before this entry and the word was not
+sent. That delay is his, not D3's.**
+
+## 41.1 · WHAT WENT GREEN
+
+| finding | what it was |
+|---|---|
+| **F-88** | the Add Friend button wrapped — English on **desktop**, not mobile, because the two-column shell squeezed each button to 103 px; Telugu needed 174 px against a 158 px share at 360 px |
+| **F-89** | the 404 rendered inside the two-sidebar marketing shell, because `Layout.tsx:42` decided sidebars by **path matching** and a 404 has an arbitrary path |
+| **F-92** | `/profile/<uuid>` was rendered and then corrected |
+| **F-95** | in-app clicks handed the visitor a UUID — the case the edge can never see |
+
+**F-92 and F-95 merged together as ruled in `docs/gates/URL-NAMESPACE.md` §5.2, as `0aa04ef` in
+#189, and were then deployed and measured on the running site.**
+
+## 41.2 · THE HARD LOAD — **zero bytes of HTML at an id URL**
+
+`GET /profile/<uuid>` on the deployed staging lane:
+
+| reading | value |
+|---|---|
+| status | **302** — never 301 |
+| `location` | **`/sofia.duarte`** |
+| `cache-control` | **`no-store`** |
+| **`content-length`** | **`0`** |
+| hops | **one** |
+
+**THE ZERO IS THE FINDING.** There are **zero bytes of HTML at an id URL**, so **there is no render
+to correct** — and *that is precisely what the rejected cosmetic version could not say.* A fix that
+renders the page and then rewrites the address has, at some instant, served the UUID. **This one
+never serves it at all.** The difference is not visible in a screenshot; it is visible in
+`content-length`.
+
+**302 and not 301** — a permanent redirect would be cached by browsers and intermediaries beyond the
+project's control, and the mapping from id to name is **not** permanent: §1.4 of the URL namespace
+gives the member a change right.
+
+**The neighbouring cases, each measured:** the query string is **carried**; `/profile/<id>/photos` is
+**not hijacked**; a **nonexistent uuid** and a **non-uuid** both **fall through with no 500**.
+
+**Three calls at 240 ms, 196 ms and 262 ms — the cache is serving.**
+
+## 41.3 · THE RENDERED PAGES, SIGNED IN
+
+| page | id links after | before |
+|---|---|---|
+| feed | **0 of 58 anchors** | **24 of 53** |
+| notifications | **0 of 29** | — |
+| friends | **0 of 31** | — |
+
+## 41.4 · THE IN-APP CLICK — the case the edge can never see
+
+A Pages Function never sees a client-side navigation. **This is the measurement that closes the half
+the edge fix cannot reach.**
+
+Clicked a member from `/friends`: the address bar went **from `/friends` straight to
+`/owen.blake`**. **Every sample read `/owen.blake`. The id never appeared for one frame.**
+
+## 41.5 · F-95's INSTRUMENT HISTORY — recorded in order, because it is the most useful thing here
+
+**THE AUDITOR'S 48 WAS NEVER THE RIGHT NUMBER.**
+
+| # | instrument | result |
+|---|---|---|
+| 1 | the Auditor's source scan | **48 sites across 24 files** |
+| 2 | D2's first check | **0** — a **FALSE GREEN**, blind to ternary fallbacks. **C-87** |
+| 3 | the Auditor's second instrument | found the **4** that D2's first check missed |
+| 4 | **D2's corrected check** — dropped the navigation-token requirement **entirely** and banned **BUILDING** the address at all | **14**, including `notificationLinks`, the notification bell, the user menu, mobile navigation, search and the mobile profile sheet — **none of which any instrument of the Auditor's could see** |
+
+**THE STRONGEST INSTRUMENT WAS THE ONE THAT DID NOT LOOK FOR A NAVIGATION TOKEN AT ALL.** Every
+earlier instrument asked *"is this address being navigated to?"* and therefore could only find
+addresses that looked like navigation. The corrected check asked *"is this address being **built**?"*
+— and found six surfaces that construct it without a `to=`, an `href=` or a `navigate(` anywhere near.
+
+**C-88 — the type system was hiding the rest.** An **optional** type field stopped the compiler
+enumerating the hydration sites; **six were missed.** Making the field **required** printed **all
+thirty in one run.** The compiler was a better instrument than any grep, and it was disabled by a
+question mark.
+
+**This is §3.3 of the URL namespace file proved again at a higher level:** a count is a claim about
+its instrument. Four instruments, four different numbers, and the useful one came last.
+
+## 41.6 · THE FOUR PLANTS — proof the corrected check can fail
+
+**C-34: a check that could not have failed is not evidence.** The Auditor planted four defects
+against D2's corrected check:
+
+| # | defect planted | result |
+|---|---|---|
+| 1 | ternary fallback | **caught** |
+| 2 | token and url **split across two lines** | **caught** |
+| 3 | string concatenation | **caught** |
+| 4 | an address **built but never navigated** | **caught** |
+
+**All four caught. Control clean before and after.**
+
+**Plant 4 is the one that matters:** it is the exact class D2's *first* check was blind to, and the
+corrected check catches it. **The instrument was tested against the failure that produced C-87.**
+
+## 41.7 · NOT GREEN — and NOT to be recorded as such
+
+| id | state |
+|---|---|
+| **F-96** | the window bypass — **NOT GREEN.** D1 is applying **#191** |
+| **F-96b** | the released-name hijack — **NOT GREEN** |
+| **F-97** | the 360-versus-365 discrepancy — **NOT GREEN** |
+
+**#189's commit subject names F-96, and that is code merged, not a finding proven. It is recorded
+here as NOT GREEN on the Auditor's word, and nothing in §41 should be read as closing it.**
+
+### OWNER RULING — the change window
+
+**The window is 365 DAYS. Not 12 months, and not a calendar year.**
+
+**The refusal message is exactly:**
+
+> `Can't change until 31st Dec 2027`
+
+**and nothing else.**
+
+## 41.8 · THE LANES AT THE CLOSE OF REV-28
+
+* **Production is UNTOUCHED at `b309576`.**
+* **Run #23 is HELD.**
+* **The production F-93 backfill comes BEFORE either promotion.**
+* **Nothing in this revision promotes to `main`.** §39 said one promotion, not three; F-96, F-96b and
+  F-97 are open, so the set is not yet whole.
+
+*Auditor. This entry records findings proven on staging. It promotes nothing and closes no production
+gate.*
+
+---
+
+# 42 · REV-29 — THE INVARIANT, F-98c, AND THE AUDITOR'S OWN DAMAGE
+
+**Written by the Auditor · 2026-09-05 · transcribed by D3 (documentation lane)**
+**Committed under §28.2 exception (a).** **Nothing here is softened. It is written so the next
+person does not repeat it.**
+
+## 42.1 · THE INVARIANT — recorded in `docs/gates/URL-NAMESPACE.md` §1.6
+
+> **EVERY MEMBER NAME THAT IS A REFERENCE TO A PERSON IS A LINK TO THAT PERSON.**
+
+Two things are **NOT exceptions but different element types**: the page's own **heading** (an `h1` —
+a heading that links to itself announces *"link"* to a screen reader for something that goes
+nowhere, **and the Owner uses a screen reader**), and a **control's label** (the control's own
+destination governs; a link inside a button is invalid HTML).
+
+**A hand-written exception list is precisely what missed the sidebar in F-98b and then missed
+`/notifications` in F-98c. A list needs maintaining and will drift. A type does not.**
+
+## 42.2 · CORRECTION AGAINST THE AUDITOR — a claim asserted from memory, and a migration cancelled
+
+**The Auditor told the Owner:** *"every major platform makes your own name in your own profile
+header a link — Facebook, Instagram, LinkedIn."*
+
+**HE ASSERTED THAT FROM MEMORY AND DID NOT CHECK IT.**
+
+**On the strength of it he ordered a DROP-and-CREATE migration on `get_feed_stories_bar` to add
+`custom_url`.**
+
+**THE CLAIM IS WITHDRAWN. THE MIGRATION IS CANCELLED. IT SHOULD NEVER BE WRITTEN.**
+
+The corrected reasoning rests on **W3C's headings guidance** and **WCAG 2.4.4 link purpose** — **not
+on a recollection of an app.**
+
+**This is in the ledger for one reason: a future reader could otherwise find the instruction and
+execute it.** A cancelled order that lives only in a chat message is an order still waiting to be
+obeyed.
+
+## 42.3 · THE SEVEN SOURCES OF F-98c — true state, one line each
+
+**`UNMEASURED` means unmeasured. It does not mean probably fine.**
+
+| # | source | state |
+|---|---|---|
+| 1 | suggestions | **LIVE**, measured **green** by the Auditor on the deployed pages |
+| 2 | milestones | server-ready, **UNMEASURED** — no anniversary today |
+| 3 | birthdays | **NOT FIXED.** Waits on the by-hand migration |
+| 4 | photographers | server-ready, client-pending, **UNMEASURED** |
+| 5 | winners | server-ready, client-pending, **UNMEASURED** |
+| 6 | `/notifications` | fixed on `ccf3685`, **NOT DEPLOYED**, measured **RED — fifteen names** |
+| 7 | stories bar | ruled **a control's label** — no change |
+
+**One of seven is green and measured. One is red and measured. Three are unmeasured. One is not
+fixed. One needed no change.**
+
+## 42.4 · THE COMPILE-TIME DOORWAY IS NOT DONE — **OPEN, against the Auditor**
+
+**Given its own heading because it is the item most likely to be quietly forgotten.**
+
+The Auditor required **four** things: three doorways — **the client query, the edge payload, the RPC
+signature** — **plus a type change making a nameless handle impossible to construct.**
+
+| # | required | state |
+|---|---|---|
+| 1 | the client query | doorway |
+| 2 | the edge payload | **lands in #196, with C-34 on it** |
+| 3 | the RPC signature | **lands in #196, with C-34 on it** |
+| 4 | **the type change** | ❌ **DOES NOT LAND. DEFERRED.** |
+
+**#196 MUST NOT BE READ AS CLOSING THE CLASS. It patches the instances and makes three doorways
+loud.** The thing that would make the defect **impossible to construct** is the type change, **and it
+is not in #196.**
+
+**OPEN, with the Auditor's name against it.**
+
+## 42.5 · THE INSTRUMENT FAILURES — the real subject of today
+
+### 42.5.1 · The tree-wide name rule is STRUCTURALLY INCAPABLE of covering an RPC-fed page
+
+**It reads a page's `.select()` string. `Notifications.tsx` has none.**
+
+**Plant 6 proved it: the defect was planted and ELEVEN TESTS PASSED.**
+
+**A page-specific test caught it — which is backwards from what a guard is for.** A guard exists so
+that the page-specific test is not the last line of defence. Here it was the only one.
+
+**THAT HOLE IS OPEN.**
+
+### 42.5.2 · Eight times today, the harness could not produce the failing shape
+
+**An instrument that cannot render the failing shape is not an instrument.**
+
+Three separate occasions are named: **four empty sidebar arrays**, and **a three-name mention fixture
+under a five-row cap.** The fixture could not express the condition the test claimed to check.
+
+**That is C-87, and today it happened EIGHT TIMES.**
+
+## 42.6 · THE AUDITOR'S DAMAGE — his section, not buried
+
+**Four rows he created on staging are still there.**
+
+**Two members he invented appear inside his own reported counts** — figures he reported were
+inflated by people who do not exist.
+
+**A cross-lane authorisation he granted TWICE, which the lane owner has still not reviewed.**
+
+**An `opacity:0` he planted in the shared animation file, whose restore was INTERRUPTED.** Contained,
+never pushed — **and the single most dangerous thing he did today.** A planted defect in a shared
+file with an unfinished restore is one interruption away from being someone else's mystery.
+
+**Twenty-two errors. The pattern is one sentence:**
+
+> ## **I LOOKED AT THE SHAPE OF A THING INSTEAD OF READING THE THING.**
+
+**A suffix instead of a signature. A match instead of a line. A tag instead of its parent. A
+permission instead of the trigger under it. A count instead of the page.**
+
+**Every one of those is the same move: taking the outline of a thing as evidence about the thing.**
+It is fast, it is usually right, and when it is wrong it is wrong silently — which is why it produced
+twenty-two errors in one day rather than one loud failure.
+
+*Auditor. This entry records the Auditor's own failures alongside the work. It promotes nothing and
+closes no gate.*
+
+---
+
+# 43 · REV-30 — F-101 AND THE WALLET GREEN; FOUR CORRECTIONS TO THE AUDITOR'S OWN BRIEF
+
+**Written by the Auditor · 2026-09-06 · transcribed and figure-checked by D3 (documentation lane)**
+**Committed under §28.2 exception (a).** **Every item here is a correction to what the Auditor
+briefed, because the facts moved after he briefed it.**
+
+## 43.1 · F-101 — the Auditor prescribed the wrong number, and D2 measured it
+
+**The Auditor prescribed a 176 px cap. THE CORRECT VALUE IS 178.**
+
+**4 rows × 44 px = 176**, plus **the list's own 1 px border on each side**, and **Tailwind's
+`border-box` puts that border INSIDE the cap**. So the cap is **178** and the content band is
+**exactly 176**.
+
+**D2 measured it, found the error, and recorded it in
+`docs/evidence/d2/F-101/PLANT_REGISTER.md` under the Auditor's name, with the reason:**
+
+> **arithmetic done without reading the box it lives in**
+
+**This belongs beside the other twenty-two in §42.6, and it is the same fault:** *he did sums on a
+number instead of reading the thing the number describes.* **A number is a description of an object.
+Doing arithmetic on the description without opening the object is looking at the shape of a thing
+instead of reading the thing** — §42.6's pattern, committed once more, hours after it was written
+down.
+
+## 43.2 · F-101's PROVENANCE — **it would be easy and wrong to write this as our regression**
+
+**`src/components/MentionInput.tsx` on `main` and on `staging` differ by EXACTLY ONE LINE** — the
+`custom_url` select widening:
+
+```
+-        .select("id, full_name, avatar_url")
++        .select("id, full_name, avatar_url, custom_url")
+```
+
+**The F-53 fix is intact in both, and is in the shipped app 1.2.18. WE DID NOT BREAK IT.**
+
+**AND IT WAS STILL RED**, because **the Owner could not read his options.**
+
+**BOTH HALVES GO IN, because "not our regression" is not "not broken".** A defect that predates the
+work is still a defect in front of the Owner. Recording only the first half would be a true sentence
+assembled into a false impression — the page was broken, he could not use it, and whose commit
+introduced it is a question about blame rather than about the product.
+
+## 43.3 · THREE MORE INSTRUMENT FAILURES — **two of them new**
+
+**The count stays at EIGHT, and it is written as a count on purpose.** §42.5.2 already recorded
+eight; **the mention fixture below was among them.** The two after it are new and are named here for
+the first time. **This is not eleven. Do not add them twice.**
+
+| # | instrument failure | new? |
+|---|---|---|
+| 1 | **The harness fixture held THREE names under a FIVE-ROW cap**, so the list **could never scroll** and the defect was **structurally unreachable** — the same shape as the four empty sidebar arrays | already counted |
+| 2 | **`tools/uishot/mention-overflow.mjs` ran GREEN on the broken build — CORRECTLY.** It only asks whether the box leaves the screen, and **cannot fail on a sliced row** | **NEW** |
+| 3 | **That probe's per-item output reports every row as ZERO PIXELS WIDE in real Chromium**, which is **impossible** — a **dead measurement inside a live instrument**, unnoticed **because the pass/fail never read it** | **NEW** |
+
+**Failure 3 is the most alarming of the eight.** The probe was running, reporting, and passing, while
+one of its own outputs was physically impossible. **Nothing noticed, because nothing consumed that
+output.** An instrument can carry a dead sensor indefinitely if no verdict depends on it — and its
+green will look exactly like a real green.
+
+**Failure 2 is not a bug in the probe.** It answered its question correctly. **The question was the
+wrong one**, and a correct answer to the wrong question is the hardest kind of false green to see.
+
+## 43.4 · F-101 IS GREEN — and the WALLET IS GREEN
+
+**F-101:** cap **178**, content band **exactly 176**, **all four probe cases pass.**
+
+**THE WALLET IS GREEN ON STAGING, verified by the Auditor and not on anyone's say-so:**
+
+| reading | result |
+|---|---|
+| signed-in member | **200** |
+| anonymous | **401** — still refused |
+| razorpay | **enabled, public key present** |
+| secrets in the payload | **NONE** |
+| **the page itself** | renders **"Choose Payment Method / Razorpay / UPI, Cards, NetBanking"** — where **an hour ago it listed nothing** |
+
+**THE PAGE, NOT THE STATUS CODE, IS WHAT CLOSED IT.** A 200 says the endpoint answered. It does not
+say the member can pay. **An hour ago the same endpoint returned 200 and the page listed nothing** —
+the status code could not tell those two states apart, and the rendered page could.
+
+**The Owner enabled Razorpay on staging specifically so that last line could be measured**, and
+**staging is now configured identically to production.**
+
+## 43.5 · A MEASURED FACT ABOUT PRODUCTION
+
+**Production's rendered feed reports EIGHTEEN low-opacity text blocks. Staging reports ZERO.**
+
+**F-99 is still live on production because it has NEVER BEEN PROMOTED** — bundle
+`index-QwZFENIl.js` at `b309576`.
+
+**This is EXPECTED, not new damage.** It is the state the Owner is **currently choosing to leave in
+place**, and it argues for promotion more plainly than anything written in this ledger: **eighteen
+against zero, on the same feed, with the fix sitting on `staging` unpromoted.**
+
+## 43.6 · THE AUDITOR AS THE BOTTLENECK — the fifth time today
+
+**The Owner reported that everything stopped working. He was describing the Auditor, not the
+developers.**
+
+**All three developer sessions were left standing by at once.** **This is the fifth occurrence
+today**, and it is **the item on the Auditor's own error list that he keeps repeating.**
+
+**Recorded here because §42.6 records his damage and this is damage.** Three sessions idle is not a
+scheduling inconvenience; it is the throughput of the whole project set to zero by one party, and it
+happened five times in one day.
+
+*Auditor. This entry records four corrections to his own brief. It promotes nothing and closes no
+production gate.*
+
+---
+
+# 44 · REV-31 — THE CORRECTED BEFORE-READING, THREE MORE INSTRUMENT FAILURES, AND F-105
+
+**Written by the Auditor · 2026-09-06 · transcribed and figure-checked by D3 (documentation lane)**
+**Committed under §28.2 exception (a).**
+
+> # ⚠ NOTHING IN THIS REVISION IS GREEN.
+> **Nothing has merged. Nothing has shipped. No after-reading has been taken.** The after-reading and
+> the Auditor's seven written predictions are **held** and will be a **separate entry**. **Any reader
+> treating §44 as a completion report has misread it.**
+
+## 44.1 · TWO MORE CORRECTIONS TO THE AUDITOR'S OWN NUMBERS — the same fault, the fourth time today
+
+**He published a before-reading of the deployed staging site and told the Owner and D2 that `/feed`
+had 1 dead member name and `/dashboard` had 2, one of them the voting-photo caption — F-98c source
+four.**
+
+**ALL OF THAT WAS WRONG.**
+
+**Every entry was the string `50mm Retina World`** — which is **both the brand and a real profile
+name** — so **his name list matched the page furniture.**
+
+**Reading the actual text settled it in one pass:**
+
+| element | what it actually is |
+|---|---|
+| the `h1` | **the site title** |
+| `p.text-[10px].text-muted-foreground` | **"Welcome to 50mm Retina World"** |
+| the muted `span` | **the footer** |
+
+**He called the middle one a photographer caption BECAUSE ITS CSS CLASSES MATCH `CompetitionLightbox`.**
+
+**THAT IS §42.6's PATTERN AGAIN — THE FOURTH TIME IN A DAY: he read the SHAPE of the element instead
+of the TEXT INSIDE IT.** The classes were a true fact about the element and told him nothing about
+what it said. **The text was one property away and he did not read it.**
+
+**CORRECTED: `/feed` 0. `/dashboard` 0.** Confirmed over **three consecutive loads** of one and
+**two** of the other.
+
+## 44.2 · THE CORRECTED BEFORE-READING — deployed staging, head `be161c5`, 1536 px, the Auditor's own probe
+
+**`/notifications` is the ONLY page with dead member names: 24.** **Itemised by person, so the
+after-reading cannot hide one inside a total:**
+
+| member | count |
+|---|---|
+| Aiko Rahman | 3 |
+| Meera Okafor | 3 |
+| Neha Mehta | 3 |
+| Aarav Sharma | 2 |
+| Kabir Larsen | 2 |
+| Sofia Dutta | 2 |
+| Marlowe Ashgrove · Rowan Ashgrove · Arjun Iyer · Dev Nakamura · Luca Tanaka · Mateo Bose · Rohan Rossi · Zara Kim · Ishita Haddad | 1 each |
+| **TOTAL** | **24** |
+
+**Itemising is the point.** A total can be met by a fix that removes six and introduces six. **Fifteen
+named people cannot.**
+
+**Every other page: 0.** **`/owen.blake`: 2 — both his own name on his own page**, which is **item 8
+of the invariant and NOT a defect.**
+
+**Zero invisible blocks. Zero sideways scroll. Zero broken images. All ten pages.**
+
+**36 to 88 controls per page under 44 px at desktop width — F-104, measured on the real site for the
+first time.**
+
+## 44.3 · THREE MORE INSTRUMENT FAILURES — **THE COUNT MOVES FROM EIGHT TO ELEVEN**
+
+**§43.3 held the count at eight deliberately. It now moves. 8 + 3 = 11.**
+
+**All three were found by the Auditor tonight in PR #196's own instruments, and all three are
+follow-ups he explicitly did NOT let block the merge** — **because he checked each against the
+measurement he was about to run and each could not mislead it.**
+
+| # | failure |
+|---|---|
+| i | **`tools/uishot/tap-targets.mjs` settles as soon as two polls agree.** A scene rendering **ZERO controls settles instantly**, scores **0 under 44 px**, prints **"BETTER ratchet down"**, and **invites the operator to re-record the baseline at zero** — **a crashed scene recorded as the standard** |
+| ii | the same file measures **whether the hit box is 44 px** and **never whether it can be hit**. **Nothing reads `pointer-events` on the `::after`** |
+| iii | **the REPAIRED `mention-overflow` probe passes on an EMPTY list**: with zero rows `rowH` is 0, `capIsWholeRows` is `null`, `slicedCount` is 0 — **and it prints a tick** |
+
+**The pattern name is already in this ledger — a zero read as a pass — and it has now been committed
+inside the very file written to stop it.**
+
+*(These three are in #196 and are not on `staging`: `tap-targets.mjs` does not exist there, and the
+repaired `mention-overflow.mjs` is the PR's version. They are the Auditor's readings of the PR.)*
+
+## 44.4 · THE INSTRUMENT IDENTITY FINDING — `path()` cannot tell GONE from RENAMED
+
+**`tools/uishot/capture.mjs` identifies a control by its tag plus its FIRST TWO CLASS NAMES**
+(`capture.mjs:237`, `.slice(0, 2)` — verified at source by D3).
+
+**D2 put `tap-44` first in the shared `Button`. Every `Button` in the app was renamed. The gate
+reported 340 CONTROLS GONE, across every scene at every width, as ONE DISTINCT MESSAGE.**
+
+**NOTHING HAD GONE.**
+
+**The Auditor ran `cn()` over the real base string — four size variants against twelve caller shapes,
+48 combinations:**
+
+| placement | renamed |
+|---|---|
+| `tap-44` **third** | **20 of 48** |
+| `tap-44` **last** | **0 of 48** |
+
+**`tap-44` survives `twMerge` in all 48 either way, so the position it was placed for bought
+nothing.**
+
+**THE BASELINE WAS NOT RE-RECORDED TO CLEAR IT, AND THAT MATTERED TONIGHT MORE THAN ON ANY OTHER
+NIGHT.** Tonight is **the one run in which every `Button` signature changes at once**, so **a control
+GENUINELY REMOVED tonight would have been indistinguishable from the 340 renames and written into
+the new baseline as normal.** Re-recording would not have hidden a defect by accident; it would have
+hidden it **at the exact moment the instrument was blindest.**
+
+**The finding: `path()` cannot tell GONE from RENAMED** — and the same measurement showed **the
+identity already moves under ordinary caller edits that remove nothing.**
+
+## 44.5 · F-105 — PRODUCTION. **REPORT ONLY. THE AUDITOR CALLED NOTHING.**
+
+**Found while checking whether D2's `0015` restores grants. Read from `pg_proc.proacl`, NEVER from
+`has_function_privilege`.**
+
+**`get_todays_birthdays`** holds `authenticated` **by a Supabase DEFAULT PRIVILEGE, granted by no
+migration line**, and takes `_viewer` as an argument **without checking `auth.uid()`** — **any
+signed-in member can read whose birthdays are visible to another member.**
+
+**`0015` is not wrong. It reproduces today's ACL exactly, verified.**
+
+**Worse:** **both overloads of `process_referral_reward`** are granted to `authenticated`, are
+**SECURITY DEFINER**, **call `wallet_transaction()`, which issues the credit**, and have
+**no role check.**
+
+* the **three-argument** one is called by the member client **behind a condition enforced IN THE
+  BROWSER**
+* the **two-argument** one is the **ADMIN Approve button** and has **no enabled check, no minimum
+  check, no manual-approval check and no monthly-cap check**
+
+**SIZED HONESTLY: production has ZERO referral rows and no `referral_reward` setting, so it returns
+at its first statement every time and is NOT EXPLOITABLE TODAY.**
+
+**ARMED, NOT LOADED.** The distinction is the whole record: **nothing to steal today, and nothing
+standing between a first referral row and a wallet write.**
+
+## 44.6 · THE PRODUCTION BACKFILL IS KNOWN IN ADVANCE
+
+**All 17 handle-less production members produce a clean slug:**
+
+| property | value |
+|---|---|
+| distinct | **17 of 17** |
+| already taken | **0** |
+| reserved | **0** |
+| needing a digit suffix | **0** |
+
+**Cyrillic → `sasha.brazhkin`. Bengali → `shirshendu.dutta`.**
+
+**D1's digit tripwire now has an EXACT EXPECTED VALUE OF ZERO, so ANY DIGIT AT ALL IS A STOP.** A
+tripwire with a known expected value is a different instrument from one with a plausible range: **it
+cannot be argued with after the fact.**
+
+**CONDITION RECORDED:** the Auditor **ran the staging generator against production names**, and
+**will compare function source and the reserved table across lanes before the backfill step.** The
+prediction is only as good as the two lanes being the same generator, and that has not yet been
+shown.
+
+## 44.7 · TONIGHT'S CI, FACTUALLY
+
+**#196 FAILED TWICE AND HAS NOT MERGED.**
+
+**First failure — the 340 renames.** The Auditor's diagnosis; **D2 reached it independently**; fixed
+**without touching the baseline.**
+
+**Second failure — 15 lines of tap targets too small. THIS ONE IS HONEST.** D2's edit to that check
+**only ADDS the hit-area reading and can only make it MORE PERMISSIVE**, so **it cannot have caused a
+failure.** The cause is that **enlarging the fixtures and adding real-screen scenes made the gate see
+controls that had never been rendered in a test.**
+
+**OLD DEFECTS, NEWLY VISIBLE. MAKING A DEFECT VISIBLE IS NOT CAUSING IT.**
+
+*Auditor. Nothing in this entry is green. It promotes nothing, closes nothing, and reports one
+production finding that was called to no one.*

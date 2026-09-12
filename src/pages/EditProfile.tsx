@@ -1,4 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
+import { changeRefusalMessage, windowRefusalDate } from "@/lib/customUrlChangeWindow";
+import { validateCustomUrlValue } from "@/lib/customUrlRules";
 import { SITE_DISPLAY_HOST } from "@/lib/env";
 import { publicUrl } from "@/lib/publicUrl";
 import { Bell, Camera, CheckCircle2, Facebook, Instagram, Globe, KeyRound, Loader2, Mail, MapPin, Phone, Save, User, X, AlertCircle, ExternalLink, Twitter, Youtube, CloudOff, Cloud, CalendarIcon } from "lucide-react";
@@ -180,14 +182,8 @@ const EditProfile = () => {
 
   const RESERVED_URLS = ["login","signup","forgot-password","reset-password","dashboard","edit-profile","profile","friends","feed","discover","competitions","admin","judge","journal","courses","certificates","verify","winners","wallet","featured-artist","referrals","help-support","page","hashtag","not-found","root","system","api","support","help","contact","about","settings","user","users","www","mail","ftp","cdn","static","assets","media","photos","unsubscribe","cookie-policy","post","entry","certificate"];
 
-  const validateCustomUrl = (value: string): string => {
-    if (!value.trim()) return "";
-    if (value.trim().length < 3) return "Custom URL must be at least 3 characters.";
-    if (value.trim().length > 50) return "Custom URL must be less than 50 characters.";
-    if (!/^[a-zA-Z0-9._\-]+$/.test(value.trim())) return "Only letters, numbers, dots, hyphens, and underscores allowed.";
-    if (RESERVED_URLS.includes(value.trim().toLowerCase())) return "This URL is reserved.";
-    return "";
-  };
+  const validateCustomUrl = (value: string): string =>
+    validateCustomUrlValue(value, RESERVED_URLS);
 
   const customUrlTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -514,27 +510,76 @@ const EditProfile = () => {
       
       if (currentCustomUrl !== existingUrl) {
         if (currentCustomUrl) {
-          const { error: rpcError } = await supabase.rpc("change_custom_url" as any, {
+          const { data: changed, error: rpcError } = await supabase.rpc("change_custom_url" as any, {
             _new_url: currentCustomUrl,
           }) as any;
-          if (rpcError) {
-            const msg = (rpcError as any).message || "Failed to update custom URL";
-            setErrors((prev) => ({ ...prev, customUrl: msg }));
-            toast({ title: t("ep.urlError"), description: msg, variant: "destructive" });
+
+          /*
+           * THE 12-MONTH WINDOW REFUSAL IS ONE SENTENCE AND NOTHING ELSE.
+           *
+           * change_custom_url no longer raises for this case — it returns
+           * { ok: false, reason, next_change_at } with next_change_at as a raw
+           * ISO timestamptz, and the sentence is composed here so it renders in
+           * the MEMBER'S timezone. See customUrlChangeWindow.ts for why that is
+           * load-bearing rather than cosmetic.
+           *
+           * NO TOAST. The toast that used to wrap this was titled t("ep.urlError")
+           * and prefixed "Failed to update custom URL" — which puts back the
+           * exact words the Owner removed. He has said no more words twice. The
+           * refusal is the inline field message, and that is the whole of it.
+           */
+          /*
+           * ONLY THE RECOGNISED WINDOW REFUSAL GETS A DATE.
+           *
+           * windowRefusalDate returns null for anything it was not expecting —
+           * an unrecognised reason code, a missing one, a malformed timestamp,
+           * or a raised error. Those fall through to the plain failure below
+           * with no date in them. The contract is MIXED while D1's uniform
+           * ok:false change is deferred: format, reserved and taken still
+           * arrive as raised errors and keep working exactly as they do today.
+           * A dull message is an acceptable outcome; a wrong date is not.
+           */
+          const windowAt = windowRefusalDate(changed);
+          if (windowAt) {
+            setErrors((prev) => ({ ...prev, customUrl: changeRefusalMessage(windowAt) }));
             setSaveStatus("error");
             setSaving(false);
             return;
           }
-        } else if (existingUrl) {
-          // User cleared custom_url — use RPC to maintain history consistency
-          const { error: clearError } = await supabase.rpc("clear_custom_url" as any) as any;
-          if (clearError) {
-            toast({ title: "Error", description: "Failed to clear custom URL", variant: "destructive" });
+
+          const refused = rpcError || (changed && (changed as { ok?: unknown }).ok === false);
+          if (refused) {
+            // No date, by construction. The field validator has usually already
+            // said which rule was broken, so that message is left standing
+            // rather than talked over.
+            setErrors((prev) => ({
+              ...prev,
+              customUrl: prev.customUrl || (rpcError as any)?.message || t("ep.urlTaken"),
+            }));
             setSaveStatus("error");
             setSaving(false);
             return;
           }
         }
+        /*
+         * THERE IS NO "ELSE" HERE ANY MORE, AND THAT IS THE CHANGE.
+         *
+         * This branch called clear_custom_url when a member emptied the field.
+         * The Owner's rule is that having no profile URL is not a state a
+         * member may choose — and since F-92 and F-95 the consequence is
+         * concrete rather than theoretical: with no id address left to fall
+         * back on, a cleared handle leaves that member with no reachable
+         * profile URL at all and their name as plain text everywhere.
+         *
+         * An empty field is now refused by validateCustomUrl above, before this
+         * function reaches any request, so the branch is unreachable as well as
+         * unwanted. Refusing in the form rather than letting the request fail is
+         * deliberate: the member gets a sentence they can act on instead of
+         * whatever the backend would have said.
+         *
+         * Clearing still exists as a privileged action for the abuse case. It
+         * is not the client's to call.
+         */
       }
 
       await profileMutation.mutateAsync({

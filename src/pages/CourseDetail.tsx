@@ -138,7 +138,7 @@ const CourseDetail = () => {
       </div>
 
       {/* Hero */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }}>
+      <motion.div initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }}>
         <CourseHero
           courseId={course.id}
           title={course.title}
@@ -162,7 +162,7 @@ const CourseDetail = () => {
         <div className="grid lg:grid-cols-3 gap-6 md:gap-12 lg:gap-16">
           {/* Main content */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 1, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15, duration: 0.6 }}
             className="lg:col-span-2"
@@ -182,7 +182,7 @@ const CourseDetail = () => {
 
           {/* Sidebar */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 1, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.6 }}
           >

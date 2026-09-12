@@ -84,7 +84,7 @@ const ProfileActivityFeed = ({ userId }: Props) => {
         .limit(3);
       if (follows && follows.length > 0) {
         const followIds = follows.map(f => f.following_id);
-        const { data: profiles } = await profilesPublic().select("id, full_name").in("id", followIds);
+        const { data: profiles } = await profilesPublic().select("id, full_name, custom_url").in("id", followIds);
         const nameMap = new Map(((profiles as any[]) || []).map((p: any) => [p.id, p.full_name]));
         follows.forEach((f) => {
           items.push({
