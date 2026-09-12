@@ -131,27 +131,28 @@ BEGIN
   PERFORM set_config('request.jwt.claims', '', true);
   PERFORM set_config('request.jwt.claim.sub', _alice::text, true);
 
+  -- ⚠ EVERY BEHAVIOURAL CALL BELOW USES THE THREE-ARGUMENT FORM, AND THAT IS
+  -- NOT A PREFERENCE. A two-argument call cannot be resolved in SQL at all:
+  --
+  --     process_referral_reward(uuid, text)
+  --       -> 42725 function public.process_referral_reward(uuid, text) is not unique
+  --
+  -- because the 3-arg overload's `_txn_amount numeric DEFAULT 0` makes it an
+  -- equally good candidate for a 2-argument call. Named notation does not help
+  -- (measured: same 42725). The FIRST version of this probe called the 2-arg
+  -- form, went red, and looked exactly like the fail-first reading it was
+  -- supposed to produce — while actually testing nothing. A probe that fails
+  -- for the wrong reason is worse than no probe, so the resolution behaviour is
+  -- pinned as G9 below rather than left as a trap for the next reader.
   _raised := false;
   BEGIN
-    PERFORM public.process_referral_reward(_bob, 'f105d probe');
+    PERFORM public.process_referral_reward(_bob, 'f105d probe'::text, 100::numeric);
   EXCEPTION WHEN insufficient_privilege THEN
     _raised := true;
   END;
   IF NOT _raised THEN
     RAISE EXCEPTION
-      'G6 FAILED — a signed-in caller (%) successfully called the 2-arg overload naming a DIFFERENT member (%). This is F-105d itself: SECURITY DEFINER, calls wallet_transaction(), and takes the beneficiary as an argument. If this is the FIRST run of this probe, this failure is the expected C-34 fail-first reading and 0019 has not been applied yet.',
-      _alice, _bob;
-  END IF;
-
-  _raised := false;
-  BEGIN
-    PERFORM public.process_referral_reward(_bob, 'f105d probe', 100);
-  EXCEPTION WHEN insufficient_privilege THEN
-    _raised := true;
-  END;
-  IF NOT _raised THEN
-    RAISE EXCEPTION
-      'G6 FAILED — the 3-ARG overload accepted a cross-member call from % naming %. The two overloads are separate functions and closing one does not close the other; that is exactly how the 2-arg was missed in the first sweep.',
+      'G6 FAILED — a signed-in caller (%) successfully called process_referral_reward naming a DIFFERENT member (%). This is F-105d itself: SECURITY DEFINER, calls wallet_transaction(), and takes the beneficiary as an argument. If this is the FIRST run of this probe, this failure is the expected C-34 fail-first reading and 0019 has not been applied yet.',
       _alice, _bob;
   END IF;
 
@@ -159,7 +160,7 @@ BEGIN
   -- CompetitionSubmit.tsx:328 passes `user.id`, so this is the live member
   -- path. It must NOT raise. (It returns silently: Alice has no referrals row.)
   BEGIN
-    PERFORM public.process_referral_reward(_alice, 'f105d probe', 100);
+    PERFORM public.process_referral_reward(_alice, 'f105d probe'::text, 100::numeric);
   EXCEPTION WHEN insufficient_privilege THEN
     RAISE EXCEPTION
       'G7 FAILED — a member calling for THEIR OWN id (%) was refused. The guard has over-reached and CompetitionSubmit.tsx:328 is DOWN — worse, enroll_in_course() swallows this exception with EXCEPTION WHEN OTHERS THEN NULL, so course-purchase referral rewards would fail silently.',
@@ -175,13 +176,43 @@ BEGIN
 
   _raised := false;
   BEGIN
-    PERFORM public.process_referral_reward(_bob, 'f105d probe');
+    PERFORM public.process_referral_reward(_bob, 'f105d probe'::text, 100::numeric);
   EXCEPTION WHEN insufficient_privilege THEN
     _raised := true;
   END;
   IF NOT _raised THEN
     RAISE EXCEPTION
       'G8 FAILED — a caller with NO auth.uid() at all was allowed through the guard. This is the `<>` vs IS DISTINCT FROM defect: `_referred_user_id <> NULL` is NULL, not TRUE, so the IF never fires and the guard admits precisely the caller it was written to refuse.';
+  END IF;
+
+  -- G9 · THE 2-ARG OVERLOAD CARRIES THE SAME GUARD — READ FROM prosrc.
+  -- It cannot be reached from SQL (see G6's note), so this one assertion is a
+  -- source reading rather than a call, and is labelled as such instead of being
+  -- dressed up as behavioural evidence. PostgREST resolves overloads by
+  -- matching the JSON keys to parameter names rather than by SQL's rules, which
+  -- is how AdminReferrals.tsx reaches it; whether it succeeds in doing so on
+  -- this database has NOT been measured here and is an open question for D2.
+  SELECT count(*) INTO _n
+    FROM pg_proc p
+   WHERE p.oid IN (_oid2, _oid3)
+     AND p.prosrc LIKE '%IS DISTINCT FROM _caller%'
+     AND p.prosrc LIKE '%has_role(_caller%';
+  IF _n <> 2 THEN
+    RAISE EXCEPTION
+      'G9 FAILED — only % of the 2 overloads carry the self-or-admin guard in their body. Closing one overload and leaving the other is exactly how this finding was produced. 2-arg oid %, 3-arg oid %.',
+      _n, _oid2, _oid3;
+  END IF;
+
+  -- G10 · THE GUARD IS NULL-SAFE IN SOURCE TOO.
+  -- G8 proves the behaviour, but only for whichever overload SQL resolves. A
+  -- bare `<>` reintroduced into either body is the defect regardless.
+  SELECT count(*) INTO _n
+    FROM pg_proc p
+   WHERE p.oid IN (_oid2, _oid3)
+     AND p.prosrc LIKE '%_referred_user_id <> %';
+  IF _n <> 0 THEN
+    RAISE EXCEPTION
+      'G10 FAILED — % overload(s) compare _referred_user_id with a bare <>. Against a NULL auth.uid() that yields NULL, the IF is never taken, and the guard admits precisely the caller it exists to refuse.', _n;
   END IF;
 
   RAISE NOTICE 'G1 ok — exactly two overloads, oids % (2-arg) and % (3-arg)', _oid2, _oid3;
@@ -192,6 +223,8 @@ BEGIN
   RAISE NOTICE 'G6 ok — a signed-in member CANNOT name another member (the unit), both overloads';
   RAISE NOTICE 'G7 ok — a member CAN still process their own referral (CompetitionSubmit path intact)';
   RAISE NOTICE 'G8 ok — a caller with no auth.uid() is refused (the IS DISTINCT FROM case)';
+  RAISE NOTICE 'G9 ok — BOTH overloads carry the guard in prosrc (2-arg is unreachable from SQL)';
+  RAISE NOTICE 'G10 ok — neither overload uses a bare <> against _referred_user_id';
   RAISE NOTICE 'acl 2-arg = %', _acl2;
   RAISE NOTICE 'acl 3-arg = %', _acl3;
   RAISE NOTICE '--- F-105d PROBE PASSED ---';

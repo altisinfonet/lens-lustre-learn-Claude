@@ -103,6 +103,28 @@
 -- whole point of the button — but it has never been written down as a
 -- decision. Reported to the Auditor, not decided by me.
 --
+-- ⚠ ONE THING FOUND WHILE WRITING THE PROBE, WHICH IS NOT THIS UNIT'S TO FIX
+--
+-- The two overloads cannot be told apart by a two-argument SQL call:
+--
+--     process_referral_reward(uuid, text)
+--       -> 42725 function public.process_referral_reward(uuid, text) is not unique
+--
+-- because the 3-arg overload's `_txn_amount numeric DEFAULT 0` makes it an
+-- equally good candidate. Named notation gives the same error. Measured on
+-- staging, both forms, 2026-09-12.
+--
+-- So from SQL the 2-arg overload is UNREACHABLE. PostgREST resolves overloads
+-- by matching the request's JSON keys to parameter names rather than by SQL's
+-- rules, which is presumably how AdminReferrals.tsx:124 reaches it — but
+-- **that has not been measured**, and if PostgREST cannot disambiguate either,
+-- the admin Approve button is already failing with 42725 and has been since
+-- the 3-arg overload was added. That is a live question for D2 and the
+-- Auditor, not something to answer by guessing here.
+--
+-- It changes nothing about this fix: the guard goes on BOTH bodies, so the
+-- authorisation outcome is the same whichever one a caller resolves to.
+--
 -- VERIFICATION IS pg_proc.proacl AND A REAL CROSS-MEMBER CALL, never
 -- has_function_privilege (C-89). See PROBE_f105d_process_referral_reward_authorized.sql.
 -- ═══════════════════════════════════════════════════════════════════════════
