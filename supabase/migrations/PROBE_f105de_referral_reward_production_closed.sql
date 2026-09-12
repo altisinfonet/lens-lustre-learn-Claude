@@ -4,16 +4,24 @@
 -- Run with: psql "$DB_URL" -f supabase/migrations/PROBE_f105de_referral_reward_production_closed.sql
 -- Exits non-zero on the first failed assertion.
 --
--- ⚠ RUN THIS BEFORE 0023 AS WELL AS AFTER. Before, G2/G3/G6 must FAIL — that is
+-- ⚠ RUN THIS BEFORE 0024 AS WELL AS AFTER. Before, G2/G3/G6 must FAIL — that is
 -- the C-34 fail-first evidence, and a probe that has never been seen red is not
--- evidence that anything was closed. After 0023 every assertion must pass.
+-- evidence that anything was closed. After 0024 every assertion must pass.
 --
--- ⚠ THIS IS THE FIRST TIME ANY OF THIS IS MEASURED ON PRODUCTION. Everything
--- the 0023 header claims about production is INFERRED from main's migration
--- source; no production request has ever been issued. The BEFORE run of this
--- probe is therefore not a formality — it is the measurement, and it may
--- disagree with the inference. If it does, 0023 must be re-derived rather than
--- forced.
+-- ⚠ WHAT PRODUCTION HAS AND HAS NOT TOLD US. Run #69 refused 0023 at its own
+-- precondition gate and in doing so produced the FIRST real production
+-- readings: exactly two overloads exist, and the 2-arg body is md5
+-- 7999749b88688973dc95680d68ae5e86 (1416 bytes) — the bootstrap-snapshot body,
+-- not the one main's 20260228101821 defines. Everything else about production
+-- is still inferred: the 3-arg body, the DEFAULT, the ACL, and whether its
+-- PostgREST returns PGRST203 at all.
+--
+-- ⚠ RUN PROBE_process_referral_reward_source_dump_readonly.sql FIRST. It is
+-- read-only, reads no member data, and prints both live definitions with their
+-- md5, byte length, default count and ACL — turning those inferences into
+-- readings before anything is changed. The BEFORE run of THIS probe is then not
+-- a formality either: it is the behavioural measurement, and if it disagrees
+-- with the inference, 0024 must be re-derived rather than forced.
 --
 -- ⚠ WHY THE WHOLE FILE IS BEGIN … ROLLBACK. This probe CALLS the function under
 -- test, and that function issues wallet credits. Two independent reasons
@@ -72,7 +80,7 @@ BEGIN
   SELECT pronargdefaults INTO _def FROM pg_proc WHERE oid=_oid3;
   IF _def <> 0 THEN
     RAISE EXCEPTION
-      'G2 FAILED — the 3-arg overload carries % parameter default(s). A DEFAULT on _txn_amount makes it an equally good candidate for a TWO-argument call, so PostgREST answers the admin Approve button with HTTP 300 / PGRST203 and the 2-arg overload is unreachable. If this is the FIRST run, this is the expected C-34 fail-first reading and 0023 has not been applied.', _def;
+      'G2 FAILED — the 3-arg overload carries % parameter default(s). A DEFAULT on _txn_amount makes it an equally good candidate for a TWO-argument call, so PostgREST answers the admin Approve button with HTTP 300 / PGRST203 and the 2-arg overload is unreachable. If this is the FIRST run, this is the expected C-34 fail-first reading and 0024 has not been applied.', _def;
   END IF;
 
   -- G3 · BEHAVIOURAL. A two-argument call resolves to exactly one function.
@@ -157,7 +165,7 @@ BEGIN
   SELECT count(*) INTO _n FROM pg_proc p, aclexplode(p.proacl) a
    WHERE p.oid IN (_oid2,_oid3) AND a.grantee=0;
   IF _n > 0 THEN
-    RAISE EXCEPTION 'G8 FAILED — PUBLIC holds EXECUTE (% entries). 0023 drops and recreates the 3-arg, so the built-in default may have re-landed (F-66). acl2 = % | acl3 = %', _n, _acl2, _acl3;
+    RAISE EXCEPTION 'G8 FAILED — PUBLIC holds EXECUTE (% entries). 0024 drops and recreates the 3-arg, so the built-in default may have re-landed (F-66). acl2 = % | acl3 = %', _n, _acl2, _acl3;
   END IF;
 
   SELECT count(*) INTO _n FROM pg_proc p, aclexplode(p.proacl) a
@@ -178,7 +186,7 @@ BEGIN
     RAISE EXCEPTION 'G8 FAILED — service_role holds EXECUTE on % of 2 overloads. acl2 = % | acl3 = %', _n, _acl2, _acl3;
   END IF;
 
-  -- G9 · SECURITY DEFINER with a pinned search_path, on both. 0023 recreates
+  -- G9 · SECURITY DEFINER with a pinned search_path, on both. 0024 recreates
   -- the 3-arg, so this is not a formality.
   SELECT count(*) INTO _n FROM pg_proc
    WHERE oid IN (_oid2,_oid3) AND prosecdef
