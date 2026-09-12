@@ -1,25 +1,31 @@
 /**
- * THE COMMENTS SURFACE — a modal on web, a bottom sheet on the app. One
- * mount, near the app root (see Layout.tsx), driven by CommentsOverlayContext.
+ * THE COMMENTS SURFACE — a modal on web, a full-height bottom sheet on the app.
+ * One mount, near the app root (see Layout.tsx), driven by CommentsOverlayContext.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * WHY TWO SHAPES FOR ONE COMPONENT
+ * TWO SHAPES, ONE THEME SYSTEM
  *
  * Same breakpoint the rest of the app already keys mobile-vs-desktop layout
  * decisions off (`useIsMobile`, 768px) — not a new one invented for this.
  * Web gets Radix `Dialog` (ESC, focus trap/return, backdrop-click, scroll
- * lock — all native to the primitive, nothing hand-built here) with the post's
- * photo beside the thread, because the post is what "preserve post context"
- * means when the panel replaces the screen instead of sliding up over it. The
- * app gets `vaul`'s `Drawer` (swipe-to-dismiss, rounded top, drag handle,
- * scroll lock — likewise native), sized like MobileProfileSheet's sheet, with
- * no photo of its own: on a phone the post is still visible above the sheet,
- * exactly like Instagram's.
+ * lock — all native to the primitive) with the post's photo beside the thread.
+ * The app gets `vaul`'s `Drawer` (swipe-to-dismiss, rounded top, drag handle,
+ * scroll lock — likewise native), full-height.
+ *
+ * Neither shape sets its own colors. `DrawerContent` and `DialogContent`
+ * already carry `bg-background`, and every class this file and
+ * PostCommentsSection reach for (`bg-popover`, `text-foreground`,
+ * `border-border`, …) is a CSS variable that flips with the `.dark` class
+ * on <html> — the member's own light/dark toggle in Navbar / MobileProfileSheet
+ * (see src/hooks/core/useTheme.tsx), not the device's OS setting. Comments
+ * inherits that for free; it must never invent a second, competing theme
+ * signal (an earlier pass here read `prefers-color-scheme` directly, which
+ * could disagree with the toggle the member actually set — reverted).
  *
  * Neither shape draws a comment row, fetches a comment, or posts one — that
  * is PostCommentsSection (thread + pinned composer) and, under it,
  * usePostComments. This file is chrome: the backdrop, the close affordance,
- * and which half of the screen the post's photo gets, if any.
+ * and which half of the screen the post's photo gets (web only).
  */
 import { useCommentsOverlay } from "@/contexts/CommentsOverlayContext";
 import { useIsMobile } from "@/hooks/core/use-mobile";
@@ -47,11 +53,13 @@ const CommentsOverlay = () => {
         open={isOpen}
         onOpenChange={(open) => { if (!open) closeComments(); }}
       >
-        {/* Same 85vh ceiling MobileProfileSheet uses, for the same reason:
-            it must fit the shortest phone this app has ever been measured
-            on, not merely the ones on hand when this was written. */}
+        {/* Full-height immersive bottom sheet for app.
+            Height spans from top (below status bar) to bottom (above nav bar).
+            DrawerContent's own `bg-background` already follows the member's
+            light/dark toggle — nothing extra needed here.
+            Safe areas handled by Capacitor config (iOS notch, Android edge-to-edge). */}
         <DrawerContent
-          className="h-[85vh] max-h-[85vh] flex flex-col motion-reduce:!animate-none motion-reduce:!duration-0"
+          className="h-screen flex flex-col motion-reduce:!animate-none motion-reduce:!duration-0"
           aria-describedby={undefined}
         >
           <DrawerTitle className="sr-only">Comments</DrawerTitle>

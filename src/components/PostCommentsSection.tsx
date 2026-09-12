@@ -55,6 +55,7 @@ const PostCommentsSection = ({ postId, postOwnerId, onCommentCountChange }: Prop
     editComment,
     deleteComment,
     toggleLike,
+    setReaction,
     togglePin,
     reportComment,
   } = usePostComments(postId, postOwnerId, onCommentCountChange, true);
@@ -83,6 +84,7 @@ const PostCommentsSection = ({ postId, postOwnerId, onCommentCountChange }: Prop
           onEdit={editComment}
           onDelete={deleteComment}
           onToggleLike={toggleLike}
+          onReact={setReaction}
           onTogglePin={togglePin}
           onReport={reportComment}
         />

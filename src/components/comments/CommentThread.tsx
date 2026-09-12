@@ -94,6 +94,10 @@ export interface ThreadComment {
   author_last_active: string | null;
   like_count: number;
   is_liked: boolean;
+  /** Per-type breakdown, e.g. { like: 3, love: 1 } — only meaningful when reactions are on. */
+  reaction_counts?: Record<string, number>;
+  /** The reaction_type the current viewer picked on this comment, or null/undefined for none. */
+  user_reaction?: string | null;
   replies: ThreadComment[];
 }
 
@@ -118,6 +122,24 @@ export interface ThreadFeatures {
  * feed met both. This is the string, and the ad surface no longer overrides it.
  */
 export const COMMENT_PLACEHOLDER = "Write a comment...";
+
+/**
+ * THE REACTION SET. `post_comment_reactions.reaction_type` is free-form
+ * `text` in the database (default `'like'`, no CHECK constraint — see the
+ * 20260323 migration), so this list is a client-side convention, not a
+ * schema constraint. Adding a reaction here needs no migration; removing
+ * one would still leave old rows of that type in the database, so treat
+ * `type` values as append-only.
+ */
+export const REACTIONS: { type: string; emoji: string; label: string; color: string }[] = [
+  { type: "like", emoji: "👍", label: "Like", color: "text-primary" },
+  { type: "love", emoji: "❤️", label: "Love", color: "text-red-500" },
+  { type: "haha", emoji: "😆", label: "Haha", color: "text-amber-500" },
+  { type: "wow", emoji: "😮", label: "Wow", color: "text-amber-500" },
+  { type: "sad", emoji: "😢", label: "Sad", color: "text-amber-500" },
+  { type: "angry", emoji: "😡", label: "Angry", color: "text-orange-600" },
+];
+const REACTION_BY_TYPE = new Map(REACTIONS.map((r) => [r.type, r]));
 
 const REPORT_REASONS = [
   "Inappropriate",
@@ -173,7 +195,10 @@ export interface CommentThreadProps {
   /** Resolve true to close the editor; false leaves it open with the text in it. */
   onEdit: (id: string, content: string) => void | Promise<boolean | void>;
   onDelete: (id: string, parentId: string | null) => void;
+  /** Plain tap on the "Like" word — always the default reaction (REACTIONS[0], "like"). */
   onToggleLike?: (id: string) => void;
+  /** A specific emoji chosen from the reaction picker. Omit `features.reactions` and neither this nor onToggleLike's UI renders. */
+  onReact?: (id: string, reactionType: string) => void;
   onTogglePin?: (id: string) => void;
   onReport?: (id: string, reason: string) => void;
 }
@@ -241,6 +266,7 @@ const CommentThread = ({
   onEdit,
   onDelete,
   onToggleLike,
+  onReact,
   onTogglePin,
   onReport,
 }: CommentThreadProps) => {
@@ -257,6 +283,8 @@ const CommentThread = ({
   const [reportingId, setReportingId] = useState<string | null>(null);
   const [reportReason, setReportReason] = useState("");
   const [sortMode, setSortMode] = useState<"relevant" | "newest">("relevant");
+  /** Which comment's emoji-reaction popover is open, if any. One at a time. */
+  const [reactionPickerId, setReactionPickerId] = useState<string | null>(null);
 
   const sortedComments = [...comments].sort((a, b) => {
     // Pinned first
@@ -411,10 +439,16 @@ const CommentThread = ({
                     )}
                   </div>
 
-                  {/* Like count badge on bubble */}
+                  {/* Reaction badge on bubble — up to 3 distinct emoji, by count, plus the total. */}
                   {canReact && comment.like_count > 0 && (
                     <span className="absolute -bottom-2 right-2 bg-card border border-border rounded-full px-1.5 py-0.5 text-[10px] font-medium text-foreground shadow-sm flex items-center gap-0.5">
-                      👍 {comment.like_count}
+                      {Object.entries(comment.reaction_counts || {})
+                        .filter(([, count]) => count > 0)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 3)
+                        .map(([type]) => REACTION_BY_TYPE.get(type)?.emoji ?? "👍")
+                        .join("")}
+                      {" "}{comment.like_count}
                     </span>
                   )}
                 </div>
@@ -423,12 +457,52 @@ const CommentThread = ({
                 <div className="flex items-center gap-3 mt-1 px-1">
                   <span className="text-xs text-muted-foreground font-medium">{timeAgo(comment.created_at)}</span>
                   {canReact && currentUserId && (
-                    <button
-                      onClick={() => onToggleLike?.(comment.id)}
-                      className={`text-xs font-semibold transition-colors ${comment.is_liked ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
-                    >
-                      Like
-                    </button>
+                    <div className="relative">
+                      {/* Plain tap = the default reaction (fast path, unchanged from before
+                          reactions existed). The word and its color reflect whichever
+                          reaction — if any — the viewer currently has on this comment. */}
+                      <button
+                        onClick={() => onToggleLike?.(comment.id)}
+                        className={`text-xs font-semibold transition-colors ${
+                          comment.user_reaction
+                            ? REACTION_BY_TYPE.get(comment.user_reaction)?.color ?? "text-primary"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {comment.user_reaction ? REACTION_BY_TYPE.get(comment.user_reaction)?.label ?? "Like" : "Like"}
+                      </button>
+                      {/* Caret opens the full emoji picker — a separate control from the
+                          word above so a slow tap never accidentally fires the default
+                          reaction instead of opening the picker. */}
+                      <button
+                        type="button"
+                        aria-label="Choose a reaction"
+                        aria-expanded={reactionPickerId === comment.id}
+                        onClick={() => setReactionPickerId((id) => (id === comment.id ? null : comment.id))}
+                        className="ml-0.5 text-[9px] text-muted-foreground hover:text-foreground align-text-top"
+                      >
+                        ▾
+                      </button>
+                      {reactionPickerId === comment.id && (
+                        <div
+                          role="menu"
+                          className="absolute bottom-full left-0 mb-1 flex gap-0.5 bg-popover border border-border rounded-full px-1.5 py-1 shadow-md z-10"
+                        >
+                          {REACTIONS.map((r) => (
+                            <button
+                              key={r.type}
+                              type="button"
+                              title={r.label}
+                              aria-label={r.label}
+                              onClick={() => { onReact?.(comment.id, r.type); setReactionPickerId(null); }}
+                              className="text-base leading-none p-1 rounded-full hover:scale-125 hover:bg-muted transition-transform"
+                            >
+                              {r.emoji}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
                   {currentUserId && depth < maxReplyDepth && (
                     <button
@@ -549,7 +623,14 @@ const CommentThread = ({
   const totalCount = comments.reduce((acc, c) => acc + 1 + c.replies.length, 0);
 
   return (
-    <div className="px-3 py-2">
+    <div className="px-3 py-2 relative">
+      {/* Closes the reaction picker on an outside click/tap without a
+          document-level listener — one transparent layer under the popover
+          (which carries its own z-10) and above everything else in the thread. */}
+      {reactionPickerId && (
+        <div className="fixed inset-0 z-[5]" onClick={() => setReactionPickerId(null)} />
+      )}
+
       {/* Sort selector */}
       {canSort && totalCount > 1 && (
         <div className="flex items-center gap-1 mb-2">

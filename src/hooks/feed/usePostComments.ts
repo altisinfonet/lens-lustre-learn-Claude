@@ -38,6 +38,8 @@ export interface UsePostCommentsResult {
   editComment: (commentId: string, content: string) => Promise<boolean>;
   deleteComment: (commentId: string, parentId: string | null) => Promise<void>;
   toggleLike: (commentId: string) => Promise<void>;
+  /** Set (or clear, by re-passing the same type) the viewer's reaction on a comment. */
+  setReaction: (commentId: string, reactionType: string) => Promise<void>;
   togglePin: (commentId: string) => Promise<void>;
   reportComment: (commentId: string, reason: string) => Promise<void>;
   reload: () => void;
@@ -54,7 +56,14 @@ export function usePostComments(
   const { isAdmin } = useIsAdmin();
   const [comments, setComments] = useState<ThreadComment[]>([]);
   const [rawComments, setRawComments] = useState<any[]>([]);
-  const [rawReactions, setRawReactions] = useState<{ likeCountMap: Map<string, number>; userLikedSet: Set<string> }>({ likeCountMap: new Map(), userLikedSet: new Set() });
+  const [rawReactions, setRawReactions] = useState<{
+    likeCountMap: Map<string, number>;
+    userLikedSet: Set<string>;
+    /** comment_id -> { reaction_type: count }, e.g. { like: 3, love: 1 }. */
+    reactionCountsMap: Map<string, Record<string, number>>;
+    /** comment_id -> the reaction_type the current viewer picked. */
+    userReactionMap: Map<string, string>;
+  }>({ likeCountMap: new Map(), userLikedSet: new Set(), reactionCountsMap: new Map(), userReactionMap: new Map() });
   const [commentUserIds, setCommentUserIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -69,7 +78,7 @@ export function usePostComments(
   useEffect(() => {
     setComments([]);
     setRawComments([]);
-    setRawReactions({ likeCountMap: new Map(), userLikedSet: new Set() });
+    setRawReactions({ likeCountMap: new Map(), userLikedSet: new Set(), reactionCountsMap: new Map(), userReactionMap: new Map() });
     setCommentUserIds([]);
     setLoaded(false);
     setLoading(false);
@@ -95,22 +104,37 @@ export function usePostComments(
     const authorIds = [...new Set(data.map((c: any) => c.user_id))];
     const commentIds = data.map((c: any) => c.id);
 
-    const [, reactionsRes, userReactionsRes] = await Promise.all([
+    // One query for every reaction row on these comments — the SELECT policy
+    // is open to any signed-in-or-not viewer, so a single fetch gives both
+    // the per-type totals (for the badge) and, by filtering client-side for
+    // the current user, "which reaction (if any) did I pick" — no second
+    // round trip needed.
+    const [, reactionsRes] = await Promise.all([
       getAdminIds(),
-      commentIds.length ? supabase.from("post_comment_reactions" as any).select("comment_id").in("comment_id", commentIds) : { data: [] },
-      commentIds.length && user ? supabase.from("post_comment_reactions" as any).select("comment_id").eq("user_id", user.id).in("comment_id", commentIds) : { data: [] },
+      commentIds.length
+        ? supabase.from("post_comment_reactions" as any).select("comment_id, user_id, reaction_type").in("comment_id", commentIds)
+        : { data: [] },
     ]);
 
     if (requestedFor !== postId) return;
 
     const likeCountMap = new Map<string, number>();
+    const userLikedSet = new Set<string>();
+    const reactionCountsMap = new Map<string, Record<string, number>>();
+    const userReactionMap = new Map<string, string>();
     (reactionsRes.data as any[] || []).forEach((r: any) => {
       likeCountMap.set(r.comment_id, (likeCountMap.get(r.comment_id) || 0) + 1);
+      const counts = reactionCountsMap.get(r.comment_id) || {};
+      counts[r.reaction_type] = (counts[r.reaction_type] || 0) + 1;
+      reactionCountsMap.set(r.comment_id, counts);
+      if (user && r.user_id === user.id) {
+        userLikedSet.add(r.comment_id);
+        userReactionMap.set(r.comment_id, r.reaction_type);
+      }
     });
-    const userLikedSet = new Set((userReactionsRes.data as any[] || []).map((r: any) => r.comment_id));
 
     setRawComments(data);
-    setRawReactions({ likeCountMap, userLikedSet });
+    setRawReactions({ likeCountMap, userLikedSet, reactionCountsMap, userReactionMap });
     setCommentUserIds(authorIds);
     setLoading(false);
     setLoaded(true);
@@ -135,6 +159,8 @@ export function usePostComments(
         author_last_active: profileMap[c.user_id]?.last_active_at ?? null,
         like_count: rawReactions.likeCountMap.get(c.id) || 0,
         is_liked: rawReactions.userLikedSet.has(c.id),
+        reaction_counts: rawReactions.reactionCountsMap.get(c.id) || {},
+        user_reaction: rawReactions.userReactionMap.get(c.id) ?? null,
         replies: [],
       }));
 
@@ -216,22 +242,48 @@ export function usePostComments(
     return true;
   };
 
-  const toggleLike = async (commentId: string) => {
+  /**
+   * Set the viewer's reaction on a comment to `reactionType` (any of
+   * REACTIONS in CommentThread.tsx) — or clear it, by passing the type
+   * that's already active (the emoji picker's own toggle-off).
+   *
+   * The table has no UPDATE policy (see the 20260323 migration — only
+   * SELECT/INSERT own/DELETE own), so switching from one reaction to
+   * another is a delete-then-insert, not an upsert; both steps are already
+   * covered by the existing RLS, so this needed no schema change.
+   */
+  const setReaction = async (commentId: string, reactionType: string) => {
     if (!user) return;
-    const updateLike = (list: ThreadComment[]): ThreadComment[] =>
-      list.map((c) => c.id === commentId
-        ? { ...c, is_liked: !c.is_liked, like_count: c.is_liked ? c.like_count - 1 : c.like_count + 1 }
-        : { ...c, replies: updateLike(c.replies) }
-      );
-    setComments(updateLike);
+    const current = findComment(comments, commentId)?.user_reaction ?? null;
+    const turningOff = current === reactionType;
 
-    const isCurrentlyLiked = findComment(comments, commentId)?.is_liked;
-    if (isCurrentlyLiked) {
+    const applyReaction = (list: ThreadComment[]): ThreadComment[] =>
+      list.map((c) => {
+        if (c.id !== commentId) return { ...c, replies: applyReaction(c.replies) };
+        const counts = { ...(c.reaction_counts || {}) };
+        if (current) counts[current] = Math.max(0, (counts[current] || 0) - 1);
+        if (!turningOff) counts[reactionType] = (counts[reactionType] || 0) + 1;
+        const total = Object.values(counts).reduce((a, b) => a + b, 0);
+        return {
+          ...c,
+          reaction_counts: counts,
+          user_reaction: turningOff ? null : reactionType,
+          is_liked: !turningOff,
+          like_count: total,
+        };
+      });
+    setComments(applyReaction);
+
+    if (current) {
       await supabase.from("post_comment_reactions" as any).delete().eq("comment_id", commentId).eq("user_id", user.id);
-    } else {
-      await supabase.from("post_comment_reactions" as any).insert({ comment_id: commentId, user_id: user.id, reaction_type: "like" } as any);
+    }
+    if (!turningOff) {
+      await supabase.from("post_comment_reactions" as any).insert({ comment_id: commentId, user_id: user.id, reaction_type: reactionType } as any);
     }
   };
+
+  /** Back-compat: a plain tap on "Like" is just the default reaction. */
+  const toggleLike = (commentId: string) => setReaction(commentId, "like");
 
   const togglePin = async (commentId: string) => {
     const comment = findComment(comments, commentId);
@@ -276,6 +328,7 @@ export function usePostComments(
     editComment,
     deleteComment,
     toggleLike,
+    setReaction,
     togglePin,
     reportComment,
     reload: loadComments,
