@@ -1,3 +1,71 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- ⛔ NOT PART OF THE MIGRATION SEQUENCE. DO NOT DISPATCH THIS FILE.
+--    Renamed 2026-09-12 (one-off targeting main). Contents unchanged.
+--
+-- ⚠ THE PREFIX MEANS "NOT IN THE SEQUENCE", NOT "NEVER RAN". THIS FILE RAN.
+--
+-- It was applied, under its original name, by apply-migration.yml:
+--
+--     run #54 · 2026-09-11T12:45:42Z · target = staging
+--     "✅ Applied: supabase/migrations/20260911101721_new_project_full_schema_bootstrap.sql"
+--
+-- That is recorded here deliberately, because renaming a file that HAS been
+-- applied is the thing this project otherwise refuses to do — staging's
+-- 20260910_0019 was left with a confusing duplicate ordinal for exactly that
+-- reason, since renaming it would leave the repository holding a name that no
+-- run log mentions. The mitigation is this paragraph: the old name and the run
+-- that used it are written into the file, so run #54 stays resolvable.
+--
+-- The prefix is used in the sense this repository already defines for it —
+-- PROBE_credential_connectivity_readonly.sql: "a name that tells any future
+-- reader, at a glance, that the file is not part of the migration sequence."
+-- This file is a ONE-TIME FRESH-PROJECT BOOTSTRAP, not a sequence member. It
+-- has done its job.
+--
+-- ═══ WHY IT MUST NOT BE DISPATCHED AGAIN — THE ACTUAL HAZARD ═══
+--
+-- apply-migration.yml's allowlist admits every .sql under supabase/migrations,
+-- so until this
+-- rename ANY lane could be selected for it from the dispatch box, PRODUCTION
+-- INCLUDED. This file is 21,442 lines: 149 CREATE TABLE, 373
+-- CREATE OR REPLACE FUNCTION, 691 CREATE POLICY, 152 CREATE TRIGGER — and ZERO
+-- REVOKE, ZERO GRANT.
+--
+-- Run against production it would CREATE OR REPLACE 373 function bodies with a
+-- snapshot of the OLD STAGING PROJECT (ztzutckwdhetphwghuzj, per the header
+-- below). That is the same class of damage as 0023's withdrawn rollback —
+-- silently replacing live definitions with stale ones — except across the whole
+-- schema rather than two overloads. Runs #69 and #70 established that exact
+-- hazard is real for even two functions: production's bodies are NOT what the
+-- repository's older migrations say they are.
+--
+-- Nothing here says production WOULD be harmed in some specific measured way.
+-- No such dispatch has happened and none was measured. What is measured is the
+-- reachability: the allowlist admitted this path, and the file replaces 373
+-- definitions. Closing that is the whole point of the rename.
+--
+-- ═══ KNOWN CONSEQUENCE, FOR THE AUDITOR TO CONFIRM ═══
+--
+-- Several gates scan supabase/migrations/ and filter on a 14-digit filename
+-- prefix, which `UNAPPLIED_…` no longer matches. Renaming therefore removes
+-- roughly 639 generated assertions from newTableGrants and
+-- securityDefinerGrants — the per-object grant checks this file was failing
+-- 176 of, because a wholesale schema snapshot carries no per-object grant
+-- decisions.
+--
+-- That is a REDUCTION IN COVERAGE and it is not being argued as a fix. It is
+-- recorded as a consequence, deliberately left for the Auditor to confirm or
+-- reverse. Whether a reviewed snapshot should be exempt from the per-object
+-- gates, or scanned under a carve-out, is a coverage decision and not this
+-- file's to make.
+--
+-- ⚠ IT REMAINS APPLIED TO STAGING. Renaming it does not un-apply it, and the
+-- new staging project (fpszggreishhuvdpkmdr) is still the schema this file
+-- created. Nothing about the running database changes here.
+--
+-- Original header follows, unchanged.
+-- ═══════════════════════════════════════════════════════════════════════════
+
 -- 50mm Retina World (staging) -- full public schema DDL
 -- Generated via catalog introspection (execute_sql, read-only) on 2026-09-11T08:54:49Z
 -- Source project: ztzutckwdhetphwghuzj (50mmretinaworld-staging), Postgres 17

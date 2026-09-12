@@ -53,7 +53,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { stripComments } from "@/test-utils/sourceText";
 
@@ -202,11 +202,62 @@ describe("the call-site shapes this fix was measured against", () => {
     // The database caller. It passes three, so removing the default cannot
     // affect it — and it swallows exceptions with EXCEPTION WHEN OTHERS THEN
     // NULL, so if it could, it would fail silently.
+    //
+    // ⚠ PATH UPDATED 2026-09-12. The schema bootstrap now carries the
+    // UNAPPLIED_ prefix — it is a one-time fresh-project bootstrap, not a
+    // sequence member, and apply-migration.yml's allowlist admitted the old
+    // path for ANY lane including production. This assertion reads the file for
+    // its content, not its position in the sequence, so the rename is the only
+    // thing that changed here.
     const bootstrap = read(
-      "supabase/migrations/20260911101721_new_project_full_schema_bootstrap.sql",
+      "supabase/migrations/UNAPPLIED_20260911101721_new_project_full_schema_bootstrap.sql",
     );
     expect(bootstrap).toMatch(
       /PERFORM process_referral_reward\(_user_id, 'course purchase', _course\.price\);/,
     );
+  });
+
+  it("no dispatchable copy of the schema bootstrap is left behind", () => {
+    // The rename is a security change, not tidying: it is what takes a
+    // 21,442-line full-schema snapshot (373 CREATE OR REPLACE FUNCTION, zero
+    // REVOKE) out of reach of a production dispatch. A revert, a bad merge, or
+    // someone "restoring" the old path because a link went stale would reopen
+    // it silently — so the absence is asserted rather than assumed.
+    const runnable = readdirSync(join(process.cwd(), "supabase/migrations"))
+      .filter((f) => f.includes("new_project_full_schema_bootstrap"))
+      .filter((f) => !f.startsWith("UNAPPLIED_"));
+    expect(runnable).toEqual([]);
+  });
+
+  it("the bootstrap's added header contains no /* sequence", () => {
+    /*
+     * ⚠ THIS PINS A MISTAKE THAT WAS MADE AND CAUGHT IN THIS UNIT, NOT A
+     * HYPOTHETICAL.
+     *
+     * The first draft of that header wrote the workflow's allowlist literally
+     * as `supabase/migrations/` followed by a star and `.sql`. Several tests in
+     * this repository strip block comments with an unanchored
+     * `/\/\*[\s\S]*?\*\//` before scanning SQL — so that stray open-comment
+     * marker began a block comment that ran to the next close marker roughly
+     * 16,500 lines later, blanking most of the file.
+     *
+     * The visible effect was a test going GREEN: handleTravelsWithNameOnServer
+     * stopped finding the defect it exists to report, because the function it
+     * reads had been blanked out from under it. A silent false green is worse
+     * than the red it replaced.
+     *
+     * This is the same trap src/test-utils/sourceText.ts documents in its own
+     * header, where `accept="image/*"` swallowed 400 lines and two gates passed
+     * for weeks for the wrong reason. Prose is not inert when a scanner reads
+     * the file it sits in.
+     */
+    const header = readFileSync(
+      join(
+        process.cwd(),
+        "supabase/migrations/UNAPPLIED_20260911101721_new_project_full_schema_bootstrap.sql",
+      ),
+      "utf8",
+    ).split("-- Original header follows, unchanged.")[0];
+    expect(header).not.toContain("/" + "*");
   });
 });
