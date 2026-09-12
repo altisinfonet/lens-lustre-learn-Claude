@@ -135,7 +135,22 @@ export const COMMENT_PLACEHOLDER = "Write a comment...";
  * in the same bundle. A post with no handle falls back to COMMENT_PLACEHOLDER,
  * so there is still exactly one default in the codebase.
  */
-export const HANDLE_PLACEHOLDER_MAX = 14;
+/**
+ * ⚠ 10, AND THE NUMBER CAME FROM A SCREENSHOT, NOT FROM THE REFERENCE.
+ *
+ * It was 14 — the reference's own "villagesquarei…" — and the first capture of
+ * the comments scene at 360px (tools/uishot, app-360) showed why that does not
+ * transfer: the placeholder WRAPPED to a second line and the second line was
+ * clipped by the bottom of the sheet. MentionInput renders a textarea, whose
+ * placeholder wraps like any other text, and the box is narrower here than the
+ * reference's — an avatar on the left and the send button occupying 44px
+ * INSIDE the field on the right leave about 236px for the string.
+ *
+ * "Add a comment for " is 18 characters before the handle even starts, so the
+ * handle is what has to give. 10 + the ellipsis fits on one line at 360px,
+ * measured in the harness, with the longest handle this can produce.
+ */
+export const HANDLE_PLACEHOLDER_MAX = 10;
 export const commentPlaceholderFor = (handle?: string | null): string => {
   const clean = handle?.trim().replace(/^@/, "");
   if (!clean) return COMMENT_PLACEHOLDER;
@@ -640,7 +655,7 @@ const CommentThread = ({
             second cluster of emoji to read past.
           */}
           {canReact && editingId !== comment.id && (
-            <div className="relative flex shrink-0 flex-col items-center pt-0.5">
+            <div className="relative flex shrink-0 flex-col items-center">
               <button
                 type="button"
                 onClick={() => onToggleLike?.(comment.id)}
@@ -654,8 +669,26 @@ const CommentThread = ({
                     .map(([type, count]) => `${REACTION_BY_TYPE.get(type)?.label ?? type} ${count}`)
                     .join(" · ") || undefined
                 }
-                className="flex h-8 w-8 items-center justify-center rounded-full transition-transform duration-150 hover:bg-muted/50 active:scale-90 disabled:cursor-default disabled:opacity-60 motion-reduce:transition-none motion-reduce:active:scale-100"
+                /*
+                  ⚠ 44×44 IS THE BUTTON ITSELF, NOT A `.tap-44` REGION.
+
+                  tools/uishot's tap-target sweep measured this at 32×32 on the
+                  first capture of the comments scene — under the floor. The
+                  app's `.tap-44` utility would have fixed the number by growing
+                  an invisible region symmetrically, and F-109 (see index.css) is
+                  the record of what that costs next to text: the enlarged region
+                  around "Copy Photo Link" took 27% of the photographer's name
+                  above it. This control sits in the margin beside a comment body
+                  that can wrap to its edge, so the same contest was available.
+
+                  A real 44×44 button cannot take a pixel from anything, because
+                  the row reserves the space. The visible circle stays 32px on
+                  the span inside, so the rail looks exactly as designed and only
+                  the thumb target is larger.
+                */
+                className="group/heart flex h-11 w-11 items-center justify-center disabled:cursor-default disabled:opacity-60"
               >
+                <span className="flex h-8 w-8 items-center justify-center rounded-full transition-transform duration-150 group-hover/heart:bg-muted/50 group-active/heart:scale-90 motion-reduce:transition-none motion-reduce:group-active/heart:scale-100">
                 {comment.user_reaction && comment.user_reaction !== "like" ? (
                   <span className="text-base leading-none">
                     {REACTION_BY_TYPE.get(comment.user_reaction)?.emoji ?? "👍"}
@@ -682,9 +715,10 @@ const CommentThread = ({
                     strokeWidth={1.9}
                   />
                 )}
+                </span>
               </button>
               {comment.like_count > 0 && (
-                <span className="mt-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
+                <span className="-mt-1 text-[11px] font-semibold tabular-nums text-muted-foreground">
                   {comment.like_count}
                 </span>
               )}
