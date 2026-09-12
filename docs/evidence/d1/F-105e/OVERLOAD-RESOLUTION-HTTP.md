@@ -86,24 +86,84 @@ postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres
 No PUBLIC, no anon. `pronargdefaults` = 0 on both. The 3-arg oid changed
 20678 → 21828, as a recreate must.
 
-## Production — INFERRED FROM SOURCE, NOT MEASURED
+## KNOWN AND ACCEPTED — NOT A FIX NEEDED
+
+### The duplicated `20260910_0019` ordinal
+
+`main` and `staging` each hold a **different** file at that ordinal:
+
+| branch | file |
+|---|---|
+| `main` | `20260910_0019_f93_production_handle_backfill.sql` |
+| `staging` | `20260910_0019_f105d_process_referral_reward_authorize.sql` |
+
+Cause: staging's 0019 was numbered from the next ordinal free **on staging**,
+without first fetching `main`, which holds 0019, 0020 and 0021 in this block.
+That is why F-105e is 0022 — the next ordinal free on both. My error, recorded
+rather than tidied away.
+
+**Decision, Owner, 2026-09-12: leave both files exactly as they are.** Staging's
+0019 is already applied and run-logged under that name (apply-migration run #61),
+and rewriting an applied migration's identity is worse than a cosmetic
+collision: the repository would then hold a file whose name does not match what
+the workflow log says ran, which is the precise failure `0018`'s own header
+warns about. The two are different filenames beyond the shared ordinal, so this
+is **not a merge conflict** — nothing collides at the filesystem or git level,
+and both files land side by side when the branches meet.
+
+What it actually costs: a human reading `supabase/migrations/` after the
+promotion sees two files starting `20260910_0019_` and has to read both names to
+know they are unrelated units. Confusing, not harmful.
+
+**For the Auditor:** no action is required for this promotion. If a different
+convention is wanted going forward — reserving ordinals per lane rather than per
+phase, or requiring a `git fetch origin main` before a block number is claimed —
+that is the Auditor's call to make and record, not something to retrofit onto
+applied files.
+
+---
+
+## SEPARATE PRODUCTION FINDING — for someone with main/production access
+
+**Not part of this staging fix. Nothing below has been measured.**
 
 This lane has no production database access and no route to the production REST
-endpoint, so **the production reading has not been taken.** What is established
-from `origin/main`:
+endpoint, so **the production reading has not been taken.** Everything here is
+inferred from `origin/main`'s source:
 
 * both overloads are defined there, the three-argument one with
   `_txn_amount numeric DEFAULT 0`;
-* `AdminReferrals.tsx` on main sends the same two keys;
+* `AdminReferrals.tsx` on main sends the same two keys
+  (`_referred_user_id`, `_activity_type`);
 * no migration on main removes the default, renames either function, or
   otherwise changes the resolution;
 * main carries no F-105e fix.
 
-On that basis production has the same shape and its PostgREST will answer the
-same PGRST203 — the admin Approve button is expected to be broken there too, and
-to have been since the three-argument overload was added (`20260228102118`).
+On that basis **production is expected to carry the same PGRST203 defect: the
+admin Approve button returns HTTP 300 and approves nothing, and has done since
+the three-argument overload was added (`20260228102118`).**
 
-**This must be measured on production before it is believed**, by the same
-pg_net method, using the production publishable key. Until then it is an
-inference from migration source, which is exactly the class of claim C-38, C-42,
-C-44 and C-45 were all corrected for.
+Mitigating context, from PROMOTION_LEDGER §44.5: production had zero referral
+rows and no `referral_reward` setting, so there has been nothing to approve.
+That bounds the impact; it does not make the button work.
+
+**To verify** — the same method used here, against the production ref
+`jtdtehuqtinjxropkkcn` with the production publishable key:
+
+```
+POST https://<prod-ref>.supabase.co/rest/v1/rpc/process_referral_reward
+     { "_referred_user_id": "<random uuid>", "_activity_type": "manual approval" }
+  expect HTTP 300 PGRST203 if the defect is present
+```
+
+Send the three-key body as the control, exactly as above — the two readings
+together are what make either one mean anything.
+
+**To fix**, if confirmed: promote `20260910_0022_f105e_…` and apply it to
+production through `apply-migration.yml` (target=production, dispatched from
+`main`), fail-first probe before and green probe after, as on staging. The
+migration is lane-agnostic; nothing in it is staging-specific.
+
+⚠ Until it is measured this is an inference from migration source, which is
+exactly the class of claim C-38, C-42, C-44 and C-45 were all corrected for.
+**It is a finding to check, not a fact to repeat.**
