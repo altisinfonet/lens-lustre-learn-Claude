@@ -133,8 +133,14 @@ describe("the comment surfaces hand over the badges they resolved", () => {
   it("both adapters run their authors through resolveBadges", async () => {
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
+    // ⚠ THE LIST FOLLOWED THE CODE (2026-09-09). The post adapter's data
+    // fetch — including the resolveBadges call this test is pinning — moved
+    // out of PostCommentsSection.tsx into src/hooks/feed/usePostComments.ts
+    // so the Comments overlay (a new caller, alongside the existing inline
+    // adapter) can share one fetch instead of growing a second one. The ad
+    // surface has no such hook and still calls resolveBadges directly.
     for (const f of [
-      "src/components/PostCommentsSection.tsx",
+      "src/hooks/feed/usePostComments.ts",
       "src/components/ads/AdComments.tsx",
     ]) {
       expect(readFileSync(join(process.cwd(), f), "utf8"), f).toContain("resolveBadges(");
