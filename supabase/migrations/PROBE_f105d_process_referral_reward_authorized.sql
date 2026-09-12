@@ -195,8 +195,8 @@ BEGIN
   SELECT count(*) INTO _n
     FROM pg_proc p
    WHERE p.oid IN (_oid2, _oid3)
-     AND p.prosrc LIKE '%IS DISTINCT FROM _caller%'
-     AND p.prosrc LIKE '%has_role(_caller%';
+     AND regexp_replace(p.prosrc, '--[^\n]*', '', 'g') LIKE '%IS DISTINCT FROM _caller%'
+     AND regexp_replace(p.prosrc, '--[^\n]*', '', 'g') LIKE '%has_role(_caller%';
   IF _n <> 2 THEN
     RAISE EXCEPTION
       'G9 FAILED — only % of the 2 overloads carry the self-or-admin guard in their body. Closing one overload and leaving the other is exactly how this finding was produced. 2-arg oid %, 3-arg oid %.',
@@ -206,10 +206,18 @@ BEGIN
   -- G10 · THE GUARD IS NULL-SAFE IN SOURCE TOO.
   -- G8 proves the behaviour, but only for whichever overload SQL resolves. A
   -- bare `<>` reintroduced into either body is the defect regardless.
+  --
+  -- ⚠ COMMENTS ARE STRIPPED FIRST, AND THIS IS NOT TIDINESS. pg_proc.prosrc
+  -- CONTAINS THE COMMENTS. The guard's own explanation says, in prose, why it
+  -- does not use `_referred_user_id <> auth.uid()` — so an unstripped LIKE
+  -- matches the sentence warning against the defect and reports the defect.
+  -- This gate did exactly that on its first green run against a correct
+  -- database. Same trap birthdayVisibility.test.ts documents: a source-pin
+  -- assertion must never be able to match its own explanation.
   SELECT count(*) INTO _n
     FROM pg_proc p
    WHERE p.oid IN (_oid2, _oid3)
-     AND p.prosrc LIKE '%_referred_user_id <> %';
+     AND regexp_replace(p.prosrc, '--[^\n]*', '', 'g') LIKE '%_referred_user_id <> %';
   IF _n <> 0 THEN
     RAISE EXCEPTION
       'G10 FAILED — % overload(s) compare _referred_user_id with a bare <>. Against a NULL auth.uid() that yields NULL, the IF is never taken, and the guard admits precisely the caller it exists to refuse.', _n;
