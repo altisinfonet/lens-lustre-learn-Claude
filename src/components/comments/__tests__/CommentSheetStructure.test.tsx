@@ -293,8 +293,9 @@ describe("the quick-reaction row above the box", () => {
 describe("the composer", () => {
   it("names the post's owner in its placeholder, truncated to stay on one line", () => {
     draw({ postOwnerHandle: "villagesquareindia" });
-    // 14 characters then an ellipsis — the reference's own "villagesquarei…".
-    expect(screen.getByPlaceholderText("Add a comment for villagesquarei…")).toBeInTheDocument();
+    // 10 characters then an ellipsis — the longest that stays on ONE line at
+    // 360px; see HANDLE_PLACEHOLDER_MAX for the capture that set the number.
+    expect(screen.getByPlaceholderText("Add a comment for villagesqu…")).toBeInTheDocument();
   });
 
   it("falls back to the ONE shared placeholder when the owner has no handle", () => {
