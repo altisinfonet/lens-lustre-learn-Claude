@@ -35,6 +35,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { migrationsInSequence } from "@/test-utils/migrations";
 import { join } from "node:path";
 
 const ROOT = process.cwd();
@@ -455,7 +456,7 @@ describe("shaToBytea / objectPathFromUrl", () => {
    THE SERVER SIDE, ASSERTED AGAINST THE LAST DEFINITION IN THE MIGRATIONS
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort();
+const files = migrationsInSequence(MIGRATIONS);
 const bodies = files.map((f) => readFileSync(join(MIGRATIONS, f), "utf8"));
 
 function lastDefinitionOf(fn: string): string {

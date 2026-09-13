@@ -38,7 +38,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { migrationsInSequence } from "@/test-utils/migrations";
 import { join } from "node:path";
 
 const MIGRATIONS = join(process.cwd(), "supabase/migrations");
@@ -46,10 +47,8 @@ const MIGRATIONS = join(process.cwd(), "supabase/migrations");
 /** Same mandate window as the sibling gates, for the same reason. */
 const MANDATE_FROM = "20260813000000";
 
-const inScope = readdirSync(MIGRATIONS)
-  .filter((f) => f.endsWith(".sql"))
-  .filter((f) => (f.match(/^(\d{14})/)?.[1] ?? "0") >= MANDATE_FROM)
-  .sort();
+const inScope = migrationsInSequence(MIGRATIONS)
+  .filter((f) => (f.match(/^(\d{14})/)?.[1] ?? "0") >= MANDATE_FROM);
 
 /** Prose must not be able to satisfy an assertion. */
 const stripSql = (sql: string) =>

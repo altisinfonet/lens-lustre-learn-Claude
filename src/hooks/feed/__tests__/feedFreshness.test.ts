@@ -22,7 +22,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { migrationsInSequence } from "@/test-utils/migrations";
 import { join } from "node:path";
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
@@ -46,9 +47,7 @@ const app = read("src/App.tsx");
  * here on the day it is written.
  */
 const migrationsDir = "supabase/migrations";
-const latestFeedMigration = readdirSync(join(process.cwd(), migrationsDir))
-  .filter((f) => f.endsWith(".sql"))
-  .sort()
+const latestFeedMigration = migrationsInSequence(join(process.cwd(), migrationsDir))
   .filter((f) =>
     readFileSync(join(process.cwd(), migrationsDir, f), "utf8").includes(
       "CREATE FUNCTION public.get_broadcast_feed",

@@ -25,6 +25,7 @@
 
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
+import { migrationsInSequence } from "@/test-utils/migrations";
 import { join } from "node:path";
 
 const strip = (s: string) =>
@@ -33,8 +34,8 @@ const read = (p: string) => strip(readFileSync(join(process.cwd(), p), "utf8"));
 
 const MIGRATIONS = join(process.cwd(), "supabase/migrations");
 const MANDATE_FROM = "20260813000000";
-const allMigrations = readdirSync(MIGRATIONS)
-  .filter((f) => f.endsWith(".sql") && (f.match(/^(\d{14})/)?.[1] ?? "0") >= MANDATE_FROM)
+const allMigrations = migrationsInSequence(MIGRATIONS)
+  .filter((f) => (f.match(/^(\d{14})/)?.[1] ?? "0") >= MANDATE_FROM)
   .map((f) => strip(readFileSync(join(MIGRATIONS, f), "utf8")))
   .join("\n");
 
