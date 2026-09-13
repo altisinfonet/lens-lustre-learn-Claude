@@ -24,7 +24,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { migrationsInSequence } from "@/test-utils/migrations";
 import { join } from "node:path";
 import {
   ACTION_CATALOG,
@@ -75,8 +76,7 @@ function functionBody(name: string): string {
 const MIGRATIONS_DIR = join(process.cwd(), "supabase/migrations");
 
 function latestCatalogSql(): string {
-  const defining = readdirSync(MIGRATIONS_DIR)
-    .filter((f) => f.endsWith(".sql"))
+  const defining = migrationsInSequence(MIGRATIONS_DIR)
     .filter((f) =>
       readFileSync(join(MIGRATIONS_DIR, f), "utf8").includes(
         "CREATE OR REPLACE FUNCTION public.notif_action_phrase",

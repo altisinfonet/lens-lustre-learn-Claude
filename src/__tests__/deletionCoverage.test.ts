@@ -28,7 +28,8 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { migrationsInSequence } from "@/test-utils/migrations";
 import { join } from "node:path";
 
 const MIGRATIONS = join(process.cwd(), "supabase/migrations");
@@ -49,10 +50,8 @@ const DELETION_HANDLED: Record<string, string> = {
   // (empty today — every in-scope table so far uses a cascade instead)
 };
 
-const inScope = readdirSync(MIGRATIONS)
-  .filter((f) => f.endsWith(".sql"))
-  .filter((f) => (f.match(/^(\d{14})/)?.[1] ?? "0") >= MANDATE_FROM)
-  .sort();
+const inScope = migrationsInSequence(MIGRATIONS)
+  .filter((f) => (f.match(/^(\d{14})/)?.[1] ?? "0") >= MANDATE_FROM);
 
 const strip = (s: string) =>
   s.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/--.*$/gm, " ");

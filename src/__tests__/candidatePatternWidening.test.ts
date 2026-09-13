@@ -32,7 +32,8 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
+import { migrationsInSequence } from "@/test-utils/migrations";
 import { join } from "node:path";
 
 import {
@@ -44,7 +45,7 @@ import {
 
 const ROOT = process.cwd();
 const MIGRATIONS = join(ROOT, "supabase/migrations");
-const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort();
+const files = migrationsInSequence(MIGRATIONS);
 const bodies = files.map((f) => readFileSync(join(MIGRATIONS, f), "utf8"));
 const allSql = bodies.join("\n");
 
