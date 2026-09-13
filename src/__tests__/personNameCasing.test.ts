@@ -31,7 +31,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { migrationsInSequence } from "@/test-utils/migrations";
 import { join } from "node:path";
 import { formatPersonName } from "@/lib/formatPersonName";
 
@@ -108,8 +109,7 @@ describe("the name rule, TypeScript side", () => {
  * while pointing at nothing.
  */
 const MIGRATIONS = join(process.cwd(), "supabase/migrations");
-const nameMigration = readdirSync(MIGRATIONS)
-  .filter((f) => f.endsWith(".sql"))
+const nameMigration = migrationsInSequence(MIGRATIONS)
   .map((f) => readFileSync(join(MIGRATIONS, f), "utf8"))
   .find((sql) => /CREATE OR REPLACE FUNCTION public\.format_person_name/.test(sql));
 

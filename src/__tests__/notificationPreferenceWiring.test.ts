@@ -39,7 +39,8 @@
 
 import { describe, it, expect } from "vitest";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
+import { isInSequence } from "@/test-utils/migrations";
 
 const ROOT = process.cwd();
 const SETTINGS_PAGE = "src/pages/NotificationSettings.tsx";
@@ -88,6 +89,7 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 const searchFiles = SEARCH_ROOTS.flatMap((r) => walk(join(ROOT, r)))
+  .filter((f) => isInSequence(basename(f)))
   .map((p) => p.slice(ROOT.length + 1))
   .filter((p) => !NOT_A_CONSUMER.has(p) && !p.includes(".test."));
 

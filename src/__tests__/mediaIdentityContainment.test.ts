@@ -46,6 +46,7 @@
 
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
+import { migrationsInSequence } from "@/test-utils/migrations";
 import { join } from "node:path";
 
 const MIGRATIONS = join(process.cwd(), "supabase/migrations");
@@ -54,10 +55,8 @@ const SRC = join(process.cwd(), "src");
 /** Same mandate window as securityDefinerGrants.test.ts, for the same reason. */
 const MANDATE_FROM = "20260813000000";
 
-const migrationFiles = readdirSync(MIGRATIONS)
-  .filter((f) => f.endsWith(".sql"))
-  .filter((f) => (f.match(/^(\d{14})/)?.[1] ?? "0") >= MANDATE_FROM)
-  .sort();
+const migrationFiles = migrationsInSequence(MIGRATIONS)
+  .filter((f) => (f.match(/^(\d{14})/)?.[1] ?? "0") >= MANDATE_FROM);
 
 const migration = (f: string) => readFileSync(join(MIGRATIONS, f), "utf8");
 

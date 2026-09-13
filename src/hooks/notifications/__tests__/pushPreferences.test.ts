@@ -27,7 +27,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { migrationsInSequence } from "@/test-utils/migrations";
 import { join } from "node:path";
 import { stripComments } from "@/test-utils/sourceText";
 
@@ -121,8 +122,7 @@ describe("no switch that does nothing", () => {
    * to read its column. Resolved by CONTENT, not by filename, so renaming the
    * migration after a connector version drift cannot silently void it.
    */
-  const announcementsMigration = readdirSync(join(process.cwd(), "supabase/migrations"))
-    .filter((f) => f.endsWith(".sql"))
+  const announcementsMigration = migrationsInSequence()
     .map((f) =>
       readFileSync(join(process.cwd(), "supabase/migrations", f), "utf8")
         .split("\n")

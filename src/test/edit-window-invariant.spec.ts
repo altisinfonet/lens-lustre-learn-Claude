@@ -14,7 +14,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { migrationsInSequence } from "@/test-utils/migrations";
 import { join } from "node:path";
 
 const MIGRATIONS_DIR = join(__dirname, "..", "..", "supabase", "migrations");
@@ -22,10 +23,7 @@ const POLICY_NAME = "Users can update own metadata only";
 
 /** Find the most recent migration that creates the owner-update policy. */
 function findActivePolicyMigration(): string {
-  const files = readdirSync(MIGRATIONS_DIR)
-    .filter((f) => f.endsWith(".sql"))
-    .sort()
-    .reverse();
+  const files = migrationsInSequence(MIGRATIONS_DIR).reverse();
   for (const f of files) {
     const sql = readFileSync(join(MIGRATIONS_DIR, f), "utf8");
     if (
