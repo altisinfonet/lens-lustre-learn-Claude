@@ -96,15 +96,25 @@ export const BADGE_FALLBACK_HUE = "slate";
 const FALLBACK_FILL = "bg-slate-700"; // #334155 — 10.4:1
 
 /**
- * Shape and type. White text on a saturated fill, a hairline lighter ring so
- * the pill still has an edge on a white page, and a pill radius per the
- * owner's reference design.
+ * Shape and type.
  *
- * Updated 2026-09-14: Changed from font-bold uppercase to sentence case;
- * weight further reduced from font-medium (500) to font-normal (400) same day.
+ * REDESIGNED 2026-09-14, SAME DAY, AWAY FROM THE SOLID PILL ABOVE. Owner
+ * reference (a plain-text mockup: big name, small raised label right after
+ * it — no fill, no border, no radius) replaces the coloured-pill approach
+ * with a superscript-style label: small, raised to the top of the row next
+ * to the (larger) name, plain `text-muted-foreground` instead of a per-hue
+ * fill. `text-muted-foreground` is the app's own light/dark CSS-variable
+ * token, so it is readable in both modes without a background to guarantee
+ * it — the background is simply gone, not replaced by a new contrast risk.
+ *
+ * `self-start` is what makes it read as superscript: the row this sits in
+ * (`UserIdentityBlock`) is `items-center`, so a plain span would centre on
+ * the name's line-height. Pinning this span to the row's own top edge, next
+ * to a visually larger name, is what produces the raised look — no
+ * `vertical-align` needed (flex items don't respect it anyway).
  */
 export const BADGE_PILL_BASE =
-  "inline-flex items-center gap-1 min-w-0 overflow-hidden rounded-full border border-white/25 text-white font-normal leading-[1.35] shadow-sm cursor-default";
+  "inline-flex items-start gap-0.5 min-w-0 overflow-hidden self-start text-muted-foreground font-normal leading-none cursor-default";
 
 /**
  * THE NAME OUTRANKS THE BADGE FOR SPACE. Owner rule, 2026-08-04:
@@ -124,19 +134,17 @@ export const BADGE_PILL_BASE =
 export const BADGE_ROW_SHRINK = "min-w-0 shrink-[9999]";
 
 /**
- * 8.5px (owner revised down from 10px, then 9px, 2026-08-04). Was 7px (compact) / 8px
- * (full) — the other half of why these were unreadable. The contrast does the
- * heavy lifting now: white on a solid 4.5:1+ fill is legible at 9px in a way
- * that dark-on-transparent never was at any size. `full` is a touch roomier.
+ * 8.5px (owner revised down from 10px, then 9px, 2026-08-04).
  *
- * Updated 2026-09-14: Refined spacing and typography for a more polished look:
- * - Compact: reduced from 8px to 5px, then to 2px L/R padding same day
- * - Full: reduced from 10px to 7px L/R padding
- * - Both: text-transform to sentence case, weight down to font-normal (400)
+ * Updated 2026-09-14, twice: first refined the pill's own spacing/weight/case,
+ * then — same day, same owner reference — the pill was dropped entirely for a
+ * plain superscript label (see BADGE_PILL_BASE above). No padding any more:
+ * there is no pill shape left to pad. `full` keeps a touch more size and
+ * tracking than `compact`, matching the old size distinction.
  */
 export const BADGE_PILL_SIZE = {
-  compact: "text-[8.5px] px-[2px] py-[2px] tracking-[0.07em]",
-  full: "text-[8.5px] px-[7px] py-[3px] tracking-[0.07em]",
+  compact: "text-[8.5px] tracking-[0.02em]",
+  full: "text-[9.5px] tracking-[0.03em]",
 } as const;
 
 /** The icon sits optically level with 8.5px caps, and never shrinks away first. */
@@ -162,12 +170,21 @@ export function solidPillFill(stored: string | null | undefined): string {
 }
 
 /**
- * The complete class string for a badge / role pill.
+ * The complete class string for a badge / role label.
  * Every surface that renders one MUST go through this.
+ *
+ * `stored` is kept in the signature — and `solidPillFill()` above still
+ * resolves it — for backward compatibility with every existing call site and
+ * with the admin colour picker, which still needs to normalise a hue out of
+ * whatever is in the database. It is simply no longer painted onto the
+ * label: 2026-09-14's redesign (see BADGE_PILL_BASE) replaced the coloured
+ * fill with plain `text-muted-foreground`, so the resolved fill has nothing
+ * left to apply it to.
  */
 export function solidPillClass(
   stored: string | null | undefined,
   size: keyof typeof BADGE_PILL_SIZE = "compact",
 ): string {
-  return `${BADGE_PILL_BASE} ${BADGE_PILL_SIZE[size]} ${solidPillFill(stored)}`;
+  void stored;
+  return `${BADGE_PILL_BASE} ${BADGE_PILL_SIZE[size]}`;
 }
