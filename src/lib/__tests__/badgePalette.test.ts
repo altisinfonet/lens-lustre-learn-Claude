@@ -110,25 +110,43 @@ describe("a bad value in the database still renders readably", () => {
   });
 });
 
-describe("the pill itself", () => {
-  it("is white text on a solid fill, so the page behind it cannot matter", () => {
-    expect(BADGE_PILL_BASE).toMatch(/text-white/);
-    expect(BADGE_PILL_BASE).toMatch(/rounded-full/);
-    expect(BADGE_PILL_BASE).toMatch(/font-bold/);
+describe("the label itself", () => {
+  // 2026-09-14: redesigned from a coloured solid pill to a plain superscript
+  // label (owner reference: small raised text right after the name, no fill,
+  // no border, no radius). text-muted-foreground is the app's own light/dark
+  // token, so it stays readable in both modes without a background — the
+  // background is gone, not replaced by a new contrast risk.
+  it("is plain text next to the name, not a coloured pill", () => {
+    expect(BADGE_PILL_BASE).toMatch(/text-muted-foreground/);
+    expect(BADGE_PILL_BASE).not.toMatch(/rounded-full/);
+    expect(BADGE_PILL_BASE).not.toMatch(/font-bold/);
+    expect(BADGE_PILL_BASE).not.toMatch(/text-white/);
+    expect(BADGE_PILL_BASE).not.toMatch(/\bbg-/);
+    expect(BADGE_PILL_BASE).not.toMatch(/border/);
   });
 
-  it("is 8.5px, not the old 7px", () => {
+  it("sits raised to the top of the row, next to the (larger) name", () => {
+    expect(BADGE_PILL_BASE).toMatch(/self-start/);
+    expect(BADGE_PILL_BASE).toMatch(/items-start/);
+  });
+
+  it("is 8.5px compact / 9.5px full, not the old 7px", () => {
     // Owner set 10px, then revised to 9px, then to 8.5px (2026-08-04).
-    for (const size of Object.values(BADGE_PILL_SIZE)) {
-      expect(size).toMatch(/text-\[8\.5px\]/);
-    }
+    expect(BADGE_PILL_SIZE.compact).toMatch(/text-\[8\.5px\]/);
+    expect(BADGE_PILL_SIZE.full).toMatch(/text-\[9\.5px\]/);
     expect(JSON.stringify(BADGE_PILL_SIZE)).not.toMatch(/text-\[7px\]/);
   });
 
-  it("composes into one class string", () => {
+  it("has no padding left to size — there is no pill shape any more", () => {
+    for (const size of Object.values(BADGE_PILL_SIZE)) {
+      expect(size).not.toMatch(/\bp[xy]?-/);
+    }
+  });
+
+  it("composes into one class string, with no background fill painted on", () => {
     const cls = solidPillClass("bg-amber-500/15 text-amber-600", "compact");
-    expect(cls).toContain("bg-amber-700");
-    expect(cls).toContain("text-white");
+    expect(cls).not.toMatch(/\bbg-[a-z]+-\d00\b/);
+    expect(cls).toContain("text-muted-foreground");
     expect(cls).toContain("text-[8.5px]");
   });
 });
