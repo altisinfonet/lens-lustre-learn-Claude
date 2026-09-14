@@ -100,11 +100,11 @@ const FALLBACK_FILL = "bg-slate-700"; // #334155 — 10.4:1
  * the pill still has an edge on a white page, and a pill radius per the
  * owner's reference design.
  *
- * Updated 2026-09-14: Changed from font-bold uppercase to font-medium with
- * sentence case text for a more refined appearance.
+ * Updated 2026-09-14: Changed from font-bold uppercase to sentence case;
+ * weight further reduced from font-medium (500) to font-normal (400) same day.
  */
 export const BADGE_PILL_BASE =
-  "inline-flex items-center gap-1 min-w-0 overflow-hidden rounded-full border border-white/25 text-white font-medium leading-[1.35] shadow-sm cursor-default";
+  "inline-flex items-center gap-1 min-w-0 overflow-hidden rounded-full border border-white/25 text-white font-normal leading-[1.35] shadow-sm cursor-default";
 
 /**
  * THE NAME OUTRANKS THE BADGE FOR SPACE. Owner rule, 2026-08-04:
