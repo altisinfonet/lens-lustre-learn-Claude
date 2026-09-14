@@ -130,12 +130,12 @@ export const BADGE_ROW_SHRINK = "min-w-0 shrink-[9999]";
  * that dark-on-transparent never was at any size. `full` is a touch roomier.
  *
  * Updated 2026-09-14: Refined spacing and typography for a more polished look:
- * - Compact: reduced from 8px to 5px L/R padding
+ * - Compact: reduced from 8px to 5px, then to 2px L/R padding same day
  * - Full: reduced from 10px to 7px L/R padding
- * - Both: changed to font-medium (500) for better visual balance
+ * - Both: text-transform to sentence case, weight down to font-normal (400)
  */
 export const BADGE_PILL_SIZE = {
-  compact: "text-[8.5px] px-[5px] py-[2px] tracking-[0.07em]",
+  compact: "text-[8.5px] px-[2px] py-[2px] tracking-[0.07em]",
   full: "text-[8.5px] px-[7px] py-[3px] tracking-[0.07em]",
 } as const;
 
