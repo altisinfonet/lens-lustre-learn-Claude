@@ -99,9 +99,12 @@ const FALLBACK_FILL = "bg-slate-700"; // #334155 — 10.4:1
  * Shape and type. White text on a saturated fill, a hairline lighter ring so
  * the pill still has an edge on a white page, and a pill radius per the
  * owner's reference design.
+ *
+ * Updated 2026-09-14: Changed from font-bold uppercase to sentence case;
+ * weight further reduced from font-medium (500) to font-normal (400) same day.
  */
 export const BADGE_PILL_BASE =
-  "inline-flex items-center gap-1 min-w-0 overflow-hidden rounded-full border border-white/25 text-white font-bold uppercase leading-[1.35] shadow-sm cursor-default";
+  "inline-flex items-center gap-1 min-w-0 overflow-hidden rounded-full border border-white/25 text-white font-normal leading-[1.35] shadow-sm cursor-default";
 
 /**
  * THE NAME OUTRANKS THE BADGE FOR SPACE. Owner rule, 2026-08-04:
@@ -125,10 +128,15 @@ export const BADGE_ROW_SHRINK = "min-w-0 shrink-[9999]";
  * (full) — the other half of why these were unreadable. The contrast does the
  * heavy lifting now: white on a solid 4.5:1+ fill is legible at 9px in a way
  * that dark-on-transparent never was at any size. `full` is a touch roomier.
+ *
+ * Updated 2026-09-14: Refined spacing and typography for a more polished look:
+ * - Compact: reduced from 8px to 5px, then to 2px L/R padding same day
+ * - Full: reduced from 10px to 7px L/R padding
+ * - Both: text-transform to sentence case, weight down to font-normal (400)
  */
 export const BADGE_PILL_SIZE = {
-  compact: "text-[8.5px] px-2 py-[2px] tracking-[0.07em]",
-  full: "text-[8.5px] px-2.5 py-[3px] tracking-[0.07em]",
+  compact: "text-[8.5px] px-[2px] py-[2px] tracking-[0.07em]",
+  full: "text-[8.5px] px-[7px] py-[3px] tracking-[0.07em]",
 } as const;
 
 /** The icon sits optically level with 8.5px caps, and never shrinks away first. */
