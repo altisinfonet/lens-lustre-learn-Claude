@@ -480,24 +480,39 @@ const Friends = () => {
               </div>
 
               {/*
-                * `‹ ›` ARROWS — DELIBERATELY NOT `hidden md:flex`.
+                * `‹ ›` ARROWS — A SOLID ROUND BUTTON, NOT A GRADIENT FADE.
                 *
-                * CategoryStrip's arrows are desktop-only because "on a phone
-                * that swipes fine" — true for a full-width feed strip. This
-                * row is different: it is short (44px), sits directly under a
-                * search input in a page that otherwise scrolls vertically,
-                * and the owner reported it unreachable by touch on the app
-                * too. So both platforms get the same guaranteed way in; a
-                * phone that CAN swipe it loses nothing, since the arrows only
-                * render while there is real overflow in that direction and
-                * never block the row itself (absolute, not in flow).
+                * Owner, 2026-09-15, on the first version of this control:
+                * "awaited not fully comming, on mouse touching its not
+                * mioving - are just blind." Tested the click handler itself
+                * first — forced the row narrow and dispatched a real click:
+                * scrollLeft moved from 0 to the true max, so scrollBy() was
+                * never broken. The bug was legibility, not logic.
+                *
+                * The first version copied CategoryStrip's `bg-gradient-to-*
+                * from-background ... text-muted-foreground` treatment
+                * verbatim. That reads fine fading over CategoryStrip's plain
+                * unselected chips, but THIS row's last tab is often the
+                * ACTIVE one — solid `bg-primary` — and a translucent fade
+                * over a solid colour block does not read as a control at
+                * all: it looks like rendering noise sitting on top of the
+                * pill, which is exactly "blind" and exactly why a real click
+                * there felt like "not moving" — the eye had no button to aim
+                * at, gradient over `bg-primary` is barely distinguishable
+                * from the pill itself.
+                *
+                * Fix: a small SOLID circle with its own border and shadow —
+                * `bg-background` + `border-border` + `shadow-md` — so it
+                * reads as a floating button against ANY tab colour behind
+                * it, active or not, instead of fading in an on/off way that
+                * depends on what happens to be underneath.
                 */}
               {tabRowCanLeft && (
                 <button
                   type="button"
                   onClick={() => nudgeTabRow(-1)}
                   aria-label={t("common.previous", "Previous")}
-                  className="absolute left-0 top-0 bottom-0 z-10 flex w-7 items-center justify-center bg-gradient-to-r from-background via-background/90 to-transparent text-muted-foreground hover:text-foreground"
+                  className="absolute left-0.5 top-1/2 z-20 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-md hover:bg-muted"
                 >
                   <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -507,7 +522,7 @@ const Friends = () => {
                   type="button"
                   onClick={() => nudgeTabRow(1)}
                   aria-label={t("common.next", "Next")}
-                  className="absolute right-0 top-0 bottom-0 z-10 flex w-7 items-center justify-center bg-gradient-to-l from-background via-background/90 to-transparent text-muted-foreground hover:text-foreground"
+                  className="absolute right-0.5 top-1/2 z-20 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-md hover:bg-muted"
                 >
                   <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </button>
