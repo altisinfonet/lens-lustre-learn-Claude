@@ -514,7 +514,50 @@ const Friends = () => {
                 className="flex items-center min-h-[44px] min-w-0 flex-1 overflow-x-auto scrollbar-hide -mx-2 px-2 md:mx-0 md:px-0 py-[7px] -my-[7px]"
                 style={{ WebkitOverflowScrolling: "touch" }}
               >
-                <TabsList className="inline-flex gap-2 bg-transparent border-none p-0 h-auto w-max min-w-full md:min-w-0">
+                {/*
+                  * `shrink-0 justify-start` — WITHOUT THESE, "AWAITED" GOES
+                  * MISSING WITH NO LEFT ARROW TO GET IT BACK.
+                  *
+                  * Owner, 2026-09-15, on the flex-sibling version: "Following"
+                  * was fixed, but now "Awaited" was cut on the LEFT with no
+                  * `Previous` button — and `tabRowCanLeft` was false, so this
+                  * was not the scroll-position bug again. Measured live on
+                  * staging: `scroller.scrollLeft` really was 0, yet the first
+                  * tab's own rendered box started 23px to the LEFT of its
+                  * parent TabsList's box (`getBoundingClientRect`, both read
+                  * in the same tick). A child cannot render before its
+                  * parent's edge from scrollLeft, margin, or position offset
+                  * — all three were zero. It rendered there because TabsList
+                  * itself was narrower than its content and centering it.
+                  *
+                  * TabsList's shared base (src/components/ui/tabs.tsx) sets
+                  * `justify-center`, and nothing here ever cancelled it —
+                  * invisible while TabsList had the room to be its natural
+                  * `w-max` size. This row's scroll container is `flex`, and
+                  * a flex item defaults to `flex-shrink: 1` unless told
+                  * otherwise; TabsList carries no `shrink-0` of its own (only
+                  * its individual TabsTriggers do), so when the container
+                  * this row has to fit in got narrower — arrow buttons now
+                  * take real space instead of overlaying, so there was LESS
+                  * of it than before — the browser shrank TabsList below its
+                  * content's width. The five triggers, each `shrink-0`,
+                  * refused to shrink themselves, so they overflowed their
+                  * now-too-narrow parent instead — and `justify-center`
+                  * split that overflow evenly off BOTH edges. Confirmed live:
+                  * forcing `justify-content: flex-start` on the real DOM
+                  * dropped that 23px gap to exactly 0, nothing else touched.
+                  *
+                  * `shrink-0` is the actual fix — TabsList stays at its full
+                  * content width, so nothing overflows IT and there is
+                  * nothing for `justify-center` to redistribute; the row's
+                  * own `overflow-x-auto` handles the excess as real,
+                  * scrollable width instead of invisible centering-overflow.
+                  * `justify-start` stays alongside it as a second line of
+                  * defence, not because it fixes this alone — flip `shrink-0`
+                  * off again by accident later and centering would still be
+                  * quietly wrong instead of loudly.
+                  */}
+                <TabsList className="inline-flex shrink-0 justify-start gap-2 bg-transparent border-none p-0 h-auto w-max min-w-full md:min-w-0">
                 <TabsTrigger value="awaited" className="shrink-0 tap-44 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
                   <UserCheck className="h-3 w-3 shrink-0" /> Awaited ({receivedRequests.length})
                 </TabsTrigger>
