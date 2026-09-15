@@ -498,12 +498,26 @@ const Friends = () => {
                 * mx/px pair.
                 */}
               <div className="mb-3 md:mb-6 flex items-center gap-1">
+              {/*
+                * `tap-44` on the arrow buttons — CI's "UI gate / Every
+                * control reachable, nothing regressed" caught this, not a
+                * manual pass: the painted box is `h-7 w-7` (28x28), flagged
+                * on android-360/iphone-390/app-360 as "tap targets too
+                * small". `.tap-44` grows the HIT region to 44x44 via an
+                * out-of-flow `::after` (documented above `.tap-44` in
+                * src/index.css) without moving a single pixel of the
+                * visible 28x28 circle — same technique already used on
+                * every TabsTrigger below. Symmetric growth is safe here
+                * (unlike the F-109 case in index.css): these buttons have
+                * clearance on every side, not text stacked directly above
+                * or below them.
+                */}
               {tabRowCanLeft && (
                 <button
                   type="button"
                   onClick={() => nudgeTabRow(-1)}
                   aria-label={t("common.previous", "Previous")}
-                  className="shrink-0 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-md hover:bg-muted"
+                  className="shrink-0 tap-44 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-md hover:bg-muted"
                 >
                   <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -582,7 +596,7 @@ const Friends = () => {
                   type="button"
                   onClick={() => nudgeTabRow(1)}
                   aria-label={t("common.next", "Next")}
-                  className="shrink-0 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-md hover:bg-muted"
+                  className="shrink-0 tap-44 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-md hover:bg-muted"
                 >
                   <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </button>
