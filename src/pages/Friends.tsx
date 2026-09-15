@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { fadeUp } from "@/lib/motionVariants";
 import { Link, useNavigate } from "react-router-dom";
-import { Users, Heart, UserMinus, UserX, UserCheck, Search, Clock } from "lucide-react";
+import { Users, Heart, UserMinus, UserX, UserCheck, Search, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { useUserBadgesBatch } from "@/hooks/profile/useUserBadges";
@@ -68,6 +68,46 @@ const Friends = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+
+  /**
+   * ── THE AWAITED/PENDING/FRIENDS/FOLLOWERS/FOLLOWING ROW REACHES ALL FIVE ──
+   *
+   * Owner, 2026-09-15: "buttons and not scrollable, same for app too" — the row
+   * was a bare `overflow-x-auto`, and src/components/feed/CategoryStrip.tsx
+   * already diagnosed this exact failure mode for the feed's category strip:
+   * "the first version was a bare overflow-x-auto row. On a phone that swipes
+   * fine. On a desktop it is a trap: there is no touch, a mouse wheel scrolls
+   * the PAGE not the row" — and with `scrollbar-hide` there is not even a
+   * visible track hinting more exists. Reported on the app too: five pills at
+   * this row's ~44px height sit inside a page that scrolls VERTICALLY, so a
+   * finger aimed at the row is easily read as a page scroll instead of a row
+   * scroll — a narrow horizontal lane is simply an easy miss.
+   *
+   * Same fix, same reasoning, reused rather than reinvented: `‹ ›` arrows that
+   * only render while there IS overflow in that direction (measured on mount,
+   * on every scroll, and on resize — the tab set itself never changes size
+   * after mount here, unlike the category strip's fetched list, but window
+   * width does), so tapping/clicking is a guaranteed way to reach every tab
+   * regardless of touch accuracy, trackpad gesture support, or a mouse with a
+   * plain vertical wheel. Swiping still works exactly as before — this only
+   * ADDS a second, always-reachable way in.
+   */
+  const tabRowRef = useRef<HTMLDivElement>(null);
+  const [tabRowCanLeft, setTabRowCanLeft] = useState(false);
+  const [tabRowCanRight, setTabRowCanRight] = useState(false);
+
+  const measureTabRow = useCallback(() => {
+    const el = tabRowRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setTabRowCanLeft(el.scrollLeft > 1);
+    // 1px slack — fractional widths land scrollLeft at max - 0.5, not max.
+    setTabRowCanRight(el.scrollLeft < max - 1);
+  }, []);
+
+  const nudgeTabRow = (dir: -1 | 1) => {
+    tabRowRef.current?.scrollBy({ left: dir * 220, behavior: "smooth" });
+  };
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
@@ -286,6 +326,15 @@ const Friends = () => {
   );
   const badgeMap = useUserBadgesBatch(allListedUserIds);
 
+  // Re-measure whenever the tab set's total width can change: the counts in
+  // each label, "Pending" appearing/disappearing (sentRequests.length > 0),
+  // and the viewport itself.
+  useEffect(() => {
+    measureTabRow();
+    window.addEventListener("resize", measureTabRow);
+    return () => window.removeEventListener("resize", measureTabRow);
+  }, [measureTabRow, receivedRequests.length, sentRequests.length, friends.length, followers.length, following.length]);
+
   if (authLoading || loading || !user) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
@@ -402,9 +451,127 @@ const Friends = () => {
                 * leave to chance.
                 * ═══════════════════════════════════════════════════════════════
                 */}
-              <div className="mb-3 md:mb-6">
-              <div className="flex items-center min-h-[44px] overflow-x-auto scrollbar-hide -mx-2 px-2 md:mx-0 md:px-0 py-[7px] -my-[7px]" style={{ WebkitOverflowScrolling: "touch" }}>
-                <TabsList className="inline-flex gap-2 bg-transparent border-none p-0 h-auto w-max min-w-full md:min-w-0">
+              {/*
+                * `‹ ›` ARROWS LIVE IN NORMAL FLOW, NOT AS AN OVERLAY.
+                *
+                * Owner, 2026-09-15, on the round-button version: same
+                * screenshot as before, "Following" still half-covered, this
+                * time by a solid circle instead of a gradient. That version
+                * fixed the CONTRAST problem (solid circle reads against any
+                * tab colour) but not the real defect underneath it, which a
+                * live measurement on staging exposed: at a full 1707px
+                * desktop window — nowhere near narrow — scrollWidth was 538
+                * against a clientWidth of 531. Seven px of true overflow,
+                * yet the button visibly ate a third of "Following". Seven
+                * px does not explain that; the button's own position does.
+                *
+                * The button was `absolute`, stacked on top of the scroll
+                * container with no room made for it — CategoryStrip's
+                * BUTTON STYLE got copied, but not CategoryStrip's `mr-9` /
+                * `pr-20` reservation that makes the button's own footprint
+                * come out of the scrollable width instead of sitting on
+                * top of it. Without that, the last tab renders right up to
+                * the container's true edge and the button simply covers
+                * whatever happens to be there — this row's tabs are wider
+                * than CategoryStrip's chips, so the cover was wide enough
+                * to read as missing text instead of an overlapping icon.
+                *
+                * Reusing CategoryStrip's own margin trick here was not
+                * straightforward: this container already carries `-mx-2
+                * px-2 md:mx-0 md:px-0` for an unrelated reason (F-108
+                * above — giving the 44px tap regions room inside an
+                * overflow-x:auto ancestor without changing the visible
+                * box). Adding `mr-9`/`ml-9` on top would have meant three
+                * competing margin utilities on one element, one of them
+                * inside a `md:` media block that wins at exactly the width
+                * this bug was measured at.
+                *
+                * So the fix is layout, not spacing: the arrows are now
+                * ordinary flex SIBLINGS of the scroll container, not
+                * children stacked on top of it. `flex-1 min-w-0` on the
+                * scroll container means its clientWidth is *already*
+                * "whatever the row has left after the arrows" — there is
+                * no separate reservation to keep in sync, and no tab can
+                * ever render under a button because the button is never
+                * over the scrollable area in the first place, at any
+                * width, matching or not matching this file's existing
+                * mx/px pair.
+                */}
+              <div className="mb-3 md:mb-6 flex items-center gap-1">
+              {/*
+                * `tap-44` on the arrow buttons — CI's "UI gate / Every
+                * control reachable, nothing regressed" caught this, not a
+                * manual pass: the painted box is `h-7 w-7` (28x28), flagged
+                * on android-360/iphone-390/app-360 as "tap targets too
+                * small". `.tap-44` grows the HIT region to 44x44 via an
+                * out-of-flow `::after` (documented above `.tap-44` in
+                * src/index.css) without moving a single pixel of the
+                * visible 28x28 circle — same technique already used on
+                * every TabsTrigger below. Symmetric growth is safe here
+                * (unlike the F-109 case in index.css): these buttons have
+                * clearance on every side, not text stacked directly above
+                * or below them.
+                */}
+              {tabRowCanLeft && (
+                <button
+                  type="button"
+                  onClick={() => nudgeTabRow(-1)}
+                  aria-label={t("common.previous", "Previous")}
+                  className="shrink-0 tap-44 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-md hover:bg-muted"
+                >
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                </button>
+              )}
+              <div
+                ref={tabRowRef}
+                onScroll={measureTabRow}
+                className="flex items-center min-h-[44px] min-w-0 flex-1 overflow-x-auto scrollbar-hide -mx-2 px-2 md:mx-0 md:px-0 py-[7px] -my-[7px]"
+                style={{ WebkitOverflowScrolling: "touch" }}
+              >
+                {/*
+                  * `shrink-0 justify-start` — WITHOUT THESE, "AWAITED" GOES
+                  * MISSING WITH NO LEFT ARROW TO GET IT BACK.
+                  *
+                  * Owner, 2026-09-15, on the flex-sibling version: "Following"
+                  * was fixed, but now "Awaited" was cut on the LEFT with no
+                  * `Previous` button — and `tabRowCanLeft` was false, so this
+                  * was not the scroll-position bug again. Measured live on
+                  * staging: `scroller.scrollLeft` really was 0, yet the first
+                  * tab's own rendered box started 23px to the LEFT of its
+                  * parent TabsList's box (`getBoundingClientRect`, both read
+                  * in the same tick). A child cannot render before its
+                  * parent's edge from scrollLeft, margin, or position offset
+                  * — all three were zero. It rendered there because TabsList
+                  * itself was narrower than its content and centering it.
+                  *
+                  * TabsList's shared base (src/components/ui/tabs.tsx) sets
+                  * `justify-center`, and nothing here ever cancelled it —
+                  * invisible while TabsList had the room to be its natural
+                  * `w-max` size. This row's scroll container is `flex`, and
+                  * a flex item defaults to `flex-shrink: 1` unless told
+                  * otherwise; TabsList carries no `shrink-0` of its own (only
+                  * its individual TabsTriggers do), so when the container
+                  * this row has to fit in got narrower — arrow buttons now
+                  * take real space instead of overlaying, so there was LESS
+                  * of it than before — the browser shrank TabsList below its
+                  * content's width. The five triggers, each `shrink-0`,
+                  * refused to shrink themselves, so they overflowed their
+                  * now-too-narrow parent instead — and `justify-center`
+                  * split that overflow evenly off BOTH edges. Confirmed live:
+                  * forcing `justify-content: flex-start` on the real DOM
+                  * dropped that 23px gap to exactly 0, nothing else touched.
+                  *
+                  * `shrink-0` is the actual fix — TabsList stays at its full
+                  * content width, so nothing overflows IT and there is
+                  * nothing for `justify-center` to redistribute; the row's
+                  * own `overflow-x-auto` handles the excess as real,
+                  * scrollable width instead of invisible centering-overflow.
+                  * `justify-start` stays alongside it as a second line of
+                  * defence, not because it fixes this alone — flip `shrink-0`
+                  * off again by accident later and centering would still be
+                  * quietly wrong instead of loudly.
+                  */}
+                <TabsList className="inline-flex shrink-0 justify-start gap-2 bg-transparent border-none p-0 h-auto w-max min-w-full md:min-w-0">
                 <TabsTrigger value="awaited" className="shrink-0 tap-44 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
                   <UserCheck className="h-3 w-3 shrink-0" /> Awaited ({receivedRequests.length})
                 </TabsTrigger>
@@ -424,6 +591,16 @@ const Friends = () => {
                 </TabsTrigger>
                 </TabsList>
               </div>
+              {tabRowCanRight && (
+                <button
+                  type="button"
+                  onClick={() => nudgeTabRow(1)}
+                  aria-label={t("common.next", "Next")}
+                  className="shrink-0 tap-44 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-md hover:bg-muted"
+                >
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                </button>
+              )}
               </div>
 
               {/* Awaited — requests RECEIVED, accept one by one */}
