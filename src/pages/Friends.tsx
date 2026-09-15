@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { fadeUp } from "@/lib/motionVariants";
 import { Link, useNavigate } from "react-router-dom";
-import { Users, Heart, UserMinus, UserX, UserCheck, Search, Clock } from "lucide-react";
+import { Users, Heart, UserMinus, UserX, UserCheck, Search, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { useUserBadgesBatch } from "@/hooks/profile/useUserBadges";
@@ -68,6 +68,46 @@ const Friends = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+
+  /**
+   * ── THE AWAITED/PENDING/FRIENDS/FOLLOWERS/FOLLOWING ROW REACHES ALL FIVE ──
+   *
+   * Owner, 2026-09-15: "buttons and not scrollable, same for app too" — the row
+   * was a bare `overflow-x-auto`, and src/components/feed/CategoryStrip.tsx
+   * already diagnosed this exact failure mode for the feed's category strip:
+   * "the first version was a bare overflow-x-auto row. On a phone that swipes
+   * fine. On a desktop it is a trap: there is no touch, a mouse wheel scrolls
+   * the PAGE not the row" — and with `scrollbar-hide` there is not even a
+   * visible track hinting more exists. Reported on the app too: five pills at
+   * this row's ~44px height sit inside a page that scrolls VERTICALLY, so a
+   * finger aimed at the row is easily read as a page scroll instead of a row
+   * scroll — a narrow horizontal lane is simply an easy miss.
+   *
+   * Same fix, same reasoning, reused rather than reinvented: `‹ ›` arrows that
+   * only render while there IS overflow in that direction (measured on mount,
+   * on every scroll, and on resize — the tab set itself never changes size
+   * after mount here, unlike the category strip's fetched list, but window
+   * width does), so tapping/clicking is a guaranteed way to reach every tab
+   * regardless of touch accuracy, trackpad gesture support, or a mouse with a
+   * plain vertical wheel. Swiping still works exactly as before — this only
+   * ADDS a second, always-reachable way in.
+   */
+  const tabRowRef = useRef<HTMLDivElement>(null);
+  const [tabRowCanLeft, setTabRowCanLeft] = useState(false);
+  const [tabRowCanRight, setTabRowCanRight] = useState(false);
+
+  const measureTabRow = useCallback(() => {
+    const el = tabRowRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setTabRowCanLeft(el.scrollLeft > 1);
+    // 1px slack — fractional widths land scrollLeft at max - 0.5, not max.
+    setTabRowCanRight(el.scrollLeft < max - 1);
+  }, []);
+
+  const nudgeTabRow = (dir: -1 | 1) => {
+    tabRowRef.current?.scrollBy({ left: dir * 220, behavior: "smooth" });
+  };
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
@@ -286,6 +326,15 @@ const Friends = () => {
   );
   const badgeMap = useUserBadgesBatch(allListedUserIds);
 
+  // Re-measure whenever the tab set's total width can change: the counts in
+  // each label, "Pending" appearing/disappearing (sentRequests.length > 0),
+  // and the viewport itself.
+  useEffect(() => {
+    measureTabRow();
+    window.addEventListener("resize", measureTabRow);
+    return () => window.removeEventListener("resize", measureTabRow);
+  }, [measureTabRow, receivedRequests.length, sentRequests.length, friends.length, followers.length, following.length]);
+
   if (authLoading || loading || !user) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
@@ -402,8 +451,13 @@ const Friends = () => {
                 * leave to chance.
                 * ═══════════════════════════════════════════════════════════════
                 */}
-              <div className="mb-3 md:mb-6">
-              <div className="flex items-center min-h-[44px] overflow-x-auto scrollbar-hide -mx-2 px-2 md:mx-0 md:px-0 py-[7px] -my-[7px]" style={{ WebkitOverflowScrolling: "touch" }}>
+              <div className="relative mb-3 md:mb-6">
+              <div
+                ref={tabRowRef}
+                onScroll={measureTabRow}
+                className="flex items-center min-h-[44px] overflow-x-auto scrollbar-hide -mx-2 px-2 md:mx-0 md:px-0 py-[7px] -my-[7px]"
+                style={{ WebkitOverflowScrolling: "touch" }}
+              >
                 <TabsList className="inline-flex gap-2 bg-transparent border-none p-0 h-auto w-max min-w-full md:min-w-0">
                 <TabsTrigger value="awaited" className="shrink-0 tap-44 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.1em] uppercase gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary shadow-none" style={headingFont}>
                   <UserCheck className="h-3 w-3 shrink-0" /> Awaited ({receivedRequests.length})
@@ -424,6 +478,40 @@ const Friends = () => {
                 </TabsTrigger>
                 </TabsList>
               </div>
+
+              {/*
+                * `‹ ›` ARROWS — DELIBERATELY NOT `hidden md:flex`.
+                *
+                * CategoryStrip's arrows are desktop-only because "on a phone
+                * that swipes fine" — true for a full-width feed strip. This
+                * row is different: it is short (44px), sits directly under a
+                * search input in a page that otherwise scrolls vertically,
+                * and the owner reported it unreachable by touch on the app
+                * too. So both platforms get the same guaranteed way in; a
+                * phone that CAN swipe it loses nothing, since the arrows only
+                * render while there is real overflow in that direction and
+                * never block the row itself (absolute, not in flow).
+                */}
+              {tabRowCanLeft && (
+                <button
+                  type="button"
+                  onClick={() => nudgeTabRow(-1)}
+                  aria-label={t("common.previous", "Previous")}
+                  className="absolute left-0 top-0 bottom-0 z-10 flex w-7 items-center justify-center bg-gradient-to-r from-background via-background/90 to-transparent text-muted-foreground hover:text-foreground"
+                >
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                </button>
+              )}
+              {tabRowCanRight && (
+                <button
+                  type="button"
+                  onClick={() => nudgeTabRow(1)}
+                  aria-label={t("common.next", "Next")}
+                  className="absolute right-0 top-0 bottom-0 z-10 flex w-7 items-center justify-center bg-gradient-to-l from-background via-background/90 to-transparent text-muted-foreground hover:text-foreground"
+                >
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                </button>
+              )}
               </div>
 
               {/* Awaited — requests RECEIVED, accept one by one */}
