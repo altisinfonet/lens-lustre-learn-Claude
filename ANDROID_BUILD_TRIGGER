@@ -1,3 +1,89 @@
+Build 1.2.21 - 2026-09-15 - THE BADGE READS AS TEXT AGAIN, AND EVERY TAB IN THE FRIENDS ROW IS REACHABLE
+
+  typecheck 0 (both projects, both PRs) · UI gate 200 screenshots / 0 problems,
+  baseline clean against 148 keys, on both PRs' merged commits (2c3c65d and
+  6ff1c81) · PR #247: 8/8 checks passed · PR #248: 7 successful, 1 skipped,
+  after one UI-gate failure on an intermediate commit was found and fixed
+  (below) — no full vitest run available from this sandbox ahead of firing
+  (npm install blocked by this sandbox's own registry proxy, not a repo
+  problem); vitest is already a hard gate inside build-aab below, same as
+  every prior bump, so that gate is what actually confirms it, not this line.
+
+VERSION IS 1.2.21. 1.2.20 is spent: Android Build #122 succeeded on 59ff7f5,
+which carries the 1.2.20 bump (that commit made this exact sed edit, PR #242).
+Verified by reading the Actions run list for this workflow and finding #122
+against 59ff7f5 marked "completed successfully" — not assumed from the date,
+per F-70.
+
+WHY THIS BUILD EXISTS
+
+Two unrelated owner reports landed the same day, 2026-09-15, and both are
+client-UI-only changes that the app can only receive through a build, never a
+web deploy — the app BUNDLES its web assets (capacitor.config.ts: webDir
+'dist', no server.url).
+
+WHAT THIS BUILD CARRIES
+
+1. Badge/role label, plain superscript text (PR #247, src/lib/badgePalette.ts,
+   commit 2c3c65d). The coloured solid pill shipped earlier the same day was
+   replaced per a new owner reference: a small raised label right after the
+   member's name, icon kept, no coloured background, no border, no radius.
+   BADGE_PILL_BASE drops rounded-full/border/shadow/the solid fill/text-white/
+   font-bold and uses text-muted-foreground — the app's own light/dark token —
+   instead, so it stays readable in both modes with no background needed.
+   items-start plus self-start raises the label to the top of the name row for
+   the superscript look. solidPillFill() and BADGE_FILL stay exported
+   unchanged for the admin colour picker and hue normalisation; only the
+   rendered class strings changed. Verified live on staging.50mmretina.com:
+   the new classes are present in the deployed bundle and the old pill classes
+   are gone.
+
+2. Friends page tab row reachable at every width (PR #248, src/pages/
+   Friends.tsx, commit 6ff1c81, squashed from 5 commits). Owner report: the
+   Awaited/Pending/Friends/Followers/Following row was "not scrollable, same
+   for app too" on both web and the app. Root cause matched a failure mode
+   src/components/feed/CategoryStrip.tsx had already documented for the feed's
+   category strip: a bare overflow-x-auto with scrollbar-hide swipes fine on a
+   phone, but a desktop mouse wheel scrolls the page instead of the row, and
+   with no visible scrollbar there is no hint anything is hidden — worse here,
+   since the row is a 44px lane directly under a search input inside an
+   otherwise vertically-scrolling page, making it an easy miss by touch too.
+
+   Fix, reached over four owner-reported rounds on the same day, each with a
+   measured root cause rather than a guess: `‹ ›` arrow buttons that render
+   only while there is real overflow in that direction, shown at every width
+   (not desktop-only like CategoryStrip's, since the app report means phone
+   swipe isn't a reliable fallback here). Round 1 used CategoryStrip's
+   gradient-fade button style, illegible sitting on this row's frequently-
+   active (solid bg-primary) last tab. Round 2's solid circle fixed legibility
+   but was still `absolute`-positioned with no space reserved, so it covered
+   "Following" outright (measured live: scrollWidth 538 vs clientWidth 531 at
+   a full 1707px desktop width — 7px of true overflow does not explain a
+   button eating a third of a word). Round 3 made the arrows ordinary flex
+   siblings (`flex-1 min-w-0` on the scroll container) instead of an overlay,
+   which surfaced round 4: TabsList's shared base sets `justify-center`,
+   uncancelled, and TabsList itself carried no `shrink-0` — so when the
+   container got genuinely narrower (arrows now taking real space), TabsList
+   shrank below its five `shrink-0` triggers' combined width and
+   `justify-center` split the overflow off both edges, pushing "Awaited" 23px
+   off-screen on the left with `scrollLeft` still reading 0 and no Previous
+   arrow to get it back. `shrink-0 justify-start` on TabsList fixed it,
+   confirmed live by forcing each property independently on the real DOM and
+   watching the 23px gap drop to exactly 0 either way.
+
+   CI caught a fifth defect that no owner report did: the UI gate's own
+   "Every control reachable, nothing regressed" job failed on the round-4
+   commit, flagging `button.shrink-0.flex` at 28x28 as a tap target too small
+   on android-360, iphone-390 and app-360 — the new arrow buttons had no
+   enlarged hit region, unlike every TabsTrigger beside them. Fixed by adding
+   `tap-44` to both buttons, the same out-of-flow `::after` technique already
+   used on the tabs themselves: the hit region grows to 44x44 without moving
+   the visible 28x28 circle. Re-ran clean: 200 screenshots, 0 problems.
+
+No native change. versionCode 1000 + run number, versionName 1.2.21.
+
+==============================================================================
+
 Build 1.2.20 - 2026-09-12 - THE COMMENT SECTION REDESIGN, CHERRY-PICKED ONTO MAIN
 
   typecheck 0 (both projects) · comment suites 75 passed · UI gate 200

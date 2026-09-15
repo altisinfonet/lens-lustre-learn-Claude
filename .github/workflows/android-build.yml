@@ -767,8 +767,29 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.20"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.20 (1.2.19 is spent - build 1121 succeeded carrying it)"
+          # 2026-09-15: bumped 1.2.20 -> 1.2.21. Checked before firing, not
+          # assumed: the Actions run list for this workflow was read and
+          # Android Build #122 on 59ff7f5 (the commit that made this exact
+          # 1.2.19 -> 1.2.20 edit) shows "completed successfully" — so 1.2.20
+          # reached the store and the name is spent. 1.2.21 carries two
+          # independent client-UI fixes, both merged to main today: the
+          # badge/role label redesign to plain superscript text (PR #247,
+          # 2c3c65d) and making the Friends page's Awaited/Pending/Friends/
+          # Followers/Following tab row reachable at every width, including a
+          # tap-target regression the UI gate itself caught mid-PR and that got
+          # fixed before merge (PR #248, 6ff1c81). Neither PR's own CI runs a
+          # full vitest pass (their gates are security/typecheck/UI-gate/web-
+          # build only), and this sandbox could not run `npm test` itself to
+          # check ahead of time — `npm install` is blocked by this sandbox's
+          # own registry proxy policy, not a repo problem. That is not a gap
+          # in what actually gates the build: vitest is already a hard gate
+          # inside build-aab below, same as it was for every prior bump, so a
+          # red suite still stops the build here rather than upstream.
+          # The guard F-70 asks for is still NOT built. It is a separate unit,
+          # and it must be shown failing on unfixed input first (C-34); writing
+          # it in the same commit as a bump it would have caught proves nothing.
+          sed -i 's/versionName "1.0"/versionName "1.2.21"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.21 (1.2.20 is spent - build 1122 succeeded carrying it)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
