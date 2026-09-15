@@ -1,3 +1,70 @@
+Build 1.2.21 (RE-CUT) - 2026-09-15 - THE BADGE LABEL ACTUALLY CLEARS THE 12PX FLOOR NOW
+
+  Android Build #123 (the entry directly below this one) reached build-aab and
+  FAILED its own `npm test` gate — the one check neither PR #247's nor PR
+  #248's CI runs, and that this sandbox could not pre-verify because its npm
+  registry proxy returns 403 on install. src/__tests__/textSizeFloor.test.ts
+  caught `text-[9.5px]` (PR #247's badge label, src/lib/badgePalette.ts
+  BADGE_PILL_SIZE.full) as a sub-12px class the P8 readability-floor block in
+  src/index.css never listed, so it would have shipped at 9.5px instead of
+  the owner-mandated 12px minimum. #123 produced no artifact: build-aab
+  exited 1 before packaging anything.
+
+  Fixed in PR #250 (6663d33): added `.text-\[9\.5px\]` to the P8 block, the
+  same mechanism already covering `.text-\[8\.5px\]` (BADGE_PILL_SIZE.compact)
+  and `.text-\[9px\]` beside it — the class stays, the rendered size is
+  floored. Verified without vitest, same sandbox limitation as #123's own
+  entry below: textSizeFloor.test.ts's scan logic was re-implemented in a
+  standalone script and run against the fixed tree directly — 11 total
+  sub-12px classes found, 0 uncovered, the P8 block still sets exactly 12px
+  with nothing under it, and the unrelated body line-height assertion (1.45)
+  still holds. PR #250's own CI ran for real and passed clean: security gate
+  + UI gate, 8/8 checks, including the UI gate — which this change should not
+  touch (tools/uishot/capture.mjs fingerprints only interactive controls:
+  buttons/selects/links, and this badge label is a plain non-interactive
+  span) but that was read from the tool's source, not assumed, and the gate
+  ran regardless and confirmed it. None of that is the same as a green
+  vitest run — this re-cut is what actually puts the fix in front of that
+  gate for the first time.
+
+VERSION IS 1.2.21. Unlike every other entry in this file, the version below
+this line is NOT newly spent by a prior successful build — it is the SAME
+1.2.21 that #123 failed to cut. Nothing has shipped under 1.2.21 yet: #123
+produced no artifact, so there is no "1.2.21 is spent" claim to make and none
+is made. This run is the first real attempt at actually cutting it.
+
+WHY THIS BUILD EXISTS
+
+To carry the one-line fix (PR #250) that #123's own `npm test` gate demanded,
+so that 1.2.21 — the badge superscript redesign and the Friends tab-row fix,
+both still wanted exactly as described in the entry below — can actually
+reach an AAB instead of failing at the same gate a second time.
+
+WHAT THIS BUILD CARRIES
+
+Everything the entry below already describes (PR #247, PR #248), PLUS:
+
+3. The readability-floor gap PR #247 left behind (PR #250, src/index.css,
+   commit 6663d33). `text-[9.5px]` was introduced for the badge's `full` size
+   variant and never added to the P8 block that floors every sub-12px class
+   to 12px, so it would have rendered unreadably small. One line added to
+   that block; no other file touched.
+
+DELIBERATELY ABSENT, AND NOT A REGRESSION
+
+A local, independently-run green `npm test` / vitest pass ahead of this
+build. This sandbox's npm registry proxy still returns 403 on install, same
+as for #123 — that gap is unchanged and is not being re-argued here. What is
+different this time: the specific defect #123's gate caught has a concrete,
+verified-by-static-analysis fix in front of it, not a second blind attempt.
+build-aab's own `npm test` step remains the actual gate, exactly as designed
+— if anything else is red in the suite, this run stops there too, and that
+is the gate doing its job, not a gap in it.
+
+No native change. versionCode 1000 + run number, versionName 1.2.21.
+
+==============================================================================
+
 Build 1.2.21 - 2026-09-15 - THE BADGE READS AS TEXT AGAIN, AND EVERY TAB IN THE FRIENDS ROW IS REACHABLE
 
   typecheck 0 (both projects, both PRs) · UI gate 200 screenshots / 0 problems,
