@@ -785,6 +785,29 @@ jobs:
           # in what actually gates the build: vitest is already a hard gate
           # inside build-aab below, same as it was for every prior bump, so a
           # red suite still stops the build here rather than upstream.
+          # 2026-09-15: RE-CUT. Android Build #123 — this exact 1.2.21 bump —
+          # ran build-aab and FAILED its own `npm test` gate, the one check
+          # neither PR's CI could run and this sandbox could not pre-verify
+          # (see the paragraph above): src/__tests__/textSizeFloor.test.ts
+          # caught `text-[9.5px]` (PR #247's badge label, BADGE_PILL_SIZE.full)
+          # as a sub-12px class the P8 readability-floor block in
+          # src/index.css never listed, so it would have shipped under the
+          # owner-mandated 12px floor. #123 produced no artifact — build-aab
+          # exited 1 before packaging anything — so versionName stays 1.2.21,
+          # the same rule as every re-cut in this file: a version is spent
+          # only by a run that actually produces an AAB. Fixed in PR #250
+          # (6663d33): added `.text-\[9\.5px\]` to the P8 block, the same
+          # mechanism already covering `.text-\[8\.5px\]` and `.text-\[9px\]`
+          # beside it. Verified without vitest, same sandbox limitation as
+          # above: textSizeFloor.test.ts's own scan logic was re-implemented
+          # in a standalone script and run against the fixed tree — 0
+          # uncovered sub-12px classes, the floor still exactly 12px. PR
+          # #250's own CI (security gate + UI gate, 8/8) passed clean,
+          # including the UI gate — which does not track this non-interactive
+          # span (tools/uishot/capture.mjs fingerprints only interactive
+          # controls) but ran for real regardless, not assumed clean. This
+          # re-cut is what actually puts the vitest gate in front of the
+          # fix; nothing before this run has observed it green.
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
