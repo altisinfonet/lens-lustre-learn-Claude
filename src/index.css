@@ -611,12 +611,24 @@
  *   Badges, tab labels and counters get bigger. Anything that was fitted to
  *   the pixel may now wrap to a second line. That is a layout fix in the
  *   component, NOT a reason to lower the floor again.
+ *
+ * ADDED 2026-09-15: .text-\[9\.5px\]
+ *   The 2026-09-14 badge redesign (src/lib/badgePalette.ts, `full:` size)
+ *   introduced `text-[9.5px]` — a size that did not exist anywhere else in
+ *   the source, so this block did not cover it. src/__tests__/textSizeFloor.test.ts
+ *   caught it exactly as designed: it re-derives the list from source every
+ *   run rather than trusting a hand-written one, and failed the 1.2.21
+ *   Android build's `npm test` gate on this exact gap before anything shipped.
+ *   Same rule as `.text-\[8\.5px\]` and `.text-\[9px\]` just above: the class
+ *   stays, the rendered size does not — `compact: text-[8.5px]` on this same
+ *   badge already rendered at 12px, so `full: text-[9.5px]` now matches it.
  * ═══════════════════════════════════════════════════════════════════════════ */
 .text-\[6px\],
 .text-\[7px\],
 .text-\[8px\],
 .text-\[8\.5px\],
 .text-\[9px\],
+.text-\[9\.5px\],
 .text-\[10px\],
 .text-\[10\.5px\],
 .text-\[11px\],
