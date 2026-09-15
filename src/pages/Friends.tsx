@@ -451,11 +451,67 @@ const Friends = () => {
                 * leave to chance.
                 * ═══════════════════════════════════════════════════════════════
                 */}
-              <div className="relative mb-3 md:mb-6">
+              {/*
+                * `‹ ›` ARROWS LIVE IN NORMAL FLOW, NOT AS AN OVERLAY.
+                *
+                * Owner, 2026-09-15, on the round-button version: same
+                * screenshot as before, "Following" still half-covered, this
+                * time by a solid circle instead of a gradient. That version
+                * fixed the CONTRAST problem (solid circle reads against any
+                * tab colour) but not the real defect underneath it, which a
+                * live measurement on staging exposed: at a full 1707px
+                * desktop window — nowhere near narrow — scrollWidth was 538
+                * against a clientWidth of 531. Seven px of true overflow,
+                * yet the button visibly ate a third of "Following". Seven
+                * px does not explain that; the button's own position does.
+                *
+                * The button was `absolute`, stacked on top of the scroll
+                * container with no room made for it — CategoryStrip's
+                * BUTTON STYLE got copied, but not CategoryStrip's `mr-9` /
+                * `pr-20` reservation that makes the button's own footprint
+                * come out of the scrollable width instead of sitting on
+                * top of it. Without that, the last tab renders right up to
+                * the container's true edge and the button simply covers
+                * whatever happens to be there — this row's tabs are wider
+                * than CategoryStrip's chips, so the cover was wide enough
+                * to read as missing text instead of an overlapping icon.
+                *
+                * Reusing CategoryStrip's own margin trick here was not
+                * straightforward: this container already carries `-mx-2
+                * px-2 md:mx-0 md:px-0` for an unrelated reason (F-108
+                * above — giving the 44px tap regions room inside an
+                * overflow-x:auto ancestor without changing the visible
+                * box). Adding `mr-9`/`ml-9` on top would have meant three
+                * competing margin utilities on one element, one of them
+                * inside a `md:` media block that wins at exactly the width
+                * this bug was measured at.
+                *
+                * So the fix is layout, not spacing: the arrows are now
+                * ordinary flex SIBLINGS of the scroll container, not
+                * children stacked on top of it. `flex-1 min-w-0` on the
+                * scroll container means its clientWidth is *already*
+                * "whatever the row has left after the arrows" — there is
+                * no separate reservation to keep in sync, and no tab can
+                * ever render under a button because the button is never
+                * over the scrollable area in the first place, at any
+                * width, matching or not matching this file's existing
+                * mx/px pair.
+                */}
+              <div className="mb-3 md:mb-6 flex items-center gap-1">
+              {tabRowCanLeft && (
+                <button
+                  type="button"
+                  onClick={() => nudgeTabRow(-1)}
+                  aria-label={t("common.previous", "Previous")}
+                  className="shrink-0 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-md hover:bg-muted"
+                >
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                </button>
+              )}
               <div
                 ref={tabRowRef}
                 onScroll={measureTabRow}
-                className="flex items-center min-h-[44px] overflow-x-auto scrollbar-hide -mx-2 px-2 md:mx-0 md:px-0 py-[7px] -my-[7px]"
+                className="flex items-center min-h-[44px] min-w-0 flex-1 overflow-x-auto scrollbar-hide -mx-2 px-2 md:mx-0 md:px-0 py-[7px] -my-[7px]"
                 style={{ WebkitOverflowScrolling: "touch" }}
               >
                 <TabsList className="inline-flex gap-2 bg-transparent border-none p-0 h-auto w-max min-w-full md:min-w-0">
@@ -478,51 +534,12 @@ const Friends = () => {
                 </TabsTrigger>
                 </TabsList>
               </div>
-
-              {/*
-                * `‹ ›` ARROWS — A SOLID ROUND BUTTON, NOT A GRADIENT FADE.
-                *
-                * Owner, 2026-09-15, on the first version of this control:
-                * "awaited not fully comming, on mouse touching its not
-                * mioving - are just blind." Tested the click handler itself
-                * first — forced the row narrow and dispatched a real click:
-                * scrollLeft moved from 0 to the true max, so scrollBy() was
-                * never broken. The bug was legibility, not logic.
-                *
-                * The first version copied CategoryStrip's `bg-gradient-to-*
-                * from-background ... text-muted-foreground` treatment
-                * verbatim. That reads fine fading over CategoryStrip's plain
-                * unselected chips, but THIS row's last tab is often the
-                * ACTIVE one — solid `bg-primary` — and a translucent fade
-                * over a solid colour block does not read as a control at
-                * all: it looks like rendering noise sitting on top of the
-                * pill, which is exactly "blind" and exactly why a real click
-                * there felt like "not moving" — the eye had no button to aim
-                * at, gradient over `bg-primary` is barely distinguishable
-                * from the pill itself.
-                *
-                * Fix: a small SOLID circle with its own border and shadow —
-                * `bg-background` + `border-border` + `shadow-md` — so it
-                * reads as a floating button against ANY tab colour behind
-                * it, active or not, instead of fading in an on/off way that
-                * depends on what happens to be underneath.
-                */}
-              {tabRowCanLeft && (
-                <button
-                  type="button"
-                  onClick={() => nudgeTabRow(-1)}
-                  aria-label={t("common.previous", "Previous")}
-                  className="absolute left-0.5 top-1/2 z-20 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-md hover:bg-muted"
-                >
-                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                </button>
-              )}
               {tabRowCanRight && (
                 <button
                   type="button"
                   onClick={() => nudgeTabRow(1)}
                   aria-label={t("common.next", "Next")}
-                  className="absolute right-0.5 top-1/2 z-20 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-md hover:bg-muted"
+                  className="shrink-0 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-md hover:bg-muted"
                 >
                   <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </button>
