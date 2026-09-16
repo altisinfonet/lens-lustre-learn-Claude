@@ -1,0 +1,25 @@
+     → 20 of 21 setInterval sites fail P10:
+  src/components/PhaseBanner.tsx:55 — no visibilitychange handling in this file
+  src/components/PhotoOfTheDay.tsx:39 — no visibilitychange handling in this file
+  src/components/admin/AdminCompetitionFunnel.tsx:60 — no visibilitychange handling in this file
+  src/components/admin/AdminJudgeMonitoringPanel.tsx:160 — no visibilitychange handling in this file
+  src/components/ads/AdZone.tsx:258 — fires every 200 ms — faster than once a second
+  src/components/ads/FullscreenAdShell.tsx:54 — no visibilitychange handling in this file
+  src/components/ads/RewardedAd.tsx:73 — no visibilitychange handling in this file
+  src/components/judge/JudgeSessionTimer.tsx:31 — no visibilitychange handling in this file
+  src/components/judge/JudgeSessionTimer.tsx:44 — no visibilitychange handling in this file
+  src/hooks/core/useLastActive.ts:42 — no visibilitychange handling in this file
+  src/hooks/feed/useFeedEventTracker.ts:42 — no visibilitychange handling in this file
+  src/hooks/judging/useJudgeSession.ts:173 — no visibilitychange handling in this file
+  src/hooks/judging/useJudgeSession.ts:203 — no visibilitychange handling in this file
+  src/hooks/judging/useJudgingLock.ts:106 — no visibilitychange handling in this file
+  src/modules/admin/CompetitionsModule.tsx:132 — no visibilitychange handling in this file
+  src/pages/Index.tsx:191 — fires every 30 ms — faster than once a second
+  src/pages/Index.tsx:356 — no visibilitychange handling in this file
+  src/pages/Login.tsx:95 — no visibilitychange handling in this file
+  src/pages/PublicProfile.tsx:65 — no visibilitychange handling in this file
+  src/pages/SubmissionDetail.tsx:326 — no visibilitychange handling in this file
+AssertionError: 20 of 21 setInterval sites fail P10:
+  src/components/PhaseBanner.tsx:55 — no visibilitychange handling in this file
+  src/components/PhotoOfTheDay.tsx:39 — no visibilitychange handling in this file
+  src/components/admin/AdminCompetitionFunnel.tsx:60 — no visibilitychange handling in this file

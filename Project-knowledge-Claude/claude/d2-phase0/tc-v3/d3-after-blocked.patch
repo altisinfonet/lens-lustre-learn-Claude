@@ -1,0 +1,165 @@
+From dd59d8f45e981c5a170576446db886513f1c8184 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 3 Sep 2026 13:12:00 +0000
+Subject: [PATCH] =?UTF-8?q?D2:=20TC-v3=20-=20v3=20verified=20live;=20AFTER?=
+ =?UTF-8?q?=20still=20blocked;=20=C2=A73.4=20non-discriminating=20on=20sta?=
+ =?UTF-8?q?ging?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Unit: OWNER-RULING-2026-09-03-02, client half.
+Paths touched: docs/evidence/d2/tc-v3/ only. No src/ this turn, per instruction.
+
+v3 VERIFIED LIVE by own reading, pg_proc staging 2026-09-03 13:08:33.57438Z:
+TABLE(user_id uuid, rank_position integer, contributor_score integer,
+recent_score integer), STABLE, SECURITY DEFINER, search_path=public, anon and
+authenticated EXECUTE true, v2 intact. Exactly the frozen §2.2 signature.
+Precondition met; the Owner override is retired.
+
+AFTER NOT MEASURED, two independent reasons:
+1. The client half is not on staging - 78fed3a has 0 refs to
+   get_top_contributors_v3 in the hook and 0 to recent_score in Index.tsx.
+   Patch 137882b has not landed, so any render now measures the OLD card.
+2. Egress preflight now PASSES (curl via proxy 200) and the browser binary
+   blocker is fixed (repo pins playwright 1.62.1 wanting chromium-1234; this
+   container ships 1194 - added a TC_V3_CHROME executablePath override, inert
+   when unset), but page.goto still returns ERR_CONNECTION_RESET on all four
+   runs. Fourth configuration attempted; stopped, nothing estimated.
+
+FINDING - the §3.4 gate cannot discriminate on staging data. Measured
+13:09:11.219771Z: recent_score and contributor_score are IDENTICAL on all
+three rows (764/509/509 both). The displayed numbers descend either way, so a
+green §3.4 on staging would also be green on the unfixed card. The check
+cannot fail on the defect it exists to catch - the same non-discrimination as
+the 12-vs-21 character name finding. What DOES discriminate is the behavioural
+unit test, which mocks production's trio (lifetime 9,551/8,888/11,546 against
+recent 7,055/6,978/6,823) and asserts the ranking number descends while the
+lifetime number does not. Recommend closing §3.4 against production after
+promotion, or a SUBSTITUTED run injecting that trio, with the staging run
+recorded as corroborating rather than deciding.
+
+Item 3 re-verified: no v3 migration on origin at 78fed3a, so the rollback
+guard stays skipIf and the filename stays attested-not-verified.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GV4h68oafMCN25g8cYMJ9V
+---
+ .../d2/tc-v3/AFTER-BLOCKED-2026-09-03.md      | 86 +++++++++++++++++++
+ .../d2/tc-v3/after-measure.prepared.mjs       |  6 ++
+ 2 files changed, 92 insertions(+)
+ create mode 100644 docs/evidence/d2/tc-v3/AFTER-BLOCKED-2026-09-03.md
+
+diff --git a/docs/evidence/d2/tc-v3/AFTER-BLOCKED-2026-09-03.md b/docs/evidence/d2/tc-v3/AFTER-BLOCKED-2026-09-03.md
+new file mode 100644
+index 0000000..ed22999
+--- /dev/null
++++ b/docs/evidence/d2/tc-v3/AFTER-BLOCKED-2026-09-03.md
+@@ -0,0 +1,86 @@
++# TC-v3 client half · AFTER measurement · WHAT RAN, WHAT DID NOT
++
++**Unit** OWNER-RULING-2026-09-03-02, client half · 2026-09-03 · `origin/staging` `78fed3a`
++**`src/` NOT touched this turn**, per instruction.
++
++---
++
++## 1 · v3 IS LIVE — verified, not accepted
++
++`pg_proc` on staging `ztzutckwdhetphwghuzj`, Supabase MCP, SELECT only, **13:08:33.57438 UTC**:
++
++```
++get_top_contributors_v3 -> TABLE(user_id uuid, rank_position integer,
++                                 contributor_score integer, recent_score integer)
++provolatile = s   prosecdef = true   proconfig = {search_path=public}
++anon EXECUTE = true   authenticated EXECUTE = true
++```
++
++**Exactly the frozen §2.2 signature.** `STABLE`, not `VOLATILE`. Grants match v2 and do not exceed
++them. `get_top_contributors_v2` present and unchanged — the rollback is intact. **The interface §3
++precondition is met; the Owner override is retired.**
++
++## 2 · The client half is NOT on staging — so there is no AFTER to measure
++
++`origin/staging` `78fed3a`: `src/hooks/useTopContributors.ts` contains **0** references to
++`get_top_contributors_v3`; `src/pages/Index.tsx` contains **0** references to `recent_score`.
++
++Patch `137882b` has not landed. **Any render taken now measures the OLD card**, and labelling it
++"AFTER" would be false. Not done.
++
++## 3 · The instrument: one blocker fixed, one still standing
++
++| stage | result |
++|---|---|
++| egress preflight (`curl -x $HTTPS_PROXY`) | **200** — passes now; it did not before |
++| Playwright browser binary | **fixed** — the repo pins playwright 1.62.1, which wants `chromium-1234`; this container ships `chromium-1194`. `npx playwright install` is not run here, so the script gained a `TC_V3_CHROME` executablePath override. Unset, behaviour is exactly as delivered |
++| `page.goto` | **`net::ERR_CONNECTION_RESET`**, all four runs |
++
++So the browser now launches and the site is reachable by `curl` through the same proxy, but Chromium's
++connections are reset by it. That is the **fourth** distinct configuration attempted across this
++session. **Stopped rather than continuing, and no geometry is estimated.**
++
++**Still not measured, still owed:** row height, card height, name width, truncation point, at 360 px
++and at real width, REAL and SUBSTITUTED, with screenshots. These need a browser with egress — CI, or
++the Owner's machine. The script is one command and now runs end to end up to the network.
++
++## 4 · ⚠ FINDING — the §3.4 gate cannot discriminate on staging data
++
++`get_top_contributors_v3()` joined to `profiles`, staging, **13:09:11.219771 UTC**:
++
++| rank | name | chars | **recent_score (30d)** | contributor_score (lifetime) |
++|---|---|---|---|---|
++| 1 | Yuki Tanabe | 11 | **764** | 764 |
++| 2 | Tomas Vogel | 11 | **509** | 509 |
++| 3 | Ari Sen | 7 | **509** | 509 |
++
++**The two fields hold identical values on every row.** The gate asks that the three displayed numbers
++descend — and they do, 764 ≥ 509 ≥ 509. **But they would also descend if the card were still
++rendering `contributor_score`,** because on this data the two are the same number.
++
++**A passing §3.4 run on staging therefore does not prove the fix.** It cannot fail on the defect it
++was written to catch. The interface anticipated half of this — *"non-increasing there, but
++coincidentally"* — but the consequence is stronger than recorded: the check is not merely weak on
++staging, it is **non-discriminating**, exactly as the name-length check was, and for the same reason.
++
++**What does discriminate, and already passed:** the behavioural unit test in
++`src/__tests__/topContributorsV3.home.test.ts` mocks the RPC with production's trio — lifetime
++9,551 / 8,888 / **11,546** against recent 7,055 / 6,978 / 6,823 — and asserts that the ranking number
++descends **while the lifetime number does not**. That assertion fails against the unchanged component
++and passes against the changed one. It is the only check in this unit that can tell the fixed card
++from the broken one.
++
++**Recommendation for the Auditor, not a change made:** close §3.4 against **production** after
++promotion, or against a SUBSTITUTED staging run that injects the production trio — and record that the
++staging run alone is corroborating, not deciding. As it stands, "§3.4 green on staging" would be an
++evidence line that cannot fail.
++
++## 5 · Item 3 re-verified — the skipIf stands
++
++`origin/staging` `78fed3a` `supabase/migrations/` holds only
++`20260725160000_top_contributors_exclude_staff.sql` and `20260811160000_top_contributors_v2.sql`.
++**No v3 migration on origin.** The rollback guard stays `describe.skipIf`, and the filename
++`20260903090000_top_contributors_v3.sql` remains **Auditor-attested, not verified**.
++
++*D2 · Client & Delivery. Read-only against staging. No `src/**` change, no SQL, no `supabase/**`,
++no `docs/gates/**`, no ledger.*
+diff --git a/docs/evidence/d2/tc-v3/after-measure.prepared.mjs b/docs/evidence/d2/tc-v3/after-measure.prepared.mjs
+index 6d82740..c7e4417 100644
+--- a/docs/evidence/d2/tc-v3/after-measure.prepared.mjs
++++ b/docs/evidence/d2/tc-v3/after-measure.prepared.mjs
+@@ -151,8 +151,14 @@ const probe = () => {
+ const toInt = s => (s ? Number(String(s).replace(/[^\d]/g, '')) : NaN);
+
+ // ── run ──────────────────────────────────────────────────────────────────────
++// TC_V3_CHROME: absolute path to a chrome binary, for environments where the
++// installed Playwright pins a browser revision that is not present. Added
++// 2026-09-03 after the repo's playwright (1.62.1) asked for chromium-1234 while
++// this container ships chromium-1194 — `npx playwright install` is not run here.
++// Unset, behaviour is exactly as delivered.
+ const browser = await chromium.launch({
+   ...(PROXY ? { proxy: { server: PROXY } } : {}),
++  ...(process.env.TC_V3_CHROME ? { executablePath: process.env.TC_V3_CHROME } : {}),
+   args: ['--no-sandbox', '--ignore-certificate-errors'],
+ });
+
+--
+2.43.0

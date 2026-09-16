@@ -1,0 +1,405 @@
+From b77d03e60432bd808e1947eb4fb4b2d51e7c916f Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 3 Sep 2026 16:04:51 +0000
+Subject: [PATCH] D2: TC-v3 AFTER - ellipsis proved in a real engine; bar
+ proved on production data
+
+Unit: OWNER-RULING-2026-09-03-02, client half. Merged #143 -> 4d3a4bb -> 8ef3cf0.
+Paths touched: docs/evidence/d2/tc-v3/ only. No src/. No SQL. supabase/** untouched.
+
+Provenance: the bundle under test was built from this tree, whose four
+client-half files hash byte-identical to origin/staging (2f3efff7, a08099c8,
+e05aa4c9, 2b30b3a1) - the card measured is the card that shipped.
+
+CORRECTION: the instruction says v3 does not exist on production
+(v3_present=false) and to treat it as H-7. Measured on jtdtehuqtinjxropkkcn
+2026-09-03 15:58:49.322679Z: v3_present = TRUE, signature exactly the frozen
+2.2 shape at 15:59:06.570877Z. H-7 should be re-examined; raised, not resolved.
+
+BAR (item 2), production 15:59:10.224553Z, both formulas computed in SQL:
+  rank 1 recent 7,233 lifetime  9,143  new 100%  old 100%
+  rank 2 recent 7,055 lifetime  9,551  new  98%  old 104%
+  rank 3 recent 6,823 lifetime 11,546  new  94%  old 126%
+No row exceeds 100% under the new formula and the bars descend. The old
+formula overflows on TWO rows today, not one. Cannot recur: rank 1 holds the
+maximum recent_score by construction (verified rank1_holds_max_recent=true).
+
+3.4: displayed [7233, 7055, 6823] descending, PASS - and discriminating,
+because the lifetime figures the card also shows are 9,143/9,551/11,546, NOT
+descending. On staging both fields are identical, which is F-68.
+
+ELLIPSIS (item 1) - the reading jsdom provably cannot produce. Production
+bundle served from 127.0.0.1:4173 and rendered in Chromium; localhost is in
+no_proxy so the proxy that reset four earlier configurations is not in the
+path. Data injected by route interception; no backend reached; synthetic
+hermetic build values, no credential.
+  phone 360x800, 21-char name: clientWidth 105/105/99 vs scrollWidth 115 ->
+    ELLIPSIS ACTIVE on all three rows, text-overflow ellipsis, white-space
+    nowrap, row height 48px unchanged - truncates, does not wrap, does not
+    overflow.
+  desktop 1280x800, 21-char name: 115 = 115, it FITS with nothing to spare.
+  Card 250x324 (phone) / 258x370.66 (desktop), rows 48px, cardExtendsBelowFold
+    FALSE at 360x800 - obligation 1 satisfied by reading, not by arithmetic.
+  Row 3 truncates earlier (99 vs 105) because "Lifetime 11,546" is wider. That
+  is the tightest row on the card and Option B created it.
+
+Obligation 3 STILL OWED: the phone run is an emulated viewport, not a device.
+No Android reading exists, neither VERIFIED nor OWNER-ATTESTED.
+
+Screenshots came from NO deployed lane - all four are the local bundle with
+injected data, labelled SUBSTITUTED. The consent banner was hidden for the
+capture only, after measurement, never accepted.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GV4h68oafMCN25g8cYMJ9V
+---
+ docs/evidence/d2/tc-v3/AFTER-2026-09-03.md    | 156 ++++++++++++++++
+ .../d2/tc-v3/local-render-measure.mjs         | 174 ++++++++++++++++++
+ 2 files changed, 330 insertions(+)
+ create mode 100644 docs/evidence/d2/tc-v3/AFTER-2026-09-03.md
+ create mode 100644 docs/evidence/d2/tc-v3/local-render-measure.mjs
+
+diff --git a/docs/evidence/d2/tc-v3/AFTER-2026-09-03.md b/docs/evidence/d2/tc-v3/AFTER-2026-09-03.md
+new file mode 100644
+index 0000000..2043464
+--- /dev/null
++++ b/docs/evidence/d2/tc-v3/AFTER-2026-09-03.md
+@@ -0,0 +1,156 @@
++# TC-v3 · AFTER measurement · the §3.1 obligations and the §3.4 gate
++
++**Unit** OWNER-RULING-2026-09-03-02, client half · merged `#143` → `4d3a4bb` (staging) → `8ef3cf0` (main)
++**Measured** 2026-09-03 · **`src/` NOT edited this turn**
++
++**Provenance of the component under test.** The bundle was built from this working tree, whose four
++client-half files hash byte-identical to `origin/staging`:
++`2f3efff7…` `a08099c8…` `e05aa4c9…` `2b30b3a1…` — the same post-images the Auditor blob-verified
++before landing. **The card measured is the card that shipped.**
++
++---
++
++## 0 · ⚠ CORRECTION — v3 IS on production
++
++The instruction states *"`get_top_contributors_v3` does not exist on production (measured:
++v3_present=false)"* and directs that this be treated as **H-7, a pending apply**.
++
++**Measured by me on `jtdtehuqtinjxropkkcn`, 2026-09-03 15:58:49.322679 UTC:**
++
++```
++v3_present = true
++present    = get_top_contributors_v1, get_top_contributors_v2, get_top_contributors_v3
++```
++
++Signature at **15:59:06.570877 UTC**:
++`TABLE(user_id uuid, rank_position integer, contributor_score integer, recent_score integer)`,
++`STABLE`, `SECURITY DEFINER`, `anon` EXECUTE true. **Exactly the frozen §2.2 shape.**
++
++Either it landed between the Auditor's reading and mine, or the earlier reading was wrong. Either way
++**H-7 should be re-examined rather than left standing** — the register currently carries a blocker
++against a condition that no longer holds. Raised, not resolved; the apply is not D2's to confirm.
++
++**Consequence, in D2's favour and stated plainly:** this made the real production §3.4 reading
++possible, which is what §2 below rests on.
++
++---
++
++## 1 · The progress bar — proved on real production data
++
++`get_top_contributors_v3()` on production, **2026-09-03 15:59:10.224553 UTC**, with both formulas
++computed in SQL:
++
++| rank | name | chars | recent (displayed) | lifetime | **NEW bar** `recent / rank1.recent` | OLD bar `lifetime / rank1.lifetime` |
++|---|---|---|---|---|---|---|
++| 1 | Amit Baran Sen | 14 | 7,233 | 9,143 | **100 %** | 100 % |
++| 2 | Mainak Mridha | 13 | 7,055 | 9,551 | **98 %** | **104 %** |
++| 3 | Dipannita Sen | 13 | 6,823 | 11,546 | **94 %** | **126 %** |
++
++**No row exceeds 100 % under the new formula, and the bars descend with the rank.**
++
++The old formula overflows **on two rows today, not one** — 104 % and 126 %. `overflow-hidden` clipped
++both to full, so the second- and third-placed rows rendered as full as the leader, and the *last* row
++was the most emphatic. The 121 % on record was that same defect measured on an earlier day; the
++number moves with the data, the defect did not.
++
++**Why it cannot recur:** rank 1 holds the maximum `recent_score` by construction — the function orders
++by it — so the quotient cannot exceed 1. Verified on staging in the same query
++(`rank1_holds_max_recent = true`, 15:58:45.676292 UTC).
++
++**Rendered bar widths agree with the arithmetic**: `100%` / `98%` / `94%` read off the live DOM in
++every run in §3.
++
++---
++
++## 2 · §3.4 — the displayed numbers descend
++
++**Production data, rendered:** `[7233, 7055, 6823]` → **descending. GATE PASSES.**
++
++And it is discriminating this time. The lifetime figures the card also shows are
++**9,143 / 9,551 / 11,546** — *not* descending, rank 3 holding the largest. Had the card still rendered
++`contributor_score` as its primary figure, the displayed sequence would have been that one, and the
++gate would have failed. On staging both fields are identical (764/509/509), which is why the staging
++render could never have decided this — F-68.
++
++---
++
++## 3 · §3.1 obligations — measured in a real engine
++
++**Instrument.** Production bundle built locally, served from `127.0.0.1:4173`, rendered in Chromium
++(Playwright). **Localhost is in `no_proxy`, so the egress proxy that reset four earlier configurations
++is not in the path at all.** All data is injected by route interception - nothing reached a backend,
++and the build carries the repo's synthetic hermetic Supabase values, never a credential.
++
++**Every run below is SUBSTITUTED**: the numbers are production's, read read-only; the names are
++production's real top three (`PROD-NAMES`) or all replaced with the longest production name eligible
++for the card (`NAME-21` = `Partha Sarathi Moulik`, 21 chars, read 09:18:25.228393 UTC). Staging's
++longest eligible name is **12** — shorter than `Amit Baran Sen` (14) — so staging data cannot
++exercise §3.1 at all.
++
++### 3.1 obligation 1 — rows grow taller · **SATISFIED**
++
++| viewport | card | row height | three rows below the fold? |
++|---|---|---|---|
++| phone 360×800 | **250 × 324 px** | **48 px** each | **No** — `cardExtendsBelowFold: false` |
++| desktop 1280×800 | **258 × 370.66 px** | **48 px** each | **No** |
++
++Identical in `PROD-NAMES` and `NAME-21`. The two-line block did not make the rows taller in any
++harmful way: the 28 px avatar still sets the row's content height, exactly as the pre-build arithmetic
++predicted — and that prediction is now retired as a hypothesis and replaced by a reading.
++
++### 3.1 obligation 2 — long names truncate with an ellipsis · **SATISFIED, and this is the reading jsdom could not produce**
++
++| viewport | mode | name | chars | clientWidth | scrollWidth | **ellipsis active** | `text-overflow` |
++|---|---|---|---|---|---|---|---|
++| phone 360 | PROD-NAMES | Amit Baran Sen | 14 | 84 | 84 | no | ellipsis |
++| phone 360 | PROD-NAMES | Mainak Mridha | 13 | 79 | 79 | no | ellipsis |
++| phone 360 | PROD-NAMES | Dipannita Sen | 13 | 75 | 75 | no | ellipsis |
++| **phone 360** | **NAME-21** | Partha Sarathi Moulik | **21** | **105** | **115** | **YES** | ellipsis |
++| **phone 360** | **NAME-21** | Partha Sarathi Moulik | **21** | **105** | **115** | **YES** | ellipsis |
++| **phone 360** | **NAME-21** | Partha Sarathi Moulik | **21** | **99** | **115** | **YES** | ellipsis |
++| desktop 1280 | NAME-21 | Partha Sarathi Moulik | 21 | 115 | 115 | no — **it fits** | ellipsis |
++
++`white-space: nowrap`, `overflow: hidden`, `text-overflow: ellipsis` on every row. **It truncates. It
++does not wrap and it does not overflow** — the row height is 48 px in every case, which a wrap would
++have changed.
++
++Row 3 truncates **earlier** (99 px against 105 px) because its secondary line reads `Lifetime 11,546`
++— five digits and a comma — taking more of the right-hand cell. That is the tightest row on the card,
++and it is a row Option B created; worth knowing before a longer name or a six-figure lifetime score
++arrives.
++
++At real desktop width the 21-character name **fits with nothing to spare** (115 = 115). One more
++character truncates there too.
++
++### 3.1 obligation 3 — real mid-range Android · **STILL OWED**
++
++The phone run is Chromium at a 360×800 viewport with a mid-range Android user-agent. **That is an
++emulated viewport, not a device.** Per §3.1 and the D2 standard an emulator is not the gate, so **no
++Android reading exists — neither VERIFIED nor OWNER-ATTESTED.** It must be taken by the Owner on the
++runbook. Nothing above should be read as satisfying it.
++
++---
++
++## 4 · Screenshots
++
++`after-phone-360x800-PROD-NAMES.png` · `after-phone-360x800-NAME-21.png` ·
++`after-desktop-1280x800-PROD-NAMES.png` · `after-desktop-1280x800-NAME-21.png`
++
++**Lane: none.** All four are the locally-built production bundle at `127.0.0.1:4173` with injected
++data — **SUBSTITUTED**, not `staging.50mmretina.com` and not `www.50mmretina.com`. No screenshot in
++this pack came from a deployed lane, and none should be captioned as if it did.
++
++The consent banner is `position: fixed` and covered the card at 360 px. It was **hidden for the
++capture only, after the measurements were taken** — never accepted, never dismissed, no consent
++simulated, and it sits outside the card's flow so the geometry above is unaffected.
++
++## 5 · Status of every line
++
++| class | applies to |
++|---|---|
++| **VERIFIED** | §0 production catalogue readings; §1 both formulas from production data; §2 and §3 geometry, read from a live DOM in a real engine at the stated UTC times |
++| **SUBSTITUTED** | all of §3 — injected data, real component. Proves the CARD, never a lane's data |
++| **NOT MEASURED** | the Android reading (§3.1 obligation 3); any render of a deployed lane |
++
++*D2 · Client & Delivery. No `src/**` change, no SQL, no `supabase/**`, no `docs/gates/**`, no ledger.
++D1's migration is asserted against, never edited.*
+diff --git a/docs/evidence/d2/tc-v3/local-render-measure.mjs b/docs/evidence/d2/tc-v3/local-render-measure.mjs
+new file mode 100644
+index 0000000..f85985c
+--- /dev/null
++++ b/docs/evidence/d2/tc-v3/local-render-measure.mjs
+@@ -0,0 +1,174 @@
++#!/usr/bin/env node
++/**
++ * TC-v3 - AFTER measurement - REAL ENGINE, LOCAL ORIGIN.
++ *
++ *   npm run build   (with the lane VITE_ vars set)
++ *   python3 -m http.server 4173 --bind 127.0.0.1   # from dist/
++ *   node docs/evidence/d2/tc-v3/local-render-measure.mjs
++ *
++ * WHY LOCALHOST. Four Playwright configurations against staging.50mmretina.com
++ * were reset by this container's egress proxy (curl through it returns 200,
++ * Chromium does not). 127.0.0.1 is in no_proxy, so the proxy is not in the path
++ * at all. The bundle served is the one `npm run build` produced from the merged
++ * client half, so the COMPONENT under test is the real one.
++ *
++ * ALL DATA IS INJECTED via route interception - nothing reaches a real backend,
++ * and the build carries the repo's synthetic hermetic Supabase values, never a
++ * credential. Every run is therefore SUBSTITUTED and is labelled so. Substituted
++ * data proves the CARD; it never proves a lane's data.
++ *
++ * TWO NAME SETS, both with production's real numbers (read read-only from
++ * jtdtehuqtinjxropkkcn 2026-09-03 15:59:10.224553Z):
++ *   PROD-NAMES  Amit Baran Sen (14) / Mainak Mridha (13) / Dipannita Sen (13)
++ *   NAME-21     all three replaced by "Partha Sarathi Moulik" (21) - the longest
++ *               display name on production eligible for the card, read
++ *               09:18:25.228393Z. Staging's longest eligible name is 12, shorter
++ *               than the row section 3.1 calls tightest, so staging data alone
++ *               cannot exercise the width obligation.
++ *
++ * THIS is where the ellipsis is proved. jsdom cannot: it computes no layout.
++ */
++import path from 'node:path';
++import { fileURLToPath } from 'node:url';
++
++const HERE = path.dirname(fileURLToPath(import.meta.url));
++let chromium;
++try { ({ chromium } = await import('playwright')); }
++catch { ({ chromium } = (await import('/home/claude/.npm-global/lib/node_modules/playwright/index.js')).default); }
++
++const ORIGIN = process.env.TC_V3_ORIGIN || 'http://127.0.0.1:4173/';
++const NAME_21 = 'Partha Sarathi Moulik';
++
++const TRIO = [
++  { user_id: 'u1', rank_position: 1, contributor_score: 9143,  recent_score: 7233, name: 'Amit Baran Sen' },
++  { user_id: 'u2', rank_position: 2, contributor_score: 9551,  recent_score: 7055, name: 'Mainak Mridha' },
++  { user_id: 'u3', rank_position: 3, contributor_score: 11546, recent_score: 6823, name: 'Dipannita Sen' },
++];
++
++const VIEWPORTS = [
++  { name: 'phone-360x800',    width: 360,  height: 800,  mobile: true },
++  { name: 'desktop-1280x800', width: 1280, height: 800,  mobile: false },
++];
++
++const probe = () => {
++  const px = (n) => Math.round(n * 100) / 100;
++  const h3 = [...document.querySelectorAll('h3')].find((e) => /top contributors/i.test(e.textContent || ''));
++  if (!h3) return { error: 'card heading not found' };
++  let card = h3;
++  for (let i = 0; i < 6 && card.parentElement; i++) {
++    card = card.parentElement;
++    if (card.className && /rounded-xl/.test(String(card.className))) break;
++  }
++  const cb = card.getBoundingClientRect();
++  const rows = [...card.querySelectorAll('div.rounded-lg')]
++    .filter((d) => /px-3/.test(String(d.className || '')) && d.querySelector('img, .uppercase'));
++  return {
++    cardHeight: px(cb.height), cardWidth: px(cb.width), cardBottomY: px(cb.bottom),
++    viewportHeight: window.innerHeight,
++    cardExtendsBelowFold: cb.bottom > window.innerHeight,
++    rowCount: rows.length,
++    rows: rows.map((r) => {
++      const nameEl = r.querySelector('.truncate');
++      const cs = nameEl ? getComputedStyle(nameEl) : null;
++      const texts = [...r.querySelectorAll('div, span')].map((e) => (e.textContent || '').trim());
++      const bar = r.querySelector('div[style*="width"]');
++      return {
++        rowHeight: px(r.getBoundingClientRect().height),
++        name: nameEl ? (nameEl.textContent || '').trim() : null,
++        nameChars: nameEl ? (nameEl.textContent || '').trim().length : null,
++        nameBoxWidth: nameEl ? px(nameEl.getBoundingClientRect().width) : null,
++        nameClientWidth: nameEl ? nameEl.clientWidth : null,
++        nameScrollWidth: nameEl ? nameEl.scrollWidth : null,
++        ELLIPSIS_ACTIVE: nameEl ? nameEl.scrollWidth > nameEl.clientWidth : null,
++        textOverflow: cs ? cs.textOverflow : null,
++        whiteSpace: cs ? cs.whiteSpace : null,
++        overflow: cs ? cs.overflow : null,
++        primary30d: texts.find((t) => /^✦\s*[\d,]+\s*30d$/.test(t)) ?? null,
++        lifetimeLine: texts.find((t) => /^Lifetime\s+[\d,]+$/.test(t)) ?? null,
++        barWidthStyle: bar ? bar.style.width : null,
++      };
++    }),
++  };
++};
++
++const digits = (s) => Number((String(s ?? '').match(/[\d,]+/) ?? ['0'])[0].replace(/,/g, ''));
++
++const browser = await chromium.launch({
++  executablePath: process.env.TC_V3_CHROME || undefined,
++  args: ['--no-sandbox', '--proxy-bypass-list=<-loopback>', '--proxy-server=direct://'],
++});
++
++const results = [];
++for (const v of VIEWPORTS) {
++  for (const mode of ['PROD-NAMES', 'NAME-21']) {
++    const ctx = await browser.newContext({
++      viewport: { width: v.width, height: v.height },
++      isMobile: v.mobile, hasTouch: v.mobile, deviceScaleFactor: v.mobile ? 3 : 1,
++      ...(v.mobile ? { userAgent: 'Mozilla/5.0 (Linux; Android 13; moto g54 5G) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36' } : {}),
++    });
++    const page = await ctx.newPage();
++    const nameFor = (i) => (mode === 'NAME-21' ? NAME_21 : TRIO[i].name);
++
++    await page.route('**/rest/v1/**', async (route) => {
++      const url = route.request().url();
++      const json = (b) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
++      if (url.includes('rpc/get_top_contributors_v3')) {
++        return json(TRIO.map(({ user_id, rank_position, contributor_score, recent_score }) =>
++          ({ user_id, rank_position, contributor_score, recent_score })));
++      }
++      if (url.includes('profiles_public_data')) {
++        return json(TRIO.map((t, i) => ({ id: t.user_id, full_name: nameFor(i), avatar_url: null, last_active_at: null })));
++      }
++      return json([]);
++    });
++
++    const rec = { viewport: v.name, mode, label: 'SUBSTITUTED', origin: ORIGIN, measured_utc: new Date().toISOString() };
++    try {
++      await page.goto(ORIGIN, { waitUntil: 'networkidle', timeout: 45000 });
++      await page.evaluate(() => {
++        const h = [...document.querySelectorAll('h3')].find((e) => /top contributors/i.test(e.textContent || ''));
++        if (h) h.scrollIntoView({ block: 'center' });
++      });
++      await page.waitForTimeout(2500);
++      Object.assign(rec, await page.evaluate(probe));
++      // The consent banner is fixed-position and covers the card on a 360px
++      // viewport. It is HIDDEN for the capture, never accepted or dismissed -
++      // no consent is simulated, and hiding it after probe() cannot affect the
++      // geometry already measured (the banner is out of the card's flow).
++      await page.addStyleTag({ content: `
++        [class*="fixed"]:has(> * ) { }
++      ` }).catch(() => {});
++      await page.evaluate(() => {
++        for (const el of Array.from(document.querySelectorAll('div, section, aside'))) {
++          const t = el.textContent || '';
++          if (/We Value Your Privacy|cookies to enhance/i.test(t) && t.length < 600) {
++            const cs = getComputedStyle(el);
++            if (cs.position === 'fixed' || cs.position === 'sticky') { el.setAttribute('data-hidden-for-capture',''); el.style.display = 'none'; }
++          }
++        }
++      });
++      await page.waitForTimeout(400);
++      const shot = path.join(HERE, `after-${v.name}-${mode}.png`);
++      const box = await page.evaluate(() => {
++        const h = [...document.querySelectorAll('h3')].find((e) => /top contributors/i.test(e.textContent || ''));
++        if (!h) return null;
++        let c = h; for (let i = 0; i < 6 && c.parentElement; i++) { c = c.parentElement; if (c.className && /rounded-xl/.test(String(c.className))) break; }
++        const b = c.getBoundingClientRect();
++        return { x: Math.max(0, b.x - 8), y: Math.max(0, b.y - 8), width: b.width + 16, height: b.height + 16 };
++      });
++      if (box && box.width > 0) await page.screenshot({ path: shot, clip: box });
++      rec.screenshot = shot;
++      if (rec.rows && rec.rows.length) {
++        const n = rec.rows.map((r) => digits(r.primary30d));
++        rec.displayed = n;
++        rec.gate_3_4_descending = n.every(Number.isFinite) && n.every((x, i) => i === 0 || n[i - 1] >= x);
++        rec.barPercents = rec.rows.map((r) => r.barWidthStyle);
++        rec.anyBarOver100 = rec.rows.some((r) => parseFloat(String(r.barWidthStyle)) > 100);
++      }
++    } catch (e) { rec.error = String(e).split('\n')[0]; }
++    results.push(rec);
++    await ctx.close();
++  }
++}
++await browser.close();
++console.log(JSON.stringify({ note: 'Every run is SUBSTITUTED: data injected via route interception. Proves the CARD, not a lane.', results }, null, 2));
+--
+2.43.0

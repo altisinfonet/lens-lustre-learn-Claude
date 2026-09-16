@@ -1,0 +1,765 @@
+From f108198021549158e4c2775689c47c0acfd22fca Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Claude=20=28D1=20=C2=B7=20Database=20=26=20Runtime=29?=
+ <noreply@anthropic.com>
+Date: Thu, 3 Sep 2026 09:15:01 +0000
+Subject: [PATCH] =?UTF-8?q?d1(F-62):=20public-grant=20census=20=E2=80=94?=
+ =?UTF-8?q?=20REVOKE=20FROM=20anon=20is=20a=20no-op=20on=20246=20of=20305?=
+ =?UTF-8?q?=20functions?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Evidence and a revocation list. No SQL apply. No grant altered on either lane.
+Production was SELECT only; the negative control ran on a scratch PostgreSQL 16
+in the container, never on a lane.
+
+Objects reserved: none — read-only unit.
+
+AUDITOR'S FIGURES CONFIRMED, all four, production 2026-09-03 09:09:46Z:
+  387 functions in public          -> 387
+  305 anon-executable              -> 305
+  222 reachable through PUBLIC     -> 222  (TRAP-BOTH: anon named AND PUBLIC)
+  24 with proacl NULL              -> 24   (TRAP-PUBLIC-ONLY)
+And the classification reconciles: 222 + 24 + 59 = 305, the 59 being the
+functions where REVOKE FROM anon does work (ANON-NAMED-ONLY).
+
+ONE CORRECTION, to the framing rather than the arithmetic: the trap population
+is 246, not 222. The 24 NULL-ACL functions fail identically — proacl NULL does
+not mean "no grants", it means "the defaults", and the default for a function
+is EXECUTE TO PUBLIC. A gate written against 222 leaves 24 open and reports
+success. 162 of the 246 are VOLATILE, so two thirds of the trap sits on the
+amplification class rather than on read helpers.
+
+PHASE 1 TARGET LIST COMPLETE, 09:10:20Z. The Auditor's two examples are
+confirmed and they are the ONLY two of the 15 named targets:
+  search_certificates                   -> REVOKE FROM PUBLIC as well
+  recompute_entry_from_tag_assignments  -> REVOKE FROM PUBLIC as well
+The other 11 revoke as written; enqueue_email and read_email_batch are already
+closed (anon and authenticated both false, measured). Phase 1 is not blocked
+and needs no re-planning — two extra lines and a verification step.
+
+THE TRAP PROVED, on fixtures matching all three classes. REVOKE FROM anon on a
+PUBLIC-granted function succeeds, reports success, and leaves anon able to
+execute; REVOKE FROM PUBLIC closes it. On the NULL-ACL case the revoke
+MATERIALISES the default into an explicit ACL that still contains =X.
+
+SECOND HALF OF THE TRAP, found while proving the first and not asked for:
+CREATE OR REPLACE preserves an ACL, but DROP + CREATE resets proacl to NULL —
+PUBLIC again. A function closed in Phase 1 silently reopens the first time
+somebody recreates it, and 42P13 means any return-type change MUST be
+DROP + CREATE. So proving anon EXECUTE absent once is not enough; it must be
+re-proved after any migration that recreates a function. The census probe is
+re-runnable for that reason. A standing CI check is proposed, not built — a
+workflow change is its own unit.
+
+Files:
+  supabase/migrations/PROBE_public_grant_census.sql   the instrument, read-only,
+      BEGIN..ROLLBACK, PROBE_ prefix per the existing convention
+  docs/evidence/d1/F62/public-grant-census-2026-09-03.tsv   305 rows, one per
+      anon-executable function, classified, with its proacl
+  docs/evidence/d1/F62/F-62-public-grant-trap.md     the report
+  docs/evidence/d1/F62/negative-control-transcript.txt
+
+NOT CLAIMED: no function was called; reachability is from the catalogue, not
+from executing anything as anon, and PostgREST's own exposure rules are not
+tested. Staging was not censused and must not be assumed to match production.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GC3SdkjFKDCgX6nLVLABNm
+---
+ .../evidence/d1/F62/F-62-public-grant-trap.md | 142 ++++++++
+ .../d1/F62/negative-control-transcript.txt    |  41 +++
+ .../d1/F62/public-grant-census-2026-09-03.tsv | 306 ++++++++++++++++++
+ .../migrations/PROBE_public_grant_census.sql  | 171 ++++++++++
+ 4 files changed, 660 insertions(+)
+ create mode 100644 docs/evidence/d1/F62/F-62-public-grant-trap.md
+ create mode 100644 docs/evidence/d1/F62/negative-control-transcript.txt
+ create mode 100644 docs/evidence/d1/F62/public-grant-census-2026-09-03.tsv
+ create mode 100644 supabase/migrations/PROBE_public_grant_census.sql
+
+diff --git a/docs/evidence/d1/F62/F-62-public-grant-trap.md b/docs/evidence/d1/F62/F-62-public-grant-trap.md
+new file mode 100644
+index 0000000..c0ff938
+--- /dev/null
++++ b/docs/evidence/d1/F62/F-62-public-grant-trap.md
+@@ -0,0 +1,142 @@
++# F-62 — `REVOKE ... FROM anon` is a no-op on 246 of 305 anon-executable functions
++
++**Unit** F-62 · D1 (Database & Runtime), with the security reviewer's triage applied
++**Lane** production `jtdtehuqtinjxropkkcn` · **SELECT only** · no writes, no DDL, no grant changed
++**Instrument** `supabase/migrations/PROBE_public_grant_census.sql`, run through the Supabase MCP `execute_sql` transport, 2026-09-03 **09:09:46Z** (totals) and **09:10:20Z** (Phase 1 targets)
++**Raw output** `docs/evidence/d1/F62/public-grant-census-2026-09-03.tsv` — 305 rows, one per anon-executable function, classified
++
++---
++
++## 1 · The finding in one paragraph
++
++Phase 1 is about to revoke `EXECUTE` from `anon` on a list of functions. **On 246 of this database's 305 anon-executable functions, that statement will succeed, report success, and leave `anon` able to execute the function**, because `anon` reaches it through a grant to `PUBLIC` that the revoke does not touch. There is no error, no warning, and no difference in the psql output between a revoke that worked and one that did nothing. The only way to tell them apart is to ask the database afterwards.
++
++This generalises a defect first measured on one function — `get_top_contributors_v2`, 2026-09-03 08:53Z, during the TC-v3 unit. The Auditor re-measured it across the schema and raised F-62. This report confirms the Auditor's figures, corrects the framing of one of them, completes the Phase 1 target list, and proves the trap on a fixture.
++
++---
++
++## 2 · Confirming the Auditor's figures
++
++The Auditor measured, production 2026-09-03: **387 functions, 305 anon-executable, 222 reachable by anon through PUBLIC, plus 24 with `proacl` NULL.**
++
++| Auditor | D1 measured, 09:09:46Z | verdict |
++|---|---|---|
++| 387 functions in `public` | **387** | **CONFIRMED** |
++| 305 anon-executable | **305** | **CONFIRMED** |
++| 222 with PUBLIC named in `proacl` | **222** (`TRAP-BOTH`) | **CONFIRMED** |
++| 24 with `proacl` NULL | **24** (`TRAP-PUBLIC-ONLY`) | **CONFIRMED** |
++
++All four figures reproduce exactly. The classification also reconciles, which is the check that matters: **222 + 24 + 59 = 305**, where the 59 (`ANON-NAMED-ONLY`) are the functions on which a plain `REVOKE ... FROM anon` does work.
++
++### 2.1 One correction, and it is to the framing, not the arithmetic
++
++**The trap population is 246, not 222.** The Auditor's two numbers are both right, but they are written as "222, plus 24" — as though the 24 were a separate observation. They are the same defect and they fail in the same way:
++
++| class | n | what `REVOKE ... FROM anon` does | why |
++|---|---|---|---|
++| `TRAP-BOTH` | **222** | removes the named grant, **anon still executes** | PUBLIC also holds EXECUTE |
++| `TRAP-PUBLIC-ONLY` | **24** | removes a grant that was never there, **anon still executes** | `proacl` is NULL, and NULL means *the default*, and the default for a function is EXECUTE to PUBLIC |
++| `ANON-NAMED-ONLY` | **59** | closes it | PUBLIC does not hold EXECUTE |
++
++**Any gate written against 222 leaves 24 functions open and reports success.** The gate must be written against 246 — or, better, against none of these numbers at all: against `has_function_privilege('anon', oid, 'EXECUTE') = false`, measured after the change, per function. That is what the Auditor's gate sentence already says, and this correction is only about which number appears beside it.
++
++`proacl IS NULL` is the more dangerous of the two, and it is worth saying why plainly: **a NULL ACL reads as "no grants" and means "the most permissive defaults".** A reviewer scanning `proacl::text` for role names sees an empty cell and moves on.
++
++### 2.2 What else the census shows
++
++Of the 246 in the trap, **162 are `VOLATILE`** (69 `STABLE`, 15 `IMMUTABLE`). Volatile plus anon-executable is the amplification class — the one that costs an attacker nothing and the database a lot. So the trap is not evenly spread across harmless read helpers; two thirds of it sits on the functions that do work.
++
++---
++
++## 3 · Which Phase 1 targets actually need `REVOKE FROM PUBLIC`
++
++Measured per function, 09:10:20Z. **The Auditor's two examples are confirmed, and the list is complete: they are the only two.**
++
++| unit | function | volatility | PUBLIC holds EXECUTE | required action |
++|---|---|---|---|---|
++| P31 | `search_certificates(_name text, _course_title text, _issued_date date)` | `s` | **YES** | **`REVOKE FROM PUBLIC` as well** — anon-only revoke is a no-op |
++| P32 | `recompute_entry_from_tag_assignments(p_entry_id uuid)` | `v` | **YES** | **`REVOKE FROM PUBLIC` as well** — anon-only revoke is a no-op |
++| P30 | `email_exists(_email text)` | `s` | no | `REVOKE FROM anon` works as written |
++| P31 | `verify_staff_id(_id_number text)` | `s` | no | `REVOKE FROM anon` works as written |
++| P32 | `_gen_competition_order_no()` | `v` | no | `REVOKE FROM anon` works as written |
++| P32 | `get_broadcast_feed(uuid[], integer)` | `v` | no | `REVOKE FROM anon` works as written |
++| P32 | `get_broadcast_feed(uuid[], integer, integer)` | `v` | no | `REVOKE FROM anon` works as written |
++| P32 | `get_broadcast_feed(uuid[], integer, integer, text[])` | `v` | no | `REVOKE FROM anon` works as written |
++| P32 | `increment_managed_page_view(_page_id text)` | `v` | no | `REVOKE FROM anon` works as written |
++| P32 | `recompute_entry_public_status(p_entry_id uuid)` | `v` | no | `REVOKE FROM anon` works as written |
++| P32 | `record_test_agent_run(… 15 args)` | `v` | no | `REVOKE FROM anon` works as written |
++| P32 | `set_write_path(p text)` | `v` | no | `REVOKE FROM anon` works as written |
++| P33-adj | `enqueue_email(queue_name text, payload jsonb)` | `v` | no | **already closed** — anon and authenticated both false, 09:10:20Z |
++| P33-adj | `read_email_batch(queue_name text, batch_size integer, vt integer)` | `v` | no | **already closed**, 09:10:20Z |
++| P33-adj | `get_primary_admin_user_id()` | `s` | no | `REVOKE FROM anon` works as written |
++
++**Report the reduction as prominently as the finding.** 246 of 305 functions are in the trap, but only **2 of the 15 named Phase 1 targets** are. Phase 1 is not blocked and does not need re-planning; it needs two extra lines of SQL and a verification step it should have had anyway. `enqueue_email` — the worst case on the standing register — is **already closed**, measured, and needs nothing.
++
++The other 244 trapped functions are not Phase 1's business. They are a standing posture problem to be handled as its own unit, and this census is the list.
++
++---
++
++## 4 · The trap, proved
++
++Run on a **scratch PostgreSQL 16 in the D1 container**, 2026-09-03. Production was not written to, not even inside a transaction that rolls back: a `REVOKE` in a rolled-back transaction still takes an `AccessExclusiveLock` on the function and still writes WAL, and the trap is a property of PostgreSQL's ACL model rather than of anyone's data. There is no reason to touch a lane to demonstrate it.
++
++Three fixtures, matching the three classes the census found:
++
++```
++── trap_both · the 222-function class ──
++  before                     anon_can_execute = true
++  REVOKE ... FROM anon;   →  anon_can_execute = true    ⚠ SUCCEEDED AND CHANGED NOTHING
++     acl now: {=X/postgres,postgres=X/postgres,authenticated=X/postgres}
++  REVOKE ... FROM public; →  anon_can_execute = false   ✓ closed
++
++── trap_public_only · the 24-function class (proacl NULL) ──
++  before                     anon_can_execute = true
++  REVOKE ... FROM anon;   →  anon_can_execute = true    ⚠ NO-OP
++     acl now: {=X/postgres,postgres=X/postgres}   ← materialised the default; PUBLIC still there
++  REVOKE ... FROM public; →  anon_can_execute = false   ✓ closed
++
++── no_trap · the 59-function class ──
++  before                     anon_can_execute = true
++  REVOKE ... FROM anon;   →  anon_can_execute = false   ✓ works as written
++```
++
++The middle case is the one to look at twice. Before the revoke, `proacl` was `NULL` and a reader would have said "no grants". The revoke **materialised** the default into an explicit ACL — and the explicit ACL it wrote still contains `=X`, PUBLIC. The statement made the permission visible without removing it.
++
++### 4.1 A second half to the trap, found while proving the first
++
++Not asked for, and it changes what the gate has to be:
++
++```
++  correctly closed         anon_can_execute = false
++  after CREATE OR REPLACE  anon_can_execute = false   (acl: {postgres=X/postgres})   ✓ survives
++  after DROP + CREATE      anon_can_execute = true    ⚠ THE GRANT IS BACK (acl: NULL)
++```
++
++`CREATE OR REPLACE FUNCTION` preserves the ACL, so a revoke survives a body change. **`DROP FUNCTION` followed by `CREATE FUNCTION` resets `proacl` to NULL — which is PUBLIC again.** A function that was correctly closed in Phase 1 silently reopens the first time somebody has to recreate it.
++
++That is not hypothetical here. PostgreSQL refuses to change a function's return type through `CREATE OR REPLACE` (42P13) — the constraint that forced `get_top_contributors_v3` to be a new function rather than an edit, measured in the TC-v3 unit the same day. Any signature change to a revoked function *must* be DROP + CREATE, and the revoke will not survive it.
++
++**Consequence for the gate:** proving `anon` EXECUTE absent once, at revoke time, is not enough. It has to be re-proved after any migration that drops and recreates a function. The census probe in this PR is re-runnable for exactly that reason, and a standing check belongs in CI — proposed, not built here, because CI workflow changes are their own unit.
++
++---
++
++## 5 · What this report does not claim
++
++- **It did not call any function.** Reachability is established from the catalogue — `has_function_privilege` and `aclexplode` — not by executing anything as `anon`. "anon holds EXECUTE" is a different claim from "anon can reach it over HTTP", and PostgREST's own exposure rules are not tested here.
++- **It did not change a single grant on either lane.** Every production statement was a `SELECT`.
++- **It measured production only.** Staging was not censused; its grant posture is unknown as of 2026-09-03 09:13Z and should not be assumed to match.
++- **The 59 `ANON-NAMED-ONLY` functions are not thereby safe.** They are only *revocable as written*. Whether each should be anon-executable at all is P30–P33's question, not this one's.
++
++---
++
++## 6 · Status of every line
++
++| class | applies to |
++|---|---|
++| **VERIFIED** | every figure in §2 and §3 — measured personally, production, SELECT only, UTC minute on each |
++| **VERIFIED** | every line of §4 — run personally on a scratch PostgreSQL 16, transcript quoted verbatim |
++| **RELAYED** | the Auditor's original 222 / 305 / 387 / 24, re-derived above and therefore no longer relayed |
++| **N/A** | staging — not measured |
++| **DEFERRED** | the standing CI check proposed in §4.1; a workflow change is its own unit |
++
++*D1 · Database & Runtime · production `jtdtehuqtinjxropkkcn` · SELECT only · 2026-09-03 09:09:46Z–09:13:12Z. No SQL apply. No grant altered on either lane. Repository at `origin/staging` `d1aed35`.*
+diff --git a/docs/evidence/d1/F62/negative-control-transcript.txt b/docs/evidence/d1/F62/negative-control-transcript.txt
+new file mode 100644
+index 0000000..52259e0
+--- /dev/null
++++ b/docs/evidence/d1/F62/negative-control-transcript.txt
+@@ -0,0 +1,41 @@
++F-62 · negative-control transcript
++Scratch PostgreSQL 16 in the D1 container. NOT a lane. No production statement here.
++Run 2026-09-03. Instrument: psql, fixtures created in this file's first block.
++
++server: PostgreSQL 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit
++
++FIXTURES
++  trap_both         CREATE FUNCTION (default PUBLIC grant kept) then GRANT TO anon
++                    -> proacl {=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres}
++  trap_public_only  CREATE FUNCTION, never granted to anything
++                    -> proacl NULL  (= the default, and the default is EXECUTE TO PUBLIC)
++  no_trap           CREATE FUNCTION, REVOKE ALL FROM public, then GRANT TO anon
++                    -> proacl {postgres=X/postgres,anon=X/postgres,authenticated=X/postgres}
++
++trap_both  ·  the 222-function class
++  before                      anon_can_execute = true
++  REVOKE ... FROM anon;   ->  anon_can_execute = true    THE REVOKE SUCCEEDED AND CHANGED NOTHING
++     acl now: {=X/postgres,postgres=X/postgres,authenticated=X/postgres}
++  REVOKE ... FROM public; ->  anon_can_execute = false   closed
++     acl now: {postgres=X/postgres,authenticated=X/postgres}
++
++trap_public_only  ·  the 24-function class (proacl NULL)
++  before                      anon_can_execute = true
++  REVOKE ... FROM anon;   ->  anon_can_execute = true    NO-OP
++     acl now: {=X/postgres,postgres=X/postgres}   <- materialised the default; PUBLIC still present
++  REVOKE ... FROM public; ->  anon_can_execute = false   closed
++
++no_trap  ·  the 59-function class
++  before                      anon_can_execute = true
++  REVOKE ... FROM anon;   ->  anon_can_execute = false   works as written
++
++SECOND HALF OF THE TRAP — a correctly closed function reopens on DROP + CREATE
++  correctly closed            anon_can_execute = false
++  after CREATE OR REPLACE     anon_can_execute = false   acl {postgres=X/postgres}   survives
++  after DROP + CREATE         anon_can_execute = true    acl NULL   THE GRANT IS BACK
++
++CONCLUSION
++  The REVOKE statement succeeding proves nothing. Only
++  has_function_privilege('anon', oid, 'EXECUTE') = false, read AFTER the change,
++  proves the function is closed -- and it must be re-read after any migration
++  that drops and recreates the function.
+diff --git a/docs/evidence/d1/F62/public-grant-census-2026-09-03.tsv b/docs/evidence/d1/F62/public-grant-census-2026-09-03.tsv
+new file mode 100644
+index 0000000..e55c0be
+--- /dev/null
++++ b/docs/evidence/d1/F62/public-grant-census-2026-09-03.tsv
+@@ -0,0 +1,306 @@
++function\tvolatility\tsecurity_definer\tproacl_is_null\tanon_can_execute\tpublic_holds_execute\tanon_named_in_acl\tclass\tproacl
++_gen_competition_order_no()\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++admin_flag_entry_for_review(_entry_id uuid)\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++admin_rewind_stage(_entry_id uuid, _to_stage_key text, _reason text)\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++admin_search_users(search_query text, search_by text)\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++admin_set_photo_rejected(_entry_id uuid, _photo_index integer, _rejected boolean, _reason text)\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++app_has_role(_user_id uuid, _role text)\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++backfill_judging_notifications(_window_days integer, _dry_run boolean)\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++backfill_tag_decision_drift_admin()\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++derive_status_from_stage_key(_stage_key text)\ti\tfalse\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
++email_exists(_email text)\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++filter_moderated_user_ids(_ids uuid[])\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++fix_certificate_readiness_admin(_entry_id uuid)\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
++fix_gift_drift_admin(_announcement_id uuid)\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
++fix_referral_drift_admin(_referral_id uuid)\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
++get_broadcast_feed(_exclude_ids uuid[], _limit integer)\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_broadcast_feed(_exclude_ids uuid[], _limit integer, _newest_first integer)\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_broadcast_feed(_exclude_ids uuid[], _limit integer, _newest_first integer, _categories text[])\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_certificate_drift_admin(p_competition_id uuid)\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++get_derived_status_drift_admin()\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++get_entries_private_meta(_entry_ids uuid[])\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
++get_entry_status_drift_admin()\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++get_entry_status_drift_summary_admin()\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++get_gated_status_runtime_drift_admin(p_entry_ids uuid[])\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++get_judge_collusion_admin(p_competition_id uuid, p_min_overlap integer, p_min_correlation numeric)\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++get_judge_entries_page_filtered(_competition_id uuid, _round_number integer, _bucket text, _cursor_created_at timestamp with time zone, _cursor_id uuid, _limit integer)\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++get_judging_drift_admin()\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++get_judging_tag_assignment_counts()\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++get_lesson_content(_lesson_id uuid)\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_per_photo_placement(p_entry_ids uuid[])\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++get_primary_admin_user_id()\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++get_profile_admin(_id uuid)\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++get_profile_visible_fields(_target uuid)\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_progression_drift_admin()\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++get_public_final_votes(_entry_ids uuid[])\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_public_role_user_ids(_role text)\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++get_public_roles_for_users(_user_ids uuid[])\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_round_judging_gate_admin(_competition_id uuid, _round_number integer)\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
++get_round_judging_gate_self(_competition_id uuid, _round_number integer)\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++get_round_pending_entries(p_competition_id uuid, p_round integer)\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
++get_round_summary(p_competition_id uuid, p_round_number integer)\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++get_system_tag_catalog_drift()\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,service_role=X/postgres,anon=X/postgres,authenticated=X/postgres}
++get_test_agent_health_admin()\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_unjudged_parity_admin(p_judge_id uuid, p_competition_id uuid, p_round_number integer)\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++global_search(term text, section text, username_only boolean)\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++global_search_hashtags(term text)\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++increment_managed_page_view(_page_id text)\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++judging_write_decision_atomic(p_entry_id uuid, p_stage_key text, p_current_round text)\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,service_role=X/postgres,anon=X/postgres,authenticated=X/postgres}
++mirror_system_tag_to_decision()\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++post_media_for(_post_ids uuid[])\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++recompute_entry_public_status(p_entry_id uuid)\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++record_test_agent_run(p_token text, p_run_id text, p_trigger text, p_commit_sha text, p_branch text, p_status text, p_rpc_parity_pass boolean, p_nr_drift_5min integer, p_dual_emit_status text, p_tsc_pass boolean, p_vitest_pass boolean, p_eslint_pass boolean, p_failures jsonb, p_duration_ms integer, p_github_run_url text)\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++request_withdrawal(_amount numeric, _bank_details jsonb)\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
++search_profiles_admin(q text)\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++send_notification_email()\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++set_write_path(p text)\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,service_role=X/postgres,anon=X/postgres,authenticated=X/postgres}
++submit_competition_entry(_competition_id uuid, _title text, _description text, _photos text[], _photo_thumbnails text[], _photo_meta jsonb, _is_ai_generated boolean, _exif_data jsonb)\tv\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++verify_staff_id(_id_number text)\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++wallet_ledger_v2_diff_report(p_window interval)\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++wallet_ledger_v2_drift_report(p_window interval)\ts\ttrue\tfalse\ttrue\tfalse\ttrue\tANON-NAMED-ONLY\t{postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++_field_visible(_scope text, _is_friend_tier boolean, _is_owner_tier boolean)\ti\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++_flag_review_keyword_hit(_content text)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++_notification_template_for_entry(_status text, _placement text)\ti\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++_resolve_stage_key_from_entry(_status text, _current_round text, _progression_decision text)\ti\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++_set_competition_orders_updated_at()\tv\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++_tg_entry_public_status_recompute()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++_tg_round_publish_recompute()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++_tg_v3_catalog_recompute()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++account_is_live()\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++ad_creatives_touch_updated_at()\tv\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++any_photo_pending(p_entry_id uuid)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++any_photo_pending(p_entry_id uuid, p_round_number integer)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++apply_decision_to_remaining(_competition_id uuid, _round_number integer, _decision text)\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++are_friends(_user_a uuid, _user_b uuid)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++audit_nr_drift_at_r2_plus()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++audit_phase_parity(sample_limit integer)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
++audit_sensitive_table()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++audit_site_settings_table()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++auto_certificate_on_r4_award()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++auto_create_judging_rounds()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++auto_follow_official()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++auto_promote_chat_to_faq()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++auto_subscribe_newsletter()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++block_friend_requests_to_admins()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++can_view_post(_viewer_id uuid, _post_user_id uuid, _privacy text)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++change_custom_url(_new_url text)\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++check_custom_urls_taken(_urls text[])\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++check_friend_limit()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++claim_username(candidate text)\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++classify_judging_tag(p_label text, p_visible_in_round integer[])\ti\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++clear_custom_url()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++competition_total_entries(_competition_id uuid)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++compute_entry_rank_score(_entry_id uuid)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++current_phase(p_competition_id uuid)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++current_phase_for(p_status text, p_starts_at timestamp with time zone, p_ends_at timestamp with time zone, p_voting_ends_at timestamp with time zone, p_judging_completed boolean, p_legacy_phase text)\ti\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++current_round_int(_text text)\ti\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++derive_decision_from_score(_avg numeric, _round_number integer)\ti\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++detect_duplicate_post()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++enforce_admin_brand_name()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++enforce_ai_image_policy()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++enforce_comment_blocklist()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++enforce_entry_fee()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++enforce_max_entries_per_user()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++enforce_non_system_tags_round4()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++enforce_photo_limit()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++enforce_post_caption_only_update()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++enforce_post_categories()\tv\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++enforce_post_draft_rules()\tv\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++enforce_progression_decision_pending_gate()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++enforce_progression_decision_vocabulary()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++enforce_round_lock()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++enforce_status_round_consistency()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++enqueue_post_created_job()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++ensure_member_always_has_picture()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++extract_hashtags(body text)\ti\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++extract_photo_hashes(_meta jsonb)\ti\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++fan_out_new_post()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++flag_ad_comment_for_review()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++flag_image_comment_for_review()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++flag_post_comment_for_review()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++flag_post_for_review()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++forbid_custom_url_change()\tv\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++format_person_name(_raw text)\ti\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++friend_count(_user_id uuid)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++generate_certificate_identifiers()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++generate_competition_slug()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_ad_analytics(_since timestamp with time zone)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_ad_autoscale_stats(_since timestamp with time zone)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_certificate_readiness_drift_admin(_competition_id uuid)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_competition_duplicate_clusters(_competition_id uuid)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_competition_raw_commitments(_competition_id uuid)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_contributor_scores(_user_ids uuid[])\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_entry_vote_counts(_entry_ids uuid[])\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_feed_candidates(_network_ids uuid[], _recent_limit integer, _network_limit integer, _popular_limit integer)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_feed_stories_bar()\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_flag(flag_key text)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_gated_entry_status(p_entry_ids uuid[])\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_gift_drift_admin()\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_judge_entries_page(_competition_id uuid, _round_number integer, _cursor_created_at timestamp with time zone, _cursor_id uuid, _limit integer)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++get_judge_entries_page_v1(_competition_id uuid, _round_number integer, _cursor_created_at timestamp with time zone, _cursor_id uuid, _limit integer)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++get_my_notifications_grouped(_limit integer, _before timestamp with time zone)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_my_story_view_counts()\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_my_unread_notifications_grouped(_limit integer, _exclude_types text[])\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_needs_review_recipients_for_round(p_competition_id uuid, p_round_number integer)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_notification_drift_admin(_window_days integer)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++get_notification_email_enabled(_user_id uuid, _notif_type text)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_notification_health_stats_admin()\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++get_per_photo_consensus(p_entry_ids uuid[])\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_placement_drift_admin(_competition_id uuid)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_post_view_counts(_post_ids uuid[])\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_public_round_scores(p_competition_id uuid, p_round_number integer)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_push_health()\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_referral_drift_admin()\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_round_eligible_photos(_competition_id uuid, _round_number integer)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
++get_top_contributors_v1()\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++get_top_contributors_v2()\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++guard_needs_review_round1_only()\tv\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++guard_profile_moderation_columns()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++guard_stage_key_immutability()\tv\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++handle_first_admin()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++handle_new_user()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++has_profile_photo(_user_id uuid)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++has_role(_user_id uuid, _role app_role)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++has_role(_user_id uuid, _role text)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++hex_hamming_distance(_a text, _b text)\ti\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++html_escape(_s text)\ti\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++is_banned(_user_id uuid)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++is_engagement_phase_locked(_image_type text, _image_id uuid)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++is_entry_owner(_entry_id uuid, _user_id uuid)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++is_qualifying_decision(_decision text, _from_round integer)\ti\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++is_s3_storage_enabled()\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++is_vote_phase_locked(_entry_id uuid)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++judge_can_access_entry(_entry_id uuid, _judge_id uuid)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++judge_round_open_by_id(_round_id uuid)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++judge_round_open_by_number(_entry_id uuid, _round_number integer)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++judging_invariants_check()\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++list_tag_decision_drift_admin()\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,authenticated=X/postgres,anon=X/postgres,service_role=X/postgres}
++log_app_event(_code text, _event text, _severity text, _message text, _fn text, _file text, _reason text, _expected text, _actual text, _next_step text, _duration_ms integer, _correlation_id text, _detail jsonb, _platform text, _app_build text, _url text)\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++log_client_error(_kind text, _message text, _detail jsonb, _platform text, _app_build text, _url text)\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++log_raw_commitments()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++maintain_competition_entry_counts()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++moderate_post_content()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++mutual_friend_ids(_user_a uuid, _user_b uuid, _limit integer)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++mutual_friends_count(_user_a uuid, _user_b uuid)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++normalize_hashtag(raw text)\ti\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notif_action_phrase(_type text)\ti\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notif_display_name(_actor_id uuid)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notif_group_key(_type text, _created_at timestamp with time zone, _id uuid)\ts\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notif_push_body(_type text, _actor_id uuid, _message text)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_ad_comment_reply()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_admin_comment_report()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_admin_new_ticket()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_admin_post_report()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_admin_role_application()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_badge_awarded()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_certificate_issued()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_competition_vote()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_course_published()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_entry_status_change()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_featured_artist()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_friend_request_accepted()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_friend_request_received()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_image_comment()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_image_reaction()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_journal_published()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_new_competition()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_new_follower()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_post_comment()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_post_reaction()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_post_tag()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_potd_featured()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_role_application_decision()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_round_published()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_round_published_insert()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++notify_user_ticket_reply()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++owns_album(_album_id uuid, _user_id uuid)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++prevent_direct_custom_url_update()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++prevent_self_vote()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++prevent_unfollow_official()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++progression_order(_stage_key text)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++protect_admin_full_name()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++protect_system_tags_fn()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++push_on_notification()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++rate_limit_comments()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++rate_limit_competition_entry()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++rate_limit_competition_votes()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++rate_limit_feed_events()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++rate_limit_image_comments()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++rate_limit_judge_scores()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++rate_limit_newsletter_subscribe()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++rate_limit_post_comments()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++rate_limit_post_reactions()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++rate_limit_posts()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++recompute_entry_from_tag_assignments(p_entry_id uuid)\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++refresh_score_cache()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++register_push_token(_token text, _platform text)\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++release_award_certs_on_publish()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++resolve_custom_url(_url text)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++search_certificates(_name text, _course_title text, _issued_date date)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++seed_round_publish_rows()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++set_ad_comment_updated_at()\tv\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++set_post_tags_updated_at()\tv\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++set_updated_at_column()\tv\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++should_test_agent_run(p_trigger text)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++suggest_username(display_name text)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++sync_competition_result_state_from_round_publish()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++sync_fallback_avatar_to_gender()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++sync_oauth_on_login()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++sync_post_hashtags()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++sync_profiles_public_data()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++sync_system_tag_decision_map_from_catalog()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++tg_feed_events_viewer_count()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++tg_one_judge_per_competition()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++tg_profiles_normalise_name()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++tg_v3_stage_catalog_touch()\tv\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++throttle_competition_entry_inserts()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++touch_office_staff_updated()\tv\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++touch_round_publish_updated()\tv\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++trg_entry_status_lifecycle_emit()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++trg_follows_counts()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++trg_friendships_counts()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++trg_recompute_entry_after_tag_change()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++trg_recompute_entry_public_status()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++trg_recompute_publish_fanout()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++unregister_push_token(_token text)\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++unsync_post_hashtags()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++update_post_comments_count()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++update_post_likes_count()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++update_post_shares_count()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++username_available(candidate text)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++validate_competition_entry_ai_advisory()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++validate_competition_entry_photo_meta()\tv\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++validate_competition_entry_status_transition()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++validate_feed_event_author()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++validate_judge_criteria_scores()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++validate_judge_score_range()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++validate_post_tag_insert()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++validate_post_tag_update()\tv\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++validate_profile_full_name()\tv\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++validate_scheduled_post_window()\tv\tfalse\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++verify_certificate(_cert_id text)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++verify_certificate_by_token(_token text)\ts\ttrue\tfalse\ttrue\ttrue\ttrue\tTRAP-BOTH\t{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++__plpgsql_show_dependency_tb(funcoid regprocedure, relid regclass, anyelememttype regtype, anyenumtype regtype, anyrangetype regtype, anycompatibletype regtype, anycompatiblerangetype regtype)\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++__plpgsql_show_dependency_tb(name text, relid regclass, anyelememttype regtype, anyenumtype regtype, anyrangetype regtype, anycompatibletype regtype, anycompatiblerangetype regtype)\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_check_function(funcoid regprocedure, relid regclass, format text, fatal_errors boolean, other_warnings boolean, performance_warnings boolean, extra_warnings boolean, security_warnings boolean, compatibility_warnings boolean, oldtable name, newtable name, anyelememttype regtype, anyenumtype regtype, anyrangetype regtype, anycompatibletype regtype, anycompatiblerangetype regtype, without_warnings boolean, all_warnings boolean, use_incomment_options boolean, incomment_options_usage_warning boolean, constant_tracing boolean)\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_check_function(name text, relid regclass, format text, fatal_errors boolean, other_warnings boolean, performance_warnings boolean, extra_warnings boolean, security_warnings boolean, compatibility_warnings boolean, oldtable name, newtable name, anyelememttype regtype, anyenumtype regtype, anyrangetype regtype, anycompatibletype regtype, anycompatiblerangetype regtype, without_warnings boolean, all_warnings boolean, use_incomment_options boolean, incomment_options_usage_warning boolean, constant_tracing boolean)\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_check_function_tb(funcoid regprocedure, relid regclass, fatal_errors boolean, other_warnings boolean, performance_warnings boolean, extra_warnings boolean, security_warnings boolean, compatibility_warnings boolean, oldtable name, newtable name, anyelememttype regtype, anyenumtype regtype, anyrangetype regtype, anycompatibletype regtype, anycompatiblerangetype regtype, without_warnings boolean, all_warnings boolean, use_incomment_options boolean, incomment_options_usage_warning boolean, constant_tracing boolean)\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_check_function_tb(name text, relid regclass, fatal_errors boolean, other_warnings boolean, performance_warnings boolean, extra_warnings boolean, security_warnings boolean, compatibility_warnings boolean, oldtable name, newtable name, anyelememttype regtype, anyenumtype regtype, anyrangetype regtype, anycompatibletype regtype, anycompatiblerangetype regtype, without_warnings boolean, all_warnings boolean, use_incomment_options boolean, incomment_options_usage_warning boolean, constant_tracing boolean)\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_check_pragma(VARIADIC name text[])\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_check_profiler(enable boolean)\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_check_tracer(enable boolean, verbosity text)\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_coverage_branches(funcoid regprocedure)\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_coverage_branches(name text)\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_coverage_statements(funcoid regprocedure)\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_coverage_statements(name text)\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_profiler_function_statements_tb(funcoid regprocedure)\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_profiler_function_statements_tb(name text)\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_profiler_function_tb(funcoid regprocedure)\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_profiler_function_tb(name text)\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_profiler_functions_all()\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_profiler_install_fake_queryid_hook()\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_profiler_remove_fake_queryid_hook()\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_profiler_reset(funcoid regprocedure)\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_profiler_reset_all()\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_show_dependency_tb(fnname text, relid regclass, anyelememttype regtype, anyenumtype regtype, anyrangetype regtype, anycompatibletype regtype, anycompatiblerangetype regtype)\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++plpgsql_show_dependency_tb(funcoid regprocedure, relid regclass, anyelememttype regtype, anyenumtype regtype, anyrangetype regtype, anycompatibletype regtype, anycompatiblerangetype regtype)\tv\tfalse\ttrue\ttrue\ttrue\tfalse\tTRAP-PUBLIC-ONLY\tNULL
++diff --git a/supabase/migrations/PROBE_public_grant_census.sql b/supabase/migrations/PROBE_public_grant_census.sql
++new file mode 100644
++index 0000000..128ab93
++--- /dev/null
++++ b/supabase/migrations/PROBE_public_grant_census.sql
++@@ -0,0 +1,171 @@
++-- ═══════════════════════════════════════════════════════════════════════════
++-- PUBLIC-GRANT CENSUS — F-62. READS ONLY. WRITES NOTHING. CHANGES NOTHING.
++--
++-- F-30, standing: an instrument that produces a published number ships with the
++-- number. docs/evidence/d1/F62/public-grant-census-2026-09-03.tsv is the output
++-- of this file against production at 2026-09-03 09:09Z. Re-run it to re-take
++-- those figures; do not re-derive them by hand.
++--
++-- The `PROBE_` prefix follows PROBE_credential_connectivity_readonly.sql: a name
++-- that tells any future reader, at a glance, that the file is not part of the
++-- migration sequence. Safe against either lane, any number of times.
++--
++-- ───────────────────────────────────────────────────────────────────────────
++-- WHAT IT MEASURES, AND WHY THE OBVIOUS QUERY IS WRONG
++--
++-- The question is "can anon execute this function", and the trap is that there
++-- are TWO ways the answer can be yes:
++--
++--   1. a named grant to anon                    -> `anon=X/...` appears in proacl
++--   2. a grant to PUBLIC, which anon inherits   -> `=X/...` appears, with an
++--                                                  EMPTY grantee before the `=`
++--
++-- and a THIRD case that looks like neither:
++--
++--   3. proacl IS NULL. This does not mean "no grants". It means "nobody has
++--      changed the defaults", and PostgreSQL's default for a function is
++--      EXECUTE to PUBLIC. A NULL ACL is the most permissive state there is,
++--      and it is the one that reads as empty.
++--
++-- So this file never reads proacl directly. It uses
++--
++--      aclexplode(coalesce(p.proacl, acldefault('f', p.proowner)))
++--
++-- which materialises the default when proacl is NULL, and it treats
++-- `grantee = 0` — the OID reserved for PUBLIC — as PUBLIC. Anything that reads
++-- proacl::text and greps for a role name misses cases 2 and 3 entirely, which
++-- is 246 of this database's 305 anon-executable functions.
++--
++-- ───────────────────────────────────────────────────────────────────────────
++-- THE FOUR CLASSES IT SORTS EVERY FUNCTION INTO
++--
++--   CLOSED            anon cannot execute it. Nothing to do.
++--   ANON-NAMED-ONLY   anon has a named grant and PUBLIC does not hold EXECUTE.
++--                     `REVOKE ... FROM anon` does what it says.
++--   TRAP-BOTH         anon has a named grant AND PUBLIC holds EXECUTE.
++--                     `REVOKE ... FROM anon` SUCCEEDS AND CHANGES NOTHING —
++--                     anon still executes, through PUBLIC.
++--   TRAP-PUBLIC-ONLY  proacl is NULL or PUBLIC holds EXECUTE with no named anon
++--                     grant. `REVOKE ... FROM anon` succeeds, removes a grant
++--                     that was never there, and changes nothing.
++--
++-- The last two are F-62. Both require `REVOKE ... FROM PUBLIC`.
++--
++-- ⚠ THE GATE THIS SERVES: for every function Phase 1 revokes, anon EXECUTE is
++-- proven absent AFTER the change by has_function_privilege('anon', oid,
++-- 'EXECUTE') = false — NOT by the REVOKE statement succeeding. On 246 of 305
++-- functions here, the REVOKE succeeding proves nothing at all.
++-- ═══════════════════════════════════════════════════════════════════════════
++
++BEGIN;
++
++-- ── 1 · The totals ─────────────────────────────────────────────────────────
++WITH acl AS (
++  SELECT p.oid, x.grantee, x.privilege_type
++    FROM pg_proc p
++    CROSS JOIN LATERAL aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) x
++   WHERE p.pronamespace = 'public'::regnamespace
++),
++f AS (
++  SELECT p.oid,
++         (p.proacl IS NULL)                                AS acl_null,
++         has_function_privilege('anon', p.oid, 'EXECUTE')  AS anon_exec,
++         EXISTS (SELECT 1 FROM acl a WHERE a.oid = p.oid AND a.grantee = 0
++                   AND a.privilege_type = 'EXECUTE')       AS public_exec,
++         EXISTS (SELECT 1 FROM acl a WHERE a.oid = p.oid
++                   AND a.grantee = 'anon'::regrole::oid
++                   AND a.privilege_type = 'EXECUTE')       AS anon_named
++    FROM pg_proc p
++   WHERE p.pronamespace = 'public'::regnamespace
++)
++SELECT count(*)                                                          AS functions_total,
++       count(*) FILTER (WHERE anon_exec)                                 AS anon_executable,
++       count(*) FILTER (WHERE anon_exec AND public_exec AND anon_named)  AS trap_both,
++       count(*) FILTER (WHERE anon_exec AND public_exec AND NOT anon_named) AS trap_public_only,
++       count(*) FILTER (WHERE anon_exec AND public_exec)                 AS trap_total,
++       count(*) FILTER (WHERE anon_exec AND NOT public_exec)             AS anon_named_only,
++       count(*) FILTER (WHERE acl_null)                                  AS proacl_null,
++       to_char(clock_timestamp() AT TIME ZONE 'utc',
++               'YYYY-MM-DD"T"HH24:MI:SS"Z"')                             AS measured_at_utc
++  FROM f;
++
++-- ── 2 · Every anon-executable function, one row each, classified ───────────
++-- Every line carries its own measurement timestamp: probes run seconds apart on
++-- a live system and a grant can change between them.
++WITH acl AS (
++  SELECT p.oid, x.grantee, x.privilege_type
++    FROM pg_proc p
++    CROSS JOIN LATERAL aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) x
++   WHERE p.pronamespace = 'public'::regnamespace
++)
++SELECT p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' AS function,
++       p.provolatile::text                                                 AS volatility,
++       p.prosecdef                                                         AS security_definer,
++       (p.proacl IS NULL)                                                  AS proacl_is_null,
++       has_function_privilege('anon', p.oid, 'EXECUTE')                    AS anon_can_execute,
++       EXISTS (SELECT 1 FROM acl a WHERE a.oid = p.oid AND a.grantee = 0
++                 AND a.privilege_type = 'EXECUTE')                         AS public_holds_execute,
++       EXISTS (SELECT 1 FROM acl a WHERE a.oid = p.oid
++                 AND a.grantee = 'anon'::regrole::oid
++                 AND a.privilege_type = 'EXECUTE')                         AS anon_named_in_acl,
++       CASE
++         WHEN NOT has_function_privilege('anon', p.oid, 'EXECUTE') THEN 'CLOSED'
++         WHEN EXISTS (SELECT 1 FROM acl a WHERE a.oid = p.oid AND a.grantee = 0 AND a.privilege_type = 'EXECUTE')
++          AND EXISTS (SELECT 1 FROM acl a WHERE a.oid = p.oid AND a.grantee = 'anon'::regrole::oid AND a.privilege_type = 'EXECUTE')
++              THEN 'TRAP-BOTH'
++         WHEN EXISTS (SELECT 1 FROM acl a WHERE a.oid = p.oid AND a.grantee = 0 AND a.privilege_type = 'EXECUTE')
++              THEN 'TRAP-PUBLIC-ONLY'
++         ELSE 'ANON-NAMED-ONLY'
++       END                                                                 AS class,
++       coalesce(p.proacl::text, 'NULL')                                    AS proacl,
++       to_char(clock_timestamp() AT TIME ZONE 'utc',
++               'YYYY-MM-DD"T"HH24:MI:SS"Z"')                               AS measured_at_utc
++  FROM pg_proc p
++ WHERE p.pronamespace = 'public'::regnamespace
++   AND has_function_privilege('anon', p.oid, 'EXECUTE')
++ ORDER BY 8, 1;
++
++-- ── 3 · The named Phase 1 targets, and what each one actually needs ────────
++-- P30 / P31 / P32 and the P33-adjacent functions. The `required_action` column
++-- is the deliverable: it says, per function, whether the obvious REVOKE works.
++WITH acl AS (
++  SELECT p.oid, x.grantee, x.privilege_type
++    FROM pg_proc p
++    CROSS JOIN LATERAL aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) x
++   WHERE p.pronamespace = 'public'::regnamespace
++)
++SELECT CASE
++         WHEN p.proname = 'email_exists' THEN 'P30'
++         WHEN p.proname IN ('search_certificates','verify_staff_id') THEN 'P31'
++         WHEN p.proname IN ('_gen_competition_order_no','get_broadcast_feed',
++                            'increment_managed_page_view','recompute_entry_from_tag_assignments',
++                            'recompute_entry_public_status','record_test_agent_run','set_write_path')
++              THEN 'P32'
++         ELSE 'P33-adjacent'
++       END                                                                 AS unit,
++       p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' AS function,
++       p.provolatile::text                                                 AS volatility,
++       has_function_privilege('anon', p.oid, 'EXECUTE')                    AS anon_can_execute,
++       EXISTS (SELECT 1 FROM acl a WHERE a.oid = p.oid AND a.grantee = 0
++                 AND a.privilege_type = 'EXECUTE')                         AS public_holds_execute,
++       CASE
++         WHEN NOT has_function_privilege('anon', p.oid, 'EXECUTE')
++              THEN 'already closed — nothing to do'
++         WHEN EXISTS (SELECT 1 FROM acl a WHERE a.oid = p.oid AND a.grantee = 0 AND a.privilege_type = 'EXECUTE')
++              THEN 'REVOKE FROM PUBLIC as well — an anon-only revoke is a NO-OP here'
++         ELSE 'REVOKE FROM anon works as written'
++       END                                                                 AS required_action,
++       to_char(clock_timestamp() AT TIME ZONE 'utc',
++               'YYYY-MM-DD"T"HH24:MI:SS"Z"')                               AS measured_at_utc
++  FROM pg_proc p
++ WHERE p.pronamespace = 'public'::regnamespace
++   AND p.proname IN ('email_exists','search_certificates','verify_staff_id',
++                     '_gen_competition_order_no','get_broadcast_feed','increment_managed_page_view',
++                     'recompute_entry_from_tag_assignments','recompute_entry_public_status',
++                     'record_test_agent_run','set_write_path',
++                     'enqueue_email','read_email_batch','get_primary_admin_user_id')
++ ORDER BY 1, 2;
++
++-- Nothing above writes. This is belt and braces, so that a future edit which
++-- introduces a write by accident still cannot leave a change behind.
++ROLLBACK;
+--
+2.43.0
