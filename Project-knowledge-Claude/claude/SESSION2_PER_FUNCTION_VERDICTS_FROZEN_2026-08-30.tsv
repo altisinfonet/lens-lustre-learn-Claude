@@ -1,0 +1,84 @@
+# SESSION-2 PER-FUNCTION VERDICT LIST — FROZEN
+# frozen_at_utc	2026-08-30T16:22:20Z
+# author	independent measurement session (Session 2). Compiled read-only; not an auditor.
+# subject	Supabase project jtdtehuqtinjxropkkcn (production lane), 71 ACTIVE edge functions
+# deployed_snapshot	ACTIVE version of each function as returned by the Supabase Functions API, 2026-08-30 ~13:50-16:10 UTC
+# E1	b671e1fb0c5bcf145d442076c229eca888afd674  refs/heads/main  (destination)  functions-tree a5528524a5214c9afce1a9654eaff8594bda8aa2
+# E2	25c0456011451f644def7ef5361904e4de25dd08  RC per ledger §1        functions-tree c7876a89b31a4f92b822e127f7f651e13c71667c
+# E3	a42b209e4f70a6efed4f3dcdb654e0f994416594  true RC                 functions-tree c7876a89b31a4f92b822e127f7f651e13c71667c
+# bucket definition	MATCH = every file of the bundle byte-identical over the union of logical paths; DRIFT = any file differs, missing, or extra. No normalisation applied. No deploy-rewrite allowance applied in the bucket columns.
+# bundle definition	entrypoint supabase/functions/<slug>/index.ts plus transitive RELATIVE imports plus deno.json if present; remote specifiers excluded; deploy-time path prefixes stripped. Full definitions in the main report §1.
+# columns	function, bucket_vs_E1_main, bucket_vs_E2_rc25c0456, bucket_vs_E3_rc_a42b209e, deployed_file_count, cors_class, secureheaders_md5, storage_lane_assertion
+#
+function	bucket_vs_E1_main	bucket_vs_E2_rc25c0456	bucket_vs_E3_rc_a42b209e	deployed_files	cors_class	secureheaders_md5	storage_lane_assertion
+ad-reward-credit	MATCH	MATCH	MATCH	1	W	ABSENT	no
+admin-export-db	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+admin-process-withdrawal	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+admin-secure-settings	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+analyze-gallery-image	DRIFT	DRIFT	DRIFT	1	W	ABSENT	no
+apply-scheduled-boosts	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+ask-anything	DRIFT	DRIFT	DRIFT	1	W	ABSENT	no
+auth-email-hook	DRIFT	DRIFT	DRIFT	8	W	ABSENT	no
+autoscale-ad-traffic	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+backfill-image-dims	DRIFT	DRIFT	DRIFT	3	W	ABSENT	no
+backfill-image-hashes	MATCH	MATCH	MATCH	1	W	ABSENT	no
+backfill-thumbnails	MATCH	DRIFT	DRIFT	1	W	ABSENT	no
+backup-reminder	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+brevo-webhook	MATCH	MATCH	MATCH	1	N	ABSENT	no
+cast-photo-vote	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+complete-round	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+create-payment-session	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+dashboard-init	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+delete-my-account	DRIFT	DRIFT	DRIFT	1	W	ABSENT	no
+delete-user	DRIFT	DRIFT	DRIFT	1	W	ABSENT	no
+detect-ai-image	DRIFT	DRIFT	DRIFT	1	W	ABSENT	no
+detect-orphan-files	MATCH	DRIFT	DRIFT	3	W	ABSENT	no
+diagnose-brevo-key	MATCH	MATCH	MATCH	1	W	ABSENT	no
+entry-final-votes	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+evaluate-round2	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+expire-gift-credits	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+fix-cache-headers	MATCH	MATCH	MATCH	1	W	ABSENT	no
+ga-report	MATCH	MATCH	MATCH	1	W	ABSENT	no
+get-payment-gateways-public	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+get-wallet-summary	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+get-wallet-transactions	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+handle-email-suppression	MATCH	MATCH	MATCH	2	N	ABSENT	no
+handle-email-unsubscribe	MATCH	MATCH	MATCH	2	W	ABSENT	no
+hard-delete-competition	MATCH	DRIFT	DRIFT	1	W	ABSENT	no
+judge-session-resume	MATCH	MATCH	MATCH	2	W	ABSENT	no
+judging-invariants-nightly	MATCH	MATCH	MATCH	1	W	ABSENT	no
+manage-notifications	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+measure-post-media	DRIFT	DRIFT	DRIFT	2	W	ABSENT	no
+media-register-upload	DRIFT	DRIFT	DRIFT	3	W	ABSENT	no
+migrate-post-media	DRIFT	DRIFT	DRIFT	3	W	ABSENT	no
+migrate-storage	MATCH	DRIFT	DRIFT	1	W	ABSENT	no
+moderate-comment	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+paypal-capture-order	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+preview-transactional-email	DRIFT	DRIFT	DRIFT	21	W	ABSENT	no
+process-email-queue	DRIFT	DRIFT	DRIFT	21	N	ABSENT	no
+publish-round	MATCH	MATCH	MATCH	1	W	ABSENT	no
+publish-scheduled-posts	MATCH	MATCH	MATCH	1	W	ABSENT	no
+purge-s3-orphans	DRIFT	DRIFT	DRIFT	2	W	ABSENT	no
+rank-feed	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+razorpay-verify-payment	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+s3-delete	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+s3-presign-upload	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+s3-signed-url	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+s3-upload	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+send-broadcast-push	MATCH	MATCH	MATCH	1	W	ABSENT	no
+send-gift-credit	DRIFT	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+send-push	MATCH	MATCH	MATCH	1	W	ABSENT	no
+send-reengagement-emails	DRIFT	DRIFT	DRIFT	1	W	ABSENT	no
+send-transactional-email	DRIFT	DRIFT	DRIFT	22	W	ABSENT	no
+seo-crawler-verify	MATCH	DRIFT	DRIFT	1	W	ABSENT	no
+seo-route-metadata	MATCH	DRIFT	DRIFT	1	W	ABSENT	no
+sitemap	MATCH	DRIFT	DRIFT	1	W	ABSENT	no
+submit-deposit	MATCH	DRIFT	DRIFT	2	G	58b9f45d5200a9b19f1b24011dfc3511	no
+submit-judge-comment	MATCH	MATCH	MATCH	2	N	ABSENT	no
+submit-judge-decision	MATCH	DRIFT	DRIFT	2	W	ABSENT	no
+submit-judge-score	MATCH	MATCH	MATCH	2	W	ABSENT	no
+submit-judge-tag	MATCH	MATCH	MATCH	2	N	ABSENT	no
+test-smtp	MATCH	MATCH	MATCH	1	W	ABSENT	no
+translate-text	MATCH	MATCH	MATCH	1	W	ABSENT	no
+verify-email-provider	MATCH	MATCH	MATCH	1	W	ABSENT	no
+verify-image-hash	MATCH	MATCH	MATCH	1	W	ABSENT	no
