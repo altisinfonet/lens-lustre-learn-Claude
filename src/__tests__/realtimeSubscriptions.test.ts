@@ -37,6 +37,7 @@
 
 import { describe, it, expect } from "vitest";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { migrationsInSequence } from "@/test-utils/migrations";
 import { join } from "node:path";
 
 const ROOT = process.cwd();
@@ -76,7 +77,7 @@ const stripSql = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/--.
 /** ADDs minus later DROPs, applied in migration order. */
 function publishedTables(): Set<string> {
   const published = new Set<string>();
-  const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort();
+  const files = migrationsInSequence(MIGRATIONS);
   for (const f of files) {
     const sql = stripSql(readFileSync(join(MIGRATIONS, f), "utf8"));
     // Order within one file matters as little as it does in practice — no

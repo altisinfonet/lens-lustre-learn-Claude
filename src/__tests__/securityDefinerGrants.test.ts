@@ -55,6 +55,7 @@
 
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
+import { migrationsInSequence } from "@/test-utils/migrations";
 import { join } from "node:path";
 
 import { publicByDesignVerdict } from "./support/publicByDesign";
@@ -175,9 +176,7 @@ describe("every SECURITY DEFINER function a migration creates is closed to anon"
 
 describe("the email queue RPCs stay closed", () => {
   /** Newest migration that defines either, found at run time — never a fixed path. */
-  const latest = readdirSync(dir)
-    .filter((f) => f.endsWith(".sql"))
-    .sort()
+  const latest = migrationsInSequence(dir)
     .filter((f) => /FUNCTION\s+public\.(enqueue_email|read_email_batch)\s*\(/i.test(body(f)))
     .pop();
 

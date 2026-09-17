@@ -36,7 +36,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { migrationsInSequence } from "@/test-utils/migrations";
 import { join } from "node:path";
 import { ACTION_CATALOG, describeNotification } from "@/lib/notifications/describe";
 import { getNotifLink } from "@/lib/notificationLinks";
@@ -67,8 +68,7 @@ const commentFn = fn("pj_handle_comment_notification");
 
 describe("the migration exists and is the newest word on these handlers", () => {
   it("is the last migration that redefines either handler", () => {
-    const files = readdirSync(MIGRATIONS_DIR)
-      .filter((f) => f.endsWith(".sql"))
+    const files = migrationsInSequence(MIGRATIONS_DIR)
       .filter((f) =>
         readFileSync(join(MIGRATIONS_DIR, f), "utf8").includes(
           "CREATE OR REPLACE FUNCTION public.pj_handle_reaction_notification",
