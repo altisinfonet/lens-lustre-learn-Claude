@@ -1,3 +1,10 @@
+> **⚠ SUPERSEDED — historical, not current operating authority.**
+> This file describes a phase/state/command model (`phase: B`, `CONTROL`/`STATUS`/`GO`/`STOP`,
+> "Standing authority") that predates and conflicts with the current process. Current
+> operating authority is `docs/ADDENDUM_A_EXECUTION_MASTER.md`; current status is
+> `docs/gates/GATE_REGISTER.md` and `docs/PROMOTION_LEDGER.md`. See `CLAUDE.md` at the
+> repository root. Contents below are preserved unchanged for history.
+
 ---
 # MACHINE-READABLE. Both agents parse this block. Humans read below it.
 # This file is PUBLIC (the repo is public). It must never describe an unfixed

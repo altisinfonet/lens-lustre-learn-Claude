@@ -1,3 +1,9 @@
+> **Note:** a second, differently-dated file with this same title exists at
+> `docs/claude/PROJECT_MASTER_RECORD.md` (part of a frozen 2026-08-12 documentation mirror).
+> The two are separate historical records, not duplicates of the same content; neither has
+> been merged into the other. For current operating authority, see `CLAUDE.md` at the
+> repository root.
+
 # 50mm Retina World — Project Master Record
 
 > **Purpose:** single cold-start reference. Anyone (human or AI) should be able to read this
