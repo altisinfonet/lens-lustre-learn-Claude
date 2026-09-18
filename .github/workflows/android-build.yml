@@ -756,8 +756,63 @@ jobs:
           # SUCCESSFUL run already shipped, the same way it refuses a bundle with
           # native code and no symbols. Not fixed in this unit, because a new
           # blocking gate must be shown failing on unfixed input first (C-34).
-          sed -i 's/versionName "1.0"/versionName "1.2.19"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.19 (1.2.18 is spent - build 1117 succeeded carrying it)"
+          # 2026-09-12: bumped 1.2.19 -> 1.2.20. Run 121 SUCCEEDED on 493d4d49,
+          # which carries the 1.2.19 bump (it landed in ecdad73 on 2026-09-04),
+          # so 1.2.19 reached the store and the name is spent. Checked before
+          # firing rather than after: the run list was read, the bump commit was
+          # found with `git log -S`, and `git merge-base --is-ancestor` confirmed
+          # run 121's sha carries it — F-70 says this string is the one part of
+          # the build nobody checks, so it was checked by hand again. 1.2.20
+          # carries the comment section redesign (PR #241, a168d886).
+          # The guard F-70 asks for is still NOT built. It is a separate unit,
+          # and it must be shown failing on unfixed input first (C-34); writing
+          # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-09-15: bumped 1.2.20 -> 1.2.21. Checked before firing, not
+          # assumed: the Actions run list for this workflow was read and
+          # Android Build #122 on 59ff7f5 (the commit that made this exact
+          # 1.2.19 -> 1.2.20 edit) shows "completed successfully" — so 1.2.20
+          # reached the store and the name is spent. 1.2.21 carries two
+          # independent client-UI fixes, both merged to main today: the
+          # badge/role label redesign to plain superscript text (PR #247,
+          # 2c3c65d) and making the Friends page's Awaited/Pending/Friends/
+          # Followers/Following tab row reachable at every width, including a
+          # tap-target regression the UI gate itself caught mid-PR and that got
+          # fixed before merge (PR #248, 6ff1c81). Neither PR's own CI runs a
+          # full vitest pass (their gates are security/typecheck/UI-gate/web-
+          # build only), and this sandbox could not run `npm test` itself to
+          # check ahead of time — `npm install` is blocked by this sandbox's
+          # own registry proxy policy, not a repo problem. That is not a gap
+          # in what actually gates the build: vitest is already a hard gate
+          # inside build-aab below, same as it was for every prior bump, so a
+          # red suite still stops the build here rather than upstream.
+          # 2026-09-15: RE-CUT. Android Build #123 — this exact 1.2.21 bump —
+          # ran build-aab and FAILED its own `npm test` gate, the one check
+          # neither PR's CI could run and this sandbox could not pre-verify
+          # (see the paragraph above): src/__tests__/textSizeFloor.test.ts
+          # caught `text-[9.5px]` (PR #247's badge label, BADGE_PILL_SIZE.full)
+          # as a sub-12px class the P8 readability-floor block in
+          # src/index.css never listed, so it would have shipped under the
+          # owner-mandated 12px floor. #123 produced no artifact — build-aab
+          # exited 1 before packaging anything — so versionName stays 1.2.21,
+          # the same rule as every re-cut in this file: a version is spent
+          # only by a run that actually produces an AAB. Fixed in PR #250
+          # (6663d33): added `.text-\[9\.5px\]` to the P8 block, the same
+          # mechanism already covering `.text-\[8\.5px\]` and `.text-\[9px\]`
+          # beside it. Verified without vitest, same sandbox limitation as
+          # above: textSizeFloor.test.ts's own scan logic was re-implemented
+          # in a standalone script and run against the fixed tree — 0
+          # uncovered sub-12px classes, the floor still exactly 12px. PR
+          # #250's own CI (security gate + UI gate, 8/8) passed clean,
+          # including the UI gate — which does not track this non-interactive
+          # span (tools/uishot/capture.mjs fingerprints only interactive
+          # controls) but ran for real regardless, not assumed clean. This
+          # re-cut is what actually puts the vitest gate in front of the
+          # fix; nothing before this run has observed it green.
+          # The guard F-70 asks for is still NOT built. It is a separate unit,
+          # and it must be shown failing on unfixed input first (C-34); writing
+          # it in the same commit as a bump it would have caught proves nothing.
+          sed -i 's/versionName "1.0"/versionName "1.2.21"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.21 (1.2.20 is spent - build 1122 succeeded carrying it)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 

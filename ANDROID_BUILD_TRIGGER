@@ -1,3 +1,236 @@
+Build 1.2.21 (RE-CUT) - 2026-09-15 - THE BADGE LABEL ACTUALLY CLEARS THE 12PX FLOOR NOW
+
+  Android Build #123 (the entry directly below this one) reached build-aab and
+  FAILED its own `npm test` gate — the one check neither PR #247's nor PR
+  #248's CI runs, and that this sandbox could not pre-verify because its npm
+  registry proxy returns 403 on install. src/__tests__/textSizeFloor.test.ts
+  caught `text-[9.5px]` (PR #247's badge label, src/lib/badgePalette.ts
+  BADGE_PILL_SIZE.full) as a sub-12px class the P8 readability-floor block in
+  src/index.css never listed, so it would have shipped at 9.5px instead of
+  the owner-mandated 12px minimum. #123 produced no artifact: build-aab
+  exited 1 before packaging anything.
+
+  Fixed in PR #250 (6663d33): added `.text-\[9\.5px\]` to the P8 block, the
+  same mechanism already covering `.text-\[8\.5px\]` (BADGE_PILL_SIZE.compact)
+  and `.text-\[9px\]` beside it — the class stays, the rendered size is
+  floored. Verified without vitest, same sandbox limitation as #123's own
+  entry below: textSizeFloor.test.ts's scan logic was re-implemented in a
+  standalone script and run against the fixed tree directly — 11 total
+  sub-12px classes found, 0 uncovered, the P8 block still sets exactly 12px
+  with nothing under it, and the unrelated body line-height assertion (1.45)
+  still holds. PR #250's own CI ran for real and passed clean: security gate
+  + UI gate, 8/8 checks, including the UI gate — which this change should not
+  touch (tools/uishot/capture.mjs fingerprints only interactive controls:
+  buttons/selects/links, and this badge label is a plain non-interactive
+  span) but that was read from the tool's source, not assumed, and the gate
+  ran regardless and confirmed it. None of that is the same as a green
+  vitest run — this re-cut is what actually puts the fix in front of that
+  gate for the first time.
+
+VERSION IS 1.2.21. Unlike every other entry in this file, the version below
+this line is NOT newly spent by a prior successful build — it is the SAME
+1.2.21 that #123 failed to cut. Nothing has shipped under 1.2.21 yet: #123
+produced no artifact, so there is no "1.2.21 is spent" claim to make and none
+is made. This run is the first real attempt at actually cutting it.
+
+WHY THIS BUILD EXISTS
+
+To carry the one-line fix (PR #250) that #123's own `npm test` gate demanded,
+so that 1.2.21 — the badge superscript redesign and the Friends tab-row fix,
+both still wanted exactly as described in the entry below — can actually
+reach an AAB instead of failing at the same gate a second time.
+
+WHAT THIS BUILD CARRIES
+
+Everything the entry below already describes (PR #247, PR #248), PLUS:
+
+3. The readability-floor gap PR #247 left behind (PR #250, src/index.css,
+   commit 6663d33). `text-[9.5px]` was introduced for the badge's `full` size
+   variant and never added to the P8 block that floors every sub-12px class
+   to 12px, so it would have rendered unreadably small. One line added to
+   that block; no other file touched.
+
+DELIBERATELY ABSENT, AND NOT A REGRESSION
+
+A local, independently-run green `npm test` / vitest pass ahead of this
+build. This sandbox's npm registry proxy still returns 403 on install, same
+as for #123 — that gap is unchanged and is not being re-argued here. What is
+different this time: the specific defect #123's gate caught has a concrete,
+verified-by-static-analysis fix in front of it, not a second blind attempt.
+build-aab's own `npm test` step remains the actual gate, exactly as designed
+— if anything else is red in the suite, this run stops there too, and that
+is the gate doing its job, not a gap in it.
+
+No native change. versionCode 1000 + run number, versionName 1.2.21.
+
+==============================================================================
+
+Build 1.2.21 - 2026-09-15 - THE BADGE READS AS TEXT AGAIN, AND EVERY TAB IN THE FRIENDS ROW IS REACHABLE
+
+  typecheck 0 (both projects, both PRs) · UI gate 200 screenshots / 0 problems,
+  baseline clean against 148 keys, on both PRs' merged commits (2c3c65d and
+  6ff1c81) · PR #247: 8/8 checks passed · PR #248: 7 successful, 1 skipped,
+  after one UI-gate failure on an intermediate commit was found and fixed
+  (below) — no full vitest run available from this sandbox ahead of firing
+  (npm install blocked by this sandbox's own registry proxy, not a repo
+  problem); vitest is already a hard gate inside build-aab below, same as
+  every prior bump, so that gate is what actually confirms it, not this line.
+
+VERSION IS 1.2.21. 1.2.20 is spent: Android Build #122 succeeded on 59ff7f5,
+which carries the 1.2.20 bump (that commit made this exact sed edit, PR #242).
+Verified by reading the Actions run list for this workflow and finding #122
+against 59ff7f5 marked "completed successfully" — not assumed from the date,
+per F-70.
+
+WHY THIS BUILD EXISTS
+
+Two unrelated owner reports landed the same day, 2026-09-15, and both are
+client-UI-only changes that the app can only receive through a build, never a
+web deploy — the app BUNDLES its web assets (capacitor.config.ts: webDir
+'dist', no server.url).
+
+WHAT THIS BUILD CARRIES
+
+1. Badge/role label, plain superscript text (PR #247, src/lib/badgePalette.ts,
+   commit 2c3c65d). The coloured solid pill shipped earlier the same day was
+   replaced per a new owner reference: a small raised label right after the
+   member's name, icon kept, no coloured background, no border, no radius.
+   BADGE_PILL_BASE drops rounded-full/border/shadow/the solid fill/text-white/
+   font-bold and uses text-muted-foreground — the app's own light/dark token —
+   instead, so it stays readable in both modes with no background needed.
+   items-start plus self-start raises the label to the top of the name row for
+   the superscript look. solidPillFill() and BADGE_FILL stay exported
+   unchanged for the admin colour picker and hue normalisation; only the
+   rendered class strings changed. Verified live on staging.50mmretina.com:
+   the new classes are present in the deployed bundle and the old pill classes
+   are gone.
+
+2. Friends page tab row reachable at every width (PR #248, src/pages/
+   Friends.tsx, commit 6ff1c81, squashed from 5 commits). Owner report: the
+   Awaited/Pending/Friends/Followers/Following row was "not scrollable, same
+   for app too" on both web and the app. Root cause matched a failure mode
+   src/components/feed/CategoryStrip.tsx had already documented for the feed's
+   category strip: a bare overflow-x-auto with scrollbar-hide swipes fine on a
+   phone, but a desktop mouse wheel scrolls the page instead of the row, and
+   with no visible scrollbar there is no hint anything is hidden — worse here,
+   since the row is a 44px lane directly under a search input inside an
+   otherwise vertically-scrolling page, making it an easy miss by touch too.
+
+   Fix, reached over four owner-reported rounds on the same day, each with a
+   measured root cause rather than a guess: `‹ ›` arrow buttons that render
+   only while there is real overflow in that direction, shown at every width
+   (not desktop-only like CategoryStrip's, since the app report means phone
+   swipe isn't a reliable fallback here). Round 1 used CategoryStrip's
+   gradient-fade button style, illegible sitting on this row's frequently-
+   active (solid bg-primary) last tab. Round 2's solid circle fixed legibility
+   but was still `absolute`-positioned with no space reserved, so it covered
+   "Following" outright (measured live: scrollWidth 538 vs clientWidth 531 at
+   a full 1707px desktop width — 7px of true overflow does not explain a
+   button eating a third of a word). Round 3 made the arrows ordinary flex
+   siblings (`flex-1 min-w-0` on the scroll container) instead of an overlay,
+   which surfaced round 4: TabsList's shared base sets `justify-center`,
+   uncancelled, and TabsList itself carried no `shrink-0` — so when the
+   container got genuinely narrower (arrows now taking real space), TabsList
+   shrank below its five `shrink-0` triggers' combined width and
+   `justify-center` split the overflow off both edges, pushing "Awaited" 23px
+   off-screen on the left with `scrollLeft` still reading 0 and no Previous
+   arrow to get it back. `shrink-0 justify-start` on TabsList fixed it,
+   confirmed live by forcing each property independently on the real DOM and
+   watching the 23px gap drop to exactly 0 either way.
+
+   CI caught a fifth defect that no owner report did: the UI gate's own
+   "Every control reachable, nothing regressed" job failed on the round-4
+   commit, flagging `button.shrink-0.flex` at 28x28 as a tap target too small
+   on android-360, iphone-390 and app-360 — the new arrow buttons had no
+   enlarged hit region, unlike every TabsTrigger beside them. Fixed by adding
+   `tap-44` to both buttons, the same out-of-flow `::after` technique already
+   used on the tabs themselves: the hit region grows to 44x44 without moving
+   the visible 28x28 circle. Re-ran clean: 200 screenshots, 0 problems.
+
+No native change. versionCode 1000 + run number, versionName 1.2.21.
+
+==============================================================================
+
+Build 1.2.20 - 2026-09-12 - THE COMMENT SECTION REDESIGN, CHERRY-PICKED ONTO MAIN
+
+  typecheck 0 (both projects) · comment suites 75 passed · UI gate 200
+  screenshots / 0 problems, baseline clean against 148 keys
+  full-suite delta vs main: 12 failed / 188 passed / 1 skipped (main) against
+  12 failed / 190 passed / 1 skipped (the branch) — the same 12, the +2 being
+  this unit's own new tests. Zero new failures.
+
+VERSION IS 1.2.20. 1.2.19 is spent: run 121 SUCCEEDED on 493d4d49, which
+carries the 1.2.19 bump landed in ecdad73 on 2026-09-04. Verified from the run
+list and `git merge-base --is-ancestor` before this entry was written, not
+assumed from the date — F-70 records that this string is the one part of the
+build nobody checks.
+
+WHY THIS BUILD EXISTS
+
+The comment section on a post was redrawn to the structure in the owner's two
+reference screenshots. It merged to staging (#236) and was then brought to main
+as a NARROW CHERRY-PICK (#241, a168d886) rather than a promotion.
+
+The cherry-pick is the whole point. main was 78 commits behind staging, last
+promoted around 2026-09-04, and a full staging -> main merge would have carried
+three weeks of unrelated work that nobody had reviewed — decided solo, at
+night, to fire one build. So three commits were taken and nothing else:
+
+  706f34b -> 900b55a   the sheet, search, flat rows, quick emoji
+  51d2804 -> f4b069e   44px heart, the placeholder that fits 360px
+  7e6d75b -> 8c6000d   row controls meet the tap floor, and the instrument
+
+Each carries its `cherry picked from` line. The staging merge commit and #239's
+baseline squash were deliberately excluded — main already had that correction
+via #240. main is STILL 78 commits behind staging; this build does not change
+that, and the promotion is still owed.
+
+A cherry-pick across 78 commits can apply cleanly and still not work, so the
+question actually checked was whether the redesign depended on anything that
+exists only on staging. It does not: typecheck passed on main's codebase, and
+so did the production lane build, which is the check that would catch something
+surviving compile and failing at build.
+
+WHAT THIS BUILD CARRIES
+
+The app BUNDLES its web assets (capacitor.config.ts: webDir 'dist', no
+server.url), so a web deploy alone reaches app members NEVER. That is why this
+build exists rather than a deploy.
+
+  - The comments surface is a bottom sheet at 78vh over the post, with the
+    post still visible behind it. It was h-screen, which made it
+    indistinguishable from a navigation: the photograph the comments are ABOUT
+    disappeared on tap. The "Comments" title was sr-only and is now visible.
+  - Search within the loaded thread. A matching parent keeps its replies; a
+    non-matching parent is kept as context for the replies that did match.
+  - Flat rows: name, badge and age on one line, text beneath, and the like
+    moved out to a heart rail in the right margin with its count under it.
+    That replaced a chat bubble whose corner badge overlapped the last line of
+    text.
+  - Replies stay indented under the comment they answer, with the reply box
+    inline.
+  - An eight-emoji quick row above the composer. A tap APPENDS to the draft and
+    does not post: an instant post has no undo on a surface where the thumb is
+    already moving, and appending keeps every comment on the one send path the
+    keyword blocklist and the AI moderation call already guard.
+  - The composer names the post's owner ("Add a comment for villagesqu…"),
+    truncated to fit one line at 360px — measured in the harness after a
+    capture showed it wrapping and being clipped.
+
+DELIBERATELY ABSENT, AND NOT A REGRESSION
+
+Image attach and GIF. post_comments has no media column and no comment-media
+table, so neither control could store anything; supabase/** is D1's lane. They
+were left out rather than shipped as dead buttons or smuggled through the
+content column. The schema request is #238 — post_comment_media
+(comment_id, ord, media_id), mirroring the existing post_media join so comment
+attachments reuse the media_objects engine instead of adding a second media
+path. The client half follows once that column exists.
+
+No native change. versionCode 1000 + run number, versionName 1.2.20.
+
+==============================================================================
+
 Build 1.2.16 - 2026-08-20 - THE APP WAS THE LAST OPEN WRITE PATH, AND IT WAS GROWING THE DELTA
 
   typecheck 0 · 2,261 tests pass · production build 0
