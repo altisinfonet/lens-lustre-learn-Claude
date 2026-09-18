@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import {
@@ -103,6 +103,15 @@ describe("no migration-reading test goes back to naive filename matching", () =>
    * Tests that read the migrations directory WITHOUT the helper, each because
    * the out-of-sequence files are the subject rather than noise. Adding a name
    * here is a claim that the test means to see them — not a way to silence it.
+   *
+   * Not every entry exists on every lane. `referralReward0023Withdrawn.test.ts`
+   * is main-lane-only by design (P-1 reconciliation, 2026-09-16) — it pins
+   * production-specific evidence (run #69/#70 body hashes) for a unit that was
+   * dispatched against production and nowhere else, and it is deliberately not
+   * carried to staging. That is a lane fact, not staleness: the two self-checks
+   * below distinguish "this entry no longer describes what it claims" (still an
+   * error, on whichever lane the file exists) from "this entry's file simply
+   * isn't part of this checkout" (not an error anywhere).
    */
   const DELIBERATE: Record<string, string> = {
     "src/__tests__/adminCertificates.test.ts":
@@ -161,9 +170,13 @@ describe("no migration-reading test goes back to naive filename matching", () =>
 
   it("the allowlist has no stale entries", () => {
     // A listed file that no longer reads the directory should come off the list,
-    // or the list stops describing the repository.
+    // or the list stops describing the repository. A listed file that isn't in
+    // THIS checkout at all is a lane fact (see the comment on DELIBERATE above),
+    // not staleness — there is nothing here to read and nothing to assert.
     const stale = Object.keys(DELIBERATE).filter((rel) => {
-      const src = readFileSync(join(ROOT, rel), "utf8");
+      const abs = join(ROOT, rel);
+      if (!existsSync(abs)) return false;
+      const src = readFileSync(abs, "utf8");
       return !(NAMES_THE_DIR.test(src) && /\breaddirSync\s*\(/.test(src));
     });
     expect(stale).toEqual([]);
@@ -172,7 +185,10 @@ describe("no migration-reading test goes back to naive filename matching", () =>
   it("the guard can actually see the files it is meant to police", () => {
     // Without this, a broken walk() or a bad regex would report zero offenders
     // and look identical to success. Asserted against the allowlist itself:
-    // every DELIBERATE entry must be something the scan genuinely reaches.
+    // every DELIBERATE entry that EXISTS on this lane must be something the
+    // scan genuinely reaches. An entry absent from this lane is skipped — the
+    // scan cannot "see" a file that was never checked out, and that is not
+    // what this test polices (see the comment on DELIBERATE above).
     const scanned = new Set(
       walk(join(ROOT, "src"))
         .map((p) => ({ rel: relative(ROOT, p).split("\\").join("/"), src: readFileSync(p, "utf8") }))
@@ -180,8 +196,85 @@ describe("no migration-reading test goes back to naive filename matching", () =>
         .map(({ rel }) => rel),
     );
     for (const rel of Object.keys(DELIBERATE)) {
+      if (!existsSync(join(ROOT, rel))) continue;
       expect(scanned.has(rel), `guard cannot see allowlisted ${rel}`).toBe(true);
     }
     expect(walk(join(ROOT, "src")).length).toBeGreaterThan(150);
   });
+
+  describe("the two self-checks above tolerate a DELIBERATE entry being absent on this lane, without tolerating anything else", () => {
+    /**
+     * P-1 reconciliation, 2026-09-16. Reproduces the exact shape of the two
+     * self-checks above against a synthetic tree, so the claim "absent is fine,
+     * present-but-wrong is still caught" is evidence, not a description. Each of
+     * these three cases is a mutation of the "entry absent" case, and each must
+     * still fail the way it did before this file added the existsSync guard.
+     */
+    const checkStale = (root: string, deliberate: Record<string, string>): string[] =>
+      Object.keys(deliberate).filter((rel) => {
+        const abs = join(root, rel);
+        if (!existsSync(abs)) return false;
+        const src = readFileSync(abs, "utf8");
+        return !(NAMES_THE_DIR.test(src) && /\breaddirSync\s*\(/.test(src));
+      });
+
+    const checkSeen = (root: string, deliberate: Record<string, string>): string[] => {
+      const scanned = new Set(
+        walk(join(root, "src"))
+          .map((p) => ({ rel: relative(root, p).split("\\").join("/"), src: readFileSync(p, "utf8") }))
+          .filter(({ src }) => NAMES_THE_DIR.test(src) && /\breaddirSync\s*\(/.test(src))
+          .map(({ rel }) => rel),
+      );
+      return Object.keys(deliberate).filter((rel) => existsSync(join(root, rel)) && !scanned.has(rel));
+    };
+
+    const MATCHING_SOURCE = 'readdirSync(join(ROOT, "supabase", "migrations"))';
+    const NON_MATCHING_SOURCE = "// this file no longer reads the migrations directory at all";
+
+    it("an entry whose file does not exist on this lane: neither check reports it", () => {
+      const tmp = mkdtempSync(join(tmpdir(), "guard-absent-"));
+      try {
+        mkdirSync(join(tmp, "src"), { recursive: true }); // walk() needs src/ to exist; the file itself must not
+        const deliberate = { "src/__tests__/onlyOnAnotherLane.test.ts": "lane-specific, not present here" };
+        // deliberately never written into tmp
+        expect(checkStale(tmp, deliberate)).toEqual([]);
+        expect(checkSeen(tmp, deliberate)).toEqual([]);
+      } finally {
+        rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("an entry whose file EXISTS but no longer matches the pattern: still reported stale", () => {
+      const tmp = mkdtempSync(join(tmpdir(), "guard-stale-"));
+      try {
+        const rel = "src/__tests__/driftedAway.test.ts";
+        const abs = join(tmp, rel);
+        mkdirSync(join(tmp, "src/__tests__"), { recursive: true });
+        writeFileSync(abs, NON_MATCHING_SOURCE);
+        const deliberate = { [rel]: "used to read the dir directly; no longer does" };
+        expect(checkStale(tmp, deliberate)).toEqual([rel]);
+      } finally {
+        rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("an entry whose file EXISTS, matches the pattern, but the scan cannot reach it: still reported unseen", () => {
+      const tmp = mkdtempSync(join(tmpdir(), "guard-unseen-"));
+      try {
+        // Written outside src/, so walk(join(root, "src")) never visits it —
+        // the same failure mode a broken walk() or a bad NAMES_THE_DIR regex
+        // would produce.
+        const rel = "outside-src/notWalked.test.ts";
+        const abs = join(tmp, rel);
+        mkdirSync(join(tmp, "src"), { recursive: true }); // walk() needs src/ to exist and be empty
+        mkdirSync(join(tmp, "outside-src"), { recursive: true });
+        writeFileSync(abs, MATCHING_SOURCE);
+        const deliberate = { [rel]: "present, matches, but not under src/ in this fixture" };
+        expect(checkSeen(tmp, deliberate)).toEqual([rel]);
+      } finally {
+        rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+  });
+
 });
