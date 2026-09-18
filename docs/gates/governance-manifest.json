@@ -1,0 +1,133 @@
+{
+  "manifest": "50mm-retina-world-governance",
+  "manifest_version": "1.0.0",
+  "adopted": "2026-09-18",
+  "adopted_by": ["O-2", "O-3", "O-6"],
+  "charter": "docs/gates/GOVERNANCE.md",
+
+  "authority": {
+    "engineering_operating_authority": "docs/ADDENDUM_A_EXECUTION_MASTER.md",
+    "governance_charter": "docs/gates/GOVERNANCE.md",
+    "bootloader": "CLAUDE.md",
+    "gate_register": "docs/gates/GATE_REGISTER.md",
+    "promotion_ledger": "docs/PROMOTION_LEDGER.md",
+    "production_ledger": "docs/gates/PRODUCTION_LEDGER.md",
+    "decision_register": "docs/DECISIONS.md"
+  },
+
+  "roles": {
+    "owner": {
+      "authority": "Final authority over project operating policy."
+    },
+    "auditor": {
+      "authority": "Owns governance verification, evidence integrity and the governance control machinery.",
+      "limit": "Auditor ownership never grants authority to override an Owner decision."
+    }
+  },
+
+  "ownership": {
+    "note": "Covers only the five documents named in Owner decision O-3. Every other path is governed by docs/ADDENDUM_A_EXECUTION_MASTER.md sections 3.1 and 3.2.",
+    "inference_rule": "No additional governance owner is inferred or assigned without explicit Owner approval. A governance document with no named owner is reported as an ownership gap and left unassigned.",
+    "documents": [
+      { "path": "CLAUDE.md", "owner": "owner" },
+      { "path": "docs/ADDENDUM_A_EXECUTION_MASTER.md", "owner": "owner" },
+      {
+        "path": "docs/DECISIONS.md",
+        "owner": "shared",
+        "shared_between": ["owner", "auditor"],
+        "owner_controls": "the substantive decision",
+        "auditor_controls": "record integrity, status, history and governance consistency"
+      },
+      { "path": "docs/gates/GOVERNANCE.md", "owner": "auditor" },
+      { "path": "docs/gates/governance-manifest.json", "owner": "auditor" }
+    ]
+  },
+
+  "layers": [
+    { "id": "L0", "name": "bootloader", "holds": "where to look, in priority order", "artefacts": ["CLAUDE.md"] },
+    { "id": "L1", "name": "policy", "holds": "what the rules are, who owns them, how they change", "artefacts": ["docs/ADDENDUM_A_EXECUTION_MASTER.md", "docs/gates/GOVERNANCE.md"] },
+    { "id": "L2", "name": "mechanism", "holds": "what is actually enforced or reported, and by what", "artefacts": ["docs/gates/governance-manifest.json"] },
+    { "id": "L3", "name": "live truth", "holds": "what is true right now", "artefacts": ["GitHub settings", "workflow runs", "database", "generated governance reports"] }
+  ],
+
+  "evidence_precedence": {
+    "order": ["L3", "L1", "L0"],
+    "rule": "Live evidence outranks stale documentation. When a document and the live system disagree, the live system is correct and the document is the finding.",
+    "l2_note": "L2 compares L1's claims against L3 and reports the difference. It is never itself the source of truth about the system."
+  },
+
+  "control_constraints": {
+    "governance_controls_are": "report and verification mechanisms",
+    "must_not": [
+      "silently change production state",
+      "write to a ledger",
+      "edit a governance document",
+      "alter repository settings",
+      "apply SQL",
+      "touch production",
+      "modify application source"
+    ],
+    "planted_defect_required": true,
+    "planted_defect_basis": "GATE_REGISTER five rules, rule 2: a green result whose test could not have failed is rejected."
+  },
+
+  "hold_model": {
+    "decision": "O-6",
+    "time_based": false,
+    "required_fields": ["owner", "release_condition", "current_state", "evidence", "resolution_record"],
+    "states": ["OPEN", "BLOCKED", "RESOLVED"],
+    "rules": [
+      "When evidence shows the release condition is satisfied, the Auditor reconciles the hold immediately.",
+      "If the condition remains unresolved and requires Owner action, the hold remains explicitly OPEN or BLOCKED and is surfaced by governance health reporting.",
+      "Escalation is evidence and action based, never calendar based."
+    ],
+    "prohibited": [
+      "aged state",
+      "escalated state",
+      "review_by field",
+      "opened date requirement",
+      "SLA",
+      "any timer"
+    ],
+    "primary_signal": "A hold whose release condition is satisfied while the hold is still recorded as open.",
+    "applies_to_gate_register": false,
+    "applies_to_gate_register_note": "Applying this model to the standing-holds table in docs/gates/GATE_REGISTER.md is a separate Auditor act, not performed by this manifest."
+  },
+
+  "amendment": {
+    "superseded_conclusions_are_not_edited": true,
+    "basis": "GATE_REGISTER five rules, rule 5: the original stands and the correction is filed beside it.",
+    "supersession_must_name_successor": true,
+    "supersession_must_name_predecessor": true,
+    "historical_document_convention": "A historical document that no longer describes the repository carries a supersession banner at its top, and its body is left unchanged.",
+    "amendment_authority": "An amendment is made by, or with the authority of, that document's owner in this manifest or in docs/ADDENDUM_A_EXECUTION_MASTER.md sections 3.1 and 3.2."
+  },
+
+  "status_vocabulary": {
+    "note": "Reproduced for governance reporting. The authoritative definitions live in the documents named.",
+    "gate_register": {
+      "source": "docs/gates/GATE_REGISTER.md",
+      "values": ["NOT STARTED", "IN PROGRESS", "EVIDENCE FILED", "VERIFIED", "OWNER-ATTESTED", "INFERRED", "BLOCKED", "DEFERRED", "N/A"]
+    },
+    "decision_register": {
+      "source": "docs/DECISIONS.md",
+      "values": ["ACTIVE", "CLOSED", "SUPERSEDED"]
+    },
+    "hold": {
+      "source": "docs/gates/GOVERNANCE.md",
+      "values": ["OPEN", "BLOCKED", "RESOLVED"]
+    },
+    "change_states": {
+      "source": "CLAUDE.md and docs/gates/GOVERNANCE.md",
+      "values": ["code merged", "staging applied", "production applied", "VERIFIED"],
+      "rule": "These four are distinct and are never used interchangeably. A row reaches VERIFIED only on the Auditor's own instrument run."
+    }
+  },
+
+  "operating_sequence": ["INSPECT", "PLAN", "IMPLEMENT", "VERIFY", "AUDIT"],
+
+  "staleness_policy": {
+    "decided": false,
+    "note": "No max-staleness threshold has been decided by project governance. None is asserted here. Thresholds are to be added only by explicit Owner decision, never inferred."
+  }
+}
