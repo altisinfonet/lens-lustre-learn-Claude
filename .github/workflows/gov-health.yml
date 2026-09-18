@@ -1,0 +1,129 @@
+name: Governance health (report-only)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. CHANGES NOTHING.
+#
+# This is the Governance V2 health instrument (unit GOV-3). It reads the
+# governance documents and the repository, compares what they claim against
+# what is there, and writes a report. That is the whole of it.
+#
+# IT IS REPORT-ONLY, AND THAT IS A DESIGN CONSTRAINT, NOT AN OVERSIGHT.
+# docs/gates/GOVERNANCE.md §1.2: governance controls are report and
+# verification mechanisms; they do not silently change production state, do not
+# write to a ledger, do not edit a governance document, do not alter repository
+# settings. A control that could change the thing it audits would be worthless
+# as evidence. `permissions: contents: read` is the mechanical expression of
+# that: this job cannot write to the repository even if its script tried.
+#
+# IT DOES NOT FAIL THE BUILD. The checker exits 0 whether or not it finds
+# problems. Findings are the product. Making any check a merge blocker is a
+# separate unit with its own Owner decision — do not "fix" this by adding
+# `exit 1`, because a governance report that can block a merge stops being a
+# report and starts being policy enforced by whoever last edited a script.
+#
+# IT NEVER FABRICATES A PASS. Where evidence is unavailable the checker reports
+# UNVERIFIED. Branch protection is the live case: reading it needs
+# administration-level access this repository has deliberately not granted
+# (Owner decision O-8). UNVERIFIED is neither a pass nor a failure, and the
+# report says so in those words.
+#
+# NO TIME-BASED LOGIC ANYWHERE. Owner decision O-6 removed the aged/escalated
+# hold model: no SLA, no review_by, no opened-date, no timer, no waiting
+# period. A hold's age is not a governance signal. The 2-hour cron below is the
+# reporting cadence (Owner decision O-7) and is NOT a hold timer — nothing in
+# the checker measures elapsed time against any hold.
+#
+# THE SELF-TEST IS PART OF THE CONTROL, NOT A NICETY. A check nobody has seen
+# fail is a claim, not evidence (GATE_REGISTER five rules, rule 2 — C-34). The
+# first step below plants the exact defect each check exists to catch and
+# requires the checker to report it, then restores a clean fixture and requires
+# the checker to go quiet. If the checker ever goes blind, THAT step goes red
+# even though the report step never does.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  schedule:
+    # Every 2 hours — Owner decision O-7. GitHub may delay scheduled runs under
+    # load; that is fine. This is a reporting cadence, not a deadline, and
+    # nothing in the governance model depends on when it lands.
+    - cron: "0 */2 * * *"
+
+  # So the Auditor can produce a report on demand — which is exactly when one
+  # is most wanted, e.g. immediately before or after a promotion.
+  workflow_dispatch:
+
+  # The instrument proves itself on the PR that changes it. A CI rule that has
+  # never run on the change introducing it has not been tested (Addendum §4.5).
+  pull_request:
+    paths:
+      - ".github/workflows/gov-health.yml"
+      - "scripts/gov-health-check.mjs"
+      - "scripts/gov-health-check.test.mjs"
+      - "docs/gates/governance-manifest.json"
+      - "docs/gates/GOVERNANCE.md"
+      - "CLAUDE.md"
+
+# Least privilege, and the mechanical guarantee of report-only: read access is
+# all this job has, so it cannot write to the repository under any code path.
+permissions:
+  contents: read
+
+concurrency:
+  group: gov-health-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  governance-health:
+    name: Governance health report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      # ── The control proves it can fail, BEFORE its output is trusted ──────
+      - name: Self-test — every check must catch a planted defect
+        run: |
+          set -euo pipefail
+          node scripts/gov-health-check.test.mjs
+
+      # ── The report itself. Never fails the run. ───────────────────────────
+      - name: Governance health report
+        run: |
+          set -euo pipefail
+          node scripts/gov-health-check.mjs | tee governance-health-report.md
+
+      - name: Machine-readable report
+        run: |
+          set -euo pipefail
+          node scripts/gov-health-check.mjs --json > governance-health-report.json
+
+      - name: Confirm the instrument changed nothing
+        run: |
+          set -euo pipefail
+          # The report artefacts are untracked build output; the repository
+          # itself must be byte-identical to what was checked out. If a
+          # governance control ever modifies a tracked file, that is a defect
+          # in the control, and this step is where it surfaces.
+          if [ -n "$(git status --porcelain -- ':!governance-health-report.*')" ]; then
+            echo "::error::The governance health check modified tracked files. It is report-only and must not."
+            git status --porcelain -- ':!governance-health-report.*'
+            exit 1
+          fi
+          echo "No tracked file was modified. Report-only behaviour confirmed."
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: governance-health-report
+          path: |
+            governance-health-report.md
+            governance-health-report.json
+          retention-days: 30
