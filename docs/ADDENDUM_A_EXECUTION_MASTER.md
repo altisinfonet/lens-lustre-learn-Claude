@@ -1,9 +1,9 @@
 # ADDENDUM A — EXECUTION MASTER
 ## Workstream P · 35 units · two developers in parallel · one auditor · seven promotions
 
-**Version 1.2 — 2026-09-02** (v1.0 proposed; v1.1 recorded the Owner's three rulings, §9.0; v1.2 adds §1.5, the standard of practice for all three roles)
+**Version 1.3 — 2026-09-18** (v1.0 proposed; v1.1 recorded the Owner's three rulings, §9.0; v1.2 adds §1.5, the standard of practice for all three roles; v1.3 adopts this document as operating authority, O-4, and adds the Auditor `gov-*` naming exception to §3.2, O-5)
 **Source of work:** *FINAL Updated 50mm Master Plan — Addendum A, Workstream P* (Neil Basu, 1 September 2026), 35 units P1–P35, measured against the live platform 2026-09-01 10:44Z–11:22Z.
-**Status of this document:** PROPOSED. Nothing here is approved and nothing here has been executed.
+**Status of this document:** ACTIVE — adopted as the engineering operating authority by Owner decision O-4, 2026-09-18. Per-unit execution state is not recorded here; it lives in `docs/gates/GATE_REGISTER.md` and `docs/PROMOTION_LEDGER.md`.
 
 ---
 
@@ -125,7 +125,8 @@ These four are where parallel work normally dies. Each gets a rule.
 | `apply-migration.yml`, `security.yml`, `verify-schema-dependencies.yml`, `schema-dump.yml` | **D1** |
 | `web-build.yml`, `ui-gate.yml`, `typecheck.yml`, `android-build.yml` | **D2** |
 | `health.yml` | **Auditor** |
-| Any new workflow | Named `d1-*.yml` or `d2-*.yml`. No exceptions. |
+| `gov-*.yml` | **Auditor** — Governance CI artifacts only. A narrow exception granted by Owner decision O-5, 2026-09-18: it covers governance verification workflows and nothing else, changes no D1 or D2 ownership above, and is not a general-purpose naming exception. It says nothing about branch names. |
+| Any other new workflow | Named `d1-*.yml` or `d2-*.yml`. No exceptions. |
 
 **(b) `package.json` / `package-lock.json` — the dependency window**
 
@@ -135,6 +136,7 @@ Only one developer may touch these at a time. The Auditor opens a **dependency w
 
 - `scripts/db-*.mjs` → D1
 - `scripts/web-*.mjs` → D2
+- `scripts/gov-*.mjs` → **Auditor** — Governance CI artifacts only, the same narrow O-5 exception as §3.2(a) with the same limits
 - `scripts/lane-config.mjs`, `scripts/lane-config.d.mts` → **FROZEN.** These files decide which database and which origin a build talks to. A change requires the Auditor's written approval in the ledger *and* both developers' sign-off on the PR. This file has already caused two failed builds (#113, #114); it is not touched casually.
 
 **(d) Database objects — reservation, not just files**
