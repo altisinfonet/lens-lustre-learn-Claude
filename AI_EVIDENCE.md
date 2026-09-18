@@ -1,3 +1,9 @@
+> **⚠ SUPERSEDED — historical, not current operating authority.**
+> This log's last entry is 2026-08-15, under the `AI_CONTROL.md` phase/state model. Current
+> operating authority is `docs/ADDENDUM_A_EXECUTION_MASTER.md`; current evidence records are
+> `docs/gates/GATE_REGISTER.md` and `docs/PROMOTION_LEDGER.md`. See `CLAUDE.md` at the
+> repository root. Contents below are preserved unchanged for history.
+
 # AI EVIDENCE — append-only
 
 One line per check. **A claim is not evidence; a re-runnable command is.**

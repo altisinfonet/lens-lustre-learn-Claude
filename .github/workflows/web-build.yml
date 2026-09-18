@@ -100,7 +100,7 @@ jobs:
       # nothing to compare against when this list is empty. The production lane -
       # the one that matters most - was running with it switched off. R6 now
       # refuses an empty list outright, so this cannot silently regress.
-      ISOLATION_FORBIDDEN_REFS: ztzutckwdhetphwghuzj
+      ISOLATION_FORBIDDEN_REFS: fpszggreishhuvdpkmdr
       # Host rules (G5a). R1-R6 police the Supabase ref only, so a bundle could
       # name the wrong CDN or origin and pass all of them.
       ISOLATION_EXPECTED_HOST: cdn.50mmretina.com
@@ -165,9 +165,9 @@ jobs:
       # The PUBLIC staging values. The forbidden list is production's ref, so a
       # staging build that reached the production backend fails here rather than
       # in front of a member.
-      VITE_SUPABASE_URL: https://ztzutckwdhetphwghuzj.supabase.co
-      VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0enV0Y2t3ZGhldHBod2dodXpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczMjY3MDYsImV4cCI6MjEwMjkwMjcwNn0.yXoPpBeyTIxMLL0dh7lGIjsDHKNrg8ewKF8Rbt9qoKI
-      VITE_SUPABASE_PROJECT_ID: ztzutckwdhetphwghuzj
+      VITE_SUPABASE_URL: https://fpszggreishhuvdpkmdr.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwc3pnZ3JlaXNoaHV2ZHBrbWRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxMDcyNDUsImV4cCI6MjEwNDY4MzI0NX0.h3t2eZ8hwXDev6JydjsDnA8CpXFlKve4CaUlXp_mwiQ
+      VITE_SUPABASE_PROJECT_ID: fpszggreishhuvdpkmdr
       # Stated explicitly, never inherited: an omitted variable falls back to the
       # PRODUCTION value, so a silent omission here would build staging against
       # production's CDN and origin - the exact failure this lane exists to stop.

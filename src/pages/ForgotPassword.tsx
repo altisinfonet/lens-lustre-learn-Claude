@@ -14,13 +14,23 @@ const ForgotPassword = () => {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
-  const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [trap, setTrap] = useState("");
+  const [renderedAt] = useState(() => Date.now());
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Honeypot + time trap. A scraping bot fills every input it finds and posts
+    // immediately; a human can neither see `trap` nor submit inside 1.2s. Either
+    // signal renders the normal success view and sends nothing. Never surface an
+    // error here - an error tells the bot it was caught and it retries clean.
+    if (trap !== "" || Date.now() - renderedAt < 1200) {
+      setLoading(false);
+      setSent(true);
+      return;
+    }
     setError(null);
-    setNotFound(false);
 
     const result = emailSchema.safeParse(email);
     if (!result.success) {
@@ -29,26 +39,6 @@ const ForgotPassword = () => {
     }
 
     setLoading(true);
-
-    // Direct existence check (owner's UX decision): tell the user plainly
-    // whether the account exists instead of the generic "if an account
-    // exists..." message. Fail-open: if the check itself errors, fall back to
-    // the old behavior and just send the reset request.
-    let exists: boolean | null = null;
-    try {
-      const { data, error: checkError } = await (supabase as any).rpc("email_exists", {
-        _email: result.data,
-      });
-      if (!checkError && typeof data === "boolean") exists = data;
-    } catch {
-      exists = null; // check unavailable — behave like before
-    }
-
-    if (exists === false) {
-      setNotFound(true);
-      setLoading(false);
-      return;
-    }
 
     const captchaToken = await getCaptchaToken(); // BUG-043
     const { error } = await supabase.auth.resetPasswordForEmail(result.data, {
@@ -63,40 +53,6 @@ const ForgotPassword = () => {
     }
     setLoading(false);
   };
-
-  if (notFound) {
-    return (
-      <main className="min-h-screen bg-background text-foreground flex items-center justify-center px-6">
-        <div className="max-w-md text-center">
-          <Mail className="h-10 w-10 text-primary mx-auto mb-6" />
-          <h1 className="text-3xl font-light tracking-tight mb-4" style={{ fontFamily: "var(--font-display)" }}>
-            No Account <em className="italic text-primary">Found</em>
-          </h1>
-          <p className="text-sm text-muted-foreground mb-8" style={{ fontFamily: "var(--font-body)" }}>
-            There's no account registered with <strong className="text-foreground">{email}</strong>.
-            You can create one in under a minute.
-          </p>
-          <div className="space-y-4">
-            <Link
-              to={`/signup?email=${encodeURIComponent(email)}`}
-              className="block w-full py-3.5 bg-primary text-primary-foreground text-xs tracking-[0.15em] uppercase hover:opacity-90 transition-opacity duration-500"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              Create Account
-            </Link>
-            <button
-              type="button"
-              onClick={() => setNotFound(false)}
-              className="text-xs tracking-[0.15em] uppercase text-muted-foreground hover:text-foreground transition-colors"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              Try a different email
-            </button>
-          </div>
-        </div>
-      </main>
-    );
-  }
 
   if (sent) {
     return (
@@ -151,6 +107,25 @@ const ForgotPassword = () => {
               maxLength={255}
               className="w-full py-3 px-4 bg-transparent border border-border text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary transition-colors"
               style={{ fontFamily: "var(--font-body)" }}
+            />
+          </div>
+          {/* Honeypot. Deliberately NOT type="hidden" - bots skip those and fill
+              visible text inputs. Positioned off-screen, untabbable and aria-hidden
+              so no keyboard or screen-reader user can ever reach it. The field name
+              avoids anything a password manager autofills (email/name/phone/address),
+              which would silently reject real people. */}
+          <div
+            aria-hidden="true"
+            style={{ position: "absolute", left: "-9999px", width: 1, height: 1, overflow: "hidden" }}
+          >
+            <input
+              id="company_fax"
+              name="company_fax"
+              type="text"
+              value={trap}
+              onChange={(e) => setTrap(e.target.value)}
+              tabIndex={-1}
+              autoComplete="off"
             />
           </div>
           <button

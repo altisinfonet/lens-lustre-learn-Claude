@@ -34,7 +34,7 @@ const PRODUCTION = {
   origin: "https://www.50mmretina.com",
 };
 const STAGING = {
-  ref: "ztzutckwdhetphwghuzj",
+  ref: "fpszggreishhuvdpkmdr",
   cdn: "cdn-staging.50mmretina.com",
   origin: "https://staging.50mmretina.com",
 };

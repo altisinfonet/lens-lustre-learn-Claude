@@ -84,7 +84,7 @@ jobs:
           REF=$(printf '%s' "$SUPABASE_DB_URL" | sed -E 's|^postgres(ql)?://([^:]+):.*|\2|' | cut -d. -f2)
           case "$TARGET_LANE" in
             production) EXPECT=jtdtehuqtinjxropkkcn ;;
-            staging)    EXPECT=ztzutckwdhetphwghuzj ;;
+            staging)    EXPECT=fpszggreishhuvdpkmdr ;;
             *) echo "::error::Unknown target."; exit 1 ;;
           esac
           if [ -z "${SUPABASE_DB_URL:-}" ]; then

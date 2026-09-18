@@ -1,5 +1,11 @@
 # 50MM RETINA WORLD — MASTER EXECUTION PLAN
 
+> **⚠ SUPERSEDED — historical, not current execution authority.**
+> This document declared itself "the single authoritative project document" as of its
+> 2026-08-21 revision. Current execution authority is
+> `docs/ADDENDUM_A_EXECUTION_MASTER.md`. See `CLAUDE.md` at the repository root.
+> Contents below are preserved unchanged for history.
+
 **Revision:** 2026-08-21 (FINAL MASTER PLAN REVISION) · **Supersedes** the REVISED
 2026-08-21 draft and every prior Four-Phase Status Plan.
 **This is the single authoritative project document.** No parallel plan exists. History

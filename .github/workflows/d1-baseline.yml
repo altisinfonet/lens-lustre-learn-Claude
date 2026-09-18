@@ -45,7 +45,7 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: "Which database to read. staging = ztzutckwdhetphwghuzj, production = jtdtehuqtinjxropkkcn."
+        description: "Which database to read. staging = fpszggreishhuvdpkmdr, production = jtdtehuqtinjxropkkcn."
         required: true
         type: choice
         options:

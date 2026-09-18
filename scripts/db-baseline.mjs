@@ -50,12 +50,19 @@
 //   3. CLUSTER FINGERPRINT, AFTER CONNECTING. pg_control_system().
 //      system_identifier is a permanent per-cluster value. The lane gate reads
 //      a string the caller supplied; this reads the database's own answer to
-//      "who are you", and the two must agree. Recorded here from a read on
-//      2026-09-02 06:38Z:
+//      "who are you", and the two must agree. If a fingerprint ever disagrees,
+//      that is a finding to report, not a constant to update. Do not edit
+//      these to make a run pass — except when the underlying cluster itself
+//      was deliberately replaced via an approved migration, as happened here:
+//      staging moved to a new Supabase project on 2026-09-12 (schema, data,
+//      auth, storage, cron, and edge functions all migrated and independently
+//      verified; the old project was then deleted by the owner). The
+//      authoritative table lives in scripts/db-lane-guard.mjs (LANES), which
+//      this script imports — see that file's header for the full record of
+//      both the retired and current staging fingerprints. As of that
+//      migration:
 //        production jtdtehuqtinjxropkkcn → 7656985631720456337
-//        staging    ztzutckwdhetphwghuzj → 7666007964130682852
-//      If a fingerprint ever disagrees, that is a finding to report, not a
-//      constant to update. Do not edit these to make a run pass.
+//        staging    fpszggreishhuvdpkmdr → 7678069749886157684  (recorded 2026-09-12)
 //
 //   4. NO MEMBER DATA. Every probe reads catalogue or statistics views only.
 //      pg_stat_statements text is normalised by Postgres (constants become $1),
