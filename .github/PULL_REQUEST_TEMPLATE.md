@@ -3,8 +3,10 @@
   -------------------------------------
   If this PR touches ANY judging surface (src/hooks/judging/**, src/pages/Judge*.tsx,
   src/pages/judging/**, supabase/functions/* judging fns, judging migrations, etc.),
-  the PROVE block below is MANDATORY. The `prove-block-required` GitHub Action
-  will fail CI when a judging diff is missing the marker or any required field.
+  the PROVE block below is MANDATORY. It remains required discipline for judging
+  diffs and is checked by the Auditor during review; there is currently NO CI job
+  enforcing it — the `prove-block-required` workflow was removed on 2026-07-09 in
+  commit cd3dc7e and has not been restored.
 
   Non-judging PRs may delete the PROVE block entirely.
 -->
