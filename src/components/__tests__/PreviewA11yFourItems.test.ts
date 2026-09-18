@@ -144,10 +144,75 @@ describe("item 2 — People You May Know: the Add button", () => {
 });
 
 describe("item 3 — the comments panel stops clipping once it has finished opening", () => {
-  it("PostCommentsSection binds the clip to the animation, not to the class list", () => {
-    expect(postComments).toMatch(/const \[rolling, setRolling\] = useState\(true\)/);
-    expect(postComments).toMatch(/onAnimationComplete=\{\(\) => setRolling\(false\)\}/);
-    expect(postComments).toMatch(/rolling \? "overflow-hidden" : ""/);
+  /*
+   * ⚠ REWRITTEN 2026-09-13. THE GUARANTEE IS THE SAME; THE MECHANISM MOVED.
+   *
+   * This used to pin `rolling`/`setRolling`/`onAnimationComplete` in
+   * PostCommentsSection. That state existed because the panel was a
+   * height-animated strip INSIDE PostCard, and the clip had to be released
+   * when the animation finished. The panel is not that any more: comments open
+   * in a dedicated overlay (CommentsOverlay — a Dialog on web, a sheet on the
+   * app) and PostCommentsSection is a three-band flex layout with NO animation
+   * at all. There is nothing left to roll, so the assertion could never pass
+   * again — it had been red on main and on staging for weeks, describing a
+   * component that no longer exists.
+   *
+   * A stale assertion is worse than no assertion: it is a red test everyone
+   * learns to expect, which is how a real failure gets waved through. But it is
+   * NOT deleted — item 3 is a live guarantee, and it is re-pinned to the
+   * mechanism that actually protects it now.
+   *
+   * MEASURED BEFORE REWRITING, not assumed. tools/uishot/a11y-four-items.mjs,
+   * real Chromium, against this commit:
+   *
+   *   1440x900  reached, hidden 0px = 0%, clipper "fixed left-[50%] top-[50%]…"
+   *    390x844  reached, hidden 0px = 0%, clipTop null (no clipping ancestor)
+   *
+   * and the REPLY box — which, unlike the composer, opens INSIDE the scrolling
+   * band and is therefore the case this layout could plausibly have broken:
+   *
+   *   390px  rows 7, hidden 0px  ·  1440px  rows 7, hidden 0px
+   *
+   * ALL FOUR ITEMS CLEAR. Nothing was fixed here; only the guard was re-aimed.
+   *
+   * WHAT WOULD SILENTLY BRING THE 61%-CLIPPED LIST BACK is no longer a removed
+   * `rolling` flag — it is moving the composer INSIDE the scrolling band. The
+   * band is `overflow-y-auto`, and the @mention list opens UPWARD out of the
+   * box, so a composer nested in it would be sliced by exactly the edge the
+   * Auditor measured on 2026-09-07. `hideComposer` on CommentThread plus a
+   * `shrink-0` sibling band is what keeps it out, and that is what is pinned.
+   *
+   * ImageEngagement is UNTOUCHED below: its panel is still the animated inline
+   * strip, so `commentsRolling` is still the right thing to assert there. The
+   * two panels genuinely differ now, and the test says so rather than pretending
+   * they are one shape.
+   */
+  it("PostCommentsSection keeps the composer OUT of the scrolling band", () => {
+    // The thread is told not to draw its own composer …
+    expect(postComments).toMatch(/hideComposer/);
+    // … because the panel renders one itself, as a sibling of the scroll band.
+    expect(postComments).toMatch(/<CommentComposer\b/);
+
+    const scrollIdx = postComments.indexOf("overflow-y-auto");
+    const threadIdx = postComments.indexOf("<CommentThread");
+    const composerIdx = postComments.indexOf("<CommentComposer");
+    expect(scrollIdx, "the thread's band must still scroll").toBeGreaterThan(-1);
+    expect(threadIdx, "the thread belongs inside the scrolling band").toBeGreaterThan(scrollIdx);
+    expect(composerIdx, "the composer comes after the thread").toBeGreaterThan(threadIdx);
+
+    /*
+     * The structural half, and the one that actually catches the regression:
+     * between the thread and the composer the scrolling band must CLOSE, and
+     * the composer must sit in a `shrink-0` band of its own. Move the composer
+     * inside the scroll container and both of these stop being true.
+     */
+    const between = postComments.slice(threadIdx, composerIdx);
+    expect(between, "the scrolling band must close before the composer").toMatch(/<\/div>/);
+    expect(between, "the composer's own band is shrink-0, not the scrolling one").toMatch(/shrink-0/);
+
+    // And the band scrolls — it never hides. (The static-overflow-hidden guard
+    // below covers the other direction, for both panels.)
+    expect(postComments).toMatch(/flex-1 min-h-0 overflow-y-auto/);
   });
 
   it("ImageEngagement's panel does the same — the same box, one screen over", () => {
