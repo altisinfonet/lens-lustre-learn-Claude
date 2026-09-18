@@ -1,3 +1,14 @@
+> **⚠ SUPERSEDED — historical. §3 "CURRENT GUARDRAILS (verified present)" no longer
+> describes this repository.** All seven workflows that section lists as **ACTIVE** —
+> `audit-forbidden.yml`, `prove-block-required.yml`, `per-photo-status-types.yml`,
+> `rpc-contract-parity.yml`, `test-agent.yml`, `v3-catalog-parity.yml` and
+> `vocabulary-snapshot.yml` — were removed on **2026-07-09** in commit **`cd3dc7e`**
+> ("Remove CI workflows (not needed for hosting; re-add later with workflow-scoped
+> token)") and none has been restored since. Determine current enforcement from the
+> live repository and workflow state — `.github/workflows/`, the Actions tab and
+> branch protection — never from this section. Contents below are preserved
+> unchanged for history.
+
 # FIX SPRINT 0 — PHASE 0A — FREEZE & GUARDRAILS (AUDIT ONLY)
 
 **Mode:** AUDIT ONLY · ZERO DAMAGE · ZERO SIDE EFFECT · ZERO FAN-OUT
