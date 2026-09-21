@@ -420,3 +420,70 @@ not migration candidates, that `CDN_HOST` is the CDN by value, and that
 `media_mark_ready` still pins the owner to path segment 2 — with mutations W1–W5
 proving each assertion bites. Deleting this entry while those tests stand would leave
 guards enforcing a rule with no written reason, which the register forbids.
+
+---
+
+## D-007 — Eight F-105de production-only files are excluded from Rule 20's literal zero-diff, by path, not by category
+
+- **Status:** ACTIVE
+- **Decided:** 2026-09-21
+- **Decided by:** Owner ("FINAL OWNER-DECISION IMPLEMENTATION — RULE 20 / F-105de — 8-FILE SCOPE"), on the forensic review chain re-deriving Standing Rule 20's meaning, F-105de's production dispatch history, and the file-exact scope that survived adversarial review across four prior challenge passes
+- **Pinned by:** `src/lib/__tests__/rule20ProductionClosureF105de.test.ts`
+- **Restore when:** Never restored by default — this ends only if a future ruling either (a) backports these eight files to `staging`, at which point Rule 20's ordinary zero-diff applies again and this entry is marked CLOSED, or (b) a later decision supersedes this one with a differently-scoped ruling. Either is its own reviewed decision.
+
+### What was decided
+
+Standing Rule 20 (`docs/ADDENDUM_A_EXECUTION_MASTER.md` §7 step 8) continues to require
+`compare/main..staging` to be reported literally, in full, and never falsely reported as
+zero. Its closure condition alone is scoped, in §7.1 of that document: the phase may
+close with these eight named files still present on `main` and absent from `staging`,
+and with no others:
+
+1. `src/lib/__tests__/referralReward0023Withdrawn.test.ts`
+2. `src/lib/__tests__/referralRewardProductionRederive.test.ts`
+3. `supabase/migrations/20260910_0024_f105de_referral_reward_production_close.sql`
+4. `supabase/migrations/PROBE_f105de_referral_reward_production_closed.sql`
+5. `supabase/migrations/PROBE_process_referral_reward_source_dump_readonly.sql`
+6. `supabase/migrations/UNAPPLIED_20260910_0023_f105de_referral_reward_production_close.sql`
+7. `supabase/rollback/20260910_0024_f105de_referral_reward_production_close_ROLLBACK.sql`
+8. `supabase/rollback/UNAPPLIED_20260910_0023_f105de_referral_reward_production_close_ROLLBACK.sql`
+
+**No other main-only file is covered.** A markdown evidence document, a future
+production-only finding, or any file not on this exact list remains an ordinary Rule 20
+difference and blocks closure. This entry authorises nothing beyond these eight paths
+and creates no general "Owner-approved difference" mechanism.
+
+### Why
+
+`0024` was dispatched against and applied on production, closing the F-105d/e referral-
+reward finding. `0023` was dispatched against production, refused itself at its own P2
+precondition gate (the gate working as designed), and is withdrawn — kept in the tree,
+never run, under this repository's own `UNAPPLIED_` convention. Neither was, or should
+be, dispatched against staging: staging never held the pre-state these files correct,
+so running them there would not close a real finding, and carrying the already-applied
+`0024` file onto staging without an actual staging dispatch would misrepresent staging's
+own migration history. That is the same harm this repository already refused once
+before: `referralReward0023Withdrawn.test.ts`'s own stated reasoning is that renaming or
+otherwise altering an applied migration's record — there, to resolve a same-ordinal
+collision with `20260910_0019_p32mail_...` — falsifies the run log, and 0023/0024 were
+left exactly as they are for that reason.
+
+The two pinning tests named above exist to hold this reasoning in place on `main` only;
+they assert nothing about staging's state and are correctly absent here.
+
+### What it costs
+
+`compare/main..staging` continues to show these eight files as a real, literal,
+non-zero difference for as long as this entry stands — the difference is never hidden,
+only classified. Every future promotion's ledger entry must name it explicitly (raw /
+matched / unexplained) rather than reporting a bare zero.
+
+### Independent verification requirement
+
+This entry is not, by itself, evidence that the production dispatch happened as
+described. Per `docs/gates/GOVERNANCE.md` §5, a row reaches VERIFIED only on the
+Auditor's own instrument run against live evidence — a document's own claim, or a test
+that only checks internal self-consistency, is `EVIDENCE FILED`, not `VERIFIED`. The
+Auditor's own verification (or its absence) is recorded separately in
+`docs/PROMOTION_LEDGER.md`; this decision is not conditioned on that entry existing yet,
+but Rule 20 closure under §7.1 above depends on it.

@@ -128,6 +128,8 @@ describe("no migration-reading test goes back to naive filename matching", () =>
       "asserts NO runnable bootstrap exists — it must see the excluded names to do that",
     "src/lib/__tests__/referralReward0023Withdrawn.test.ts":
       "asserts NO runnable 0023 exists — same reason",
+    "src/lib/__tests__/rule20ProductionClosureF105de.test.ts":
+      "pins D-007's exact 8-file Rule 20 exception list; it must scan PROBE_/UNAPPLIED_ files too, to catch one of them wrongly claiming the exception",
   };
 
   const ROOT = process.cwd();
