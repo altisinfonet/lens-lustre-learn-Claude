@@ -342,6 +342,27 @@ The Auditor runs this. No step is skipped because the change looks small.
 8. **`compare/main..staging` re-checked to `0 changed files, 0 additions, 0 deletions`** — Standing Rule 20. The phase is not closed until this reads zero.
 9. Ledger entry written: what was promoted, the tree hash, what closed, what stayed open, and every correction against the Auditor's own earlier statements.
 
+### 7.1 · Standing Rule 20 — scoped exception, F-105de (Owner ruling, 2026-09-21)
+
+Step 8's text above is unchanged and is never suppressed: the raw `compare/main..staging` result is always reported in full — actual changed files, actual additions, actual deletions — never rewritten, and never reported as zero when it is not.
+
+**Closure adds one clause.** The phase closes when every file in that raw result is either absent (zero difference), or is one of exactly these eight, and no others:
+
+1. `src/lib/__tests__/referralReward0023Withdrawn.test.ts`
+2. `src/lib/__tests__/referralRewardProductionRederive.test.ts`
+3. `supabase/migrations/20260910_0024_f105de_referral_reward_production_close.sql`
+4. `supabase/migrations/PROBE_f105de_referral_reward_production_closed.sql`
+5. `supabase/migrations/PROBE_process_referral_reward_source_dump_readonly.sql`
+6. `supabase/migrations/UNAPPLIED_20260910_0023_f105de_referral_reward_production_close.sql`
+7. `supabase/rollback/20260910_0024_f105de_referral_reward_production_close_ROLLBACK.sql`
+8. `supabase/rollback/UNAPPLIED_20260910_0023_f105de_referral_reward_production_close_ROLLBACK.sql`
+
+These eight are recognised as production-only — dispatched against and applied on production, never against staging — only for as long as the Auditor's own independent verification of that dispatch stands recorded in `docs/PROMOTION_LEDGER.md`, not on the strength of their own banners or self-referential tests alone. Full reasoning and the revisit condition are recorded in `docs/DECISIONS.md` D-007.
+
+**This is path-exact, not a category.** No wildcard, filename prefix, or directory (`docs/evidence/**`, "all migrations", "all F-105 files") is granted by this clause. A file outside this exact list appearing in the raw diff is an ordinary Rule 20 difference and blocks closure exactly as before this clause existed.
+
+**Every closure report under this clause states three figures, not one:** the raw diff, the matched-and-approved subset (named), and the unexplained remainder. The phase closes only when unexplained = 0. Reporting `compare/main..staging` as `0` when the raw comparison is not literally zero is not a valid closure report under this clause.
+
 ---
 
 ## 8 · What is deliberately NOT in scope

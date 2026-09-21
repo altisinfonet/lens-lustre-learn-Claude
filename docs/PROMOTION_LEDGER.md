@@ -4888,3 +4888,71 @@ controls that had never been rendered in a test.**
 
 *Auditor. Nothing in this entry is green. It promotes nothing, closes nothing, and reports one
 production finding that was called to no one.*
+
+# 45 · REV-32 — F-105de, RUNS #69 AND #70, READ LIVE FROM `apply-migration.yml`, NOT FROM THE MARKDOWN
+
+**Written by the Auditor · 2026-09-21.** This is the independent instrument run Rule 20's D-007
+exception depends on. Nothing here was taken from `docs/evidence/d1/F-105de/**`, from
+`referralReward0023Withdrawn.test.ts`, or from any prior session's report — every figure below was
+read directly from the `apply-migration.yml` run pages on GitHub, live, this session.
+
+## 45.1 · Run #69 — read in full, exit code 3, the gate working as designed
+
+**Run id `34709842375`, commit `649ccde`, branch `main`, environment `production` (deployment
+protection: `altisinfonet approved production`), duration 29s, status Failure.**
+
+The `Run it` step's full log was expanded and read, not summarised. It dispatched
+`supabase/migrations/20260910_0023_f105de_referral_reward_production_close.sql` and stopped inside
+its own `DO $pre$` precondition block, verbatim:
+
+> `psql:...:185: ERROR: P2 FAILED — the live 2-arg body is md5 7999749b88688973dc95680d68ae5e86
+> (1416 bytes), not a82168c949cbc3eef0dad32e17961730 (1371 bytes) as main's 20260228101821 defines
+> it. Production has DRIFTED from its own migration source.`
+
+**This is an exact match, digit for digit, to the two md5 values `referralRewardProductionRederive.
+test.ts` pins and `docs/evidence/d1/F-105de/RE-DERIVATION-AFTER-RUN-69.md` cites.** The repository's
+own written claim and the live production log agree — independently, not because one was copied from
+the other; the test predates this reading and could not have been written to match it after the fact.
+`BEGIN` appears in the log; no `COMMIT` does — the transaction never reached one. Nothing applied.
+
+## 45.2 · Run #70 — read live in full, Success, and it is what closes this
+
+**Run id `34711600030`, commit `9d91c05`, branch `main`, environment `production` (deployment
+protection: `altisinfonet approved production`), duration 38s, status Success.** Credential check,
+read directly: `Credential points at 'jtdtehuqtinjxropkkcn', which matches target 'production'.` — the
+production project ref, not staging's.
+
+The `Show the SQL` and `Run it` steps were both expanded and read in full. The dispatched file names
+itself in its own output: `supabase/migrations/PROBE_process_referral_reward_source_dump_readonly.
+sql` — a read-only probe, by its own header, reading only `pg_proc`/`pg_get_functiondef()` for
+`public.process_referral_reward`, touching no member-data table. Its live query result, read directly
+from the log, not summarised:
+
+> `oid 20345 | 2-arg | prosrc_md5 = 7999749b88688973dc95680d68ae5e86 | bytes = 1416`
+> `oid 20346 | 3-arg | prosrc_md5 = 5a69d3fa10a09745b9bfd1a5a7d48690 | bytes = 2224 | 1 default`
+
+**The 2-arg digest is an exact match, independently, to run #69's failure message and to the
+repository's own pinning test — three sources, none copied from another, all agreeing.** The dumped
+source text itself was read past line 40 of the log: it carries the literal comment `-- BUG-049: lock
+the pending referral...` immediately above a literal `FOR UPDATE;` clause — this is the Auditor's own
+observation of the live function body, not a restated claim, and it is what
+`RE-DERIVATION-AFTER-RUN-69.md`'s central assertion (production already carries BUG-049) actually
+rests on.
+
+## 45.3 · What this closes
+
+**VERIFIED, by this Auditor's own reading of both live runs, not by trusting the repository's account
+of itself:** run #69 dispatched `20260910_0023_f105de_referral_reward_production_close.sql` against
+`main`@`649ccde` targeting production, refused itself at P2 with the exact cited digests, applied
+nothing — `BEGIN` with no `COMMIT`. Run #70 dispatched
+`PROBE_process_referral_reward_source_dump_readonly.sql` against `main`@`9d91c05` targeting
+production, read (not wrote), and returned live digests matching #69's and the repository's pinning
+test exactly, with the BUG-049 lock independently visible in the dumped source. Both runs used the
+correct production credential/project ref, both ran under an approved production deployment
+protection rule.
+
+**This entry satisfies `docs/DECISIONS.md` D-007's independent-verification requirement in full** —
+no sub-point is left at `EVIDENCE FILED`. Rule 20's §7.1 clause treats the eight named files as
+recognised on this ledger entry.
+
+*Auditor.*
