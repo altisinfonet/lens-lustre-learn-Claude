@@ -1,0 +1,252 @@
+P32 SESSION A — disposable PostgreSQL 16.13 fixture transcript
+Generated: 2026-09-21T12:19:07Z
+Fixture: local disposable p32_fixture DB, NOT staging/production.
+
+### STEP 1 — fixture built with the MEASURED live starting ACL (2026-09-21) ###
+DROP SCHEMA
+CREATE SCHEMA
+DO
+GRANT
+CREATE TABLE
+CREATE TABLE
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+DO
+GRANT
+             note             
+------------------------------
+ fixture ready, starting ACL:
+(1 row)
+
+          proname           |                                                  proacl                                                   
+----------------------------+-----------------------------------------------------------------------------------------------------------
+ admin_delete_auth_user     | {=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres}
+ get_public_role_user_ids   | {=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres}
+ password_verification_hook | {=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,supabase_auth_admin=X/postgres}
+(3 rows)
+
+DO
+
+### STEP 2 — PROBEs run BEFORE any revoke (must FAIL — C-34) ###
+--- PROBE_p32_money_account_control_closed.sql (BEFORE) ---
+BEGIN
+psql:/tmp/probe_test.sql:143: NOTICE:  --- P32 gate probe: money/account-control batch @ 2026-09-21T12:19:07Z UTC ---
+psql:/tmp/probe_test.sql:143: NOTICE:      lane database: p32_fixture
+psql:/tmp/probe_test.sql:143: ERROR:  C2 FAILED — anon can still EXECUTE public.admin_delete_auth_user(uuid) (oid 16467). A money-moving or account-destroying RPC is open to any holder of the public anon key. acl = {=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+CONTEXT:  PL/pgSQL function inline_code_block line 55 at RAISE
+ROLLBACK
+--- PROBE_p32_identity2_admin_search_and_generate_url_closed.sql (BEFORE) ---
+BEGIN
+psql:/tmp/probe_test.sql:113: NOTICE:  --- P32 identity-group-2 gate probe: admin search + generate_custom_url @ 2026-09-21T12:19:07Z UTC ---
+psql:/tmp/probe_test.sql:113: NOTICE:      lane database: p32_fixture
+psql:/tmp/probe_test.sql:113: ERROR:  C3 FAILED — anon can still EXECUTE public.admin_search_users(text, text) (oid 16478). acl = {=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres}
+CONTEXT:  PL/pgSQL function inline_code_block line 55 at RAISE
+ROLLBACK
+--- PROBE_p32_auth_hook_and_role_enum_closed.sql (BEFORE) ---
+BEGIN
+psql:/tmp/probe_test.sql:121: NOTICE:  --- P32 session-A gate probe @ 2026-09-21T12:19:07Z UTC ---
+psql:/tmp/probe_test.sql:121: NOTICE:      lane database: p32_fixture  (current_database)
+psql:/tmp/probe_test.sql:121: NOTICE:  HOOK-B5 exactly one function ........ PASS (oid 16483, acl {=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,supabase_auth_admin=X/postgres})
+psql:/tmp/probe_test.sql:121: ERROR:  HOOK-B2 FAILED — public/anon can still EXECUTE password_verification_hook (oid 16483, public=t, anon=t). Any caller of the public API key can lock or unlock an arbitrary user_id's sign-in. acl = {=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,supabase_auth_admin=X/postgres}
+CONTEXT:  PL/pgSQL function inline_code_block line 42 at RAISE
+ROLLBACK
+
+### STEP 3 — apply 0027, 0028, 0029 in order ###
+--- applying 20260910_0027_p32_money_account_control_revoke.sql ---
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+--- applying 20260910_0028_p32identity2_admin_search_and_generate_url_revoke.sql ---
+BEGIN
+REVOKE
+GRANT
+REVOKE
+GRANT
+REVOKE
+GRANT
+REVOKE
+GRANT
+REVOKE
+GRANT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMIT
+--- applying 20260910_0029_p32_auth_hook_and_role_enum_revoke.sql ---
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+GRANT
+COMMENT
+COMMENT
+
+### STEP 4 — PROBEs run AFTER revoke (must PASS) ###
+--- PROBE_p32_money_account_control_closed.sql (AFTER) ---
+BEGIN
+psql:/tmp/probe_test.sql:143: NOTICE:  --- P32 gate probe: money/account-control batch @ 2026-09-21T12:19:07Z UTC ---
+psql:/tmp/probe_test.sql:143: NOTICE:      lane database: p32_fixture
+psql:/tmp/probe_test.sql:143: NOTICE:  public.admin_delete_auth_user(uuid)                                        ........ PASS (oid 16467, anon=false, public_entries=0, authenticated=true, service_role=true, SECURITY DEFINER, VOLATILE)
+psql:/tmp/probe_test.sql:143: NOTICE:  public.admin_purge_orphan_user_data(uuid)                                  ........ PASS (oid 16468, anon=false, public_entries=0, authenticated=true, service_role=true, SECURITY DEFINER, VOLATILE)
+psql:/tmp/probe_test.sql:143: NOTICE:  public.admin_reject_wallet_transaction(uuid, uuid, text)                   ........ PASS (oid 16469, anon=false, public_entries=0, authenticated=true, service_role=true, SECURITY DEFINER, VOLATILE)
+psql:/tmp/probe_test.sql:143: NOTICE:  public.admin_wallet_credit(uuid, uuid, numeric, text, text, uuid, text, js ........ PASS (oid 16470, anon=false, public_entries=0, authenticated=true, service_role=true, SECURITY DEFINER, VOLATILE)
+psql:/tmp/probe_test.sql:143: NOTICE:  public.approve_deposit(uuid, uuid)                                         ........ PASS (oid 16471, anon=false, public_entries=0, authenticated=true, service_role=true, SECURITY DEFINER, VOLATILE)
+psql:/tmp/probe_test.sql:143: NOTICE:  public.create_pending_deposit(uuid, numeric, text, text, jsonb, text)      ........ PASS (oid 16472, anon=false, public_entries=0, authenticated=true, service_role=true, SECURITY DEFINER, VOLATILE)
+psql:/tmp/probe_test.sql:143: NOTICE:  public.expire_gift_credit(uuid)                                            ........ PASS (oid 16473, anon=false, public_entries=0, authenticated=true, service_role=true, SECURITY DEFINER, VOLATILE)
+psql:/tmp/probe_test.sql:143: NOTICE:  public.request_withdrawal(numeric, jsonb)                                  ........ PASS (oid 16474, anon=false, public_entries=0, authenticated=true, service_role=true, SECURITY DEFINER, VOLATILE)
+psql:/tmp/probe_test.sql:143: NOTICE:  public.soft_void_wallet_transactions(uuid[], text, uuid)                   ........ PASS (oid 16475, anon=false, public_entries=0, authenticated=true, service_role=true, SECURITY DEFINER, VOLATILE)
+psql:/tmp/probe_test.sql:143: NOTICE:  public.wallet_ledger_apply_v2(text, uuid, numeric, text, text, text, text, ........ PASS (oid 16476, anon=false, public_entries=0, authenticated=true, service_role=true, SECURITY DEFINER, VOLATILE)
+psql:/tmp/probe_test.sql:143: NOTICE:  public.wallet_transaction(uuid, text, numeric, text, uuid, text, jsonb)    ........ PASS (oid 16477, anon=false, public_entries=0, authenticated=true, service_role=true, SECURITY DEFINER, VOLATILE)
+psql:/tmp/probe_test.sql:143: NOTICE:  --- ALL ASSERTIONS PASSED for all 11 functions. Money/account-control batch closed to anon and public on this lane. Nothing was written. ---
+psql:/tmp/probe_test.sql:143: NOTICE:      Not tested here: PostgREST HTTP exposure (F-53) and the admin-UI/member-hook/edge-function callers actually working end to end — D2's half.
+psql:/tmp/probe_test.sql:143: NOTICE:      Remaining P32 scope, not this file: identity/enumeration (9), mail (5), competition-integrity (10), the 3 needing D2's ruling, and a written disposition for the 24 with zero callers.
+DO
+ROLLBACK
+--- PROBE_p32_identity2_admin_search_and_generate_url_closed.sql (AFTER) ---
+BEGIN
+psql:/tmp/probe_test.sql:113: NOTICE:  --- P32 identity-group-2 gate probe: admin search + generate_custom_url @ 2026-09-21T12:19:07Z UTC ---
+psql:/tmp/probe_test.sql:113: NOTICE:      lane database: p32_fixture
+psql:/tmp/probe_test.sql:113: NOTICE:  public.admin_search_users(text, text)                                          ........ PASS (oid 16478, anon=false, public_entries=0, authenticated=t, service_role=true, SECURITY DEFINER, VOLATILE, schema=public)
+psql:/tmp/probe_test.sql:113: NOTICE:  public.admin_search_users_v2(text, text, text, text, integer, integer)         ........ PASS (oid 16479, anon=false, public_entries=0, authenticated=t, service_role=true, SECURITY DEFINER, VOLATILE, schema=public)
+psql:/tmp/probe_test.sql:113: NOTICE:  public.admin_list_certificates(text, text, integer, integer)                   ........ PASS (oid 16480, anon=false, public_entries=0, authenticated=t, service_role=true, SECURITY DEFINER, VOLATILE, schema=public)
+psql:/tmp/probe_test.sql:113: NOTICE:  public.admin_search_certificate_recipients(text, integer)                      ........ PASS (oid 16481, anon=false, public_entries=0, authenticated=t, service_role=true, SECURITY DEFINER, VOLATILE, schema=public)
+psql:/tmp/probe_test.sql:113: NOTICE:  public.generate_custom_url(text, uuid)                                         ........ PASS (oid 16482, anon=false, public_entries=0, authenticated=f, service_role=true, SECURITY DEFINER, VOLATILE, schema=public)
+psql:/tmp/probe_test.sql:113: NOTICE:  --- ALL ASSERTIONS PASSED for all 5 functions. Nothing was written. ---
+psql:/tmp/probe_test.sql:113: NOTICE:      Not superseded/dispatched by this unit: UNAPPLIED_20260824000000_admin_user_list_pagination.sql, UNAPPLIED_20260825060000_certificate_types_and_admin_search.sql — each bundles index/constraint behaviour beyond this unit's ACL-only scope. See companion migration header.
+DO
+ROLLBACK
+--- PROBE_p32_auth_hook_and_role_enum_closed.sql (AFTER) ---
+BEGIN
+psql:/tmp/probe_test.sql:121: NOTICE:  --- P32 session-A gate probe @ 2026-09-21T12:19:07Z UTC ---
+psql:/tmp/probe_test.sql:121: NOTICE:      lane database: p32_fixture  (current_database)
+psql:/tmp/probe_test.sql:121: NOTICE:  HOOK-B5 exactly one function ........ PASS (oid 16483, acl {postgres=X/postgres,supabase_auth_admin=X/postgres})
+psql:/tmp/probe_test.sql:121: NOTICE:  HOOK-B2 public/anon/authenticated cannot execute (THE GATE) .. PASS
+psql:/tmp/probe_test.sql:121: NOTICE:  HOOK-B4 no over-revoke ............... PASS (supabase_auth_admin=true, as intended)
+psql:/tmp/probe_test.sql:121: NOTICE:  HOOK-B1 function unchanged in kind ... PASS (SECURITY DEFINER)
+psql:/tmp/probe_test.sql:121: NOTICE:  ROLE-B5 exactly one function ......... PASS (oid 16484, acl {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres})
+psql:/tmp/probe_test.sql:121: NOTICE:  ROLE-B2/B3 public/anon cannot execute (THE GATE) .. PASS
+psql:/tmp/probe_test.sql:121: NOTICE:  ROLE-B4 no over-revoke ................ PASS (authenticated=true, service_role=true)
+psql:/tmp/probe_test.sql:121: NOTICE:  ROLE-B1 function unchanged in kind ... PASS (SECURITY DEFINER, STABLE)
+psql:/tmp/probe_test.sql:121: NOTICE:  --- ALL ASSERTIONS PASSED for both functions in this unit. Nothing was written. ---
+DO
+ROLLBACK
+
+### STEP 5 — idempotence: re-apply all 3 a second time (must not error) ###
+--- re-applying 20260910_0027_p32_money_account_control_revoke.sql ---
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+--- re-applying 20260910_0028_p32identity2_admin_search_and_generate_url_revoke.sql ---
+BEGIN
+REVOKE
+GRANT
+REVOKE
+GRANT
+REVOKE
+GRANT
+REVOKE
+GRANT
+REVOKE
+GRANT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMIT
+--- re-applying 20260910_0029_p32_auth_hook_and_role_enum_revoke.sql ---
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+GRANT
+COMMENT
+COMMENT
+
+### STEP 6 — rollback simulation: manually re-GRANT what each file revoked, confirm PROBEs FAIL again (restorable) ###
+GRANT
+GRANT
+--- PROBE_p32_money_account_control_closed.sql (AFTER manual rollback of one function each — expect FAIL again, proving the PROBE is not vacuous) ---
+psql:/tmp/probe_test.sql:143: ERROR:  C2 FAILED — anon can still EXECUTE public.admin_delete_auth_user(uuid) (oid 16467). A money-moving or account-destroying RPC is open to any holder of the public anon key. acl = {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,=X/postgres,anon=X/postgres}
+--- PROBE_p32_auth_hook_and_role_enum_closed.sql (AFTER manual rollback of one function each — expect FAIL again, proving the PROBE is not vacuous) ---
+psql:/tmp/probe_test.sql:121: ERROR:  HOOK-B2 FAILED — public/anon can still EXECUTE password_verification_hook (oid 16483, public=t, anon=t). Any caller of the public API key can lock or unlock an arbitrary user_id's sign-in. acl = {postgres=X/postgres,supabase_auth_admin=X/postgres,=X/postgres,anon=X/postgres,authenticated=X/postgres}
