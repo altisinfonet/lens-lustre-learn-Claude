@@ -163,8 +163,27 @@ run_pair() { # unit shape mergedfile rollbackfile objs
   echo "   starting ACL ($first): $(acl "$db" "$first")"
   echo "   applying the MERGED $unit:"; F "$db" "$mf" >/dev/null && echo "      apply ok"
   echo "   post-apply ($first): $(acl "$db" "$first")"
-  echo "   running the new rollback:"
-  F "$db" "$rf" | sed 's/^/      /' | grep -v '^\s*$' | head -3
+  # ── R-12 CORRECTION 1 · the rollbacks now carry the R-9 lane guard, so the
+  #    fixture must assert the lane exactly as a human operator must. A harness
+  #    that could not run the file it is testing tests nothing.
+  echo "   running the new rollback (lane asserted, as the file's header requires):"
+  local rbout
+  rbout=$(su postgres -c "psql -v ON_ERROR_STOP=1 -q -d $db -c \"SET p32.lane = 'staging';\" -f $rf" 2>&1)
+  echo "$rbout" | sed 's/^/      /' | grep -v '^\s*$' | head -3
+  # ── R-12 CORRECTION 2 · assert the rollback ACTUALLY RAN. Run 1 of the R-12
+  #    unit showed this harness printing "PUBLIC holds EXECUTE on 0 of 11 ✅"
+  #    and exiting 0 while the rollback had REFUSED and changed nothing. A
+  #    PUBLIC-zero check passes vacuously on a file that never executed — C-34,
+  #    in the instrument rather than in the subject. Recorded, not patched away.
+  if echo "$rbout" | grep -q 'ROLLBACK REFUSED'; then
+    echo "   ✗✗ the rollback REFUSED — every check below would pass vacuously. Treated as a failure."
+    FAILED=1
+  elif ! echo "$rbout" | grep -q 'POST-CONDITION PASSED'; then
+    echo "   ✗✗ the rollback did not report POST-CONDITION PASSED. Treated as a failure."
+    FAILED=1
+  else
+    echo "   rollback ran and reported its own post-condition PASSED ✅"
+  fi
   echo "   post-rollback ($first): $(acl "$db" "$first")"
   local pb=0 ar=0
   for s in $objs; do
@@ -177,7 +196,12 @@ run_pair() { # unit shape mergedfile rollbackfile objs
     echo "   ⚠ BLOCKER-C, MEASURED: this fixture started with NO anon. After the rollback anon holds"
     echo "     EXECUTE on $ar of $(echo $objs | wc -w). On production that is an exposure the rollback created."
     echo "     0038 avoids this with a marker its own apply writes; 0027/0028 are merged and §8 forbids"
-    echo "     editing them, so they cannot record anything. Operating constraint: STAGING ONLY."
+    echo "     editing them, so they cannot record anything."
+    echo "     RULED R-9, ENFORCED R-12: the rollbacks now refuse unless the invoking session has"
+    echo "     asserted SET p32.lane = 'staging'. This fixture asserts it deliberately, which is why"
+    echo "     the production-shaped case is still able to demonstrate the exposure. On a real"
+    echo "     production session nobody would assert it, and the file would refuse. BLOCKER-C is"
+    echo "     RULED, not solved — production remains unmeasured (BLOCKER-B)."
   fi
   local C1; C1=$(acl "$db" "r8_canary_untouched(text)")
   [ "$C0" = "$C1" ] && echo "   canary: UNCHANGED ✅" || { echo "   ✗✗ CANARY CHANGED: [$C0] -> [$C1]"; FAILED=1; }

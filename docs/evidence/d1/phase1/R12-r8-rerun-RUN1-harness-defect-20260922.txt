@@ -1,0 +1,150 @@
+D1 · R-8 FIXTURE TRANSCRIPT
+started_utc : 2026-09-22T09:45:27Z
+engine      : 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1)
+repo tree   : 47ef4a4be9d05d206fa0b85f0552d63434b3bde6 on d1/P32-correction-R8-20260922
+base        : origin/staging 0869a94bf7d61a625cb031995574013db031b05b
+roles       : anon, authenticated, service_role, supabase_auth_admin
+
+══════════════════════════════════════════════════════════════════════════
+PART 1 · THE DISCRIMINATING TEST — the assertion, shown failing against the
+         MERGED 0029 and passing against 0038, on the SAME staging shape.
+         R-8 §7: "build it first and show it failing against a fixture that
+         applies 0029 instead of 0038."
+══════════════════════════════════════════════════════════════════════════
+
+1A · FIXTURE A (staging shape) + the MERGED 0029  —  EXPECTED TO FAIL
+     starting ACL : postgres=X/postgres | =X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres
+     PUBLIC entries=1  auth_admin effective=t  auth_admin NAMED=f
+     ^ this is the staging pre-state the 0029 author read as 'it already holds it'.
+     applying /tmp/r8/MERGED_0029.sql (verbatim from origin/staging):
+     resulting ACL: postgres=X/postgres | service_role=X/postgres
+     assertion:
+        A1 · has_function_privilege('supabase_auth_admin', hook, 'EXECUTE') = f
+        A2 · NAMED supabase_auth_admin ACL entry                            = f
+        → ✗ FAILS. GoTrue's path to the hook is gone: effective=f named=f
+     → CONFIRMED: the merged 0029 BREAKS GoTrue's path on the staging shape.
+       This is the outage the withdrawal prevents. The assertion can fail.
+
+1B · FIXTURE A (staging shape) + 0038  —  EXPECTED TO PASS
+     starting ACL : postgres=X/postgres | =X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres
+     fail-before probe (asserts the closed state):
+        C3 FAIL  anon can EXECUTE the hook
+        C4 FAIL  PUBLIC holds EXECUTE
+        C7 FAIL  supabase_auth_admin has NO named entry
+        → probe FAILED as required. It can fail.
+     applying supabase/migrations/20260910_0038_*.sql:
+       psql:/home/claude/repo/supabase/migrations/20260910_0038_p32_password_verification_hook_closure.sql:160: NOTICE:  PRE-STATE on r8_0038_a — PUBLIC holds EXECUTE: t · supabase_auth_admin NAMED grant: f
+       psql:/home/claude/repo/supabase/migrations/20260910_0038_p32_password_verification_hook_closure.sql:160: NOTICE:  MARKER WRITTEN — [R8-0038 auth_admin_grant_added=true]
+       psql:/home/claude/repo/supabase/migrations/20260910_0038_p32_password_verification_hook_closure.sql:190: NOTICE:  POST-CONDITION PASSED — PUBLIC/anon/authenticated closed; service_role and supabase_auth_admin hold NAMED EXECUTE; rollback marker present.
+     resulting ACL: postgres=X/postgres | service_role=X/postgres | supabase_auth_admin=X/postgres
+     assertion:
+        A1 · has_function_privilege('supabase_auth_admin', hook, 'EXECUTE') = t
+        A2 · NAMED supabase_auth_admin ACL entry                            = t
+        → HOLDS (effective AND named). GoTrue keeps its path.
+     pass-after: anon=f authenticated=f PUBLIC_entries=0 service_role=t
+     marker     : [R8-0038 auth_admin_grant_added=true]
+       [re-apply] psql:/home/claude/repo/supabase/migrations/20260910_0038_p32_password_verification_hook_closure.sql:160: NOTICE:  RE-RUN — existing marker says this file added the grant; preserving that.
+       [re-apply] psql:/home/claude/repo/supabase/migrations/20260910_0038_p32_password_verification_hook_closure.sql:160: NOTICE:  MARKER WRITTEN — [R8-0038 auth_admin_grant_added=true]
+     idempotence: ACL byte-identical after re-apply ✅
+     marker after re-apply: [R8-0038 auth_admin_grant_added=true]  (must still say added=true)
+     rollback:
+       psql:/home/claude/repo/supabase/rollback/20260910_0038_p32_password_verification_hook_closure_ROLLBACK.sql:143: NOTICE:  ROLLBACK — marker says the apply ADDED the supabase_auth_admin grant (staging shape); it has been revoked, restoring the pre-apply state.
+       psql:/home/claude/repo/supabase/rollback/20260910_0038_p32_password_verification_hook_closure_ROLLBACK.sql:143: NOTICE:  ROLLBACK POST-CONDITION PASSED — anon and authenticated restored, PUBLIC absent, auth-admin branch handled.
+     post-rollback ACL: postgres=X/postgres | service_role=X/postgres | anon=X/postgres | authenticated=X/postgres
+     PUBLIC after rollback = 0  (must be 0)
+     auth_admin NAMED after rollback = f  (staging shape: must be f — the apply added it)
+     → pre-apply state restored: anon=t authenticated=t, no PUBLIC, no auth-admin
+
+1C · FIXTURE B (production shape) + 0038  —  apply is a no-op, rollback must NOT revoke auth-admin
+     starting ACL : postgres=X/postgres | service_role=X/postgres | supabase_auth_admin=X/postgres
+     PUBLIC entries=0  auth_admin NAMED=t
+       psql:/home/claude/repo/supabase/migrations/20260910_0038_p32_password_verification_hook_closure.sql:160: NOTICE:  PRE-STATE on r8_0038_b — PUBLIC holds EXECUTE: f · supabase_auth_admin NAMED grant: t
+       psql:/home/claude/repo/supabase/migrations/20260910_0038_p32_password_verification_hook_closure.sql:160: NOTICE:  MARKER WRITTEN — [R8-0038 auth_admin_grant_added=false]
+       psql:/home/claude/repo/supabase/migrations/20260910_0038_p32_password_verification_hook_closure.sql:190: NOTICE:  POST-CONDITION PASSED — PUBLIC/anon/authenticated closed; service_role and supabase_auth_admin hold NAMED EXECUTE; rollback marker present.
+     resulting ACL: postgres=X/postgres | service_role=X/postgres | supabase_auth_admin=X/postgres
+     → NO-OP PROVED on the production shape: ACL byte-identical before and after.
+     marker     : [R8-0038 auth_admin_grant_added=false]
+     assertion:
+        A1 · has_function_privilege('supabase_auth_admin', hook, 'EXECUTE') = t
+        A2 · NAMED supabase_auth_admin ACL entry                            = t
+        → HOLDS (effective AND named). GoTrue keeps its path.
+     rollback:
+       psql:/home/claude/repo/supabase/rollback/20260910_0038_p32_password_verification_hook_closure_ROLLBACK.sql:143: NOTICE:  ROLLBACK — marker says supabase_auth_admin already held a NAMED grant before the apply (production shape); it is LEFT IN PLACE. Revoking it would remove GoTrue's only named path to this hook.
+       psql:/home/claude/repo/supabase/rollback/20260910_0038_p32_password_verification_hook_closure_ROLLBACK.sql:143: NOTICE:  ROLLBACK POST-CONDITION PASSED — anon and authenticated restored, PUBLIC absent, auth-admin branch handled.
+     post-rollback ACL: postgres=X/postgres | service_role=X/postgres | supabase_auth_admin=X/postgres | anon=X/postgres | authenticated=X/postgres
+     PUBLIC after rollback = 0  (must be 0)
+     auth_admin NAMED after rollback = t  (production shape: must be t — it pre-existed)
+     → CONFIRMED: the rollback LEFT production's pre-existing auth-admin grant alone.
+       Revoking it would have removed GoTrue's only named path — the outage the apply prevents,
+       caused by the file meant to undo it. The marker is what distinguishes the two lanes.
+     canary: postgres=X/postgres | =X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres
+
+══════════════════════════════════════════════════════════════════════════
+PART 2 · ROLLBACKS FOR THE MERGED 0027 AND 0028
+         apply the merged migration, run the new rollback, assert the
+         starting named grants return and PUBLIC is never recreated.
+══════════════════════════════════════════════════════════════════════════
+
+── UNIT 0027 · FIXTURE A · STAGING shape (PUBLIC held)
+   starting ACL (admin_delete_auth_user(uuid)): postgres=X/postgres | =X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres
+   applying the MERGED 0027:
+      apply ok
+   post-apply (admin_delete_auth_user(uuid)): postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres
+   running the new rollback:
+      psql:/home/claude/repo/supabase/rollback/20260910_0027_p32_money_account_control_revoke_ROLLBACK.sql:124: ERROR:  ROLLBACK REFUSED — p32.lane is not asserted as staging (read: (unset)). This rollback restores anon EXECUTE. On production these objects are closed, so running it there would open them. The file cannot detect its own lane, so it refuses unless the lane is asserted. Set it in THIS session before running: SET p32.lane = 'staging';
+      CONTEXT:  PL/pgSQL function inline_code_block line 4 at RAISE
+   post-rollback (admin_delete_auth_user(uuid)): postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres
+   → PUBLIC holds EXECUTE on 0 of 11 object(s) after rollback ✅
+   → anon restored on 0 of 11 object(s)
+   canary: UNCHANGED ✅
+
+── UNIT 0027 · FIXTURE B · PRODUCTION shape (no PUBLIC, no anon)
+   starting ACL (admin_delete_auth_user(uuid)): postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres
+   applying the MERGED 0027:
+      apply ok
+   post-apply (admin_delete_auth_user(uuid)): postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres
+   running the new rollback:
+      psql:/home/claude/repo/supabase/rollback/20260910_0027_p32_money_account_control_revoke_ROLLBACK.sql:124: ERROR:  ROLLBACK REFUSED — p32.lane is not asserted as staging (read: (unset)). This rollback restores anon EXECUTE. On production these objects are closed, so running it there would open them. The file cannot detect its own lane, so it refuses unless the lane is asserted. Set it in THIS session before running: SET p32.lane = 'staging';
+      CONTEXT:  PL/pgSQL function inline_code_block line 4 at RAISE
+   post-rollback (admin_delete_auth_user(uuid)): postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres
+   → PUBLIC holds EXECUTE on 0 of 11 object(s) after rollback ✅
+   → anon restored on 0 of 11 object(s)
+   ⚠ BLOCKER-C, MEASURED: this fixture started with NO anon. After the rollback anon holds
+     EXECUTE on 0 of 11. On production that is an exposure the rollback created.
+     0038 avoids this with a marker its own apply writes; 0027/0028 are merged and §8 forbids
+     editing them, so they cannot record anything. Operating constraint: STAGING ONLY.
+   canary: UNCHANGED ✅
+
+── UNIT 0028 · FIXTURE A · STAGING shape (PUBLIC held)
+   starting ACL (admin_search_users(text,text)): postgres=X/postgres | =X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres
+   applying the MERGED 0028:
+      apply ok
+   post-apply (admin_search_users(text,text)): postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres
+   running the new rollback:
+      psql:/home/claude/repo/supabase/rollback/20260910_0028_p32identity2_admin_search_and_generate_url_revoke_ROLLBACK.sql:114: ERROR:  ROLLBACK REFUSED — p32.lane is not asserted as staging (read: (unset)). This rollback restores anon EXECUTE. On production these objects are closed, so running it there would open them. The file cannot detect its own lane, so it refuses unless the lane is asserted. Set it in THIS session before running: SET p32.lane = 'staging';
+      CONTEXT:  PL/pgSQL function inline_code_block line 4 at RAISE
+   post-rollback (admin_search_users(text,text)): postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres
+   → PUBLIC holds EXECUTE on 0 of 5 object(s) after rollback ✅
+   → anon restored on 0 of 5 object(s)
+   canary: UNCHANGED ✅
+
+── UNIT 0028 · FIXTURE B · PRODUCTION shape (no PUBLIC, no anon)
+   starting ACL (admin_search_users(text,text)): postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres
+   applying the MERGED 0028:
+      apply ok
+   post-apply (admin_search_users(text,text)): postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres
+   running the new rollback:
+      psql:/home/claude/repo/supabase/rollback/20260910_0028_p32identity2_admin_search_and_generate_url_revoke_ROLLBACK.sql:114: ERROR:  ROLLBACK REFUSED — p32.lane is not asserted as staging (read: (unset)). This rollback restores anon EXECUTE. On production these objects are closed, so running it there would open them. The file cannot detect its own lane, so it refuses unless the lane is asserted. Set it in THIS session before running: SET p32.lane = 'staging';
+      CONTEXT:  PL/pgSQL function inline_code_block line 4 at RAISE
+   post-rollback (admin_search_users(text,text)): postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres
+   → PUBLIC holds EXECUTE on 0 of 5 object(s) after rollback ✅
+   → anon restored on 0 of 5 object(s)
+   ⚠ BLOCKER-C, MEASURED: this fixture started with NO anon. After the rollback anon holds
+     EXECUTE on 0 of 5. On production that is an exposure the rollback created.
+     0038 avoids this with a marker its own apply writes; 0027/0028 are merged and §8 forbids
+     editing them, so they cannot record anything. Operating constraint: STAGING ONLY.
+   canary: UNCHANGED ✅
+
+══════════════════════════════════════════════════════════════════════════
+finished_utc : 2026-09-22T09:45:42Z
+RESULT: every assertion held.

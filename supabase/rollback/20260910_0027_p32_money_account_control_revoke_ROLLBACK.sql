@@ -39,9 +39,13 @@
 --     =X/postgres | postgres=X/postgres | anon=X/postgres |
 --     authenticated=X/postgres | service_role=X/postgres      PUBLIC: held
 --   PRODUCTION — RELAYED from the Auditor's two-lane diff, not measured here:
---     the nine Set C objects are already closed;
---     `request_withdrawal(numeric, jsonb)` reads
---     `postgres | authenticated | service_role | anon`         PUBLIC: NOT held
+--     TEN Set C objects are already closed to anon on production —
+--       admin_delete_auth_user, admin_purge_orphan_user_data,
+--       admin_reject_wallet_transaction, admin_wallet_credit, approve_deposit,
+--       create_pending_deposit, expire_gift_credit, soft_void_wallet_transactions,
+--       wallet_ledger_apply_v2, wallet_transaction
+--     the eleventh, request_withdrawal(numeric, jsonb), is Set B and reads
+--       postgres | authenticated | service_role | anon        PUBLIC: NOT held
 --
 -- Restoring staging's PUBLIC grant on production would create an exposure that
 -- has never existed there, on eleven money-and-account-control functions. That
@@ -49,9 +53,13 @@
 -- staging, deliberately, and the difference is documented rather than closed
 -- silently.
 --
--- ⚠ AN ADJACENT HAZARD, RAISED AND NOT SOLVED HERE — see BLOCKER-C in
--- docs/evidence/d1/phase1/R8-BLOCKERS-20260922.md.
--- Nine of these eleven are ALREADY CLOSED to `anon` on production (relayed).
+-- ═════════════════════════════════════════════════════════════════════════
+-- THE LANE HAZARD — RULED BY THE AUDITOR (R-9) AND NOW ENFORCED IN THIS FILE
+--
+-- Tracked as BLOCKER-C in docs/evidence/d1/phase1/R8-BLOCKERS-20260922.md,
+-- which R-9 closes as **ruled**, not as solved.
+--
+-- TEN of these eleven are ALREADY CLOSED to `anon` on production (relayed).
 -- Running this rollback there would GRANT `anon` EXECUTE on functions that do
 -- not have it today. The file cannot detect its own lane: `current_database()`
 -- is `postgres` on both, and the session-pooler username `apply-migration.yml`
@@ -59,16 +67,61 @@
 --
 -- `0038` solves its own version of this by having its APPLY write a marker for
 -- its rollback to read. **That option is not available here**: `0027` is merged
--- and §8 forbids editing it, so it cannot be made to record anything. A lane
--- interlock is an operating convention and conventions are the Auditor's.
+-- and §8 forbids editing it, so it cannot be made to record anything.
 --
---   **OPERATING CONSTRAINT UNTIL THE AUDITOR RULES: STAGING ONLY. Do not run
---   this rollback against production.**
+-- R-9's remedy is therefore an ASSERTION, not a detection. The guard placed
+-- immediately after `BEGIN;` below — before the first `GRANT` of any kind —
+-- refuses to run unless the invoking session has asserted the lane. It is
+-- executable and fatal. The previous revision of this file carried the same
+-- constraint as prose, and a comment is not a control.
+--
+--   RUN IT LIKE THIS, AND ONLY LIKE THIS:
+--
+--     SET p32.lane = 'staging';   -- in THIS session, BEFORE `BEGIN`
+--     \i supabase/rollback/20260910_0027_p32_money_account_control_revoke_ROLLBACK.sql
+--
+--   The comparison is exact and case-sensitive: 'Staging', 'STAGING',
+--   ' staging', the empty string and unset all refuse.
+--
+--   **This file never sets `p32.lane` itself** — no `SET`, no `SET LOCAL`, no
+--   `set_config()` for it anywhere below. A file that set its own assertion
+--   would assert nothing.
+--
+--   No environmental discriminator is used, and none may be added:
+--   `current_database()`, the pooler username, `plpgsql_check`'s schema
+--   (itself a P33 target at ordinal `0031` — a guard reading it would silently
+--   invert on the day that migration runs), project or host names, and
+--   `pg_authid` / `pg_namespace` differences are all forbidden here.
+--   Assertion only.
+--
+-- THIS CONSTRAINT IS NOT PERMANENT. It is lifted when EITHER:
+--   (a) the R-13 lane interlock is live and apply-migration.yml sets p32.lane
+--       from its own lane guard; OR
+--   (b) the production ACL for the objects this file covers has been MEASURED
+--       directly — not relayed — and this rollback has been re-cut against that
+--       evidence.
+-- Until one of those is true, this file runs on staging or it does not run.
 --
 -- IDEMPOTENCE — GRANT is idempotent; re-running changes nothing.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 BEGIN;
+
+-- ── R-9 LANE GUARD — executable, fatal, first. ─────────────────────────────
+DO $lane_guard$
+BEGIN
+  IF coalesce(current_setting('p32.lane', true), '') <> 'staging' THEN
+    RAISE EXCEPTION
+      'ROLLBACK REFUSED — p32.lane is not asserted as staging (read: %). '
+      'This rollback restores anon EXECUTE. On production these objects are '
+      'closed, so running it there would open them. The file cannot detect its '
+      'own lane, so it refuses unless the lane is asserted. '
+      'Set it in THIS session before running: SET p32.lane = ''staging'';',
+      coalesce(current_setting('p32.lane', true), '(unset)')
+    USING ERRCODE = 'raise_exception';
+  END IF;
+END
+$lane_guard$;
 
 GRANT EXECUTE ON FUNCTION public.admin_delete_auth_user(_uid uuid) TO anon;
 GRANT EXECUTE ON FUNCTION public.admin_purge_orphan_user_data(_uid uuid) TO anon;
