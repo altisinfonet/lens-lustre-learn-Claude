@@ -1,0 +1,925 @@
+From e9c6c9afcaef98dc2107eb19dd2f4cb09087715e Mon Sep 17 00:00:00 2001
+From: D1 Database and Runtime <d1@50mm.local>
+Date: Thu, 3 Sep 2026 12:49:33 +0000
+Subject: [PATCH] d1(P1): REVOKE FROM PUBLIC on search_certificates and
+ recompute_entry_from_tag_assignments
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Phase 1 opener. Two migrations, each with its rollback, each ending with the
+F-66 verification SELECT and — because a SELECT cannot stop an apply — a
+DO block that RAISEs so a bad state cannot commit.
+
+Both targets are F-62 class TRAP-BOTH: anon holds a named grant AND inherits
+one through PUBLIC, so a single REVOKE of either kind succeeds and changes
+nothing. Both files revoke both, and prove it.
+
+Shown failing first on a scratch PostgreSQL 16.13 carrying production's own
+default-privilege rule: 12 scenarios, 5 planted defects, all caught.
+
+⚠ 20260910_0001 is NOT applicable yet. search_certificates is called from the
+public unguarded /verify page (src/pages/VerifyCertificate.tsx:101), whose
+handler renders a permission denial as "Certificate not found". Client first,
+database second. The file carries an acknowledgement guard that refuses until
+the client change has landed.
+
+⚠ The method's precondition is unmet: D2's call-site inventory is not
+delivered and the revocation list is not frozen. Recorded, not worked around.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GC3SdkjFKDCgX6nLVLABNm
+---
+ docs/evidence/d1/P1/P1-fixture-transcript.txt | 198 ++++++++++++++++++
+ .../evidence/d1/P1/P1-opener-revoke-public.md | 172 +++++++++++++++
+ ...0001_revoke_public_search_certificates.sql | 176 ++++++++++++++++
+ ...c_recompute_entry_from_tag_assignments.sql | 138 ++++++++++++
+ ...ke_public_search_certificates_ROLLBACK.sql |  75 +++++++
+ ...te_entry_from_tag_assignments_ROLLBACK.sql |  82 ++++++++
+ 6 files changed, 841 insertions(+)
+ create mode 100644 docs/evidence/d1/P1/P1-fixture-transcript.txt
+ create mode 100644 docs/evidence/d1/P1/P1-opener-revoke-public.md
+ create mode 100644 supabase/migrations/20260910_0001_revoke_public_search_certificates.sql
+ create mode 100644 supabase/migrations/20260910_0002_revoke_public_recompute_entry_from_tag_assignments.sql
+ create mode 100644 supabase/rollback/20260910_0001_revoke_public_search_certificates_ROLLBACK.sql
+ create mode 100644 supabase/rollback/20260910_0002_revoke_public_recompute_entry_from_tag_assignments_ROLLBACK.sql
+
+diff --git a/docs/evidence/d1/P1/P1-fixture-transcript.txt b/docs/evidence/d1/P1/P1-fixture-transcript.txt
+new file mode 100644
+index 0000000..976385f
+--- /dev/null
++++ b/docs/evidence/d1/P1/P1-fixture-transcript.txt
+@@ -0,0 +1,198 @@
++═══════════════════════════════════════════════════════════════════════════════
++P1 OPENER · FIXTURE TRANSCRIPT — the two REVOKE FROM PUBLIC migrations shown
++FAILING FIRST, then passing. C-34: a test that could not have failed is not
++evidence.
++
++Instance : scratch PostgreSQL 16.13 in the D1 container, port 5433, local socket.
++           No real data. Production and staging were NOT written to — F-65: grant
++           controls run on fixtures, a lane is not touched to prove a property of
++           PostgreSQL.
++Date     : 2026-09-03
++Repo ref : branch d1/P1-revoke-public-20260903, cut from origin/staging 5cd5ba6
++═══════════════════════════════════════════════════════════════════════════════
++
++── 1 · THE FIXTURE IS PRODUCTION'S SHAPE, NOT AN APPROXIMATION ────────────────
++
++Production's default-privilege rule, read from pg_default_acl 2026-09-03
++12:29:14Z, SELECT only — ONE entry for public functions, granted by postgres:
++
++    {anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++
++installed on the fixture as:
++
++    ALTER DEFAULT PRIVILEGES IN SCHEMA public
++      GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
++
++Both target functions were then created under it. The ACL they were BORN with:
++
++    recompute_entry_from_tag_assignments(uuid)
++      {=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++    search_certificates(text,text,date)
++      {=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++
++That is BYTE-FOR-BYTE the ACL measured on production for both functions at
++2026-09-03 12:28:13Z. The fixture is not a model of production's grant posture;
++it is the same posture, arrived at the same way. F-66 in one line: the rule ADDS
++TO PostgreSQL's built-in default rather than replacing it, so the leading
++`=X/postgres` — PUBLIC — is there from birth.
++
++── 2 · HOW THE DEFECT VARIANTS WERE MADE ──────────────────────────────────────
++
++Each negative control is the REAL migration file with ONE line changed by sed.
++Nothing was hand-written, so the verification block under test is provably the
++shipped one:
++
++    no_public : sed '/^REVOKE ALL ON FUNCTION.*FROM PUBLIC;$/d'
++    no_anon   : sed '/^REVOKE ALL ON FUNCTION.*FROM anon;$/d'
++    too_wide  : sed 's/^\(REVOKE ALL ON FUNCTION.*\) FROM anon;$/\1 FROM anon, authenticated;/'
++
++sha256 of the DO $verify$ block, extracted from each file with awk:
++
++    shipped 20260910_0001  07a830fdef34889dce7713e0dc89daac3b4d94d1a213ab0830422ac32de54e22
++    no_public variant      07a830fdef34889dce7713e0dc89daac3b4d94d1a213ab0830422ac32de54e22
++    no_anon variant        07a830fdef34889dce7713e0dc89daac3b4d94d1a213ab0830422ac32de54e22
++    too_wide variant       07a830fdef34889dce7713e0dc89daac3b4d94d1a213ab0830422ac32de54e22
++
++Identical. The control is unchanged; only the thing being controlled moved.
++
++── 3 · A DEFECT THE FIXTURE CAUGHT IN THIS FILE, BEFORE DELIVERY ──────────────
++
++The first draft looked the function up with
++
++    AND pg_get_function_identity_arguments(p.oid) = 'text, text, date'
++
++The fixture returned zero rows and the apply aborted with "does not exist".
++pg_get_function_identity_arguments INCLUDES PARAMETER NAMES when the function
++has them:
++
++    _name text, _course_title text, _issued_date date
++
++so the comparison could never match — on production either. Replaced with
++to_regprocedure('public.search_certificates(text, text, date)'), which resolves
++by TYPE signature, is independent of parameter names, and returns NULL rather
++than raising when the function is absent.
++
++This is the same class as the A4 correction in the TC-v3 unit. Recorded because
++a fixture that never catches anything is not doing its job.
++
++── 4 · EVERY SCENARIO, RUN ────────────────────────────────────────────────────
++══════════════════════════════════════════════════════════════════════════
++SCENARIO : a1_0001_correct
++EXPECTED : COMMIT + verdict PASS
++         |                     unit                     |                                 proacl                                 | public_holds_execute | anon_execute | authenticated_execute | service_role_execute | verdict |   measured_at_utc
++         |  P31 · search_certificates(text, text, date) | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | f                    | f            | t                     | t                    | PASS    | 2026-09-03T12:48:00Z
++         |                     unit                     |                                 proacl                                 | public_holds_execute | anon_execute | authenticated_execute | service_role_execute | verdict |   measured_at_utc
++         | ---------------------------------------------+------------------------------------------------------------------------+----------------------+--------------+-----------------------+----------------------+---------+----------------------
++         |  P31 · search_certificates(text, text, date) | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | f                    | f            | t                     | t                    | PASS    | 2026-09-03T12:48:00Z
++OUTCOME  : ✓ APPLY COMMITTED
++══════════════════════════════════════════════════════════════════════════
++SCENARIO : a2_0001_guard_unset
++EXPECTED : ABORT - client change not acknowledged
++         | psql:/home/claude/wt/p1/supabase/migrations/20260910_0001_revoke_public_search_certificates.sql:103: ERROR:  REFUSED: /verify "search by details" still calls search_certificates as anon. Land D2 client change first, then SET d1.ack_search_certificates_client_updated = 'yes';
++OUTCOME  : ✗ APPLY ABORTED — nothing committed
++══════════════════════════════════════════════════════════════════════════
++SCENARIO : a3_0001_no_public
++EXPECTED : ABORT - F-62 trap: anon still executes
++         | psql:/tmp/fx/v/m1_no_public.sql:155: ERROR:  VERIFY FAILED: PUBLIC still holds EXECUTE (proacl {=X/postgres,postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}). The REVOKE FROM PUBLIC did not take.
++OUTCOME  : ✗ APPLY ABORTED — nothing committed
++══════════════════════════════════════════════════════════════════════════
++SCENARIO : a4_0001_no_anon
++EXPECTED : ABORT - named anon grant remains
++         | psql:/tmp/fx/v/m1_no_anon.sql:155: ERROR:  VERIFY FAILED: anon can still EXECUTE (proacl {postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}). F-62: the REVOKE succeeded and changed nothing.
++OUTCOME  : ✗ APPLY ABORTED — nothing committed
++══════════════════════════════════════════════════════════════════════════
++SCENARIO : a5_0001_too_wide
++EXPECTED : ABORT - authenticated lost (outage control)
++         | psql:/tmp/fx/v/m1_too_wide.sql:156: ERROR:  VERIFY FAILED: authenticated LOST EXECUTE (proacl {postgres=X/postgres,service_role=X/postgres}). This revoke exceeded the frozen Phase 1 list and breaks logged-in certificate search.
++OUTCOME  : ✗ APPLY ABORTED — nothing committed
++══════════════════════════════════════════════════════════════════════════
++SCENARIO : a6_0001_f64_reopen
++EXPECTED : ABORT - DROP+CREATE reopened it (F-64)
++         |                     unit                     |                                 proacl                                 | public_holds_execute | anon_execute | authenticated_execute | service_role_execute | verdict |   measured_at_utc
++         |  P31 · search_certificates(text, text, date) | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | f                    | f            | t                     | t                    | PASS    | 2026-09-03T12:48:00Z
++         | psql:/tmp/fx/v/m1_f64_reopen.sql:45: ERROR:  VERIFY FAILED: PUBLIC still holds EXECUTE (proacl {=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}). The REVOKE FROM PUBLIC did not take.
++         |                     unit                     |                                 proacl                                 | public_holds_execute | anon_execute | authenticated_execute | service_role_execute | verdict |   measured_at_utc
++         | ---------------------------------------------+------------------------------------------------------------------------+----------------------+--------------+-----------------------+----------------------+---------+----------------------
++         |  P31 · search_certificates(text, text, date) | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | f                    | f            | t                     | t                    | PASS    | 2026-09-03T12:48:00Z
++OUTCOME  : ✗ APPLY ABORTED — nothing committed
++══════════════════════════════════════════════════════════════════════════
++SCENARIO : a7_0001_rollback
++EXPECTED : COMMIT + anon restored, PUBLIC not restored
++         |                     unit                     |                                 proacl                                 | public_holds_execute | anon_execute | authenticated_execute | service_role_execute | verdict |   measured_at_utc
++         |  P31 · search_certificates(text, text, date) | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | f                    | f            | t                     | t                    | PASS    | 2026-09-03T12:48:01Z
++         |                          unit                         |                                         proacl                                         | anon_execute | authenticated_execute | verdict |   measured_at_utc
++         |  ROLLBACK P31 · search_certificates(text, text, date) | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres} | t            | t                     | PASS    | 2026-09-03T12:48:01Z
++         |                     unit                     |                                 proacl                                 | public_holds_execute | anon_execute | authenticated_execute | service_role_execute | verdict |   measured_at_utc
++         | ---------------------------------------------+------------------------------------------------------------------------+----------------------+--------------+-----------------------+----------------------+---------+----------------------
++         |  P31 · search_certificates(text, text, date) | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | f                    | f            | t                     | t                    | PASS    | 2026-09-03T12:48:01Z
++         | --
++         |                          unit                         |                                         proacl                                         | anon_execute | authenticated_execute | verdict |   measured_at_utc
++         | ------------------------------------------------------+----------------------------------------------------------------------------------------+--------------+-----------------------+---------+----------------------
++         |  ROLLBACK P31 · search_certificates(text, text, date) | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres} | t            | t                     | PASS    | 2026-09-03T12:48:01Z
++OUTCOME  : ✓ APPLY COMMITTED
++══════════════════════════════════════════════════════════════════════════
++SCENARIO : b1_0002_correct
++EXPECTED : COMMIT + verdict PASS
++         |                        unit                       |                                 proacl                                 | public_holds_execute | anon_execute | authenticated_execute | service_role_execute | verdict |   measured_at_utc
++         |  P32 · recompute_entry_from_tag_assignments(uuid) | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | f                    | f            | t                     | t                    | PASS    | 2026-09-03T12:48:01Z
++         |                        unit                       |                                 proacl                                 | public_holds_execute | anon_execute | authenticated_execute | service_role_execute | verdict |   measured_at_utc
++         | --------------------------------------------------+------------------------------------------------------------------------+----------------------+--------------+-----------------------+----------------------+---------+----------------------
++         |  P32 · recompute_entry_from_tag_assignments(uuid) | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | f                    | f            | t                     | t                    | PASS    | 2026-09-03T12:48:01Z
++OUTCOME  : ✓ APPLY COMMITTED
++══════════════════════════════════════════════════════════════════════════
++SCENARIO : b2_0002_no_public
++EXPECTED : ABORT - F-62 trap: anon still executes
++         | psql:/tmp/fx/v/m2_no_public.sql:117: ERROR:  VERIFY FAILED: PUBLIC still holds EXECUTE (proacl {=X/postgres,postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}). The REVOKE FROM PUBLIC did not take.
++OUTCOME  : ✗ APPLY ABORTED — nothing committed
++══════════════════════════════════════════════════════════════════════════
++SCENARIO : b3_0002_no_anon
++EXPECTED : ABORT - named anon grant remains
++         | psql:/tmp/fx/v/m2_no_anon.sql:117: ERROR:  VERIFY FAILED: anon can still EXECUTE (proacl {postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}). F-62: the REVOKE succeeded and changed nothing.
++OUTCOME  : ✗ APPLY ABORTED — nothing committed
++══════════════════════════════════════════════════════════════════════════
++SCENARIO : b4_0002_too_wide
++EXPECTED : ABORT - authenticated lost (outage control)
++         | psql:/tmp/fx/v/m2_too_wide.sql:118: ERROR:  VERIFY FAILED: authenticated LOST EXECUTE (proacl {postgres=X/postgres,service_role=X/postgres}). This revoke exceeded the frozen Phase 1 list.
++OUTCOME  : ✗ APPLY ABORTED — nothing committed
++══════════════════════════════════════════════════════════════════════════
++SCENARIO : b5_0002_rollback
++EXPECTED : COMMIT + anon restored, PUBLIC not restored
++         |                        unit                       |                                 proacl                                 | public_holds_execute | anon_execute | authenticated_execute | service_role_execute | verdict |   measured_at_utc
++         |  P32 · recompute_entry_from_tag_assignments(uuid) | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | f                    | f            | t                     | t                    | PASS    | 2026-09-03T12:48:01Z
++         |                            unit                            |                                         proacl                                         | anon_execute | authenticated_execute | verdict |   measured_at_utc
++         |  ROLLBACK P32 · recompute_entry_from_tag_assignments(uuid) | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres} | t            | t                     | PASS    | 2026-09-03T12:48:01Z
++         |                        unit                       |                                 proacl                                 | public_holds_execute | anon_execute | authenticated_execute | service_role_execute | verdict |   measured_at_utc
++         | --------------------------------------------------+------------------------------------------------------------------------+----------------------+--------------+-----------------------+----------------------+---------+----------------------
++         |  P32 · recompute_entry_from_tag_assignments(uuid) | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | f                    | f            | t                     | t                    | PASS    | 2026-09-03T12:48:01Z
++         | --
++         |                            unit                            |                                         proacl                                         | anon_execute | authenticated_execute | verdict |   measured_at_utc
++         | -----------------------------------------------------------+----------------------------------------------------------------------------------------+--------------+-----------------------+---------+----------------------
++         |  ROLLBACK P32 · recompute_entry_from_tag_assignments(uuid) | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres} | t            | t                     | PASS    | 2026-09-03T12:48:01Z
++OUTCOME  : ✓ APPLY COMMITTED
++
++── 5 · SUMMARY ────────────────────────────────────────────────────────────────
++
++    12 scenarios · 4 committed as designed · 8 aborted as designed · 0 surprises
++
++Five distinct defects were planted and every one was caught by the migration's
++own verification block, aborting the transaction so nothing could be committed:
++
++    PUBLIC revoke omitted        -> PUBLIC still holds EXECUTE
++    anon revoke omitted          -> anon still executes through its named grant
++    revoke widened to authenticated -> authenticated LOST EXECUTE (the outage control)
++    guard not acknowledged       -> refused before touching a single grant
++    DROP + CREATE after a clean apply -> reopened, F-64, caught by re-running the
++                                         SHIPPED verification block verbatim
++
++Post-apply ACL on both functions, and this is what to expect on production:
++
++    {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++    public_holds_execute f · anon_execute f · authenticated_execute t · service_role_execute t
++
++Post-rollback ACL:
++
++    {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
++
++anon restored, PUBLIC deliberately NOT restored. See each rollback file's header
++for why, and for the one-line change if the Auditor wants byte-identical
++restoration instead.
+diff --git a/docs/evidence/d1/P1/P1-opener-revoke-public.md b/docs/evidence/d1/P1/P1-opener-revoke-public.md
+new file mode 100644
+index 0000000..06fd682
+--- /dev/null
++++ b/docs/evidence/d1/P1/P1-opener-revoke-public.md
+@@ -0,0 +1,172 @@
++# P1 opener — `REVOKE ... FROM PUBLIC` on the two functions F-62 identified
++
++**Unit** Phase 1 opener · P31 `search_certificates`, P32 `recompute_entry_from_tag_assignments`
++**Author** D1 (Database & Runtime), with the security reviewer's reading applied
++**Lanes** production `jtdtehuqtinjxropkkcn` **SELECT only** · staging not measured · **no grant altered on either lane**
++**Fixture** scratch PostgreSQL 16.13 in the D1 container — F-65: grant controls run on fixtures
++**Transcript** `docs/evidence/d1/P1/P1-fixture-transcript.txt`
++**Ref** branch `d1/P1-revoke-public-20260903`, cut from `origin/staging` `5cd5ba6`
++
++---
++
++## 1 · The headline is not the SQL. It is a live client call site.
++
++`search_certificates` is called from a **public, unauthenticated page**:
++
++```
++src/App.tsx:410              <Route path="/verify" element={<VerifyCertificate />} />   ← no auth guard
++src/pages/VerifyCertificate.tsx:101
++                             const { data, error } = await supabase.rpc("search_certificates", { ... });
++```
++
++`/verify` has two modes. Only one of them breaks:
++
++| mode | RPC | after this revoke |
++|---|---|---|
++| **by id** | `verify_certificate(_cert_id)` | **unaffected** — not in this unit |
++| **by details** (name / course / date) | `search_certificates(...)` | **closed to anon** |
++
++And the way it breaks is the part that matters. The handler is:
++
++```js
++if (error || !data || data.length === 0) { setNotFound(true); }
++```
++
++A `42501 permission denied` and an empty result set take the same branch. So after the revoke, an anonymous visitor searching for their own certificate by name is told **"Certificate not found"**. Not an error. Not a sign-in prompt. A confident, wrong answer about whether their certificate exists — which nobody will report as a bug, because it does not look like one.
++
++**Therefore: client first, database second.** D2 removes or gates the "search by details" mode, that lands, and only then is `20260910_0001` applied. Applying it first is a self-inflicted support incident.
++
++The revoke itself is right and P31 wants it: `search_certificates` takes a **person's name** and returns their certificates. Anonymous name-search is the enumeration class the phase exists to close. **The disagreement is about order, not about whether.**
++
++### 1.1 The method's own precondition is not met
++
++> *"In Phase 1, D2's call-site inventory is delivered and the revocation list frozen by the Auditor **before** you write the SQL."*
++
++As of **2026-09-03 12:30Z** on ref `5cd5ba6`: `docs/evidence/d2/` **does not exist**, and `docs/gates/` holds only `GATE_REGISTER.md` and `phase-0-kickoff.md`. There is no frozen revocation list.
++
++The two call sites above are **D1's own read-only measurement of `src/`**, not an inventory. D2's inventory remains the authority and if it disagrees, these files are re-cut. This is recorded rather than worked around, and it is why `20260910_0001` carries an acknowledgement guard that `20260910_0002` does not.
++
++---
++
++## 2 · `recompute_entry_from_tag_assignments` — the safe one, and why
++
++**No client call site.** Searched read-only across `src/`, `functions/`, `supabase/functions/`, `scripts/` at 12:30Z: the only occurrence outside `supabase/migrations/` is the generated TypeScript declaration at `src/integrations/supabase/types.ts:7027`. A type, not a call.
++
++**Two in-database callers, both harmless to this change.** Measured 12:34:01Z / 12:35:19Z:
++
++| caller | `SECURITY DEFINER` | owner |
++|---|---|---|
++| `trg_recompute_entry_after_tag_change()` | **yes** | `postgres` |
++| `get_judging_live_tag_progression_invariant_admin()` | **yes** | `postgres` |
++
++Both are definer functions owned by `postgres`, which owns the target. They call it **as their owner, not as the session role**, so revoking `anon` cannot break either one.
++
++**Incidental observation, not part of this unit:** `trg_recompute_entry_after_tag_change()` is named as a trigger function but **is attached to no table** — the `pg_trigger` join at 12:35:19Z returns nothing for it. Reported, not investigated; it belongs to whoever owns the judging flow.
++
++**Why it is worth revoking**, measured 12:28:13Z: `VOLATILE` + `SECURITY DEFINER` + anon-executable. That is the amplification class — an anonymous caller commands unbounded write work with RLS bypassed.
++
++---
++
++## 3 · Why each migration carries two REVOKEs, not one
++
++Both functions, production `pg_proc.proacl`, **12:28:13Z**:
++
++```
++{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++```
++
++The leading `=X/postgres` is **PUBLIC**. Both are F-62 class **TRAP-BOTH** — `anon` holds a named grant *and* inherits one through PUBLIC:
++
++| statement | result |
++|---|---|
++| `REVOKE ... FROM anon` alone | succeeds · **anon still executes**, through PUBLIC |
++| `REVOKE ... FROM PUBLIC` alone | succeeds · **anon still executes**, through its named grant |
++| both | **closed** |
++
++Both single-revoke cases were run on the fixture and **shown aborting the migration's own verification block** before these files were accepted.
++
++### 3.1 `authenticated` keeps its grant, and that is checked rather than assumed
++
++`authenticated` holds a **named** grant on both functions, so `REVOKE ... FROM PUBLIC` does not take it away. The frozen Phase 1 list says revoke from `anon`; widening it to `authenticated` would exceed the authorisation, and **a revoke that exceeds its authorisation is how a security unit becomes an outage.**
++
++So each verification block asserts `authenticated` **still** holds EXECUTE and fails the migration if not. The negative control for that assertion — `REVOKE ... FROM anon, authenticated` — was run and caught.
++
++If the Owner decides logged-in name-search is also enumeration, that is a separate unit with its own client change. It is not smuggled in here.
++
++---
++
++## 4 · The verification is a `DO` block, and the SELECT is only the record
++
++The instruction was "each ending with the F-66 verification SELECT". Both files end with exactly that SELECT. **But a SELECT that returns a `verdict` column cannot stop an apply.** It reports; it does not control. Nothing reads it, the transaction commits, and a migration that left `anon` executing is recorded as successful — which is F-62's failure mode reproduced one level up.
++
++So each file carries **both**:
++
++- a `DO $verify$` block that **`RAISE EXCEPTION`s**, aborting the transaction so a bad state cannot commit — this is the control;
++- the verification SELECT after it — this is the row that goes in the evidence file.
++
++They test the same four properties. If they ever disagree, that is a finding.
++
++---
++
++## 5 · Twelve scenarios, five planted defects, all caught
++
++Full transcript in `P1-fixture-transcript.txt`. The fixture is not a model of production's grant posture — the functions were created under **production's own default-privilege rule**, read from `pg_default_acl` at 12:29:14Z, and the ACL they were born with is **byte-for-byte** the ACL production shows for both functions at 12:28:13Z.
++
++Every negative control is the real migration file with **one line changed by `sed`**; the `sha256` of the extracted `DO $verify$` block is identical across all variants, so the control under test is provably the shipped one.
++
++| planted defect | caught by |
++|---|---|
++| `REVOKE ... FROM PUBLIC` omitted | *PUBLIC still holds EXECUTE* |
++| `REVOKE ... FROM anon` omitted | *anon can still EXECUTE — the REVOKE succeeded and changed nothing* |
++| revoke widened to `anon, authenticated` | *authenticated LOST EXECUTE* |
++| guard not acknowledged (0001) | refused **before touching a single grant** |
++| `DROP` + `CREATE` after a clean apply | reopened — **F-64**, caught by re-running the shipped block verbatim |
++
++**4 committed as designed · 8 aborted as designed · 0 surprises.**
++
++Expected production ACL after apply, on both functions:
++
++```
++{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
++public_holds_execute f · anon f · authenticated t · service_role t
++```
++
++### 5.1 A defect the fixture caught in D1's own file
++
++The first draft looked the function up with `pg_get_function_identity_arguments(p.oid) = 'text, text, date'`. That function **includes parameter names** when they exist — production returns `_name text, _course_title text, _issued_date date` — so the comparison could never match, on the fixture or on production. Replaced with `to_regprocedure(...)`, which resolves by type signature and is independent of parameter names. Same class as the A4 correction in TC-v3. Recorded because a fixture that never catches anything is not doing its job.
++
++---
++
++## 6 · The rollbacks restore `anon`, and deliberately not `PUBLIC`
++
++Each apply file ships with its rollback in the same PR. Both rollbacks `GRANT EXECUTE ... TO anon` and verify it took.
++
++Neither restores the leading `=X/postgres`. **That grant is F-62's trap itself.** `anon`'s reach is restored exactly — which is the entire point of a rollback — while the property that makes a future `REVOKE ... FROM anon` a silent no-op is not put back. Through PostgREST the reachable roles are `anon`, `authenticated` and `service_role`, and all three hold named grants, so no caller loses anything.
++
++This is a deviation from byte-identical restoration and it is stated rather than made silently. If the Auditor requires byte-identical, the change is one added `GRANT ... TO PUBLIC;` line in each file. **I recommend against it.**
++
++`20260910_0001`'s rollback runs **database first, client second** — the opposite of its apply — because the apply *removes* a capability and the rollback *restores* one. Running the rollback alone restores everything a member can see, with no deploy.
++
++---
++
++## 7 · What this unit does **not** claim
++
++- **It did not execute either function.** Reachability is established from the catalogue — `has_function_privilege` and `aclexplode` — not by calling anything as `anon`. "anon holds EXECUTE" is a different claim from "anon can reach it over HTTP".
++- **No SQL was applied to either lane.** Every production statement in this unit was a `SELECT`. Every mutation was on a scratch instance holding no real data.
++- **Staging was not measured.** Its grant posture for these two functions is unknown as of 12:35Z and must not be assumed to match production.
++- **The D2 client change is not written, reviewed or scheduled.** `20260910_0001` is not applicable until it lands. That is D2's file and D2's PR.
++- **The 244 other trapped functions from the F-62 census are not touched.** They are a standing posture unit of their own.
++
++---
++
++## 8 · Status of every line
++
++| class | applies to |
++|---|---|
++| **VERIFIED** | §1 call sites, §2 callers and ownership, §3 ACLs — read personally from production and from `src/` at ref `5cd5ba6`, SELECT only, UTC minute on each |
++| **VERIFIED** | §5 — twelve scenarios run personally on scratch PostgreSQL 16.13, transcript committed beside this file |
++| **BLOCKED** | applying `20260910_0001` — waits on D2's client change **and** on the frozen revocation list |
++| **DEFERRED** | `20260910_0002` is ready; it waits only on the Auditor's authorisation and the staging-first rule |
++| **N/A** | staging — not measured |
++
++*D1 · Database & Runtime · 2026-09-03 12:28:13Z–12:46:35Z · production SELECT only · no SQL apply · no grant altered on either lane.*
+diff --git a/supabase/migrations/20260910_0001_revoke_public_search_certificates.sql b/supabase/migrations/20260910_0001_revoke_public_search_certificates.sql
+new file mode 100644
+index 0000000..0ca722f
+--- /dev/null
++++ b/supabase/migrations/20260910_0001_revoke_public_search_certificates.sql
+@@ -0,0 +1,176 @@
++-- P31 · search_certificates — close anonymous access. REVOKE FROM PUBLIC *AND* anon.
++--
++-- =============================================================================
++-- ⚠ READ THIS BEFORE APPLYING. THERE IS A LIVE CLIENT CALL SITE.
++--
++--   src/pages/VerifyCertificate.tsx:101
++--     const { data, error } = await supabase.rpc("search_certificates", { ... });
++--
++--   src/App.tsx:410
++--     <Route path="/verify" element={<VerifyCertificate />} />   ← NO auth guard
++--
++-- /verify is a PUBLIC, UNAUTHENTICATED page and it has two modes:
++--
++--   mode "id"       -> verify_certificate(_cert_id)      NOT touched by this file
++--   mode "details"  -> search_certificates(name, title, date)   ← THIS FILE CLOSES IT
++--
++-- After this migration an anonymous visitor using "search by details" gets
++-- SQLSTATE 42501. The page does NOT surface that. Its handler reads:
++--
++--     if (error || !data || data.length === 0) { setNotFound(true); }
++--
++-- so a permission denial renders as **"Certificate not found"**. The page will
++-- tell a real certificate holder their certificate does not exist. That is worse
++-- than an error banner, because it is a wrong answer delivered confidently and
++-- nobody will report it as a bug.
++--
++-- ⚠ THEREFORE: CLIENT FIRST, DATABASE SECOND. D2 removes or gates the
++-- "search by details" mode, that lands, and only then is this file applied.
++-- Applying this first is a self-inflicted support incident, not a security win.
++--
++-- The revoke itself is correct and P31 wants it: search_certificates takes a
++-- person's NAME and returns their certificates. Anonymous name-search is the
++-- enumeration class the phase exists to close. The disagreement is about
++-- ORDER, not about whether.
++--
++-- ⚠ PRECONDITION NOT MET AS OF 2026-09-03 12:30Z. The method requires D2's
++-- call-site inventory delivered and the revocation list frozen by the Auditor
++-- BEFORE this SQL is written. docs/evidence/d2/ does not exist on this ref and
++-- docs/gates/ holds only GATE_REGISTER.md and phase-0-kickoff.md. The two call
++-- sites above were found by D1 reading src/ read-only. That is a measurement,
++-- not an inventory, and D2's inventory remains the authority. The guard below
++-- exists because of that gap.
++--
++-- =============================================================================
++-- WHY BOTH REVOKES, MEASURED — F-62
++--
++-- production pg_proc.proacl, 2026-09-03 12:28:13Z:
++--
++--   {=X/postgres,postgres=X/postgres,anon=X/postgres,
++--    authenticated=X/postgres,service_role=X/postgres}
++--
++-- The leading `=X/postgres` is PUBLIC. This function is class TRAP-BOTH: anon
++-- holds a NAMED grant and also inherits one through PUBLIC. So:
++--
++--   REVOKE ... FROM anon    alone  -> succeeds, anon STILL EXECUTES (via PUBLIC)
++--   REVOKE ... FROM PUBLIC  alone  -> succeeds, anon STILL EXECUTES (named grant)
++--   both                           -> closed
++--
++-- Both single-revoke cases were run on a scratch PostgreSQL 16.13 and shown
++-- failing this file's own verification block before this file was accepted
++-- (C-34). Transcript: docs/evidence/d1/P1/P1-fixture-transcript.txt
++--
++-- =============================================================================
++-- WHY authenticated IS DEPRECATED FROM *NOTHING* HERE
++--
++-- authenticated holds a NAMED grant (`authenticated=X/postgres`, same reading),
++-- so REVOKE FROM PUBLIC does not take it away. That is deliberate and it is
++-- checked below, not assumed: the frozen Phase 1 list says revoke from anon.
++-- Widening that to authenticated would exceed the list, and a revoke that
++-- exceeds its authorisation is how a security unit becomes an outage.
++--
++-- If the Owner decides logged-in name-search is also enumeration and should go,
++-- that is a separate unit with its own client change. It is NOT smuggled in here.
++--
++-- =============================================================================
++-- F-66 — THIS DOES NOT STAY DONE BY ITSELF
++--
++-- Production's ALTER DEFAULT PRIVILEGES rule ADDS TO the built-in default rather
++-- than replacing it, so every function created in schema public is born with
++-- PUBLIC holding EXECUTE. And F-64: DROP + CREATE resets proacl to NULL, which
++-- is PUBLIC again. This function reopens the first time its signature changes.
++-- The verification block below is re-runnable for exactly that reason.
++-- =============================================================================
++
++
++-- ─────────────────────────────────────────────────────────────────────────────
++-- GUARD · refuses unless the applier states the client change has landed.
++--
++-- Satisfy it in the same session, immediately before this file:
++--     SET d1.ack_search_certificates_client_updated = 'yes';
++--
++-- Delete this block if the Auditor would rather carry the ordering in the
++-- ledger than in the file. It is here because the failure mode is silent.
++-- ─────────────────────────────────────────────────────────────────────────────
++DO $guard$
++BEGIN
++  IF coalesce(current_setting('d1.ack_search_certificates_client_updated', true), '') <> 'yes' THEN
++    RAISE EXCEPTION
++      'REFUSED: /verify "search by details" still calls search_certificates as anon. Land D2 client change first, then SET d1.ack_search_certificates_client_updated = ''yes'';'
++      USING ERRCODE = 'raise_exception';
++  END IF;
++END
++$guard$;
++
++
++REVOKE ALL ON FUNCTION public.search_certificates(_name text, _course_title text, _issued_date date) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.search_certificates(_name text, _course_title text, _issued_date date) FROM anon;
++
++
++-- ─────────────────────────────────────────────────────────────────────────────
++-- VERIFICATION · F-66. This RAISES, so a bad state cannot be committed.
++--
++-- ⚠ A SELECT that returns a verdict column cannot stop an apply — it reports.
++-- The gate needs a statement that FAILS the transaction, so the assertions live
++-- in this DO block and the SELECT that follows is the record, not the control.
++-- ─────────────────────────────────────────────────────────────────────────────
++DO $verify$
++DECLARE
++  f_oid       oid;
++  anon_can    boolean;
++  auth_can    boolean;
++  public_has  boolean;
++BEGIN
++  -- to_regprocedure resolves by TYPE signature and returns NULL when the function
++  -- is absent. pg_get_function_identity_arguments() is NOT used here: it includes
++  -- PARAMETER NAMES when the function has them, so a match against 'text, text,
++  -- date' finds nothing on a function declared with named parameters. That defect
++  -- was in this file and the fixture caught it before delivery.
++  f_oid := to_regprocedure('public.search_certificates(text, text, date)')::oid;
++
++  IF f_oid IS NULL THEN
++    RAISE EXCEPTION 'VERIFY FAILED: public.search_certificates(text, text, date) does not exist.';
++  END IF;
++
++  anon_can   := has_function_privilege('anon',          f_oid, 'EXECUTE');
++  auth_can   := has_function_privilege('authenticated', f_oid, 'EXECUTE');
++  public_has := EXISTS (SELECT 1 FROM pg_proc p
++                        CROSS JOIN LATERAL aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) x
++                        WHERE p.oid = f_oid AND x.grantee = 0 AND x.privilege_type = 'EXECUTE');
++
++  IF public_has THEN
++    RAISE EXCEPTION 'VERIFY FAILED: PUBLIC still holds EXECUTE (proacl %). The REVOKE FROM PUBLIC did not take.',
++      (SELECT coalesce(proacl::text,'NULL') FROM pg_proc WHERE oid = f_oid);
++  END IF;
++
++  IF anon_can THEN
++    RAISE EXCEPTION 'VERIFY FAILED: anon can still EXECUTE (proacl %). F-62: the REVOKE succeeded and changed nothing.',
++      (SELECT coalesce(proacl::text,'NULL') FROM pg_proc WHERE oid = f_oid);
++  END IF;
++
++  IF NOT auth_can THEN
++    RAISE EXCEPTION 'VERIFY FAILED: authenticated LOST EXECUTE (proacl %). This revoke exceeded the frozen Phase 1 list and breaks logged-in certificate search.',
++      (SELECT coalesce(proacl::text,'NULL') FROM pg_proc WHERE oid = f_oid);
++  END IF;
++END
++$verify$;
++
++
++-- The F-66 verification SELECT — the row that goes in the evidence file.
++SELECT 'P31 · search_certificates(text, text, date)'                       AS unit,
++       coalesce(p.proacl::text, 'NULL')                                    AS proacl,
++       EXISTS (SELECT 1 FROM aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) x
++                WHERE x.grantee = 0 AND x.privilege_type = 'EXECUTE')       AS public_holds_execute,
++       has_function_privilege('anon',          p.oid, 'EXECUTE')            AS anon_execute,
++       has_function_privilege('authenticated', p.oid, 'EXECUTE')            AS authenticated_execute,
++       has_function_privilege('service_role',  p.oid, 'EXECUTE')            AS service_role_execute,
++       CASE WHEN NOT EXISTS (SELECT 1 FROM aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) x
++                              WHERE x.grantee = 0 AND x.privilege_type = 'EXECUTE')
++             AND NOT has_function_privilege('anon',          p.oid, 'EXECUTE')
++             AND     has_function_privilege('authenticated', p.oid, 'EXECUTE')
++            THEN 'PASS' ELSE 'FAIL' END                                     AS verdict,
++       to_char(clock_timestamp() AT TIME ZONE 'utc',
++               'YYYY-MM-DD"T"HH24:MI:SS"Z"')                                AS measured_at_utc
++  FROM pg_proc p
++ WHERE p.pronamespace = 'public'::regnamespace
++   AND p.oid = to_regprocedure('public.search_certificates(text, text, date)')::oid;
+diff --git a/supabase/migrations/20260910_0002_revoke_public_recompute_entry_from_tag_assignments.sql b/supabase/migrations/20260910_0002_revoke_public_recompute_entry_from_tag_assignments.sql
+new file mode 100644
+index 0000000..6f6d8b9
+--- /dev/null
++++ b/supabase/migrations/20260910_0002_revoke_public_recompute_entry_from_tag_assignments.sql
+@@ -0,0 +1,138 @@
++-- P32 · recompute_entry_from_tag_assignments — close anonymous access.
++--       REVOKE FROM PUBLIC *AND* anon.
++--
++-- =============================================================================
++-- WHY THIS ONE IS THE SAFE ONE OF THE PAIR
++--
++-- No client call site. Searched read-only across src/, functions/,
++-- supabase/functions/ and scripts/ at 2026-09-03 12:30Z on ref 5cd5ba6: the only
++-- occurrence outside supabase/migrations/ is the generated type declaration
++--
++--   src/integrations/supabase/types.ts:7027
++--
++-- which is a TypeScript type, not a call. Nothing in the client invokes this
++-- RPC. So unlike its sibling 20260910_0001 this file has no client-ordering
++-- dependency and carries no acknowledgement guard.
++--
++-- ⚠ STILL NOT A CLEAN BILL. D2's call-site inventory has not been delivered
++-- (docs/evidence/d2/ absent on this ref, 12:30Z) and the revocation list is not
++-- frozen in docs/gates/. The search above is D1's own measurement, read-only,
++-- and D2's inventory remains the authority. If it disagrees, D2's wins and this
++-- file is re-cut.
++--
++-- =============================================================================
++-- WHY IT IS WORTH REVOKING
++--
++-- production, 2026-09-03 12:28:13Z:
++--   volatility        v  (VOLATILE)
++--   security_definer  true
++--   anon EXECUTE      true
++--
++-- VOLATILE + SECURITY DEFINER + anon-executable is the amplification class:
++-- an anonymous caller can make the database do unbounded write work for free,
++-- and RLS is bypassed while it happens. This is precisely what P32 exists for.
++--
++-- =============================================================================
++-- WHY BOTH REVOKES — F-62
++--
++-- production pg_proc.proacl, 2026-09-03 12:28:13Z:
++--
++--   {=X/postgres,postgres=X/postgres,anon=X/postgres,
++--    authenticated=X/postgres,service_role=X/postgres}
++--
++-- The leading `=X/postgres` is PUBLIC. Class TRAP-BOTH — anon holds a named
++-- grant AND inherits one through PUBLIC:
++--
++--   REVOKE ... FROM anon    alone  -> succeeds, anon STILL EXECUTES (via PUBLIC)
++--   REVOKE ... FROM PUBLIC  alone  -> succeeds, anon STILL EXECUTES (named grant)
++--   both                           -> closed
++--
++-- Both single-revoke cases were shown failing this file's own verification
++-- block on a scratch PostgreSQL 16.13 before this file was accepted (C-34).
++-- Transcript: docs/evidence/d1/P1/P1-fixture-transcript.txt
++--
++-- authenticated keeps its NAMED grant. REVOKE FROM PUBLIC does not remove it,
++-- and that is checked below rather than assumed. Widening the revoke to
++-- authenticated would exceed the frozen Phase 1 list.
++--
++-- =============================================================================
++-- F-66 — THIS DOES NOT STAY DONE BY ITSELF
++--
++-- Production's ALTER DEFAULT PRIVILEGES rule ADDS TO the built-in default rather
++-- than replacing it, so every new function in schema public is born with PUBLIC
++-- holding EXECUTE; and F-64: DROP + CREATE resets proacl to NULL, which is
++-- PUBLIC again. The verification block below is re-runnable for that reason.
++-- =============================================================================
++
++
++REVOKE ALL ON FUNCTION public.recompute_entry_from_tag_assignments(p_entry_id uuid) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.recompute_entry_from_tag_assignments(p_entry_id uuid) FROM anon;
++
++
++-- ─────────────────────────────────────────────────────────────────────────────
++-- VERIFICATION · F-66. This RAISES, so a bad state cannot be committed.
++--
++-- ⚠ A SELECT that returns a verdict column cannot stop an apply — it reports.
++-- The gate needs a statement that FAILS the transaction, so the assertions live
++-- in this DO block and the SELECT that follows is the record, not the control.
++-- ─────────────────────────────────────────────────────────────────────────────
++DO $verify$
++DECLARE
++  f_oid       oid;
++  anon_can    boolean;
++  auth_can    boolean;
++  public_has  boolean;
++BEGIN
++  -- to_regprocedure resolves by TYPE signature and returns NULL when the function
++  -- is absent. pg_get_function_identity_arguments() is NOT used here: it includes
++  -- PARAMETER NAMES when the function has them, so a match against 'text, text,
++  -- date' finds nothing on a function declared with named parameters. That defect
++  -- was in this file and the fixture caught it before delivery.
++  f_oid := to_regprocedure('public.recompute_entry_from_tag_assignments(uuid)')::oid;
++
++  IF f_oid IS NULL THEN
++    RAISE EXCEPTION 'VERIFY FAILED: public.recompute_entry_from_tag_assignments(uuid) does not exist.';
++  END IF;
++
++  anon_can   := has_function_privilege('anon',          f_oid, 'EXECUTE');
++  auth_can   := has_function_privilege('authenticated', f_oid, 'EXECUTE');
++  public_has := EXISTS (SELECT 1 FROM pg_proc p
++                        CROSS JOIN LATERAL aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) x
++                        WHERE p.oid = f_oid AND x.grantee = 0 AND x.privilege_type = 'EXECUTE');
++
++  IF public_has THEN
++    RAISE EXCEPTION 'VERIFY FAILED: PUBLIC still holds EXECUTE (proacl %). The REVOKE FROM PUBLIC did not take.',
++      (SELECT coalesce(proacl::text,'NULL') FROM pg_proc WHERE oid = f_oid);
++  END IF;
++
++  IF anon_can THEN
++    RAISE EXCEPTION 'VERIFY FAILED: anon can still EXECUTE (proacl %). F-62: the REVOKE succeeded and changed nothing.',
++      (SELECT coalesce(proacl::text,'NULL') FROM pg_proc WHERE oid = f_oid);
++  END IF;
++
++  IF NOT auth_can THEN
++    RAISE EXCEPTION 'VERIFY FAILED: authenticated LOST EXECUTE (proacl %). This revoke exceeded the frozen Phase 1 list.',
++      (SELECT coalesce(proacl::text,'NULL') FROM pg_proc WHERE oid = f_oid);
++  END IF;
++END
++$verify$;
++
++
++-- The F-66 verification SELECT — the row that goes in the evidence file.
++SELECT 'P32 · recompute_entry_from_tag_assignments(uuid)'                  AS unit,
++       coalesce(p.proacl::text, 'NULL')                                    AS proacl,
++       EXISTS (SELECT 1 FROM aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) x
++                WHERE x.grantee = 0 AND x.privilege_type = 'EXECUTE')       AS public_holds_execute,
++       has_function_privilege('anon',          p.oid, 'EXECUTE')            AS anon_execute,
++       has_function_privilege('authenticated', p.oid, 'EXECUTE')            AS authenticated_execute,
++       has_function_privilege('service_role',  p.oid, 'EXECUTE')            AS service_role_execute,
++       CASE WHEN NOT EXISTS (SELECT 1 FROM aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) x
++                              WHERE x.grantee = 0 AND x.privilege_type = 'EXECUTE')
++             AND NOT has_function_privilege('anon',          p.oid, 'EXECUTE')
++             AND     has_function_privilege('authenticated', p.oid, 'EXECUTE')
++            THEN 'PASS' ELSE 'FAIL' END                                     AS verdict,
++       to_char(clock_timestamp() AT TIME ZONE 'utc',
++               'YYYY-MM-DD"T"HH24:MI:SS"Z"')                                AS measured_at_utc
++  FROM pg_proc p
++ WHERE p.pronamespace = 'public'::regnamespace
++   AND p.oid = to_regprocedure('public.recompute_entry_from_tag_assignments(uuid)')::oid;
+diff --git a/supabase/rollback/20260910_0001_revoke_public_search_certificates_ROLLBACK.sql b/supabase/rollback/20260910_0001_revoke_public_search_certificates_ROLLBACK.sql
+new file mode 100644
+index 0000000..31d2107
+--- /dev/null
++++ b/supabase/rollback/20260910_0001_revoke_public_search_certificates_ROLLBACK.sql
+@@ -0,0 +1,75 @@
++-- ROLLBACK for 20260910_0001_revoke_public_search_certificates.sql
++--
++-- =============================================================================
++-- ⚠ ORDER: DATABASE FIRST, CLIENT SECOND — the OPPOSITE of the apply.
++--
++-- The apply is client-first because it REMOVES a capability the client uses.
++-- The rollback is database-first because it RESTORES one. Running this file
++-- alone is a complete rollback for anything a member can see: /verify's
++-- "search by details" mode starts working again the moment it commits, with no
++-- deploy. If D2's client change has already landed, reverting it is a separate,
++-- unhurried step.
++--
++-- =============================================================================
++-- WHAT THIS RESTORES, AND WHAT IT DELIBERATELY DOES NOT
++--
++-- The pre-apply state, production 2026-09-03 12:28:13Z, was:
++--
++--   {=X/postgres,postgres=X/postgres,anon=X/postgres,
++--    authenticated=X/postgres,service_role=X/postgres}
++--
++-- This file restores anon's NAMED grant. It does **NOT** restore the leading
++-- `=X/postgres`, i.e. the grant to PUBLIC.
++--
++-- That is a deliberate deviation from byte-identical restoration, and the
++-- reason is F-62: the PUBLIC grant is the trap itself. anon's reach is restored
++-- exactly — anon can execute the function again, which is the whole point of a
++-- rollback — while the property that makes a future `REVOKE ... FROM anon` a
++-- silent no-op is not put back. Restoring PUBLIC would re-arm the trap for no
++-- gain to any caller: through PostgREST the reachable roles are anon,
++-- authenticated and service_role, and all three hold named grants.
++--
++-- If the Auditor requires byte-identical restoration instead, the change is to
++-- add `GRANT EXECUTE ... TO PUBLIC;` below. I recommend against it and have
++-- said so rather than making the choice silently.
++-- =============================================================================
++
++GRANT EXECUTE ON FUNCTION public.search_certificates(_name text, _course_title text, _issued_date date) TO anon;
++
++DO $verify$
++DECLARE f_oid oid;
++BEGIN
++  -- to_regprocedure resolves by TYPE signature and returns NULL when the function
++  -- is absent. pg_get_function_identity_arguments() is NOT used here: it includes
++  -- PARAMETER NAMES when the function has them, so a match against 'text, text,
++  -- date' finds nothing on a function declared with named parameters. That defect
++  -- was in this file and the fixture caught it before delivery.
++  f_oid := to_regprocedure('public.search_certificates(text, text, date)')::oid;
++
++  IF f_oid IS NULL THEN
++    RAISE EXCEPTION 'ROLLBACK FAILED: public.search_certificates(text, text, date) does not exist.';
++  END IF;
++
++  IF NOT has_function_privilege('anon', f_oid, 'EXECUTE') THEN
++    RAISE EXCEPTION 'ROLLBACK FAILED: anon still cannot EXECUTE (proacl %). /verify search-by-details is still closed.',
++      (SELECT coalesce(proacl::text,'NULL') FROM pg_proc WHERE oid = f_oid);
++  END IF;
++
++  IF NOT has_function_privilege('authenticated', f_oid, 'EXECUTE') THEN
++    RAISE EXCEPTION 'ROLLBACK FAILED: authenticated cannot EXECUTE (proacl %).',
++      (SELECT coalesce(proacl::text,'NULL') FROM pg_proc WHERE oid = f_oid);
++  END IF;
++END
++$verify$;
++
++SELECT 'ROLLBACK P31 · search_certificates(text, text, date)'              AS unit,
++       coalesce(p.proacl::text, 'NULL')                                    AS proacl,
++       has_function_privilege('anon',          p.oid, 'EXECUTE')            AS anon_execute,
++       has_function_privilege('authenticated', p.oid, 'EXECUTE')            AS authenticated_execute,
++       CASE WHEN has_function_privilege('anon', p.oid, 'EXECUTE')
++            THEN 'PASS' ELSE 'FAIL' END                                     AS verdict,
++       to_char(clock_timestamp() AT TIME ZONE 'utc',
++               'YYYY-MM-DD"T"HH24:MI:SS"Z"')                                AS measured_at_utc
++  FROM pg_proc p
++ WHERE p.pronamespace = 'public'::regnamespace
++   AND p.oid = to_regprocedure('public.search_certificates(text, text, date)')::oid;
+diff --git a/supabase/rollback/20260910_0002_revoke_public_recompute_entry_from_tag_assignments_ROLLBACK.sql b/supabase/rollback/20260910_0002_revoke_public_recompute_entry_from_tag_assignments_ROLLBACK.sql
+new file mode 100644
+index 0000000..134346b
+--- /dev/null
++++ b/supabase/rollback/20260910_0002_revoke_public_recompute_entry_from_tag_assignments_ROLLBACK.sql
+@@ -0,0 +1,82 @@
++-- ROLLBACK for 20260910_0002_revoke_public_recompute_entry_from_tag_assignments.sql
++--
++-- =============================================================================
++-- NO CLIENT ORDERING. There is no client call site (searched read-only across
++-- src/, functions/, supabase/functions/ and scripts/ at 2026-09-03 12:30Z on ref
++-- 5cd5ba6 — the only occurrence is the generated TypeScript type at
++-- src/integrations/supabase/types.ts:7027, which is a declaration, not a call).
++-- So this file is the whole rollback and nothing has to be redeployed with it.
++--
++-- ⚠ THE IN-DATABASE CALLERS WERE NEVER AFFECTED, so this rollback does not
++-- exist for them. Measured on production 2026-09-03 12:34:01Z, two functions in
++-- schema public call recompute_entry_from_tag_assignments:
++--
++--   trg_recompute_entry_after_tag_change()                    SECURITY DEFINER
++--   get_judging_live_tag_progression_invariant_admin()        SECURITY DEFINER
++--
++-- Both are SECURITY DEFINER, so they call it as their owner and not as the
++-- session role. Revoking anon's EXECUTE could not have broken either one, and
++-- restoring it does not fix anything for them.
++--
++-- =============================================================================
++-- WHAT THIS RESTORES, AND WHAT IT DELIBERATELY DOES NOT
++--
++-- Pre-apply state, production 2026-09-03 12:28:13Z:
++--
++--   {=X/postgres,postgres=X/postgres,anon=X/postgres,
++--    authenticated=X/postgres,service_role=X/postgres}
++--
++-- This file restores anon's NAMED grant. It does **NOT** restore the leading
++-- `=X/postgres` — the grant to PUBLIC — because that grant is F-62's trap
++-- itself. anon's reach is restored exactly; the property that makes a future
++-- `REVOKE ... FROM anon` a silent no-op is not put back.
++--
++-- ⚠ AND NOTE WHAT RESTORING THIS MEANS. The function is VOLATILE and
++-- SECURITY DEFINER. Putting anon back gives anonymous callers unbounded write
++-- work again with RLS bypassed. Roll this back only to end an outage, and say
++-- in the ledger what the outage was.
++--
++-- If the Auditor requires byte-identical restoration, add
++-- `GRANT EXECUTE ... TO PUBLIC;` below. I recommend against it and have said so
++-- rather than making the choice silently.
++-- =============================================================================
++
++GRANT EXECUTE ON FUNCTION public.recompute_entry_from_tag_assignments(p_entry_id uuid) TO anon;
++
++DO $verify$
++DECLARE f_oid oid;
++BEGIN
++  -- to_regprocedure resolves by TYPE signature and returns NULL when the function
++  -- is absent. pg_get_function_identity_arguments() is NOT used here: it includes
++  -- PARAMETER NAMES when the function has them, so a match against 'text, text,
++  -- date' finds nothing on a function declared with named parameters. That defect
++  -- was in this file and the fixture caught it before delivery.
++  f_oid := to_regprocedure('public.recompute_entry_from_tag_assignments(uuid)')::oid;
++
++  IF f_oid IS NULL THEN
++    RAISE EXCEPTION 'ROLLBACK FAILED: public.recompute_entry_from_tag_assignments(uuid) does not exist.';
++  END IF;
++
++  IF NOT has_function_privilege('anon', f_oid, 'EXECUTE') THEN
++    RAISE EXCEPTION 'ROLLBACK FAILED: anon still cannot EXECUTE (proacl %).',
++      (SELECT coalesce(proacl::text,'NULL') FROM pg_proc WHERE oid = f_oid);
++  END IF;
++
++  IF NOT has_function_privilege('authenticated', f_oid, 'EXECUTE') THEN
++    RAISE EXCEPTION 'ROLLBACK FAILED: authenticated cannot EXECUTE (proacl %).',
++      (SELECT coalesce(proacl::text,'NULL') FROM pg_proc WHERE oid = f_oid);
++  END IF;
++END
++$verify$;
++
++SELECT 'ROLLBACK P32 · recompute_entry_from_tag_assignments(uuid)'         AS unit,
++       coalesce(p.proacl::text, 'NULL')                                    AS proacl,
++       has_function_privilege('anon',          p.oid, 'EXECUTE')            AS anon_execute,
++       has_function_privilege('authenticated', p.oid, 'EXECUTE')            AS authenticated_execute,
++       CASE WHEN has_function_privilege('anon', p.oid, 'EXECUTE')
++            THEN 'PASS' ELSE 'FAIL' END                                     AS verdict,
++       to_char(clock_timestamp() AT TIME ZONE 'utc',
++               'YYYY-MM-DD"T"HH24:MI:SS"Z"')                                AS measured_at_utc
++  FROM pg_proc p
++ WHERE p.pronamespace = 'public'::regnamespace
++   AND p.oid = to_regprocedure('public.recompute_entry_from_tag_assignments(uuid)')::oid;
+--
+2.43.0

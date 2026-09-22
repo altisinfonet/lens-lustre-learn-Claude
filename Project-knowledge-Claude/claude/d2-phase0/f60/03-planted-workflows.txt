@@ -1,0 +1,20 @@
+=== PLANT A — narrowed to one project (the pre-F-52 form) — 2026-09-03T07:59:46Z
+39:        run: npx tsc --noEmit -p tsconfig.app.json
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 8 passed (9)
+   × the typecheck command points at a config that has files > CI's tsc follows the references and covers BOTH projects — the build form, never a narrowed or vacuous one 8ms
+     → expected 'npx tsc --noEmit -p tsconfig.app.json' to match /\btsc\b.*\s(?:-b|--build)\s+tsconfig\…/
+
+=== PLANT B — vacuous: -p on the solution file (files: [])
+39:        run: npx tsc --noEmit -p tsconfig.json
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 8 passed (9)
+   × the typecheck command points at a config that has files > CI's tsc follows the references and covers BOTH projects — the build form, never a narrowed or vacuous one 9ms
+     → expected 'npx tsc --noEmit -p tsconfig.json' to match /\btsc\b.*\s(?:-b|--build)\s+tsconfig\…/
+
+=== PLANT C — bare tsc --noEmit (the 2026-08-15 fault)
+39:        run: npx tsc --noEmit
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 8 passed (9)
+   × the typecheck command points at a config that has files > CI's tsc follows the references and covers BOTH projects — the build form, never a narrowed or vacuous one 8ms
+     → expected 'npx tsc --noEmit' to match /\btsc\b.*\s(?:-b|--build)\s+tsconfig\…/

@@ -1,0 +1,143 @@
+name: D1 · Take a database baseline
+
+# ═══════════════════════════════════════════════════════════════════════════
+# READS THE DATABASE. WRITES NOTHING. EVER.
+#
+# Phase 0 of the Addendum A execution master needs one thing before any other
+# unit starts: a number, taken with a named instrument, that a later number can
+# be compared against. This workflow is how that number gets taken, because the
+# instrument needs the database credential and the person who wrote the
+# instrument must never hold it. Same rule as apply-migration.yml, the upload
+# keystore and the Play service-account JSON.
+#
+# WHY A SECOND WORKFLOW RATHER THAN A MODE OF apply-migration.yml.
+# apply-migration.yml runs a reviewed .sql file and is the only sanctioned way
+# to change a database from this repository. Its gates, its concurrency group
+# and its audit trail all exist for a thing that MUTATES. A read-only snapshot
+# is a different act with a different blast radius, and folding it into the
+# migration workflow would mean every future reader of that file has to work
+# out which branch of it is dangerous. A bright line survives handover.
+#
+# WHAT IT PRODUCES. scripts/db-baseline.mjs writes one JSON file. This workflow
+# uploads it as a run artifact and prints its head into the log. It does NOT
+# commit it — `permissions: contents: read`, deliberately. The gate sentence
+# says "a COMMITTED baseline", and committing is a human act on a branch, in a
+# PR, with a reviewer: download the artifact, put it under
+# docs/evidence/d1/baseline/, and open the PR. A workflow that can write to the
+# repository is a workflow that can be made to write something nobody reviewed.
+#
+# THE CONTROLS ARE IN THE SCRIPT, NOT HERE, AND THAT IS ON PURPOSE. The lane
+# gate, the cluster fingerprint and the proved-read-only negative control live
+# in scripts/db-lane-guard.mjs, so they also protect a run started from a
+# developer's shell. This file adds only the two things a workflow can add: the
+# branch restriction, and a credential nobody can print.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK IN THIS FILE.
+# GitHub substitutes those into the script's TEXT before a shell exists, so a
+# value containing an apostrophe executes as shell ABOVE every check the step
+# then performs. Every input is bound in `env:` instead and read as "$NAME",
+# because a shell variable's contents are never re-parsed as script. Quoting is
+# not the fix; binding is. This is the same rule apply-migration.yml adopted
+# after F-47, and it is a bright line, not a case-by-case judgement.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Which database to read. staging = ztzutckwdhetphwghuzj, production = jtdtehuqtinjxropkkcn."
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+concurrency:
+  group: d1-baseline-${{ inputs.target }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    name: Baseline ${{ inputs.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ inputs.target }}
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      TARGET_LANE: ${{ inputs.target }}
+      BRANCH_REF: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Environment is already branch-restricted; this is the second,
+      # independent check, and the one that produces a readable error instead of
+      # a confusing "environment not accessible".
+      - name: The branch must match the target
+        run: |
+          set -euo pipefail
+          case "$TARGET_LANE" in
+            production) WANT=main ;;
+            staging)    WANT=staging ;;
+            *) echo "::error::Unknown target '$TARGET_LANE'."; exit 1 ;;
+          esac
+          if [ "$BRANCH_REF" != "$WANT" ]; then
+            echo "::error::target='$TARGET_LANE' must be dispatched from '$WANT', but this run is on '$BRANCH_REF'. Refusing."
+            exit 1
+          fi
+          echo "Lane OK: target='$TARGET_LANE' dispatched from '$BRANCH_REF'."
+
+      - name: Refuse to start without the database credential
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::SUPABASE_DB_URL is not set for this Environment. See the header of .github/workflows/apply-migration.yml — only the owner can set it, and it takes about a minute."
+            exit 1
+          fi
+          echo "Credential present. Its value is never printed by this workflow."
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install psql
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+          psql --version
+
+      # Printed BEFORE anything connects, so the log records exactly which
+      # queries were about to run — not what the file happened to say later.
+      - name: Show every query this run will execute
+        run: |
+          set -euo pipefail
+          echo "───────────────────────────────────────────────────────────"
+          node scripts/db-baseline.mjs --print-sql
+          echo "───────────────────────────────────────────────────────────"
+
+      # The script's own three controls fire here: the lane gate before a socket
+      # is opened, the read-only negative control (which must come back SQLSTATE
+      # 25006), and the cluster fingerprint. Any of them refusing fails this step.
+      - name: Take the baseline
+        run: |
+          set -euo pipefail
+          node scripts/db-baseline.mjs --target "$TARGET_LANE" --out docs/evidence/d1/baseline
+
+      - name: Show what was written
+        run: |
+          set -euo pipefail
+          find docs/evidence/d1/baseline -name '*.json' -newermt '-30 minutes' -print -exec head -c 4000 {} \; -exec echo \;
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: d1-baseline-${{ inputs.target }}-${{ github.run_id }}
+          path: docs/evidence/d1/baseline/**/*.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: What to do with it
+        run: |
+          echo "The JSON is attached to this run. It is NOT committed by this workflow, on purpose."
+          echo "Download it, put it under docs/evidence/d1/baseline/, and open a PR against staging."
+          echo "The gate reads: a committed baseline for every unit that claims a number, with the timestamp of measurement on every line."
