@@ -1,0 +1,165 @@
+C-34 MUTATION RECORD — Unit 1, src/hooks/judging/useJudgingLock.ts
+Repo altisinfonet/lens-lustre-learn-Claude · base origin/staging 247a47b · 2026-09-22T11:57:49Z
+Every assertion in useJudgingLockUnloadAuth.test.tsx is shown RED against an input that
+contains exactly the defect it exists to catch, and GREEN against the fix.
+
+==============================================================================
+MUTANT A — the file at 247a47b, unmodified (apikey only, beforeunload only)
+expected RED: 'sends the release as the signed-in judge, not as anon'
+==============================================================================
+
+ RUN  v3.2.4 /home/claude/repo
+
+ ❯ src/hooks/judging/__tests__/useJudgingLockUnloadAuth.test.tsx (3 tests | 1 failed) 191ms
+   × useJudgingLock — release on page teardown > sends the release as the signed-in judge, not as anon 73ms
+     → no release request was sent at teardown: expected undefined to be defined
+   ✓ useJudgingLock — release on page teardown > sends nothing at all when there is no access token 57ms
+   ✓ useJudgingLock — release on page teardown > sends nothing when the page is going into the back/forward cache 57ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/hooks/judging/__tests__/useJudgingLockUnloadAuth.test.tsx > useJudgingLock — release on page teardown > sends the release as the signed-in judge, not as anon
+AssertionError: no release request was sent at teardown: expected undefined to be defined
+ ❯ src/hooks/judging/__tests__/useJudgingLockUnloadAuth.test.tsx:119:64
+    117| 
+    118|     const [release, ...extra] = releases();
+    119|     expect(release, "no release request was sent at teardown").toBeDef…
+       |                                                                ^
+    120|     expect(extra).toHaveLength(0);
+    121|     expect(release.headers["authorization"]).toBe(`Bearer ${ACCESS_TOK…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+
+
+==============================================================================
+MUTANT A2 — fix, minus the Authorization header only
+expected RED: 'sends the release as the signed-in judge, not as anon'
+==============================================================================
+
+ RUN  v3.2.4 /home/claude/repo
+
+ ❯ src/hooks/judging/__tests__/useJudgingLockUnloadAuth.test.tsx (3 tests | 1 failed) 192ms
+   × useJudgingLock — release on page teardown > sends the release as the signed-in judge, not as anon 76ms
+     → expected undefined to be 'Bearer header.judge-access-token.sign…' // Object.is equality
+   ✓ useJudgingLock — release on page teardown > sends nothing at all when there is no access token 57ms
+   ✓ useJudgingLock — release on page teardown > sends nothing when the page is going into the back/forward cache 56ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/hooks/judging/__tests__/useJudgingLockUnloadAuth.test.tsx > useJudgingLock — release on page teardown > sends the release as the signed-in judge, not as anon
+AssertionError: expected undefined to be 'Bearer header.judge-access-token.sign…' // Object.is equality
+
+[32m- Expected:[39m 
+"Bearer header.judge-access-token.signature"
+
+[31m+ Received:[39m 
+undefined
+
+ ❯ src/hooks/judging/__tests__/useJudgingLockUnloadAuth.test.tsx:121:46
+    119|     expect(release, "no release request was sent at teardown").toBeDef…
+    120|     expect(extra).toHaveLength(0);
+    121|     expect(release.headers["authorization"]).toBe(`Bearer ${ACCESS_TOK…
+       |                                              ^
+    122|     // The publishable key still has to travel; it is not a substitute…
+    123|     expect(release.headers["apikey"]).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+
+
+==============================================================================
+MUTANT B — fix, minus 'if (!accessToken) return'
+expected RED: 'sends nothing at all when there is no access token'
+==============================================================================
+
+ RUN  v3.2.4 /home/claude/repo
+
+ ❯ src/hooks/judging/__tests__/useJudgingLockUnloadAuth.test.tsx (3 tests | 1 failed) 192ms
+   ✓ useJudgingLock — release on page teardown > sends the release as the signed-in judge, not as anon 69ms
+   × useJudgingLock — release on page teardown > sends nothing at all when there is no access token 64ms
+     → expected [ { …(2) } ] to have a length of +0 but got 1
+   ✓ useJudgingLock — release on page teardown > sends nothing when the page is going into the back/forward cache 56ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/hooks/judging/__tests__/useJudgingLockUnloadAuth.test.tsx > useJudgingLock — release on page teardown > sends nothing at all when there is no access token
+AssertionError: expected [ { …(2) } ] to have a length of +0 but got 1
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 0[39m
+[31m+ 1[39m
+
+ ❯ src/hooks/judging/__tests__/useJudgingLockUnloadAuth.test.tsx:139:24
+    137|     firePagehide(false);
+    138| 
+    139|     expect(releases()).toHaveLength(0);
+       |                        ^
+    140| 
+    141|     view.unmount();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+
+
+==============================================================================
+MUTANT C — fix, minus 'if (event.persisted) return'
+expected RED: 'sends nothing when the page is going into the back/forward cache'
+==============================================================================
+
+ RUN  v3.2.4 /home/claude/repo
+
+ ❯ src/hooks/judging/__tests__/useJudgingLockUnloadAuth.test.tsx (3 tests | 1 failed) 194ms
+   ✓ useJudgingLock — release on page teardown > sends the release as the signed-in judge, not as anon 70ms
+   ✓ useJudgingLock — release on page teardown > sends nothing at all when there is no access token 57ms
+   × useJudgingLock — release on page teardown > sends nothing when the page is going into the back/forward cache 63ms
+     → expected [ { …(2) } ] to have a length of +0 but got 1
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/hooks/judging/__tests__/useJudgingLockUnloadAuth.test.tsx > useJudgingLock — release on page teardown > sends nothing when the page is going into the back/forward cache
+AssertionError: expected [ { …(2) } ] to have a length of +0 but got 1
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 0[39m
+[31m+ 1[39m
+
+ ❯ src/hooks/judging/__tests__/useJudgingLockUnloadAuth.test.tsx:152:24
+    150|     firePagehide(true);
+    151| 
+    152|     expect(releases()).toHaveLength(0);
+       |                        ^
+    153| 
+    154|     view.unmount();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+
+
+==============================================================================
+THE FIX — all three green
+==============================================================================
+
+ RUN  v3.2.4 /home/claude/repo
+
+ ✓ src/hooks/judging/__tests__/useJudgingLockUnloadAuth.test.tsx (3 tests) 187ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+
