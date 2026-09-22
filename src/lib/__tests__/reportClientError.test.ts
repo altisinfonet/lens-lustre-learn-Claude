@@ -184,6 +184,33 @@ describe("the database side cannot be abused or read by members", () => {
     expect(sql).toMatch(/REVOKE ALL ON TABLE public\.client_errors FROM PUBLIC, anon, authenticated/);
   });
 
+  /* ── R-17: THIS ASSERTION IS CORRECT AND STAYS. DO NOT "FIX" IT. ──
+   *
+   * A reader sweeping for `anon` grants will find the one below and file it as
+   * an oversight. It is not. Ruling R-17 makes `log_client_error` and
+   * `log_app_event` RETAIN-with-justification, jointly, and the justification
+   * is that an error reporter which only works for signed-in members cannot
+   * report the errors that stop someone signing in:
+   *
+   *   · src/lib/reportClientError.ts:167 issues the call, and src/App.tsx:80
+   *     invokes it from the dynamic-import failure path — a blank page caused
+   *     by a chunk that would not load, which happens before any session
+   *     exists and is the crash the owner keeps reporting;
+   *   · src/hooks/core/useAuth.tsx:326 records that the sign-in path logs its
+   *     own failures through `log_app_event`, "callable by `anon` … which is
+   *     what lets this reach the database at the one moment the member no
+   *     longer has a session".
+   *
+   * Withdrawing the grant would not harden anything; it would delete the
+   * telemetry for the exact failures it exists to catch.
+   *
+   * WHAT DOES BOUND THE EXPOSURE IS NOT HERE, AND IS NOT THIS LANE'S. R-17
+   * requires three body-level controls on the SQL side (D1): a bounded
+   * `_detail` size on `log_client_error`, rate limiting on both functions, and
+   * proof that `prune_client_errors` is actually scheduled. Named so that the
+   * grant is not read as unconditional, and so that a reader looking for the
+   * limit knows it is a migration away, not a missing line in this file.
+   */
   it("lets a logged-out caller report a blank page", () => {
     // The crash the owner keeps reporting often happens before sign-in.
     expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.log_client_error[^;]*TO anon, authenticated/);
