@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { publicUrl } from "@/lib/publicUrl";
 import { useParams, Navigate } from "react-router-dom";
 import DOMPurify from "dompurify";
@@ -25,57 +24,18 @@ interface ManagedPage {
 
 const bodyFont = { fontFamily: "var(--font-body)" };
 
-/** The counter's own log prefix, so an operator can grep for it and so its
- *  tests can tell this warning apart from unrelated console noise. */
-const VIEW_COUNT_LOG_PREFIX = "[managed-page-view]";
-
-/** One line per failed increment. Not rate-limited on purpose: this fires once
- *  per page navigation, not on a timer, so there is no flood to suppress — and
- *  suppressing repeats would hide the SCALE of an outage, which is the thing
- *  worth seeing. */
-function warnViewCountFailed(cause: unknown) {
-  const message =
-    typeof cause === "object" && cause !== null && "message" in cause
-      ? String((cause as { message?: unknown }).message)
-      : String(cause);
-  console.warn(`${VIEW_COUNT_LOG_PREFIX} view count increment failed:`, message);
-}
-
-/** Fire-and-forget view count increment — never blocks render.
- * BUG-066: bump only the target page's counter via a SECURITY DEFINER RPC.
- * The old approach rewrote the entire managed_pages blob through site_settings,
- * which admin-only RLS blocked for public visitors (so counts never moved) and
- * which let an admin visit overwrite newer edits from a stale cache.
+/* ── THE VIEW COUNTER NO LONGER LIVES HERE. Ruling R-16. ──
  *
- * P31: this used to be `.then(() => {})` — no handler of any kind, on a PUBLIC
- * page. Measured from the installed @supabase/postgrest-js: PostgrestBuilder
- * .then() attaches its own .catch() whenever throwOnError() was not called (it
- * is not called here), and that catch RETURNS a resolved
- * `{ data: null, error, status: 0 }`. So a withdrawn grant does not crash the
- * page — it resolves with `error.code = "42501"`, and the empty callback threw
- * that on the floor. The counter would have stopped working permanently with
- * nothing to notice it by.
+ * This file used to call `increment_managed_page_view` from the visitor's own
+ * client, which is why the grant had to be open to `anon`. It is now performed
+ * at the edge, with `service_role`, in `functions/page/[slug].ts` — the Pages
+ * Function already registered for this exact route. The reasoning, and what
+ * changes about the number, are recorded there.
  *
- * So both halves are handled, and neither is allowed to reach the visitor:
- * the resolved-error path is the one a revoke actually takes, and the rejection
- * handler covers the rejecting path that becomes reachable if this call site is
- * ever given .throwOnError() or the client throws before the builder is reached.
- * A view counter must never be able to break the page it counts. */
-function incrementViewCount(pageId: string) {
-  // Two-argument .then, not .then().catch(): PostgrestBuilder.then() is typed
-  // PromiseLike<T>, which has no .catch(). Passing the rejection handler as the
-  // second argument covers the same path and typechecks.
-  void supabase
-    .rpc("increment_managed_page_view", { _page_id: pageId })
-    .then(
-      ({ error }) => {
-        if (error) warnViewCountFailed(error);
-      },
-      (cause: unknown) => {
-        warnViewCountFailed(cause);
-      },
-    );
-}
+ * Nothing replaces it here. A client-side "fallback" increment would be the
+ * `anon` grant back again under another name, and the whole point of the move
+ * is that the grant can be withdrawn.
+ */
 
 const ManagedPageView = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -94,18 +54,11 @@ const ManagedPageView = () => {
         .maybeSingle();
       if (!data?.value || !Array.isArray(data.value)) return null;
       const pages = data.value as unknown as ManagedPage[];
-      const found = pages.find((p) => p.slug === slug && p.is_published) ?? null;
-      // Fire-and-forget view count increment using the full payload we just fetched.
-      if (found) incrementViewCount(found.id);
-      return found;
+      return pages.find((p) => p.slug === slug && p.is_published) ?? null;
     },
     enabled: !!slug,
     staleTime: 10 * 60_000,
   });
-
-  // No-op effect kept for symmetry — view_count fires inside queryFn so it
-  // only runs once per fetch (not on every render).
-  useEffect(() => {}, [page?.id]);
 
   if (isLoading) {
     return (

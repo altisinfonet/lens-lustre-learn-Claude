@@ -1,0 +1,363 @@
+C-34 MUTATION RECORD — Unit 2 (R-16), functions/page/[slug].ts
+Repo altisinfonet/lens-lustre-learn-Claude · base origin/staging 247a47b · 2026-09-22T12:08:30Z
+Each assertion in src/__tests__/managedPageEdgeViewCount.test.ts is shown RED against an
+input carrying exactly the defect it exists to catch, and GREEN against the fix.
+
+
+==============================================================================
+MUTANT A — functions/page/[slug].ts and _seo.ts at 247a47b (no edge counter)
+expected RED: 'counts a published page once, as service_role' (and the serviceRoleKey pair)
+==============================================================================
+
+ RUN  v3.2.4 /home/claude/repo
+
+ ❯ src/__tests__/managedPageEdgeViewCount.test.ts (7 tests | 5 failed) 31ms
+   × functions/page/[slug].ts — the view counter at the edge > counts a published page once, as service_role 15ms
+     → no increment request was sent: expected undefined to be defined
+   ✓ functions/page/[slug].ts — the view counter at the edge > never sends the increment under the anon key 2ms
+   × functions/page/[slug].ts — the view counter at the edge > records nothing and says so loudly when the lane has no service-role key 6ms
+     → expected [] to have a length of 1 but got +0
+   ✓ functions/page/[slug].ts — the view counter at the edge > does not count a slug that resolves to no published page 2ms
+   × functions/page/[slug].ts — the view counter at the edge > serves the page even when the increment fails outright 3ms
+     → expected [] to have a length of 1 but got +0
+   × functions/_seo.ts — serviceRoleKey is deliberately not laneValue() > returns null rather than throwing when the lane omits it 1ms
+     → (0 , serviceRoleKey) is not a function
+   × functions/_seo.ts — serviceRoleKey is deliberately not laneValue() > never falls back to the anon key 0ms
+     → (0 , serviceRoleKey) is not a function
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/managedPageEdgeViewCount.test.ts > functions/page/[slug].ts — the view counter at the edge > counts a published page once, as service_role
+AssertionError: no increment request was sent: expected undefined to be defined
+ ❯ src/__tests__/managedPageEdgeViewCount.test.ts:140:50
+    138| 
+    139|     const [hit, ...extra] = increments();
+    140|     expect(hit, "no increment request was sent").toBeDefined();
+       |                                                  ^
+    141|     expect(extra).toHaveLength(0);
+    142|     expect(hit.method).toBe("POST");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/__tests__/managedPageEdgeViewCount.test.ts > functions/page/[slug].ts — the view counter at the edge > records nothing and says so loudly when the lane has no service-role key
+AssertionError: expected [] to have a length of 1 but got +0
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 0[39m
+
+ ❯ src/__tests__/managedPageEdgeViewCount.test.ts:172:29
+    170|     expect(increments()).toHaveLength(0);
+    171|     // A silent stop is the failure this whole move exists to avoid.
+    172|     expect(counterErrors()).toHaveLength(1);
+       |                             ^
+    173|     expect(String(counterErrors()[0][0])).toMatch(/SUPABASE_SERVICE_RO…
+    174|     // and the visitor still gets the page
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/__tests__/managedPageEdgeViewCount.test.ts > functions/page/[slug].ts — the view counter at the edge > serves the page even when the increment fails outright
+AssertionError: expected [] to have a length of 1 but got +0
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 0[39m
+
+ ❯ src/__tests__/managedPageEdgeViewCount.test.ts:197:29
+    195|     expect(res.status).toBe(200);
+    196|     expect(res.headers.get("content-type")).toMatch(/text\/html/);
+    197|     expect(counterErrors()).toHaveLength(1);
+       |                             ^
+    198|     expect(String(counterErrors()[0][0])).toMatch(/increment failed: n…
+    199|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  src/__tests__/managedPageEdgeViewCount.test.ts > functions/_seo.ts — serviceRoleKey is deliberately not laneValue() > returns null rather than throwing when the lane omits it
+TypeError: (0 , serviceRoleKey) is not a function
+ ❯ src/__tests__/managedPageEdgeViewCount.test.ts:207:12
+    205|     // unrecoverable. This one must not: a missing counter key is not …
+    206|     // to stop serving a public page.
+    207|     expect(serviceRoleKey(undefined)).toBeNull();
+       |            ^
+    208|     expect(serviceRoleKey({})).toBeNull();
+    209|     expect(serviceRoleKey({ SUPABASE_SERVICE_ROLE_KEY: "   " })).toBeN…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  src/__tests__/managedPageEdgeViewCount.test.ts > functions/_seo.ts — serviceRoleKey is deliberately not laneValue() > never falls back to the anon key
+TypeError: (0 , serviceRoleKey) is not a function
+ ❯ src/__tests__/managedPageEdgeViewCount.test.ts:214:12
+    212| 
+    213|   it("never falls back to the anon key", () => {
+    214|     expect(serviceRoleKey({ SUPABASE_ANON_KEY: "anon" } as never)).toB…
+       |            ^
+    215|   });
+    216| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 2 passed (7)
+
+
+==============================================================================
+MUTANT B — fix, but the increment is keyed with the ANON key
+expected RED: 'never sends the increment under the anon key' + 'as service_role'
+==============================================================================
+
+ RUN  v3.2.4 /home/claude/repo
+
+ ❯ src/__tests__/managedPageEdgeViewCount.test.ts (7 tests | 3 failed) 30ms
+   × functions/page/[slug].ts — the view counter at the edge > counts a published page once, as service_role 15ms
+     → expected 'Bearer staging-anon-key' to be 'Bearer staging-service-role-key' // Object.is equality
+   × functions/page/[slug].ts — the view counter at the edge > never sends the increment under the anon key 3ms
+     → expected 'staging-anon-key' not to be 'staging-anon-key' // Object.is equality
+   × functions/page/[slug].ts — the view counter at the edge > records nothing and says so loudly when the lane has no service-role key 5ms
+     → expected [ { …(4) } ] to have a length of +0 but got 1
+   ✓ functions/page/[slug].ts — the view counter at the edge > does not count a slug that resolves to no published page 2ms
+   ✓ functions/page/[slug].ts — the view counter at the edge > serves the page even when the increment fails outright 2ms
+   ✓ functions/_seo.ts — serviceRoleKey is deliberately not laneValue() > returns null rather than throwing when the lane omits it 0ms
+   ✓ functions/_seo.ts — serviceRoleKey is deliberately not laneValue() > never falls back to the anon key 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/managedPageEdgeViewCount.test.ts > functions/page/[slug].ts — the view counter at the edge > counts a published page once, as service_role
+AssertionError: expected 'Bearer staging-anon-key' to be 'Bearer staging-service-role-key' // Object.is equality
+
+Expected: [32m"Bearer staging-[7mservice-role[27m-key"[39m
+Received: [31m"Bearer staging-[7manon[27m-key"[39m
+
+ ❯ src/__tests__/managedPageEdgeViewCount.test.ts:144:42
+    142|     expect(hit.method).toBe("POST");
+    143|     expect(hit.body).toEqual({ _page_id: PAGE.id });
+    144|     expect(hit.headers["authorization"]).toBe(`Bearer ${ENV.SUPABASE_S…
+       |                                          ^
+    145|     expect(hit.headers["apikey"]).toBe(ENV.SUPABASE_SERVICE_ROLE_KEY);
+    146|     expect(counterErrors()).toHaveLength(0);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/__tests__/managedPageEdgeViewCount.test.ts > functions/page/[slug].ts — the view counter at the edge > never sends the increment under the anon key
+AssertionError: expected 'staging-anon-key' not to be 'staging-anon-key' // Object.is equality
+ ❯ src/__tests__/managedPageEdgeViewCount.test.ts:158:41
+    156| 
+    157|     for (const hit of increments()) {
+    158|       expect(hit.headers["apikey"]).not.toBe(ENV.SUPABASE_ANON_KEY);
+       |                                         ^
+    159|       expect(hit.headers["authorization"]).not.toContain(ENV.SUPABASE_…
+    160|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/__tests__/managedPageEdgeViewCount.test.ts > functions/page/[slug].ts — the view counter at the edge > records nothing and says so loudly when the lane has no service-role key
+AssertionError: expected [ { …(4) } ] to have a length of +0 but got 1
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 0[39m
+[31m+ 1[39m
+
+ ❯ src/__tests__/managedPageEdgeViewCount.test.ts:170:26
+    168|     await settled();
+    169| 
+    170|     expect(increments()).toHaveLength(0);
+       |                          ^
+    171|     // A silent stop is the failure this whole move exists to avoid.
+    172|     expect(counterErrors()).toHaveLength(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 4 passed (7)
+
+
+==============================================================================
+MUTANT C — fix, minus the loud log on a missing service-role key (a silent stop)
+expected RED: 'records nothing and says so loudly when the lane has no service-role key'
+==============================================================================
+
+ RUN  v3.2.4 /home/claude/repo
+
+ ❯ src/__tests__/managedPageEdgeViewCount.test.ts (7 tests | 1 failed) 29ms
+   ✓ functions/page/[slug].ts — the view counter at the edge > counts a published page once, as service_role 10ms
+   ✓ functions/page/[slug].ts — the view counter at the edge > never sends the increment under the anon key 3ms
+   × functions/page/[slug].ts — the view counter at the edge > records nothing and says so loudly when the lane has no service-role key 10ms
+     → expected [] to have a length of 1 but got +0
+   ✓ functions/page/[slug].ts — the view counter at the edge > does not count a slug that resolves to no published page 2ms
+   ✓ functions/page/[slug].ts — the view counter at the edge > serves the page even when the increment fails outright 2ms
+   ✓ functions/_seo.ts — serviceRoleKey is deliberately not laneValue() > returns null rather than throwing when the lane omits it 0ms
+   ✓ functions/_seo.ts — serviceRoleKey is deliberately not laneValue() > never falls back to the anon key 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/managedPageEdgeViewCount.test.ts > functions/page/[slug].ts — the view counter at the edge > records nothing and says so loudly when the lane has no service-role key
+AssertionError: expected [] to have a length of 1 but got +0
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 0[39m
+
+ ❯ src/__tests__/managedPageEdgeViewCount.test.ts:172:29
+    170|     expect(increments()).toHaveLength(0);
+    171|     // A silent stop is the failure this whole move exists to avoid.
+    172|     expect(counterErrors()).toHaveLength(1);
+       |                             ^
+    173|     expect(String(counterErrors()[0][0])).toMatch(/SUPABASE_SERVICE_RO…
+    174|     // and the visitor still gets the page
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+
+
+==============================================================================
+MUTANT D — fix, but counting before the published-page guard
+expected RED: 'does not count a slug that resolves to no published page'
+==============================================================================
+
+ RUN  v3.2.4 /home/claude/repo
+
+ ❯ src/__tests__/managedPageEdgeViewCount.test.ts (7 tests | 1 failed) 37ms
+   ✓ functions/page/[slug].ts — the view counter at the edge > counts a published page once, as service_role 10ms
+   ✓ functions/page/[slug].ts — the view counter at the edge > never sends the increment under the anon key 3ms
+   ✓ functions/page/[slug].ts — the view counter at the edge > records nothing and says so loudly when the lane has no service-role key 3ms
+   × functions/page/[slug].ts — the view counter at the edge > does not count a slug that resolves to no published page 15ms
+     → expected [ { …(4) } ] to have a length of +0 but got 1
+   ✓ functions/page/[slug].ts — the view counter at the edge > serves the page even when the increment fails outright 3ms
+   ✓ functions/_seo.ts — serviceRoleKey is deliberately not laneValue() > returns null rather than throwing when the lane omits it 0ms
+   ✓ functions/_seo.ts — serviceRoleKey is deliberately not laneValue() > never falls back to the anon key 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/managedPageEdgeViewCount.test.ts > functions/page/[slug].ts — the view counter at the edge > does not count a slug that resolves to no published page
+AssertionError: expected [ { …(4) } ] to have a length of +0 but got 1
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 0[39m
+[31m+ 1[39m
+
+ ❯ src/__tests__/managedPageEdgeViewCount.test.ts:184:26
+    182|     await settled();
+    183| 
+    184|     expect(increments()).toHaveLength(0);
+       |                          ^
+    185|     expect(counterErrors()).toHaveLength(0);
+    186|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+
+
+==============================================================================
+MUTANT E — fix, minus the try/catch around the increment
+expected RED: 'serves the page even when the increment fails outright'
+==============================================================================
+
+ RUN  v3.2.4 /home/claude/repo
+
+ ❯ src/__tests__/managedPageEdgeViewCount.test.ts (7 tests | 1 failed) 25ms
+   ✓ functions/page/[slug].ts — the view counter at the edge > counts a published page once, as service_role 10ms
+   ✓ functions/page/[slug].ts — the view counter at the edge > never sends the increment under the anon key 2ms
+   ✓ functions/page/[slug].ts — the view counter at the edge > records nothing and says so loudly when the lane has no service-role key 2ms
+   ✓ functions/page/[slug].ts — the view counter at the edge > does not count a slug that resolves to no published page 2ms
+   × functions/page/[slug].ts — the view counter at the edge > serves the page even when the increment fails outright 6ms
+     → network down
+   ✓ functions/_seo.ts — serviceRoleKey is deliberately not laneValue() > returns null rather than throwing when the lane omits it 0ms
+   ✓ functions/_seo.ts — serviceRoleKey is deliberately not laneValue() > never falls back to the anon key 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/managedPageEdgeViewCount.test.ts > functions/page/[slug].ts — the view counter at the edge > serves the page even when the increment fails outright
+Error: network down
+ ❯ fetch src/__tests__/managedPageEdgeViewCount.test.ts:72:32
+     70| 
+     71|   if (url.includes(INCREMENT_PATH)) {
+     72|     if (incrementThrows) throw new Error("network down");
+       |                                ^
+     73|     return new Response("null", { status: 200, headers: { "Content-Typ…
+     74|   }
+ ❯ incrementViewCount functions/page/[slug].ts:70:23
+ ❯ onRequest functions/page/[slug].ts:106:21
+ ❯ src/__tests__/managedPageEdgeViewCount.test.ts:192:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+
+
+==============================================================================
+THE FIX — all seven green
+==============================================================================
+
+ RUN  v3.2.4 /home/claude/repo
+
+ ✓ src/__tests__/managedPageEdgeViewCount.test.ts (7 tests) 22ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+
+
+##############################################################################
+# ADDENDUM, 2026-09-22T13:41:00Z - C-34 FOR THE REPLACEMENT ASSERTIONS
+# Added after the Auditor's acceptance command classified the three red
+# assertions in managedPageViewCounter.test.tsx as CASE A - obsolete because
+# their subject, the client RPC, was deleted. Case A requires the replacement
+# to preserve the behavioural intent, be mutation-tested, and be shown failing
+# against the PRE-FIX implementation. That is what follows.
+##############################################################################
+
+==============================================================================
+MUTANT F - src/pages/ManagedPageView.tsx restored verbatim from 247a47b
+           i.e. the client counter is back
+expected RED: both new client assertions
+==============================================================================
+× ManagedPageView — the client does not count, and must not start again > never calls increment_managed_page_view — the anon grant must stay withdrawable 64ms
+× ManagedPageView — the client does not count, and must not start again > makes no RPC call at all while rendering a managed page 21ms
+✓ ManagedPageView — the client does not count, and must not start again > GUARD still renders the page body after the counter was removed 13ms
+✓ ManagedPageView — the client does not count, and must not start again > GUARD nothing about view counting reaches the member 12ms
+
+==============================================================================
+MUTANT G - edge counter minus the 'if (!res.ok)' branch
+           a withdrawn grant answers 403 and fetch does NOT reject
+expected RED: 'logs exactly once when PostgREST REFUSES the increment'
+==============================================================================
+✓ functions/page/[slug].ts — the view counter at the edge > counts a published page once, as service_role 10ms
+✓ functions/page/[slug].ts — the view counter at the edge > never sends the increment under the anon key 3ms
+✓ functions/page/[slug].ts — the view counter at the edge > records nothing and says so loudly when the lane has no service-role key 3ms
+✓ functions/page/[slug].ts — the view counter at the edge > does not count a slug that resolves to no published page 2ms
+× functions/page/[slug].ts — the view counter at the edge > logs exactly once when PostgREST REFUSES the increment, and still serves the page 9ms
+✓ functions/page/[slug].ts — the view counter at the edge > serves the page even when the increment fails outright 2ms
+✓ functions/_seo.ts — serviceRoleKey is deliberately not laneValue() > returns null rather than throwing when the lane omits it 0ms
+✓ functions/_seo.ts — serviceRoleKey is deliberately not laneValue() > never falls back to the anon key 0ms
+
+==============================================================================
+THE FIX - both files green
+==============================================================================
+
+ RUN  v3.2.4 /home/claude/repo
+
+ ✓ src/pages/__tests__/managedPageViewCounter.test.tsx (4 tests) 103ms
+ ✓ src/__tests__/managedPageEdgeViewCount.test.ts (8 tests) 23ms
+
+ Test Files  2 passed (2)
+      Tests  12 passed (12)
+
