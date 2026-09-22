@@ -78,3 +78,44 @@ UNMUTATED SNAPSHOT - the reviewed file alone
  Test Files  1 passed (1)
       Tests  13 passed (13)
 
+
+##############################################################################
+# ADDENDUM, 2026-09-22T13:46:24Z - MUTATION-TESTING sectionFor() ITSELF
+# The Auditor's acceptance command: 'verify the reviewed sectionFor()
+# implementation is itself mutation-safe - C-34 inside the C-34 guard is the
+# best finding in your queue; make sure the fix doesn't have the same shape.'
+##############################################################################
+
+==============================================================================
+MUTANT H - sectionFor() reverted to an UNBOUNDED slice (the original defect's shape)
+expected RED: 'carries its own banner and no other view's' for the first three views, and the disjointness assertion
+==============================================================================
+× P33 · sectionFor() is bounded — the guard on the guard > judge_decisions_owner_safe's section carries its own banner and no other view's 8ms
+× P33 · sectionFor() is bounded — the guard on the guard > judge_comments_owner_safe's section carries its own banner and no other view's 1ms
+× P33 · sectionFor() is bounded — the guard on the guard > judge_tag_assignments_owner_safe's section carries its own banner and no other view's 1ms
+✓ P33 · sectionFor() is bounded — the guard on the guard > entry_public_status's section carries its own banner and no other view's 0ms
+× P33 · sectionFor() is bounded — the guard on the guard > the four sections are disjoint and together account for every banner 1ms
+✓ P33 · sectionFor() is bounded — the guard on the guard > throws by name for a view the snapshot does not carry 1ms
+
+==============================================================================
+MUTANT I - off-by-one: BANNER.lastIndex = start, so exec matches the section's OWN banner and the section is empty
+expected RED: every 'carries its own banner' assertion - loudly, not silently
+==============================================================================
+× P33 · sectionFor() is bounded — the guard on the guard > judge_decisions_owner_safe's section carries its own banner and no other view's 8ms
+× P33 · sectionFor() is bounded — the guard on the guard > judge_comments_owner_safe's section carries its own banner and no other view's 1ms
+× P33 · sectionFor() is bounded — the guard on the guard > judge_tag_assignments_owner_safe's section carries its own banner and no other view's 1ms
+× P33 · sectionFor() is bounded — the guard on the guard > entry_public_status's section carries its own banner and no other view's 1ms
+× P33 · sectionFor() is bounded — the guard on the guard > the four sections are disjoint and together account for every banner 2ms
+✓ P33 · sectionFor() is bounded — the guard on the guard > throws by name for a view the snapshot does not carry 1ms
+
+==============================================================================
+THE REVIEWED IMPLEMENTATION
+==============================================================================
+
+ RUN  v3.2.4 /home/claude/repo
+
+ ✓ src/__tests__/p33DefinerViewPredicates.test.ts (19 tests) 8ms
+
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+

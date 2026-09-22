@@ -67,6 +67,28 @@
  * DEPENDENCY: the snapshot this reads is `docs/evidence/d1/**`, which is D1's
  * lane. It reaches `staging` with PR #277, not with this PR. Until #277 lands
  * this file fails, loudly and by design — see the message in `readSnapshot()`.
+ *
+ * ── R-27 RESCOPED THE CLAUSE THIS FILE SITS UNDER. READ THIS BEFORE CITING IT.
+ *
+ * P33 clause 2 said "the four definer views". R-27 measured **eleven** on
+ * staging — every `public` view or matview without `security_invoker=true`,
+ * owned by `postgres`, carrying `anon` in its ACL:
+ *
+ *   entry_final_votes · entry_final_votes_legacy · entry_public_status ·
+ *   entry_vote_counts · judge_comments_owner_safe · judge_decisions_owner_safe ·
+ *   judge_tag_assignments_owner_safe · judge_tag_assignments_public_r4 ·
+ *   judging_progression_audit · profiles_public · v_judging_drift
+ *
+ * The snapshot this file reads carries FOUR sections. So this guard covers
+ * 4 of 11, and only their READ predicates — and R-27's actual finding is on
+ * the other axis: every one of the eleven reads `anon=arwdDxtm/postgres`, i.e.
+ * `anon` holds INSERT, UPDATE, DELETE and TRUNCATE as well as SELECT, and five
+ * of the eleven are auto-updatable. None of that is visible in a view
+ * definition, so no amount of work in this file can see it.
+ *
+ * This file closes a D2 test-quality defect. It does not close P33 clause 2,
+ * it never could, and after R-27 it covers a smaller fraction of that clause
+ * than it did when it was written.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -114,6 +136,64 @@ function sectionFor(view: string): string {
   const next = BANNER.exec(snapshot);
   return snapshot.slice(start, next ? next.index : snapshot.length);
 }
+
+/** Every view this snapshot carries a section for. */
+const SNAPSHOT_VIEWS = [
+  "judge_decisions_owner_safe",
+  "judge_comments_owner_safe",
+  "judge_tag_assignments_owner_safe",
+  "entry_public_status",
+] as const;
+
+/**
+ * ── THE GUARD ON THE GUARD ──
+ *
+ * The defect this file was carried to fix was that every section slice ran to
+ * the end of the snapshot, so four of nine assertions could not fail: a view's
+ * predicate check matched a LATER view's copy of the same string. C-34 inside
+ * the C-34 guard.
+ *
+ * `sectionFor()` is the fix, and a fix of that shape has to be proved not to
+ * have the same shape. These assertions test the helper itself rather than
+ * anything it reports: if bounding is ever removed or loosened, they go red
+ * here, loudly, instead of quietly re-arming the original defect one layer
+ * down. Mutation-verified against the unbounded implementation.
+ */
+describe("P33 · sectionFor() is bounded — the guard on the guard", () => {
+  it.each(SNAPSHOT_VIEWS)("%s's section carries its own banner and no other view's", (view) => {
+    const section = sectionFor(view);
+
+    expect(new RegExp(`^--\\s*===\\s*${view}\\s*=`, "m").test(section)).toBe(true);
+
+    for (const other of SNAPSHOT_VIEWS) {
+      if (other === view) continue;
+      expect(
+        new RegExp(`^--\\s*===\\s*${other}\\s*=`, "m").test(section),
+        `${view}'s section reaches into ${other}'s. An unbounded slice is how four of this ` +
+          `file's assertions became unable to fail: they matched a later view's copy of the ` +
+          `same predicate. Bounding is the whole fix; do not loosen it.`,
+      ).toBe(false);
+    }
+  });
+
+  it("the four sections are disjoint and together account for every banner", () => {
+    const BANNERS = /^--\s*===\s*(\S+)\s*=+\s*$/gm;
+    const inFile = [...snapshot.matchAll(BANNERS)].map((m) => m[1]);
+    expect(inFile).toEqual([...SNAPSHOT_VIEWS]);
+
+    const total = SNAPSHOT_VIEWS.map((v) => sectionFor(v).length).reduce((a, b) => a + b, 0);
+    // Sections start at the first banner, so they cover the file from there on
+    // and nothing twice. More than the file's length means they overlap.
+    const firstBanner = snapshot.search(/^--\s*===\s*\S+\s*=+\s*$/m);
+    expect(total).toBe(snapshot.length - firstBanner);
+  });
+
+  it("throws by name for a view the snapshot does not carry", () => {
+    // A renamed or missing banner must be a loud failure, not a one-character
+    // slice quietly handed to the regexes.
+    expect(() => sectionFor("judge_decisions_owner_safe_v2")).toThrow(/has no "-- === judge_decisions_owner_safe_v2/);
+  });
+});
 
 describe("P33 · the three judge_*_owner_safe views stay owner-scoped and publish-gated", () => {
   it("the snapshot file exists and is non-trivial (guards against a vacuous pass)", () => {
