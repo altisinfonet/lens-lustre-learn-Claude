@@ -1,0 +1,80 @@
+C-34 MUTATION RECORD - Unit 3 (R-1), src/__tests__/p33DefinerViewPredicates.test.ts
+Repo altisinfonet/lens-lustre-learn-Claude - base origin/staging 247a47b - 2026-09-22T12:16:01Z
+
+Both versions are run against the SAME mutated snapshot, side by side, verbose reporter:
+  ORIGINAL@2bc2e39 ... - the file as D1 wrote it at 2bc2e39, section slices unbounded
+  P33 ...              - this PR's reviewed version, sections bounded by sectionFor()
+
+READ THE FIRST TWO BLOCKS FIRST. For judge_decisions_owner_safe and
+judge_comments_owner_safe the ORIGINAL assertion stays GREEN against a snapshot that no
+longer contains the predicate, because its slice runs to end of file and matches a LATER
+view's copy of the same string. Two of the three views were guarded by a test that could
+not fail - C-34, inside the test written to prevent C-34. Only the LAST view, which has
+nothing below it to borrow from, failed honestly.
+
+
+==============================================================================
+MUTATED SNAPSHOT - judge_decisions_owner_safe, 'owner' predicate removed from ITS OWN section only
+==============================================================================
+✓ src/__tests__/zz_p33Original_EVIDENCE_ONLY.test.ts > ORIGINAL@2bc2e39 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_decisions_owner_safe: snapshot carries the owner predicate (ce.user_id = auth.uid()) 0ms
+✓ src/__tests__/zz_p33Original_EVIDENCE_ONLY.test.ts > ORIGINAL@2bc2e39 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_decisions_owner_safe: snapshot carries a publication gate (published_at IS NOT NULL) 0ms
+× src/__tests__/p33DefinerViewPredicates.test.ts > P33 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_decisions_owner_safe: snapshot carries the owner predicate (ce.user_id = auth.uid()) 7ms
+✓ src/__tests__/p33DefinerViewPredicates.test.ts > P33 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_decisions_owner_safe: snapshot carries a publication gate (published_at IS NOT NULL) 0ms
+
+==============================================================================
+MUTATED SNAPSHOT - judge_decisions_owner_safe, 'pub' predicate removed from ITS OWN section only
+==============================================================================
+✓ src/__tests__/p33DefinerViewPredicates.test.ts > P33 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_decisions_owner_safe: snapshot carries the owner predicate (ce.user_id = auth.uid()) 0ms
+× src/__tests__/p33DefinerViewPredicates.test.ts > P33 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_decisions_owner_safe: snapshot carries a publication gate (published_at IS NOT NULL) 7ms
+✓ src/__tests__/zz_p33Original_EVIDENCE_ONLY.test.ts > ORIGINAL@2bc2e39 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_decisions_owner_safe: snapshot carries the owner predicate (ce.user_id = auth.uid()) 1ms
+✓ src/__tests__/zz_p33Original_EVIDENCE_ONLY.test.ts > ORIGINAL@2bc2e39 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_decisions_owner_safe: snapshot carries a publication gate (published_at IS NOT NULL) 0ms
+
+==============================================================================
+MUTATED SNAPSHOT - judge_comments_owner_safe, 'owner' predicate removed from ITS OWN section only
+==============================================================================
+× src/__tests__/p33DefinerViewPredicates.test.ts > P33 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_comments_owner_safe: snapshot carries the owner predicate (ce.user_id = auth.uid()) 7ms
+✓ src/__tests__/p33DefinerViewPredicates.test.ts > P33 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_comments_owner_safe: snapshot carries a publication gate (published_at IS NOT NULL) 0ms
+✓ src/__tests__/zz_p33Original_EVIDENCE_ONLY.test.ts > ORIGINAL@2bc2e39 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_comments_owner_safe: snapshot carries the owner predicate (ce.user_id = auth.uid()) 0ms
+✓ src/__tests__/zz_p33Original_EVIDENCE_ONLY.test.ts > ORIGINAL@2bc2e39 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_comments_owner_safe: snapshot carries a publication gate (published_at IS NOT NULL) 0ms
+
+==============================================================================
+MUTATED SNAPSHOT - judge_comments_owner_safe, 'pub' predicate removed from ITS OWN section only
+==============================================================================
+✓ src/__tests__/p33DefinerViewPredicates.test.ts > P33 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_comments_owner_safe: snapshot carries the owner predicate (ce.user_id = auth.uid()) 0ms
+× src/__tests__/p33DefinerViewPredicates.test.ts > P33 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_comments_owner_safe: snapshot carries a publication gate (published_at IS NOT NULL) 7ms
+✓ src/__tests__/zz_p33Original_EVIDENCE_ONLY.test.ts > ORIGINAL@2bc2e39 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_comments_owner_safe: snapshot carries the owner predicate (ce.user_id = auth.uid()) 0ms
+✓ src/__tests__/zz_p33Original_EVIDENCE_ONLY.test.ts > ORIGINAL@2bc2e39 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_comments_owner_safe: snapshot carries a publication gate (published_at IS NOT NULL) 0ms
+
+==============================================================================
+MUTATED SNAPSHOT - judge_tag_assignments_owner_safe, 'owner' predicate removed from ITS OWN section only
+==============================================================================
+× src/__tests__/p33DefinerViewPredicates.test.ts > P33 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_tag_assignments_owner_safe: snapshot carries the owner predicate (ce.user_id = auth.uid()) 7ms
+✓ src/__tests__/p33DefinerViewPredicates.test.ts > P33 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_tag_assignments_owner_safe: snapshot carries a publication gate (published_at IS NOT NULL) 0ms
+× src/__tests__/zz_p33Original_EVIDENCE_ONLY.test.ts > ORIGINAL@2bc2e39 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_tag_assignments_owner_safe: snapshot carries the owner predicate (ce.user_id = auth.uid()) 7ms
+✓ src/__tests__/zz_p33Original_EVIDENCE_ONLY.test.ts > ORIGINAL@2bc2e39 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_tag_assignments_owner_safe: snapshot carries a publication gate (published_at IS NOT NULL) 0ms
+
+==============================================================================
+MUTATED SNAPSHOT - judge_tag_assignments_owner_safe, 'pub' predicate removed from ITS OWN section only
+==============================================================================
+✓ src/__tests__/p33DefinerViewPredicates.test.ts > P33 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_tag_assignments_owner_safe: snapshot carries the owner predicate (ce.user_id = auth.uid()) 0ms
+× src/__tests__/p33DefinerViewPredicates.test.ts > P33 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_tag_assignments_owner_safe: snapshot carries a publication gate (published_at IS NOT NULL) 7ms
+✓ src/__tests__/zz_p33Original_EVIDENCE_ONLY.test.ts > ORIGINAL@2bc2e39 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_tag_assignments_owner_safe: snapshot carries the owner predicate (ce.user_id = auth.uid()) 0ms
+× src/__tests__/zz_p33Original_EVIDENCE_ONLY.test.ts > ORIGINAL@2bc2e39 · the three judge_*_owner_safe views stay owner-scoped and publish-gated > judge_tag_assignments_owner_safe: snapshot carries a publication gate (published_at IS NOT NULL) 6ms
+
+==============================================================================
+MUTATED SNAPSHOT - entry_public_status, admin-role escape hatch replaced with OR (false)
+==============================================================================
+× src/__tests__/p33DefinerViewPredicates.test.ts > P33 · entry_public_status stays gated by status-allowlist OR admin role, not by ownership > snapshot carries the admin-role escape hatch (has_role(..., 'admin')) 7ms
+× src/__tests__/zz_p33Original_EVIDENCE_ONLY.test.ts > ORIGINAL@2bc2e39 · entry_public_status stays gated by status-allowlist OR admin role, not by ownership > snapshot carries the admin-role escape hatch (has_role(..., 'admin')) 7ms
+
+==============================================================================
+UNMUTATED SNAPSHOT - the reviewed file alone
+==============================================================================
+
+ RUN  v3.2.4 /home/claude/repo
+
+ ✓ src/__tests__/p33DefinerViewPredicates.test.ts (13 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+
