@@ -1,0 +1,123 @@
+P32 SESSION A — judging-lock identity spoofing + judge_apply_single_tag closure
+Disposable PostgreSQL 16 fixture transcript, generated 2026-09-21T13:40:13Z
+Fixture: local disposable judging_fixture DB, NOT staging/production.
+
+### STEP 1: fixture build (original vulnerable bodies + original wide-open grants) ###
+DROP SCHEMA
+psql:/tmp/fixture_judging.sql:6: NOTICE:  schema "auth" does not exist, skipping
+DROP SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+DO
+GRANT
+CREATE FUNCTION
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+INSERT 0 1
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+DO
+     note      
+---------------
+ fixture ready
+(1 row)
+
+
+### STEP 2: PROBE BEFORE any fix (must FAIL) ###
+BEGIN
+psql:/tmp/probe_judging.sql:171: NOTICE:  --- P32 session-A judging-lock gate probe @ 2026-09-21T13:40:14Z UTC ---
+psql:/tmp/probe_judging.sql:171: NOTICE:      lane database: judging_fixture  (current_database)
+psql:/tmp/probe_judging.sql:171: NOTICE:  B5 all four functions exist ......... PASS
+psql:/tmp/probe_judging.sql:171: ERROR:  B2 FAILED — public/anon can still EXECUTE one of the three lock functions (acquire public=t,anon=t; heartbeat public=t,anon=t; release public=t,anon=t).
+CONTEXT:  PL/pgSQL function inline_code_block line 50 at RAISE
+ROLLBACK
+
+### STEP 3: apply forward migration ###
+BEGIN
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+GRANT
+REVOKE
+REVOKE
+GRANT
+REVOKE
+REVOKE
+GRANT
+REVOKE
+REVOKE
+REVOKE
+GRANT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMIT
+
+### STEP 4: PROBE AFTER fix (must PASS, including positive-path D1/D2) ###
+BEGIN
+psql:/tmp/probe_judging.sql:171: NOTICE:  --- P32 session-A judging-lock gate probe @ 2026-09-21T13:40:14Z UTC ---
+psql:/tmp/probe_judging.sql:171: NOTICE:      lane database: judging_fixture  (current_database)
+psql:/tmp/probe_judging.sql:171: NOTICE:  B5 all four functions exist ......... PASS
+psql:/tmp/probe_judging.sql:171: NOTICE:  B2/B4 lock functions: public/anon closed, authenticated retained .. PASS
+psql:/tmp/probe_judging.sql:171: NOTICE:  B3/B4 judge_apply_single_tag: closed to public/anon/authenticated, service_role retained .. PASS
+psql:/tmp/probe_judging.sql:171: NOTICE:  C1 unauthenticated caller rejected (28000) .. PASS
+psql:/tmp/probe_judging.sql:171: NOTICE:  C2 impersonation rejected (THE GATE, 42501) .. PASS (auth.uid()=judge_a could not act as judge_b)
+psql:/tmp/probe_judging.sql:171: NOTICE:  C3 non-judge/non-admin caller rejected (42501) .. PASS
+psql:/tmp/probe_judging.sql:171: NOTICE:  D1 legitimate judge can still acquire their own lock .. PASS (result={"lock_id": "93f45721-61ca-406d-a61f-c5e7942abc2f", "acquired": true})
+psql:/tmp/probe_judging.sql:171: NOTICE:  D2 legitimate judge can still release their own lock .. PASS
+psql:/tmp/probe_judging.sql:171: NOTICE:  --- ALL ASSERTIONS PASSED. Nothing was written (outer transaction rolls back). ---
+DO
+ROLLBACK
+
+### STEP 5: idempotent re-apply (must not error) ###
+BEGIN
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+GRANT
+REVOKE
+REVOKE
+GRANT
+REVOKE
+REVOKE
+GRANT
+REVOKE
+REVOKE
+REVOKE
+GRANT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMIT
+
+### STEP 6: apply ROLLBACK file (restores original bodies + grants) ###
+BEGIN
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+GRANT
+GRANT
+GRANT
+GRANT
+COMMIT
+
+### STEP 7: PROBE again AFTER rollback (must FAIL again -- proves probe is not vacuous) ###
+BEGIN
+psql:/tmp/probe_judging.sql:171: NOTICE:  --- P32 session-A judging-lock gate probe @ 2026-09-21T13:40:14Z UTC ---
+psql:/tmp/probe_judging.sql:171: NOTICE:      lane database: judging_fixture  (current_database)
+psql:/tmp/probe_judging.sql:171: NOTICE:  B5 all four functions exist ......... PASS
+psql:/tmp/probe_judging.sql:171: ERROR:  B2 FAILED — public/anon can still EXECUTE one of the three lock functions (acquire public=t,anon=t; heartbeat public=t,anon=t; release public=t,anon=t).
+CONTEXT:  PL/pgSQL function inline_code_block line 50 at RAISE
+ROLLBACK
