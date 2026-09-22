@@ -1,0 +1,93 @@
+D1 · §4.5 — PROBE FAIL-FIRST EVIDENCE (the C-34 control)
+========================================================
+measured_at_utc : 2026-09-22T05:38Z
+lane            : staging  fpszggreishhuvdpkmdr   (SELECT only, nothing dispatched)
+tree            : origin/staging @ f0377afa29d61ea44cbed38b7ed6d38e296df225
+probes covered  : supabase/migrations/PROBE_p32_setA_closed.sql   (3 signatures)
+                  supabase/migrations/PROBE_p32_setB_closed.sql   (23 of Set B's 30 rows)
+
+WHY THIS FILE EXISTS
+--------------------
+C-34, recorded against this project once already: a test that could not have been shown
+failing first is not evidence. The work order §4.5 repeats it — "a probe that could not have
+failed is not evidence, so each must be shown failing against the current open state before it
+is accepted."
+
+HOW IT WAS TAKEN, AND WHY IT IS NOT A DISPATCH
+-----------------------------------------------
+The two probes were NOT executed. §5 of the work order forbids any dispatch on either lane, and
+that includes running a DO block. Instead the probes' own assertion ladder (C1 signature
+resolves · C3 anon EXECUTE · C4 PUBLIC entry · C5 authenticated in the wanted direction · C6
+service_role) was re-expressed as a single read-only SELECT over pg_proc/aclexplode and run
+against the live staging catalogue. The SELECT reports, per signature, the FIRST assertion that
+would raise.
+
+This is weaker than running the probe in exactly one respect — it does not exercise the
+plpgsql control flow — and it is equivalent in the respect that matters: it shows, from the
+live catalogue, that the assertions are false today, so the probes cannot pass vacuously.
+
+RESULT — SET A  (expected: PASS on staging, FAIL on production)
+---------------------------------------------------------------
+  public.change_custom_url(text)                                    PASS   public_entries=0
+  public.claim_username(text)                                       PASS   public_entries=0
+  public.clear_custom_url()                                         PASS   public_entries=0
+
+  3 of 3 PASS on staging. That is the correct and expected result: Set A is the one place
+  PRODUCTION is behind staging. The Auditor's published two-lane baseline records all three as
+  OPEN on production with PUBLIC held. PROBE_p32_setA_closed.sql therefore fails at C3/C4 on
+  production today.
+
+  ⚠ THE PRODUCTION HALF OF THIS CONTROL WAS NOT TAKEN. Project jtdtehuqtinjxropkkcn is not
+  attached to this session's Supabase connector (BLOCKER-1). The production failure above is
+  RELAYED from the Auditor's baseline, not measured here. Until a session that can read
+  production runs this probe there, Set A's fail-first control is HALF SATISFIED and should be
+  treated as such.
+
+RESULT — SET B  (expected: FAIL on both lanes)
+-----------------------------------------------
+  ALL 23 FAIL at C3 — "anon can still EXECUTE" — and every one of the 23 also carries
+  public_entries = 1, i.e. C4 would fail immediately behind C3.
+
+  public._gen_competition_order_no()                                C3 FAIL   public_entries=1
+  public.admin_flag_entry_for_review(uuid)                          C3 FAIL   public_entries=1
+  public.admin_rewind_stage(uuid, text, text)                       C3 FAIL   public_entries=1
+  public.admin_search_users(text, text)                             C3 FAIL   public_entries=1
+  public.admin_set_photo_rejected(uuid, integer, boolean, text)     C3 FAIL   public_entries=1
+  public.apply_decision_to_remaining(uuid, integer, text)           C3 FAIL   public_entries=1
+  public.backfill_judging_notifications(integer, boolean)           C3 FAIL   public_entries=1
+  public.backfill_tag_decision_drift_admin()                        C3 FAIL   public_entries=1
+  public.fix_certificate_readiness_admin(uuid)                      C3 FAIL   public_entries=1
+  public.fix_gift_drift_admin(uuid)                                 C3 FAIL   public_entries=1
+  public.fix_referral_drift_admin(uuid)                             C3 FAIL   public_entries=1
+  public.get_certificate_drift_admin(uuid)                          C3 FAIL   public_entries=1
+  public.get_derived_status_drift_admin()                           C3 FAIL   public_entries=1
+  public.get_judge_collusion_admin(uuid, integer, numeric)          C3 FAIL   public_entries=1
+  public.get_judging_tag_assignment_counts()                        C3 FAIL   public_entries=1
+  public.judging_write_decision_atomic(uuid, text, text)            C3 FAIL   public_entries=1
+  public.recompute_entry_from_tag_assignments(uuid)                 C3 FAIL   public_entries=1
+  public.recompute_entry_public_status(uuid)                        C3 FAIL   public_entries=1
+  public.register_push_token(text, text)                            C3 FAIL   public_entries=1
+  public.request_withdrawal(numeric, jsonb)                         C3 FAIL   public_entries=1
+  public.set_write_path(text)                                       C3 FAIL   public_entries=1
+  public.submit_competition_entry(uuid, …, jsonb)                   C3 FAIL   public_entries=1
+  public.unregister_push_token(text)                                C3 FAIL   public_entries=1
+
+  23 of 23 FAIL. The probe is not vacuous.
+
+TWO THINGS THIS RESULT SAYS BEYOND "THE PROBE CAN FAIL"
+--------------------------------------------------------
+1. public.set_write_path(text) reads anon-executable, with PUBLIC held, DESPITE its revoke
+   having been MERGED on staging in PR #262. That is the kickoff §4.1 ruling demonstrated
+   again on a fresh read: merged is not applied, and schema_migrations cannot be used as
+   evidence of closure in either direction. The catalogue is the only admissible source.
+2. C1 resolved for all 26 signatures. Every type-only signature in both probes matches exactly
+   one live function, so neither probe can silently check the wrong overload — which is the
+   trap that get_broadcast_feed's three signatures would otherwise set.
+
+NOT COVERED BY THIS CONTROL
+----------------------------
+  · The 7 Set B rows the probe deliberately does not assert (get_broadcast_feed ×3,
+    increment_managed_page_view, log_app_event, log_client_error, record_test_agent_run).
+  · The six body-level defects. Both probes would pass with every one of them intact.
+  · PostgREST HTTP reachability (F-53).
+  · Production, for either set.

@@ -1,0 +1,137 @@
+D1 §4.2 ZERO-CALLER CONFIRMATION TRANSCRIPT
+measured_at_utc: 2026-09-22T05:33:08Z
+tree: origin/staging @ f0377afa29d61ea44cbed38b7ed6d38e296df225
+roots: src/ functions/ supabase/functions/ scripts/   (work order §4.2)
+command, per object: grep -rn --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' --include='*.mjs' --include='*.cjs' -E '\b<name>\b' src functions supabase/functions scripts
+A zero below is a finding and carries the timestamp above. Absence is only true at a moment.
+============================================================
+--- clear_custom_url
+    src/integrations/supabase/types.ts:6099:      clear_custom_url: { Args: never; Returns: undefined }
+    src/lib/__tests__/customUrlCannotBeRemoved.test.ts:50:describe("the client never calls clear_custom_url", () => {
+    src/lib/__tests__/customUrlCannotBeRemoved.test.ts:58:    expect(src).not.toContain("clear_custom_url");
+    src/pages/EditProfile.tsx:567:         * This branch called clear_custom_url when a member emptied the field.
+    -- total lines: 4 ; invocations (.rpc / rpc\/): 0
+--- _gen_competition_order_no
+    src/integrations/supabase/types.ts:5942:      _gen_competition_order_no: { Args: never; Returns: string }
+    -- total lines: 1 ; invocations (.rpc / rpc\/): 0
+--- admin_rewind_stage
+    src/integrations/supabase/types.ts:5980:      admin_rewind_stage: {
+    -- total lines: 1 ; invocations (.rpc / rpc\/): 0
+--- apply_decision_to_remaining
+    src/integrations/supabase/types.ts:6030:      apply_decision_to_remaining: {
+    -- total lines: 1 ; invocations (.rpc / rpc\/): 0
+--- backfill_tag_decision_drift_admin
+    src/components/admin/JudgingInvariantsAudit.tsx:152:        "backfill_tag_decision_drift_admin" as any,
+    src/integrations/supabase/types.ts:6071:      backfill_tag_decision_drift_admin: {
+    scripts/verify-schema-dependencies.mjs:234:        //       "backfill_tag_decision_drift_admin" as any,
+    -- total lines: 3 ; invocations (.rpc / rpc\/): 0
+--- get_derived_status_drift_admin
+    src/integrations/supabase/types.ts:6286:      get_derived_status_drift_admin: {
+    -- total lines: 1 ; invocations (.rpc / rpc\/): 0
+--- recompute_entry_from_tag_assignments
+    src/integrations/supabase/types.ts:7027:      recompute_entry_from_tag_assignments: {
+    -- total lines: 1 ; invocations (.rpc / rpc\/): 0
+--- recompute_entry_public_status
+    src/integrations/supabase/types.ts:7031:      recompute_entry_public_status: {
+    -- total lines: 1 ; invocations (.rpc / rpc\/): 0
+--- set_write_path
+    src/integrations/supabase/types.ts:7096:      set_write_path: { Args: { p: string }; Returns: undefined }
+    -- total lines: 1 ; invocations (.rpc / rpc\/): 0
+--- _ensure_stats_row
+    ZERO OCCURRENCES OF ANY KIND (not merely zero invocations)
+--- admin_delete_auth_user
+    src/integrations/supabase/types.ts:5970:      admin_delete_auth_user: { Args: { _uid: string }; Returns: boolean }
+    supabase/functions/delete-user/index.ts:71:      "admin_delete_auth_user",
+    supabase/functions/delete-user/index.ts:75:      console.error("admin_delete_auth_user error:", authError);
+    supabase/functions/delete-user/index.ts:167:    // profiles was already cascade-deleted by admin_delete_auth_user (profiles.id
+    supabase/functions/delete-my-account/index.ts:80:      "admin_delete_auth_user",
+    supabase/functions/delete-my-account/index.ts:84:      console.error("admin_delete_auth_user error:", authError);
+    -- total lines: 6 ; invocations (.rpc / rpc\/): 0
+--- admin_list_certificates
+    src/components/admin/AdminCertificates.tsx:135:   * `admin_list_certificates` pages, filters by type, and returns the true
+    src/components/admin/AdminCertificates.tsx:148:      "admin_list_certificates",
+    src/__tests__/certificateTiers.test.ts:257:  it("is returned by admin_list_certificates, or the admin screen cannot see it", () => {
+    src/__tests__/certificateTiers.test.ts:268:    expect(headingMigration()).toMatch(/drop function if exists public\.admin_list_certificates/);
+    src/__tests__/adminCertificates.test.ts:139:    expect(CODE).toMatch(/"admin_list_certificates"/);
+    src/__tests__/adminCertificates.test.ts:184:    const list = SQL.slice(SQL.indexOf("admin_list_certificates"));
+    src/__tests__/adminCertificates.test.ts:202:    expect(SQL).toMatch(/revoke all on function public\.admin_list_certificates[^\n]*from anon/);
+    -- total lines: 7 ; invocations (.rpc / rpc\/): 0
+--- admin_search_certificate_recipients
+    src/components/admin/AdminCertificates.tsx:39:/** One row from admin_search_certificate_recipients. */
+    src/components/admin/AdminCertificates.tsx:260:      "admin_search_certificate_recipients",
+    src/hooks/profile/useMemberHandles.ts:46: *   admin_search_certificate_recipients  admin certificates
+    src/__tests__/adminCertificates.test.ts:123:    expect(CODE).toMatch(/"admin_search_certificate_recipients"/);
+    src/__tests__/adminCertificates.test.ts:181:    const search = SQL.slice(SQL.indexOf("admin_search_certificate_recipients"));
+    src/__tests__/adminCertificates.test.ts:201:    expect(SQL).toMatch(/revoke all on function public\.admin_search_certificate_recipients[^\n]*from anon/);
+    -- total lines: 6 ; invocations (.rpc / rpc\/): 0
+--- admin_search_users_v2
+    src/components/admin/AdminUsers.tsx:63: *  Both are fixed by `admin_search_users_v2`, which filters by role and badge
+    src/components/admin/AdminUsers.tsx:94:  // admin_search_users_v2 do not return custom_url yet. See
+    src/components/admin/AdminUsers.tsx:277:      "admin_search_users_v2",
+    src/hooks/profile/useMemberHandles.ts:22: * ONE of them carries custom_url, and `admin_search_users_v2` — the case the
+    src/hooks/profile/useMemberHandles.ts:45: *   admin_search_users_v2                AdminUsers.tsx
+    src/__tests__/adminUserListPagination.test.ts:37:  it("calls admin_search_users_v2, not the unpaged v1", () => {
+    src/__tests__/adminUserListPagination.test.ts:38:    expect(ADMIN_USERS).toContain("admin_search_users_v2");
+    src/__tests__/adminUserListPagination.test.ts:40:    // quote so the substring inside "admin_search_users_v2" cannot satisfy it.
+    src/__tests__/adminUserListPagination.test.ts:89:    expect(SQL).toMatch(/create or replace function public\.admin_search_users_v2/i);
+    src/__tests__/adminUserListPagination.test.ts:125:    expect(SQL).toMatch(/revoke all on function public\.admin_search_users_v2[^\n]*from public/i);
+    src/__tests__/adminUserListPagination.test.ts:126:    expect(SQL).toMatch(/revoke all on function public\.admin_search_users_v2[^\n]*from anon/i);
+    src/__tests__/adminUserListPagination.test.ts:127:    expect(SQL).toMatch(/grant execute on function public\.admin_search_users_v2[^\n]*to authenticated/i);
+    -- total lines: 18 ; invocations (.rpc / rpc\/): 0
+--- emit_birthday_notifications
+    src/lib/notificationLinks.ts:104:    // by emit_birthday_notifications().
+    -- total lines: 1 ; invocations (.rpc / rpc\/): 0
+--- enqueue_post_job
+    src/integrations/supabase/types.ts:6161:      enqueue_post_job: { Args: { _payload: Json }; Returns: undefined }
+    scripts/db-lane-guard.mjs:330:    // ⚠ THE REAL ERROR IS AT THE END, AND IT GETS BURIED. enqueue_post_job()
+    scripts/db-seed-staging.mjs:625:        + 'and enqueue_post_job swallows the failure as a RAISE WARNING. So on staging as it stands today this '
+    -- total lines: 3 ; invocations (.rpc / rpc\/): 0
+--- expiring_post_drafts
+    ZERO OCCURRENCES OF ANY KIND (not merely zero invocations)
+--- generate_custom_url
+    ZERO OCCURRENCES OF ANY KIND (not merely zero invocations)
+--- log_push_outcome
+    ZERO OCCURRENCES OF ANY KIND (not merely zero invocations)
+--- mark_expiring_post_drafts
+    src/hooks/feed/usePostDrafts.ts:113: * `mark_expiring_post_drafts(7)`. Shown to the member so a 7-day window never
+    -- total lines: 1 ; invocations (.rpc / rpc\/): 0
+--- password_verification_hook
+    src/integrations/supabase/types.ts:6993:      password_verification_hook: { Args: { event: Json }; Returns: Json }
+    -- total lines: 1 ; invocations (.rpc / rpc\/): 0
+--- pj_handle_comment_notification
+    src/__tests__/taggedPostNotifications.test.ts:67:const commentFn = fn("pj_handle_comment_notification");
+    src/integrations/supabase/types.ts:6994:      pj_handle_comment_notification: {
+    -- total lines: 2 ; invocations (.rpc / rpc\/): 0
+--- pj_handle_reaction_notification
+    src/__tests__/taggedPostNotifications.test.ts:66:const reactionFn = fn("pj_handle_reaction_notification");
+    src/__tests__/taggedPostNotifications.test.ts:74:          "CREATE OR REPLACE FUNCTION public.pj_handle_reaction_notification",
+    src/integrations/supabase/types.ts:6998:      pj_handle_reaction_notification: {
+    -- total lines: 3 ; invocations (.rpc / rpc\/): 0
+--- pj_handle_recount_engagement
+    src/integrations/supabase/types.ts:7002:      pj_handle_recount_engagement: { Args: { _msg: Json }; Returns: undefined }
+    -- total lines: 1 ; invocations (.rpc / rpc\/): 0
+--- pj_handle_tag_notification
+    src/integrations/supabase/types.ts:7003:      pj_handle_tag_notification: { Args: { _msg: Json }; Returns: undefined }
+    -- total lines: 1 ; invocations (.rpc / rpc\/): 0
+--- process_post_jobs
+    src/integrations/supabase/types.ts:7004:      process_post_jobs: { Args: { _batch?: number }; Returns: Json }
+    scripts/db-baseline.mjs:153:  { id: 'A14', lane: 'production', claim: 'process_post_jobs(100): executions / total time', value: '701116 / 46 m', probe: 'R3' },
+    scripts/db-baseline.mjs:297:                 WHEN s.query ILIKE '%process_post_jobs%'               THEN 'job_poll_process_post_jobs'
+    -- total lines: 3 ; invocations (.rpc / rpc\/): 0
+--- prune_activity_minutes
+    ZERO OCCURRENCES OF ANY KIND (not merely zero invocations)
+--- prune_client_errors
+    ZERO OCCURRENCES OF ANY KIND (not merely zero invocations)
+--- prune_old_notifications
+    ZERO OCCURRENCES OF ANY KIND (not merely zero invocations)
+--- reap_post_drafts
+    ZERO OCCURRENCES OF ANY KIND (not merely zero invocations)
+--- recount_hashtags
+    ZERO OCCURRENCES OF ANY KIND (not merely zero invocations)
+--- refresh_viewer_buckets
+    ZERO OCCURRENCES OF ANY KIND (not merely zero invocations)
+--- rollup_engagement_daily
+    ZERO OCCURRENCES OF ANY KIND (not merely zero invocations)
+--- wallet_ledger_v2_diff_snapshot
+    src/integrations/supabase/types.ts:7178:      wallet_ledger_v2_diff_snapshot: {
+    -- total lines: 1 ; invocations (.rpc / rpc\/): 0

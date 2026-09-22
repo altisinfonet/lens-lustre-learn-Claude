@@ -1,0 +1,97 @@
+D1 · §4.11 — LOCAL CHECKS: THE COMMAND AND ITS OUTPUT
+=====================================================
+run_at_utc : 2026-09-22T05:52Z – 06:01Z
+base       : origin/staging f0377afa29d61ea44cbed38b7ed6d38e296df225
+node       : v22.22.2    npm: 10.9.7    (.node-version pins 22.22.2)
+deps       : npm ci from package-lock.json, unmodified. The dependency window is
+             CLOSED for Phase 1 (phase-1-kickoff.md §3) and nothing here opened it.
+
+The work order asks for the command and its output, not the word 'green'. Output below is
+verbatim, including the 3 075 lint problems.
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 1 · TYPECHECK      $ npx tsc -b tsconfig.json                            │
+└──────────────────────────────────────────────────────────────────────────┘
+(no output)
+EXIT = 0
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 2 · UNIT TESTS     $ npx vitest run --reporter=basic                     │
+└──────────────────────────────────────────────────────────────────────────┘
+ Test Files  204 passed | 1 skipped (205)
+      Tests  2796 passed | 1 skipped (2797)
+   Start at  11:25:13
+   Duration  166.66s (transform 2.97s, setup 9.23s, collect 15.66s, tests 25.93s, environment 65.70s, prepare 13.21s)
+EXIT = 0
+
+  One test file is skipped by its own describe.skip; 204 of 205 ran. No failures.
+
+  ⚠ WHAT THIS RUN DOES NOT COVER, AND IT MATTERS FOR THIS UNIT.
+  vitest.config.ts include = ["src/**/*.{test,spec}.{ts,tsx}"]. This unit touches
+  NOTHING under src/ — by instruction (§2: D1 never touches src/**). So 2 796 passing
+  tests say the tree is undisturbed; they say nothing whatsoever about the SQL, the
+  probes or the catalogue readings, none of which any test in this repository exercises.
+  Reporting the run without that sentence would be reporting a green light for a road
+  the work was not on.
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 3 · LINT           $ npx eslint .                                        │
+└──────────────────────────────────────────────────────────────────────────┘
+✖ 3075 problems (2238 errors, 837 warnings)
+  12 errors and 14 warnings potentially fixable with the `--fix` option.
+EXIT = 1
+
+  ⚠ THIS IS A PRE-EXISTING BASELINE AND THIS UNIT DID NOT MOVE IT — asserted, not assumed:
+  every file this unit adds is .sql or .md except one .mjs, and that one lints clean:
+      $ npx eslint docs/evidence/d1/phase1/callertrace-verify.mjs
+      (no output)   EXIT = 0
+      $ npx eslint --no-ignore docs/evidence/d1/phase1/callertrace-verify.mjs
+      (no output)   EXIT = 0     — so it is linted, not merely ignored
+  The 3 075 problems are concentrated in supabase/functions/**/index.ts (Deno sources
+  linted with the browser config) and predate this branch. Not this unit's to fix:
+  a defect outside the unit is recorded, not fixed (§5). Recorded here.
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 4 · D1 VALIDATORS  $ node scripts/db-lane-guard.mjs                      │
+└──────────────────────────────────────────────────────────────────────────┘
+(no output)
+EXIT = 0
+  It is a module of guard functions imported by db-baseline.mjs and db-seed-staging.mjs,
+  not a runnable check; running it proves only that it parses. Its behaviour is covered
+  by the two suites below.
+
+$ node --test scripts/db-baseline.test.mjs
+# 36 passed, 0 failed
+# tests 1
+# pass 1
+# fail 0
+# skipped 0
+EXIT = 0
+
+$ node --test scripts/db-seed-staging.test.mjs
+# 34 passed, 0 failed
+# tests 1
+# pass 1
+# fail 0
+# skipped 0
+EXIT = 0
+
+  ⚠ NEITHER OF THESE IS RUN BY `npm test`. vitest's include glob is src/** only, so
+  scripts/db-baseline.test.mjs and scripts/db-seed-staging.test.mjs — the tests covering
+  the lane guard, i.e. the thing that stops a script writing to production while it
+  believes it is on staging — are invoked by NOTHING in package.json. They pass. They
+  pass because they were run by hand, here, for this report. Recorded as a finding for
+  the Auditor: a guard whose tests are not wired into any command is one refactor away
+  from being a guard whose tests are silently broken.
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 5 · NOT RUN, AND WHY                                                     │
+└──────────────────────────────────────────────────────────────────────────┘
+  npm run build          — a D2-lane concern (vite build + Pages asset generation);
+                           this unit changes no input to it.
+  npm run ui:gate        — D2's lane (tools/uishot/**).
+  the two PROBE_ files   — running a DO block is a dispatch, and §5 forbids any dispatch
+                           on either lane. Their fail-first control was taken instead as
+                           a read-only SELECT expressing the same assertion ladder:
+                           docs/evidence/d1/phase1/probe-fail-first-20260922.txt
+  apply-migration.yml    — no SQL was dispatched by this unit, on either lane.
