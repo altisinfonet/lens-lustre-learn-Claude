@@ -1,4 +1,103 @@
 -- ═══════════════════════════════════════════════════════════════════════════
+-- ⚠⚠  WITHDRAWN 2026-09-22 UNDER AUDITOR RULING R-8.  DO NOT DISPATCH.  ⚠⚠
+--
+-- Renamed from
+--   supabase/migrations/20260910_0029_p32_auth_hook_and_role_enum_revoke.sql
+-- to
+--   supabase/migrations/UNAPPLIED_20260910_0029_p32_auth_hook_and_role_enum_revoke.sql
+--
+-- NOTHING BELOW THIS HEADER IS EDITED. The original file is byte-identical from
+-- the first `-- ═══` of its own header onward. A superseded conclusion is not
+-- rewritten; the correction sits beside it. (PR #237 withdrew `0023` exactly
+-- this way; PR #244 taught the resolvers to skip `UNAPPLIED_*`, and
+-- src/test-utils/migrations.ts:61 still lists it in NOT_IN_SEQUENCE_PREFIXES —
+-- confirmed 2026-09-22T08:41Z.)
+--
+-- ───────────────────────────────────────────────────────────────────────────
+-- 1 · IT WAS NEVER DISPATCHED, ON EITHER LANE
+--
+-- `supabase_migrations.schema_migrations` holds **8 rows**, latest
+-- `20260915130151`, measured on staging 2026-09-22T08:42Z. Nothing from PR #274
+-- has run. There is no state to undo, which is why this withdrawal ships with
+-- **no rollback file**: a withdrawal of a never-dispatched apply is not an
+-- apply.
+--
+-- ───────────────────────────────────────────────────────────────────────────
+-- 2 · WHY IT IS WITHDRAWN — ITS SAFETY CLAIM IS FALSE ON STAGING
+--
+-- The file's own header asserts:
+--
+--   "supabase_auth_admin's EXECUTE is untouched by the three revokes above and
+--    is not re-granted here because it already holds it (measured above)."
+--
+-- Measured on staging fpszggreishhuvdpkmdr, SELECT only, 2026-09-22T08:42Z:
+--
+--   proacl = =X/postgres | postgres=X/postgres | anon=X/postgres |
+--            authenticated=X/postgres | service_role=X/postgres
+--
+--   public_holds                    = TRUE
+--   supabase_auth_admin EFFECTIVE   = TRUE      <- has_function_privilege()
+--   supabase_auth_admin **NAMED**   = FALSE     <- no supabase_auth_admin= entry
+--
+-- `has_function_privilege('supabase_auth_admin', …)` returns TRUE **because
+-- PUBLIC holds the grant and every role belongs to PUBLIC** — not because the
+-- role holds anything of its own. The author read the effective privilege and
+-- recorded it as a named grant.
+--
+-- This file's FIRST STATEMENT, `REVOKE ALL … FROM public`, removes the only
+-- path GoTrue has to this function on staging. GoTrue invokes this hook, as
+-- `supabase_auth_admin`, on **every sign-in attempt**.
+--
+--   **Dispatching this file against staging as written would break staging
+--   sign-in.**
+--
+-- Standing Rule 21 — an instructing comment asserting a safety property the
+-- catalogue contradicts — and the C-38 / C-42 / C-44 / C-45 failure class: a
+-- claim taken from something that reported "true" without reading what granted
+-- it.
+--
+-- Production is the mirror image and is why the error was easy to make: there
+-- `supabase_auth_admin` DOES hold a named grant (relayed from the Auditor's
+-- two-lane diff; production is not attached to this session's connector). The
+-- claim is true on one lane and false on the other, and the file was written
+-- for the lane it is not dispatched to first.
+--
+-- ───────────────────────────────────────────────────────────────────────────
+-- 3 · SUPERSEDED BY
+--
+--   supabase/migrations/20260910_0038_p32_password_verification_hook_closure.sql
+--   supabase/rollback/20260910_0038_p32_password_verification_hook_closure_ROLLBACK.sql
+--
+-- `0038` makes the same three revokes and then **ADDS** the named grant:
+--   GRANT EXECUTE ON FUNCTION public.password_verification_hook(event jsonb)
+--     TO supabase_auth_admin;
+-- an addition, not a preservation — which is the whole correction.
+--
+-- ───────────────────────────────────────────────────────────────────────────
+-- 4 · IT ALSO REVOKED AN OBJECT NOBODY AUTHORISED
+--
+-- Below, this file revokes `get_public_role_user_ids(text)` from `public` and
+-- `anon`. **Owner Decision 6 has never authorised that**, and the closure has
+-- verified caller breakage on five signed-out pages:
+--   src/lib/adminBrand.ts:35 → AutoBadge → UserIdentityBlock.tsx:212, on routes
+--   including src/App.tsx:395 `/profile/:userId`, declared outside RequireAuth.
+--   adminBrand.ts:35 destructures `{ data }` and never inspects `error`, so a
+--   42501 yields an empty Set and the admin's brand name and verified badge
+--   disappear for signed-out visitors with no error anywhere.
+--
+-- Withdrawing this file returns that object to its pre-#274 state. It is held
+-- as prepared-only at
+--   docs/evidence/d1/phase1/prepared/0039-get_public_role_user_ids.sql.prepared
+-- with ordinal `0039` RESERVED and NOT CONSUMED.
+--
+-- ⚠ THE PATH IS THE CONTROL, NOT THIS HEADER. `apply-migration.yml`'s allowlist
+-- admits every `.sql` under `supabase/migrations/` and does not read comments;
+-- a "DO NOT DISPATCH" comment protects nothing. The `UNAPPLIED_` prefix is what
+-- takes this file out of the resolver's reach. That is the #272 bootstrap
+-- hazard, and it is how the defect below reached `staging` in the first place.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- ═══════════════════════════════════════════════════════════════════════════
 -- P32, SESSION A NEW UNIT — password_verification_hook + get_public_role_user_ids
 --
 -- Two functions closed by this file, both new findings from Session A's own
