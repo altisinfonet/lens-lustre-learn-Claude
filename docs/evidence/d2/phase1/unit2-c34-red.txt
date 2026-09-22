@@ -315,3 +315,49 @@ THE FIX — all seven green
  Test Files  1 passed (1)
       Tests  7 passed (7)
 
+
+##############################################################################
+# ADDENDUM, 2026-09-22T13:41:00Z - C-34 FOR THE REPLACEMENT ASSERTIONS
+# Added after the Auditor's acceptance command classified the three red
+# assertions in managedPageViewCounter.test.tsx as CASE A - obsolete because
+# their subject, the client RPC, was deleted. Case A requires the replacement
+# to preserve the behavioural intent, be mutation-tested, and be shown failing
+# against the PRE-FIX implementation. That is what follows.
+##############################################################################
+
+==============================================================================
+MUTANT F - src/pages/ManagedPageView.tsx restored verbatim from 247a47b
+           i.e. the client counter is back
+expected RED: both new client assertions
+==============================================================================
+× ManagedPageView — the client does not count, and must not start again > never calls increment_managed_page_view — the anon grant must stay withdrawable 64ms
+× ManagedPageView — the client does not count, and must not start again > makes no RPC call at all while rendering a managed page 21ms
+✓ ManagedPageView — the client does not count, and must not start again > GUARD still renders the page body after the counter was removed 13ms
+✓ ManagedPageView — the client does not count, and must not start again > GUARD nothing about view counting reaches the member 12ms
+
+==============================================================================
+MUTANT G - edge counter minus the 'if (!res.ok)' branch
+           a withdrawn grant answers 403 and fetch does NOT reject
+expected RED: 'logs exactly once when PostgREST REFUSES the increment'
+==============================================================================
+✓ functions/page/[slug].ts — the view counter at the edge > counts a published page once, as service_role 10ms
+✓ functions/page/[slug].ts — the view counter at the edge > never sends the increment under the anon key 3ms
+✓ functions/page/[slug].ts — the view counter at the edge > records nothing and says so loudly when the lane has no service-role key 3ms
+✓ functions/page/[slug].ts — the view counter at the edge > does not count a slug that resolves to no published page 2ms
+× functions/page/[slug].ts — the view counter at the edge > logs exactly once when PostgREST REFUSES the increment, and still serves the page 9ms
+✓ functions/page/[slug].ts — the view counter at the edge > serves the page even when the increment fails outright 2ms
+✓ functions/_seo.ts — serviceRoleKey is deliberately not laneValue() > returns null rather than throwing when the lane omits it 0ms
+✓ functions/_seo.ts — serviceRoleKey is deliberately not laneValue() > never falls back to the anon key 0ms
+
+==============================================================================
+THE FIX - both files green
+==============================================================================
+
+ RUN  v3.2.4 /home/claude/repo
+
+ ✓ src/pages/__tests__/managedPageViewCounter.test.tsx (4 tests) 103ms
+ ✓ src/__tests__/managedPageEdgeViewCount.test.ts (8 tests) 23ms
+
+ Test Files  2 passed (2)
+      Tests  12 passed (12)
+

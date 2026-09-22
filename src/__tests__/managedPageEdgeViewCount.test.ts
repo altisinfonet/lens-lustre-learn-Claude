@@ -51,6 +51,8 @@ type Sent = { url: string; method: string; headers: Record<string, string>; body
 let sent: Sent[] = [];
 /** Set to make the increment request reject, as a dead network would. */
 let incrementThrows = false;
+/** Set to make PostgREST REFUSE the increment: a resolved 403, not a rejection. */
+let incrementRefuses = false;
 
 function headerBag(raw: HeadersInit | undefined): Record<string, string> {
   const out: Record<string, string> = {};
@@ -70,6 +72,13 @@ const socket: typeof fetch = async (input, init) => {
 
   if (url.includes(INCREMENT_PATH)) {
     if (incrementThrows) throw new Error("network down");
+    if (incrementRefuses) {
+      // Exactly what PostgREST answers the day the anon grant is withdrawn.
+      return new Response(
+        JSON.stringify({ code: "42501", message: "permission denied for function increment_managed_page_view" }),
+        { status: 403, headers: { "Content-Type": "application/json" } },
+      );
+    }
     return new Response("null", { status: 200, headers: { "Content-Type": "application/json" } });
   }
   if (url.includes("/rest/v1/site_settings")) {
@@ -117,6 +126,7 @@ const counterErrors = () =>
 beforeEach(() => {
   sent = [];
   incrementThrows = false;
+  incrementRefuses = false;
   realFetch = globalThis.fetch;
   globalThis.fetch = socket;
   (globalThis as any).HTMLRewriter = StubHTMLRewriter;
@@ -183,6 +193,39 @@ describe("functions/page/[slug].ts — the view counter at the edge", () => {
 
     expect(increments()).toHaveLength(0);
     expect(counterErrors()).toHaveLength(0);
+  });
+
+  /* CARRIED FROM src/pages/__tests__/managedPageViewCounter.test.tsx.
+   *
+   * That file's first assertion existed for one specific failure: PostgREST
+   * does not THROW on a withdrawn grant, it answers. The client builder
+   * resolved `{ data: null, error: { code: "42501" } }` and an empty callback
+   * dropped it on the floor, so the counter would have stopped permanently
+   * with nothing to notice it by. Moving the counter to the edge does not
+   * retire that failure — it relocates it. Here the same refusal arrives as a
+   * resolved HTTP 403, `fetch` does not reject, and `if (!res.ok)` is the only
+   * thing standing between a withdrawn grant and a silent stop.
+   *
+   * This is the revoke-day case. It is the reason the old assertion existed
+   * and the reason this one replaces it rather than simply deleting it. */
+  it("logs exactly once when PostgREST REFUSES the increment, and still serves the page", async () => {
+    incrementRefuses = true;
+    const { ctx, settled } = makeContext(PAGE.slug, ENV);
+
+    const res = await onRequest(ctx);
+    await settled();
+
+    // The request WAS made - this is a refusal, not a skip.
+    expect(increments()).toHaveLength(1);
+    // A resolved non-2xx must be as loud as a rejection. Exactly once: this
+    // fires per edge render, not on a timer, so there is no flood to suppress
+    // and suppressing repeats would hide the SCALE of an outage.
+    expect(counterErrors()).toHaveLength(1);
+    const line = String(counterErrors()[0][0]);
+    expect(line).toMatch(/increment failed: 403/);
+    expect(line).toMatch(/42501/);
+    // and the visitor is unaffected
+    expect(res.status).toBe(200);
   });
 
   it("serves the page even when the increment fails outright", async () => {
