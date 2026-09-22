@@ -1,0 +1,55 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- ROLLBACK for P33-production-plpgsql-check-set-schema.
+-- ⚠ PREPARED, NOT ALLOCATED, NOT DISPATCHED. Ships with its forward file, in
+-- the same PR, per skill §3 — "every apply file ships with its rollback file,
+-- in the same PR. No exceptions."
+--
+-- Restores plpgsql_check to `public` and restores the database search_path to
+-- the value 20260417161211 set. It does NOT drop the `extensions` schema:
+-- pg_trgm, pgcrypto, pg_net, pg_stat_statements and uuid-ossp live there too
+-- on staging and may on production. Dropping a shared schema to undo one
+-- extension's move would be a far larger change than the one being undone.
+--
+-- ⚠ WHAT THIS ROLLBACK CANNOT UNDO. If the forward migration's
+-- `ALTER DATABASE ... SET search_path` has already been picked up by new
+-- sessions, reverting it here likewise only affects sessions opened after the
+-- revert. Pooled connections carry the value they started with either way.
+-- Stated, not hidden: a search_path change is eventually-consistent across a
+-- connection pool in both directions.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+BEGIN;
+
+DO $guard$
+DECLARE s text; BEGIN
+  SELECT n.nspname INTO s FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace
+   WHERE e.extname = 'plpgsql_check';
+  IF s IS NULL THEN
+    RAISE EXCEPTION 'ROLLBACK ABORT — plpgsql_check is not installed on %. There is nothing to move back.', current_database();
+  END IF;
+  IF s = 'public' THEN
+    RAISE NOTICE 'ROLLBACK — plpgsql_check is already in public on %. Nothing to do.', current_database();
+    RETURN;
+  END IF;
+  IF s <> 'extensions' THEN
+    RAISE EXCEPTION 'ROLLBACK ABORT — plpgsql_check is in schema %, not extensions. This rollback undoes a move FROM public TO extensions and must not guess at anything else.', s;
+  END IF;
+END $guard$;
+
+ALTER EXTENSION plpgsql_check SET SCHEMA public;
+
+-- Restore the search_path 20260417161211 established for pg_trgm's sake. That
+-- statement is not this migration's to remove; it is reinstated verbatim.
+ALTER DATABASE postgres SET search_path TO "$user", public, extensions;
+
+DO $verify$
+DECLARE s text; BEGIN
+  SELECT n.nspname INTO s FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace
+   WHERE e.extname = 'plpgsql_check';
+  IF s IS DISTINCT FROM 'public' THEN
+    RAISE EXCEPTION 'ROLLBACK POST-CONDITION FAILED — plpgsql_check is in schema %, expected public.', COALESCE(s,'(gone)');
+  END IF;
+  RAISE NOTICE 'ROLLBACK POST-CONDITION PASSED — plpgsql_check is back in public.';
+END $verify$;
+
+COMMIT;
