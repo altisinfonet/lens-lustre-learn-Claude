@@ -1,159 +1,131 @@
--- F-105d ROLLBACK — RESTORES THE DEFECT. Read this before running it.
+-- ==========================================================================
+-- ROLLBACK for 20260910_0019_f105d_process_referral_reward_authorize.sql
+-- F-105d — referral reward payout
 --
--- This puts back the two function bodies exactly as they stood before
--- 20260910_0019, i.e. WITHOUT the self-or-admin authorisation gate, and
--- re-grants EXECUTE to PUBLIC and anon.
+-- CORRECTED IN PLACE under Auditor ruling R-11/R-26. The history of this file
+-- carries the defect; git is the record of what it used to say.
 --
--- After running this, any signed-in member can again credit any account by
--- naming it in `_referred_user_id`, and an anonymous caller holding only the
--- publishable key can reach a VOLATILE function that calls wallet_transaction().
--- It exists because Standing Rule "every apply file ships with its rollback
--- file" admits no exceptions — not because there is a circumstance in which
--- running it is the right move. If the guard is breaking a legitimate caller,
--- the fix is to name that caller in a new migration, not to reopen this.
+-- THE DEFECT: this rollback granted EXECUTE to PUBLIC. PUBLIC is every role,
+-- so a later REVOKE ... FROM anon on the same object becomes a silent no-op
+-- (F-62), and on the production lane it would create an exposure that lane has
+-- never had (the UNAPPLIED_0023 hazard).
 --
--- The bodies below are the pre-0019 text, taken from the same source the
--- migration was built from (the bootstrap at 20260911101721) and verified
--- byte-identical to pg_proc.prosrc on staging by md5 before 0019 was written:
---   2-arg  7999749b88688973dc95680d68ae5e86   (1416 bytes)
---   3-arg  5a69d3fa10a09745b9bfd1a5a7d48690   (2224 bytes)
+-- THE LINE(S) THIS FILE REPLACES, quoted verbatim from the superseded body:
+--   GRANT EXECUTE ON FUNCTION public.process_referral_reward(uuid, text) TO PUBLIC, anon;
+--   GRANT EXECUTE ON FUNCTION public.process_referral_reward(uuid, text, numeric) TO PUBLIC, anon;
+--
+-- --------------------------------------------------------------------------
+-- WHAT THE APPLY ACTUALLY REMOVED -- read from the apply file, statement by
+-- statement, never from the old rollback body, which is the thing being corrected.
+--
+--   public.process_referral_reward(uuid, text)
+--       REVOKE from : public, anon
+--       -> RESTORE   : anon
+--   public.process_referral_reward(uuid, text, numeric)
+--       REVOKE from : public, anon
+--       -> RESTORE   : anon
+--
+-- PRIVILEGE-EQUIVALENT WHERE IT MATTERS, DELIBERATELY NOT BYTE-EQUAL. The
+-- apply removed PUBLIC as well as the named roles. This file restores the
+-- named roles and NOT PUBLIC. The difference: on staging, PUBLIC-by-name is
+-- not put back, so any role that reached these objects only through PUBLIC
+-- does not regain access. Every role the apply named individually does.
+--
+-- DERIVATION CAVEAT, stated rather than buried: the restore set above comes
+-- from the apply's own REVOKE list, as R-26 3.3 directs. It is not a
+-- measurement of the pre-apply ACL. A REVOKE naming a role is not proof that
+-- the role held a named grant -- that is exactly how 0029 failed, where
+-- supabase_auth_admin reached the function through PUBLIC and held nothing of
+-- its own. On production the difference is unmeasurable today (BLOCKER-B).
+--
+-- STAGING CATALOGUE CONTROL, measured 2026-09-22: none of the objects below
+-- carries a PUBLIC ACL entry, so the superseded rollback has NOT run on
+-- staging by any route, including the out-of-band route that is a standing
+-- finding.
+--
+-- --------------------------------------------------------------------------
+-- HOW TO RUN IT -- and the only way it will run. The R-9 guard below is
+-- executable and fatal, and it sits after BEGIN; and before the first GRANT of
+-- any kind.
+--
+--     SET p32.lane = 'staging';   -- in THIS session, BEFORE `BEGIN`
+--     \i supabase/rollback/20260910_0019_f105d_process_referral_reward_authorize_ROLLBACK.sql
+--
+-- The comparison is exact and case-sensitive. Every one of these refuses:
+--     'Staging'   'STAGING'   ' staging'   'staging '   ''   (and unset)
+-- This file never sets p32.lane itself -- no SET, no SET LOCAL, no set_config
+-- for that key anywhere below. A file that set its own assertion would assert
+-- nothing.
+--
+-- THIS CONSTRAINT IS NOT PERMANENT. It is lifted when EITHER:
+--   (a) the R-13 lane interlock is live and apply-migration.yml sets p32.lane
+--       from its own lane guard; OR
+--   (b) the production ACL for the objects this file covers has been MEASURED
+--       directly -- not relayed -- and this rollback has been re-cut against that
+--       evidence.
+-- Until one of those is true, this file runs on staging or it does not run.
+--
+-- IDEMPOTENCE -- GRANT is idempotent; re-running changes nothing.
+-- ==========================================================================
 
 BEGIN;
-
-CREATE OR REPLACE FUNCTION public.process_referral_reward(_referred_user_id uuid, _activity_type text)
- RETURNS void
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-DECLARE
-  _referral record;
-  _referrer_reward numeric;
-  _referee_bonus numeric;
-  _setting jsonb;
+-- ── R-9 LANE GUARD — executable, fatal, first. ─────────────────────────────
+DO $lane_guard$
 BEGIN
-  -- BUG-049: lock the pending referral so a concurrent call blocks and then finds
-  -- it already 'rewarded' (no double-credit).
-  SELECT * INTO _referral
-  FROM public.referrals
-  WHERE referred_id = _referred_user_id AND status = 'pending'
-  LIMIT 1
-  FOR UPDATE;
-
-  IF _referral IS NULL THEN RETURN; END IF;
-  -- BUG-047: never reward a self-referral.
-  IF _referral.referrer_id = _referred_user_id THEN RETURN; END IF;
-
-  SELECT value INTO _setting FROM public.site_settings WHERE key = 'referral_reward';
-  _referrer_reward := COALESCE((_setting->>'referrer_amount')::numeric, (_setting->>'amount')::numeric, 1.00);
-  _referee_bonus := COALESCE((_setting->>'referee_bonus')::numeric, 0.50);
-
-  PERFORM wallet_transaction(
-    _referral.referrer_id,
-    'referral_earning',
-    _referrer_reward,
-    'Referral Reward – your invited friend completed their first ' || _activity_type,
-    _referral.id,
-    'referral'
-  );
-
-  IF _referee_bonus > 0 THEN
-    PERFORM wallet_transaction(
-      _referred_user_id,
-      'referral_bonus',
-      _referee_bonus,
-      'Welcome bonus – reward for joining via referral',
-      _referral.id,
-      'referral'
-    );
+  IF coalesce(current_setting('p32.lane', true), '') <> 'staging' THEN
+    RAISE EXCEPTION
+      'ROLLBACK REFUSED — p32.lane is not asserted as staging (read: %). '
+      'This rollback restores anon EXECUTE. On production these objects are '
+      'closed, so running it there would open them. The file cannot detect its '
+      'own lane, so it refuses unless the lane is asserted. '
+      'Set it in THIS session before running: SET p32.lane = ''staging'';',
+      coalesce(current_setting('p32.lane', true), '(unset)')
+    USING ERRCODE = 'raise_exception';
   END IF;
+END
+$lane_guard$;
 
-  UPDATE public.referrals
-  SET status = 'rewarded', reward_amount = _referrer_reward, rewarded_at = now()
-  WHERE id = _referral.id;
-END;
-$function$;
+GRANT EXECUTE ON FUNCTION public.process_referral_reward(uuid, text) TO anon;
+GRANT EXECUTE ON FUNCTION public.process_referral_reward(uuid, text, numeric) TO anon;
 
-CREATE OR REPLACE FUNCTION public.process_referral_reward(_referred_user_id uuid, _activity_type text, _txn_amount numeric DEFAULT 0)
- RETURNS void
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-DECLARE
-  _referral record;
-  _referrer_reward numeric;
-  _referee_bonus numeric;
-  _setting jsonb;
-  _enabled boolean;
-  _min_amount numeric;
-  _monthly_cap integer;
-  _manual_approval boolean;
-  _month_count integer;
+DO $verify$
+DECLARE bad int := 0; missing int := 0; o oid;
 BEGIN
-  -- BUG-049: lock the pending referral (serialize concurrent qualifying activity).
-  SELECT * INTO _referral
-  FROM public.referrals
-  WHERE referred_id = _referred_user_id AND status = 'pending'
-  LIMIT 1
-  FOR UPDATE;
-
-  IF _referral IS NULL THEN RETURN; END IF;
-  -- BUG-047: never reward a self-referral.
-  IF _referral.referrer_id = _referred_user_id THEN RETURN; END IF;
-
-  SELECT value INTO _setting FROM public.site_settings WHERE key = 'referral_reward';
-  _enabled := COALESCE((_setting->>'enabled')::boolean, true);
-  _referrer_reward := COALESCE((_setting->>'referrer_amount')::numeric, 1.00);
-  _referee_bonus := COALESCE((_setting->>'referee_bonus')::numeric, 0.50);
-  _min_amount := COALESCE((_setting->>'min_qualifying_amount')::numeric, 0);
-  _monthly_cap := COALESCE((_setting->>'monthly_cap')::integer, 10);
-  _manual_approval := COALESCE((_setting->>'manual_approval')::boolean, false);
-
-  IF NOT _enabled THEN RETURN; END IF;
-
-  IF _txn_amount > 0 AND _txn_amount < _min_amount THEN RETURN; END IF;
-
-  IF _manual_approval THEN RETURN; END IF;
-
-  SELECT COUNT(*) INTO _month_count
-  FROM public.referrals
-  WHERE referrer_id = _referral.referrer_id
-    AND status = 'rewarded'
-    AND rewarded_at >= date_trunc('month', now());
-
-  IF _month_count >= _monthly_cap THEN
-    UPDATE public.referrals SET status = 'capped' WHERE id = _referral.id;
-    RETURN;
+  o := to_regprocedure('public.process_referral_reward(uuid, text)')::oid;
+  IF o IS NULL THEN
+    RAISE EXCEPTION 'ROLLBACK POST-CONDITION FAILED -- public.process_referral_reward(uuid, text) does not exist on this lane.';
   END IF;
-
-  PERFORM wallet_transaction(
-    _referral.referrer_id,
-    'referral_earning',
-    _referrer_reward,
-    'Referral Reward – your invited friend completed their first ' || _activity_type,
-    _referral.id,
-    'referral'
-  );
-
-  IF _referee_bonus > 0 THEN
-    PERFORM wallet_transaction(
-      _referred_user_id,
-      'referral_bonus',
-      _referee_bonus,
-      'Welcome bonus – reward for joining via referral',
-      _referral.id,
-      'referral'
-    );
+  IF EXISTS (SELECT 1 FROM pg_proc p, aclexplode(p.proacl) a
+              WHERE p.oid = o AND a.grantee = 0 AND a.privilege_type = 'EXECUTE') THEN
+    bad := bad + 1;
+    RAISE WARNING 'PUBLIC holds EXECUTE on public.process_referral_reward(uuid, text) after rollback';
   END IF;
-
-  UPDATE public.referrals
-  SET status = 'rewarded', reward_amount = _referrer_reward, rewarded_at = now()
-  WHERE id = _referral.id;
-END;
-$function$;
-
-GRANT EXECUTE ON FUNCTION public.process_referral_reward(uuid, text)          TO PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.process_referral_reward(uuid, text, numeric) TO PUBLIC, anon;
+  IF NOT EXISTS (SELECT 1 FROM pg_proc p, unnest(p.proacl) a
+                  WHERE p.oid = o AND a::text LIKE 'anon=%') THEN
+    missing := missing + 1;
+    RAISE WARNING 'named anon grant absent on public.process_referral_reward(uuid, text) after rollback';
+  END IF;
+  o := to_regprocedure('public.process_referral_reward(uuid, text, numeric)')::oid;
+  IF o IS NULL THEN
+    RAISE EXCEPTION 'ROLLBACK POST-CONDITION FAILED -- public.process_referral_reward(uuid, text, numeric) does not exist on this lane.';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_proc p, aclexplode(p.proacl) a
+              WHERE p.oid = o AND a.grantee = 0 AND a.privilege_type = 'EXECUTE') THEN
+    bad := bad + 1;
+    RAISE WARNING 'PUBLIC holds EXECUTE on public.process_referral_reward(uuid, text, numeric) after rollback';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_proc p, unnest(p.proacl) a
+                  WHERE p.oid = o AND a::text LIKE 'anon=%') THEN
+    missing := missing + 1;
+    RAISE WARNING 'named anon grant absent on public.process_referral_reward(uuid, text, numeric) after rollback';
+  END IF;
+  IF bad > 0 THEN
+    RAISE EXCEPTION 'ROLLBACK POST-CONDITION FAILED -- PUBLIC EXECUTE present on % object(s). This rollback must never create a PUBLIC grant (UNAPPLIED_0023 hazard). Transaction aborted.', bad;
+  END IF;
+  IF missing > 0 THEN
+    RAISE EXCEPTION 'ROLLBACK POST-CONDITION FAILED -- % named grant(s) that must be present after this rollback are absent. A rollback that restores nothing must still leave the surviving grants intact. Transaction aborted.', missing;
+  END IF;
+  RAISE NOTICE 'ROLLBACK POST-CONDITION PASSED -- 2 object(s) granted, 2 object(s) checked, PUBLIC absent on all 2, named grantees intact.';
+END $verify$;
 
 COMMIT;
