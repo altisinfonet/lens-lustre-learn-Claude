@@ -1,0 +1,322 @@
+D1 · R-12 §4 GUARD TRANSCRIPT — C-34 FAIL-BEFORE PROOF
+started_utc : 2026-09-22T09:44:59Z
+engine      : 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1)
+repo tree   : 47ef4a4be9d05d206fa0b85f0552d63434b3bde6 on d1/P32-correction-R8-20260922
+base        : origin/staging 0869a94bf7d61a625cb031995574013db031b05b
+
+═══════════════════════════════════════════════════════════════════════════
+FILE 0027 · 20260910_0027_p32_money_account_control_revoke_ROLLBACK.sql
+═══════════════════════════════════════════════════════════════════════════
+
+── SEED · staging shape, then the MERGED apply run verbatim ───────────────
+   seeding the measured staging pre-state on every object:
+     =X/postgres | postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres
+   applying 20260910_0027_p32_money_account_control_revoke.sql (verbatim from the merged tree):
+   post-apply ACL, object by object — this is the state each case starts from:
+                                       obj                                  |                                  acl                                   
+     -----------------------------------------------------------------------+------------------------------------------------------------------------
+      admin_delete_auth_user(uuid)                                          | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      admin_purge_orphan_user_data(uuid)                                    | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      admin_reject_wallet_transaction(uuid,uuid,text)                       | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      admin_wallet_credit(uuid,uuid,numeric,text,text,uuid,text,jsonb)      | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      approve_deposit(uuid,uuid)                                            | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      create_pending_deposit(uuid,numeric,text,text,jsonb,text)             | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      expire_gift_credit(uuid)                                              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      request_withdrawal(numeric,jsonb)                                     | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      soft_void_wallet_transactions(uuid[],text,uuid)                       | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      wallet_ledger_apply_v2(text,uuid,numeric,text,text,text,text,boolean) | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      wallet_transaction(uuid,text,numeric,text,uuid,text,jsonb)            | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+     (11 rows)
+     
+
+── CASE A · p32.lane UNSET — expected: RAISE ────────────────────────────────
+   session default before the case   : (unset)  (a fresh psql session; the case's own SET, if any, is shown in the raw output below)
+   psql exit code : 3
+   ── raw psql output, unedited ──
+     │ BEGIN
+     │ psql:/home/claude/repo/supabase/rollback/20260910_0027_p32_money_account_control_revoke_ROLLBACK.sql:124: ERROR:  P0001: ROLLBACK REFUSED — p32.lane is not asserted as staging (read: (unset)). This rollback restores anon EXECUTE. On production these objects are closed, so running it there would open them. The file cannot detect its own lane, so it refuses unless the lane is asserted. Set it in THIS session before running: SET p32.lane = 'staging';
+     │ CONTEXT:  PL/pgSQL function inline_code_block line 4 at RAISE
+     │ LOCATION:  exec_stmt_raise, pl_exec.c:3897
+   ── end raw output ──
+   SQLSTATE                          : P0001
+   message names p32.lane            : YES
+   ── proacl comparison, object by object (before vs after) ──
+                                       obj                                  | byte_identical |                               before_acl                               |                               after_acl                                
+     -----------------------------------------------------------------------+----------------+------------------------------------------------------------------------+------------------------------------------------------------------------
+      admin_delete_auth_user(uuid)                                          | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      admin_purge_orphan_user_data(uuid)                                    | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      admin_reject_wallet_transaction(uuid,uuid,text)                       | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      admin_wallet_credit(uuid,uuid,numeric,text,text,uuid,text,jsonb)      | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      approve_deposit(uuid,uuid)                                            | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      create_pending_deposit(uuid,numeric,text,text,jsonb,text)             | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      expire_gift_credit(uuid)                                              | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      request_withdrawal(numeric,jsonb)                                     | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      soft_void_wallet_transactions(uuid[],text,uuid)                       | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      wallet_ledger_apply_v2(text,uuid,numeric,text,text,text,text,boolean) | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      wallet_transaction(uuid,text,numeric,text,uuid,text,jsonb)            | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+     (11 rows)
+     
+   objects whose proacl changed      : 0 of 11
+   VERDICT                           : ✓ PASS — refused, zero grants changed
+
+── CASE B · p32.lane='production' — expected: RAISE ────────────────────────────────
+   session default before the case   : (unset)  (a fresh psql session; the case's own SET, if any, is shown in the raw output below)
+   psql exit code : 3
+   ── raw psql output, unedited ──
+     │ SET
+     │ BEGIN
+     │ psql:/home/claude/repo/supabase/rollback/20260910_0027_p32_money_account_control_revoke_ROLLBACK.sql:124: ERROR:  P0001: ROLLBACK REFUSED — p32.lane is not asserted as staging (read: production). This rollback restores anon EXECUTE. On production these objects are closed, so running it there would open them. The file cannot detect its own lane, so it refuses unless the lane is asserted. Set it in THIS session before running: SET p32.lane = 'staging';
+     │ CONTEXT:  PL/pgSQL function inline_code_block line 4 at RAISE
+     │ LOCATION:  exec_stmt_raise, pl_exec.c:3897
+   ── end raw output ──
+   SQLSTATE                          : P0001
+   message names p32.lane            : YES
+   ── proacl comparison, object by object (before vs after) ──
+                                       obj                                  | byte_identical |                               before_acl                               |                               after_acl                                
+     -----------------------------------------------------------------------+----------------+------------------------------------------------------------------------+------------------------------------------------------------------------
+      admin_delete_auth_user(uuid)                                          | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      admin_purge_orphan_user_data(uuid)                                    | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      admin_reject_wallet_transaction(uuid,uuid,text)                       | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      admin_wallet_credit(uuid,uuid,numeric,text,text,uuid,text,jsonb)      | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      approve_deposit(uuid,uuid)                                            | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      create_pending_deposit(uuid,numeric,text,text,jsonb,text)             | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      expire_gift_credit(uuid)                                              | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      request_withdrawal(numeric,jsonb)                                     | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      soft_void_wallet_transactions(uuid[],text,uuid)                       | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      wallet_ledger_apply_v2(text,uuid,numeric,text,text,text,text,boolean) | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      wallet_transaction(uuid,text,numeric,text,uuid,text,jsonb)            | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+     (11 rows)
+     
+   objects whose proacl changed      : 0 of 11
+   VERDICT                           : ✓ PASS — refused, zero grants changed
+
+── CASE C · p32.lane='staging' — expected: PROCEED ────────────────────────────────
+   session default before the case   : (unset)  (a fresh psql session; the case's own SET, if any, is shown in the raw output below)
+   psql exit code : 0
+   ── raw psql output, unedited ──
+     │ SET
+     │ BEGIN
+     │ DO
+     │ GRANT
+     │ GRANT
+     │ GRANT
+     │ GRANT
+     │ GRANT
+     │ GRANT
+     │ GRANT
+     │ GRANT
+     │ GRANT
+     │ GRANT
+     │ GRANT
+     │ psql:/home/claude/repo/supabase/rollback/20260910_0027_p32_money_account_control_revoke_ROLLBACK.sql:166: NOTICE:  00000: ROLLBACK POST-CONDITION PASSED — anon restored on 11 objects, PUBLIC absent on all 11, authenticated and service_role intact.
+     │ LOCATION:  exec_stmt_raise, pl_exec.c:3897
+     │ DO
+     │ COMMIT
+   ── end raw output ──
+   SQLSTATE                          : (none — no error raised)
+   message names p32.lane            : no
+   ── proacl comparison, object by object (before vs after) ──
+                                       obj                                  | byte_identical |                               before_acl                               |                                       after_acl                                        
+     -----------------------------------------------------------------------+----------------+------------------------------------------------------------------------+----------------------------------------------------------------------------------------
+      admin_delete_auth_user(uuid)                                          | f              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
+      admin_purge_orphan_user_data(uuid)                                    | f              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
+      admin_reject_wallet_transaction(uuid,uuid,text)                       | f              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
+      admin_wallet_credit(uuid,uuid,numeric,text,text,uuid,text,jsonb)      | f              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
+      approve_deposit(uuid,uuid)                                            | f              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
+      create_pending_deposit(uuid,numeric,text,text,jsonb,text)             | f              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
+      expire_gift_credit(uuid)                                              | f              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
+      request_withdrawal(numeric,jsonb)                                     | f              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
+      soft_void_wallet_transactions(uuid[],text,uuid)                       | f              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
+      wallet_ledger_apply_v2(text,uuid,numeric,text,text,text,text,boolean) | f              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
+      wallet_transaction(uuid,text,numeric,text,uuid,text,jsonb)            | f              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
+     (11 rows)
+     
+   objects whose proacl changed      : 11 of 11
+   VERDICT                           : ✓ PASS — proceeded, 11 of 11 objects changed,
+                                         post-conditions passed. This is what A and B suppressed.
+
+── §4.3 · SAME FIXTURE, p32.lane RESET TO UNSET AFTER CASE C ─────────────
+     │ SET
+     │             step            
+     │ ----------------------------
+     │  lane after SET   : staging
+     │ (1 row)
+     │ 
+     │ RESET
+     │         step         
+     │ ---------------------
+     │  lane after RESET : 
+     │ (1 row)
+     │ 
+     │ BEGIN
+     │ psql:/home/claude/repo/supabase/rollback/20260910_0027_p32_money_account_control_revoke_ROLLBACK.sql:124: ERROR:  P0001: ROLLBACK REFUSED — p32.lane is not asserted as staging (read: ). This rollback restores anon EXECUTE. On production these objects are closed, so running it there would open them. The file cannot detect its own lane, so it refuses unless the lane is asserted. Set it in THIS session before running: SET p32.lane = 'staging';
+     │ CONTEXT:  PL/pgSQL function inline_code_block line 4 at RAISE
+     │ LOCATION:  exec_stmt_raise, pl_exec.c:3897
+   psql exit code : 3
+                                       obj                                  | byte_identical 
+     -----------------------------------------------------------------------+----------------
+      admin_delete_auth_user(uuid)                                          | t
+      admin_purge_orphan_user_data(uuid)                                    | t
+      admin_reject_wallet_transaction(uuid,uuid,text)                       | t
+      admin_wallet_credit(uuid,uuid,numeric,text,text,uuid,text,jsonb)      | t
+      approve_deposit(uuid,uuid)                                            | t
+      create_pending_deposit(uuid,numeric,text,text,jsonb,text)             | t
+      expire_gift_credit(uuid)                                              | t
+      request_withdrawal(numeric,jsonb)                                     | t
+      soft_void_wallet_transactions(uuid[],text,uuid)                       | t
+      wallet_ledger_apply_v2(text,uuid,numeric,text,text,text,text,boolean) | t
+      wallet_transaction(uuid,text,numeric,text,uuid,text,jsonb)            | t
+     (11 rows)
+     
+   objects whose proacl changed      : 0 of 11
+   VERDICT                           : ✓ PASS — the assertion does not stick; it refuses again
+
+── §2.1 · EXACT, CASE-SENSITIVE COMPARISON — the near-misses ─────────────
+   p32.lane = 'Staging'  → REFUSED  ✓
+   p32.lane = 'STAGING'  → REFUSED  ✓
+   p32.lane = ' staging'  → REFUSED  ✓
+   p32.lane = 'staging '  → REFUSED  ✓
+   p32.lane = ''          → REFUSED  ✓
+
+═══════════════════════════════════════════════════════════════════════════
+FILE 0028 · 20260910_0028_p32identity2_admin_search_and_generate_url_revoke_ROLLBACK.sql
+═══════════════════════════════════════════════════════════════════════════
+
+── SEED · staging shape, then the MERGED apply run verbatim ───────────────
+   seeding the measured staging pre-state on every object:
+     =X/postgres | postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres
+   applying 20260910_0028_p32identity2_admin_search_and_generate_url_revoke.sql (verbatim from the merged tree):
+   post-apply ACL, object by object — this is the state each case starts from:
+                                 obj                             |                                  acl                                   
+     ------------------------------------------------------------+------------------------------------------------------------------------
+      admin_list_certificates(text,text,integer,integer)         | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      admin_search_certificate_recipients(text,integer)          | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      admin_search_users(text,text)                              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      admin_search_users_v2(text,text,text,text,integer,integer) | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      generate_custom_url(text,uuid)                             | {postgres=X/postgres,service_role=X/postgres}
+     (5 rows)
+     
+
+── CASE A · p32.lane UNSET — expected: RAISE ────────────────────────────────
+   session default before the case   : (unset)  (a fresh psql session; the case's own SET, if any, is shown in the raw output below)
+   psql exit code : 3
+   ── raw psql output, unedited ──
+     │ BEGIN
+     │ psql:/home/claude/repo/supabase/rollback/20260910_0028_p32identity2_admin_search_and_generate_url_revoke_ROLLBACK.sql:114: ERROR:  P0001: ROLLBACK REFUSED — p32.lane is not asserted as staging (read: (unset)). This rollback restores anon EXECUTE. On production these objects are closed, so running it there would open them. The file cannot detect its own lane, so it refuses unless the lane is asserted. Set it in THIS session before running: SET p32.lane = 'staging';
+     │ CONTEXT:  PL/pgSQL function inline_code_block line 4 at RAISE
+     │ LOCATION:  exec_stmt_raise, pl_exec.c:3897
+   ── end raw output ──
+   SQLSTATE                          : P0001
+   message names p32.lane            : YES
+   ── proacl comparison, object by object (before vs after) ──
+                                 obj                             | byte_identical |                               before_acl                               |                               after_acl                                
+     ------------------------------------------------------------+----------------+------------------------------------------------------------------------+------------------------------------------------------------------------
+      admin_list_certificates(text,text,integer,integer)         | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      admin_search_certificate_recipients(text,integer)          | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      admin_search_users(text,text)                              | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      admin_search_users_v2(text,text,text,text,integer,integer) | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      generate_custom_url(text,uuid)                             | t              | {postgres=X/postgres,service_role=X/postgres}                          | {postgres=X/postgres,service_role=X/postgres}
+     (5 rows)
+     
+   objects whose proacl changed      : 0 of 5
+   VERDICT                           : ✓ PASS — refused, zero grants changed
+
+── CASE B · p32.lane='production' — expected: RAISE ────────────────────────────────
+   session default before the case   : (unset)  (a fresh psql session; the case's own SET, if any, is shown in the raw output below)
+   psql exit code : 3
+   ── raw psql output, unedited ──
+     │ SET
+     │ BEGIN
+     │ psql:/home/claude/repo/supabase/rollback/20260910_0028_p32identity2_admin_search_and_generate_url_revoke_ROLLBACK.sql:114: ERROR:  P0001: ROLLBACK REFUSED — p32.lane is not asserted as staging (read: production). This rollback restores anon EXECUTE. On production these objects are closed, so running it there would open them. The file cannot detect its own lane, so it refuses unless the lane is asserted. Set it in THIS session before running: SET p32.lane = 'staging';
+     │ CONTEXT:  PL/pgSQL function inline_code_block line 4 at RAISE
+     │ LOCATION:  exec_stmt_raise, pl_exec.c:3897
+   ── end raw output ──
+   SQLSTATE                          : P0001
+   message names p32.lane            : YES
+   ── proacl comparison, object by object (before vs after) ──
+                                 obj                             | byte_identical |                               before_acl                               |                               after_acl                                
+     ------------------------------------------------------------+----------------+------------------------------------------------------------------------+------------------------------------------------------------------------
+      admin_list_certificates(text,text,integer,integer)         | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      admin_search_certificate_recipients(text,integer)          | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      admin_search_users(text,text)                              | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      admin_search_users_v2(text,text,text,text,integer,integer) | t              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+      generate_custom_url(text,uuid)                             | t              | {postgres=X/postgres,service_role=X/postgres}                          | {postgres=X/postgres,service_role=X/postgres}
+     (5 rows)
+     
+   objects whose proacl changed      : 0 of 5
+   VERDICT                           : ✓ PASS — refused, zero grants changed
+
+── CASE C · p32.lane='staging' — expected: PROCEED ────────────────────────────────
+   session default before the case   : (unset)  (a fresh psql session; the case's own SET, if any, is shown in the raw output below)
+   psql exit code : 0
+   ── raw psql output, unedited ──
+     │ SET
+     │ BEGIN
+     │ DO
+     │ GRANT
+     │ GRANT
+     │ GRANT
+     │ GRANT
+     │ GRANT
+     │ GRANT
+     │ psql:/home/claude/repo/supabase/rollback/20260910_0028_p32identity2_admin_search_and_generate_url_revoke_ROLLBACK.sql:146: NOTICE:  00000: ROLLBACK POST-CONDITION PASSED — anon restored on 5 objects, authenticated restored on generate_custom_url, PUBLIC absent on all 5.
+     │ LOCATION:  exec_stmt_raise, pl_exec.c:3897
+     │ DO
+     │ COMMIT
+   ── end raw output ──
+   SQLSTATE                          : (none — no error raised)
+   message names p32.lane            : no
+   ── proacl comparison, object by object (before vs after) ──
+                                 obj                             | byte_identical |                               before_acl                               |                                       after_acl                                        
+     ------------------------------------------------------------+----------------+------------------------------------------------------------------------+----------------------------------------------------------------------------------------
+      admin_list_certificates(text,text,integer,integer)         | f              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
+      admin_search_certificate_recipients(text,integer)          | f              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
+      admin_search_users(text,text)                              | f              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
+      admin_search_users_v2(text,text,text,text,integer,integer) | f              | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,anon=X/postgres}
+      generate_custom_url(text,uuid)                             | f              | {postgres=X/postgres,service_role=X/postgres}                          | {postgres=X/postgres,service_role=X/postgres,anon=X/postgres,authenticated=X/postgres}
+     (5 rows)
+     
+   objects whose proacl changed      : 5 of 5
+   VERDICT                           : ✓ PASS — proceeded, 5 of 5 objects changed,
+                                         post-conditions passed. This is what A and B suppressed.
+
+── §4.3 · SAME FIXTURE, p32.lane RESET TO UNSET AFTER CASE C ─────────────
+     │ SET
+     │             step            
+     │ ----------------------------
+     │  lane after SET   : staging
+     │ (1 row)
+     │ 
+     │ RESET
+     │         step         
+     │ ---------------------
+     │  lane after RESET : 
+     │ (1 row)
+     │ 
+     │ BEGIN
+     │ psql:/home/claude/repo/supabase/rollback/20260910_0028_p32identity2_admin_search_and_generate_url_revoke_ROLLBACK.sql:114: ERROR:  P0001: ROLLBACK REFUSED — p32.lane is not asserted as staging (read: ). This rollback restores anon EXECUTE. On production these objects are closed, so running it there would open them. The file cannot detect its own lane, so it refuses unless the lane is asserted. Set it in THIS session before running: SET p32.lane = 'staging';
+     │ CONTEXT:  PL/pgSQL function inline_code_block line 4 at RAISE
+     │ LOCATION:  exec_stmt_raise, pl_exec.c:3897
+   psql exit code : 3
+                                 obj                             | byte_identical 
+     ------------------------------------------------------------+----------------
+      admin_list_certificates(text,text,integer,integer)         | t
+      admin_search_certificate_recipients(text,integer)          | t
+      admin_search_users(text,text)                              | t
+      admin_search_users_v2(text,text,text,text,integer,integer) | t
+      generate_custom_url(text,uuid)                             | t
+     (5 rows)
+     
+   objects whose proacl changed      : 0 of 5
+   VERDICT                           : ✓ PASS — the assertion does not stick; it refuses again
+
+── §2.1 · EXACT, CASE-SENSITIVE COMPARISON — the near-misses ─────────────
+   p32.lane = 'Staging'  → REFUSED  ✓
+   p32.lane = 'STAGING'  → REFUSED  ✓
+   p32.lane = ' staging'  → REFUSED  ✓
+   p32.lane = 'staging '  → REFUSED  ✓
+   p32.lane = ''          → REFUSED  ✓
+
+═══════════════════════════════════════════════════════════════════════════
+finished_utc : 2026-09-22T09:45:03Z
+HARNESS RESULT : ALL CASES PASSED

@@ -1,0 +1,91 @@
+D1 · R-8 PRE-OPEN PR CHECKS — work order §10
+run_at_utc : 2026-09-22T08:52:39Z
+branch     : d1/P32-correction-R8-20260922  head 2fedf0a0b75a6425cdb7cdb1c8a07165c555086c
+==========================================================================
+
+1+2. Base is CURRENT origin/staging; merge-base equals staging HEAD
+     origin/staging = 0869a94bf7d61a625cb031995574013db031b05b
+     merge-base     = 0869a94bf7d61a625cb031995574013db031b05b
+     PASS
+
+3. Only intended files changed
+     A	docs/evidence/d1/phase1/R8-BLOCKERS-20260922.md
+     A	docs/evidence/d1/phase1/R8-evidence-20260922.md
+     A	docs/evidence/d1/phase1/R8-fixture-harness.sh
+     A	docs/evidence/d1/phase1/R8-fixture-stubs.sql
+     A	docs/evidence/d1/phase1/R8-fixture-transcript-20260922.txt
+     A	docs/evidence/d1/phase1/object-reservation-R8-20260922.md
+     A	docs/evidence/d1/phase1/prepared/0039-get_public_role_user_ids.sql.prepared
+     A	supabase/migrations/20260910_0038_p32_password_verification_hook_closure.sql
+     R058	supabase/migrations/20260910_0029_p32_auth_hook_and_role_enum_revoke.sql	supabase/migrations/UNAPPLIED_20260910_0029_p32_auth_hook_and_role_enum_revoke.sql
+     A	supabase/rollback/20260910_0027_p32_money_account_control_revoke_ROLLBACK.sql
+     A	supabase/rollback/20260910_0028_p32identity2_admin_search_and_generate_url_revoke_ROLLBACK.sql
+     A	supabase/rollback/20260910_0038_p32_password_verification_hook_closure_ROLLBACK.sql
+
+4. 0038 has its rollback at the identical stem
+     PASS  20260910_0038_p32_password_verification_hook_closure <-> 20260910_0038_p32_password_verification_hook_closure_ROLLBACK.sql
+
+5. 0027 and 0028 rollbacks exist at identical stems; APPLY FILES UNMODIFIED
+     PASS  rollback present: 20260910_0027_p32_money_account_control_revoke_ROLLBACK.sql
+           apply file UNMODIFIED (0 diff lines)
+     PASS  rollback present: 20260910_0028_p32identity2_admin_search_and_generate_url_revoke_ROLLBACK.sql
+           apply file UNMODIFIED (0 diff lines)
+
+6. 0029 exists ONLY as UNAPPLIED_*; its SQL body is unchanged
+     UNAPPLIED_20260910_0029_p32_auth_hook_and_role_enum_revoke.sql
+     original sha256 : e4d29d14a3ed256b102d6c2bcc7abe0db93e0f228c840fa23bbb16bbe867e4cb
+     body-after sha256: f2bb02cb71ac0a67cfcc169bc3ad4b2c0a1e9f34d0ecbbd1b6179694329224f3
+     (see §5 of the evidence — verified at write time by hash)
+     resolver skips it: 61:export const NOT_IN_SEQUENCE_PREFIXES = ["UNAPPLIED_", "PROBE_"] as const;
+70:  return !NOT_IN_SEQUENCE_PREFIXES.some((p) => filename.startsWith(p));
+
+7. No supabase/migrations/0039*.sql; 0039 only as the .prepared file
+     PASS  find supabase -name '*0039*' -> (nothing)
+     0039-get_public_role_user_ids.sql.prepared
+     non-comment lines in it: 0
+
+8. No duplicate ordinal; 0032-0037 unused
+     0032 : branch=0 staging=0 main=0
+     0033 : branch=0 staging=0 main=0
+     0034 : branch=0 staging=0 main=0
+     0035 : branch=0 staging=0 main=0
+     0036 : branch=0 staging=0 main=0
+     0037 : branch=0 staging=0 main=0
+     0038 : branch=1 staging=0 main=0
+     0039 : branch=0 staging=0 main=0
+
+9. Rollback tests prove PUBLIC is never recreated on the production-shaped fixture
+     PUBLIC after rollback = 0  (must be 0)
+     PUBLIC after rollback = 0  (must be 0)
+     → PUBLIC holds EXECUTE on 0 of 11 object(s) after rollback ✅
+     → PUBLIC holds EXECUTE on 0 of 11 object(s) after rollback ✅
+     → PUBLIC holds EXECUTE on 0 of 5 object(s) after rollback ✅
+     → PUBLIC holds EXECUTE on 0 of 5 object(s) after rollback ✅
+     executable 'GRANT ... TO PUBLIC' in any rollback:
+       20260910_0001_p30_email_exists_revoke_ROLLBACK.sql: 0
+       20260910_0003_p31_search_certificates_revoke_ROLLBACK.sql: 2
+       20260910_0004_oi2_email_exists_authenticated_revoke_ROLLBACK.sql: 0
+       20260910_0005_oi3_verify_certificate_by_token_public_only_ROLLBACK.sql: 1
+       20260910_0006_0010_f93_ROLLBACK.sql: 0
+       20260910_00095_f93_staging_fixture_ROLLBACK.sql: 0
+       20260910_0011_f96_ROLLBACK.sql: 0
+       20260910_0012_f98_ROLLBACK.sql: 3
+       20260910_0019_f105d_process_referral_reward_authorize_ROLLBACK.sql: 2
+       20260910_0022_f105e_referral_overload_unambiguous_ROLLBACK.sql: 0
+       20260910_0024_p32mail_delete_email_revoke_ROLLBACK.sql: 1
+       20260910_0025_p32mail_emit_notification_revoke_ROLLBACK.sql: 0
+       20260910_0026_p32mail_move_to_dlq_mail_only_revoke_ROLLBACK.sql: 1
+       20260910_0027_p32_money_account_control_revoke_ROLLBACK.sql: 0
+       20260910_0028_p32identity2_admin_search_and_generate_url_revoke_ROLLBACK.sql: 0
+       20260910_0038_p32_password_verification_hook_closure_ROLLBACK.sql: 0
+
+10. 0038 proves supabase_auth_admin EXECUTE after apply on the staging-shaped fixture
+     A1 · has_function_privilege('supabase_auth_admin', hook, 'EXECUTE') = t
+     A2 · NAMED supabase_auth_admin ACL entry                            = t
+     → HOLDS (effective AND named). GoTrue keeps its path.
+
+11. No unrelated files changed — forbidden-path sweep (§8)
+     PASS  none of the forbidden paths appears in the diff
+
+==========================================================================
+harness exit on the committed transcript: 0   ·   '✗✗' count: 0
