@@ -150,3 +150,54 @@ unit re-adds the workflow.
 2. Sequence step 1 to D1.
 3. Re-issue step 2 to D2 once step 1 is live on staging. It is a four-line
    change and it will carry its own before/after evidence.
+
+
+---
+
+# ADDENDUM — the eight-point trace the Auditor asked for
+
+**2026-09-22, second pass. Every line below is from a file at `origin/staging` `247a47b`,
+or from `cd3dc7e` itself. `scripts/test-agent/run-checks.mjs` is unchanged.**
+
+| # | Question | Answer | Proof |
+|---|---|---|---|
+| 1 | What caller is supposed to send the token? | `scripts/test-agent/run-checks.mjs`, the block guarded by `if (INGEST_TOKEN)` | `:137-143` |
+| 2 | Does it send an HTTP header carrying the token? | **No.** It sends three headers — `apikey`, `Authorization: Bearer <ANON_KEY>`, `Content-Type` — and the token travels in the JSON body as `p_token` | `:141` (headers) vs `:143` (`p_token: INGEST_TOKEN`) |
+| 3 | Is there an exact header name? | **None exists**, in current code or in any prior contract. The deleted workflow used the same three headers | `run-checks.mjs:141`; `cd3dc7e^:.github/workflows/test-agent.yml:114` |
+| 4 | Does the function read `request.headers`? | **No.** Zero matches for `request.headers` anywhere under `supabase/**` | `git grep "request\.headers" origin/staging -- 'supabase/**'` → no output |
+| 5 | Does `TEST_AGENT_INGEST_TOKEN` exist in repo, workflows or config? | Three occurrences, **none of them a workflow or config binding**: two are the script reading it and warning when unset, one is prose | `run-checks.mjs:17`, `:164`; `.lovable/memory/ci/test-agent.md:34` |
+| 6 | Does `.github/workflows/test-agent.yml` exist on `staging`? | **Absent**, on `staging` and on `main` | `git ls-tree origin/staging .github/workflows/` and the same for `origin/main` |
+| 7 | Does any workflow invoke `run-checks.mjs`? | **None** | `git grep "run-checks" origin/staging -- '.github/**'` → no output |
+| 8 | Is the `p_token` comparison therefore dead code? | **No — and this is the important one.** It has no caller *in this repository*. It is not dead: `20260502072904_….sql:163` grants `EXECUTE … TO anon, authenticated`, so anyone holding the publishable key can call it, and the `p_token` check at `:139-141` is the **only** thing standing between that and a write to `test_agent_runs`. Unreferenced ≠ unreachable | `20260502072904_f645403a-7c50-49d3-b818-c41cb68ff9e6.sql:139-141, :162-163` |
+
+## The root cause, verified independently
+
+`cd3dc7e` — *"Remove CI workflows (not needed for hosting; re-add later with workflow-scoped
+token)"*, **Thu 9 Jul 2026**, author `Migration` — deleted **seven** workflows, 638 lines:
+
+```
+audit-forbidden.yml  per-photo-status-types.yml  prove-block-required.yml
+rpc-contract-parity.yml  test-agent.yml (144 lines)  v3-catalog-parity.yml
+vocabulary-snapshot.yml
+```
+
+The deleted `test-agent.yml` ran on `push: branches: ['**']`, on `pull_request`, and on
+`schedule: '*/5 * * * *'`, and its one job step was `node scripts/test-agent/run-checks.mjs`
+(`:59`). That script runs, at `:47`, `:51` and `:57`:
+
+```js
+run('tsc',    'npx tsc --noEmit');
+run('vitest', 'npx vitest run --reporter=basic');
+run('eslint', 'npx eslint . --max-warnings=0 --quiet');
+```
+
+So `cd3dc7e` is the commit that removed **vitest and eslint from every pull request**, and the
+script's header comment *"runs every push + every 5 min"* was not stale when it was written — it
+was true until that commit. (Its `npx tsc --noEmit` is the broken form that compiles the solution
+file and checks nothing; `android-build.yml:554-558` later recorded and fixed that separately.)
+
+## Conclusion — STOP, as the command directs
+
+The header name cannot be established from existing code or from any documented contract, because
+none has ever existed. Per the command, there is no smallest test-first correction to prepare, and
+nothing is invented here. The interface decision in §2 above stands and is the blocker.
