@@ -1,0 +1,215 @@
+
+ RUN  v3.2.4 /home/claude/repo
+
+ ❯ src/pages/__tests__/managedPageViewCounter.test.tsx (4 tests | 3 failed) 3084ms
+   × ManagedPageView view counter — non-fatal, invisible, but not silent > logs exactly once when the RPC resolves with a refusal (42501) 1047ms
+     → expected "spy" to be called at least once
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"py-10 md:py-16"[39m
+      [36m>[39m
+        [36m<article[39m
+          [33mclass[39m=[32m"max-w-3xl"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"prose prose-sm md:prose-base max-w-none text-foreground [&_h1]:text-2xl [&_h1]:md:text-3xl [&_h1]:font-light [&_h1]:tracking-tight [&_h1]:mb-6 [&_h2]:text-xl [&_h2]:font-light [&_h2]:mt-8 [&_h2]:mb-4 [&_h3]:text-lg [&_h3]:font-medium [&_h3]:mt-6 [&_h3]:mb-3 [&_p]:text-sm [&_p]:md:text-base [&_p]:leading-relaxed [&_p]:mb-4 [&_p]:text-foreground/80 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4 [&_li]:text-sm [&_li]:md:text-base [&_li]:mb-1.5 [&_li]:text-foreground/80 [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_strong]:text-foreground [&_strong]:font-semibold [&_em]:italic [&_img]:max-w-full [&_img]:rounded-sm [&_img]:my-4 [&_hr]:my-8 [&_hr]:border-border [&_blockquote]:border-l-2 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground"[39m
+            [33mstyle[39m=[32m"font-family: var(--font-body);"[39m
+          [36m>[39m
+            [36m<p>[39m
+              [0mThe terms body a visitor came to read.[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</article>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+   × ManagedPageView view counter — non-fatal, invisible, but not silent > logs once and does not break the page when the RPC promise rejects 1009ms
+     → expected "spy" to be called at least once
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"py-10 md:py-16"[39m
+      [36m>[39m
+        [36m<article[39m
+          [33mclass[39m=[32m"max-w-3xl"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"prose prose-sm md:prose-base max-w-none text-foreground [&_h1]:text-2xl [&_h1]:md:text-3xl [&_h1]:font-light [&_h1]:tracking-tight [&_h1]:mb-6 [&_h2]:text-xl [&_h2]:font-light [&_h2]:mt-8 [&_h2]:mb-4 [&_h3]:text-lg [&_h3]:font-medium [&_h3]:mt-6 [&_h3]:mb-3 [&_p]:text-sm [&_p]:md:text-base [&_p]:leading-relaxed [&_p]:mb-4 [&_p]:text-foreground/80 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4 [&_li]:text-sm [&_li]:md:text-base [&_li]:mb-1.5 [&_li]:text-foreground/80 [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_strong]:text-foreground [&_strong]:font-semibold [&_em]:italic [&_img]:max-w-full [&_img]:rounded-sm [&_img]:my-4 [&_hr]:my-8 [&_hr]:border-border [&_blockquote]:border-l-2 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground"[39m
+            [33mstyle[39m=[32m"font-family: var(--font-body);"[39m
+          [36m>[39m
+            [36m<p>[39m
+              [0mThe terms body a visitor came to read.[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</article>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+   × ManagedPageView view counter — non-fatal, invisible, but not silent > GUARD stays silent when the increment succeeds 1008ms
+     → expected "spy" to be called at least once
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"py-10 md:py-16"[39m
+      [36m>[39m
+        [36m<article[39m
+          [33mclass[39m=[32m"max-w-3xl"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"prose prose-sm md:prose-base max-w-none text-foreground [&_h1]:text-2xl [&_h1]:md:text-3xl [&_h1]:font-light [&_h1]:tracking-tight [&_h1]:mb-6 [&_h2]:text-xl [&_h2]:font-light [&_h2]:mt-8 [&_h2]:mb-4 [&_h3]:text-lg [&_h3]:font-medium [&_h3]:mt-6 [&_h3]:mb-3 [&_p]:text-sm [&_p]:md:text-base [&_p]:leading-relaxed [&_p]:mb-4 [&_p]:text-foreground/80 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4 [&_li]:text-sm [&_li]:md:text-base [&_li]:mb-1.5 [&_li]:text-foreground/80 [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_strong]:text-foreground [&_strong]:font-semibold [&_em]:italic [&_img]:max-w-full [&_img]:rounded-sm [&_img]:my-4 [&_hr]:my-8 [&_hr]:border-border [&_blockquote]:border-l-2 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground"[39m
+            [33mstyle[39m=[32m"font-family: var(--font-body);"[39m
+          [36m>[39m
+            [36m<p>[39m
+              [0mThe terms body a visitor came to read.[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</article>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+   ✓ ManagedPageView view counter — non-fatal, invisible, but not silent > GUARD the member never sees the counter failure — page renders regardless 17ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/__tests__/managedPageViewCounter.test.tsx > ManagedPageView view counter — non-fatal, invisible, but not silent > logs exactly once when the RPC resolves with a refusal (42501)
+AssertionError: expected "spy" to be called at least once
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"py-10 md:py-16"[39m
+      [36m>[39m
+        [36m<article[39m
+          [33mclass[39m=[32m"max-w-3xl"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"prose prose-sm md:prose-base max-w-none text-foreground [&_h1]:text-2xl [&_h1]:md:text-3xl [&_h1]:font-light [&_h1]:tracking-tight [&_h1]:mb-6 [&_h2]:text-xl [&_h2]:font-light [&_h2]:mt-8 [&_h2]:mb-4 [&_h3]:text-lg [&_h3]:font-medium [&_h3]:mt-6 [&_h3]:mb-3 [&_p]:text-sm [&_p]:md:text-base [&_p]:leading-relaxed [&_p]:mb-4 [&_p]:text-foreground/80 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4 [&_li]:text-sm [&_li]:md:text-base [&_li]:mb-1.5 [&_li]:text-foreground/80 [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_strong]:text-foreground [&_strong]:font-semibold [&_em]:italic [&_img]:max-w-full [&_img]:rounded-sm [&_img]:my-4 [&_hr]:my-8 [&_hr]:border-border [&_blockquote]:border-l-2 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground"[39m
+            [33mstyle[39m=[32m"font-family: var(--font-body);"[39m
+          [36m>[39m
+            [36m<p>[39m
+              [0mThe terms body a visitor came to read.[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</article>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+ ❯ src/pages/__tests__/managedPageViewCounter.test.tsx:113:41
+    111| 
+    112|     renderPage();
+    113|     await waitFor(() => expect(rpcMock).toHaveBeenCalled());
+       |                                         ^
+    114|     await waitFor(() => expect(counterWarnings()).toHaveLength(1));
+    115|   });
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/pages/__tests__/managedPageViewCounter.test.tsx > ManagedPageView view counter — non-fatal, invisible, but not silent > logs once and does not break the page when the RPC promise rejects
+AssertionError: expected "spy" to be called at least once
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"py-10 md:py-16"[39m
+      [36m>[39m
+        [36m<article[39m
+          [33mclass[39m=[32m"max-w-3xl"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"prose prose-sm md:prose-base max-w-none text-foreground [&_h1]:text-2xl [&_h1]:md:text-3xl [&_h1]:font-light [&_h1]:tracking-tight [&_h1]:mb-6 [&_h2]:text-xl [&_h2]:font-light [&_h2]:mt-8 [&_h2]:mb-4 [&_h3]:text-lg [&_h3]:font-medium [&_h3]:mt-6 [&_h3]:mb-3 [&_p]:text-sm [&_p]:md:text-base [&_p]:leading-relaxed [&_p]:mb-4 [&_p]:text-foreground/80 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4 [&_li]:text-sm [&_li]:md:text-base [&_li]:mb-1.5 [&_li]:text-foreground/80 [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_strong]:text-foreground [&_strong]:font-semibold [&_em]:italic [&_img]:max-w-full [&_img]:rounded-sm [&_img]:my-4 [&_hr]:my-8 [&_hr]:border-border [&_blockquote]:border-l-2 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground"[39m
+            [33mstyle[39m=[32m"font-family: var(--font-body);"[39m
+          [36m>[39m
+            [36m<p>[39m
+              [0mThe terms body a visitor came to read.[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</article>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+ ❯ src/pages/__tests__/managedPageViewCounter.test.tsx:121:41
+    119| 
+    120|     renderPage();
+    121|     await waitFor(() => expect(rpcMock).toHaveBeenCalled());
+       |                                         ^
+    122|     await waitFor(() => expect(counterWarnings()).toHaveLength(1));
+    123| 
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/pages/__tests__/managedPageViewCounter.test.tsx > ManagedPageView view counter — non-fatal, invisible, but not silent > GUARD stays silent when the increment succeeds
+AssertionError: expected "spy" to be called at least once
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"py-10 md:py-16"[39m
+      [36m>[39m
+        [36m<article[39m
+          [33mclass[39m=[32m"max-w-3xl"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"prose prose-sm md:prose-base max-w-none text-foreground [&_h1]:text-2xl [&_h1]:md:text-3xl [&_h1]:font-light [&_h1]:tracking-tight [&_h1]:mb-6 [&_h2]:text-xl [&_h2]:font-light [&_h2]:mt-8 [&_h2]:mb-4 [&_h3]:text-lg [&_h3]:font-medium [&_h3]:mt-6 [&_h3]:mb-3 [&_p]:text-sm [&_p]:md:text-base [&_p]:leading-relaxed [&_p]:mb-4 [&_p]:text-foreground/80 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4 [&_li]:text-sm [&_li]:md:text-base [&_li]:mb-1.5 [&_li]:text-foreground/80 [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_strong]:text-foreground [&_strong]:font-semibold [&_em]:italic [&_img]:max-w-full [&_img]:rounded-sm [&_img]:my-4 [&_hr]:my-8 [&_hr]:border-border [&_blockquote]:border-l-2 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground"[39m
+            [33mstyle[39m=[32m"font-family: var(--font-body);"[39m
+          [36m>[39m
+            [36m<p>[39m
+              [0mThe terms body a visitor came to read.[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</article>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+ ❯ src/pages/__tests__/managedPageViewCounter.test.tsx:132:41
+    130| 
+    131|     renderPage();
+    132|     await waitFor(() => expect(rpcMock).toHaveBeenCalled());
+       |                                         ^
+    133|     await waitFor(() =>
+    134|       expect(screen.getByText(/the terms body a visitor came to read/i…
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 1 passed (4)
+   Start at  17:37:10
+   Duration  4.16s (transform 142ms, setup 60ms, collect 366ms, tests 3.08s, environment 298ms, prepare 112ms)
+
