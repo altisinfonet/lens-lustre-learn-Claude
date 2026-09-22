@@ -1,0 +1,84 @@
+D1 · R-7 PRE-OPEN PR CHECKS — work order §19
+run_at_utc : 2026-09-22T06:58:13Z
+branch     : d1/P32-recut-R7-20260922
+==========================================================================
+
+1. Base is CURRENT origin/staging
+   origin/staging = f0377afa29d61ea44cbed38b7ed6d38e296df225
+   merge-base     = f0377afa29d61ea44cbed38b7ed6d38e296df225
+   PASS
+
+2. merge-base equals CURRENT staging HEAD  — same check as 1, PASS
+
+3. Only intended files changed
+   A  docs/evidence/d1/phase1/R7-BLOCKERS-20260922.md
+   A  docs/evidence/d1/phase1/R7-evidence-20260922.md
+   A  docs/evidence/d1/phase1/R7-fixture-harness.sh
+   A  docs/evidence/d1/phase1/R7-fixture-stubs.sql
+   A  docs/evidence/d1/phase1/R7-fixture-transcript-20260922.txt
+   A  docs/evidence/d1/phase1/prepared/0037-get_public_role_user_ids.sql.prepared
+   A  supabase/migrations/20260910_0032_p32r7_money_account_control_revoke.sql
+   A  supabase/migrations/20260910_0033_p32r7_request_withdrawal_revoke.sql
+   A  supabase/migrations/20260910_0034_p32r7_identity2_admin_search_and_generate_url_revoke.sql
+   A  supabase/migrations/20260910_0035_p32r7_admin_search_users_revoke.sql
+   A  supabase/migrations/20260910_0036_p32r7_password_verification_hook_revoke.sql
+   A  supabase/rollback/20260910_0032_p32r7_money_account_control_revoke_ROLLBACK.sql
+   A  supabase/rollback/20260910_0033_p32r7_request_withdrawal_revoke_ROLLBACK.sql
+   A  supabase/rollback/20260910_0034_p32r7_identity2_admin_search_and_generate_url_revoke_ROLLBACK.sql
+   A  supabase/rollback/20260910_0035_p32r7_admin_search_users_revoke_ROLLBACK.sql
+   A  supabase/rollback/20260910_0036_p32r7_password_verification_hook_revoke_ROLLBACK.sql
+   ?? docs/evidence/d1/phase1/R7-preopen-checks-20260922.txt
+
+4+5. Every apply migration has its rollback, with an IDENTICAL stem
+   PASS  20260910_0032_p32r7_money_account_control_revoke  <->  20260910_0032_p32r7_money_account_control_revoke_ROLLBACK.sql
+   PASS  20260910_0033_p32r7_request_withdrawal_revoke  <->  20260910_0033_p32r7_request_withdrawal_revoke_ROLLBACK.sql
+   PASS  20260910_0034_p32r7_identity2_admin_search_and_generate_url_revoke  <->  20260910_0034_p32r7_identity2_admin_search_and_generate_url_revoke_ROLLBACK.sql
+   PASS  20260910_0035_p32r7_admin_search_users_revoke  <->  20260910_0035_p32r7_admin_search_users_revoke_ROLLBACK.sql
+   PASS  20260910_0036_p32r7_password_verification_hook_revoke  <->  20260910_0036_p32r7_password_verification_hook_revoke_ROLLBACK.sql
+
+6. No duplicate ordinal (this branch, and against staging/main)
+   0032 : this branch=1  origin/staging=0  origin/main=0
+   0033 : this branch=1  origin/staging=0  origin/main=0
+   0034 : this branch=1  origin/staging=0  origin/main=0
+   0035 : this branch=1  origin/staging=0  origin/main=0
+   0036 : this branch=1  origin/staging=0  origin/main=0
+   0037 : this branch=0  origin/staging=0  origin/main=0
+
+7. No supabase/migrations/0037*.sql exists
+   PASS  find supabase -name '*0037*' -> (nothing)
+
+8. 0037 exists ONLY as the .prepared file
+   0037-get_public_role_user_ids.sql.prepared
+   non-comment lines in that file: 0  (0 = no executable SQL)
+
+9. 0032-0036 contain exactly their allocated objects
+   0032 : admin_delete_auth_user admin_purge_orphan_user_data admin_reject_wallet_transaction admin_wallet_credit approve_deposit create_pending_deposit expire_gift_credit soft_void_wallet_transactions wallet_ledger_apply_v2 wallet_transaction 
+   0033 : request_withdrawal 
+   0034 : admin_list_certificates admin_search_certificate_recipients admin_search_users_v2 generate_custom_url 
+   0035 : admin_search_users 
+   0036 : password_verification_hook 
+
+10. All 18 objects accounted for
+    in migrations: 17
+    prepared only: 1  (get_public_role_user_ids)
+    total        : 18
+
+11. No rollback issues GRANT ... TO PUBLIC (executable statements, comments stripped)
+   20260910_0032_p32r7_money_account_control_revoke_ROLLBACK.sql : executable 'GRANT ... TO PUBLIC' = 0
+   20260910_0033_p32r7_request_withdrawal_revoke_ROLLBACK.sql : executable 'GRANT ... TO PUBLIC' = 0
+   20260910_0034_p32r7_identity2_admin_search_and_generate_url_revoke_ROLLBACK.sql : executable 'GRANT ... TO PUBLIC' = 0
+   20260910_0035_p32r7_admin_search_users_revoke_ROLLBACK.sql : executable 'GRANT ... TO PUBLIC' = 0
+   20260910_0036_p32r7_password_verification_hook_revoke_ROLLBACK.sql : executable 'GRANT ... TO PUBLIC' = 0
+   PASS  none, in any rollback
+   fixture confirmation: 10 of 10 runs confirmed 0 PUBLIC entries after rollback
+
+12. 0036 proves supabase_auth_admin EXECUTE after apply on the staging-shaped fixture
+     STEP 4c · §15 REQUIRED ASSERTION — has_function_privilege('supabase_auth_admin', ..., 'EXECUTE') after apply
+              = t      NAMED supabase_auth_admin ACL entries = 1
+
+13. No unrelated files changed — forbidden-path sweep (§17)
+   PASS  none of the forbidden paths appears in the diff
+
+==========================================================================
+harness exit code on the run that produced the committed transcript: 0
+count of '✗✗' in the transcript: 0

@@ -1,0 +1,376 @@
+D1 · R-7 FIXTURE TRANSCRIPT
+started_utc : 2026-09-22T06:55:58Z
+engine      : 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1)
+repo tree   : e89848aa30b90246bdb1c24ba4f6174b5bc89461 on d1/P32-recut-R7-20260922
+
+roles present: anon, authenticated, service_role, supabase_auth_admin
+
+──────────────────────────────────────────────────────────────────────
+UNIT 0032  ·  FIXTURE A  ·  STAGING shape (PUBLIC holds EXECUTE)
+  db=r7_0032_a   utc=2026-09-22T06:55:58Z
+  STEP 1 · measured starting ACL (admin_delete_auth_user(uuid)):
+           postgres=X/postgres | =X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres
+           named entries present: PUBLIC,anon,authenticated,postgres,service_role
+  STEP 2 · FAIL-BEFORE probe (asserts the closed state). expected_open=yes
+        C3 FAIL  anon can EXECUTE public.admin_delete_auth_user(uuid)
+        C4 FAIL  PUBLIC holds EXECUTE on public.admin_delete_auth_user(uuid) (1 entry)
+        C3 FAIL  anon can EXECUTE public.admin_purge_orphan_user_data(uuid)
+        C4 FAIL  PUBLIC holds EXECUTE on public.admin_purge_orphan_user_data(uuid) (1 entry)
+        C3 FAIL  anon can EXECUTE public.admin_reject_wallet_transaction(uuid,uuid,text)
+        C4 FAIL  PUBLIC holds EXECUTE on public.admin_reject_wallet_transaction(uuid,uuid,text) (1 entry)
+        C3 FAIL  anon can EXECUTE public.admin_wallet_credit(uuid,uuid,numeric,text,text,uuid,text,jsonb)
+        C4 FAIL  PUBLIC holds EXECUTE on public.admin_wallet_credit(uuid,uuid,numeric,text,text,uuid,text,jsonb) (1 entry)
+        C3 FAIL  anon can EXECUTE public.approve_deposit(uuid,uuid)
+        C4 FAIL  PUBLIC holds EXECUTE on public.approve_deposit(uuid,uuid) (1 entry)
+        C3 FAIL  anon can EXECUTE public.create_pending_deposit(uuid,numeric,text,text,jsonb,text)
+        C4 FAIL  PUBLIC holds EXECUTE on public.create_pending_deposit(uuid,numeric,text,text,jsonb,text) (1 entry)
+        C3 FAIL  anon can EXECUTE public.expire_gift_credit(uuid)
+        C4 FAIL  PUBLIC holds EXECUTE on public.expire_gift_credit(uuid) (1 entry)
+        C3 FAIL  anon can EXECUTE public.soft_void_wallet_transactions(uuid[],text,uuid)
+        C4 FAIL  PUBLIC holds EXECUTE on public.soft_void_wallet_transactions(uuid[],text,uuid) (1 entry)
+        C3 FAIL  anon can EXECUTE public.wallet_ledger_apply_v2(text,uuid,numeric,text,text,text,text,boolean)
+        C4 FAIL  PUBLIC holds EXECUTE on public.wallet_ledger_apply_v2(text,uuid,numeric,text,text,text,text,boolean) (1 entry)
+        C3 FAIL  anon can EXECUTE public.wallet_transaction(uuid,text,numeric,text,uuid,text,jsonb)
+        C4 FAIL  PUBLIC holds EXECUTE on public.wallet_transaction(uuid,text,numeric,text,uuid,text,jsonb) (1 entry)
+      → probe FAILED as required. The probe can fail.
+  STEP 3 · apply supabase/migrations/20260910_0032_p32r7_money_account_control_revoke.sql
+           apply exit=0
+  STEP 4 · PASS-AFTER probe:
+      → PASS. anon closed, no PUBLIC entry, required named grants intact.
+  STEP 5 · idempotence — re-apply the same file
+      → IDEMPOTENT. ACL byte-identical after second apply.
+  STEP 6 · rollback supabase/rollback/20260910_0032_p32r7_money_account_control_revoke_ROLLBACK.sql
+           psql:/home/claude/repo/supabase/rollback/20260910_0032_p32r7_money_account_control_revoke_ROLLBACK.sql:100: NOTICE:  ROLLBACK POST-CONDITION PASSED — anon restored on 10 objects, PUBLIC absent on all 10.
+  STEP 7 · post-rollback ACL (admin_delete_auth_user(uuid)):
+           postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres | anon=X/postgres
+  STEP 8 · THE TWO-LANE ASSERTION — PUBLIC must NOT hold EXECUTE anywhere:
+      → CONFIRMED: PUBLIC holds EXECUTE on 0 of 10 object(s) after rollback.
+  STEP 9 · named grants after rollback:
+           public.admin_delete_auth_user(uuid)  anon=t authenticated=t service_role=t
+           public.admin_purge_orphan_user_data(uuid)  anon=t authenticated=t service_role=t
+           public.admin_reject_wallet_transaction(uuid,uuid,text)  anon=t authenticated=t service_role=t
+           public.admin_wallet_credit(uuid,uuid,numeric,text,text,uuid,text,jsonb)  anon=t authenticated=t service_role=t
+           public.approve_deposit(uuid,uuid)  anon=t authenticated=t service_role=t
+           public.create_pending_deposit(uuid,numeric,text,text,jsonb,text)  anon=t authenticated=t service_role=t
+           public.expire_gift_credit(uuid)  anon=t authenticated=t service_role=t
+           public.soft_void_wallet_transactions(uuid[],text,uuid)  anon=t authenticated=t service_role=t
+           public.wallet_ledger_apply_v2(text,uuid,numeric,text,text,text,text,boolean)  anon=t authenticated=t service_role=t
+           public.wallet_transaction(uuid,text,numeric,text,uuid,text,jsonb)  anon=t authenticated=t service_role=t
+  STEP 10 · canary (public.r7_canary_untouched(text)) — no unrelated object affected:
+      → UNCHANGED across apply, re-apply and rollback.
+
+──────────────────────────────────────────────────────────────────────
+UNIT 0032  ·  FIXTURE B  ·  PRODUCTION shape (PUBLIC does NOT hold EXECUTE)
+  db=r7_0032_b   utc=2026-09-22T06:56:06Z
+  STEP 1 · measured starting ACL (admin_delete_auth_user(uuid)):
+           postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres
+           named entries present: authenticated,postgres,service_role
+  STEP 2 · FAIL-BEFORE probe (asserts the closed state). expected_open=no
+      → probe PASSED, and that is the correct result here: this lane shape is
+        ALREADY CLOSED for this unit (relayed production state), so the apply is
+        a no-op. The C-34 fail-before control for unit 0032 is carried by
+        FIXTURE A above, where the object is genuinely open.
+  STEP 3 · apply supabase/migrations/20260910_0032_p32r7_money_account_control_revoke.sql
+           apply exit=0
+  STEP 4 · PASS-AFTER probe:
+      → PASS. anon closed, no PUBLIC entry, required named grants intact.
+  STEP 4b · NO-OP PROOF (already-closed lane): ACL byte-identical before and after apply.
+  STEP 5 · idempotence — re-apply the same file
+      → IDEMPOTENT. ACL byte-identical after second apply.
+  STEP 6 · rollback supabase/rollback/20260910_0032_p32r7_money_account_control_revoke_ROLLBACK.sql
+           psql:/home/claude/repo/supabase/rollback/20260910_0032_p32r7_money_account_control_revoke_ROLLBACK.sql:100: NOTICE:  ROLLBACK POST-CONDITION PASSED — anon restored on 10 objects, PUBLIC absent on all 10.
+  STEP 7 · post-rollback ACL (admin_delete_auth_user(uuid)):
+           postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres | anon=X/postgres
+  STEP 8 · THE TWO-LANE ASSERTION — PUBLIC must NOT hold EXECUTE anywhere:
+      → CONFIRMED: PUBLIC holds EXECUTE on 0 of 10 object(s) after rollback.
+  STEP 9 · named grants after rollback:
+           public.admin_delete_auth_user(uuid)  anon=t authenticated=t service_role=t
+           public.admin_purge_orphan_user_data(uuid)  anon=t authenticated=t service_role=t
+           public.admin_reject_wallet_transaction(uuid,uuid,text)  anon=t authenticated=t service_role=t
+           public.admin_wallet_credit(uuid,uuid,numeric,text,text,uuid,text,jsonb)  anon=t authenticated=t service_role=t
+           public.approve_deposit(uuid,uuid)  anon=t authenticated=t service_role=t
+           public.create_pending_deposit(uuid,numeric,text,text,jsonb,text)  anon=t authenticated=t service_role=t
+           public.expire_gift_credit(uuid)  anon=t authenticated=t service_role=t
+           public.soft_void_wallet_transactions(uuid[],text,uuid)  anon=t authenticated=t service_role=t
+           public.wallet_ledger_apply_v2(text,uuid,numeric,text,text,text,text,boolean)  anon=t authenticated=t service_role=t
+           public.wallet_transaction(uuid,text,numeric,text,uuid,text,jsonb)  anon=t authenticated=t service_role=t
+  STEP 9b · BLOCKER-C, MEASURED RATHER THAN ASSERTED:
+           this fixture started ALREADY CLOSED to anon (production shape). After the
+           rollback, anon holds EXECUTE on 10 of 10 object(s).
+           → the rollback OPENS anon on a lane where it was closed. Correct on
+             staging, an exposure on production. The file cannot tell the lanes
+             apart, so the operating constraint (STAGING ONLY) is the only control
+             until the Auditor rules. This is BLOCKER-C, demonstrated.
+  STEP 10 · canary (public.r7_canary_untouched(text)) — no unrelated object affected:
+      → UNCHANGED across apply, re-apply and rollback.
+
+──────────────────────────────────────────────────────────────────────
+UNIT 0033  ·  FIXTURE A  ·  STAGING shape (PUBLIC holds EXECUTE)
+  db=r7_0033_a   utc=2026-09-22T06:56:13Z
+  STEP 1 · measured starting ACL (request_withdrawal(numeric,jsonb)):
+           postgres=X/postgres | =X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres
+           named entries present: PUBLIC,anon,authenticated,postgres,service_role
+  STEP 2 · FAIL-BEFORE probe (asserts the closed state). expected_open=yes
+        C3 FAIL  anon can EXECUTE public.request_withdrawal(numeric,jsonb)
+        C4 FAIL  PUBLIC holds EXECUTE on public.request_withdrawal(numeric,jsonb) (1 entry)
+      → probe FAILED as required. The probe can fail.
+  STEP 3 · apply supabase/migrations/20260910_0033_p32r7_request_withdrawal_revoke.sql
+           apply exit=0
+  STEP 4 · PASS-AFTER probe:
+      → PASS. anon closed, no PUBLIC entry, required named grants intact.
+  STEP 5 · idempotence — re-apply the same file
+      → IDEMPOTENT. ACL byte-identical after second apply.
+  STEP 6 · rollback supabase/rollback/20260910_0033_p32r7_request_withdrawal_revoke_ROLLBACK.sql
+           psql:/home/claude/repo/supabase/rollback/20260910_0033_p32r7_request_withdrawal_revoke_ROLLBACK.sql:81: ERROR:  syntax error at or near "numeric"
+           LINE 1: SELECT count(*)              FROM pg_proc p, aclexplode(p.pr...
+                           ^
+           QUERY:  SELECT count(*)              FROM pg_proc p, aclexplode(p.proacl) a
+  STEP 7 · post-rollback ACL (request_withdrawal(numeric,jsonb)):
+           postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres
+  STEP 8 · THE TWO-LANE ASSERTION — PUBLIC must NOT hold EXECUTE anywhere:
+      → CONFIRMED: PUBLIC holds EXECUTE on 0 of 1 object(s) after rollback.
+  STEP 9 · named grants after rollback:
+           public.request_withdrawal(numeric,jsonb)  anon=f authenticated=t service_role=t
+  STEP 10 · canary (public.r7_canary_untouched(text)) — no unrelated object affected:
+      → UNCHANGED across apply, re-apply and rollback.
+
+──────────────────────────────────────────────────────────────────────
+UNIT 0033  ·  FIXTURE B  ·  PRODUCTION shape (PUBLIC does NOT hold EXECUTE)
+  db=r7_0033_b   utc=2026-09-22T06:56:14Z
+  STEP 1 · measured starting ACL (request_withdrawal(numeric,jsonb)):
+           postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres
+           named entries present: anon,authenticated,postgres,service_role
+  STEP 2 · FAIL-BEFORE probe (asserts the closed state). expected_open=yes
+        C3 FAIL  anon can EXECUTE public.request_withdrawal(numeric,jsonb)
+      → probe FAILED as required. The probe can fail.
+  STEP 3 · apply supabase/migrations/20260910_0033_p32r7_request_withdrawal_revoke.sql
+           apply exit=0
+  STEP 4 · PASS-AFTER probe:
+      → PASS. anon closed, no PUBLIC entry, required named grants intact.
+  STEP 5 · idempotence — re-apply the same file
+      → IDEMPOTENT. ACL byte-identical after second apply.
+  STEP 6 · rollback supabase/rollback/20260910_0033_p32r7_request_withdrawal_revoke_ROLLBACK.sql
+           psql:/home/claude/repo/supabase/rollback/20260910_0033_p32r7_request_withdrawal_revoke_ROLLBACK.sql:81: ERROR:  syntax error at or near "numeric"
+           LINE 1: SELECT count(*)              FROM pg_proc p, aclexplode(p.pr...
+                           ^
+           QUERY:  SELECT count(*)              FROM pg_proc p, aclexplode(p.proacl) a
+  STEP 7 · post-rollback ACL (request_withdrawal(numeric,jsonb)):
+           postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres
+  STEP 8 · THE TWO-LANE ASSERTION — PUBLIC must NOT hold EXECUTE anywhere:
+      → CONFIRMED: PUBLIC holds EXECUTE on 0 of 1 object(s) after rollback.
+  STEP 9 · named grants after rollback:
+           public.request_withdrawal(numeric,jsonb)  anon=f authenticated=t service_role=t
+  STEP 10 · canary (public.r7_canary_untouched(text)) — no unrelated object affected:
+      → UNCHANGED across apply, re-apply and rollback.
+
+──────────────────────────────────────────────────────────────────────
+UNIT 0034  ·  FIXTURE A  ·  STAGING shape (PUBLIC holds EXECUTE)
+  db=r7_0034_a   utc=2026-09-22T06:56:15Z
+  STEP 1 · measured starting ACL (admin_list_certificates(text,text,integer,integer)):
+           postgres=X/postgres | =X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres
+           named entries present: PUBLIC,anon,authenticated,postgres,service_role
+  STEP 2 · FAIL-BEFORE probe (asserts the closed state). expected_open=yes
+        C3 FAIL  anon can EXECUTE public.admin_list_certificates(text,text,integer,integer)
+        C4 FAIL  PUBLIC holds EXECUTE on public.admin_list_certificates(text,text,integer,integer) (1 entry)
+        C3 FAIL  anon can EXECUTE public.admin_search_certificate_recipients(text,integer)
+        C4 FAIL  PUBLIC holds EXECUTE on public.admin_search_certificate_recipients(text,integer) (1 entry)
+        C3 FAIL  anon can EXECUTE public.admin_search_users_v2(text,text,text,text,integer,integer)
+        C4 FAIL  PUBLIC holds EXECUTE on public.admin_search_users_v2(text,text,text,text,integer,integer) (1 entry)
+        C3 FAIL  anon can EXECUTE public.generate_custom_url(text,uuid)
+        C4 FAIL  PUBLIC holds EXECUTE on public.generate_custom_url(text,uuid) (1 entry)
+      → probe FAILED as required. The probe can fail.
+  STEP 3 · apply supabase/migrations/20260910_0034_p32r7_identity2_admin_search_and_generate_url_revoke.sql
+           apply exit=0
+  STEP 4 · PASS-AFTER probe:
+      → PASS. anon closed, no PUBLIC entry, required named grants intact.
+  STEP 5 · idempotence — re-apply the same file
+      → IDEMPOTENT. ACL byte-identical after second apply.
+  STEP 6 · rollback supabase/rollback/20260910_0034_p32r7_identity2_admin_search_and_generate_url_revoke_ROLLBACK.sql
+           psql:/home/claude/repo/supabase/rollback/20260910_0034_p32r7_identity2_admin_search_and_generate_url_revoke_ROLLBACK.sql:59: NOTICE:  ROLLBACK POST-CONDITION PASSED — anon restored on 4 objects, PUBLIC absent on all 4.
+  STEP 7 · post-rollback ACL (admin_list_certificates(text,text,integer,integer)):
+           postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres | anon=X/postgres
+  STEP 8 · THE TWO-LANE ASSERTION — PUBLIC must NOT hold EXECUTE anywhere:
+      → CONFIRMED: PUBLIC holds EXECUTE on 0 of 4 object(s) after rollback.
+  STEP 9 · named grants after rollback:
+           public.admin_list_certificates(text,text,integer,integer)  anon=t authenticated=t service_role=t
+           public.admin_search_certificate_recipients(text,integer)  anon=t authenticated=t service_role=t
+           public.admin_search_users_v2(text,text,text,text,integer,integer)  anon=t authenticated=t service_role=t
+           public.generate_custom_url(text,uuid)  anon=t authenticated=t service_role=t
+  STEP 10 · canary (public.r7_canary_untouched(text)) — no unrelated object affected:
+      → UNCHANGED across apply, re-apply and rollback.
+
+──────────────────────────────────────────────────────────────────────
+UNIT 0034  ·  FIXTURE B  ·  PRODUCTION shape (PUBLIC does NOT hold EXECUTE)
+  db=r7_0034_b   utc=2026-09-22T06:56:19Z
+  STEP 1 · measured starting ACL (admin_list_certificates(text,text,integer,integer)):
+           postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres
+           named entries present: authenticated,postgres,service_role
+  STEP 2 · FAIL-BEFORE probe (asserts the closed state). expected_open=no
+      → probe PASSED, and that is the correct result here: this lane shape is
+        ALREADY CLOSED for this unit (relayed production state), so the apply is
+        a no-op. The C-34 fail-before control for unit 0034 is carried by
+        FIXTURE A above, where the object is genuinely open.
+  STEP 3 · apply supabase/migrations/20260910_0034_p32r7_identity2_admin_search_and_generate_url_revoke.sql
+           apply exit=0
+  STEP 4 · PASS-AFTER probe:
+      → PASS. anon closed, no PUBLIC entry, required named grants intact.
+  STEP 4b · NO-OP PROOF (already-closed lane): ACL byte-identical before and after apply.
+  STEP 5 · idempotence — re-apply the same file
+      → IDEMPOTENT. ACL byte-identical after second apply.
+  STEP 6 · rollback supabase/rollback/20260910_0034_p32r7_identity2_admin_search_and_generate_url_revoke_ROLLBACK.sql
+           psql:/home/claude/repo/supabase/rollback/20260910_0034_p32r7_identity2_admin_search_and_generate_url_revoke_ROLLBACK.sql:59: NOTICE:  ROLLBACK POST-CONDITION PASSED — anon restored on 4 objects, PUBLIC absent on all 4.
+  STEP 7 · post-rollback ACL (admin_list_certificates(text,text,integer,integer)):
+           postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres | anon=X/postgres
+  STEP 8 · THE TWO-LANE ASSERTION — PUBLIC must NOT hold EXECUTE anywhere:
+      → CONFIRMED: PUBLIC holds EXECUTE on 0 of 4 object(s) after rollback.
+  STEP 9 · named grants after rollback:
+           public.admin_list_certificates(text,text,integer,integer)  anon=t authenticated=t service_role=t
+           public.admin_search_certificate_recipients(text,integer)  anon=t authenticated=t service_role=t
+           public.admin_search_users_v2(text,text,text,text,integer,integer)  anon=t authenticated=t service_role=t
+           public.generate_custom_url(text,uuid)  anon=t authenticated=t service_role=t
+  STEP 9b · BLOCKER-C, MEASURED RATHER THAN ASSERTED:
+           this fixture started ALREADY CLOSED to anon (production shape). After the
+           rollback, anon holds EXECUTE on 4 of 4 object(s).
+           → the rollback OPENS anon on a lane where it was closed. Correct on
+             staging, an exposure on production. The file cannot tell the lanes
+             apart, so the operating constraint (STAGING ONLY) is the only control
+             until the Auditor rules. This is BLOCKER-C, demonstrated.
+  STEP 10 · canary (public.r7_canary_untouched(text)) — no unrelated object affected:
+      → UNCHANGED across apply, re-apply and rollback.
+
+──────────────────────────────────────────────────────────────────────
+UNIT 0035  ·  FIXTURE A  ·  STAGING shape (PUBLIC holds EXECUTE)
+  db=r7_0035_a   utc=2026-09-22T06:56:22Z
+  STEP 1 · measured starting ACL (admin_search_users(text,text)):
+           postgres=X/postgres | =X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres
+           named entries present: PUBLIC,anon,authenticated,postgres,service_role
+  STEP 2 · FAIL-BEFORE probe (asserts the closed state). expected_open=yes
+        C3 FAIL  anon can EXECUTE public.admin_search_users(text,text)
+        C4 FAIL  PUBLIC holds EXECUTE on public.admin_search_users(text,text) (1 entry)
+      → probe FAILED as required. The probe can fail.
+  STEP 3 · apply supabase/migrations/20260910_0035_p32r7_admin_search_users_revoke.sql
+           apply exit=0
+  STEP 4 · PASS-AFTER probe:
+      → PASS. anon closed, no PUBLIC entry, required named grants intact.
+  STEP 5 · idempotence — re-apply the same file
+      → IDEMPOTENT. ACL byte-identical after second apply.
+  STEP 6 · rollback supabase/rollback/20260910_0035_p32r7_admin_search_users_revoke_ROLLBACK.sql
+           psql:/home/claude/repo/supabase/rollback/20260910_0035_p32r7_admin_search_users_revoke_ROLLBACK.sql:81: ERROR:  syntax error at or near "text"
+           LINE 1: SELECT count(*)              FROM pg_proc p, aclexplode(p.pr...
+                                ^
+           QUERY:  SELECT count(*)              FROM pg_proc p, aclexplode(p.proacl) a
+  STEP 7 · post-rollback ACL (admin_search_users(text,text)):
+           postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres
+  STEP 8 · THE TWO-LANE ASSERTION — PUBLIC must NOT hold EXECUTE anywhere:
+      → CONFIRMED: PUBLIC holds EXECUTE on 0 of 1 object(s) after rollback.
+  STEP 9 · named grants after rollback:
+           public.admin_search_users(text,text)  anon=f authenticated=t service_role=t
+  STEP 10 · canary (public.r7_canary_untouched(text)) — no unrelated object affected:
+      → UNCHANGED across apply, re-apply and rollback.
+
+──────────────────────────────────────────────────────────────────────
+UNIT 0035  ·  FIXTURE B  ·  PRODUCTION shape (PUBLIC does NOT hold EXECUTE)
+  db=r7_0035_b   utc=2026-09-22T06:56:23Z
+  STEP 1 · measured starting ACL (admin_search_users(text,text)):
+           postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres
+           named entries present: anon,authenticated,postgres,service_role
+  STEP 2 · FAIL-BEFORE probe (asserts the closed state). expected_open=yes
+        C3 FAIL  anon can EXECUTE public.admin_search_users(text,text)
+      → probe FAILED as required. The probe can fail.
+  STEP 3 · apply supabase/migrations/20260910_0035_p32r7_admin_search_users_revoke.sql
+           apply exit=0
+  STEP 4 · PASS-AFTER probe:
+      → PASS. anon closed, no PUBLIC entry, required named grants intact.
+  STEP 5 · idempotence — re-apply the same file
+      → IDEMPOTENT. ACL byte-identical after second apply.
+  STEP 6 · rollback supabase/rollback/20260910_0035_p32r7_admin_search_users_revoke_ROLLBACK.sql
+           psql:/home/claude/repo/supabase/rollback/20260910_0035_p32r7_admin_search_users_revoke_ROLLBACK.sql:81: ERROR:  syntax error at or near "text"
+           LINE 1: SELECT count(*)              FROM pg_proc p, aclexplode(p.pr...
+                                ^
+           QUERY:  SELECT count(*)              FROM pg_proc p, aclexplode(p.proacl) a
+  STEP 7 · post-rollback ACL (admin_search_users(text,text)):
+           postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres
+  STEP 8 · THE TWO-LANE ASSERTION — PUBLIC must NOT hold EXECUTE anywhere:
+      → CONFIRMED: PUBLIC holds EXECUTE on 0 of 1 object(s) after rollback.
+  STEP 9 · named grants after rollback:
+           public.admin_search_users(text,text)  anon=f authenticated=t service_role=t
+  STEP 10 · canary (public.r7_canary_untouched(text)) — no unrelated object affected:
+      → UNCHANGED across apply, re-apply and rollback.
+
+──────────────────────────────────────────────────────────────────────
+UNIT 0036  ·  FIXTURE A  ·  STAGING shape (PUBLIC holds EXECUTE)
+  db=r7_0036_a   utc=2026-09-22T06:56:24Z
+  STEP 1 · measured starting ACL (password_verification_hook(jsonb)):
+           postgres=X/postgres | =X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres
+           named entries present: PUBLIC,anon,authenticated,postgres,service_role
+  STEP 2 · FAIL-BEFORE probe (asserts the closed state). expected_open=yes
+        C3 FAIL  anon can EXECUTE public.password_verification_hook(jsonb)
+        C4 FAIL  PUBLIC holds EXECUTE on public.password_verification_hook(jsonb) (1 entry)
+        C5 FAIL  authenticated can EXECUTE public.password_verification_hook(jsonb) (0036 closes it)
+      → probe FAILED as required. The probe can fail.
+  STEP 3 · apply supabase/migrations/20260910_0036_p32r7_password_verification_hook_revoke.sql
+           psql:/home/claude/repo/supabase/migrations/20260910_0036_p32r7_password_verification_hook_revoke.sql:106: NOTICE:  POST-CONDITION PASSED — PUBLIC/anon/authenticated closed; service_role and supabase_auth_admin hold named EXECUTE.
+           apply exit=0
+  STEP 4 · PASS-AFTER probe:
+      → PASS. anon closed, no PUBLIC entry, required named grants intact.
+  STEP 4c · §15 REQUIRED ASSERTION — has_function_privilege('supabase_auth_admin', ..., 'EXECUTE') after apply
+           = t      NAMED supabase_auth_admin ACL entries = 1
+           → HOLDS, and by a NAMED grant, not through PUBLIC. On fixture A the named
+             entry did not exist before the apply — this is the grant 0036 ADDS.
+  STEP 5 · idempotence — re-apply the same file
+      → IDEMPOTENT. ACL byte-identical after second apply.
+  STEP 6 · rollback supabase/rollback/20260910_0036_p32r7_password_verification_hook_revoke_ROLLBACK.sql
+           psql:/home/claude/repo/supabase/rollback/20260910_0036_p32r7_password_verification_hook_revoke_ROLLBACK.sql:76: NOTICE:  ROLLBACK POST-CONDITION PASSED — anon and authenticated restored, PUBLIC absent, supabase_auth_admin intact.
+  STEP 7 · post-rollback ACL (password_verification_hook(jsonb)):
+           postgres=X/postgres | service_role=X/postgres | supabase_auth_admin=X/postgres | anon=X/postgres | authenticated=X/postgres
+  STEP 8 · THE TWO-LANE ASSERTION — PUBLIC must NOT hold EXECUTE anywhere:
+      → CONFIRMED: PUBLIC holds EXECUTE on 0 of 1 object(s) after rollback.
+  STEP 9 · named grants after rollback:
+           public.password_verification_hook(jsonb)  anon=t authenticated=t service_role=t supabase_auth_admin=t
+  STEP 10 · canary (public.r7_canary_untouched(text)) — no unrelated object affected:
+      → UNCHANGED across apply, re-apply and rollback.
+
+──────────────────────────────────────────────────────────────────────
+UNIT 0036  ·  FIXTURE B  ·  PRODUCTION shape (PUBLIC does NOT hold EXECUTE)
+  db=r7_0036_b   utc=2026-09-22T06:56:26Z
+  STEP 1 · measured starting ACL (password_verification_hook(jsonb)):
+           postgres=X/postgres | service_role=X/postgres | supabase_auth_admin=X/postgres
+           named entries present: postgres,service_role,supabase_auth_admin
+  STEP 2 · FAIL-BEFORE probe (asserts the closed state). expected_open=no
+      → probe PASSED, and that is the correct result here: this lane shape is
+        ALREADY CLOSED for this unit (relayed production state), so the apply is
+        a no-op. The C-34 fail-before control for unit 0036 is carried by
+        FIXTURE A above, where the object is genuinely open.
+  STEP 3 · apply supabase/migrations/20260910_0036_p32r7_password_verification_hook_revoke.sql
+           psql:/home/claude/repo/supabase/migrations/20260910_0036_p32r7_password_verification_hook_revoke.sql:106: NOTICE:  POST-CONDITION PASSED — PUBLIC/anon/authenticated closed; service_role and supabase_auth_admin hold named EXECUTE.
+           apply exit=0
+  STEP 4 · PASS-AFTER probe:
+      → PASS. anon closed, no PUBLIC entry, required named grants intact.
+  STEP 4c · §15 REQUIRED ASSERTION — has_function_privilege('supabase_auth_admin', ..., 'EXECUTE') after apply
+           = t      NAMED supabase_auth_admin ACL entries = 1
+           → HOLDS, and by a NAMED grant, not through PUBLIC. On fixture A the named
+             entry did not exist before the apply — this is the grant 0036 ADDS.
+  STEP 4b · NO-OP PROOF (already-closed lane): ACL byte-identical before and after apply.
+  STEP 5 · idempotence — re-apply the same file
+      → IDEMPOTENT. ACL byte-identical after second apply.
+  STEP 6 · rollback supabase/rollback/20260910_0036_p32r7_password_verification_hook_revoke_ROLLBACK.sql
+           psql:/home/claude/repo/supabase/rollback/20260910_0036_p32r7_password_verification_hook_revoke_ROLLBACK.sql:76: NOTICE:  ROLLBACK POST-CONDITION PASSED — anon and authenticated restored, PUBLIC absent, supabase_auth_admin intact.
+  STEP 7 · post-rollback ACL (password_verification_hook(jsonb)):
+           postgres=X/postgres | service_role=X/postgres | supabase_auth_admin=X/postgres | anon=X/postgres | authenticated=X/postgres
+  STEP 8 · THE TWO-LANE ASSERTION — PUBLIC must NOT hold EXECUTE anywhere:
+      → CONFIRMED: PUBLIC holds EXECUTE on 0 of 1 object(s) after rollback.
+  STEP 9 · named grants after rollback:
+           public.password_verification_hook(jsonb)  anon=t authenticated=t service_role=t supabase_auth_admin=t
+  STEP 9b · BLOCKER-C, MEASURED RATHER THAN ASSERTED:
+           this fixture started ALREADY CLOSED to anon (production shape). After the
+           rollback, anon holds EXECUTE on 1 of 1 object(s).
+           → the rollback OPENS anon on a lane where it was closed. Correct on
+             staging, an exposure on production. The file cannot tell the lanes
+             apart, so the operating constraint (STAGING ONLY) is the only control
+             until the Auditor rules. This is BLOCKER-C, demonstrated.
+  STEP 10 · canary (public.r7_canary_untouched(text)) — no unrelated object affected:
+      → UNCHANGED across apply, re-apply and rollback.
+
+══════════════════════════════════════════════════════════════════════
+finished_utc : 2026-09-22T06:56:28Z
+RESULT: every assertion held on every unit and both fixture shapes.
