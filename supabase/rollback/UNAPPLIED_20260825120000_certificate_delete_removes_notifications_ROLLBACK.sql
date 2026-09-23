@@ -1,66 +1,98 @@
--- ═══════════════════════════════════════════════════════════════════════════
--- ROLLBACK for
---   UNAPPLIED_20260825120000_certificate_delete_removes_notifications.sql
+-- ===========================================================================
+-- WITHDRAWN under Auditor rulings R-24 / R-26, Unit C.
+-- NEUTRALISED, not merely renamed.
 --
--- Reverses:
---   1. trigger  trg_cleanup_certificate_references on public.certificates
---   2. function cleanup_certificate_references()
+-- The UNAPPLIED_ prefix is NOT a dispatch control. apply-migration.yml's
+-- allowlist is a glob on directory and extension: every .sql file under
+-- supabase/migrations and supabase/rollback matches it, this one included.
+-- The workflow reads no filename prefix and no comment -- it cats the file
+-- into psql. Withdrawal by rename alone left this SQL one typed path away
+-- from running.
 --
--- ⚠ WHAT THIS ROLLBACK CANNOT UNDO.
+-- Every line of the original body below carries a leading "-- ". The body is
+-- therefore inert on its own terms, and recoverable byte for byte:
 --
--- While the trigger was live, deleting a certificate ALSO deleted the
--- user_notifications rows pointing at it. Those rows are gone. Removing the
--- trigger stops further deletions; it does not bring back rows already removed,
--- and no rollback script can. If that matters, restore from a point-in-time
--- backup instead of running this file.
+--   strip this block, then strip exactly three characters from the start of
+--   every remaining line, and the result is the original file.
 --
--- What it DOES fully undo: the behaviour. After this runs, deleting a
--- certificate leaves its notification behind again — which is the orphaned-row
--- defect the forward migration was written to fix. Rolling this back is a
--- deliberate return to that defect, not a neutral act.
+--   sha256 of the original, before neutralisation (newline-preserving):
+--     43ca0afc4423102e3d3b2ec610aed30f924d6f8d59d86824c31861a1e9a67fcc
 --
--- SAFE OTHERWISE. Neither statement touches certificates or notifications;
--- they only remove the trigger and its function.
+-- The hash is carried here rather than in a separate evidence file so that the
+-- record travels with the file.
 --
--- Baseline measured on production jtdtehuqtinjxropkkcn, 2026-08-25, BEFORE the
--- forward migration:
---   trg_cleanup_certificate_references present ....... 0
---   cleanup_certificate_references present ........... 0
---   user_notifications rows .......................... 3401
---   rows whose reference_id is a certificate ......... 11
---   of those, rows not of type 'certificate_issued' ... 0
---   pre-existing orphaned certificate notifications ... 0
---
--- Other triggers on public.certificates are untouched:
---   audit_certificates                   AFTER  INSERT/DELETE/UPDATE
---   trg_generate_certificate_identifiers BEFORE INSERT
---   trg_notify_certificate_issued        AFTER  INSERT
--- ═══════════════════════════════════════════════════════════════════════════
-
--- 1. Stop the cleanup firing. Drop the trigger before its function, so the
---    function is never left referenced by a trigger that no longer has a body.
-drop trigger if exists trg_cleanup_certificate_references on public.certificates;
-
--- 2. Remove the function itself.
-drop function if exists public.cleanup_certificate_references();
-
--- ═══════════════════════════════════════════════════════════════════════════
--- RE-MEASUREMENT 2026-08-26 (read-only). The 2026-08-25 baseline above is
--- retained unaltered as evidence of that date; these are today's figures.
---   production user_notifications rows ....................... 3432  (was 3401)
---   production certificates rows ............................. 0     (was 23)
---   rows whose reference_id is a certificate ................. 0     (was 11)
---   trg_cleanup_certificate_references, BOTH lanes ........... present, BEFORE DELETE
---   cleanup_certificate_references def md5, BOTH lanes ....... c2afabeb88eb1e28eaab6c65407b2cb7
---
--- ⚠ UNRESOLVED DOCUMENTATION CONTRADICTION. The forward migration records
--- "Already present before this migration: staging 3 orphans, PRODUCTION 1".
--- The baseline block above records "pre-existing orphaned certificate
--- notifications ... 0". These contradict. The state of 2026-08-25 cannot be
--- reconstructed retroactively from any surviving artefact. NEED EVIDENCE —
--- deliberately left unresolved rather than silently reconciled.
---
--- ⚠ DEPENDENCY IMPACT, measured 2026-08-26. No production edge function and no
--- application screen calls cleanup_certificate_references directly; it is
--- reached only through the trigger. Dropping both is self-contained.
--- ═══════════════════════════════════════════════════════════════════════════
+-- Replacement: none
+-- ===========================================================================
+DO $withdrawn$ BEGIN
+  RAISE EXCEPTION
+    'WITHDRAWN under Auditor rulings R-24/R-26, Unit C. This file is the historical record of SQL '
+    'that must not run. Its body is preserved below, commented. Replacement: %.', 'none'
+  USING ERRCODE = 'raise_exception';
+END $withdrawn$;
+-- -- ═══════════════════════════════════════════════════════════════════════════
+-- -- ROLLBACK for
+-- --   UNAPPLIED_20260825120000_certificate_delete_removes_notifications.sql
+-- --
+-- -- Reverses:
+-- --   1. trigger  trg_cleanup_certificate_references on public.certificates
+-- --   2. function cleanup_certificate_references()
+-- --
+-- -- ⚠ WHAT THIS ROLLBACK CANNOT UNDO.
+-- --
+-- -- While the trigger was live, deleting a certificate ALSO deleted the
+-- -- user_notifications rows pointing at it. Those rows are gone. Removing the
+-- -- trigger stops further deletions; it does not bring back rows already removed,
+-- -- and no rollback script can. If that matters, restore from a point-in-time
+-- -- backup instead of running this file.
+-- --
+-- -- What it DOES fully undo: the behaviour. After this runs, deleting a
+-- -- certificate leaves its notification behind again — which is the orphaned-row
+-- -- defect the forward migration was written to fix. Rolling this back is a
+-- -- deliberate return to that defect, not a neutral act.
+-- --
+-- -- SAFE OTHERWISE. Neither statement touches certificates or notifications;
+-- -- they only remove the trigger and its function.
+-- --
+-- -- Baseline measured on production jtdtehuqtinjxropkkcn, 2026-08-25, BEFORE the
+-- -- forward migration:
+-- --   trg_cleanup_certificate_references present ....... 0
+-- --   cleanup_certificate_references present ........... 0
+-- --   user_notifications rows .......................... 3401
+-- --   rows whose reference_id is a certificate ......... 11
+-- --   of those, rows not of type 'certificate_issued' ... 0
+-- --   pre-existing orphaned certificate notifications ... 0
+-- --
+-- -- Other triggers on public.certificates are untouched:
+-- --   audit_certificates                   AFTER  INSERT/DELETE/UPDATE
+-- --   trg_generate_certificate_identifiers BEFORE INSERT
+-- --   trg_notify_certificate_issued        AFTER  INSERT
+-- -- ═══════════════════════════════════════════════════════════════════════════
+-- 
+-- -- 1. Stop the cleanup firing. Drop the trigger before its function, so the
+-- --    function is never left referenced by a trigger that no longer has a body.
+-- drop trigger if exists trg_cleanup_certificate_references on public.certificates;
+-- 
+-- -- 2. Remove the function itself.
+-- drop function if exists public.cleanup_certificate_references();
+-- 
+-- -- ═══════════════════════════════════════════════════════════════════════════
+-- -- RE-MEASUREMENT 2026-08-26 (read-only). The 2026-08-25 baseline above is
+-- -- retained unaltered as evidence of that date; these are today's figures.
+-- --   production user_notifications rows ....................... 3432  (was 3401)
+-- --   production certificates rows ............................. 0     (was 23)
+-- --   rows whose reference_id is a certificate ................. 0     (was 11)
+-- --   trg_cleanup_certificate_references, BOTH lanes ........... present, BEFORE DELETE
+-- --   cleanup_certificate_references def md5, BOTH lanes ....... c2afabeb88eb1e28eaab6c65407b2cb7
+-- --
+-- -- ⚠ UNRESOLVED DOCUMENTATION CONTRADICTION. The forward migration records
+-- -- "Already present before this migration: staging 3 orphans, PRODUCTION 1".
+-- -- The baseline block above records "pre-existing orphaned certificate
+-- -- notifications ... 0". These contradict. The state of 2026-08-25 cannot be
+-- -- reconstructed retroactively from any surviving artefact. NEED EVIDENCE —
+-- -- deliberately left unresolved rather than silently reconciled.
+-- --
+-- -- ⚠ DEPENDENCY IMPACT, measured 2026-08-26. No production edge function and no
+-- -- application screen calls cleanup_certificate_references directly; it is
+-- -- reached only through the trigger. Dropping both is self-contained.
+-- -- ═══════════════════════════════════════════════════════════════════════════
+-- 
