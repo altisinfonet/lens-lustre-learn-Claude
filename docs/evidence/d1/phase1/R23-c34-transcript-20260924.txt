@@ -1,0 +1,87 @@
+===========================================================================
+ D1 · R-23 · C-34 — scratch PostgreSQL 17 only. No staging, no production.
+===========================================================================
+
+-- SERVER
+   PostgreSQL 17.11 (Ubuntu 17.11-1.pgdg24.04+2) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit
+  PASS  server major version >= 17                                 yes
+
+-- ROW 4  FIXTURE SHAPE (must reproduce the Step-1 staging measurement)
+  PASS  eleven functions resolve at the exact signatures           11
+  PASS  all eleven SECURITY DEFINER                                11
+  PASS  all eleven VOLATILE                                        11
+  PASS  ACL text equals the measured staging ACL on all eleven     11
+  PASS  PUBLIC ACL entries present (grantee 0)                     11
+
+-- F-62  'REVOKE ... FROM anon' ALONE WOULD HAVE BEEN A NO-OP
+  PASS  after revoking anon ONLY, anon still holds EXECUTE (via PUBLIC) t
+  PASS  only after revoking PUBLIC as well does it become false    f
+
+-- ROW 4  BEFORE 0032 — anon can execute all eleven, and the effect lands
+  PASS  anon calls that SUCCEEDED                                  11
+  PASS  anon calls denied with 42501                               0
+  PASS  anon calls failing for some other reason                   0
+  PASS  rows the definer wrote FOR anon into a table anon cannot touch 11
+  PASS    every one of them RAN AS postgres, not as anon           11
+  PASS    (control) anon can neither read nor write that table directly t
+
+-- ROW 4  APPLY 0032 (lane=staging), then the same eleven calls
+  PASS  apply exit status                                          0
+  PASS  anon calls that SUCCEEDED                                  0
+  PASS  anon calls denied with 42501                               11
+  PASS  anon calls failing for some other reason                   0
+  PASS  anon holds EXECUTE on how many of the eleven               0
+  PASS  authenticated holds EXECUTE on                             11
+  PASS  service_role holds EXECUTE on                              11
+  PASS  PUBLIC ACL entries remaining                               0
+  PASS  no NEW rows written for anon (still the 11 from before)    11
+  PASS  the eleven COMMENTs landed                                 11
+
+-- ROW 5  LANE — the apply is TWO-LANE; unset must still refuse
+  PASS  unset: exit status is non-zero                             nonzero
+  PASS  unset: refuses with APPLY REFUSED                          yes
+  PASS  unset: ACL unchanged                                       yes
+  PASS  'somethingelse': refuses, ACL unchanged                    yes
+  PASS  'Staging': refuses, ACL unchanged                          yes
+  PASS  'STAGING': refuses, ACL unchanged                          yes
+  PASS  ' staging': refuses, ACL unchanged                         yes
+  PASS  'staging': proceeds                                        0
+  PASS    anon closed on all eleven                                0
+  PASS  'production': proceeds (the fixture stands in for prod)    0
+  PASS    anon closed on all eleven                                0
+  PASS    authenticated and service_role intact                    11/11
+
+-- ROW 6  IDEMPOTENCE
+  PASS  a SECOND apply succeeds                                    0
+  PASS    and leaves an identical ACL                              yes
+  PASS  a THIRD apply succeeds too                                 0
+  PASS    ACL still identical                                      yes
+
+-- ROW 7  ROLLBACK ROUND TRIP
+  PASS  rollback exit status                                       0
+  PASS  anon regains EXECUTE on all eleven                         11
+  PASS  and PUBLIC still has NO entry                              0
+  PASS  authenticated and service_role untouched                   11/11
+  PASS  the restored ACL is NOT the pre-state (PUBLIC deliberately not restored) different
+  PASS    and anon can execute all eleven again                    11
+   the rollback's own ACL, one line as proof PUBLIC is absent:
+     admin_delete_auth_user :: anon=X/postgres,authenticated=X/postgres,postgres=X/postgres,service_role=X/postgres
+  PASS  a SECOND rollback refuses (nothing to undo)                refused
+  PASS    with the rollback precondition code                      yes
+  PASS  rollback on the PRE-0032 state refuses on its precondition refused
+  PASS    and left the ACL alone                                   yes
+  PASS  rollback with p32.lane UNSET refuses                       refused
+  PASS  rollback with p32.lane=production REFUSES (staging-only, R-9) refused
+  PASS    and anon is still closed                                 0
+
+-- THE TWO WITHDRAWN 0027 FILES, executed
+  PASS  UNAPPLIED_20260910_0027_p32_money_account_cont: raises     raises
+  PASS    with the WITHDRAWN message                               yes
+  PASS    ACL unchanged                                            yes
+  PASS  UNAPPLIED_20260910_0027_p32_money_account_cont: raises     raises
+  PASS    with the WITHDRAWN message                               yes
+  PASS    ACL unchanged                                            yes
+
+===========================================================================
+ OVERALL: ALL CHECKS PASS
+===========================================================================
