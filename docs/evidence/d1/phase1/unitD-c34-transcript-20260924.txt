@@ -1,0 +1,85 @@
+===========================================================================
+ D1 · UNIT D · C-34 — scratch PostgreSQL 17 only. No staging, no production.
+===========================================================================
+
+-- [A-2] SERVER VERSION
+   PostgreSQL 17.11 (Ubuntu 17.11-1.pgdg24.04+2) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit
+  PASS  server major version >= 17                                 yes
+
+-- STEP 7  FIXTURE SHAPE (must reproduce the Step 2 staging measurement)
+   relname                          kind mask  acl-as-a-set
+   entry_final_votes                v    0     anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres
+   entry_final_votes_legacy         v    0     anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres
+   entry_public_status              v    0     anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres
+   entry_vote_counts                m    0     anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres
+   judge_comments_owner_safe        v    28    anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres
+   judge_decisions_owner_safe       v    28    anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres
+   judge_tag_assignments_owner_safe v    28    anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres
+   judge_tag_assignments_public_r4  v    28    anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres
+   judging_progression_audit        v    0     anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres
+   profiles_public                  v    28    anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres
+   v_judging_drift                  v    0     anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres
+  PASS  eleven relations present                                   11
+  PASS  auto-updatable (mask 28) count                             5
+  PASS  [A-7] every ACL grantor is postgres                        0
+  PASS  security_invoker unset on all five (definer)               0
+
+-- STEP 10 RECURRENCE DETECTOR, fixture BEFORE 0033
+  PASS  relations with a write-class priv for public/anon/authenticated 11
+
+-- STEP 9  C-34 OLD-RED — anon writes through the definer view, BEFORE 0033
+   control: anon UPDATE on the BASE TABLE (RLS applies) ....... 0 row(s)
+   subject: anon UPDATE through public.profiles_public ........ 1 row(s)
+   the row in the base table now reads ........................ WRITTEN BY anon THROUGH A DEFINER VIEW
+  PASS  SELECT rows visible to anon before                         2
+  PASS  RLS denies the direct write (control): 0 rows              0
+  PASS  the definer view lets the write through (old-RED): 1 row   1
+  PASS  and the base row actually changed                          WRITTEN BY anon THROUGH A DEFINER VIEW
+
+-- STEP 8  LANE-GUARD C-34 — seven fail-closed variants, then 'staging'
+   Each variant must RAISE and leave every ACL byte-identical, set-compared.
+   p32.lane                 outcome  SQLSTATE   ACL identical
+   (unset)                  refused  P0001      yes
+   'production'             refused  P0001      yes
+   'Production'             refused  P0001      yes
+   'stagingx'               refused  P0001      yes
+   'STAGING'                refused  P0001      yes
+   ''                       refused  P0001      yes
+   ' staging'               refused  P0001      yes
+   'staging'                proceeded -          changed
+  PASS  only 'staging' proceeds                                    proceeded
+  PASS  apply exit status                                          0
+
+-- STEP 10 RECURRENCE DETECTOR, fixture AFTER 0033
+  PASS  relations with a write-class priv for public/anon/authenticated 0
+
+-- STEP 9  C-34 NEW-GREEN — the same anon write, AFTER 0033
+   anon UPDATE through public.profiles_public .................. permission denied for view profiles_public
+  PASS  SQLSTATE                                                   42501
+  PASS  message is a permission denial                             yes
+  PASS  SELECT row count unchanged (N before = N after)            2
+  PASS  the base row was NOT touched                               original bio
+
+   the same test on the other four auto-updatable views:
+  PASS  anon UPDATE on judge_comments_owner_safe                   42501
+  PASS  anon UPDATE on judge_decisions_owner_safe                  42501
+  PASS  anon UPDATE on judge_tag_assignments_owner_safe            42501
+  PASS  anon UPDATE on judge_tag_assignments_public_r4             42501
+
+-- STEP 11 ROLLBACK ROUND TRIP
+  PASS  rollback exit status                                       0
+  PASS  ACL equals the measured pre-state, as a set, on all eleven yes
+  PASS  no PUBLIC entry anywhere in the eleven                     0
+  PASS  anon SELECT unchanged after rollback                       2
+  PASS  detector back to eleven                                    11
+  PASS  a SECOND consecutive rollback refuses (precondition, not a silent no-op) refused
+  PASS    and it refuses with the rollback precondition code       yes
+  PASS  apply again (the pair is re-runnable)                      0
+  PASS  revoked state restored, as a set                           yes
+  PASS  detector back to zero                                      0
+  PASS  a SECOND consecutive apply refuses (precondition holds both ways) refused
+  PASS    and it refuses with the apply precondition code          yes
+
+===========================================================================
+ OVERALL: ALL CHECKS PASS
+===========================================================================
