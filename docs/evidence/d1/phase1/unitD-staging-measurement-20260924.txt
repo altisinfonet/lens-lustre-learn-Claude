@@ -1,0 +1,96 @@
+D1 · UNIT D · STAGING MEASUREMENT — SELECT ONLY, 2026-09-24
+base f6fe1a50892a1dc2215259a63f8f50ea38c4ee18 (origin/staging tip; contains PR #291)
+project fpszggreishhuvdpkmdr   PostgreSQL 17.6 on x86_64-pc-linux-gnu
+No statement below writes. No apply, no dispatch, no production connection.
+
+NOTE FOR THE AUDITOR — the D1 skill document still names staging as project
+`ztzutckwdhetphwghuzj`. The only project the connector can see, and the one
+every measurement here was taken from, is `fpszggreishhuvdpkmdr`, named
+"Staging - 50mm Retina World". Recorded as a document/system disagreement
+rather than resolved, per Phase-0 practice. Not D1's file to correct.
+
+── STEP 2 · THE ELEVEN RELATIONS ───────────────────────────────────────────
+
+relname                           kind  mask  invoker   anon/auth SELECT
+entry_final_votes                 v      0    n/a       true / true
+entry_final_votes_legacy          v      0    n/a       true / true
+entry_public_status               v      0    n/a       true / true
+entry_vote_counts                 m      0    n/a       true / true
+judge_comments_owner_safe         v     28    (unset)   true / true
+judge_decisions_owner_safe        v     28    (unset)   true / true
+judge_tag_assignments_owner_safe  v     28    (unset)   true / true
+judge_tag_assignments_public_r4   v     28    (unset)   true / true
+judging_progression_audit         v      0    n/a       true / true
+profiles_public                   v     28    (unset)   true / true
+v_judging_drift                   v      0    n/a       true / true
+
+  kind    = pg_class.relkind. Matches the command's Step 2 table on all 11.
+  mask    = pg_relation_is_updatable(oid, true). 28 = INSERT|UPDATE|DELETE
+            pass through to the base table. Exactly the five the command names.
+  invoker = reloptions. NULL on all five, so security_invoker is unset, so the
+            view runs as its owner `postgres`, which is BYPASSRLS on Supabase.
+  owner   = postgres on all eleven.
+
+ACL — IDENTICAL ON ALL ELEVEN, and equal to the command's [A-1] unspaced form:
+
+  {postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}
+
+  arwdDxtm = SELECT INSERT UPDATE DELETE TRUNCATE REFERENCES TRIGGER MAINTAIN.
+  Every grantor is postgres. There is no bare `=` element, so PUBLIC holds
+  nothing today and the `FROM PUBLIC` clause in 0033 is a no-op on this lane.
+
+  The measurement was taken as a SET, not as relacl::text:
+    SELECT string_agg(x::text, ',' ORDER BY x::text) FROM unnest(c.relacl) x
+  aclitem order inside the array is not a contract. [A-1]
+
+── STEP 10 · RECURRENCE DETECTOR, STAGING, BEFORE 0033 ─────────────────────
+
+  11 relations, 22 rows (11 x {anon, authenticated}).
+  grantee `public`: 0 rows. grantee `anon`: all 7. grantee `authenticated`: all 7.
+  Every one of the 11 is in the Step 2 list; the detector finds nothing else.
+  `profiles_public_data` — a DIFFERENT object from `profiles_public` — does not
+  appear, so it holds no write-class grant for anon or authenticated.
+
+── STEP 3 · DATABASE CALLER CHECK ──────────────────────────────────────────
+
+  585 functions outside pg_catalog/information_schema. 0 use the new-style
+  SQL body (prosqlbody IS NULL on all 585), so prosrc covers every body and
+  the search has no blind spot there.
+
+  WRITERS / REFRESHERS of any of the eleven
+  (INSERT INTO | UPDATE | DELETE FROM | TRUNCATE | REFRESH MATERIALIZED VIEW,
+   schema-qualified or not, quoted or not) ............................ 0
+
+  POSITIVE CONTROL — the same regex, pointed at `profiles` ............ 6
+  The instrument can match. It matched nothing because there is nothing.
+
+  SUPERSET, read by hand: every function whose body MENTIONS one of the
+  eleven names at all, any verb ................................. 11 functions,
+  15 lines. Every line is a FROM or a JOIN:
+
+    get_derived_status_drift_admin          JOIN  public.entry_public_status
+    get_entry_status_drift_admin            LEFT JOIN public.entry_public_status
+    get_entry_status_drift_summary_admin    LEFT JOIN public.entry_public_status
+    get_entry_vote_counts                   FROM public.entry_vote_counts
+    get_gated_entry_status                  LEFT JOIN public.entry_public_status
+    get_gated_status_runtime_drift_admin    JOIN public.entry_public_status  (x5)
+    get_judging_drift_admin                 FROM public.v_judging_drift
+    get_public_final_votes                  FROM public.entry_final_votes
+    get_result_visibility_invariant_admin   LEFT JOIN public.entry_public_status
+    recompute_entry_public_status           FROM public.entry_public_status
+    trg_recompute_publish_fanout            FROM public.entry_public_status
+
+  The last two are named as if they write. They do not write to the VIEW;
+  they read the view and write a base table. Checked by reading the matching
+  line, not by trusting the name.
+
+  CRON ........................................................ 12 jobs total
+  jobs referencing any of the eleven ................................... 0
+  POSITIVE CONTROL — jobs referencing `job_run_details` ................ 1
+  (jobid 3, purge-cron-history). The cron instrument can match a relation name.
+
+  SIDE NOTE, NOT IN SCOPE: `entry_vote_counts` is a materialised view that is
+  populated, and nothing in pg_proc or cron refreshes it. Recorded, not acted
+  on. It is the Auditor's observation and it is unchanged by this unit — 0033
+  removes MAINTAIN from anon and authenticated only; postgres and service_role
+  keep it, so whatever refreshes it in future still can.
