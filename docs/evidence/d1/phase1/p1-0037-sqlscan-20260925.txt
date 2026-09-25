@@ -1,0 +1,149 @@
+D1 · U3 · 20260910_0037 — DERIVATION AND STATIC SCAN TRANSCRIPT
+Run: 2026-09-25T10:28:49Z
+Commands: python3 docs/evidence/d1/phase1/p1-0037-derive.py
+          python3 docs/evidence/d1/phase1/p1-0037-sqlscan.py
+          bash    docs/evidence/d1/phase1/p1-0037-sqlscan-falsify.sh
+
+D1 · U3 · 20260910_0037 — CLOSING SET DERIVED FROM THE PRODUCTION READING
+reading: 2026-09-25T09:13:48.004811Z · 57 functions · 13 relations
+
+  PASS  the reading reproduces R-50's 33 anon-executable VOLATILE functions  got 33
+  PASS  group A resolves to 21 signatures  got 21
+  PASS  group B resolves to 8 signatures  got 8
+  PASS  29 signatures to close  got 29
+  PASS  the 4 justified retentions are all present and anon-executable  got 4
+  PASS  closing set + retentions == the 33, exactly (set equality, both ways)
+  PASS  every name the command lists resolves in the reading  []
+  PASS  every group-A function keeps a NAMED authenticated grant after the revoke  []
+
+  reach anon THROUGH PUBLIC (so `FROM anon` alone would be a no-op — F-62): 7
+      change_custom_url(text)
+      register_push_token(text,text)
+      unregister_push_token(text)
+      claim_username(text)
+      apply_decision_to_remaining(uuid,integer,text)
+      recompute_entry_from_tag_assignments(uuid)
+      clear_custom_url()
+
+GROUP A — REVOKE EXECUTE … FROM PUBLIC, anon   (authenticated KEPT)   21
+    admin_flag_entry_for_review(uuid)
+    admin_rewind_stage(uuid,text,text)
+    admin_search_users(text,text)
+    admin_set_photo_rejected(uuid,integer,boolean,text)
+    backfill_judging_notifications(integer,boolean)
+    backfill_tag_decision_drift_admin()
+    change_custom_url(text)
+    claim_username(text)
+    fix_certificate_readiness_admin(uuid)
+    fix_gift_drift_admin(uuid)
+    fix_referral_drift_admin(uuid)
+    get_broadcast_feed(uuid[],integer)
+    get_broadcast_feed(uuid[],integer,integer)
+    get_broadcast_feed(uuid[],integer,integer,text[])
+    get_certificate_drift_admin(uuid)
+    get_judge_collusion_admin(uuid,integer,numeric)
+    get_judging_tag_assignment_counts()
+    register_push_token(text,text)
+    request_withdrawal(numeric,jsonb)
+    submit_competition_entry(uuid,text,text,text[],text[],jsonb,boolean,jsonb)
+    unregister_push_token(text)
+
+GROUP B — REVOKE EXECUTE … FROM PUBLIC, anon, authenticated            8
+    _gen_competition_order_no()
+    apply_decision_to_remaining(uuid,integer,text)
+    clear_custom_url()
+    get_derived_status_drift_admin()
+    judging_write_decision_atomic(uuid,text,text)
+    recompute_entry_from_tag_assignments(uuid)
+    recompute_entry_public_status(uuid)
+    set_write_path(text)
+
+RETAINED, justified in p32-dispositions.md                             4
+    increment_managed_page_view(text)
+    log_app_event(text,text,text,text,text,text,text,text,text,text,integer,text,jsonb,text,text,text)
+    log_client_error(text,text,jsonb,text,text,text)
+    record_test_agent_run(text,text,text,text,text,text,boolean,integer,text,boolean,boolean,boolean,jsonb,integer,text)
+
+  ALL CHECKS PASS: True
+(derive exit 0)
+
+D1 · U3 · 20260910_0037 — STATIC SQL SAFETY SCAN
+instrument: docs/evidence/d1/phase1/unitC-sqlscan.py
+
+=== supabase/migrations/20260910_0037_p1_production_closure.sql
+  executable statements (top level) : 50
+  REMAINDER (unclassified)          : 0
+  REVOKE / GRANT                    : 43 / 0
+  ALTER DEFAULT PRIVILEGES          : 1
+      ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon
+
+  PASS  remainder is 0 — the scan understood every statement
+  PASS  0 executable GRANT ... TO PUBLIC
+  PASS  no CREATE or DROP of any object
+  PASS  no ALTER TABLE / POLICY / ROLE
+  PASS  nothing granted to or revoked from postgres / supabase_auth_admin
+  PASS  exactly one ALTER DEFAULT PRIVILEGES statement  got 1
+  PASS  the default-privilege statement is scoped IN SCHEMA public
+  lane assertion(s) found           : [('<>', "'production'")]
+  PASS  PRODUCTION-ONLY assertion: <> 'production'
+  PASS  the lane assertion does not accept staging
+  PASS  not two-lane
+  PASS  THE MIGRATION GRANTS NOTHING — REVOKE only
+  PASS  its default-privilege statement REVOKEs
+  PASS  every function REVOKE names PUBLIC (F-62)  []
+  PASS  GROUP A equals the set derived from the production reading (21)  got 21, want 21: []
+  PASS  get_primary_admin_user_id() is revoked from PUBLIC and anon (P33, not P32)
+  PASS  email_exists(text) loses authenticated only (P30)
+  PASS  GROUP B equals the set derived from the production reading (8)  got 8, want 8: []
+  PASS  all 11 definer relations lose the 7 write privileges  []
+  PASS  SELECT is never revoked from a definer relation
+  PASS  the backup table loses ALL
+
+=== supabase/rollback/20260910_0037_p1_production_closure_ROLLBACK.sql
+  executable statements (top level) : 48
+  REMAINDER (unclassified)          : 0
+  REVOKE / GRANT                    : 0 / 42
+  ALTER DEFAULT PRIVILEGES          : 1
+      ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon
+
+  PASS  remainder is 0 — the scan understood every statement
+  PASS  0 executable GRANT ... TO PUBLIC
+  PASS  no CREATE or DROP of any object
+  PASS  no ALTER TABLE / POLICY / ROLE
+  PASS  nothing granted to or revoked from postgres / supabase_auth_admin
+  PASS  exactly one ALTER DEFAULT PRIVILEGES statement  got 1
+  PASS  the default-privilege statement is scoped IN SCHEMA public
+  lane assertion(s) found           : [('<>', "'production'")]
+  PASS  PRODUCTION-ONLY assertion: <> 'production'
+  PASS  the lane assertion does not accept staging
+  PASS  not two-lane
+  PASS  the rollback grants, and every grant names a role (never PUBLIC)
+  PASS  its default-privilege statement GRANTs to anon, not PUBLIC
+  PASS  judging_progression_audit is NOT re-granted (the reading has it closed)  []
+  PASS  the rollback revokes nothing
+
+  ALL CHECKS PASS: True
+(scan exit 0)
+
+C-34 FALSIFICATION OF docs/evidence/d1/phase1/p1-0037-sqlscan.py
+  PASS  control — the real files pass
+
+  RED as required  the migration smuggles in a GRANT  →  FAIL  THE MIGRATION GRANTS NOTHING — REVOKE only  ['GRANT EXECUTE ON FUNCTION public.clear_custom_url() TO anon']
+  RED as required  the migration grants TO PUBLIC  →  FAIL  0 executable GRANT ... TO PUBLIC  ['GRANT EXECUTE ON FUNCTION public.clear_custom_url() TO PUBLIC']
+  RED as required  the migration becomes two-lane  →  FAIL  PRODUCTION-ONLY assertion: <> 'production'
+  RED as required  the migration is re-pointed at staging  →  FAIL  PRODUCTION-ONLY assertion: <> 'production'
+  RED as required  a GROUP A revoke drops PUBLIC (F-62 no-op)  →  FAIL  every function REVOKE names PUBLIC (F-62)  ['REVOKE EXECUTE ON FUNCTION public.claim_username(text) FROM anon']
+  RED as required  a GROUP A function is dropped from the list  →  FAIL  GROUP A equals the set derived from the production reading (21)  got 20, want 21: ['request_withdrawal(numeric,jsonb)']
+  RED as required  a GROUP B function is moved into GROUP A (authenticated survives)  →  FAIL  GROUP B equals the set derived from the production reading (8)  got 7, want 8: ['set_write_path(text)']
+  RED as required  a definer relation is dropped from the write revoke  →  FAIL  all 11 definer relations lose the 7 write privileges  ['v_judging_drift']
+  RED as required  the migration also revokes SELECT from a definer relation  →  FAIL  SELECT is never revoked from a definer relation
+  RED as required  the migration touches postgres  →  FAIL  nothing granted to or revoked from postgres / supabase_auth_admin
+  RED as required  the default-privilege statement becomes a GRANT  →  FAIL  its default-privilege statement REVOKEs
+  RED as required  the migration re-creates an object  →  FAIL  no CREATE or DROP of any object
+  RED as required  the rollback restores TO PUBLIC (R-11)  →  FAIL  0 executable GRANT ... TO PUBLIC  ['GRANT EXECUTE ON FUNCTION public.claim_username(text) TO PUBLIC']
+  RED as required  the rollback re-grants judging_progression_audit  →  FAIL  judging_progression_audit is NOT re-granted (the reading has it closed)  ['GRANT INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER,']
+  RED as required  the rollback's default-privilege statement grants PUBLIC  →  FAIL  its default-privilege statement GRANTs to anon, not PUBLIC
+  RED as required  the rollback is re-pointed at staging (R-9 misapplied)  →  FAIL  PRODUCTION-ONLY assertion: <> 'production'
+
+  ALL SIXTEEN MUTANTS CAUGHT
+(falsify exit 0)

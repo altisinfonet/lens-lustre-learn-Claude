@@ -1,0 +1,45 @@
+D1 · U3 · 20260910_0037 — caller derivation
+Run: 2026-09-25T10:28:49Z · tree at c583431 (origin/staging)
+Instrument: docs/evidence/d1/phase1/P32-client-caller-scan.py, committed in PRs #295/#296.
+
+The 0034/0035 derivations (P32-0034-caller-derivation-20260925.txt,
+P32-0035-caller-derivation-20260925.txt) cover the 22 names those units share
+with production. The five names below are the ones they do not cover: the
+0012-class custom-url trio, plus the two R-50 named additions.
+email_exists and get_primary_admin_user_id are included because 0037 narrows
+them too.
+
+CLIENT CALLER SCAN — 7 names, 1058 files under src, supabase/functions, functions, scripts, public, tools
+look-back window: 300 characters
+
+WITH A PRODUCTION CLIENT CALL SITE (4):
+
+  admin_search_users                       src/components/AdminGiftCredit.tsx:59  [rpc]
+  change_custom_url                        src/pages/EditProfile.tsx:513  [rpc]
+  claim_username                           src/components/OnboardingModal.tsx:338  [rpc]
+  request_withdrawal                       src/hooks/wallet/useWalletWithdrawals.ts:46  [rpc]
+
+TEST OR SCRIPT CALL SITES ONLY (0):
+
+
+NO CLIENT CALL SITE OF ANY KIND (3):
+
+  clear_custom_url
+  email_exists
+  get_primary_admin_user_id
+
+  4 production · 0 test-only · 3 none   = 7 names
+
+DISPOSITION
+===========
+  admin_search_users     AdminGiftCredit.tsx:59        signed-in admin  -> GROUP A keeps authenticated
+  change_custom_url      EditProfile.tsx:513           signed-in user   -> GROUP A keeps authenticated
+  claim_username         OnboardingModal.tsx:338       signed-in user   -> GROUP A keeps authenticated
+  request_withdrawal     useWalletWithdrawals.ts:46    signed-in user   -> GROUP A keeps authenticated
+  clear_custom_url       none                                           -> GROUP B may take authenticated
+  email_exists           none (client call removed in PR #252)          -> authenticated revoked
+  get_primary_admin_user_id  none                                       -> PUBLIC and anon revoked
+
+No call site of any of the seven is in supabase/functions/** or scripts/**,
+so none of them is reached with a service-role key from an edge function.
+All four with callers are browser calls made with a user session.
