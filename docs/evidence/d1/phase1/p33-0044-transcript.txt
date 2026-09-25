@@ -1,0 +1,97 @@
+P33 · 20260910_0044 — BEHAVIOURAL TEST TRANSCRIPT
+Run: 2026-09-25T13:56:02Z · scratch PostgreSQL 17.11 (PGDG) + plpgsql_check 2.10 · 127.0.0.1:5432
+Command: bash docs/evidence/d1/phase1/p33-0044-run-tests.sh
+Base: de09415c010941e5d02f5a343ed5c73de13bfc50 (origin/staging)
+
+
+══ 0 · the fixture: plpgsql_check in public, owned by supabase_admin
+  server_version 17.11 (Ubuntu 17.11-1.pgdg24.04+2)
+  PASS  fixture built
+  2.10 in public, owner supabase_admin
+  member functions in public: 25, anon-executable: 25
+  member names (17 distinct): {__plpgsql_show_dependency_tb,plpgsql_check_function,plpgsql_check_function_tb,plpgsql_check_pragma,plpgsql_check_profiler,plpgsql_check_tracer,plpgsql_coverage_branches,plpgsql_coverage_statements,plpgsql_make_pragma,plpgsql_profiler_function_statements_tb,plpgsql_profiler_function_tb,plpgsql_profiler_functions_all,plpgsql_profiler_install_fake_queryid_hook,plpgsql_profiler_remove_fake_queryid_hook,plpgsql_profiler_reset,plpgsql_profiler_reset_all,plpgsql_show_dependency_tb}
+  their ACL: {=X/supabase_admin,postgres=X/supabase_admin,anon=X/supabase_admin,authenticated=X/supabase_admin,service_role=X/supabase_admin,supabase_admin=X/supabase_admin}
+  pre digest: af1fee42029e7ec2023f5484117ed6f1
+
+══ 1 · WHY DROP + CREATE: the one-statement move does not exist
+  PASS  ALTER EXTENSION plpgsql_check SET SCHEMA extensions →
+        ERROR:  extension "plpgsql_check" does not support SET SCHEMA
+  PASS  and nothing changed
+
+══ 2 · 0044 REFUSES off the production lane and off the session pooler
+  PASS  TARGET_LANE=staging — refused (exit 3), 'APPLY REFUSED'
+  PASS  TARGET_LANE='' (unset) — refused (exit 1), 'Unknown target'
+  PASS  transaction pooler, 6543 — refused (exit 1), '6543'
+  PASS  three refusals left the extension exactly as it was
+
+══ 3 · WITHOUT delegation, the file refuses before it touches anything
+  PASS  as a non-superuser, no supautils — refused (exit 3), 'P33-0044-PRE-004'
+  PASS  the extension is still in public, byte for byte
+
+══ 4 · 0044 APPLIES (as supabase_admin, standing in for supautils)
+  PASS  apply, TARGET_LANE=production
+  PASS  the apply changed the extension
+  2.10 in extensions, owner supabase_admin
+  PASS  extnamespace = extensions
+  PASS  0 plpgsql_check member functions in public
+  PASS  0 functions in public carrying any of the pre-move member names
+  PASS  every member is in extensions
+  PASS  still owned by supabase_admin
+  PASS  every moved function has staging's ACL (set-equal): {=X/supabase_admin,postgres=X*/supabase_admin,supabase_admin=X/supabase_admin}
+  note  anon can still EXECUTE them (25/25) — as on staging. The change is WHERE they live: extensions is not an API schema.
+
+══ 5 · a second dispatch refuses, with nothing changed
+  PASS  apply again — refused (exit 3), 'P33-0044-PRE-002'
+  PASS  the refused second apply left everything as it was
+
+══ 6 · the ROLLBACK
+  PASS  rollback, TARGET_LANE=staging (it would MOVE staging's copy into public) — refused (exit 3), 'ROLLBACK REFUSED'
+  PASS  rollback as a non-superuser, no supautils — refused (exit 3), 'P33-0044-RB-PRE-003'
+  PASS  rollback, TARGET_LANE=production
+  2.10 in public, owner supabase_admin
+  PASS  the round trip is BYTE-EXACT: extension row and every function's ACL as before
+  PASS  rollback a second time — refused (exit 3), 'P33-0044-RB-PRE-002'
+
+══ 7 · apply → rollback → apply reproduces the post-apply state
+  PASS  apply again
+  PASS  the post-apply digest is reproduced exactly
+
+══ 8 · C-34 — each guard, and what happens without it
+  8a · a VIEW depends on a plpgsql_check function
+  PASS  the real file — refused (exit 3), 'P33-0044-PRE-005'
+  PASS    and the view is still there
+  PASS  without precondition 4 — RESTRICT is the second line — refused (exit 3), 'other objects depend on it'
+  PASS    and the view is still there
+  PASS  without precondition 4 AND with CASCADE: the move 'succeeds' and the view is GONE
+        — which is exactly what both guards exist to prevent
+  8b · a function body calls a plpgsql_check function by its public name
+  PASS  before the move, public._calls_pc() works
+  PASS  the real file — refused (exit 3), 'P33-0044-PRE-006'
+  PASS  without precondition 5, the move goes through
+  PASS  …and public._calls_pc() is now BROKEN, silently, until someone calls it:
+        ERROR:  function public.plpgsql_profiler_reset_all() does not exist
+  8c · a cron job mentions plpgsql_check (stand-in cron.job table — no pg_cron here)
+  PASS  the real file — refused (exit 3), 'P33-0044-PRE-007'
+  8d · production runs a DIFFERENT version from the image's default
+  (fixture scaffolding outside the repo: /usr/share/postgresql/17/extension/plpgsql_check--0.0synthetic.sql is a byte copy of the 2.10 install script under
+   another version label, so a second version exists to be 'production's'. It is removed below.)
+  installed: 0.0synthetic in public, owner supabase_admin   (image default: 2.10)
+  PASS  the real file — refused (exit 3), 'P33-0044-POST-003'
+  0.0synthetic in public, owner supabase_admin   — unchanged, nothing upgraded
+  PASS  without postcondition 2, the move goes through
+  PASS  …and the extension was silently UPGRADED 0.0synthetic → 2.10 as a side effect of a move
+  (synthetic version file removed)
+
+══ 9 · THE PROBE AGREES WITH THE FILE — seven scenarios
+  PASS  clean, delegated                             probe=OK       file=OK      
+  PASS  no privilege path                            probe=PRE-004  file=PRE-004 
+  PASS  a view depends on a member                   probe=PRE-005  file=PRE-005 
+  PASS  a function body calls a member               probe=PRE-006  file=PRE-006 
+  PASS  a cron job calls a member (stand-in)         probe=PRE-007  file=PRE-007 
+  PASS  already moved (the post-dispatch check)      probe=PRE-002  file=PRE-002 
+  PASS  version drift                                probe=POST-003 file=POST-003
+
+══ VERDICT
+  ALL GREEN
+
+(harness exit 0)
