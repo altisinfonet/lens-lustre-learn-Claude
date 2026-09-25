@@ -1,0 +1,66 @@
+===========================================================================
+ D1 · P32 UNIT 0035 · C-34 — scratch PostgreSQL 17 only.
+===========================================================================
+
+-- SERVER
+   PostgreSQL 17.11 (Ubuntu 17.11-1.pgdg24.04+2) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit
+  PASS  server major >= 17                                       yes
+
+-- FIXTURE SHAPE
+  PASS  all 25 signatures resolve                                25
+  PASS  all SECURITY DEFINER                                     25
+  PASS  all VOLATILE                                             25
+  PASS  PUBLIC entries before                                    25
+
+-- ROW 4  C-34 BEFORE
+  PASS  anon executes N/N                                        25
+  PASS    denied 42501                                           0
+  PASS    other errors                                           0
+  PASS  rows written FOR anon                                    25
+  PASS    all of them RAN AS postgres                            25
+
+-- ROW 4  APPLY (lane=staging), then the same calls
+  PASS  apply exit status                                        0
+  PASS  anon executes 0/N                                        0
+  PASS    denied 42501                                           25
+  PASS    other errors                                           0
+  PASS  anon EXECUTE count                                       0
+  PASS  PUBLIC entries                                           0
+  PASS  authenticated EXECUTE count                              25
+  PASS  service_role EXECUTE count                               25
+  PASS  the 25 COMMENTs landed                                   25
+  PASS  authenticated executes                                   25
+  PASS  service_role executes N/N                                25
+
+-- ROW 7  DEFINER-WRAPPER SMOKE TEST (after the revoke)
+  PASS  a postgres-owned DEFINER wrapper still succeeds as authenticated t
+  PASS    (0035 keeps authenticated, so the INVOKER wrapper also succeeds) t
+
+-- ROW 5  LANE
+  PASS  unset: refuses                                           refused
+  PASS  unset: ACL unchanged                                     yes
+  PASS  'Staging': refuses, ACL unchanged                        yes
+  PASS  ' staging': refuses, ACL unchanged                       yes
+  PASS  'staging': proceeds (anon 0)                             0
+  PASS  'production': proceeds (anon 0)                          0
+  PASS  rollback on 'production': REFUSES (staging-only)         refused
+  PASS  rollback unset: refuses                                  refused
+
+-- ROW 6  IDEMPOTENCE AND ROUND TRIP
+  PASS  second apply succeeds                                    0
+  PASS    ACL identical                                          yes
+  PASS  rollback succeeds                                        0
+  PASS    anon regains EXECUTE N/N                               25
+  PASS    authenticated N/N                                      25
+  PASS    PUBLIC still 0 (deliberately not restored)             0
+  PASS    so the restored ACL is NOT the pre-state               different
+  PASS  apply again succeeds                                     0
+  PASS    identical to the first post-state                      yes
+  PASS  a second consecutive rollback refuses                    refused
+  PASS    with the rollback precondition code                    yes
+  PASS  rollback against the PRE-apply state refuses             refused
+  PASS    and changed nothing                                    yes
+
+===========================================================================
+ OVERALL: ALL CHECKS PASS
+===========================================================================
