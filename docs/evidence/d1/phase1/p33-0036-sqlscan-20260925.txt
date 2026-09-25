@@ -1,0 +1,91 @@
+D1 · P33 · 20260910_0036 — STATIC SCAN TRANSCRIPT
+Run: 2026-09-25T09:36:40Z
+Commands: python3 docs/evidence/d1/phase1/p33-0036-sqlscan.py
+          bash    docs/evidence/d1/phase1/p33-0036-sqlscan-falsify.sh
+
+D1 · P33 · 20260910_0036 — STATIC SQL SAFETY SCAN
+instrument: docs/evidence/d1/phase1/unitC-sqlscan.py (statement-scoped,
+            case-insensitive, '..' / ".." / $..$ / -- / /* */ aware)
+
+=== supabase/migrations/20260910_0036_p33_definer_view_read_closure.sql
+  executable statements (top level) : 20
+  classified by keyword             : 20
+  REMAINDER (unclassified)          : 0
+  GRANT statements                  : 5
+      + GRANT SELECT ON TABLE public.judging_progression_audit TO service_role
+      + GRANT SELECT ON TABLE public.v_judging_drift TO service_role
+      + GRANT SELECT ON TABLE public.entry_public_status TO service_role
+      + GRANT SELECT ON TABLE public.entry_vote_counts TO service_role
+      + GRANT SELECT ON TABLE public.entry_final_votes_legacy TO service_role
+  REVOKE statements                 : 5
+      - REVOKE SELECT ON TABLE public.judging_progression_audit FROM PUBLIC, anon, authenticated
+      - REVOKE SELECT ON TABLE public.v_judging_drift FROM PUBLIC, anon, authenticated
+      - REVOKE SELECT ON TABLE public.entry_public_status FROM PUBLIC, anon, authenticated
+      - REVOKE SELECT ON TABLE public.entry_vote_counts FROM PUBLIC, anon, authenticated
+      - REVOKE SELECT ON TABLE public.entry_final_votes_legacy FROM PUBLIC, anon, authenticated
+
+  PASS  remainder is 0 — the scan understood every statement
+  PASS  0 executable GRANT ... TO PUBLIC  (5 statement(s) name PUBLIC, all REVOKE)
+  PASS  every statement naming PUBLIC is a REVOKE
+  PASS  no view definition touched (no CREATE/DROP/ALTER ... VIEW)
+  PASS  no ALTER DEFAULT PRIVILEGES
+  PASS  no pg_default_acl
+  PASS  does not grant or revoke anything to/from postgres
+  PASS  all five closed relations are REVOKEd
+  PASS  all five closed relations keep an explicit service_role GRANT
+  PASS  names none of the six KEPT relations in GRANT/REVOKE
+  PASS  touches only SELECT (no INSERT/UPDATE/DELETE/TRUNCATE/ALL privileges)
+  lane assertion(s) found           : [('NOT IN', "('staging', 'production')")]
+  PASS  TWO-LANE assertion: NOT IN ('staging','production')
+  PASS  the migration does NOT restrict itself to one lane
+
+=== supabase/rollback/20260910_0036_p33_definer_view_read_closure_ROLLBACK.sql
+  executable statements (top level) : 10
+  classified by keyword             : 10
+  REMAINDER (unclassified)          : 0
+  GRANT statements                  : 5
+      + GRANT SELECT ON TABLE public.judging_progression_audit TO anon, authenticated
+      + GRANT SELECT ON TABLE public.v_judging_drift TO anon, authenticated
+      + GRANT SELECT ON TABLE public.entry_public_status TO anon, authenticated
+      + GRANT SELECT ON TABLE public.entry_vote_counts TO anon, authenticated
+      + GRANT SELECT ON TABLE public.entry_final_votes_legacy TO anon, authenticated
+  REVOKE statements                 : 0
+
+  PASS  remainder is 0 — the scan understood every statement
+  PASS  0 executable GRANT ... TO PUBLIC
+  PASS  every statement naming PUBLIC is a REVOKE
+  PASS  no view definition touched (no CREATE/DROP/ALTER ... VIEW)
+  PASS  no ALTER DEFAULT PRIVILEGES
+  PASS  no pg_default_acl
+  PASS  does not grant or revoke anything to/from postgres
+  PASS  all five closed relations are GRANTed back
+  PASS  the rollback REVOKEs nothing
+  PASS  names none of the six KEPT relations in GRANT/REVOKE
+  PASS  touches only SELECT (no INSERT/UPDATE/DELETE/TRUNCATE/ALL privileges)
+  lane assertion(s) found           : [('<>', "'staging'")]
+  PASS  R-9 STAGING-ONLY guard: <> 'staging'
+  PASS  the rollback does NOT accept production
+  PASS  restores by grantee NAME only (anon, authenticated)
+
+  ALL CHECKS PASS: True
+(scan exit 0)
+
+C-34 FALSIFICATION OF docs/evidence/d1/phase1/p33-0036-sqlscan.py
+control: the scan passes on the unmutated files
+  PASS  control
+
+  RED as required  migration granted to PUBLIC  →  FAIL  0 executable GRANT ... TO PUBLIC  (10 statement(s) name PUBLIC, all REVOKE)
+  RED as required  migration re-creates a view (F-66)  →  FAIL  no view definition touched (no CREATE/DROP/ALTER ... VIEW)
+  RED as required  migration adds ALTER DEFAULT PRIVILEGES  →  FAIL  no ALTER DEFAULT PRIVILEGES
+  RED as required  migration touches a KEPT relation  →  FAIL  names none of the six KEPT relations in GRANT/REVOKE  ['entry_final_votes']
+  RED as required  migration revokes more than SELECT  →  FAIL  touches only SELECT (no INSERT/UPDATE/DELETE/TRUNCATE/ALL privileges)
+  RED as required  migration narrowed to one lane  →  FAIL  TWO-LANE assertion: NOT IN ('staging','production')
+  RED as required  migration drops a closed relation from the body  →  FAIL  all five closed relations are REVOKEd  ['entry_vote_counts']
+  RED as required  rollback guard widened to both lanes (R-9 broken)  →  FAIL  R-9 STAGING-ONLY guard: <> 'staging'
+  RED as required  rollback restores TO PUBLIC instead of by name (F-62)  →  FAIL  0 executable GRANT ... TO PUBLIC  (5 statement(s) name PUBLIC, all REVOKE)
+  RED as required  rollback restores to one grantee only  →  FAIL  restores by grantee NAME only (anon, authenticated)
+  RED as required  rollback drops one relation's GRANT  →  FAIL  all five closed relations are GRANTed back  ['entry_public_status']
+  RED as required  rollback smuggles in a REVOKE  →  FAIL  the rollback REVOKEs nothing  ['REVOKE SELECT ON TABLE public.entry_final_votes FROM anon']
+
+  ALL TWELVE MUTANTS CAUGHT
+(falsify exit 0)

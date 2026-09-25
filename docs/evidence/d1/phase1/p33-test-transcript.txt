@@ -1,0 +1,125 @@
+P33 · 20260910_0036 — BEHAVIOURAL TEST TRANSCRIPT
+Run: 2026-09-25T09:36:41Z · scratch PostgreSQL 17.11 (PGDG) · 127.0.0.1:5432
+Command: bash docs/evidence/d1/phase1/p33-run-tests.sh
+Base: c5834318c0c7deef2a43508d8cc5355a934e4925 (d1/P33-0036-definer-view-read-closure-20260925)
+
+
+══ 0 · scratch cluster and fixture
+  server_version 17.11 (Ubuntu 17.11-1.pgdg24.04+2)
+  PASS  fixture built
+  11 P33 relations present
+
+══ 1 · 20260910_0036 REFUSES outside the dispatch workflow
+  PASS  0036 with no lane asserted — refused (exit 3), 'APPLY REFUSED'
+  PASS  0036 with a lane of 'local' — refused (exit 3), 'APPLY REFUSED'
+
+══ 2 · the assertion suite (groups 0-4; applies 0036 on the staging lane)
+── RESULTS ──────────────────────────────────────────────────────────────
++-----+-----+----------------------------------+---------------+--------------------------+-------------------+-------------------+--------+-------------------------------------------------+
+| seq | grp |             subject              |    variant    |          actor           |     expected      |      actual       | result |                      label                      |
++-----+-----+----------------------------------+---------------+--------------------------+-------------------+-------------------+--------+-------------------------------------------------+
+|   1 | 0   | judge_decisions_owner_safe       | real          | authenticated / aaaaaaaa | 0                 | 0                 | PASS   | unpublished round 3 leaks — CORRECT view        |
+|   2 | 0   | judge_tag_assignments_owner_safe | real          | authenticated / aaaaaaaa | 1                 | 1                 | PASS   | unpublished round 3 leaks — OPEN, fixed by 0042 |
+|   3 | 1   | judge_decisions_owner_safe       | real          | authenticated / aaaaaaaa | A R1 PUBLISHED    | A R1 PUBLISHED    | PASS   | as A: sees own published rows                   |
+|   4 | 1   | judge_decisions_owner_safe       | real          | authenticated / aaaaaaaa | 0                 | 0                 | PASS   | as A: sees none of B's rows                     |
+|   5 | 1   | judge_decisions_owner_safe       | loose_uid     | authenticated / aaaaaaaa | 0                 | 1                 | FAIL   | as A: sees none of B's rows                     |
+|   6 | 1   | judge_decisions_owner_safe       | real          | authenticated / aaaaaaaa | 0                 | 0                 | PASS   | as A: nothing from unpublished round 3          |
+|   7 | 1   | judge_decisions_owner_safe       | loose_round   | authenticated / aaaaaaaa | 0                 | 1                 | FAIL   | as A: nothing from unpublished round 3          |
+|   8 | 1   | judge_decisions_owner_safe       | real          | authenticated / bbbbbbbb | B R1 PUBLISHED    | B R1 PUBLISHED    | PASS   | as B: sees own published rows                   |
+|   9 | 1   | judge_decisions_owner_safe       | real          | authenticated / bbbbbbbb | 0                 | 0                 | PASS   | as B: sees none of A's rows                     |
+|  10 | 1   | judge_decisions_owner_safe       | loose_uid     | authenticated / bbbbbbbb | 0                 | 1                 | FAIL   | as B: sees none of A's rows                     |
+|  11 | 1   | judge_decisions_owner_safe       | real          | anon / (no uid)          | 0                 | 0                 | PASS   | as anon (no uid): zero rows                     |
+|  12 | 1   | judge_decisions_owner_safe       | loose_uid     | anon / (no uid)          | 0                 | 2                 | FAIL   | as anon (no uid): zero rows                     |
+|  13 | 2   | judge_tag_assignments_public_r4  | real          | anon / (no uid)          | 7a000000,7b000000 | 7a000000,7b000000 | PASS   | as anon: the award R4 tags of published entries |
+|  14 | 2   | judge_tag_assignments_public_r4  | real          | anon / (no uid)          | 0                 | 0                 | PASS   | as anon: no non-award tag                       |
+|  15 | 2   | judge_tag_assignments_public_r4  | loose_family  | anon / (no uid)          | 0                 | 1                 | FAIL   | as anon: no non-award tag                       |
+|  16 | 2   | judge_tag_assignments_public_r4  | real          | anon / (no uid)          | 0                 | 0                 | PASS   | as anon: nothing from an unpublished round 4    |
+|  17 | 2   | judge_tag_assignments_public_r4  | loose_publish | anon / (no uid)          | 0                 | 1                 | FAIL   | as anon: nothing from an unpublished round 4    |
+|  18 | 3a  | judging_progression_audit        | real          | anon / (no uid)          | reads             | reads             | PASS   | BEFORE 0036: anon reads it                      |
+|  19 | 3a  | judging_progression_audit        | real          | authenticated / aaaaaaaa | reads             | reads             | PASS   | BEFORE 0036: authenticated reads it             |
+|  20 | 3a  | v_judging_drift                  | real          | anon / (no uid)          | reads             | reads             | PASS   | BEFORE 0036: anon reads it                      |
+|  21 | 3a  | v_judging_drift                  | real          | authenticated / aaaaaaaa | reads             | reads             | PASS   | BEFORE 0036: authenticated reads it             |
+|  22 | 3a  | entry_public_status              | real          | anon / (no uid)          | reads             | reads             | PASS   | BEFORE 0036: anon reads it                      |
+|  23 | 3a  | entry_public_status              | real          | authenticated / aaaaaaaa | reads             | reads             | PASS   | BEFORE 0036: authenticated reads it             |
+|  24 | 3a  | entry_vote_counts                | real          | anon / (no uid)          | reads             | reads             | PASS   | BEFORE 0036: anon reads it                      |
+|  25 | 3a  | entry_vote_counts                | real          | authenticated / aaaaaaaa | reads             | reads             | PASS   | BEFORE 0036: authenticated reads it             |
+|  26 | 3a  | entry_final_votes_legacy         | real          | anon / (no uid)          | reads             | reads             | PASS   | BEFORE 0036: anon reads it                      |
+|  27 | 3a  | entry_final_votes_legacy         | real          | authenticated / aaaaaaaa | reads             | reads             | PASS   | BEFORE 0036: authenticated reads it             |
+|  28 | 3b  | judging_progression_audit        | real          | anon / (no uid)          | 42501             | 42501             | PASS   | AFTER 0036: anon direct read refused            |
+|  29 | 3b  | judging_progression_audit        | real          | authenticated / aaaaaaaa | 42501             | 42501             | PASS   | AFTER 0036: authenticated direct read refused   |
+|  30 | 3b  | judging_progression_audit        | real          | anon / (no uid)          | reads             | reads             | PASS   | AFTER 0036: DEFINER wrapper still reads         |
+|  31 | 3b  | judging_progression_audit        | real          | service_role / (no uid)  | reads             | reads             | PASS   | AFTER 0036: service_role still reads            |
+|  32 | 3b  | v_judging_drift                  | real          | anon / (no uid)          | 42501             | 42501             | PASS   | AFTER 0036: anon direct read refused            |
+|  33 | 3b  | v_judging_drift                  | real          | authenticated / aaaaaaaa | 42501             | 42501             | PASS   | AFTER 0036: authenticated direct read refused   |
+|  34 | 3b  | v_judging_drift                  | real          | anon / (no uid)          | reads             | reads             | PASS   | AFTER 0036: DEFINER wrapper still reads         |
+|  35 | 3b  | v_judging_drift                  | real          | service_role / (no uid)  | reads             | reads             | PASS   | AFTER 0036: service_role still reads            |
+|  36 | 3b  | entry_public_status              | real          | anon / (no uid)          | 42501             | 42501             | PASS   | AFTER 0036: anon direct read refused            |
+|  37 | 3b  | entry_public_status              | real          | authenticated / aaaaaaaa | 42501             | 42501             | PASS   | AFTER 0036: authenticated direct read refused   |
+|  38 | 3b  | entry_public_status              | real          | anon / (no uid)          | reads             | reads             | PASS   | AFTER 0036: DEFINER wrapper still reads         |
+|  39 | 3b  | entry_public_status              | real          | service_role / (no uid)  | reads             | reads             | PASS   | AFTER 0036: service_role still reads            |
+|  40 | 3b  | entry_vote_counts                | real          | anon / (no uid)          | 42501             | 42501             | PASS   | AFTER 0036: anon direct read refused            |
+|  41 | 3b  | entry_vote_counts                | real          | authenticated / aaaaaaaa | 42501             | 42501             | PASS   | AFTER 0036: authenticated direct read refused   |
+|  42 | 3b  | entry_vote_counts                | real          | anon / (no uid)          | reads             | reads             | PASS   | AFTER 0036: DEFINER wrapper still reads         |
+|  43 | 3b  | entry_vote_counts                | real          | service_role / (no uid)  | reads             | reads             | PASS   | AFTER 0036: service_role still reads            |
+|  44 | 3b  | entry_final_votes_legacy         | real          | anon / (no uid)          | 42501             | 42501             | PASS   | AFTER 0036: anon direct read refused            |
+|  45 | 3b  | entry_final_votes_legacy         | real          | authenticated / aaaaaaaa | 42501             | 42501             | PASS   | AFTER 0036: authenticated direct read refused   |
+|  46 | 3b  | entry_final_votes_legacy         | real          | anon / (no uid)          | reads             | reads             | PASS   | AFTER 0036: DEFINER wrapper still reads         |
+|  47 | 3b  | entry_final_votes_legacy         | real          | service_role / (no uid)  | reads             | reads             | PASS   | AFTER 0036: service_role still reads            |
+|  48 | 4   | judge_comments_owner_safe        | real          | anon / (no uid)          | reads             | reads             | PASS   | AFTER 0036: KEPT, anon still reads              |
+|  49 | 4   | judge_comments_owner_safe        | real          | authenticated / aaaaaaaa | reads             | reads             | PASS   | AFTER 0036: KEPT, authenticated still reads     |
+|  50 | 4   | judge_decisions_owner_safe       | real          | anon / (no uid)          | reads             | reads             | PASS   | AFTER 0036: KEPT, anon still reads              |
+|  51 | 4   | judge_decisions_owner_safe       | real          | authenticated / aaaaaaaa | reads             | reads             | PASS   | AFTER 0036: KEPT, authenticated still reads     |
+|  52 | 4   | judge_tag_assignments_owner_safe | real          | anon / (no uid)          | reads             | reads             | PASS   | AFTER 0036: KEPT, anon still reads              |
+|  53 | 4   | judge_tag_assignments_owner_safe | real          | authenticated / aaaaaaaa | reads             | reads             | PASS   | AFTER 0036: KEPT, authenticated still reads     |
+|  54 | 4   | judge_tag_assignments_public_r4  | real          | anon / (no uid)          | reads             | reads             | PASS   | AFTER 0036: KEPT, anon still reads              |
+|  55 | 4   | judge_tag_assignments_public_r4  | real          | authenticated / aaaaaaaa | reads             | reads             | PASS   | AFTER 0036: KEPT, authenticated still reads     |
+|  56 | 4   | profiles_public                  | real          | anon / (no uid)          | reads             | reads             | PASS   | AFTER 0036: KEPT, anon still reads              |
+|  57 | 4   | profiles_public                  | real          | authenticated / aaaaaaaa | reads             | reads             | PASS   | AFTER 0036: KEPT, authenticated still reads     |
+|  58 | 4   | entry_final_votes                | real          | anon / (no uid)          | reads             | reads             | PASS   | AFTER 0036: KEPT, anon still reads              |
+|  59 | 4   | entry_final_votes                | real          | authenticated / aaaaaaaa | reads             | reads             | PASS   | AFTER 0036: KEPT, authenticated still reads     |
++-----+-----+----------------------------------+---------------+--------------------------+-------------------+-------------------+--------+-------------------------------------------------+
+(59 rows)
+
+
+── FALSIFIABILITY (C-34): every loosened run MUST fail ──────────────────
++---------------------------------+----------------------------------------------+---------------+-----------------+
+|             subject             |                    label                     |    variant    |     verdict     |
++---------------------------------+----------------------------------------------+---------------+-----------------+
+| judge_decisions_owner_safe      | as A: sees none of B's rows                  | loose_uid     | RED as required |
+| judge_decisions_owner_safe      | as A: nothing from unpublished round 3       | loose_round   | RED as required |
+| judge_decisions_owner_safe      | as B: sees none of A's rows                  | loose_uid     | RED as required |
+| judge_decisions_owner_safe      | as anon (no uid): zero rows                  | loose_uid     | RED as required |
+| judge_tag_assignments_public_r4 | as anon: no non-award tag                    | loose_family  | RED as required |
+| judge_tag_assignments_public_r4 | as anon: nothing from an unpublished round 4 | loose_publish | RED as required |
++---------------------------------+----------------------------------------------+---------------+-----------------+
+(6 rows)
+
+
+── SUMMARY ──────────────────────────────────────────────────────────────
++-----------+-----------+-----------+---------------+--------------+--------------------------+
+| real_runs | real_pass | real_fail | loosened_runs | loosened_red | loosened_not_falsifiable |
++-----------+-----------+-----------+---------------+--------------+--------------------------+
+|        53 |        53 |         0 |             6 |            6 |                        0 |
++-----------+-----------+-----------+---------------+--------------+--------------------------+
+(1 row)
+
+psql:/home/claude/repo/docs/evidence/d1/phase1/p33-cross-member-tests.sql:346: NOTICE:  P33 TESTS GREEN — every real assertion held and every loosened copy was caught.
+  PASS  suite exit 0
+
+══ 3 · the ROLLBACK refuses on the production lane (R-9: it reopens doors)
+  PASS  rollback with lane = production — refused (exit 3), 'ROLLBACK REFUSED'
+  PASS  rollback with no lane asserted — refused (exit 3), 'ROLLBACK REFUSED'
+  PASS  after the refusals, all five are still closed to anon
+
+══ 4 · the ROLLBACK restores the pre-0036 state on the staging lane
+  PASS  rollback with lane = staging
+  PASS  anon, authenticated and service_role all read the five again
+  PASS  zero PUBLIC ACL entries — restored by name, not TO PUBLIC (F-62)
+
+══ 5 · the ROLLBACK refuses when there is nothing to undo
+  PASS  rollback run a second time — refused (exit 3), 'P33-0036-RB-PRE-002'
+
+══ VERDICT
+  ALL GREEN
+
+(harness exit 0)
