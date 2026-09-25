@@ -32,6 +32,13 @@ exactly. 27 / 25 / 4. No disagreement, no STOP.
   28 of the 54 distinct names have a production client call site.
   26 have none of any kind.
 
+  THE INSTRUMENT IS COMMITTED, NOT JUST DESCRIBED:
+    P32-client-caller-scan.py          the corrected scanner, re-runnable
+    P32-0034-scan-names.txt            the 54 distinct names it is run over
+    P32-0034-client-scan-20260925.txt  its output at 8b174a1
+  It carries a self-check that fails loudly if the create_system_post call
+  sites ever go missing again.
+
   ⚠ INSTRUMENT DEFECT, FOUND AND FIXED BEFORE THIS EVIDENCE WAS KEPT.
   The first scan matched `.rpc(` and the quoted name with a pattern whose
   cast form was `\(\s*[\w$.]*\.rpc\s+as\s+[^)]*\)` — the `[^)]*` cannot span
