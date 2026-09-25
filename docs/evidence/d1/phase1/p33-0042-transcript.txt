@@ -1,0 +1,111 @@
+P33 · 20260910_0042 — BEHAVIOURAL TEST TRANSCRIPT
+Run: 2026-09-25T09:48:13Z · scratch PostgreSQL 17.11 (PGDG) · 127.0.0.1:5432
+Command: bash docs/evidence/d1/phase1/p33-0042-run-tests.sh
+Base: c5834318c0c7deef2a43508d8cc5355a934e4925 (d1/P33-0042-owner-safe-round-correlation-20260925)
+
+
+══ 0 · scratch cluster and fixture
+  server_version 17.11 (Ubuntu 17.11-1.pgdg24.04+2)
+  PASS  fixture built
+
+══ 1 · 20260910_0042 REFUSES outside the dispatch workflow
+  PASS  0042 with no lane asserted — refused (exit 3), 'APPLY REFUSED'
+  PASS  0042 with a lane of 'local' — refused (exit 3), 'APPLY REFUSED'
+
+══ 2 · the BEFORE/AFTER suite (applies 0042 on the staging lane)
+── ACL AND RELATION IDENTITY AFTER CREATE OR REPLACE ────────────────────
+             relname              |                                                 acl                                                  | public_entries |  owner   | reloptions 
+----------------------------------+------------------------------------------------------------------------------------------------------+----------------+----------+------------
+ judge_comments_owner_safe        | {postgres=arwdDxtm/postgres,anon=r/postgres,authenticated=r/postgres,service_role=arwdDxtm/postgres} |              0 | postgres | (none)
+ judge_decisions_owner_safe       | {postgres=arwdDxtm/postgres,anon=r/postgres,authenticated=r/postgres,service_role=arwdDxtm/postgres} |              0 | postgres | (none)
+ judge_tag_assignments_owner_safe | {postgres=arwdDxtm/postgres,anon=r/postgres,authenticated=r/postgres,service_role=arwdDxtm/postgres} |              0 | postgres | (none)
+(3 rows)
+
+
+── RESULTS ──────────────────────────────────────────────────────────────
++-----+--------+----------------------------------+--------------------------+-----------------------------------------------------------------------------+-----------------------------------------------------------------------------+--------+-----------------------------------------------+
+| seq | phase  |             subject              |          actor           |                                  expected                                   |                                   actual                                    | result |                     label                     |
++-----+--------+----------------------------------+--------------------------+-----------------------------------------------------------------------------+-----------------------------------------------------------------------------+--------+-----------------------------------------------+
+|   1 | BEFORE | judge_comments_owner_safe        | authenticated / aaaaaaaa | A C-R1 PUBLISHED | A C-R3 UNPUBLISHED | A FOREIGN ROUND D-R1 | A NULL ROUND | A C-R1 PUBLISHED | A C-R3 UNPUBLISHED | A FOREIGN ROUND D-R1 | A NULL ROUND | PASS   | as A: own comments                            |
+|   2 | BEFORE | judge_tag_assignments_owner_safe | authenticated / aaaaaaaa | 1,3                                                                         | 1,3                                                                         | PASS   | as A: own tag rounds                          |
+|   3 | BEFORE | judge_decisions_owner_safe       | authenticated / aaaaaaaa | A R1 PUBLISHED                                                              | A R1 PUBLISHED                                                              | PASS   | as A: decisions (out of scope, must not move) |
+|   4 | BEFORE | judge_comments_owner_safe        | authenticated / aaaaaaaa | 0                                                                           | 0                                                                           | PASS   | as A: none of B's comments                    |
+|   5 | BEFORE | judge_tag_assignments_owner_safe | authenticated / aaaaaaaa | 0                                                                           | 0                                                                           | PASS   | as A: none of B's tags                        |
+|   6 | BEFORE | judge_comments_owner_safe        | authenticated / bbbbbbbb | B C-R1 PUBLISHED                                                            | B C-R1 PUBLISHED                                                            | PASS   | as B: only B's comment                        |
+|   7 | BEFORE | judge_comments_owner_safe        | anon / (no uid)          | 0                                                                           | 0                                                                           | PASS   | as anon (no uid): no comments                 |
+|   8 | BEFORE | judge_tag_assignments_owner_safe | anon / (no uid)          | 0                                                                           | 0                                                                           | PASS   | as anon (no uid): no tags                     |
+|   9 | BEFORE | judge_comments_owner_safe        | service_role / (no uid)  | reads                                                                       | reads                                                                       | PASS   | service_role still reads comments             |
+|  10 | BEFORE | judge_tag_assignments_owner_safe | service_role / (no uid)  | reads                                                                       | reads                                                                       | PASS   | service_role still reads tags                 |
+|  11 | AFTER  | judge_comments_owner_safe        | authenticated / aaaaaaaa | A C-R1 PUBLISHED                                                            | A C-R1 PUBLISHED                                                            | PASS   | as A: own comments                            |
+|  12 | AFTER  | judge_tag_assignments_owner_safe | authenticated / aaaaaaaa | 1                                                                           | 1                                                                           | PASS   | as A: own tag rounds                          |
+|  13 | AFTER  | judge_decisions_owner_safe       | authenticated / aaaaaaaa | A R1 PUBLISHED                                                              | A R1 PUBLISHED                                                              | PASS   | as A: decisions (out of scope, must not move) |
+|  14 | AFTER  | judge_comments_owner_safe        | authenticated / aaaaaaaa | 0                                                                           | 0                                                                           | PASS   | as A: none of B's comments                    |
+|  15 | AFTER  | judge_tag_assignments_owner_safe | authenticated / aaaaaaaa | 0                                                                           | 0                                                                           | PASS   | as A: none of B's tags                        |
+|  16 | AFTER  | judge_comments_owner_safe        | authenticated / bbbbbbbb | B C-R1 PUBLISHED                                                            | B C-R1 PUBLISHED                                                            | PASS   | as B: only B's comment                        |
+|  17 | AFTER  | judge_comments_owner_safe        | anon / (no uid)          | 0                                                                           | 0                                                                           | PASS   | as anon (no uid): no comments                 |
+|  18 | AFTER  | judge_tag_assignments_owner_safe | anon / (no uid)          | 0                                                                           | 0                                                                           | PASS   | as anon (no uid): no tags                     |
+|  19 | AFTER  | judge_comments_owner_safe        | service_role / (no uid)  | reads                                                                       | reads                                                                       | PASS   | service_role still reads comments             |
+|  20 | AFTER  | judge_tag_assignments_owner_safe | service_role / (no uid)  | reads                                                                       | reads                                                                       | PASS   | service_role still reads tags                 |
++-----+--------+----------------------------------+--------------------------+-----------------------------------------------------------------------------+-----------------------------------------------------------------------------+--------+-----------------------------------------------+
+(20 rows)
+
+
+── WHAT 0042 CHANGED (C-34: the rows that moved, and only those) ────────
++-----------------------------------------------+-----------------------------------------------------------------------------+------------------+-----------+
+|                     label                     |                                   before                                    |      after       |  verdict  |
++-----------------------------------------------+-----------------------------------------------------------------------------+------------------+-----------+
+| as A: own comments                            | A C-R1 PUBLISHED | A C-R3 UNPUBLISHED | A FOREIGN ROUND D-R1 | A NULL ROUND | A C-R1 PUBLISHED | CHANGED   |
+| as A: own tag rounds                          | 1,3                                                                         | 1                | CHANGED   |
+| as A: decisions (out of scope, must not move) | A R1 PUBLISHED                                                              | A R1 PUBLISHED   | unchanged |
+| as A: none of B's comments                    | 0                                                                           | 0                | unchanged |
+| as A: none of B's tags                        | 0                                                                           | 0                | unchanged |
+| as B: only B's comment                        | B C-R1 PUBLISHED                                                            | B C-R1 PUBLISHED | unchanged |
+| as anon (no uid): no comments                 | 0                                                                           | 0                | unchanged |
+| as anon (no uid): no tags                     | 0                                                                           | 0                | unchanged |
+| service_role still reads comments             | reads                                                                       | reads            | unchanged |
+| service_role still reads tags                 | reads                                                                       | reads            | unchanged |
++-----------------------------------------------+-----------------------------------------------------------------------------+------------------+-----------+
+(10 rows)
+
+
+── SUMMARY ──────────────────────────────────────────────────────────────
++------+------+------+-------------+------------+
+| runs | pass | fail | before_runs | after_runs |
++------+------+------+-------------+------------+
+|   20 |   20 |    0 |          10 |         10 |
++------+------+------+-------------+------------+
+(1 row)
+
+psql:/home/claude/repo/docs/evidence/d1/phase1/p33-0042-tests.sql:190: NOTICE:  P33 0042 TESTS GREEN — every assertion held, and exactly the two leaking reads changed.
+  PASS  suite exit 0
+
+══ 3 · re-applying 0042 is a no-op, not a second change (idempotence)
+  PASS  0042 applied a second time on the staging lane
+  PASS  still zero PUBLIC ACL entries after a second apply
+
+══ 4 · the ROLLBACK refuses on the production lane (R-9: it restores C-A19)
+  PASS  rollback with lane = production — refused (exit 3), 'ROLLBACK REFUSED'
+  PASS  rollback with no lane asserted — refused (exit 3), 'ROLLBACK REFUSED'
+
+══ 5 · the ROLLBACK restores the pre-0042 definitions on the staging lane
+  PASS  rollback with lane = staging
+  PASS  both definitions are back to the pre-0042 (leaking) form
+  PASS  zero PUBLIC ACL entries after the rollback (F-66)
+
+══ 6 · the ROLLBACK refuses when there is nothing to undo
+  PASS  rollback run a second time — refused (exit 3), 'P33-0042-RB-PRE-002'
+
+══ 7 · WHY CREATE OR REPLACE — measured, not cited
+NOTICE:    BEFORE DROP+CREATE  acl={postgres=arwdDxtm/postgres,anon=r/postgres,authenticated=r/postgres,service_role=arwdDxtm/postgres}
+NOTICE:                        anon=t  authenticated=t  service_role=t
+NOTICE:    AFTER  DROP+CREATE  acl=(null)
+NOTICE:                        anon=f  authenticated=f  service_role=f  PUBLIC=f
+NOTICE:    PASS  DROP+CREATE wiped every named grant: anon, authenticated AND
+NOTICE:          service_role all lost SELECT, and PUBLIC did NOT gain it.
+NOTICE:          That is why 20260910_0042 uses CREATE OR REPLACE VIEW, and it is
+NOTICE:          NOT the hazard F-66 describes (F-66 is about functions).
+
+══ VERDICT
+  ALL GREEN
+
+(harness exit 0)
