@@ -1,0 +1,89 @@
+D1 · P32 · CLIENT CALLER SCAN — all 54 distinct names of the 56-function
+population (52 in units 0034/0035, which carry 50 distinct names because
+get_broadcast_feed has three overloads, plus the 4 held back in
+p32-dispositions.md). Repo at 8b174a1, 2026-09-25.
+Instrument: P32-client-caller-scan.py, committed beside this file.
+
+CLIENT CALLER SCAN — 54 names, 1058 files under src, supabase/functions, functions, scripts, public, tools
+look-back window: 300 characters
+
+WITH A PRODUCTION CLIENT CALL SITE (28):
+
+  acquire_judge_lock                       src/hooks/judging/__tests__/useJudgingLockUnloadAuth.test.tsx:61  [rest]  (test)
+  acquire_judge_lock                       src/hooks/judging/useJudgingLock.ts:83  [rpc]
+  admin_flag_entry_for_review              src/components/judge/CinemaFullView.tsx:1747  [rpc]
+  admin_set_photo_rejected                 src/modules/admin/EntriesModule.tsx:27  [rpc]
+  backfill_judging_notifications           src/components/admin/NotificationsHealthAudit.tsx:57  [rpc]
+  backfill_tag_decision_drift_admin        scripts/verify-schema-dependencies.mjs:234  [rpc]
+  backfill_tag_decision_drift_admin        src/components/admin/JudgingInvariantsAudit.tsx:152  [rpc]
+  create_system_post                       scripts/test-schema-dependencies.mjs:341  [rpc]
+  create_system_post                       src/lib/profilePostHelper.ts:41  [rpc]
+  create_system_post                       src/pages/MyPhotos.tsx:409  [rpc]
+  delete_email                             supabase/functions/process-email-queue/index.ts:271  [rpc]
+  delete_email                             supabase/functions/process-email-queue/index.ts:355  [rpc]
+  enroll_in_course                         src/pages/CourseDetail.tsx:61  [rpc]
+  fix_certificate_readiness_admin          src/components/admin/AwardsIntegrityAudit.tsx:72  [rpc]
+  fix_gift_drift_admin                     src/components/admin/WalletReconciliationAudit.tsx:72  [rpc]
+  fix_referral_drift_admin                 src/components/admin/WalletReconciliationAudit.tsx:90  [rpc]
+  get_broadcast_feed                       src/hooks/feed/useFeedQuery.ts:91  [rpc]
+  get_broadcast_feed                       src/uiharness/__tests__/harnessHonesty.test.ts:44  [rest]  (test)
+  get_broadcast_feed                       src/uiharness/__tests__/harnessHonesty.test.ts:72  [rest]  (test)
+  get_certificate_drift_admin              src/components/admin/CertificateDriftAudit.tsx:58  [rpc]
+  get_judge_collusion_admin                src/components/admin/CollusionAudit.tsx:46  [rpc]
+  get_judging_tag_assignment_counts        src/pages/admin/AdminTagSemanticsAudit.tsx:95  [rpc]
+  heartbeat_judge_lock                     src/hooks/judging/useJudgingLock.ts:119  [rpc]
+  increment_managed_page_view              src/pages/ManagedPageView.tsx:69  [rpc]
+  increment_managed_page_view              src/pages/__tests__/managedPageViewCounter.test.tsx:7  [rpc]  (test)
+  issue_course_completion_certificate      src/pages/CourseDetail.tsx:85  [rpc]
+  judge_apply_single_tag                   supabase/functions/submit-judge-tag/index.ts:144  [rpc]
+  judging_write_decision_atomic            supabase/functions/submit-judge-decision/index.ts:215  [rpc]
+  log_app_event                            src/lib/__tests__/loggingStandard.test.ts:293  [rpc]  (test)
+  log_app_event                            src/lib/logger.ts:275  [rpc]
+  log_client_error                         src/lib/reportClientError.ts:167  [rpc]
+  record_activity_minute                   src/lib/engagement/activityPing.ts:125  [rpc]
+  record_test_agent_run                    scripts/test-agent/run-checks.mjs:139  [rest]
+  register_push_token                      src/lib/native/push.ts:83  [rpc]
+  register_push_token                      src/lib/native/push.ts:93  [rpc]
+  release_judge_lock                       src/hooks/judging/__tests__/useJudgingLockUnloadAuth.test.tsx:81  [rest]  (test)
+  release_judge_lock                       src/hooks/judging/useJudgingLock.ts:69  [rpc]
+  release_judge_lock                       src/hooks/judging/useJudgingLock.ts:175  [rpc]
+  release_judge_lock                       src/hooks/judging/useJudgingLock.ts:231  [rest]
+  submit_competition_entry                 src/hooks/competition/useCompetitionEntryMutations.ts:35  [rpc]
+  unregister_push_token                    src/lib/native/push.ts:134  [rpc]
+
+TEST OR SCRIPT CALL SITES ONLY (0):
+
+
+NO CLIENT CALL SITE OF ANY KIND (26):
+
+  _ensure_stats_row
+  _gen_competition_order_no
+  admin_rewind_stage
+  apply_decision_to_remaining
+  emit_birthday_notifications
+  enqueue_post_job
+  expiring_post_drafts
+  get_derived_status_drift_admin
+  log_push_outcome
+  mark_expiring_post_drafts
+  pj_handle_comment_notification
+  pj_handle_reaction_notification
+  pj_handle_recount_engagement
+  pj_handle_tag_notification
+  process_post_jobs
+  prune_activity_minutes
+  prune_client_errors
+  prune_old_notifications
+  reap_post_drafts
+  recompute_entry_from_tag_assignments
+  recompute_entry_public_status
+  recount_hashtags
+  refresh_viewer_buckets
+  rollup_engagement_daily
+  set_write_path
+  wallet_ledger_v2_diff_snapshot
+
+  28 production · 0 test-only · 26 none   = 54 names
+
+  SELF-CHECK create_system_post (the call shape that broke the first scan):
+    both nested-cast call sites found: True
