@@ -1,0 +1,38 @@
+D1 · P32 UNIT 0035 · SQL SCAN
+instrument: docs/evidence/d1/phase1/unitC-sqlscan.py
+
+
+  ./supabase/migrations/20260910_0035_p32_authenticated_only.sql
+    executable statements   : 80
+    REMAINDER (unclassified): 0
+    BEGIN   : 4   (1 top-level + 1 per DO body)
+    DO      : 3
+    REVOKE  : 25
+    GRANT   : 25
+    COMMENT : 25
+    COMMIT  : 1
+  PASS  apply: remainder 0                                         0
+  PASS  apply: GRANT ... TO PUBLIC                                 0
+
+  ./supabase/rollback/20260910_0035_p32_authenticated_only_ROLLBACK.sql
+    executable statements   : 30
+    REMAINDER (unclassified): 0
+    BEGIN   : 4   (1 top-level + 1 per DO body)
+    DO      : 3
+    GRANT   : 25
+    COMMIT  : 1
+  PASS  rollback: remainder 0                                      0
+  PASS  rollback: GRANT ... TO PUBLIC                              0
+  PASS  apply: REVOKE count == 25                                  25
+  PASS  apply: GRANT count == 25                                   25
+  PASS  apply: COMMENT count == 25                                 25
+  PASS  apply: DO blocks (lane, pre, post)                         3
+  PASS  apply: every REVOKE names PUBLIC first, in the unit's form True
+  PASS  apply: every GRANT targets the unit's roles                True
+  PASS  rollback: GRANT count == 25                                25
+  PASS  rollback: every GRANT is by name, in the unit's form       True
+  PASS  rollback: no REVOKE                                        0
+  PASS  apply: the signature array equals the verified TSV         True
+  PASS    signatures in the array                                  25
+
+  OVERALL: ALL SCAN CHECKS PASS

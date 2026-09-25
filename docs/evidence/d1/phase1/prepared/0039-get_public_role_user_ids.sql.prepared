@@ -1,0 +1,110 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- P32 · 0039 — get_public_role_user_ids(_role text)
+--
+--            ⚠⚠  PREPARED ONLY. NO MIGRATION IS AUTHORIZED.  ⚠⚠
+--            ⚠⚠  ORDINAL 0039 IS RESERVED AND **NOT CONSUMED**.  ⚠⚠
+--
+-- ═════════════════════════════════════════════════════════════════════════
+-- WHY THIS FILE IS NOT IN supabase/migrations/ — AND WHY THAT IS NOT PEDANTRY
+--
+-- `apply-migration.yml`'s allowlist admits **every `.sql` file under
+-- `supabase/migrations/`**. It does not read comments. A file sitting there
+-- with "NOT AUTHORIZED" in its header is not protected by that header; it is
+-- one dispatch away from running.
+--
+-- **A comment is not a control. The path is the control.**
+--
+-- This is not a hypothetical in this unit. The withdrawn `0029` revoked this
+-- exact object without Owner Decision 6, reached `staging` inside PR #274, and
+-- sat in the dispatchable directory until R-8 renamed it `UNAPPLIED_`. That is
+-- the #272 bootstrap hazard, demonstrated on this very function. Keeping `0039`
+-- outside `supabase/migrations/` is the lesson applied rather than restated.
+--
+-- There is deliberately NO rollback file: no migration exists to roll back.
+--
+-- ═════════════════════════════════════════════════════════════════════════
+-- 1 · THIS OBJECT IS IN NEITHER SET B NOR SET C
+--
+-- Measured on staging fpszggreishhuvdpkmdr, SELECT only, 2026-09-22:
+--
+--   proname      get_public_role_user_ids(text)
+--   prosecdef    true
+--   provolatile  's'        ← **STABLE, not VOLATILE**
+--   proacl       =X/postgres | postgres=X/postgres | anon=X/postgres |
+--                authenticated=X/postgres | service_role=X/postgres
+--
+-- Sets B and C are both defined by `provolatile = 'v'`. This function is
+-- `STABLE`, so it falls outside both, and the Auditor's R-8 allocation records
+-- it as "neither". Measured, not assumed.
+--
+-- It is still `SECURITY DEFINER`, still `PUBLIC`-granted, and still an
+-- enumeration surface. Being outside Sets B and C says which population it
+-- belongs to. It does not say it is safe.
+--
+-- ═════════════════════════════════════════════════════════════════════════
+-- 2 · THE WITHDRAWAL OF 0029 RESTORED IT TO ITS PRE-#274 STATE
+--
+-- Merged `0029` carried:
+--
+--   REVOKE ALL ON FUNCTION public.get_public_role_user_ids(text) FROM public;
+--   REVOKE ALL ON FUNCTION public.get_public_role_user_ids(text) FROM anon;
+--   GRANT EXECUTE ON FUNCTION public.get_public_role_user_ids(text) TO authenticated, service_role;
+--
+-- It was never dispatched (`schema_migrations`: 8 rows, latest
+-- `20260915130151`, 2026-09-22T08:42Z), and R-8 renamed the file `UNAPPLIED_`.
+-- So no closure of this object has ever run on either lane, and none is
+-- authorised.
+--
+-- ═════════════════════════════════════════════════════════════════════════
+-- 3 · THE CALLER BREAKAGE — WHY OWNER DECISION 6 IS STILL OUTSTANDING
+--
+-- Each link re-verified in this tree, 2026-09-22:
+--
+--   src/lib/adminBrand.ts:35          getAdminIds() → rpc("get_public_role_user_ids", {_role:"admin"})
+--   src/components/AutoBadge.tsx:70   queryFn: getAdminIds      ("One shared key for the whole app")
+--   src/components/UserIdentityBlock.tsx:212   renders <AutoBadge userId=… />
+--   src/App.tsx:395                   /profile/:userId declared OUTSIDE RequireAuth
+--
+-- `UserIdentityBlock` also renders on `Index.tsx` (the landing page),
+-- `Winners.tsx`, `PublicProfile.tsx`, `FeaturedArtistPage.tsx` and
+-- `JournalArticle.tsx` — none of which redirects a signed-out visitor.
+--
+-- **The failure would be silent by construction.** `adminBrand.ts:35`
+-- destructures `{ data }` and never inspects `error`. A 42501 yields
+-- `data = null` → an empty `Set` → `resolveName()` returns the original name.
+-- The file's own comment states the consequence: the admin's brand name and
+-- verified badge revert "for every non-admin viewer". No error, no console
+-- warning, no failing test.
+--
+-- So after a revoke, a SIGNED-OUT visitor to the landing page sees the admin's
+-- raw profile name and no verified tick, while a SIGNED-IN visitor sees the
+-- brand name and the tick.
+--
+-- **That is a product question, not a technical one:** *should the admin brand
+-- name and verified badge be visible to signed-out visitors?* It belongs to the
+-- Owner. It is **Owner Decision 6** and it is **outstanding**.
+--
+-- The body is not the issue — it already allow-lists in-body to admin/judge and
+-- raises `42501` otherwise (`P1-revocation-list.md` §2.4, re-verified
+-- 2026-09-21). A grant closure here is defence in depth, and it is the defence
+-- in depth that changes what a visitor sees.
+--
+-- ═════════════════════════════════════════════════════════════════════════
+-- 4 · STATUS
+--
+--   ordinal 0039              RESERVED, NOT CONSUMED
+--   migration file            DOES NOT EXIST, by instruction
+--   rollback file             DOES NOT EXIST — nothing to roll back
+--   authorised for dispatch   NO
+--   blocked by                Owner Decision 6
+--   set membership            neither B nor C (STABLE)
+--   current lane state        unchanged from pre-#274, on both lanes
+--
+-- If Owner Decision 6 is ever ruled in favour of closing it, whoever writes the
+-- migration should take `0039` — it is held for exactly that — write the
+-- rollback in the same PR, and apply the two-lane PUBLIC discipline used by
+-- `0038`: staging holds PUBLIC, production does not, and the rollback must
+-- never recreate it.
+--
+-- No SQL statement appears below this line, and that is the point.
+-- ═══════════════════════════════════════════════════════════════════════════

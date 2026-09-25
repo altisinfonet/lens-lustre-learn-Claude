@@ -1,0 +1,127 @@
+D1 · P32 · CALLER RE-DERIVATION (acceptance row 3) — 8b174a1, 2026-09-25
+Independent of the Auditor's mapping. Result: the grouping is reproduced
+exactly. 27 / 25 / 4. No disagreement, no STOP.
+
+── THE POPULATION ──────────────────────────────────────────────────────────
+  prokind='f' AND prosecdef AND provolatile='v' AND prorettype <> trigger
+  AND has_function_privilege('anon', oid, 'EXECUTE'), schema public:
+    total .................................................. 56
+    carrying a PUBLIC aclitem (grantee 0) ................... 56
+    whose proacl::text is EXACTLY
+      {=X/postgres,postgres=X/postgres,anon=X/postgres,
+       authenticated=X/postgres,service_role=X/postgres} .... 56
+
+── SIGNATURES: TRANSCRIBED, THEN VERIFIED BY CHECKSUM ──────────────────────
+  The 52 signatures used by 0034 and 0035 were taken from
+  pg_get_function_identity_arguments on staging and written to
+  P32-0035-signatures-20260925.tsv. The transcription was then verified
+  rather than eyeballed:
+
+    staging   md5(string_agg(sig, E'\n' ORDER BY sig COLLATE "C") || E'\n')
+    local     awk '{printf "%s(%s)\n",$2,$3}' … | sort | md5sum
+    both      fb5307b3f330bda424d86d333fd5cab3      over 52 signatures
+
+  The SQL files are GENERATED from that TSV by P32-0035-generate.py. No
+  signature is hand-typed into a migration.
+
+── 1 · CLIENT SCAN ─────────────────────────────────────────────────────────
+  1,058 files under src/**, supabase/functions/**, functions/**, scripts/**,
+  public/**, tools/**. src/integrations/supabase/types.ts excluded (generated
+  declarations, not calls).
+
+  28 of the 54 distinct names have a production client call site.
+  26 have none of any kind.
+
+  THE INSTRUMENT IS COMMITTED, NOT JUST DESCRIBED:
+    P32-client-caller-scan.py          the corrected scanner, re-runnable
+    P32-0035-scan-names.txt            the 54 distinct names it is run over
+    P32-0035-client-scan-20260925.txt  its output at 8b174a1
+  It carries a self-check that fails loudly if the create_system_post call
+  sites ever go missing again.
+
+  ⚠ INSTRUMENT DEFECT, FOUND AND FIXED BEFORE THIS EVIDENCE WAS KEPT.
+  The first scan matched `.rpc(` and the quoted name with a pattern whose
+  cast form was `\(\s*[\w$.]*\.rpc\s+as\s+[^)]*\)` — the `[^)]*` cannot span
+  the nested parentheses in
+
+      (supabase.rpc as unknown as (
+         name: string, args: Record<string, unknown>
+       ) => PostgrestBuilder
+      )("create_system_post", { … })
+
+  so it silently missed BOTH real call sites of create_system_post
+  (src/lib/profilePostHelper.ts:41, src/pages/MyPhotos.tsx:409). The
+  re-written scan is shape-independent: it finds every occurrence of the
+  QUOTED name and looks back 300 characters for `.rpc` in any form. Same
+  defect class as C-A8 and C-A10. It did not change the grouping —
+  create_system_post is in 0035 either way — but a caller census that misses
+  a call site is how a revoke becomes an outage, so it is recorded.
+
+  THE THREE 0034 FUNCTIONS THAT DO HAVE A CLIENT CALL SITE, and why they are
+  still 0034 — each goes through a SUPABASE_SERVICE_ROLE_KEY client:
+    delete_email                   supabase/functions/process-email-queue/index.ts:271, :355
+                                   client built at index.ts:116 from SUPABASE_SERVICE_ROLE_KEY
+    judge_apply_single_tag         supabase/functions/submit-judge-tag/index.ts:144, via `admin`
+    judging_write_decision_atomic  supabase/functions/submit-judge-decision/index.ts:215, via `admin`
+                                   `admin` = createClient(url, serviceKey),
+                                   supabase/functions/_shared/judgingAuth.ts:35
+  No 0034 function has an anon-key or user-session client caller. The STOP
+  condition did not fire.
+
+── 2 · DATABASE SCAN, SPLIT BY SECURITY ────────────────────────────────────
+  20 caller edges in pg_proc. 18 DEFINER, 2 INVOKER.
+
+  DEFINER callers (the callee's own grants are irrelevant — the caller runs
+  as its owner):
+    _ensure_stats_row                    <- trg_follows_counts, trg_friendships_counts
+    _gen_competition_order_no            <- submit_competition_entry
+    enqueue_post_job                     <- enqueue_post_created_job, notify_post_comment,
+                                            notify_post_reaction, notify_post_tag
+    pj_handle_comment_notification       <- process_post_jobs
+    pj_handle_reaction_notification      <- process_post_jobs
+    pj_handle_recount_engagement         <- process_post_jobs
+    pj_handle_tag_notification           <- process_post_jobs
+    recompute_entry_from_tag_assignments <- trg_recompute_entry_after_tag_change
+    recompute_entry_public_status        <- _tg_entry_public_status_recompute,
+                                            _tg_round_publish_recompute,
+                                            _tg_v3_catalog_recompute,
+                                            trg_recompute_entry_public_status
+    recount_hashtags                     <- sync_post_hashtags, unsync_post_hashtags
+
+  INVOKER callers — the only two in the whole set, and exactly the two the
+  Auditor placed in 0035 on those grounds:
+    admin_rewind_stage        <- guard_stage_key_immutability   (INVOKER trigger)
+    mark_expiring_post_drafts <- enforce_post_draft_rules        (INVOKER trigger)
+  An INVOKER trigger runs with the privileges of whoever caused the write, so
+  revoking `authenticated` from these two would break an ordinary signed-in
+  UPDATE. That is why they are in 0035 despite having no client caller.
+
+── 3 · POLICIES AND CRON ───────────────────────────────────────────────────
+  pg_policy qual / with-check referencing any of the 56 ............ 0
+  cron.job commands referencing any of the 56 ...................... 7
+    emit_birthday_notifications     emit-birthday-notifications     30 3 * * *
+    process_post_jobs               process-post-jobs               5 seconds
+    prune_client_errors             prune-client-errors             25 3 * * *
+    prune_old_notifications         prune-old-notifications         20 3 * * *
+    rollup_engagement_daily         rollup-engagement-daily         20 0 * * *
+    wallet_ledger_v2_diff_snapshot  wallet_ledger_v2_diff_hourly     7 * * * *
+    mark_expiring_post_drafts       mark-expiring-post-drafts       10 3 * * *   (0035)
+  cron runs as postgres, so the six 0034 entries are unaffected by the
+  revoke.
+
+── AN OBSERVATION THE COMMAND DID NOT ASK FOR ──────────────────────────────
+  EIGHT of the 27 in 0034 have NO caller at all — not client, not pg_proc,
+  not pg_policy, not cron:
+    apply_decision_to_remaining · expiring_post_drafts ·
+    get_derived_status_drift_admin · log_push_outcome ·
+    prune_activity_minutes · reap_post_drafts · refresh_viewer_buckets ·
+    set_write_path
+  Their disposition is unchanged — service_role only is correct, and strictly
+  safer for a function nothing calls — but they belong to the census's
+  "zero callers anywhere" class, which is owed a written disposition of its
+  own. Recorded for the Auditor rather than folded in silently.
+
+  Two names appear in src/** in COMMENTS only, not calls, and were checked by
+  hand rather than assumed:
+    emit_birthday_notifications  src/lib/notificationLinks.ts:104
+    mark_expiring_post_drafts    src/hooks/feed/usePostDrafts.ts:113

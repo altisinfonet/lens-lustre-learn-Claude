@@ -1,0 +1,13 @@
+C-34 · SCRATCH POSTGRES ONLY. No staging, no production connection.
+  file                                                      OLD stmts ran  NEW raises  catalog identical
+  UNAPPLIED_20260825060000_certificate_types_and_admin_s           3 tags        True               True  
+  UNAPPLIED_20260824000000_admin_user_list_pagination_RO           2 tags        True               True  
+  UNAPPLIED_20260825120000_certificate_delete_removes_no           2 tags        True               True  
+  UNAPPLIED_20260825170000_certificate_custom_heading_RO           5 tags        True               True  
+  UNAPPLIED_20260825120000_certificate_delete_removes_no           5 tags        True               True  
+  UNAPPLIED_20260825170000_certificate_custom_heading.sq           5 tags        True               True  
+  UNAPPLIED_20260820140000_classF_repoint_originals_ROLL           1 tags        True               True  
+  UNAPPLIED_20260824000000_admin_user_list_pagination.sq           4 tags        True               True  
+  UNAPPLIED_20260825060000_certificate_types_and_admin_s           8 tags        True               True  
+
+  ALL NINE: old body executes, new file raises on the guard and changes nothing: True

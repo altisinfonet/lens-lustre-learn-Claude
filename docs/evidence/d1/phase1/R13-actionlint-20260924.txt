@@ -1,0 +1,28 @@
+D1 · R-13 · actionlint + shellcheck
+instrument: actionlint 1.7.7 (bundles shellcheck 0.9.0)
+
+== BASE 5d563e7 ==
+.github/workflows/apply-migration.yml:231:9: shellcheck reported issue in this script: SC2012:info:24:3: Use find instead of ls to better handle non-alphanumeric filenames [shellcheck]
+    |
+231 |         run: |
+    |         ^~~~
+exit=1
+
+== HEAD (this branch) ==
+.github/workflows/apply-migration.yml:246:9: shellcheck reported issue in this script: SC2012:info:24:3: Use find instead of ls to better handle non-alphanumeric filenames [shellcheck]
+    |
+246 |         run: |
+    |         ^~~~
+exit=1
+
+== DELTA ==
+findings at base : 1  (SC2012, 'use find instead of ls')
+findings at head : 1  (the same one)
+NEW findings introduced by R-13 : 0
+findings removed by R-13        : 0
+
+The single finding is PRE-EXISTING and lives in the 'Validate the requested
+file' step -- the ls -1 that lists available files in the not-found branch.
+It is outside this unit's scope: R-13 may not touch that step, and the
+command requires every pre-existing gate line to stay byte-identical.
+Reported, not fixed.

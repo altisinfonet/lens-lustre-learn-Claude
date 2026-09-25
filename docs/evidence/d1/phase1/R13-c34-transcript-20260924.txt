@@ -1,0 +1,69 @@
+===========================================================================
+ D1 · R-13 · C-34 — scratch PostgreSQL 17 only. No staging, no production.
+===========================================================================
+
+-- SERVER
+   PostgreSQL 17.11 (Ubuntu 17.11-1.pgdg24.04+2) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit
+  PASS  server major version >= 17                                   yes
+   psql client: psql (PostgreSQL) 17.11 (Ubuntu 17.11-1.pgdg24.04+2)
+
+-- THE SCRIPT UNDER TEST is extracted from /home/claude/repo/.github/workflows/apply-migration.yml
+   HEAD 'Run it'  : 37 lines, sha256 0c851df9fa75bfec
+   BASE 'Run it'  : 7 lines, sha256 d28a17cb555db522   (5d563e7)
+
+-- ROW 6  the CURRENT workflow (no -c line) against 0033 — the defect
+   psql:supabase/migrations/20260910_0033_p33_definer_view_write_revoke.sql:101: ERROR:  APPLY REFUSED — p32.lane is not asserted as staging (read: (unset)). Staging always first: no SQL apply reaches production before the same file is green on staging. The file cannot detect its own lane, so it refuses unless the lane is asserted. Set it in THIS session before running: SET p32.lane = 'staging';
+     IF coalesce(current_setting('p32.lane', true), '') <> 'staging' THEN
+  PASS  base step exit status is non-zero                            nonzero
+  PASS  it refuses on the lane guard                                 yes
+  PASS  ACL unchanged                                                yes
+  PASS  detector still 11                                            11
+
+-- ROW 4  the R-13 step, TARGET_LANE=staging, against 0033
+   Credential port: 5432
+   Asserting p32.lane = 'staging' for this session, then running the file.
+  PASS  exit status                                                  0
+  PASS  no refusal in the output                                     proceeded
+  PASS  detector: 11 relations revoked -> 0                          0
+  PASS  anon keeps SELECT on profiles_public                         t
+  PASS  anon lost UPDATE on profiles_public                          f
+
+-- ROW 5  the R-13 step, TARGET_LANE=production, against the same file
+   Credential port: 5432
+   Asserting p32.lane = 'production' for this session, then running the file.
+   psql:supabase/migrations/20260910_0033_p33_definer_view_write_revoke.sql:101: ERROR:  APPLY REFUSED — p32.lane is no
+  PASS  exit status is non-zero                                      nonzero
+  PASS  it refuses on the lane guard                                 yes
+  PASS  the refusal reports the lane it was given                    yes
+  PASS  ACL unchanged                                                yes
+  PASS  detector still 11                                            11
+
+-- ROW 7  pooler-mode parse
+   Credential port: 6543
+   ::error::transaction-mode pooler cannot carry p32.lane; the Environment secret must use the session pooler (5432)
+  PASS  6543 exit status is non-zero                                 nonzero
+  PASS  6543 refuses with the mandated message                       yes
+  PASS  6543 never reached psql (ACL unchanged)                      yes
+   ::error::Could not parse a port from the credential. Expected postgres://postgres.<ref>:<password>@<host>:<port>/postg
+  PASS  malformed (no port) exit status is non-zero                  nonzero
+  PASS  malformed refuses on the parse                               yes
+  PASS  malformed never reached psql (ACL unchanged)                 yes
+  PASS  5432 proceeds                                                0
+  PASS    and the file actually ran (detector 0)                     0
+  PASS  an unknown TARGET_LANE is refused at the point of use        nonzero
+  PASS    with the point-of-use message                              yes
+
+-- ROW 8  an UNGUARDED historical file, run through the new step
+  PASS  exit status                                                  0
+  PASS  no refusal                                                   proceeded
+  PASS  the probe returned exactly one row                           1
+  PASS    naming this database                                       1
+  PASS    connected as the pooler-shaped role                        1
+  PASS    and reporting a 17.x server                                1
+  PASS  ACL unchanged (the GUC is inert to a file that never reads it) yes
+  PASS  detector unchanged at 11                                     11
+  PASS  the BASE step runs the same file identically (behaviour unchanged) 0
+
+===========================================================================
+ OVERALL: ALL CHECKS PASS
+===========================================================================

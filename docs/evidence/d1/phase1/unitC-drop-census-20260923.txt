@@ -1,0 +1,21 @@
+D1 · UNIT C · DROP CENSUS — BOTH RULES, REPORTED, NOT RECONCILED SILENTLY
+base origin/staging 8a28c2b
+
+                                                             stmt-scoped  line-scoped
+UNAPPLIED_20260825060000_certificate_types_and_admin_search_ROLLBACK   3            3
+UNAPPLIED_20260824000000_admin_user_list_pagination_ROLLBACK           2            2
+UNAPPLIED_20260825120000_certificate_delete_removes_notif_ROLLBACK     2            2
+UNAPPLIED_20260825170000_certificate_custom_heading_ROLLBACK           1            2
+UNAPPLIED_20260825120000_certificate_delete_removes_notifications      1            1
+UNAPPLIED_20260825170000_certificate_custom_heading                    1            2
+UNAPPLIED_20260820140000_classF_repoint_originals_ROLLBACK             0            0
+UNAPPLIED_20260824000000_admin_user_list_pagination                    0            0
+UNAPPLIED_20260825060000_certificate_types_and_admin_search            0            0
+                                                             TOTAL    10           12
+
+The statement-scoped figure GOVERNS: 10.
+The line-scoped figure is 12. The difference is exactly 2 lines of COMMENT TEXT
+in the two _custom_heading files. The two rules measure different things; a line
+grep counts prose, a statement scanner counts code.
+
+AFTER Unit C: executable DROP statements across the nine = 0.

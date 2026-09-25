@@ -18,6 +18,15 @@ name: Apply a database migration
 #   * ON_ERROR_STOP, so a failure stops at the first error instead of
 #     half-applying and leaving the schema somewhere nobody designed
 #   * one file per run, named explicitly — never "apply everything pending"
+#   * the LANE INTERLOCK (added 2026-09-24, R-13): before the file is run,
+#     this workflow asserts `p32.lane` on the psql session, set from the
+#     dispatch's own `target` — `staging` for a staging dispatch, `production`
+#     for a production one. Guarded files read it and refuse when it does not
+#     name the lane they are written for. Nothing else in this system sets it:
+#     neither lane carries a database-level default (measured 2026-09-24,
+#     pg_db_role_setting holds no p32.lane), so before R-13 every guarded file
+#     refused every dispatch with "APPLY REFUSED — p32.lane is not asserted".
+#     The full reasoning sits beside the code, in the "Run it" step.
 #
 # ───────────────────────────────────────────────────────────────────────────
 # ⚠ ONE-TIME SETUP, AND IT IS THE OWNER'S HANDS ONLY.
@@ -44,7 +53,13 @@ name: Apply a database migration
 #     2. The port is 5432, the SESSION pooler. NOT 6543, the transaction pooler:
 #        it does not support the multi-statement transactions these migrations
 #        depend on, and a migration that silently loses its BEGIN is exactly the
-#        failure this whole design exists to prevent.
+#        failure this whole design exists to prevent. Since R-13 the transaction
+#        pooler would also break the lane interlock, because a session-level SET
+#        does not follow a statement onto whichever backend happens to be free.
+#        THE "Run it" STEP NOW PARSES THE PORT AND REFUSES ANYTHING THAT IS NOT
+#        5432 — 6543 with a message naming the pooler, any other value or an
+#        unparseable one with a message saying so. That is stricter than this
+#        file was before R-13: a credential on some third port used to be run.
 #     3. The password is the REAL password. Supabase's dialog shows the literal
 #        placeholder `[YOUR-PASSWORD]`; the actual password appears only once,
 #        on the screen where you reset it. Paste over the placeholder — if the
@@ -281,13 +296,79 @@ jobs:
       # first error stops the run — and because these migrations wrap
       # themselves in BEGIN/COMMIT, the transaction rolls back and the database
       # is left exactly as it was.
+      #
+      # ⚠ LANE INTERLOCK (R-13). THE `-c` LINE IS A CONTROL, NOT A CONVENIENCE.
+      #
+      # Files from P32/P33 onwards open with a fatal guard that refuses to run
+      # unless `p32.lane` names the lane the operator meant. The guard is an
+      # ASSERTION, not a detection: a .sql file cannot discover which database
+      # it has been handed to, so it demands to be told, and refuses when it
+      # is not. Until this step set it, nothing ever did — not this workflow,
+      # and not the database (pg_db_role_setting holds no p32.lane on either
+      # lane) — so every guarded file refused every dispatch.
+      #
+      # The value comes from `inputs.target`, bound through `env:` above like
+      # every other input, and from nowhere else. It is the SAME value the
+      # "credential must point at the target database" gate has already
+      # matched against the project ref parsed out of the secret, so the lane
+      # asserted here is the lane the credential provably reaches. It is
+      # re-asserted against the two literals immediately below, so the only
+      # strings that can reach the `-c` are `staging` and `production`.
+      #
+      # A PRODUCTION DISPATCH SETS `production`, AND STAGING-ONLY FILES THEN
+      # REFUSE ON PRODUCTION. That is the point of the interlock, not a side
+      # effect of it. This step must never be changed to set `staging`
+      # unconditionally, to read the lane from the migration path, or to skip
+      # the `-c` when a file "looks unguarded".
+      #
+      # `-c` then `-f` are processed in the order given, in ONE psql session,
+      # so the SET is in force before the file's own BEGIN.
+      #
+      # ⚠ AND THE SESSION HAS TO BE A SESSION. A session-level SET survives
+      # only on a SESSION-mode connection. Supabase's session pooler is port
+      # 5432; the TRANSACTION pooler is 6543 and hands each statement whatever
+      # backend is free, so the SET would land on one connection and the file
+      # on another, and the guard would refuse for a reason that looks like a
+      # bug in the file. The port is parsed and asserted below. It is not
+      # secret — it is in the setup instructions at the top of this file — but
+      # $DB_URL itself is still never echoed.
       - name: Run it
         run: |
           set -euo pipefail
+
+          # ── The lane, re-asserted at the point of use. ──────────────────
+          # The gates above already reject anything else; this is the check
+          # that stands next to the thing it protects, so a later edit that
+          # loosens one of them cannot silently widen what reaches psql.
+          case "$TARGET_LANE" in
+            staging|production) : ;;
+            *) echo "::error::Unknown target '$TARGET_LANE' at the point of use. Refusing."; exit 1 ;;
+          esac
+
+          # ── Pooler mode. Parsed the same way the ref is parsed above. ───
+          HOSTPORT=$(printf '%s' "$DB_URL" | sed -E 's|^postgres(ql)?://[^@]*@||; s|[/?].*$||')
+          PORT=$(printf '%s' "$HOSTPORT" | sed -nE 's|^[^:]+:([0-9]+)$|\1|p')
+
+          if [ -z "$PORT" ]; then
+            echo "::error::Could not parse a port from the credential. Expected postgres://postgres.<ref>:<password>@<host>:<port>/postgres. Refusing rather than guessing."
+            exit 1
+          fi
+          echo "Credential port: $PORT"
+          if [ "$PORT" = "6543" ]; then
+            echo "::error::transaction-mode pooler cannot carry p32.lane; the Environment secret must use the session pooler (5432)"
+            exit 1
+          fi
+          if [ "$PORT" != "5432" ]; then
+            echo "::error::Unexpected port '$PORT'. This workflow requires the session pooler on 5432 — see the setup notes at the top of this file. Refusing."
+            exit 1
+          fi
+
+          echo "Asserting p32.lane = '$TARGET_LANE' for this session, then running the file."
           psql "$DB_URL" \
             --set ON_ERROR_STOP=1 \
             --echo-errors \
             --no-psqlrc \
+            -c "SET p32.lane = '${TARGET_LANE}';" \
             -f "$MIGRATION_PATH"
 
       - name: Confirm

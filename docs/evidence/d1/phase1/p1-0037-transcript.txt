@@ -1,0 +1,62 @@
+P-1 · 20260910_0037 — BEHAVIOURAL TEST TRANSCRIPT
+Run: 2026-09-25T10:28:51Z · scratch PostgreSQL 17.11 (PGDG) · 127.0.0.1:5432
+Command: bash docs/evidence/d1/phase1/p1-0037-run-tests.sh
+Base: c5834318c0c7deef2a43508d8cc5355a934e4925 (d1/P1-0037-production-closure-20260925)
+
+
+══ 0 · the production-exact fixture
+  server_version 17.11 (Ubuntu 17.11-1.pgdg24.04+2)
+  PASS  fixture built
+  pre-apply ACL digest: 3a64ce677170b59822dc4840d520ef89
+  anon-executable definer volatile functions: 33
+
+══ 1 · 0037 REFUSES on any lane but production, and on any pooler but 5432
+  PASS  TARGET_LANE=staging — refused (exit 3), 'APPLY REFUSED'
+  PASS  TARGET_LANE='' (unset) — refused (exit 1), 'Unknown target'
+  PASS  TARGET_LANE with an injection string — refused (exit 1), 'Unknown target'
+  PASS  transaction pooler, port 6543 — refused (exit 1), '6543'
+  PASS  some other port, 5433 — refused (exit 1), 'Unexpected port'
+  PASS  five refusals left the ACL snapshot identical
+
+══ 2 · 0037 applies on the production lane
+  PASS  apply, TARGET_LANE=production
+  PASS  the apply changed the ACL snapshot
+  PASS  exactly the four justified functions remain anon-executable
+  PASS  no closed function kept a PUBLIC ACL entry (F-62)
+  PASS  the backup table is closed to anon and authenticated, every privilege
+  PASS  the 11 relations lost every write privilege for anon, authenticated and PUBLIC
+  PASS  SELECT is untouched on the ten relations that had it
+  PASS  email_exists: authenticated closed, service_role kept
+  PASS  get_primary_admin_user_id: anon closed, authenticated kept
+  PASS  the postgres/public FUNCTION default no longer grants anon or PUBLIC
+
+══ 3 · a second apply is a no-op, not a second change
+  PASS  apply again, TARGET_LANE=production
+  PASS  the second apply left the ACL snapshot identical
+
+══ 4 · GROUP A did not take authenticated with PUBLIC
+  PASS  all 21 GROUP A functions still execute for authenticated
+  PASS  all 8 GROUP B functions are closed to authenticated
+
+══ 5 · the ROLLBACK refuses on any lane but production
+  PASS  rollback, TARGET_LANE=staging — refused (exit 3), 'ROLLBACK REFUSED'
+  PASS  the refused rollback left the ACL snapshot identical
+
+══ 6 · the ROLLBACK restores the production pre-image
+  PASS  rollback, TARGET_LANE=production
+  PASS  33 anon-executable definer volatile functions again — the production count
+  PASS  the 7 PUBLIC-carrying functions execute for anon, authenticated and service_role again
+  PASS  and NOT by re-creating a PUBLIC grant — restored by name (R-11, F-62)
+
+══ 7 · the ROLLBACK refuses when there is nothing to undo
+  PASS  rollback run a second time — refused (exit 3), 'P1-0037-RB-PRE-002'
+  PASS  the refused second rollback left the ACL snapshot identical
+
+══ 8 · apply → rollback → apply lands back on the same state
+  PASS  apply again after the rollback
+  PASS  the round trip is closed: the post-apply snapshot is reproduced exactly
+
+══ VERDICT
+  ALL GREEN
+
+(harness exit 0)
