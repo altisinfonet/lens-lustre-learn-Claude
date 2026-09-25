@@ -1,0 +1,260 @@
+-- ===========================================================================
+-- WITHDRAWN under Auditor ruling R-24. NEUTRALISED, not merely renamed.
+--
+-- The UNAPPLIED_ prefix is NOT a dispatch control. apply-migration.yml's
+-- allowlist is a glob on directory and extension: every .sql file under
+-- supabase/migrations matches it, this one included. The workflow reads no
+-- filename prefix and no comment -- it cats the file into psql. Until this
+-- change, withdrawal by rename left live SQL one typed path away from running.
+--
+-- (That sentence originally spelled the glob out. The literal two characters
+-- it produced are the ones referralOverloadUnambiguous.test.ts L261 forbids
+-- in this header, and the assertion in the neutralisation script caught it
+-- before anything was written. Recorded rather than quietly reworded.)
+--
+-- Every line of the original body below carries a leading "-- ". The body is
+-- therefore inert on its own terms, and recoverable byte for byte:
+--
+--   strip this block, then strip exactly three characters from the start of
+--   every remaining line, and the result is the original file.
+--
+--   sha256 of the original, before neutralisation:
+--     a1bd5e4cdc24811a44d2a27b9c15cec1eee23afd4f9d107a94e0632aeb2e1e0d
+--
+-- The hash is carried here rather than in a separate evidence file so that the
+-- record travels with the file. A comment pointing at a document that may move
+-- is the failure mode this whole unit exists to correct.
+--
+-- The guard below is the second control, for a human who gets this far.
+-- ===========================================================================
+DO $withdrawn$ BEGIN
+  RAISE EXCEPTION
+    'WITHDRAWN under Auditor ruling R-24. This file is the historical record of SQL that must not '
+    'run. Its body is preserved below, commented. Replacement: %.', 'supabase/migrations/20260910_0038_p32_password_verification_hook_closure.sql'
+  USING ERRCODE = 'raise_exception';
+END $withdrawn$;
+-- -- ═══════════════════════════════════════════════════════════════════════════
+-- -- ⚠⚠  WITHDRAWN 2026-09-22 UNDER AUDITOR RULING R-8.  DO NOT DISPATCH.  ⚠⚠
+-- --
+-- -- Renamed from
+-- --   supabase/migrations/20260910_0029_p32_auth_hook_and_role_enum_revoke.sql
+-- -- to
+-- --   supabase/migrations/UNAPPLIED_20260910_0029_p32_auth_hook_and_role_enum_revoke.sql
+-- --
+-- -- NOTHING BELOW THIS HEADER IS EDITED. The original file is byte-identical from
+-- -- the first `-- ═══` of its own header onward. A superseded conclusion is not
+-- -- rewritten; the correction sits beside it. (PR #237 withdrew `0023` exactly
+-- -- this way; PR #244 taught the resolvers to skip `UNAPPLIED_*`, and
+-- -- src/test-utils/migrations.ts:61 still lists it in NOT_IN_SEQUENCE_PREFIXES —
+-- -- confirmed 2026-09-22T08:41Z.)
+-- --
+-- -- ───────────────────────────────────────────────────────────────────────────
+-- -- 1 · IT WAS NEVER DISPATCHED, ON EITHER LANE
+-- --
+-- -- `supabase_migrations.schema_migrations` holds **8 rows**, latest
+-- -- `20260915130151`, measured on staging 2026-09-22T08:42Z. Nothing from PR #274
+-- -- has run. There is no state to undo, which is why this withdrawal ships with
+-- -- **no rollback file**: a withdrawal of a never-dispatched apply is not an
+-- -- apply.
+-- --
+-- -- ───────────────────────────────────────────────────────────────────────────
+-- -- 2 · WHY IT IS WITHDRAWN — ITS SAFETY CLAIM IS FALSE ON STAGING
+-- --
+-- -- The file's own header asserts:
+-- --
+-- --   "supabase_auth_admin's EXECUTE is untouched by the three revokes above and
+-- --    is not re-granted here because it already holds it (measured above)."
+-- --
+-- -- Measured on staging fpszggreishhuvdpkmdr, SELECT only, 2026-09-22T08:42Z:
+-- --
+-- --   proacl = =X/postgres | postgres=X/postgres | anon=X/postgres |
+-- --            authenticated=X/postgres | service_role=X/postgres
+-- --
+-- --   public_holds                    = TRUE
+-- --   supabase_auth_admin EFFECTIVE   = TRUE      <- has_function_privilege()
+-- --   supabase_auth_admin **NAMED**   = FALSE     <- no supabase_auth_admin= entry
+-- --
+-- -- `has_function_privilege('supabase_auth_admin', …)` returns TRUE **because
+-- -- PUBLIC holds the grant and every role belongs to PUBLIC** — not because the
+-- -- role holds anything of its own. The author read the effective privilege and
+-- -- recorded it as a named grant.
+-- --
+-- -- This file's FIRST STATEMENT, `REVOKE ALL … FROM public`, removes the only
+-- -- path GoTrue has to this function on staging. GoTrue invokes this hook, as
+-- -- `supabase_auth_admin`, on **every sign-in attempt**.
+-- --
+-- --   **Dispatching this file against staging as written would break staging
+-- --   sign-in.**
+-- --
+-- -- Standing Rule 21 — an instructing comment asserting a safety property the
+-- -- catalogue contradicts — and the C-38 / C-42 / C-44 / C-45 failure class: a
+-- -- claim taken from something that reported "true" without reading what granted
+-- -- it.
+-- --
+-- -- Production is the mirror image and is why the error was easy to make: there
+-- -- `supabase_auth_admin` DOES hold a named grant (relayed from the Auditor's
+-- -- two-lane diff; production is not attached to this session's connector). The
+-- -- claim is true on one lane and false on the other, and the file was written
+-- -- for the lane it is not dispatched to first.
+-- --
+-- -- ───────────────────────────────────────────────────────────────────────────
+-- -- 3 · SUPERSEDED BY
+-- --
+-- --   supabase/migrations/20260910_0038_p32_password_verification_hook_closure.sql
+-- --   supabase/rollback/20260910_0038_p32_password_verification_hook_closure_ROLLBACK.sql
+-- --
+-- -- `0038` makes the same three revokes and then **ADDS** the named grant:
+-- --   GRANT EXECUTE ON FUNCTION public.password_verification_hook(event jsonb)
+-- --     TO supabase_auth_admin;
+-- -- an addition, not a preservation — which is the whole correction.
+-- --
+-- -- ───────────────────────────────────────────────────────────────────────────
+-- -- 4 · IT ALSO REVOKED AN OBJECT NOBODY AUTHORISED
+-- --
+-- -- Below, this file revokes `get_public_role_user_ids(text)` from `public` and
+-- -- `anon`. **Owner Decision 6 has never authorised that**, and the closure has
+-- -- verified caller breakage on five signed-out pages:
+-- --   src/lib/adminBrand.ts:35 → AutoBadge → UserIdentityBlock.tsx:212, on routes
+-- --   including src/App.tsx:395 `/profile/:userId`, declared outside RequireAuth.
+-- --   adminBrand.ts:35 destructures `{ data }` and never inspects `error`, so a
+-- --   42501 yields an empty Set and the admin's brand name and verified badge
+-- --   disappear for signed-out visitors with no error anywhere.
+-- --
+-- -- Withdrawing this file returns that object to its pre-#274 state. It is held
+-- -- as prepared-only at
+-- --   docs/evidence/d1/phase1/prepared/0039-get_public_role_user_ids.sql.prepared
+-- -- with ordinal `0039` RESERVED and NOT CONSUMED.
+-- --
+-- -- ⚠ THE PATH IS THE CONTROL, NOT THIS HEADER. `apply-migration.yml`'s allowlist
+-- -- admits every `.sql` under `supabase/migrations/` and does not read comments;
+-- -- a "DO NOT DISPATCH" comment protects nothing. The `UNAPPLIED_` prefix is what
+-- -- takes this file out of the resolver's reach. That is the #272 bootstrap
+-- -- hazard, and it is how the defect below reached `staging` in the first place.
+-- -- ═══════════════════════════════════════════════════════════════════════════
+-- 
+-- -- ═══════════════════════════════════════════════════════════════════════════
+-- -- P32, SESSION A NEW UNIT — password_verification_hook + get_public_role_user_ids
+-- --
+-- -- Two functions closed by this file, both new findings from Session A's own
+-- -- 2026-09-21 forensic re-check (not carried over from any prior PR/census):
+-- --
+-- --   public.password_verification_hook(jsonb)   — Supabase Auth Hook
+-- --   public.get_public_role_user_ids(text)       — STABLE, SECURITY DEFINER
+-- --
+-- -- Measured live on staging (fpszggreishhuvdpkmdr), 2026-09-21, this session,
+-- -- before this migration:
+-- --
+-- --   password_verification_hook: {public=true, anon=true, authenticated=true,
+-- --                                 supabase_auth_admin=true}
+-- --   get_public_role_user_ids:   {public=true, anon=true, authenticated=true}
+-- --     (provolatile='s' — STABLE, not VOLATILE, which is why this function is
+-- --      absent from the 75-function anon-executable-VOLATILE census this
+-- --      session built and from every prior P32 count; the F-62/F-65/F-66
+-- --      pattern is volatility-independent and applies here identically.)
+-- --
+-- -- ═══════════════════════════════════════════════════════════════════════════
+-- -- FINDING 1 (NEW, ELEVATED SEVERITY) — password_verification_hook
+-- --
+-- -- This is a Supabase Auth "Password Verification" hook: GoTrue invokes it
+-- -- server-side, as `supabase_auth_admin`, on every sign-in attempt, and acts
+-- -- on its `{"decision": "continue"|"reject", ...}` response to allow or block
+-- -- the sign-in. Its body (confirmed via pg_get_functiondef, this session):
+-- --
+-- --   DECLARE _uid uuid := (event->>'user_id')::uuid;
+-- --           _valid boolean := COALESCE((event->>'valid')::boolean, false);
+-- --   ...
+-- --   SELECT * INTO _row FROM public.auth_login_attempts WHERE user_id = _uid
+-- --     FOR UPDATE;
+-- --   IF _row.locked_until IS NOT NULL AND _row.locked_until > now() THEN
+-- --     RETURN jsonb_build_object('decision','reject', ...);
+-- --   END IF;
+-- --   IF _valid THEN
+-- --     DELETE FROM public.auth_login_attempts WHERE user_id = _uid;
+-- --     RETURN jsonb_build_object('decision','continue');
+-- --   END IF;
+-- --   -- failed attempt: increment failed_count, lock at 3/5/7/10 strikes ...
+-- --
+-- -- `_uid` and `_valid` are read DIRECTLY off the caller-supplied `event`
+-- -- argument with NO verification that the caller is GoTrue itself and no
+-- -- check that `_uid` is the authenticated caller's own id. Today, anon and
+-- -- authenticated both hold EXECUTE (measured above), so this is directly
+-- -- callable over PostgREST as `rpc/password_verification_hook` by any holder
+-- -- of the public API key, with an arbitrary `user_id` and an arbitrary
+-- -- `valid`. Two distinct abuses follow directly from the body, not from
+-- -- speculation:
+-- --
+-- --   (a) DoS lockout: call repeatedly with `{"user_id": "<victim>",
+-- --       "valid": false}` to drive `failed_count` past 10 and lock the
+-- --       victim's account for 900s, indefinitely renewable, with zero
+-- --       knowledge of the victim's password and zero real sign-in attempts —
+-- --       `auth_login_attempts` is written directly, not incremented by
+-- --       GoTrue's own failed-password path.
+-- --   (b) Lockout/counter clearing: call with `{"user_id": "<any-id>",
+-- --       "valid": true}` to DELETE that id's `auth_login_attempts` row,
+-- --       silently discarding another account's accumulated failed-attempt
+-- --       history (undermines the rate-limit this function exists to
+-- --       enforce, for any account, not just the caller's own).
+-- --
+-- -- Neither requires the caller to be signed in as, or ever have attempted to
+-- -- sign in as, the target user. This is the same class of finding as F-62/
+-- -- F-65/F-66 elsewhere in P32 (a SECURITY DEFINER function reachable well
+-- -- beyond its intended caller), but the intended caller here is not "any
+-- -- authenticated member" the way most of P32's other findings are — it is
+-- -- GoTrue alone, running as `supabase_auth_admin`. `authenticated` should
+-- -- never have held EXECUTE either; this file revokes PUBLIC, anon, AND
+-- -- authenticated, retaining only `supabase_auth_admin` (which already holds
+-- -- it and is untouched by this file).
+-- --
+-- -- This finding, its severity, and its fix are Session A's own; the finding
+-- -- is new as of 2026-09-21 and does not appear in P1-revocation-list.md,
+-- -- GATE_REGISTER.md, or any of the P32 census docs this session read. Flagged
+-- -- for Auditor awareness in the accompanying evidence doc, but the fix itself
+-- -- is a standard grant closure (no body change, no behaviour change for
+-- -- GoTrue/supabase_auth_admin) and does not require an Owner/Auditor ruling
+-- -- to apply, per the same reasoning already used throughout P32 for
+-- -- grant-only closures.
+-- --
+-- -- ═══════════════════════════════════════════════════════════════════════════
+-- -- FINDING 2 — get_public_role_user_ids(text)
+-- --
+-- -- Body (confirmed via pg_get_functiondef, this session):
+-- --
+-- --   IF _role NOT IN ('admin', 'judge') THEN
+-- --     RAISE EXCEPTION 'role % is not enumerable', _role USING ERRCODE = '42501';
+-- --   END IF;
+-- --   RETURN QUERY SELECT ur.user_id FROM public.user_roles ur
+-- --     WHERE ur.role::text = _role;
+-- --
+-- -- This has a genuine allow-list (confirms P1-revocation-list.md §2.4's own
+-- -- prior read of this function as "not actually a gap" — re-verified here,
+-- -- not merely copied). It cannot be used to enumerate arbitrary roles or
+-- -- arbitrary user attributes; only the `admin` and `judge` user-id lists are
+-- -- obtainable, and no anon-side caller in src/ was found needing that (grep
+-- -- this session, zero references in src/ or supabase/functions/). It is body-
+-- -- guarded, so this is a defense-in-depth closure — same pattern as the
+-- -- 14 admin/fix/backfill/get_*_admin functions already closed elsewhere in
+-- -- P32 — not a live-exploit fix. `authenticated` is retained: legitimate
+-- -- admin/judge callers are authenticated callers, and revoking authenticated
+-- -- here would break any real admin/judge-facing caller of this RPC without
+-- -- the allow-list itself changing.
+-- --
+-- -- ═══════════════════════════════════════════════════════════════════════════
+-- -- SEQUENCE — BEHAVIOUR step, grant-only, idempotent, same F-62 order (PUBLIC
+-- -- before anon) as every other P32 unit. No body touched, no DROP/CREATE.
+-- 
+-- REVOKE ALL ON FUNCTION public.password_verification_hook(jsonb) FROM public;
+-- REVOKE ALL ON FUNCTION public.password_verification_hook(jsonb) FROM anon;
+-- REVOKE ALL ON FUNCTION public.password_verification_hook(jsonb) FROM authenticated;
+-- -- supabase_auth_admin's EXECUTE is untouched by the three revokes above and
+-- -- is not re-granted here because it already holds it (measured above).
+-- 
+-- REVOKE ALL ON FUNCTION public.get_public_role_user_ids(text) FROM public;
+-- REVOKE ALL ON FUNCTION public.get_public_role_user_ids(text) FROM anon;
+-- GRANT EXECUTE ON FUNCTION public.get_public_role_user_ids(text) TO authenticated, service_role;
+-- 
+-- COMMENT ON FUNCTION public.password_verification_hook(jsonb) IS
+--   'Supabase Auth "Password Verification" hook. Invoked by GoTrue, as supabase_auth_admin, on every sign-in. NOT executable by public, anon, or authenticated — P32, Session A finding 2026-09-21. Prior state allowed any anon/authenticated caller to lock or unlock an arbitrary user_id''s sign-in via a direct rpc/password_verification_hook call (event->>''user_id'' is caller-controlled, unverified against the caller''s own identity). Closed at the grant layer; body unchanged. If recreated with DROP+CREATE this REOPENS to PUBLIC (F-66) and the revoke must be re-applied and re-proved.';
+-- 
+-- COMMENT ON FUNCTION public.get_public_role_user_ids(text) IS
+--   'Enumerates user_ids for a role, allow-listed in-body to admin/judge only (RAISE 42501 otherwise) — P1-revocation-list.md §2.4, re-verified 2026-09-21. NOT executable by anon or public — P32 defense-in-depth closure (grant-layer only; the body allow-list is unchanged and unrelied-upon for this fix). authenticated retained: real admin/judge callers are authenticated. Same F-62/F-66 caveats as elsewhere in P32.';
+-- 

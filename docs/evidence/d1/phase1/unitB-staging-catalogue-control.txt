@@ -1,0 +1,18 @@
+§3.2 CATALOGUE CONTROL — staging fpszggreishhuvdpkmdr, 2026-09-22
+A rollback here grants TO PUBLIC. If it had run on staging by any route, its
+objects would carry a PUBLIC ACL entry today.
+
+NO PUBLIC ENTRY -> the file has not run on staging, independent of Actions:
+  0003   search_certificates(text,text,date)                       PUBLIC: absent
+  0005   verify_certificate_by_token(text)                         PUBLIC: absent
+  0012   all 13 custom_url objects                                 PUBLIC: absent
+  0019   process_referral_reward x2                                PUBLIC: absent
+  media  all 8 media-pipeline objects                              PUBLIC: absent
+  => FIVE files. R-26 §3.2 confirmed exactly.
+
+PUBLIC ALREADY PRESENT -> indeterminate, the control cannot speak:
+  0024 delete_email · 0025 emit_notification · 0026 move_to_dlq ·
+  feed get_broadcast_feed x3 · queue _ensure_stats_row, log_push_outcome,
+  wallet_ledger_v2_diff_snapshot, move_to_dlq · hashtag recount_hashtags,
+  suggest_hashtags
+  => SIX files.

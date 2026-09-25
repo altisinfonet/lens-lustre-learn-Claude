@@ -1,0 +1,45 @@
+D1 · UNIT D · STEP 6 SQL SAFETY SCAN
+instrument: docs/evidence/d1/phase1/unitC-sqlscan.py (statement-scoped,
+            case-insensitive, '..' / ".." / $..$ / -- / /* */ aware)
+
+=== supabase/migrations/20260910_0033_p33_definer_view_write_revoke.sql
+  executable statements (top level) : 16
+  classified by keyword             : 16
+  REMAINDER (unclassified)          : 0
+  GRANT statements                  : 0
+  REVOKE statements                 : 11
+      - REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.entry_final_votes FROM PUBLIC
+      - REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.entry_final_votes_legacy FROM
+      - REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.entry_public_status FROM PUBL
+      - REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.entry_vote_counts FROM PUBLIC
+      - REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.judge_comments_owner_safe FRO
+      - REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.judge_decisions_owner_safe FR
+      - REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.judge_tag_assignments_owner_s
+      - REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.judge_tag_assignments_public_
+      - REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.judging_progression_audit FRO
+      - REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.profiles_public FROM PUBLIC, 
+      - REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.v_judging_drift FROM PUBLIC, 
+  GRANT ... TO PUBLIC (executable)  : 0
+  GRANT/REVOKE naming PUBLIC        : 11  (all must be REVOKE)
+
+=== supabase/rollback/20260910_0033_p33_definer_view_write_revoke_ROLLBACK.sql
+  executable statements (top level) : 16
+  classified by keyword             : 16
+  REMAINDER (unclassified)          : 0
+  GRANT statements                  : 11
+      + GRANT INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.entry_final_votes TO anon, aut
+      + GRANT INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.entry_final_votes_legacy TO an
+      + GRANT INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.entry_public_status TO anon, a
+      + GRANT INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.entry_vote_counts TO anon, aut
+      + GRANT INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.judge_comments_owner_safe TO a
+      + GRANT INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.judge_decisions_owner_safe TO 
+      + GRANT INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.judge_tag_assignments_owner_sa
+      + GRANT INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.judge_tag_assignments_public_r
+      + GRANT INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.judging_progression_audit TO a
+      + GRANT INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.profiles_public TO anon, authe
+      + GRANT INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.v_judging_drift TO anon, authe
+  REVOKE statements                 : 0
+  GRANT ... TO PUBLIC (executable)  : 0
+  GRANT/REVOKE naming PUBLIC        : 0  (all must be REVOKE)
+
+  PASS (remainder 0 in both, 0 executable GRANT ... TO PUBLIC in both): True

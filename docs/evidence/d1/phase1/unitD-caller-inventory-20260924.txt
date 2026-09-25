@@ -1,0 +1,62 @@
+D1 · UNIT D · CLIENT CALLER INVENTORY — measured at f6fe1a5, 2026-09-24
+Searched: src/** · supabase/functions/** · functions/** · scripts/** · public/**
+Method: a literal word-boundary search for each of the eleven names across the
+whole checked-out tree, then a re-read of every `.from("<name>")` site with the
+next six lines, to see which operation is actually chained onto it.
+
+── EVERY `.from()` CALL SITE ON THE ELEVEN ─────────────────────────────────
+
+  file:line                                          relation                          first op   write verb
+  src/components/EntryTagStamps.tsx:39               judge_tag_assignments_owner_safe  .select    none
+  src/hooks/competition/useCompetitionDetail.ts:181  judge_tag_assignments_owner_safe  .select    none
+  src/hooks/dashboard/useDashboardData.ts:184        judge_tag_assignments_owner_safe  .select    none
+  src/hooks/dashboard/useDashboardData.ts:186        judge_comments_owner_safe         .select    none
+  src/hooks/judging/usePhotoVoteCount.ts:54          entry_final_votes                 .select    none
+  src/pages/PublicProfile.tsx:383                    judge_tag_assignments_public_r4   .select    none
+  src/pages/Referrals.tsx:88                         profiles_public                   .select    none
+  src/pages/SubmissionDetail.tsx:372                 judge_tag_assignments_owner_safe  .select    none
+  src/pages/SubmissionDetail.tsx:374                 judge_comments_owner_safe         .select    none
+  src/pages/SubmissionDetail.tsx:382                 judge_decisions_owner_safe        .select    none
+  supabase/functions/entry-final-votes/index.ts:78   entry_final_votes                 .select    none
+
+  11 call sites. 11 `.select`. 0 `.insert`, `.update`, `.upsert`, `.delete`.
+  This reproduces the Auditor's list line for line.
+
+  REST paths `rest/v1/<name>` for any of the eleven ..................... 0
+
+── THE OTHER OCCURRENCES, AND WHY THEY ARE NOT CALL SITES ──────────────────
+
+  src/integrations/supabase/types.ts   generated types and
+                                       `referencedRelation` entries
+  scripts/audits/baselines/*.json      recorded audit baselines
+  scripts/audits/schema-drift-scan.mjs a name in a watch list
+  comments and error-hint strings in   PersonalResultBanner.tsx,
+  EntryStatusDriftAudit.tsx, UserNextStepPanel.tsx, useEntryPublicStatus.ts,
+  useGatedEntryStatus.ts, JudgingForensicDriftAudit.tsx, Index.tsx,
+  errorCodes.ts, useCaptionMentions.ts, publish-round/index.ts,
+  complete-round/index.ts, dashboard-init/index.ts, two test files
+
+  None of these issues a query.
+
+── ONE FINDING, REPORTED AND NOT TOUCHED (Standing Rule 21) ────────────────
+
+  src/lib/profilesPublic.ts:27-32
+
+      /**
+       * Query the profiles_public view for safe public profile data.
+       * ...
+       */
+      export function profilesPublic() {
+        return supabase.from("profiles_public_data" as any) as any;
+      }
+
+  The doc comment names `profiles_public`. The code queries
+  `profiles_public_data` — a different object, as the Auditor also noted.
+  An instructing comment is a control, and comment and code disagree here.
+
+  It does NOT affect this unit: the helper never touches any of the eleven, so
+  0033 cannot break it, and the recurrence detector shows `profiles_public_data`
+  holds no write-class grant for anon or authenticated either.
+
+  src/** is D2's file. Reported to the Auditor, not edited. Not even the
+  comment.

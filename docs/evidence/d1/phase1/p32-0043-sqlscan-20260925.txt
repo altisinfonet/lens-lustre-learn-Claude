@@ -1,0 +1,94 @@
+D1 · U5 · 20260910_0043 — STATIC SCAN TRANSCRIPT
+Run: 2026-09-25T12:32:11Z  (re-run after C-A22)
+Commands: python3 docs/evidence/d1/phase1/p32-0043-sqlscan.py
+          bash    docs/evidence/d1/phase1/p32-0043-sqlscan-falsify.sh
+          node    scripts/security-audit.mjs
+
+D1 · U5 · 20260910_0043 — STATIC SQL SAFETY SCAN
+instrument: docs/evidence/d1/phase1/unitC-sqlscan.py
+
+=== supabase/migrations/20260910_0043_p32_default_privilege_recurrence.sql
+  executable statements (top level) : 8
+  REMAINDER (unclassified)          : 0
+  ALTER DEFAULT PRIVILEGES          : 3
+      ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon
+      ALTER DEFAULT PRIVILEGES FOR ROLE postgres REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC
+      ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA extensions GRANT EXECUTE ON FUNCTIONS TO PUBLIC
+  object-level GRANT / REVOKE       : 0
+  statements naming TO PUBLIC       : 1
+      ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA extensions GRANT EXECUTE ON FUNCTIONS TO PUBLIC
+
+  PASS  remainder is 0 — the scan understood every statement
+  PASS  no object-level GRANT or REVOKE — default privileges only
+  PASS  no executable CREATE or DROP statement
+  PASS  no ALTER TABLE / POLICY / ROLE
+  PASS  every SECURITY DEFINER function this file creates pins search_path (secdef-no-search-path, HIGH)  1 definer function(s)
+  PASS  exactly one TO PUBLIC, and it is the extensions carve-out  count 1
+  lane assertion(s) found           : [('NOT IN', "('staging', 'production')")]
+  PASS  exactly three ALTER DEFAULT PRIVILEGES statements  got 3
+  PASS  they are the three the ruling names, in that order
+  PASS  the GLOBAL statement is present (the one that closes anon — F-65, C-A20)
+  PASS  the global statement has no IN SCHEMA clause
+  PASS  TWO-LANE assertion: NOT IN ('staging','production')
+  PASS  the migration is not restricted to one lane
+  PASS  it creates the probe function and DROPs it again in the same file
+
+=== supabase/rollback/20260910_0043_p32_default_privilege_recurrence_ROLLBACK.sql
+  executable statements (top level) : 6
+  REMAINDER (unclassified)          : 0
+  ALTER DEFAULT PRIVILEGES          : 1
+      ALTER DEFAULT PRIVILEGES FOR ROLE postgres GRANT EXECUTE ON FUNCTIONS TO authenticated, service_role
+  object-level GRANT / REVOKE       : 0
+  statements naming TO PUBLIC       : 0
+
+  PASS  remainder is 0 — the scan understood every statement
+  PASS  no object-level GRANT or REVOKE — default privileges only
+  PASS  no executable CREATE or DROP statement
+  PASS  no ALTER TABLE / POLICY / ROLE
+  PASS  every SECURITY DEFINER function this file creates pins search_path (secdef-no-search-path, HIGH)  1 definer function(s)
+  PASS  no TO PUBLIC anywhere  []
+  lane assertion(s) found           : [('<>', "'staging'")]
+  PASS  exactly one ALTER DEFAULT PRIVILEGES statement  got 1
+  PASS  it is the GLOBAL entry, restored by grantee NAME  ALTER DEFAULT PRIVILEGES FOR ROLE postgres GRANT EXECUTE ON FUNCTIONS TO authenticated, service_role
+  PASS  the rollback does not touch the extensions carve-out
+  PASS  the rollback does not touch the public schema entry
+  PASS  R-9 STAGING-ONLY guard: <> 'staging'
+  PASS  the rollback does not accept production
+  PASS  it creates the probe function and DROPs it again in the same file
+
+  ALL CHECKS PASS: True
+(scan exit 0)
+
+C-34 FALSIFICATION OF docs/evidence/d1/phase1/p32-0043-sqlscan.py
+  PASS  control — the real files pass
+
+  RED as required  the GLOBAL statement is deleted (the file becomes a no-op)  →  FAIL  exactly three ALTER DEFAULT PRIVILEGES statements  got 2
+  RED as required  the carve-out loses its schema scope (global TO PUBLIC)  →  FAIL  exactly one TO PUBLIC, and it is the extensions carve-out  ['ALTER DEFAULT PRIVILEGES FOR ROLE postgres GRANT EXECUTE ON FUNCTIONS TO PUBLIC']
+  RED as required  a second TO PUBLIC is added, scoped elsewhere  →  FAIL  exactly one TO PUBLIC, and it is the extensions carve-out  ['ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT EXECUTE ON FUN']
+  RED as required  the statements are reordered  →  FAIL  exactly three ALTER DEFAULT PRIVILEGES statements  got 2
+  RED as required  an object-level GRANT is smuggled in  →  FAIL  no object-level GRANT or REVOKE — default privileges only  ['GRANT EXECUTE ON FUNCTION public.p32_0043_probe(text) TO ano']
+  RED as required  an object-level REVOKE is smuggled in  →  FAIL  no object-level GRANT or REVOKE — default privileges only  ['REVOKE EXECUTE ON FUNCTION public.p32_0043_probe(text) FROM ']
+  RED as required  a real CREATE is added  →  FAIL  no executable CREATE or DROP statement  ['CREATE TABLE public._p32_leftover (id int)']
+  RED as required  the migration is narrowed to one lane  →  FAIL  TWO-LANE assertion: NOT IN ('staging','production')
+  RED as required  the probe is never dropped  →  FAIL  it creates the probe function and DROPs it again in the same file
+  RED as required  the migration probe loses its search_path pin (C-A22)  →  FAIL  every SECURITY DEFINER function this file creates pins search_path (secdef-no-search-path, HIGH)  ["CREATE FUNCTION public._p32r_probe() RETURNS void LANGUAGE sql ' 'SECURITY DEFINER AS"]
+  RED as required  the rollback probe loses its search_path pin (C-A22)  →  FAIL  every SECURITY DEFINER function this file creates pins search_path (secdef-no-search-path, HIGH)  ["CREATE FUNCTION public._p32r_probe() RETURNS void LANGUAGE sql ' 'SECURITY DEFINER AS"]
+  RED as required  the rollback restores TO PUBLIC (F-62, R-11)  →  FAIL  no TO PUBLIC anywhere  ['ALTER DEFAULT PRIVILEGES FOR ROLE postgres GRANT EXECUTE ON FUNCTIONS TO PUBLIC']
+  RED as required  the rollback removes the extensions carve-out  →  FAIL  the rollback does not touch the extensions carve-out
+  RED as required  the rollback guard is widened to both lanes (R-9 broken)  →  FAIL  R-9 STAGING-ONLY guard: <> 'staging'
+
+  ALL FOURTEEN MUTANTS CAUGHT
+(falsify exit 0)
+
+=== C-A22 · the repository's own security gate ===
+--- with the pin (the committed files) ---
+
+CRITICAL 0 · HIGH 0 · MEDIUM 4 · LOW 1
+
+PASS — no blocking findings.
+--- CONTROL: the same files with the pin removed ---
+[HIGH] secdef-no-search-path: SECURITY DEFINER function "public._p32r_probe" does not pin search_path in its most recent definition
+CRITICAL 0 · HIGH 1 · MEDIUM 4 · LOW 1
+FAIL — 1 blocking finding(s). Nothing publishes while this is red.
+
+The gate is therefore falsifiable on this file, not merely satisfied by it.

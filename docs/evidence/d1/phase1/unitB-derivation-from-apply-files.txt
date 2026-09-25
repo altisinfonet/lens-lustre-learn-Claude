@@ -1,0 +1,98 @@
+file      objects  restore-set derived from the apply's own REVOKE list
+--------------------------------------------------------------------------------------------------------------------
+
+0003  (20260910_0003_p31_search_certificates_revoke.sql)   objects: 1
+    public.search_certificates(text, text, date)                                   revoked=public,anon                  granted=-                     
+      -> RESTORE: anon
+
+0005  (20260910_0005_oi3_verify_certificate_by_token_public_only.sql)   objects: 1
+    public.verify_certificate_by_token(text)                                       revoked=public                       granted=-                     
+      -> RESTORE: (none)  <-- apply removed ONLY public: corrected rollback restores NOTHING
+
+0012  (20260910_0012_f98_revoke_from_public.sql)   objects: 13
+    public.clear_custom_url()                                                      revoked=public,anon,authenticated    granted=-                     
+      -> RESTORE: anon,authenticated
+    public.change_custom_url(text)                                                 revoked=public,anon,authenticated    granted=authenticated         
+      -> RESTORE: anon,authenticated
+    public.claim_username(text)                                                    revoked=public,anon,authenticated    granted=authenticated         
+      -> RESTORE: anon,authenticated
+    public.custom_url_available(text, uuid)                                        revoked=public,anon,authenticated    granted=-                     
+      -> RESTORE: anon,authenticated
+    public.custom_url_ever_held(uuid)                                              revoked=public,anon,authenticated    granted=-                     
+      -> RESTORE: anon,authenticated
+    public.custom_url_slug(text)                                                   revoked=public,anon,authenticated    granted=-                     
+      -> RESTORE: anon,authenticated
+    public.custom_url_transliterate(text)                                          revoked=public,anon,authenticated    granted=-                     
+      -> RESTORE: anon,authenticated
+    public.custom_url_fold_accents(text)                                           revoked=public,anon,authenticated    granted=-                     
+      -> RESTORE: anon,authenticated
+    public.forbid_custom_url_change()                                              revoked=public,anon,authenticated    granted=-                     
+      -> RESTORE: anon,authenticated
+    public.prevent_direct_custom_url_update()                                      revoked=public,anon,authenticated    granted=-                     
+      -> RESTORE: anon,authenticated
+    public.tg_custom_url_reject_reserved()                                         revoked=public,anon,authenticated    granted=-                     
+      -> RESTORE: anon,authenticated
+    public.tg_profiles_assign_custom_url()                                         revoked=public,anon,authenticated    granted=-                     
+      -> RESTORE: anon,authenticated
+    public.tg_profiles_record_custom_url_history()                                 revoked=public,anon,authenticated    granted=-                     
+      -> RESTORE: anon,authenticated
+
+0019  (20260910_0019_f105d_process_referral_reward_authorize.sql)   objects: 2
+    public.process_referral_reward(uuid, text)                                     revoked=public,anon                  granted=-                     
+      -> RESTORE: anon
+    public.process_referral_reward(uuid, text, numeric)                            revoked=public,anon                  granted=-                     
+      -> RESTORE: anon
+
+0024  (20260910_0024_p32mail_delete_email_revoke.sql)   objects: 1
+    public.delete_email(text, bigint)                                              revoked=public,anon,authenticated    granted=service_role          
+      -> RESTORE: anon,authenticated
+
+0025  (20260910_0025_p32mail_emit_notification_revoke.sql)   objects: 1
+    public.emit_notification(text, uuid, integer, uuid, text, text, text, uuid,    revoked=public,anon,authenticated    granted=service_role          
+      -> RESTORE: anon,authenticated
+
+0026  (20260910_0026_p32mail_move_to_dlq_mail_only_revoke.sql)   objects: 1
+    public.move_to_dlq(text, text, bigint, jsonb)                                  revoked=public,anon,authenticated    granted=service_role          
+      -> RESTORE: anon,authenticated
+
+feed  (20260814074922_feed_rpc_candidate_pool.sql)   objects: 3
+    public.get_broadcast_feed(uuid[], integer, integer, text[])                    revoked=public                       granted=anon,authenticated,service_role
+      -> RESTORE: (none)  <-- apply removed ONLY public: corrected rollback restores NOTHING
+    public.get_broadcast_feed(uuid[], integer, integer)                            revoked=public                       granted=anon,authenticated,service_role
+      -> RESTORE: (none)  <-- apply removed ONLY public: corrected rollback restores NOTHING
+    public.get_broadcast_feed(uuid[], integer)                                     revoked=public                       granted=anon,authenticated,service_role
+      -> RESTORE: (none)  <-- apply removed ONLY public: corrected rollback restores NOTHING
+
+queue  (20260814080227_queue_and_writer_authority.sql)   objects: 4
+    public.move_to_dlq(text, text, bigint, jsonb)                                  revoked=public,anon,authenticated    granted=service_role          
+      -> RESTORE: anon,authenticated
+    public._ensure_stats_row(uuid)                                                 revoked=public,anon,authenticated    granted=service_role          
+      -> RESTORE: anon,authenticated
+    public.log_push_outcome(uuid, uuid, text, text, text)                          revoked=public,anon,authenticated    granted=service_role          
+      -> RESTORE: anon,authenticated
+    public.wallet_ledger_v2_diff_snapshot(interval)                                revoked=public,anon,authenticated    granted=service_role          
+      -> RESTORE: anon,authenticated
+
+hashtag  (20260817102540_hashtag_grants_and_cascade.sql)   objects: 2
+    public.recount_hashtags(uuid[])                                                revoked=public,anon,authenticated    granted=-                     
+      -> RESTORE: anon,authenticated
+    public.suggest_hashtags(text, integer)                                         revoked=public,anon                  granted=authenticated         
+      -> RESTORE: anon
+
+media  (20260917140000_p32_media_pipeline_acl_reassertion.sql)   objects: 8
+    public.media_begin_upload(bytea, integer, integer, bigint, text)               revoked=public,anon,authenticated    granted=authenticated,service_role
+      -> RESTORE: anon,authenticated
+    public.media_mark_ready(uuid, jsonb)                                           revoked=public,anon,authenticated    granted=service_role          
+      -> RESTORE: anon,authenticated
+    public.media_mark_verified(uuid)                                               revoked=public,anon,authenticated    granted=service_role          
+      -> RESTORE: anon,authenticated
+    public.media_migrate_post(uuid, uuid, jsonb)                                   revoked=public,anon,authenticated    granted=service_role          
+      -> RESTORE: anon,authenticated
+    public.media_quarantine(uuid, text)                                            revoked=public,anon,authenticated    granted=service_role          
+      -> RESTORE: anon,authenticated
+    public.post_attach_media(uuid, uuid[])                                         revoked=public,anon,authenticated    granted=service_role          
+      -> RESTORE: anon,authenticated
+    public.post_publish_with_media(uuid[], text, text, text[], boolean, text, te   revoked=public,anon,authenticated    granted=authenticated,service_role
+      -> RESTORE: anon,authenticated
+    public.publish_post_draft(uuid)                                                revoked=public,anon,authenticated    granted=authenticated,service_role
+      -> RESTORE: anon,authenticated

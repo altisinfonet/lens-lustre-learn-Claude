@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/core/useAuth";
 
 import { logger } from "@/lib/logger";
 
@@ -26,7 +27,7 @@ const IDLE: LockState = {
  * Manages a session lock on a specific entry+photo_index.
  * - Acquires lock when entryId/photoIndex are set
  * - Heartbeats every 2 minutes to extend lock
- * - Releases lock on deselection, unmount, or page unload
+ * - Releases lock on deselection, unmount, or page teardown (`pagehide`)
  */
 export function useJudgingLock(
   judgeId: string | undefined,
@@ -38,6 +39,15 @@ export function useJudgingLock(
   const activeRef = useRef<{ entryId: string; photoIndex: number } | null>(null);
   const judgeIdRef = useRef(judgeId);
   judgeIdRef.current = judgeId;
+
+  /* The teardown release at the bottom of this file may not await anything, and
+   * `supabase.auth.getSession()` is async. So the access token is mirrored into
+   * a ref on every render and read synchronously there. It is taken from the
+   * single `onAuthStateChange` subscription `AuthProvider` already owns — a
+   * second subscription here would be a second way to do the same thing. */
+  const { session } = useAuth();
+  const accessTokenRef = useRef<string | null>(session?.access_token ?? null);
+  accessTokenRef.current = session?.access_token ?? null;
 
   const clearHeartbeat = useCallback(() => {
     if (heartbeatRef.current) {
@@ -173,38 +183,75 @@ export function useJudgingLock(
     };
   }, [clearHeartbeat]);
 
-  // Release on page unload (beforeunload)
+  /* ── THE TEARDOWN RELEASE: AUTHORIZED, OR NOT SENT AT ALL. ──
+   *
+   * WHAT WAS WRONG. This request carried `apikey` and nothing else. PostgREST
+   * takes the role from the JWT in `Authorization`; with only `apikey` present
+   * it executes the call as `anon`, not as the signed-in judge. Once PR #276
+   * closes `release_judge_lock` to `anon`, every one of these would come back
+   * `42501` — and nothing would have said so: the fetch is not awaited, its
+   * rejection was swallowed by an empty `catch`, and no test ran this line. The
+   * only symptom would have been judges’ locks sitting untouched until their
+   * TTL expired. The silence was as much the defect as the missing header, so
+   * both are fixed here and both are pinned by
+   * `__tests__/useJudgingLockUnloadAuth.test.tsx`.
+   *
+   * WHY NO TOKEN MEANS NO REQUEST. An unauthenticated release is a request the
+   * server will refuse. Sending it anyway would replace a plainly missing
+   * session with a 401/403 nobody reads, so when the ref is empty this sends
+   * nothing at all and leaves the lock to its TTL.
+   *
+   * WHY `pagehide` AND NOT `beforeunload`. `beforeunload` is not fired when a
+   * mobile browser or the Android WebView discards the page — which is most of
+   * how this app is used. `pagehide` is. `event.persisted` separates the two
+   * cases: `true` means the page went into the back/forward cache and will come
+   * back with this hook’s state, its `activeRef` and its heartbeat intact, so
+   * releasing there would strand a judge holding a lock the server has already
+   * given away. Only `persisted === false` is a teardown.
+   *
+   * THIS IS NOT RELIABLE DELIVERY AND MUST NOT BE READ AS ONE. A `keepalive`
+   * fetch can be dropped in flight, a tab killed by the OS fires no event at
+   * all, and a reaped WebView fires nothing either. `LOCK_TTL_MINUTES` above is
+   * the backstop and remains the only actual guarantee that a lock is given up.
+   * This handler exists to make the common case prompt, not to make a promise.
+   */
   useEffect(() => {
-    const handleUnload = () => {
+    const releaseOnTeardown = (event: PageTransitionEvent) => {
+      // Back/forward cache: the page is coming back, and so is its lock.
+      if (event.persisted) return;
+
       const active = activeRef.current;
       const jid = judgeIdRef.current;
       if (!active || !jid) return;
-      // Use sendBeacon with proper auth headers via Blob
+
+      // Synchronous read — nothing in a teardown handler may await.
+      const accessToken = accessTokenRef.current;
+      if (!accessToken) return;
+
       const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/release_judge_lock`;
-      const body = JSON.stringify({
-        _entry_id: active.entryId,
-        _photo_index: active.photoIndex,
-        _judge_id: jid,
-      });
-      const headers = {
-        "Content-Type": "application/json",
-        "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-      };
-      // sendBeacon can't set custom headers; use fetch with keepalive instead
       try {
         fetch(url, {
           method: "POST",
-          headers,
-          body,
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            // The signed-in judge. Without this the call runs as `anon`.
+            "Authorization": `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            _entry_id: active.entryId,
+            _photo_index: active.photoIndex,
+            _judge_id: jid,
+          }),
           keepalive: true,
         });
       } catch {
-        // Best-effort; TTL will expire the lock
+        // Best-effort; the TTL is what actually expires the lock.
       }
     };
 
-    window.addEventListener("beforeunload", handleUnload);
-    return () => window.removeEventListener("beforeunload", handleUnload);
+    window.addEventListener("pagehide", releaseOnTeardown);
+    return () => window.removeEventListener("pagehide", releaseOnTeardown);
   }, []);
 
   return {

@@ -1,0 +1,43 @@
+D1 · R-13 · STATIC ACCEPTANCE
+base 5d563e7
+
+-- ROW 2  YAML validity
+  PASS  parses as YAML                                                 True
+
+-- ROW 1  every pre-existing gate line unchanged
+  PASS  same number of steps                                           9
+  PASS  same step names, same order                                    [None, 'The branch must match the target', 'Refuse to start without the database credential', 'The credential must point at the target database', 'Validate the requested file', 'Show the SQL that is about to run', 'Install psql', 'Run it', 'Confirm']
+  PASS  exactly one step differs                                       ['Run it']
+  PASS  job.environment unchanged                                      ${{ inputs.target }}
+  PASS  job.runs-on unchanged                                          ubuntu-latest
+  PASS  job.timeout-minutes unchanged                                  15
+  PASS  job.env unchanged                                              {'DB_URL': '${{ secrets.SUPABASE_DB_URL }}', 'TARGET_LANE': '${{ inputs.target }}', 'BRANCH_REF': '${{ github.ref_name }}', 'MIGRATION_PATH': '${{ inputs.migration }}', 'CONFIRM_PATH': '${{ inputs.confirm }}'}
+  PASS  top-level True unchanged                                       {'workflow_dispatch': {'inputs': {'target': {'description': 'Which database. staging = fpszggreishhuvdpkmdr, production = jtdtehuqtinjxropkkcn.', 'required': True, 'type': 'choice', 'options': ['staging', 'production']}, 'migration': {'description': 'Path under supabase/migrations/ or supabase/rollback/ — e.g. supabase/migrations/20260813120000_feed_author_identity.sql', 'required': True, 'type': 'string'}, 'confirm': {'description': 'Type the SAME path again. A mis-click cannot fire this.', 'required': True, 'type': 'string'}}}}
+  PASS  top-level 'concurrency' unchanged                              {'group': 'apply-migration-${{ inputs.target }}', 'cancel-in-progress': False}
+  PASS  top-level 'permissions' unchanged                              {'contents': 'read'}
+  PASS  gate byte-identical: The branch must match the target          True
+  PASS  gate byte-identical: Refuse to start without the database credent True
+  PASS  gate byte-identical: The credential must point at the target data True
+  PASS  gate byte-identical: Validate the requested file               True
+  PASS  gate byte-identical: Show the SQL that is about to run         True
+  PASS  gate byte-identical: Install psql                              True
+  PASS  gate byte-identical: Confirm                                   True
+
+-- ROW 3  no ${{ }} inside any run: block
+  PASS  run-block ${{ }} occurrences                                   0
+  PASS  raw text scan of run: regions                                  0
+
+-- the change itself
+  PASS  psql receives -c SET p32.lane                                  True
+  PASS  -c precedes -f                                                 True
+  PASS  lane re-asserted against the two literals                      True
+  PASS  the re-assert precedes the psql call                           True
+  PASS  port is parsed                                                 True
+  PASS  6543 refused with the mandated message                         True
+  PASS  $DB_URL is never echoed                                        True
+  PASS  p32.lane assignments found                                     1
+  PASS  every assignment is ${TARGET_LANE}                             ["'${TARGET_LANE}'"]
+  PASS  no assignment hard-codes a lane                                []
+  PASS  exactly one psql invocation                                    1
+
+  OVERALL: ALL STATIC CHECKS PASS

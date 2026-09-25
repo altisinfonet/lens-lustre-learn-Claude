@@ -1,0 +1,204 @@
+D1 · UNIT B · C-34 — NINE STEPS PER FILE
+Seed = that file's own PRE-APPLY state, derived from its apply's REVOKE list.
+Then the APPLY is run, because a rollback is run from the post-apply state —
+without that, step 2 could not fail and would be C-34 all over again.
+====================================================================================================
+
+====================================================================================================
+FILE 0003  (CASE B)  ·  20260910_0003_p31_search_certificates_revoke_ROLLBACK.sql
+  objects: 1
+  STEP 1 · pre-apply seeded; PUBLIC entries = 1 of 1
+           apply -> full file; PUBLIC entries now = 0 of 1
+  STEP 2 · OLD body -> full file; PUBLIC entries = 1 of 1   PASS — the defect reproduced
+           search_certificates(text,text,date)  grantee=PUBLIC  EXECUTE
+  STEP 3 · reset to post-apply; ACL matches step-1 baseline: True
+  STEP 6 · p32.lane unset         rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 7 · p32.lane='production'  rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 4 · CORRECTED body, lane=staging  rc=0  PUBLIC entries=0  post-condition=passed   PASS
+  STEP 5 · re-run (idempotence)          rc=0  ACL byte-identical=True   PASS
+  STEP 8 · intended named grantees present, per object: ALL PRESENT   PASS
+  STEP 9 · near-misses + reset-to-unset  refused: all 5 + reset   PASS
+
+====================================================================================================
+FILE 0005  (CASE B)  ·  20260910_0005_oi3_verify_certificate_by_token_public_only_ROLLBACK.sql
+  objects: 1
+  STEP 1 · pre-apply seeded; PUBLIC entries = 1 of 1
+           apply -> full file; PUBLIC entries now = 0 of 1
+  STEP 2 · OLD body -> full file; PUBLIC entries = 1 of 1   PASS — the defect reproduced
+           verify_certificate_by_token(text)  grantee=PUBLIC  EXECUTE
+  STEP 3 · reset to post-apply; ACL matches step-1 baseline: True
+  STEP 6 · p32.lane unset         rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 7 · p32.lane='production'  rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 4 · CORRECTED body, lane=staging  rc=0  PUBLIC entries=0  post-condition=passed   PASS
+  STEP 5 · re-run (idempotence)          rc=0  ACL byte-identical=True   PASS
+  STEP 8 · intended named grantees present, per object: ALL PRESENT   PASS
+  STEP 9 · near-misses + reset-to-unset  refused: all 5 + reset   PASS
+
+====================================================================================================
+FILE 0012  (CASE A)  ·  20260910_0012_f98_ROLLBACK.sql
+  objects: 13
+  STEP 1 · pre-apply seeded; PUBLIC entries = 13 of 13
+           apply -> full file; PUBLIC entries now = 0 of 13
+  STEP 2 · OLD body -> full file; PUBLIC entries = 3 of 13   PASS — the defect reproduced
+           change_custom_url(text)  grantee=PUBLIC  EXECUTE
+           claim_username(text)  grantee=PUBLIC  EXECUTE
+           clear_custom_url()  grantee=PUBLIC  EXECUTE
+  STEP 3 · reset to post-apply; ACL matches step-1 baseline: True
+  STEP 6 · p32.lane unset         rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 7 · p32.lane='production'  rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 4 · CORRECTED body, lane=staging  rc=0  PUBLIC entries=0  post-condition=passed   PASS
+  STEP 5 · re-run (idempotence)          rc=0  ACL byte-identical=True   PASS
+  STEP 8 · intended named grantees present, per object: ALL PRESENT   PASS
+  STEP 9 · near-misses + reset-to-unset  refused: all 5 + reset   PASS
+
+====================================================================================================
+FILE 0019  (CASE A)  ·  20260910_0019_f105d_process_referral_reward_authorize_ROLLBACK.sql
+  objects: 2
+  STEP 1 · pre-apply seeded; PUBLIC entries = 2 of 2
+           apply -> ACL-only fallback (2 statements); PUBLIC entries now = 0 of 2
+           (full apply refused by the stub fixture: cannot change name of input parameter "_a0")
+  STEP 2 · OLD body -> ACL-only fallback (2 statements); PUBLIC entries = 2 of 2   PASS — the defect reproduced
+           (full old body refused by the stub fixture: cannot change name of input parameter "_a0")
+           process_referral_reward(uuid,text)  grantee=PUBLIC  EXECUTE
+           process_referral_reward(uuid,text,numeric)  grantee=PUBLIC  EXECUTE
+  STEP 3 · reset to post-apply; ACL matches step-1 baseline: True
+  STEP 6 · p32.lane unset         rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 7 · p32.lane='production'  rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 4 · CORRECTED body, lane=staging  rc=0  PUBLIC entries=0  post-condition=passed   PASS
+  STEP 5 · re-run (idempotence)          rc=0  ACL byte-identical=True   PASS
+  STEP 8 · intended named grantees present, per object: ALL PRESENT   PASS
+  STEP 9 · near-misses + reset-to-unset  refused: all 5 + reset   PASS
+
+====================================================================================================
+FILE 0024  (CASE A)  ·  20260910_0024_p32mail_delete_email_revoke_ROLLBACK.sql
+  objects: 1
+  STEP 1 · pre-apply seeded; PUBLIC entries = 1 of 1
+           apply -> full file; PUBLIC entries now = 0 of 1
+  STEP 2 · OLD body -> full file; PUBLIC entries = 1 of 1   PASS — the defect reproduced
+           delete_email(text,bigint)  grantee=PUBLIC  EXECUTE
+  STEP 3 · reset to post-apply; ACL matches step-1 baseline: True
+  STEP 6 · p32.lane unset         rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 7 · p32.lane='production'  rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 4 · CORRECTED body, lane=staging  rc=0  PUBLIC entries=0  post-condition=passed   PASS
+  STEP 5 · re-run (idempotence)          rc=0  ACL byte-identical=True   PASS
+  STEP 8 · intended named grantees present, per object: ALL PRESENT   PASS
+  STEP 9 · near-misses + reset-to-unset  refused: all 5 + reset   PASS
+
+====================================================================================================
+FILE 0025  (CASE A)  ·  20260910_0025_p32mail_emit_notification_revoke_ROLLBACK.sql
+  objects: 1
+  STEP 1 · pre-apply seeded; PUBLIC entries = 1 of 1
+           apply -> full file; PUBLIC entries now = 0 of 1
+  STEP 2 · OLD body -> full file; PUBLIC entries = 1 of 1   PASS — the defect reproduced
+           emit_notification(text,uuid,integer,uuid,text,text,text,uuid,text,jsonb,text)  grantee=PUBLIC  EXECUTE
+  STEP 3 · reset to post-apply; ACL matches step-1 baseline: True
+  STEP 6 · p32.lane unset         rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 7 · p32.lane='production'  rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 4 · CORRECTED body, lane=staging  rc=0  PUBLIC entries=0  post-condition=passed   PASS
+  STEP 5 · re-run (idempotence)          rc=0  ACL byte-identical=True   PASS
+  STEP 8 · intended named grantees present, per object: ALL PRESENT   PASS
+  STEP 9 · near-misses + reset-to-unset  refused: all 5 + reset   PASS
+
+====================================================================================================
+FILE 0026  (CASE A)  ·  20260910_0026_p32mail_move_to_dlq_mail_only_revoke_ROLLBACK.sql
+  objects: 1
+  STEP 1 · pre-apply seeded; PUBLIC entries = 1 of 1
+           apply -> full file; PUBLIC entries now = 0 of 1
+  STEP 2 · OLD body -> full file; PUBLIC entries = 1 of 1   PASS — the defect reproduced
+           move_to_dlq(text,text,bigint,jsonb)  grantee=PUBLIC  EXECUTE
+  STEP 3 · reset to post-apply; ACL matches step-1 baseline: True
+  STEP 6 · p32.lane unset         rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 7 · p32.lane='production'  rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 4 · CORRECTED body, lane=staging  rc=0  PUBLIC entries=0  post-condition=passed   PASS
+  STEP 5 · re-run (idempotence)          rc=0  ACL byte-identical=True   PASS
+  STEP 8 · intended named grantees present, per object: ALL PRESENT   PASS
+  STEP 9 · near-misses + reset-to-unset  refused: all 5 + reset   PASS
+
+====================================================================================================
+FILE feed  (CASE B)  ·  20260814074922_feed_rpc_candidate_pool_ROLLBACK.sql
+  objects: 3
+  STEP 1 · pre-apply seeded; PUBLIC entries = 3 of 3
+           apply -> ACL-only fallback (6 statements); PUBLIC entries now = 0 of 3
+           (full apply refused by the stub fixture: schema "auth" does not exist)
+  STEP 2 · OLD body -> ACL-only fallback (4 statements); PUBLIC entries = 2 of 3   PASS — the defect reproduced
+           (full old body refused by the stub fixture: schema "auth" does not exist)
+           get_broadcast_feed(uuid[],integer)  grantee=PUBLIC  EXECUTE
+           get_broadcast_feed(uuid[],integer,integer)  grantee=PUBLIC  EXECUTE
+  STEP 3 · reset to post-apply; ACL matches step-1 baseline: True
+  STEP 6 · p32.lane unset         rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 7 · p32.lane='production'  rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 4 · CORRECTED body, lane=staging  rc=0  PUBLIC entries=0  post-condition=passed   PASS
+  STEP 5 · re-run (idempotence)          rc=0  ACL byte-identical=True   PASS
+  STEP 8 · intended named grantees present, per object: ALL PRESENT   PASS
+  STEP 9 · near-misses + reset-to-unset  refused: all 5 + reset   PASS
+
+====================================================================================================
+FILE queue  (CASE B)  ·  20260814080227_queue_and_writer_authority_ROLLBACK.sql
+  objects: 4
+  STEP 1 · pre-apply seeded; PUBLIC entries = 4 of 4
+           apply -> ACL-only fallback (8 statements); PUBLIC entries now = 0 of 4
+           (full apply refused by the stub fixture: cannot change return type of existing function)
+  STEP 2 · OLD body -> ACL-only fallback (4 statements); PUBLIC entries = 4 of 4   PASS — the defect reproduced
+           (full old body refused by the stub fixture: cannot change return type of existing function)
+           _ensure_stats_row(uuid)  grantee=PUBLIC  EXECUTE
+           log_push_outcome(uuid,uuid,text,text,text)  grantee=PUBLIC  EXECUTE
+           move_to_dlq(text,text,bigint,jsonb)  grantee=PUBLIC  EXECUTE
+           wallet_ledger_v2_diff_snapshot(interval)  grantee=PUBLIC  EXECUTE
+  STEP 3 · reset to post-apply; ACL matches step-1 baseline: True
+  STEP 6 · p32.lane unset         rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 7 · p32.lane='production'  rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 4 · CORRECTED body, lane=staging  rc=0  PUBLIC entries=0  post-condition=passed   PASS
+  STEP 5 · re-run (idempotence)          rc=0  ACL byte-identical=True   PASS
+  STEP 8 · intended named grantees present, per object: ALL PRESENT   PASS
+  STEP 9 · near-misses + reset-to-unset  refused: all 5 + reset   PASS
+
+====================================================================================================
+FILE hashtag  (CASE B)  ·  20260817102540_hashtag_grants_and_cascade_ROLLBACK.sql
+  objects: 2
+  STEP 1 · pre-apply seeded; PUBLIC entries = 2 of 2
+           apply -> ACL-only fallback (6 statements); PUBLIC entries now = 0 of 2
+           (full apply refused by the stub fixture: relation "public.post_hashtags" does not exist)
+  STEP 2 · OLD body -> ACL-only fallback (4 statements); PUBLIC entries = 1 of 2   PASS — the defect reproduced
+           (full old body refused by the stub fixture: relation "public.post_hashtags" does not exist)
+           recount_hashtags(uuid[])  grantee=PUBLIC  EXECUTE
+  STEP 3 · reset to post-apply; ACL matches step-1 baseline: True
+  STEP 6 · p32.lane unset         rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 7 · p32.lane='production'  rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 4 · CORRECTED body, lane=staging  rc=0  PUBLIC entries=0  post-condition=passed   PASS
+  STEP 5 · re-run (idempotence)          rc=0  ACL byte-identical=True   PASS
+  STEP 8 · intended named grantees present, per object: ALL PRESENT   PASS
+  STEP 9 · near-misses + reset-to-unset  refused: all 5 + reset   PASS
+
+====================================================================================================
+FILE media  (CASE A)  ·  20260917140000_p32_media_pipeline_acl_reassertion_ROLLBACK.sql
+  objects: 8
+  STEP 1 · pre-apply seeded; PUBLIC entries = 8 of 8
+           apply -> full file; PUBLIC entries now = 0 of 8
+  STEP 2 · OLD body -> full file; PUBLIC entries = 8 of 8   PASS — the defect reproduced
+           media_begin_upload(bytea,integer,integer,bigint,text)  grantee=PUBLIC  EXECUTE
+           media_mark_ready(uuid,jsonb)  grantee=PUBLIC  EXECUTE
+           media_mark_verified(uuid)  grantee=PUBLIC  EXECUTE
+           media_migrate_post(uuid,uuid,jsonb)  grantee=PUBLIC  EXECUTE
+  STEP 3 · reset to post-apply; ACL matches step-1 baseline: True
+  STEP 6 · p32.lane unset         rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 7 · p32.lane='production'  rc=3  proacl byte-identical=True  names p32.lane=True   PASS
+  STEP 4 · CORRECTED body, lane=staging  rc=0  PUBLIC entries=0  post-condition=passed   PASS
+  STEP 5 · re-run (idempotence)          rc=0  ACL byte-identical=True   PASS
+  STEP 8 · intended named grantees present, per object: ALL PRESENT   PASS
+  STEP 9 · near-misses + reset-to-unset  refused: all 5 + reset   PASS
+
+====================================================================================================
+
+FIXTURE MODE PER FILE:
+  0003     full file
+  0005     full file
+  0012     full file
+  0019     ACL-only fallback (2 statements)   <- cannot change name of input parameter "_a0"
+  0024     full file
+  0025     full file
+  0026     full file
+  feed     ACL-only fallback (6 statements)   <- schema "auth" does not exist
+  queue    ACL-only fallback (8 statements)   <- cannot change return type of existing function
+  hashtag  ACL-only fallback (6 statements)   <- relation "public.post_hashtags" does not exist
+  media    full file
+RESULT: ALL NINE STEPS PASSED ON ALL ELEVEN FILES

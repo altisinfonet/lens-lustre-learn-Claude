@@ -1,32 +1,64 @@
--- ═══════════════════════════════════════════════════════════════════════════
--- ROLLBACK for UNAPPLIED_20260824000000_admin_user_list_pagination.sql
+-- ===========================================================================
+-- WITHDRAWN under Auditor rulings R-24 / R-26, Unit C.
+-- NEUTRALISED, not merely renamed.
 --
--- Safe to run at any time. The forward migration is purely ADDITIVE: it
--- creates one new function and one new index, and touches nothing that
--- existed before. `admin_search_users` (v1) is not modified by the forward
--- migration, so it is not restored here — there is nothing to restore.
+-- The UNAPPLIED_ prefix is NOT a dispatch control. apply-migration.yml's
+-- allowlist is a glob on directory and extension: every .sql file under
+-- supabase/migrations and supabase/rollback matches it, this one included.
+-- The workflow reads no filename prefix and no comment -- it cats the file
+-- into psql. Withdrawal by rename alone left this SQL one typed path away
+-- from running.
 --
--- PRECONDITION. Run this only when the UI is NOT calling v2. If
--- AdminUsers.tsx has already been switched to admin_search_users_v2, dropping
--- the function makes the admin member list fail with
--- "Could not find the function public.admin_search_users_v2". Roll the UI
--- back first, or accept that outage knowingly.
+-- Every line of the original body below carries a leading "-- ". The body is
+-- therefore inert on its own terms, and recoverable byte for byte:
 --
--- The index drop is separable and almost never wanted: idx_profiles_created_at_id_desc
--- helps any ordering of profiles by recency and harms nothing. Drop it only if
--- you are removing this change wholesale.
--- ═══════════════════════════════════════════════════════════════════════════
-
-drop function if exists public.admin_search_users_v2(text, text, text, text, integer, integer);
-
--- Optional. Comment this line out to keep the index, which is independently useful.
-drop index if exists public.idx_profiles_created_at_id_desc;
-
--- ── Verification after rollback ───────────────────────────────────────────
--- Expect 0 rows from the first, and v1 still present in the second.
+--   strip this block, then strip exactly three characters from the start of
+--   every remaining line, and the result is the original file.
 --
---   select proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
---    where n.nspname = 'public' and p.proname = 'admin_search_users_v2';
+--   sha256 of the original, before neutralisation (newline-preserving):
+--     9b20dc7286ffc77992501d05995f44311ae967f39e4fac417d0da4cef34aa9bf
 --
---   select proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
---    where n.nspname = 'public' and p.proname = 'admin_search_users';
+-- The hash is carried here rather than in a separate evidence file so that the
+-- record travels with the file.
+--
+-- Replacement: none
+-- ===========================================================================
+DO $withdrawn$ BEGIN
+  RAISE EXCEPTION
+    'WITHDRAWN under Auditor rulings R-24/R-26, Unit C. This file is the historical record of SQL '
+    'that must not run. Its body is preserved below, commented. Replacement: %.', 'none'
+  USING ERRCODE = 'raise_exception';
+END $withdrawn$;
+-- -- ═══════════════════════════════════════════════════════════════════════════
+-- -- ROLLBACK for UNAPPLIED_20260824000000_admin_user_list_pagination.sql
+-- --
+-- -- Safe to run at any time. The forward migration is purely ADDITIVE: it
+-- -- creates one new function and one new index, and touches nothing that
+-- -- existed before. `admin_search_users` (v1) is not modified by the forward
+-- -- migration, so it is not restored here — there is nothing to restore.
+-- --
+-- -- PRECONDITION. Run this only when the UI is NOT calling v2. If
+-- -- AdminUsers.tsx has already been switched to admin_search_users_v2, dropping
+-- -- the function makes the admin member list fail with
+-- -- "Could not find the function public.admin_search_users_v2". Roll the UI
+-- -- back first, or accept that outage knowingly.
+-- --
+-- -- The index drop is separable and almost never wanted: idx_profiles_created_at_id_desc
+-- -- helps any ordering of profiles by recency and harms nothing. Drop it only if
+-- -- you are removing this change wholesale.
+-- -- ═══════════════════════════════════════════════════════════════════════════
+-- 
+-- drop function if exists public.admin_search_users_v2(text, text, text, text, integer, integer);
+-- 
+-- -- Optional. Comment this line out to keep the index, which is independently useful.
+-- drop index if exists public.idx_profiles_created_at_id_desc;
+-- 
+-- -- ── Verification after rollback ───────────────────────────────────────────
+-- -- Expect 0 rows from the first, and v1 still present in the second.
+-- --
+-- --   select proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+-- --    where n.nspname = 'public' and p.proname = 'admin_search_users_v2';
+-- --
+-- --   select proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+-- --    where n.nspname = 'public' and p.proname = 'admin_search_users';
+-- 

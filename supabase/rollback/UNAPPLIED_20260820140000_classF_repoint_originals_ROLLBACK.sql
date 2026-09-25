@@ -1,36 +1,68 @@
--- ROLLBACK for UNAPPLIED_20260820140000_classF_repoint_originals.sql
+-- ===========================================================================
+-- WITHDRAWN under Auditor rulings R-24 / R-26, Unit C.
+-- NEUTRALISED, not merely renamed.
 --
--- EXACT, not reconstructed. The forward repair captured each post's whole
--- image_urls array BEFORE touching it, so this restores the bytes that were
--- there rather than re-deriving them from a rule.
+-- The UNAPPLIED_ prefix is NOT a dispatch control. apply-migration.yml's
+-- allowlist is a glob on directory and extension: every .sql file under
+-- supabase/migrations and supabase/rollback matches it, this one included.
+-- The workflow reads no filename prefix and no comment -- it cats the file
+-- into psql. Withdrawal by rename alone left this SQL one typed path away
+-- from running.
 --
--- Safe to run more than once: the second run finds the arrays already equal and
--- changes nothing.
-
-begin;
-
-update public.posts p
-set image_urls = a.image_urls_before,
-    image_url  = a.image_urls_before[1]
-from public.media_repair_audit a
-where a.post_id = p.id
-  and a.repair = 'classF_repoint_originals'
-  and p.image_urls is distinct from a.image_urls_before;
-
-do $$
-declare _left int;
-begin
-  select count(*) into _left
-    from public.media_repair_audit a
-    join public.posts p on p.id = a.post_id
-   where a.repair='classF_repoint_originals'
-     and p.image_urls is distinct from a.image_urls_before;
-  if _left > 0 then
-    raise exception 'ROLLBACK-001: % posts did not revert', _left;
-  end if;
-end $$;
-
-commit;
-
--- The audit rows are KEPT. They are the record that the repair happened and was
--- undone; deleting them would erase the only evidence of both.
+-- Every line of the original body below carries a leading "-- ". The body is
+-- therefore inert on its own terms, and recoverable byte for byte:
+--
+--   strip this block, then strip exactly three characters from the start of
+--   every remaining line, and the result is the original file.
+--
+--   sha256 of the original, before neutralisation (newline-preserving):
+--     097ae9ed2c1e86fe4bdbfd46cd37ec53da155c2faa0d1aad6b37756b03967793
+--
+-- The hash is carried here rather than in a separate evidence file so that the
+-- record travels with the file.
+--
+-- Replacement: none
+-- ===========================================================================
+DO $withdrawn$ BEGIN
+  RAISE EXCEPTION
+    'WITHDRAWN under Auditor rulings R-24/R-26, Unit C. This file is the historical record of SQL '
+    'that must not run. Its body is preserved below, commented. Replacement: %.', 'none'
+  USING ERRCODE = 'raise_exception';
+END $withdrawn$;
+-- -- ROLLBACK for UNAPPLIED_20260820140000_classF_repoint_originals.sql
+-- --
+-- -- EXACT, not reconstructed. The forward repair captured each post's whole
+-- -- image_urls array BEFORE touching it, so this restores the bytes that were
+-- -- there rather than re-deriving them from a rule.
+-- --
+-- -- Safe to run more than once: the second run finds the arrays already equal and
+-- -- changes nothing.
+-- 
+-- begin;
+-- 
+-- update public.posts p
+-- set image_urls = a.image_urls_before,
+--     image_url  = a.image_urls_before[1]
+-- from public.media_repair_audit a
+-- where a.post_id = p.id
+--   and a.repair = 'classF_repoint_originals'
+--   and p.image_urls is distinct from a.image_urls_before;
+-- 
+-- do $$
+-- declare _left int;
+-- begin
+--   select count(*) into _left
+--     from public.media_repair_audit a
+--     join public.posts p on p.id = a.post_id
+--    where a.repair='classF_repoint_originals'
+--      and p.image_urls is distinct from a.image_urls_before;
+--   if _left > 0 then
+--     raise exception 'ROLLBACK-001: % posts did not revert', _left;
+--   end if;
+-- end $$;
+-- 
+-- commit;
+-- 
+-- -- The audit rows are KEPT. They are the record that the repair happened and was
+-- -- undone; deleting them would erase the only evidence of both.
+-- 
