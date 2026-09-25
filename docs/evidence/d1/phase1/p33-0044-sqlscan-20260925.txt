@@ -1,0 +1,83 @@
+D1 · U6 · 20260910_0044 — STATIC SCAN TRANSCRIPT
+Run: 2026-09-25T13:56:01Z
+Commands: python3 docs/evidence/d1/phase1/p33-0044-sqlscan.py
+          bash    docs/evidence/d1/phase1/p33-0044-sqlscan-falsify.sh
+          node    scripts/security-audit.mjs
+
+D1 · U6 · 20260910_0044 — STATIC SQL SAFETY SCAN
+instrument: docs/evidence/d1/phase1/unitC-sqlscan.py
+
+=== supabase/migrations/20260910_0044_p33_plpgsql_check_out_of_public.sql
+  executable statements (top level) : 8
+  REMAINDER (unclassified)          : 0
+  extension DDL                     : ['DROP EXTENSION plpgsql_check RESTRICT', 'CREATE EXTENSION plpgsql_check WITH SCHEMA extensions']
+
+  PASS  remainder is 0 — the scan understood every statement
+  PASS  exactly one DROP EXTENSION, and it is `DROP EXTENSION plpgsql_check RESTRICT`  ['DROP EXTENSION plpgsql_check RESTRICT']
+  PASS  exactly one CREATE EXTENSION, and it is `... plpgsql_check WITH SCHEMA extensions`  ['CREATE EXTENSION plpgsql_check WITH SCHEMA extensions']
+  PASS  no VERSION clause — the version is carried by the pre-image, not guessed
+  PASS  no CASCADE on any DROP / TRUNCATE / REVOKE / ALTER statement
+  PASS  no ALTER EXTENSION (SET SCHEMA is measured to fail for plpgsql_check)
+  PASS  no other extension is named in any extension DDL
+  PASS  no GRANT and no REVOKE
+  PASS  no TO PUBLIC
+  PASS  no ALTER DEFAULT PRIVILEGES
+  PASS  no SECURITY DEFINER function created without a pinned search_path  0 definer function(s)
+  lane assertion(s) found           : [('<>', "'production'")]
+  PASS  PRODUCTION-ONLY assertion: <> 'production'
+  PASS  the lane assertion does not accept staging
+  PASS  the caller check matches the extension's MEMBER NAMES, not just 'plpgsql_check'
+  PASS  the postcondition compares the version against the pre-image
+
+=== supabase/rollback/20260910_0044_p33_plpgsql_check_out_of_public_ROLLBACK.sql
+  executable statements (top level) : 8
+  REMAINDER (unclassified)          : 0
+  extension DDL                     : ['DROP EXTENSION plpgsql_check RESTRICT', 'CREATE EXTENSION plpgsql_check WITH SCHEMA public']
+
+  PASS  remainder is 0 — the scan understood every statement
+  PASS  exactly one DROP EXTENSION, and it is `DROP EXTENSION plpgsql_check RESTRICT`  ['DROP EXTENSION plpgsql_check RESTRICT']
+  PASS  exactly one CREATE EXTENSION, and it is `... plpgsql_check WITH SCHEMA public`  ['CREATE EXTENSION plpgsql_check WITH SCHEMA public']
+  PASS  no VERSION clause — the version is carried by the pre-image, not guessed
+  PASS  no CASCADE on any DROP / TRUNCATE / REVOKE / ALTER statement
+  PASS  no ALTER EXTENSION (SET SCHEMA is measured to fail for plpgsql_check)
+  PASS  no other extension is named in any extension DDL
+  PASS  no GRANT and no REVOKE
+  PASS  no TO PUBLIC
+  PASS  no ALTER DEFAULT PRIVILEGES
+  PASS  no SECURITY DEFINER function created without a pinned search_path  0 definer function(s)
+  lane assertion(s) found           : [('<>', "'production'")]
+  PASS  PRODUCTION-ONLY assertion: <> 'production'
+  PASS  the lane assertion does not accept staging
+
+=== supabase/migrations/PROBE_p33_0044_plpgsql_check_readonly.sql
+  statements: ['BEGIN', 'WITH', 'COMMIT']
+  PASS  the probe is BEGIN, one read-only query, COMMIT — nothing else  ['BEGIN', 'WITH', 'COMMIT']
+  PASS  the probe contains no DDL or DML keyword as a statement
+
+  ALL CHECKS PASS: True
+(scan exit 0)
+
+C-34 FALSIFICATION OF docs/evidence/d1/phase1/p33-0044-sqlscan.py
+  PASS  control — the real files pass
+
+  RED as required  the DROP becomes CASCADE  →  FAIL  exactly one DROP EXTENSION, and it is `DROP EXTENSION plpgsql_check RESTRICT`  ['DROP EXTENSION plpgsql_check CASCADE']
+  RED as required  RESTRICT is dropped (implicit, not spelled out)  →  FAIL  exactly one DROP EXTENSION, and it is `DROP EXTENSION plpgsql_check RESTRICT`  ['DROP EXTENSION plpgsql_check']
+  RED as required  the CREATE pins a guessed VERSION  →  FAIL  no VERSION clause — the version is carried by the pre-image, not guessed
+  RED as required  the CREATE targets the wrong schema  →  FAIL  exactly one CREATE EXTENSION, and it is `... plpgsql_check WITH SCHEMA extensions`  ['CREATE EXTENSION plpgsql_check WITH SCHEMA public']
+  RED as required  the move is attempted with SET SCHEMA  →  FAIL  no ALTER EXTENSION (SET SCHEMA is measured to fail for plpgsql_check)
+  RED as required  another extension is touched  →  FAIL  exactly one DROP EXTENSION, and it is `DROP EXTENSION plpgsql_check RESTRICT`  ['DROP EXTENSION plpgsql_check RESTRICT', 'DROP EXTENSION pg_trgm
+  RED as required  a GRANT is smuggled in  →  FAIL  no GRANT and no REVOKE
+  RED as required  the migration becomes two-lane  →  FAIL  PRODUCTION-ONLY assertion: <> 'production'
+  RED as required  the caller check regresses to the string only (the first draft)  →  FAIL  the caller check matches the extension's MEMBER NAMES, not just 'plpgsql_check'
+  RED as required  the version postcondition is removed  →  FAIL  the postcondition compares the version against the pre-image
+  RED as required  the rollback uses CASCADE  →  FAIL  exactly one DROP EXTENSION, and it is `DROP EXTENSION plpgsql_check RESTRICT`  ['DROP EXTENSION plpgsql_check CASCADE']
+  RED as required  the rollback is re-pointed at staging (R-9 misapplied)  →  FAIL  PRODUCTION-ONLY assertion: <> 'production'
+  RED as required  the probe gains a write  →  FAIL  the probe is BEGIN, one read-only query, COMMIT — nothing else  ['BEGIN', 'WITH', 'UPDATE', 'COMMIT']
+
+  ALL THIRTEEN MUTANTS CAUGHT
+(falsify exit 0)
+
+=== the repository's own security gate ===
+CRITICAL 0 · HIGH 0 · MEDIUM 4 · LOW 1
+
+PASS — no blocking findings.
