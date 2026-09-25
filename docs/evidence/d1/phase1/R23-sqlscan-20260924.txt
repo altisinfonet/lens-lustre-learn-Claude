@@ -1,0 +1,58 @@
+D1 · R-23 · SQL SCAN
+instrument: docs/evidence/d1/phase1/unitC-sqlscan.py
+
+-- ROW 2  the two new files
+
+  supabase/migrations/20260910_0032_p32_money_account_control_revoke.sql
+    executable statements   : 38
+    REMAINDER (unclassified): 0
+    BEGIN   : 4   (1 top-level + 1 per DO body)
+    DO      : 3
+    REVOKE  : 11
+    GRANT   : 11
+    COMMENT : 11
+    COMMIT  : 1
+  PASS  apply 0032: remainder 0                                    0
+  PASS  apply 0032: executable GRANT ... TO PUBLIC                 0
+
+  supabase/rollback/20260910_0032_p32_money_account_control_revoke_ROLLBACK.sql
+    executable statements   : 16
+    REMAINDER (unclassified): 0
+    BEGIN   : 4   (1 top-level + 1 per DO body)
+    DO      : 3
+    GRANT   : 11
+    COMMIT  : 1
+  PASS  rollback 0032: remainder 0                                 0
+  PASS  rollback 0032: executable GRANT ... TO PUBLIC              0
+  PASS  apply: statement shape = BEGIN+3 DO+11 REVOKE+11 GRANT+11 COMMENT+COMMIT 38
+  PASS  apply: REVOKE count                                        11
+  PASS  apply: GRANT count                                         11
+  PASS  apply: COMMENT count                                       11
+  PASS  apply: DO blocks (lane, pre, post)                         3
+  PASS  apply: every REVOKE names PUBLIC before anon               True
+  PASS  apply: every GRANT targets authenticated, service_role     True
+  PASS  apply: no GRANT mentions anon                              []
+  PASS  rollback: GRANT count                                      11
+  PASS  rollback: every GRANT targets anon by name                 True
+  PASS  rollback: no REVOKE                                        0
+
+-- COMMENTS carried from 0027, compared text-for-text
+  PASS  0027 carried 11 COMMENTs                                   11
+  PASS  0032 carries 11 COMMENTs                                   11
+  PASS  every COMMENT body is byte-identical to 0027's             True
+
+-- ROW 3  the two withdrawals
+  PASS  UNAPPLIED_20260910_0027_p32_money_account_control_re: exactly 1 executable stmt 1
+  PASS    and it is the $withdrawn$ guard                          True
+  PASS    non-conforming body lines                                0
+  PASS    strip-and-rehash = the recorded sha256                   48b0ddaa9f40cb3ac5e5ccfbdc7c42cbdbae153c1aaab1c8e6fa77c50eb3487c
+  PASS    the recorded sha256 is the one written INTO the file     True
+  PASS    guard block contains no /*                               True
+  PASS  UNAPPLIED_20260910_0027_p32_money_account_control_re: exactly 1 executable stmt 1
+  PASS    and it is the $withdrawn$ guard                          True
+  PASS    non-conforming body lines                                0
+  PASS    strip-and-rehash = the recorded sha256                   b2c63497a69e780ea68c704e1972d1a1425f71e8c32cabda62c7765d9f2e9380
+  PASS    the recorded sha256 is the one written INTO the file     True
+  PASS    guard block contains no /*                               True
+
+  OVERALL: ALL SCAN CHECKS PASS

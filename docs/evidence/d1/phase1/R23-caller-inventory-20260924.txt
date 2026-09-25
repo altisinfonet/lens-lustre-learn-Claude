@@ -1,0 +1,114 @@
+D1 · R-23 · CALLER RE-CONFIRMATION — measured at 640b2a0, 2026-09-24
+Searched: src/** · supabase/functions/** · functions/** · scripts/**
+(src/integrations/supabase/types.ts excluded: generated type declarations, not calls.)
+
+RESULT: 28 .rpc() call sites on the eleven. ZERO anon callers. The unit proceeds.
+
+── INSTRUMENT DEFECT, FOUND AND FIXED BEFORE THIS INVENTORY WAS KEPT ───────
+
+The first scan matched `.rpc(` and the quoted name ON ONE LINE. It reported
+ZERO call sites for admin_delete_auth_user, and the real answer is two --
+both are multi-line calls of the shape
+
+    const { data, error } = await adminClient.rpc(
+      "admin_delete_auth_user",
+      { _uid: user_id },
+    );
+
+A line-scoped instrument reading multi-line source is the same class of defect
+as the line grep that produced C-A8 and C-A10. Re-run with a DOTALL pattern
+across the whole file. A caller census that is short by one is how a revoke
+becomes an outage, and this one would have been short by three.
+
+── ELEVEN EDGE FUNCTIONS, NOT TEN ──────────────────────────────────────────
+
+The R-23 command lists ten edge functions. The eleventh is
+
+    supabase/functions/delete-user/index.ts
+      :70   admin_delete_auth_user         via adminClient
+      :156  admin_purge_orphan_user_data   via adminClient
+
+and `adminClient` there is createClient(url, SUPABASE_SERVICE_ROLE_KEY)
+(line 25). So it is service-role like the other ten and does not change the
+outcome -- but it was absent from the inventory, and that is worth the
+Auditor's attention rather than a silent fold-in.
+
+── EVERY CALL SITE ─────────────────────────────────────────────────────────
+
+  file:line                                            function                         receiver
+  supabase/functions/delete-my-account/index.ts:79     admin_delete_auth_user           adminClient
+  supabase/functions/delete-user/index.ts:70           admin_delete_auth_user           adminClient
+  supabase/functions/delete-my-account/index.ts:168    admin_purge_orphan_user_data     adminClient
+  supabase/functions/delete-user/index.ts:156          admin_purge_orphan_user_data     adminClient
+  src/components/admin/AdminTransactions.tsx:514       admin_reject_wallet_transaction  supabase (browser)
+  src/components/AdminGiftCredit.tsx:212               admin_wallet_credit              supabase (browser)
+  src/components/admin/AdminWalletTab.tsx:121          admin_wallet_credit              supabase (browser)
+  supabase/functions/ad-reward-credit/index.ts:149     admin_wallet_credit              admin
+  supabase/functions/send-gift-credit/index.ts:85      admin_wallet_credit              supabase (edge)
+  src/components/admin/AdminTransactions.tsx:486       approve_deposit                  supabase (browser)
+  supabase/functions/submit-deposit/index.ts:70        create_pending_deposit           serviceClient
+  supabase/functions/expire-gift-credits/index.ts:63   expire_gift_credit               supabase (edge)
+  src/hooks/wallet/useWalletWithdrawals.ts:46          request_withdrawal               supabase (browser)
+  supabase/functions/hard-delete-competition/index.ts:385  soft_void_wallet_transactions  adminClient
+  supabase/functions/hard-delete-competition/index.ts:429  soft_void_wallet_transactions  adminClient
+  supabase/functions/cast-photo-vote/index.ts:42       wallet_ledger_apply_v2           client (param)
+  supabase/functions/expire-gift-credits/index.ts:11   wallet_ledger_apply_v2           client (param)
+  supabase/functions/paypal-capture-order/index.ts:11  wallet_ledger_apply_v2           client (param)
+  supabase/functions/razorpay-verify-payment/index.ts:13 wallet_ledger_apply_v2         client (param)
+  src/hooks/wallet/useWallet.ts:66                     wallet_transaction               supabase (browser)
+  src/hooks/wallet/useWallet.ts:79                     wallet_transaction               supabase (browser)
+  supabase/functions/admin-process-withdrawal/index.ts:75  wallet_transaction            admin
+  supabase/functions/cast-photo-vote/index.ts:248      wallet_transaction               admin
+  supabase/functions/cast-photo-vote/index.ts:266      wallet_transaction               admin
+  supabase/functions/cast-photo-vote/index.ts:294      wallet_transaction               admin
+  supabase/functions/cast-photo-vote/index.ts:311      wallet_transaction               admin
+  supabase/functions/paypal-capture-order/index.ts:168 wallet_transaction               admin
+  supabase/functions/razorpay-verify-payment/index.ts:160 wallet_transaction            admin
+
+── EVERY RECEIVER, RESOLVED TO ITS KEY ─────────────────────────────────────
+
+  admin          ad-reward-credit:93 · admin-process-withdrawal:25 ·
+                 cast-photo-vote:101 · paypal-capture-order:52 ·
+                 razorpay-verify-payment:71
+                 = createClient(url, SUPABASE_SERVICE_ROLE_KEY)
+  adminClient    delete-my-account:46 · delete-user:25 ·
+                 hard-delete-competition:278
+                 = createClient(url, SUPABASE_SERVICE_ROLE_KEY)
+  serviceClient  submit-deposit:62      = createClient(url, SUPABASE_SERVICE_ROLE_KEY)
+  supabase (edge) expire-gift-credits:40 · send-gift-credit:31
+                 = createClient(url, SUPABASE_SERVICE_ROLE_KEY)
+
+  client (param)  the four wallet_ledger_apply_v2 sites are inside
+                  shadowApplyV2Vote / shadowApplyV2GE / shadowApplyV2PP /
+                  shadowApplyV2RZP, helpers whose first parameter is the
+                  client. Every invocation traced:
+                    cast-photo-vote        :257 :275 :303 :320  -> admin
+                    expire-gift-credits    :74                  -> supabase (service role)
+                    paypal-capture-order   :184                 -> admin
+                    razorpay-verify-payment:181                 -> admin
+                  All service-role. None is the anon-key userClient, which
+                  exists in three of those same files and is used for
+                  authentication only.
+
+  supabase (browser)  src/integrations/supabase/client.ts, the anon-key client.
+                  It runs as `authenticated` at all seven sites:
+                    AdminGiftCredit.tsx, AdminTransactions.tsx,
+                    AdminWalletTab.tsx  -- all three are rendered only from
+                      src/pages/AdminPanel.tsx, which at line 235 does
+                      `if (!hasAdminPanelAccess) return null;` and at 231
+                      navigates away otherwise. Unreachable logged out.
+                    useWallet.ts:66,:79 -- both guarded `if (!user) return null;`
+                    useWalletWithdrawals.ts:46 -- guarded
+                      `if (!user) throw new Error("Not authenticated");`
+
+── PER-FUNCTION COUNTS ─────────────────────────────────────────────────────
+
+  admin_delete_auth_user            2      request_withdrawal             1
+  admin_purge_orphan_user_data      2      soft_void_wallet_transactions  2
+  admin_reject_wallet_transaction   1      wallet_ledger_apply_v2         4
+  admin_wallet_credit               4      wallet_transaction             9
+  approve_deposit                   1
+  create_pending_deposit            1
+  expire_gift_credit                1
+
+  None is zero. None is anon.
