@@ -1,0 +1,52 @@
+0034	_ensure_stats_row	uid uuid
+0034	_gen_competition_order_no	
+0034	apply_decision_to_remaining	_competition_id uuid, _round_number integer, _decision text
+0034	delete_email	queue_name text, message_id bigint
+0034	emit_birthday_notifications	
+0034	enqueue_post_job	_payload jsonb
+0034	expiring_post_drafts	
+0034	get_derived_status_drift_admin	
+0034	judge_apply_single_tag	_entry_id uuid, _photo_index integer, _round_number integer, _tag_id uuid, _judge_id uuid
+0034	judging_write_decision_atomic	p_entry_id uuid, p_stage_key text, p_current_round text
+0034	log_push_outcome	_user_id uuid, _notification_id uuid, _type text, _outcome text, _detail text
+0034	pj_handle_comment_notification	_msg jsonb
+0034	pj_handle_reaction_notification	_msg jsonb
+0034	pj_handle_recount_engagement	_msg jsonb
+0034	pj_handle_tag_notification	_msg jsonb
+0034	process_post_jobs	_batch integer
+0034	prune_activity_minutes	_dry_run boolean
+0034	prune_client_errors	_days integer
+0034	prune_old_notifications	_days integer, _max_rows integer
+0034	reap_post_drafts	_ids uuid[]
+0034	recompute_entry_from_tag_assignments	p_entry_id uuid
+0034	recompute_entry_public_status	p_entry_id uuid
+0034	recount_hashtags	tag_ids uuid[]
+0034	refresh_viewer_buckets	
+0034	rollup_engagement_daily	_utc_date date
+0034	set_write_path	p text
+0034	wallet_ledger_v2_diff_snapshot	p_window interval
+0035	acquire_judge_lock	_entry_id uuid, _photo_index integer, _judge_id uuid, _ttl_minutes integer
+0035	admin_flag_entry_for_review	_entry_id uuid
+0035	admin_rewind_stage	_entry_id uuid, _to_stage_key text, _reason text
+0035	admin_set_photo_rejected	_entry_id uuid, _photo_index integer, _rejected boolean, _reason text
+0035	backfill_judging_notifications	_window_days integer, _dry_run boolean
+0035	backfill_tag_decision_drift_admin	
+0035	create_system_post	_content text, _image_url text, _image_urls text[], _thumbnail_urls text[], _media_ids uuid[]
+0035	enroll_in_course	_user_id uuid, _course_id uuid
+0035	fix_certificate_readiness_admin	_entry_id uuid
+0035	fix_gift_drift_admin	_announcement_id uuid
+0035	fix_referral_drift_admin	_referral_id uuid
+0035	get_broadcast_feed	_exclude_ids uuid[], _limit integer
+0035	get_broadcast_feed	_exclude_ids uuid[], _limit integer, _newest_first integer
+0035	get_broadcast_feed	_exclude_ids uuid[], _limit integer, _newest_first integer, _categories text[]
+0035	get_certificate_drift_admin	p_competition_id uuid
+0035	get_judge_collusion_admin	p_competition_id uuid, p_min_overlap integer, p_min_correlation numeric
+0035	get_judging_tag_assignment_counts	
+0035	heartbeat_judge_lock	_entry_id uuid, _photo_index integer, _judge_id uuid, _ttl_minutes integer
+0035	issue_course_completion_certificate	_course_id uuid
+0035	mark_expiring_post_drafts	_days integer
+0035	record_activity_minute	_segment text, _interacted boolean
+0035	register_push_token	_token text, _platform text
+0035	release_judge_lock	_entry_id uuid, _photo_index integer, _judge_id uuid
+0035	submit_competition_entry	_competition_id uuid, _title text, _description text, _photos text[], _photo_thumbnails text[], _photo_meta jsonb, _is_ai_generated boolean, _exif_data jsonb
+0035	unregister_push_token	_token text

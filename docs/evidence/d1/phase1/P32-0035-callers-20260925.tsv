@@ -1,0 +1,50 @@
+_ensure_stats_row	called only by the SECURITY DEFINER trigger functions trg_follows_counts and trg_friendships_counts
+_gen_competition_order_no	called only by submit_competition_entry, which is SECURITY DEFINER
+apply_decision_to_remaining	no caller anywhere: not in the tree, not in pg_proc, not in cron
+delete_email	edge function process-email-queue, through a SUPABASE_SERVICE_ROLE_KEY client (index.ts:116)
+emit_birthday_notifications	cron job emit-birthday-notifications, which runs as postgres
+enqueue_post_job	called only by the SECURITY DEFINER trigger functions enqueue_post_created_job, notify_post_comment, notify_post_reaction, notify_post_tag
+expiring_post_drafts	no caller anywhere: not in the tree, not in pg_proc, not in cron
+get_derived_status_drift_admin	no caller anywhere: not in the tree, not in pg_proc, not in cron
+judge_apply_single_tag	edge function submit-judge-tag, through the service-role client built in _shared/judgingAuth.ts:35
+judging_write_decision_atomic	edge function submit-judge-decision, through the service-role client built in _shared/judgingAuth.ts:35
+log_push_outcome	no caller anywhere: not in the tree, not in pg_proc, not in cron
+pj_handle_comment_notification	called only by process_post_jobs, which is SECURITY DEFINER
+pj_handle_reaction_notification	called only by process_post_jobs, which is SECURITY DEFINER
+pj_handle_recount_engagement	called only by process_post_jobs, which is SECURITY DEFINER
+pj_handle_tag_notification	called only by process_post_jobs, which is SECURITY DEFINER
+process_post_jobs	cron job process-post-jobs, which runs as postgres
+prune_activity_minutes	no caller anywhere: not in the tree, not in pg_proc, not in cron
+prune_client_errors	cron job prune-client-errors, which runs as postgres
+prune_old_notifications	cron job prune-old-notifications, which runs as postgres
+reap_post_drafts	no caller anywhere: not in the tree, not in pg_proc, not in cron
+recompute_entry_from_tag_assignments	called only by the SECURITY DEFINER trigger function trg_recompute_entry_after_tag_change
+recompute_entry_public_status	called only by the SECURITY DEFINER trigger functions _tg_entry_public_status_recompute, _tg_round_publish_recompute, _tg_v3_catalog_recompute, trg_recompute_entry_public_status
+recount_hashtags	called only by the SECURITY DEFINER trigger functions sync_post_hashtags and unsync_post_hashtags
+refresh_viewer_buckets	no caller anywhere: not in the tree, not in pg_proc, not in cron
+rollup_engagement_daily	cron job rollup-engagement-daily, which runs as postgres
+set_write_path	no caller anywhere: not in the tree, not in pg_proc, not in cron
+wallet_ledger_v2_diff_snapshot	cron job wallet_ledger_v2_diff_hourly, which runs as postgres
+acquire_judge_lock	signed-in judge screen, src/hooks/judging/useJudgingLock.ts:83
+heartbeat_judge_lock	signed-in judge screen, src/hooks/judging/useJudgingLock.ts:119
+release_judge_lock	signed-in judge screen, src/hooks/judging/useJudgingLock.ts:69, :175, :231; the release sends the judge JWT since #284
+admin_flag_entry_for_review	admin/judge UI, src/components/judge/CinemaFullView.tsx:1747
+admin_set_photo_rejected	admin UI, src/modules/admin/EntriesModule.tsx:27
+backfill_judging_notifications	admin UI, src/components/admin/NotificationsHealthAudit.tsx:57
+backfill_tag_decision_drift_admin	admin UI, src/components/admin/JudgingInvariantsAudit.tsx:152
+fix_certificate_readiness_admin	admin UI, src/components/admin/AwardsIntegrityAudit.tsx:72
+fix_gift_drift_admin	admin UI, src/components/admin/WalletReconciliationAudit.tsx:72
+fix_referral_drift_admin	admin UI, src/components/admin/WalletReconciliationAudit.tsx:90
+get_certificate_drift_admin	admin UI, src/components/admin/CertificateDriftAudit.tsx:58
+get_judge_collusion_admin	admin UI, src/components/admin/CollusionAudit.tsx:46
+get_judging_tag_assignment_counts	admin UI, src/pages/admin/AdminTagSemanticsAudit.tsx:95
+enroll_in_course	signed-in member screen, src/pages/CourseDetail.tsx:61
+issue_course_completion_certificate	signed-in member screen, src/pages/CourseDetail.tsx:85
+submit_competition_entry	signed-in member screen, src/hooks/competition/useCompetitionEntryMutations.ts:35
+create_system_post	signed-in member screens, src/lib/profilePostHelper.ts:41 and src/pages/MyPhotos.tsx:409
+register_push_token	signed-in native session, src/lib/native/push.ts:83 and :93
+unregister_push_token	signed-in native session, src/lib/native/push.ts:134
+record_activity_minute	the engagement heartbeat, src/lib/engagement/activityPing.ts:125, which returns early when there is no user
+get_broadcast_feed	signed-in feed, src/hooks/feed/useFeedQuery.ts:91; /feed redirects signed-out visitors (Feed.tsx:89, pinned by #287)
+admin_rewind_stage	called by guard_stage_key_immutability, a SECURITY INVOKER trigger that fires as the session user
+mark_expiring_post_drafts	called by enforce_post_draft_rules, a SECURITY INVOKER trigger that fires as the session user; also the cron job mark-expiring-post-drafts
