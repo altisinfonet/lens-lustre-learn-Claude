@@ -1,0 +1,63 @@
+P32 · 20260910_0043 — BEHAVIOURAL TEST TRANSCRIPT
+Run: 2026-09-25T12:32:12Z · scratch PostgreSQL 17.11 (PGDG) · 127.0.0.1:5432  (re-run after C-A22)
+Command: bash docs/evidence/d1/phase1/p32-0043-run-tests.sh
+Base: 5015f36ce5d0792592b848052dc67be8f489f18f (origin/staging, 0036 + 0042 + 0037 merged)
+
+
+══ 0 · the fixture: both lanes' starting shape
+  server_version 17.11 (Ubuntu 17.11-1.pgdg24.04+2)
+  PASS  fixture built
+  a new SECURITY DEFINER function in public is born:
+      anon=t authenticated=t service_role=t acl={=X/postgres,postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+  PASS  BEFORE: anon CAN execute a newly created function — this is P32's recurrence
+  pg_default_acl: public f {authenticated=X/postgres,service_role=X/postgres}
+
+══ 1 · 0043 REFUSES outside the dispatch workflow
+  PASS  no lane asserted — refused (exit 1), 'Unknown target'
+  PASS  a lane of 'local' — refused (exit 1), 'Unknown target'
+  PASS  transaction pooler, 6543 — refused (exit 1), '6543'
+  PASS  three refusals left pg_default_acl unchanged
+
+══ 2 · 0043 applies, and a new function is no longer anon-executable
+  PASS  apply, TARGET_LANE=staging
+      anon=f authenticated=t service_role=t acl={postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+  PASS  AFTER: anon CANNOT, authenticated and service_role still CAN
+  pg_default_acl: (GLOBAL) f {postgres=X/postgres}
+  pg_default_acl: extensions f {=X/postgres}
+  pg_default_acl: public f {authenticated=X/postgres,service_role=X/postgres}
+
+══ 3 · C-34 — the SAME file WITHOUT its global statement leaves anon open
+  PASS  the loosened copy is REFUSED by its own probe (P32-0043-POST-005):
+              'P32-0043-POST-005: a newly created SECURITY DEFINER function in public is '
+  PASS  so the GLOBAL statement — not the per-schema one — is what closes anon
+  loosened copy, measured directly: anon=t authenticated=t service_role=t acl={=X/postgres,postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+
+══ 4 · idempotence — a second apply changes nothing
+  PASS  first apply
+  PASS  second apply
+  PASS  the second apply left pg_default_acl identical
+  PASS  and the probe still reads the same
+
+══ 5 · the extensions carve-out, and the control that shows it is needed
+  PASS  with the carve-out: extensions.similarity is anon-executable, acl=NULL
+  PASS  the no-carve-out copy is refused by P32-0043-POST-004
+  PASS  CONTROL — without the carve-out, extensions.similarity comes out acl={postgres=X/postgres} and anon CANNOT execute it
+
+══ 6 · the ROLLBACK
+  PASS  apply
+  PASS  rollback on the production lane (R-9) — refused (exit 3), 'ROLLBACK REFUSED'
+  PASS  rollback with no lane — refused (exit 1), 'Unknown target'
+  PASS  rollback, TARGET_LANE=staging
+  PASS  after the rollback: authenticated and service_role can, anon still cannot — NARROWER than the pre-state, by design
+  PASS  the global entry still has no PUBLIC item — restored by name (F-62, R-11)
+  PASS  the extensions carve-out survived the rollback
+  PASS  rollback run a second time — refused (exit 3), 'P32-0043-RB-PRE'
+
+══ 7 · re-applying after the rollback closes the loop
+  PASS  apply again
+  PASS  the post-apply probe is reproduced
+
+══ VERDICT
+  ALL GREEN
+
+(harness exit 0)
