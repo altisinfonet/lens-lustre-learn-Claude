@@ -1,0 +1,84 @@
+D1 · P33 · 20260910_0042 — STATIC SCAN TRANSCRIPT
+Run: 2026-09-25T09:48:12Z
+Commands: python3 docs/evidence/d1/phase1/p33-0042-sqlscan.py
+          bash    docs/evidence/d1/phase1/p33-0042-sqlscan-falsify.sh
+
+D1 · P33 · 20260910_0042 — STATIC SQL SAFETY SCAN
+instrument: docs/evidence/d1/phase1/unitC-sqlscan.py
+
+=== supabase/migrations/20260910_0042_p33_owner_safe_round_correlation.sql
+  executable statements (top level) : 10
+  REMAINDER (unclassified)          : 0
+  CREATE OR REPLACE VIEW            : ['judge_comments_owner_safe', 'judge_tag_assignments_owner_safe']
+  GRANT / REVOKE statements         : 0 / 0
+
+  PASS  remainder is 0 — the scan understood every statement
+  PASS  grants nothing
+  PASS  revokes nothing
+  PASS  no DROP VIEW anywhere (a re-created view loses every named grant)
+  PASS  no bare CREATE VIEW (only CREATE OR REPLACE)
+  PASS  redefines exactly the two target views  ['judge_comments_owner_safe', 'judge_tag_assignments_owner_safe']
+  PASS  does not redefine judge_decisions_owner_safe
+  PASS  no ALTER DEFAULT PRIVILEGES
+  PASS  no pg_default_acl
+  PASS  does not set security_invoker
+  PASS  no CREATE POLICY / ALTER POLICY / ALTER TABLE
+  PASS  every definition keeps the owner check (auth.uid())
+  PASS  every definition keeps the publication check
+  PASS  tags: crp.round_number = jta.round_number
+  PASS  comments: joins judging_rounds on jc.round_id
+  PASS  comments: crp.round_number = jr.round_number
+  PASS  comments: jr.competition_id = ce.competition_id
+  PASS  comments: no `round_id IS NULL` escape hatch (fail closed)
+  lane assertion(s) found           : [('NOT IN', "('staging', 'production')")]
+  PASS  TWO-LANE assertion: NOT IN ('staging','production')
+  PASS  the migration does NOT restrict itself to one lane
+
+=== supabase/rollback/20260910_0042_p33_owner_safe_round_correlation_ROLLBACK.sql
+  executable statements (top level) : 10
+  REMAINDER (unclassified)          : 0
+  CREATE OR REPLACE VIEW            : ['judge_comments_owner_safe', 'judge_tag_assignments_owner_safe']
+  GRANT / REVOKE statements         : 0 / 0
+
+  PASS  remainder is 0 — the scan understood every statement
+  PASS  grants nothing
+  PASS  revokes nothing
+  PASS  no DROP VIEW anywhere (a re-created view loses every named grant)
+  PASS  no bare CREATE VIEW (only CREATE OR REPLACE)
+  PASS  redefines exactly the two target views  ['judge_comments_owner_safe', 'judge_tag_assignments_owner_safe']
+  PASS  does not redefine judge_decisions_owner_safe
+  PASS  no ALTER DEFAULT PRIVILEGES
+  PASS  no pg_default_acl
+  PASS  does not set security_invoker
+  PASS  no CREATE POLICY / ALTER POLICY / ALTER TABLE
+  PASS  every definition keeps the owner check (auth.uid())
+  PASS  every definition keeps the publication check
+  PASS  the rollback restores the UNCORRELATED tag definition
+  PASS  the rollback restores the UNCORRELATED comment definition
+  lane assertion(s) found           : [('<>', "'staging'")]
+  PASS  R-9 STAGING-ONLY guard: <> 'staging'
+  PASS  the rollback does NOT accept production
+
+  ALL CHECKS PASS: True
+(scan exit 0)
+
+C-34 FALSIFICATION OF docs/evidence/d1/phase1/p33-0042-sqlscan.py
+  PASS  control — the real files pass
+
+  RED as required  migration smuggles in a GRANT  →  FAIL  grants nothing  ['GRANT SELECT ON TABLE public.judge_comments_owner_safe TO anon']
+  RED as required  migration smuggles in a REVOKE  →  FAIL  revokes nothing  ['REVOKE SELECT ON TABLE public.judge_comments_owner_safe FROM anon']
+  RED as required  migration DROPs the view first  →  FAIL  no DROP VIEW anywhere (a re-created view loses every named grant)
+  RED as required  migration uses a bare CREATE VIEW  →  FAIL  redefines exactly the two target views  ['judge_comments_owner_safe']
+  RED as required  migration also redefines the out-of-scope view  →  FAIL  redefines exactly the two target views  ['judge_comments_owner_safe', 'judge_decisions_owner_safe', 'judge_tag_assignments_owner_safe']
+  RED as required  migration loses the tag round correlation (a no-op fix)  →  FAIL  tags: crp.round_number = jta.round_number
+  RED as required  migration loses the comment round correlation  →  FAIL  comments: crp.round_number = jr.round_number
+  RED as required  migration loses the cross-competition correlation  →  FAIL  comments: jr.competition_id = ce.competition_id
+  RED as required  migration adds a NULL round_id escape hatch  →  FAIL  comments: no `round_id IS NULL` escape hatch (fail closed)
+  RED as required  migration drops the owner check  →  FAIL  every definition keeps the owner check (auth.uid())
+  RED as required  migration narrowed to one lane  →  FAIL  TWO-LANE assertion: NOT IN ('staging','production')
+  RED as required  rollback guard widened to both lanes (R-9 broken)  →  FAIL  R-9 STAGING-ONLY guard: <> 'staging'
+  RED as required  rollback keeps the fix in place (a rollback that rolls nothing back)  →  FAIL  the rollback restores the UNCORRELATED tag definition
+  RED as required  rollback drops the publication check  →  FAIL  every definition keeps the publication check
+
+  ALL FOURTEEN MUTANTS CAUGHT
+(falsify exit 0)
