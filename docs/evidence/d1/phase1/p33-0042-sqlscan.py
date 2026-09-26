@@ -84,9 +84,22 @@ for p in (MIG, RB):
     check("no ALTER DEFAULT PRIVILEGES", not re.search(r'(?i)\bALTER\s+DEFAULT\s+PRIVILEGES\b', body))
     check("no pg_default_acl", 'pg_default_acl' not in body)
     # `security_invoker = ...`, not the bare word: both files mention it in a
-    # RAISE message, and an error string is not a setting.
+    # RAISE message, and an error string is not a setting. Since C-A24 the
+    # migration's precondition 3 also compares reloptions against the literal
+    # arrays '{security_invoker=off}' / '{security_invoker=false}' -- a
+    # comparison, not a setting -- so string literals are blanked first.
+    unquoted = re.sub(r"'[^']*'", "''", body)
     check("does not set security_invoker",
-          not re.search(r'(?i)\bsecurity_invoker\s*=', body))
+          not re.search(r'(?i)\bsecurity_invoker\s*=', unquoted))
+    if p == MIG:
+        # C-A24: precondition 3 accepts NULL/'{}' and the two explicit
+        # spellings of the default, and NOTHING else. An allowlist that let
+        # security_invoker=on (or =true) through would accept an invoker view,
+        # where this file's reasoning does not hold.
+        allow = re.search(r"(?is)coalesce\(\(SELECT reloptions FROM pg_class WHERE oid = oid_\),\s*'\{\}'::text\[\]\)\s*NOT IN\s*\((.*?)\)\s*THEN", body)
+        vals = sorted(re.findall(r"'([^']*)'::text\[\]", allow.group(1))) if allow else None
+        check("precondition 3 allowlist is exactly {}, {security_invoker=off}, {security_invoker=false}",
+              vals == sorted(['{}', '{security_invoker=off}', '{security_invoker=false}']), str(vals))
     check("no CREATE POLICY / ALTER POLICY / ALTER TABLE",
           not re.search(r'(?i)\b(CREATE|ALTER|DROP)\s+POLICY\b', body)
           and not re.search(r'(?i)\bALTER\s+TABLE\b', body))
