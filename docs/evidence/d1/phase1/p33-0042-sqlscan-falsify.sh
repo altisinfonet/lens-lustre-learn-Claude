@@ -60,6 +60,15 @@ mutate "migration drops the owner check" mig \
 mutate "migration narrowed to one lane" mig \
   "s|NOT IN ('staging', 'production')|<> 'staging'|" \
   'TWO-LANE assertion'
+mutate "C-A24 allowlist also accepts security_invoker=on (an invoker view)" mig \
+  "s|'{security_invoker=false}'::text\\[\\])|'{security_invoker=false}'::text[], '{security_invoker=on}'::text[])|" \
+  'precondition 3 allowlist is exactly'
+mutate "C-A24 check dropped back to IS NOT NULL (refuses production again)" mig \
+  "s|coalesce((SELECT reloptions FROM pg_class WHERE oid = oid_), '{}'::text\\[\\]) NOT IN (.*) THEN|(SELECT reloptions FROM pg_class WHERE oid = oid_) IS NOT NULL THEN|" \
+  'precondition 3 allowlist is exactly'
+mutate "migration sets security_invoker on a view" mig \
+  's|^CREATE OR REPLACE VIEW public.judge_comments_owner_safe AS|CREATE OR REPLACE VIEW public.judge_comments_owner_safe WITH (security_invoker = on) AS|' \
+  'does not set security_invoker'
 mutate "rollback guard widened to both lanes (R-9 broken)" rb \
   "s|<> 'staging'|NOT IN ('staging', 'production')|" \
   'STAGING-ONLY guard'
@@ -71,5 +80,5 @@ mutate "rollback drops the publication check" rb \
   'keeps the publication check'
 
 echo
-if [ "$fail" -eq 0 ]; then echo "  ALL FOURTEEN MUTANTS CAUGHT"; else echo "  FAILURES ABOVE"; fi
+if [ "$fail" -eq 0 ]; then echo "  ALL SEVENTEEN MUTANTS CAUGHT"; else echo "  FAILURES ABOVE"; fi
 exit "$fail"

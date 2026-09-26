@@ -158,10 +158,19 @@ BEGIN
       RAISE EXCEPTION 'P33-0042-PRE-002: public.% is not owned by postgres', rec.relname
         USING ERRCODE = 'raise_exception';
     END IF;
-    IF (SELECT reloptions FROM pg_class WHERE oid = oid_) IS NOT NULL THEN
+    -- C-A24: production's owner_safe views carry reloptions
+    -- {security_invoker=off} -- the default, written out explicitly. Staging
+    -- has NULL. Both mean the same thing: a definer view. The first version
+    -- of this check refused anything non-NULL and so refused production (run
+    -- #98) over a spelling, not a semantic. It now accepts NULL, '{}' and the
+    -- two explicit spellings of the default, and still refuses anything else
+    -- -- security_invoker=on above all, because on an invoker view the base
+    -- tables' RLS applies and this file's reasoning about the grant being the
+    -- only control would be wrong.
+    IF coalesce((SELECT reloptions FROM pg_class WHERE oid = oid_), '{}'::text[]) NOT IN ('{}'::text[], '{security_invoker=off}'::text[], '{security_invoker=false}'::text[]) THEN
       RAISE EXCEPTION
         'P33-0042-PRE-003: public.% carries reloptions (%). This file assumes a '
-        'SECURITY DEFINER view with security_invoker unset', rec.relname,
+        'SECURITY DEFINER view: security_invoker unset or explicitly off', rec.relname,
         (SELECT reloptions::text FROM pg_class WHERE oid = oid_)
         USING ERRCODE = 'raise_exception';
     END IF;

@@ -1,5 +1,5 @@
 D1 · P33 · 20260910_0042 — STATIC SCAN TRANSCRIPT
-Run: 2026-09-25T09:48:12Z
+Run: 2026-09-26T02:55:27Z (C-A24 re-run)
 Commands: python3 docs/evidence/d1/phase1/p33-0042-sqlscan.py
           bash    docs/evidence/d1/phase1/p33-0042-sqlscan-falsify.sh
 
@@ -22,6 +22,7 @@ instrument: docs/evidence/d1/phase1/unitC-sqlscan.py
   PASS  no ALTER DEFAULT PRIVILEGES
   PASS  no pg_default_acl
   PASS  does not set security_invoker
+  PASS  precondition 3 allowlist is exactly {}, {security_invoker=off}, {security_invoker=false}  ['{security_invoker=false}', '{security_invoker=off}', '{}']
   PASS  no CREATE POLICY / ALTER POLICY / ALTER TABLE
   PASS  every definition keeps the owner check (auth.uid())
   PASS  every definition keeps the publication check
@@ -60,7 +61,7 @@ instrument: docs/evidence/d1/phase1/unitC-sqlscan.py
   PASS  the rollback does NOT accept production
 
   ALL CHECKS PASS: True
-(scan exit 0)
+exit=0
 
 C-34 FALSIFICATION OF docs/evidence/d1/phase1/p33-0042-sqlscan.py
   PASS  control — the real files pass
@@ -76,9 +77,12 @@ C-34 FALSIFICATION OF docs/evidence/d1/phase1/p33-0042-sqlscan.py
   RED as required  migration adds a NULL round_id escape hatch  →  FAIL  comments: no `round_id IS NULL` escape hatch (fail closed)
   RED as required  migration drops the owner check  →  FAIL  every definition keeps the owner check (auth.uid())
   RED as required  migration narrowed to one lane  →  FAIL  TWO-LANE assertion: NOT IN ('staging','production')
+  RED as required  C-A24 allowlist also accepts security_invoker=on (an invoker view)  →  FAIL  precondition 3 allowlist is exactly {}, {security_invoker=off}, {security_invoker=false}  ['{security_invoker=false}', '{security_invoker=off}', '{security_invoker=on}', '{}']
+  RED as required  C-A24 check dropped back to IS NOT NULL (refuses production again)  →  FAIL  precondition 3 allowlist is exactly {}, {security_invoker=off}, {security_invoker=false}  None
+  RED as required  migration sets security_invoker on a view  →  FAIL  does not set security_invoker
   RED as required  rollback guard widened to both lanes (R-9 broken)  →  FAIL  R-9 STAGING-ONLY guard: <> 'staging'
   RED as required  rollback keeps the fix in place (a rollback that rolls nothing back)  →  FAIL  the rollback restores the UNCORRELATED tag definition
   RED as required  rollback drops the publication check  →  FAIL  every definition keeps the publication check
 
-  ALL FOURTEEN MUTANTS CAUGHT
-(falsify exit 0)
+  ALL SEVENTEEN MUTANTS CAUGHT
+exit=0
