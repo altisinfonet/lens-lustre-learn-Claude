@@ -1,0 +1,53 @@
+name: D1 · P1 client-timer check
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. READS src/, WRITES NOTHING.
+#
+# Phase 2 unit 2-D1-02 — the test the gate names:
+#   "a test that FAILS while src/hooks/core/useLastActive.ts still contains the
+#    5-minute setInterval UPDATE, and PASSES once D2 removes it."
+#
+# docs/gates/P1-interface.md §5 (frozen 2026-09-27): no client code writes
+# profiles.last_active_at or profiles.last_platform; there is no client timer
+# that touches profiles.
+#
+# EXPECTED STATE WHEN THIS FILE LANDS: RED. The server half lands first, the
+# client cut-over (D2) after it, and until D2's PR removes the timer this
+# check fails on every PR that touches src/ — that is the point of it. It is
+# deliberately NOT asked to be a required status check until it has gone green
+# once on staging; making it required before then would block the server half
+# on the client half, which is the wrong order. That decision is the Auditor's.
+#
+# The self-test runs first: it plants each shape the check must catch and each
+# neighbour it must not (C-34). If the self-test fails, the verdict below it is
+# not evidence of anything.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'scripts/db-p1-client-timer-check.mjs'
+      - 'scripts/db-p1-client-timer-check.test.mjs'
+      - '.github/workflows/d1-p1-client-timer.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  timer:
+    name: No client write of profiles.last_active_at / last_platform
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Self-test — the check catches what it must and nothing else (C-34)
+        run: node scripts/db-p1-client-timer-check.test.mjs
+      - name: The check — src/ must not write last_active_at or last_platform
+        run: node scripts/db-p1-client-timer-check.mjs
