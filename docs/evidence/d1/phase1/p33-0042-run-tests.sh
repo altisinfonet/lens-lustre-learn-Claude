@@ -138,6 +138,58 @@ $d$;
 Q
 [ $? -ne 0 ] && fail=1
 
+step "8 · C-A24 — production's views say security_invoker=off out loud"
+# Production's owner_safe views carry reloptions {security_invoker=off}; staging
+# has NULL. Same meaning — a definer view — different spelling, and 0042's
+# first precondition refused the spelling (production run #98, PRE-003,
+# nothing changed). Each case below builds the fixture, sets the reloption on
+# both views, and dispatches.
+T8="$(mktemp -d)"
+# the pre-fix precondition, reconstructed from the current file so the control
+# does not depend on git history: the one line C-A24 replaced.
+python3 - "$MIG" "$T8/prefix.sql" <<'PYX'
+import io, sys
+s = io.open(sys.argv[1], encoding='utf-8').read()
+new = "IF coalesce((SELECT reloptions FROM pg_class WHERE oid = oid_), '{}'::text[]) NOT IN ('{}'::text[], '{security_invoker=off}'::text[], '{security_invoker=false}'::text[]) THEN"
+old = "IF (SELECT reloptions FROM pg_class WHERE oid = oid_) IS NOT NULL THEN"
+assert s.count(new) == 1, 'the C-A24 line is not in the file'
+io.open(sys.argv[2], 'w', encoding='utf-8').write(s.replace(new, old))
+PYX
+relopt() { psql -q -d "$DB" -tAc "SELECT string_agg(coalesce(reloptions::text,'NULL'), ',' ORDER BY relname) FROM pg_class WHERE relname IN ('judge_comments_owner_safe','judge_tag_assignments_owner_safe')"; }
+acls()   { psql -q -d "$DB" -tAc "SELECT string_agg(relacl::text, ' ; ' ORDER BY relname) FROM pg_class WHERE relname IN ('judge_comments_owner_safe','judge_tag_assignments_owner_safe')"; }
+setopt() { build && psql -q -d "$DB" -c "ALTER VIEW public.judge_comments_owner_safe SET ($1); ALTER VIEW public.judge_tag_assignments_owner_safe SET ($1);" >/dev/null; }
+
+setopt "security_invoker=off"
+echo "  reloptions before: $(relopt)"
+expect_fail "CONTROL — the pre-fix file on security_invoker=off (production run #98)" "P33-0042-PRE-003" "staging" "$T8/prefix.sql"
+
+setopt "security_invoker=off"; A0=$(acls)
+expect_ok "the fixed file on security_invoker=off" "staging" "$MIG"
+[ "$(acls)" = "$A0" ] && echo "  PASS  ACL byte-identical across the apply" || { echo "  FAIL  ACL changed"; fail=1; }
+[ "$(relopt)" = "NULL,NULL" ] && echo "  PASS  reloptions end NULL — the same meaning as off, and staging's spelling" || { echo "  FAIL  reloptions ended $(relopt)"; fail=1; }
+
+# the leak is closed on the production shape: the BEFORE/AFTER suite, on a
+# fixture carrying security_invoker=off. The suite applies 0042 itself and
+# fails unless exactly the two leaking reads change.
+setopt "security_invoker=off"
+suite=$(psql -q -v ON_ERROR_STOP=1 -d "$DB" -f "$HERE/p33-0042-tests.sql" 2>&1); src=$?
+if [ "$src" -eq 0 ] && printf '%s' "$suite" | grep -q 'TESTS GREEN'; then
+  echo "  PASS  BEFORE/AFTER suite on security_invoker=off: 20 assertions, exactly the two leaking reads changed"
+else echo "  FAIL  the suite on security_invoker=off: exit $src"; printf '%s\n' "$suite" | grep -m3 -E 'ERROR|FAIL' | sed 's/^/        /'; fail=1; fi
+
+setopt "security_invoker=false"
+expect_ok "the fixed file on security_invoker=false (the other spelling of off)" "staging" "$MIG"
+
+for opt in "security_invoker=on" "security_invoker=true" "security_barrier=true"; do
+  setopt "$opt"; B=$(relopt)
+  expect_fail "still refused: $opt" "P33-0042-PRE-003" "staging" "$MIG"
+  [ "$(relopt)" = "$B" ] || { echo "  FAIL  reloptions changed after a refusal"; fail=1; }
+done
+echo "  (security_invoker=on turns the views into invoker views, where base-table RLS applies and"
+echo "   this file's premise — the grant is the only control — no longer holds. security_barrier"
+echo "   is refused too: CREATE OR REPLACE would silently drop it, which is a behaviour change.)"
+rm -rf "$T8"
+
 step "VERDICT"
 if [ "$fail" -eq 0 ]; then echo "  ALL GREEN"; else echo "  FAILURES ABOVE"; fi
 exit "$fail"
