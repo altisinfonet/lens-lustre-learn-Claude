@@ -78,3 +78,38 @@ not a per-caller workaround:
 Neither changes any of the seventeen converted call sites: a callback declared
 `() => void` is still a valid argument for `(info: TickInfo) => void`, and both
 options default to false. The counts in the table above are unchanged.
+
+## Addendum, R-66: one of the twenty-one was deleted, not converted
+
+When 2-D2-03 (#313) merged, `src/hooks/core/useLastActive.ts` lost its timer
+altogether: P1 §5 removes the five-minute `profiles` write, so there is no longer
+a call site there to route through the helper. #310's conversion of that file was
+obsolete before it landed, and per R-66 this branch takes `staging`'s version of
+the file entirely — the import and the P10 comment #310 added there are gone.
+
+**The figures in the table above are unchanged and still measured, not
+recalculated.** 21 `setInterval` sites at the 0-D2-03 baseline; 2 now. What
+changes is the *reason* one of them went:
+
+| | at baseline | now | how |
+|---|---|---|---|
+| `src/hooks/core/useLastActive.ts:42` | `5 * 60 * 1000`, no teardown, **fail** | does not exist | **deleted by #313**, not converted by #310 |
+
+So the honest count of files this unit converted is **sixteen**, not the seventeen
+its first commit message lists. That message is now history and is not rewritten;
+this line is the correction.
+
+### Two files that mention the old timer and are deliberately NOT edited
+
+* `docs/evidence/d2/baseline/client-inventory.md:167` records the timer as it was
+  measured on 2026-09-04. It is a reading, not a to-do list. Editing a past
+  measurement to match the present is how a baseline stops being one.
+* `docs/evidence/d2/runbook-android.md:12` names that write as an example of what
+  P10 removes, which is now slightly stale prose. It is **not** corrected here
+  because the Owner has already taken the BEFORE session with this runbook
+  (R-64). Changing the instrument between the BEFORE and the AFTER reading would
+  cost more than the stale sentence does. Worth a line in a later docs unit.
+
+The verbatim fail-first transcript at `p10-fail-first.txt` still names the file
+for the same reason: it is a recording of a run, and a recording that gets edited
+afterwards proves nothing.
