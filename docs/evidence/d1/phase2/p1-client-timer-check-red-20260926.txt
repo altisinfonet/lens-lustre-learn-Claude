@@ -1,0 +1,36 @@
+D1 · P1 client-timer check — RED on the staging tip this unit was cut from
+Run: 2026-09-26T19:06:17Z · base 7ebdbf408f48876789bca6958254c60190c91b85 (origin/staging)
+Commands: node scripts/db-p1-client-timer-check.test.mjs && node scripts/db-p1-client-timer-check.mjs
+
+MUST CATCH
+  PASS  today's useLastActive.ts shape (multi-line chain, both columns)  {"hits":[{"line":6,"call":"update","column":"last_active_at"}],"hasTimer":true}
+  PASS  single-quoted table name
+  PASS  back-quoted table name
+  PASS  last_platform alone
+  PASS  upsert
+  PASS  one line, no timer (a write is a write, timer or not)
+MUST PASS
+  PASS  the interface's own shape: rpc('record_session_end')
+  PASS  user_devices.last_active_at is a different table (useUserDevices.ts)
+  PASS  reading the columns (AdminUsers.tsx select)
+  PASS  a profiles update that names neither column
+  PASS  a profiles write followed by an unrelated .from() that names the column
+WHOLE-ROOT SCAN (the CLI, exit codes)
+  PASS  today's tree: exit 1 (RED), one finding, timer named  [{"file":"src/hooks/core/useLastActive.ts","line":6,"call":"update","column":"last_active_at","timer":true}]
+  PASS  after D2's cut-over shape: exit 0 (GREEN)
+
+ALL CASES PASS
+exit=0
+
+D1 · P1 client-timer check — docs/gates/P1-interface.md §5
+scanned 660 source file(s) under src/ (tests and generated types skipped)
+FAIL  src/hooks/core/useLastActive.ts:26  .from("profiles").update(… last_active_at …)  — and this file runs a setInterval: the client timer §5 removes
+FAIL — 1 client write(s) of last_active_at / last_platform remain.
+P1 is not done until D2's cut-over removes them (docs/gates/P1-interface.md §5).
+exit=1
+
+── the same check on a COPY of src/ with useLastActive()'s timer and write removed (D2's cut-over, simulated; nothing in src/ was committed) ──
+D1 · P1 client-timer check — docs/gates/P1-interface.md §5
+scanned 660 source file(s) under src/ (tests and generated types skipped)
+PASS — no client code writes profiles.last_active_at or profiles.last_platform
+exit=0

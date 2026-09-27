@@ -1,0 +1,88 @@
+P1 · 20260920_0001 — C-34 HARNESS TRANSCRIPT
+Run: 2026-09-26T19:07:09Z · scratch PostgreSQL 17.11 (PGDG) + pg_cron 1.6 · 127.0.0.1:5432
+Command: bash docs/evidence/d1/phase2/p1-0001-run-tests.sh
+Base: 7ebdbf408f48876789bca6958254c60190c91b85 (origin/staging) + this unit's working tree
+
+
+══ 0 · scratch cluster and fixture
+  server_version 17.11 (Ubuntu 17.11-1.pgdg24.04+2) · shared_preload_libraries=pg_cron,pg_stat_statements
+  PASS  fixture built
+  pg_cron 1.6
+
+══ 1 · 0001 REFUSES outside the dispatch workflow, and leaves nothing behind
+  PASS  no lane asserted — refused (exit 1), 'Unknown target'
+  PASS  a lane of 'local' — refused (exit 1), 'Unknown target'
+  PASS  transaction pooler, 6543 — refused (exit 1), '6543'
+  PASS  three refusals created no function and no job
+
+══ 2 · 0001 applies on the staging lane; the grant matrix is the interface's
+  PASS  apply, TARGET_LANE=staging
+  backfill_last_seen()  secdef=true  config=search_path=""  acl={postgres=X/postgres,service_role=X/postgres}
+  record_session_end(text)  secdef=true  config=search_path=""  acl={postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+  PASS  record_session_end: anon NO, authenticated YES, service_role YES
+  PASS  backfill_last_seen: service_role only
+  PASS  no PUBLIC entry on either function (F-62)
+  PASS  cron job p1-backfill-last-seen, */30, runs as postgres (the owner)
+  PASS  default-privilege catalogue byte-identical (Phase 1 sign-off row 9 stays PASS)
+
+══ 2b · a second apply is refused (PRE-004), and changes nothing
+  PASS  second apply — refused (exit 3), 'P1-0001-PRE-004'
+  PASS  functions, ACLs and the single job unchanged
+
+══ 3 · TWO TABS within 60 s -> ONE row update, not two
+  PASS  sequential: tab 1 then tab 2, 0 s apart — 1 UPDATE reached the row
+  PASS  the first tab's platform stands; the second wrote nothing
+  PASS  last_active_at moved to now
+  PASS  CROSS-MEMBER: member B's row and public mirror byte-identical after A's calls
+  PASS  61 s after the last write: writes again (the rule is 60 s, not 'once')
+  PASS  concurrent: two tabs racing in real sessions — 1 UPDATE (tab 2 waited 1.5s on tab 1's row lock, then matched nothing)
+
+══ 4 · the argument, and signed out
+  PASS  record_session_end('desktop') raises 22023
+  PASS  record_session_end(NULL) raises 22023
+  PASS  record_session_end('APP') raises 22023
+  PASS  record_session_end('') raises 22023
+  PASS  signed out (no JWT subject): returns without error, writes nothing
+  PASS  a refused call wrote nothing
+
+══ 5 · anon cannot call either function — a real call, not only the catalogue
+  PASS  anon: SELECT public.record_session_end('web') -> permission denied
+  PASS  anon: SELECT public.backfill_last_seen() -> permission denied
+  PASS  authenticated: SELECT public.backfill_last_seen() -> permission denied
+  PASS  service_role: SELECT public.backfill_last_seen() -> 0 row(s)
+
+══ 6 · backfill moves a stale value forward ONLY past 10 minutes
+  PASS  backfill_last_seen() returns 2 (rows touched: Y and Z)
+  PASS  X +5 no, E +10 no, Y +11 yes, Z NULL yes, W never backwards, V no minutes
+  PASS  exactly 2 UPDATEs reached profiles rows
+  PASS  backfill never writes last_platform
+  PASS  a second run touches 0 rows
+  PASS  the cron job's command, run verbatim as postgres, works (0 rows now)
+
+══ 7 · the ROLLBACK — R-9: refuses unless the lane is staging; then removes all three
+  PASS  rollback, lane = production — refused (exit 3), 'ROLLBACK REFUSED'
+  PASS  rollback, p32.lane unset (file run directly) — refused (exit 3), 'ROLLBACK REFUSED'
+  PASS  both refusals left both functions and the job in place
+  PASS  rollback, lane = staging
+  PASS  both functions and the job are gone
+  PASS  default-privilege catalogue still byte-identical
+  PASS  rollback run a second time — refused (exit 3), 'P1-0001-RB-PRE-002'
+  PASS  re-apply after rollback (the cycle closes)
+  PASS  both functions and one job again
+
+══ 7b · 0001 applies on the PRODUCTION lane too (a two-lane file), fresh fixture
+  PASS  apply, TARGET_LANE=production
+  PASS  rollback, lane = production (R-9) — refused (exit 3), 'ROLLBACK REFUSED'
+
+══ 8 · C-34 MUTANTS — the same file with one control removed; each must go RED
+  PASS  RED as required — without the 60 s condition two tabs make 2 UPDATEs
+  PASS  RED as required — without WHERE id = auth.uid() member A's call rewrote member B's row
+  PASS  RED as required — without the margin a +5 min heartbeat moved X to 10:05
+  PASS  RED as required — the default ACL's authenticated grant survives; POST-004 refuses the apply
+  PASS    … and the refused apply left nothing behind
+  PASS  RED as required — a PUBLIC grant is refused by POST-003
+  PASS  RED as required — without the argument check POST-006 refuses the apply
+
+══ VERDICT
+  ALL GREEN
+exit=0
