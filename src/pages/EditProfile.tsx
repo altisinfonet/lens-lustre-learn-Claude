@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
+import { setOwnActiveStatusVisible } from "@/lib/presence/online";
 import { generateImagePath, uploadImage } from "@/lib/imageUpload";
 import { toast } from "@/hooks/core/use-toast";
 import { compressAvatar } from "@/lib/imageCompression";
@@ -609,6 +610,11 @@ const EditProfile = () => {
         date_of_birth: dateOfBirth ? `${dateOfBirth.getFullYear()}-${String(dateOfBirth.getMonth() + 1).padStart(2, "0")}-${String(dateOfBirth.getDate()).padStart(2, "0")}` : null,
         indexing_disabled: indexingDisabled,
       });
+      /* P1 §1 PRIVACY. The presence channel is told in the same gesture, not at
+       * the next reload: turning "hide active status" ON must `untrack()` NOW, or
+       * the member stays visibly online for as long as this tab stays open,
+       * having just been shown a saved confirmation for the opposite. */
+      setOwnActiveStatusVisible(!hideActiveStatus);
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 2000);
     } catch (e: any) {
