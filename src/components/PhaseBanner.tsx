@@ -3,6 +3,7 @@ import { Clock, Trophy, Eye, Upload, Lock, Gavel } from "lucide-react";
 import { motion } from "framer-motion";
 import { resolveCompetitionPhase } from "@/lib/competitionPhase";
 import { useT } from "@/i18n/I18nContext";
+import { useVisibilityInterval } from "@/lib/timers/visibilityInterval";
 
 interface Competition {
   status: string;
@@ -51,10 +52,10 @@ function useCountdown(targetDate: string) {
   const target = useMemo(() => new Date(targetDate).getTime(), [targetDate]);
   const [now, setNow] = useState(Date.now());
 
-  useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(interval);
-  }, []);
+  /* P10: `diff` below is computed from `now` at render, so this tick only
+   * forces a re-render. Hidden tabs do not need one; `runOnVisible` re-reads
+   * the clock on return so the banner is never showing a stale countdown. */
+  useVisibilityInterval(() => setNow(Date.now()), 1000, { runOnVisible: true });
 
   const diff = Math.max(0, target - now);
   const days = Math.floor(diff / 86400000);

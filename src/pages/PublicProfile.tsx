@@ -25,6 +25,7 @@ import { useProfileCore, useProfileExtended } from "@/hooks/profile/useProfileDa
 import ProfileSkeleton from "@/components/ProfileSkeleton";
 import PageSEO from "@/components/PageSEO";
 import { useEntryPublicStatus } from "@/hooks/judging/useEntryPublicStatus";
+import { startVisibilityInterval } from "@/lib/timers/visibilityInterval";
 
 /* ── Privacy Indicator (shown to owner only) ── */
 const PRIVACY_ICONS: Record<PrivacyLevel, { icon: typeof Globe; label: string }> = {
@@ -57,25 +58,32 @@ const MiniCarousel = ({
   onPhotoClick?: (src: string) => void;
 }) => {
   const [activeIdx, setActiveIdx] = useState(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /* P10: the autoplay is started and stopped imperatively on hover, so it
+   * holds a teardown rather than a timer id. startVisibilityInterval adds the
+   * one thing the hover handlers cannot know about — a tab that goes away
+   * while the pointer is still over the card, which used to leave a carousel
+   * advancing every 1.8s behind a hidden tab, decoding photos nobody sees. */
+  const stopRef = useRef<(() => void) | null>(null);
   const hasMultiple = photos.length > 1;
 
   const startAutoplay = useCallback(() => {
-    if (!hasMultiple) return;
-    intervalRef.current = setInterval(() => {
-      setActiveIdx((prev) => (prev + 1) % photos.length);
-    }, 1800);
+    if (!hasMultiple || stopRef.current) return;
+    stopRef.current = startVisibilityInterval(
+      () => setActiveIdx((prev) => (prev + 1) % photos.length),
+      1800,
+    );
   }, [hasMultiple, photos.length]);
 
   const stopAutoplay = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = null;
+    stopRef.current?.();
+    stopRef.current = null;
     setActiveIdx(0);
   }, []);
 
   const goTo = (dir: "prev" | "next", e: React.MouseEvent) => {
     e.stopPropagation();
-    if (intervalRef.current) clearInterval(intervalRef.current);
+    stopRef.current?.();
+    stopRef.current = null;
     setActiveIdx((prev) =>
       dir === "next"
         ? (prev + 1) % photos.length

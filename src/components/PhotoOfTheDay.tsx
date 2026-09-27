@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AnimatePresence, motion } from "framer-motion";
 import { Star, Camera, Calendar, ImageOff } from "lucide-react";
+import { useVisibilityInterval } from "@/lib/timers/visibilityInterval";
 
 interface POTD {
   id: string;
@@ -33,14 +34,14 @@ export default function PhotoOfTheDay() {
     staleTime: 5 * 60_000,
   });
 
-  // Auto-cycle through photos
-  useEffect(() => {
-    if (photos.length <= 1) return;
-    const timer = setInterval(() => {
-      setCurrent((prev) => (prev + 1) % photos.length);
-    }, CYCLE_MS);
-    return () => clearInterval(timer);
-  }, [photos.length]);
+  /* Auto-cycle through photos.
+   * P10: a carousel advancing in a tab nobody is looking at is pure waste —
+   * re-renders, image decodes and battery for frames that are never painted.
+   * It stops on hide and resumes on show, where the member is. */
+  useVisibilityInterval(
+    () => setCurrent((prev) => (prev + 1) % photos.length),
+    photos.length > 1 ? CYCLE_MS : null,
+  );
 
   // Loading skeleton
   if (loading) {

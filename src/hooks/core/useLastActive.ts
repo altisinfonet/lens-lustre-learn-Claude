@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
+import { startVisibilityInterval } from "@/lib/timers/visibilityInterval";
 
 /**
  * Silently updates the user's last_active_at timestamp every 5 minutes.
@@ -38,9 +39,19 @@ export function useLastActive() {
       updated.current = true;
     }
 
-    // Then every 5 minutes
-    const interval = setInterval(update, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+    /* Then every 5 minutes.
+     *
+     * P10: stopped while the tab is hidden. A background tab writing
+     * `last_active_at` every five minutes is telling the presence system the
+     * member is here when they are not — a wrong answer as well as a wasted
+     * write.
+     *
+     * ⚠ THIS WHOLE WRITE IS SCHEDULED FOR DELETION by 2-D2-03 (P1 client
+     * half), which replaces `last_active_at` polling with a Realtime Presence
+     * channel. It is made P10-compliant here rather than left as the one raw
+     * timer in the client, and the unit that removes it will remove this
+     * comment with it. */
+    return startVisibilityInterval(update, 5 * 60 * 1000);
   }, [user]);
 }
 

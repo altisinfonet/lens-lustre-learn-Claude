@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useVisibilityInterval } from "@/lib/timers/visibilityInterval";
 import { Clock, BarChart3 } from "lucide-react";
 
 interface JudgeSessionTimerProps {
@@ -20,17 +21,44 @@ const formatTime = (seconds: number) => {
 
 const JudgeSessionTimer = ({ isActive, entryId, darkMode, sessionElapsed }: JudgeSessionTimerProps) => {
   // Use DB-backed session elapsed when available, else fall back to local counter
-  const [localTime, setLocalTime] = useState(0);
-  const [entryTime, setEntryTime] = useState(0);
+  const entryStartRef = useRef<number | null>(null);
+  const [, setEntryTick] = useState(0);
   const [entriesJudged, setEntriesJudged] = useState(0);
   const lastEntryRef = useRef<string | null>(null);
 
-  // Local fallback timer (only if sessionElapsed not provided)
+  /* ── P10: DERIVED FROM A TIMESTAMP, NOT ACCUMULATED. ──
+   *
+   * This used to be `setInterval(() => setLocalTime(t => t + 1), 1000)`. An
+   * accumulator is wrong twice over: it drifts, because a 1000 ms timer is not
+   * a 1000 ms clock; and it STOPS COUNTING whenever the tab is hidden, so a
+   * judge who switched apps for four minutes came back to a session timer that
+   * had lost four minutes. Anchoring to a start timestamp fixes both, and it is
+   * what makes the timer safe to stop while hidden — which is the other half of
+   * P10. The tick below exists only to cause a re-render; the number on screen
+   * is computed from the clock every time.
+   */
+  const localStartRef = useRef<number | null>(null);
+  const [, setLocalTick] = useState(0);
+
   useEffect(() => {
-    if (!isActive || sessionElapsed !== undefined) return;
-    const interval = setInterval(() => setLocalTime(t => t + 1), 1000);
-    return () => clearInterval(interval);
+    if (!isActive || sessionElapsed !== undefined) {
+      localStartRef.current = null;
+      return;
+    }
+    localStartRef.current = Date.now();
+    setLocalTick((n) => n + 1);
   }, [isActive, sessionElapsed]);
+
+  useVisibilityInterval(
+    () => setLocalTick((n) => n + 1),
+    isActive && sessionElapsed === undefined ? 1000 : null,
+    { runOnVisible: true },
+  );
+
+  const localTime =
+    localStartRef.current === null
+      ? 0
+      : Math.floor((Date.now() - localStartRef.current) / 1000);
 
   // Per-entry timer
   useEffect(() => {
@@ -39,11 +67,21 @@ const JudgeSessionTimer = ({ isActive, entryId, darkMode, sessionElapsed }: Judg
       setEntriesJudged(c => c + 1);
     }
     lastEntryRef.current = entryId;
-    setEntryTime(0);
-    if (!isActive) return;
-    const interval = setInterval(() => setEntryTime(t => t + 1), 1000);
-    return () => clearInterval(interval);
+    // P10: same reasoning as the session timer above — anchor, do not accumulate.
+    entryStartRef.current = isActive ? Date.now() : null;
+    setEntryTick((n) => n + 1);
   }, [entryId, isActive]);
+
+  useVisibilityInterval(
+    () => setEntryTick((n) => n + 1),
+    entryId && isActive ? 1000 : null,
+    { runOnVisible: true },
+  );
+
+  const entryTime =
+    entryStartRef.current === null
+      ? 0
+      : Math.floor((Date.now() - entryStartRef.current) / 1000);
 
   const displayTime = sessionElapsed !== undefined ? sessionElapsed : localTime;
   const avgTime = entriesJudged > 0 ? Math.round(displayTime / entriesJudged) : 0;

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
+import { startVisibilityInterval } from "@/lib/timers/visibilityInterval";
 
 import { logger } from "@/lib/logger";
 
@@ -35,7 +36,8 @@ export function useJudgingLock(
   photoIndex: number | null
 ) {
   const [lockState, setLockState] = useState<LockState>(IDLE);
-  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** The heartbeat's teardown, not a timer id — see the note at the start. */
+  const heartbeatRef = useRef<(() => void) | null>(null);
   const activeRef = useRef<{ entryId: string; photoIndex: number } | null>(null);
   const judgeIdRef = useRef(judgeId);
   judgeIdRef.current = judgeId;
@@ -51,7 +53,7 @@ export function useJudgingLock(
 
   const clearHeartbeat = useCallback(() => {
     if (heartbeatRef.current) {
-      clearInterval(heartbeatRef.current);
+      heartbeatRef.current();
       heartbeatRef.current = null;
     }
   }, []);
@@ -111,9 +113,24 @@ export function useJudgingLock(
           expiresAt: null,
         });
 
-        // Start heartbeat
+        /* ── Start heartbeat. P10, AND A BEHAVIOUR CHANGE WORTH KNOWING ABOUT. ──
+         *
+         * This heartbeat extends a TTL-based lock every two minutes. It now
+         * runs through startVisibilityInterval, so it STOPS while the judge's
+         * tab is hidden or the app is backgrounded, and resumes when it is
+         * back. That is P10's clause, and it is also the honest semantics: a
+         * heartbeat is a claim that this judge is working on this entry, and a
+         * background tab is not working on it.
+         *
+         * THE CONSEQUENCE, stated rather than discovered: a judge who leaves
+         * the tab hidden for longer than LOCK_TTL_MINUTES loses the lock, and
+         * another judge can take the round. That is what the TTL is for, and
+         * it matches the teardown reasoning in the release path at the bottom
+         * of this file — but it is a change in when a lock is lost, not only
+         * in when a timer fires. Raised with the Auditor under 2-D2-04.
+         */
         clearHeartbeat();
-        heartbeatRef.current = setInterval(async () => {
+        heartbeatRef.current = startVisibilityInterval(() => { void (async () => {
           if (!judgeIdRef.current || !activeRef.current) return;
           try {
             await supabase.rpc("heartbeat_judge_lock", {
@@ -125,7 +142,7 @@ export function useJudgingLock(
           } catch {
             // Heartbeat failure is non-fatal; lock will expire naturally
           }
-        }, HEARTBEAT_INTERVAL_MS);
+        })(); }, HEARTBEAT_INTERVAL_MS);
       } else {
         setLockState({
           isLocked: false,

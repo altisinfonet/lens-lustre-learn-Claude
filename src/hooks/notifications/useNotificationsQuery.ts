@@ -392,6 +392,11 @@ export function useNotificationsQuery(
     queryKey: queryKeys.notifications(userId ?? ""),
     queryFn: () => fetchNotifications(userId!, isAdmin),
     enabled: !!userId,
+    // P10: 60s, a backup behind the realtime notifications channel. Same
+    // reasoning as the judge-progress poll: realtime is the primary path and
+    // this covers a websocket that will not connect. A notification that
+    // arrives up to a minute late when realtime is already broken is the
+    // acceptable end of that trade.
     refetchInterval: 60_000,
   });
 
