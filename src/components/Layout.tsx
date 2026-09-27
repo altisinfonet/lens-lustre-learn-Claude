@@ -23,7 +23,8 @@ import SiteFooter from "@/components/SiteFooter";
 import PageTransition from "@/components/PageTransition";
 import { isOwnProfilePhoto } from "@/lib/profilePhoto";
 import { useAuth } from "@/hooks/core/useAuth";
-import { useLastActive } from "@/hooks/core/useLastActive";
+import { useSessionEnd } from "@/hooks/core/useSessionEnd";
+import { usePresenceOnline } from "@/lib/presence/online";
 import { useEngagementHeartbeat } from "@/hooks/core/useEngagementHeartbeat";
 import { DashboardProvider, useDashboardContext } from "@/hooks/core/DashboardContext";
 import { CommentsOverlayProvider } from "@/contexts/CommentsOverlayContext";
@@ -70,7 +71,13 @@ const LayoutInner = () => {
   const queryClient = useQueryClient();
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
-  useLastActive();
+  /* P1 client half (2-D2-03). These two replace `useLastActive()`, which wrote
+   * profiles.last_active_at on mount and every five minutes:
+   *   · the green dot is a Realtime Presence channel, zero writes;
+   *   · "last seen" is one RPC when the session ends.
+   * See docs/gates/P1-interface.md §1, §2 and §5. */
+  usePresenceOnline();
+  useSessionEnd();
   // Phase 2a — Active Engagement collector. Collect only: nothing scored,
   // nothing displayed. Signed-out visitors are never touched.
   useEngagementHeartbeat();

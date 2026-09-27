@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfileMap } from "@/hooks/profile/useProfileMap";
 import { useAuth } from "@/hooks/core/useAuth";
-import { isActiveNow } from "@/hooks/core/useLastActive";
+import { useOnline } from "@/lib/presence/online";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { toast } from "@/hooks/core/use-toast";
@@ -49,9 +49,10 @@ interface Props {
 
 const REPORT_REASONS = ["Inappropriate", "Spam", "Harassment", "Nudity", "Hate Speech", "False Information", "Violence"];
 
-const Avatar = ({ src, name, size = "sm", lastActiveAt }: { src: string | null | undefined; name: string | null | undefined; size?: "xs" | "sm"; lastActiveAt?: string | null }) => {
+const Avatar = ({ src, name, size = "sm", userId }: { src: string | null | undefined; name: string | null | undefined; size?: "xs" | "sm"; userId?: string | null }) => {
   const cls = size === "xs" ? "w-6 h-6 text-[10px]" : "w-8 h-8 text-xs";
-  const online = isActiveNow(lastActiveAt);
+  /* P1 §4: live presence keyed on the commenter's id, not comment.last_active. */
+  const online = useOnline(userId);
   return (
     <span className={`relative inline-block ${cls}`}>
       {src ? (
@@ -389,7 +390,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
       <div key={comment.id} className={`${depth > 0 ? "ml-10" : ""}`}>
         <div className="flex gap-2 group/comment py-0.5">
           <ProfileLink userId={comment.user_id} handle={comment.profile?.custom_url} className="shrink-0 mt-0.5">
-            <Avatar src={comment.profile?.avatar_url} name={comment.profile?.full_name} size={depth > 0 ? "xs" : "sm"} lastActiveAt={comment.last_active} />
+            <Avatar src={comment.profile?.avatar_url} name={comment.profile?.full_name} size={depth > 0 ? "xs" : "sm"} userId={comment.user_id} />
           </ProfileLink>
           <div className="flex-1 min-w-0">
             {editingId === comment.id ? (

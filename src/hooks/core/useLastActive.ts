@@ -1,61 +1,47 @@
-import { useEffect, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/core/useAuth";
-import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
-import { startVisibilityInterval } from "@/lib/timers/visibilityInterval";
+/**
+ * "LAST SEEN X AGO" — THE READER. Nothing in here writes any more.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHAT LEFT, AND WHERE IT WENT (2-D2-03, P1 client half)
+ *
+ * This file used to hold `useLastActive()`, which wrote
+ * `profiles.last_active_at` and `profiles.last_platform` on mount and then
+ * every five minutes for as long as the tab was open, and `isActiveNow()`,
+ * which turned that timestamp into the green dot. `docs/gates/P1-interface.md`
+ * §5 removes the first: "No client code writes profiles.last_active_at or
+ * profiles.last_platform. There is no client timer that touches profiles."
+ *
+ *   · the green dot        → `src/lib/presence/online.ts` (Realtime Presence,
+ *                            zero writes) — §1
+ *   · the "last seen" write → `src/hooks/core/useSessionEnd.ts`, one
+ *                            `record_session_end` call when the session ends,
+ *                            with the two-tab rule resolved in the database — §2
+ *   · the missed-write case → `backfill_last_seen()` on pg_cron, D1's half — §3
+ *
+ * `isActiveNow` is DELETED rather than deprecated, and that is the point of
+ * mentioning it here: while it existed, "active within five minutes" was one
+ * import away from becoming the dot again in the next component somebody wrote.
+ * §4 is explicit — "The green dot uses isOnline(userId), never
+ * isActiveNow(last_active_at)".
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHY THE FILE KEEPS ITS NAME
+ *
+ * `formatLastSeen` is the reader of `profiles.last_active_at`, which §4 keeps
+ * exactly as it was. Renaming the file would edit every importer for no
+ * behavioural change, in a unit whose diff is already wide; the header is the
+ * honest way to say what it now contains.
+ */
 
 /**
- * Silently updates the user's last_active_at timestamp every 5 minutes.
- * Lightweight — no WebSocket or Realtime channel needed.
+ * Format `profiles.last_active_at` into "Last seen X ago".
  *
- * Also records WHERE the member is signed in from (profiles.last_platform,
- * "app" | "web") — the admin users list shows both. Owner, 2026-08-05:
- * "show last activated time and login from app or website on the same list
- * nicely show". The column only fills from 2026-08-05 onward; earlier logins
- * were never recorded anywhere trustworthy (client_errors.platform only
- * exists for members who hit an error) and are shown as blank, not guessed.
+ * "Active now" here is a property of the TIMESTAMP, not of presence: it means
+ * the last recorded session end was under two minutes ago. The green dot must
+ * not be derived from it — `useOnline(userId)` is the live answer (§4). The
+ * admin list shows the presence answer in preference to this string when the two
+ * disagree, which they will: `record_session_end` writes when a member LEAVES.
  */
-export function useLastActive() {
-  const { user } = useAuth();
-  const updated = useRef(false);
-
-  useEffect(() => {
-    if (!user) return;
-
-    const update = () => {
-      supabase
-        .from("profiles")
-        .update({
-          last_active_at: new Date().toISOString(),
-          last_platform: isNativeCapacitorApp() ? "app" : "web",
-        } as any)
-        .eq("id", user.id)
-        .then(() => {});
-    };
-
-    // Update immediately on mount (once per session)
-    if (!updated.current) {
-      update();
-      updated.current = true;
-    }
-
-    /* Then every 5 minutes.
-     *
-     * P10: stopped while the tab is hidden. A background tab writing
-     * `last_active_at` every five minutes is telling the presence system the
-     * member is here when they are not — a wrong answer as well as a wasted
-     * write.
-     *
-     * ⚠ THIS WHOLE WRITE IS SCHEDULED FOR DELETION by 2-D2-03 (P1 client
-     * half), which replaces `last_active_at` polling with a Realtime Presence
-     * channel. It is made P10-compliant here rather than left as the one raw
-     * timer in the client, and the unit that removes it will remove this
-     * comment with it. */
-    return startVisibilityInterval(update, 5 * 60 * 1000);
-  }, [user]);
-}
-
-/** Format last_active_at into human-readable "Last seen X ago" */
 export function formatLastSeen(lastActiveAt: string | null | undefined): string {
   if (!lastActiveAt) return "";
   const diff = Date.now() - new Date(lastActiveAt).getTime();
@@ -67,10 +53,4 @@ export function formatLastSeen(lastActiveAt: string | null | undefined): string 
   const days = Math.floor(hrs / 24);
   if (days < 7) return `Last seen ${days}d ago`;
   return `Last seen ${Math.floor(days / 7)}w ago`;
-}
-
-/** Check if the user was active within the last 5 minutes */
-export function isActiveNow(lastActiveAt: string | null | undefined): boolean {
-  if (!lastActiveAt) return false;
-  return Date.now() - new Date(lastActiveAt).getTime() < 5 * 60 * 1000;
 }
