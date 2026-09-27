@@ -120,11 +120,20 @@ describe("no page body starts invisible, on any route", () => {
   /**
    * Elements INSIDE a summoned container, which no backward line scan can see.
    * Listed explicitly rather than matched loosely, so each is auditable:
-   *   SubmissionDetail.tsx:177 — interior of the fixed inset-0 z-[100] overlay
-   *                              opened at :151. The overlay is summoned; its
+   *   SubmissionDetail.tsx:178 — interior of the fixed inset-0 z-[100] overlay
+   *                              opened at :152. The overlay is summoned; its
    *                              contents cannot outlive it.
+   *
+   * A LINE NUMBER IS A BAD KEY AND THIS IS THE PROOF. 2-D2-04 added one import
+   * line to `SubmissionDetail.tsx`, 170 lines above anything this allowlist
+   * cares about, and that alone moved the entry off its key — which fails this
+   * test with a red line pointing at code nobody touched. Re-keying is the fix
+   * R-63 asked for in this PR; keying on the matched text instead of its
+   * position is logged for a later unit, because changing the key format is a
+   * change to the instrument and does not belong in a timer PR.
    */
-  const INSIDE_SUMMONED = new Set(["src/pages/SubmissionDetail.tsx:177"]);
+  // re-keyed R-63: import added above; flagged code byte-identical to staging 7ebdbf4
+  const INSIDE_SUMMONED = new Set(["src/pages/SubmissionDetail.tsx:178"]);
 
   it("no variant object and no JSX prop starts page-body content at opacity 0", async () => {
     const { readFileSync, readdirSync } = await import("node:fs");

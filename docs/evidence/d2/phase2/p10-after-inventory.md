@@ -61,3 +61,20 @@ comments before it looks.
    on those rather than passing them — `has no delay this scan cannot resolve`
    — so the hole is closed by refusal rather than by cleverness, but it means a
    future caller must use a literal or a locally-defined constant.
+
+## Addendum, R-63: the timer now tells its caller when it restarted
+
+The Auditor's R-63 accepted the behaviour change this unit introduced — the
+judging-lock heartbeat stops while the tab is hidden, so a judge hidden past
+`LOCK_TTL_MINUTES` loses the lock — and ruled that **losing the lock is fine,
+not noticing is not** (P10-J1). Fixing that needed one addition to the control,
+not a per-caller workaround:
+
+| Added | Why it belongs in the primitive |
+|---|---|
+| `TickInfo.firstTickAfterResume`, passed to every callback | Only this file knows the timer stopped and restarted, and it knows it for a Capacitor `appStateChange` as well as a `visibilitychange`. A caller re-deriving "am I the first tick after a gap" from timestamps would get the Capacitor case wrong. |
+| `runOnResume` option | `runOnVisible` fires on resume **and** at start-up. A caller whose tick is a write, not a read, does not want the start-up one: `useJudgingLock` has just acquired the lock at that instant. |
+
+Neither changes any of the seventeen converted call sites: a callback declared
+`() => void` is still a valid argument for `(info: TickInfo) => void`, and both
+options default to false. The counts in the table above are unchanged.

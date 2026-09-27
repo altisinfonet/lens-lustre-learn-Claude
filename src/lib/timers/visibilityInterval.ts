@@ -31,6 +31,13 @@
  *    caller here either re-derives its state from a timestamp on the next
  *    render or does not care. `runOnVisible` asks for exactly one tick on
  *    resume, for the callers that do.
+ *  · It tells the callback whether a tick is the first one after a resume
+ *    (`TickInfo.firstTickAfterResume`). A caller that holds a server-side
+ *    claim needs that: nothing it believes about the world survived the gap,
+ *    and a failure on that tick means something different from a failure
+ *    mid-session. Only this file knows when the timer restarted — the gap can
+ *    be a `visibilitychange` or a Capacitor `appStateChange` — so the flag is
+ *    produced here rather than re-derived by each caller.
  *
  * `useEngagementHeartbeat.ts` keeps its own copy of this pattern and is exempt
  * in `p10TimerDiscipline.test.ts`: it is the implementation this one was
@@ -49,6 +56,29 @@ import { useEffect, useRef } from "react";
 
 /** P10's floor. Nothing in this client repeats faster than this. */
 export const MIN_INTERVAL_MS = 1000;
+
+/**
+ * What the callback is told about the tick it is running on.
+ *
+ * Optional at the call site: a callback declared `() => void` is still a valid
+ * argument, which is why the seventeen sites that do not care were not touched
+ * when this was added.
+ */
+export interface TickInfo {
+  /**
+   * True for a tick fired the moment the page became visible again, or the
+   * Capacitor app returned to the foreground, after this timer had been
+   * stopped. False for an ordinary interval tick and for the tick fired at
+   * start-up.
+   *
+   * It exists for callers whose tick asserts something to a server that may
+   * have moved on while they were away — `useJudgingLock`'s heartbeat, which
+   * treats a failure here as a lock it can no longer assume it holds. Do not
+   * read it as "the page just became visible": it is only set when this timer
+   * had actually stopped, and only when the caller asked for a resume tick.
+   */
+  firstTickAfterResume: boolean;
+}
 
 type CapAppState = { isActive?: boolean };
 type CapListenerHandle = { remove?: () => void };
@@ -79,7 +109,7 @@ const capApp = () =>
  * Returns a no-op teardown when the delay is below the floor, having said so.
  */
 export function startVisibilityInterval(
-  callback: () => void,
+  callback: (info: TickInfo) => void,
   delayMs: number,
   options: VisibilityIntervalOptions = {},
 ): () => void {
@@ -94,13 +124,15 @@ export function startVisibilityInterval(
   }
 
   const runOnVisible = options.runOnVisible ?? false;
+  /** `runOnVisible` is the same thing plus the start-up tick. */
+  const runOnResume = runOnVisible || (options.runOnResume ?? false);
   let timer: number | null = null;
 
-  const tick = () => {
+  const tick = (firstTickAfterResume = false) => {
     // Belt and braces: a timer can survive one turn of the event loop after
     // stop(), and a tick while hidden is exactly what this exists to prevent.
     if (typeof document !== "undefined" && document.hidden) return;
-    callback();
+    callback({ firstTickAfterResume });
   };
 
   const start = () => {
@@ -118,7 +150,7 @@ export function startVisibilityInterval(
     if (document.hidden) {
       stop();
     } else {
-      if (runOnVisible) tick();
+      if (runOnResume) tick(true);
       start();
     }
   };
@@ -134,7 +166,7 @@ export function startVisibilityInterval(
       if (s?.isActive === false) {
         stop();
       } else {
-        if (runOnVisible) tick();
+        if (runOnResume) tick(true);
         start();
       }
     });
@@ -144,7 +176,8 @@ export function startVisibilityInterval(
   }
 
   if (typeof document === "undefined" || !document.hidden) {
-    if (runOnVisible) tick();
+    // Start-up, not a resume. `runOnResume` deliberately does not fire here.
+    if (runOnVisible) tick(false);
     start();
   }
 
@@ -166,6 +199,19 @@ export interface VisibilityIntervalOptions {
    * a stale value for up to one interval. Default false.
    */
   runOnVisible?: boolean;
+  /**
+   * Fire once on resume — but **not** at start-up. Default false.
+   *
+   * The difference from `runOnVisible` is one tick, and it matters for a
+   * caller whose tick is a write rather than a read: `useJudgingLock` has just
+   * acquired its lock when the timer starts, so a heartbeat in that instant is
+   * an RPC that asserts something already true. Coming back from hidden is the
+   * opposite case — that is the moment it least knows whether it still holds
+   * the lock.
+   *
+   * `runOnVisible` implies this. Setting both is the same as `runOnVisible`.
+   */
+  runOnResume?: boolean;
 }
 
 /**
@@ -180,7 +226,7 @@ export interface VisibilityIntervalOptions {
  * render and its countdown never completed.
  */
 export function useVisibilityInterval(
-  callback: () => void,
+  callback: (info: TickInfo) => void,
   delayMs: number | null,
   options: VisibilityIntervalOptions = {},
 ): void {
@@ -188,9 +234,13 @@ export function useVisibilityInterval(
   savedCallback.current = callback;
 
   const runOnVisible = options.runOnVisible ?? false;
+  const runOnResume = options.runOnResume ?? false;
 
   useEffect(() => {
     if (delayMs === null) return;
-    return startVisibilityInterval(() => savedCallback.current(), delayMs, { runOnVisible });
-  }, [delayMs, runOnVisible]);
+    return startVisibilityInterval((info) => savedCallback.current(info), delayMs, {
+      runOnVisible,
+      runOnResume,
+    });
+  }, [delayMs, runOnVisible, runOnResume]);
 }
