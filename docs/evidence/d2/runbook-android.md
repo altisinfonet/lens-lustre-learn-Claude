@@ -191,30 +191,22 @@ Put every file in `docs/evidence/d2/phase2-android/<SIDE>/`. Do not rename or cr
 
 ---
 
-## 8 · Web Vitals — and the one thing this runbook cannot do alone
+## 8 · Web Vitals — NOT measured on the phone. R-62.
 
-LCP, INP and CLS on a **real** phone cannot be read from the phone by itself. Chrome for Android
-has no on-device performance panel. There are two honest ways, and **the Auditor should pick one
-before the first measurement**:
+**Do not try to measure LCP, INP or CLS from the phone. There is nothing here for you to do.**
 
-**Option A — USB cable, 5 minutes of setup, no code.**
-1. On the phone: *Developer options* → **USB debugging ON**.
-2. Plug the phone into a computer with Chrome.
-3. On the computer, open `chrome://inspect/#devices`, allow the phone's prompt, find the
-   `staging.50mmretina.com` tab, click **inspect**.
-4. In the panel that opens: **Lighthouse** tab → device **Mobile** → **Analyze page load**.
-5. Save the report as JSON. Name it `<SIDE>-<SESSION>-<MODEL>-<YYYYMMDD>-lighthouse.json`.
+The P10 gate names **battery and jank on the device**; Web Vitals are a **harness** reading, taken
+by the Phase 0 CI harness on the same build and VERIFIED under 2-D2-05. The phone measures battery
+(§4) and jank (§5), and nothing else.
 
-**Option B — an in-page overlay, which does not exist yet.** The vitals reporter this project
-already has (`scripts/web-vitals-report.mjs`) runs in CI against `dist/` on localhost. Surfacing the
-same numbers on the deployed site behind something like `?vitals=1` would make this leg phone-only
-— but that is **code D2 has not been asked to write**, and I am not writing it inside a runbook
-unit.
+In the results file, the Web Vitals row reads exactly:
 
-**Until the Auditor picks one, §4's battery and §5's jank are the numbers this runbook produces,
-and the Web Vitals row in the results file reads `NOT MEASURED — awaiting A or B`.** It does not
-read "unchanged", and it does not read a figure copied from the CI harness: those are emulated, on
-localhost, with no CDN and no real network path, and they are not a real-device reading.
+```
+HARNESS — Phase 0 CI harness on the same build; see CI run id
+```
+
+and you record the CI run id the Auditor gives you for the BEFORE build and for the AFTER build.
+**You do not fill in a number here, and a number from your phone must not be put here.**
 
 ---
 
@@ -242,7 +234,7 @@ this runbook, plus the screenshot folders. It must contain:
 3. the §3 negative-control pair and its verdict;
 4. all three sessions per side — **including any discarded, with the §6 reason**;
 5. medians, and the full spread;
-6. the Web Vitals row, measured or `NOT MEASURED`;
+6. the Web Vitals row — the fixed `HARNESS …` line plus the two CI run ids (§8);
 7. one sentence saying whether the AFTER is better, worse, or inside the noise band.
 
 **If it is worse, or inside the noise, say so in that sentence.** That is what the runbook is for.

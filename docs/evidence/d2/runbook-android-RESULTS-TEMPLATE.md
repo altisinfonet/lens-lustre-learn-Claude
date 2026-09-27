@@ -67,18 +67,17 @@ Chrome daily battery-usage cross-check: ___
 
 ---
 
-## 4 · Web Vitals (§8)
+## 4 · Web Vitals — harness, not phone (§8, R-62)
+
+**Not measured on the device. Do not put a phone number in this section.**
 
 | | BEFORE | AFTER |
 |---|---|---|
-| Option used (A · cable / B · overlay) | | |
-| LCP (ms) | | |
-| INP (ms) | | |
-| CLS | | |
-| Lighthouse JSON filename | | |
+| Source | `HARNESS — Phase 0 CI harness on the same build; see CI run id` | `HARNESS — Phase 0 CI harness on the same build; see CI run id` |
+| CI run id | | |
 
-If neither option was available, both columns read **`NOT MEASURED — awaiting A or B`**.
-They must not read "unchanged", and must not carry a figure copied from the CI harness.
+The figures themselves are read from the harness output for those runs and are VERIFIED under
+2-D2-05. Nothing in this section is the Owner's to measure.
 
 ---
 
