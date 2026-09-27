@@ -1,12 +1,16 @@
 import { Link } from "react-router-dom";
-import { isActiveNow } from "@/hooks/core/useLastActive";
+import { useOnline } from "@/lib/presence/online";
 import { avatarInitial } from "@/lib/displayName";
 
 interface PresenceAvatarProps {
   src?: string | null;
   name?: string | null;
-  /** Presence heartbeat timestamp (from profile map / profiles_public_data). */
-  lastActiveAt?: string | null;
+  /**
+   * The member this avatar belongs to. The dot is live Realtime Presence keyed
+   * on this id (P1 §1), not a `last_active_at` timestamp — the old
+   * `lastActiveAt` prop is gone, and passing a timestamp here would not compile.
+   */
+  userId?: string | null;
   /** Avatar diameter in px. Default 40. */
   size?: number;
   /** If provided, the avatar is wrapped in a router Link. */
@@ -21,9 +25,12 @@ interface PresenceAvatarProps {
 
 /**
  * Facebook/Instagram-style avatar with an online-presence indicator.
- * "Online" = active within the last 5 minutes (isActiveNow). Presence data is
- * only available to authenticated viewers and to users who haven't hidden their
- * active status, so the dot simply doesn't render otherwise.
+ *
+ * "Online" means a Realtime Presence entry exists for `userId` right now (P1
+ * §1) — not "wrote a timestamp in the last five minutes", which is what it used
+ * to mean and which showed a dot for members who had already closed the tab.
+ * Signed-out viewers never open the channel, and a member who has hidden their
+ * active status never announces themselves, so in both cases nothing renders.
  *
  * Note: ring/offset classes are written literally (not interpolated) so
  * Tailwind's JIT keeps them.
@@ -31,14 +38,14 @@ interface PresenceAvatarProps {
 export default function PresenceAvatar({
   src,
   name,
-  lastActiveAt,
+  userId,
   size = 40,
   to,
   className = "",
   showRing = true,
   showDot = true,
 }: PresenceAvatarProps) {
-  const online = isActiveNow(lastActiveAt);
+  const online = useOnline(userId);
   const dim = { width: size, height: size };
   // dot ~28% of avatar, min 8px
   const dotSize = Math.max(8, Math.round(size * 0.28));
