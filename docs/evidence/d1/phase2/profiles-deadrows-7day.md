@@ -4,8 +4,8 @@
 consecutive dated readings, all < 10 %**, each confirmed by the Auditor's own SELECT. **Any reading >= 10 % restarts
 the window.** The window is real elapsed time and is never shortened.
 
-**Status: NOT STARTED.** Day 1 starts only when the Auditor records that D2's P1 client cut-over is live on staging
-(2-AU-06). Readings taken before that date are not part of the window and are not entered below.
+**Status: NOT STARTED** (R-67: pre-cut-over dead rows; the 0003 VACUUM resolves them — see "The window" below).
+Readings taken before day 1 are not part of the window and are not entered in its table.
 
 ## Lane and instrument
 - **Lane:** staging, project `fpszggreishhuvdpkmdr` (the lane the cut-over lands on first, per 2-D1-04).
@@ -42,7 +42,29 @@ dead heap tuple *and* new index entries, which is why the timer's volume shows u
 recorded, not acted on.
 
 ## The window
-Cut-over live on staging (Auditor, 2-AU-06): **— not yet —**
+Cut-over live on staging (Auditor, R-67): **2026-09-28 07:17 UTC** (e04a116, #310 + #313).
+
+**The window has NOT started (R-67).**
+- **Reason:** `profiles` still carries the dead rows left by the OLD client timer: 50 live / 51 dead = 50.5 %, last
+  autovacuum 2026-09-15.
+- **Why autovacuum won't clear them:** at this table size it does not fire until there are
+  50 + 0.2 × 50 = **60** dead rows.
+- **Resolution:** the one-time `VACUUM (ANALYZE) public.profiles`, in
+  `supabase/migrations/20260920_0003_p1_profiles_vacuum_once.sql`, dispatched on staging.
+- **Day 1** is the first reading < 10 % after that dispatch, as the Auditor re-reads it.
+
+**For the Auditor before day 1: on staging, a < 10 % reading may not be discriminating.**
+- Nobody has used staging since 2026-09-15: no heartbeat minutes and no `last_active_at` in the last 3 days (read
+  2026-09-28).
+- After the VACUUM, a table nobody writes to stays at 0 % whatever the client does.
+- Seven such days would show that staging was idle, not that P1 works.
+- The window measures P1 only if staging carries real sessions during it, or if the window is taken on production.
+  That choice is the Auditor's; this file records the readings either way, with `n_tup_upd` beside each, so an idle
+  day is visible as one.
+- Also recorded: the index `idx_profiles_reengagement_scan (last_active_at, …)` makes every `last_active_at` UPDATE
+  non-HOT. So each `record_session_end` or backfill write leaves one dead tuple. At 50 live rows, 6 such writes
+  between vacuums reach 10.7 %, and autovacuum does not fire until 60. No action here (C-2 holds all index drops);
+  this is recorded so the Auditor can read the window in that light.
 
 | day | read at (db clock, UTC) | live | dead | dead % | n_tup_upd | n_tup_hot_upd | last_autovacuum | last_vacuum | < 10 %? | D1 | Auditor |
 |---|---|---|---|---|---|---|---|---|---|---|---|
