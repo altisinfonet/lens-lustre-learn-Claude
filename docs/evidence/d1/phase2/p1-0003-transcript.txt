@@ -1,0 +1,47 @@
+P1 · 20260920_0003 — C-34 HARNESS TRANSCRIPT (one-time VACUUM, R-67)
+Run: 2026-09-28T07:22:12Z · scratch PostgreSQL 17.11 (PGDG) · 127.0.0.1:5432
+Command: bash docs/evidence/d1/phase2/p1-0003-run-tests.sh
+Base: e04a11624d7c480aae5385b9db02598e92b26a20 (origin/staging) + this unit's working tree
+
+
+══ 0 · fixture: the old timer's dead rows, no vacuum yet
+  server_version 17.11 (Ubuntu 17.11-1.pgdg24.04+2)
+  PASS  fixture built
+  profiles: 50 live / 50 dead, vacuumed=false, analyzed=false
+  PASS  starting point: 50 live / 50 dead = 50 %, never vacuumed
+
+══ 1 · static: the file is the lane assertion and ONE VACUUM, nothing else
+  PASS  exactly two top-level statements
+  PASS  statement 1 is the lane assertion (DO block)
+  PASS  statement 2 is VACUUM (ANALYZE) public.profiles
+  PASS  no top-level BEGIN / COMMIT (the DO body's plpgsql BEGIN is not a transaction)
+
+══ 2 · refuses outside the two lanes, and then vacuums NOTHING
+  PASS  no lane asserted — refused (exit 1), 'Unknown target'
+  PASS  a lane of 'local' — refused (exit 1), 'Unknown target'
+  PASS  transaction pooler, 6543 — refused (exit 1), '6543'
+  PASS  file run with p32.lane unset (no Run-it step) — the file's own assertion refuses (exit 3)
+  PASS  after four refusals: still 50 dead, never vacuumed — ON_ERROR_STOP stopped before the VACUUM
+
+══ 3 · staging lane: the dead rows go
+  PASS  apply, TARGET_LANE=staging (exit 0)
+  profiles: 50 live / 0 dead, vacuumed=true, analyzed=true
+  PASS  50 live / 0 dead = 0 %; last_vacuum and last_analyze set
+
+══ 3b · a second run is harmless
+  PASS  re-run: exit 0, nothing changes
+
+══ 3c · production lane: the same, on a fresh fixture
+  PASS  apply, TARGET_LANE=production: exit 0, 0 dead
+
+══ 4 · why there is no BEGIN/COMMIT — each wrapped form FAILS, and vacuums nothing
+  PASS  the file wrapped in BEGIN/COMMIT fails: VACUUM cannot run inside a transaction block
+  PASS  psql --single-transaction (-1) fails the same way — if the workflow ever gains -1, this file refuses loudly
+  PASS  both failures vacuumed nothing
+
+══ 5 · C-34 MUTANT — the lane assertion removed: an unasserted run is ACCEPTED
+  PASS  RED as required — without the assertion a run with p32.lane unset vacuums (exit 0); the assertion is what refuses
+
+══ VERDICT
+  ALL GREEN
+exit=0
