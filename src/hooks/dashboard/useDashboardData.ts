@@ -348,6 +348,10 @@ export const useDashboardData = (userId: string | undefined) => {
       };
     },
     enabled: !!userId,
-    refetchInterval: 30000, // replaces the manual 30s polling
+    // P10: 30s, the floor. This replaced a hand-rolled 30s poll, and react-query
+    // at least stops it when the query has no observers. Kept at 30s because the
+    // dashboard is the surface an admin watches during a competition close, where
+    // a minute of staleness is the difference between acting and explaining.
+    refetchInterval: 30_000,
   });
 };
