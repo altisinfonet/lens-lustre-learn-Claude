@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { BarChart3, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { startVisibilityInterval } from "@/lib/timers/visibilityInterval";
 
 interface Props {
   competitionId: string;
@@ -57,11 +58,15 @@ const AdminCompetitionFunnel = ({ competitionId }: Props) => {
 
     // Polling backup (30s): keeps the funnel moving when the realtime
     // websocket cannot connect.
-    const poll = setInterval(fetch, 30_000);
+    //
+    // P10: through startVisibilityInterval, so the backup poll stops while the
+    // tab is hidden. An admin with this page parked in a background tab was
+    // issuing a query every 30s forever for a funnel nobody was reading.
+    const stopPoll = startVisibilityInterval(fetch, 30_000);
 
     return () => {
       if (timer) clearTimeout(timer);
-      clearInterval(poll);
+      stopPoll();
       supabase.removeChannel(channel);
     };
   }, [competitionId]);

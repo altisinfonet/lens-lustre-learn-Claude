@@ -4,6 +4,7 @@ import { useT } from "@/i18n/I18nContext";
 import { ArrowLeft, Loader2, Mail, Eye, EyeOff, ShieldCheck, ShieldX, Timer } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/core/useAuth";
+import { useVisibilityInterval } from "@/lib/timers/visibilityInterval";
 import { supabase } from "@/integrations/supabase/client";
 import { signInWithOAuth } from "@/lib/oauthHelper";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
@@ -89,16 +90,20 @@ const Login = () => {
       sessionStorage.removeItem("suspension_message");
     }
   }, []);
-  // Countdown timer for lockout
-  useEffect(() => {
-    if (lockoutSeconds <= 0) return;
-    const interval = setInterval(() => {
-      const remaining = getLockedOutSeconds();
-      setLockoutSeconds(remaining);
-      if (remaining <= 0) clearInterval(interval);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [lockoutSeconds]);
+  /* Countdown timer for lockout.
+   * P10: the remaining time already comes from `getLockedOutSeconds()`, i.e.
+   * from a stored timestamp, so nothing is lost by not ticking while hidden —
+   * and `runOnVisible` means a member who tabs back sees the true remaining
+   * time immediately rather than a value frozen when they left. The old effect
+   * also re-created its interval on every tick, because `lockoutSeconds` was
+   * its own dependency; passing the delay as null when there is no lockout
+   * does the same job without rebuilding the timer once a second.
+   */
+  useVisibilityInterval(
+    () => setLockoutSeconds(getLockedOutSeconds()),
+    lockoutSeconds > 0 ? 1000 : null,
+    { runOnVisible: true },
+  );
 
   useEffect(() => {
     if (user && !showTrustPrompt) {
