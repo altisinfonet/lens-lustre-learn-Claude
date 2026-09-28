@@ -531,6 +531,13 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     resolution:
       "Development only — decisionParityProbe and useUnjudgedDriftMonitor both return early outside DEV, so this can never reach a production console. It flags UI and database disagreeing about judging state; investigate at the source, not here.",
   },
+  {
+    code: "JUDGE-6108",
+    severity: "warn",
+    description: "The judging lock is no longer held by this judge; re-acquiring.",
+    resolution:
+      "Expected when a judge's tab was hidden longer than the lock TTL — the heartbeat stops while hidden, so the lock expires and the re-acquire reports honestly whether it came back. Investigate if it appears while a judge is demonstrably working, which would mean the TTL is shorter than a round takes.",
+  },
 
   // ── NOTIF ─────────────────────────────────────────────────────────────────
   {

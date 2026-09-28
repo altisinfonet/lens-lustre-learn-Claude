@@ -276,6 +276,11 @@ export const useCompetitionEntries = (competitionId: string | undefined, userId:
     refetchOnMount: true,
     refetchOnReconnect: true,
     refetchOnWindowFocus: isVoting,
+    // P10: 90s, and only while voting is open — `false` the rest of the time,
+    // so this poll does not exist outside the window it is for. A live vote
+    // count that is 90s stale is still a live vote count; react-query also
+    // refetches on window focus, so the number a member is actually looking at
+    // is fresher than the interval suggests. Justified, not slowed.
     refetchInterval: isVoting ? 90 * 1000 : false,
     placeholderData: keepPreviousData,
   });

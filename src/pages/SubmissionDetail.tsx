@@ -6,6 +6,7 @@ import JudgingStampBadge from "@/components/JudgingStampBadge";
 import ParticipantStageBadge from "@/components/judge/ParticipantStageBadge";
 import UserNextStepPanel from "@/components/UserNextStepPanel";
 import { motion, AnimatePresence } from "framer-motion";
+import { useVisibilityInterval } from "@/lib/timers/visibilityInterval";
 import {
   Trophy, Star, Award, Camera, ChevronLeft, ChevronRight,
   X, Clock, CheckCircle, ExternalLink, ArrowLeft, ImageIcon, Pencil,
@@ -322,10 +323,10 @@ const SubmissionDetail = () => {
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [nowTick, setNowTick] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNowTick(Date.now()), 60_000);
-    return () => clearInterval(id);
-  }, []);
+  /* P10: a minute-resolution clock for relative timestamps. Nothing on this
+   * page needs it to advance while the tab is hidden, and `runOnVisible` makes
+   * the first thing a returning reader sees a fresh reading. */
+  useVisibilityInterval(() => setNowTick(Date.now()), 60_000, { runOnVisible: true });
   /** Audit v6 P-01/P-06: which rounds the admin has published — drives the
    *  participant-side reveal of tags, decisions, scores, comments, placement. */
   const [publishedRoundSet, setPublishedRoundSet] = useState<Set<number>>(new Set());

@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { startVisibilityInterval } from "@/lib/timers/visibilityInterval";
 
 export interface JudgeSession {
   id: string;
@@ -170,7 +171,13 @@ export function useJudgeSession(
   useEffect(() => {
     if (!session || session.status !== "active" || idleState === "paused") return;
 
-    heartbeatRef.current = setInterval(async () => {
+    /* P10: through startVisibilityInterval, so the heartbeat stops while the
+     * judge's tab is hidden and resumes when it is back. A heartbeat is a
+     * claim that somebody is judging; writing one every 30s from a background
+     * tab is a false claim as well as a wasted round trip. `heartbeat_at`
+     * simply stops advancing while away, which is what the idle logic below
+     * already expects. */
+    const stopHeartbeat = startVisibilityInterval(() => { void (async () => {
       const patch: Record<string, unknown> = {
         heartbeat_at: new Date().toISOString(),
         elapsed_seconds: localElapsedRef.current,
@@ -186,11 +193,9 @@ export function useJudgeSession(
         .from("judge_sessions" as any)
         .update(patch as any)
         .eq("id", session.id);
-    }, HEARTBEAT_INTERVAL);
+    })(); }, HEARTBEAT_INTERVAL);
 
-    return () => {
-      if (heartbeatRef.current) clearInterval(heartbeatRef.current);
-    };
+    return stopHeartbeat;
   }, [session?.id, session?.status, idleState]);
 
   // Elapsed time counter (ticks every second when active)
@@ -200,13 +205,14 @@ export function useJudgeSession(
       return;
     }
 
-    elapsedTickRef.current = setInterval(() => {
+    /* P10: an accumulator is correct here and stays one. This is judging TIME,
+     * the number written to elapsed_seconds — time the judge spent with the
+     * panel in front of them. A hidden tab is not judging, so the count must
+     * pause rather than be derived from wall-clock, and the timer stopping is
+     * exactly the behaviour that produces that. */
+    return startVisibilityInterval(() => {
       setLocalElapsed((prev) => { const next = prev + 1; localElapsedRef.current = next; return next; });
     }, 1000);
-
-    return () => {
-      if (elapsedTickRef.current) clearInterval(elapsedTickRef.current);
-    };
   }, [session?.id, idleState]);
 
   // Idle detection

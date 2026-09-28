@@ -1,0 +1,186 @@
+P10 (2-D2-04) FAIL-FIRST RECORD
+Repo altisinfonet/lens-lustre-learn-Claude · base origin/staging 7ebdbf4 · 2026-09-27T03:36:53Z
+
+THE FINAL src/__tests__/p10TimerDiscipline.test.ts, verbatim as committed, run against an
+UNFIXED tree: every other file at origin/staging 7ebdbf4, the guard alone dropped in.
+The guard exists first and is red first.
+
+==============================================================================
+RED — the guard alone, against unfixed staging
+==============================================================================
+
+ RUN  v3.2.4 /home/claude/repo
+
+ ❯ src/__tests__/p10TimerDiscipline.test.ts (6 tests | 5 failed) 17ms
+   × P10 · setInterval > is called directly by nothing except the two files that are allowed to 10ms
+     → These files call setInterval directly. A raw setInterval has no teardown on visibilitychange, so it keeps waking a backgrounded tab — the 580,000-requests problem in miniature. Route them through useVisibilityInterval (src/lib/timers/visibilityInterval.ts), which stops on hide and restarts on show. If one genuinely cannot, it needs a new entry in RAW_INTERVAL_EXEMPT with a written reason, and that is a decision, not a fix.: expected [ …(17) ] to deeply equal []
+   × P10 · setInterval > never runs more often than once a second, anywhere in src/** 1ms
+     → P10's floor is 1000 ms. A sub-second repeating timer costs battery on a mid-range Android for a visual nobody is watching; derive the displayed value from a timestamp at render time, or use requestAnimationFrame where a continuous visual is genuinely needed.: expected [ …(2) ] to deeply equal []
+   × P10 · setInterval > has no delay this scan cannot resolve (an unreadable delay is not a passing one) 1ms
+     → This scan could not read these delays, so it cannot say they are ≥ 1000 ms. A guard that silently passes what it cannot read is the C-34 failure. Use a literal, or a named constant defined as a literal in the same file.: expected [ …(8) ] to deeply equal []
+   × P10 · setInterval > GUARD the exempt list is exactly the two files, and both still exist 2ms
+     → src/lib/timers/visibilityInterval.ts is exempt but does not exist: expected false to be true // Object.is equality
+   ✓ P10 · react-query polling > polls no faster than 30 s 1ms
+   × P10 · react-query polling > every poll carries a written justification the reader can find 1ms
+     → "Justify or slow each" — a poll that stays needs its reason on the line, or in the comment block directly above it, marked "P10:", so the next reader does not have to guess why a network request repeats forever. Leave the reason in the file.: expected [ …(4) ] to deeply equal []
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/p10TimerDiscipline.test.ts > P10 · setInterval > is called directly by nothing except the two files that are allowed to
+AssertionError: These files call setInterval directly. A raw setInterval has no teardown on visibilitychange, so it keeps waking a backgrounded tab — the 580,000-requests problem in miniature. Route them through useVisibilityInterval (src/lib/timers/visibilityInterval.ts), which stops on hide and restarts on show. If one genuinely cannot, it needs a new entry in RAW_INTERVAL_EXEMPT with a written reason, and that is a decision, not a fix.: expected [ …(17) ] to deeply equal []
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "src/components/PhaseBanner.tsx",[39m
+[31m+   "src/components/PhotoOfTheDay.tsx",[39m
+[31m+   "src/components/admin/AdminCompetitionFunnel.tsx",[39m
+[31m+   "src/components/admin/AdminJudgeMonitoringPanel.tsx",[39m
+[31m+   "src/components/ads/AdZone.tsx",[39m
+[31m+   "src/components/ads/FullscreenAdShell.tsx",[39m
+[31m+   "src/components/ads/RewardedAd.tsx",[39m
+[31m+   "src/components/judge/JudgeSessionTimer.tsx",[39m
+[31m+   "src/hooks/core/useLastActive.ts",[39m
+[31m+   "src/hooks/feed/useFeedEventTracker.ts",[39m
+[31m+   "src/hooks/judging/useJudgeSession.ts",[39m
+[31m+   "src/hooks/judging/useJudgingLock.ts",[39m
+[31m+   "src/modules/admin/CompetitionsModule.tsx",[39m
+[31m+   "src/pages/Index.tsx",[39m
+[31m+   "src/pages/Login.tsx",[39m
+[31m+   "src/pages/PublicProfile.tsx",[39m
+[31m+   "src/pages/SubmissionDetail.tsx",[39m
+[31m+ ][39m
+
+ ❯ src/__tests__/p10TimerDiscipline.test.ts:108:7
+    106|         `If one genuinely cannot, it needs a new entry in RAW_INTERVAL…
+    107|         `reason, and that is a decision, not a fix.`,
+    108|     ).toEqual([]);
+       |       ^
+    109|   });
+    110| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/__tests__/p10TimerDiscipline.test.ts > P10 · setInterval > never runs more often than once a second, anywhere in src/**
+AssertionError: P10's floor is 1000 ms. A sub-second repeating timer costs battery on a mid-range Android for a visual nobody is watching; derive the displayed value from a timestamp at render time, or use requestAnimationFrame where a continuous visual is genuinely needed.: expected [ …(2) ] to deeply equal []
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "src/components/ads/AdZone.tsx — 200 ms",[39m
+[31m+   "src/pages/Index.tsx — 1 ms",[39m
+[31m+ ][39m
+
+ ❯ src/__tests__/p10TimerDiscipline.test.ts:123:7
+    121|         `timestamp at render time, or use requestAnimationFrame where …
+    122|         `genuinely needed.`,
+    123|     ).toEqual([]);
+       |       ^
+    124|   });
+    125| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/__tests__/p10TimerDiscipline.test.ts > P10 · setInterval > has no delay this scan cannot resolve (an unreadable delay is not a passing one)
+AssertionError: This scan could not read these delays, so it cannot say they are ≥ 1000 ms. A guard that silently passes what it cannot read is the C-34 failure. Use a literal, or a named constant defined as a literal in the same file.: expected [ …(8) ] to deeply equal []
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "src/components/PhotoOfTheDay.tsx — delay expression: () => {[39m
+[31m+       setCurrent((prev) => (prev + 1) % photos.length",[39m
+[31m+   "src/hooks/feed/useFeedEventTracker.ts — delay expression: FLUSH_INTERVAL",[39m
+[31m+   "src/hooks/judging/useJudgeSession.ts — delay expression: () => {[39m
+[31m+       setLocalElapsed((prev) => { const next = prev + 1; localElapsedRef.current = next; return next; }",[39m
+[31m+   "src/hooks/judging/useJudgeSession.ts — delay expression: };[39m
+[31m+       const pos = positionRef.current;[39m
+[31m+       if (pos && pos.entry_id) {[39m
+[31m+         patch.last_entry_id = pos.entry_id;[39m
+[31m+         patch.last_entry_index = pos.entry_index;[39m
+[31m+         patch.last_photo_index = pos.photo_index;[39m
+[31m+         lastPositionDbWriteRef.current = Date.now(",[39m
+[31m+   "src/hooks/judging/useJudgingLock.ts — delay expression: }",[39m
+[31m+   "src/pages/Index.tsx — delay expression: () => {[39m
+[31m+       setCurrentSlide((prev) => {[39m
+[31m+         setPreviousSlide(prev",[39m
+[31m+   "src/pages/Login.tsx — delay expression: () => {[39m
+[31m+       const remaining = getLockedOutSeconds(",[39m
+[31m+   "src/pages/PublicProfile.tsx — delay expression: () => {[39m
+[31m+       setActiveIdx((prev) => (prev + 1) % photos.length",[39m
+[31m+ ][39m
+
+ ❯ src/__tests__/p10TimerDiscipline.test.ts:138:7
+    136|         `A guard that silently passes what it cannot read is the C-34 …
+    137|         `a named constant defined as a literal in the same file.`,
+    138|     ).toEqual([]);
+       |       ^
+    139|   });
+    140| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  src/__tests__/p10TimerDiscipline.test.ts > P10 · setInterval > GUARD the exempt list is exactly the two files, and both still exist
+AssertionError: src/lib/timers/visibilityInterval.ts is exempt but does not exist: expected false to be true // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+ ❯ src/__tests__/p10TimerDiscipline.test.ts:148:78
+    146|     ]);
+    147|     for (const p of Object.keys(RAW_INTERVAL_EXEMPT)) {
+    148|       expect(existsSync(join(ROOT, p)), `${p} is exempt but does not e…
+       |                                                                              ^
+    149|       expect(RAW_INTERVAL_EXEMPT[p].length, `${p} is exempt without a …
+    150|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  src/__tests__/p10TimerDiscipline.test.ts > P10 · react-query polling > every poll carries a written justification the reader can find
+AssertionError: "Justify or slow each" — a poll that stays needs its reason on the line, or in the comment block directly above it, marked "P10:", so the next reader does not have to guess why a network request repeats forever. Leave the reason in the file.: expected [ …(4) ] to deeply equal []
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "src/hooks/competition/useCompetitionDetail.ts:279 — refetchInterval: isVoting ? 90 * 1000 : false,",[39m
+[31m+   "src/hooks/dashboard/useDashboardData.ts:351 — refetchInterval: 30000, // replaces the manual 30s polling",[39m
+[31m+   "src/hooks/judging/useMultiJudgeProgress.ts:114 — refetchInterval: 30_000, // Poll every 30s as backup",[39m
+[31m+   "src/hooks/notifications/useNotificationsQuery.ts:395 — refetchInterval: 60_000,",[39m
+[31m+ ][39m
+
+ ❯ src/__tests__/p10TimerDiscipline.test.ts:206:7
+    204|         `comment block directly above it, marked "P10:", so the next r…
+    205|         `guess why a network request repeats forever. Leave the reason…
+    206|     ).toEqual([]);
+       |       ^
+    207|   });
+    208| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 1 passed (6)
+
+
+==============================================================================
+GREEN — the same guard, after 2-D2-04
+==============================================================================
+
+ RUN  v3.2.4 /home/claude/repo
+
+ ✓ src/__tests__/p10TimerDiscipline.test.ts (6 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+

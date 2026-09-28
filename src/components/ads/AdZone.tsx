@@ -248,24 +248,48 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
     let intersecting = false;
     let visible = !document.hidden;
     const REQUIRED = 1000;
-    const tick = () => {
-      const total = elapsed + (t0 != null ? performance.now() - t0 : 0);
-      if (total >= REQUIRED && !impressionTracked.current) {
-        impressionTracked.current = true;
-        trackZoneEvent(zone, config.mode, "impression", device, chosen?.id);
-      }
+    /* ── P10: EVENT-DRIVEN, NOT POLLED. ──
+     *
+     * This used to be `setInterval(tick, 200)` — five wake-ups a second, for
+     * every ad zone on the page, for the entire time the zone was mounted, to
+     * answer one question: has this been half-visible for a continuous second?
+     * The answer is a function of the moment visibility last changed, so it
+     * does not need polling at all. One timeout is armed when the zone starts
+     * being visible, for exactly the time still owed, and cancelled the moment
+     * it stops. No repeating timer, and nothing fires while hidden.
+     */
+    let pending: number | null = null;
+
+    const fire = () => {
+      pending = null;
+      if (impressionTracked.current) return;
+      impressionTracked.current = true;
+      trackZoneEvent(zone, config.mode, "impression", device, chosen?.id);
     };
-    const iv = setInterval(tick, 200);
+
     const update = () => {
       const run = intersecting && visible;
       if (run && t0 == null) t0 = performance.now();
       else if (!run && t0 != null) { elapsed += performance.now() - t0; t0 = null; }
+
+      if (pending != null) { window.clearTimeout(pending); pending = null; }
+      if (impressionTracked.current) return;
+      if (!run) return;
+
+      const total = elapsed + (t0 != null ? performance.now() - t0 : 0);
+      const owed = REQUIRED - total;
+      if (owed <= 0) fire();
+      else pending = window.setTimeout(fire, owed);
     };
     const obs = new IntersectionObserver((entries) => { entries.forEach((e) => { intersecting = e.isIntersecting; update(); }); }, { threshold: 0.5 });
     const onVis = () => { visible = !document.hidden; update(); };
     document.addEventListener("visibilitychange", onVis);
     obs.observe(el);
-    return () => { obs.disconnect(); clearInterval(iv); document.removeEventListener("visibilitychange", onVis); };
+    return () => {
+      obs.disconnect();
+      if (pending != null) window.clearTimeout(pending);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, [active, config, device, zone, chosen]);
 
   const frame = ZONE_FRAME[zone];

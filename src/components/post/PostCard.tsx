@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
-import { isActiveNow } from "@/hooks/core/useLastActive";
+import { useOnline } from "@/lib/presence/online";
 import { type ReactionType } from "@/components/ReactionPicker";
 import PostActionRow, { ActionCount } from "@/components/post/PostActionRow";
 import ShareSummaryTooltip from "@/components/ShareSummaryTooltip";
@@ -68,6 +68,9 @@ const PostCard = ({
   onContentChange,
 }: PostCardProps) => {
   const t = useT();
+  /* P1 §4: the dot is live presence, not a five-minute-old timestamp.
+   * `post.author_last_active` still feeds "last seen" strings elsewhere. */
+  const authorOnline = useOnline(post.user_id);
   const queryClient = useQueryClient();
   const { openPostComments } = useCommentsOverlay();
   const [reportingOpen, setReportingOpen] = useState(false);
@@ -310,7 +313,7 @@ const PostCard = ({
                 <span className="text-xs text-primary" style={displayFont}>{avatarInitial(post.author_name)}</span>
               </div>
             )}
-            {isActiveNow(post.author_last_active) && (
+            {authorOnline && (
               <span aria-label="Online" title="Online" className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-card" />
             )}
           </span>
