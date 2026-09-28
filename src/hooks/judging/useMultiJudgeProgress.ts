@@ -111,7 +111,12 @@ export function useMultiJudgeProgress(
     },
     enabled: !!competitionId,
     staleTime: 30_000,
-    refetchInterval: 30_000, // Poll every 30s as backup
+    // P10: 30s, and it is a BACKUP — the primary path is the realtime
+    // subscription in this hook; this only covers the case where the websocket
+    // cannot connect. Slowing it further would leave a judge staring at a
+    // frozen "other judges" panel for a minute when realtime is down, which is
+    // the failure it exists for. Justified at 30s, the floor, not below it.
+    refetchInterval: 30_000,
   });
 
   // Realtime subscription on judge_sessions for this competition

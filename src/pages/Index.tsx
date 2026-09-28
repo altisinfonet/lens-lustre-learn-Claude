@@ -1,5 +1,6 @@
 import { Camera, ArrowRight, ArrowDown, Aperture, Eye, Layers, User, Rss, Users, Globe, MessageCircle, Facebook, Instagram, Twitter, Youtube, Linkedin, Github, Music2, MapPin, Phone as PhoneIcon, Send as SendIcon, Trophy } from "lucide-react";
 import { fadeUp } from "@/lib/motionVariants";
+import { useVisibilityInterval } from "@/lib/timers/visibilityInterval";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import PageSEO from "@/components/PageSEO";
 import { Link, useNavigate } from "react-router-dom";
@@ -168,20 +169,34 @@ const CommunityCounters = () => {
   const isInView = useInView(ref, { once: true, margin: "-50px" });
   const [values, setValues] = useState([0, 0, 0]);
 
+  /* ── P10: requestAnimationFrame, not a 30 ms interval. ──
+   *
+   * This was `setInterval(…, 1800 / 60)` — a 30 ms timer, the fastest in the
+   * whole client, driving a count-up animation. It is self-terminating after
+   * 1.8 s, which is why it never showed up as a leak, but a bounded burst is
+   * still 33 wake-ups a second and it ran whether or not the tab was in front.
+   *
+   * rAF is the right tool for a continuous visual: the browser stops calling
+   * it entirely in a background tab, it is aligned to the display's refresh,
+   * and the eased value is computed from elapsed time rather than a step
+   * counter, so the animation takes 1.8 s of wall-clock instead of 60 ticks of
+   * whatever the timer actually managed.
+   */
   useEffect(() => {
     if (!isInView) return;
-    const duration = 1800;
-    const steps = 60;
-    const interval = duration / steps;
-    let step = 0;
-    const timer = setInterval(() => {
-      step++;
-      const progress = Math.min(step / steps, 1);
+    const DURATION = 1800;
+    const started = performance.now();
+    let frame = 0;
+
+    const step = (nowMs: number) => {
+      const progress = Math.min((nowMs - started) / DURATION, 1);
       const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-      setValues(COUNTER_TARGETS.map(c => Math.floor(c.target * eased)));
-      if (step >= steps) clearInterval(timer);
-    }, interval);
-    return () => clearInterval(timer);
+      setValues(COUNTER_TARGETS.map((c) => Math.floor(c.target * eased)));
+      if (progress < 1) frame = requestAnimationFrame(step);
+    };
+
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
   }, [isInView]);
 
   return (
@@ -337,16 +352,18 @@ const Index = () => {
     };
   }, [heroSlides]);
 
-  useEffect(() => {
-    if (heroSlides.length <= 1 || !heroReady) return;
-    const interval = setInterval(() => {
+  /* P10: the hero carousel stops while the tab is hidden. Advancing slides
+   * behind a hidden tab decodes images and re-renders for frames that are
+   * never painted; the member sees the same slide they left on when they
+   * return, which is also the nicer behaviour. */
+  useVisibilityInterval(
+    () =>
       setCurrentSlide((prev) => {
         setPreviousSlide(prev);
         return (prev + 1) % heroSlides.length;
-      });
-    }, HERO_SLIDE_MS);
-    return () => clearInterval(interval);
-  }, [heroSlides.length, heroReady]);
+      }),
+    heroSlides.length > 1 && heroReady ? HERO_SLIDE_MS : null,
+  );
 
   useEffect(() => {
     if (previousSlide === null) return;

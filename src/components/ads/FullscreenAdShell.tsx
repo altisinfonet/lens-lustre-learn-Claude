@@ -10,6 +10,7 @@
  * Additive: nothing imports this yet.
  */
 import { useEffect, useRef, useState } from "react";
+import { useVisibilityInterval } from "@/lib/timers/visibilityInterval";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AdZoneCreative } from "@/lib/ads/adZonesV2";
@@ -42,18 +43,28 @@ const FullscreenAdShell = ({
   footer,
   hideDefaultClose = false,
 }: FullscreenAdShellProps) => {
-  const [remaining, setRemaining] = useState(Math.max(0, Math.ceil(skippableAfterSeconds)));
+  /* ── P10: A DEADLINE, NOT A COUNTDOWN STATE. ──
+   *
+   * This was `setInterval(() => setRemaining(r => r - 1), 1000)` in an effect
+   * whose dependency array was `[remaining]` — so the interval was destroyed
+   * and rebuilt on every single tick, and the skip countdown silently stalled
+   * whenever the tab was hidden. The member came back to an ad that still would
+   * not let them leave. A deadline fixed at mount is immune to both: the timer
+   * below only forces a re-render, and stopping it while hidden costs nothing
+   * because the remaining seconds are recomputed from the clock.
+   */
+  const deadlineRef = useRef(Date.now() + Math.max(0, Math.ceil(skippableAfterSeconds)) * 1000);
+  const [, setTick] = useState(0);
+  const remaining = Math.max(0, Math.ceil((deadlineRef.current - Date.now()) / 1000));
   const shownRef = useRef(false);
 
   useEffect(() => {
     if (!shownRef.current) { shownRef.current = true; onShown?.(); }
   }, [onShown]);
 
-  useEffect(() => {
-    if (remaining <= 0) return;
-    const t = setInterval(() => setRemaining((r) => (r <= 1 ? 0 : r - 1)), 1000);
-    return () => clearInterval(t);
-  }, [remaining]);
+  useVisibilityInterval(() => setTick((n) => n + 1), remaining > 0 ? 1000 : null, {
+    runOnVisible: true,
+  });
 
   // Lock background scroll while open.
   useEffect(() => {

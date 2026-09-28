@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cachedFetchProfilesByIds } from "@/lib/profileBatch";
 import { resolveJudgeDisplay, useJudgeReveal } from "@/lib/judgeAnonymizer";
 import JudgeRevealToggle from "@/components/admin/JudgeRevealToggle";
+import { startVisibilityInterval } from "@/lib/timers/visibilityInterval";
 
 import { logger } from "@/lib/logger";
 
@@ -157,11 +158,14 @@ const AdminJudgeMonitoringPanel = ({ competitionId }: Props) => {
     // Polling backup (15s): guarantees the admin view keeps moving even when
     // the realtime websocket cannot connect (same pattern as the judge-panel
     // "Other Judges" widget). Silent reload — no spinner flicker.
-    const poll = setInterval(() => load(false), 15_000);
+    // P10: stops while the tab is hidden. Same reasoning as the funnel panel —
+    // a backgrounded admin tab was reloading judge activity every 15s for a
+    // view nobody was looking at.
+    const stopPoll = startVisibilityInterval(() => load(false), 15_000);
 
     return () => {
       if (reloadTimer.current) clearTimeout(reloadTimer.current);
-      clearInterval(poll);
+      stopPoll();
       supabase.removeChannel(channel);
       setLive(false);
     };

@@ -1,5 +1,6 @@
 import { useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { startVisibilityInterval } from "@/lib/timers/visibilityInterval";
 
 /**
  * Phase 3 — Feed Event Tracking
@@ -17,7 +18,17 @@ interface FeedEvent {
   dwell_ms: number;
 }
 
-const FLUSH_INTERVAL = 5000; // 5 seconds
+/* P10: was 5000. Raised to 15s and stopped while hidden.
+ *
+ * JUSTIFIED, NOT JUST SLOWED. This is a flush of an in-memory batch, not a
+ * poll: it issues no request at all when the batch is empty, so its cost while
+ * a member reads is proportional to what they actually looked at. What the old
+ * shape did wrong was keep firing behind a hidden tab, where the batch is
+ * always empty and the wake-up is always wasted. 15s bounds the loss if the
+ * tab is killed outright to fifteen seconds of view events — telemetry, not
+ * member data — and the unmount flush below still catches the ordinary case.
+ */
+const FLUSH_INTERVAL = 15_000;
 const MAX_BATCH = 25;
 
 export function useFeedEventTracker(userId: string | undefined) {
@@ -36,13 +47,17 @@ export function useFeedEventTracker(userId: string | undefined) {
     }
   }, [userId]);
 
-  // Auto-flush every 5 seconds
   useEffect(() => {
     if (!userId) return;
-    const interval = setInterval(flush, FLUSH_INTERVAL);
+    const stop = startVisibilityInterval(() => { void flush(); }, FLUSH_INTERVAL);
+    /* P10: hiding the tab is the most likely moment for a member to never come
+     * back to it, so flush once on the way out rather than losing the batch. */
+    const onHide = () => { if (document.hidden) void flush(); };
+    document.addEventListener("visibilitychange", onHide);
     return () => {
-      clearInterval(interval);
-      flush(); // flush remaining on unmount
+      stop();
+      document.removeEventListener("visibilitychange", onHide);
+      void flush(); // flush remaining on unmount
     };
   }, [userId, flush]);
 
