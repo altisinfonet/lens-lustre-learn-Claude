@@ -1,0 +1,78 @@
+P2 · 20260920_0002 — C-34 HARNESS TRANSCRIPT (R-62 re-cut: competition_round_publish only)
+Run: 2026-09-27T03:25:21Z · scratch PostgreSQL 17.11 (PGDG), wal_level=logical, wal2json · 127.0.0.1:5432
+Command: bash docs/evidence/d1/phase2/p2-0002-run-tests.sh
+Base: 7ebdbf408f48876789bca6958254c60190c91b85 (origin/staging) + this unit's working tree
+
+
+══ 0 · scratch cluster and fixture
+  server_version 17.11 (Ubuntu 17.11-1.pgdg24.04+2) · wal_level=logical
+  PASS  fixture built, logical slot p2slot (wal2json) created
+  published tables: competition_round_publish=f posts=d profiles=f scheduled_posts=f
+
+══ 1 · 0002 REFUSES outside production — staging above all
+  PASS  no lane asserted — refused (exit 1), 'Unknown target'
+  PASS  a lane of 'local' — refused (exit 1), 'Unknown target'
+  PASS  STAGING lane (by design) — refused (exit 3), 'APPLY REFUSED — p32.lane is not asserted as production'
+  PASS  transaction pooler, 6543 — refused (exit 1), '6543'
+  PASS  four refusals left every published table's replica identity unchanged
+
+══ 2 · BEFORE — what Realtime is handed today (FULL)
+      D competition_round_publish  old-row image: competition_id,published_at,round_number  -> DELETE delivered to the filtered subscriber: true (filter competition_id=eq.<c>)
+      D scheduled_posts  old-row image: content,id,status,user_id  -> DELETE delivered to the filtered subscriber: true (filter user_id=eq.<member>)
+      U competition_round_publish  old-row image: competition_id,published_at,round_number
+      U profiles  old-row image: bio,id,is_banned,is_suspended
+      U scheduled_posts  old-row image: content,id,status,user_id
+
+══ 3 · 0002 applies on the production lane
+  PASS  apply, TARGET_LANE=production
+  NOTICE  P2-0002: competition_round_publish is REPLICA IDENTITY DEFAULT; profiles and scheduled_posts are the only published FULL tables
+  PASS  competition_round_publish DEFAULT; profiles and scheduled_posts still FULL; the 'd' table untouched
+
+══ 3b · AFTER — what Realtime is handed now (DEFAULT on competition_round_publish only)
+      D competition_round_publish  old-row image: competition_id,round_number  -> DELETE delivered to the filtered subscriber: true (filter competition_id=eq.<c>)
+      D scheduled_posts  old-row image: content,id,status,user_id  -> DELETE delivered to the filtered subscriber: true (filter user_id=eq.<member>)
+      U competition_round_publish  old-row image: competition_id,round_number
+      U profiles  old-row image: bio,id,is_banned,is_suspended
+      U scheduled_posts  old-row image: content,id,status,user_id
+  (UPDATE and INSERT events carry the full NEW row either way; the filter is evaluated on it, so they are unaffected.)
+
+══ 4 · a second apply is refused (PRE-002), and changes nothing
+  PASS  second apply — refused (exit 3), 'P2-0002-PRE-002'
+  PASS  unchanged
+
+══ 5 · the preconditions that make DEFAULT safe, each seen refusing
+  PASS  competition_round_publish has NO primary key — refused (exit 3), 'P2-0002-PRE-003'
+  PASS  …and it is still FULL (untouched)
+  PASS  production drifted: a fourth published FULL table — refused (exit 3), 'P2-0002-PRE-005'
+  PASS  a target not in the publication — refused (exit 3), 'P2-0002-PRE-004'
+
+══ 6 · the ROLLBACK — production only; restores the pre-image
+  PASS  apply (to have something to roll back)
+  PASS  rollback, lane = staging — refused (exit 3), 'ROLLBACK REFUSED'
+  PASS  rollback, p32.lane unset (file run directly) — refused (exit 3)
+  PASS  both refusals changed nothing
+  PASS  rollback, lane = production
+  PASS  PRE-IMAGE RESTORED: every published table's replica identity byte-identical to before the apply
+  after the rollback, Realtime is handed:
+      D competition_round_publish  old-row image: competition_id,published_at,round_number  -> DELETE delivered to the filtered subscriber: true (filter competition_id=eq.<c>)
+      D scheduled_posts  old-row image: content,id,status,user_id  -> DELETE delivered to the filtered subscriber: true (filter user_id=eq.<member>)
+      U competition_round_publish  old-row image: competition_id,published_at,round_number
+      U profiles  old-row image: bio,id,is_banned,is_suspended
+      U scheduled_posts  old-row image: content,id,status,user_id
+  PASS  rollback run a second time — refused (exit 3), 'P2-0002-RB-PRE-002'
+
+══ 7 · C-34 MUTANTS — one control removed; each must go RED
+  PASS  RED as required — with the guard widened, a STAGING dispatch is accepted (exit 0)
+  PASS  RED as required — without PRE-003 the file applies, and then: cannot delete from table "competition_round_publish" because it does not have a replica identity and publishes deletes
+  PASS  RED as required — flipping profiles too is refused by POST-002
+  PASS    … and the refused apply changed nothing (transaction rolled back)
+  PASS  RED as required — flipping scheduled_posts too (F-P2-1) is refused by POST-002
+  PASS    … and the refused apply changed nothing (transaction rolled back)
+
+══ 8 · F-P2-1 — why scheduled_posts is NOT in 0002 (R-62), shown on the same decode
+      D scheduled_posts  old-row image: id  -> DELETE delivered to the filtered subscriber: false (filter user_id=eq.<member>)
+  PASS  under DEFAULT the old-row image is id alone and the user_id-filtered DELETE is NOT delivered (F-P2-1)
+
+══ VERDICT
+  ALL GREEN
+exit=0
