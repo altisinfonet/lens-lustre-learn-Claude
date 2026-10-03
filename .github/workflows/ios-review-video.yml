@@ -66,20 +66,6 @@ jobs:
 
       - name: Add iOS platform and sync
         run: |
-          set -euo pipefail
-          # Make the WKWebView inspectable FOR THIS JOB ONLY, so Appium can see
-          # the web context. Capacitor's iOS runtime is a prebuilt release
-          # xcframework, so its "#if DEBUG" default never turns this on, even
-          # in a Debug app build (run #3: "web view never became inspectable").
-          # The App Store build (ios-build.yml) does not get this change.
-          python3 - <<'PY'
-          p = "capacitor.config.ts"
-          s = open(p).read()
-          if "webContentsDebuggingEnabled" not in s:
-              s = s.replace("webDir: 'dist',", "webDir: 'dist',\n  ios: { webContentsDebuggingEnabled: true },", 1)
-          open(p, "w").write(s)
-          PY
-          grep -n "webContentsDebuggingEnabled" capacitor.config.ts
           npx cap add ios
           npx cap sync ios
 
@@ -112,6 +98,7 @@ jobs:
           xcrun simctl list devices | grep "$UDID"
 
       - name: Build the app for the simulator (Debug, unsigned)
+        id: app
         run: |
           set -euo pipefail
           if [ -d ios/App/App.xcworkspace ]; then C="-workspace ios/App/App.xcworkspace"; else C="-project ios/App/App.xcodeproj"; fi
@@ -120,9 +107,15 @@ jobs:
             -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -n 40
           APP=$(find build/Build/Products -maxdepth 2 -name 'App.app' -path '*iphonesimulator*' | head -1)
           test -n "$APP" || { echo "::error::App.app not found"; exit 1; }
+          APP=$(cd "$(dirname "$APP")" && pwd)/$(basename "$APP")
+          echo "path=$APP" >> "$GITHUB_OUTPUT"
           xcrun simctl install "${{ steps.sim.outputs.udid }}" "$APP"
           xcrun simctl launch "${{ steps.sim.outputs.udid }}" com.fiftymmretina.app
-          sleep 8
+          # PROOF THE APP RUNS on this iOS version, independent of any test
+          # tool: a plain screenshot of the launched app after it settles.
+          sleep 25
+          mkdir -p review-videos/compat
+          xcrun simctl io "${{ steps.sim.outputs.udid }}" screenshot "review-videos/compat/ios-${{ steps.sim.outputs.version }}-launch.png"
 
       - name: Install and start Appium (XCUITest driver)
         run: |
@@ -139,6 +132,7 @@ jobs:
           SIM_UDID: ${{ steps.sim.outputs.udid }}
           SIM_NAME: ${{ steps.sim.outputs.name }}
           SIM_VERSION: ${{ steps.sim.outputs.version }}
+          APP_PATH: ${{ steps.app.outputs.path }}
           OUT_DIR: ${{ github.workspace }}/review-videos
           ONLY: ${{ inputs.which == 'both' && '' || inputs.which }}
           REVIEW_DEMO_EMAIL: ${{ secrets.REVIEW_DEMO_EMAIL }}
@@ -149,6 +143,41 @@ jobs:
         run: |
           cp tools/review-video/record.mjs /tmp/rv/record.mjs
           cd /tmp/rv && node record.mjs
+
+      - name: Burn captions into the videos
+        if: always()
+        run: |
+          brew install ffmpeg >/dev/null 2>&1 || true
+          FONT="/System/Library/Fonts/Supplemental/Arial Bold.ttf"
+          cp "$FONT" /tmp/caption-font.ttf 2>/dev/null || cp /System/Library/Fonts/Supplemental/Arial.ttf /tmp/caption-font.ttf
+          python3 tools/review-video/burn-captions.py review-videos /tmp/caption-font.ttf || true
+          ls -la review-videos || true
+
+      - name: Compatibility check on an older iOS (launch screenshot)
+        if: always()
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          OLD=$(xcrun simctl list devices available -j | python3 -c '
+          import json,sys
+          d=json.load(sys.stdin)["devices"]
+          newest="${{ steps.sim.outputs.version }}"
+          for k in sorted([k for k in d if "iOS" in k], reverse=True):
+              v=k.split("iOS-")[-1].replace("-",".")
+              if v==newest: continue
+              for dev in d[k]:
+                  if dev["name"].startswith("iPhone"):
+                      print(dev["udid"], v); sys.exit()')
+          if [ -z "$OLD" ]; then echo "No older iOS runtime on this runner."; exit 0; fi
+          read -r U V <<< "$OLD"
+          echo "Older runtime: iOS $V ($U)"
+          xcrun simctl boot "$U" || true
+          xcrun simctl bootstatus "$U" -b
+          xcrun simctl install "$U" "${{ steps.app.outputs.path }}"
+          xcrun simctl launch "$U" com.fiftymmretina.app
+          sleep 30
+          mkdir -p review-videos/compat
+          xcrun simctl io "$U" screenshot "review-videos/compat/ios-$V-launch.png"
 
       - name: Show Appium log tail on failure
         if: failure()

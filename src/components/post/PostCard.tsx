@@ -428,8 +428,12 @@ const PostCard = ({
                    is a member tapping the wrong post's actions. The glyph is
                    unchanged; the circle around it reaches the floor. */
                 className="grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors"
+                /* An icon-only button has no name for VoiceOver unless it is
+                   given one; without it a screen-reader user hears "button"
+                   and cannot find Report or Block (App Store 1.2). */
+                aria-label="Post options"
               >
-                <MoreHorizontal className="h-5 w-5" />
+                <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-[200px]">
