@@ -73,19 +73,27 @@ jobs:
         id: sim
         run: |
           set -euo pipefail
-          UDID=$(xcrun simctl list devices available -j | python3 -c '
-          import json,sys
+          xcrun simctl list devices available -j | python3 -c '
+          import json,sys,os
           d=json.load(sys.stdin)["devices"]
           ios=sorted([k for k in d if "iOS" in k], reverse=True)
-          pref=["iPhone 16","iPhone 15","iPhone 16 Pro","iPhone 15 Pro"]
-          for name in pref:
+          pick=None
+          for name in ["iPhone 16","iPhone 15","iPhone 16 Pro","iPhone 15 Pro"]:
               for k in ios:
                   for dev in d[k]:
-                      if dev["name"]==name: print(dev["udid"]); sys.exit()
-          print(d[ios[0]][0]["udid"])')
-          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+                      if dev["name"]==name and not pick: pick=(dev,k)
+          if not pick: pick=(d[ios[0]][0], ios[0])
+          dev,k=pick
+          ver=k.split("iOS-")[-1].replace("-",".")
+          with open(os.environ["GITHUB_OUTPUT"],"a") as f:
+              u=dev["udid"]; n=dev["name"]
+              f.write(f"udid={u}\nname={n}\nversion={ver}\n")
+          print(dev["udid"], dev["name"], ver)'
+          UDID=$(grep '^udid=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2)
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
+          # Let SpringBoard settle before Appium probes the device.
+          sleep 30
           xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
           xcrun simctl list devices | grep "$UDID"
 
@@ -115,6 +123,8 @@ jobs:
       - name: Record the review videos
         env:
           SIM_UDID: ${{ steps.sim.outputs.udid }}
+          SIM_NAME: ${{ steps.sim.outputs.name }}
+          SIM_VERSION: ${{ steps.sim.outputs.version }}
           OUT_DIR: ${{ github.workspace }}/review-videos
           ONLY: ${{ inputs.which == 'both' && '' || inputs.which }}
           REVIEW_DEMO_EMAIL: ${{ secrets.REVIEW_DEMO_EMAIL }}

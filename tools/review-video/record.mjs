@@ -63,6 +63,11 @@ const driver = await remote({
     platformName: "iOS",
     "appium:automationName": "XCUITest",
     "appium:udid": UDID,
+    ...(process.env.SIM_NAME ? { "appium:deviceName": process.env.SIM_NAME } : {}),
+    ...(process.env.SIM_VERSION ? { "appium:platformVersion": process.env.SIM_VERSION } : {}),
+    // The runner is slow; Appium's default 120 s boot check timed out in run #2
+    // even though the device was already booted.
+    "appium:simulatorStartupTimeout": 600_000,
     "appium:bundleId": "com.fiftymmretina.app",
     "appium:noReset": true,
     "appium:autoAcceptAlerts": true,
