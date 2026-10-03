@@ -28,6 +28,7 @@ import PostCard from "@/components/post/PostCard";
 import PostCardSkeleton from "@/components/post/PostCardSkeleton";
 import WallPosts from "@/components/WallPosts";
 import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
+import { useBlockedUsers } from "@/hooks/core/useBlockedUsers";
 import CategoryStrip from "@/components/feed/CategoryStrip";
 import FeedCardWindow, { EAGER_CARDS } from "@/components/feed/FeedCardWindow";
 import { ALL_FILTER } from "@/lib/categories";
@@ -71,7 +72,14 @@ const Feed = () => {
     isFetching,
   } = useFeedQuery(user?.id, activeCategory === ALL_FILTER ? null : [activeCategory]);
 
-  const posts = useMemo(() => flattenFeedPages(data?.pages), [data?.pages]);
+  // Blocked members' posts leave the feed the instant the block exists (App
+  // Store guideline 1.2) — filtered here, over the cached pages, so there is no
+  // refetch and no flash of the content.
+  const { blockedIds } = useBlockedUsers();
+  const posts = useMemo(() => {
+    const all = flattenFeedPages(data?.pages);
+    return blockedIds.size === 0 ? all : all.filter((p) => !blockedIds.has(p.user_id));
+  }, [data?.pages, blockedIds]);
   const relevantUserIds = useMemo(() => getNetworkIds(data?.pages), [data?.pages]);
 
   const reactMutation = useReactToPost();

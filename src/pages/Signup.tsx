@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/core/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { signInWithOAuth } from "@/lib/oauthHelper";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { z } from "zod";
 import SimpleCaptcha from "@/components/SimpleCaptcha";
@@ -37,12 +38,14 @@ const Signup = () => {
   const [error, setError] = useState<string | null>(null);
   const siteLogo = useSiteLogo();
   const [success, setSuccess] = useState(false);
-  const [loading, setLoading] = useState<"google" | "apple" | "email" | null>(null);
+  const [loading, setLoading] = useState<"google" | "email" | null>(null);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [captchaVerified, setCaptchaVerified] = useState(false);
+  // Apple 1.2: the terms (EULA) are agreed to BEFORE registering, by any route.
+  const [eulaAccepted, setEulaAccepted] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
   const [otp, setOtp] = useState("");
   const [verifying, setVerifying] = useState(false);
@@ -64,8 +67,12 @@ const Signup = () => {
     if (prefill) setEmail(prefill);
   }, []);
 
-  const handleOAuth = async (provider: "google" | "apple") => {
+  const handleOAuth = async (provider: "google") => {
     setError(null);
+    if (!eulaAccepted) {
+      setError("Please agree to the Terms of Use and Community Guidelines first.");
+      return;
+    }
     setLoading(provider);
     try {
       const { error } = await signInWithOAuth(provider);
@@ -82,6 +89,10 @@ const Signup = () => {
   const handleStep1 = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!eulaAccepted) {
+      setError("Please agree to the Terms of Use and Community Guidelines first.");
+      return;
+    }
     const trimmedName = fullName.trim();
     const trimmedEmail = email.trim();
     if (trimmedName.length < 2) {
@@ -283,40 +294,47 @@ const Signup = () => {
         )}
 
         <div className="space-y-2.5 max-w-sm w-full">
+          {/* Terms of Use / EULA — must be agreed before any registration route */}
+          {step === 1 && (
+            <label className="flex items-start gap-2 text-[10px] text-muted-foreground leading-snug cursor-pointer" style={{ fontFamily: "var(--font-body)" }}>
+              <input
+                type="checkbox"
+                checked={eulaAccepted}
+                onChange={(e) => setEulaAccepted(e.target.checked)}
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-primary"
+                data-testid="signup-eula-checkbox"
+              />
+              <span>
+                I agree to the{" "}
+                <Link to="/community-guidelines" className="text-primary hover:underline">Terms of Use &amp; Community Guidelines</Link>
+                {" "}and the{" "}
+                <Link to="/page/privacy-policy" className="text-primary hover:underline">Privacy Policy</Link>.
+                I understand there is no tolerance for objectionable content or abusive users.
+              </span>
+            </label>
+          )}
+
           {/* OAuth — only on step 1 */}
           {step === 1 && (
             <>
-              <GoogleSignInButton
-                onClick={() => handleOAuth("google")}
-                loading={loading === "google"}
-                size="sm"
-              />
-
-              {cfg.show_apple && (
-                <button
-                  onClick={() => handleOAuth("apple")}
-                  disabled={!!loading}
-                  className="w-full py-2.5 border border-foreground/30 text-foreground text-[10px] tracking-[0.15em] uppercase hover:bg-foreground hover:text-background transition-all duration-500 disabled:opacity-50 flex items-center justify-center gap-2.5"
-                  style={{ fontFamily: "var(--font-heading)" }}
-                >
-                  {loading === "apple" ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-                    </svg>
-                  )}
-                  {t("auth.continueApple")}
-                </button>
+              {!isNativeIOSApp() && (
+                <GoogleSignInButton
+                  onClick={() => handleOAuth("google")}
+                  loading={loading === "google"}
+                  size="sm"
+                />
               )}
 
-              <div className="flex items-center gap-3 py-1">
-                <div className="flex-1 h-px bg-border" />
-                <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                  {t("auth.orSignUpEmail")}
-                </span>
-                <div className="flex-1 h-px bg-border" />
-              </div>
+
+              {!isNativeIOSApp() && (
+                <div className="flex items-center gap-3 py-1">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+                    {t("auth.orSignUpEmail")}
+                  </span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+              )}
             </>
           )}
 
@@ -447,7 +465,7 @@ const Signup = () => {
         </p>
 
         <p className="text-[8px] text-muted-foreground/60 mt-1.5 text-center" style={{ fontFamily: "var(--font-body)" }}>
-          By continuing, you agree to our terms of service and privacy policy.
+          See our <Link to="/community-guidelines" className="underline">Terms of Use &amp; Community Guidelines</Link>.
         </p>
       </div>
     </main>

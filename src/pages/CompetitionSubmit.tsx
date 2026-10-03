@@ -37,6 +37,7 @@ import { extractExif, summarizeExif, type PhotoExif } from "@/lib/exifExtract";
 import { computeImageHash, type ImageHash } from "@/lib/imageHash";
 import { useT } from "@/i18n/I18nContext";
 import { safeRandomUUID } from "@/lib/safeUuid";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 
 interface PhotoCard {
   url: string;
@@ -369,6 +370,27 @@ const CompetitionSubmit = () => {
             <p className="text-xs text-muted-foreground" style={BODY}>{t("csub.cannotSubmitNow")}</p>
             <Link
               to={`/competitions/${slugOrId}`}
+              className="inline-flex items-center gap-2 text-xs tracking-[0.15em] uppercase px-5 py-2.5 border border-border hover:border-primary hover:text-primary transition-all duration-500 mt-2"
+              style={HEAD}
+            >
+              {t("csub.backToComp")}
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  /* ── iOS app: paid entries are not offered (App Store 3.1.1) ── */
+  if (isNativeIOSApp() && entryFee > 0) {
+    return (
+      <main className="min-h-screen bg-background text-foreground">
+        <div className="container mx-auto py-10 md:py-20 max-w-2xl">
+          <h1 className="text-xl md:text-4xl font-light tracking-tight mb-8" style={DISPLAY}>{compTitle}</h1>
+          <div className="border border-border bg-muted/30 p-6 md:p-10 text-center space-y-4">
+            <p className="text-sm font-medium" style={HEAD}>This competition isn’t available in the iOS app.</p>
+            <Link
+              to="/competitions"
               className="inline-flex items-center gap-2 text-xs tracking-[0.15em] uppercase px-5 py-2.5 border border-border hover:border-primary hover:text-primary transition-all duration-500 mt-2"
               style={HEAD}
             >

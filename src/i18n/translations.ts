@@ -54,7 +54,6 @@ const en: Dict = {
   "sidebar.latestJournal": "Latest from Journal",
   "sidebar.readMore": "Read More",
   "sidebar.peopleYouMayKnow": "People You May Know",
-  "auth.continueApple": "Continue with Apple",
   "auth.orSignInEmail": "Or sign in with email",
   "auth.orSignUpEmail": "Or sign up with email",
   "auth.email": "Email",

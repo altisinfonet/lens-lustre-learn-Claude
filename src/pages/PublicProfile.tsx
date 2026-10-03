@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import JudgingStampBadge from "@/components/JudgingStampBadge";
 import { participantLabelForJudgingTag } from "@/lib/judging/participantStageLabels";
 import PhaseWatermark from "@/components/competition/PhaseWatermark";
+import BlockUserButton from "@/components/moderation/BlockUserButton";
 import FriendFollowActions, { FriendFollowStats, FriendFollowButtons, ProfileStatRow } from "@/components/FriendFollowActions";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import MutualFriends from "@/components/MutualFriends";
@@ -674,6 +675,7 @@ export const PublicProfileInner = ({ userId }: { userId: string }) => {
               <div className="flex items-start justify-end mt-1.5" style={{ paddingLeft: "160px" }}>
                 <div className="flex items-center gap-2 shrink-0">
                   {!isOwner && !isGuest && <FriendFollowButtons targetUserId={userId!} />}
+                {!isOwner && !isGuest && <BlockUserButton targetUserId={userId!} targetName={displayName} />}
                   {isOwner && (
                     <Link
                       to="/edit-profile"
@@ -916,6 +918,7 @@ export const PublicProfileInner = ({ userId }: { userId: string }) => {
             {(!isOwner || isGuest) && (
               <div className="mt-2 flex items-center gap-2 py-1">
                 {!isOwner && !isGuest && <FriendFollowButtons targetUserId={userId!} />}
+                {!isOwner && !isGuest && <BlockUserButton targetUserId={userId!} targetName={displayName} />}
                 {isGuest && (
                   <Link to="/signup" className="inline-flex h-9 flex-1 items-center justify-center rounded-lg bg-primary px-4 text-[13px] font-semibold text-primary-foreground transition-opacity hover:opacity-90" style={headingFont}>
                     Follow

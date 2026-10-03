@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import ProfileLink from "@/components/ProfileLink";
 import { publicUrl } from "@/lib/publicUrl";
 import { Link } from "react-router-dom";
-import { Share2, Copy, MoreHorizontal, Trash2, Flag, Eye, Pencil, UserPlus, UserCheck, UserMinus, Users } from "lucide-react";
+import { Share2, Copy, MoreHorizontal, Trash2, Flag, Ban, Eye, Pencil, UserPlus, UserCheck, UserMinus, Users } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +29,7 @@ import { useSendFriendRequest } from "@/hooks/social/useFriendshipMutations";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { avatarInitial } from "@/lib/displayName";
+import BlockUserDialog from "@/components/moderation/BlockUserDialog";
 
 const displayFont = { fontFamily: "var(--font-display)" };
 const headingFont = { fontFamily: "var(--font-heading)" };
@@ -71,6 +72,8 @@ const PostCard = ({
   const queryClient = useQueryClient();
   const { openPostComments } = useCommentsOverlay();
   const [reportingOpen, setReportingOpen] = useState(false);
+  // App Store 1.2: block the author from the post's own menu.
+  const [blockOpen, setBlockOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -473,12 +476,24 @@ const PostCard = ({
                   <DropdownMenuItem onClick={() => { setReportingOpen(true); setReportReason(""); }} className="py-2.5">
                     <Flag className="h-4 w-4 mr-2.5" /> Report content
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setBlockOpen(true)}
+                    className="py-2.5 text-destructive focus:text-destructive"
+                    data-testid="post-block-user"
+                  >
+                    <Ban className="h-4 w-4 mr-2.5" /> Block {post.author_name?.trim() || "member"}
+                  </DropdownMenuItem>
                 </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
         )}
       </div>
+
+      <BlockUserDialog
+        target={blockOpen ? { id: post.user_id, name: post.author_name } : null}
+        onClose={() => setBlockOpen(false)}
+      />
 
       {/* ── Report Panel ── */}
       {reportingOpen && (
