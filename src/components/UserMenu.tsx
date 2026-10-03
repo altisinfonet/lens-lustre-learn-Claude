@@ -20,8 +20,9 @@ import {
 import {
   LogOut, Shield, Scale, Wallet, LayoutDashboard, User, ImageIcon,
   Users, MessageSquare, Compass, Rss, UserPlus, HelpCircle, Settings,
-  Trophy, Edit2, Award, Camera, Bell,
+  Trophy, Edit2, Award, Camera, Bell, Trash2,
 } from "lucide-react";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDismissOnRouteChange } from "@/hooks/core/useDismissOnRouteChange";
@@ -155,7 +156,7 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
         { icon: User, label: "Profile", to: "/profile", show: true, tooltip: "View your profile" },
         { icon: Edit2, label: "Edit Profile", to: "/edit-profile", show: true, tooltip: "Update your info" },
         {
-          icon: Wallet, label: "Wallet", to: "/wallet", show: true, tooltip: "Balance & transactions",
+          icon: Wallet, label: "Wallet", to: "/wallet", show: !isNativeIOSApp(), tooltip: "Balance & transactions",
           extra: walletBalance !== null ? (
             <span className="ml-auto text-[10px] px-1.5 py-0.5 bg-primary/15 text-primary rounded-full" style={{ fontFamily: "var(--font-heading)" }}>
               {formatUSDFixed(Number(walletBalance))}
@@ -164,6 +165,8 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
         },
         { icon: Shield, label: "Admin Panel", to: "/admin", show: hasAdminPanelAccess, tooltip: "Open your assigned admin modules" },
         { icon: Settings, label: "Settings", to: "/dashboard?tab=settings", show: true, tooltip: "Account settings" },
+        // App Store 5.1.1(v): account deletion is reachable from the account menu.
+        { icon: Trash2, label: "Delete Account", to: "/dashboard?tab=settings#delete-account", show: true, tooltip: "Permanently delete your account and data" },
         { icon: HelpCircle, label: "Help & Support", to: "/help-support", show: true, tooltip: "Get assistance" },
       ],
     },
