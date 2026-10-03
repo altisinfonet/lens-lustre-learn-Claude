@@ -105,8 +105,8 @@ jobs:
       - name: Install and start Appium (XCUITest driver)
         run: |
           set -euo pipefail
-          npm install -g appium@2 --no-audit --no-fund
-          appium driver install xcuitest
+          npm install -g appium@3 --no-audit --no-fund
+          appium driver install xcuitest && appium driver list --installed
           mkdir -p /tmp/rv && cd /tmp/rv && npm init -y >/dev/null && npm install --no-audit --no-fund webdriverio@9
           nohup appium --address 127.0.0.1 --port 4723 --log /tmp/appium.log --log-level warn > /dev/null 2>&1 &
           for i in $(seq 1 60); do curl -sf http://127.0.0.1:4723/status >/dev/null && break; sleep 2; done
