@@ -9368,7 +9368,7 @@
     },
     {
       "path": "button.inline-flex.min-h-11",
-      "w": 54,
+      "w": 59,
       "h": 44,
       "reachable": null,
       "options": null
@@ -9601,13 +9601,6 @@
       "path": "a.hover:text-primary.transition-colors",
       "w": 77,
       "h": 17,
-      "reachable": null,
-      "options": null
-    },
-    {
-      "path": "button.inline-flex.min-h-11",
-      "w": 62,
-      "h": 44,
       "reachable": null,
       "options": null
     }
@@ -14452,7 +14445,7 @@
     },
     {
       "path": "button.inline-flex.min-h-11",
-      "w": 54,
+      "w": 59,
       "h": 44,
       "reachable": null,
       "options": null
@@ -14685,13 +14678,6 @@
       "path": "a.hover:text-primary.transition-colors",
       "w": 77,
       "h": 17,
-      "reachable": null,
-      "options": null
-    },
-    {
-      "path": "button.inline-flex.min-h-11",
-      "w": 62,
-      "h": 44,
       "reachable": null,
       "options": null
     }
