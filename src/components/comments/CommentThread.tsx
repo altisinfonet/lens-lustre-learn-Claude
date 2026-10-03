@@ -62,7 +62,7 @@
 import { useState } from "react";
 import ProfileLink from "@/components/ProfileLink";
 import { Link } from "react-router-dom";
-import { MoreHorizontal, Trash2, Flag, Pin, Pencil, ChevronDown, Heart, SmilePlus } from "lucide-react";
+import { MoreHorizontal, Trash2, Flag, Ban, Pin, Pencil, ChevronDown, Heart, SmilePlus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { isActiveNow } from "@/hooks/core/useLastActive";
 import MentionInput from "@/components/MentionInput";
@@ -237,6 +237,8 @@ export interface CommentThreadProps {
   onReact?: (id: string, reactionType: string) => void;
   onTogglePin?: (id: string) => void;
   onReport?: (id: string, reason: string) => void;
+  /** Block the comment's author (App Store guideline 1.2). Omit to hide the menu item. */
+  onBlockUser?: (userId: string, name: string | null) => void;
 }
 
 /**
@@ -305,6 +307,7 @@ const CommentThread = ({
   onReact,
   onTogglePin,
   onReport,
+  onBlockUser,
 }: CommentThreadProps) => {
   const canReact = features?.reactions ?? true;
   const canPinHere = (features?.pinning ?? true) && canPin;
@@ -567,7 +570,7 @@ const CommentThread = ({
                   )}
 
                   {/* 3-dot menu */}
-                  {currentUserId && (isOwn || canDelete || canPinHere || canReport || canReact) && (
+                  {currentUserId && (isOwn || canDelete || canPinHere || canReport || canReact || (!!onBlockUser && !isOwn)) && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
@@ -615,6 +618,11 @@ const CommentThread = ({
                         {canReport && !isOwn && (
                           <DropdownMenuItem onClick={() => { setReportingId(comment.id); setReportReason(""); }} className="cursor-pointer text-destructive focus:text-destructive">
                             <Flag className="h-3.5 w-3.5 mr-2" /> Report
+                          </DropdownMenuItem>
+                        )}
+                        {onBlockUser && !isOwn && (
+                          <DropdownMenuItem onClick={() => onBlockUser(comment.user_id, comment.author_name)} className="cursor-pointer text-destructive focus:text-destructive">
+                            <Ban className="h-3.5 w-3.5 mr-2" /> Block member
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useBlockedUsers } from "@/hooks/core/useBlockedUsers";
 import { publicUrl } from "@/lib/publicUrl";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -60,6 +61,7 @@ const PostDetail = () => {
   const [showComments, setShowComments] = useState(true);
   const { downloading, download: downloadImg } = useDownloadImage();
 
+  const { blockedIds } = useBlockedUsers();
   const reactMutation = useReactToPost();
   const unreactMutation = useUnreactToPost();
 
@@ -211,6 +213,17 @@ const PostDetail = () => {
     return (
       <main className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
         <p className="text-sm text-muted-foreground" style={bodyFont}>Post not found or has been removed.</p>
+        <button onClick={() => navigate(-1)} className="text-xs text-primary hover:underline" style={headingFont}>Go back</button>
+      </main>
+    );
+  }
+
+  // App Store 1.2: a member the viewer has blocked is not shown to them,
+  // including by direct link.
+  if (blockedIds.has(post.user_id)) {
+    return (
+      <main className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="text-sm text-muted-foreground" style={bodyFont}>You have blocked the member who posted this. You can unblock them in Settings → Blocked members.</p>
         <button onClick={() => navigate(-1)} className="text-xs text-primary hover:underline" style={headingFont}>Go back</button>
       </main>
     );

@@ -38,6 +38,7 @@ import PostComposerPreview, { reorder } from "@/components/post/PostComposerPrev
 import PostCardSkeleton from "@/components/post/PostCardSkeleton";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import { useUserPostsQuery, flattenUserPosts } from "@/hooks/feed/useUserPostsQuery";
+import { useBlockedUsers } from "@/hooks/core/useBlockedUsers";
 import ProfilePostGrid from "@/components/profile/ProfilePostGrid";
 import WallViewToggle, { type WallView } from "@/components/profile/WallViewToggle";
 import { useFeedRealtime } from "@/hooks/feed/useRealtimeFeed";
@@ -104,7 +105,13 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     // matters now that the composer is mounted globally — see Layout.tsx.
   } = useUserPostsQuery(targetUserId, user?.id, { enabled: !composerOnly });
 
-  const posts = useMemo(() => flattenUserPosts(data?.pages), [data?.pages]);
+  // App Store 1.2: a blocked member's posts (including ones they authored that
+  // appear on someone's wall as shares) are hidden from the viewer at once.
+  const { blockedIds } = useBlockedUsers();
+  const posts = useMemo(() => {
+    const all = flattenUserPosts(data?.pages);
+    return blockedIds.size === 0 ? all : all.filter((p) => !blockedIds.has(p.user_id));
+  }, [data?.pages, blockedIds]);
 
   /**
    * Grid or feed. GRID IS THE DEFAULT because every one of the 210 posts on
