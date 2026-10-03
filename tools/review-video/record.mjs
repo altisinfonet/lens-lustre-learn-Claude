@@ -82,7 +82,9 @@ const driver = await remote({
 async function toWebview() {
   for (let i = 0; i < 60; i++) {
     const ctxs = await driver.getContexts();
-    const wv = ctxs.map((c) => (typeof c === "string" ? c : c.id)).find((c) => c.startsWith("WEBVIEW"));
+    const ids = ctxs.map((c) => (typeof c === "string" ? c : c.id));
+    if (i % 10 === 0) log(`contexts: ${JSON.stringify(ids)}`);
+    const wv = ids.find((c) => c.startsWith("WEBVIEW"));
     if (wv) { await driver.switchContext(wv); log(`context ${wv}`); return; }
     await sleep(2000);
   }

@@ -66,6 +66,20 @@ jobs:
 
       - name: Add iOS platform and sync
         run: |
+          set -euo pipefail
+          # Make the WKWebView inspectable FOR THIS JOB ONLY, so Appium can see
+          # the web context. Capacitor's iOS runtime is a prebuilt release
+          # xcframework, so its "#if DEBUG" default never turns this on, even
+          # in a Debug app build (run #3: "web view never became inspectable").
+          # The App Store build (ios-build.yml) does not get this change.
+          python3 - <<'PY'
+          p = "capacitor.config.ts"
+          s = open(p).read()
+          if "webContentsDebuggingEnabled" not in s:
+              s = s.replace("webDir: 'dist',", "webDir: 'dist',\n  ios: { webContentsDebuggingEnabled: true },", 1)
+          open(p, "w").write(s)
+          PY
+          grep -n "webContentsDebuggingEnabled" capacitor.config.ts
           npx cap add ios
           npx cap sync ios
 
@@ -116,7 +130,7 @@ jobs:
           npm install -g appium@3 --no-audit --no-fund
           appium driver install xcuitest && appium driver list --installed
           mkdir -p /tmp/rv && cd /tmp/rv && npm init -y >/dev/null && npm install --no-audit --no-fund webdriverio@9
-          nohup appium --address 127.0.0.1 --port 4723 --log /tmp/appium.log --log-level warn > /dev/null 2>&1 &
+          nohup appium --address 127.0.0.1 --port 4723 --log /tmp/appium.log --log-level info > /dev/null 2>&1 &
           for i in $(seq 1 60); do curl -sf http://127.0.0.1:4723/status >/dev/null && break; sleep 2; done
           curl -sf http://127.0.0.1:4723/status
 
@@ -138,7 +152,7 @@ jobs:
 
       - name: Show Appium log tail on failure
         if: failure()
-        run: tail -n 120 /tmp/appium.log || true
+        run: grep -iE 'error|webview|context|remote debugger|inspect' /tmp/appium.log | tail -n 80 || true
 
       - name: Upload the videos
         if: always()
