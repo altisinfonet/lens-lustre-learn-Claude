@@ -46,7 +46,7 @@ if (import.meta.env.DEV) {
   startNetworkTrace(8000);
 }
 
-// Inside the installed app only: complete Google/Apple sign-in when the OAuth
+// Inside the installed app only: complete Google sign-in when the OAuth
 // deep link (app.fiftymmretina://auth-callback) fires. No-op on web/PWA.
 initNativeAuthDeepLink();
 

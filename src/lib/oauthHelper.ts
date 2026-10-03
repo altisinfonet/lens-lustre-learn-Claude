@@ -17,7 +17,7 @@ import {
 // provider in the system browser, and authDeepLink.ts completes the session
 // in-app when the deep link fires.
 export async function signInWithOAuth(
-  provider: "google" | "apple"
+  provider: "google"
 ): Promise<{ error?: Error | string | null }> {
   const native = isNativeCapacitorApp();
 
@@ -31,10 +31,7 @@ export async function signInWithOAuth(
       // In the app we must open the URL ourselves (system browser), not let
       // supabase-js navigate the webview.
       skipBrowserRedirect: native,
-      queryParams:
-        provider === "google"
-          ? { access_type: "offline", prompt: "select_account" }
-          : undefined,
+      queryParams: { access_type: "offline", prompt: "select_account" },
     },
   });
 

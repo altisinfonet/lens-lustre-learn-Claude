@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { supabase } from "@/integrations/supabase/client";
 import { queryKeys } from "@/lib/queryKeys";
 import { resolvePhase } from "@/lib/competitionPhase";
@@ -81,10 +82,13 @@ export const useCompetitions = (phaseFilter?: string) => {
 
       const { data, error } = await query;
       if (error) throw error;
-      const all = (data || []).map((c) => ({
+      let all = (data || []).map((c) => ({
         ...c,
         phase: resolvePhase(c),
       })) as CompetitionListItem[];
+      // iOS app: paid entries are not offered (App Store 3.1.1 — no wallet or
+      // paid entry inside the iOS build). Web and Android list every contest.
+      if (isNativeIOSApp()) all = all.filter((c) => !(c.entry_fee > 0));
       if (phaseFilter && phaseFilter !== "all") {
         return all.filter((c) => c.phase === phaseFilter);
       }
