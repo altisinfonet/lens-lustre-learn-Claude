@@ -1,0 +1,40 @@
+name: D1 · P35 keys check
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. READS supabase/migrations/, WRITES NOTHING.
+#
+# GATE_REGISTER P35: "every table has a primary key or a written reason not to;
+# … post_hashtags.author_id indexed". New tables (20261003+) need a PK or a waiver;
+# every new foreign key needs an index leading on its columns.
+# The live half is supabase/migrations/PROBE_p35_keys.sql.
+# The self-test runs first (C-34).
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/db-p35-keys-check.mjs'
+      - 'scripts/db-p35-keys-check.test.mjs'
+      - '.github/workflows/d1-p35-keys.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  keys:
+    name: Every new table keyed, every new FK indexed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Self-test — the check catches what it must and nothing else (C-34)
+        run: node scripts/db-p35-keys-check.test.mjs
+      - name: The check — primary keys and FK indexes
+        run: node scripts/db-p35-keys-check.mjs
