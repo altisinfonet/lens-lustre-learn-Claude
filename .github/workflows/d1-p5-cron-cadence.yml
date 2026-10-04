@@ -1,0 +1,41 @@
+name: D1 · P5 cron-cadence check
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. READS supabase/migrations/, WRITES NOTHING.
+#
+# GATE_REGISTER P5 clause 1: "no scheduled job runs more often than once a minute
+# unless it is demonstrably saturated". A pg_cron '<n> seconds' schedule in any
+# applied migration is red unless scripts/db-p5-cron-cadence-allow.json names its
+# saturation evidence. The live half is supabase/migrations/PROBE_p5_cron_cadence.sql.
+# The self-test runs first (C-34).
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/db-p5-cron-cadence-check.mjs'
+      - 'scripts/db-p5-cron-cadence-check.test.mjs'
+      - 'scripts/db-p5-cron-cadence-allow.json'
+      - '.github/workflows/d1-p5-cron-cadence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cadence:
+    name: No job more often than once a minute
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Self-test — the check catches what it must and nothing else (C-34)
+        run: node scripts/db-p5-cron-cadence-check.test.mjs
+      - name: The check — no pg_cron schedule under one minute
+        run: node scripts/db-p5-cron-cadence-check.mjs
