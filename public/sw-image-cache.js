@@ -27,6 +27,42 @@
 const CACHE_NAME = "gallery-images-v3";
 const MAX_CACHE_ENTRIES = 200;
 
+/**
+ * OFF-4 (2026-10-04): a BYTE cap as well as an entry cap. 200 entries was the
+ * only bound, and 200 full-size photographs can be 200+ MB on a phone. The cache
+ * now also stays under MAX_CACHE_BYTES, evicting least-recently-used first.
+ *
+ * Each body is measured when it is stored. An entry with no recorded size
+ * (stored before OFF-4) is counted at UNKNOWN_SIZE_ESTIMATE_BYTES — a deliberate
+ * over-estimate for a feed thumbnail, so the cap errs towards evicting. The
+ * sizes live in SIZE_INDEX_URL, a small JSON entry inside the same cache, so they
+ * survive the worker being stopped; it is never served to a page.
+ */
+const MAX_CACHE_BYTES = 50 * 1024 * 1024;
+const UNKNOWN_SIZE_ESTIMATE_BYTES = 250 * 1024;
+const SIZE_INDEX_URL = "/__retina-image-cache-sizes__.json";
+
+/**
+ * Pure: which URLs to evict. `keysOldestFirst` is Cache Storage order (LRU
+ * first, because a hit re-puts its entry). Evicts from the front until BOTH
+ * caps hold. Exposed on `self` for the tests; the worker does not depend on it
+ * being there.
+ */
+function planTrim(keysOldestFirst, sizes, maxEntries, maxBytes, unknownEstimate) {
+  const sizeOf = (u) => (typeof sizes[u] === "number" ? sizes[u] : unknownEstimate);
+  let count = keysOldestFirst.length;
+  let bytes = keysOldestFirst.reduce((a, u) => a + sizeOf(u), 0);
+  const evict = [];
+  for (const u of keysOldestFirst) {
+    if (count <= maxEntries && bytes <= maxBytes) break;
+    evict.push(u);
+    count -= 1;
+    bytes -= sizeOf(u);
+  }
+  return { evict, count, bytes };
+}
+self.__retinaPlanTrim = planTrim;
+
 const THUMB_BUCKETS = [
   "portfolio-images",
   "competition-photos",
@@ -65,6 +101,7 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
+  if (new URL(request.url).pathname === SIZE_INDEX_URL) return;
   if (request.method !== "GET") return;
   if (!isGalleryImage(request.url)) return;
 
@@ -85,7 +122,16 @@ async function handle(request) {
   try {
     const response = await fetch(request);
     if (response.ok) {
-      cache.put(request, response.clone()).then(() => trimCache(cache)).catch(() => {});
+      // Only `ok` responses are cached, exactly as before OFF-4. An OPAQUE
+      // response (an <img> without crossorigin) is still not cached: Chromium
+      // charges each opaque entry ~7 MB of padding against the origin's quota,
+      // and quota pressure would evict the OFF-1 device store first.
+      const copy = response.clone();
+      const measure = response.clone().blob().then((b) => b.size).catch(() => null);
+      Promise.all([cache.put(request, copy), measure])
+        .then(([, size]) => recordSize(cache, request.url, size))
+        .then(() => trimCache(cache))
+        .catch(() => {});
     }
     return response;
   } catch (err) {
@@ -140,12 +186,33 @@ async function handle(request) {
   }
 }
 
-async function trimCache(cache) {
-  const keys = await cache.keys();
-  const overflow = keys.length - MAX_CACHE_ENTRIES;
-  if (overflow > 0) {
-    // keys() returns insertion order → oldest first → those are LRU victims.
-    const toDelete = keys.slice(0, overflow);
-    await Promise.all(toDelete.map((k) => cache.delete(k)));
+async function readSizes(cache) {
+  try {
+    const r = await cache.match(SIZE_INDEX_URL);
+    return r ? await r.json() : {};
+  } catch {
+    return {};
   }
+}
+
+async function writeSizes(cache, sizes) {
+  await cache.put(SIZE_INDEX_URL, new Response(JSON.stringify(sizes), { headers: { "Content-Type": "application/json" } }));
+}
+
+async function recordSize(cache, url, size) {
+  if (typeof size !== "number") return;
+  const sizes = await readSizes(cache);
+  sizes[url] = size;
+  await writeSizes(cache, sizes);
+}
+
+async function trimCache(cache) {
+  const keys = (await cache.keys()).map((k) => k.url).filter((u) => new URL(u).pathname !== SIZE_INDEX_URL);
+  const sizes = await readSizes(cache);
+  // keys() returns insertion order → oldest first → those are LRU victims.
+  const { evict } = planTrim(keys, sizes, MAX_CACHE_ENTRIES, MAX_CACHE_BYTES, UNKNOWN_SIZE_ESTIMATE_BYTES);
+  if (evict.length === 0) return;
+  await Promise.all(evict.map((u) => cache.delete(u)));
+  for (const u of evict) delete sizes[u];
+  await writeSizes(cache, sizes);
 }

@@ -14,9 +14,7 @@ import {
   installVisibilityObserver,
   resetForNewSession,
 } from "@/lib/sessionLossRecorder";
-import { purgeImageCache } from "@/lib/imageCachePurge";
-import { clearDeviceStore } from "@/lib/offline/deviceStore";
-import { setPersistenceUser } from "@/lib/offline/queryPersistence";
+import { wipeMemberDataOnSignOut } from "@/lib/offline/signOutWipe";
 
 interface AuthContextType {
   session: Session | null;
@@ -354,16 +352,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (involuntary) logger.error(line);
           else logger.debug(line);
         }
-        // F-D3-6: the image service worker's cache holds this member's images
-        // (Friends-only posts included). Purge it on EVERY session end — this
-        // branch is the one place all of them pass through. Fire-and-forget:
-        // it never throws and never delays the sign-out.
-        void purgeImageCache();
-        // OFF-1: the device store holds this member's feed, profiles, posts and
-        // notifications. Stop the writer FIRST (synchronously), then wipe, so
-        // no pending write can put the departed member's data back.
-        setPersistenceUser(null);
-        void clearDeviceStore();
+        // F-D3-6 + OFF-1 + OFF-4: every member-content store on the device —
+        // image caches, the device store, the feed's first page — is wiped on
+        // EVERY session end; this branch is the one place all of them pass
+        // through. The OFF-1 writer is stopped synchronously inside, first.
+        // Fire-and-forget: it never throws and never delays the sign-out.
+        void wipeMemberDataOnSignOut();
       }
 
       if (session?.user) {
