@@ -4,7 +4,6 @@
   "initialBytes": 2250752,
   "defaultChunkBytes": 163840,
   "namedChunks": {
-    "translations.rest.js": 514048,
     "AdminAnalytics.js": 425984,
     "jspdf.es.min.js": 397312,
     "html2canvas.esm.js": 207872,

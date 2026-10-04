@@ -1,0 +1,43 @@
+name: D2 · P11 no new bare img
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. READS src/components AND src/pages.
+#
+# P11 gate (part): "a lint rule rejects a bare `<img>` in `src/components` and
+# `src/pages`". The rule is eslint-rules/no-bare-img.js, a per-file RATCHET
+# over eslint-rules/no-bare-img.baseline.json: more bare <img> than a file's
+# baseline fails; fewer fails too until the baseline is lowered. Inline
+# `eslint-disable` comments are ignored by this config (noInlineConfig), so the
+# rule cannot be switched off in a file. `--quiet` hides only the warnings that
+# setting itself produces for unrelated disable comments.
+#
+# Runs through eslint.bare-img.config.js (this rule only), because the main
+# eslint.config.js reports ~1,860 pre-existing errors and is not run in CI.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bare-img:
+    name: No new bare img in src/components or src/pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+      - name: Ratchet (more fails; fewer fails until the baseline is lowered)
+        run: npx eslint -c eslint.bare-img.config.js --quiet src/components src/pages
