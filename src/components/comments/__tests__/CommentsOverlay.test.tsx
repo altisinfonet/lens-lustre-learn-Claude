@@ -44,6 +44,21 @@ vi.mock("@/hooks/feed/usePostComments", () => ({
  * the chrome to), not AdComments' data plumbing — that is
  * StoryCardComments.test.tsx's surface.
  */
+// PostCommentsSection reads the viewer's block list; this test has no
+// QueryClientProvider, and blocking is not what it is about.
+vi.mock("@/hooks/core/useBlockedUsers", () => ({
+  useBlockedUsers: () => ({
+    blockedIds: new Set<string>(),
+    blockedRows: [],
+    isBlocked: () => false,
+    block: () => {},
+    unblock: () => {},
+    blocking: false,
+    unblocking: false,
+    isLoading: false,
+  }),
+}));
+
 vi.mock("@/components/ads/AdComments", () => ({
   default: ({ creativeId }: { creativeId: string }) => (
     <div data-testid="ad-comments-stub">ad thread for {creativeId}</div>

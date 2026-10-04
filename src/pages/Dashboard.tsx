@@ -31,6 +31,8 @@ import { Input } from "@/components/ui/input";
 import VerificationRequestCard from "@/components/profile/VerificationRequestCard";
 import ActiveDevices from "@/components/ActiveDevices";
 import DeleteAccountSection from "@/components/settings/DeleteAccountSection";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
+import BlockedUsersSection from "@/components/settings/BlockedUsersSection";
 import ProfileAnalytics from "@/components/profile/ProfileAnalytics";
 import UserBadgeInline from "@/components/UserBadgeInline";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
@@ -435,7 +437,7 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
           { icon: User, labelKey: "nav.profile", descKey: "dash.qa.viewProfile", to: "/profile" },
           { icon: Trophy, labelKey: "nav.competitions", descKey: "dash.qa.enterContests", to: "/competitions" },
           { icon: Edit2, labelKey: "menu.editProfile", descKey: "dash.qa.updateInfo", to: "/edit-profile" },
-          { icon: Wallet, labelKey: "menu.wallet", descKey: "dash.qa.balanceHistory", to: "/wallet" },
+          ...(isNativeIOSApp() ? [] : [{ icon: Wallet, labelKey: "menu.wallet", descKey: "dash.qa.balanceHistory", to: "/wallet" }]),
           { icon: Award, labelKey: "msheet.certificates", descKey: "dash.qa.achievements", to: "/certificates" },
           { icon: Rss, labelKey: "nav.feed", descKey: "dash.qa.latestUpdates", to: "/feed" },
           { icon: GraduationCap, labelKey: "nav.courses", descKey: "dash.qa.learnPhotography", to: "/courses" },
@@ -1204,6 +1206,8 @@ const SettingsTab = ({ user, profile, roles, applications, hasRole, canApplyFor,
     </div>
 
     {/* Danger Zone — self-serve permanent account deletion (Play/Apple requirement) */}
+    <BlockedUsersSection />
+
     <DeleteAccountSection />
   </div>
   );

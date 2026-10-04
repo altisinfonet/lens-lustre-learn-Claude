@@ -1,0 +1,140 @@
+# App Store review videos — recorded on the iOS Simulator, no phone needed.
+#
+# App Review (2026-09-28) asked for screen recordings of the Terms (EULA)
+# agreement, Report, Block (guideline 1.2) and in-app account deletion
+# (5.1.1(v)). This job builds the SAME web bundle the TestFlight build ships
+# (production backend), runs it in an iPhone simulator, drives it with
+# tools/review-video/record.mjs and uploads two MP4s as the artifact
+# "app-review-videos".
+#
+# Secrets (Settings > Secrets and variables > Actions), never printed:
+#   REVIEW_DEMO_EMAIL / REVIEW_DEMO_PASSWORD     the App Review demo account
+#   REVIEW_DELETE_EMAIL / REVIEW_DELETE_PASSWORD a throwaway account that
+#                                                video 2 DELETES for real
+#
+# Production writes, on purpose: one report + one block (undone on camera) by
+# the demo account; deletion of the throwaway account. No captcha is bypassed.
+name: iOS review videos
+
+on:
+  workflow_dispatch:
+    inputs:
+      which:
+        description: "Which video: both, 1 (terms/report/block) or 2 (delete account)"
+        required: true
+        default: both
+        type: choice
+        options: [both, "1", "2"]
+
+concurrency:
+  group: ios-review-video
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  record:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build web bundle (production backend, same as ios-build.yml)
+        env:
+          VITE_SUPABASE_URL: https://jtdtehuqtinjxropkkcn.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0ZHRlaHVxdGluanhyb3Bra2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzI3MjEsImV4cCI6MjA5OTE0ODcyMX0.qY8BI5LXb6uLzTwbpf8AleZ6UZyfeaOA0q4_TC5CEpo
+          VITE_SUPABASE_PROJECT_ID: jtdtehuqtinjxropkkcn
+        run: npm run build
+
+      - name: Install Capacitor + iOS plugins (same pins as ios-build.yml)
+        run: |
+          npm install --no-audit --no-fund \
+            @capacitor/core@8.5.0 @capacitor/cli@8.5.0 @capacitor/ios@8.5.0 \
+            @capacitor/share@8.0.1 \
+            @capacitor/filesystem@8.1.2 @capacitor/camera@8.2.2 \
+            @capacitor/app@8.1.1 @capacitor/browser@8.0.4
+
+      - name: Add iOS platform and sync
+        run: |
+          npx cap add ios
+          npx cap sync ios
+
+      - name: Pick and boot an iPhone simulator
+        id: sim
+        run: |
+          set -euo pipefail
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json,sys
+          d=json.load(sys.stdin)["devices"]
+          ios=sorted([k for k in d if "iOS" in k], reverse=True)
+          pref=["iPhone 16","iPhone 15","iPhone 16 Pro","iPhone 15 Pro"]
+          for name in pref:
+              for k in ios:
+                  for dev in d[k]:
+                      if dev["name"]==name: print(dev["udid"]); sys.exit()
+          print(d[ios[0]][0]["udid"])')
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
+          xcrun simctl list devices | grep "$UDID"
+
+      - name: Build the app for the simulator (Debug, unsigned)
+        run: |
+          set -euo pipefail
+          if [ -d ios/App/App.xcworkspace ]; then C="-workspace ios/App/App.xcworkspace"; else C="-project ios/App/App.xcodeproj"; fi
+          xcodebuild $C -scheme App -configuration Debug \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -n 40
+          APP=$(find build/Build/Products -maxdepth 2 -name 'App.app' -path '*iphonesimulator*' | head -1)
+          test -n "$APP" || { echo "::error::App.app not found"; exit 1; }
+          xcrun simctl install "${{ steps.sim.outputs.udid }}" "$APP"
+          xcrun simctl launch "${{ steps.sim.outputs.udid }}" com.fiftymmretina.app
+          sleep 8
+
+      - name: Install and start Appium (XCUITest driver)
+        run: |
+          set -euo pipefail
+          npm install -g appium@2 --no-audit --no-fund
+          appium driver install xcuitest
+          mkdir -p /tmp/rv && cd /tmp/rv && npm init -y >/dev/null && npm install --no-audit --no-fund webdriverio@9
+          nohup appium --address 127.0.0.1 --port 4723 --log /tmp/appium.log --log-level warn > /dev/null 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:4723/status >/dev/null && break; sleep 2; done
+          curl -sf http://127.0.0.1:4723/status
+
+      - name: Record the review videos
+        env:
+          SIM_UDID: ${{ steps.sim.outputs.udid }}
+          OUT_DIR: ${{ github.workspace }}/review-videos
+          ONLY: ${{ inputs.which == 'both' && '' || inputs.which }}
+          REVIEW_DEMO_EMAIL: ${{ secrets.REVIEW_DEMO_EMAIL }}
+          REVIEW_DEMO_PASSWORD: ${{ secrets.REVIEW_DEMO_PASSWORD }}
+          REVIEW_DELETE_EMAIL: ${{ secrets.REVIEW_DELETE_EMAIL }}
+          REVIEW_DELETE_PASSWORD: ${{ secrets.REVIEW_DELETE_PASSWORD }}
+          NODE_PATH: /tmp/rv/node_modules
+        run: |
+          cp tools/review-video/record.mjs /tmp/rv/record.mjs
+          cd /tmp/rv && node record.mjs
+
+      - name: Show Appium log tail on failure
+        if: failure()
+        run: tail -n 120 /tmp/appium.log || true
+
+      - name: Upload the videos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-review-videos
+          path: review-videos
+          retention-days: 14
+          if-no-files-found: warn

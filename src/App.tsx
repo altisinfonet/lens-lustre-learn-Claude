@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./App.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { BrowserRouter, Routes, Route, Navigate, useParams, Outlet, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/core/useAuth";
 import { ThemeProvider } from "@/hooks/core/useTheme";
@@ -162,6 +163,7 @@ const CustomUrlProfile = lazyRetry(() => import("./pages/CustomUrlProfile"), "Cu
 const Unsubscribe = lazyRetry(() => import("./pages/Unsubscribe"), "Unsubscribe");
 const MyPhotos = lazyRetry(() => import("./pages/MyPhotos"), "MyPhotos");
 const CookiePolicy = lazyRetry(() => import("./pages/CookiePolicy"), "CookiePolicy");
+const CommunityGuidelines = lazyRetry(() => import("./pages/CommunityGuidelines"), "CommunityGuidelines");
 const NotificationSettings = lazyRetry(() => import("./pages/NotificationSettings"), "NotificationSettings");
 const Notifications = lazyRetry(() => import("./pages/Notifications"), "Notifications");
 const WatermarkQAMatrix = lazyRetry(() => import("./pages/qa/WatermarkQAMatrix"), "WatermarkQAMatrix");
@@ -411,7 +413,7 @@ const App = () => {
                 <Route path="/verify/:token" element={<CertificateVerifyByToken />} />
                 <Route path="/certificate/:token" element={<CertificateVerifyByToken />} />
                 <Route path="/winners" element={<Winners />} />
-                <Route path="/wallet" element={<Wallet />} />
+                <Route path="/wallet" element={isNativeIOSApp() ? <Navigate to="/dashboard" replace /> : <Wallet />} />
                 <Route path="/featured-artist/:slug" element={<FeaturedArtistPage />} />
                 <Route path="/referrals" element={<Referrals />} />
                 <Route path="/help-support" element={<HelpSupport />} />
@@ -426,6 +428,8 @@ const App = () => {
                 <Route path="/ad/:creativeId" element={<AdDetail />} />
                 <Route path="/unsubscribe" element={<Unsubscribe />} />
                 <Route path="/cookie-policy" element={<CookiePolicy />} />
+                <Route path="/community-guidelines" element={<CommunityGuidelines />} />
+                <Route path="/terms-of-use" element={<CommunityGuidelines />} />
                 <Route path="/settings/notifications" element={<NotificationSettings />} />
                 <Route path="/qa/watermark-matrix" element={<WatermarkQAMatrix />} />
                 <Route path="/scheduled-posts" element={<ScheduledPostsPage />} />

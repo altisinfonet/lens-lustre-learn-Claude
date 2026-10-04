@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/core/useAuth";
 import { useVisibilityInterval } from "@/lib/timers/visibilityInterval";
 import { supabase } from "@/integrations/supabase/client";
 import { signInWithOAuth } from "@/lib/oauthHelper";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { z } from "zod";
 import SimpleCaptcha from "@/components/SimpleCaptcha";
@@ -65,7 +66,7 @@ const Login = () => {
   const t = useT();
   const [error, setError] = useState<string | null>(null);
   const siteLogo = useSiteLogo();
-  const [loading, setLoading] = useState<"google" | "apple" | "email" | null>(null);
+  const [loading, setLoading] = useState<"google" | "email" | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -123,7 +124,7 @@ const Login = () => {
     navigate("/feed");
   };
 
-  const handleOAuth = async (provider: "google" | "apple") => {
+  const handleOAuth = async (provider: "google") => {
     setError(null);
     setLoading(provider);
     try {
@@ -329,30 +330,17 @@ const Login = () => {
         )}
 
         <div className="space-y-4 max-w-sm w-full">
-          {/* OAuth buttons */}
-          <GoogleSignInButton
-            onClick={() => handleOAuth("google")}
-            loading={loading === "google"}
-            disabled={isLockedOut}
-          />
-
-          {cfg.show_apple && (
-            <button
-              onClick={() => handleOAuth("apple")}
-              disabled={!!loading || isLockedOut}
-              className="w-full py-3.5 border border-foreground/30 text-foreground text-xs tracking-[0.15em] uppercase hover:bg-foreground hover:text-background transition-all duration-500 disabled:opacity-50 flex items-center justify-center gap-3"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              {loading === "apple" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-                </svg>
-              )}
-              {t("auth.continueApple")}
-            </button>
-          )}
+          {/* OAuth buttons. Not shown in the iOS app: Apple guideline 4.8 requires
+              an equivalent privacy-preserving login (Sign in with Apple) next to any
+              third-party login, and the owner has chosen not to offer one - so the
+              iOS build offers email sign-in only. Web and Android are unchanged. */}
+          {!isNativeIOSApp() && (
+            <>
+              <GoogleSignInButton
+                onClick={() => handleOAuth("google")}
+                loading={loading === "google"}
+                disabled={isLockedOut}
+              />
 
           {/* Divider */}
           <div className="flex items-center gap-4 py-2">
@@ -362,6 +350,8 @@ const Login = () => {
             </span>
             <div className="flex-1 h-px bg-border" />
           </div>
+            </>
+          )}
 
           {/* Email/Password form — two-step */}
           <form onSubmit={step === 1 ? (e) => { e.preventDefault(); setError(null); const trimmed = email.trim(); if (!z.string().email().safeParse(trimmed).success) { setError("Please enter a valid email"); return; } setEmail(trimmed); setStep(2); } : handleEmailLogin} className="space-y-4">
@@ -460,8 +450,10 @@ const Login = () => {
           <Link to="/signup" className="text-primary hover:underline">{t("auth.createOne")}</Link>
         </p>
 
-        <p className="text-[8px] text-muted-foreground/60 mt-1.5 text-center" style={{ fontFamily: "var(--font-body)" }}>
-          {t("auth.terms")}
+        <p className="text-[10px] text-muted-foreground mt-2 text-center max-w-sm" style={{ fontFamily: "var(--font-body)" }}>
+          By signing in you agree to our{" "}
+          <Link to="/community-guidelines" className="text-primary hover:underline">Terms of Use &amp; Community Guidelines</Link>
+          {" "}— no tolerance for objectionable content or abusive users.
         </p>
       </div>
     </main>

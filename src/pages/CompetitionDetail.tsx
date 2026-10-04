@@ -1,4 +1,5 @@
 import { Link, useParams, useNavigate } from "react-router-dom";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { Calendar, Clock, Trophy, Heart, Upload, Users, Star, Camera, Award, PartyPopper, Medal, Scale } from "lucide-react";
 import PhaseBanner from "@/components/PhaseBanner";
 import CompetitionLightbox from "@/components/CompetitionLightbox";
@@ -366,7 +367,7 @@ const CompetitionDetail = () => {
                 </div>
               </div>
 
-              {competition.entry_fee > 0 && (
+              {competition.entry_fee > 0 && !isNativeIOSApp() && (
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <Clock className="h-3.5 w-3.5 text-primary" />
                   <span style={{ fontFamily: "var(--font-body)" }}>{t("cdet.entryFee")} ${competition.entry_fee}</span>
