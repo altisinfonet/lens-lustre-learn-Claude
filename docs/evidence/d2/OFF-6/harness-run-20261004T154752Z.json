@@ -1,0 +1,9 @@
+{
+  "at": "2026-10-04T15:47:52.280Z",
+  "seedShown": true,
+  "storedFeed": true,
+  "offlineShown": true,
+  "controlShown": false,
+  "offlineLike": "BLOCKED on OFF-2 (outbox + D1 idempotency keys)",
+  "verdict": "PASS (leg 1); leg 2 BLOCKED"
+}
