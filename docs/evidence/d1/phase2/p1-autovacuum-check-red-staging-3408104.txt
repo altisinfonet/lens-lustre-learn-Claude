@@ -1,0 +1,9 @@
+D1 · P1-H profiles-autovacuum check (R-82)
+profiles after 681 applied migration(s): threshold 50, scale 0.2
+  N=    50  worst dead-row ratio before a vacuum 54.5 %
+  N=   131  worst dead-row ratio before a vacuum 36.8 %
+  N=100000  worst dead-row ratio before a vacuum 16.7 %
+  HIT    N=50: worst ratio 54.5 % ≥ 10 % (threshold 50, scale 0.2)
+  HIT    N=131: worst ratio 36.8 % ≥ 10 % (threshold 50, scale 0.2)
+  HIT    N=100000: worst ratio 16.7 % ≥ 10 % (threshold 50, scale 0.2)
+FAIL — 3 hit(s)
