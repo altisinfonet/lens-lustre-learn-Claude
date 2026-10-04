@@ -23,34 +23,15 @@
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
-/images/*
-  Cache-Control: public, max-age=2592000, immutable
-  Vary: Accept
-
-/*.webp
-  Cache-Control: public, max-age=31536000, immutable
-
-/*.woff2
-  Cache-Control: public, max-age=31536000, immutable
-
-# Edge caching for public/read-heavy pages
-/competitions
-  Cache-Control: public, max-age=300, s-maxage=600, stale-while-revalidate=86400
-
-/discover
-  Cache-Control: public, max-age=300, s-maxage=600, stale-while-revalidate=86400
-
-/journal
-  Cache-Control: public, max-age=300, s-maxage=600, stale-while-revalidate=86400
-
-/courses
-  Cache-Control: public, max-age=300, s-maxage=600, stale-while-revalidate=86400
-
-/featured-artist
-  Cache-Control: public, max-age=300, s-maxage=600, stale-while-revalidate=86400
-
-/certificates/*
-  Cache-Control: public, max-age=600, s-maxage=1800, stale-while-revalidate=86400
-
-/winners
-  Cache-Control: public, max-age=300, s-maxage=600, stale-while-revalidate=86400
+#!template P14 (2026-10-04): every rule that used to follow here was removed, because
+#!template none of them ever took effect. Pages joins a repeated header from every
+#!template matching rule with commas, and `/*` above already sends `no-store`, so
+#!template `/images/*`, `/*.webp`, `/*.woff2` and the seven page rules (/competitions,
+#!template /discover, /journal, /courses, /featured-artist, /certificates/*, /winners)
+#!template all reached the browser as "no-store, …, public, max-age=…" — and
+#!template no-store wins (measured by curl on both lanes, ~08:42 UTC; cf-cache-status
+#!template BYPASS/DYNAMIC). Images now get one policy from functions/images/[[path]].ts.
+#!template The page rules described SPA shells that must not be cached apart from
+#!template index.html. Policy per class: docs/evidence/d2/P14/cache-policy.md.
+#!template scripts/web-cache-headers-check.mjs fails the build-time test if a
+#!template contradictory rule comes back.

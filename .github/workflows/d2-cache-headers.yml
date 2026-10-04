@@ -1,0 +1,75 @@
+name: D2 · P14 cache policy per asset class
+
+# ═══════════════════════════════════════════════════════════════════════════
+# HOLDS NO SECRET. READS public/_headers, functions/ AND PUBLIC URLS ONLY.
+#
+# P14 gate (GATE_REGISTER, verbatim): "`Cache-Control`, `ETag` and
+# `stale-while-revalidate` policy stated per asset class and verified by
+# fetch; the cache-hit target in M13 and V5 traced to the rules that produce
+# it."
+#
+# PR and push: STRUCTURAL. Simulates Cloudflare Pages' _headers merge (every
+# matching rule applies; a repeated header is comma-joined) and fails if any
+# class resolves to a self-contradicting Cache-Control — the 2026-10-04 defect
+# where `/*` no-store was joined onto /images/* and the page rules. Also fails
+# if a Function's own Cache-Control drifts from the stated policy.
+#
+# Dispatch and daily: BY FETCH, against both public origins — each class's
+# sample URL held to the policy table in scripts/web-cache-headers-check.mjs.
+# Monitoring after the recorded reading (R-82): it never gates a merge, so it
+# cannot race a deploy.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    branches: [main, staging]
+    paths:
+      - 'public/_headers'
+      - 'functions/**'
+      - 'scripts/web-cache-headers-check.mjs'
+      - '.github/workflows/d2-cache-headers.yml'
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  structural:
+    name: One consistent Cache-Control per asset class
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Self-test — the merge model reproduces the measured defect (C-34)
+        run: node scripts/web-cache-headers-check.mjs --self-test
+      - name: public/_headers + Function sources against the policy
+        run: node scripts/web-cache-headers-check.mjs --static
+
+  by-fetch:
+    name: Policy verified by fetch (monitoring)
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        origin: ['https://staging.50mmretina.com', 'https://www.50mmretina.com']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Fetch each class's sample URL
+        env:
+          ORIGIN: ${{ matrix.origin }}
+        run: node scripts/web-cache-headers-check.mjs "$ORIGIN"
