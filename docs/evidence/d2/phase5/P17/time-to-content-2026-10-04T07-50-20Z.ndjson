@@ -1,0 +1,16 @@
+{"type":"run","measuredAtUtc":"2026-10-04T07:50:20.577Z","origin":"https://www.50mmretina.com","profile":"android-mid-2026 (emulated, realDevice=false)"}
+{"type":"sample","route":"/journal/art-of-golden-hour-photography","selector":"h1","run":1,"timeToContentMs":9436,"firstMatchText":"The Art of Golden Hour Photography","atUtc":"2026-10-04T07:50:30.286Z"}
+{"type":"sample","route":"/journal/art-of-golden-hour-photography","selector":"h1","run":2,"timeToContentMs":9134,"firstMatchText":"The Art of Golden Hour Photography","atUtc":"2026-10-04T07:50:39.681Z"}
+{"type":"sample","route":"/journal/art-of-golden-hour-photography","selector":"h1","run":3,"timeToContentMs":10127,"firstMatchText":"The Art of Golden Hour Photography","atUtc":"2026-10-04T07:50:50.080Z"}
+{"type":"sample","route":"/courses/documentary-photography-masterclass","selector":"h1","run":1,"timeToContentMs":8245,"firstMatchText":"Documentary Photography Masterclass","atUtc":"2026-10-04T07:50:58.631Z"}
+{"type":"sample","route":"/courses/documentary-photography-masterclass","selector":"h1","run":2,"timeToContentMs":7763,"firstMatchText":"Documentary Photography Masterclass","atUtc":"2026-10-04T07:51:06.653Z"}
+{"type":"sample","route":"/courses/documentary-photography-masterclass","selector":"h1","run":3,"timeToContentMs":8186,"firstMatchText":"Documentary Photography Masterclass","atUtc":"2026-10-04T07:51:15.083Z"}
+{"type":"sample","route":"/journal","selector":"a[href^=\"/journal/\"]","run":1,"timeToContentMs":7219,"firstMatchText":"Featured\nTutorial\nLandscape\nLighting\nThe Art of Golden Hour ","atUtc":"2026-10-04T07:51:22.571Z"}
+{"type":"sample","route":"/journal","selector":"a[href^=\"/journal/\"]","run":2,"timeToContentMs":6765,"firstMatchText":"Featured\nTutorial\nLandscape\nLighting\nThe Art of Golden Hour ","atUtc":"2026-10-04T07:51:29.585Z"}
+{"type":"sample","route":"/journal","selector":"a[href^=\"/journal/\"]","run":3,"timeToContentMs":6900,"firstMatchText":"Featured\nTutorial\nLandscape\nLighting\nThe Art of Golden Hour ","atUtc":"2026-10-04T07:51:36.722Z"}
+{"type":"sample","route":"/competitions","selector":"main h1, main h2","run":1,"timeToContentMs":6263,"firstMatchText":"Photography Competitions","atUtc":"2026-10-04T07:51:43.283Z"}
+{"type":"sample","route":"/competitions","selector":"main h1, main h2","run":2,"timeToContentMs":5676,"firstMatchText":"Photography Competitions","atUtc":"2026-10-04T07:51:49.225Z"}
+{"type":"sample","route":"/competitions","selector":"main h1, main h2","run":3,"timeToContentMs":5537,"firstMatchText":"Photography Competitions","atUtc":"2026-10-04T07:51:55.006Z"}
+{"type":"sample","route":"/","selector":"main h1, main h2","run":1,"timeToContentMs":6673,"firstMatchText":"Every Frame Tells","atUtc":"2026-10-04T07:52:01.923Z"}
+{"type":"sample","route":"/","selector":"main h1, main h2","run":2,"timeToContentMs":6493,"firstMatchText":"Every Frame Tells","atUtc":"2026-10-04T07:52:08.651Z"}
+{"type":"sample","route":"/","selector":"main h1, main h2","run":3,"timeToContentMs":7022,"firstMatchText":"Every Frame Tells","atUtc":"2026-10-04T07:52:15.975Z"}

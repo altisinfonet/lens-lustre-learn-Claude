@@ -1,0 +1,71 @@
+name: D2 · P3 subscription/publication parity
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. READS src/ AND ONE COMMITTED JSON.
+#
+# P3: the client's postgres_changes subscriptions (scripts/web-subscription-
+# scan.mjs, D2) and the supabase_realtime publication (scripts/db-publication-
+# export.mjs, D1) are compared by scripts/web-p3-parity.mjs, schemaVersion 1
+# (frozen by the Auditor, R-84). The build FAILS in both directions:
+#   subscribed-but-not-published (a listener that hears nothing) and
+#   published-but-not-subscribed (WAL decoded for nobody).
+#
+# `self-test` always runs (C-34).
+# `parity` runs whenever D1's export is committed at DB_EXPORT below. Until
+# then GitHub shows it SKIPPED — never a pass. A skipped gate is not a closed
+# gate, and the P3 evidence says so.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DB_EXPORT: docs/evidence/d1/phase3/db-publication-export.json
+
+jobs:
+  self-test:
+    name: P3 comparator self-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: The comparator fails each mismatch shape (C-34)
+        run: node scripts/web-p3-parity.mjs --self-test
+      - name: The client reading is complete (no unresolved table names)
+        run: node scripts/web-subscription-scan.mjs --strict --out /tmp/client.json
+      # Decides whether the parity job runs. A job-level `if` cannot read the
+      # workspace, so presence is passed as an output; absent -> `parity` shows
+      # SKIPPED on the PR, which is visibly not a pass.
+      - name: Is D1's export committed?
+        id: export
+        run: |
+          if [ -f "$DB_EXPORT" ]; then echo "present=true" >> "$GITHUB_OUTPUT"; echo "D1 export present: $DB_EXPORT"
+          else echo "present=false" >> "$GITHUB_OUTPUT"; echo "::notice::P3 parity NOT RUN: $DB_EXPORT is not committed yet (D1's exporter). The gate is open, not passed."; fi
+    outputs:
+      export-present: ${{ steps.export.outputs.present }}
+
+  parity:
+    name: Client subscriptions == realtime publication (both directions)
+    needs: self-test
+    if: needs.self-test.outputs.export-present == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Compare (a mismatch either way fails the build)
+        run: node scripts/web-p3-parity.mjs --db "$DB_EXPORT"

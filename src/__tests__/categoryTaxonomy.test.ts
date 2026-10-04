@@ -116,7 +116,12 @@ describe("every seeded icon exists in the TypeScript allow-list", () => {
 
 describe("every seeded category has a translation in all 7 locales", () => {
   const en = read("src/i18n/translations.ts");
-  const rest = read("src/i18n/translations.rest.ts");
+  // P12 (2026-10-04) split translations.rest.ts into one file per language.
+  // Only WHERE the text is read changed: the six files are read in the same
+  // order and joined, so every per-block slice and assertion below is unchanged.
+  const rest = ["hi", "bn", "mr", "gu", "ta", "te"]
+    .map((l) => read(`src/i18n/translations.${l}.ts`))
+    .join("\n");
 
   it("English", () => {
     const missing = seeded.filter((c) => !en.includes(`"cat.${c.slug}"`)).map((c) => c.slug);

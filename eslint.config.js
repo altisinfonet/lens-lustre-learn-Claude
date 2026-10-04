@@ -16,6 +16,7 @@ import noDirectWalletLedgerWrites from "./eslint-rules/no-direct-wallet-ledger-w
 import noUnfilteredRealtimeSensitive from "./eslint-rules/no-unfiltered-realtime-sensitive.js";
 import noUnsafeEdgeAuthority from "./eslint-rules/no-unsafe-edge-authority.js";
 import noRawTailwindColors from "./eslint-rules/no-raw-tailwind-colors.js";
+import noBareImg from "./eslint-rules/no-bare-img.js";
 
 export default tseslint.config(
   { ignores: ["dist", "eslint-rules/**"] },
@@ -89,6 +90,16 @@ export default tseslint.config(
       "audit-v6/no-as-any-in-protected-dirs": "error",
       "audit-v6/no-unsafe-edge-authority": "error",
     },
+  },
+  // P11 (2026-10-04) — no NEW bare <img> in src/components or src/pages (a
+  // per-file ratchet; see eslint-rules/no-bare-img.js). Registered here so
+  // editors show it; CI runs it through eslint.bare-img.config.js, because
+  // this config is not run in CI.
+  {
+    files: ["src/components/**/*.tsx", "src/pages/**/*.tsx"],
+    ignores: ["**/__tests__/**", "**/*.test.tsx"],
+    plugins: { d2: { rules: { "no-bare-img": noBareImg } } },
+    rules: { "d2/no-bare-img": "error" },
   },
   // Phase 4 Slice B — admin layout primitives are token-only by contract.
   // Flip raw-color rule to ERROR for primitives/** only (proven clean: 0 raw colors).
