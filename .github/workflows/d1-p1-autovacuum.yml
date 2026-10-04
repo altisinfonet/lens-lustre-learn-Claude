@@ -1,0 +1,40 @@
+name: D1 · P1-H profiles-autovacuum check
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. READS supabase/migrations/, WRITES NOTHING.
+#
+# P1 (R-82 design proof): public.profiles must be vacuumed before its
+# dead-row ratio can reach 10 % at 50, 131 or 100,000 rows. Evidence:
+# docs/evidence/d1/phase2/p1-synthetic-churn.md.
+# The live half is supabase/migrations/PROBE_p1_profiles_autovacuum.sql.
+# The self-test runs first (C-34).
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/db-p1-autovacuum-check.mjs'
+      - 'scripts/db-p1-autovacuum-check.test.mjs'
+      - '.github/workflows/d1-p1-autovacuum.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  autovacuum:
+    name: profiles vacuumed before 10 % dead
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Self-test — the check catches what it must and nothing else (C-34)
+        run: node scripts/db-p1-autovacuum-check.test.mjs
+      - name: The check — profiles autovacuum settings
+        run: node scripts/db-p1-autovacuum-check.mjs
