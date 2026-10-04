@@ -4,6 +4,7 @@ import type { Database } from './types';
 // Imports NOTHING itself — see the note on the reporter below and rule 1 in
 // src/lib/sessionLossRecorder.ts. A logger import here would close a cycle.
 import { noteRequest } from '@/lib/sessionLossRecorder';
+import { noteOutcome } from '@/lib/offline/networkQuality';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -84,9 +85,13 @@ const timeoutFetch: typeof fetch = (input, init) => {
    * a failed one.
    */
   const url = urlOf(input);
+  // OFF-3: every read also tells networkQuality how long it took, so the app
+  // can say "slow connection" and load lighter images. It imports nothing.
+  const started = Date.now();
   return fetch(input, { ...init, signal: controller.signal })
     .then((res) => {
       noteRequest(url, res.status);
+      try { noteOutcome(Date.now() - started, false); } catch { /* never affects the request */ }
       return res;
     })
     .catch((err: unknown) => {
@@ -95,6 +100,10 @@ const timeoutFetch: typeof fetch = (input, init) => {
       // never reached a server.
       const name = (err as { name?: string } | null)?.name;
       noteRequest(url, name === "TimeoutError" ? "timeout" : "network");
+      // Only OUR timeout means "slow". A caller's cancellation says nothing about
+      // the network, and an instant failure (refused, DNS, offline) is not
+      // slowness — offline is reported by the browser itself.
+      if (name === "TimeoutError") { try { noteOutcome(Date.now() - started, true); } catch { /* ignore */ } }
       throw err;
     })
     .finally(() => clearTimeout(timer));
