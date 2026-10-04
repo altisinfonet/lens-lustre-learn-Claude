@@ -132,6 +132,14 @@ jobs:
           echo "dist/assets carries $count JavaScript chunks"
           test "$count" -gt 0
 
+      # P13: the byte ceiling. A build over it FAILS — there is no warn mode.
+      # Ceilings live in scripts/web-bundle-budget.json; raising one is its
+      # own reviewed PR. The self-test runs first (C-34).
+      - name: Bundle byte ceiling (P13, self-test)
+        run: node scripts/web-bundle-budget.mjs --self-test
+      - name: Bundle byte ceiling (P13) — over budget fails the build
+        run: node scripts/web-bundle-budget.mjs
+
       - name: Bundle isolation guard (self-test)
         run: node scripts/test-isolation-guard.mjs
 
@@ -205,6 +213,14 @@ jobs:
           count=$(find dist/assets -name '*.js' | wc -l)
           echo "dist/assets carries $count JavaScript chunks"
           test "$count" -gt 0
+
+      # P13: the byte ceiling. A build over it FAILS — there is no warn mode.
+      # Ceilings live in scripts/web-bundle-budget.json; raising one is its
+      # own reviewed PR. The self-test runs first (C-34).
+      - name: Bundle byte ceiling (P13, self-test)
+        run: node scripts/web-bundle-budget.mjs --self-test
+      - name: Bundle byte ceiling (P13) — over budget fails the build
+        run: node scripts/web-bundle-budget.mjs
 
       - name: Bundle isolation guard (self-test)
         run: node scripts/test-isolation-guard.mjs
