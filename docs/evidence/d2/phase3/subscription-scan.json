@@ -1,0 +1,514 @@
+{
+  "producer": "web-subscription-scan",
+  "schemaVersion": 1,
+  "generatedBy": "scripts/web-subscription-scan.mjs",
+  "root": "src",
+  "counts": {
+    "subscriptions": 52,
+    "files": 23,
+    "tables": 29,
+    "unresolved": 0
+  },
+  "tables": [
+    "admin_notifications",
+    "admin_vote_adjustments",
+    "badge_definitions",
+    "competition_entries",
+    "competition_round_publish",
+    "competition_votes",
+    "course_enrollments",
+    "courses",
+    "follows",
+    "friendships",
+    "gift_announcements",
+    "judge_activity_logs",
+    "judge_comments",
+    "judge_decisions",
+    "judge_scores",
+    "judge_sessions",
+    "judge_tag_assignments",
+    "judging_preflight_log",
+    "judging_rounds",
+    "post_reactions",
+    "posts",
+    "profiles",
+    "role_display_config",
+    "scheduled_posts",
+    "site_settings",
+    "support_tickets",
+    "user_badges",
+    "user_notifications",
+    "user_roles"
+  ],
+  "subscriptions": [
+    {
+      "file": "src/components/EntryTagStamps.tsx",
+      "line": 81,
+      "channel": null,
+      "schema": "public",
+      "table": "judge_tag_assignments",
+      "event": "*",
+      "filter": "entry_id=eq.${entryId}"
+    },
+    {
+      "file": "src/components/admin/AdminCompetitionFunnel.tsx",
+      "line": 49,
+      "channel": null,
+      "schema": "public",
+      "table": "competition_entries",
+      "event": "*",
+      "filter": "competition_id=eq.${competitionId}"
+    },
+    {
+      "file": "src/components/admin/AdminJudgeMonitoringPanel.tsx",
+      "line": 149,
+      "channel": null,
+      "schema": "public",
+      "table": "judge_scores",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/components/admin/AdminJudgeMonitoringPanel.tsx",
+      "line": 150,
+      "channel": null,
+      "schema": "public",
+      "table": "judge_decisions",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/components/admin/AdminJudgeMonitoringPanel.tsx",
+      "line": 151,
+      "channel": null,
+      "schema": "public",
+      "table": "judge_activity_logs",
+      "event": "INSERT",
+      "filter": "competition_id=eq.${competitionId}"
+    },
+    {
+      "file": "src/components/admin/AdminLayout.tsx",
+      "line": 58,
+      "channel": "admin-support-ticket-count",
+      "schema": "public",
+      "table": "support_tickets",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/components/admin/AdminLayout.tsx",
+      "line": 63,
+      "channel": "admin-notification-count",
+      "schema": "public",
+      "table": "admin_notifications",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/components/admin/AdminNotifications.tsx",
+      "line": 86,
+      "channel": "admin-notifs-panel",
+      "schema": "public",
+      "table": "admin_notifications",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/components/admin/AdminUsers.tsx",
+      "line": 411,
+      "channel": "admin-users-live-sync",
+      "schema": "public",
+      "table": "user_roles",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/components/admin/AdminUsers.tsx",
+      "line": 412,
+      "channel": "admin-users-live-sync",
+      "schema": "public",
+      "table": "user_badges",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/components/admin/AdminUsers.tsx",
+      "line": 413,
+      "channel": "admin-users-live-sync",
+      "schema": "public",
+      "table": "profiles",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/components/judge/PreflightStatusBadge.tsx",
+      "line": 48,
+      "channel": null,
+      "schema": "public",
+      "table": "judging_preflight_log",
+      "event": "INSERT",
+      "filter": "competition_id=eq.${competitionId}"
+    },
+    {
+      "file": "src/hooks/competition/useCompetitionDetail.ts",
+      "line": 117,
+      "channel": null,
+      "schema": "public",
+      "table": "competition_round_publish",
+      "event": "*",
+      "filter": "competition_id=eq.${competitionId}"
+    },
+    {
+      "file": "src/hooks/competition/useCompetitionVoteRealtime.ts",
+      "line": 35,
+      "channel": null,
+      "schema": "public",
+      "table": "competition_votes",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/competition/useCompetitionVoteRealtime.ts",
+      "line": 36,
+      "channel": null,
+      "schema": "public",
+      "table": "admin_vote_adjustments",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/competition/useCompetitionVoteRealtime.ts",
+      "line": 37,
+      "channel": null,
+      "schema": "public",
+      "table": "competition_entries",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/content/useCourses.ts",
+      "line": 37,
+      "channel": "courses-realtime",
+      "schema": "public",
+      "table": "courses",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/content/useCourses.ts",
+      "line": 95,
+      "channel": null,
+      "schema": "public",
+      "table": "course_enrollments",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/core/useAuth.tsx",
+      "line": 201,
+      "channel": null,
+      "schema": "public",
+      "table": "profiles",
+      "event": "*",
+      "filter": "id=eq.${userId}"
+    },
+    {
+      "file": "src/hooks/feed/useRealtimeFeed.ts",
+      "line": 91,
+      "channel": "feed-live",
+      "schema": "public",
+      "table": "posts",
+      "event": "INSERT",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/feed/useRealtimeFeed.ts",
+      "line": 106,
+      "channel": "feed-live",
+      "schema": "public",
+      "table": "posts",
+      "event": "UPDATE",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/feed/useRealtimeFeed.ts",
+      "line": 133,
+      "channel": "feed-live",
+      "schema": "public",
+      "table": "posts",
+      "event": "DELETE",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/feed/useRealtimeFeed.ts",
+      "line": 143,
+      "channel": "feed-live",
+      "schema": "public",
+      "table": "post_reactions",
+      "event": "INSERT",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/feed/useRealtimeFeed.ts",
+      "line": 153,
+      "channel": "feed-live",
+      "schema": "public",
+      "table": "post_reactions",
+      "event": "DELETE",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/feed/useRealtimeFeed.ts",
+      "line": 207,
+      "channel": null,
+      "schema": "public",
+      "table": "user_notifications",
+      "event": "INSERT",
+      "filter": "user_id=eq.${userId}"
+    },
+    {
+      "file": "src/hooks/feed/useRealtimeFeed.ts",
+      "line": 224,
+      "channel": null,
+      "schema": "public",
+      "table": "friendships",
+      "event": "INSERT",
+      "filter": "addressee_id=eq.${userId}"
+    },
+    {
+      "file": "src/hooks/feed/useRealtimeFeed.ts",
+      "line": 240,
+      "channel": null,
+      "schema": "public",
+      "table": "friendships",
+      "event": "UPDATE",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/feed/useRealtimeFeed.ts",
+      "line": 255,
+      "channel": null,
+      "schema": "public",
+      "table": "friendships",
+      "event": "DELETE",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/feed/useRealtimeFeed.ts",
+      "line": 270,
+      "channel": null,
+      "schema": "public",
+      "table": "gift_announcements",
+      "event": "INSERT",
+      "filter": "user_id=eq.${userId}"
+    },
+    {
+      "file": "src/hooks/feed/useRealtimeFeed.ts",
+      "line": 281,
+      "channel": null,
+      "schema": "public",
+      "table": "admin_notifications",
+      "event": "INSERT",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/feed/useRealtimeFeed.ts",
+      "line": 291,
+      "channel": null,
+      "schema": "public",
+      "table": "follows",
+      "event": "INSERT",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/feed/useRealtimeFeed.ts",
+      "line": 308,
+      "channel": null,
+      "schema": "public",
+      "table": "follows",
+      "event": "DELETE",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/feed/useScheduledPosts.ts",
+      "line": 355,
+      "channel": null,
+      "schema": "public",
+      "table": "scheduled_posts",
+      "event": "*",
+      "filter": "user_id=eq.${user.id}"
+    },
+    {
+      "file": "src/hooks/judging/useGatedEntryStatus.ts",
+      "line": 87,
+      "channel": null,
+      "schema": "public",
+      "table": "competition_round_publish",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/judging/useJudgePhotoData.ts",
+      "line": 196,
+      "channel": null,
+      "schema": "public",
+      "table": "judge_scores",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/judging/useJudgePhotoData.ts",
+      "line": 200,
+      "channel": null,
+      "schema": "public",
+      "table": "judge_tag_assignments",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/judging/useJudgePhotoData.ts",
+      "line": 204,
+      "channel": null,
+      "schema": "public",
+      "table": "judge_comments",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/judging/useJudgePhotoData.ts",
+      "line": 208,
+      "channel": null,
+      "schema": "public",
+      "table": "judge_decisions",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/judging/useJudgeRounds.ts",
+      "line": 99,
+      "channel": null,
+      "schema": "public",
+      "table": "judging_rounds",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/judging/useMultiJudgeProgress.ts",
+      "line": 128,
+      "channel": null,
+      "schema": "public",
+      "table": "judge_sessions",
+      "event": "*",
+      "filter": "competition_id=eq.${competitionId}"
+    },
+    {
+      "file": "src/hooks/judging/useMultiJudgeProgress.ts",
+      "line": 133,
+      "channel": null,
+      "schema": "public",
+      "table": "judge_scores",
+      "event": "INSERT",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/judging/useMultiJudgeProgress.ts",
+      "line": 138,
+      "channel": null,
+      "schema": "public",
+      "table": "judge_decisions",
+      "event": "INSERT",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/judging/usePhotoVoteCount.ts",
+      "line": 32,
+      "channel": null,
+      "schema": "public",
+      "table": "competition_votes",
+      "event": "*",
+      "filter": "entry_id=eq.${entryId}"
+    },
+    {
+      "file": "src/hooks/judging/usePhotoVoteCount.ts",
+      "line": 37,
+      "channel": null,
+      "schema": "public",
+      "table": "admin_vote_adjustments",
+      "event": "*",
+      "filter": "entry_id=eq.${entryId}"
+    },
+    {
+      "file": "src/hooks/profile/useBadgeDefinitions.ts",
+      "line": 30,
+      "channel": "badge-definitions-sync",
+      "schema": "public",
+      "table": "badge_definitions",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/hooks/profile/useRoleDefinitions.ts",
+      "line": 29,
+      "channel": "role-display-config-sync",
+      "schema": "public",
+      "table": "role_display_config",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/lib/liveAdminSync.ts",
+      "line": 109,
+      "channel": "live-admin-sync",
+      "schema": "public",
+      "table": "site_settings",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/lib/liveAdminSync.ts",
+      "line": 128,
+      "channel": "live-admin-sync",
+      "schema": "public",
+      "table": "user_roles",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/lib/profileMapCache.ts",
+      "line": 78,
+      "channel": "profile-map-badges",
+      "schema": "public",
+      "table": "user_badges",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/lib/profileMapCache.ts",
+      "line": 91,
+      "channel": "profile-map-badges",
+      "schema": "public",
+      "table": "user_roles",
+      "event": "*",
+      "filter": null
+    },
+    {
+      "file": "src/pages/Dashboard.tsx",
+      "line": 156,
+      "channel": "dashboard-live",
+      "schema": "public",
+      "table": "friendships",
+      "event": "*",
+      "filter": "requester_id=eq.${user.id}"
+    },
+    {
+      "file": "src/pages/Dashboard.tsx",
+      "line": 162,
+      "channel": "dashboard-live",
+      "schema": "public",
+      "table": "friendships",
+      "event": "*",
+      "filter": "addressee_id=eq.${user.id}"
+    }
+  ],
+  "unresolved": []
+}

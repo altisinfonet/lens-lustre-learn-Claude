@@ -1,0 +1,50 @@
+# p5-run-tests.sh transcript · 2026-10-04T08:17Z · scratch PostgreSQL 17.11 + pg_cron 1.6 + pgmq 1.5.1 · exit 0
+
+══ 0 · fixture: real pg_cron + pgmq, the staging job verbatim ('5 seconds')
+  server 17.11 (Ubuntu 17.11-1.pgdg24.04+2) · pg_cron 1.6 · pgmq 1.5.1
+  job: 5 seconds · SELECT public.process_post_jobs(100);
+
+══ 1 · build-time check (self-test + tree) and the live PROBE — fail first
+  PASS  self-test
+  PASS  PROBE refuses — the 5-second job, as on staging today:
+        PROBE FAIL P5: job(s) run more often than once a minute: process-post-jobs [5 seconds]
+
+══ 2 · BEFORE — real pg_cron, 30s window, empty queue
+        process-post-jobs ran 5 time(s) in 30s → 14400 runs/day
+  PASS  the 5-second schedule really runs ~every 5 s while idle
+
+══ 3 · apply 20261004_0002 (lane staging) and probe
+  PASS  apply — P5-0002: process-post-jobs runs once a minute with idle back-off and drain
+  job: * * * * * · SELECT public.drain_post_jobs(100, interval '20 seconds');
+  saved: 5 seconds · SELECT public.process_post_jobs(100);
+  PASS  PROBE passes — once a minute, idle-guarded
+  PASS  a second apply is refused (PRE-002)
+
+══ 4 · AFTER — real pg_cron, 30s window
+        process-post-jobs ran 0 time(s) in 30s (schedule '* * * * *' → 1,440 runs/day, was 17,280)
+  PASS  at most one run in the window
+
+══ 5 · idle back-off: what one idle run costs
+  PASS  empty queue → {idle: true}
+  PASS  …and process_post_jobs() (pgmq.read + its batch loop) is not called at all
+
+══ 6 · load: 5000 messages, one run
+  PASS  5000 messages enqueued
+        {"ms": 323, "idle": false, "failed": 0, "ran_at": "2026-10-04T08:16:38.375205+00:00", "batches": 51, "archived": 0, "processed": 5000}
+  PASS  one run processed all 5000
+  PASS  positive control for step 5's counter: the same counter sees all 51 batch calls
+  PASS  one run drained all 5000 (the old job cleared 100 per 5-second run = 1,200 a minute)
+
+══ 7 · queue absent (staging today: post_jobs does not exist)
+  PASS  no queue → idle, no error (the old job errored or timed out 122,591 times on staging)
+
+══ 8 · rollback: lane guard, exact restore, then re-apply
+  PASS  rollback with no lane — refused
+  PASS  rollback (lane production)
+  PASS  job restored byte for byte (schedule and command)
+  PASS  drain_post_jobs dropped
+  PASS  PROBE refuses — after the rollback:
+        PROBE FAIL P5: job(s) run more often than once a minute: process-post-jobs [5 seconds]
+  PASS  re-apply after rollback
+
+ALL CASES PASS

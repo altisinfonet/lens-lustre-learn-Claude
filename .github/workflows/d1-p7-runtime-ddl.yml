@@ -1,0 +1,45 @@
+name: D1 · P7 runtime-DDL check
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. READS supabase/migrations/, WRITES NOTHING.
+#
+# GATE_REGISTER P7: "no schema-cache reload is triggered outside a deployment".
+# PostgREST reloads its schema cache on NOTIFY pgrst, which Supabase's
+# pgrst_ddl_watch / pgrst_drop_watch event triggers send on DDL. A migration's
+# DDL is the deployment. DDL inside a function, procedure or cron job runs at
+# RUNTIME and reloads the cache on every call. This check makes that a red build.
+# The live half is supabase/migrations/PROBE_p7_no_runtime_ddl.sql.
+#
+# The self-test runs first (C-34): it plants each shape the check must catch and
+# each neighbour it must not. If it fails, the verdict below it is not evidence.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/db-p7-runtime-ddl-check.mjs'
+      - 'scripts/db-p7-runtime-ddl-check.test.mjs'
+      - 'scripts/db-p7-runtime-ddl-allow.json'
+      - '.github/workflows/d1-p7-runtime-ddl.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ddl:
+    name: No reload-triggering DDL at runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Self-test — the check catches what it must and nothing else (C-34)
+        run: node scripts/db-p7-runtime-ddl-check.test.mjs
+      - name: The check — no function, procedure or cron job runs DDL at runtime
+        run: node scripts/db-p7-runtime-ddl-check.mjs

@@ -1,0 +1,37 @@
+# p35-run-tests.sh transcript · 2026-10-04T08:35Z · scratch PostgreSQL 17.11 · exit 0
+
+══ 1 · build-time check: self-test; the REAL tree is red before this PR's migration
+  PASS  self-test (15 cases)
+  PASS  FAIL FIRST: staging's own tree (without 20261004_0003) is red:
+          HIT    rule 2  public.user_block_notices(blocked_id) is a foreign key with no index leading on it  (supabase/migrations/20261003_0002_user_blocks_hardening.sql)
+  PASS  with 20261004_0003 the tree is green
+
+══ 2 · scratch PG17 at launch scale: 10000 accounts, 1000000 post_hashtags rows (staging's shape)
+  server 17.11 (Ubuntu 17.11-1.pgdg24.04+2)
+        post_hashtags: 999500 rows, 161 MB
+
+══ 3 · FAIL FIRST — the live PROBE
+  PASS  PROBE refuses — a table with no PK and no reason:
+        PROBE FAIL P35: table(s) with no primary key and no written reason: legacy_no_pk
+  PASS  PROBE refuses — the two unindexed foreign keys (staging's state):
+        PROBE FAIL P35: foreign key(s) with no leading index: user_block_notices(blocked_id), post_hashtags(author_id)
+  PASS  PROBE refuses — a reasoned table that now has a key (stale reason):
+        PROBE FAIL P35: reason no longer needed (table gone or keyed): categories_migration_dropped
+        BEFORE: FK cascade into post_hashtags when one account is deleted: 2.901 / 3.004 / 2.684 ms
+
+══ 4 · apply 20261004_0003 (lane staging), probe, measure
+  PASS  apply — P35-0003: post_hashtags.author_id and user_block_notices.blocked_id are indexed
+  PASS  re-run is harmless (IF NOT EXISTS)
+  PASS  PROBE passes — both foreign keys indexed; the 6 reasoned tables have no PK and are allowed
+        AFTER:  FK cascade into post_hashtags: 0.334 / 0.346 / 0.400 ms
+        median before 2.9 ms → after 0.3 ms  (×8)
+  PASS  account deletion is at least 5× faster with the index
+
+══ 5 · rollback (lane guard) and back
+  PASS  rollback without lane — refused
+  PASS  rollback (lane production) drops only its two indexes
+  PASS  post_hashtags back to its 3 original indexes
+  PASS  PROBE refuses — after the rollback:
+        PROBE FAIL P35: foreign key(s) with no leading index: user_block_notices(blocked_id), post_hashtags(author_id)
+
+ALL CASES PASS

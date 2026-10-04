@@ -1,0 +1,19 @@
+# p28-run-tests.sh transcript · 2026-10-04T08:19Z · scratch PostgreSQL 17.11 · exit 0
+
+══ 1 · build-time check: self-test, real tree, planted migration
+  PASS  self-test (14 cases)
+  PASS  real tree green
+  PASS  FAIL FIRST: planted unreviewed CREATE INDEX → red
+          HIT    20261004_9999_planted.sql:1  CREATE INDEX without a '-- P28:' line: CREATE INDEX idx_posts_planted ON public.posts (created_at);
+  PASS  the same index with its review line → green
+
+══ 2 · live PROBE on scratch PG17 — a 'posts' shaped like staging's (heap ≥ 1 MB, index > heap)
+        posts: heap 2320 kB, indexes 5856 kB
+  PASS  FAIL FIRST: posts with no written reason:
+        PROBE FAIL P28: more index than heap, no written reason: public.posts (heap 2320 kB, index 5856 kB)
+  PASS  the PROBE as committed (posts reasoned; the tiny table under the 1 MB floor is not judged)
+        PROBE PASS P28: every table with heap ≥ 1 MB has index ≤ heap or a written reason (index/heap: public.posts 2.52)
+  PASS  a reason that is no longer needed is reported (stale):
+        PROBE FAIL P28: reason no longer needed (remove it from the reasons file and this list): public.posts
+
+ALL CASES PASS

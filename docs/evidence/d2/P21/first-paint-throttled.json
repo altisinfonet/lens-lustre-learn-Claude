@@ -1,0 +1,63 @@
+{
+  "profile": "android-mid-2026",
+  "realDevice": false,
+  "cpuThrottlingRate": 4,
+  "network": {
+    "label": "Slow 4G",
+    "latencyMs": 150,
+    "downloadThroughputBps": 209715,
+    "uploadThroughputBps": 96000
+  },
+  "fontFile": "DejaVuSans.ttf",
+  "measuredAt": "2026-10-04T09:04:53.820Z",
+  "results": [
+    {
+      "variant": "policy, font 0 ms",
+      "runs": 3,
+      "fcpMsMedian": 4092,
+      "fontResponseEndMsMedian": null,
+      "cssResponseEndMsMedian": 367,
+      "faces": [
+        "Inter:loading"
+      ],
+      "fcpSamples": [
+        4092,
+        4112,
+        4064
+      ],
+      "interLoadedEveryRun": false
+    },
+    {
+      "variant": "policy, font 8000 ms",
+      "runs": 3,
+      "fcpMsMedian": 4064,
+      "fontResponseEndMsMedian": 27965,
+      "cssResponseEndMsMedian": 8213,
+      "faces": [
+        "Inter:loading"
+      ],
+      "fcpSamples": [
+        4064,
+        4068,
+        4056
+      ],
+      "interLoadedEveryRun": false
+    },
+    {
+      "variant": "MUTANT render-blocking, font 8000 ms",
+      "runs": 3,
+      "fcpMsMedian": 8276,
+      "fontResponseEndMsMedian": null,
+      "cssResponseEndMsMedian": 8211,
+      "faces": [
+        "Inter:loading"
+      ],
+      "fcpSamples": [
+        8264,
+        8276,
+        8300
+      ],
+      "interLoadedEveryRun": false
+    }
+  ]
+}

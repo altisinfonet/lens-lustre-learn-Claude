@@ -1,0 +1,40 @@
+name: D1 · P6 cron-history check
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. READS supabase/migrations/, WRITES NOTHING.
+#
+# GATE_REGISTER P6: "cron.job_run_details retention set to 24–48 hours;
+# purge runs in bounded batches; …". purge-cron-history must CALL the bounded
+# 24–48 h procedure; nothing else may purge cron history.
+# The live half is supabase/migrations/PROBE_p6_cron_history.sql.
+# The self-test runs first (C-34).
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/db-p6-cron-history-check.mjs'
+      - 'scripts/db-p6-cron-history-check.test.mjs'
+      - '.github/workflows/d1-p6-cron-history.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  history:
+    name: Bounded 24–48 h purge of cron history
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Self-test — the check catches what it must and nothing else (C-34)
+        run: node scripts/db-p6-cron-history-check.test.mjs
+      - name: The check — retention and batches
+        run: node scripts/db-p6-cron-history-check.mjs

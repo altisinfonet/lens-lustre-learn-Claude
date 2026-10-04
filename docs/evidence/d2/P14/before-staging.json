@@ -1,0 +1,100 @@
+{
+  "summary": {
+    "origin": "https://staging.50mmretina.com",
+    "measuredAt": "2026-10-04T08:45:26.279Z",
+    "classes": 8,
+    "fail": 1,
+    "absent": 1
+  },
+  "rows": [
+    {
+      "cls": "document (SPA shell)",
+      "path": "/",
+      "status": 200,
+      "cacheControl": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      "etag": false,
+      "cfCacheStatus": "DYNAMIC",
+      "verdict": "PASS",
+      "fails": []
+    },
+    {
+      "cls": "SPA deep link",
+      "path": "/explore",
+      "status": 200,
+      "cacheControl": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      "etag": false,
+      "cfCacheStatus": "DYNAMIC",
+      "verdict": "PASS",
+      "fails": []
+    },
+    {
+      "cls": "hashed build asset (/assets/*)",
+      "path": "/assets/index-D0t7eOh3.js",
+      "status": 200,
+      "cacheControl": "public, max-age=31536000, immutable",
+      "etag": true,
+      "cfCacheStatus": "HIT",
+      "verdict": "PASS",
+      "fails": []
+    },
+    {
+      "cls": "missing hashed asset",
+      "path": "/assets/does-not-exist-p14.js",
+      "status": 404,
+      "cacheControl": "no-store, no-cache, must-revalidate",
+      "etag": false,
+      "cfCacheStatus": "BYPASS",
+      "verdict": "PASS",
+      "fails": []
+    },
+    {
+      "cls": "unhashed image (/images/*)",
+      "path": "/images/logo-fallback.webp",
+      "status": 200,
+      "cacheControl": "no-store, no-cache, must-revalidate, proxy-revalidate, public, max-age=2592000, immutable, public, max-age=31536000, immutable",
+      "etag": true,
+      "cfCacheStatus": "BYPASS",
+      "verdict": "FAIL",
+      "fails": [
+        "missing max-age=86400",
+        "missing stale-while-revalidate=604800",
+        "has no-store",
+        "has immutable",
+        "no-store together with a cacheable directive — no-store wins, the rest is dead",
+        "conflicting max-age values: max-age=2592000 vs max-age=31536000"
+      ]
+    },
+    {
+      "cls": "root public file",
+      "path": "/robots.txt",
+      "status": 200,
+      "cacheControl": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      "etag": true,
+      "cfCacheStatus": "BYPASS",
+      "verdict": "PASS",
+      "fails": []
+    },
+    {
+      "cls": "service-worker script",
+      "path": "/sw-image-cache.js",
+      "status": 200,
+      "cacheControl": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      "etag": true,
+      "cfCacheStatus": "BYPASS",
+      "verdict": "PASS",
+      "fails": []
+    },
+    {
+      "cls": "config Function (P4)",
+      "path": "/config/site-settings",
+      "status": 200,
+      "cacheControl": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      "etag": false,
+      "cfCacheStatus": "DYNAMIC",
+      "verdict": "ABSENT",
+      "fails": [
+        "route not deployed here (content-type text/html; charset=utf-8)"
+      ]
+    }
+  ]
+}

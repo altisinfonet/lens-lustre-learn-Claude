@@ -1,0 +1,50 @@
+# p6-run-tests.sh transcript · 2026-10-04T08:34Z · scratch PostgreSQL 17.11 + real pg_cron 1.6 · exit 0
+
+══ 1 · build-time check: self-test; staging's tree is red without 20261004_0004
+  PASS  self-test (11 cases)
+  PASS  FAIL FIRST: staging's tree:
+          HIT    rule 1: no cron.schedule('purge-cron-history', …) in git
+          HIT    rule 2: purge_cron_run_details is not defined in git
+  PASS  with 20261004_0004 the tree is green
+
+══ 2 · scratch: real pg_cron, staging's purge job verbatim, the backlog
+        job_run_details: 1005100 rows, 971 MB, rank #1
+  PASS  PROBE refuses — staging's daily 7-day unbounded delete:
+        PROBE FAIL P6: no active hourly purge-cron-history calling purge_cron_run_details()
+
+══ 3 · apply 20261004_0004 (lane staging)
+  PASS  apply — P6-0004: purge-cron-history runs hourly, 36 h retention, batches of 5,000 with a COMMIT each
+        saved: 0 3 * * * · delete from cron.job_run_details where end_time < now() - interval '7 days' 
+  PASS  second apply refused (PRE-002)
+  PASS  PROBE refuses — the backlog is still there (oldest > 49 h):
+        PROBE FAIL P6: oldest finished run is 8 days old (retention is 36 h; limit 49 h)
+  PASS  a 7-day retention is refused by the procedure itself
+  PASS  inside a transaction block the procedure refuses (it must COMMIT per batch)
+
+══ 4 · real pg_cron runs the CALL (job switched to every 5 s for this step only)
+  PASS  pg_cron ran 'CALL public.purge_cron_run_details();' to completion (COMMIT per batch inside a cron job works)
+        rows older than 36 h: 1000000 → 0
+        return_message: CALL
+        job_run_details: 5102 rows, 971 MB, rank #1
+        (the rows are gone, the file is not: a plain DELETE leaves the space inside it)
+
+══ 5 · 20261004_0005 exactly as dispatched (psql -f, no -1): purge + VACUUM FULL
+        re-seeded 200,000 old rows (production's baseline size) to time the batches
+  PASS  0005 applied in 1910 ms — purge_cron_run_details: 200000 row(s) in 41 batch(es), keep 36:00:00
+        job_run_details: 5102 rows, 4224 kB, rank #11
+  PASS  PROBE passes — after the purge + compaction
+        PROBE PASS P6: hourly bounded purge, oldest run 1 day 11:59:00 old, job_run_details is #11 (4224 kB)
+  PASS  under psql -1 the file refuses (cannot half-run in single-transaction mode)
+
+══ 6 · bounded batches: each batch is its own transaction
+        purge_cron_run_details: 23456 row(s) in 5 batch(es), keep 36:00:00
+  PASS  23,456 rows → 5 batches of ≤ 5,000, 5 transaction id(s) consumed (one per batch, not one for all)
+
+══ 7 · rollback: lane guard, exact restore
+  PASS  rollback with no lane — refused
+  PASS  rollback (lane production)
+  PASS  the job is back byte for byte
+  PASS  PROBE refuses — after the rollback:
+        PROBE FAIL P6: no active hourly purge-cron-history calling purge_cron_run_details()
+
+ALL CASES PASS

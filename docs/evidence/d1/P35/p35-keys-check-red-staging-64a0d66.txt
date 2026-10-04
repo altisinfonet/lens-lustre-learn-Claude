@@ -1,0 +1,4 @@
+D1 · P35 keys check — GATE_REGISTER P35
+judged 2 migration file(s) dated 20261003 or later
+  HIT    rule 2  public.user_block_notices(blocked_id) is a foreign key with no index leading on it  (supabase/migrations/20261003_0002_user_blocks_hardening.sql)
+FAIL — 1 hit(s)
