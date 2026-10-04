@@ -1,0 +1,41 @@
+name: D1 · P28 index-review check
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. READS supabase/migrations/, WRITES NOTHING.
+#
+# GATE_REGISTER P28: "no table ships with more index than heap without a written reason;
+# the ratio checked at review". Every new CREATE INDEX carries a review line;
+# the reasons file equals the PROBE list. Rule: docs/evidence/d1/P28/index-ratio-rule.md.
+# The live half is supabase/migrations/PROBE_p28_index_ratio.sql.
+# The self-test runs first (C-34).
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/db-p28-index-review-check.mjs'
+      - 'scripts/db-p28-index-review-check.test.mjs'
+      - 'scripts/db-p28-index-ratio-reasons.json'
+      - '.github/workflows/d1-p28-index-review.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    name: Every new index reviewed; reasons = PROBE list
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Self-test — the check catches what it must and nothing else (C-34)
+        run: node scripts/db-p28-index-review-check.test.mjs
+      - name: The check — review lines and reasons
+        run: node scripts/db-p28-index-review-check.mjs

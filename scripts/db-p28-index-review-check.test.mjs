@@ -1,0 +1,21 @@
+// D1 · P28 · self-test for scripts/db-p28-index-review-check.mjs (C-34).
+import { unannotated, checkReasons, probeTables } from "./db-p28-index-review-check.mjs";
+let fail = 0; const ok = (c, w) => { console.log(`  ${c ? "PASS" : "FAIL"}  ${w}`); if (!c) fail = 1; };
+console.log("rule 1 — review line");
+ok(unannotated("CREATE INDEX i ON public.t (a);").length === 1, "RED: CREATE INDEX with no review line");
+ok(unannotated("CREATE UNIQUE INDEX IF NOT EXISTS i ON public.t (a);").length === 1, "RED: CREATE UNIQUE INDEX with no review line");
+ok(unannotated("-- P28:\nCREATE INDEX i ON public.t (a);").length === 1, "RED: an empty P28 line does not count");
+ok(unannotated("-- P28: t · ~1M rows · author feed\n\n\n\nCREATE INDEX i ON public.t (a);").length === 1, "RED: a review line more than three lines above does not count");
+ok(unannotated("-- P28: t · ~1M rows at launch · author feed lookups\nCREATE INDEX i ON public.t (a);").length === 0, "GREEN: review line directly above");
+ok(unannotated("-- P28: t · ~1M rows at launch · author feed lookups\n-- (concurrently on production)\nCREATE INDEX CONCURRENTLY i ON public.t (a);").length === 0, "GREEN: review line two lines above");
+ok(unannotated("-- CREATE INDEX i ON public.t (a);").length === 0, "GREEN: a commented-out index");
+ok(unannotated("/* CREATE INDEX i ON public.t (a); */").length === 0, "GREEN: an index inside a block comment");
+console.log("rule 2 — reasons file = PROBE list");
+const probe = (l) => `reasoned text[] := ARRAY[${l}]::text[]; -- P28-REASONED`;
+ok(checkReasons({ "public.posts": "x".repeat(40) }, probe("'public.posts'")).length === 0, "GREEN: same list, long reason");
+ok(checkReasons({ "public.posts": "short" }, probe("'public.posts'")).length === 1, "RED: reason under 40 chars");
+ok(checkReasons({ "public.posts": "x".repeat(40) }, probe("")).length === 1, "RED: PROBE list missing a table");
+ok(checkReasons({}, probe("'public.posts'")).length === 1, "RED: PROBE list has a table with no reason");
+ok(checkReasons({}, "no list here").length === 1, "RED: PROBE without the marker");
+ok(JSON.stringify(probeTables(probe("'public.b', 'public.a'"))) === '["public.a","public.b"]', "list parser");
+console.log(fail ? "\nSOME CASES FAILED" : "\nALL CASES PASS"); process.exit(fail);
