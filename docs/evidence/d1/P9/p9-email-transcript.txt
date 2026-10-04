@@ -1,0 +1,101 @@
+
+══ 0 · fixture: real pg_cron + pgmq, production's job shape with invented values ('10 seconds')
+  server 17.11 (Ubuntu 17.11-1.pgdg24.04+2) · pg_cron 1.6 · pgmq 1.5.1
+  job: 10 seconds · select net.http_post(url, headers {Authorization: Bearer <literal>, x-cron-secret: <literal>}) · md5 d72d24f70ea544faa756b900b5ca87f2
+
+══ 1 · build-time check: self-test, the tree, and production's shape planted — fail first
+  PASS  self-test
+  PASS  the tree passes (no HTTP cron command in git)
+  PASS  production's job, planted as a migration, is RED:
+        H1  process-email-queue: calls net.http_* from the cron command
+        H3  process-email-queue: carries a credential-shaped literal
+  PASS  PROBE refuses — before 0006 (the wake is not installed):
+        PROBE FAIL P9-email: E4 the wake machinery of 20261004_0006 is not installed
+
+══ 2 · BEFORE — real pg_cron, 30s window, both queues EMPTY
+        process-email-queue made 3 HTTP call(s) in 30s with nothing queued → 8640 a day
+  PASS  the 10-second job really calls HTTP ~every 10 s while idle (A-P9-1)
+  PASS  F-P6-1 shown: every run copies the literal credential into cron.job_run_details
+
+══ 3 · apply 20261004_0006 (lane staging) and probe
+  PASS  apply — P9-0006: e-mail queue woken by enqueue and by the last delete of a batch, idle back-off once a minute, target in vault, delete_email allow-listed
+  job: * * * * * · SELECT public.email_queue_tick();
+  PASS  the command carries no literal and no HTTP call
+  PASS  the target (url + the three headers) was captured into vault, evaluated in the database
+  PASS  the previous job is kept in vault byte for byte (for the rollback)
+  PASS  PROBE passes — after 0006
+        PROBE PASS P9-email: job once a minute → email_queue_tick(), wakes 0, idle ticks 0, last wake never. OPEN (P9-c, not this unit): none
+  PASS  a second apply is refused (PRE-003)
+
+══ 4 · AFTER — real pg_cron, 30s window, both queues EMPTY
+  PASS  no HTTP call in 30s while idle (was 3)
+        (job paused from here on so every count below is deterministic; ticks are called by hand;
+         the old job's idle calls from step 2 are marked answered)
+
+══ 5 · a full idle day: 1,440 ticks
+  PASS  1,440 ticks → 1,440 'idle', 0 vault reads (was 8,640 HTTP calls + reads a day)
+  PASS  …and 0 HTTP calls
+
+══ 6 · woken by an enqueue — at commit, and only at commit
+  PASS  a rolled-back enqueue wakes nothing
+  PASS  one committed enqueue → one wake
+  PASS  49 more enqueues, each its own transaction, while that wake is outstanding → still one wake
+  PASS  the worker chain sent all 50
+  PASS  5 worker runs (10 a batch): each batch's last delete woke the next; the sweep was never needed
+  PASS  queue empty
+
+══ 7 · a backlog of 500 in one statement (a bulk send)
+  PASS  one statement → one wake
+  PASS  all 500 sent
+  PASS  50 worker runs back to back, no tick
+        drained in 23384 ms of simulated worker time; the old job took 20 per 10-s tick → 250 s minimum
+
+══ 8 · an enqueue while a batch is claimed waits for that batch, then goes
+  PASS  enqueue during a claimed batch → no second worker ('busy')
+  PASS  the batch's LAST delete woke the next run
+  PASS  all 13 sent (10 + the 2 left + the one enqueued mid-batch)
+
+══ 9 · rate-limited: no wake; the sweep resumes after the pause
+  PASS  enqueue and tick while rate-limited → no HTTP call
+  PASS  pause over → the next tick wakes it
+
+══ 10 · a lost wake (HTTP failed, worker never read): retried after 30 s, not before
+  PASS  tick inside 30 s → 'outstanding', no second call
+  PASS  after 30 s the tick wakes it again
+
+══ 11 · a failing wake never fails the enqueue
+  PASS  enqueue committed; the wake failure is a WARNING
+  PASS  …and the next tick delivers it
+
+══ 12 · delete_email allow-list (A-P9-3)
+  PASS  delete_email('post_jobs', …) → 42501 not permitted
+  PASS  an allow-listed queue still works
+
+══ 12b · the PROBE catches each regression (mutants, each undone)
+  PASS  PROBE red on: the job put back to 10 seconds
+  PASS  PROBE red on: an HTTP command with a literal credential
+  PASS  PROBE red on: the wake trigger disabled
+  PASS  PROBE red on: the queue re-created without its trigger
+  PASS  PROBE red on: delete_email without its allow-list
+  PASS  PROBE red on: anon granted the wake
+  PASS  PROBE passes — every mutant undone
+        PROBE PASS P9-email: job once a minute → email_queue_tick(), wakes 61, idle ticks 1442, last wake 2026-10-04 15:30:39.317695+00. OPEN (P9-c, not this unit): none
+
+══ 13 · a lane with no job (staging today): rollback, unschedule, re-apply
+  PASS  rollback with no lane — refused
+  PASS  rollback (lane production)
+  PASS  job restored byte for byte from vault
+  PASS  delete_email restored byte for byte
+  PASS  no trigger and no 0006 vault secret left
+  PASS  PROBE refuses — after the rollback:
+        PROBE FAIL P9-email: E4 the wake machinery of 20261004_0006 is not installed
+  PASS  apply on a lane without the job — none created
+  PASS  wakes answer 'no target' (nothing wired to wake)
+  PASS  PROBE passes — lane without the job
+        PROBE PASS P9-email: job absent on this lane, wakes 0, idle ticks 0, last wake never. OPEN (P9-c, not this unit): none
+
+══ 14 · rollback on that lane, then re-apply with the job back
+  PASS  rollback (no job to restore)
+  PASS  still no job (none invented)
+
+ALL CASES PASS
