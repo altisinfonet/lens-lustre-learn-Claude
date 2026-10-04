@@ -154,6 +154,24 @@ mutate "$P2" "$T/p_nos2.sql" "  IF n <> 1 OR q NOT LIKE '%blocker_id = ( SELECT 
 mut "SELECT policy USING (true) — PROBE without S2 (behaviour must catch it alone)" \
   "    blocker_id = (SELECT auth.uid())
     OR (SELECT public.has_role((SELECT auth.uid()), 'admin'::public.app_role))" "true" "PROBE FAIL B3" "$T/p_nos2.sql"
+# UB0002-1 / UB0002-2 (SEC 2026-10-04): the DELETE and INSERT policies come from 0001, so they are
+# mutated in the database after 0002, and the PROBE runs without its static check for that policy
+# (S4 / S3), so the behavioural half has to catch the hole on its own.
+pol_mut() { local name="$1" sql="$2" nocheck="$3" needle="$4"
+  mutate "$P2" "$T/p_nocheck.sql" "$nocheck" "  IF false THEN"
+  build >/dev/null 2>&1; run staging "$M2"; q "$sql" >/dev/null
+  refused "PROBE on mutant: $name — PROBE without its static check" "$needle" staging "$T/p_nocheck.sql"; }
+pol_mut "DELETE policy USING (true)" "ALTER POLICY user_blocks_delete_own ON public.user_blocks USING (true)" \
+  "  IF n <> 1 OR q IS DISTINCT FROM '(blocker_id = ( SELECT auth.uid() AS uid))' THEN" "PROBE FAIL B4"
+# …and the fail-first for the fix itself: the PROBE as merged in #325 (blob 49acbb2760ad), same
+# mutant, same static check removed, PASSES — its WHERE-DELETE in B4 could not see the hole (UB0002-1).
+git -C "$ROOT" cat-file blob 49acbb2760add2a5d16d019e5636362ebf7f241a > "$T/p_old.sql"
+mutate "$T/p_old.sql" "$T/p_old_nocheck.sql" "  IF n <> 1 OR q IS DISTINCT FROM '(blocker_id = ( SELECT auth.uid() AS uid))' THEN" "  IF false THEN"
+build >/dev/null 2>&1; run staging "$M2"; q "ALTER POLICY user_blocks_delete_own ON public.user_blocks USING (true)" >/dev/null
+run staging "$T/p_old_nocheck.sql"
+[ $rc -eq 0 ] && echo "  PASS  FAIL FIRST for UB0002-1: the #325 PROBE (without S4) PASSES a DELETE USING (true) table — the hole this fix closes" || { echo "  FAIL  expected the old PROBE to miss the DELETE mutant (rc=$rc)"; fail=1; }
+pol_mut "INSERT policy WITH CHECK (true)" "ALTER POLICY user_blocks_insert_own ON public.user_blocks WITH CHECK (true)" \
+  "  IF n <> 1 OR w IS DISTINCT FROM '(blocker_id = ( SELECT auth.uid() AS uid))' THEN" "PROBE FAIL B5"
 mut "no 24 h cap" "   WHERE n.notified_at <= EXCLUDED.notified_at - interval '24 hours';" "   WHERE true;" "PROBE FAIL B9"
 mutate "$P2" "$T/p_nos5.sql" "  IF n <> 3 THEN
     RAISE EXCEPTION 'PROBE FAIL S5" "  IF false THEN
