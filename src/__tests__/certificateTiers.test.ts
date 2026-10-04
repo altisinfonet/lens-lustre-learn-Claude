@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { migrationText } from "@/test-utils/neutralisedMigration";
 import { CERT_TYPES } from "@/components/admin/certificateTypes";
 
 /**
@@ -40,10 +41,9 @@ const CODE = RENDERER
   .join("\n");
 
 function constraintTypes(): string[] {
-  const dir = join(ROOT, "supabase/migrations");
-  const f = readdirSync(dir).find((n) => n.includes("certificate_types_and_admin_search"));
-  if (!f) throw new Error("the certificate_types_and_admin_search migration is missing");
-  const sql = readFileSync(join(dir, f), "utf8");
+  // Withdrawn and neutralised under R-24 / R-26; read as written. See
+  // src/test-utils/neutralisedMigration.ts.
+  const sql = migrationText("certificate_types_and_admin_search").sql;
   const start = sql.indexOf("add constraint certificates_type_check");
   const constraint = sql.slice(start, sql.indexOf(";", start));
   return [...constraint.matchAll(/'([a-z0-9_]+)'::text/g)].map((m) => m[1]).sort();
@@ -234,10 +234,9 @@ describe("the heading line on a custom certificate", () => {
     .join("\n");
 
   function headingMigration(): string {
-    const dir = join(ROOT, "supabase/migrations");
-    const f = readdirSync(dir).find((n) => n.includes("certificate_custom_heading"));
-    if (!f) throw new Error("the certificate_custom_heading migration is missing");
-    return readFileSync(join(dir, f), "utf8");
+    // Withdrawn and neutralised under R-24 / R-26; read as written. See
+    // src/test-utils/neutralisedMigration.ts.
+    return migrationText("certificate_custom_heading").sql;
   }
 
   it("overrides the type's wording, and falls back when blank", () => {
