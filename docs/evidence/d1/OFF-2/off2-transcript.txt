@@ -1,0 +1,79 @@
+
+══ 0 · fixture: the outbox action tables with staging's keys
+  server 17.11 (Ubuntu 17.11-1.pgdg24.04+2)
+
+══ 1 · fail first: the build check on the tree without 0008, and the live PROBE
+  PASS  self-test
+  PASS  the tree WITHOUT 0008 is RED:
+      HIT  K2 post_comments: no applied migration adds post_comments.idempotency_key (or a later one drops it)
+      HIT  K2 post_comments: no applied migration creates UNIQUE post_comments_user_idempotency_key (or a later one drops it)
+      HIT  K2 reports: no applied migration adds reports.idempotency_key (or a later one drops it)
+      HIT  K2 reports: no applied migration creates UNIQUE reports_reporter_idempotency_key (or a later one drops it)
+  PASS  the tree WITH 0008 is green
+  PASS  PROBE refuses — before 0008 (post_comments and reports have nothing):
+        post_comments: no idempotency_key column
+        reports: no idempotency_key column
+
+══ 2 · BEFORE — one comment, sent 3 times (an outbox retry after two timeouts)
+  PASS  3 sends → 3 comments, the count +3, the author notified 3 times (the defect)
+
+══ 3 · apply 20261004_0008 (lane staging) and probe
+  PASS  apply — OFF2-0008: post_comments and reports refuse a repeated (owner, idempotency_key)
+  PASS  PROBE passes — after 0008
+        PROBE PASS OFF-2: every outbox action table refuses a repeat: posts[key] post_comments[key] reports[key] post_reactions[natural] comment_reactions[natural] follows[natural] friendships[natural] post_reports[natur
+  PASS  a second apply is refused (PRE-002)
+
+══ 4 · AFTER — the same comment, same key, sent 3 times
+  PASS  sends 2 and 3 → 23505, naming post_comments_user_idempotency_key
+  PASS  ONE comment, the count +1, ONE notice (no AFTER trigger fired for a repeat)
+  PASS  reading back by (user_id, key) returns the original row
+
+══ 5 · the PostgREST upsert path (on_conflict=user_id,idempotency_key, ignore-duplicates)
+  PASS  first send inserts; the repeat returns no row and no error (the full constraint is usable as on_conflict)
+  PASS  …and still one comment per key
+
+══ 6 · a race: 8 sessions send the same key at the same instant
+  PASS  1 insert wins, 7 get 23505, 1 row
+
+══ 7 · launch scale: 100000 sends from 1000 members, every key sent 3 times, in random order
+  PASS  100000 sends → 33334 comments (one per key)
+  PASS  the count and the notices = one per key
+        49328 ms for 100000 sends, one statement, including the two AFTER triggers on the 33334 accepted rows
+
+══ 8 · the key's scope and shape
+  PASS  the same key from two members → two comments (a key is scoped to its owner)
+  PASS  no key (today's client) → unchanged behaviour
+  PASS  a key that is not a UUID → 23514
+  PASS  the API role can write the key
+
+══ 9 · reports: the same, keyed on reporter_id
+  PASS  a report sent 3 times → 1 report
+
+══ 10 · the natural keys the outbox relies on (unchanged, measured)
+  PASS  like ×3, follow ×3, a friend request both ways → 1 / 1 / 1
+
+══ 11 · the PROBE catches each regression (mutants, each undone)
+  PASS  PROBE refuses — the full constraint replaced by a partial index (unusable as on_conflict):
+        post_comments: no valid UNIQUE post_comments_user_idempotency_key on (user_id, idempotency_key) without a predicate
+  PASS  PROBE refuses — the key's columns in the wrong order:
+        reports: no valid UNIQUE reports_reporter_idempotency_key on (reporter_id, idempotency_key) without a predicate
+  PASS  PROBE refuses — a natural key dropped:
+        follows: no valid UNIQUE on exactly (follower_id, following_id)
+  PASS  PROBE refuses — posts' key index dropped:
+        posts: no valid UNIQUE posts_user_idempotency_key on (user_id, idempotency_key)
+  PASS  PROBE passes — every mutant undone
+        PROBE PASS OFF-2: every outbox action table refuses a repeat: posts[key] post_comments[key] reports[key] post_reactions[natural] comment_reactions[natural] follows[natural] friendships[natural] post_reports[natur
+
+══ 12 · rollback (lane guard first), the column kept, re-apply guarded
+  PASS  rollback with no lane — refused
+  PASS  rollback (lane production)
+  PASS  constraints gone; the column and its 33337 keys kept (no data dropped)
+  PASS  PROBE refuses — after the rollback:
+        post_comments: no valid UNIQUE post_comments_user_idempotency_key on (user_id, idempotency_key) without a predicate
+        reports: no valid UNIQUE reports_reporter_idempotency_key on (reporter_id, idempotency_key) without a predicate
+  PASS  re-apply with a repeat that crept in → refused, naming the count (PRE-003)
+  PASS  re-apply after the rollback (column reused)
+  PASS  PROBE passes — re-applied
+        PROBE PASS OFF-2: every outbox action table refuses a repeat: posts[key] post_comments[key] reports[key] post_reactions[natural] comment_reactions[natural] follows[natural] friendships[natural] post_reports[natur
+
+ALL CASES PASS
