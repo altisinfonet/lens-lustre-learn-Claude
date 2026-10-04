@@ -1,0 +1,19 @@
+::error::P3 parity · SUBSCRIBED BUT NOT PUBLISHED · admin_notifications · src/components/admin/AdminLayout.tsx:63, src/components/admin/AdminNotifications.tsx:86, src/hooks/feed/useRealtimeFeed.ts:281
+::error::P3 parity · SUBSCRIBED BUT NOT PUBLISHED · admin_vote_adjustments · src/hooks/competition/useCompetitionVoteRealtime.ts:36, src/hooks/judging/usePhotoVoteCount.ts:37
+::error::P3 parity · SUBSCRIBED BUT NOT PUBLISHED · badge_definitions · src/hooks/profile/useBadgeDefinitions.ts:30
+::error::P3 parity · SUBSCRIBED BUT NOT PUBLISHED · judge_comments · src/hooks/judging/useJudgePhotoData.ts:204
+::error::P3 parity · SUBSCRIBED BUT NOT PUBLISHED · judge_sessions · src/hooks/judging/useMultiJudgeProgress.ts:128
+::error::P3 parity · SUBSCRIBED BUT NOT PUBLISHED · judge_tag_assignments · src/components/EntryTagStamps.tsx:81, src/hooks/judging/useJudgePhotoData.ts:200
+::error::P3 parity · SUBSCRIBED BUT NOT PUBLISHED · judging_preflight_log · src/components/judge/PreflightStatusBadge.tsx:48
+::error::P3 parity · SUBSCRIBED BUT NOT PUBLISHED · role_display_config · src/hooks/profile/useRoleDefinitions.ts:29
+::error::P3 parity · SUBSCRIBED BUT NOT PUBLISHED · site_settings · src/lib/liveAdminSync.ts:109
+::error::P3 parity · PUBLISHED BUT NOT SUBSCRIBED · certificates · decoded from the WAL for nobody
+::error::P3 parity · PUBLISHED BUT NOT SUBSCRIBED · competitions · decoded from the WAL for nobody
+::error::P3 parity · PUBLISHED BUT NOT SUBSCRIBED · featured_artists · decoded from the WAL for nobody
+::error::P3 parity · PUBLISHED BUT NOT SUBSCRIBED · image_comments · decoded from the WAL for nobody
+::error::P3 parity · PUBLISHED BUT NOT SUBSCRIBED · image_reactions · decoded from the WAL for nobody
+::error::P3 parity · PUBLISHED BUT NOT SUBSCRIBED · journal_articles · decoded from the WAL for nobody
+::error::P3 parity · PUBLISHED BUT NOT SUBSCRIBED · photo_of_the_day · decoded from the WAL for nobody
+::error::P3 parity · PUBLISHED BUT NOT SUBSCRIBED · post_comments · decoded from the WAL for nobody
+::error::P3 parity · PUBLISHED BUT NOT SUBSCRIBED · post_shares · decoded from the WAL for nobody
+P3 parity: client 29 tables, publication 29 tables · 9 subscribed-not-published · 9 published-not-subscribed · 0 schema error(s) — FAIL
