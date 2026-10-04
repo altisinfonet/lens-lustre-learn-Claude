@@ -43,6 +43,11 @@ scanning every `dist/assets/*.js`, each sentinel appears in exactly one chunk �
   `translations.rest.ts` must not exist, every language imported dynamically and never statically). The intent — no
   dictionary in the boot chunk — is unchanged and the checks are stricter.
 
+- `src/__tests__/categoryTaxonomy.test.ts` — **edited, and stated:** it read `src/i18n/translations.rest.ts` and went red
+  (ENOENT) on the full suite at 11:12 UTC. Only the read changed: the six per-language files are read in the same order and
+  joined, so its per-block slices and every assertion are unchanged. Still fails first: deleting `"cat.wildlife"` from
+  `translations.hi.ts` → `missing hi keys: wildlife`, red.
+
 ## Not in this unit
 - `src/i18n/home.ts` (45,601 B, landing-page strings for all seven languages) stays eager in the boot chunk: making it lazy
   would show the English landing for a beat before the chosen language. **F-D2-15**: a separate unit with that trade stated.
