@@ -114,12 +114,8 @@ describe("no migration-reading test goes back to naive filename matching", () =>
    * isn't part of this checkout" (not an error anywhere).
    */
   const DELIBERATE: Record<string, string> = {
-    "src/__tests__/adminCertificates.test.ts":
-      "resolves UNAPPLIED_20260825060000_certificate_types_and_admin_search.sql by fragment — the unapplied file IS the subject",
     "src/__tests__/adminUserListPagination.test.ts":
       "resolves UNAPPLIED_20260824000000_admin_user_list_pagination.sql and its rollback by fragment",
-    "src/__tests__/certificateTiers.test.ts":
-      "resolves the UNAPPLIED_ certificate_types and certificate_custom_heading files by fragment",
     "src/__tests__/postMediaClientReadPath.test.ts":
       "walks src/ for call sites; reads its one migration by exact path, never by resolution",
     "src/__tests__/postMediaForSecurity.test.ts":
