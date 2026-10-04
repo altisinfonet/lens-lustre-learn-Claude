@@ -15,8 +15,9 @@ import {
 import {
   LogOut, Shield, Scale, Wallet, LayoutDashboard, User, ImageIcon,
   Users, Rss, UserPlus, HelpCircle, Settings, Trophy, Edit2, Compass,
-  Sun, Moon, Globe, BookOpen, Award, FileText, Download, Image as ImageLucide, Crown, Bell,
+  Sun, Moon, Globe, BookOpen, Award, FileText, Download, Image as ImageLucide, Crown, Bell, Trash2,
 } from "lucide-react";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { useTheme } from "@/hooks/core/useTheme";
 import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/I18nContext";
@@ -136,7 +137,7 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
         { icon: Award, label: "Certificates", to: "/certificates", show: true },
         { icon: UserPlus, label: "Referrals", to: "/referrals", show: true },
         {
-          icon: Wallet, label: "Wallet", to: "/wallet", show: true,
+          icon: Wallet, label: "Wallet", to: "/wallet", show: !isNativeIOSApp(),
           badge: walletBalance !== null ? (
             <span className="absolute -top-1 -right-1 text-[7px] px-1 py-0 bg-primary text-primary-foreground rounded-full leading-tight">
               ${Number(walletBalance).toFixed(0)}
@@ -145,6 +146,8 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
         },
         { icon: Shield, label: "Admin", to: "/admin", show: hasAdminPanelAccess },
         { icon: Settings, label: "Settings", to: "/dashboard?tab=settings", show: true },
+        // App Store 5.1.1(v): account deletion is reachable from the account menu.
+        { icon: Trash2, label: "Delete Account", to: "/dashboard?tab=settings#delete-account", show: true },
         { icon: HelpCircle, label: "Help", to: "/help-support", show: true },
       ];
 

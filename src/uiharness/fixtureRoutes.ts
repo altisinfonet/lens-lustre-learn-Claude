@@ -63,6 +63,8 @@ const EMPTY_BY_DESIGN: Record<string, string> = {
   // gap. Worth photographing precisely because it is the default.
   stories: "a member with no active stories; the ordinary case",
   // Nobody has asked to be friends this minute.
+  // Nobody has blocked anyone — the ordinary state; the feed filter is a no-op.
+  user_blocks: "a member who has blocked nobody; the ordinary case",
   friendships: "no pending request and no accepted edge in this fixture set",
   /*
    * ── /dashboard's THREE, added 2026-09-06 with screen-dashboard. ──────────

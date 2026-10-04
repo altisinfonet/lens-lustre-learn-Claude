@@ -37,6 +37,8 @@ import CommentComposer from "@/components/comments/CommentComposer";
 import CommentSearchBar from "@/components/comments/CommentSearchBar";
 import { countComments, filterComments } from "@/lib/commentSearch";
 import { usePostComments } from "@/hooks/feed/usePostComments";
+import { useBlockedUsers } from "@/hooks/core/useBlockedUsers";
+import BlockUserDialog, { type BlockTarget } from "@/components/moderation/BlockUserDialog";
 
 interface Props {
   postId: string;
@@ -77,6 +79,19 @@ const PostCommentsSection = ({
     reportComment,
   } = usePostComments(postId, postOwnerId, onCommentCountChange, true);
 
+  // Blocked members' comments (and the replies under them) are removed from the
+  // thread the moment the block exists — App Store guideline 1.2.
+  const { blockedIds } = useBlockedUsers();
+  const [blockTarget, setBlockTarget] = useState<BlockTarget | null>(null);
+  const unblockedComments = useMemo(() => {
+    if (blockedIds.size === 0) return comments;
+    const strip = (list: typeof comments): typeof comments =>
+      list
+        .filter((c) => !blockedIds.has(c.user_id))
+        .map((c) => ({ ...c, replies: strip(c.replies) }));
+    return strip(comments);
+  }, [comments, blockedIds]);
+
   /**
    * SEARCH IS A VIEW OVER THE LOADED THREAD — it re-reads nothing.
    *
@@ -91,8 +106,8 @@ const PostCommentsSection = ({
   const [searchOpen, setSearchOpen] = useState(false);
   const searching = searchQuery.trim().length > 0;
   const visibleComments = useMemo(
-    () => filterComments(comments, searchQuery),
-    [comments, searchQuery],
+    () => filterComments(unblockedComments, searchQuery),
+    [unblockedComments, searchQuery],
   );
 
   return (
@@ -133,6 +148,7 @@ const PostCommentsSection = ({
           onReact={setReaction}
           onTogglePin={togglePin}
           onReport={reportComment}
+          onBlockUser={(id, name) => setBlockTarget({ id, name })}
         />
       </div>
 
@@ -155,6 +171,7 @@ const PostCommentsSection = ({
           />
         </div>
       )}
+      <BlockUserDialog target={blockTarget} onClose={() => setBlockTarget(null)} />
     </div>
   );
 };

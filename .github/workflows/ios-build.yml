@@ -234,6 +234,13 @@ jobs:
           # requires, so this can never clash again.
           add_or_set CFBundleVersion "$BUILD_NUMBER"
           add_or_set CFBundleShortVersionString "$MARKETING_VERSION"
+          # EXPORT COMPLIANCE. Without this key every upload stops in TestFlight
+          # at "Missing Compliance" until someone answers by hand, and testers
+          # never see the build (build 19, 2026-10-03). The app uses only the
+          # encryption built into iOS (HTTPS), which is exempt, so the answer is
+          # always "no non-exempt encryption".
+          /usr/libexec/PlistBuddy -c "Delete :ITSAppUsesNonExemptEncryption" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST"
 
           echo "Purpose strings now in Info.plist:"
           for KEY in NSCameraUsageDescription NSPhotoLibraryUsageDescription NSPhotoLibraryAddUsageDescription; do

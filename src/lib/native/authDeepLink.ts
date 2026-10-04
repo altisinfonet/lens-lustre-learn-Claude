@@ -27,6 +27,7 @@ export const NATIVE_OAUTH_REDIRECT = "app.fiftymmretina://auth-callback";
 
 type CapGlobal = {
   isNativePlatform?: () => boolean;
+  getPlatform?: () => string;
   Plugins?: {
     App?: {
       addListener: (
@@ -48,6 +49,19 @@ const cap = (): CapGlobal | undefined =>
 export const isNativeCapacitorApp = (): boolean => {
   try {
     return cap()?.isNativePlatform?.() === true;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * True only inside the installed iOS app. Used to keep features Apple's review
+ * guidelines (3.1.1 payments, 4.8 login services) do not allow in the iOS build
+ * off that build only - web and Android are untouched.
+ */
+export const isNativeIOSApp = (): boolean => {
+  try {
+    return isNativeCapacitorApp() && cap()?.getPlatform?.() === "ios";
   } catch {
     return false;
   }

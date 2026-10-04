@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AlertTriangle, Trash2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -21,10 +21,20 @@ const CONFIRM_WORD = "DELETE";
 
 const DeleteAccountSection = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const anchorRef = useRef<HTMLDivElement>(null);
   const { signOut } = useAuth();
   const [open, setOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // The account menu links here (#delete-account): scroll the section into view.
+  useEffect(() => {
+    if (location.hash === "#delete-account") {
+      const id = window.setTimeout(() => anchorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 300);
+      return () => window.clearTimeout(id);
+    }
+  }, [location.hash]);
 
   const canConfirm = confirmText.trim().toUpperCase() === CONFIRM_WORD && !loading;
 
@@ -53,7 +63,7 @@ const DeleteAccountSection = () => {
   };
 
   return (
-    <div className="border border-destructive/40 p-4 md:p-5">
+    <div ref={anchorRef} id="delete-account" className="border border-destructive/40 p-4 md:p-5">
       <span
         className="text-[9px] tracking-[0.3em] uppercase text-destructive block mb-3 flex items-center gap-1.5"
         style={{ fontFamily: "var(--font-heading)" }}

@@ -45,6 +45,8 @@ export const queryKeys = {
   /** The set of admin user ids — who gets the brand name and the brand tick. */
   adminIds: () => ["admin-ids"] as const,
   juryUsers: () => ["jury-users"] as const,
+  /** The members the signed-in viewer has blocked (Apple 1.2) — useBlockedUsers(). */
+  blockedUsers: (userId: string) => ["blocked-users", userId] as const,
 
   /* ── Navigation ── */
   navigationMenu: () => ["navigation-menu"] as const,
