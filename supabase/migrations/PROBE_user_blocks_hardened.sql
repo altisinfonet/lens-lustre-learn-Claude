@@ -11,7 +11,8 @@
 --   B · behaviour: what two real members can actually do, executed under
 --       SET LOCAL ROLE authenticated with each member's JWT claims, exactly as
 --       PostgREST runs a request. This is the owner-isolation test SEC-UB-2 asks
---       for; B3 and B4 FAIL on USING (true) (shown in the harness transcript).
+--       for; B3 fails on a SELECT USING (true), B4 on a DELETE USING (true), B5 on
+--       an INSERT WITH CHECK (true) — each shown in the harness transcript.
 --       The probe picks two live, non-admin accounts with no block or notice
 --       between them, writes one block row, and the final ROLLBACK removes it,
 --       the notice row and the ledger row. Nothing is committed. The trigger's
@@ -23,7 +24,7 @@ BEGIN;
 DO $probe$
 DECLARE
   a uuid;  b uuid;  ghost uuid := gen_random_uuid();
-  n int;   n0 int;  q text;  w text;
+  n int;   n0 int;  nb int;  q text;  w text;
   failed boolean;
 BEGIN
   -- ── S · static ────────────────────────────────────────────────────────────
@@ -121,9 +122,19 @@ BEGIN
   SET LOCAL ROLE authenticated;
   SELECT count(*) INTO n FROM public.user_blocks WHERE blocker_id = a;
   IF n <> 0 THEN RAISE EXCEPTION 'PROBE FAIL B3: B sees % of A''s block rows (want 0)', n; END IF;
-  -- B4 · B cannot delete A's row.
-  DELETE FROM public.user_blocks WHERE blocker_id = a AND blocked_id = b;
+  -- B4 · B cannot delete A's row — or anyone's. A BARE DELETE (no WHERE), so
+  -- only the DELETE policy decides: with a WHERE clause the SELECT policy also
+  -- filters the rows, and a DELETE policy of USING (true) would hide behind it
+  -- (UB0002-1, SEC 2026-10-04). B owns no rows (picked that way), so the
+  -- correct policy deletes 0; USING (true) would delete every row, and the
+  -- final ROLLBACK restores them either way.
   RESET ROLE;
+  SELECT count(*) INTO nb FROM public.user_blocks;
+  SET LOCAL ROLE authenticated;
+  DELETE FROM public.user_blocks;
+  RESET ROLE;
+  SELECT count(*) INTO n FROM public.user_blocks;
+  IF n <> nb THEN RAISE EXCEPTION 'PROBE FAIL B4: a bare DELETE by B removed % row(s) it does not own', nb - n; END IF;
   SELECT count(*) INTO n FROM public.user_blocks WHERE blocker_id = a AND blocked_id = b;
   IF n <> 1 THEN RAISE EXCEPTION 'PROBE FAIL B4: B deleted A''s block row'; END IF;
 
@@ -132,7 +143,11 @@ BEGIN
   failed := false;
   BEGIN
     INSERT INTO public.user_blocks (blocker_id, blocked_id) VALUES (a, ghost);
-  EXCEPTION WHEN insufficient_privilege THEN failed := (SQLERRM LIKE '%row-level security%');
+  EXCEPTION
+    WHEN insufficient_privilege THEN failed := (SQLERRM LIKE '%row-level security%');
+    -- Reaching the FK (ghost is no account) or a duplicate means RLS let the row
+    -- through: report it as B5, not as a stray constraint error (UB0002-2).
+    WHEN foreign_key_violation OR unique_violation THEN failed := false;
   END;
   IF NOT failed THEN RAISE EXCEPTION 'PROBE FAIL B5: B could insert a block with blocker_id = A'; END IF;
   -- B6 · no member can UPDATE a block row.

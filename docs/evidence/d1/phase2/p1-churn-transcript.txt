@@ -1,0 +1,25 @@
+# p1-churn-run.sh transcript · 2026-10-04T10:53Z · exit 0
+
+══ 0 · scratch PG 17.11 (Ubuntu 17.11-1.pgdg24.04+2), autovacuum_naptime 1s (compressed; Supabase: 60 s)
+
+══ launch-shaped churn on 100000 profiles: 20000 session-end UPDATEs at 250/s + a backfill of 2000 rows every 10s
+        DEFAULTS (threshold 50, scale 0.2): max dead 16.82 %   p95 16.13 %   time ≥ 10 %: 39.6 %   autovacuums 1   (20026 updates, 278 samples)
+        reloptions: {autovacuum_vacuum_scale_factor=0.05,autovacuum_vacuum_threshold=0}
+        P1-H  (threshold 0,  scale 0.05): max dead 6.58 %   p95 4.87 %   time ≥ 10 %: 0.0 %   autovacuums 6   (19751 updates, 277 samples)
+  PASS  FAIL FIRST: with the defaults the ratio reaches ≥ 10 % (16.82 %)
+  PASS  LAUNCH SCALE: with P1-H the ratio never reaches 10 % (max 6.58 %)
+
+══ launch-shaped churn on 131 profiles: 240 session-end UPDATEs at 2/s + a backfill of 10 rows every 30s
+        DEFAULTS (threshold 50, scale 0.2): max dead 38.21 %   p95 35.78 %   time ≥ 10 %: 70.1 %   autovacuums 3   (220 updates, 412 samples)
+        reloptions: {autovacuum_vacuum_scale_factor=0.05,autovacuum_vacuum_threshold=0}
+        P1-H  (threshold 0,  scale 0.05): max dead 11.49 %   p95 5.76 %   time ≥ 10 %: 1.2 %   autovacuums 32   (240 updates, 414 samples)
+  PASS  FAIL FIRST: with the defaults the ratio reaches ≥ 10 % (38.21 %)
+  PASS  TODAY'S SIZE: p95 below 10 % (5.76 %); above 10 % for 1.2 % of the time, only in the naptime after a burst (max 11.49 %)
+
+══ PROBE and rollback
+  PASS  PROBE passes with P1-H: PROBE PASS P1-H: trigger 0 + 0.05 × 131 rows (max ≈ 4.8 % before a vacuum); dead now 0.0 % (monitor)
+  PASS  rollback without lane — refused
+  PASS  rollback (lane production): reloptions now '(none)'
+  PASS  PROBE refuses after the rollback: PROBE FAIL P1-H: profiles autovacuum trigger is 50 + 0.2 × 131 rows — the dead-row ratio can reach 36.8 % before a vacuum (limit 5 %)
+
+ALL CASES PASS
