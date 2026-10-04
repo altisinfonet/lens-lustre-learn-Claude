@@ -1,0 +1,51 @@
+name: D2 · P21 font policy
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. READS index.html AND src/**/*.css.
+#
+# P21 gate (GATE_REGISTER, verbatim): "font strategy stated — subset,
+# preload, `font-display` — and first-paint text measured with the network
+# throttled."
+#
+# This job enforces the stated strategy (scripts/web-font-policy.mjs): one
+# Google Fonts request for exactly the policy families, display=swap,
+# non-blocking (media=print + onload, with a <noscript> twin), preconnect to
+# both font hosts (gstatic with crossorigin), no font preload, no CSS @import
+# of a font, every @font-face with font-display, every --font-* stack ending in
+# a generic family. The self-test runs first (C-34).
+#
+# The throttled first-paint measurement is `--measure` (Playwright, local,
+# synthetic); its reading is recorded in docs/evidence/d2/P21/.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    branches: [main, staging]
+    paths:
+      - 'index.html'
+      - 'src/**/*.css'
+      - 'scripts/web-font-policy.mjs'
+      - '.github/workflows/d2-font-policy.yml'
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fonts:
+    name: Font policy (swap, non-blocking, preconnect, fallbacks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Self-test — each planted violation is caught (C-34)
+        run: node scripts/web-font-policy.mjs --self-test
+      - name: index.html + src CSS against the policy
+        run: node scripts/web-font-policy.mjs

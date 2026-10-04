@@ -1,0 +1,29 @@
+# p7-run-tests.sh transcript · 2026-10-04T08:07Z · scratch PostgreSQL 17.11 · exit 0
+
+══ 1 · build-time check: self-test, then the real tree
+  PASS  self-test: 29 cases pass
+        read 677 applied migration file(s); 347 function/procedure definition(s) and 7 cron job(s) as of the last file
+        PASS — no function, procedure or cron job runs reload-triggering DDL at runtime
+  PASS  the real staging tree is green
+
+══ 2 · FAIL FIRST — the same check on the tree plus one planted migration
+          HIT      public.p7_bad()  rule A: COMMENT ON TABLE public.posts IS '  (last defined in supabase/migrations/20991231_0001_planted_runtime_ddl.sql)
+        FAIL — 1 runtime-DDL hit(s), 0 allow-list problem(s)
+  PASS  planted runtime COMMENT ON → red (exit 1)
+
+══ 3 · synthetic request-count test on scratch PG17 (500 calls each)
+  server_version 17.11 (Ubuntu 17.11-1.pgdg24.04+2)
+        p7_bad()  (runtime COMMENT ON):          500 schema reloads in 500 calls
+        p7_good() (temp table + DML, the guard): 0 schema reloads in 500 calls
+  PASS  runtime DDL = one full schema reload per call
+  PASS  the guarded shape = zero reloads
+
+══ 4 · FAIL FIRST — the live PROBE on the same database
+        psql:supabase/migrations/PROBE_p7_no_runtime_ddl.sql:63: ERROR:  PROBE FAIL P7: 1 runtime schema-reload trigger(s):
+  PASS  PROBE refuses with p7_bad() present
+  PASS  PROBE passes once it is gone (p7_good + a cron job remain)
+  PASS  PROBE refuses: cron COMMENT ON TABLE public.posts IS 'x'
+  PASS  PROBE refuses: fn BEGIN EXECUTE format('ALTER TABLE %I SET (fillfactor=90)', '
+  PASS  PROBE refuses: fn BEGIN PERFORM pg_notify('pgrst','reload schema'); RETURN 1; 
+
+ALL CASES PASS

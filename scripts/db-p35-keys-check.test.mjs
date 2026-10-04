@@ -1,0 +1,23 @@
+// D1 · P35 · self-test for scripts/db-p35-keys-check.mjs (C-34).
+import { judge } from "./db-p35-keys-check.mjs";
+let fail = 0; const ok = (c, w) => { console.log(`  ${c ? "PASS" : "FAIL"}  ${w}`); if (!c) fail = 1; };
+const f = (name, text) => ({ name: "supabase/migrations/" + name, text });
+const n = (files) => judge(files).length;
+console.log("rule 1 — primary key");
+ok(n([f("20261004_1.sql", "CREATE TABLE public.t (a int, b text);")]) === 1, "RED: table with no PK");
+ok(n([f("20261004_1.sql", "CREATE TABLE public.t (a int PRIMARY KEY, b text);")]) === 0, "GREEN: inline PRIMARY KEY");
+ok(n([f("20261004_1.sql", "CREATE TABLE IF NOT EXISTS public.t (a int, b int, PRIMARY KEY (a, b));")]) === 0, "GREEN: table-level PRIMARY KEY");
+ok(n([f("20261004_1.sql", "CREATE TABLE public.t (a int, CONSTRAINT t_pk PRIMARY KEY (a));")]) === 0, "GREEN: named PK constraint");
+ok(n([f("20261004_1.sql", "-- P35: no PK because it is a one-off frozen snapshot dropped in A-4c\nCREATE TABLE public.t (a int);")]) === 0, "GREEN: written waiver line");
+ok(n([f("20261004_1.sql", "-- P35: no PK because\nCREATE TABLE public.t (a int);")]) === 1, "RED: an empty waiver does not count");
+ok(n([f("20260101_1.sql", "CREATE TABLE public.t (a int);")]) === 0, "GREEN: a migration older than the rule is not re-judged (the PROBE judges it live)");
+console.log("rule 2 — foreign keys indexed");
+ok(n([f("20261004_1.sql", "CREATE TABLE public.c (id int PRIMARY KEY, u uuid REFERENCES auth.users(id));")]) === 1, "RED: inline REFERENCES, no index");
+ok(n([f("20261004_1.sql", "CREATE TABLE public.c (id int PRIMARY KEY, u uuid, FOREIGN KEY (u) REFERENCES auth.users(id));")]) === 1, "RED: table-level FOREIGN KEY, no index");
+ok(n([f("20261004_1.sql", "CREATE TABLE public.c (id int PRIMARY KEY, u uuid REFERENCES auth.users(id)); CREATE INDEX ON public.c (u);")]) === 0, "GREEN: index on the FK column, same file");
+ok(n([f("20261004_1.sql", "CREATE TABLE public.c (id int PRIMARY KEY, u uuid REFERENCES auth.users(id));"), f("20261004_2.sql", "CREATE INDEX IF NOT EXISTS c_u ON public.c (u);")]) === 0, "GREEN: index created by a later migration");
+ok(n([f("20261004_1.sql", "CREATE TABLE public.c (u uuid REFERENCES auth.users(id), v uuid REFERENCES auth.users(id), PRIMARY KEY (u, v));")]) === 1, "RED: PK (u, v) covers u, not v");
+ok(n([f("20261004_1.sql", "CREATE TABLE public.c (id int PRIMARY KEY, u uuid REFERENCES auth.users(id)); CREATE INDEX ON public.c (id, u);")]) === 1, "RED: an index where the FK column is not leading");
+ok(n([f("20261004_1.sql", "CREATE TABLE public.c (id int PRIMARY KEY, u uuid REFERENCES auth.users(id) UNIQUE);")]) === 0, "GREEN: UNIQUE on the FK column");
+ok(n([f("20261004_1.sql", "CREATE TABLE public.c (id int PRIMARY KEY, u uuid REFERENCES auth.users(id)); CREATE INDEX ON public.other (u);")]) === 1, "RED: an index on another table does not count");
+console.log(fail ? "\nSOME CASES FAILED" : "\nALL CASES PASS"); process.exit(fail);

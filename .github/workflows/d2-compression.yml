@@ -1,0 +1,65 @@
+name: D2 · P15 compression on every text response
+
+# ═══════════════════════════════════════════════════════════════════════════
+# HOLDS NO SECRET. READS PUBLIC URLS ONLY, WRITES NOTHING.
+#
+# P15 gate (GATE_REGISTER, verbatim): "Brotli or gzip confirmed active on
+# every text response, measured, recorded once."
+#
+# On a PR: the self-test only (C-34) — the classifier must reject
+# identity-encoded text, deflate and a 404 before its verdict means anything.
+# On push to staging / main, and on dispatch: the measurement itself, against
+# that lane's public origin. Every text response the app can load (document,
+# every chunk reachable from the entry JS, every public/ text file, the text
+# Functions) must arrive br or gzip. A text response over 1 KB that arrives
+# identity-encoded fails the job.
+#
+# The push run reads whatever Cloudflare is serving at that moment, which may
+# still be the previous deploy. That is fine for this property: compression is
+# a CDN behaviour, not a per-commit one, and the job exists to catch it being
+# switched off. It is monitoring after the recorded measurement, not a wait.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    branches: [main, staging]
+    paths:
+      - 'scripts/web-compression-check.mjs'
+      - '.github/workflows/d2-compression.yml'
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compression:
+    name: Brotli or gzip on every text response
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Self-test — the classifier rejects what it must (C-34)
+        run: node scripts/web-compression-check.mjs --self-test
+      - name: Measure the lane's origin
+        if: github.event_name != 'pull_request'
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ "$REF_NAME" = "main" ]; then ORIGIN="https://www.50mmretina.com"; else ORIGIN="https://staging.50mmretina.com"; fi
+          node scripts/web-compression-check.mjs "$ORIGIN" --json /tmp/p15.json
+      - name: Upload the reading
+        if: always() && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: p15-compression
+          path: /tmp/p15.json
+          if-no-files-found: warn
+          retention-days: 30

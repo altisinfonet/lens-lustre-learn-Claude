@@ -1,0 +1,1990 @@
+{
+  "measuredAt": "2026-10-04T08:51:16.971Z",
+  "rows": [
+    {
+      "check": "entry",
+      "path": "assets/index-BTutqdRg.js",
+      "bytes": 1650878,
+      "ceiling": 1700864,
+      "headroom": 49986,
+      "ok": true
+    },
+    {
+      "check": "initial",
+      "path": "assets/index-BTutqdRg.js + assets/vendor-query-oRGQe2RW.js + assets/vendor-react-DiS8_lVS.js + assets/vendor-framer-motion-BTWshcLX.js + assets/vendor-react-markdown-0EDViLax.js + assets/index-B_VetDRI.css",
+      "bytes": 2185034,
+      "ceiling": 2250752,
+      "headroom": 65718,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdDetail-DNdiMqJb.js",
+      "bytes": 3554,
+      "ceiling": 163840,
+      "headroom": 160286,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminActivityLogs-DUHHWFV4.js",
+      "bytes": 11231,
+      "ceiling": 163840,
+      "headroom": 152609,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminAdvertisements-BqQPSlWw.js",
+      "bytes": 30114,
+      "ceiling": 163840,
+      "headroom": 133726,
+      "ok": true
+    },
+    {
+      "check": "chunk AdminAnalytics.js",
+      "path": "assets/AdminAnalytics-I0YmyXD4.js",
+      "bytes": 413108,
+      "ceiling": 425984,
+      "headroom": 12876,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminAnnouncements-ktTK2egA.js",
+      "bytes": 9464,
+      "ceiling": 163840,
+      "headroom": 154376,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminAppEvents-BFjZFc4M.js",
+      "bytes": 9651,
+      "ceiling": 163840,
+      "headroom": 154189,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminAuthPages-CgqY_yb6.js",
+      "bytes": 7035,
+      "ceiling": 163840,
+      "headroom": 156805,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminBadgeRoleDefinitions-C-yfqCvb.js",
+      "bytes": 17945,
+      "ceiling": 163840,
+      "headroom": 145895,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminBanners-CCLhYXNK.js",
+      "bytes": 25156,
+      "ceiling": 163840,
+      "headroom": 138684,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminCertificates-DkDUbdEA.js",
+      "bytes": 30894,
+      "ceiling": 163840,
+      "headroom": 132946,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminCommentReports-CpBXR5ee.js",
+      "bytes": 23977,
+      "ceiling": 163840,
+      "headroom": 139863,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminCompetitionFunnel-BIGiQK9J.js",
+      "bytes": 2653,
+      "ceiling": 163840,
+      "headroom": 161187,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminCompetitionHealth-C9kkFFNH.js",
+      "bytes": 48759,
+      "ceiling": 163840,
+      "headroom": 115081,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminCompetitionJudges-BJ7unhAs.js",
+      "bytes": 3573,
+      "ceiling": 163840,
+      "headroom": 160267,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminCompetitionRounds-Bs_KdmoE.js",
+      "bytes": 4900,
+      "ceiling": 163840,
+      "headroom": 158940,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminCourses-i-S0-OlY.js",
+      "bytes": 8014,
+      "ceiling": 163840,
+      "headroom": 155826,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminEmailTemplates-BWJsKNyy.js",
+      "bytes": 16598,
+      "ceiling": 163840,
+      "headroom": 147242,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminEmployee-CNySwcM9.js",
+      "bytes": 11999,
+      "ceiling": 163840,
+      "headroom": 151841,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminEngagement-Ds8fMEFL.js",
+      "bytes": 25273,
+      "ceiling": 163840,
+      "headroom": 138567,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminExcellence-BruUOlc-.js",
+      "bytes": 15204,
+      "ceiling": 163840,
+      "headroom": 148636,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminFeaturedArtist-D6DE68m9.js",
+      "bytes": 21747,
+      "ceiling": 163840,
+      "headroom": 142093,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminGallery-CTA2vI-S.js",
+      "bytes": 26139,
+      "ceiling": 163840,
+      "headroom": 137701,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminGiftCredit-CS8Wm6kg.js",
+      "bytes": 13466,
+      "ceiling": 163840,
+      "headroom": 150374,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminHealth-BVrXzEKe.js",
+      "bytes": 37764,
+      "ceiling": 163840,
+      "headroom": 126076,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminJournal-tSiwOWJd.js",
+      "bytes": 8015,
+      "ceiling": 163840,
+      "headroom": 155825,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminJudgeActivityLog-B-7lm3RB.js",
+      "bytes": 3952,
+      "ceiling": 163840,
+      "headroom": 159888,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminJudgeMonitoringPanel-iudHXN3z.js",
+      "bytes": 6584,
+      "ceiling": 163840,
+      "headroom": 157256,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminJudgingTags-DivxbOyg.js",
+      "bytes": 22506,
+      "ceiling": 163840,
+      "headroom": 141334,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminKeywordBlocklist-BXPKcshm.js",
+      "bytes": 10246,
+      "ceiling": 163840,
+      "headroom": 153594,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminMenuBuilder-2BtySqTU.js",
+      "bytes": 13071,
+      "ceiling": 163840,
+      "headroom": 150769,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminNewsletterFaq-CLjvMWYk.js",
+      "bytes": 17261,
+      "ceiling": 163840,
+      "headroom": 146579,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminNotifications-DjkvoHgg.js",
+      "bytes": 9670,
+      "ceiling": 163840,
+      "headroom": 154170,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminNotificationsHealth-CZLfoDnO.js",
+      "bytes": 792,
+      "ceiling": 163840,
+      "headroom": 163048,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminOnPageImages-DXM5-mgf.js",
+      "bytes": 6864,
+      "ceiling": 163840,
+      "headroom": 156976,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminOrders-BQCW2vpr.js",
+      "bytes": 5506,
+      "ceiling": 163840,
+      "headroom": 158334,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminPageManagement-CK0q8KXm.js",
+      "bytes": 37382,
+      "ceiling": 163840,
+      "headroom": 126458,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminPanel-BJ8phs2M.js",
+      "bytes": 58975,
+      "ceiling": 163840,
+      "headroom": 104865,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminPerformance-C9e0dO2G.js",
+      "bytes": 15132,
+      "ceiling": 163840,
+      "headroom": 148708,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminPhotoOfDay-B6sWa0pJ.js",
+      "bytes": 21044,
+      "ceiling": 163840,
+      "headroom": 142796,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminPostReports-gG1koMOK.js",
+      "bytes": 7751,
+      "ceiling": 163840,
+      "headroom": 156089,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminPushBroadcast-Cgfrz0Gt.js",
+      "bytes": 7057,
+      "ceiling": 163840,
+      "headroom": 156783,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminRedirects-CKnTOhPg.js",
+      "bytes": 6505,
+      "ceiling": 163840,
+      "headroom": 157335,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminReferrals-Bz3cBk9M.js",
+      "bytes": 12263,
+      "ceiling": 163840,
+      "headroom": 151577,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminRoleApplications-eLvZnkKh.js",
+      "bytes": 18306,
+      "ceiling": 163840,
+      "headroom": 145534,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminSEO-CK7TohWv.js",
+      "bytes": 46347,
+      "ceiling": 163840,
+      "headroom": 117493,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminSettings-Ca457XAt.js",
+      "bytes": 52829,
+      "ceiling": 163840,
+      "headroom": 111011,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminSupportTickets-CprIb8f9.js",
+      "bytes": 12653,
+      "ceiling": 163840,
+      "headroom": 151187,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminTagSemanticsAudit-CmjLVqVK.js",
+      "bytes": 8673,
+      "ceiling": 163840,
+      "headroom": 155167,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminTestAgent-DsRJNehV.js",
+      "bytes": 12229,
+      "ceiling": 163840,
+      "headroom": 151611,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminTransactions-DNb-uTTe.js",
+      "bytes": 18882,
+      "ceiling": 163840,
+      "headroom": 144958,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminUserGuide-3azK7UXa.js",
+      "bytes": 5789,
+      "ceiling": 163840,
+      "headroom": 158051,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminUsers-aTRMK3oR.js",
+      "bytes": 30209,
+      "ceiling": 163840,
+      "headroom": 133631,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminVoteAuditPanel-CinZJhxU.js",
+      "bytes": 10181,
+      "ceiling": 163840,
+      "headroom": 153659,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminVoteRewardLedger-D0yhMs7f.js",
+      "bytes": 11143,
+      "ceiling": 163840,
+      "headroom": 152697,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminVoteRewards-BfoKhv5G.js",
+      "bytes": 7453,
+      "ceiling": 163840,
+      "headroom": 156387,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AdminWalletTab-DapTRf--.js",
+      "bytes": 19234,
+      "ceiling": 163840,
+      "headroom": 144606,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/AwardsIntegrityAudit-DGv7RBD1.js",
+      "bytes": 6588,
+      "ceiling": 163840,
+      "headroom": 157252,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/Breadcrumbs-2N-Mh9Nf.js",
+      "bytes": 874,
+      "ceiling": 163840,
+      "headroom": 162966,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/CertificateVerifyByToken-BlM4GStF.js",
+      "bytes": 6319,
+      "ceiling": 163840,
+      "headroom": 157521,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/Certificates-B2UG7Ksx.js",
+      "bytes": 19638,
+      "ceiling": 163840,
+      "headroom": 144202,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/CinemaJudgeView-yvLjmslI.js",
+      "bytes": 156157,
+      "ceiling": 163840,
+      "headroom": 7683,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/CommentsModule-CZHSPYiM.js",
+      "bytes": 7152,
+      "ceiling": 163840,
+      "headroom": 156688,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/CommentsSection-Bt8En9xO.js",
+      "bytes": 13851,
+      "ceiling": 163840,
+      "headroom": 149989,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/CommunityGuidelines-CtbH4HRY.js",
+      "bytes": 4856,
+      "ceiling": 163840,
+      "headroom": 158984,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/CompetitionDetail-Bl8mmB9k.js",
+      "bytes": 43837,
+      "ceiling": 163840,
+      "headroom": 120003,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/CompetitionSubmit-Bu4CdjTq.js",
+      "bytes": 19483,
+      "ceiling": 163840,
+      "headroom": 144357,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/Competitions-BmTk0ets.js",
+      "bytes": 7661,
+      "ceiling": 163840,
+      "headroom": 156179,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/CompetitionsModule-B-qV8NZm.js",
+      "bytes": 44496,
+      "ceiling": 163840,
+      "headroom": 119344,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/CompleteRoundDialog-C8OI4xjk.js",
+      "bytes": 12207,
+      "ceiling": 163840,
+      "headroom": 151633,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/ConfirmDialog-DyzbYN5z.js",
+      "bytes": 674,
+      "ceiling": 163840,
+      "headroom": 163166,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/CookiePolicy-DRINE59H.js",
+      "bytes": 5890,
+      "ceiling": 163840,
+      "headroom": 157950,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/CourseDetail-B2UBxsj7.js",
+      "bytes": 20317,
+      "ceiling": 163840,
+      "headroom": 143523,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/CourseEditor-Dmn21jPT.js",
+      "bytes": 29104,
+      "ceiling": 163840,
+      "headroom": 134736,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/Courses-BYYpZpLx.js",
+      "bytes": 7149,
+      "ceiling": 163840,
+      "headroom": 156691,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/CropTest-DkBHuTQs.js",
+      "bytes": 1150,
+      "ceiling": 163840,
+      "headroom": 162690,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/CustomUrlProfile-BpVlB5ct.js",
+      "bytes": 1754,
+      "ceiling": 163840,
+      "headroom": 162086,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/Dashboard-D20WIJBq.js",
+      "bytes": 73935,
+      "ceiling": 163840,
+      "headroom": 89905,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/DatabaseBackup-BUz0p-KX.js",
+      "bytes": 3217,
+      "ceiling": 163840,
+      "headroom": 160623,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/DatabaseModule-XyqAu7Q5.js",
+      "bytes": 1686,
+      "ceiling": 163840,
+      "headroom": 162154,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/Discover-Dn1NCQnS.js",
+      "bytes": 12647,
+      "ceiling": 163840,
+      "headroom": 151193,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/EditProfile-BZEmmUrE.js",
+      "bytes": 53657,
+      "ceiling": 163840,
+      "headroom": 110183,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/EmailRichTextToolbar-RmCdbq9x.js",
+      "bytes": 21881,
+      "ceiling": 163840,
+      "headroom": 141959,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/EngagementFooter-Dse5oqN9.js",
+      "bytes": 963,
+      "ceiling": 163840,
+      "headroom": 162877,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/EntriesModule-D0G16O0N.js",
+      "bytes": 11111,
+      "ceiling": 163840,
+      "headroom": 152729,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/EntryDetail-17b1xyU3.js",
+      "bytes": 13960,
+      "ceiling": 163840,
+      "headroom": 149880,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/FacebookPhotoGrid-4qYYNZda.js",
+      "bytes": 5305,
+      "ceiling": 163840,
+      "headroom": 158535,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/FeaturedArtist-K7pGRqox.js",
+      "bytes": 4702,
+      "ceiling": 163840,
+      "headroom": 159138,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/FeaturedArtistPage-C2LIG7sH.js",
+      "bytes": 11792,
+      "ceiling": 163840,
+      "headroom": 152048,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/Feed-D15cO-zO.js",
+      "bytes": 38709,
+      "ceiling": 163840,
+      "headroom": 125131,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/FileUploadDropZone-BmpwC0kp.js",
+      "bytes": 7952,
+      "ceiling": 163840,
+      "headroom": 155888,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/ForgotPassword-DCXYah5w.js",
+      "bytes": 3939,
+      "ceiling": 163840,
+      "headroom": 159901,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/Friends-CfPKRyP0.js",
+      "bytes": 17398,
+      "ceiling": 163840,
+      "headroom": 146442,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/GalleryBento-B3AjsVWd.js",
+      "bytes": 2581,
+      "ceiling": 163840,
+      "headroom": 161259,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/GalleryClassic-G_DIVSLi.js",
+      "bytes": 2261,
+      "ceiling": 163840,
+      "headroom": 161579,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/GalleryImage-BUofdprr.js",
+      "bytes": 1550,
+      "ceiling": 163840,
+      "headroom": 162290,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/GalleryMagazine-B7VMKYeV.js",
+      "bytes": 3384,
+      "ceiling": 163840,
+      "headroom": 160456,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/GalleryMasonry-D7V6G2z6.js",
+      "bytes": 2419,
+      "ceiling": 163840,
+      "headroom": 161421,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/HashtagFeed-acDPKJA5.js",
+      "bytes": 4973,
+      "ceiling": 163840,
+      "headroom": 158867,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/HelpSupport-BOmz4CJL.js",
+      "bytes": 15639,
+      "ceiling": 163840,
+      "headroom": 148201,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/IDVerification-CCvGJUG6.js",
+      "bytes": 7964,
+      "ceiling": 163840,
+      "headroom": 155876,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/Index-DwIWRyo7.js",
+      "bytes": 55800,
+      "ceiling": 163840,
+      "headroom": 108040,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/Journal-7IUGDY1D.js",
+      "bytes": 8292,
+      "ceiling": 163840,
+      "headroom": 155548,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/JournalArticle-Bk6Xuky5.js",
+      "bytes": 13954,
+      "ceiling": 163840,
+      "headroom": 149886,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/JournalEditor-Dumub2kx.js",
+      "bytes": 18895,
+      "ceiling": 163840,
+      "headroom": 144945,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/JudgeActivityModule-z-UufJop.js",
+      "bytes": 1794,
+      "ceiling": 163840,
+      "headroom": 162046,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/JudgeMonitoringModule-B773AYZK.js",
+      "bytes": 3156,
+      "ceiling": 163840,
+      "headroom": 160684,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/JudgePanel-Qq1WGUmi.js",
+      "bytes": 82924,
+      "ceiling": 163840,
+      "headroom": 80916,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/JudgeRevealToggle-izsVqbh_.js",
+      "bytes": 2753,
+      "ceiling": 163840,
+      "headroom": 161087,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/JudgingDriftAudit-h5gA4NtE.js",
+      "bytes": 5508,
+      "ceiling": 163840,
+      "headroom": 158332,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/JudgingStampBadge-B1wjTGKy.js",
+      "bytes": 1577,
+      "ceiling": 163840,
+      "headroom": 162263,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/LessonView-Bbsi-7Ed.js",
+      "bytes": 9421,
+      "ceiling": 163840,
+      "headroom": 154419,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/Lightbox-CVFu02-7.js",
+      "bytes": 3736,
+      "ceiling": 163840,
+      "headroom": 160104,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/Login-DLupIdzS.js",
+      "bytes": 12704,
+      "ceiling": 163840,
+      "headroom": 151136,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/ManagedPageView-CpUQDdev.js",
+      "bytes": 2831,
+      "ceiling": 163840,
+      "headroom": 161009,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/MobileJudgeView-B1WBJFNp.js",
+      "bytes": 25438,
+      "ceiling": 163840,
+      "headroom": 138402,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/MyPhotos-DwFSHToI.js",
+      "bytes": 11546,
+      "ceiling": 163840,
+      "headroom": 152294,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/NotFound-CSMY9mli.js",
+      "bytes": 2626,
+      "ceiling": 163840,
+      "headroom": 161214,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/NotificationSettings-CIzxpttC.js",
+      "bytes": 11039,
+      "ceiling": 163840,
+      "headroom": 152801,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/Notifications-Vktmq2pz.js",
+      "bytes": 6051,
+      "ceiling": 163840,
+      "headroom": 157789,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/NotificationsHealthAudit-n5QZE-gB.js",
+      "bytes": 7404,
+      "ceiling": 163840,
+      "headroom": 156436,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/ParticipantStageBadge-B61hnNVX.js",
+      "bytes": 4328,
+      "ceiling": 163840,
+      "headroom": 159512,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/Phase7BadgesQA-CsetIgwt.js",
+      "bytes": 3172,
+      "ceiling": 163840,
+      "headroom": 160668,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/PhotoOfTheDay-ycLUomwE.js",
+      "bytes": 4776,
+      "ceiling": 163840,
+      "headroom": 159064,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/PostDetail-COS-2S9j.js",
+      "bytes": 4464,
+      "ceiling": 163840,
+      "headroom": 159376,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/PrivacyToggle-reU_aJmc.js",
+      "bytes": 1335,
+      "ceiling": 163840,
+      "headroom": 162505,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/Profile-CfL3uKKF.js",
+      "bytes": 21312,
+      "ceiling": 163840,
+      "headroom": 142528,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/ProfileStories-DpZknZaa.js",
+      "bytes": 15621,
+      "ceiling": 163840,
+      "headroom": 148219,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/PublicProfile-BoEKjilQ.js",
+      "bytes": 53928,
+      "ceiling": 163840,
+      "headroom": 109912,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/Referrals-DDwnVfLC.js",
+      "bytes": 10347,
+      "ceiling": 163840,
+      "headroom": 153493,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/ResetPassword-CcxRLFq-.js",
+      "bytes": 9569,
+      "ceiling": 163840,
+      "headroom": 154271,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/RoleApplicationsModule-DhKR1whX.js",
+      "bytes": 2009,
+      "ceiling": 163840,
+      "headroom": 161831,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/RoundPublishPanel-C3rKcbEM.js",
+      "bytes": 6737,
+      "ceiling": 163840,
+      "headroom": 157103,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/ScheduledPosts-Z3kJyAxJ.js",
+      "bytes": 9172,
+      "ceiling": 163840,
+      "headroom": 154668,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/Signup-DVPOZo9p.js",
+      "bytes": 13800,
+      "ceiling": 163840,
+      "headroom": 150040,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/SimpleCaptcha-CQlOjBOV.js",
+      "bytes": 3644,
+      "ceiling": 163840,
+      "headroom": 160196,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/SubmissionDetail-ClpwCb98.js",
+      "bytes": 31607,
+      "ceiling": 163840,
+      "headroom": 132233,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/UnsavedChangesDialog-r5wIoAJX.js",
+      "bytes": 7755,
+      "ceiling": 163840,
+      "headroom": 156085,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/Unsubscribe-BLSkf-7M.js",
+      "bytes": 1943,
+      "ceiling": 163840,
+      "headroom": 161897,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/UserNextStepPanel-a7dSTFKv.js",
+      "bytes": 2820,
+      "ceiling": 163840,
+      "headroom": 161020,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/UsersModule-_QsHPj5U.js",
+      "bytes": 2354,
+      "ceiling": 163840,
+      "headroom": 161486,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/VerifyCertificate-Bd84HH8V.js",
+      "bytes": 10697,
+      "ceiling": 163840,
+      "headroom": 153143,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/VoteAuditModule-BytXBvmH.js",
+      "bytes": 2391,
+      "ceiling": 163840,
+      "headroom": 161449,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/Wallet-D_45QP_h.js",
+      "bytes": 44554,
+      "ceiling": 163840,
+      "headroom": 119286,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/WalletReconciliationAudit-B6PRnLA5.js",
+      "bytes": 7469,
+      "ceiling": 163840,
+      "headroom": 156371,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/WatermarkQAMatrix-CsLX3oBF.js",
+      "bytes": 2668,
+      "ceiling": 163840,
+      "headroom": 161172,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/Winners-Cn37wq1l.js",
+      "bytes": 6545,
+      "ceiling": 163840,
+      "headroom": 157295,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/activity-N5-Qd47X.js",
+      "bytes": 231,
+      "ceiling": 163840,
+      "headroom": 163609,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/archive-DdMqp-qS.js",
+      "bytes": 250,
+      "ceiling": 163840,
+      "headroom": 163590,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/arrow-down-Dq9iqysz.js",
+      "bytes": 161,
+      "ceiling": 163840,
+      "headroom": 163679,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/arrow-down-left-BejYMEGs.js",
+      "bytes": 163,
+      "ceiling": 163840,
+      "headroom": 163677,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/arrow-right-DBjQj5_g.js",
+      "bytes": 161,
+      "ceiling": 163840,
+      "headroom": 163679,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/arrow-up-DFFux-_k.js",
+      "bytes": 158,
+      "ceiling": 163840,
+      "headroom": 163682,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/arrow-up-down-ovuvrfa3.js",
+      "bytes": 240,
+      "ceiling": 163840,
+      "headroom": 163600,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/arrow-up-right-FWpxlQKO.js",
+      "bytes": 162,
+      "ceiling": 163840,
+      "headroom": 163678,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/badge-check-BhET2dIs.js",
+      "bytes": 312,
+      "ceiling": 163840,
+      "headroom": 163528,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/card-BqYbHG3G.js",
+      "bytes": 1027,
+      "ceiling": 163840,
+      "headroom": 162813,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/certificateCanvas-zqe8d0J4.js",
+      "bytes": 3281,
+      "ceiling": 163840,
+      "headroom": 160559,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/checkbox-fA9UywIQ.js",
+      "bytes": 3863,
+      "ceiling": 163840,
+      "headroom": 159977,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/circle-alert-DMjHSJT7.js",
+      "bytes": 246,
+      "ceiling": 163840,
+      "headroom": 163594,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/circle-check-BSKhaBTZ.js",
+      "bytes": 174,
+      "ceiling": 163840,
+      "headroom": 163666,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/circle-check-big-DgMQPfV9.js",
+      "bytes": 189,
+      "ceiling": 163840,
+      "headroom": 163651,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/circle-x-Wwp6BCGK.js",
+      "bytes": 203,
+      "ceiling": 163840,
+      "headroom": 163637,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/cloud-b0djMI1x.js",
+      "bytes": 157,
+      "ceiling": 163840,
+      "headroom": 163683,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/code-C8yFDTZP.js",
+      "bytes": 181,
+      "ceiling": 163840,
+      "headroom": 163659,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/courseAccess-oxblDNjN.js",
+      "bytes": 124,
+      "ceiling": 163840,
+      "headroom": 163716,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/dollar-sign-CH-6sa2t.js",
+      "bytes": 215,
+      "ceiling": 163840,
+      "headroom": 163625,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/exifExtract-DlRl43WM.js",
+      "bytes": 1861,
+      "ceiling": 163840,
+      "headroom": 161979,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/eye-off-qaNieh61.js",
+      "bytes": 426,
+      "ceiling": 163840,
+      "headroom": 163414,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/feedAdPlacement-qW1Zhp5y.js",
+      "bytes": 403,
+      "ceiling": 163840,
+      "headroom": 163437,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/file-warning-C4tbQdWM.js",
+      "bytes": 245,
+      "ceiling": 163840,
+      "headroom": 163595,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/filter-CmXmOR_F.js",
+      "bytes": 158,
+      "ceiling": 163840,
+      "headroom": 163682,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/finalVoteTotals-jDLyAdRr.js",
+      "bytes": 992,
+      "ceiling": 163840,
+      "headroom": 162848,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/formatDistanceToNow-C6xPC94A.js",
+      "bytes": 2229,
+      "ceiling": 163840,
+      "headroom": 161611,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/gavel-B2EK-tgy.js",
+      "bytes": 298,
+      "ceiling": 163840,
+      "headroom": 163542,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/generateArticlePdf-DKbUihhZ.js",
+      "bytes": 12278,
+      "ceiling": 163840,
+      "headroom": 151562,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/generateCertificatePdf-F5bwAnm-.js",
+      "bytes": 10679,
+      "ceiling": 163840,
+      "headroom": 153161,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/grip-vertical-CaAVATHH.js",
+      "bytes": 367,
+      "ceiling": 163840,
+      "headroom": 163473,
+      "ok": true
+    },
+    {
+      "check": "chunk html2canvas.esm.js",
+      "path": "assets/html2canvas.esm-DXEQVQnt.js",
+      "bytes": 201041,
+      "ceiling": 207872,
+      "headroom": 6831,
+      "ok": true
+    },
+    {
+      "check": "chunk index.css",
+      "path": "assets/index-B_VetDRI.css",
+      "bytes": 207880,
+      "ceiling": 215040,
+      "headroom": 7160,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/index-BdQq_4o_.js",
+      "bytes": 64,
+      "ceiling": 163840,
+      "headroom": 163776,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/index.es-B_wk3ynU.js",
+      "bytes": 158303,
+      "ceiling": 163840,
+      "headroom": 5537,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/indian-rupee-C7RKQ010.js",
+      "bytes": 480,
+      "ceiling": 163840,
+      "headroom": 163360,
+      "ok": true
+    },
+    {
+      "check": "chunk jspdf.es.min.js",
+      "path": "assets/jspdf.es.min-B0bnVnOg.js",
+      "bytes": 385165,
+      "ceiling": 397312,
+      "headroom": 12147,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/key-round-Chooivvi.js",
+      "bytes": 351,
+      "ceiling": 163840,
+      "headroom": 163489,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/layers-BxLQc6ko.js",
+      "bytes": 361,
+      "ceiling": 163840,
+      "headroom": 163479,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/layout-grid-DUNZj_Vu.js",
+      "bytes": 342,
+      "ceiling": 163840,
+      "headroom": 163498,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/link-DD2t8QJd.js",
+      "bytes": 253,
+      "ceiling": 163840,
+      "headroom": 163587,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/list-Dg7dyI1W.js",
+      "bytes": 299,
+      "ceiling": 163840,
+      "headroom": 163541,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/list-checks-C87TBQSv.js",
+      "bytes": 275,
+      "ceiling": 163840,
+      "headroom": 163565,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/maximize-2-FnUS95yt.js",
+      "bytes": 295,
+      "ceiling": 163840,
+      "headroom": 163545,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/minimize-2-CJ_A2K9v.js",
+      "bytes": 299,
+      "ceiling": 163840,
+      "headroom": 163541,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/motionVariants-Cdw5qKBD.js",
+      "bytes": 137,
+      "ceiling": 163840,
+      "headroom": 163703,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/mouse-pointer-click-BTQPb4l5.js",
+      "bytes": 409,
+      "ceiling": 163840,
+      "headroom": 163431,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/move-vxQ3vx3k.js",
+      "bytes": 317,
+      "ceiling": 163840,
+      "headroom": 163523,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/music-2-CrkWfaBA.js",
+      "bytes": 763,
+      "ceiling": 163840,
+      "headroom": 163077,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/paperclip-CEAvc1nR.js",
+      "bytes": 221,
+      "ceiling": 163840,
+      "headroom": 163619,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/participantStageLabels-DypwY6Ma.js",
+      "bytes": 4925,
+      "ceiling": 163840,
+      "headroom": 158915,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/passwordSecurity-JzeVfx02.js",
+      "bytes": 2557,
+      "ceiling": 163840,
+      "headroom": 161283,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/perPhotoStatus-BrGkFZEG.js",
+      "bytes": 2238,
+      "ceiling": 163840,
+      "headroom": 161602,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/phone-QglI3c4G.js",
+      "bytes": 391,
+      "ceiling": 163840,
+      "headroom": 163449,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/power-DENg-bZV.js",
+      "bytes": 170,
+      "ceiling": 163840,
+      "headroom": 163670,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/profileCompletion-Chct2mnR.js",
+      "bytes": 2035,
+      "ceiling": 163840,
+      "headroom": 161805,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/progress-DNYYN2sl.js",
+      "bytes": 1941,
+      "ceiling": 163840,
+      "headroom": 161899,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/publishedTagVisibility-GroJNQKv.js",
+      "bytes": 1210,
+      "ceiling": 163840,
+      "headroom": 162630,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/push-CpjHKHUz.js",
+      "bytes": 1603,
+      "ceiling": 163840,
+      "headroom": 162237,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/refresh-cw-BIguLSFk.js",
+      "bytes": 317,
+      "ceiling": 163840,
+      "headroom": 163523,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/safeAdminExecute-IZLFmdxT.js",
+      "bytes": 899,
+      "ceiling": 163840,
+      "headroom": 162941,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/save-uxBY1XE_.js",
+      "bytes": 324,
+      "ceiling": 163840,
+      "headroom": 163516,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/scan-search-BP0qSQUQ.js",
+      "bytes": 383,
+      "ceiling": 163840,
+      "headroom": 163457,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/select-DhD6bnXU.js",
+      "bytes": 27429,
+      "ceiling": 163840,
+      "headroom": 136411,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/separator-51H3_q5y.js",
+      "bytes": 709,
+      "ceiling": 163840,
+      "headroom": 163131,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/shield-alert-CwFW7__p.js",
+      "bytes": 349,
+      "ceiling": 163840,
+      "headroom": 163491,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/shield-check-DdnQCnZb.js",
+      "bytes": 316,
+      "ceiling": 163840,
+      "headroom": 163524,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/shield-x-BPti2A1U.js",
+      "bytes": 353,
+      "ceiling": 163840,
+      "headroom": 163487,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/slider-DAuzqseV.js",
+      "bytes": 8231,
+      "ceiling": 163840,
+      "headroom": 155609,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/square-CklXWHZd.js",
+      "bytes": 315,
+      "ceiling": 163840,
+      "headroom": 163525,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/stageCatalog-DwSetNNg.js",
+      "bytes": 4603,
+      "ceiling": 163840,
+      "headroom": 159237,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/storyTiming-ChQvEJwM.js",
+      "bytes": 23,
+      "ceiling": 163840,
+      "headroom": 163817,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/table-CeCTrHok.js",
+      "bytes": 1526,
+      "ceiling": 163840,
+      "headroom": 162314,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/tabs-jAv08SxD.js",
+      "bytes": 3236,
+      "ceiling": 163840,
+      "headroom": 160604,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/tagSemantics-B_Cx2SFv.js",
+      "bytes": 2973,
+      "ceiling": 163840,
+      "headroom": 160867,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/toggle-left-Da1Tr1fw.js",
+      "bytes": 202,
+      "ceiling": 163840,
+      "headroom": 163638,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/toggle-right-BbacjTf1.js",
+      "bytes": 204,
+      "ceiling": 163840,
+      "headroom": 163636,
+      "ok": true
+    },
+    {
+      "check": "chunk translations.rest.js",
+      "path": "assets/translations.rest-D5QPwl1Z.js",
+      "bytes": 498263,
+      "ceiling": 514048,
+      "headroom": 15785,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/turnstile-jkpDM_We.js",
+      "bytes": 977,
+      "ceiling": 163840,
+      "headroom": 162863,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/type-CwOzYWyI.js",
+      "bytes": 241,
+      "ceiling": 163840,
+      "headroom": 163599,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/types-By9teAtI.js",
+      "bytes": 52920,
+      "ceiling": 163840,
+      "headroom": 110920,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/undo-Cbi6YtDJ.js",
+      "bytes": 1870,
+      "ceiling": 163840,
+      "headroom": 161970,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/useAdminCompetitions-Bce9Zt-L.js",
+      "bytes": 525,
+      "ceiling": 163840,
+      "headroom": 163315,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/useAuthPageSettings-t8h-h-y_.js",
+      "bytes": 1037,
+      "ceiling": 163840,
+      "headroom": 162803,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/useCompetitionEntryMutations-DHrPpiKy.js",
+      "bytes": 2180,
+      "ceiling": 163840,
+      "headroom": 161660,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/useCompetitions-DdOY5TGo.js",
+      "bytes": 1140,
+      "ceiling": 163840,
+      "headroom": 162700,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/useConfirmAction-BbjD_KJY.js",
+      "bytes": 471,
+      "ceiling": 163840,
+      "headroom": 163369,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/useCourses-CQ0P3HD7.js",
+      "bytes": 2988,
+      "ceiling": 163840,
+      "headroom": 160852,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/useEntryPublicStatus-DjBUnxQp.js",
+      "bytes": 542,
+      "ceiling": 163840,
+      "headroom": 163298,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/useFriendFollow-DPh8nDDo.js",
+      "bytes": 2279,
+      "ceiling": 163840,
+      "headroom": 161561,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/useGatedEntryStatus-xprDgu1M.js",
+      "bytes": 1667,
+      "ceiling": 163840,
+      "headroom": 162173,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/useLastActive-DVA-WfCj.js",
+      "bytes": 323,
+      "ceiling": 163840,
+      "headroom": 163517,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/useWallet-BwAlgmUZ.js",
+      "bytes": 1479,
+      "ceiling": 163840,
+      "headroom": 162361,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/user-x-DRyMzn_2.js",
+      "bytes": 302,
+      "ceiling": 163840,
+      "headroom": 163538,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/vendor-framer-motion-BTWshcLX.js",
+      "bytes": 136516,
+      "ceiling": 163840,
+      "headroom": 27324,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/vendor-query-oRGQe2RW.js",
+      "bytes": 46055,
+      "ceiling": 163840,
+      "headroom": 117785,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/vendor-react-DiS8_lVS.js",
+      "bytes": 26112,
+      "ceiling": 163840,
+      "headroom": 137728,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/vendor-react-markdown-0EDViLax.js",
+      "bytes": 117593,
+      "ceiling": 163840,
+      "headroom": 46247,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/wrench-TKJ2lbp-.js",
+      "bytes": 259,
+      "ceiling": 163840,
+      "headroom": 163581,
+      "ok": true
+    },
+    {
+      "check": "chunk (default)",
+      "path": "assets/youtube-DgOVhy8A.js",
+      "bytes": 888,
+      "ceiling": 163840,
+      "headroom": 162952,
+      "ok": true
+    }
+  ],
+  "failures": []
+}

@@ -1,0 +1,4 @@
+{
+  "_comment": "P28 · tables whose index size is larger than their heap, each with the written reason (≥ 40 chars). Judged only when the heap is ≥ 1 MB (docs/evidence/d1/P28/index-ratio-rule.md §2). Must equal the list inside supabase/migrations/PROBE_p28_index_ratio.sql — the build check compares them.",
+  "public.posts": "Staging 2026-10-04 08:17 UTC: heap 2.9 MB, indexes 6.8 MB (12). 3.25 MB of that is idx_posts_content_trgm (GIN trigram on content), the only content-search path until P20 names a search engine; it goes when P20 replaces it. Redundant candidates (idx_posts_user_id, a prefix of idx_posts_user_id_created_at; idx_posts_content_hash, 0 scans) are listed for A-4c and stay until the C-2 hold on index drops is reconciled."
+}

@@ -1,0 +1,52 @@
+name: D2 · P4 site_settings guard
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. READS src/, WRITES NOTHING.
+#
+# P4 (R-82 design proof): the client never reads site_settings unfiltered.
+# The whole configuration is read once, at the edge (functions/config/
+# site-settings.ts), CDN-cached and versioned; the client's database fallback
+# asks only for the keys it needs. This check keeps it that way: any
+# `.from("site_settings").select(...)` in src/ without a key filter, any
+# builder that escapes into a variable, or any raw `/rest/v1/site_settings`
+# path without `key=` fails the PR.
+#
+# The self-test runs first (C-34): it plants each shape the guard must catch
+# and each neighbour it must leave alone. If it fails, the verdict below it is
+# not evidence of anything.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main, staging]
+    paths:
+      - 'src/**'
+      - 'scripts/web-site-settings-guard.mjs'
+      - '.github/workflows/d2-site-settings-guard.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: No unfiltered site_settings read in src/
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      # The guard parses with the repository's own TypeScript, so it needs the
+      # lockfile's install — `npm ci`, never `npm install`, no `|| true`.
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+      - name: Self-test — the guard catches what it must and nothing else (C-34)
+        run: node scripts/web-site-settings-guard.mjs --self-test
+      - name: Scan src/ — zero unfiltered site_settings reads
+        run: node scripts/web-site-settings-guard.mjs

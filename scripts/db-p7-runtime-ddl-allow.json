@@ -1,0 +1,3 @@
+{
+  "_comment": "P7 allow-list: \"<schema.function(argtypes)>\" or \"cron:<jobname>\" → a written reason (≥ 20 chars) why this runtime DDL is not a reload outside a deployment. Empty today. A stale entry fails the check."
+}
