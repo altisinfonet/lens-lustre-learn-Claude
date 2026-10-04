@@ -47,8 +47,9 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { sqlAsWritten } from "@/test-utils/neutralisedMigration";
 
 const MIGRATIONS = join(process.cwd(), "supabase/migrations");
 const ROLLBACKS = join(process.cwd(), "supabase/rollback");
@@ -58,8 +59,24 @@ const WITHDRAWN_MIGRATION =
 const WITHDRAWN_ROLLBACK =
   "UNAPPLIED_20260910_0023_f105de_referral_reward_production_close_ROLLBACK.sql";
 
-const migration = readFileSync(join(MIGRATIONS, WITHDRAWN_MIGRATION), "utf8");
-const rollback = readFileSync(join(ROLLBACKS, WITHDRAWN_ROLLBACK), "utf8");
+/**
+ * Read AS WRITTEN, not as the files now sit on disk.
+ *
+ * The rollback was neutralised under R-24 / R-26 after this test was written —
+ * every line of its body prefixed `-- ` — so the banner these assertions require
+ * stopped being the first thing in the file and the test went red on `main`, for
+ * a reason that has nothing to do with what it checks. The migration was never
+ * neutralised; `sqlAsWritten` returns such a file unchanged, so one call serves
+ * both and neither assertion below had to move.
+ *
+ * It also VERIFIES the sha256 the neutralised file's own header records, so the
+ * preserved body cannot be edited silently. See
+ * `src/test-utils/neutralisedMigration.ts` and
+ * `docs/evidence/d2/phase2/p10-f1-fix.md` for why this is not done by loosening
+ * the patterns.
+ */
+const migration = sqlAsWritten(join(MIGRATIONS, WITHDRAWN_MIGRATION)).sql;
+const rollback = sqlAsWritten(join(ROLLBACKS, WITHDRAWN_ROLLBACK)).sql;
 
 describe("0023 is not in the runnable set", () => {
   it("carries the UNAPPLIED_ prefix, this repository's own marker", () => {
