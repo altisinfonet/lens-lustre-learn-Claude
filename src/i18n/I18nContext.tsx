@@ -47,6 +47,23 @@ const detectInitialLang = (): Lang => {
 type Dict = Record<string, string>;
 
 /**
+ * One lazy chunk PER LANGUAGE (P12, 2026-10-04). Choosing Hindi downloads the
+ * Hindi dictionary and nothing else. Before P12 a single `translations.rest`
+ * chunk (~498 KB) carried all six non-English dictionaries, so any choice paid
+ * for six. Each entry must stay a literal `import("./translations.<code>")`:
+ * that literal is what makes Vite emit a separate chunk per language, and
+ * `src/i18n/__tests__/lazyTranslations.test.ts` pins it.
+ */
+const LOADERS: Partial<Record<Lang, () => Promise<{ default: Dict }>>> = {
+  hi: () => import("./translations.hi"),
+  bn: () => import("./translations.bn"),
+  mr: () => import("./translations.mr"),
+  gu: () => import("./translations.gu"),
+  ta: () => import("./translations.ta"),
+  te: () => import("./translations.te"),
+};
+
+/**
  * Look a key up in one language, across both dictionaries.
  * `homeTranslations` (eager, small) holds the landing-page strings; `dicts`
  * holds everything else — English always present, and any non-English language
@@ -74,8 +91,8 @@ const I18nContext = createContext<I18nValue>({
 export const I18nProvider = ({ children }: { children: ReactNode }) => {
   const [lang, setLangState] = useState<Lang>(detectInitialLang);
 
-  // English ships in the boot chunk; the six Indic dictionaries are lazy —
-  // pulled in only when a non-English language is actually chosen (PERF,
+  // English ships in the boot chunk; each Indic dictionary is its own lazy
+  // chunk, pulled in only when that language is actually chosen (PERF,
   // 2026-08-07: keeps ~322 KB of translations out of every English visitor's
   // boot bundle). Until a language's chunk arrives, `t` transparently returns
   // the English string — the same fallback used for any missing key — so text
@@ -94,15 +111,16 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
     try { document.documentElement.lang = lang; } catch { /* ignore */ }
   }, [lang]);
 
-  // Load the non-English dictionaries on demand. Runs whenever a non-English
-  // language is active and its dictionary is not loaded yet; English needs
-  // nothing (it is already present).
+  // Load the active language's dictionary on demand — that language only.
+  // English needs nothing (it is already present). A failed chunk leaves the
+  // English fallback in place; the next language change retries.
   useEffect(() => {
-    if (lang === "en" || dicts[lang]) return;
+    const load = LOADERS[lang];
+    if (lang === "en" || dicts[lang] || !load) return;
     let cancelled = false;
-    import("./translations.rest")
+    load()
       .then((m) => {
-        if (!cancelled) setDicts((prev) => ({ ...m.rest, ...prev }));
+        if (!cancelled) setDicts((prev) => ({ ...prev, [lang]: m.default }));
       })
       .catch(() => { /* stay on the English fallback if the chunk fails */ });
     return () => { cancelled = true; };
