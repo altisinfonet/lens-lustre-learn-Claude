@@ -114,3 +114,59 @@ object, an array, non-JSON, a thrown fetch, and the 404-vs-5xx distinction.
    (`useRoleDefinitions.ts`, `useBadgeDefinitions.ts`, `useCourses.ts`,
    `AdminLayout.tsx`). One unit per PR.
 3. **No production reading.** See the note under the table above.
+
+## Round 2 (2026-10-04, R-82): the enforced guard, and the UI-gate fix
+
+R-82 replaced P4's traffic reading with a design proof: **design + an enforced
+guard + a synthetic test.** This round adds the guard and fixes the UI gate.
+
+### 1. The guard — `scripts/web-site-settings-guard.mjs` + `d2-site-settings-guard.yml`
+
+Rule: **no client read of `site_settings` without a key filter.** Parsed with
+the repository's TypeScript (comments and prose mentions are not reads).
+Violations: `.from("site_settings").select(…)` with no `.eq/.in/.like/.ilike("key", …)`
+or `.match({ key })` in the chain; a builder that escapes into a variable; a raw
+`/rest/v1/site_settings` literal without `key=`. Writes are out of scope.
+`functions/` is not scanned: the edge's whole-table read is the design.
+
+| instrument | reading | UTC |
+|---|---|---|
+| `node scripts/web-site-settings-guard.mjs --self-test` | 13/13 shapes classified correctly | 2026-10-04 08:32:04 |
+| `node scripts/web-site-settings-guard.mjs` on this branch | 666 source files, 75 `.from("site_settings")` calls, **0 violations**, exit 0 | 2026-10-04 08:32:04 |
+| same, with `.eq("key","managed_pages")` removed from `SiteFooter.tsx` (fail-first, real code) | **1 violation** `unfiltered-read` at `SiteFooter.tsx:24`, exit 1 | 2026-10-04 08:32:05 |
+| `src/__tests__/siteSettingsGuard.test.ts` | 18 tests: every self-test shape, a `.tsx` parse, the clean real tree, and two real-code mutants (SiteFooter, the cache's own `.in("key", keys)`) that must go red — 33/33 with the edge file | 2026-10-04 08:32:11 |
+
+Stated limit: a table name held in a variable (`.from(name)`) cannot be followed.
+None exists in `src/` for this table today.
+
+### 2. The UI gate ("Every control reachable") went red on 5d0bca6 — cause and fix
+
+**Cause:** the Vite dev server that the UI-gate harness runs on has no Pages
+Functions, so the new edge read hit `GET /config/site-settings` → **404** on
+every scene, and `tools/uishot/capture.mjs` reports every HTTP ≥ 400 as a fault
+(`curl -H 'accept: application/json' http://127.0.0.1:5199/config/site-settings` → `404`, ~08:00 UTC).
+**Fix (cause, not symptom):** `loadFromEdge()` returns early when
+`import.meta.env.DEV` — there is no edge in dev, so dev reads keyed from the
+database, the same path a lane without the route takes. Built apps are
+unaffected. The gate's filter list was **not** touched.
+
+Test: `siteSettingsEdge.test.ts` now runs its edge cases as a built app
+(`vi.stubEnv("DEV", false)`, because Vitest sets DEV = true) and adds one dev
+test. Mutant: delete the DEV line → that test fails (1 failed / 14 passed,
+~08:10 UTC). Without the stub, 6 of the original 14 go red — that is the edit to
+my own tests in this PR, stated here, not an edit to someone else's assertion.
+
+UI gate, run locally with the CI command (`npm run ui:gate`, the CI's synthetic VITE_* values):
+
+| state | reading | UTC |
+|---|---|---|
+| fix in place | `200 screenshots, 0 problem(s) reported` · `baseline diff: clean against 148 recorded scene/viewport keys` · `[ui:gate] PASS` | read at 2026-10-04 08:30:53 |
+| DEV line removed (mutant), `npm run ui:gate -- screen-wall` | exit 1; all 4 viewports `✗ … http 404: http://127.0.0.1:5199/config/site-settings` | 2026-10-04 08:31:54 |
+
+## Finding F-D2-9 (recorded, not fixed here)
+Inside the native app (Capacitor, built with DEV = false) `/config/site-settings`
+resolves against the app's local origin, so the first batch pays one 404 and
+then `edgeUnavailable` routes everything to the keyed database read. Correct,
+but the app never benefits from the edge. Fix = an absolute edge origin per
+lane for native builds; it touches lane config (frozen `scripts/lane-config.mjs`)
+so it needs the Auditor's window. Separate PR.

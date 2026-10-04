@@ -57,6 +57,10 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 beforeEach(() => {
+  // Vitest runs with import.meta.env.DEV = true, and the cache skips the edge in
+  // dev (no Pages Functions on the Vite server). These tests describe a BUILT
+  // app, so they run as one; the dev skip has its own test at the end.
+  vi.stubEnv("DEV", false);
   realFetch = globalThis.fetch;
   calls = [];
   db.queries = 0;
@@ -68,6 +72,7 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.fetch = realFetch;
+  vi.unstubAllEnvs();
 });
 
 describe("P4 · site_settings from the edge", () => {
@@ -170,5 +175,20 @@ describe("P4 · the route being absent is remembered, an outage is not", () => {
       "a 5xx was treated as permanent. The edge would stay unused for the whole " +
         "session after one bad minute.",
     ).toHaveLength(2);
+  });
+});
+
+describe("P4 · the dev server has no edge", () => {
+  it("in dev it never asks /config/site-settings (a guaranteed 404 the UI gate reports) and reads keyed from the database", async () => {
+    vi.stubEnv("DEV", true);
+    edgeAnswers(() => json({ version: "v", settings: { site_logo: "from-the-edge" } }));
+
+    expect(await cache.getSiteSetting("site_logo")).toBe("from-the-database");
+    expect(
+      calls.filter((u) => u.includes(EDGE)),
+      "the dev server asked the edge route, which only exists as a Pages Function — " +
+        "every harness page then logs a 404 and #328's UI gate goes red.",
+    ).toHaveLength(0);
+    expect(db.queries).toBe(1);
   });
 });

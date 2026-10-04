@@ -114,6 +114,14 @@ export function siteSettingsVersion(): string | null {
  * query below cannot be.
  */
 async function loadFromEdge(): Promise<boolean> {
+  // The Vite dev server (and the UI-gate harness that runs on it) does not run
+  // Pages Functions, so `/config/site-settings` cannot exist there. Asking
+  // anyway costs a guaranteed 404 on every page, and the UI gate correctly
+  // reports every 404 as a fault — that is what turned #328's gate red
+  // (2026-10-04). The cause is "no edge in dev", so dev skips the edge and
+  // goes straight to the keyed database read, which is the same path a lane
+  // without the route takes. Production and preview builds are unaffected.
+  if (import.meta.env.DEV) return false;
   if (edgeUnavailable || typeof fetch !== "function") return false;
   try {
     const r = await fetch(EDGE_PATH, { headers: { accept: "application/json" } });
