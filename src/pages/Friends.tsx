@@ -15,7 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import { getAdminIds, resolveName } from "@/lib/adminBrand";
 import ProfileLink from "@/components/ProfileLink";
-import { formatLastSeen, isActiveNow } from "@/hooks/core/useLastActive";
+import { formatLastSeen } from "@/hooks/core/useLastActive";
+import { useOnline } from "@/lib/presence/online";
 import { useT } from "@/i18n/I18nContext";
 
 interface FriendProfile {
@@ -776,7 +777,8 @@ const PersonRow = ({ profile, badges, subtitle, date, actions, mutualCount, mutu
   const t = useT();
   const name = profile.full_name || "Unknown User";
   const initials = name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
-  const online = isActiveNow(profile.last_active_at);
+  /* P1 §4: live presence, not profile.last_active_at. */
+  const online = useOnline(profile.id);
 
   return (
     <div className="flex gap-3 p-3 md:p-5">

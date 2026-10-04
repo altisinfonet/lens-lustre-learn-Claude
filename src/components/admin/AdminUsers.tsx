@@ -7,7 +7,8 @@ import { toast } from "@/hooks/core/use-toast";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { useConfirmAction } from "@/hooks/admin/useConfirmAction";
 import { Search, Ban, ShieldCheck, Trash2, Pencil, XCircle, Loader2, Mail, User, Calendar, Shield, Plus, X, CheckSquare, Square, Award, ExternalLink, Palette, Smile, Clock, Smartphone, Globe } from "lucide-react";
-import { formatLastSeen, isActiveNow } from "@/hooks/core/useLastActive";
+import { formatLastSeen } from "@/hooks/core/useLastActive";
+import { useOnlineIds } from "@/lib/presence/online";
 import type { User as AuthUser } from "@supabase/supabase-js";
 import { useBadgeDefinitions, type BadgeDefinition } from "@/hooks/profile/useBadgeDefinitions";
 import { useRoleDefinitions, type RoleDefinition } from "@/hooks/profile/useRoleDefinitions";
@@ -37,7 +38,8 @@ interface UserRow {
   created_at: string;
   roles: string[];
   badges: string[];
-  /** Written every 5 min by useLastActive while a member has the site/app open. */
+  /** Written once per session by `record_session_end` (P1 §2). Before
+   *  2-D2-03 this was written every 5 minutes by a client timer. */
   last_active_at: string | null;
   /** "app" | "web" — where they last signed in from. Recorded from 2026-08-05
    *  onward only (older logins were never recorded and cannot be back-filled). */
@@ -78,6 +80,10 @@ interface ActiveUserQuery {
 
 const AdminUsers = ({ user }: { user: AuthUser | null }) => {
   const t = useT();
+  /* P1 §4: "Active now" is live presence, not a five-minute timestamp window.
+   * The rows are rendered by `.map()`, so one subscription for the page and a
+   * `has()` per row — `useOnline` per row would be a hook inside a loop. */
+  const onlineIds = useOnlineIds();
   const queryClient = useQueryClient();
   const badgeDefs = useBadgeDefinitions();
   const roleDefs = useRoleDefinitions();
@@ -919,9 +925,9 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
                           appears once the member has signed in since 2026-08-05 —
                           origin was never recorded before that and a blank is
                           honest, an invented value is not. */}
-                      {u.last_active_at && (
-                        <span className={`text-[10px] flex items-center gap-1 shrink-0 ${isActiveNow(u.last_active_at) ? "text-green-600 font-medium" : "text-muted-foreground/60"}`}>
-                          <Clock className="h-2.5 w-2.5" /> {formatLastSeen(u.last_active_at) || "—"}
+                      {(u.last_active_at || onlineIds.has(u.id)) && (
+                        <span className={`text-[10px] flex items-center gap-1 shrink-0 ${onlineIds.has(u.id) ? "text-green-600 font-medium" : "text-muted-foreground/60"}`}>
+                          <Clock className="h-2.5 w-2.5" /> {onlineIds.has(u.id) ? "Active now" : formatLastSeen(u.last_active_at) || "—"}
                         </span>
                       )}
                       {u.last_platform && (

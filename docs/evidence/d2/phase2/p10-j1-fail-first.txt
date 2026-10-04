@@ -1,0 +1,118 @@
+P10-J1 FAIL-FIRST (C-34) - R-63
+===============================
+
+Instrument : src/hooks/judging/__tests__/useJudgingLockHeartbeatReacquire.test.tsx
+Subject    : src/hooks/judging/useJudgingLock.ts + src/lib/timers/visibilityInterval.ts
+            as pushed at PR #310 head 3d3fb463409a4084ca1f53acd5ef2497e712c244
+Method     : the new test file only; the two source files reverted to 3d3fb46
+            (git stash of the R-63 edits), nothing else changed.
+Date       : 2026-09-27
+
+RESULT: 3 failed | 3 passed.
+
+  RED (each carries exactly its own defect):
+    1. re-acquires when the heartbeat says the lock is not this judge's any more
+         acquire_judge_lock called 1x, expected 2x.
+         The boolean came back false and the hook did not ask again.
+    2. shows the other judge, rather than a lock it does not have
+         isLocked: expected false, received true.
+         This is the two-judges-one-photo state, on screen.
+    3. re-acquires when the first heartbeat after the tab comes back fails
+         heartbeat_judge_lock called 0x on becoming visible, expected 1x.
+         At 3d3fb46 the timer restarts silently with no tick, so nothing
+         checks the lock until up to two more minutes have passed.
+
+  GREEN, and green on purpose (they guard the fix from going too far):
+    4. GUARD does not drop a present judge out of a round over one flaky request
+    5. GUARD leaves a healthy lock alone
+    6. GUARD the interval this file advances is the interval the hook uses
+
+Assertion 3 is the one that needed a change to the timer primitive rather
+than to the hook: only startVisibilityInterval knows that it stopped and
+restarted, and it knows it for a Capacitor appStateChange as well as for a
+visibilitychange. Hence TickInfo.firstTickAfterResume and the runOnResume
+option, both added in this commit.
+
+--- verbatim run (source reverted to 3d3fb46, JSON log lines removed) ---
+
+
+ RUN  v3.2.4 /home/claude/repo
+
+(node:776) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ ❯ src/hooks/judging/__tests__/useJudgingLockHeartbeatReacquire.test.tsx (6 tests | 3 failed) 73ms
+   × useJudgingLock — the heartbeat reads its answer (R-63 / P10-J1) > re-acquires when the heartbeat says the lock is not this judge's any more 51ms
+     → heartbeat_judge_lock returned false — the lock row is another judge's — and the hook did not go back and ask. It is still telling the judge they hold a round they do not.: expected [ { fn: 'acquire_judge_lock', …(1) } ] to have a length of 2 but got 1
+   × useJudgingLock — the heartbeat reads its answer (R-63 / P10-J1) > shows the other judge, rather than a lock it does not have 6ms
+     → the judge is still being told they hold the lock: expected true to be false // Object.is equality
+   × useJudgingLock — the heartbeat reads its answer (R-63 / P10-J1) > re-acquires when the first heartbeat after the tab comes back fails 7ms
+     → no heartbeat fired on becoming visible, so nothing checked the lock: expected [] to have a length of 1 but got +0
+   ✓ useJudgingLock — the heartbeat reads its answer (R-63 / P10-J1) > GUARD does not drop a present judge out of a round over one flaky request 3ms
+   ✓ useJudgingLock — the heartbeat reads its answer (R-63 / P10-J1) > GUARD leaves a healthy lock alone 4ms
+   ✓ useJudgingLock — the heartbeat reads its answer (R-63 / P10-J1) > GUARD the interval this file advances is the interval the hook uses 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/hooks/judging/__tests__/useJudgingLockHeartbeatReacquire.test.tsx > useJudgingLock — the heartbeat reads its answer (R-63 / P10-J1) > re-acquires when the heartbeat says the lock is not this judge's any more
+AssertionError: heartbeat_judge_lock returned false — the lock row is another judge's — and the hook did not go back and ask. It is still telling the judge they hold a round they do not.: expected [ { fn: 'acquire_judge_lock', …(1) } ] to have a length of 2 but got 1
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ src/hooks/judging/__tests__/useJudgingLockHeartbeatReacquire.test.tsx:152:7
+    150|       "heartbeat_judge_lock returned false — the lock row is another j…
+    151|         "did not go back and ask. It is still telling the judge they h…
+    152|     ).toHaveLength(2);
+       |       ^
+    153| 
+    154|     view.unmount();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/hooks/judging/__tests__/useJudgingLockHeartbeatReacquire.test.tsx > useJudgingLock — the heartbeat reads its answer (R-63 / P10-J1) > shows the other judge, rather than a lock it does not have
+AssertionError: the judge is still being told they hold the lock: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/hooks/judging/__tests__/useJudgingLockHeartbeatReacquire.test.tsx:165:94
+    163|     await settle();
+    164| 
+    165|     expect(view.result.current.isLocked, "the judge is still being tol…
+       |                                                                                              ^
+    166|     expect(view.result.current.lockedByOther).toBe(true);
+    167|     expect(view.result.current.lockedByJudgeId).toBe(OTHER_JUDGE_ID);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/hooks/judging/__tests__/useJudgingLockHeartbeatReacquire.test.tsx > useJudgingLock — the heartbeat reads its answer (R-63 / P10-J1) > re-acquires when the first heartbeat after the tab comes back fails
+AssertionError: no heartbeat fired on becoming visible, so nothing checked the lock: expected [] to have a length of 1 but got +0
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ src/hooks/judging/__tests__/useJudgingLockHeartbeatReacquire.test.tsx:195:7
+    193|       called("heartbeat_judge_lock"),
+    194|       "no heartbeat fired on becoming visible, so nothing checked the …
+    195|     ).toHaveLength(1);
+       |       ^
+    196|     expect(
+    197|       called("acquire_judge_lock"),
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 3 passed (6)
+   Start at  16:06:27
+   Duration  1.81s (transform 416ms, setup 98ms, collect 846ms, tests 73ms, environment 409ms, prepare 132ms)
+

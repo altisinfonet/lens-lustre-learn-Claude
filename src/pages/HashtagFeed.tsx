@@ -172,7 +172,7 @@ const HashtagFeed = () => {
                   to={memberPath(post.author_handle) ?? undefined}
                   src={post.author_avatar}
                   name={post.author_name}
-                  lastActiveAt={post.author_last_active}
+                  userId={post.user_id}
                   size={40}
                 />
                 <div>

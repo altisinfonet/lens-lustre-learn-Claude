@@ -64,7 +64,7 @@ import ProfileLink from "@/components/ProfileLink";
 import { Link } from "react-router-dom";
 import { MoreHorizontal, Trash2, Flag, Ban, Pin, Pencil, ChevronDown, Heart, SmilePlus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { isActiveNow } from "@/hooks/core/useLastActive";
+import { useOnline } from "@/lib/presence/online";
 import MentionInput from "@/components/MentionInput";
 import RichContentRenderer from "@/components/RichContentRenderer";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
@@ -250,15 +250,16 @@ export const Avatar = ({
   src,
   name,
   size = "sm",
-  lastActiveAt,
+  userId,
 }: {
   src: string | null | undefined;
   name: string | null | undefined;
   size?: "xs" | "sm";
-  lastActiveAt?: string | null;
+  userId?: string | null;
 }) => {
   const cls = size === "xs" ? "w-6 h-6 text-[10px]" : "w-8 h-8 text-xs";
-  const online = isActiveNow(lastActiveAt);
+  /* P1 §4: live presence keyed on the commenter's id. */
+  const online = useOnline(userId);
   return (
     <span className={`relative inline-block ${cls}`}>
       {src ? (
@@ -391,7 +392,7 @@ const CommentThread = ({
       <div key={comment.id} className={depth > 0 ? "ml-11" : ""}>
         <div className="flex gap-3 group/comment py-2">
           <ProfileLink userId={comment.user_id} handle={comment.author_handle} className="shrink-0 mt-0.5 flex min-w-8 justify-center">
-            <Avatar src={comment.author_avatar} name={comment.author_name} size={depth > 0 ? "xs" : "sm"} lastActiveAt={comment.author_last_active} />
+            <Avatar src={comment.author_avatar} name={comment.author_name} size={depth > 0 ? "xs" : "sm"} userId={comment.user_id} />
           </ProfileLink>
           <div className="flex-1 min-w-0">
             {/* Editing mode */}

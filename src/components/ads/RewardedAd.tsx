@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, CheckCircle2, Gift } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { startVisibilityInterval } from "@/lib/timers/visibilityInterval";
 import FullscreenAdShell from "./FullscreenAdShell";
 import { type AdZoneCreative, fetchAdZones, fetchAdFrequency, fetchAdZonesEnabled } from "@/lib/ads/adZonesV2";
 import { detectDevice, trackZoneEvent } from "@/lib/ads/adTrackV2";
@@ -63,15 +64,19 @@ const RewardedAd = ({ open, onClose }: RewardedAdProps) => {
     if (!open) { startedRef.current = false; setPhase("loading"); setToken(""); setCreative(null); }
   }, [open]);
 
-  // Attention countdown — pauses while the app is backgrounded.
+  /* Attention countdown — pauses while the app is backgrounded.
+   *
+   * P10: this is one of the few places where an accumulator is the RIGHT
+   * shape. The member is being asked to watch for N seconds; time spent with
+   * the app backgrounded is not watching, so the count must pause rather than
+   * be derived from wall-clock. startVisibilityInterval gives exactly that —
+   * the timer stops on hide and on Capacitor appStateChange, and the old
+   * `if (document.hidden) return` guard is gone because the timer no longer
+   * runs at all while hidden, rather than running and doing nothing.
+   */
   useEffect(() => {
     if (phase !== "watching") return;
-    const tick = () => {
-      if (document.hidden) return; // pause when not in foreground
-      setRemaining((r) => (r <= 1 ? 0 : r - 1));
-    };
-    const iv = setInterval(tick, 1000);
-    return () => clearInterval(iv);
+    return startVisibilityInterval(() => setRemaining((r) => (r <= 1 ? 0 : r - 1)), 1000);
   }, [phase]);
 
   useEffect(() => {

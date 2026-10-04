@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { Plus, Pencil, Trash2, Eye, XCircle, Loader2, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Calendar, Clock, DollarSign, Users, Gavel, Vote, CheckCircle2, Archive, Sparkles } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
+import { useVisibilityInterval } from "@/lib/timers/visibilityInterval";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -128,10 +129,11 @@ const DriftBadge = ({ comp }: { comp: { phase: string; status: string; starts_at
  */
 const RemainingTime = ({ comp, compact = false }: { comp: { phase: string; ends_at: string; voting_ends_at: string | null }; compact?: boolean }) => {
   const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, []);
+  /* P10: the countdown is derived from `now` at render, so this timer only has
+   * to force a re-render. Stopping it while the tab is hidden costs nothing —
+   * `runOnVisible` re-reads the clock the moment the admin comes back, so the
+   * figure is never stale on screen. */
+  useVisibilityInterval(() => setNow(Date.now()), 1000, { runOnVisible: true });
 
   const phase = comp.phase;
   if (!["submission_open", "voting", "judging"].includes(phase)) return null;
