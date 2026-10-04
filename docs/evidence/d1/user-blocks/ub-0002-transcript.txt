@@ -1,0 +1,89 @@
+# ub-0002-run-tests.sh transcript · scratch PostgreSQL 17.11 · 2026-10-04T05:12Z
+# command: PGPORT=5433 bash docs/evidence/d1/user-blocks/ub-0002-run-tests.sh   (exit 0)
+
+══ 0 · fixture + 20261003_0001 verbatim
+  server_version 17.11 (Ubuntu 17.11-1.pgdg24.04+2)
+  PASS  fixture built, 0001 applied
+  0001 function body md5 a11687327e3b
+
+══ 1 · FAIL FIRST — the old PROBE passes a USING (true) table; the new PROBE does not pass 0001
+  PASS  old PROBE_user_blocks_closed on the 0001 state — exit 0
+        psql:<tmp>/PROBE_user_blocks_closed.sql:36: NOTICE:  PROBE PASS: user_blocks present, RLS on, 4 policies, anon closed, trigger fn closed
+  PASS  old PROBE on 0001 with user_blocks_select_own = USING (true)  ← the hole SEC-UB-2 names — exit 0
+        psql:<tmp>/PROBE_user_blocks_closed.sql:36: NOTICE:  PROBE PASS: user_blocks present, RLS on, 4 policies, anon closed, trigger fn closed
+  PASS  …and under that policy member B really reads member A's block (the leak the old PROBE missed)
+  PASS  new PROBE on the 0001 state — refused (exit 3):
+        psql:supabase/migrations/PROBE_user_blocks_hardened.sql:183: ERROR:  PROBE FAIL S2: 2 permissive SELECT/ALL policies; qual = has_role(( SELECT auth.uid(
+  PASS  SEC-UB-1 under 0001: block/unblock ×3 writes 3 notices (the flood)
+  PASS  SEC-UB-3 under 0001: a deleted account's insert passes RLS and stops only at the FK
+
+══ 2 · lane assertion
+  PASS  0002 with no lane set — refused: APPLY REFUSED
+  PASS  0002 with p32.lane='dev' — refused
+  PASS  after both refusals the 0001 policy set is untouched (4)
+  PASS  …and no ledger table was created
+  PASS  0002 on a database where 0001 never ran — refused (exit 3):
+        psql:supabase/migrations/20261003_0002_user_blocks_hardening.sql:122: ERROR:  UB-0002-PRE-001: 20261003_0001 is not applied on this database (user_block
+
+══ 3 · apply on staging lane, then the new PROBE
+  PASS  0002 apply (lane staging) — exit 0
+        psql:supabase/migrations/20261003_0002_user_blocks_hardening.sql:256: NOTICE:  UB-0002: one SELECT policy, three restrictive live-account guards, notices capped at one per pair per 24 h
+  PASS  policy set = one SELECT + INSERT + DELETE + 3 restrictive
+  user_blocks_select qual: ((blocker_id = ( SELECT auth.uid() AS uid)) OR ( SELECT has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) AS has_role))
+  PASS  the pre-existing block row is untouched
+  PASS  new PROBE after 0002 — exit 0
+        psql:supabase/migrations/PROBE_user_blocks_hardened.sql:183: NOTICE:  PROBE PASS: user_blocks hardened — S1..S7 static, B1..B9 behaviour (all rolled back)
+  PASS  the PROBE left nothing behind (1 block, 0 ledger rows, 1 notice — all from before it)
+  PASS  old PROBE_user_blocks_closed after 0002 (superseded: counts 4 policies) — refused (exit 3):
+        psql:<tmp>/PROBE_user_blocks_closed.sql:36: ERROR:  PROBE FAIL: expected 4 policies on user_blocks, found 6
+  PASS  0002 a second time — refused (exit 3):
+        psql:supabase/migrations/20261003_0002_user_blocks_hardening.sql:122: ERROR:  UB-0002-PRE-002: user_blocks policies are (Deleted accounts cannot delete:
+
+══ 4 · behaviour after 0002, member by member (PostgREST-shaped sessions)
+  PASS  A sees 0 rows (C's block of A is C's, not A's)
+  PASS  C sees its own 1 row
+  PASS  admin M sees all rows (1)
+  PASS  anon: permission denied
+  PASS  re-block = 23505 (the client treats it as success) — unchanged
+  PASS  SEC-UB-1: block + 3× unblock/block within 24 h = 1 notice (was 4 under 0001)
+  PASS  …and after 24 h the same pair notifies again (2)
+  PASS  a different blocker of B is a different pair: notified (3)
+  PASS  B cannot delete A's block (0 rows)
+  PASS  B cannot insert a block in A's name (RLS)
+  PASS  SEC-UB-3: deleted account D refused by RLS (was FK error under 0001)
+  PASS  a member cannot read the ledger
+  PASS  a member cannot call the trigger function
+
+══ 5 · the PROBE fails on every hole it is meant to catch (mutants of 0002)
+  PASS  PROBE on mutant: SELECT policy USING (true) — refused (exit 3):
+        psql:supabase/migrations/PROBE_user_blocks_hardened.sql:183: ERROR:  PROBE FAIL S2: 1 permissive SELECT/ALL policies; qual = true
+  PASS  PROBE on mutant: SELECT policy USING (true) — PROBE without S2 (behaviour must catch it alone) — refused (exit 3):
+        psql:<tmp>/p_nos2.sql:183: ERROR:  PROBE FAIL B3: B sees 1 of A's block rows (want 0)
+  PASS  PROBE on mutant: no 24 h cap — refused (exit 3):
+        psql:supabase/migrations/PROBE_user_blocks_hardened.sql:183: ERROR:  PROBE FAIL B9: block, unblock, block wrote 2 notices (want 1)
+  PASS  PROBE on mutant: no restrictive INSERT guard — PROBE without S5 — refused (exit 3):
+        psql:<tmp>/p_nos5.sql:183: ERROR:  PROBE FAIL B7: a deleted account was not refused by RLS
+  PASS  PROBE on mutant: ledger readable by authenticated — refused (exit 3):
+        psql:supabase/migrations/PROBE_user_blocks_hardened.sql:183: ERROR:  PROBE FAIL S7: public.user_block_notices missing, RLS off, or open to an API role
+
+══ 6 · rollback: lane guard, exact return to 0001, data kept
+  PASS  rollback with no lane — refused
+  PASS  rollback (lane production — the guard admits both lanes) — exit 0
+  PASS  policies = 0001's four
+  PASS  function body = 0001's, byte for byte (md5)
+  PASS  member data kept: the block row and the ledger row both survive
+  PASS  old PROBE_user_blocks_closed passes again after the rollback — exit 0
+        psql:<tmp>/PROBE_user_blocks_closed.sql:36: NOTICE:  PROBE PASS: user_blocks present, RLS on, 4 policies, anon closed, trigger fn closed
+  PASS  rollback a second time — refused (exit 3):
+        psql:supabase/rollback/20261003_0002_user_blocks_hardening_ROLLBACK.sql:60: ERROR:  UB-0002-RB-PRE-001: user_blocks policies are (user_blocks_delete_own
+  PASS  re-apply 0002 after the rollback (ledger reused) — exit 0
+        psql:supabase/migrations/20261003_0002_user_blocks_hardening.sql:132: NOTICE:  relation "user_block_notices" already exists, skipping
+        psql:supabase/migrations/20261003_0002_user_blocks_hardening.sql:256: NOTICE:  UB-0002: one SELECT policy, three restrictive live-account guards, notices capped at one per pair per 24 h
+  PASS  the kept ledger row is reused, not duplicated
+  PASS  new PROBE after re-apply — exit 0
+        psql:supabase/migrations/PROBE_user_blocks_hardened.sql:183: NOTICE:  PROBE PASS: user_blocks hardened — S1..S7 static, B1..B9 behaviour (all rolled back)
+
+══ 7 · static: no member data is dropped anywhere in 0002 or its rollback
+  PASS  no DROP TABLE / TRUNCATE / DELETE statement in either file
+
+ALL CASES PASS
