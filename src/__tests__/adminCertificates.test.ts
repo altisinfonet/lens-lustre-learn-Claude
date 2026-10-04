@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { migrationText } from "@/test-utils/neutralisedMigration";
 import {
   CERT_TYPES,
   CERT_TYPE_GROUPS,
@@ -46,11 +47,20 @@ const CODE = COMPONENT
   .filter((l) => !l.trim().startsWith("//") && !l.trim().startsWith("*"))
   .join("\n");
 
+/**
+ * The SQL this file asserts on, as it was WRITTEN — not as it now sits on disk.
+ *
+ * These three certificate migrations were withdrawn and neutralised under
+ * R-24 / R-26 (#291): every line of each body carries a leading `-- `. That
+ * silently turned four assertions here red and left the rest passing against
+ * commented-out text. `migrationText` performs the recovery the file's own
+ * header documents and verifies the sha256 the header records, so these
+ * assertions read real SQL again and fail if the preserved body is ever edited.
+ * See `src/test-utils/neutralisedMigration.ts` for why this is not done by
+ * loosening the regexes.
+ */
 function migrationSource(fragment = "certificate_types_and_admin_search"): string {
-  const dir = join(ROOT, "supabase/migrations");
-  const f = readdirSync(dir).find((n) => n.includes(fragment));
-  if (!f) throw new Error(`the ${fragment} migration is missing`);
-  return readFileSync(join(dir, f), "utf8");
+  return migrationText(fragment).sql;
 }
 
 describe("certificate type registry", () => {
