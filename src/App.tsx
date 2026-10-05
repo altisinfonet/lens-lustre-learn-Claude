@@ -6,6 +6,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { BrowserRouter, Routes, Route, Navigate, useParams, Outlet, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/core/useAuth";
+import OfflineDeviceStoreBridge from "@/components/OfflineDeviceStoreBridge";
+import { shouldRetry, retryDelay } from "@/lib/offline/retryPolicy";
 import { ThemeProvider } from "@/hooks/core/useTheme";
 
 import { CookieConsentProvider } from "@/hooks/core/useCookieConsent";
@@ -215,7 +217,10 @@ const queryClient = new QueryClient({
       staleTime: 5 * 60 * 1000, // 5 min
       gcTime: 10 * 60 * 1000,   // 10 min
       refetchOnWindowFocus: true,
-      retry: 1,
+      // OFF-3: retry what the network broke (up to 3, backing off 1-8 s), retry a
+      // 5xx once, never retry a refusal. Was `retry: 1` for everything.
+      retry: shouldRetry,
+      retryDelay,
     },
   },
 });
@@ -364,6 +369,8 @@ const App = () => {
               order (close overlay -> go back -> exit app). */}
           <AndroidBackButton />
           <LanguageAccountSync />
+          {/* OFF-1: feed, profiles, own posts, notifications kept on the device. */}
+          <OfflineDeviceStoreBridge />
           <PushNotificationsGate />
           <AdFullscreenProvider>
           <AppErrorBoundary>

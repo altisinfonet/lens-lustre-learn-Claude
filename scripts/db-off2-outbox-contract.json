@@ -1,0 +1,14 @@
+{
+  "_about": "OFF-2 · every table an outbox action (OFF-5 §2, QUEUED) writes, and what makes a repeated send leave ONE row. kind 'key' = (owner, idempotency_key) UNIQUE, owned by OFF-2; 'natural' = the pair IS the fact, a repeat is the same row; 'update-only' = the action is an UPDATE to a fixed value. scripts/db-off2-idempotency-check.mjs checks the 'key' entries in git; supabase/migrations/PROBE_off2_idempotency.sql checks every entry live. Adding a QUEUED action means adding its table here, in the same PR.",
+  "tables": {
+    "posts":              { "kind": "key", "owner": "user_id", "unique": "posts_user_idempotency_key", "partial": true, "action": "new post (§2 #2)" },
+    "post_comments":      { "kind": "key", "owner": "user_id", "unique": "post_comments_user_idempotency_key", "partial": false, "action": "comment (§2 #1, #3)" },
+    "reports":            { "kind": "key", "owner": "reporter_id", "unique": "reports_reporter_idempotency_key", "partial": false, "action": "report a post or member (§2 #15)" },
+    "post_reactions":     { "kind": "natural", "columns": ["post_id", "user_id"], "action": "like / unlike (§2 #1, #3)" },
+    "comment_reactions":  { "kind": "natural", "columns": ["comment_id", "user_id"], "action": "like a comment (§2 #3)" },
+    "follows":            { "kind": "natural", "columns": ["follower_id", "following_id"], "action": "follow / unfollow (§2 #5)" },
+    "friendships":        { "kind": "natural", "columns": ["requester_id", "addressee_id"], "action": "friend request (§2 #5)" },
+    "post_reports":       { "kind": "natural", "columns": ["post_id", "reporter_id"], "action": "report a post, legacy path (§2 #15)" },
+    "user_notifications": { "kind": "update-only", "action": "mark read (§2 #7)", "reason": "UPDATE … SET is_read = true is the same row however often it is sent" }
+  }
+}
