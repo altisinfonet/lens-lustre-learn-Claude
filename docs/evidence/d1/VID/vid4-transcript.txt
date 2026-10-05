@@ -1,0 +1,220 @@
+
+══ staging · 0 · fixture + 0004 (switches) + 0005 (videos); video_posts on for All members
+  lane shape: staging · category minimum on INSERT: off (B1)
+  PASS  0004 + 0005 applied
+
+══ staging · 1 · fail first: no music check — an uploaded video can never leave 'uploading'
+  PASS  PROBE refuses — before 0006:
+                PROBE FAIL VID-4: M1 the music check is not installed
+  PASS  video_mark_uploaded does not exist; the video stays uploading
+
+══ staging · 2 · apply 20261005_0006 (lane staging) and probe
+  PASS  apply with no lane — refused
+  PASS  apply — VID4-0006: copyright music check in place — copyright_music_check=off; music-API key configured: f
+  PASS  PROBE passes — after 0006
+        PROBE PASS VID-4: copyright_music_check=off (key configured: f); checking 0, due now 0, overdue > 6 h 0; library active 0
+  PASS  a second apply is refused (PRE-002)
+
+══ staging · 3 · copyright_music_check OFF (as shipped): any audio publishes, the hash is stored anyway
+  PASS  only the owner, only the current version, never anon
+  PASS  a malformed hash → VID-MU-003
+  PASS  Neil, switch Off, audio + hash → ready in the same call
+  PASS  a not_required check (mode off) carrying the audio hash; the version stores it
+  PASS  the outbox retrying the call → replayed, nothing changes
+  PASS  the ready video goes into Neil's post
+  PASS  a silent video → ready, no hash
+  PASS  audio but no hash handed in → checking, queued for the worker to hash (mode off)
+  PASS  the worker cannot JUDGE an off check (clean → VID-MC-002)
+  PASS  the worker hashes the served bytes → not_required → ready, hash stored
+  PASS  members and admins cannot play the worker
+
+══ staging · 4 · the switch refuses ON while the music-API key is missing (VID-7 / R-102)
+  PASS  Selected / All members without the key → FEATURE-003
+  PASS  key present → Selected members: Neil Basu
+
+══ staging · 5 · ON for Neil: checked before publish; a match blocks; Riya (not listed) still publishes
+  PASS  Neil → checking, queued; the client's hash is NOT trusted for an on check
+  PASS  Riya, same moment → off → ready
+  PASS  the worker cannot wave an on check through (not_required → VID-MC-002)
+  PASS  service_role forcing ready → VID-GATE-001
+  PASS  a match with no matches listed → VID-MC-004
+  PASS  match → music_blocked, out of the queue
+  PASS  a blocked video cannot go into a post
+  PASS  Neil reads the matched title and range for the blocked screen; Riya sees nothing
+
+══ staging · 6 · remedies make a new version, and every version is checked again
+  PASS  only the owner, only a blocked video
+  PASS  remedy 'original' and a muted version WITH audio → VID-NV-002
+  PASS  the size rules apply to a new version too (3:01 → VID-LIM-001)
+  PASS  Remove sound → v2 uploading (not a new upload)
+  PASS  v2 checked again (on); a hash for a silent version → VID-MC-003
+  PASS  clean_no_audio → ready → linked
+  PASS  a member cannot add library tracks
+  PASS  a licence URL that is not https → VID-LIB-002
+  PASS  a track is added inactive and cannot go live before it is fingerprinted
+  PASS  fingerprinted by the worker, activated by the admin — all three audited
+  PASS  an unknown library track → VID-NV-003
+  PASS  Replace with a free track → v2, checked
+  PASS  library track + leftover music claimed clean_library → VID-MC-005 (it is a match)
+  PASS  only the library track heard → clean_library → ready
+  PASS  a reversed cut, or under 3 s left → VID-NV-004
+  PASS  Trim the matched part → v2 checked; leftover music blocks again with the new range
+
+══ staging · 7 · music API down: stays 'checking', retried 1 → 2 → 5 → 15 → 30 min, never published unchecked
+  PASS  the schedule: 1, 2, 5, 15, 30 min, then every 30 min
+  PASS  provider error 1 → still checking, retry in 1 min, not due before then
+  PASS  provider error 2 → still checking, retry in 2 min, not due before then
+  PASS  provider error 3 → still checking, retry in 5 min, not due before then
+  PASS  forcing an error row through the gate → VID-GATE-002
+  PASS  …its retry time reached (5 min later) → due again
+  PASS  the API is back: clean → ready (4 error rows kept)
+  PASS  a late duplicate result for a video no longer checking → VID-MC-001 (stale)
+  PASS  checking for 7 h → on the 6-hour alert list (VID-6); the published one is not
+  PASS  a result for an OLDER attempt → VID-MC-001
+
+══ staging · 8 · the key goes missing while ON: Neil's new video waits in 'checking', never published
+  PASS  Neil uploads → checking (on), not ready
+  PASS  the worker (no key) cannot wave it through; it can only record an error and retry
+  PASS  PROBE passes — the PROBE still passes (M3/M4 hold)
+        PROBE PASS VID-4: copyright_music_check=selected (key configured: f); checking 2, due now 0, overdue > 6 h 1; library active 1
+
+══ staging · 9 · R-82 scale: 20 000 videos waiting in 'checking' among 220 000
+  PASS  music_check_due(50) with 20036 checking: 174 ms (< 2 s)
+  PASS  music_check_overdue() over the same: 104 ms (< 3 s)
+
+══ staging · 10 · the PROBE catches each regression (mutants, each undone)
+  PASS  PROBE refuses — members can post verdicts:
+          M2 a worker function is callable by an API role (or a member RPC by anon)
+  PASS  PROBE refuses — the library audit editable:
+          M2 music_library_audit is reachable by an API role or not append-only
+  PASS  PROBE refuses — an on check closed as not_required (live data):
+          M3 1 check(s) closed against their mode (a checked video skipped, or an unchecked one judged)
+  PASS  PROBE refuses — an error that will never be retried:
+          M4 1 error row(s) without a retry time
+  PASS  PROBE refuses — a library track live without a fingerprint:
+          M5 1 active library track(s) never fingerprinted
+  PASS  PROBE passes — every mutant undone
+        PROBE PASS VID-4: copyright_music_check=selected (key configured: t); checking 2, due now 0, overdue > 6 h 1; library active 1
+
+══ staging · 11 · rollback order and keep: 0005 refuses while 0006 is on; 0006 rollback keeps every video and check
+  PASS  0005 rollback refused while 0006 is applied (RB-PRE-002)
+  PASS  rollback with no lane — refused
+  PASS  rollback (lane staging)
+  PASS  functions gone; videos/checks/library audit (10/27/3) kept; Neil's waiting video still not published
+  PASS  PROBE refuses — after the rollback:
+                PROBE FAIL VID-4: M1 the music check is not installed
+  PASS  re-apply
+  PASS  PROBE passes — re-applied
+        PROBE PASS VID-4: copyright_music_check=selected (key configured: t); checking 2, due now 0, overdue > 6 h 1; library active 1
+  PASS  after the re-apply the worker finishes Neil's waiting video
+
+══ production · 0 · fixture + 0004 (switches) + 0005 (videos); video_posts on for All members
+  lane shape: production · category minimum on INSERT: on (B2)
+  PASS  0004 + 0005 applied
+
+══ production · 1 · fail first: no music check — an uploaded video can never leave 'uploading'
+  PASS  PROBE refuses — before 0006:
+                PROBE FAIL VID-4: M1 the music check is not installed
+  PASS  video_mark_uploaded does not exist; the video stays uploading
+
+══ production · 2 · apply 20261005_0006 (lane production) and probe
+  PASS  apply with no lane — refused
+  PASS  apply — VID4-0006: copyright music check in place — copyright_music_check=off; music-API key configured: f
+  PASS  PROBE passes — after 0006
+        PROBE PASS VID-4: copyright_music_check=off (key configured: f); checking 0, due now 0, overdue > 6 h 0; library active 0
+  PASS  a second apply is refused (PRE-002)
+
+══ production · 3 · copyright_music_check OFF (as shipped): any audio publishes, the hash is stored anyway
+  PASS  only the owner, only the current version, never anon
+  PASS  a malformed hash → VID-MU-003
+  PASS  Neil, switch Off, audio + hash → ready in the same call
+  PASS  a not_required check (mode off) carrying the audio hash; the version stores it
+  PASS  the outbox retrying the call → replayed, nothing changes
+  PASS  the ready video goes into Neil's post
+  PASS  a silent video → ready, no hash
+  PASS  audio but no hash handed in → checking, queued for the worker to hash (mode off)
+  PASS  the worker cannot JUDGE an off check (clean → VID-MC-002)
+  PASS  the worker hashes the served bytes → not_required → ready, hash stored
+  PASS  members and admins cannot play the worker
+
+══ production · 4 · the switch refuses ON while the music-API key is missing (VID-7 / R-102)
+  PASS  Selected / All members without the key → FEATURE-003
+  PASS  key present → Selected members: Neil Basu
+
+══ production · 5 · ON for Neil: checked before publish; a match blocks; Riya (not listed) still publishes
+  PASS  Neil → checking, queued; the client's hash is NOT trusted for an on check
+  PASS  Riya, same moment → off → ready
+  PASS  the worker cannot wave an on check through (not_required → VID-MC-002)
+  PASS  service_role forcing ready → VID-GATE-001
+  PASS  a match with no matches listed → VID-MC-004
+  PASS  match → music_blocked, out of the queue
+  PASS  a blocked video cannot go into a post
+  PASS  Neil reads the matched title and range for the blocked screen; Riya sees nothing
+
+══ production · 6 · remedies make a new version, and every version is checked again
+  PASS  only the owner, only a blocked video
+  PASS  remedy 'original' and a muted version WITH audio → VID-NV-002
+  PASS  the size rules apply to a new version too (3:01 → VID-LIM-001)
+  PASS  Remove sound → v2 uploading (not a new upload)
+  PASS  v2 checked again (on); a hash for a silent version → VID-MC-003
+  PASS  clean_no_audio → ready → linked
+  PASS  a member cannot add library tracks
+  PASS  a licence URL that is not https → VID-LIB-002
+  PASS  a track is added inactive and cannot go live before it is fingerprinted
+  PASS  fingerprinted by the worker, activated by the admin — all three audited
+  PASS  an unknown library track → VID-NV-003
+  PASS  Replace with a free track → v2, checked
+  PASS  library track + leftover music claimed clean_library → VID-MC-005 (it is a match)
+  PASS  only the library track heard → clean_library → ready
+  PASS  a reversed cut, or under 3 s left → VID-NV-004
+  PASS  Trim the matched part → v2 checked; leftover music blocks again with the new range
+
+══ production · 7 · music API down: stays 'checking', retried 1 → 2 → 5 → 15 → 30 min, never published unchecked
+  PASS  the schedule: 1, 2, 5, 15, 30 min, then every 30 min
+  PASS  provider error 1 → still checking, retry in 1 min, not due before then
+  PASS  provider error 2 → still checking, retry in 2 min, not due before then
+  PASS  provider error 3 → still checking, retry in 5 min, not due before then
+  PASS  forcing an error row through the gate → VID-GATE-002
+  PASS  …its retry time reached (5 min later) → due again
+  PASS  the API is back: clean → ready (4 error rows kept)
+  PASS  a late duplicate result for a video no longer checking → VID-MC-001 (stale)
+  PASS  checking for 7 h → on the 6-hour alert list (VID-6); the published one is not
+  PASS  a result for an OLDER attempt → VID-MC-001
+
+══ production · 8 · the key goes missing while ON: Neil's new video waits in 'checking', never published
+  PASS  Neil uploads → checking (on), not ready
+  PASS  the worker (no key) cannot wave it through; it can only record an error and retry
+  PASS  PROBE passes — the PROBE still passes (M3/M4 hold)
+        PROBE PASS VID-4: copyright_music_check=selected (key configured: f); checking 2, due now 0, overdue > 6 h 1; library active 1
+
+══ production · 9 · R-82 scale: 20 000 videos waiting in 'checking' among 220 000
+  PASS  music_check_due(50) with 20098 checking: 185 ms (< 2 s)
+  PASS  music_check_overdue() over the same: 141 ms (< 3 s)
+
+══ production · 10 · the PROBE catches each regression (mutants, each undone)
+  PASS  PROBE refuses — members can post verdicts:
+          M2 a worker function is callable by an API role (or a member RPC by anon)
+  PASS  PROBE refuses — the library audit editable:
+          M2 music_library_audit is reachable by an API role or not append-only
+  PASS  PROBE refuses — an on check closed as not_required (live data):
+          M3 1 check(s) closed against their mode (a checked video skipped, or an unchecked one judged)
+  PASS  PROBE refuses — an error that will never be retried:
+          M4 1 error row(s) without a retry time
+  PASS  PROBE refuses — a library track live without a fingerprint:
+          M5 1 active library track(s) never fingerprinted
+  PASS  PROBE passes — every mutant undone
+        PROBE PASS VID-4: copyright_music_check=selected (key configured: t); checking 2, due now 0, overdue > 6 h 1; library active 1
+
+══ production · 11 · rollback order and keep: 0005 refuses while 0006 is on; 0006 rollback keeps every video and check
+  PASS  0005 rollback refused while 0006 is applied (RB-PRE-002)
+  PASS  rollback with no lane — refused
+  PASS  rollback (lane production)
+  PASS  functions gone; videos/checks/library audit (10/27/3) kept; Neil's waiting video still not published
+  PASS  PROBE refuses — after the rollback:
+                PROBE FAIL VID-4: M1 the music check is not installed
+  PASS  re-apply
+  PASS  PROBE passes — re-applied
+        PROBE PASS VID-4: copyright_music_check=selected (key configured: t); checking 2, due now 0, overdue > 6 h 1; library active 1
+  PASS  after the re-apply the worker finishes Neil's waiting video
+
+ALL CASES PASS
