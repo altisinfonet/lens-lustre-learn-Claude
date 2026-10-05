@@ -122,6 +122,8 @@ const lazyRetry = (factory: () => Promise<any>, key: string) =>
 
 /* Lazy-load all pages for faster initial load on non-home routes */
 const Index = lazyRetry(() => import("./pages/Index"), "Index");
+// VID-1: carries the member's video uploads to the end. Lazy: not in the entry bundle (P13).
+const VideoUploadBridge = lazyRetry(() => import("./components/video/VideoUploadBridge"), "VideoUploadBridge");
 const CropTest = lazyRetry(() => import("./pages/CropTest"), "CropTest");
 const Login = lazyRetry(() => import("./pages/Login"), "Login");
 const Signup = lazyRetry(() => import("./pages/Signup"), "Signup");
@@ -374,6 +376,7 @@ const App = () => {
           <OfflineDeviceStoreBridge />
           {/* OFF-2: likes, comments and reports made offline are sent once when back online. */}
           <OutboxBridge />
+          <Suspense fallback={null}><VideoUploadBridge /></Suspense>
           <PushNotificationsGate />
           <AdFullscreenProvider>
           <AppErrorBoundary>

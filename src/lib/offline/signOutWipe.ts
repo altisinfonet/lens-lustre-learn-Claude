@@ -13,6 +13,8 @@
  *   2. the image service worker's caches (gallery-images-*);
  *   3. the OFF-1 device store (IndexedDB `retina-offline`);
  *   4. the feed's first-page cache (localStorage `feed_cache_v1`);
+ *   6. VID-1 video upload jobs + their encoded files (IndexedDB
+ *      `retina-video-uploads`): an unposted video is the member's alone;
  *   5. the OFF-2 outbox (IndexedDB `retina-outbox`): unsent actions belong to
  *      the member who made them and are never sent under someone else.
  * NOT wiped, on purpose: device preferences that belong to the device, not the
@@ -25,22 +27,25 @@ import { clearDeviceStore } from "./deviceStore";
 import { setPersistenceUser } from "./queryPersistence";
 import { clearFeedCache } from "@/lib/feedCache";
 import { clearOutbox } from "./outbox";
+import { clearVideoUploads } from "@/lib/video/uploadJobs";
 
 export interface WipeResult {
   imageCaches: string[] | null;
   deviceStore: boolean;
   feedCache: boolean;
   outbox: boolean;
+  videoUploads: boolean;
 }
 
 export async function wipeMemberDataOnSignOut(): Promise<WipeResult> {
   setPersistenceUser(null);
   let feedCache = false;
   try { clearFeedCache(); feedCache = true; } catch { /* never block sign-out */ }
-  const [imageCaches, deviceStore, outbox] = await Promise.all([
+  const [imageCaches, deviceStore, outbox, videoUploads] = await Promise.all([
     purgeImageCache().catch(() => null),
     clearDeviceStore().catch(() => false),
     clearOutbox().catch(() => false),
+    clearVideoUploads().catch(() => false),
   ]);
-  return { imageCaches, deviceStore, feedCache, outbox };
+  return { imageCaches, deviceStore, feedCache, outbox, videoUploads };
 }

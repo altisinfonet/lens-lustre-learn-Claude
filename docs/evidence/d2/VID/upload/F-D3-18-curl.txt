@@ -1,0 +1,53 @@
+# F-D3-18 · is the D-003 media-authz Worker live? (read 2026-10-05T12:47:19Z, curl from the D2 cloud workspace)
+
+$ curl -sS -D - -o /dev/null https://cdn-staging.50mmretina.com/video/x/y/v1/master.m3u8
+
+HTTP/2 404 
+date: Mon, 05 Oct 2026 12:47:20 GMT
+content-type: text/html
+server: cloudflare
+cf-cache-status: DYNAMIC
+cf-ray: a45c88c7c9250d9d-IAD
+
+
+$ curl -sS -D - -o /dev/null https://cdn-staging.50mmretina.com/upload/video/x/y/v1/master.m3u8
+
+HTTP/2 404 
+date: Mon, 05 Oct 2026 12:47:20 GMT
+content-type: text/html
+server: cloudflare
+cf-cache-status: DYNAMIC
+cf-ray: a45c88cb3d763bd1-IAD
+
+
+$ curl -sS -D - -o /dev/null https://cdn-staging.50mmretina.com/private/x
+
+HTTP/2 404 
+date: Mon, 05 Oct 2026 12:47:21 GMT
+content-type: text/html
+server: cloudflare
+cf-cache-status: DYNAMIC
+cf-ray: a45c88cd3ac09312-IAD
+
+
+$ curl -sS -D - -o /dev/null https://cdn.50mmretina.com/video/x/y/v1/master.m3u8
+
+HTTP/2 404 
+date: Mon, 05 Oct 2026 12:47:21 GMT
+content-type: text/html
+server: cloudflare
+cf-cache-status: DYNAMIC
+cf-ray: a45c88cf0b2b289e-IAD
+
+
+READING: every restricted-prefix request, with NO token, gets R2's own HTML 404 (content-type text/html, no Worker header, no 403).
+D-003 §8 case 3 requires 403 for a restricted key without a token. A Worker in front would answer 403 before looking the key up.
+=> the media-authz Worker is NOT live on staging or production (F-D3-18 OPEN). The hosts are R2 public custom domains: any key in the bucket is served to anyone.
+=> This PR keeps both video endpoints OFF (503 VID-ENV-002) until the lane sets VIDEO_DELIVERY_PRIVATE=1 (functions/api/video/_lib.ts).
+
+CONTROL — a real object in the production bucket, no token, no session:
+$ curl -sS -D - -o /dev/null https://cdn.50mmretina.com/portfolio-images/on-page/site_logo-1774176842636.webp
+HTTP/2 200 
+content-type: image/webp
+server: cloudflare
+=> 200 image/webp: the host serves whatever key the bucket holds, to anyone. A video/ or upload/video/ object written to that bucket today would be public.

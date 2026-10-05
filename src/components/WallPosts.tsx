@@ -4,6 +4,7 @@ import { MessageCircle, Send, Globe, Users, Lock, ChevronDown, ImagePlus, X, Tag
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import TagPeopleModal, { type PendingTag } from "@/components/post/TagPeopleModal";
 import CategoryChips, { canPublishCategories } from "@/components/post/CategoryChips";
+import VideoPostButton from "@/components/video/VideoPostButton";
 import DraftsList from "@/components/post/DraftsList";
 import {
   usePostDrafts, useCreateDraft, useUpdateDraft, usePublishDraft, type PostDraft,
@@ -1747,6 +1748,8 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                 >
                   <ImagePlus className="h-5 w-5 text-emerald-500" />
                 </button>
+                {/* VID-7: renders nothing unless video_posts is on for this member. */}
+                <VideoPostButton />
               </div>
             )}
 

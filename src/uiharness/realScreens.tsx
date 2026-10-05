@@ -185,6 +185,17 @@ export const REAL_SCREENS: Record<string, () => JSX.Element> = {
     screen(<PublicProfile />, `/profile/${HARNESS_USER_ID}`, "/profile/:userId"),
 
   /**
+   * VID-7 · the same wall with `video_posts` switched ON for this member: the
+   * "Add video" button appears beside "Add photo" (and only then — with the
+   * switch Off, "screen-wall" above is unchanged). Set before the first render,
+   * so the fixture answers true on the first ask.
+   */
+  "screen-wall-video-on": () => {
+    (globalThis as { __harnessFeatures?: string[] }).__harnessFeatures = ["video_posts"];
+    return screen(<PublicProfile />, `/profile/${HARNESS_USER_ID}`, "/profile/:userId");
+  },
+
+  /**
    * THE ABOUT TAB — added 2026-08-16, and it had never been photographed.
    *
    * `activeTab` starts at "wall", so every screenshot of this page for the

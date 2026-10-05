@@ -33,6 +33,23 @@ import { PrivacyGapNotice } from "@/components/post/PrivacyGapNotice";
 import { PostAudienceChooser, type Privacy } from "@/components/post/PostAudienceChooser";
 import type { UnifiedPost } from "@/types/post";
 import { REAL_SCREENS } from "./realScreens";
+import VideoPostComposer from "@/components/video/VideoPostComposer";
+import landscapeVideoUrl from "./fixtures/video/landscape-1280x720.webm?url";
+import portraitVideoUrl from "./fixtures/video/portrait-360x640.webm?url";
+
+/**
+ * VID-1 upload screen, opened with a real (3 s, synthetic) video already
+ * picked, so the PREVIEW CARD is what gets photographed. Every video card is
+ * 9:16 (Owner, 2026-10-05): a 9:16 video fills it; a 16:9 one is fitted whole
+ * in the middle with a blurred copy of itself above and below (videoFrame.ts).
+ */
+function VideoComposerHarness({ src, name }: { src: string; name: string }) {
+  const [file, setFile] = useState<File | null>(null);
+  if (!file) {
+    void fetch(src).then((r) => r.blob()).then((b) => setFile(new File([b], name, { type: "video/webm" })));
+  }
+  return file ? <VideoPostComposer open onOpenChange={() => {}} initialFile={file} /> : <p>loading video…</p>;
+}
 
 /** A deterministic stand-in image, so a scene never depends on the network. */
 export function swatch(seed: number, label = ""): string {
@@ -887,6 +904,11 @@ export const SCENES: Record<string, () => JSX.Element> = {
 
   /** The comments panel as it ships — search row, thread, composer. */
   "comments-panel": () => <CommentsPanelHarness />,
+
+  /** VID-1: the video upload screen — a 16:9 video fitted into the 9:16 card. */
+  "video-composer-landscape": () => <VideoComposerHarness src={landscapeVideoUrl} name="landscape.webm" />,
+  /** VID-1: a 9:16 video filling the 9:16 card edge to edge. */
+  "video-composer-portrait": () => <VideoComposerHarness src={portraitVideoUrl} name="portrait.webm" />,
 
   /**
    * The row and composer ALONE, using no prop newer than the redesign, so the

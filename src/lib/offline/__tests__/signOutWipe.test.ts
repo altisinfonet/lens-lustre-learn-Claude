@@ -11,6 +11,7 @@ import { setBackend, memoryBackend, putRecord } from "../deviceStore";
 import { setPersistenceUser, startQueryPersistence } from "../queryPersistence";
 import { persistFeedPage, getCachedFeed } from "@/lib/feedCache";
 import { enqueue, pending, memoryOutboxStore, __setOutboxStore, __resetOutbox } from "../outbox";
+import { __setJobStore, memoryJobStore, createJob, jobsFor } from "@/lib/video/uploadJobs";
 
 type C = { keys: () => Promise<string[]>; delete: (n: string) => Promise<boolean>; names: Set<string> };
 const fakeCaches = (names: string[]): C => {
@@ -20,7 +21,7 @@ const fakeCaches = (names: string[]): C => {
 
 let mem: ReturnType<typeof memoryBackend>;
 const realCaches = (globalThis as { caches?: unknown }).caches;
-beforeEach(() => { mem = memoryBackend(); setBackend(mem); localStorage.clear(); __resetOutbox(); __setOutboxStore(memoryOutboxStore()); });
+beforeEach(() => { mem = memoryBackend(); setBackend(mem); localStorage.clear(); __resetOutbox(); __setOutboxStore(memoryOutboxStore()); __setJobStore(memoryJobStore()); });
 afterEach(() => { setBackend(undefined); (globalThis as { caches?: unknown }).caches = realCaches; __setOutboxStore(undefined); });
 
 describe("wipeMemberDataOnSignOut", () => {
@@ -34,7 +35,7 @@ describe("wipeMemberDataOnSignOut", () => {
 
     const r = await wipeMemberDataOnSignOut();
 
-    expect(r).toEqual({ imageCaches: ["gallery-images-v3"], deviceStore: true, feedCache: true, outbox: true });
+    expect(r).toEqual({ imageCaches: ["gallery-images-v3"], deviceStore: true, feedCache: true, outbox: true, videoUploads: true });
     expect([...c.names]).toEqual(["unrelated"]);
     expect(mem.map.size).toBe(0);
     expect(getCachedFeed("me")).toBeNull();
@@ -57,7 +58,7 @@ describe("wipeMemberDataOnSignOut", () => {
   it("never throws when nothing is available", async () => {
     (globalThis as { caches?: unknown }).caches = undefined;
     setBackend(null);
-    await expect(wipeMemberDataOnSignOut()).resolves.toEqual({ imageCaches: null, deviceStore: false, feedCache: true, outbox: true });
+    await expect(wipeMemberDataOnSignOut()).resolves.toEqual({ imageCaches: null, deviceStore: false, feedCache: true, outbox: true, videoUploads: true });
   });
 
   it("OFF-2 · wipes the outbox: an unsent action is never sent under the next member", async () => {
@@ -66,5 +67,17 @@ describe("wipeMemberDataOnSignOut", () => {
     const r = await wipeMemberDataOnSignOut();
     expect(r.outbox).toBe(true);
     expect(await pending("me")).toEqual([]);
+  });
+
+  it("VID-1 · wipes the video upload jobs and their encoded files", async () => {
+    await createJob({
+      userId: "me", purpose: "post", manifestSha256: "a".repeat(64), files: new Map([["poster.jpg", new Uint8Array([0xff, 0xd8, 0xff])]]),
+      manifest: { v: 1, duration_s: 1, has_audio: false, width: 2, height: 2, files: [] },
+      post: { content: "", categories: ["x"], privacy: "public" },
+    });
+    expect(await jobsFor("me")).toHaveLength(1);
+    const r = await wipeMemberDataOnSignOut();
+    expect(r.videoUploads).toBe(true);
+    expect(await jobsFor("me")).toEqual([]);
   });
 });
