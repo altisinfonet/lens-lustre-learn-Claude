@@ -15,7 +15,8 @@ const difficultyColor = (d: string) => {
   switch (d) {
     case "Beginner": return "text-primary border-primary";
     case "Intermediate": return "text-accent-foreground border-accent bg-accent/10";
-    case "Advanced": return "text-destructive border-destructive bg-destructive/10";
+    // F-D3-11: text-destructive on its own 10% tint was 4.36:1 (production /courses).
+    case "Advanced": return "text-red-700 dark:text-red-400 border-destructive bg-destructive/10";
     default: return "text-muted-foreground border-border";
   }
 };
@@ -94,7 +95,8 @@ const Courses = () => {
                       )}
                       {course.labels?.map((label) => (
                         <span key={label} className={`text-[8px] tracking-[0.1em] uppercase px-2.5 py-1 font-semibold ${
-                          label === "Few Seats Left" ? "bg-destructive text-destructive-foreground" :
+                          // F-D3-11: destructive/destructive-foreground was 3.43:1 at 8px; red-700/white is 6.47:1.
+                          label === "Few Seats Left" ? "bg-red-700 text-white" :
                           label === "Filling Up 1st" ? "bg-accent text-accent-foreground" :
                           label === "Early Bird Offer" ? "bg-primary text-primary-foreground" :
                           label === "Most Demand" ? "bg-secondary text-secondary-foreground" :
@@ -146,7 +148,8 @@ const Courses = () => {
                           userId={course.author_id || ""}
                           name={course.author_name || "Unknown"}
                           handle={course.author_handle}
-                          nameClassName="text-[10px] hover:text-primary hover:underline transition-colors [font-family:var(--font-heading)]"
+                          /* F-D3-11 (axe target-size 2.5.8): the author link was 17px tall; leading-6 makes the tap box 24px without moving the text. */
+                          nameClassName="text-[10px] leading-6 hover:text-primary hover:underline transition-colors [font-family:var(--font-heading)]"
                         />
                       </div>
                       <span className="flex items-center gap-1">

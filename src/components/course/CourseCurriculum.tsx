@@ -115,13 +115,18 @@ const CourseCurriculum = ({
                         key={lesson.id}
                         className={`flex items-center gap-4 px-5 py-3.5 ${
                           isActive ? "bg-primary/10" : ""
-                        } ${unlocked ? "hover:bg-muted/30 cursor-pointer" : "opacity-50 cursor-not-allowed"} transition-colors duration-200`}
+                        } ${unlocked ? "hover:bg-muted/30 cursor-pointer" : "opacity-70 cursor-not-allowed"} transition-colors duration-200`}
                         onClick={() =>
                           unlocked && navigate(`/courses/${courseSlug}/lessons/${lesson.id}`)
                         }
                       >
+                        {/* F-D3-11 (axe color-contrast, measured on production
+                            /courses/:slug): muted/50 inside an opacity-50 locked
+                            row was 2.2:1. Full muted in an opacity-70 row is
+                            8.77:1 dark / 6.37:1 light; the Lock icon still says
+                            "locked". */}
                         <span
-                          className="text-[10px] text-muted-foreground/50 w-6 text-center"
+                          className="text-[10px] text-muted-foreground w-6 text-center"
                           style={headingFont}
                         >
                           {String(li + 1).padStart(2, "0")}
