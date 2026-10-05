@@ -1,0 +1,107 @@
+
+══ 1 · STAGING SHAPE, the merged 0006 (b2aa236) — fail first: it must fail as runs #128/#131 did
+  lane shape: staging · queues transactional_emails · job 0 · email_send_state rows 0
+  PASS  the merged 0006 FAILS on the staging shape:
+        relation "pgmq.q_auth_emails" does not exist
+  PASS  …and rolled back whole: nothing applied (staging read 05:42 says the same)
+
+══ 2 · STAGING SHAPE, the fixed 0006
+  PASS  apply — P9-0006: e-mail queue woken by enqueue and by the last delete of a batch, idle back-off once a minute, target in vault, delete_email allow-listed
+        NOTICE pgmq.q_auth_emails does not exist on this lane — no trigger (PROBE fails if it appears without one)
+        NOTICE no process-email-queue job on this lane — none created (wakes return 
+  PASS  one trigger (the queue that exists), no job created
+  PASS  the merged PROBE errors on this lane (same defect, E2):
+        relation "pgmq.q_auth_emails" does not exist
+  PASS  the fixed PROBE passes:
+        PROBE PASS P9-email: job absent on this lane, wakes 0, idle ticks 0, last wake never. OPEN (P9-c, not this unit): none
+  PASS  an enqueue on staging: the wake answers 'no target', no HTTP call
+  PASS  a second apply is refused (PRE-003)
+
+══ 3 · STAGING SHAPE, rollback (unchanged file: DROP TRIGGER IF EXISTS on an absent table only notices)
+  PASS  rollback works on the staging shape
+        NOTICE relation "pgmq.q_auth_emails" does not exist, skipping
+  PASS  nothing left, no job invented
+  PASS  delete_email back to its staging body
+  PASS  re-apply after rollback
+
+══ 4 · LOCK (SEC-P9-1), production shape: a second enqueue while the first enqueue's transaction is open
+  PASS  merged 0006 — fail first: the second enqueue WAITED 3042 ms on the first one's lock (then the trigger timed out: warning=1, enqueue kept=1)
+  PASS  the fixed PROBE is RED on the merged 0006's wake (E5, no try-lock)
+  PASS  fixed 0006: the second enqueue returned in 42 ms, no warning, enqueued
+  PASS  both e-mails queued; exactly one wake (the first enqueue's)
+  PASS  the race: lock held elsewhere, the enqueue's wake is skipped (not waited for)
+  PASS  …and the next tick wakes it (bound: 60 s)
+
+══ 5 · PRODUCTION SHAPE: the full P9 harness on the fixed files
+    ══ 0 · fixture: real pg_cron + pgmq, production's job shape with invented values ('10 seconds')
+    ══ 1 · build-time check: self-test, the tree, and production's shape planted — fail first
+      PASS  self-test
+      PASS  the tree passes (no HTTP cron command in git)
+      PASS  production's job, planted as a migration, is RED:
+      PASS  PROBE refuses — before 0006 (the wake is not installed):
+    ══ 2 · BEFORE — real pg_cron, 30s window, both queues EMPTY
+      PASS  the 10-second job really calls HTTP ~every 10 s while idle (A-P9-1)
+      PASS  F-P6-1 shown: every run copies the literal credential into cron.job_run_details
+    ══ 3 · apply 20261004_0006 (lane staging) and probe
+      PASS  apply — P9-0006: e-mail queue woken by enqueue and by the last delete of a batch, idle back-off once a minute, target in vault, delete_email allow-listed
+      PASS  the command carries no literal and no HTTP call
+      PASS  the target (url + the three headers) was captured into vault, evaluated in the database
+      PASS  the previous job is kept in vault byte for byte (for the rollback)
+      PASS  PROBE passes — after 0006
+      PASS  a second apply is refused (PRE-003)
+    ══ 4 · AFTER — real pg_cron, 30s window, both queues EMPTY
+      PASS  no HTTP call in 30s while idle (was 2)
+    ══ 5 · a full idle day: 1,440 ticks
+      PASS  1,440 ticks → 1,440 'idle', 0 vault reads (was 8,640 HTTP calls + reads a day)
+      PASS  …and 0 HTTP calls
+    ══ 6 · woken by an enqueue — at commit, and only at commit
+      PASS  a rolled-back enqueue wakes nothing
+      PASS  one committed enqueue → one wake
+      PASS  49 more enqueues, each its own transaction, while that wake is outstanding → still one wake
+      PASS  the worker chain sent all 50
+      PASS  5 worker runs (10 a batch): each batch's last delete woke the next; the sweep was never needed
+      PASS  queue empty
+    ══ 7 · a backlog of 500 in one statement (a bulk send)
+      PASS  one statement → one wake
+      PASS  all 500 sent
+      PASS  50 worker runs back to back, no tick
+    ══ 8 · an enqueue while a batch is claimed waits for that batch, then goes
+      PASS  enqueue during a claimed batch → no second worker ('busy')
+      PASS  the batch's LAST delete woke the next run
+      PASS  all 13 sent (10 + the 2 left + the one enqueued mid-batch)
+    ══ 9 · rate-limited: no wake; the sweep resumes after the pause
+      PASS  enqueue and tick while rate-limited → no HTTP call
+      PASS  pause over → the next tick wakes it
+    ══ 10 · a lost wake (HTTP failed, worker never read): retried after 30 s, not before
+      PASS  tick inside 30 s → 'outstanding', no second call
+      PASS  after 30 s the tick wakes it again
+    ══ 11 · a failing wake never fails the enqueue
+      PASS  enqueue committed; the wake failure is a WARNING
+      PASS  …and the next tick delivers it
+    ══ 12 · delete_email allow-list (A-P9-3)
+      PASS  delete_email('post_jobs', …) → 42501 not permitted
+      PASS  an allow-listed queue still works
+    ══ 12b · the PROBE catches each regression (mutants, each undone)
+      PASS  PROBE red on: the job put back to 10 seconds
+      PASS  PROBE red on: an HTTP command with a literal credential
+      PASS  PROBE red on: the wake trigger disabled
+      PASS  PROBE red on: the queue re-created without its trigger
+      PASS  PROBE red on: delete_email without its allow-list
+      PASS  PROBE red on: anon granted the wake
+      PASS  PROBE passes — every mutant undone
+    ══ 13 · a lane with no job (staging today): rollback, unschedule, re-apply
+      PASS  rollback with no lane — refused
+      PASS  rollback (lane production)
+      PASS  job restored byte for byte from vault
+      PASS  delete_email restored byte for byte
+      PASS  no trigger and no 0006 vault secret left
+      PASS  PROBE refuses — after the rollback:
+      PASS  apply on a lane without the job — none created
+      PASS  wakes answer 'no target' (nothing wired to wake)
+      PASS  PROBE passes — lane without the job
+    ══ 14 · rollback on that lane, then re-apply with the job back
+      PASS  rollback (no job to restore)
+      PASS  still no job (none invented)
+  PASS  p9-email-run-tests.sh: ALL CASES PASS (transcript rewritten)
+
+ALL CASES PASS

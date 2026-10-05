@@ -13,7 +13,7 @@
         PROBE FAIL P9-email: E4 the wake machinery of 20261004_0006 is not installed
 
 ══ 2 · BEFORE — real pg_cron, 30s window, both queues EMPTY
-        process-email-queue made 3 HTTP call(s) in 30s with nothing queued → 8640 a day
+        process-email-queue made 2 HTTP call(s) in 30s with nothing queued → 5760 a day
   PASS  the 10-second job really calls HTTP ~every 10 s while idle (A-P9-1)
   PASS  F-P6-1 shown: every run copies the literal credential into cron.job_run_details
 
@@ -28,7 +28,7 @@
   PASS  a second apply is refused (PRE-003)
 
 ══ 4 · AFTER — real pg_cron, 30s window, both queues EMPTY
-  PASS  no HTTP call in 30s while idle (was 3)
+  PASS  no HTTP call in 30s while idle (was 2)
         (job paused from here on so every count below is deterministic; ticks are called by hand;
          the old job's idle calls from step 2 are marked answered)
 
@@ -48,7 +48,7 @@
   PASS  one statement → one wake
   PASS  all 500 sent
   PASS  50 worker runs back to back, no tick
-        drained in 23384 ms of simulated worker time; the old job took 20 per 10-s tick → 250 s minimum
+        drained in 12388 ms of simulated worker time; the old job took 20 per 10-s tick → 250 s minimum
 
 ══ 8 · an enqueue while a batch is claimed waits for that batch, then goes
   PASS  enqueue during a claimed batch → no second worker ('busy')
@@ -79,7 +79,7 @@
   PASS  PROBE red on: delete_email without its allow-list
   PASS  PROBE red on: anon granted the wake
   PASS  PROBE passes — every mutant undone
-        PROBE PASS P9-email: job once a minute → email_queue_tick(), wakes 61, idle ticks 1442, last wake 2026-10-04 15:30:39.317695+00. OPEN (P9-c, not this unit): none
+        PROBE PASS P9-email: job once a minute → email_queue_tick(), wakes 61, idle ticks 1441, last wake 2026-10-05 05:55:12.682463+00. OPEN (P9-c, not this unit): none
 
 ══ 13 · a lane with no job (staging today): rollback, unschedule, re-apply
   PASS  rollback with no lane — refused
