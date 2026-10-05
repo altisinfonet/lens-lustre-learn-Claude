@@ -14,10 +14,11 @@ name: D2 · P15 compression on every text response
 # Functions) must arrive br or gzip. A text response over 1 KB that arrives
 # identity-encoded fails the job.
 #
-# The push run reads whatever Cloudflare is serving at that moment, which may
-# still be the previous deploy. That is fine for this property: compression is
-# a CDN behaviour, not a per-commit one, and the job exists to catch it being
-# switched off. It is monitoring after the recorded measurement, not a wait.
+# F-AUD-1 (R-94): the push run used to read whatever Cloudflare served the
+# moment the push landed — often the PREVIOUS build, mid-deploy (main #12,
+# run 37206638044). It now waits until the origin's <meta name="build-commit">
+# names the pushed commit (or a newer one containing it), up to 20 minutes,
+# and fails rather than measure the wrong build.
 #
 # ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
 # ═══════════════════════════════════════════════════════════════════════════
@@ -27,6 +28,8 @@ on:
     branches: [main, staging]
     paths:
       - 'scripts/web-compression-check.mjs'
+      - 'scripts/web-wait-for-deploy.mjs'
+      - 'scripts/web-build-commit.mjs'
       - '.github/workflows/d2-compression.yml'
   push:
     branches: [main, staging]
@@ -39,14 +42,33 @@ jobs:
   compression:
     name: Brotli or gzip on every text response
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: the deploy waiter asks git whether a newer served
+          # build contains this commit.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
       - name: Self-test — the classifier rejects what it must (C-34)
         run: node scripts/web-compression-check.mjs --self-test
+      - name: Waiter self-test (C-34)
+        run: node scripts/web-wait-for-deploy.mjs --self-test
+      # F-AUD-1 (R-94): main #12 measured while Pages was still deploying the
+      # pushed commit. Wait until the origin's <meta name="build-commit"> names
+      # this commit (or a newer one containing it). Push only: a dispatch
+      # measures whatever is live, by design.
+      - name: Wait until the origin serves this commit
+        if: github.event_name == 'push'
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          PUSHED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$REF_NAME" = "main" ]; then ORIGIN="https://www.50mmretina.com"; else ORIGIN="https://staging.50mmretina.com"; fi
+          node scripts/web-wait-for-deploy.mjs "$ORIGIN" "$PUSHED_SHA" --timeout 1200 --poll 20
       - name: Measure the lane's origin
         if: github.event_name != 'pull_request'
         env:
