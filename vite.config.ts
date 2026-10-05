@@ -4,6 +4,9 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { ViteImageOptimizer } from "vite-plugin-image-optimizer";
 import { laneDefine, laneHtmlTokens } from "./scripts/lane-config.mjs";
+// F-AUD-1: every build names its commit in index.html, so a measurement can
+// wait for THIS build to be served. See scripts/web-build-commit.mjs.
+import { buildCommitPlugin } from "./scripts/web-build-commit.mjs";
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -56,6 +59,7 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     laneHtmlPlugin(),
+    buildCommitPlugin(),
     react(),
     mode === "development" && componentTagger(),
     ViteImageOptimizer({

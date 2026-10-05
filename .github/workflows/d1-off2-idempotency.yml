@@ -1,0 +1,44 @@
+name: D1 · OFF-2 exactly-once check
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. READS supabase/migrations/, WRITES NOTHING.
+#
+# OFF-2 (MASTER R-90; OFF-5 §3 R4 + R8): every table an outbox action writes
+# must refuse a repeated send. scripts/db-off2-outbox-contract.json lists them;
+# every 'key' entry needs its idempotency_key column and its named UNIQUE in an
+# applied migration, never dropped later. The live half (all entries, natural
+# keys included) is supabase/migrations/PROBE_off2_idempotency.sql.
+# The self-test runs first (C-34).
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/db-off2-idempotency-check.mjs'
+      - 'scripts/db-off2-idempotency-check.test.mjs'
+      - 'scripts/db-off2-outbox-contract.json'
+      - 'supabase/migrations/PROBE_off2_idempotency.sql'
+      - 'scripts/db-p5-cron-cadence-check.mjs'
+      - '.github/workflows/d1-off2-idempotency.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exactly-once:
+    name: Every outbox action table refuses a repeated send
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Self-test — the check catches what it must and nothing else (C-34)
+        run: node scripts/db-off2-idempotency-check.test.mjs
+      - name: The check — every key table has its column and UNIQUE in git
+        run: node scripts/db-off2-idempotency-check.mjs
