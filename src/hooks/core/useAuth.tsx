@@ -15,6 +15,8 @@ import {
   resetForNewSession,
 } from "@/lib/sessionLossRecorder";
 import { purgeImageCache } from "@/lib/imageCachePurge";
+import { clearDeviceStore } from "@/lib/offline/deviceStore";
+import { setPersistenceUser } from "@/lib/offline/queryPersistence";
 
 interface AuthContextType {
   session: Session | null;
@@ -357,6 +359,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // branch is the one place all of them pass through. Fire-and-forget:
         // it never throws and never delays the sign-out.
         void purgeImageCache();
+        // OFF-1: the device store holds this member's feed, profiles, posts and
+        // notifications. Stop the writer FIRST (synchronously), then wipe, so
+        // no pending write can put the departed member's data back.
+        setPersistenceUser(null);
+        void clearDeviceStore();
       }
 
       if (session?.user) {

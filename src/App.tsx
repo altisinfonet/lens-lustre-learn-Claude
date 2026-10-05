@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { BrowserRouter, Routes, Route, Navigate, useParams, Outlet, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/core/useAuth";
+import OfflineDeviceStoreBridge from "@/components/OfflineDeviceStoreBridge";
 import { ThemeProvider } from "@/hooks/core/useTheme";
 
 import { CookieConsentProvider } from "@/hooks/core/useCookieConsent";
@@ -364,6 +365,8 @@ const App = () => {
               order (close overlay -> go back -> exit app). */}
           <AndroidBackButton />
           <LanguageAccountSync />
+          {/* OFF-1: feed, profiles, own posts, notifications kept on the device. */}
+          <OfflineDeviceStoreBridge />
           <PushNotificationsGate />
           <AdFullscreenProvider>
           <AppErrorBoundary>
