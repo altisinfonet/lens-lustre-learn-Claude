@@ -34,6 +34,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 
 export const PRODUCER = "db-publication-export";
@@ -62,8 +63,34 @@ export function validateReading(r) {
   return e;
 }
 
+/**
+ * A reading saved VERBATIM (as the Owner pasted it) carries no lane: the SQL
+ * cannot know which project it ran on. The lane then comes from a sidecar
+ * `<reading>.lane.json` = { record: "db-publication-reading-lane", lane, sha256 }
+ * whose sha256 must be the reading file's own bytes — so the verbatim file is
+ * never edited, the lane is committed beside it, and swapping either is caught.
+ * Returns { reading, laneRecord } or throws with .errors.
+ */
+export function loadReading(readText, rp) {
+  const text = readText(rp);
+  let r; try { r = JSON.parse(text); } catch (e) { const x = new Error(`reading: ${rp} is not JSON (${e.message})`); x.errors = [x.message]; throw x; }
+  if (r && typeof r === "object" && r.lane === undefined) {
+    const sp = rp.replace(/\.json$/, "") + ".lane.json";
+    let side;
+    try { side = JSON.parse(readText(sp)); } catch { const x = new Error(`reading: ${rp} has no lane and no readable sidecar ${sp}`); x.errors = [x.message]; throw x; }
+    const errs = [];
+    if (side?.record !== "db-publication-reading-lane") errs.push(`sidecar ${sp}: record is ${JSON.stringify(side?.record)}`);
+    if (!LANES.has(side?.lane)) errs.push(`sidecar ${sp}: lane is ${JSON.stringify(side?.lane)}, expected staging or production`);
+    const h = createHash("sha256").update(text).digest("hex");
+    if (side?.sha256 !== h) errs.push(`sidecar ${sp}: sha256 ${side?.sha256} is not the reading's ${h} — the reading changed after its lane was recorded`);
+    if (errs.length) { const x = new Error(errs.join("\n")); x.errors = errs; throw x; }
+    return { reading: { ...r, lane: side.lane }, laneRecord: sp };
+  }
+  return { reading: r, laneRecord: null };
+}
+
 /** Pure. reading (+ its repo path) → the schemaVersion 1 document. Throws on a refused reading. */
-export function exportFrom(reading, readingPath) {
+export function exportFrom(reading, readingPath, laneRecord = null) {
   const errors = validateReading(reading);
   if (errors.length) { const x = new Error(errors.join("\n")); x.errors = errors; throw x; }
   const name = (t) => (t.schema === "public" ? t.table : `${t.schema}.${t.table}`);
@@ -79,6 +106,7 @@ export function exportFrom(reading, readingPath) {
     lane: reading.lane,
     readAtUtc: reading.readAtUtc,
     reading: readingPath,
+    laneRecord,
     transcribed: reading.transcribed === true,
     counts: {
       tables: tables.length,
@@ -99,10 +127,10 @@ export function check(exportText, readText) {
   try { doc = JSON.parse(exportText); } catch (e) { return [`export: not JSON (${e.message})`]; }
   if (doc.producer !== PRODUCER || doc.schemaVersion !== SCHEMA_VERSION) return [`export: producer/schemaVersion is ${doc.producer}/${doc.schemaVersion}`];
   if (typeof doc.reading !== "string" || !doc.reading) return ["export: names no reading file"];
-  let text;
-  try { text = readText(doc.reading); } catch (e) { return [`export: its reading ${doc.reading} cannot be read (${e.message})`]; }
+  try { readText(doc.reading); } catch (e) { return [`export: its reading ${doc.reading} cannot be read (${e.message})`]; }
   let regenerated;
-  try { regenerated = serialise(exportFrom(JSON.parse(text), doc.reading)); } catch (e) { return [`export: its reading ${doc.reading} is refused:\n  ${(e.errors || [e.message]).join("\n  ")}`]; }
+  try { const { reading, laneRecord } = loadReading(readText, doc.reading); regenerated = serialise(exportFrom(reading, doc.reading, laneRecord)); }
+  catch (e) { return [`export: its reading ${doc.reading} is refused:\n  ${(e.errors || [e.message]).join("\n  ")}`]; }
   if (regenerated !== exportText) {
     const a = exportText.split("\n"), b = regenerated.split("\n");
     const i = a.findIndex((l, k) => l !== b[k]);
@@ -133,6 +161,14 @@ export const SELF_TEST = [
   ["--check fails a hand-added table", () => { const d = exportFrom(R(), "r.json"); d.tables.push("zz"); d.counts.tables++; return check(serialise(d), () => JSON.stringify(R())).length > 0; }],
   ["--check fails a hand-removed table", () => { const d = exportFrom(R(), "r.json"); d.tables.shift(); return check(serialise(d), () => JSON.stringify(R())).length > 0; }],
   ["--check fails a stale export (the reading changed)", () => check(serialise(exportFrom(R(), "r.json")), () => JSON.stringify(R({ tables: [] }))).length > 0],
+  ["a verbatim reading takes its lane from a matching sidecar", () => { const t = JSON.stringify({ ...R(), lane: undefined }); const h = createHash("sha256").update(t).digest("hex");
+     const f = { "r.json": t, "r.lane.json": JSON.stringify({ record: "db-publication-reading-lane", lane: "production", sha256: h }) }; const { reading, laneRecord } = loadReading((p) => f[p], "r.json");
+     return reading.lane === "production" && laneRecord === "r.lane.json" && exportFrom(reading, "r.json", laneRecord).lane === "production"; }],
+  ["refuses a verbatim reading whose sidecar hash is another file's", () => { const t = JSON.stringify({ ...R(), lane: undefined });
+     const f = { "r.json": t, "r.lane.json": JSON.stringify({ record: "db-publication-reading-lane", lane: "production", sha256: "0".repeat(64) }) }; try { loadReading((p) => f[p], "r.json"); return false; } catch { return true; } }],
+  ["refuses a verbatim reading with no sidecar", () => { const t = JSON.stringify({ ...R(), lane: undefined }); try { loadReading((p) => { if (p === "r.json") return t; throw new Error("ENOENT"); }, "r.json"); return false; } catch { return true; } }],
+  ["refuses a sidecar with an unknown lane", () => { const t = JSON.stringify({ ...R(), lane: undefined }); const h = createHash("sha256").update(t).digest("hex");
+     const f = { "r.json": t, "r.lane.json": JSON.stringify({ record: "db-publication-reading-lane", lane: "dev", sha256: h }) }; try { loadReading((p) => f[p], "r.json"); return false; } catch { return true; } }],
   ["--check fails a missing reading file", () => check(serialise(exportFrom(R(), "r.json")), () => { throw new Error("ENOENT"); }).length > 0],
 ];
 export function selfTest() { return SELF_TEST.filter(([, f]) => { try { return !f(); } catch { return true; } }).map(([n]) => n); }
@@ -159,7 +195,8 @@ if (isCli) {
   const rp = val("--reading"), out = val("--out");
   if (!rp || !out) { console.error("usage: db-publication-export.mjs --reading <reading.json> --out <export.json> | --check [export.json] | --self-test"); process.exit(2); }
   try {
-    const doc = exportFrom(JSON.parse(fs.readFileSync(path.resolve(root, rp), "utf8")), rp);
+    const { reading, laneRecord } = loadReading((p) => fs.readFileSync(path.resolve(root, p), "utf8"), rp);
+    const doc = exportFrom(reading, rp, laneRecord);
     fs.writeFileSync(path.resolve(root, out), serialise(doc));
     console.log(`db-publication-export: ${doc.counts.tables} table(s) in ${doc.publication} on ${doc.lane} (read ${doc.readAtUtc}) → ${out}`);
   } catch (e) { (e.errors || [e.message]).forEach((x) => console.error(`::error::P3 export · ${x}`)); process.exit(1); }

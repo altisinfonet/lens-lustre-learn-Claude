@@ -1,0 +1,7 @@
+{
+  "record": "db-publication-reading-lane",
+  "lane": "production",
+  "sha256": "154013599628d536760f373c0a6915e5768a7216b2501ab2856d7c8c00365a12",
+  "reading": "publication-production-20261004.json",
+  "source": "The Owner ran scripts/db-publication-export.sql (#352 head 1adf1cfe) on PRODUCTION (jtdtehuqtinjxropkkcn) in the SQL editor, read-only, 2026-10-04 16:47:41 UTC. The value was pasted to claude/2026-10-04-OWNER-P3-production-publication-reading.md; D1 saved it byte for byte (no lane key: the SQL cannot know its project). The Auditor checked it: 29 tables, identical to the 2026-09-26 list; REPLICA IDENTITY FULL = profiles, scheduled_posts."
+}

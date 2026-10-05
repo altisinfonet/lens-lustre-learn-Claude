@@ -6,6 +6,7 @@
   "lane": "staging",
   "readAtUtc": "2026-10-04T15:41:01Z",
   "reading": "docs/evidence/d1/phase3/readings/publication-staging-20261004.json",
+  "laneRecord": null,
   "transcribed": false,
   "counts": {
     "tables": 0,

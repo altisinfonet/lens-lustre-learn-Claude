@@ -1,31 +1,35 @@
 
 ══ 1 · self-test
-self-test: 17/17 cases
+self-test: 21/21 cases
   PASS  self-test
 
 ══ 2 · the committed exports are exactly the exporter's output of their readings
-        P3 export: docs/evidence/d1/phase3/db-publication-export.json = the exporter's output of docs/evidence/d1/phase3/readings/publication-production-20260926.json (lane production, read 2026-09-26T18:50:00Z, TRANSCRIBED) · 29 table(s) — PASS
+        P3 export: docs/evidence/d1/phase3/db-publication-export.json = the exporter's output of docs/evidence/d1/phase3/readings/publication-production-20261004.json (lane production, read 2026-10-04T16:47:41Z) · 29 table(s) — PASS
   PASS  --check docs/evidence/d1/phase3/db-publication-export.json
         P3 export: docs/evidence/d1/phase3/db-publication-export.staging.json = the exporter's output of docs/evidence/d1/phase3/readings/publication-staging-20261004.json (lane staging, read 2026-10-04T15:41:01Z) · 0 table(s) — PASS
   PASS  --check docs/evidence/d1/phase3/db-publication-export.staging.json
 
 ══ 3 · fail first: hand-edits and bad readings are refused
   PASS  red: a table added by hand (e.g. to make parity pass)
-        P3 export · export: differs from the exporter's output of docs/evidence/d1/phase3/readings/publication-production-20260926.json at line 11 — hand-edited or sta
+        P3 export · export: differs from the exporter's output of docs/evidence/d1/phase3/readings/publication-production-20261004.json at line 12 — hand-edited or sta
   PASS  red: a table removed by hand
-        P3 export · export: differs from the exporter's output of docs/evidence/d1/phase3/readings/publication-production-20260926.json at line 11 — hand-edited or sta
+        P3 export · export: differs from the exporter's output of docs/evidence/d1/phase3/readings/publication-production-20261004.json at line 12 — hand-edited or sta
   PASS  red: the lane relabelled
-        P3 export · export: differs from the exporter's output of docs/evidence/d1/phase3/readings/publication-production-20260926.json at line 6 — hand-edited or stal
+        P3 export · export: differs from the exporter's output of docs/evidence/d1/phase3/readings/publication-production-20261004.json at line 6 — hand-edited or stal
   PASS  red: the reading changed after the export (stale export)
-        P3 export · export: differs from the exporter's output of docs/evidence/d1/phase3/readings/publication-production-20260926.json at line 11 — hand-edited or sta
+        P3 export · export: its reading docs/evidence/d1/phase3/readings/publication-production-20261004.json is refused:
+  PASS  red: the verbatim reading edited (its sidecar hash no longer matches)
+        P3 export · export: its reading docs/evidence/d1/phase3/readings/publication-production-20261004.json is refused:
+  PASS  red: the lane record relabelled to staging
+        P3 export · export: differs from the exporter's output of docs/evidence/d1/phase3/readings/publication-production-20261004.json at line 6 — hand-edited or stal
   PASS  red: the reading file deleted
-        P3 export · export: its reading docs/evidence/d1/phase3/readings/publication-production-20260926.json cannot be read (ENOENT: no such file or directory, open '/t
+        P3 export · export: its reading docs/evidence/d1/phase3/readings/publication-production-20261004.json cannot be read (ENOENT: no such file or directory, open '/t
   PASS  refused: a reading of another publication
         P3 export · reading: publication is "supabase_realtime_messages_publication", expected "supabase_realtime"
   PASS  refused: a FOR ALL TABLES publication
         P3 export · reading: allTables is true — a FOR ALL TABLES publication cannot be compared
-  PASS  refused: a reading with no lane
-        P3 export · reading: lane is undefined, expected staging or production
+  PASS  refused: a reading with no lane and no lane record
+        P3 export · reading: /tmp/tmp.ZclFrQZvGg/r.json has no lane and no readable sidecar /tmp/tmp.ZclFrQZvGg/r.lane.json
   PASS  refused: the same table twice
         P3 export · reading: public.posts appears twice
 

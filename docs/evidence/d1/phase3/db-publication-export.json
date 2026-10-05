@@ -4,12 +4,13 @@
   "generatedBy": "scripts/db-publication-export.mjs",
   "publication": "supabase_realtime",
   "lane": "production",
-  "readAtUtc": "2026-09-26T18:50:00Z",
-  "reading": "docs/evidence/d1/phase3/readings/publication-production-20260926.json",
-  "transcribed": true,
+  "readAtUtc": "2026-10-04T16:47:41Z",
+  "reading": "docs/evidence/d1/phase3/readings/publication-production-20261004.json",
+  "laneRecord": "docs/evidence/d1/phase3/readings/publication-production-20261004.lane.json",
+  "transcribed": false,
   "counts": {
     "tables": 29,
-    "replicaIdentityFull": 3,
+    "replicaIdentityFull": 2,
     "nonPublic": 0,
     "unresolved": 0
   },
@@ -60,7 +61,7 @@
     {
       "schema": "public",
       "table": "competition_round_publish",
-      "replicaIdentity": "f",
+      "replicaIdentity": "d",
       "rowFilter": null
     },
     {
