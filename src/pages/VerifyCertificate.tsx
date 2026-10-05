@@ -196,6 +196,7 @@ const VerifyCertificate = () => {
             {mode === "id" ? (
               <div className="flex gap-3">
                 <Input
+                  aria-label="Certificate ID"
                   value={certId}
                   onChange={(e) => setCertId(e.target.value)}
                   placeholder="e.g. a1b2c3d4-e5f6-7890-abcd-ef1234567890"
@@ -216,10 +217,11 @@ const VerifyCertificate = () => {
             ) : (
               <div className="space-y-4">
                 <div>
-                  <label className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-1.5 block" style={{ fontFamily: "var(--font-heading)" }}>
+                  <label htmlFor="verify-recipient" className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-1.5 block" style={{ fontFamily: "var(--font-heading)" }}>
                     Recipient Name
                   </label>
                   <Input
+                    id="verify-recipient"
                     value={recipientName}
                     onChange={(e) => setRecipientName(e.target.value)}
                     placeholder="e.g. John Doe"
@@ -228,10 +230,11 @@ const VerifyCertificate = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-1.5 block" style={{ fontFamily: "var(--font-heading)" }}>
+                  <label htmlFor="verify-course" className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-1.5 block" style={{ fontFamily: "var(--font-heading)" }}>
                     Course / Certificate Title
                   </label>
                   <Input
+                    id="verify-course"
                     value={courseTitle}
                     onChange={(e) => setCourseTitle(e.target.value)}
                     placeholder="e.g. Photography Masterclass"
@@ -240,10 +243,14 @@ const VerifyCertificate = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-1.5 block" style={{ fontFamily: "var(--font-heading)" }}>
+                  {/* F-D3-12 (axe label, critical): these three labels sat beside their
+                      inputs without htmlFor, so none named its field. A date input
+                      has no placeholder to fall back on, so it had no name at all. */}
+                  <label htmlFor="verify-date" className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-1.5 block" style={{ fontFamily: "var(--font-heading)" }}>
                     Date of Completion
                   </label>
                   <Input
+                    id="verify-date"
                     type="date"
                     value={issuedDate}
                     onChange={(e) => setIssuedDate(e.target.value)}

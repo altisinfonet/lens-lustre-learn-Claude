@@ -1,0 +1,65 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# D2 · P23 C7 — AXE OVER THE LIVE PUBLIC ROUTES. REPORT-ONLY, BY DECISION.
+#
+# DECISION.md (docs/evidence/d2/phase5/P23/) §3 C7: "the same probe over the 12
+# public routes … with the result uploaded as an artefact" — a MONITOR, not a
+# gate (R-82). The binding check is the axe ratchet inside the UI gate.
+#
+# Why it exists now: F-D3-11's 4-node target-size pattern is on nearly every
+# production route, and it does NOT reproduce on a local server even with
+# production-shaped site_settings (docs/evidence/d2/phase5/P23/F-D3-10-11-12/).
+# The D2 container cannot reach the live sites; a runner can. This prints every
+# failing node WITH its selector, so the fix is made against the element
+# production actually serves, not a guess.
+#
+# It changes nothing, deploys nothing, needs no secret.
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ─────────────────────────────────────────────────────────────────────────────
+name: D2 · P23 axe over live routes (report-only)
+
+on:
+  pull_request:
+    branches: [staging]
+    paths:
+      - tools/uishot/axe-routes.mjs
+      - tools/uishot/axe-ratchet.mjs
+      - .github/workflows/d2-a11y-routes.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  routes:
+    name: axe on production and staging public routes (report-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+      - name: Install Chromium for Playwright
+        run: npx playwright install chromium
+      - name: Probe production and staging
+        env:
+          ROUTES: "/ /discover /competitions /journal /journal/art-of-golden-hour-photography /courses /courses/documentary-photography-masterclass /winners /login /signup /help-support /verify"
+        run: |
+          set -u
+          mkdir -p axe-routes
+          for origin in https://www.50mmretina.com https://staging.50mmretina.com; do
+            name="$(echo "$origin" | sed 's#https://##')"
+            echo "## $origin" | tee -a "$GITHUB_STEP_SUMMARY"
+            # shellcheck disable=SC2086
+            AXE_ROUTES_OUT="axe-routes/$name.json" node tools/uishot/axe-routes.mjs "$origin" $ROUTES | tee "axe-routes/$name.txt"
+            { echo '```'; cut -c1-300 "axe-routes/$name.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          done
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: axe-routes
+          path: axe-routes
+          retention-days: 14
