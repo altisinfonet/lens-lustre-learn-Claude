@@ -38,6 +38,7 @@ import { useGlobalConversionTracker } from "@/hooks/core/useGlobalConversionTrac
 import { supabase } from "@/integrations/supabase/client";
 import { AnimatePresence } from "framer-motion";
 import { BareLayoutProvider, useIsBareShell } from "@/components/BareLayoutContext";
+import NetworkBanner from "@/components/NetworkBanner";
 
 /** Pages where the Navbar should NOT be shown (auth screens) */
 const hideNavRoutes = ["/login", "/signup", "/forgot-password", "/reset-password", "/admin"];
@@ -381,6 +382,8 @@ const LayoutInner = () => {
         position in the children list either way, so React keeps its identity
         and nothing below it remounts.
       */}
+      {/* OFF-3: offline / slow-connection status; renders nothing on a good connection. */}
+      <NetworkBanner />
       <div className="pb-12 lg:pb-0">
         <div className={isSidebarEligibleRoute ? "flex gap-8 container mx-auto" : undefined}>
           {isSidebarEligibleRoute ? (

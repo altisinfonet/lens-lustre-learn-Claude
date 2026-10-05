@@ -22,6 +22,7 @@ import ZoomableImage from "@/components/media/ZoomableImage";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { frameAspectFor, frameAspectForUrls, parseImageDims } from "@/lib/imageFrame";
 import { hasLadderMarker, rungPath, rungPlan, rungWidthFor } from "@/lib/imageLadder";
+import { useNetworkQuality } from "@/hooks/core/useNetworkQuality";
 
 interface PostMediaProps {
   urls: string[];
@@ -262,6 +263,13 @@ function buildSrcSet(url: string): string | undefined {
 }
 
 const FEED_SIZES = "(max-width: 768px) 100vw, 600px";
+/**
+ * OFF-3: on a slow or Data-Saver connection the browser is told the slot is
+ * small, so it picks the SMALLEST rung of the same srcset (480w, or the stored
+ * 600px thumbnail) instead of 800–1200w. Same images, no new URLs; the photo is
+ * softer on a good screen and arrives far sooner on a bad link.
+ */
+export const SLOW_FEED_SIZES = "160px";
 
 const THUMB_LONG_EDGE = 600;
 
@@ -388,6 +396,7 @@ const ProgressiveImage = ({
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const [backdropFailed, setBackdropFailed] = useState(false);
+  const slowLink = useNetworkQuality().slow;
   const transformable = isTransformable(src);
   // PERF 2026-08-07: show the 600px thumbnail the uploader STORED for this
   // photo rather than the full 2560px original. `failed` (set by the sharp
@@ -462,7 +471,7 @@ const ProgressiveImage = ({
       <img
         src={failed ? src : sharpSrc}
         srcSet={failed ? undefined : srcSet}
-        sizes={!failed && srcSet ? FEED_SIZES : undefined}
+        sizes={!failed && srcSet ? (slowLink ? SLOW_FEED_SIZES : FEED_SIZES) : undefined}
         alt=""
         className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"} ${className ?? ""}`}
         loading="lazy"
