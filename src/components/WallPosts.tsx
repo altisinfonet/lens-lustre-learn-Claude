@@ -1936,6 +1936,8 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                           captionHashtags.onKeyDown(e);
                         }}
                         placeholder={t("composer.placeholder")}
+                        // F-D3-10: a placeholder vanishes on the first keystroke; the name must not.
+                        aria-label={t("composer.captionLabel", "Caption")}
                         className={`relative resize-none rounded-2xl border-0 px-3 py-2.5 text-base focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60 min-h-[120px] max-h-[280px] overflow-y-auto ${newContent.length > 2200 ? "bg-transparent" : "bg-transparent"}`}
                         rows={3}
                       />
@@ -2140,6 +2142,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                               captionHashtags.onKeyDown(e);
                             }}
                             placeholder={t("post.caption", "Add a caption…")}
+                            aria-label={t("composer.captionLabel", "Caption")}
                             className="min-h-[72px] resize-none border-0 bg-transparent px-0 text-base focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
                             rows={2}
                           />

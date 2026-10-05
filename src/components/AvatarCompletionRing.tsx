@@ -103,7 +103,11 @@ const AvatarCompletionRing = ({ profile, avatarUrl, displayName, size = 160 }: P
         style={{
           fontFamily: "var(--font-heading)",
           backgroundColor: ringColor,
-          color: "#fff",
+          /* F-D3-11 (axe color-contrast 1.4.3): white measured 2.30:1 on the
+             green, 1.53:1 on the yellow and 2.14:1 on dark-theme primary at
+             9px. Near-black is 8.61 / 12.94 / 9.24, and 4.81 on light-theme
+             primary — AA (4.5:1) on every colour this badge can take. */
+          color: "#0a0a0a",
           zIndex: 3,
         }}
       >

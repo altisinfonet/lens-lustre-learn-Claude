@@ -677,10 +677,11 @@ const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTa
         </AnimatePresence>
         <AnimatePresence>{heart && <DoubleTapHeart key={heart.id} x={heart.x} y={heart.y} />}</AnimatePresence>
 
-        <button onClick={(e) => { e.stopPropagation(); navigate(-1); }} className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-card/70 backdrop-blur-sm flex items-center justify-center text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity shadow-sm">
+        {/* F-D3-10: named like the lightbox's own arrows (axe button-name). */}
+        <button onClick={(e) => { e.stopPropagation(); navigate(-1); }} aria-label="Previous photo" className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-card/70 backdrop-blur-sm flex items-center justify-center text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity shadow-sm">
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <button onClick={(e) => { e.stopPropagation(); navigate(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-card/70 backdrop-blur-sm flex items-center justify-center text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity shadow-sm">
+        <button onClick={(e) => { e.stopPropagation(); navigate(1); }} aria-label="Next photo" className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-card/70 backdrop-blur-sm flex items-center justify-center text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity shadow-sm">
           <ChevronRight className="h-4 w-4" />
         </button>
 
