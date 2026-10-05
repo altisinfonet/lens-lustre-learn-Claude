@@ -187,7 +187,12 @@ export default function CategoryStrip({ value, onChange, className }: CategorySt
            */
           "mr-9 md:mr-0 md:pl-9 md:pr-20",
         )}
-        role="tablist"
+        /* F-D3-10 (axe aria-required-children, critical): this was
+           role="tablist", which promises children with role="tab", arrow-key
+           navigation and a tabpanel. The chips are none of that — they are
+           toggle FILTERS (aria-pressed) that each take a Tab stop. A labelled
+           group is what this is, and it is what a screen reader should say. */
+        role="group"
         aria-label={t("feed.categories", "Categories")}
       >
         {/* Always first, always present, default selection. */}

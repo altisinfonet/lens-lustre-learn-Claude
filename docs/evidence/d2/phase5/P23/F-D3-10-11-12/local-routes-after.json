@@ -1,0 +1,20 @@
+{
+  "at": "2026-10-05T08:12:40.044Z",
+  "origin": "http://127.0.0.1:5301",
+  "tags": [
+    "wcag2a",
+    "wcag2aa",
+    "wcag21a",
+    "wcag21aa",
+    "wcag22aa"
+  ],
+  "viewport": "390x844 mobile",
+  "routes": {
+    "/": [],
+    "/verify": [],
+    "/winners": [],
+    "/courses": [],
+    "/competitions": [],
+    "/help-support": []
+  }
+}

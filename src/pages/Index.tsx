@@ -957,7 +957,8 @@ const Index = () => {
                     >
                       <span className="text-sm shrink-0">{item.emoji}</span>
                       <span className="flex-1 text-muted-foreground text-[11px] truncate" style={{ fontFamily: "var(--font-body)" }}>{t(item.tKey, item.text)}</span>
-                      <span className="text-[9px] text-muted-foreground/40 shrink-0">{item.time}</span>
+                      {/* F-D3-11 (axe color-contrast, 1.4.3): /40 measured 3.6:1 on this card; AA needs 4.5:1 at this size. */}
+                      <span className="text-[9px] text-muted-foreground shrink-0">{item.time}</span>
                     </motion.div>
                   ))}
                 </div>
