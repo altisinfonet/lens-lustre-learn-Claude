@@ -1,0 +1,60 @@
+
+══ 0 · fixture: user_blocks + the real 24 h notice cap (20261003_0002), real pg_cron
+  server 17.11 (Ubuntu 17.11-1.pgdg24.04+2) · pg_cron 1.6
+
+══ 1 · fail first: the ledger only grows, and the PROBE refuses
+  PASS  200000 rows ≥ 24 h old + 300 inside the window — nothing in the schema ever removes the old ones
+  PASS  PROBE refuses — before 0002 (no purge):
+        PROBE FAIL UB-0003: U1 purge_user_block_notices() is not installed
+
+══ 2 · why purging is safe: the real cap, row ≥ 24 h old PRESENT vs PURGED vs YOUNGER
+  PASS  pair with a 25 h-old row still present → the block notifies (the row was inert)
+  PASS  pair whose row was purged (absent) → notifies the same: once
+  PASS  pair with a 23 h-old row → NO notice: that row is the cap, and the purge must never touch it
+
+══ 3 · apply 20261005_0002 (lane staging): the first purge runs inside it
+  PASS  apply in 494 ms — UB0003: first purge removed 200000 ledger row(s) at least 24 h old
+  PASS  the 300 rows inside the 24 h window are all kept
+  PASS  no row older than 24 h
+  PASS  PROBE passes — after 0002
+        PROBE PASS UB-0003: hourly purge at 24 h; ledger 300 row(s), none older than 26 h; last run never
+  PASS  a second apply is refused (PRE-002)
+  job: 23 * * * * · SELECT public.purge_user_block_notices();
+
+══ 4 · the guard and the bound
+  PASS  _keep 23 h → refused (it would re-open the cap)
+  PASS  one call is bounded: batch 1000 × 5 batches = 5,000 rows
+  PASS  the next calls continue where it stopped
+  PASS  the window's 300 rows untouched throughout
+
+══ 5 · the PROBE catches each regression (mutants, each undone)
+  PASS  PROBE refuses — the job removed:
+        PROBE FAIL UB-0003:
+          U1 the hourly purge job is missing, inactive or changed
+  PASS  PROBE refuses — the job paused:
+        PROBE FAIL UB-0003:
+          U1 the hourly purge job is missing, inactive or changed
+  PASS  PROBE refuses — the 24 h guard removed:
+        PROBE FAIL UB-0003:
+          U2 the purge accepted a 23 h keep window (would re-open the notice cap)
+  PASS  PROBE refuses — authenticated granted the purge:
+        PROBE FAIL UB-0003:
+          U3 an API role can execute the purge
+  PASS  PROBE refuses — a row older than 26 h (purge not running):
+        PROBE FAIL UB-0003:
+          U4 1 ledger row(s) older than 26 h
+  PASS  PROBE passes — every mutant undone
+        PROBE PASS UB-0003: hourly purge at 24 h; ledger 300 row(s), none older than 26 h; last run never
+
+══ 6 · real pg_cron runs it (the job, executed by the scheduler)
+  PASS  the scheduler ran the job: status succeeded, the 30 h row gone
+
+══ 7 · rollback (lane guard first), then re-apply
+  PASS  rollback with no lane — refused
+  PASS  rollback (lane production)
+  PASS  job and function gone; the ledger untouched
+  PASS  PROBE refuses — after the rollback:
+        PROBE FAIL UB-0003: U1 purge_user_block_notices() is not installed
+  PASS  re-apply after rollback
+
+ALL CASES PASS
