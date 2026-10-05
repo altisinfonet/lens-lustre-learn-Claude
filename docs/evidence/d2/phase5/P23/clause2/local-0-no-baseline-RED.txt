@@ -1,0 +1,15 @@
+
+> vite_react_shadcn_ts@0.0.0 ui:gate
+> node tools/uishot/gate.mjs
+
+[ui:gate] starting the harness on http://127.0.0.1:5199
+[ui:gate] harness is up; sweeping every scene at every viewport
+
+200 screenshots, 0 problem(s) reported.
+
+baseline diff: clean against 148 recorded scene/viewport keys.
+
+axe (wcag2a wcag2aa wcag21a wcag21aa wcag22aa, iphone-390): 37 failing node(s) in 11 of 50 scene(s)
+AXE RATCHET (1) — accessibility moved against tools/uishot/axe.baseline.json:
+    ✗ axe baseline has no `scenes` object — refusing to pass against nothing
+[ui:gate] FAIL (exit 1)

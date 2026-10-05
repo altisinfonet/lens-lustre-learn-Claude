@@ -1,0 +1,12 @@
+### ui:gate
+
+200 screenshots, 0 problem(s) reported.
+
+baseline diff: clean against 148 recorded scene/viewport keys.
+
+axe (wcag2a wcag2aa wcag21a wcag21aa wcag22aa, iphone-390): 38 failing node(s) in 12 of 50 scene(s); baseline 37 in 11
+AXE RATCHET (1) — accessibility moved against tools/uishot/axe.baseline.json:
+    ✗ calendar-plain: CLEAN scene now has 1 button-name violation(s)
+        calendar-plain button-name: .min-h-screen > button  <button type="button" class="h-11 w-11"><svg viewBox="0 0 24 24" class="h-6 w-6"><circle cx="12" cy="12" r="8"></circle></svg></button>
+[ui:gate] FAIL (exit 1)
+gate exit 1
