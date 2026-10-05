@@ -1,0 +1,67 @@
+name: D2 · OFF-6 offline harness
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING REAL. HOLDS NO SECRET. A real Chromium against the Vite
+# dev server and the harness fake backend (synthetic VITE_* values, as ui-gate).
+#
+# R-90 OFF-6: "App starts offline → cached feed shown. A like made offline →
+# delivered once online, exactly once."
+#   Leg 1 (enforced): the REAL Feed screen loads online, OFF-1 stores it, the
+#   old localStorage page is deleted, the app starts with no data network →
+#   the fixture post must be on screen; the control (no OFF-1 bridge) must NOT
+#   show it, or the harness itself is wrong and fails.
+#   Leg 2: BLOCKED on OFF-2 (outbox + D1 idempotency keys) — printed as
+#   BLOCKED, never counted as a pass.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline:
+    name: App starts offline -> stored feed shown
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+      - name: Cache the Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium for Playwright
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            if npx playwright install chromium; then exit 0; fi
+            sleep $((attempt * 15))
+          done
+          exit 1
+      - name: The offline harness
+        env:
+          VITE_SUPABASE_URL: https://testprojectref0000x.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: test-publishable-key-not-real
+          VITE_SUPABASE_PROJECT_ID: testprojectref0000x
+        run: node tools/uishot/offline-harness.mjs --json /tmp/off6.json
+      - name: Upload the reading
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: off6-offline-harness
+          path: /tmp/off6.json
+          if-no-files-found: warn
+          retention-days: 30

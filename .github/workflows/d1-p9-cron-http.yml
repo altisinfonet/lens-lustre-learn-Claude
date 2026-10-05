@@ -1,0 +1,43 @@
+name: D1 · P9 cron-HTTP check
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. READS supabase/migrations/, WRITES NOTHING.
+#
+# GATE_REGISTER P9 + P5-b (A-P9-1/2, F-P6-1): a pg_cron command in any applied
+# migration is red if it calls net.http_* itself (an HTTP poll whether or not
+# there is work), reads vault.decrypted_secrets inline (a decrypt every run) or
+# carries a credential-shaped literal (copied into cron.job_run_details every
+# run). The live halves are supabase/migrations/PROBE_p9_email_queue_wake.sql
+# and PROBE_p5b_scheduled_posts_tick.sql.
+# The self-test runs first (C-34).
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/db-p9-cron-http-check.mjs'
+      - 'scripts/db-p9-cron-http-check.test.mjs'
+      - 'scripts/db-p5-cron-cadence-check.mjs'
+      - '.github/workflows/d1-p9-cron-http.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cron-http:
+    name: No HTTP, vault read or credential in a cron command
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Self-test — the check catches what it must and nothing else (C-34)
+        run: node scripts/db-p9-cron-http-check.test.mjs
+      - name: The check — every cron command calls one gated function
+        run: node scripts/db-p9-cron-http-check.mjs

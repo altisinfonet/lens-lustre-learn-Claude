@@ -1,0 +1,83 @@
+
+══ 0 · fixture: real pg_cron; production's job shape (inline vault read), invented values
+  server 17.11 (Ubuntu 17.11-1.pgdg24.04+2) · pg_cron 1.6
+  job: * * * * * · select net.http_post(url, headers {Authorization literal, x-scheduled-posts-secret ← vault.decrypted_secrets inline}) · md5 9552bfe9af9b33ae316bd1efe274a643
+
+══ 1 · fail first: the build check (if P9's check is on this tree) and the live PROBE
+        (scripts/db-p9-cron-http-check.mjs is in the sibling P9 PR; its self-test reds this job's shape H1 + H2)
+  PASS  PROBE refuses — before 0007:
+        PROBE FAIL P5b: S2 the tick of 20261004_0007 is not installed
+
+══ 2 · BEFORE — the job's own command, a full day of minutes (1,440), nothing scheduled
+        http=1440 decrypts=1440
+  PASS  1,440 HTTP calls and 1,440 inline vault decrypts a day with no post due (A-P9-2, the P9 statement)
+
+══ 3 · apply 20261004_0007 (lane production) and probe
+  PASS  apply — P5b-0007: publish-scheduled-posts calls HTTP only when a post is due; target in vault
+  job: * * * * * · SELECT public.publish_scheduled_posts_tick();
+  PASS  the inline-read header was evaluated once into the vault target
+  PASS  the previous job kept in vault byte for byte
+  PASS  PROBE passes — after 0007
+        PROBE PASS P5b: job once a minute → publish_scheduled_posts_tick(), due now f, wakes 0, idle ticks 0, last wake never
+  PASS  a second apply is refused (PRE-003)
+
+══ 4 · AFTER — the same day, nothing due
+        http=0 decrypts=0
+  PASS  0 HTTP calls, 0 vault decrypts
+  PASS  1,440 idle ticks counted
+
+══ 5 · due → exactly the old call; published → idle again
+  PASS  a pending post at its time → woken
+  PASS  the call made = the old job's url and headers
+  PASS  once published → idle, no further call
+
+══ 6 · the edge function's other selection: stale 'publishing' (> 5 min) is due; fresh is not
+  PASS  publishing for 1 minute → idle (the edge function would not reclaim it)
+  PASS  publishing for 6 minutes → woken (the self-heal reclaim)
+  PASS  failed rows and a post shifted +15 min → idle
+
+══ 7 · launch scale: 100000 scheduled_posts rows (published, failed, future) — the cost of an idle tick
+          Buffers: shared hit=25
+            ->  Index Only Scan using idx_scheduled_posts_pending_due on scheduled_posts (actual rows=0 loops=1)
+                  Buffers: shared hit=23
+            ->  Index Only Scan using idx_scheduled_posts_publishing_stale on scheduled_posts scheduled_posts_1 (actual rows=0 loops=1)
+                  Buffers: shared hit=2
+          Buffers: shared hit=132
+        Execution Time: 0.658 ms
+  PASS  both probes are index scans (idx_scheduled_posts_pending_due, idx_scheduled_posts_publishing_stale); no sequential scan
+  PASS  100000 + 1,000 future rows → still idle
+
+══ 8 · a lane whose vault secret is missing: refuse rather than store a broken target
+  PASS  rollback (lane production)
+  PASS  job restored byte for byte from vault
+  PASS  0007's vault secrets and index removed
+  PASS  every scheduled_posts row still there
+  PASS  PROBE refuses — after the rollback:
+        PROBE FAIL P5b: S2 the tick of 20261004_0007 is not installed
+  PASS  apply refused (MOVE-002) — nothing changed
+  PASS  …the job and the schema untouched
+
+══ 9 · staging's shape (literal headers), lane staging
+  PASS  apply on staging's shape
+  PASS  the literals left the command
+  PASS  PROBE passes — staging's shape converted
+        PROBE PASS P5b: job once a minute → publish_scheduled_posts_tick(), due now f, wakes 0, idle ticks 0, last wake never
+
+══ 10 · the PROBE catches each regression (mutants, each undone)
+  PASS  PROBE red on: the inline-vault HTTP command put back
+  PASS  PROBE red on: a 30-second schedule
+  PASS  PROBE red on: authenticated granted the tick
+  PASS  PROBE red on: a due-check that forgot the stale-reclaim selection
+  PASS  PROBE passes — every mutant undone
+        PROBE PASS P5b: job once a minute → publish_scheduled_posts_tick(), due now f, wakes 0, idle ticks 0, last wake never
+
+══ 11 · rollback (lane guard first), then a lane with no job
+  PASS  rollback with no lane — refused
+  PASS  rollback (lane staging)
+  PASS  staging's job restored byte for byte
+  PASS  apply on a lane without the job — none created
+  PASS  PROBE passes — lane without the job
+        PROBE PASS P5b: job absent on this lane, due now f, wakes 0, idle ticks 0, last wake never
+  PASS  rollback there creates no job
+
+ALL CASES PASS
