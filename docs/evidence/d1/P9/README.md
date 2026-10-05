@@ -40,3 +40,24 @@ A wake failure never fails the enqueue: the trigger traps it as a WARNING, and t
 - **P9-c (OPEN):** the other HTTP cron jobs on production (`apply-scheduled-boosts`, `autoscale-ad-traffic`, `expire-gift-credits`, `judging-invariants-nightly`, `send-reengagement-emails`, `backup-reminder`) still carry literal headers; the PROBE names them in its PASS line. The same in-database capture moves them, one migration, when ordered.
 - `push_on_notification()` reads its secret from `public.push_config`, not vault — a separate P9 item for the Auditor.
 - **For the Auditor (P9 wording):** the vault is read once per HTTP call actually made, never per tick and never per message; the gate's "per call" cost goes from 8,640 a day to the number of real wakes.
+
+## F-AUD-2 fix-up (2026-10-05) + SEC-P9-1
+**What failed.** Staging runs #128 and #131 rolled back whole at POST-002. `to_regclass(q) IS NOT NULL AND NOT EXISTS (… ('pgmq.'||_q)::regclass …)` is planned as one expression, and the cast is folded at plan time. It raised for `pgmq.q_auth_emails`, which staging does not have. 0006 had been applied nowhere, so it is corrected **in place**, with no superseding ordinal.
+
+**What changed.**
+- **POST-002 (migration) and E2 (PROBE):** a nested IF plus `tgrelid = to_regclass(...)`, which never casts an absent name.
+- **SEC-P9-1:** an enqueue only TRIES the wake lock (`pg_try_advisory_xact_lock`), so enqueues never wait on one another. The worker's read and delete and the tick still wait.
+- **New PROBE E5:** red if the wake makes an enqueue wait.
+- **The rollback is unchanged.** `DROP TRIGGER IF EXISTS … ON` an absent table only raises a notice, and this was proved on the staging shape.
+
+**Proof:** `p9-fixup-run-tests.sh` → `p9-fixup-transcript.txt` (ALL CASES PASS). The staging-shape fixture matches staging as read on 2026-10-05: only `transactional_emails`, no job, `email_send_state` empty.
+
+| Shape | Merged 0006 (b2aa236) | Fixed |
+|---|---|---|
+| staging, apply | **FAILS**: `relation "pgmq.q_auth_emails" does not exist` (as #128/#131), nothing applied | applies; 1 trigger, no job created; wake answers `no target` |
+| staging, PROBE | the merged PROBE errors (same defect) | PASS |
+| staging, rollback + re-apply | — | works; nothing left; `delete_email` restored |
+| lock: 2nd enqueue while the 1st enqueue's transaction is open | **waits 3,048 ms**, then the trigger times out (warning; the e-mail is kept) | returns in **41 ms**, no warning; 2 queued, 1 wake |
+| the one race try-lock leaves | — | lock held elsewhere → the enqueue-wake is skipped, and the next tick wakes it (bound 60 s) |
+| PROBE E5 on the merged wake | — | red |
+| production shape (full P9 harness) | — | ALL CASES PASS (`p9-email-transcript.txt` re-run) |
