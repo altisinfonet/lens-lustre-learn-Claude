@@ -1,0 +1,72 @@
+
+══ 0 · fixture: production's six HTTP jobs (literal headers, invented values) + one plain SQL job
+  server 17.11 (Ubuntu 17.11-1.pgdg24.04+2) · pg_cron 1.6
+  the six commands, executed by hand: 71f3f85ead859e04d990fa115877631f (6 calls)
+
+══ 1 · fail first: the PROBE, and a real scheduler run copying the literal into its history
+  PASS  PROBE refuses — before 0003:
+        PROBE FAIL P9-c: C1 public.cron_http_call(text) is not installed
+  PASS  F-P6-1 shown: the scheduler's run history holds the literal credential
+  PASS  fixture back to its first state
+
+══ 2 · apply 20261005_0003 (lane production) and probe
+  PASS  apply — P9c-0003: 6 job(s) moved
+    apply-scheduled-boosts  [*/5 * * * *]  SELECT public.cron_http_call('apply-scheduled-boosts');
+    autoscale-ad-traffic  [0 */6 * * *]  SELECT public.cron_http_call('autoscale-ad-traffic');
+    backup-reminder  [0 8 * * 1]  SELECT public.cron_http_call('backup-reminder');
+    expire-gift-credits  [15 0 * * *]  SELECT public.cron_http_call('expire-gift-credits');
+    judging-invariants-nightly  [0 2 * * *]  SELECT public.cron_http_call('judging-invariants-nightly');
+    send-reengagement-emails  [0 9 * * *]  SELECT public.cron_http_call('send-reengagement-emails');
+  PASS  no literal and no HTTP call left in any command
+  PASS  six targets and six previous jobs in vault
+  PASS  every schedule unchanged
+  PASS  EQUIVALENCE: the six new commands make byte-identical requests (url, headers, body, timeout) to the old ones
+  PASS  PROBE passes — after 0003 (C2 judges all 7 jobs: rollup-engagement-daily's short literals are not a hit)
+        PROBE PASS P9-c: 6 of the six jobs on this lane call cron_http_call; no cron command on the lane holds HTTP, an inline vault read or a long literal (7 job(s) read)
+  PASS  a second apply is refused (PRE-003)
+
+══ 3 · the real scheduler runs a moved job; its history holds no credential
+  PASS  run succeeded; 0 history rows hold the literal
+  PASS  …and it made its call
+
+══ 4 · cron_http_call's own refusals
+  PASS  a name that is not a job name → refused
+  PASS  a job with no vault target → RAISES (the run would show failed, never a silent skip)
+
+══ 5 · the PROBE catches each regression (mutants, each undone)
+  PASS  PROBE refuses — one job put back to a literal HTTP command:
+          C1 expire-gift-credits: command is not cron_http_call('expire-gift-credits')
+          C2 expire-gift-credits: calls net.http_* in its command
+          C2 expire-gift-credits: holds a quoted literal of 17+ characters
+  PASS  PROBE refuses — a NEW job with an inline vault read (not one of the six):
+          C2 new-http-job: calls net.http_* in its command
+          C2 new-http-job: reads the vault inline
+          C2 new-http-job: holds a quoted literal of 17+ characters
+  PASS  PROBE refuses — a vault target deleted:
+          C1 autoscale-ad-traffic: no vault target
+  PASS  PROBE refuses — authenticated granted cron_http_call:
+          C3 an API role can execute cron_http_call
+  PASS  PROBE passes — every mutant undone
+        PROBE PASS P9-c: 6 of the six jobs on this lane call cron_http_call; no cron command on the lane holds HTTP, an inline vault read or a long literal (7 job(s) read)
+
+══ 6 · rollback (lane guard first): the six jobs byte for byte
+  PASS  rollback with no lane — refused
+  PASS  rollback (lane production)
+  PASS  all six jobs restored byte for byte (schedule and command)
+  PASS  0003's vault secrets and function removed
+  PASS  PROBE refuses — after the rollback:
+        PROBE FAIL P9-c: C1 public.cron_http_call(text) is not installed
+
+══ 7 · STAGING SHAPE: only three of the six exist
+  PASS  apply — P9c-0003: 3 job(s) moved; skipped: autoscale-ad-traffic send-reengagement-emails backup-reminder 
+  PASS  no job created for the three that do not exist
+  PASS  PROBE passes — staging shape
+        PROBE PASS P9-c: 3 of the six jobs on this lane call cron_http_call; no cron command on the lane holds HTTP, an inline vault read or a long literal (4 job(s) read)
+  PASS  rollback restores the three byte for byte
+
+══ 8 · refusals that change nothing
+  PASS  an inline vault read whose secret is missing → refused (MOVE-002)
+  PASS  …and nothing changed (whole transaction rolled back)
+  PASS  a job of another shape → refused by name (PRE-002), command not printed
+
+ALL CASES PASS

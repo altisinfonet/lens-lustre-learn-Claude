@@ -7,6 +7,7 @@ import { useIsBanned } from "@/hooks/core/useIsBanned";
 import { queryKeys } from "@/lib/queryKeys";
 import { convertEmojiShortcuts } from "@/lib/emoji";
 import { logger } from "@/lib/logger";
+import { submit } from "@/lib/offline/outbox";
 
 const FILE = "src/hooks/feed/useAddComment.ts";
 
@@ -28,6 +29,8 @@ export interface OptimisticComment {
   like_count: number;
   is_liked: boolean;
   replies: OptimisticComment[];
+  /** OFF-2 · on the device, not yet on the server (OFF-5 G4: shown with a "Pending" mark). */
+  pending?: boolean;
 }
 
 interface AddCommentInput {
@@ -72,27 +75,26 @@ export function useAddComment(
        * is not a shortcut. See src/lib/emoji.ts.
        */
       const finalContent = convertEmojiShortcuts(content);
-      const { data, error } = await supabase
-        .from("post_comments")
-        .insert({
-          post_id: postId,
-          user_id: user.id,
-          content: finalContent,
-          parent_id: parentId,
-        })
-        .select("id")
-        .single();
-      if (error) {
-        // NOTHING HERE MAY MENTION A PROFILE PHOTO — see the same note in
-        // src/components/WallPosts.tsx. The photo policies were dropped on
-        // 2026-08-05 and a member with only a system cartoon was rehearsed
-        // commenting successfully on production. Guessing "no photo" from a
-        // bare 42501 would now mislabel a ban, or a comment on a post the
-        // member cannot see, as the wall the owner has removed.
-        throw error;
-      }
-      return data;
+      /**
+       * OFF-2 · through the outbox, with an idempotency key made once for this
+       * comment. Online it is sent at once and the server's row comes back.
+       * Offline — or if the link drops mid-send — it stays on the device and
+       * is sent exactly once when the network returns (D1's UNIQUE (user_id,
+       * idempotency_key) turns any resend into "already there").
+       *
+       * A refusal still throws, unchanged. NOTHING HERE MAY MENTION A PROFILE
+       * PHOTO — see the same note in src/components/WallPosts.tsx. The photo
+       * policies were dropped on 2026-08-05; guessing "no photo" from a bare
+       * 42501 would mislabel a ban, or a comment on a post the member cannot
+       * see, as the wall the owner has removed.
+       */
+      const r = await submit(user.id, { kind: "comment", postId, content: finalContent, parentId });
+      if (r.status === "queued") return { id: null as string | null, queued: true };
+      const row = r.result as { id?: string } | undefined;
+      return { id: row?.id ?? null, queued: false };
     },
+    // Offline, React Query would pause this in memory; the outbox keeps it on the device instead.
+    networkMode: "always",
 
     onMutate: async ({ content, parentId }) => {
       if (!user) return;
@@ -172,7 +174,20 @@ export function useAddComment(
       });
     },
 
-    onSuccess: (data, variables) => {
+    onSuccess: (data, _variables, context) => {
+      if (data?.queued) {
+        // Kept on the device: the comment stays where the member put it, marked
+        // "Pending", until the outbox delivers it. No reload — offline it would
+        // only fail and wipe the list.
+        const tempId = context?.tempId;
+        if (tempId) {
+          const mark = (list: OptimisticComment[]): OptimisticComment[] =>
+            list.map((c) => (c.id === tempId ? { ...c, pending: true } : { ...c, replies: mark(c.replies) }));
+          setComments(mark);
+        }
+        toast({ title: "Saved — it will post when you're back online" });
+        return;
+      }
       // Replace temp comment with real data
       reloadComments();
 

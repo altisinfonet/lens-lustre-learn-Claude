@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { z } from "zod";
 import { queryKeys } from "@/lib/queryKeys";
+import { submit } from "@/lib/offline/outbox";
 
 const reportSchema = z.object({
   target_type: z.enum(["post", "user", "comment"]),
@@ -27,11 +28,15 @@ export function useReportContent() {
         throw new Error("Report already being submitted");
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
+      // getSession reads the device; getUser would ask the server, and a report
+      // made offline must still be accepted (OFF-5 §2 #15: QUEUED).
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error("You must be logged in to report content");
 
-      // Check for existing report by same user on same target
-      const { data: existing } = await supabase
+      // Already reported? Asked only when it can be answered; offline the
+      // server-side key still stops a repeat of THIS report.
+      const { data: existing, error: lookupError } = await supabase
         .from("reports")
         .select("id")
         .eq("reporter_id", user.id)
@@ -39,26 +44,30 @@ export function useReportContent() {
         .eq("target_id", parsed.target_id)
         .limit(1);
 
-      if (existing && existing.length > 0) {
+      if (!lookupError && existing && existing.length > 0) {
         throw new Error("You have already reported this content");
       }
 
       pendingTargets.add(dedupeKey);
       try {
-        const { error } = await supabase.from("reports").insert({
-          reporter_id: user.id,
-          target_type: parsed.target_type,
-          target_id: parsed.target_id,
+        // OFF-2 · through the outbox, keyed once (UNIQUE (reporter_id, idempotency_key)).
+        const r = await submit(user.id, {
+          kind: "report",
+          targetType: parsed.target_type,
+          targetId: parsed.target_id,
           reason: parsed.reason,
         });
-        if (error) throw error;
+        return { queued: r.status === "queued" };
       } finally {
         pendingTargets.delete(dedupeKey);
       }
     },
-    onSuccess: () => {
-      toast.success("Report submitted", {
-        description: "Thank you. Our team will review this shortly.",
+    networkMode: "always",
+    onSuccess: (res) => {
+      toast.success(res?.queued ? "Report saved" : "Report submitted", {
+        description: res?.queued
+          ? "You're offline. It will be sent as soon as you're back online."
+          : "Thank you. Our team will review this shortly.",
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.reports() });
     },

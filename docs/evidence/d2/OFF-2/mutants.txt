@@ -1,0 +1,34 @@
+=== MUTANT M1 a new key on every send (src/lib/offline/outboxSender.ts)
+   × OFF-2 · exactly once > a comment whose answer is lost twice is still ONE comment, and the read-back is that row 29ms
+   × OFF-2 · exactly once > the key is made ONCE per action — crypto.randomUUID is not called again on any retry 10ms
+   × OFF-2 · exactly once > online, submit sends at once and returns the server's row 3ms
+   × OFF-2 · order, collapse, retry budget, refusal, sign-out > FIFO: an item waiting on back-off holds back everything after it 14ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  4 failed | 14 passed (18)
+=== MUTANT M2 no idempotency key sent (plain insert) (src/lib/offline/outboxSender.ts)
+   × OFF-2 · exactly once > a comment whose answer is lost twice is still ONE comment, and the read-back is that row 41ms
+   × OFF-2 · exactly once > the key is made ONCE per action — crypto.randomUUID is not called again on any retry 10ms
+   × OFF-2 · exactly once > online, submit sends at once and returns the server's row 3ms
+   × OFF-2 · order, collapse, retry budget, refusal, sign-out > FIFO: an item waiting on back-off holds back everything after it 6ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  4 failed | 14 passed (18)
+=== MUTANT M3 report key regenerated (src/lib/offline/outboxSender.ts)
+   × OFF-2 · exactly once > a report replayed three times is one report 11ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 17 passed (18)
+=== MUTANT M4 a 4xx is retried (src/lib/offline/outboxSender.ts)
+   × OFF-2 · order, collapse, retry budget, refusal, sign-out > a final refusal (4xx) is dropped, announced and thrown — never retried 7ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 17 passed (18)
+=== MUTANT M5 FIFO not held (continue past a waiting item) (src/lib/offline/outbox.ts)
+   × OFF-2 · order, collapse, retry budget, refusal, sign-out > FIFO: an item waiting on back-off holds back everything after it 8ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 17 passed (18)
+=== MUTANT M6 no last-intent collapse (src/lib/offline/outbox.ts)
+   × OFF-2 · order, collapse, retry budget, refusal, sign-out > like → unlike → like offline collapses to ONE like (last intent, R5) 5ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 17 passed (18)
+=== MUTANT M7 sends while offline (both online checks in drainOnce removed) (src/lib/offline/outbox.ts)
+   × OFF-2 · order, collapse, retry budget, refusal, sign-out > nothing is sent while offline 6ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 17 passed (18)

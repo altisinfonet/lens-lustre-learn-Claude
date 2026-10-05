@@ -11,6 +11,7 @@
 --      p9_email_wake — a queue created later without it is a hit.
 -- E3 · public.delete_email refuses a queue outside the allow-list (A-P9-3).
 -- E4 · the wake machinery exists and no API role can execute it.
+-- E5 · SEC-P9-1: an enqueue only TRIES the wake lock (never waits on another).
 -- OPEN, not judged here (P9-c): any OTHER cron job whose command still calls
 -- net.http_post or holds a long literal is listed by name in the PASS notice.
 -- Commands are never printed: they may carry secrets.
@@ -39,15 +40,23 @@ BEGIN
   END LOOP;
   -- E2
   FOREACH _q IN ARRAY ARRAY['q_auth_emails', 'q_transactional_emails'] LOOP
-    IF to_regclass('pgmq.' || _q) IS NOT NULL AND NOT EXISTS (
-         SELECT 1 FROM pg_trigger WHERE tgrelid = ('pgmq.' || _q)::regclass AND tgname = 'p9_email_wake' AND tgenabled = 'O') THEN
-      hits := hits || E'\n  E2 pgmq.' || _q || ' has no enabled p9_email_wake trigger';
+    -- F-AUD-2: nested IF + to_regclass(); a ::regclass cast raises for an absent queue.
+    IF to_regclass('pgmq.' || _q) IS NOT NULL THEN
+      IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = to_regclass('pgmq.' || _q)
+                        AND tgname = 'p9_email_wake' AND tgenabled = 'O') THEN
+        hits := hits || E'\n  E2 pgmq.' || _q || ' has no enabled p9_email_wake trigger';
+      END IF;
     END IF;
   END LOOP;
   -- E3
   IF (SELECT prosrc FROM pg_proc WHERE oid = 'public.delete_email(text,bigint)'::regprocedure)
      !~ 'NOT IN \(''transactional_emails'', ''auth_emails''\)' THEN
     hits := hits || E'\n  E3 delete_email has no queue allow-list';
+  END IF;
+  -- E5
+  IF (SELECT prosrc FROM pg_proc WHERE oid = 'public.email_queue_wake(text)'::regprocedure)
+     !~ 'pg_try_advisory_xact_lock' THEN
+    hits := hits || E'\n  E5 email_queue_wake makes an enqueue wait on the lock (no try-lock, SEC-P9-1)';
   END IF;
   -- E4
   IF has_function_privilege('anon', 'public.email_queue_wake(text)', 'EXECUTE')

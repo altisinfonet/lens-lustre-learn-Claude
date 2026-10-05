@@ -40,8 +40,9 @@
 --      (30-s guard for a lost one), none while a batch is claimed, none while the
 --      sender is rate-limited (email_send_state.retry_after_until). Decisions
 --      are serialised by one transaction-scoped advisory lock, taken BEFORE the
---      queue is looked at, so an enqueue and a worker's last delete cannot both
---      conclude "the other one will wake it".
+--      queue is looked at. An enqueue only TRIES it (SEC-P9-1: enqueues never
+--      wait on one another); a skipped enqueue-wake is covered by the batch-end
+--      wake, or — the one race left — by the minute tick (≤ 60 s).
 --      A wake failure NEVER fails the enqueue, read or delete: the trigger traps
 --      it, raises a WARNING, and the minute sweep picks the work up.
 --   3. IDLE BACK-OFF. The job becomes '* * * * *' calling
@@ -73,6 +74,12 @@
 -- secrets p9_cron_http:process-email-queue, p9_cron_previous:process-email-queue;
 -- cron job 'process-email-queue' (schedule + command); public.delete_email body.
 -- NOT RE-RUNNABLE: PRE-003 refuses once email_queue_wake exists.
+-- F-AUD-2 FIX-UP (2026-10-05): this file failed twice on staging (runs #128,
+-- #131) at POST-002 — a ::regclass cast of the absent pgmq.q_auth_emails, folded
+-- at plan time — and rolled back whole; it has been applied NOWHERE, so it is
+-- corrected in place rather than superseded (no phantom ordinal). Same fix in
+-- the PROBE (E2). The rollback needed none (DROP TRIGGER IF EXISTS … ON an absent
+-- table only notices; proved on the staging shape).
 -- ROLLBACK: supabase/rollback/20261004_0006_p9_email_queue_wake_ROLLBACK.sql
 -- PROBE:    supabase/migrations/PROBE_p9_email_queue_wake.sql
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -185,7 +192,19 @@ DECLARE
 BEGIN
   -- Serialise every decision. Taken before the queue is looked at, so each
   -- caller sees what the previous one committed.
-  PERFORM pg_advisory_xact_lock(hashtext('p9:process-email-queue'));
+  -- SEC-P9-1: an ENQUEUE never waits for it. If another transaction holds it,
+  -- that holder is deciding a wake already (or is the worker, whose last delete
+  -- re-checks the queue); the one race left — the worker's last delete deciding
+  -- before this enqueue commits — is picked up by the minute tick (≤ 60 s).
+  -- The worker's read/delete and the tick still wait, briefly, so their
+  -- decision always sees the latest committed state.
+  IF _source = 'insert' THEN
+    IF NOT pg_try_advisory_xact_lock(hashtext('p9:process-email-queue')) THEN
+      RETURN 'lock busy';
+    END IF;
+  ELSE
+    PERFORM pg_advisory_xact_lock(hashtext('p9:process-email-queue'));
+  END IF;
   IF _source = 'update' THEN
     UPDATE public.email_queue_wake_state SET last_read_at = clock_timestamp();
     RETURN 'read';
@@ -329,9 +348,14 @@ BEGIN
       USING ERRCODE = 'raise_exception';
   END IF;
   FOREACH _q IN ARRAY ARRAY['q_auth_emails', 'q_transactional_emails'] LOOP
-    IF to_regclass('pgmq.' || _q) IS NOT NULL AND NOT EXISTS (
-         SELECT 1 FROM pg_trigger WHERE tgrelid = ('pgmq.' || _q)::regclass AND tgname = 'p9_email_wake' AND tgenabled = 'O') THEN
-      RAISE EXCEPTION 'P9-0006-POST-002: pgmq.% has no enabled p9_email_wake trigger', _q USING ERRCODE = 'raise_exception';
+    -- F-AUD-2: nested IF and to_regclass() only. An `x IS NOT NULL AND NOT EXISTS
+    -- (… ('pgmq.'||_q)::regclass …)` is planned as ONE expression: the cast is
+    -- folded at plan time and raises for an absent queue (staging runs #128/#131).
+    IF to_regclass('pgmq.' || _q) IS NOT NULL THEN
+      IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = to_regclass('pgmq.' || _q)
+                        AND tgname = 'p9_email_wake' AND tgenabled = 'O') THEN
+        RAISE EXCEPTION 'P9-0006-POST-002: pgmq.% has no enabled p9_email_wake trigger', _q USING ERRCODE = 'raise_exception';
+      END IF;
     END IF;
   END LOOP;
   BEGIN
