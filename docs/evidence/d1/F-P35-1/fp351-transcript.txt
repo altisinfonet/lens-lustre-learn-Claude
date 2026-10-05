@@ -1,0 +1,81 @@
+
+══ 0 · fixture: staging's ACL (API roles = ALL) and RLS
+  ACL md5 before: 3d3f83be4f4c5f4fadbbe6fb40df0822
+
+══ 1 · fail first: the PROBE, and what the API roles can do today
+  PASS  PROBE refuses — staging's ACL: 75 hit line(s), e.g.
+        G1 _v3_preflight_snapshot_competition_entries: anon SELECT
+        G1 _v3_preflight_snapshot_competition_entries: authenticated SELECT
+        G1 _v3_preflight_snapshot_competition_entries: anon INSERT
+  PASS  anon INSERT into reports is stopped by RLS only (it HOLDS the privilege)
+  PASS  anon TRUNCATE reports SUCCEEDS — TRUNCATE is not under RLS (direct SQL; PostgREST never sends it)
+  PASS  …and the table is empty
+  PASS  authenticated TRUNCATE of a judging snapshot SUCCEEDS
+NOTICE:  drop cascades to 6 other objects
+DETAIL:  drop cascades to table post_comments
+drop cascades to table reports
+drop cascades to table _v3_preflight_snapshot_competition_entries
+drop cascades to table _v3_preflight_snapshot_judge_decisions
+drop cascades to table _v3_preflight_snapshot_judge_tag_assignments
+drop cascades to table _v3_preflight_snapshot_judging_tags
+NOTICE:  drop cascades to function auth.uid()
+  PASS  fixture rebuilt, same ACL
+
+══ 2 · apply 20261005_0001 (lane staging) and probe
+  PASS  apply — FP351-0001: snapshots closed to the API roles; post_comments/reports hold only what the app uses; 6 ACL(s) saved
+  PASS  PROBE passes — after 0001
+        PROBE PASS F-P35-1: 4 snapshot table(s) closed to anon/authenticated; post_comments anon = SELECT only; reports anon = none; no TRUNCATE/REFERENCES/TRIGGER for the API roles
+  PASS  a second apply is refused (PRE-002)
+
+══ 3 · the app's own paths still work
+  PASS  anon reads comments (public post pages)
+  PASS  a member comments
+  PASS  …edits own comment
+  PASS  …deletes own comment
+  PASS  a member reports
+  PASS  …and reads own reports
+  PASS  service_role (the two edge functions) still reads the snapshots
+
+══ 4 · what is closed now
+  PASS  anon TRUNCATE reports → permission denied
+  PASS  anon INSERT post_comments → permission denied (was: RLS)
+  PASS  anon SELECT reports → permission denied
+  PASS  authenticated TRUNCATE post_comments → permission denied
+  PASS  authenticated SELECT on a snapshot → permission denied
+  PASS  anon TRUNCATE a snapshot → permission denied
+
+══ 5 · the PROBE catches each regression (mutants, each undone)
+  PASS  PROBE refuses — anon INSERT re-granted on post_comments: 1 hit line(s), e.g.
+        G2 post_comments: anon INSERT
+  PASS  PROBE refuses — anon SELECT re-granted on reports: 1 hit line(s), e.g.
+        G3 reports: anon SELECT
+  PASS  PROBE refuses — authenticated TRUNCATE re-granted: 1 hit line(s), e.g.
+        G3 reports: authenticated TRUNCATE
+  PASS  PROBE refuses — a snapshot re-opened: 1 hit line(s), e.g.
+        G1 _v3_preflight_snapshot_judging_tags: authenticated SELECT
+  PASS  PROBE refuses — a grant to PUBLIC (anon inherits it): 9 hit line(s), e.g.
+        G2 post_comments: anon INSERT
+        G2 post_comments: anon UPDATE
+        G2 post_comments: anon DELETE
+  PASS  PROBE refuses — the app's anon read taken away (over-revoke): 1 hit line(s), e.g.
+        G4 a privilege the app uses is missing
+  PASS  PROBE refuses — RLS switched off: 1 hit line(s), e.g.
+        G3 reports: RLS off
+  PASS  PROBE passes — every mutant undone
+        PROBE PASS F-P35-1: 4 snapshot table(s) closed to anon/authenticated; post_comments anon = SELECT only; reports anon = none; no TRUNCATE/REFERENCES/TRIGGER for the API roles
+
+══ 6 · a lane where a snapshot does not exist (production unread): skip, never error
+  PASS  rollback (lane production)
+  PASS  ACL restored exactly (md5 of all six ACLs = before)
+  PASS  PROBE refuses — after the rollback: 75 hit line(s), e.g.
+        G1 _v3_preflight_snapshot_competition_entries: anon SELECT
+        G1 _v3_preflight_snapshot_competition_entries: authenticated SELECT
+        G1 _v3_preflight_snapshot_competition_entries: anon INSERT
+  PASS  apply with one snapshot absent — skipped by NOTICE
+  PASS  PROBE passes — lane with 3 snapshots
+        PROBE PASS F-P35-1: 3 snapshot table(s) closed to anon/authenticated; post_comments anon = SELECT only; reports anon = none; no TRUNCATE/REFERENCES/TRIGGER for the API roles
+  PASS  rollback with no lane — refused
+  PASS  rollback on that lane restores its ACL exactly
+  PASS  re-apply after rollback
+
+ALL CASES PASS
