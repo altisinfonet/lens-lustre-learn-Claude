@@ -12,7 +12,9 @@
  *      put the departed member's data back after the wipe;
  *   2. the image service worker's caches (gallery-images-*);
  *   3. the OFF-1 device store (IndexedDB `retina-offline`);
- *   4. the feed's first-page cache (localStorage `feed_cache_v1`).
+ *   4. the feed's first-page cache (localStorage `feed_cache_v1`);
+ *   5. the OFF-2 outbox (IndexedDB `retina-outbox`): unsent actions belong to
+ *      the member who made them and are never sent under someone else.
  * NOT wiped, on purpose: device preferences that belong to the device, not the
  * member — theme, language, cookie consent, the device id.
  *
@@ -22,20 +24,23 @@ import { purgeImageCache } from "@/lib/imageCachePurge";
 import { clearDeviceStore } from "./deviceStore";
 import { setPersistenceUser } from "./queryPersistence";
 import { clearFeedCache } from "@/lib/feedCache";
+import { clearOutbox } from "./outbox";
 
 export interface WipeResult {
   imageCaches: string[] | null;
   deviceStore: boolean;
   feedCache: boolean;
+  outbox: boolean;
 }
 
 export async function wipeMemberDataOnSignOut(): Promise<WipeResult> {
   setPersistenceUser(null);
   let feedCache = false;
   try { clearFeedCache(); feedCache = true; } catch { /* never block sign-out */ }
-  const [imageCaches, deviceStore] = await Promise.all([
+  const [imageCaches, deviceStore, outbox] = await Promise.all([
     purgeImageCache().catch(() => null),
     clearDeviceStore().catch(() => false),
+    clearOutbox().catch(() => false),
   ]);
-  return { imageCaches, deviceStore, feedCache };
+  return { imageCaches, deviceStore, feedCache, outbox };
 }

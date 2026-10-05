@@ -1,0 +1,20 @@
+{
+  "at": "2026-10-05T06:03:04.473Z",
+  "seedShown": true,
+  "storedFeed": true,
+  "offlineShown": true,
+  "controlShown": false,
+  "offlineLike": {
+    "tapped": true,
+    "queuedOnDevice": true,
+    "serverRows": 1,
+    "sends": 3,
+    "outboxLeft": 0,
+    "log": [
+      "POST post_reactions +1",
+      "POST post_reactions 23505 (post_reactions_post_id_user_id_key)",
+      "POST post_reactions 23505 (post_reactions_post_id_user_id_key)"
+    ]
+  },
+  "verdict": "PASS (leg 1 + leg 2)"
+}

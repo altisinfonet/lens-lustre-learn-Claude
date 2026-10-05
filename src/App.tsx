@@ -7,6 +7,7 @@ import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { BrowserRouter, Routes, Route, Navigate, useParams, Outlet, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/core/useAuth";
 import OfflineDeviceStoreBridge from "@/components/OfflineDeviceStoreBridge";
+import OutboxBridge from "@/components/OutboxBridge";
 import { shouldRetry, retryDelay } from "@/lib/offline/retryPolicy";
 import { ThemeProvider } from "@/hooks/core/useTheme";
 
@@ -371,6 +372,8 @@ const App = () => {
           <LanguageAccountSync />
           {/* OFF-1: feed, profiles, own posts, notifications kept on the device. */}
           <OfflineDeviceStoreBridge />
+          {/* OFF-2: likes, comments and reports made offline are sent once when back online. */}
+          <OutboxBridge />
           <PushNotificationsGate />
           <AdFullscreenProvider>
           <AppErrorBoundary>
