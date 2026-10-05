@@ -20,7 +20,17 @@ Gate logs: `local-1-fixed-baseline-not-lowered-RED.txt` / `local-2-all-fixed-bas
 The D2 container cannot reach www/staging (proxy: ERR_TUNNEL_CONNECTION_FAILED). Measured against a local dev server instead, with the shared chrome fed staging's public `site_settings` (`managed_pages`, `navigation_menu`; read-only SELECT 2026-10-05, `site-settings-fixture.json`):
 `local-routes-before.json` → `/` color-contrast 8 (same 8 as production), `/verify` label 1 (same as production) · `local-routes-after.json` → **0 on all six routes** (/, /verify, /winners, /courses, /competitions, /help-support).
 
+## Production and staging, measured by a runner (this PR's `d2-a11y-routes.yml`, run 37288655241 / job 111693576877, 2026-10-05 09:14–09:17 UTC)
+The same probe over DECISION.md's 12 public routes, www and staging (identical results):
+- **The 4-per-route shared-chrome target-size pattern from 2026-10-04 is gone** — 0 target-size nodes on 11 of 12 routes. Nothing to fix in shared chrome; it no longer exists live.
+- `/` color-contrast 8 → **fixed here** (Index.tsx, measured 0 locally).
+- `/verify` label 1 → **fixed here** (measured 0 locally).
+- `/courses` target-size 3 (course-card author link, 112×17.4 px) → **fixed here**: `leading-6` on that link (24 px box, text unchanged).
+- `/courses` color-contrast 2 → **fixed here**: "Few Seats Left" red-700/white 6.47:1 (was 3.43); "Advanced" red-700 / dark:red-400, 5.29 / 5.97:1 (was 4.36).
+- `/courses/:slug` color-contrast 4 (locked-lesson numbers, 2.2:1) → **fixed here**: full muted in an opacity-70 locked row, 8.77 dark / 6.37 light (the Lock icon still marks the row).
+- Course fixes are verified by computed ratio only (the local server has no course rows); the live check is this same workflow after staging deploys the merge.
+- Not in this unit: link-in-text-block on /login 2, /signup 3, /discover 2 (serious; primary-coloured links need an underline or 3:1 against body text).
+
 ## NOT fixed, stated plainly
-- **F-D3-11 target-size (production 39 nodes, 4 per route): not reproduced, so not fixed.** With production-shaped header/footer data a local server shows 0 target-size nodes; footer links are 15–17 px tall but pass axe's 24 px spacing exception locally. Changing chrome without knowing which 4 elements production flags would be a guess. `d2-a11y-routes.yml` (new, report-only per DECISION C7) runs the same probe from a GitHub runner against www and staging and prints every failing node with its selector — its run on this PR is the input for the follow-up fix.
-- Course-page contrast (production 6) needs course data the local server does not have; not measured here.
+- F-D3-11 target-size: the 39-node pattern measured 2026-10-04 is not present on www or staging on 2026-10-05 (above), so there is nothing left to fix for it; it did not reproduce locally either.
 - Serious harness debt still in the baseline (ratchets down later): link-name 11 (avatar links), link-in-text-block 2 (`/login`), nested-interactive 2 (notifications).
