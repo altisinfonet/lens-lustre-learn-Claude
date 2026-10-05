@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { submit } from "@/lib/offline/outbox";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useFeedCacheUpdaters } from "@/hooks/feed/useFeedCacheUpdaters";
 import { useIsBanned } from "@/hooks/core/useIsBanned";
@@ -94,16 +94,15 @@ export function useReactToPost<T extends ReactablePost>(
     }) => {
       if (!user) throw new Error("Not authenticated");
       if (isBanned) throw new Error("Your account is restricted from this action");
-      if (hadPreviousReaction) {
-        await supabase.from("post_reactions").delete().eq("post_id", postId).eq("user_id", user.id);
-      }
-      const { error } = await supabase.from("post_reactions").insert({
-        post_id: postId,
-        user_id: user.id,
-        reaction_type: reactionType,
-      });
-      if (error) throw error;
+      // OFF-2: through the outbox. Online it is sent at once; offline (or if
+      // the link drops) it stays on the device and is sent once, later. Only a
+      // refusal from the server throws, and only then is the optimistic like
+      // rolled back.
+      return submit(user.id, { kind: "react", postId, reactionType, replace: hadPreviousReaction });
     },
+    // React Query would otherwise PAUSE this mutation offline — in memory, lost
+    // on a restart. The outbox is what waits for the network now.
+    networkMode: "always",
     onMutate: async ({ postId, reactionType }) => {
       let snapshot: ReactablePost | undefined;
       applyMap((p) => {
@@ -133,9 +132,9 @@ export function useUnreactToPost<T extends ReactablePost>(
   return useMutation({
     mutationFn: async (postId: string) => {
       if (!user) throw new Error("Not authenticated");
-      const { error } = await supabase.from("post_reactions").delete().eq("post_id", postId).eq("user_id", user.id);
-      if (error) throw error;
+      return submit(user.id, { kind: "unreact", postId });
     },
+    networkMode: "always",
     onMutate: async (postId) => {
       let snapshot: ReactablePost | undefined;
       applyMap((p) => {

@@ -1,0 +1,10 @@
+# OFF-2 outbox guard — fail first on origin/staging b2aa236 (before this unit), 2026-10-05T06:00:01Z
+::error::OFF-2 outbox · src/lib/offline/outbox.ts: no OUTBOX_TARGETS — the outbox's tables cannot be checked
+::error::OFF-2 outbox · AROUND THE OUTBOX · src/hooks/feed/useAddComment.ts:76 · insert into post_comments without the outbox (no stored idempotency key)
+::error::OFF-2 outbox · AROUND THE OUTBOX · src/hooks/feed/useReportContent.ts:48 · insert into reports without the outbox (no stored idempotency key)
+OFF-2 outbox guard: 3 problem(s) — FAIL
+
+# the same guard on this branch
+OFF-2 outbox guard: 0 problem(s) — PASS
+
+self-test: PASS (7 contract shapes + 7 write shapes)

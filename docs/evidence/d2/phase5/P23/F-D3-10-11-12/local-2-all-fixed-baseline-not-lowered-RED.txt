@@ -1,0 +1,27 @@
+### ui:gate
+
+200 screenshots, 0 problem(s) reported.
+
+baseline diff: clean against 148 recorded scene/viewport keys.
+
+axe (wcag2a wcag2aa wcag21a wcag21aa wcag22aa, iphone-390): 15 failing node(s) in 6 of 50 scene(s); baseline 37 in 11
+AXE RATCHET (10) — accessibility moved against tools/uishot/axe.baseline.json:
+    ✗ hashtag-list-below-box: label went DOWN 1 → 0 — lower axe.baseline.json in this PR (--lower)
+    ✗ hashtag-list-in-dialog: label went DOWN 1 → 0 — lower axe.baseline.json in this PR (--lower)
+    ✗ hashtag-list-inline-edit: label went DOWN 1 → 0 — lower axe.baseline.json in this PR (--lower)
+    ✗ hashtag-list-ranked-by-people: label went DOWN 1 → 0 — lower axe.baseline.json in this PR (--lower)
+    ✗ journey-create-from-feed: aria-required-children went DOWN 1 → 0 — lower axe.baseline.json in this PR (--lower)
+    ✗ journey-create-from-feed: button-name went DOWN 7 → 0 — lower axe.baseline.json in this PR (--lower)
+    ✗ screen-feed: aria-required-children went DOWN 1 → 0 — lower axe.baseline.json in this PR (--lower)
+    ✗ screen-feed: button-name went DOWN 7 → 0 — lower axe.baseline.json in this PR (--lower)
+    ✗ screen-post-detail: button-name went DOWN 1 → 0 — lower axe.baseline.json in this PR (--lower)
+    ✗ screen-profile: color-contrast went DOWN 1 → 0 — lower axe.baseline.json in this PR (--lower)
+        journey-create-from-feed link-name: .h-11.place-items-center[href$="liwei"]  <a class="shrink-0 grid h-11 w-11 place-items-center" href="/liwei">
+        journey-create-from-feed link-name: .p-1\.5.-m-1\.5[href$="avijit"]  <a class="shrink-0 grid place-items-center p-1.5 -m-1.5" href="/avijit">
+        journey-create-from-feed link-name: .p-1\.5.-m-1\.5[href$="liwei"]  <a class="shrink-0 grid place-items-center p-1.5 -m-1.5" href="/liwei">
+        screen-feed link-name: .h-11.place-items-center[href$="liwei"]  <a class="shrink-0 grid h-11 w-11 place-items-center" href="/liwei">
+        screen-feed link-name: .p-1\.5.-m-1\.5[href$="avijit"]  <a class="shrink-0 grid place-items-center p-1.5 -m-1.5" href="/avijit">
+        screen-feed link-name: .p-1\.5.-m-1\.5[href$="liwei"]  <a class="shrink-0 grid place-items-center p-1.5 -m-1.5" href="/liwei">
+        screen-post-detail link-name: .p-1\.5  <a class="shrink-0 grid place-items-center p-1.5 -m-1.5" href="/avijit">
+[ui:gate] FAIL (exit 1)
+gate exit 1

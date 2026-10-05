@@ -1,0 +1,41 @@
+name: D2 · OFF-2 outbox guard
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. Reads the source tree only.
+#
+# OFF-2 (R-90, OFF-5 R8): every outbox write carries a key made once, and the
+# outbox writes only what D1's contract makes safe to repeat. Fails on:
+#   - an OUTBOX_TARGETS table outside scripts/db-off2-outbox-contract.json, or
+#     with a different owner / on_conflict / natural key;
+#   - a direct INSERT/UPSERT into an outbox table anywhere in src/ other than
+#     src/lib/offline/outboxSender.ts (the pre-OFF-2 path: no stored key).
+# The vitest suite (src/lib/offline/__tests__/outbox.test.ts) carries the
+# replay proof: one action, answers lost twice, ONE row.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: Outbox writes stay inside D1's contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Self-test (every shape judged)
+        run: node scripts/web-off2-outbox-check.mjs --self-test
+      - name: The guard
+        run: node scripts/web-off2-outbox-check.mjs

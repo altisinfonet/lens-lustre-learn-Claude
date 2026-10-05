@@ -1,0 +1,67 @@
+{
+  "_about": "P23 clause 2 axe ratchet baseline. Per scene, per rule, failing node count at iphone-390, axe-core 4.13.0, tags wcag2a wcag2aa wcag21a wcag21aa wcag22aa. {} = clean scene. A DEBT, not a standard: lower only via `node tools/uishot/axe-ratchet.mjs --lower /tmp/shots/axe-current.json`. Never raise to make a red go away. First measured 2026-10-05T07:46:57Z = DECISION.md section 2A (37 nodes, 11 of 50 scenes). Lowered 2026-10-05 by F-D3-10/11 to 15 nodes in 6 scenes (all 21 critical nodes fixed).",
+  "scenes": {
+    "calendar-dob": {},
+    "calendar-plain": {},
+    "comments-panel": {},
+    "comments-panel-thread-only": {},
+    "composer-album": {},
+    "composer-broken-src": {},
+    "composer-full": {},
+    "composer-pano-cover": {},
+    "composer-portrait-cover": {},
+    "composer-single": {},
+    "crop-modal-avatar": {},
+    "crop-modal-behind-dialog": {},
+    "crop-modal-tall": {},
+    "crop-modal-wide": {},
+    "harness-selftest": {},
+    "hashtag-list-below-box": {},
+    "hashtag-list-in-dialog": {},
+    "hashtag-list-inline-edit": {},
+    "hashtag-list-ranked-by-people": {},
+    "journey-create-from-feed": {
+      "link-name": 3
+    },
+    "journey-create-from-wall": {},
+    "mention-list-over-comment-box": {},
+    "post-audience-chooser": {},
+    "privacy-gap-notice": {},
+    "profile-grid": {},
+    "profile-grid-no-band-yet": {},
+    "profile-grid-one-block": {},
+    "profile-grid-partial-row": {},
+    "profile-grid-shapes": {},
+    "profile-grid-single": {},
+    "screen-account-sheet": {},
+    "screen-dashboard": {},
+    "screen-discover": {
+      "link-name": 4
+    },
+    "screen-feed": {
+      "link-name": 3
+    },
+    "screen-friends": {},
+    "screen-login": {
+      "link-in-text-block": 2
+    },
+    "screen-not-found": {},
+    "screen-not-found-in-place": {},
+    "screen-not-found-in-place-signed-out": {},
+    "screen-not-found-signed-out": {},
+    "screen-notification-settings": {},
+    "screen-notifications": {
+      "nested-interactive": 2
+    },
+    "screen-post-detail": {
+      "link-name": 1
+    },
+    "screen-profile": {},
+    "screen-voting-lightbox": {},
+    "screen-wall": {},
+    "screen-wall-about": {},
+    "screen-wall-visitor": {},
+    "screen-winners": {},
+    "wall-view-toggle": {}
+  }
+}

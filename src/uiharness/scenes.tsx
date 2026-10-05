@@ -641,7 +641,10 @@ export const SCENES: Record<string, () => JSX.Element> = {
     <div className="min-h-screen bg-background p-4">
       <p className="mb-2 text-xs uppercase tracking-widest text-primary">Composer caption</p>
       <div className="relative">
+        {/* aria-label mirrors the product caption box (F-D3-10); a bare
+            Textarea here was the axe `label` finding on all 4 hashtag scenes. */}
         <Textarea
+          aria-label="Caption"
           value="morning light on the bridge #50mm"
           readOnly
           rows={3}
@@ -670,7 +673,7 @@ export const SCENES: Record<string, () => JSX.Element> = {
   "hashtag-list-ranked-by-people": () => (
     <div className="min-h-screen bg-background p-4">
       <div className="relative">
-        <Textarea value="entry for the contest #a" readOnly rows={2} className="resize-none bg-muted/30" />
+        <Textarea aria-label="Caption" value="entry for the contest #a" readOnly rows={2} className="resize-none bg-muted/30" />
         <HashtagSuggestions
           open
           focusIdx={1}
@@ -699,7 +702,7 @@ export const SCENES: Record<string, () => JSX.Element> = {
         <DialogContent className="sm:max-w-[520px]">
           <DialogTitle>Edit caption</DialogTitle>
           <div>
-            <Textarea value="rescheduled for sunrise #stre" readOnly rows={6} className="resize-none" />
+            <Textarea aria-label="Caption" value="rescheduled for sunrise #stre" readOnly rows={6} className="resize-none" />
             <HashtagSuggestions
               open
               placement="inline"
@@ -738,7 +741,7 @@ export const SCENES: Record<string, () => JSX.Element> = {
     <div className="min-h-screen bg-background p-3">
       <div className="space-y-2">
         <div>
-          <Textarea value="reworking this caption #stre" readOnly className="min-h-[80px] resize-none text-[13px]" />
+          <Textarea aria-label="Caption" value="reworking this caption #stre" readOnly className="min-h-[80px] resize-none text-[13px]" />
           <HashtagSuggestions
             open
             placement="inline"
