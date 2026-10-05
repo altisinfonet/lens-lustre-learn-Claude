@@ -10,6 +10,7 @@ import { wipeMemberDataOnSignOut } from "../signOutWipe";
 import { setBackend, memoryBackend, putRecord } from "../deviceStore";
 import { setPersistenceUser, startQueryPersistence } from "../queryPersistence";
 import { persistFeedPage, getCachedFeed } from "@/lib/feedCache";
+import { enqueue, pending, memoryOutboxStore, __setOutboxStore, __resetOutbox } from "../outbox";
 
 type C = { keys: () => Promise<string[]>; delete: (n: string) => Promise<boolean>; names: Set<string> };
 const fakeCaches = (names: string[]): C => {
@@ -19,8 +20,8 @@ const fakeCaches = (names: string[]): C => {
 
 let mem: ReturnType<typeof memoryBackend>;
 const realCaches = (globalThis as { caches?: unknown }).caches;
-beforeEach(() => { mem = memoryBackend(); setBackend(mem); localStorage.clear(); });
-afterEach(() => { setBackend(undefined); (globalThis as { caches?: unknown }).caches = realCaches; });
+beforeEach(() => { mem = memoryBackend(); setBackend(mem); localStorage.clear(); __resetOutbox(); __setOutboxStore(memoryOutboxStore()); });
+afterEach(() => { setBackend(undefined); (globalThis as { caches?: unknown }).caches = realCaches; __setOutboxStore(undefined); });
 
 describe("wipeMemberDataOnSignOut", () => {
   it("wipes image caches, the device store and the feed cache; keeps device preferences", async () => {
@@ -33,7 +34,7 @@ describe("wipeMemberDataOnSignOut", () => {
 
     const r = await wipeMemberDataOnSignOut();
 
-    expect(r).toEqual({ imageCaches: ["gallery-images-v3"], deviceStore: true, feedCache: true });
+    expect(r).toEqual({ imageCaches: ["gallery-images-v3"], deviceStore: true, feedCache: true, outbox: true });
     expect([...c.names]).toEqual(["unrelated"]);
     expect(mem.map.size).toBe(0);
     expect(getCachedFeed("me")).toBeNull();
@@ -56,6 +57,14 @@ describe("wipeMemberDataOnSignOut", () => {
   it("never throws when nothing is available", async () => {
     (globalThis as { caches?: unknown }).caches = undefined;
     setBackend(null);
-    await expect(wipeMemberDataOnSignOut()).resolves.toEqual({ imageCaches: null, deviceStore: false, feedCache: true });
+    await expect(wipeMemberDataOnSignOut()).resolves.toEqual({ imageCaches: null, deviceStore: false, feedCache: true, outbox: true });
+  });
+
+  it("OFF-2 · wipes the outbox: an unsent action is never sent under the next member", async () => {
+    await enqueue("me", { kind: "comment", postId: "p1", content: "x", parentId: null });
+    expect(await pending("me")).toHaveLength(1);
+    const r = await wipeMemberDataOnSignOut();
+    expect(r.outbox).toBe(true);
+    expect(await pending("me")).toEqual([]);
   });
 });

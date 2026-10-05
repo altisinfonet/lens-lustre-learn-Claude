@@ -1,0 +1,16 @@
+{
+  "at": "2026-10-05T06:04:20.121Z",
+  "seedShown": true,
+  "storedFeed": true,
+  "offlineShown": true,
+  "controlShown": false,
+  "offlineLike": {
+    "tapped": true,
+    "queuedOnDevice": false,
+    "serverRows": 0,
+    "sends": 0,
+    "outboxLeft": 0,
+    "log": []
+  },
+  "verdict": "FAIL (leg 1 pass, leg 2 FAIL)"
+}
