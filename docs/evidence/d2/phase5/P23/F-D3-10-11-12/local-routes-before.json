@@ -1,0 +1,77 @@
+{
+  "at": "2026-10-05T08:13:20.412Z",
+  "origin": "http://127.0.0.1:5301",
+  "tags": [
+    "wcag2a",
+    "wcag2aa",
+    "wcag21a",
+    "wcag21aa",
+    "wcag22aa"
+  ],
+  "viewport": "390x844 mobile",
+  "routes": {
+    "/": [
+      {
+        "id": "color-contrast",
+        "nodes": [
+          {
+            "target": ".px-2\\.5.border-border\\/20.bg-background\\/30:nth-child(1) > .text-muted-foreground\\/40.text-\\[9px\\].shrink-0",
+            "html": "<span class=\"text-[9px] text-muted-foreground/40 shrink-0\">5m</span>",
+            "why": "  Element has insufficient color contrast of 3.6 (foreground color: #737881, background color: #1a222f, font size: 9.0pt (12px), font weight: normal). Expected "
+          },
+          {
+            "target": ".px-2\\.5.border-border\\/20.bg-background\\/30:nth-child(2) > .text-muted-foreground\\/40.text-\\[9px\\].shrink-0",
+            "html": "<span class=\"text-[9px] text-muted-foreground/40 shrink-0\">1h</span>",
+            "why": "  Element has insufficient color contrast of 3.6 (foreground color: #737881, background color: #1a222f, font size: 9.0pt (12px), font weight: normal). Expected "
+          },
+          {
+            "target": ".px-2\\.5.border-border\\/20.bg-background\\/30:nth-child(3) > .text-muted-foreground\\/40.text-\\[9px\\].shrink-0",
+            "html": "<span class=\"text-[9px] text-muted-foreground/40 shrink-0\">2h</span>",
+            "why": "  Element has insufficient color contrast of 3.6 (foreground color: #737881, background color: #1a222f, font size: 9.0pt (12px), font weight: normal). Expected "
+          },
+          {
+            "target": ".px-2\\.5.border-border\\/20.bg-background\\/30:nth-child(4) > .text-muted-foreground\\/40.text-\\[9px\\].shrink-0",
+            "html": "<span class=\"text-[9px] text-muted-foreground/40 shrink-0\">3h</span>",
+            "why": "  Element has insufficient color contrast of 3.6 (foreground color: #737881, background color: #1a222f, font size: 9.0pt (12px), font weight: normal). Expected "
+          },
+          {
+            "target": ".px-2\\.5.border-border\\/20.bg-background\\/30:nth-child(5) > .text-muted-foreground\\/40.text-\\[9px\\].shrink-0",
+            "html": "<span class=\"text-[9px] text-muted-foreground/40 shrink-0\">4h</span>",
+            "why": "  Element has insufficient color contrast of 3.6 (foreground color: #737881, background color: #1a222f, font size: 9.0pt (12px), font weight: normal). Expected "
+          },
+          {
+            "target": ".px-2\\.5.border-border\\/20.bg-background\\/30:nth-child(6) > .text-muted-foreground\\/40.text-\\[9px\\].shrink-0",
+            "html": "<span class=\"text-[9px] text-muted-foreground/40 shrink-0\">5h</span>",
+            "why": "  Element has insufficient color contrast of 3.6 (foreground color: #737881, background color: #1a222f, font size: 9.0pt (12px), font weight: normal). Expected "
+          },
+          {
+            "target": ".px-2\\.5.border-border\\/20.bg-background\\/30:nth-child(7) > .text-muted-foreground\\/40.text-\\[9px\\].shrink-0",
+            "html": "<span class=\"text-[9px] text-muted-foreground/40 shrink-0\">6h</span>",
+            "why": "  Element has insufficient color contrast of 3.6 (foreground color: #737881, background color: #1a222f, font size: 9.0pt (12px), font weight: normal). Expected "
+          },
+          {
+            "target": ".px-2\\.5.border-border\\/20.bg-background\\/30:nth-child(8) > .text-muted-foreground\\/40.text-\\[9px\\].shrink-0",
+            "html": "<span class=\"text-[9px] text-muted-foreground/40 shrink-0\">8h</span>",
+            "why": "  Element has insufficient color contrast of 3.6 (foreground color: #737881, background color: #1a222f, font size: 9.0pt (12px), font weight: normal). Expected "
+          }
+        ]
+      }
+    ],
+    "/verify": [
+      {
+        "id": "label",
+        "nodes": [
+          {
+            "target": "input[type=\"date\"]",
+            "html": "<input class=\"flex h-10 w-full rou...\" type=\"date\" value=\"\">",
+            "why": "  Element does not have an implicit (wrapped) <label>"
+          }
+        ]
+      }
+    ],
+    "/winners": [],
+    "/courses": [],
+    "/competitions": [],
+    "/help-support": []
+  }
+}

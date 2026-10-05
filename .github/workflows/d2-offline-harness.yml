@@ -10,8 +10,11 @@ name: D2 · OFF-6 offline harness
 #   old localStorage page is deleted, the app starts with no data network →
 #   the fixture post must be on screen; the control (no OFF-1 bridge) must NOT
 #   show it, or the harness itself is wrong and fails.
-#   Leg 2: BLOCKED on OFF-2 (outbox + D1 idempotency keys) — printed as
-#   BLOCKED, never counted as a pass.
+#   Leg 2 (enforced, OFF-2): offline, Like is tapped on the REAL Feed (unlike
+#   then like on the already-liked fixture post → ONE queued like); the app is
+#   restarted online against a fake PostgREST that enforces staging's unique
+#   constraints and loses the first two answers → exactly 1 row after >= 3
+#   sends, and the device outbox is empty. Fails on the pre-OFF-2 app (0 rows).
 #
 # ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
 # ═══════════════════════════════════════════════════════════════════════════

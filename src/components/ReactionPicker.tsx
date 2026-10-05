@@ -180,6 +180,13 @@ const ReactionPicker = ({ currentReaction, onReact, onUnreact, disabled }: React
         onTouchMove={handleTouchMove}
         onContextMenu={(e) => e.preventDefault()}
         disabled={disabled}
+        /* F-D3-10 (axe button-name, critical): the button holds only an icon or
+           an emoji, so it had no accessible name — a screen reader said
+           "button". The name says what a tap DOES, matching handleClick:
+           unreacted → like; reacted → remove that reaction. Long-press opens
+           the picker, whose emoji buttons are named by their title. */
+        aria-label={currentReaction && activeReaction ? `Remove your ${activeReaction.label} reaction` : "Like"}
+        aria-pressed={!!currentReaction}
         className={`h-12 px-2.5 flex items-center justify-center rounded-md select-none touch-manipulation transition-colors ${
           currentReaction
             ? `${activeReaction?.color || "text-primary"} hover:bg-primary/5`

@@ -129,6 +129,7 @@ export default function EditScheduledPostDialog({
               onKeyDown={captionHashtags.onKeyDown}
               rows={6}
               placeholder="Write your caption…"
+              aria-label="Caption" /* F-D3-10: a placeholder is not a label */
               disabled={update.isPending}
             />
             {/* INLINE, so the dialog grows and the footer moves down.

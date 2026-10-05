@@ -98,6 +98,8 @@ export interface ThreadComment {
   reaction_counts?: Record<string, number>;
   /** The reaction_type the current viewer picked on this comment, or null/undefined for none. */
   user_reaction?: string | null;
+  /** OFF-2 · still on the device, waiting for the network (OFF-5 G4 "Pending" mark). */
+  pending?: boolean;
   replies: ThreadComment[];
 }
 
@@ -467,6 +469,9 @@ const CommentThread = ({
                   </span>
                   {isEdited(comment) && (
                     <span className="shrink-0 text-[11px] italic text-muted-foreground">Edited</span>
+                  )}
+                  {comment.pending && (
+                    <span className="shrink-0 text-[11px] text-muted-foreground" data-testid="comment-pending">Pending</span>
                   )}
                 </div>
 

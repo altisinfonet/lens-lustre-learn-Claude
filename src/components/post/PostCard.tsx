@@ -426,6 +426,8 @@ const PostCard = ({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
+                /* F-D3-10: icon-only, so it carries its own name (axe button-name). */
+                aria-label="Post options"
                 /* 44x44. Measured at 36x36 in the harness: this is the post's
                    own menu — delete, report, remove from wall — so a miss here
                    is a member tapping the wrong post's actions. The glyph is
@@ -679,6 +681,7 @@ const PostCard = ({
               onKeyUp={editHashtags.refresh}
               onKeyDown={editHashtags.onKeyDown}
               placeholder="Write a caption..."
+              aria-label="Caption" /* F-D3-10: a placeholder is not a label */
               className="text-[13px] min-h-[80px] resize-none"
               autoFocus
             />

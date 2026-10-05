@@ -1,0 +1,24 @@
+{
+  "_about": "Public site_settings rows the shared chrome renders, read-only SELECT on staging (fpszggreishhuvdpkmdr) 2026-10-05 by D2; trimmed to the fields the footer/nav read. Used by tools/uishot/axe-routes.mjs (AXE_SITE_SETTINGS) so a local server renders the same header/footer production does.",
+  "managed_pages": [
+    {"id":"ea94b5a6","slug":"about-us","title":"About Us","is_published":true,"nav_placement":"footer"},
+    {"id":"6dd30c56","slug":"refund-policy","title":"Refund Policy","is_published":true,"nav_placement":"footer"},
+    {"id":"e17be0d7","slug":"terms-of-service","title":"Terms of Service","is_published":true,"nav_placement":"footer"},
+    {"id":"38043df0","slug":"privacy-policy","title":"Privacy Policy","is_published":true,"nav_placement":"footer"},
+    {"id":"4133b686","slug":"contact-us","title":"Contact Us","is_published":true,"nav_placement":"footer"},
+    {"id":"b04a7c24","slug":"community-guidelines","title":"Community Guidelines","is_published":true,"nav_placement":"footer"},
+    {"id":"c7e2d0bb","slug":"brand-ownership","title":"Brand Ownership","is_published":true,"nav_placement":"footer"}
+  ],
+  "navigation_menu": [
+    {"id":"288e64fc","icon":"Home","path":"/","type":"system","label":"Home","parent_id":null,"sort_order":0,"visibility":"all","show_in_nav":false,"open_new_tab":false},
+    {"id":"ac8fba1f","icon":"Trophy","path":"/competitions","type":"system","label":"Competitions","parent_id":null,"sort_order":1,"visibility":"all","show_in_nav":true,"open_new_tab":false},
+    {"id":"0777e508","icon":"Newspaper","path":"/journal","type":"system","label":"Journal","parent_id":null,"sort_order":2,"visibility":"all","show_in_nav":true,"open_new_tab":false},
+    {"id":"7d38000e","icon":"BookOpen","path":"/courses","type":"system","label":"Courses","parent_id":null,"sort_order":3,"visibility":"all","show_in_nav":true,"open_new_tab":false},
+    {"id":"71a5dbac","icon":"Award","path":"/winners","type":"system","label":"Winners","parent_id":null,"sort_order":4,"visibility":"all","show_in_nav":true,"open_new_tab":false},
+    {"id":"eda35796","icon":"FileCheck","path":"/certificates","type":"system","label":"Certificates","parent_id":null,"sort_order":5,"visibility":"all","show_in_nav":false,"open_new_tab":false},
+    {"id":"eb4fdcc3","icon":"Compass","path":"/discover","type":"system","label":"Discover","parent_id":null,"sort_order":6,"visibility":"all","show_in_nav":false,"open_new_tab":false},
+    {"id":"67da0d3f","icon":"HelpCircle","path":"/help-support","type":"system","label":"Help & Support","parent_id":null,"sort_order":10,"visibility":"all","show_in_nav":false,"open_new_tab":false},
+    {"id":"574665bf","icon":"LogIn","path":"/login","type":"system","label":"Login","parent_id":null,"sort_order":11,"visibility":"guest","show_in_nav":false,"open_new_tab":false},
+    {"id":"b74b97a7","icon":"UserPlus","path":"/signup","type":"system","label":"Sign Up","parent_id":null,"sort_order":12,"visibility":"guest","show_in_nav":false,"open_new_tab":false}
+  ]
+}

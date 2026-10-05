@@ -111,6 +111,12 @@ jobs:
           echo "::error::Chromium could not be downloaded after 3 attempts."
           exit 1
 
+      # P23 clause 2: prove the axe ratchet's judge fires on every failure path
+      # (count up, new rule, clean/new scene dirty, unlowered drop, axe threw)
+      # before trusting its verdict on the sweep below.
+      - name: Axe ratchet self-test
+        run: node tools/uishot/axe-ratchet.mjs --self-test
+
       # The same single command a person runs locally. A gate invoked one way
       # here and another way on a laptop has two behaviours, and the one that
       # matters is whichever nobody checked.

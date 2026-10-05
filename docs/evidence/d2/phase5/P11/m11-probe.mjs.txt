@@ -1,0 +1,21 @@
+import { chromium } from 'playwright';
+const RUNS = Number(process.env.RUNS||3); const ROUTES = process.argv.slice(2);
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+console.log(JSON.stringify({type:'run',atUtc:new Date().toISOString(),profile:'android-mid-2026: 360x800 dpr3, CPU 4x, 150 ms RTT, 209715 B/s down, 96000 B/s up (= P17 profile)'}));
+for (const r of ROUTES) for (let i=0;i<RUNS;i++) {
+  const ctx = await b.newContext({serviceWorkers:'block',viewport:{width:360,height:800},deviceScaleFactor:3,isMobile:true,hasTouch:true,userAgent:'Mozilla/5.0 (Linux; Android 13; SM-A536B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36'});
+  const p = await ctx.newPage(); const c = await ctx.newCDPSession(p);
+  await c.send('Network.enable'); await c.send('Network.setCacheDisabled',{cacheDisabled:true});
+  await c.send('Network.emulateNetworkConditions',{offline:false,latency:150,downloadThroughput:209715,uploadThroughput:96000});
+  await c.send('Emulation.setCPUThrottlingRate',{rate:4});
+  const reqs = new Map(); let imgBytes=0, imgCount=0, all=0, maxImg=0; const hosts={};
+  c.on('Network.requestWillBeSent', e => reqs.set(e.requestId, {type:e.type, url:e.request.url})); c.on('Network.responseReceived', e => { const q=reqs.get(e.requestId)||{}; reqs.set(e.requestId,{type:e.type||q.type,url:e.response.url}); });
+  c.on('Network.loadingFinished', e => { const q=reqs.get(e.requestId); all+=e.encodedDataLength; if(q&&q.type==='Image'){imgBytes+=e.encodedDataLength;imgCount++;maxImg=Math.max(maxImg,e.encodedDataLength);const h=new URL(q.url).host;hosts[h]=(hosts[h]||0)+e.encodedDataLength;} });
+  const t0=Date.now();
+  await p.goto('https://www.50mmretina.com'+r,{waitUntil:'networkidle',timeout:120000}).catch(()=>{});
+  await p.waitForFunction(() => [...document.images].some(i=>/post-images|portfolio-images\/(?!on-page)/.test(i.currentSrc)&&i.complete) || /\/(login|$)/.test(location.pathname), null, {timeout:90000}).catch(()=>{}); await p.waitForFunction(() => [...document.images].filter(i=>{const b=i.getBoundingClientRect();return b.bottom>0&&b.top<800&&b.width>0}).every(i=>i.complete), null, {timeout:90000}).catch(()=>{}); await p.waitForTimeout(3000);
+  const finalUrl = p.url(); const vis = await p.$$eval('img', is => is.filter(i=>{const b=i.getBoundingClientRect();return b.bottom>0&&b.top<800&&b.width>0}).length);
+  console.log(JSON.stringify({type:'sample',route:r,finalUrl,run:i+1,imgBytes,imgCount,maxImgBytes:maxImg,allBytes:all,imgsInViewport:vis,imgBytesByHost:hosts,elapsedMs:Date.now()-t0,atUtc:new Date().toISOString()}));
+  await ctx.close();
+}
+await b.close();
