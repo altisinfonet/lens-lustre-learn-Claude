@@ -23,6 +23,11 @@
 import { chromium } from "playwright";
 import { readdirSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { createRequire } from "node:module";
+import { AXE_TAGS, AXE_VIEWPORT, AXE_BASELINE_PATH, compareAxe, countsFromAxe, totalNodes } from "./axe-ratchet.mjs";
+
+/** axe-core, pinned exactly in package.json (P23 clause 2). Injected, never bundled. */
+const AXE_SOURCE = createRequire(import.meta.url).resolve("axe-core/axe.min.js");
 
 const BASE = process.env.UI_HARNESS_BASE ?? "http://127.0.0.1:5199";
 const OUT = process.env.UI_SHOT_DIR ?? "/tmp/shots";
@@ -117,6 +122,9 @@ if (scenes.length === 0) {
 
 let problems = 0;
 const rows = [];
+/** P23 · per scene: { rule: nodeCount } or { error }. See tools/uishot/axe-ratchet.mjs. */
+const axeCurrent = {};
+const axeTargets = {};
 
 for (const scene of scenes) {
   for (const vp of VIEWPORTS) {
@@ -916,6 +924,29 @@ for (const scene of scenes) {
     errors.push(...faults.map((f) => `layout: ${f}`));
 
     /**
+     * ── P23 · AXE, ONCE PER SCENE, AT THE iphone-390 VIEWPORT ───────────────
+     * WCAG 2.2 AA tags (DECISION.md L1), no rule disabled. Run here — after the
+     * images and animations have settled, before the fixed-bar reparenting
+     * below rewrites the layout for the screenshot. Judged after the loop by
+     * compareAxe() against tools/uishot/axe.baseline.json. An axe that throws
+     * is recorded as an error and FAILS the gate — it is never a clean scene.
+     */
+    if (vp.name === AXE_VIEWPORT) {
+      try {
+        await page.addScriptTag({ path: AXE_SOURCE });
+        const res = await page.evaluate(async (tags) => {
+          // @ts-ignore — injected above
+          const r = await window.axe.run(document, { runOnly: { type: "tag", values: tags }, resultTypes: ["violations"] });
+          return { violations: r.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.map((n) => ({ target: n.target.join(" "), html: n.html.slice(0, 160) })) })) };
+        }, AXE_TAGS);
+        axeCurrent[scene] = countsFromAxe(res);
+        axeTargets[scene] = res.violations;
+      } catch (e) {
+        axeCurrent[scene] = { error: String(e.message ?? e).slice(0, 200) };
+      }
+    }
+
+    /**
      * PIN BOTTOM-FIXED BARS TO THE END OF THE PAGE BEFORE PHOTOGRAPHING IT.
      *
      * WHY, 2026-08-16, and this one cost the owner's trust twice. A
@@ -1072,6 +1103,36 @@ if (BASELINE_WRITE) {
   }
 } else {
   console.log(`\nno baseline recorded yet at tools/uishot/baseline.json — run with --baseline-write once this run is confirmed correct.`);
+}
+
+/**
+ * ── GATE 3 — THE AXE RATCHET (P23 clause 2) ─────────────────────────────
+ * Fails on: a count up, a new rule, a clean or new scene with any violation,
+ * a count down without the baseline lowered in the same PR, a baseline scene
+ * that did not run (full sweep), or axe throwing. The rules and the reasoning
+ * live in tools/uishot/axe-ratchet.mjs; `--self-test` there proves each one.
+ * The full current result (counts + every failing node's selector) is written
+ * next to the screenshots so a red run says exactly which element it saw.
+ */
+writeFileSync(join(OUT, "axe-current.json"), JSON.stringify({ tags: AXE_TAGS, viewport: AXE_VIEWPORT, at: new Date().toISOString(), scenes: axeCurrent, targets: axeTargets }, null, 2) + "\n");
+{
+  const axeBaseline = existsSync(AXE_BASELINE_PATH) ? JSON.parse(readFileSync(AXE_BASELINE_PATH, "utf8")) : null;
+  const axeFails = compareAxe(axeBaseline, axeCurrent, only.length === 0);
+  const ran = Object.keys(axeCurrent).length;
+  const dirty = Object.values(axeCurrent).filter((c) => !c.error && Object.keys(c).length).length;
+  const nodes = totalNodes(Object.fromEntries(Object.entries(axeCurrent).filter(([, c]) => !c.error)));
+  console.log(`\naxe (${AXE_TAGS.join(" ")}, ${AXE_VIEWPORT}): ${nodes} failing node(s) in ${dirty} of ${ran} scene(s)` +
+    (axeBaseline?.scenes ? `; baseline ${totalNodes(axeBaseline.scenes)} in ${Object.values(axeBaseline.scenes).filter((s) => Object.keys(s).length).length}` : ""));
+  if (axeFails.length) {
+    problems += axeFails.length;
+    console.log(`AXE RATCHET (${axeFails.length}) — accessibility moved against ${AXE_BASELINE_PATH}:`);
+    for (const f of axeFails) console.log(`    ✗ ${f}`);
+    for (const scene of new Set(axeFails.map((f) => f.split(":")[0]))) {
+      for (const v of axeTargets[scene] ?? []) for (const n of v.nodes) console.log(`        ${scene} ${v.id}: ${n.target}  ${n.html}`);
+    }
+  } else {
+    console.log("axe ratchet: clean against the baseline.");
+  }
 }
 
 process.exit(problems > 0 ? 1 : 0);

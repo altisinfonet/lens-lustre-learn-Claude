@@ -1,0 +1,397 @@
+{
+  "tags": [
+    "wcag2a",
+    "wcag2aa",
+    "wcag21a",
+    "wcag21aa",
+    "wcag22aa"
+  ],
+  "viewport": "iphone-390",
+  "at": "2026-10-05T07:46:57.569Z",
+  "scenes": {
+    "calendar-dob": {},
+    "calendar-plain": {},
+    "comments-panel": {},
+    "comments-panel-thread-only": {},
+    "composer-album": {},
+    "composer-broken-src": {},
+    "composer-full": {},
+    "composer-pano-cover": {},
+    "composer-portrait-cover": {},
+    "composer-single": {},
+    "crop-modal-avatar": {},
+    "crop-modal-behind-dialog": {},
+    "crop-modal-tall": {},
+    "crop-modal-wide": {},
+    "harness-selftest": {},
+    "hashtag-list-below-box": {
+      "label": 1
+    },
+    "hashtag-list-in-dialog": {
+      "label": 1
+    },
+    "hashtag-list-inline-edit": {
+      "label": 1
+    },
+    "hashtag-list-ranked-by-people": {
+      "label": 1
+    },
+    "journey-create-from-feed": {
+      "aria-required-children": 1,
+      "button-name": 7,
+      "link-name": 3
+    },
+    "journey-create-from-wall": {},
+    "mention-list-over-comment-box": {},
+    "post-audience-chooser": {},
+    "privacy-gap-notice": {},
+    "profile-grid": {},
+    "profile-grid-no-band-yet": {},
+    "profile-grid-one-block": {},
+    "profile-grid-partial-row": {},
+    "profile-grid-shapes": {},
+    "profile-grid-single": {},
+    "screen-account-sheet": {},
+    "screen-dashboard": {},
+    "screen-discover": {
+      "link-name": 4
+    },
+    "screen-feed": {
+      "aria-required-children": 1,
+      "button-name": 7,
+      "link-name": 3
+    },
+    "screen-friends": {},
+    "screen-login": {
+      "link-in-text-block": 2
+    },
+    "screen-not-found": {},
+    "screen-not-found-in-place": {},
+    "screen-not-found-in-place-signed-out": {},
+    "screen-not-found-signed-out": {},
+    "screen-notification-settings": {},
+    "screen-notifications": {
+      "nested-interactive": 2
+    },
+    "screen-post-detail": {
+      "button-name": 1,
+      "link-name": 1
+    },
+    "screen-profile": {
+      "color-contrast": 1
+    },
+    "screen-voting-lightbox": {},
+    "screen-wall": {},
+    "screen-wall-about": {},
+    "screen-wall-visitor": {},
+    "screen-winners": {},
+    "wall-view-toggle": {}
+  },
+  "targets": {
+    "calendar-dob": [],
+    "calendar-plain": [],
+    "comments-panel": [],
+    "comments-panel-thread-only": [],
+    "composer-album": [],
+    "composer-broken-src": [],
+    "composer-full": [],
+    "composer-pano-cover": [],
+    "composer-portrait-cover": [],
+    "composer-single": [],
+    "crop-modal-avatar": [],
+    "crop-modal-behind-dialog": [],
+    "crop-modal-tall": [],
+    "crop-modal-wide": [],
+    "harness-selftest": [],
+    "hashtag-list-below-box": [
+      {
+        "id": "label",
+        "impact": "critical",
+        "nodes": [
+          {
+            "target": "textarea",
+            "html": "<textarea class=\"flex w-full border-i...\" readonly=\"\" rows=\"3\">"
+          }
+        ]
+      }
+    ],
+    "hashtag-list-in-dialog": [
+      {
+        "id": "label",
+        "impact": "critical",
+        "nodes": [
+          {
+            "target": "textarea",
+            "html": "<textarea class=\"flex min-h-[80px] w-...\" readonly=\"\" rows=\"6\">"
+          }
+        ]
+      }
+    ],
+    "hashtag-list-inline-edit": [
+      {
+        "id": "label",
+        "impact": "critical",
+        "nodes": [
+          {
+            "target": "textarea",
+            "html": "<textarea class=\"flex w-full rounded-...\" readonly=\"\">"
+          }
+        ]
+      }
+    ],
+    "hashtag-list-ranked-by-people": [
+      {
+        "id": "label",
+        "impact": "critical",
+        "nodes": [
+          {
+            "target": "textarea",
+            "html": "<textarea class=\"flex min-h-[80px] w-...\" readonly=\"\" rows=\"2\">"
+          }
+        ]
+      }
+    ],
+    "journey-create-from-feed": [
+      {
+        "id": "aria-required-children",
+        "impact": "critical",
+        "nodes": [
+          {
+            "target": ".items-stretch",
+            "html": "<div class=\"flex items-stretch gap-1 overflow-x-auto px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden mr-9 md:mr-0 md:pl-9 md:pr-20\" role=\"tablist\" ari"
+          }
+        ]
+      },
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": [
+          {
+            "target": "#radix-_r_p_",
+            "html": "<button class=\"grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors\" type=\"button\" id=\"radix-_r_p_\" aria-has"
+          },
+          {
+            "target": "#radix-_r_1f_",
+            "html": "<button class=\"grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors\" type=\"button\" id=\"radix-_r_1f_\" aria-ha"
+          },
+          {
+            "target": "div:nth-child(6) > div > .bleed-phone.mb-4.overflow-hidden > .px-1\\.5.select-none > .flex.items-center > .flex.items-center:nth-child(1) > .select-none.relative > .disabled\\:opacity-40.rounded-md.hover\\:bg-muted\\/50",
+            "html": "<button class=\"h-12 px-2.5 flex items-center justify-center rounded-md select-none touch-manipulation transition-colors text-muted-foreground hover:bg-muted/50 "
+          },
+          {
+            "target": "#radix-_r_1t_",
+            "html": "<button class=\"grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors\" type=\"button\" id=\"radix-_r_1t_\" aria-ha"
+          },
+          {
+            "target": ".left-2",
+            "html": "<button class=\"absolute left-2 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-card/70 backdrop-blur-sm flex items-center justify-center text-foreground"
+          },
+          {
+            "target": ".bg-card\\/70.top-1\\/2.-translate-y-1\\/2:nth-child(3)",
+            "html": "<button class=\"absolute right-2 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-card/70 backdrop-blur-sm flex items-center justify-center text-foregroun"
+          },
+          {
+            "target": "div:nth-child(8) > div > .bleed-phone.mb-4.overflow-hidden > .px-1\\.5.select-none > .flex.items-center > .flex.items-center:nth-child(1) > .select-none.relative > .disabled\\:opacity-40.rounded-md.hover\\:bg-muted\\/50",
+            "html": "<button class=\"h-12 px-2.5 flex items-center justify-center rounded-md select-none touch-manipulation transition-colors text-muted-foreground hover:bg-muted/50 "
+          }
+        ]
+      },
+      {
+        "id": "link-name",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": ".h-11.place-items-center[href$=\"liwei\"]",
+            "html": "<a class=\"shrink-0 grid h-11 w-11 place-items-center\" href=\"/liwei\">"
+          },
+          {
+            "target": ".p-1\\.5.-m-1\\.5[href$=\"avijit\"]",
+            "html": "<a class=\"shrink-0 grid place-items-center p-1.5 -m-1.5\" href=\"/avijit\">"
+          },
+          {
+            "target": ".p-1\\.5.-m-1\\.5[href$=\"liwei\"]",
+            "html": "<a class=\"shrink-0 grid place-items-center p-1.5 -m-1.5\" href=\"/liwei\">"
+          }
+        ]
+      }
+    ],
+    "journey-create-from-wall": [],
+    "mention-list-over-comment-box": [],
+    "post-audience-chooser": [],
+    "privacy-gap-notice": [],
+    "profile-grid": [],
+    "profile-grid-no-band-yet": [],
+    "profile-grid-one-block": [],
+    "profile-grid-partial-row": [],
+    "profile-grid-shapes": [],
+    "profile-grid-single": [],
+    "screen-account-sheet": [],
+    "screen-dashboard": [],
+    "screen-discover": [
+      {
+        "id": "link-name",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": ".md\\:px-4.border-b.gap-3 > .shrink-0[href$=\"liwei\"]",
+            "html": "<a class=\"shrink-0\" href=\"/liwei\">"
+          },
+          {
+            "target": ".shrink-0[href$=\"amara.okonkwo\"]",
+            "html": "<a class=\"shrink-0\" href=\"/amara.okonkwo\">"
+          },
+          {
+            "target": ".shrink-0[href$=\"hana.takahashi\"]",
+            "html": "<a class=\"shrink-0\" href=\"/hana.takahashi\">"
+          },
+          {
+            "target": ".shrink-0[href$=\"ayaan.farooqi\"]",
+            "html": "<a class=\"shrink-0\" href=\"/ayaan.farooqi\">"
+          }
+        ]
+      }
+    ],
+    "screen-feed": [
+      {
+        "id": "aria-required-children",
+        "impact": "critical",
+        "nodes": [
+          {
+            "target": ".items-stretch",
+            "html": "<div class=\"flex items-stretch gap-1 overflow-x-auto px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden mr-9 md:mr-0 md:pl-9 md:pr-20\" role=\"tablist\" ari"
+          }
+        ]
+      },
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": [
+          {
+            "target": "#radix-_r_p_",
+            "html": "<button class=\"grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors\" type=\"button\" id=\"radix-_r_p_\" aria-has"
+          },
+          {
+            "target": "#radix-_r_1f_",
+            "html": "<button class=\"grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors\" type=\"button\" id=\"radix-_r_1f_\" aria-ha"
+          },
+          {
+            "target": "div:nth-child(6) > div > .bleed-phone.mb-4.overflow-hidden > .px-1\\.5.select-none > .flex.items-center > .flex.items-center:nth-child(1) > .select-none.relative > .disabled\\:opacity-40.rounded-md.hover\\:bg-muted\\/50",
+            "html": "<button class=\"h-12 px-2.5 flex items-center justify-center rounded-md select-none touch-manipulation transition-colors text-muted-foreground hover:bg-muted/50 "
+          },
+          {
+            "target": "#radix-_r_1t_",
+            "html": "<button class=\"grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors\" type=\"button\" id=\"radix-_r_1t_\" aria-ha"
+          },
+          {
+            "target": ".left-2",
+            "html": "<button class=\"absolute left-2 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-card/70 backdrop-blur-sm flex items-center justify-center text-foreground"
+          },
+          {
+            "target": ".bg-card\\/70.top-1\\/2.-translate-y-1\\/2:nth-child(3)",
+            "html": "<button class=\"absolute right-2 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-card/70 backdrop-blur-sm flex items-center justify-center text-foregroun"
+          },
+          {
+            "target": "div:nth-child(8) > div > .bleed-phone.mb-4.overflow-hidden > .px-1\\.5.select-none > .flex.items-center > .flex.items-center:nth-child(1) > .select-none.relative > .disabled\\:opacity-40.rounded-md.hover\\:bg-muted\\/50",
+            "html": "<button class=\"h-12 px-2.5 flex items-center justify-center rounded-md select-none touch-manipulation transition-colors text-muted-foreground hover:bg-muted/50 "
+          }
+        ]
+      },
+      {
+        "id": "link-name",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": ".h-11.place-items-center[href$=\"liwei\"]",
+            "html": "<a class=\"shrink-0 grid h-11 w-11 place-items-center\" href=\"/liwei\">"
+          },
+          {
+            "target": ".p-1\\.5.-m-1\\.5[href$=\"avijit\"]",
+            "html": "<a class=\"shrink-0 grid place-items-center p-1.5 -m-1.5\" href=\"/avijit\">"
+          },
+          {
+            "target": ".p-1\\.5.-m-1\\.5[href$=\"liwei\"]",
+            "html": "<a class=\"shrink-0 grid place-items-center p-1.5 -m-1.5\" href=\"/liwei\">"
+          }
+        ]
+      }
+    ],
+    "screen-friends": [],
+    "screen-login": [
+      {
+        "id": "link-in-text-block",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": "a[href$=\"signup\"]",
+            "html": "<a class=\"text-primary hover:underline\" href=\"/signup\">Create one</a>"
+          },
+          {
+            "target": "a[href$=\"community-guidelines\"]",
+            "html": "<a class=\"text-primary hover:underline\" href=\"/community-guidelines\">Terms of Use &amp; Community Guidelines</a>"
+          }
+        ]
+      }
+    ],
+    "screen-not-found": [],
+    "screen-not-found-in-place": [],
+    "screen-not-found-in-place-signed-out": [],
+    "screen-not-found-signed-out": [],
+    "screen-notification-settings": [],
+    "screen-notifications": [
+      {
+        "id": "nested-interactive",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": ".bg-primary\\/5.border-border\\/50.hover\\:bg-muted\\/20:nth-child(2) > .text-left.gap-3.flex-1",
+            "html": "<button class=\"flex items-center gap-3 flex-1 min-w-0 text-left\">"
+          },
+          {
+            "target": ".bg-primary\\/5.border-border\\/50.hover\\:bg-muted\\/20:nth-child(3) > .text-left.gap-3.flex-1",
+            "html": "<button class=\"flex items-center gap-3 flex-1 min-w-0 text-left\">"
+          }
+        ]
+      }
+    ],
+    "screen-post-detail": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": [
+          {
+            "target": "#radix-_r_g_",
+            "html": "<button class=\"grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors\" type=\"button\" id=\"radix-_r_g_\" aria-has"
+          }
+        ]
+      },
+      {
+        "id": "link-name",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": ".p-1\\.5",
+            "html": "<a class=\"shrink-0 grid place-items-center p-1.5 -m-1.5\" href=\"/avijit\">"
+          }
+        ]
+      }
+    ],
+    "screen-profile": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": ".-bottom-1",
+            "html": "<div class=\"absolute -bottom-1 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-[9px] tracking-[0.15em] uppercase font-semibold shadow-md border border"
+          }
+        ]
+      }
+    ],
+    "screen-voting-lightbox": [],
+    "screen-wall": [],
+    "screen-wall-about": [],
+    "screen-wall-visitor": [],
+    "screen-winners": [],
+    "wall-view-toggle": []
+  }
+}

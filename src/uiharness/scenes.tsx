@@ -408,6 +408,8 @@ export const SCENES: Record<string, () => JSX.Element> = {
    */
   "calendar-plain": () => (
     <div className="min-h-screen bg-background p-4">
+      {/* P23 FAIL-FIRST MUTANT — an icon-only button with no name. Reverted in the next commit. */}
+      <button type="button" className="h-11 w-11"><svg viewBox="0 0 24 24" className="h-6 w-6"><circle cx="12" cy="12" r="8" /></svg></button>
       <Calendar
         mode="single"
         month={new Date(2026, 7, 1)}
