@@ -18,7 +18,9 @@ DECLARE
   hits text := '';
   _n   bigint;
 BEGIN
-  IF to_regprocedure('public.video_mark_uploaded(uuid,integer,text)') IS NULL
+  -- video_mark_uploaded: 0006's form, or the attested form once 20261005_0007 is applied (F-D1-4).
+  IF coalesce(to_regprocedure('public.video_mark_uploaded(uuid,integer,text,bigint,text)'),
+              to_regprocedure('public.video_mark_uploaded(uuid,integer,text)')) IS NULL
      OR to_regprocedure('public.music_check_record_result(uuid,text,text,numeric,jsonb,text)') IS NULL THEN
     RAISE EXCEPTION 'PROBE FAIL VID-4: M1 the music check is not installed';
   END IF;
@@ -30,7 +32,8 @@ BEGIN
      OR has_function_privilege('anon', 'public.music_check_record_result(uuid,text,text,numeric,jsonb,text)', 'EXECUTE')
      OR has_function_privilege('authenticated', 'public.music_check_due(integer)', 'EXECUTE')
      OR has_function_privilege('authenticated', 'public.music_library_set_fingerprints(uuid,text[])', 'EXECUTE')
-     OR has_function_privilege('anon', 'public.video_mark_uploaded(uuid,integer,text)', 'EXECUTE')
+     OR has_function_privilege('anon', coalesce(to_regprocedure('public.video_mark_uploaded(uuid,integer,text,bigint,text)'),
+                                                to_regprocedure('public.video_mark_uploaded(uuid,integer,text)'))::oid, 'EXECUTE')
      OR has_function_privilege('anon', 'public.video_new_version(uuid,text,text,bigint,numeric,boolean,jsonb,uuid,jsonb)', 'EXECUTE')
      OR has_function_privilege('anon', 'public.music_library_add(text,text,numeric,text,text,text,text,text,text)', 'EXECUTE') THEN
     hits := hits || E'\n  M2 a worker function is callable by an API role (or a member RPC by anon)';
