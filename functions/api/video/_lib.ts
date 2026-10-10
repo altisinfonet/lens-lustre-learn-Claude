@@ -44,6 +44,9 @@ export interface VideoEnv {
   R2_UPLOAD_KEY_ID?: string;
   R2_UPLOAD_KEY_SECRET?: string;
   VIDEO_DELIVERY_PRIVATE?: string;
+  /** play-token.ts only: the D-003 key (base64, 32 bytes) and the lane's CDN host (also the token's aud). */
+  MEDIA_TOKEN_KEY?: string;
+  MEDIA_CDN_HOST?: string;
 }
 
 /**

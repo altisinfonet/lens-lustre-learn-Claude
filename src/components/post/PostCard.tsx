@@ -15,6 +15,7 @@ import UserIdentityBlock from "@/components/UserIdentityBlock";
 import ContributorScore from "@/components/ContributorScore";
 import TaggedPeople from "@/components/post/TaggedPeople";
 import PostMedia from "@/components/post/PostMedia";
+import FeedVideoCard from "@/components/video/FeedVideoCard";
 import Caption from "@/components/post/Caption";
 import HashtagSuggestions from "@/components/post/HashtagSuggestions";
 import { useCaptionHashtags } from "@/hooks/feed/useCaptionHashtags";
@@ -160,7 +161,8 @@ const PostCard = ({
     currentUserId && (post.tagged_people ?? []).some((t) => t.id === currentUserId),
   );
 
-  const imageUrls = post.image_urls.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
+  // VID-1 / R-105: a video post is ONE 9:16 card and never also a photo frame.
+  const imageUrls = post.video ? [] : post.image_urls.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
   // Stored thumbnails ride along ONLY when they align one-to-one with the
   // images. A mismatched array (single-image fallback path, partial uploads)
   // must not put photo 1's thumbnail under photo 2 — no thumbs is merely
@@ -543,6 +545,12 @@ const PostCard = ({
           • Web: `group-hover/media`, pure CSS, no JavaScript and no click stolen.
           • App: the FIRST tap reveals them and opens nothing; the second opens
             the photograph, exactly as it always did. See `interceptFirstTap`. */}
+      {post.video && (
+        // VID-1 / R-105: a video post is ONE 9:16 card; it replaces the photo frame, never sits beside it.
+        <div className="px-0" data-testid="post-video">
+          <FeedVideoCard video={post.video} />
+        </div>
+      )}
       {imageUrls.length > 0 && (
         <div className="relative group/media px-0">
           <PostMedia
