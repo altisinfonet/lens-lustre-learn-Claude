@@ -1,0 +1,42 @@
+name: D2 · media-authz Worker (video/ branch)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. WRITES NOTHING.
+#
+# VID-1 §9.3–§9.4: the video/ branch of the D-003 media-authz Worker.
+# 1) its tests (handler + the BUILT worker.js the Owner pastes);
+# 2) worker.js equals a fresh build of its sources — a hand-edited or stale
+#    bundle would deploy code nobody reviewed.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/media-authz/**'
+      - 'src/lib/video/shared/**'
+      - 'src/lib/video/__tests__/mediaAuthz.test.ts'
+      - 'scripts/web-media-authz-build.mjs'
+      - '.github/workflows/d2-media-authz.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  media-authz:
+    name: No token, no video bytes; photos untouched; bundle = sources
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install (lockfile only)
+        run: npm ci --no-audit --no-fund
+      - name: The Worker's tests (handler + built bundle)
+        run: npx vitest run src/lib/video/__tests__/mediaAuthz.test.ts
+      - name: worker.js is a fresh build of its sources
+        run: node scripts/web-media-authz-build.mjs --check
