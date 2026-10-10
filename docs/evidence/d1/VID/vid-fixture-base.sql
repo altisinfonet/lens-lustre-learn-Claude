@@ -12,7 +12,9 @@ DO $r$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='service_role') THEN CREATE ROLE service_role NOLOGIN BYPASSRLS; END IF;
 END $r$;
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- pgcrypto in schema extensions, as on both lanes (read on staging 2026-10-10: pgcrypto_schema = extensions).
+CREATE SCHEMA IF NOT EXISTS extensions;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 -- Start from PostgreSQL's own default (PUBLIC may EXECUTE new functions) so the fixture builds the
 -- same way on every run; staging's default privileges are set at the END of this file.
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres GRANT EXECUTE ON FUNCTIONS TO PUBLIC;
