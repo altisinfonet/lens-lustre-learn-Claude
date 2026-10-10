@@ -12,20 +12,36 @@
  * "Selected members" brings the same people back.
  *
  * Search runs on Enter / the Search button, not on a timer.
+ *
+ * Avatars (F-AUD-6, MASTER §3s R-103: results "with avatar + name + username"):
+ * every search result and every chip shows the member's photo, or their
+ * initials when they have none — two people called "Asha" are told apart by
+ * face before the admin presses Add. alt="" because the name is printed beside
+ * it; reading it twice to a screen reader helps nobody.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Search, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   FEATURE_INFO, FEATURE_MODES, NOTE_MAX, SEARCH_MIN, describeHistory, featureErrorMessage, isDirty, modeSelectable,
-  parseFeatureState, shortId, type FeatureKey, type FeatureMode, type FeatureState,
+  memberInitials, parseFeatureState, shortId, type FeatureKey, type FeatureMode, type FeatureState,
 } from "@/lib/admin/featureSwitches";
 
 type Rpc = (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message?: string } | null }>;
 const rpc: Rpc = (fn, args) => (supabase.rpc as unknown as Rpc)(fn, args);
 
 interface Found { user_id: string; full_name: string | null; username: string | null; avatar_url: string | null; email: string | null }
+
+function MemberAvatar({ m, size }: { m: { full_name: string | null; username: string | null; avatar_url: string | null }; size: "chip" | "row" }) {
+  return (
+    <Avatar className={size === "chip" ? "h-5 w-5" : "h-8 w-8"}>
+      {m.avatar_url ? <AvatarImage src={m.avatar_url} alt="" /> : null}
+      <AvatarFallback className={size === "chip" ? "text-[9px]" : "text-xs"}>{memberInitials(m)}</AvatarFallback>
+    </Avatar>
+  );
+}
 
 function FeatureCard({ s, names, onChanged }: { s: FeatureState; names: Map<string, string>; onChanged: () => void }) {
   const info = FEATURE_INFO[s.feature];
@@ -101,9 +117,10 @@ function FeatureCard({ s, names, onChanged }: { s: FeatureState; names: Map<stri
             {s.members.length === 0 ? (
               <p className="text-xs text-muted-foreground">No one yet — nobody can use this until you add someone.</p>
             ) : (
-              <ul className="mt-2 flex flex-wrap gap-2">
+              <ul aria-label="Members added" className="mt-2 flex flex-wrap gap-2">
                 {s.members.map((m) => (
-                  <li key={m.user_id} className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs">
+                  <li key={m.user_id} className="inline-flex items-center gap-1 rounded-full bg-muted py-1 pl-1 pr-3 text-xs">
+                    <MemberAvatar m={m} size="chip" />
                     <span>{m.full_name || m.username || shortId(m.user_id)}{m.username ? ` @${m.username}` : ""}</span>
                     <button type="button" aria-label={`Remove ${m.full_name || m.username || shortId(m.user_id)}`} disabled={busyUser === m.user_id}
                       onClick={() => void change("feature_remove_member", m.user_id)} className="rounded-full p-0.5 hover:bg-background">
@@ -124,10 +141,11 @@ function FeatureCard({ s, names, onChanged }: { s: FeatureState; names: Map<stri
           </form>
           {found && (
             found.length === 0 ? <p className="text-xs text-muted-foreground">No one found.</p> : (
-              <ul className="divide-y divide-border rounded-md border border-border">
+              <ul aria-label="Search results" className="divide-y divide-border rounded-md border border-border">
                 {found.map((f) => (
                   <li key={f.user_id} className="flex items-center justify-between gap-2 p-2 text-sm">
-                    <span className="min-w-0 truncate">{f.full_name || f.username || shortId(f.user_id)}{f.username ? ` @${f.username}` : ""}{f.email ? ` · ${f.email}` : ""}</span>
+                    <MemberAvatar m={f} size="row" />
+                    <span className="min-w-0 flex-1 truncate">{f.full_name || f.username || shortId(f.user_id)}{f.username ? ` @${f.username}` : ""}{f.email ? ` · ${f.email}` : ""}</span>
                     {memberIds.has(f.user_id)
                       ? <span className="text-xs text-muted-foreground">Added</span>
                       : <button type="button" disabled={busyUser === f.user_id} onClick={() => void change("feature_add_member", f.user_id)}

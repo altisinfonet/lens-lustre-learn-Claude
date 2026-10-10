@@ -101,3 +101,15 @@ export function describeHistory(h: FeatureHistoryRow, who: (id: string | null) =
 export function shortId(id: string | null | undefined): string {
   return id ? id.slice(0, 8) : "system";
 }
+
+/**
+ * Two letters for a member's avatar when they have no photo (F-AUD-6): first +
+ * last word of the name, else the first two of a one-word name or username,
+ * else "?". Never empty — an empty circle reads as a loading glitch.
+ */
+export function memberInitials(m: { full_name: string | null; username: string | null }): string {
+  const words = (m.full_name || m.username || "").trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "?";
+  const letters = words.length === 1 ? words[0].slice(0, 2) : words[0][0] + words[words.length - 1][0];
+  return letters.toUpperCase();
+}

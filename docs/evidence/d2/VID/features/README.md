@@ -12,3 +12,10 @@ Unit: the admin screen for the three feature switches. Words on screen: **Off / 
 - 35 new tests (featureSwitches 24, AdminFeatures 11); full vitest 3129 passed / 0 failed; `tsc -b` 0; staging-lane build + P13 budget 257 checks, 0 failures (entry 1674023 / 1700864, AdminFeatures is a lazy chunk).
 - `mutants.txt`: 15/15 mutants killed.
 - Not proven here: the live RPCs on staging (this PR reads them as merged in #380); a click-through on staging waits for the PR to deploy. ui:gate runs in CI.
+
+## F-AUD-6 · avatar in member search results and chips (2026-10-10)
+Gate (MASTER §3s R-103, verbatim): "Admin panel → **Features** page: one card per feature with the 3-mode selector; "Selected members" shows a member search (name, @username or email), results with avatar + name + username, "Add"; chips list of added members with "Remove"; optional note; Save."
+- `F-AUD-6-before.txt` — the two new tests FAIL on a37b7b8 (2 failed / 11 passed).
+- `F-AUD-6-after.txt` — 13/13 pass with the fix.
+- `F-AUD-6-mutants.txt` — 5/5 mutants killed (row avatar, chip avatar, photo URL, alt text, initials).
+- Lists are named "Search results" and "Members added" (not "Selected members", which is the radio's label).

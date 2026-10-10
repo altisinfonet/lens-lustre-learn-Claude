@@ -85,3 +85,14 @@ describe("who can open the Features page", () => {
     it(`a ${role} cannot`, () => expect(canAccessTab(resolveAdminSubRoles([role]), "features")).toBe(false));
   }
 });
+
+describe("memberInitials (F-AUD-6)", () => {
+  it("first + last word, one-word name, username, nothing", async () => {
+    const { memberInitials } = await import("../featureSwitches");
+    expect(memberInitials({ full_name: "Asha  Mira Rao", username: "x" })).toBe("AR");
+    expect(memberInitials({ full_name: "neil", username: null })).toBe("NE");
+    expect(memberInitials({ full_name: null, username: "asha" })).toBe("AS");
+    expect(memberInitials({ full_name: "   ", username: null })).toBe("?");
+    expect(memberInitials({ full_name: null, username: null })).toBe("?");
+  });
+});

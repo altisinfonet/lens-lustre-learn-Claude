@@ -15,7 +15,7 @@ vi.mock("@/integrations/supabase/client", () => ({
     rpc: async (fn: string, args?: Record<string, unknown>) => {
       calls.push({ fn, args });
       if (fn === "feature_admin_state") return { data: state, error: null };
-      if (fn === "feature_member_search") return { data: [{ user_id: "u-new", full_name: "Asha Rao", username: "asha", avatar_url: null, email: "asha@example.com" }, { user_id: "u-in", full_name: "Already In", username: null, avatar_url: null, email: null }], error: null };
+      if (fn === "feature_member_search") return { data: [{ user_id: "u-new", full_name: "Asha Rao", username: "asha", avatar_url: "https://cdn.example.test/a/asha.jpg", email: "asha@example.com" }, { user_id: "u-in", full_name: "Already In", username: null, avatar_url: null, email: null }], error: null };
       if (failWith) return { data: null, error: { message: failWith } };
       return { data: true, error: null };
     },
@@ -23,6 +23,17 @@ vi.mock("@/integrations/supabase/client", () => ({
   },
 }));
 vi.mock("@/hooks/core/use-toast", () => ({ toast: vi.fn() }));
+/*
+ * F-AUD-6 (MASTER §3s R-103: results "with avatar + name + username"). Radix's
+ * AvatarImage mounts its <img> only after the browser reports a load, which jsdom
+ * never does, so the primitive is replaced by plain elements here. What is under
+ * test is what AdminFeatures hands the avatar: this URL, this alt, these initials.
+ */
+vi.mock("@/components/ui/avatar", () => ({
+  Avatar: ({ children, ...p }: { children?: unknown } & Record<string, unknown>) => <span data-testid="member-avatar" {...p}>{children as never}</span>,
+  AvatarImage: ({ src, alt }: { src?: string; alt?: string }) => (src ? <img data-testid="member-avatar-img" src={src} alt={alt} /> : null),
+  AvatarFallback: ({ children }: { children?: unknown }) => <span data-testid="member-avatar-fallback">{children as never}</span>,
+}));
 
 import AdminFeatures from "../AdminFeatures";
 
@@ -82,6 +93,29 @@ describe("Admin → Features", () => {
     fireEvent.click(within(c).getByRole("button", { name: "Add" }));
     await waitFor(() => expect(calls.some((x) => x.fn === "feature_add_member")).toBe(true));
     expect(calls.find((x) => x.fn === "feature_add_member")!.args).toEqual({ _feature: "video_posts", _user: "u-new", _note: null });
+  });
+  it("F-AUD-6: every search result shows an avatar — the photo when there is one, initials when not", async () => {
+    render(<AdminFeatures />);
+    const c = await posts();
+    fireEvent.change(within(c).getByLabelText(/Search members/), { target: { value: "asha" } });
+    fireEvent.click(within(c).getByRole("button", { name: /Search/ }));
+    const results = within(await within(c).findByRole("list", { name: "Search results" })).getAllByRole("listitem");
+    expect(results).toHaveLength(2);
+    for (const row of results) expect(within(row).getByTestId("member-avatar")).toBeTruthy();
+    const img = within(results[0]).getByTestId("member-avatar-img") as HTMLImageElement;
+    expect(img.getAttribute("src")).toBe("https://cdn.example.test/a/asha.jpg");
+    expect(img.getAttribute("alt")).toBe("");
+    expect(within(results[0]).getByTestId("member-avatar-fallback").textContent).toBe("AR");
+    expect(within(results[1]).queryByTestId("member-avatar-img")).toBeNull();
+    expect(within(results[1]).getByTestId("member-avatar-fallback").textContent).toBe("AI");
+    expect(within(results[0]).getByText(/Asha Rao/).textContent).toMatch(/@asha/);
+  });
+  it("F-AUD-6: each selected-member chip shows the same avatar", async () => {
+    render(<AdminFeatures />);
+    const c = await posts();
+    const chips = within(within(c).getByRole("list", { name: "Members added" })).getAllByRole("listitem");
+    expect(chips).toHaveLength(1);
+    expect(within(chips[0]).getByTestId("member-avatar-fallback").textContent).toBe("AI");
   });
   it("a one-letter search asks the server nothing", async () => {
     render(<AdminFeatures />);
