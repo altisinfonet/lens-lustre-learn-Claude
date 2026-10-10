@@ -1,0 +1,567 @@
+
+ RUN  v3.2.4 /home/claude/lens-lustre-learn-claude
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts (30 tests | 28 failed) 86ms
+   × video/ needs a valid token — no token, no bytes (VID-1 §9.1, §12.14) > no token → 403, zero bytes, R2 never read, nothing passed to the origin 13ms
+     → expected 200 to be 403 // Object.is equality
+   × video/ needs a valid token — no token, no bytes (VID-1 §9.1, §12.14) > a token for video A is rejected on video B's folder 7ms
+     → expected 200 to be 403 // Object.is equality
+   × video/ needs a valid token — no token, no bytes (VID-1 §9.1, §12.14) > expired → 403 3ms
+     → expected 200 to be 403 // Object.is equality
+   × video/ needs a valid token — no token, no bytes (VID-1 §9.1, §12.14) > a token minted for another CDN host → 403 3ms
+     → expected 200 to be 403 // Object.is equality
+   × video/ needs a valid token — no token, no bytes (VID-1 §9.1, §12.14) > a token signed with another key → 403 3ms
+     → expected 200 to be 403 // Object.is equality
+   × video/ needs a valid token — no token, no bytes (VID-1 §9.1, §12.14) > valid token → 200 with the object's bytes 4ms
+     → expected [ 111, 114, 105, 103, 105, 110, …(6) ] to deeply equal [ 1, 2, 3, 4 ]
+   × video/ needs a valid token — no token, no bytes (VID-1 §9.1, §12.14) > a taken_down video (revoked list) → 403 even with a valid token 2ms
+     → expected 200 to be 403 // Object.is equality
+   × video/ needs a valid token — no token, no bytes (VID-1 §9.1, §12.14) > valid token, object missing → 404 4ms
+     → expected 200 to be 404 // Object.is equality
+   × video/ needs a valid token — no token, no bytes (VID-1 §9.1, §12.14) > only GET / HEAD / OPTIONS on video/ 3ms
+     → expected 200 to be 405 // Object.is equality
+   × upload/ is never served (SEC-VID-1) > with or without any token → 404, zero bytes, R2 never read, never passed through 2ms
+     → expected 200 to be 404 // Object.is equality
+   × the restricted check runs on the DECODED key (the origin decodes too) > %76ideo/11111111… is not passed to the origin 4ms
+     → expected [ 403, 404 ] to include 200
+   × the restricted check runs on the DECODED key (the origin decodes too) > video%2F11111111… is not passed to the origin 1ms
+     → expected [ 403, 404 ] to include 200
+   × the restricted check runs on the DECODED key (the origin decodes too) > %75pload/video/1… is not passed to the origin 1ms
+     → expected [ 403, 404 ] to include 200
+   × the restricted check runs on the DECODED key (the origin decodes too) > '..', '//', backslash and broken escapes → 400, nothing passed through 1ms
+     → posts%2F..%2Fvideo%2Fx: expected 200 to be 400 // Object.is equality
+   ✓ every other path is today's behaviour: the origin, untouched > a photo key is passed to the origin as the same request, response unchanged 1ms
+   ✓ every other path is today's behaviour: the origin, untouched > …even when the video configuration is missing (a video misconfig never takes photos down) 1ms
+   × headers (SEC condition 2) and the token never leaking > fixed Content-Type by extension, nosniff, CSP sandbox, ETag from R2 3ms
+     → expected 'text/plain;charset=UTF-8' to be 'video/iso.segment' // Object.is equality
+   × headers (SEC condition 2) and the token never leaking > segments immutable for a year, privately; playlists 60 s, privately 1ms
+     → expected null to be 'private, max-age=31536000, immutable' // Object.is equality
+   × headers (SEC condition 2) and the token never leaking > 403 and 404 carry no-store and zero bytes 1ms
+     → expected null to be 'no-store' // Object.is equality
+   × headers (SEC condition 2) and the token never leaking > a file name outside the allowed set inside a valid folder → 403 3ms
+     → expected 200 to be 403 // Object.is equality
+   × playlists are rewritten so every URI carries the same token (VID-1 §9.3) > master: plain URI lines and URI="…" attributes 4ms
+     → expected 'origin bytes' to contain 'URI="audio.m3u8?t=djEKcHJlZml4PXZpZGV…'
+   × playlists are rewritten so every URI carries the same token (VID-1 §9.3) > media playlist: the init segment and every segment 4ms
+     → expected 'origin bytes' to contain '#EXT-X-MAP:URI="240p.mp4?t=djEKcHJlZm…'
+   × playlists are rewritten so every URI carries the same token (VID-1 §9.3) > a playlist naming anything outside its own folder is refused, not served 1ms
+     → expected 200 to be 502 // Object.is equality
+   × cache: only after the check, under a token-free key off the zone (VID-1 §9.4) > the second viewer is served from the cache; the cache key holds no token and no zone host 3ms
+     → expected [] to have a length of 1 but got +0
+   × cache: only after the check, under a token-free key off the zone (VID-1 §9.4) > a cached object is still refused without a token 4ms
+     → expected 200 to be 403 // Object.is equality
+   × CORS: the lane's listed origins only, never * > a listed origin is echoed with Vary: Origin; an unlisted one gets nothing 3ms
+     → expected null to be 'https://staging.example.test' // Object.is equality
+   × CORS: the lane's listed origins only, never * > a 403 to a listed origin is readable, so the player can fetch a fresh token 1ms
+     → expected 200 to be 403 // Object.is equality
+   × CORS: the lane's listed origins only, never * > preflight from a listed origin → 204 GET/HEAD; from another → 403 1ms
+     → expected 200 to be 204 // Object.is equality
+   × fails closed on its own misconfiguration (video/ only) > no MEDIA_TOKEN_KEY, a key that is not 32 bytes, or no revoked-list binding → 503 on video/, zero bytes 1ms
+     → expected 200 to be 503 // Object.is equality
+   × fails closed on its own misconfiguration (video/ only) > HEAD → same headers, no body 2ms
+     → expected 12 to be +0 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 28 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > video/ needs a valid token — no token, no bytes (VID-1 §9.1, §12.14) > no token → 403, zero bytes, R2 never read, nothing passed to the origin
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:94:22
+     92|   it("no token → 403, zero bytes, R2 never read, nothing passed to the…
+     93|     const r = await handleMediaRequest(get(`${A}240p_0.m4s`), env, dep…
+     94|     expect(r.status).toBe(403);
+       |                      ^
+     95|     expect((await bytes(r)).length).toBe(0);
+     96|     expect(r2.reads).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > video/ needs a valid token — no token, no bytes (VID-1 §9.1, §12.14) > a token for video A is rejected on video B's folder
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:101:22
+     99|   it("a token for video A is rejected on video B's folder", async () =…
+    100|     const r = await handleMediaRequest(get(`${B}240p_0.m4s?t=${await t…
+    101|     expect(r.status).toBe(403);
+       |                      ^
+    102|     expect(r2.reads).toEqual([]);
+    103|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > video/ needs a valid token — no token, no bytes (VID-1 §9.1, §12.14) > expired → 403
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:106:22
+    104|   it("expired → 403", async () => {
+    105|     const r = await handleMediaRequest(get(`${A}240p_0.m4s?t=${await t…
+    106|     expect(r.status).toBe(403);
+       |                      ^
+    107|   });
+    108|   it("a token minted for another CDN host → 403", async () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > video/ needs a valid token — no token, no bytes (VID-1 §9.1, §12.14) > a token minted for another CDN host → 403
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:110:22
+    108|   it("a token minted for another CDN host → 403", async () => {
+    109|     const r = await handleMediaRequest(get(`${A}240p_0.m4s?t=${await t…
+    110|     expect(r.status).toBe(403);
+       |                      ^
+    111|   });
+    112|   it("a token signed with another key → 403", async () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > video/ needs a valid token — no token, no bytes (VID-1 §9.1, §12.14) > a token signed with another key → 403
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:115:88
+    113|     const other = btoa(String.fromCharCode(...Array.from({ length: 32 …
+    114|     const t = await signPlayToken({ prefix: A, exp: NOW_S + 60, sub: V…
+    115|     expect((await handleMediaRequest(get(`${A}240p_0.m4s?t=${t}`), env…
+       |                                                                                        ^
+    116|   });
+    117|   it("valid token → 200 with the object's bytes", async () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > video/ needs a valid token — no token, no bytes (VID-1 §9.1, §12.14) > valid token → 200 with the object's bytes
+AssertionError: expected [ 111, 114, 105, 103, 105, 110, …(6) ] to deeply equal [ 1, 2, 3, 4 ]
+
+- Expected
++ Received
+
+  [
+-   1,
+-   2,
+-   3,
+-   4,
++   111,
++   114,
++   105,
++   103,
++   105,
++   110,
++   32,
++   98,
++   121,
++   116,
++   101,
++   115,
+  ]
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:120:40
+    118|     const r = await handleMediaRequest(get(`${A}240p_0.m4s?t=${await t…
+    119|     expect(r.status).toBe(200);
+    120|     expect(Array.from(await bytes(r))).toEqual([1, 2, 3, 4]);
+       |                                        ^
+    121|   });
+    122|   it("a taken_down video (revoked list) → 403 even with a valid token"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > video/ needs a valid token — no token, no bytes (VID-1 §9.1, §12.14) > a taken_down video (revoked list) → 403 even with a valid token
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:125:22
+    123|     kv.revoked.add(VID_A);
+    124|     const r = await handleMediaRequest(get(`${A}240p_0.m4s?t=${await t…
+    125|     expect(r.status).toBe(403);
+       |                      ^
+    126|     expect(r2.reads).toEqual([]);
+    127|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > video/ needs a valid token — no token, no bytes (VID-1 §9.1, §12.14) > valid token, object missing → 404
+AssertionError: expected 200 to be 404 // Object.is equality
+
+- Expected
++ Received
+
+- 404
++ 200
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:130:22
+    128|   it("valid token, object missing → 404", async () => {
+    129|     const r = await handleMediaRequest(get(`${A}240p_9.m4s?t=${await t…
+    130|     expect(r.status).toBe(404);
+       |                      ^
+    131|   });
+    132|   it("only GET / HEAD / OPTIONS on video/", async () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > video/ needs a valid token — no token, no bytes (VID-1 §9.1, §12.14) > only GET / HEAD / OPTIONS on video/
+AssertionError: expected 200 to be 405 // Object.is equality
+
+- Expected
++ Received
+
+- 405
++ 200
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:134:22
+    132|   it("only GET / HEAD / OPTIONS on video/", async () => {
+    133|     const r = await handleMediaRequest(get(`${A}240p_0.m4s?t=${await t…
+    134|     expect(r.status).toBe(405);
+       |                      ^
+    135|   });
+    136| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > upload/ is never served (SEC-VID-1) > with or without any token → 404, zero bytes, R2 never read, never passed through
+AssertionError: expected 200 to be 404 // Object.is equality
+
+- Expected
++ Received
+
+- 404
++ 200
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:142:24
+    140|     for (const q of ["", `?t=${await tokenFor(A)}`]) {
+    141|       const r = await handleMediaRequest(get(`upload/video/${OWNER}/${…
+    142|       expect(r.status).toBe(404);
+       |                        ^
+    143|       expect((await bytes(r)).length).toBe(0);
+    144|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > the restricted check runs on the DECODED key (the origin decodes too) > %76ideo/11111111… is not passed to the origin
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > the restricted check runs on the DECODED key (the origin decodes too) > video%2F11111111… is not passed to the origin
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > the restricted check runs on the DECODED key (the origin decodes too) > %75pload/video/1… is not passed to the origin
+AssertionError: expected [ 403, 404 ] to include 200
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:154:26
+    152|     it(`${path.slice(0, 16)}… is not passed to the origin`, async () =…
+    153|       const r = await handleMediaRequest(get(path), env, deps);
+    154|       expect([403, 404]).toContain(r.status);
+       |                          ^
+    155|       expect(passed).toEqual([]);
+    156|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > the restricted check runs on the DECODED key (the origin decodes too) > '..', '//', backslash and broken escapes → 400, nothing passed through
+AssertionError: posts%2F..%2Fvideo%2Fx: expected 200 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 200
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:163:27
+    161|     for (const p of ["posts%2F..%2Fvideo%2Fx", "posts%2F%2Fx.webp", "p…
+    162|       const r = await handleMediaRequest(get(p), env, deps);
+    163|       expect(r.status, p).toBe(400);
+       |                           ^
+    164|     }
+    165|     expect(passed).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > headers (SEC condition 2) and the token never leaking > fixed Content-Type by extension, nosniff, CSP sandbox, ETag from R2
+AssertionError: expected 'text/plain;charset=UTF-8' to be 'video/iso.segment' // Object.is equality
+
+Expected: "video/iso.segment"
+Received: "text/plain;charset=UTF-8"
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:189:45
+    187|     const t = await tokenFor(A);
+    188|     const seg = await handleMediaRequest(get(`${A}240p_0.m4s?t=${t}`),…
+    189|     expect(seg.headers.get("content-type")).toBe("video/iso.segment");
+       |                                             ^
+    190|     expect(seg.headers.get("x-content-type-options")).toBe("nosniff");
+    191|     expect(seg.headers.get("content-security-policy")).toBe("sandbox; …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > headers (SEC condition 2) and the token never leaking > segments immutable for a year, privately; playlists 60 s, privately
+AssertionError: expected null to be 'private, max-age=31536000, immutable' // Object.is equality
+
+- Expected: 
+"private, max-age=31536000, immutable"
+
++ Received: 
+null
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:199:110
+    197|   it("segments immutable for a year, privately; playlists 60 s, privat…
+    198|     const t = await tokenFor(A);
+    199|     expect((await handleMediaRequest(get(`${A}240p_0.m4s?t=${t}`), env…
+       |                                                                                                              ^
+    200|     expect((await handleMediaRequest(get(`${A}master.m3u8?t=${t}`), en…
+    201|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > headers (SEC condition 2) and the token never leaking > 403 and 404 carry no-store and zero bytes
+AssertionError: expected null to be 'no-store' // Object.is equality
+
+- Expected: 
+"no-store"
+
++ Received: 
+null
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:204:44
+    202|   it("403 and 404 carry no-store and zero bytes", async () => {
+    203|     const r = await handleMediaRequest(get(`${A}240p_0.m4s`), env, dep…
+    204|     expect(r.headers.get("cache-control")).toBe("no-store");
+       |                                            ^
+    205|   });
+    206|   it("a file name outside the allowed set inside a valid folder → 403"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > headers (SEC condition 2) and the token never leaking > a file name outside the allowed set inside a valid folder → 403
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:208:22
+    206|   it("a file name outside the allowed set inside a valid folder → 403"…
+    207|     const r = await handleMediaRequest(get(`${A}evil.html?t=${await to…
+    208|     expect(r.status).toBe(403);
+       |                      ^
+    209|   });
+    210| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > playlists are rewritten so every URI carries the same token (VID-1 §9.3) > master: plain URI lines and URI="…" attributes
+AssertionError: expected 'origin bytes' to contain 'URI="audio.m3u8?t=djEKcHJlZml4PXZpZGV…'
+
+Expected: "URI="audio.m3u8?t=djEKcHJlZml4PXZpZGVvLzExMTExMTExLTExMTEtNDExMS04MTExLTExMTExMTExMTExMS8zMzMzMzMzMy0zMzMzLTQzMzMtODMzMy0zMzMzMzMzMzMzMzMvdjEvCmV4cD0xNzYwMDAwOTAwCnN1Yj0yMjIyMjIyMi0yMjIyLTQyMjItODIyMi0yMjIyMjIyMjIyMjIKYXVkPWNkbi1zdGFnaW5nLmV4YW1wbGUudGVzdA.KxWmBv7rAYoEqeAvC7W68mOkz9v3-Mb8veqQmHyLyvU""
+Received: "origin bytes"
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:216:18
+    214|     const t = await tokenFor(A);
+    215|     const text = await (await handleMediaRequest(get(`${A}master.m3u8?…
+    216|     expect(text).toContain(`URI="audio.m3u8?t=${t}"`);
+       |                  ^
+    217|     expect(text).toContain(`\n240p.m3u8?t=${t}\n`);
+    218|     expect(text).toContain("#EXT-X-STREAM-INF:BANDWIDTH=61440");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > playlists are rewritten so every URI carries the same token (VID-1 §9.3) > media playlist: the init segment and every segment
+AssertionError: expected 'origin bytes' to contain '#EXT-X-MAP:URI="240p.mp4?t=djEKcHJlZm…'
+
+Expected: "#EXT-X-MAP:URI="240p.mp4?t=djEKcHJlZml4PXZpZGVvLzExMTExMTExLTExMTEtNDExMS04MTExLTExMTExMTExMTExMS8zMzMzMzMzMy0zMzMzLTQzMzMtODMzMy0zMzMzMzMzMzMzMzMvdjEvCmV4cD0xNzYwMDAwOTAwCnN1Yj0yMjIyMjIyMi0yMjIyLTQyMjItODIyMi0yMjIyMjIyMjIyMjIKYXVkPWNkbi1zdGFnaW5nLmV4YW1wbGUudGVzdA.KxWmBv7rAYoEqeAvC7W68mOkz9v3-Mb8veqQmHyLyvU""
+Received: "origin bytes"
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:223:18
+    221|     const t = await tokenFor(A);
+    222|     const text = await (await handleMediaRequest(get(`${A}240p.m3u8?t=…
+    223|     expect(text).toContain(`#EXT-X-MAP:URI="240p.mp4?t=${t}"`);
+       |                  ^
+    224|     expect(text).toContain(`\n240p_0.m4s?t=${t}\n`);
+    225|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > playlists are rewritten so every URI carries the same token (VID-1 §9.3) > a playlist naming anything outside its own folder is refused, not served
+AssertionError: expected 200 to be 502 // Object.is equality
+
+- Expected
++ Received
+
+- 502
++ 200
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:229:22
+    227|     r2.map.set(`${A}480p.m3u8`, new TextEncoder().encode("#EXTM3U\n../…
+    228|     const r = await handleMediaRequest(get(`${A}480p.m3u8?t=${await to…
+    229|     expect(r.status).toBe(502);
+       |                      ^
+    230|     expect((await bytes(r)).length).toBe(0);
+    231|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > cache: only after the check, under a token-free key off the zone (VID-1 §9.4) > the second viewer is served from the cache; the cache key holds no token and no zone host
+AssertionError: expected [] to have a length of 1 but got +0
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:237:22
+    235|   it("the second viewer is served from the cache; the cache key holds …
+    236|     await handleMediaRequest(get(`${A}240p_0.m4s?t=${await tokenFor(A)…
+    237|     expect(r2.reads).toHaveLength(1);
+       |                      ^
+    238|     const keys = [...cache.store.keys()];
+    239|     expect(keys).toHaveLength(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > cache: only after the check, under a token-free key off the zone (VID-1 §9.4) > a cached object is still refused without a token
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:249:22
+    247|     await handleMediaRequest(get(`${A}240p_0.m4s?t=${await tokenFor(A)…
+    248|     const r = await handleMediaRequest(get(`${A}240p_0.m4s`), env, dep…
+    249|     expect(r.status).toBe(403);
+       |                      ^
+    250|     expect((await bytes(r)).length).toBe(0);
+    251|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > CORS: the lane's listed origins only, never * > a listed origin is echoed with Vary: Origin; an unlisted one gets nothing
+AssertionError: expected null to be 'https://staging.example.test' // Object.is equality
+
+- Expected: 
+"https://staging.example.test"
+
++ Received: 
+null
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:258:59
+    256|     const t = await tokenFor(A);
+    257|     const ok = await handleMediaRequest(get(`${A}240p_0.m4s?t=${t}`, {…
+    258|     expect(ok.headers.get("access-control-allow-origin")).toBe(ORIGIN);
+       |                                                           ^
+    259|     expect(ok.headers.get("vary")).toContain("Origin");
+    260|     const no = await handleMediaRequest(get(`${A}240p_0.m4s?t=${t}`, {…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > CORS: the lane's listed origins only, never * > a 403 to a listed origin is readable, so the player can fetch a fresh token
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:265:22
+    263|   it("a 403 to a listed origin is readable, so the player can fetch a …
+    264|     const r = await handleMediaRequest(get(`${A}240p_0.m4s`, { origin:…
+    265|     expect(r.status).toBe(403);
+       |                      ^
+    266|     expect(r.headers.get("access-control-allow-origin")).toBe(ORIGIN);
+    267|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > CORS: the lane's listed origins only, never * > preflight from a listed origin → 204 GET/HEAD; from another → 403
+AssertionError: expected 200 to be 204 // Object.is equality
+
+- Expected
++ Received
+
+- 204
++ 200
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:269:133
+    267|   });
+    268|   it("preflight from a listed origin → 204 GET/HEAD; from another → 40…
+    269|     expect((await handleMediaRequest(get(`${A}240p_0.m4s`, { method: "…
+       |                                                                                                                                     ^
+    270|     expect((await handleMediaRequest(get(`${A}240p_0.m4s`, { method: "…
+    271|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > fails closed on its own misconfiguration (video/ only) > no MEDIA_TOKEN_KEY, a key that is not 32 bytes, or no revoked-list binding → 503 on video/, zero bytes
+AssertionError: expected 200 to be 503 // Object.is equality
+
+- Expected
++ Received
+
+- 503
++ 200
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:279:24
+    277|     for (const e of [{ ...env, MEDIA_TOKEN_KEY: undefined }, { ...env,…
+    278|       const r = await handleMediaRequest(get(`${A}240p_0.m4s?t=${t}`),…
+    279|       expect(r.status).toBe(503);
+       |                        ^
+    280|       expect((await bytes(r)).length).toBe(0);
+    281|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/28]⎯
+
+ FAIL  src/lib/video/__tests__/mediaAuthz.test.ts > fails closed on its own misconfiguration (video/ only) > HEAD → same headers, no body
+AssertionError: expected 12 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 12
+
+ ❯ src/lib/video/__tests__/mediaAuthz.test.ts:286:37
+    284|     const r = await handleMediaRequest(get(`${A}240p_0.m4s?t=${await t…
+    285|     expect(r.status).toBe(200);
+    286|     expect((await bytes(r)).length).toBe(0);
+       |                                     ^
+    287|     expect(r.headers.get("content-type")).toBe("video/iso.segment");
+    288|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/28]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  28 failed | 2 passed (30)
+   Start at  13:31:41
+   Duration  963ms (transform 123ms, setup 74ms, collect 132ms, tests 86ms, environment 297ms, prepare 83ms)
+
