@@ -1,0 +1,79 @@
+✗ no posts AND no comments for 36 h → exit 0 (R-82: a reading never blocks)
+    PROBLEMS FOUND — 50mm Retina World, 2026-10-10 06:17 UTC
+    
+    1. No posts OR comments anywhere in the last 36 hours
+       For a community this active that is not quiet, it is broken. Check the site and the app before assuming it is a slow day.
+    
+    Context:
+      · posts with images: 0
+      · no supabase-hosted thumbnails to sample (all on the CDN)
+      · last 36h — posts: 0, comments: 0
+      · github api rate-limited — CI not checked this run
+      · live site + CDN checks skipped (set DEEP=1 on a runner with open internet)
+    
+    
+✗ …and the quiet spell is still SAID, as a warning
+    PROBLEMS FOUND — 50mm Retina World, 2026-10-10 06:17 UTC
+    
+    1. No posts OR comments anywhere in the last 36 hours
+       For a community this active that is not quiet, it is broken. Check the site and the app before assuming it is a slow day.
+    
+    Context:
+      · posts with images: 0
+      · no supabase-hosted thumbnails to sample (all on the CDN)
+      · last 36h — posts: 0, comments: 0
+      · github api rate-limited — CI not checked this run
+      · live site + CDN checks skipped (set DEEP=1 on a runner with open internet)
+    
+    
+✗ …and it is not reported as a problem
+    PROBLEMS FOUND — 50mm Retina World, 2026-10-10 06:17 UTC
+    
+    1. No posts OR comments anywhere in the last 36 hours
+       For a community this active that is not quiet, it is broken. Check the site and the app before assuming it is a slow day.
+    
+    Context:
+      · posts with images: 0
+      · no supabase-hosted thumbnails to sample (all on the CDN)
+      · last 36h — posts: 0, comments: 0
+      · github api rate-limited — CI not checked this run
+      · live site + CDN checks skipped (set DEEP=1 on a runner with open internet)
+    
+    
+✗ …and it becomes a GitHub annotation, so the run page shows it
+    PROBLEMS FOUND — 50mm Retina World, 2026-10-10 06:17 UTC
+    
+    1. No posts OR comments anywhere in the last 36 hours
+       For a community this active that is not quiet, it is broken. Check the site and the app before assuming it is a slow day.
+    
+    Context:
+      · posts with images: 0
+      · no supabase-hosted thumbnails to sample (all on the CDN)
+      · last 36h — posts: 0, comments: 0
+      · github api rate-limited — CI not checked this run
+      · live site + CDN checks skipped (set DEEP=1 on a runner with open internet)
+    
+    
+✓ one post in 36 h → HEALTHY, exit 0
+✓ …with no warning
+✓ activity query itself errors → still exit 1 (could-not-run is a fault)
+✓ misaligned thumbnails → still exit 1
+✗ a real fault AND a quiet spell → exit 1, warning still listed
+    PROBLEMS FOUND — 50mm Retina World, 2026-10-10 06:17 UTC
+    
+    1. 1 post(s) have thumbnails that do not line up with their images
+       A mismatched array is how photo 1's thumbnail ends up under photo 2. Newest: p-bad (2026-10-09T00:00:00Z).
+    
+    2. No posts OR comments anywhere in the last 36 hours
+       For a community this active that is not quiet, it is broken. Check the site and the app before assuming it is a slow day.
+    
+    Context:
+      · posts with images: 1
+      · no supabase-hosted thumbnails to sample (all on the CDN)
+      · last 36h — posts: 0, comments: 0
+      · github api rate-limited — CI not checked this run
+      · live site + CDN checks skipped (set DEEP=1 on a runner with open internet)
+    
+    
+
+FAIL: 5 assertion(s)

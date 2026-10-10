@@ -101,8 +101,17 @@ const REPO = "altisinfonet/lens-lustre-learn-Claude";
 
 const H = { apikey: ANON, Authorization: `Bearer ${ANON}` };
 const problems = [];
+const warnings = [];
 const notes = [];
 const fail = (title, detail) => problems.push({ title, detail });
+/**
+ * WARN, NOT FAIL — R-82 (Owner): live traffic readings are monitors only and
+ * never block a close. A warning is printed (and annotated on the Actions run)
+ * but leaves the exit code alone; only `fail` turns the run red. F-AUD-3:
+ * the activity rule below used to `fail`, so a quiet day and an outage looked
+ * the same on main. Self-test: scripts/web-health-activity.test.mjs.
+ */
+const warn = (title, detail) => warnings.push({ title, detail });
 
 const j = async (path) => {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers: H });
@@ -231,11 +240,15 @@ async function checkActivity() {
     `last 36h — posts: ${posts.length}` +
       (comments ? `, comments: ${comments.length}` : ""),
   );
+  // A WARNING since F-AUD-3 / R-82: this is a traffic reading, and the
+  // product has few members yet, so 36 quiet hours is a normal reading
+  // (health-check-run-log: whole days with 0 comments, 1 post, nothing wrong).
+  // It is still said every time — loudly — but it does not turn main red.
   if (posts.length === 0 && (!comments || comments.length === 0)) {
-    fail(
+    warn(
       "No posts OR comments anywhere in the last 36 hours",
-      "For a community this active that is not quiet, it is broken. Check the " +
-        "site and the app before assuming it is a slow day.",
+      "Could be a quiet spell (few members yet) or the write paths failing " +
+        "silently. Post or comment once on the site and the app to tell which.",
     );
   }
 }
@@ -364,9 +377,20 @@ await run("CI health", checkCI);
 await run("live site", () => checkLiveSite(withImages));
 
 const stamp = new Date().toISOString().replace("T", " ").slice(0, 16);
+const printWarnings = () => {
+  if (warnings.length === 0) return;
+  console.log(`\nWARNINGS (${warnings.length}) — readings to look at; they do not fail this run (R-82):`);
+  warnings.forEach((w, i) => {
+    console.log(`${i + 1}. WARNING: ${w.title}`);
+    console.log(`   ${w.detail}`);
+    // GitHub Actions annotation, so the run page shows it without opening the log.
+    console.log(`::warning title=Health check::${w.title}`);
+  });
+};
 if (problems.length === 0) {
   console.log(`HEALTHY — 50mm Retina World, ${stamp} UTC`);
   console.log(notes.map((n) => `  · ${n}`).join("\n"));
+  printWarnings();
   process.exit(0);
 }
 
@@ -377,6 +401,7 @@ problems.forEach((p, i) => {
 });
 console.log("Context:");
 console.log(notes.map((n) => `  · ${n}`).join("\n"));
+printWarnings();
 process.exit(1);
 
 /* ── DEEP CHECK — the part that needs a real browser ─────────────────────────
