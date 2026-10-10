@@ -2,6 +2,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { useRef, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPostMediaMap, resolvePostImageUrls } from "@/lib/media/postMediaRead";
+import { fetchPostVideoMap, type FeedVideo } from "@/lib/video/postVideoRead";
 import { persistFeedPage, getCachedFeed } from "@/lib/feedCache";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
@@ -196,7 +197,7 @@ async function enrichPosts(
   // 3 queries instead of 4: merge reaction queries into ONE, filter user reactions client-side
   // Plus one small query for friendship state, so the "Add friend" button is
   // never offered for someone a friendship row already exists with.
-  const [profileMapRes, allReactionsRes, adminIds, friendshipsRes, viewCountsRes, thumbsRes, tagsRes, postMediaMap] =
+  const [profileMapRes, allReactionsRes, adminIds, friendshipsRes, viewCountsRes, thumbsRes, tagsRes, postMediaMap, postVideoMap] =
     await Promise.all([
       fetchProfileMap(authorIds),
       supabase.from("post_reactions").select("post_id, reaction_type, user_id").in("post_id", postIds),
@@ -253,6 +254,12 @@ async function enrichPosts(
        * to `posts.image_urls` below — 57 posts / 84 photographs, measured.
        */
       fetchPostMediaMap(postIds),
+      /**
+       * VID-1 §4.4 — which of these posts are VIDEO posts. One read per page on
+       * the same Promise.all. A post linked to a video that is not visible and
+       * `ready` is dropped below: it must never fall through as a text post.
+       */
+      fetchPostVideoMap(postIds),
     ]);
 
   /**
@@ -330,7 +337,7 @@ async function enrichPosts(
     }
   });
 
-  return postsData.map((p) => {
+  return postsData.filter((p) => postVideoMap.get(p.id) !== "hidden").map((p) => {
     const userRx = userReactionMap.get(p.id) as ReactionType | undefined;
     const typeCounts = reactionTypeCounts[p.id] || {};
     const topReactions = Object.entries(typeCounts)
@@ -348,6 +355,7 @@ async function enrichPosts(
     return {
       ...p,
       image_urls: imageUrls,
+      video: ((): FeedVideo | null => { const v = postVideoMap.get(p.id); return v && v !== "hidden" ? v : null; })(),
       thumbnail_urls: p.thumbnail_urls ?? thumbsMap.get(p.id) ?? null,
       /**
        * THE NAME COMES FROM THE POST'S OWN ROW FIRST.
