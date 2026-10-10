@@ -1,0 +1,36 @@
+# VID-2 · videos in posts and ads: tables, states, publish gate, RLS, limits, 30-day purge (D1, T1) · `20261005_0005`
+
+**Plan:** `docs/evidence/d2/phase5/VID-1/DECISION.md` §3.1, §3.5, §4, §5 (signed, #376), with the Owner's R-97 (limits), R-100 (1–5 categories, 30-day keep) and R-102 (check switch). Needs `20261005_0004` (VID-7, `feature_allowed`). Expand only: `media_objects`, `post_media` and the photo path are untouched.
+
+## What ships
+| Object | Rule |
+|---|---|
+| `videos` | owner (from `auth.uid()` only), purpose post/ad, idempotency key (unique per owner), current version, state, check id |
+| States | `uploading → checking → ready`; `checking → music_blocked → uploading (v n+1)`; `ready → taken_down → uploading (v n+1)`; `uploading → failed` (48 h); any → `deleted` (owner/admin) → purged after 30 days. **"processing" in the plan = `checking`.** Every other move is refused (VID-STATE-001..004) **for every role, service_role and the owner role included** |
+| Publish gate | `ready` needs a `video_music_checks` row **of this video's current version**, verdict `clean` / `clean_no_audio` / `clean_library` / **`not_required`** (written by 0006 when the copyright check is Off for the owner — R-102), **bound to this version's audio hash**, and for a provider verdict a measured audio length within ±2 s (VID-GATE-001..004). CHECK `ready_needs_check` backs it |
+| `video_versions` | declared bytes never change (VID-VER-001); measured facts written once (VID-VER-002), only while uploading/checking (VID-VER-003). A bound check therefore stays bound |
+| `video_music_checks` | append-only: UPDATE / DELETE / TRUNCATE refused; a DELETE passes only as a cascade (purge, account hard delete) |
+| `post_videos` / `ad_videos` | a link needs a **ready** video of the right purpose, owned by the post's author / uploaded by an admin (VID-LINK-001..003) |
+| **1–5 categories (server backstop)** | a post takes a video only with 1–5 categories (VID-CAT-001) — on **both** lane shapes: staging's posts trigger (B1) has no INSERT minimum yet, production's (B2) does; a video post keeps ≥ 1 (VID-CAT-002, behind POST-CAT-003). A video ad carries its own 1–5 active slugs, cleaned like posts (VID-CAT-001/003) |
+| Limits (`video_begin_upload`) | switch first (VID-UP-003: `video_posts`, or admin + `video_ads`); members **3 min / 500 MB / 10 per rolling 24 h / 3 in progress**; ads **admin only, 5 min / 500 MB / no daily cap / 10 in progress**; per-rendition bytes per second (240p 60 KB/s, 480p 160 KB/s, 720p 350 KB/s, audio 16 KB/s), poster + playlists ≤ 2 MB, renditions add up to the total. A replay with the same key returns the same row before any limit counts; the count rules run under a per-member advisory lock so two parallel calls cannot both slip under a cap. The size rules live in the internal `video_validate_version()`, reused by 0006's new-version RPC |
+| RLS | a video is seen by its owner, an admin, or anyone who can see the ready video's post / active ad. **Hidden from every API role:** idempotency key, manifest hash, audio hashes, provider. No API write path except `post_videos` (own post, `video_posts` on for them) and `ad_videos` (admin with `video_ads` on) |
+| `video_delete(id)` | owner or admin → `deleted` (VID-DEL-001 otherwise); hidden at once |
+| `video_housekeeping()` · cron `video-housekeeping` `41 * * * *` | uploads idle 48 h → `failed (abandoned)`; deleted / failed for **30 days** → rows, versions, checks and links go, the R2 prefix `video/<owner>/<id>/` is queued in `video_r2_purge_queue` for the file worker (D2 / VID-6). Refuses a keep below 30 days. Batches of 500 |
+
+**Rollback:** lane-guarded; refuses while 0006 is applied (RB-PRE-002) and **while any video row exists (RB-PRE-003) — member data is never dropped**. The no-loss kill switch is VID-7's: `feature_set_mode('video_posts','off')` / `('video_ads','off')`. Only an empty unit is removed (tables included), so a re-apply starts clean.
+
+## Proof — `vid2-run-tests.sh` → `vid2-transcript.txt` (ALL CASES PASS, **staging shape and production shape**)
+| Check | Result |
+|---|---|
+| Fail-first | the PROBE refuses (V1) and `video_begin_upload` does not exist before the apply; an apply with no lane is refused; a second apply PRE-002 |
+| Switch | Neil (listed) yes, Riya no, anon no; Off → Neil no; All members → Riya yes; a member's ad and an ad with `video_ads` Off → VID-UP-003 |
+| Limits | 3:00 yes / 3:01 no; 500 MB + 1 no; 240p over ceiling; poster > 2 MB; sum mismatch; audio flag mismatch; unknown key; replay = one row; 4th in progress; 11th in 24 h no, then yes after the window; ads 5:00 yes / 5:01 no, no daily cap |
+| State machine + gate | skip-the-check refused (owner role and service_role); API cannot move a video; born-ready refused; no check / match / other audio bytes / ±2 s miss each refused; clean check → ready; hash re-point, byte change refused; check history immutable; owner change refused; v1's check cannot publish v2; `not_required` publishes a silent video |
+| Links + categories | switch Off → a member cannot attach even a ready video; staging: 0-category post → VID-CAT-001; production: such a post cannot exist (POST-CAT-002); uploading video, Riya's post, ad video in a post refused; RLS stops Riya; VID-CAT-002 on a system post; ad categories: inactive, 6, blanks refused; cleaned to `street,night`; switch Off stops even the admin |
+| Visibility | public post → Riya + anon see it; made private → hidden (versions too); unfinished videos hidden; hidden columns denied even to the owner; verdicts to owner only; purge queue internal |
+| 30-day purge | other members cannot delete; delete hides at once; day 0 and day 29 + 23 h kept; day 30 + 1 h purged with prefix queued; idle 47 h kept, 49 h failed, failed 30 days purged; account hard delete cascades through the append-only guard |
+| R-82 scale | 200 000 videos / 2 000 members: `video_begin_upload` ≈ 70 ms (daily count on `idx_videos_owner_created`); a 500-row purge batch ≈ 170 ms |
+| PROBE mutants (each red, each undone) | state trigger off · MAINTAIN on `post_videos` · keep-categories trigger off · idempotency key exposed · videos writable · RLS off on `post_videos` · housekeeping callable · cron job gone · a live video post with 0 categories (V4) · a deleted video kept past 30 days (V4) |
+| Rollback | lane-guarded; refused with data (nothing dropped); the empty unit removed (job and posts trigger too), switches untouched; PROBE red; re-apply; PROBE green |
+
+Fixture note: `vid-fixture-base.sql` carries staging's default privileges (read 2026-10-05: new tables anon/authenticated/service_role ALL, new functions authenticated + service_role EXECUTE), so every REVOKE in 0005 is proved against what a new object really gets, and service_role is shown bound by the triggers.

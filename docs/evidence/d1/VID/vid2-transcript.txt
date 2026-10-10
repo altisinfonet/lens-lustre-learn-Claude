@@ -1,0 +1,300 @@
+
+══ staging · 0 · fixture + 20261005_0004 (switches); admin turns video_posts on for Neil only
+  lane shape: staging · category minimum on INSERT: off (B1)
+  PASS  0004 applied
+
+══ staging · 1 · fail first: there is no video unit, so nothing is enforced
+  PASS  PROBE refuses — before 0005:
+                PROBE FAIL VID-2: V1 the videos unit is not installed
+  PASS  video_begin_upload does not exist yet
+
+══ staging · 2 · apply 20261005_0005 (lane staging) and probe
+  PASS  apply with no lane — refused
+  PASS  apply — VID2-0005: videos, versions, checks, links, library, purge queue + state machine, publish gate, RLS, limits, 30-day purg
+  PASS  PROBE passes — after 0005
+        PROBE PASS VID-2: videos by state: none; post links 0, ad links 0, purge queue undone 0
+  PASS  a second apply is refused (PRE-002)
+
+══ staging · 3 · the switch is the enforcement point (VID-7)
+  PASS  Neil (on the Selected list) → uploading
+  PASS  Riya (not on the list) → VID-UP-003
+  PASS  no signed-in user → VID-UP-001
+  PASS  anon cannot call it at all
+  PASS  switch Off → Neil refused too
+  PASS  switch All members → Riya may
+  PASS  a member asking for an AD video → VID-UP-003
+  PASS  admin, video_ads Off → VID-UP-003
+
+══ staging · 4 · limits: 3 min / 500 MB / 10 a day for members; 5 min / 500 MB admin ads
+  PASS  3:00 exactly → accepted
+  PASS  3:01 → VID-LIM-001
+  PASS  500 MB + 1 byte → VID-LIM-002
+  PASS  240p at 62 000 B/s (ceiling 61 440) → VID-LIM-006
+  PASS  poster + playlists over 2 MB → VID-LIM-005
+  PASS  renditions that do not add up to total_bytes → VID-UP-006
+  PASS  has_audio true but no audio rendition → VID-UP-006
+  PASS  an unknown rendition key (1080p) → VID-UP-006
+  PASS  same idempotency key twice → one row (the replay returns it)
+  PASS  3 in progress, the 4th → VID-LIM-004
+  PASS  …while a replay of an existing key still answers (limits never count a retry)
+  PASS  10 uploads in 24 h, the 11th → VID-LIM-003
+  PASS  …and the window rolls: 25 h later Neil may again
+  PASS  admin ad: 5:00 accepted, 5:01 → VID-LIM-001
+  PASS  ads have no daily cap (12 in an hour)
+
+══ staging · 5 · the state machine and the publish gate bind every role, the owner role included
+  PASS  uploading → ready (skipping the check) → VID-STATE-003
+  PASS  …as service_role too
+  PASS  the owner cannot move their own video from the API
+  PASS  a row born ready → VID-STATE-004
+  PASS  checking → ready with no check → VID-GATE-001
+  PASS  a MATCH verdict → VID-GATE-002 (and, as service_role:) VID-GATE-002
+  PASS  a clean check of OTHER audio bytes → VID-GATE-003
+  PASS  measured audio 10 s short of the declared 60 s → VID-GATE-004
+  PASS  a clean check of these bytes (±2 s) → ready, ready_at stamped
+  PASS  re-pointing the audio hash after ready → VID-VER-002
+  PASS  changing declared bytes → VID-VER-001
+  PASS  check history: UPDATE, DELETE, TRUNCATE all refused
+  PASS  changing the owner → VID-STATE-001
+  PASS  a new version straight from ready → VID-STATE-002
+  PASS  taken down → v2: v1's clean check cannot publish v2 → VID-GATE-001
+  PASS  a silent video with a not_required check (switch Off) → ready
+
+══ staging · 6 · links: a ready video, its own author's post, 1–5 categories
+  PASS  staging shape: a post with 0 categories exists (B1), linking a video to it → VID-CAT-001
+  PASS  linking an UPLOADING video → VID-LINK-001
+  PASS  Neil linking his video to Riya's post → VID-LINK-002 (RLS would refuse it next)
+  PASS  …and by the trigger even as the owner role
+  PASS  video_posts switched Off → Neil cannot attach even a ready video
+  PASS  Neil's ready video on Neil's 2-category post → linked
+  PASS  Riya cannot remove Neil's link (RLS: 0 rows), nor link Neil's video to Neil's post (RLS insert_own; the trigger alone would allow it)
+  PASS  removing every category: the posts trigger refuses first (POST-CAT-003)
+  PASS  …where the posts trigger lets it through (a system post), VID-CAT-002 holds
+  PASS  admin ad video → ready
+  PASS  an inactive category on a video ad → VID-CAT-003
+  PASS  6 categories → VID-CAT-001
+  PASS  only blanks (0 after cleaning) → VID-CAT-001
+  PASS  a member writing ad_videos → refused by RLS
+  PASS  video_ads Off → even the admin cannot attach a video ad
+  PASS  admin, switch on: linked, categories cleaned to street,night
+  PASS  an ad video in a post → VID-LINK-001
+
+══ staging · 7 · who sees what (RLS + hidden columns)
+  PASS  a ready video on a public post: Riya and anon see it
+  PASS  post made private: Riya and anon no longer see the video or its versions; Neil does
+  PASS  Riya sees none of Neil's unfinished / failed videos
+  PASS  the active video ad is public
+  PASS  hidden even from the owner: idempotency key, audio hash, manifest hash
+  PASS  verdicts: Neil reads his 4, Riya none, anon cannot ask
+  PASS  the purge queue is internal
+
+══ staging · 8 · delete → kept 30 days → purged; uploads abandoned 48 h → failed
+  PASS  Riya cannot delete Neil's video
+  PASS  Neil deletes his → deleted, deleted_at stamped
+  PASS  a deleted video is hidden at once
+  PASS  housekeeping refuses a keep shorter than 30 days
+  PASS  day 0: kept
+  PASS  day 29 + 23 h: still kept
+  PASS  day 30 + 1 h: purged
+  PASS  row, versions, checks and post link gone; R2 prefix video/<owner>/<id>/ queued for the file worker
+  PASS  an upload idle 47 h is left alone
+  PASS  idle 49 h → failed (abandoned)
+  PASS  failed for 30 days → purged too
+  PASS  hourly job 'video-housekeeping' (minute 41)
+  PASS  Mira: a ready video with a check
+  PASS  a hard-deleted account takes its videos and checks with it (cascade passes the append-only guard)
+
+══ staging · 9 · R-82 launch scale: 200 000 videos, 2 000 members
+  PASS  video_begin_upload for a member with 100 rows among 200 000: 82 ms (< 500 ms incl. psql start)
+  PASS  the daily count reads idx_videos_owner_created
+  PASS  one hourly run purges one batch of 500 in 222 ms (< 3 s); the backlog drains batch by batch
+
+══ staging · 10 · the PROBE catches each regression (mutants, each undone)
+  PASS  PROBE passes — with data
+        PROBE PASS VID-2: videos by state: checking=1, failed=24, ready=2; post links 1, ad links 1, purge queue undone 2
+  PASS  PROBE refuses — the state machine switched off:
+          V2 public.videos has no enabled tg_videos_state_guard
+  PASS  PROBE refuses — the keep-categories backstop switched off:
+          V2 public.posts has no enabled trg_videos_keep_post_categories
+  PASS  PROBE refuses — the idempotency key exposed:
+          V3 a hidden column (or the purge queue) is readable by an API role
+  PASS  PROBE refuses — members can write videos:
+          V3 public.videos: an API role can write it
+          V3 public.videos: an API role holds TRUNCATE / REFERENCES / TRIGGER / MAINTAIN or a write it should not
+  PASS  PROBE refuses — MAINTAIN on post_videos (PG17):
+          V3 public.post_videos: an API role holds TRUNCATE / REFERENCES / TRIGGER / MAINTAIN or a write it should not
+  PASS  PROBE refuses — RLS off on post_videos:
+          V3 public.post_videos: RLS off
+  PASS  PROBE refuses — housekeeping callable by members:
+          V3 a video RPC is callable by the wrong API role
+  PASS  PROBE refuses — the purge job gone:
+          V5 the video-housekeeping job is not scheduled and active
+  PASS  PROBE refuses — a video post that lost its categories (live data):
+          V2 public.posts has no enabled trg_videos_keep_post_categories
+          V4 1 video post(s) without 1–5 categories
+  PASS  PROBE refuses — a deleted video kept past 30 days (the purge stopped):
+          V4 1 deleted video(s) kept past 30 days — the purge is not running
+  PASS  PROBE passes — every mutant undone (the stale one purged)
+        PROBE PASS VID-2: videos by state: checking=1, failed=24, ready=1; post links 0, ad links 1, purge queue undone 3
+
+══ staging · 11 · rollback: refused while any video exists (member data); removes an empty unit; re-apply
+  PASS  rollback with no lane — refused
+  PASS  rollback with 26 videos — refused (RB-PRE-003), nothing dropped: 26 videos
+  PASS  rollback of the empty unit (lane staging)
+  PASS  video unit gone (job, posts trigger too); the switches (0004) untouched
+  PASS  PROBE refuses — after the rollback:
+                PROBE FAIL VID-2: V1 the videos unit is not installed
+  PASS  re-apply
+  PASS  PROBE passes — re-applied
+        PROBE PASS VID-2: videos by state: none; post links 0, ad links 0, purge queue undone 0
+
+══ production · 0 · fixture + 20261005_0004 (switches); admin turns video_posts on for Neil only
+  lane shape: production · category minimum on INSERT: on (B2)
+  PASS  0004 applied
+
+══ production · 1 · fail first: there is no video unit, so nothing is enforced
+  PASS  PROBE refuses — before 0005:
+                PROBE FAIL VID-2: V1 the videos unit is not installed
+  PASS  video_begin_upload does not exist yet
+
+══ production · 2 · apply 20261005_0005 (lane production) and probe
+  PASS  apply with no lane — refused
+  PASS  apply — VID2-0005: videos, versions, checks, links, library, purge queue + state machine, publish gate, RLS, limits, 30-day purg
+  PASS  PROBE passes — after 0005
+        PROBE PASS VID-2: videos by state: none; post links 0, ad links 0, purge queue undone 0
+  PASS  a second apply is refused (PRE-002)
+
+══ production · 3 · the switch is the enforcement point (VID-7)
+  PASS  Neil (on the Selected list) → uploading
+  PASS  Riya (not on the list) → VID-UP-003
+  PASS  no signed-in user → VID-UP-001
+  PASS  anon cannot call it at all
+  PASS  switch Off → Neil refused too
+  PASS  switch All members → Riya may
+  PASS  a member asking for an AD video → VID-UP-003
+  PASS  admin, video_ads Off → VID-UP-003
+
+══ production · 4 · limits: 3 min / 500 MB / 10 a day for members; 5 min / 500 MB admin ads
+  PASS  3:00 exactly → accepted
+  PASS  3:01 → VID-LIM-001
+  PASS  500 MB + 1 byte → VID-LIM-002
+  PASS  240p at 62 000 B/s (ceiling 61 440) → VID-LIM-006
+  PASS  poster + playlists over 2 MB → VID-LIM-005
+  PASS  renditions that do not add up to total_bytes → VID-UP-006
+  PASS  has_audio true but no audio rendition → VID-UP-006
+  PASS  an unknown rendition key (1080p) → VID-UP-006
+  PASS  same idempotency key twice → one row (the replay returns it)
+  PASS  3 in progress, the 4th → VID-LIM-004
+  PASS  …while a replay of an existing key still answers (limits never count a retry)
+  PASS  10 uploads in 24 h, the 11th → VID-LIM-003
+  PASS  …and the window rolls: 25 h later Neil may again
+  PASS  admin ad: 5:00 accepted, 5:01 → VID-LIM-001
+  PASS  ads have no daily cap (12 in an hour)
+
+══ production · 5 · the state machine and the publish gate bind every role, the owner role included
+  PASS  uploading → ready (skipping the check) → VID-STATE-003
+  PASS  …as service_role too
+  PASS  the owner cannot move their own video from the API
+  PASS  a row born ready → VID-STATE-004
+  PASS  checking → ready with no check → VID-GATE-001
+  PASS  a MATCH verdict → VID-GATE-002 (and, as service_role:) VID-GATE-002
+  PASS  a clean check of OTHER audio bytes → VID-GATE-003
+  PASS  measured audio 10 s short of the declared 60 s → VID-GATE-004
+  PASS  a clean check of these bytes (±2 s) → ready, ready_at stamped
+  PASS  re-pointing the audio hash after ready → VID-VER-002
+  PASS  changing declared bytes → VID-VER-001
+  PASS  check history: UPDATE, DELETE, TRUNCATE all refused
+  PASS  changing the owner → VID-STATE-001
+  PASS  a new version straight from ready → VID-STATE-002
+  PASS  taken down → v2: v1's clean check cannot publish v2 → VID-GATE-001
+  PASS  a silent video with a not_required check (switch Off) → ready
+
+══ production · 6 · links: a ready video, its own author's post, 1–5 categories
+  PASS  production shape: a 0-category post cannot even exist (B2) — VID-CAT-001 is the backstop behind it
+  PASS  linking an UPLOADING video → VID-LINK-001
+  PASS  Neil linking his video to Riya's post → VID-LINK-002 (RLS would refuse it next)
+  PASS  …and by the trigger even as the owner role
+  PASS  video_posts switched Off → Neil cannot attach even a ready video
+  PASS  Neil's ready video on Neil's 2-category post → linked
+  PASS  Riya cannot remove Neil's link (RLS: 0 rows), nor link Neil's video to Neil's post (RLS insert_own; the trigger alone would allow it)
+  PASS  removing every category: the posts trigger refuses first (POST-CAT-003)
+  PASS  …where the posts trigger lets it through (a system post), VID-CAT-002 holds
+  PASS  admin ad video → ready
+  PASS  an inactive category on a video ad → VID-CAT-003
+  PASS  6 categories → VID-CAT-001
+  PASS  only blanks (0 after cleaning) → VID-CAT-001
+  PASS  a member writing ad_videos → refused by RLS
+  PASS  video_ads Off → even the admin cannot attach a video ad
+  PASS  admin, switch on: linked, categories cleaned to street,night
+  PASS  an ad video in a post → VID-LINK-001
+
+══ production · 7 · who sees what (RLS + hidden columns)
+  PASS  a ready video on a public post: Riya and anon see it
+  PASS  post made private: Riya and anon no longer see the video or its versions; Neil does
+  PASS  Riya sees none of Neil's unfinished / failed videos
+  PASS  the active video ad is public
+  PASS  hidden even from the owner: idempotency key, audio hash, manifest hash
+  PASS  verdicts: Neil reads his 4, Riya none, anon cannot ask
+  PASS  the purge queue is internal
+
+══ production · 8 · delete → kept 30 days → purged; uploads abandoned 48 h → failed
+  PASS  Riya cannot delete Neil's video
+  PASS  Neil deletes his → deleted, deleted_at stamped
+  PASS  a deleted video is hidden at once
+  PASS  housekeeping refuses a keep shorter than 30 days
+  PASS  day 0: kept
+  PASS  day 29 + 23 h: still kept
+  PASS  day 30 + 1 h: purged
+  PASS  row, versions, checks and post link gone; R2 prefix video/<owner>/<id>/ queued for the file worker
+  PASS  an upload idle 47 h is left alone
+  PASS  idle 49 h → failed (abandoned)
+  PASS  failed for 30 days → purged too
+  PASS  hourly job 'video-housekeeping' (minute 41)
+  PASS  Mira: a ready video with a check
+  PASS  a hard-deleted account takes its videos and checks with it (cascade passes the append-only guard)
+
+══ production · 9 · R-82 launch scale: 200 000 videos, 2 000 members
+  PASS  video_begin_upload for a member with 100 rows among 200 000: 71 ms (< 500 ms incl. psql start)
+  PASS  the daily count reads idx_videos_owner_created
+  PASS  one hourly run purges one batch of 500 in 149 ms (< 3 s); the backlog drains batch by batch
+
+══ production · 10 · the PROBE catches each regression (mutants, each undone)
+  PASS  PROBE passes — with data
+        PROBE PASS VID-2: videos by state: checking=1, failed=24, ready=2; post links 1, ad links 1, purge queue undone 2
+  PASS  PROBE refuses — the state machine switched off:
+          V2 public.videos has no enabled tg_videos_state_guard
+  PASS  PROBE refuses — the keep-categories backstop switched off:
+          V2 public.posts has no enabled trg_videos_keep_post_categories
+  PASS  PROBE refuses — the idempotency key exposed:
+          V3 a hidden column (or the purge queue) is readable by an API role
+  PASS  PROBE refuses — members can write videos:
+          V3 public.videos: an API role can write it
+          V3 public.videos: an API role holds TRUNCATE / REFERENCES / TRIGGER / MAINTAIN or a write it should not
+  PASS  PROBE refuses — MAINTAIN on post_videos (PG17):
+          V3 public.post_videos: an API role holds TRUNCATE / REFERENCES / TRIGGER / MAINTAIN or a write it should not
+  PASS  PROBE refuses — RLS off on post_videos:
+          V3 public.post_videos: RLS off
+  PASS  PROBE refuses — housekeeping callable by members:
+          V3 a video RPC is callable by the wrong API role
+  PASS  PROBE refuses — the purge job gone:
+          V5 the video-housekeeping job is not scheduled and active
+  PASS  PROBE refuses — a video post that lost its categories (live data):
+          V2 public.posts has no enabled trg_videos_keep_post_categories
+          V4 1 video post(s) without 1–5 categories
+  PASS  PROBE refuses — a deleted video kept past 30 days (the purge stopped):
+          V4 1 deleted video(s) kept past 30 days — the purge is not running
+  PASS  PROBE passes — every mutant undone (the stale one purged)
+        PROBE PASS VID-2: videos by state: checking=1, failed=24, ready=1; post links 0, ad links 1, purge queue undone 3
+
+══ production · 11 · rollback: refused while any video exists (member data); removes an empty unit; re-apply
+  PASS  rollback with no lane — refused
+  PASS  rollback with 26 videos — refused (RB-PRE-003), nothing dropped: 26 videos
+  PASS  rollback of the empty unit (lane production)
+  PASS  video unit gone (job, posts trigger too); the switches (0004) untouched
+  PASS  PROBE refuses — after the rollback:
+                PROBE FAIL VID-2: V1 the videos unit is not installed
+  PASS  re-apply
+  PASS  PROBE passes — re-applied
+        PROBE PASS VID-2: videos by state: none; post links 0, ad links 0, purge queue undone 0
+
+ALL CASES PASS

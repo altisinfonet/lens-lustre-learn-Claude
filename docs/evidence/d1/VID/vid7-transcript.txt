@@ -1,0 +1,180 @@
+
+══ staging · 0 · fixture
+  lane shape: staging · category minimum on INSERT: off (B1)
+
+══ staging · 1 · fail first: nothing enforces a switch today
+  PASS  PROBE refuses — before 0004:
+                PROBE FAIL VID-7: F1 feature_allowed(text,uuid) is not installed
+
+══ staging · 2 · apply 20261005_0004 (lane staging) and probe
+  PASS  apply — VID7-0004: video_posts, video_ads, copyright_music_check seeded off; enforced by feature_allowed()
+  PASS  PROBE passes — after 0004
+        PROBE PASS VID-7: copyright_music_check=off (0 listed), video_ads=off (0 listed), video_posts=off (0 listed); music-API key configured: f
+  PASS  a second apply is refused (PRE-002)
+  PASS  seeded OFF: nobody has any feature
+
+══ staging · 3 · only an admin changes a switch; members can't read or probe
+  PASS  a member calling feature_set_mode → FEATURE-001
+  PASS  anon cannot even call it
+  PASS  a member cannot read the member lists
+  PASS  a member cannot ask about ANOTHER member (feature_allowed is internal)
+  PASS  a member can ask about themself (feature_allowed_me)
+  PASS  a member cannot read the admin page
+
+══ staging · 4 · Off → Selected members → All members → Selected members (list kept) → Off
+  PASS  admin: video_posts → Selected members
+  PASS  admin: add Neil
+  PASS  adding Neil again: no-op, no audit row
+  PASS  Neil may post video; Riya may not
+  PASS  admin: → All members
+  PASS  Riya may now
+  PASS  admin: back to Selected members
+  PASS  the saved list came back: Neil yes, Riya no
+  PASS  admin: → Off
+  PASS  Off: nobody, and the list is still saved
+  PASS  5 audit rows (4 mode changes + 1 add; the no-op wrote none)
+  PASS  an audit row names the admin and old → new
+  PASS  an unknown mode → FEATURE-002
+
+══ staging · 5 · copyright_music_check: refused ON while the music-API key is missing (R-102)
+  PASS  Selected members, no key → FEATURE-003
+  PASS  All members, no key → FEATURE-003
+  PASS  still off, no audit row
+  PASS  the list can be prepared while Off (add Neil Basu)
+  PASS  an EMPTY key counts as missing
+  PASS  key configured → Selected members accepted
+  PASS  R-103's example: only Neil's videos are checked
+
+══ staging · 6 · the audit trail cannot be edited, even by the owner role
+  PASS  UPDATE → refused
+  PASS  DELETE → refused
+  PASS  TRUNCATE → refused
+
+══ staging · 7 · the admin Features page and member search
+  PASS  feature_admin_state: three cards
+  PASS  card shows the member chip (name + @username) and the key state
+  PASS  search by name
+  PASS  search by @username
+  PASS  search by email
+  PASS  a member cannot search (emails stay admin-only)
+
+══ staging · 8 · a deleted account leaves every list
+  PASS  Neil's rows cascaded away
+
+══ staging · 9 · the PROBE catches each regression (mutants, each undone)
+  PASS  PROBE refuses — members can read the lists:
+          F3 public.feature_access_members: an API role holds a privilege
+  PASS  PROBE refuses — MAINTAIN on the audit (PG17):
+          F3 public.feature_access_audit: an API role holds a privilege
+  PASS  PROBE refuses — feature_allowed callable by members:
+          F3 an internal check or a switch RPC is callable by the wrong API role
+  PASS  PROBE refuses — the key removed while the check is on:
+          F2 copyright_music_check is on but the music-API key is not configured
+  PASS  PROBE refuses — the append-only trigger disabled:
+          F4 feature_access_audit has no enabled append-only trigger
+  PASS  PROBE refuses — RLS off:
+          F4 public.feature_access: RLS off
+  PASS  PROBE passes — every mutant undone
+        PROBE PASS VID-7: copyright_music_check=selected (0 listed), video_ads=off (0 listed), video_posts=off (0 listed); music-API key configured: t
+
+══ staging · 10 · rollback keeps the records; a re-apply resets every mode to Off (audited)
+  PASS  rollback with no lane — refused
+  PASS  rollback (lane staging)
+  PASS  functions gone; audit trail (7 rows) and lists (0) kept
+  PASS  PROBE refuses — after the rollback:
+                PROBE FAIL VID-7: F1 feature_allowed(text,uuid) is not installed
+  PASS  re-apply
+  PASS  every mode Off again (1 reset audited: copyright_music_check was Selected); lists kept
+  PASS  PROBE passes — re-applied
+        PROBE PASS VID-7: copyright_music_check=off (0 listed), video_ads=off (0 listed), video_posts=off (0 listed); music-API key configured: t
+
+══ production · 0 · fixture
+  lane shape: production · category minimum on INSERT: on (B2)
+
+══ production · 1 · fail first: nothing enforces a switch today
+  PASS  PROBE refuses — before 0004:
+                PROBE FAIL VID-7: F1 feature_allowed(text,uuid) is not installed
+
+══ production · 2 · apply 20261005_0004 (lane production) and probe
+  PASS  apply — VID7-0004: video_posts, video_ads, copyright_music_check seeded off; enforced by feature_allowed()
+  PASS  PROBE passes — after 0004
+        PROBE PASS VID-7: copyright_music_check=off (0 listed), video_ads=off (0 listed), video_posts=off (0 listed); music-API key configured: f
+  PASS  a second apply is refused (PRE-002)
+  PASS  seeded OFF: nobody has any feature
+
+══ production · 3 · only an admin changes a switch; members can't read or probe
+  PASS  a member calling feature_set_mode → FEATURE-001
+  PASS  anon cannot even call it
+  PASS  a member cannot read the member lists
+  PASS  a member cannot ask about ANOTHER member (feature_allowed is internal)
+  PASS  a member can ask about themself (feature_allowed_me)
+  PASS  a member cannot read the admin page
+
+══ production · 4 · Off → Selected members → All members → Selected members (list kept) → Off
+  PASS  admin: video_posts → Selected members
+  PASS  admin: add Neil
+  PASS  adding Neil again: no-op, no audit row
+  PASS  Neil may post video; Riya may not
+  PASS  admin: → All members
+  PASS  Riya may now
+  PASS  admin: back to Selected members
+  PASS  the saved list came back: Neil yes, Riya no
+  PASS  admin: → Off
+  PASS  Off: nobody, and the list is still saved
+  PASS  5 audit rows (4 mode changes + 1 add; the no-op wrote none)
+  PASS  an audit row names the admin and old → new
+  PASS  an unknown mode → FEATURE-002
+
+══ production · 5 · copyright_music_check: refused ON while the music-API key is missing (R-102)
+  PASS  Selected members, no key → FEATURE-003
+  PASS  All members, no key → FEATURE-003
+  PASS  still off, no audit row
+  PASS  the list can be prepared while Off (add Neil Basu)
+  PASS  an EMPTY key counts as missing
+  PASS  key configured → Selected members accepted
+  PASS  R-103's example: only Neil's videos are checked
+
+══ production · 6 · the audit trail cannot be edited, even by the owner role
+  PASS  UPDATE → refused
+  PASS  DELETE → refused
+  PASS  TRUNCATE → refused
+
+══ production · 7 · the admin Features page and member search
+  PASS  feature_admin_state: three cards
+  PASS  card shows the member chip (name + @username) and the key state
+  PASS  search by name
+  PASS  search by @username
+  PASS  search by email
+  PASS  a member cannot search (emails stay admin-only)
+
+══ production · 8 · a deleted account leaves every list
+  PASS  Neil's rows cascaded away
+
+══ production · 9 · the PROBE catches each regression (mutants, each undone)
+  PASS  PROBE refuses — members can read the lists:
+          F3 public.feature_access_members: an API role holds a privilege
+  PASS  PROBE refuses — MAINTAIN on the audit (PG17):
+          F3 public.feature_access_audit: an API role holds a privilege
+  PASS  PROBE refuses — feature_allowed callable by members:
+          F3 an internal check or a switch RPC is callable by the wrong API role
+  PASS  PROBE refuses — the key removed while the check is on:
+          F2 copyright_music_check is on but the music-API key is not configured
+  PASS  PROBE refuses — the append-only trigger disabled:
+          F4 feature_access_audit has no enabled append-only trigger
+  PASS  PROBE refuses — RLS off:
+          F4 public.feature_access: RLS off
+  PASS  PROBE passes — every mutant undone
+        PROBE PASS VID-7: copyright_music_check=selected (0 listed), video_ads=off (0 listed), video_posts=off (0 listed); music-API key configured: t
+
+══ production · 10 · rollback keeps the records; a re-apply resets every mode to Off (audited)
+  PASS  rollback with no lane — refused
+  PASS  rollback (lane production)
+  PASS  functions gone; audit trail (7 rows) and lists (0) kept
+  PASS  PROBE refuses — after the rollback:
+                PROBE FAIL VID-7: F1 feature_allowed(text,uuid) is not installed
+  PASS  re-apply
+  PASS  every mode Off again (1 reset audited: copyright_music_check was Selected); lists kept
+  PASS  PROBE passes — re-applied
+        PROBE PASS VID-7: copyright_music_check=off (0 listed), video_ads=off (0 listed), video_posts=off (0 listed); music-API key configured: t
+
+ALL CASES PASS
