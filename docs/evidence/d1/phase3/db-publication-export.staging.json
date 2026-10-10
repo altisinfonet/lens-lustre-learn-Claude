@@ -1,0 +1,20 @@
+{
+  "producer": "db-publication-export",
+  "schemaVersion": 1,
+  "generatedBy": "scripts/db-publication-export.mjs",
+  "publication": "supabase_realtime",
+  "lane": "staging",
+  "readAtUtc": "2026-10-04T15:41:01Z",
+  "reading": "docs/evidence/d1/phase3/readings/publication-staging-20261004.json",
+  "laneRecord": null,
+  "transcribed": false,
+  "counts": {
+    "tables": 0,
+    "replicaIdentityFull": 0,
+    "nonPublic": 0,
+    "unresolved": 0
+  },
+  "tables": [],
+  "publicationTables": [],
+  "unresolved": []
+}

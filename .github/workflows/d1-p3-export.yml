@@ -1,0 +1,54 @@
+name: D1 · P3 publication export
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. READS docs/evidence/d1/phase3/, WRITES NOTHING.
+#
+# P3 (database half): docs/evidence/d1/phase3/db-publication-export.json is
+# what D2's parity job (d2-p3-parity.yml) compares with the client's
+# subscriptions. This job proves that file — and every other export beside it —
+# is byte for byte the output of scripts/db-publication-export.mjs on the
+# committed reading it names (docs/evidence/d1/phase3/readings/). A hand-edited
+# export (a table added to make parity pass, a lane relabelled) or a stale one
+# is red. The self-test runs first (C-34).
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'docs/evidence/d1/phase3/**'
+      - 'scripts/db-publication-export.mjs'
+      - 'scripts/db-publication-export.sql'
+      - '.github/workflows/d1-p3-export.yml'
+  push:
+    branches: [main, staging]
+    paths:
+      - 'docs/evidence/d1/phase3/**'
+      - 'scripts/db-publication-export.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    name: The publication export is the exporter's output of its reading
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Self-test — every refusal and every --check failure shape (C-34)
+        run: node scripts/db-publication-export.mjs --self-test
+      - name: Every committed export regenerates byte for byte from its reading
+        run: |
+          set -e
+          n=0
+          for f in docs/evidence/d1/phase3/db-publication-export*.json; do
+            node scripts/db-publication-export.mjs --check "$f"
+            n=$((n+1))
+          done
+          [ "$n" -ge 1 ] || { echo "::error::no export found"; exit 1; }

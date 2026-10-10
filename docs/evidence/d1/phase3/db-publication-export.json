@@ -1,0 +1,225 @@
+{
+  "producer": "db-publication-export",
+  "schemaVersion": 1,
+  "generatedBy": "scripts/db-publication-export.mjs",
+  "publication": "supabase_realtime",
+  "lane": "production",
+  "readAtUtc": "2026-10-04T16:47:41Z",
+  "reading": "docs/evidence/d1/phase3/readings/publication-production-20261004.json",
+  "laneRecord": "docs/evidence/d1/phase3/readings/publication-production-20261004.lane.json",
+  "transcribed": false,
+  "counts": {
+    "tables": 29,
+    "replicaIdentityFull": 2,
+    "nonPublic": 0,
+    "unresolved": 0
+  },
+  "tables": [
+    "certificates",
+    "competition_entries",
+    "competition_round_publish",
+    "competition_votes",
+    "competitions",
+    "course_enrollments",
+    "courses",
+    "featured_artists",
+    "follows",
+    "friendships",
+    "gift_announcements",
+    "image_comments",
+    "image_reactions",
+    "journal_articles",
+    "judge_activity_logs",
+    "judge_decisions",
+    "judge_scores",
+    "judging_rounds",
+    "photo_of_the_day",
+    "post_comments",
+    "post_reactions",
+    "post_shares",
+    "posts",
+    "profiles",
+    "scheduled_posts",
+    "support_tickets",
+    "user_badges",
+    "user_notifications",
+    "user_roles"
+  ],
+  "publicationTables": [
+    {
+      "schema": "public",
+      "table": "certificates",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "competition_entries",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "competition_round_publish",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "competition_votes",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "competitions",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "course_enrollments",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "courses",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "featured_artists",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "follows",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "friendships",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "gift_announcements",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "image_comments",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "image_reactions",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "journal_articles",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "judge_activity_logs",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "judge_decisions",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "judge_scores",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "judging_rounds",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "photo_of_the_day",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "post_comments",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "post_reactions",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "post_shares",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "posts",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "profiles",
+      "replicaIdentity": "f",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "scheduled_posts",
+      "replicaIdentity": "f",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "support_tickets",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "user_badges",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "user_notifications",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    },
+    {
+      "schema": "public",
+      "table": "user_roles",
+      "replicaIdentity": "d",
+      "rowFilter": null
+    }
+  ],
+  "unresolved": []
+}

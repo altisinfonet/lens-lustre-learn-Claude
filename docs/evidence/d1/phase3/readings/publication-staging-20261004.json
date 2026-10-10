@@ -1,0 +1,18 @@
+{
+  "reading": "db-publication-reading",
+  "publication": "supabase_realtime",
+  "readAtUtc": "2026-10-04T15:41:01Z",
+  "database": "postgres",
+  "serverVersion": "17.6",
+  "allTables": false,
+  "operations": {
+    "insert": true,
+    "update": true,
+    "delete": true,
+    "truncate": true
+  },
+  "viaRoot": false,
+  "tables": [],
+  "lane": "staging",
+  "source": "scripts/db-publication-export.sql run by D1 on staging fpszggreishhuvdpkmdr through the Supabase MCP (read-only), 2026-10-04 15:41:01 UTC; the value of its one row, verbatim."
+}
