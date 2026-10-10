@@ -1,0 +1,85 @@
+# SEC-P3E-1 harness run · 2026-10-10T08:04:19Z · scratch PG 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) · branch base staging 4a5c78a
+
+══ staging · 0 · fixture
+  PG 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) · post_shares published: false
+  PASS  fail first: a stranger reads all 3 of member 1's shares (public, friends-only, private) under USING (true)
+  PASS  PROBE red — fail first: today's policy: PROBE FAIL SEC-P3E-1: S2 the SELECT policy is not scoped by can_view_post (USING (true)?)
+
+══ staging · 1 · apply
+  PASS  0003 applied
+        SEC-P3E-1-0003: post_shares SELECT = own shares OR shares of posts the viewer can see (one permissive policy)
+  PASS  stranger 1 of 3 (public) · sharer 3 of 3 (own) · private post's author 2 (public + their own post's)
+  PASS  PROBE green — after 0003
+        PROBE PASS SEC-P3E-1: S1–S4 static; B1 stranger 1/3, B2 sharer 3/3, B3 authors see theirs, B4 friend 2/3, B5 anon 0, B6 unshare of a private post works (all rolled back)
+  PASS  a second apply is refused (PRE-002)
+  PASS  one permissive SELECT policy
+
+══ staging · 2 · PROBE mutants (each red, then restored)
+  PASS  PROBE red — the policy back to USING (true): PROBE FAIL SEC-P3E-1: S2 the SELECT policy is not scoped by can_view_post (USING (true)?)
+  PASS  PROBE red — post_reactions' expression alone (no own-row arm): the sharer loses sight of a share: PROBE FAIL SEC-P3E-1: B2 the sharer sees 1 of their 3 shares
+  PASS  …and the sharer's unshare of a private post deletes 0 rows (why the own-row arm is there)
+  PASS  with the shipped expression the same unshare deletes 1 row
+  PASS  PROBE red — bare auth.uid() (per-row re-evaluation): PROBE FAIL SEC-P3E-1: S3 a bare auth.uid() in the SELECT policy (must be (SELECT auth.uid()))
+  PASS  PROBE red — a second permissive SELECT USING (true) next to it: PROBE FAIL SEC-P3E-1: S1 post_shares must have exactly one permissive SELECT/ALL policy
+  PASS  PROBE red — an always-true arm hidden next to can_view_post (passes the text checks S1–S3; behaviour catches it): PROBE FAIL SEC-P3E-1: B1 a stranger sees 3 of 3 shares (want only the public post's)
+  PASS  PROBE green — the oldest candidate is an admin (sees every post): the PROBE skips admins and still proves B1–B6
+        PROBE PASS SEC-P3E-1: S1–S4 static; B1 stranger 1/3, B2 sharer 3/3, B3 authors see theirs, B4 friend 2/3, B5 anon 0, B6 unshare of a private post works (all rolled back)
+  PASS  PROBE green — every mutant undone
+        PROBE PASS SEC-P3E-1: S1–S4 static; B1 stranger 1/3, B2 sharer 3/3, B3 authors see theirs, B4 friend 2/3, B5 anon 0, B6 unshare of a private post works (all rolled back)
+
+══ staging · 3 · rollback and re-apply
+  PASS  rollback applied
+  PASS  every post_shares policy exactly as before 0003
+  PASS  the stranger reads all 3 again (the leak is back — as the rollback says)
+  PASS  a second rollback is refused
+  PASS  re-apply after rollback
+  PASS  PROBE green — after re-apply
+        PROBE PASS SEC-P3E-1: S1–S4 static; B1 stranger 1/3, B2 sharer 3/3, B3 authors see theirs, B4 friend 2/3, B5 anon 0, B6 unshare of a private post works (all rolled back)
+
+══ staging · 4 · drift refusal
+  PASS  refused PRE-002 on a drifted policy, nothing changed: SEC-P3E-1-PRE-002: post_shares SELECT is not the expected single USING (true) policy — drift, refusing
+  PASS  refused — lane not asserted
+
+══ production · 0 · fixture
+  PG 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) · post_shares published: true
+  PASS  fail first: a stranger reads all 3 of member 1's shares (public, friends-only, private) under USING (true)
+  PASS  PROBE red — fail first: today's policy: PROBE FAIL SEC-P3E-1: S2 the SELECT policy is not scoped by can_view_post (USING (true)?)
+
+══ production · 1 · apply
+  PASS  0003 applied
+        SEC-P3E-1-0003: post_shares SELECT = own shares OR shares of posts the viewer can see (one permissive policy)
+  PASS  stranger 1 of 3 (public) · sharer 3 of 3 (own) · private post's author 2 (public + their own post's)
+  PASS  PROBE green — after 0003
+        PROBE PASS SEC-P3E-1: S1–S4 static; B1 stranger 1/3, B2 sharer 3/3, B3 authors see theirs, B4 friend 2/3, B5 anon 0, B6 unshare of a private post works (all rolled back)
+  PASS  a second apply is refused (PRE-002)
+  PASS  one permissive SELECT policy
+  PASS  publication untouched (realtime applies this same SELECT policy)
+
+══ production · 2 · PROBE mutants (each red, then restored)
+  PASS  PROBE red — the policy back to USING (true): PROBE FAIL SEC-P3E-1: S2 the SELECT policy is not scoped by can_view_post (USING (true)?)
+  PASS  PROBE red — post_reactions' expression alone (no own-row arm): the sharer loses sight of a share: PROBE FAIL SEC-P3E-1: B2 the sharer sees 1 of their 3 shares
+  PASS  …and the sharer's unshare of a private post deletes 0 rows (why the own-row arm is there)
+  PASS  with the shipped expression the same unshare deletes 1 row
+  PASS  PROBE red — bare auth.uid() (per-row re-evaluation): PROBE FAIL SEC-P3E-1: S3 a bare auth.uid() in the SELECT policy (must be (SELECT auth.uid()))
+  PASS  PROBE red — a second permissive SELECT USING (true) next to it: PROBE FAIL SEC-P3E-1: S1 post_shares must have exactly one permissive SELECT/ALL policy
+  PASS  PROBE red — an always-true arm hidden next to can_view_post (passes the text checks S1–S3; behaviour catches it): PROBE FAIL SEC-P3E-1: B1 a stranger sees 3 of 3 shares (want only the public post's)
+  PASS  PROBE green — the oldest candidate is an admin (sees every post): the PROBE skips admins and still proves B1–B6
+        PROBE PASS SEC-P3E-1: S1–S4 static; B1 stranger 1/3, B2 sharer 3/3, B3 authors see theirs, B4 friend 2/3, B5 anon 0, B6 unshare of a private post works (all rolled back)
+  PASS  PROBE green — every mutant undone
+        PROBE PASS SEC-P3E-1: S1–S4 static; B1 stranger 1/3, B2 sharer 3/3, B3 authors see theirs, B4 friend 2/3, B5 anon 0, B6 unshare of a private post works (all rolled back)
+
+══ production · 3 · rollback and re-apply
+  PASS  rollback applied
+  PASS  every post_shares policy exactly as before 0003
+  PASS  the stranger reads all 3 again (the leak is back — as the rollback says)
+  PASS  a second rollback is refused
+  PASS  re-apply after rollback
+  PASS  PROBE green — after re-apply
+        PROBE PASS SEC-P3E-1: S1–S4 static; B1 stranger 1/3, B2 sharer 3/3, B3 authors see theirs, B4 friend 2/3, B5 anon 0, B6 unshare of a private post works (all rolled back)
+
+══ production · 4 · drift refusal
+  PASS  refused PRE-002 on a drifted policy, nothing changed: SEC-P3E-1-PRE-002: post_shares SELECT is not the expected single USING (true) policy — drift, refusing
+  PASS  refused — lane not asserted
+
+49 PASS
+ALL CASES PASS
