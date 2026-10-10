@@ -77,7 +77,16 @@ BEGIN
       created_at, updated_at
     ) VALUES (
       _id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-      'f93-fixture-' || _r.n || '@50mm-staging-fixture.invalid',
+      -- ⚠ A DISTINCT DOMAIN PER ROW, AND THIS IS NOT COSMETIC.
+      -- handle_new_user() -> auto_subscribe_newsletter() ->
+      -- rate_limit_newsletter_subscribe() caps TEN subscriptions per email
+      -- DOMAIN per hour and RAISES. That raise happens inside the auth signup
+      -- transaction, so tripping it does not merely skip a newsletter — it
+      -- FAILS THE SIGNUP. With all 21 rows on one domain this fixture died on
+      -- row 11 and wrote nothing. Per-row domains keep the fixture honest
+      -- WITHOUT weakening the limiter, which stays exactly as it is (Rule 19);
+      -- the limiter's own defect is filed separately as F-94.
+      'f93-fixture-' || _r.n || '@50mm-fixture-' || _r.n || '.invalid',
       crypt('f93-fixture-not-a-real-login', gen_salt('bf')), now(),
       '{"provider":"email","providers":["email"]}'::jsonb,
       jsonb_build_object('full_name', _r.full_name, 'f93_fixture', _r.why),
@@ -99,7 +108,7 @@ BEGIN
     raw_app_meta_data, raw_user_meta_data, created_at, updated_at
   ) VALUES (
     md5(_ns || ':21')::uuid, '00000000-0000-0000-0000-000000000000',
-    'authenticated', 'authenticated', 'f93-fixture-21@50mm-staging-fixture.invalid',
+    'authenticated', 'authenticated', 'f93-fixture-21@50mm-fixture-21.invalid',
     crypt('f93-fixture-not-a-real-login', gen_salt('bf')), now(),
     '{"provider":"google","providers":["google"]}'::jsonb,
     '{"f93_fixture":"NO full_name key at all — the OAuth branch"}'::jsonb,
