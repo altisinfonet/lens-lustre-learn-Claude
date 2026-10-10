@@ -1,0 +1,674 @@
+From c38f796cd62c0d74fb04212424ce639de194cbfb Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Claude=20=28D1=20=C2=B7=20Database=20=26=20Runtime=29?=
+ <noreply@anthropic.com>
+Date: Thu, 3 Sep 2026 08:53:10 +0000
+Subject: [PATCH] =?UTF-8?q?d1(TC-v3):=20get=5Ftop=5Fcontributors=5Fv3=20?=
+ =?UTF-8?q?=E2=80=94=20the=20Home=20card=20shows=20the=2030-day=20score?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+OWNER-RULING-2026-09-03-02. EXPAND step: v3 is created ALONGSIDE v2. No SQL
+apply runs from this PR; nothing until the Auditor authorises it, staging first.
+
+Objects reserved: get_top_contributors_v3 (created). contributor_points_since
+read-only, called unchanged, grants untouched. get_top_contributors_v2 not
+altered and NOT dropped — it is the rollback. No tables, policies, publication
+entries, settings or indexes altered.
+
+WHY A NEW FUNCTION. Postgres refuses to change a return type through CREATE OR
+REPLACE (42P13). Verified on production: v2 returns TABLE(user_id uuid,
+rank_position integer, contributor_score integer). Adding recent_score changes
+that type, so v2 cannot be edited and must not be.
+
+THE 2026-08-11 INSTRUCTION IS MARKED SUPERSEDED, NOT DELETED. The v2 migration
+keeps its original text ("The 30-day number is NEVER returned") byte for byte;
+the v3 file names the ruling that supersedes it and quotes it. C-46 and C-51
+both came from a ruling that lived only in a chat. This one lives in the tree.
+
+RANKING PROVED UNCHANGED, production read-only, 2026-09-03 08:45:05Z:
+  pos 1  01c5059c…114a  lifetime 9551   recent 7055
+  pos 2  c2f9619d…0245  lifetime 8888   recent 6978
+  pos 3  cc691988…03be  lifetime 11546  recent 6823
+Same three user_ids, same order, same three lifetime values from both
+functions. Position 3 carries the largest lifetime number — which is the
+ruling's own justification, visible in the data.
+
+CROSS-MEMBER TEST, and it was shown failing first. Five assertions, each
+demonstrated catching its own planted defect on a scratch PostgreSQL 16 built
+to production's posture:
+  A1 row cap        — cap removed  -> 44 rows, 41 members leaked. CAUGHT.
+  A2 no personalisation — caller's own row hoisted. CAUGHT.
+  A3 helper stays shut  — helper granted to anon. CAUGHT.
+  A4 frozen signature   — posts_count added. CAUGHT.
+  A5 posture / v2 alive — v2 renamed away. CAUGHT.
+All five pass against the real v3 this migration creates. The probe runs
+BEGIN…ROLLBACK and writes nothing.
+
+GRANTS MATCHED, NOT EXCEEDED. v2's real ACL on production is
+{=X/postgres,postgres=X,anon=X,authenticated=X,service_role=X} — the leading
+=X is PUBLIC, which v2's own migration comment does not mention. v3 revokes
+PUBLIC and grants anon + authenticated: a subset of v2's reach, never a
+superset. Two findings raised, neither fixed here:
+  * comment and catalogue disagree on v2's grants (Standing Rule 21);
+  * REVOKE EXECUTE ... FROM anon on v2 does NOT stop anon executing it while
+    PUBLIC holds the grant — reproduced on the scratch instance. The obvious
+    command for taking v2 out of service silently does not work.
+
+ROLLBACK exercised: refuses and changes nothing when v2 is missing, and when
+v2 exists but anon cannot reach it; drops cleanly otherwise; idempotent on a
+second run. Client-first ordering is written into its header.
+
+BLOCKING FINDING: docs/gates/TC-v3-interface.md exists on NO ref. Every remote
+branch and tag scanned; docs/gates/ holds only GATE_REGISTER.md and
+phase-0-kickoff.md. Until the Auditor commits it, this migration is the only
+place the frozen shape is written down, by the party the freeze constrains.
+Recorded, not worked around. docs/gates/** is not mine to author.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GC3SdkjFKDCgX6nLVLABNm
+---
+ .../20260903090000_top_contributors_v3.sql    | 234 +++++++++++++++++
+ ...PROBE_top_contributors_v3_cross_member.sql | 247 ++++++++++++++++++
+ ...903090000_top_contributors_v3_ROLLBACK.sql |  95 +++++++
+ 3 files changed, 576 insertions(+)
+ create mode 100644 supabase/migrations/20260903090000_top_contributors_v3.sql
+ create mode 100644 supabase/migrations/PROBE_top_contributors_v3_cross_member.sql
+ create mode 100644 supabase/rollback/20260903090000_top_contributors_v3_ROLLBACK.sql
+
+diff --git a/supabase/migrations/20260903090000_top_contributors_v3.sql b/supabase/migrations/20260903090000_top_contributors_v3.sql
+new file mode 100644
+index 0000000..7c994d5
+--- /dev/null
++++ b/supabase/migrations/20260903090000_top_contributors_v3.sql
+@@ -0,0 +1,234 @@
++-- Top Contributors V3 — the Home card displays the 30-day score.
++--
++-- =============================================================================
++-- THE RULING THIS IMPLEMENTS
++--
++-- OWNER-RULING-2026-09-03-02: the Home page Top Contributors card must display
++-- the 30-day score, not the lifetime score.
++--
++-- ⚠ THIS SUPERSEDES THE OWNER'S 2026-08-11 INSTRUCTION recorded in
++-- supabase/migrations/20260811160000_top_contributors_v2.sql, which reads:
++--
++--     "The 30-day number is NEVER returned, so it cannot reach the UI by
++--      accident."
++--
++-- THAT SENTENCE IS NOT DELETED AND MUST NOT BE. It was correct when it was
++-- written and it is the record of a decision the Owner has now changed. Two
++-- corrections in this project — C-46 and C-51 — came from a ruling that lived
++-- only in a chat, so this one lives in the tree: the v2 file keeps its original
++-- text, this file names the ruling that supersedes it, and a reader who finds
++-- either one finds the other.
++--
++-- WHY THE OWNER CHANGED IT — visible in the data, measured 2026-09-03 08:45Z
++-- on production, read-only:
++--
++--   pos 1  recent 7,055   lifetime  9,551
++--   pos 2  recent 6,978   lifetime  8,888
++--   pos 3  recent 6,823   lifetime 11,546   ← largest number, bottom of the card
++--
++-- The card ranks by the 30-day score and prints the lifetime score, so today it
++-- shows 11,546 beneath 9,551 and 8,888. A member reads a leaderboard top to
++-- bottom and expects the numbers to descend. They do not, and no explanation is
++-- on the card. Displaying the number the ranking is actually made of removes
++-- the contradiction without changing who appears or in what order.
++--
++-- =============================================================================
++-- WHY A NEW FUNCTION RATHER THAN AN EDIT — MEASURED, NOT ASSUMED
++--
++-- PostgreSQL refuses to change a function's return type through CREATE OR
++-- REPLACE (ERROR 42P13, "cannot change return type of existing function").
++-- Verified against production 2026-09-03: get_top_contributors_v2 returns
++-- TABLE(user_id uuid, rank_position integer, contributor_score integer), and
++-- adding a column changes that type. So this is an EXPAND step in the
++-- expand → behaviour → contract sequence:
++--
++--   EXPAND    (this file)  v3 is created ALONGSIDE v2. Additive. Nothing is
++--                          dropped, nothing a member sees changes on apply.
++--   BEHAVIOUR (D2's PR)    the Home card switches to v3 and reads recent_score.
++--   CONTRACT  (later)      v2 is dropped, and ONLY after the Auditor authorises
++--                          it — not in this PR, not in the next one.
++--
++-- ⚠ v2 IS THE ROLLBACK. It is left byte-for-byte as it is, still granted, still
++-- working. If v3 or the client change goes wrong, the revert is a one-line
++-- frontend change back to v2 with no database work at all. Dropping v2 in this
++-- PR would throw that away for no gain.
++--
++-- =============================================================================
++-- WHAT IS DELIBERATELY UNCHANGED FROM v2 — the list is the point
++--
++-- Everything below is copied, not rewritten. A "small improvement" made while
++-- moving code is how a ranking silently shifts and nobody can say which change
++-- did it.
++--
++--   * THE RANKING RULE.  ORDER BY recent.score DESC, uid. The uid tie-break is
++--     what makes the order stable between calls rather than shuffling two equal
++--     scores on every refresh.
++--   * THE WINDOW.  (now() AT TIME ZONE 'UTC')::date - 29, i.e. today plus the
++--     29 UTC days before it = 30 UTC days.
++--   * THE ZERO RULE.  WHERE r.score > 0. A member with no activity in the last
++--     30 days is excluded, exactly as in v2 — a leaderboard of zeroes is not a
++--     leaderboard.
++--   * THE TOP 3.  WHERE rk.pos <= 3.
++--   * THE ADMIN EXCLUSION.  Stays where it already is, inside
++--     contributor_points_since. It is NOT re-stated here. One definition, one
++--     place: the leaderboard and the badge can never disagree about who is
++--     eligible, which was the whole reason v2 factored it out.
++--   * THE FORMULA.  Untouched. contributor_points_since is called, never
++--     redefined, and its grants are not altered by this file.
++--
++-- The proof that none of this moved: v2 and v3 were run side by side against
++-- production, read-only, at 2026-09-03 08:45:05Z. Same three user_ids, same
++-- three positions, same three lifetime scores. Quoted in the PR body.
++--
++-- =============================================================================
++-- WHAT v3 RETURNS, AND WHAT IT STILL REFUSES TO RETURN
++--
++--   user_id            uuid     the member
++--   rank_position      integer  1, 2 or 3
++--   contributor_score  integer  LIFETIME — unchanged meaning from v2
++--   recent_score       integer  rolling last 30 UTC days — THE NEW COLUMN,
++--                               and what the Home card displays
++--
++-- Still never returned, and this half of the Owner's 2026-08-11 instruction is
++-- NOT superseded: no counts, no minutes, no engagement figures, no formula
++-- internals, no per-day breakdown, no tier working. "The ranking should feel
++-- like recognition, not a 'time spent on app' competition."
++--
++-- =============================================================================
++-- SECURITY — THE WHERE CLAUSE IS THE ONLY CONTROL
++--
++-- v3 is SECURITY DEFINER and anon-executable, so RLS is bypassed entirely and
++-- there is no second line of defence. Three deliberate properties:
++--
++--   1. NO ARGUMENTS. There is no parameter to manipulate, so there is no way to
++--      ask this function about a member of the caller's choosing.
++--   2. NO CALLER-DEPENDENT VALUE in the body — no auth.uid(), no current_user,
++--      no request.jwt. Every caller gets the same three rows, which are the
++--      three rows already printed on a public page. Measured caller-independent
++--      2026-09-03 08:46:30Z across member A, member B and anon.
++--   3. THE HELPER STAYS SHUT. contributor_points_since returns EVERY eligible
++--      member's score for an arbitrary date. Its EXECUTE is revoked from
++--      public, anon and authenticated (verified 2026-09-03 08:44:30Z:
++--      anon=false, authenticated=false) and this file does not touch that.
++--      v3 reaches it only because v3 is DEFINER. If that revoke were ever
++--      undone, the leaderboard becomes an enumeration endpoint for the whole
++--      membership — which is why the accompanying probe asserts it every run.
++--
++-- The one predicate that matters is `WHERE rk.pos <= 3`. Removed, this function
++-- returns every eligible member's recent and lifetime score to anonymous
++-- callers. Measured on production 2026-09-03 08:46:15Z: correct 3 rows,
++-- loosened 44 rows — 41 members leaked by one dropped line. That is the exact
++-- defect PROBE_top_contributors_v3_cross_member.sql is built to catch, and it
++-- was shown catching it before this file was accepted.
++--
++-- =============================================================================
++-- ⚠ INTERFACE FREEZE — STATED HONESTLY
++--
++-- The Owner froze this shape as docs/gates/TC-v3-interface.md. As of
++-- 2026-09-03 that file exists on NO ref of this repository — every remote
++-- branch and tag was scanned; docs/gates/ holds only GATE_REGISTER.md and
++-- phase-0-kickoff.md. Until the Auditor commits it, THIS FILE IS THE ONLY
++-- PLACE THE FROZEN SHAPE IS WRITTEN DOWN, and it is written by the developer
++-- the freeze exists to constrain. Recorded rather than worked around; the
++-- shape below is exactly as the Owner specified it and D1 has not varied it.
++
++-- ─────────────────────────────────────────────────────────────────────────────
++-- No index is created. idx_post_comments_user_created already exists from the
++-- v2 migration and v3 reads through the same helper, so the access path is
++-- identical. Adding an index here would be a change this unit did not measure.
++
++CREATE OR REPLACE FUNCTION public.get_top_contributors_v3()
++RETURNS TABLE (
++  user_id           uuid,
++  rank_position     integer,
++  contributor_score integer,  -- lifetime, unchanged meaning from v2
++  recent_score      integer   -- rolling last 30 UTC days — what the card shows
++)
++LANGUAGE sql
++STABLE
++SECURITY DEFINER
++SET search_path TO 'public'
++AS $fn$
++  WITH recent AS (
++    -- 30 UTC days: today, plus the 29 before it. Identical to v2.
++    SELECT r.uid, r.score
++    FROM public.contributor_points_since(
++      ((now() AT TIME ZONE 'UTC')::date - 29)
++    ) r
++    WHERE r.score > 0
++  ),
++  lifetime AS (
++    SELECT l.uid, l.score FROM public.contributor_points_since(NULL::date) l
++  ),
++  ranked AS (
++    -- uid is the tie-break so the order is stable between calls rather than
++    -- shuffling two equal scores on every refresh. Identical to v2.
++    SELECT rc.uid,
++           rc.score AS recent,
++           ROW_NUMBER() OVER (ORDER BY rc.score DESC, rc.uid) AS pos
++    FROM recent rc
++  )
++  SELECT rk.uid,
++         rk.pos::integer,
++         ROUND(COALESCE(lf.score, 0))::integer,
++         ROUND(rk.recent)::integer
++  FROM ranked rk
++  LEFT JOIN lifetime lf ON lf.uid = rk.uid
++  WHERE rk.pos <= 3
++  ORDER BY rk.pos;
++$fn$;
++
++COMMENT ON FUNCTION public.get_top_contributors_v3() IS
++  'Home page Top Contributors. Ranked by rolling last 30 UTC days and returns BOTH that 30-day score (recent_score, what the card displays) and the lifetime Contributor Score (contributor_score). Per OWNER-RULING-2026-09-03-02, which supersedes the 2026-08-11 instruction that the 30-day number is never returned; that instruction is preserved unedited in 20260811160000_top_contributors_v2.sql. Never returns counts, minutes, engagement figures or formula internals. get_top_contributors_v2 is unchanged and remains the rollback until the Auditor authorises its removal.';
++
++
++-- ─────────────────────────────────────────────────────────────────────────────
++-- GRANTS — MATCHED TO v2's REACH THROUGH THE API, AND NOT EXCEEDED.
++--
++-- v2's effective posture, read from pg_proc.proacl on production
++-- 2026-09-03 08:44:30Z:
++--
++--   {=X/postgres,postgres=X/postgres,anon=X/postgres,
++--    authenticated=X/postgres,service_role=X/postgres}
++--
++-- ⚠ THE LEADING `=X/postgres` IS PUBLIC. v2 carries the default EXECUTE grant
++-- to PUBLIC that CREATE FUNCTION applies and that its own migration revoked
++-- only from the helper, never from the two wrappers. The v2 file's grant block
++-- says "The Home page is public and get_top_contributors_v1 is already
++-- anon-executable, so v2 matches it" and then names anon and authenticated —
++-- so the file's stated intent and the catalogue's actual state differ.
++-- STANDING RULE 21: an instructing comment is a control, and when a comment and
++-- its code disagree that is a finding, not cosmetics. Raised for the Auditor;
++-- v2 is not altered by this file.
++--
++-- ⚠ AND THE PUBLIC GRANT HAS A CONSEQUENCE THAT IS NOT COSMETIC. It was found
++-- by a negative control that failed to fail, reproduced on a scratch PostgreSQL
++-- 16 with v2's exact posture, 2026-09-03:
++--
++--     REVOKE EXECUTE ON FUNCTION public.get_top_contributors_v2() FROM anon;
++--     -- has_function_privilege('anon', ..., 'EXECUTE')  ->  STILL TRUE
++--
++-- Revoking from `anon` does nothing while PUBLIC holds the grant, because anon
++-- inherits it through PUBLIC. Only `REVOKE ... FROM public` actually closes it.
++-- So the obvious command for taking v2 out of service on the day it must be
++-- taken out of service silently does not work. That is worth knowing BEFORE
++-- somebody needs it in a hurry, and it is why v3 does not inherit the same
++-- shape: `REVOKE ... FROM anon` on v3 will do what it says.
++--
++-- v3 therefore does NOT copy the PUBLIC grant. It revokes PUBLIC explicitly and
++-- grants the two roles the v2 migration intended. That is NARROWER than v2, not
++-- wider — the instruction was "match, do not exceed", and a role set that is a
++-- subset of v2's cannot exceed it. Through PostgREST the reachable roles are
++-- anon, authenticated and service_role, so there is no behavioural difference
++-- for the Home page; the difference is that a future role added to this
++-- database does not silently inherit EXECUTE on v3.
++--
++-- If the Auditor wants v3's grant posture byte-identical to v2's instead, the
++-- change is to delete the REVOKE line below. I recommend against it and have
++-- said so rather than making the choice silently.
++REVOKE ALL ON FUNCTION public.get_top_contributors_v3() FROM public;
++GRANT EXECUTE ON FUNCTION public.get_top_contributors_v3() TO anon, authenticated;
++
++-- contributor_points_since is NOT touched. Its EXECUTE stays revoked from
++-- public, anon and authenticated. v3 reaches it as SECURITY DEFINER, exactly
++-- as v2 does.
+diff --git a/supabase/migrations/PROBE_top_contributors_v3_cross_member.sql b/supabase/migrations/PROBE_top_contributors_v3_cross_member.sql
+new file mode 100644
+index 0000000..81de16b
+--- /dev/null
++++ b/supabase/migrations/PROBE_top_contributors_v3_cross_member.sql
+@@ -0,0 +1,247 @@
++-- ═══════════════════════════════════════════════════════════════════════════
++-- CROSS-MEMBER PROBE — get_top_contributors_v3. READS ONLY. CHANGES NOTHING.
++--
++-- The gate for OWNER-RULING-2026-09-03-02 requires "a cross-member test proves
++-- the function exposes nothing a member should not see". This is that test.
++--
++-- The `PROBE_` prefix follows the convention already established by
++-- PROBE_credential_connectivity_readonly.sql: a name that tells any future
++-- reader, at a glance, that the file is not part of the migration sequence. It
++-- is dispatched through apply-migration.yml like any other reviewed file, and
++-- it is safe to run against either lane, any number of times.
++--
++-- ⚠ RUN IT AFTER the v3 migration and BEFORE the Home card is switched to v3.
++-- A green run is a precondition of the behaviour step, not a report on it.
++--
++-- ───────────────────────────────────────────────────────────────────────────
++-- WHY THIS TEST IS SHAPED THE WAY IT IS
++--
++-- get_top_contributors_v3 is SECURITY DEFINER and anon-executable. DEFINER
++-- bypasses RLS entirely, so the WHERE clause is the only control and there is
++-- no second line of defence. The measured precedent on this platform is that
++-- the same read RPC with one predicate omitted returned private rows to anon.
++--
++-- v3 takes no arguments, so there is no parameter an attacker can point at a
++-- member of their choosing. That removes the usual enumeration route and leaves
++-- exactly three ways it could leak, which are the three things asserted below:
++--
++--   A1  it returns MORE than the three public rows            (the row cap)
++--   A2  it returns something ABOUT a caller                   (personalisation)
++--   A3  the helper behind it becomes callable directly        (full enumeration)
++--
++-- plus two shape assertions, A4 and A5, that stop a later edit widening it.
++--
++-- ⚠ A TEST THAT COULD NOT HAVE FAILED IS NOT EVIDENCE (C-34). Every assertion
++-- here was shown FAILING against a deliberately loosened copy of v3 before this
++-- file was accepted. A1 is the one that matters: with `WHERE rk.pos <= 3`
++-- removed, measured on production 2026-09-03 08:46:15Z, the correct function
++-- returned 3 rows and the loosened one returned 44 — 41 members' recent and
++-- lifetime scores handed to anonymous callers by one dropped line. A1 caught it.
++--
++-- ⚠ WHAT THIS PROBE DOES NOT PROVE. It does not call the function over HTTP as
++-- a real anonymous browser would, so it does not test PostgREST's own exposure
++-- rules; it tests the database object. It does not prove the Home card renders
++-- correctly — that is D2's half and a browser question, and `curl` is not a
++-- browser (F-53). Say what was proved, and no more.
++-- ═══════════════════════════════════════════════════════════════════════════
++
++BEGIN;
++
++DO $probe$
++DECLARE
++  -- Two real members, taken from the top three so nothing here reveals anyone
++  -- the public Home page does not already name. Deliberately NOT hard-coded to
++  -- specific uuids: they are read from the function's own output, so this probe
++  -- keeps working as the leaderboard changes.
++  member_a       uuid;
++  member_b       uuid;
++  outsider       uuid;
++  row_count      integer;
++  result_sig     text;
++  fp_anon        text;
++  fp_member_a    text;
++  fp_member_b    text;
++  helper_anon    boolean;
++  helper_auth    boolean;
++  v3_anon        boolean;
++  v3_auth        boolean;
++  v3_volatility  "char";
++  v3_secdef      boolean;
++  v2_present     boolean;
++  v2_anon        boolean;
++  leaked         integer;
++BEGIN
++  RAISE NOTICE '--- cross-member probe: get_top_contributors_v3 @ % UTC ---',
++    to_char(clock_timestamp() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS"Z"');
++
++  ---------------------------------------------------------------------------
++  -- A1 · THE ROW CAP. The single predicate that stands between a public card
++  -- and a full leaderboard dump. This is the assertion that caught the
++  -- loosened copy.
++  ---------------------------------------------------------------------------
++  SELECT count(*) INTO row_count FROM public.get_top_contributors_v3();
++
++  IF row_count > 3 THEN
++    RAISE EXCEPTION
++      'A1 FAILED — get_top_contributors_v3 returned % rows. The card shows three. Anything above three means the `WHERE rk.pos <= 3` predicate is gone and every eligible member''s recent and lifetime score is being handed to anonymous callers.',
++      row_count;
++  END IF;
++  RAISE NOTICE 'A1 row cap ......................... PASS (% row(s), cap 3)', row_count;
++
++  -- A1's own denominator, so the pass is interpretable rather than merely green:
++  -- how many members WOULD be exposed if the cap were removed.
++  SELECT count(*) INTO leaked
++    FROM public.contributor_points_since(((now() AT TIME ZONE 'UTC')::date - 29)) r
++   WHERE r.score > 0;
++  RAISE NOTICE '     (% member(s) currently rank above zero; % would be exposed without the cap)',
++    leaked, GREATEST(leaked - row_count, 0);
++
++  IF row_count = 0 THEN
++    RAISE EXCEPTION
++      'A1 FAILED — get_top_contributors_v3 returned no rows at all, but % member(s) have a non-zero 30-day score. The function is broken, not safe.',
++      leaked;
++  END IF;
++
++  ---------------------------------------------------------------------------
++  -- A2 · NO PERSONALISATION. The cross-member half. If the output differs by
++  -- caller, then one member is learning something about another that the public
++  -- card does not already show. Run as member A, as member B, and as anon; the
++  -- three fingerprints must be identical.
++  ---------------------------------------------------------------------------
++  SELECT t.user_id INTO member_a FROM public.get_top_contributors_v3() t WHERE t.rank_position = 1;
++  SELECT t.user_id INTO member_b FROM public.get_top_contributors_v3() t
++   WHERE t.rank_position = LEAST(2, row_count);
++
++  -- A member who is NOT on the card, so "an outsider sees the same thing" is
++  -- tested too, not just "the people on it see it".
++  SELECT pr.id INTO outsider
++    FROM public.profiles pr
++   WHERE pr.id NOT IN (SELECT t.user_id FROM public.get_top_contributors_v3() t)
++   ORDER BY pr.id
++   LIMIT 1;
++
++  PERFORM set_config('request.jwt.claims', json_build_object('role','anon')::text, true);
++  SELECT string_agg(t.user_id::text || ':' || t.rank_position || ':' || t.contributor_score || ':' || t.recent_score,
++                    ',' ORDER BY t.rank_position)
++    INTO fp_anon FROM public.get_top_contributors_v3() t;
++
++  PERFORM set_config('request.jwt.claims',
++                     json_build_object('sub', member_a, 'role','authenticated')::text, true);
++  SELECT string_agg(t.user_id::text || ':' || t.rank_position || ':' || t.contributor_score || ':' || t.recent_score,
++                    ',' ORDER BY t.rank_position)
++    INTO fp_member_a FROM public.get_top_contributors_v3() t;
++
++  PERFORM set_config('request.jwt.claims',
++                     json_build_object('sub', COALESCE(outsider, member_b), 'role','authenticated')::text, true);
++  SELECT string_agg(t.user_id::text || ':' || t.rank_position || ':' || t.contributor_score || ':' || t.recent_score,
++                    ',' ORDER BY t.rank_position)
++    INTO fp_member_b FROM public.get_top_contributors_v3() t;
++
++  PERFORM set_config('request.jwt.claims', '', true);
++
++  IF fp_member_a IS DISTINCT FROM fp_member_b THEN
++    RAISE EXCEPTION
++      'A2 FAILED — two different members received different results. The function is personalised, so one member is learning something about another. A: % / B: %',
++      fp_member_a, fp_member_b;
++  END IF;
++  IF fp_member_a IS DISTINCT FROM fp_anon THEN
++    RAISE EXCEPTION
++      'A2 FAILED — a signed-in member received a different result from an anonymous caller. Whatever the difference is, it is not on the public card. member: % / anon: %',
++      fp_member_a, fp_anon;
++  END IF;
++  RAISE NOTICE 'A2 caller independence ............. PASS (member A = member B = anon, identical)';
++
++  ---------------------------------------------------------------------------
++  -- A3 · THE HELPER STAYS SHUT. contributor_points_since returns EVERY
++  -- eligible member's score for an arbitrary date. It is the enumeration
++  -- endpoint this whole design exists to keep closed; v3 reaches it only
++  -- because v3 is DEFINER. If this ever reads true, the leaderboard has become
++  -- a directory of the entire membership.
++  ---------------------------------------------------------------------------
++  SELECT has_function_privilege('anon',          p.oid, 'EXECUTE'),
++         has_function_privilege('authenticated', p.oid, 'EXECUTE')
++    INTO helper_anon, helper_auth
++    FROM pg_proc p
++   WHERE p.pronamespace = 'public'::regnamespace
++     AND p.proname = 'contributor_points_since';
++
++  IF helper_anon OR helper_auth THEN
++    RAISE EXCEPTION
++      'A3 FAILED — contributor_points_since is directly executable (anon=%, authenticated=%). It returns every eligible member''s score for any date the caller chooses. Revoke it.',
++      helper_anon, helper_auth;
++  END IF;
++  RAISE NOTICE 'A3 helper not directly callable .... PASS (anon=false, authenticated=false)';
++
++  ---------------------------------------------------------------------------
++  -- A4 · THE SHAPE IS EXACTLY THE FROZEN SIGNATURE. A later edit that adds a
++  -- count, a minute figure or a formula internal fails here — that half of the
++  -- Owner's 2026-08-11 instruction is NOT superseded.
++  --
++  -- Asserted against pg_get_function_result() as a whole string rather than by
++  -- counting names. Counting pg_proc.proargnames looked equivalent and is not:
++  -- for a function WITH input arguments that array holds the input names too
++  -- (measured 2026-09-03 08:49:33Z — get_contributor_scores reports
++  -- {_user_ids,user_id,contributor_score}). v3 takes no arguments today, so the
++  -- count would have been right today and silently wrong the day someone adds a
++  -- parameter. The full signature string pins the column names AND their types,
++  -- which is what "frozen shape" actually means.
++  ---------------------------------------------------------------------------
++  SELECT pg_get_function_result(p.oid) INTO result_sig
++    FROM pg_proc p
++   WHERE p.pronamespace = 'public'::regnamespace
++     AND p.proname = 'get_top_contributors_v3';
++
++  IF result_sig IS DISTINCT FROM
++     'TABLE(user_id uuid, rank_position integer, contributor_score integer, recent_score integer)' THEN
++    RAISE EXCEPTION
++      'A4 FAILED — the return signature is not the one the interface froze.%  expected: TABLE(user_id uuid, rank_position integer, contributor_score integer, recent_score integer)%  actual:   %',
++      chr(10), chr(10), result_sig;
++  END IF;
++  RAISE NOTICE 'A4 frozen signature ................ PASS (%)', result_sig;
++
++  ---------------------------------------------------------------------------
++  -- A5 · POSTURE. STABLE not VOLATILE (a volatile anon function is the
++  -- amplification class); DEFINER as designed; grants matched to v2's roles and
++  -- not exceeded; and v2 still present and still working, because v2 is the
++  -- rollback.
++  ---------------------------------------------------------------------------
++  SELECT p.provolatile, p.prosecdef,
++         has_function_privilege('anon',          p.oid, 'EXECUTE'),
++         has_function_privilege('authenticated', p.oid, 'EXECUTE')
++    INTO v3_volatility, v3_secdef, v3_anon, v3_auth
++    FROM pg_proc p
++   WHERE p.pronamespace = 'public'::regnamespace
++     AND p.proname = 'get_top_contributors_v3';
++
++  IF v3_volatility <> 's' THEN
++    RAISE EXCEPTION
++      'A5 FAILED — get_top_contributors_v3 is not STABLE (provolatile=%). An anon-executable VOLATILE function is an amplification target.',
++      v3_volatility;
++  END IF;
++  IF NOT v3_secdef THEN
++    RAISE EXCEPTION 'A5 FAILED — get_top_contributors_v3 is not SECURITY DEFINER, so it cannot reach the helper and the card will be empty.';
++  END IF;
++  IF NOT (v3_anon AND v3_auth) THEN
++    RAISE EXCEPTION 'A5 FAILED — v3 is not executable by anon (%) and authenticated (%). The Home page is public.', v3_anon, v3_auth;
++  END IF;
++
++  SELECT EXISTS (SELECT 1 FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND p.proname='get_top_contributors_v2')
++    INTO v2_present;
++  IF NOT v2_present THEN
++    RAISE EXCEPTION 'A5 FAILED — get_top_contributors_v2 is gone. v2 is the rollback and must stay until the Auditor authorises its removal.';
++  END IF;
++
++  SELECT has_function_privilege('anon', p.oid, 'EXECUTE') INTO v2_anon
++    FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND p.proname='get_top_contributors_v2';
++  IF NOT v2_anon THEN
++    RAISE EXCEPTION 'A5 FAILED — get_top_contributors_v2 exists but anon can no longer execute it, so the rollback path is broken.';
++  END IF;
++  RAISE NOTICE 'A5 posture ......................... PASS (STABLE, DEFINER, anon+authenticated, v2 intact and anon-executable)';
++
++  RAISE NOTICE '--- ALL FIVE ASSERTIONS PASSED. Nothing was written. ---';
++END
++$probe$;
++
++-- Belt and braces: this file must never be able to change anything, even if a
++-- future edit to the block above introduces a write by accident.
++ROLLBACK;
+diff --git a/supabase/rollback/20260903090000_top_contributors_v3_ROLLBACK.sql b/supabase/rollback/20260903090000_top_contributors_v3_ROLLBACK.sql
+new file mode 100644
+index 0000000..4c97d12
+--- /dev/null
++++ b/supabase/rollback/20260903090000_top_contributors_v3_ROLLBACK.sql
+@@ -0,0 +1,95 @@
++-- ROLLBACK — Top Contributors V3.
++--
++-- Reverses supabase/migrations/20260903090000_top_contributors_v3.sql
++-- (OWNER-RULING-2026-09-03-02).
++--
++-- =============================================================================
++-- ⚠ READ THIS BEFORE RUNNING IT. THE ORDER MATTERS.
++--
++-- This file drops get_top_contributors_v3. If the Home page is already reading
++-- v3 when you run it, the card breaks — the client asks for a function that is
++-- no longer there and gets a 404 from PostgREST, which renders as an empty or
++-- errored card, not as a graceful fallback.
++--
++-- THE CORRECT ROLLBACK ORDER IS CLIENT FIRST, DATABASE SECOND:
++--
++--   1. Revert the Home card to get_top_contributors_v2. That is a one-line
++--      frontend change and it is the whole rollback for anything a member can
++--      see. v2 was never altered by the v3 migration — same signature, same
++--      grants, same ranking — so the card works again the moment the revert
++--      deploys, with this file never run.
++--   2. Only then, and only if the function itself must go, run this file.
++--
++-- Step 1 alone is sufficient for every user-visible problem. Step 2 exists for
++-- the case where v3 must not remain callable at all. Running step 2 without
++-- step 1 turns a display question into an outage.
++--
++-- =============================================================================
++-- WHAT THIS FILE DOES NOT DO, DELIBERATELY
++--
++--   * It does NOT touch get_top_contributors_v2. v2 is the rollback target and
++--     the v3 migration never modified it, so there is nothing to restore.
++--   * It does NOT touch contributor_points_since — neither its body nor its
++--     grants. The v3 migration only read it.
++--   * It does NOT touch get_contributor_scores or get_top_contributors_v1.
++--   * It does NOT drop idx_post_comments_user_created. That index belongs to
++--     the v2 migration and predates this unit; dropping it here would remove
++--     something this unit never created, which is how a rollback quietly
++--     becomes a second, unreviewed migration.
++--
++-- =============================================================================
++-- IS IT SAFE TO RUN TWICE? Yes. IF EXISTS makes it idempotent, and the
++-- signature is spelled out so it can only ever match the function this unit
++-- created — not some later overload that happens to share the name.
++
++BEGIN;
++
++DROP FUNCTION IF EXISTS public.get_top_contributors_v3();
++
++-- Confirm the intended end state in the same transaction that produced it:
++-- v3 gone, v2 present and still granted to anon. If either is not true the
++-- transaction is rolled back and the database is left exactly as it was.
++DO $rollback_check$
++DECLARE
++  v3_present  boolean;
++  v2_present  boolean;
++  v2_anon     boolean;
++BEGIN
++  SELECT EXISTS (
++    SELECT 1 FROM pg_proc p
++     WHERE p.pronamespace = 'public'::regnamespace
++       AND p.proname = 'get_top_contributors_v3'
++  ) INTO v3_present;
++
++  SELECT EXISTS (
++    SELECT 1 FROM pg_proc p
++     WHERE p.pronamespace = 'public'::regnamespace
++       AND p.proname = 'get_top_contributors_v2'
++  ) INTO v2_present;
++
++  IF v3_present THEN
++    RAISE EXCEPTION
++      'ROLLBACK FAILED: get_top_contributors_v3 still exists after the DROP. Nothing was changed.';
++  END IF;
++
++  IF NOT v2_present THEN
++    RAISE EXCEPTION
++      'ROLLBACK REFUSED: get_top_contributors_v2 is missing, so dropping v3 would leave the Home page with no function to fall back to. Nothing was changed. Restore v2 from 20260811160000_top_contributors_v2.sql first.';
++  END IF;
++
++  SELECT has_function_privilege('anon', p.oid, 'EXECUTE')
++    INTO v2_anon
++    FROM pg_proc p
++   WHERE p.pronamespace = 'public'::regnamespace
++     AND p.proname = 'get_top_contributors_v2';
++
++  IF NOT v2_anon THEN
++    RAISE EXCEPTION
++      'ROLLBACK REFUSED: get_top_contributors_v2 exists but anon cannot execute it, so the public Home page would still be broken. Nothing was changed.';
++  END IF;
++
++  RAISE NOTICE 'Rollback complete: get_top_contributors_v3 dropped; get_top_contributors_v2 present and anon-executable.';
++END
++$rollback_check$;
++
++COMMIT;
+--
+2.43.0

@@ -1,0 +1,111 @@
+name: D1 · Lane guard check
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. RUNS ON EVERY PR THAT TOUCHES THE
+# BASELINE OR THE LANE GUARD, AND PROVES THE GUARD REFUSES BEFORE IT IS TRUSTED.
+#
+# Deliverable 0.1's instrument shares its lane guard with the seeder
+# (scripts/db-lane-guard.mjs). The seeder's own gate — the guard demonstrated
+# failing against the production ref — is proved by d1-seeder-guard-check.yml.
+# This workflow proves the same guard on the baseline's side.
+#
+# The refusal does not need a database. scripts/db-lane-guard.mjs refuses a
+# production-shaped credential BEFORE a socket is opened — that is the whole
+# point of check 1 — so this workflow hands the baseline a
+# credential whose username names the production project ref and whose host
+# is the RFC 2606 reserved name `invalid.invalid`, and requires each script to
+# refuse. The password is the literal text NOT-A-REAL-PASSWORD. Nothing here
+# is, or could be, a secret; the step's output can be quoted anywhere.
+#
+# WHY THIS IS A CONTROL AND NOT A DEMONSTRATION. A guard nobody has seen fire
+# is a claim (C-34; standing rule: a suite never shown to detect a planted
+# defect is not evidence about that class). This step plants the exact defect
+# the guard exists to catch — a production credential where staging was
+# expected — on every PR, so the day somebody weakens the guard the PR that
+# does it goes red. It also runs the unit suite, which contains the guard's
+# other refusals and the two regressions already caught while building it.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/db-baseline.mjs'
+      - 'scripts/db-baseline.test.mjs'
+      - 'scripts/db-lane-guard.mjs'
+      - '.github/workflows/d1-baseline.yml'
+      - '.github/workflows/d1-guard-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: The guard refuses the production ref
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Production ref in the username, reserved host, placeholder password.
+      # Shape-correct so check 1 parses it; content that can authenticate to
+      # nothing. The guard must refuse it on the ref alone.
+      DECOY_PRODUCTION_DSN: 'postgresql://postgres.jtdtehuqtinjxropkkcn:NOT-A-REAL-PASSWORD@invalid.invalid:5432/postgres'
+      DECOY_DIRECT_DSN: 'postgresql://postgres:NOT-A-REAL-PASSWORD@invalid.invalid:5432/postgres'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Unit suite — every case plants a defect and requires a refusal
+        run: |
+          set -euo pipefail
+          node scripts/db-baseline.test.mjs
+
+      # ── The baseline, asked for staging but handed production, must refuse ─
+      - name: BASELINE · refuses a production credential when the target is staging
+        run: |
+          set -euo pipefail
+          set +e
+          OUT=$(SUPABASE_DB_URL="$DECOY_PRODUCTION_DSN" node scripts/db-baseline.mjs --target staging 2>&1)
+          CODE=$?
+          set -e
+          echo "───────────────────────────────────────────────────────────"
+          echo "$OUT"
+          echo "───────────────────────────────────────────────────────────"
+          echo "exit code: $CODE"
+          if [ "$CODE" -eq 0 ]; then
+            echo "::error::THE BASELINE ACCEPTED A PRODUCTION CREDENTIAL FOR THE STAGING LANE. This PR must not merge."
+            exit 1
+          fi
+          if printf '%s' "$OUT" | grep -q 'NOT-A-REAL-PASSWORD'; then
+            echo "::error::The refusal echoed the credential's password. The scrubber is broken."
+            exit 1
+          fi
+          echo "REFUSED without connecting."
+
+      # ── A direct (non-pooler) string parses to nothing and is refused ──────
+      - name: BASELINE · refuses a direct string rather than guess a ref from the host
+        run: |
+          set -euo pipefail
+          for script in "scripts/db-baseline.mjs --target staging"; do
+            set +e
+            # shellcheck disable=SC2086
+            OUT=$(SUPABASE_DB_URL="$DECOY_DIRECT_DSN" node $script 2>&1)
+            CODE=$?
+            set -e
+            echo "── $script → exit $CODE"
+            echo "$OUT"
+            if [ "$CODE" -eq 0 ]; then
+              echo "::error::$script accepted a direct connection string, which carries no project ref. This PR must not merge."
+              exit 1
+            fi
+          done
+          echo "Refused. A shape the gate cannot read is a shape it must not wave through."
+
+      - name: Nothing above opened a socket
+        run: |
+          echo "Every refusal above fired inside scripts/db-lane-guard.mjs check 1, before any connection attempt."
+          echo "The host invalid.invalid is RFC 2606 reserved and resolves to nothing; had a script tried, it would have failed differently and later."

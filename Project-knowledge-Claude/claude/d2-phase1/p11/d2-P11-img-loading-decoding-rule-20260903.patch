@@ -1,0 +1,280 @@
+From a61e6a0bfb0cfdd40347cc923d2f7585476e0c86 Mon Sep 17 00:00:00 2001
+From: "Developer 2 (Client & Delivery)" <noreply@anthropic.com>
+Date: Thu, 3 Sep 2026 13:13:24 +0000
+Subject: [PATCH] =?UTF-8?q?lint(P11):=20require=20loading=20and=20decoding?=
+ =?UTF-8?q?=20on=20every=20JSX=20<img>=20=E2=80=94=20red=20on=20purpose?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Phase 5 prep for P11, delivered fail-first. No component is changed: this adds
+the rule, wires it, and adds its spec. Against origin/staging it reports 119
+violations across 87 of the 158 JSX <img> tags the 0-D2-03 inventory counted,
+in 53 files — 35 tags carry neither attribute, 84 carry loading but not
+decoding. 71 tags already comply. The list is P11's work queue.
+
+A bare <img> decodes on the main thread and fetches at full priority the moment
+it is parsed, off-screen or not. On the mid-range Android this platform is
+measured on, that is jank on a screen the member has not reached.
+
+Accepts loading="lazy"|"eager" and decoding="async"|"sync"|"auto", or any
+expression — the attribute is present and this rule does not evaluate it. A
+literal that is not one of those values is reported: a typo reads as done. A
+{...spread} is reported rather than assumed to supply them; unknown is not a
+pass (C-34). Scope mirrors the inventory: shipped src/** only, not the UI
+harness and not the test tree — verified, no allowlisted path is flagged.
+
+⚠ RECORDED, NOT HIDDEN: the rule cannot see `<img` written inside an HTML
+template string — 7 sites at 0-D2-03, inventory §2b. ESLint sees a string, not
+a tag. Those are P11's second half and need their own check; a green run of
+this rule is not a complete P11.
+
+Wired at "error", so it is RED until P11's sweep lands. The repository's own
+precedent for a baselined rule is "warn" first, flipped to "error" once src/ is
+clean (no-raw-tailwind-colors); that one word is the Auditor's call, and either
+way this must not land before, or apart from, the sweep it gates.
+
+Six RuleTester invalid cases and eight valid ones prove the rule can fail
+independently of src/ and stay meaningful after the sweep: bare tag, loading
+without decoding, decoding without loading, two typo'd values, and a spread.
+
+npx tsc -b tsconfig.json exit 0. `npm run lint` was already red before this
+commit — 1,839 errors from other rules, a pre-existing baseline this unit does
+not touch; the 119 above are this rule's own and are counted separately.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017fdB5mybV9pixsM7n9b9Tf
+---
+ eslint-rules/require-img-loading-decoding.js  | 101 ++++++++++++++++++
+ eslint.config.js                              |   7 ++
+ ...slint-require-img-loading-decoding.spec.ts |  79 ++++++++++++++
+ 3 files changed, 187 insertions(+)
+ create mode 100644 eslint-rules/require-img-loading-decoding.js
+ create mode 100644 src/test/eslint-require-img-loading-decoding.spec.ts
+
+diff --git a/eslint-rules/require-img-loading-decoding.js b/eslint-rules/require-img-loading-decoding.js
+new file mode 100644
+index 0000000..c537de4
+--- /dev/null
++++ b/eslint-rules/require-img-loading-decoding.js
+@@ -0,0 +1,101 @@
++/**
++ * require-img-loading-decoding — P11, the first half.
++ *
++ * Every JSX `<img>` must carry BOTH `loading` and `decoding`. A bare `<img>`
++ * blocks the main thread while the browser decodes it and fetches it at the
++ * highest priority the moment it is parsed, whether or not it is anywhere near
++ * the viewport — on a mid-range Android on a slow connection that is felt as
++ * jank on a screen the member has not scrolled to yet.
++ *
++ * WHAT IT ACCEPTS
++ *   loading  : "lazy" | "eager"                (a literal, or any expression)
++ *   decoding : "async" | "sync" | "auto"       (a literal, or any expression)
++ * A non-literal value (`loading={x}`) is accepted: the attribute is present and
++ * this rule does not evaluate expressions. A literal that is not one of the
++ * values above is reported — a typo'd attribute is worse than a missing one,
++ * because it reads as done.
++ *
++ * `{...props}` — a spread may supply either attribute and this rule cannot
++ * know. It is REPORTED rather than assumed good: unknown is not a pass (C-34).
++ * Where a component genuinely forwards them, name them explicitly at the tag.
++ *
++ * ⚠ WHAT THIS RULE CANNOT SEE, recorded so nobody mistakes green for complete:
++ * `<img` written inside an HTML template string — 7 sites at 0-D2-03, listed in
++ * §2b of docs/evidence/d2/baseline/client-inventory.md. ESLint sees a string,
++ * not a tag. Those are P11's second half and need their own check.
++ *
++ * SCOPE mirrors the 0-D2-03 inventory: shipped `src/**` only. The UI harness
++ * and the test tree render fixtures whose job is to be photographed, not
++ * shipped, and `eslint-rules/**` is this file's own home.
++ */
++
++const REQUIRED = {
++  loading: ["lazy", "eager"],
++  decoding: ["async", "sync", "auto"],
++};
++
++const DIR_ALLOWLIST = ["/eslint-rules/", "/src/test/", "/__tests__/", "/src/uiharness/"];
++
++function isAllowed(filename) {
++  if (!filename) return false;
++  if (/\.(test|spec)\.[tj]sx?$/.test(filename)) return true;
++  return DIR_ALLOWLIST.some((d) => filename.includes(d));
++}
++
++/** The literal value of a JSX attribute, or undefined when it is an expression. */
++function literalValue(attribute) {
++  const v = attribute.value;
++  if (!v) return undefined;                       // bare attribute: <img loading />
++  if (v.type === "Literal") return v.value;
++  if (v.type === "JSXExpressionContainer" && v.expression.type === "Literal") return v.expression.value;
++  return undefined;                                // an expression — accepted, not evaluated
++}
++
++export default {
++  meta: {
++    type: "problem",
++    docs: {
++      description:
++        "Require both loading and decoding on every JSX <img>, so an image off-screen cannot block the main thread or steal fetch priority.",
++    },
++    schema: [],
++  },
++  create(context) {
++    const filename = context.getFilename();
++    if (isAllowed(filename)) return {};
++
++    return {
++      JSXOpeningElement(node) {
++        if (node.name.type !== "JSXIdentifier" || node.name.name !== "img") return;
++
++        const spread = node.attributes.some((a) => a.type === "JSXSpreadAttribute");
++        const present = new Map();
++        for (const a of node.attributes) {
++          if (a.type === "JSXAttribute" && a.name.type === "JSXIdentifier") {
++            present.set(a.name.name, a);
++          }
++        }
++
++        for (const [attr, allowed] of Object.entries(REQUIRED)) {
++          const found = present.get(attr);
++          if (!found) {
++            context.report({
++              node,
++              message: spread
++                ? `<img> has no explicit ${attr}. A {...spread} may or may not supply it, and this rule cannot tell — name it at the tag. Allowed: ${allowed.join(" | ")}.`
++                : `<img> is missing ${attr}. Add ${attr}="${allowed[0]}" — a bare <img> decodes on the main thread and fetches at full priority off-screen.`,
++            });
++            continue;
++          }
++          const value = literalValue(found);
++          if (value !== undefined && !allowed.includes(value)) {
++            context.report({
++              node: found,
++              message: `${attr}="${String(value)}" is not a valid value. Allowed: ${allowed.join(" | ")}.`,
++            });
++          }
++        }
++      },
++    };
++  },
++};
+diff --git a/eslint.config.js b/eslint.config.js
+index 7266b12..a501d1d 100644
+--- a/eslint.config.js
++++ b/eslint.config.js
+@@ -16,6 +16,7 @@ import noDirectWalletLedgerWrites from "./eslint-rules/no-direct-wallet-ledger-w
+ import noUnfilteredRealtimeSensitive from "./eslint-rules/no-unfiltered-realtime-sensitive.js";
+ import noUnsafeEdgeAuthority from "./eslint-rules/no-unsafe-edge-authority.js";
+ import noRawTailwindColors from "./eslint-rules/no-raw-tailwind-colors.js";
++import requireImgLoadingDecoding from "./eslint-rules/require-img-loading-decoding.js";
+
+ export default tseslint.config(
+   { ignores: ["dist", "eslint-rules/**"] },
+@@ -46,6 +47,7 @@ export default tseslint.config(
+           "no-unfiltered-realtime-sensitive": noUnfilteredRealtimeSensitive,
+           "no-unsafe-edge-authority": noUnsafeEdgeAuthority,
+           "no-raw-tailwind-colors": noRawTailwindColors,
++          "require-img-loading-decoding": requireImgLoadingDecoding,
+         },
+       },
+     },
+@@ -66,6 +68,11 @@ export default tseslint.config(
+       "audit-v6/no-unfiltered-realtime-sensitive": "error",
+       // Phase 4 slice — baseline as warn until existing src/** raw-color usage is migrated.
+       "audit-v6/no-raw-tailwind-colors": "warn",
++      // P11. This rule is the gate, and it is RED on purpose until P11's sweep
++      // lands: every JSX <img> must carry loading and decoding. It cannot see
++      // <img inside an HTML template string (7 sites, inventory 2b) - that is
++      // P11's second half and needs its own check.
++      "audit-v6/require-img-loading-decoding": "error",
+     },
+   },
+   // R6 — extend audit-v6 forbidden-pattern coverage to edge functions.
+diff --git a/src/test/eslint-require-img-loading-decoding.spec.ts b/src/test/eslint-require-img-loading-decoding.spec.ts
+new file mode 100644
+index 0000000..d20299e
+--- /dev/null
++++ b/src/test/eslint-require-img-loading-decoding.spec.ts
+@@ -0,0 +1,79 @@
++/**
++ * P11 — spec for `audit-v6/require-img-loading-decoding`.
++ *
++ * The rule is RED against `src/` on purpose until P11's sweep lands, so its own
++ * correctness cannot be read off a green repository. These cases are the proof
++ * that it accepts what the gate accepts and rejects what the gate rejects, and
++ * they stay true after the sweep has emptied the repository-wide list (C-34).
++ */
++import { describe, it } from "vitest";
++import { RuleTester } from "eslint";
++import rule from "../../eslint-rules/require-img-loading-decoding.js";
++
++const tester = new RuleTester({
++  languageOptions: {
++    ecmaVersion: 2022,
++    sourceType: "module",
++    parserOptions: { ecmaFeatures: { jsx: true } },
++  },
++});
++
++const FILE = "/repo/src/components/Foo.tsx";
++
++describe("audit-v6/require-img-loading-decoding", () => {
++  it("runs the RuleTester suite", () => {
++    tester.run("require-img-loading-decoding", rule, {
++      valid: [
++        // Both attributes, the ordinary form.
++        { filename: FILE, code: `const a = <img src={u} alt="" loading="lazy" decoding="async" />;` },
++        // The other permitted literals — an above-the-fold hero is legitimately eager.
++        { filename: FILE, code: `const a = <img src={u} alt="" loading="eager" decoding="sync" />;` },
++        { filename: FILE, code: `const a = <img src={u} alt="" loading="lazy" decoding="auto" />;` },
++        // Expressions are accepted: the attribute is present, and this rule does not evaluate.
++        { filename: FILE, code: `const a = <img src={u} loading={mode} decoding={how} />;` },
++        // Not an <img>: a component that happens to render one is P11's business, not this rule's.
++        { filename: FILE, code: `const a = <OptimizedImage src={u} alt="" />;` },
++        // Scope: the harness and the test tree render fixtures, not shipped pixels.
++        { filename: "/repo/src/uiharness/scenes.tsx", code: `const a = <img src={u} alt="" />;` },
++        { filename: "/repo/src/__tests__/Foo.test.tsx", code: `const a = <img src={u} alt="" />;` },
++        { filename: "/repo/src/test/helpers.tsx", code: `const a = <img src={u} alt="" />;` },
++      ],
++      invalid: [
++        // The bare tag — 87 of these in src/ today.
++        {
++          filename: FILE,
++          code: `const a = <img src={u} alt="" />;`,
++          errors: [{ message: /missing loading/ }, { message: /missing decoding/ }],
++        },
++        // Half-done is not done. This is the majority shape in src/: loading, no decoding.
++        {
++          filename: FILE,
++          code: `const a = <img src={u} alt="" loading="lazy" />;`,
++          errors: [{ message: /missing decoding/ }],
++        },
++        {
++          filename: FILE,
++          code: `const a = <img src={u} alt="" decoding="async" />;`,
++          errors: [{ message: /missing loading/ }],
++        },
++        // A typo'd value reads as done and is not.
++        {
++          filename: FILE,
++          code: `const a = <img src={u} alt="" loading="lazyy" decoding="async" />;`,
++          errors: [{ message: /loading="lazyy" is not a valid value/ }],
++        },
++        {
++          filename: FILE,
++          code: `const a = <img src={u} alt="" loading="lazy" decoding="asynchronous" />;`,
++          errors: [{ message: /decoding="asynchronous" is not a valid value/ }],
++        },
++        // A spread MIGHT supply them. Unknown is not a pass.
++        {
++          filename: FILE,
++          code: `const a = <img {...rest} src={u} alt="" />;`,
++          errors: [{ message: /\{\.\.\.spread\}/ }, { message: /\{\.\.\.spread\}/ }],
++        },
++      ],
++    });
++  });
++});
+--
+2.43.0

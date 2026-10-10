@@ -1,0 +1,469 @@
+From 5689cfbd61cf98371316df0aca74540fc4c215b8 Mon Sep 17 00:00:00 2001
+From: D1 Database and Runtime <d1@50mm.local>
+Date: Thu, 3 Sep 2026 13:19:24 +0000
+Subject: [PATCH] P31 client half: /verify must not answer "not found" when it
+ was refused
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+⚠ FILE-OWNERSHIP EXCEPTION. src/** is D2's, exclusively. This commit was
+written by D1 on the Auditor's explicit written instruction of 2026-09-03.
+D2 must own and sign off this change before it merges; D1 cannot see D2's
+session, so if D2 has this file open, D2's version wins. Delivered on its own
+branch so it is trivially discardable.
+
+handleSearchByDetails collapsed every failure into one branch, so after P31
+revokes EXECUTE from anon a 42501 renders as "No Certificates Found" — the
+public /verify page telling a real certificate holder their certificate does
+not exist.
+
+Now: isSearchUnavailableError() in its own module (42501 and PGRST202, plus a
+message fallback for a proxy that strips the code), checked BEFORE the empty
+branch, with a neutral "Search Unavailable" panel carrying the Auditor's copy.
+notFound is suppressed while it is set.
+
+Shown failing first with the classifier in place and only the component
+reverted: 3 failed / 6 passed. After: 9 passed. The two tests that pass in
+both states are deliberate — they stop a fix that turns every empty search
+into "unavailable".
+
+tsc clean. eslint 0 errors, 2 warnings, both pre-existing on 5cd5ba6 and
+deliberately not fixed here.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GC3SdkjFKDCgX6nLVLABNm
+---
+ .../d1/P1/P31-client-half-authored-by-d1.md   |  93 ++++++++++
+ src/pages/VerifyCertificate.tsx               |  36 +++-
+ ...erifyCertificateSearchUnavailable.test.tsx | 175 ++++++++++++++++++
+ src/pages/verifyCertificateErrors.ts          |  39 ++++
+ 4 files changed, 339 insertions(+), 4 deletions(-)
+ create mode 100644 docs/evidence/d1/P1/P31-client-half-authored-by-d1.md
+ create mode 100644 src/pages/__tests__/VerifyCertificateSearchUnavailable.test.tsx
+ create mode 100644 src/pages/verifyCertificateErrors.ts
+
+diff --git a/docs/evidence/d1/P1/P31-client-half-authored-by-d1.md b/docs/evidence/d1/P1/P31-client-half-authored-by-d1.md
+new file mode 100644
+index 0000000..11957cd
+--- /dev/null
++++ b/docs/evidence/d1/P1/P31-client-half-authored-by-d1.md
+@@ -0,0 +1,93 @@
++# P31 client half — `/verify` must not answer "not found" when it was refused
++
++**⚠ FILE-OWNERSHIP EXCEPTION, STATED FIRST BECAUSE IT IS THE FIRST THING A REVIEWER SHOULD SEE**
++
++`src/**` is **D2's**, exclusively. The rule is not a formality — it is what makes two developers on one repository possible, and it says *not even a typo*. This branch changes two files under `src/` and was written by **D1**, on the Auditor's explicit written instruction of **2026-09-03**:
++
++> *"Write the CLIENT half as a separate patch — `src/pages/VerifyCertificate.tsx` must distinguish a 42501 permission error from an empty result… That is the change that unblocks 0001."*
++
++Recorded, not assumed. Three consequences the Auditor should weigh before this lands:
++
++1. **D2 must own and sign off this change.** D1 cannot see D2's session. If D2 has `VerifyCertificate.tsx` open or modified right now, this patch conflicts and **D2's version wins.**
++2. **It is delivered as a patch on its own branch**, `d1/P31-client-half-20260903`, so it is trivially discardable and does not sit inside a D1 unit.
++3. **It is not merged by D1 and not promoted by D1.** As with every unit here.
++
++---
++
++## 1 · The defect
++
++`src/pages/VerifyCertificate.tsx`, before:
++
++```js
++const { data, error } = await supabase.rpc("search_certificates", { ... });
++if (error || !data || data.length === 0) { setNotFound(true); }
++```
++
++One branch for three different worlds. After P31 revokes `EXECUTE` from `anon`, a `42501 permission denied` takes the same path as an empty result and the page renders **"No Certificates Found"**.
++
++`/verify` is public and unguarded (`src/App.tsx:410`). So the page tells a real certificate holder, searching their own name, that their certificate does not exist. **A confident wrong answer is worse than an error**, because it looks like a correct answer and never reaches support.
++
++## 2 · The change
++
++| file | what |
++|---|---|
++| `src/pages/verifyCertificateErrors.ts` | **new** — `isSearchUnavailableError()`, a pure classifier |
++| `src/pages/VerifyCertificate.tsx` | check the refusal **first**; new `searchUnavailable` state; new panel; `notFound` suppressed while it is set |
++| `src/pages/__tests__/VerifyCertificateSearchUnavailable.test.tsx` | **new** — 9 cases |
++
++Copy is the Auditor's, verbatim: **"This search is no longer available, please verify by certificate ID"**, under a *Search Unavailable* heading — deliberately neutral, not an error style, because from the visitor's side nothing has gone wrong.
++
++**Two codes, not one.** `42501` is PostgREST reaching the function and Postgres refusing the caller. `PGRST202` is PostgREST's schema cache no longer listing the function for that role, so the call never reaches Postgres. Which one appears depends on whether the cache has reloaded since the revoke. **Both mean the same thing to a visitor, and handling only `42501` would leave the original defect live for whichever window the other one covers.** A message-substring fallback is a deliberate last resort for a proxy that strips the code — codes are the contract, prose is not.
++
++**The classifier lives in its own module** because ESLint's `react-refresh/only-export-components` says so, and because a control that can only be exercised through a full page render is a control that stops being run.
++
++## 3 · Shown failing first (C-34)
++
++Same test file, classifier module in place, **only the component reverted** — so the failures isolate the collapsed branch and nothing else:
++
++```
++✓ isSearchUnavailableError · 42501                                     (4 classifier cases pass — not the defect)
++× shows the unavailable message, NOT 'not found', on 42501
++× shows the unavailable message on PGRST202 as well
++✓ still says 'not found' for a genuine empty result                    ← passes BEFORE and AFTER, on purpose
++✓ still says 'not found' for an unrelated error                        ← passes BEFORE and AFTER, on purpose
++× clears the unavailable panel when switching to By Certificate ID
++
++Tests  3 failed | 6 passed (9)
++```
++
++After the fix: **9 passed (9)**.
++
++The two tests that pass in both states are there deliberately. **A fix that turned every empty search into "unavailable" would satisfy the first assertion and be a worse bug than the one it replaced**; those two are what stop it.
++
++Against the fully unpatched tree the same file reads **7 failed | 2 passed**, the extra four being the classifier cases against a symbol that did not exist yet.
++
++**The test was wrong once, and the fixed component caught it.** `getByText(/By Certificate ID/i)` matched twice — the mode button *and* the words "verify by certificate ID" inside the new message. The test was corrected to a role query; the component was not touched to suit it. Recorded because the opposite move is the mistake this discipline exists to prevent.
++
++## 4 · Build health
++
++| check | result |
++|---|---|
++| `tsc --noEmit -p tsconfig.app.json` | clean |
++| `eslint` on the three files | **0 errors, 2 warnings** |
++| the 9 new cases | pass |
++
++Both remaining warnings are **pre-existing**, measured by linting the unmodified file on `5cd5ba6`: an unused `eslint-disable` directive and a `react-hooks/exhaustive-deps` warning on the existing auto-verify `useEffect`, at lines 122 and 127 before the change and 131 and 136 after. **This change adds no new lint warnings**, and I did not fix the two that were already there — they are D2's file and not this unit's business (Standing Rule: not even a typo).
++
++## 5 · What this does not do, and what it costs
++
++- **It does not gate the mode toggle.** The "By Name / Course" tab stays visible and the visitor still types a name before learning the search is closed. Hiding the tab when the RPC is known-refused would be better, and would mean not asking for a person's name at all. **Not done — it exceeds the instruction.** Offered as a follow-up for D2 to own.
++- **It is not proven in a browser.** These are jsdom tests. F-53 stands: curl is not a browser, and neither is jsdom. A device check on `/verify` belongs to D2.
++- **It does not verify against a real revoked function.** The error shapes are mocked from PostgREST's documented codes. **The first real proof is applying `20260910_0001` to staging and loading `/verify`** — which is the correct order and is the next step, not this one.
++- **It does not touch `verify_certificate`.** The by-ID path is unaffected, which is why the message can honestly point at it.
++
++## 6 · Status
++
++| class | applies to |
++|---|---|
++| **VERIFIED** | §3 and §4 — run personally on this branch, `vitest` and `tsc` and `eslint`, 2026-09-03 13:15Z–13:18Z |
++| **VERIFIED** | §1 — call site and route read from `src/` at ref `5cd5ba6` |
++| **INFERRED** | the exact error code PostgREST returns after the revoke. Documented behaviour, not observed on this database. Both plausible codes are handled; §5 says how to settle it. |
++| **BLOCKED** | merge — needs D2's ownership and sign-off, and the Auditor's record of the ownership exception |
++
++*D1 · Database & Runtime · 2026-09-03 · authored under the Auditor's written instruction into a file D1 does not own · no SQL apply · no grant altered on either lane.*
+diff --git a/src/pages/VerifyCertificate.tsx b/src/pages/VerifyCertificate.tsx
+index a8875b8..6b26e07 100644
+--- a/src/pages/VerifyCertificate.tsx
++++ b/src/pages/VerifyCertificate.tsx
+@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
+ import { motion } from "framer-motion";
+ import { Award, CheckCircle, Search, XCircle, Calendar, Shield, Ban } from "lucide-react";
+ import { supabase } from "@/integrations/supabase/client";
++import { isSearchUnavailableError } from "@/pages/verifyCertificateErrors";
+ import { Input } from "@/components/ui/input";
+ import { Button } from "@/components/ui/button";
+
+@@ -54,6 +55,8 @@ const VerifyCertificate = () => {
+   // Results
+   const [results, setResults] = useState<VerifiedCert[]>([]);
+   const [notFound, setNotFound] = useState(false);
++  // P31: set only when the RPC is refused, never when it simply returns nothing.
++  const [searchUnavailable, setSearchUnavailable] = useState(false);
+   const [loading, setLoading] = useState(false);
+   const [searched, setSearched] = useState(false);
+
+@@ -74,6 +77,7 @@ const VerifyCertificate = () => {
+
+     setLoading(true);
+     setNotFound(false);
++    setSearchUnavailable(false);
+     setResults([]);
+
+     const { data, error } = await supabase.rpc("verify_certificate", { _cert_id: trimmed });
+@@ -96,6 +100,7 @@ const VerifyCertificate = () => {
+
+     setLoading(true);
+     setNotFound(false);
++    setSearchUnavailable(false);
+     setResults([]);
+
+     const { data, error } = await supabase.rpc("search_certificates", {
+@@ -104,7 +109,11 @@ const VerifyCertificate = () => {
+       _issued_date: date ?? null,
+     });
+
+-    if (error || !data || data.length === 0) {
++    // P31: a refusal is not an empty result. Checked FIRST, because the old
++    // combined condition would have swallowed it.
++    if (isSearchUnavailableError(error)) {
++      setSearchUnavailable(true);
++    } else if (error || !data || data.length === 0) {
+       setNotFound(true);
+     } else {
+       setResults(data as VerifiedCert[]);
+@@ -155,7 +164,7 @@ const VerifyCertificate = () => {
+           {/* Mode toggle */}
+           <div className="flex justify-center gap-1 mb-8 p-1 border border-border inline-flex mx-auto w-full max-w-sm">
+             <button
+-              onClick={() => { setMode("id"); setSearched(false); setResults([]); setNotFound(false); }}
++              onClick={() => { setMode("id"); setSearched(false); setResults([]); setNotFound(false); setSearchUnavailable(false); }}
+               className={`flex-1 text-[10px] tracking-[0.15em] uppercase py-2.5 transition-all duration-300 ${
+                 mode === "id" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+               }`}
+@@ -164,7 +173,7 @@ const VerifyCertificate = () => {
+               By Certificate ID
+             </button>
+             <button
+-              onClick={() => { setMode("details"); setSearched(false); setResults([]); setNotFound(false); }}
++              onClick={() => { setMode("details"); setSearched(false); setResults([]); setNotFound(false); setSearchUnavailable(false); }}
+               className={`flex-1 text-[10px] tracking-[0.15em] uppercase py-2.5 transition-all duration-300 ${
+                 mode === "details" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+               }`}
+@@ -341,8 +350,27 @@ const VerifyCertificate = () => {
+             </div>
+           )}
+
++          {/* P31 · search by details refused. NOT "not found" — the difference is
++              the entire point of this block. */}
++          {searched && searchUnavailable && (
++            <motion.div
++              initial={{ opacity: 0, y: 10 }}
++              animate={{ opacity: 1, y: 0 }}
++              transition={{ duration: 0.6 }}
++              className="border border-border p-8 text-center"
++            >
++              <Ban className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
++              <p className="text-sm text-foreground mb-1" style={{ fontFamily: "var(--font-heading)" }}>
++                Search Unavailable
++              </p>
++              <p className="text-xs text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
++                This search is no longer available, please verify by certificate ID
++              </p>
++            </motion.div>
++          )}
++
+           {/* Not found */}
+-          {searched && notFound && (
++          {searched && notFound && !searchUnavailable && (
+             <motion.div
+               initial={{ opacity: 0, y: 10 }}
+               animate={{ opacity: 1, y: 0 }}
+diff --git a/src/pages/__tests__/VerifyCertificateSearchUnavailable.test.tsx b/src/pages/__tests__/VerifyCertificateSearchUnavailable.test.tsx
+new file mode 100644
+index 0000000..f6c9af2
+--- /dev/null
++++ b/src/pages/__tests__/VerifyCertificateSearchUnavailable.test.tsx
+@@ -0,0 +1,175 @@
++/**
++ * P31 · /verify must not answer "not found" when it was refused.
++ *
++ * THE DEFECT THIS PINS
++ *
++ * handleSearchByDetails used to collapse every failure into one branch:
++ *
++ *     if (error || !data || data.length === 0) { setNotFound(true); }
++ *
++ * so a `42501 permission denied` rendered as "No Certificates Found". Once
++ * EXECUTE on search_certificates is revoked from anon — P31,
++ * supabase/migrations/20260910_0001_revoke_public_search_certificates.sql —
++ * a real certificate holder searching their own name is told their
++ * certificate does not exist. Wrong, confident, and invisible in support.
++ *
++ * THIS TEST WAS SHOWN FAILING AGAINST THE UNPATCHED COMPONENT BEFORE THE FIX
++ * WAS ACCEPTED (C-34). The failing assertion was "Certificate ID" copy absent
++ * / "No Certificates Found" present.
++ *
++ * The empty-result case is asserted too, in the same file and deliberately so:
++ * a fix that turned EVERY empty search into "unavailable" would pass the first
++ * test and be a worse bug than the one it replaced.
++ */
++
++import { describe, it, expect, vi, beforeEach } from "vitest";
++import { render, screen, fireEvent, waitFor } from "@testing-library/react";
++import { MemoryRouter } from "react-router-dom";
++
++const rpc = vi.fn();
++
++vi.mock("@/integrations/supabase/client", () => ({
++  supabase: {
++    rpc: (...args: unknown[]) => rpc(...args),
++  },
++}));
++
++import VerifyCertificate from "@/pages/VerifyCertificate";
++import { isSearchUnavailableError } from "@/pages/verifyCertificateErrors";
++
++const UNAVAILABLE_COPY =
++  "This search is no longer available, please verify by certificate ID";
++const NOT_FOUND_COPY = "No Certificates Found";
++
++function renderPage() {
++  return render(
++    <MemoryRouter initialEntries={["/verify"]}>
++      <VerifyCertificate />
++    </MemoryRouter>,
++  );
++}
++
++/** Switch to "By Name / Course", type a name, submit. */
++async function searchByName(name = "Jane Doe") {
++  fireEvent.click(screen.getByText(/By Name \/ Course/i));
++  const input = await screen.findByPlaceholderText(/John Doe/i);
++  fireEvent.change(input, { target: { value: name } });
++  fireEvent.click(screen.getByRole("button", { name: /Search Certificates/i }));
++}
++
++describe("isSearchUnavailableError", () => {
++  it("recognises Postgres 42501 — PostgREST reached the function and was refused", () => {
++    expect(
++      isSearchUnavailableError({
++        code: "42501",
++        message: "permission denied for function search_certificates",
++      }),
++    ).toBe(true);
++  });
++
++  it("recognises PGRST202 — the function is gone from the schema cache for this role", () => {
++    expect(
++      isSearchUnavailableError({
++        code: "PGRST202",
++        message: "Could not find the function public.search_certificates",
++      }),
++    ).toBe(true);
++  });
++
++  it("falls back to the message when a proxy strips the code", () => {
++    expect(
++      isSearchUnavailableError({ message: "ERROR: permission denied for function" }),
++    ).toBe(true);
++  });
++
++  it("does NOT treat an ordinary failure as a revoke", () => {
++    expect(isSearchUnavailableError(null)).toBe(false);
++    expect(isSearchUnavailableError(undefined)).toBe(false);
++    expect(isSearchUnavailableError({ code: "PGRST116", message: "no rows" })).toBe(false);
++    expect(isSearchUnavailableError({ message: "Failed to fetch" })).toBe(false);
++    expect(isSearchUnavailableError("permission denied")).toBe(false);
++  });
++});
++
++describe("/verify · search by details after the P31 revoke", () => {
++  beforeEach(() => {
++    rpc.mockReset();
++  });
++
++  it("shows the unavailable message, NOT 'not found', on 42501", async () => {
++    rpc.mockResolvedValue({
++      data: null,
++      error: { code: "42501", message: "permission denied for function search_certificates" },
++    });
++
++    renderPage();
++    await searchByName();
++
++    await waitFor(() => {
++      expect(screen.getByText(UNAVAILABLE_COPY)).toBeTruthy();
++    });
++    // The whole point: the old copy must be gone, not merely accompanied.
++    expect(screen.queryByText(NOT_FOUND_COPY)).toBeNull();
++  });
++
++  it("shows the unavailable message on PGRST202 as well", async () => {
++    rpc.mockResolvedValue({
++      data: null,
++      error: { code: "PGRST202", message: "Could not find the function" },
++    });
++
++    renderPage();
++    await searchByName();
++
++    await waitFor(() => {
++      expect(screen.getByText(UNAVAILABLE_COPY)).toBeTruthy();
++    });
++    expect(screen.queryByText(NOT_FOUND_COPY)).toBeNull();
++  });
++
++  it("still says 'not found' for a genuine empty result — the fix must not over-reach", async () => {
++    rpc.mockResolvedValue({ data: [], error: null });
++
++    renderPage();
++    await searchByName();
++
++    await waitFor(() => {
++      expect(screen.getByText(NOT_FOUND_COPY)).toBeTruthy();
++    });
++    expect(screen.queryByText(UNAVAILABLE_COPY)).toBeNull();
++  });
++
++  it("still says 'not found' for an unrelated error", async () => {
++    rpc.mockResolvedValue({ data: null, error: { code: "PGRST116", message: "no rows" } });
++
++    renderPage();
++    await searchByName();
++
++    await waitFor(() => {
++      expect(screen.getByText(NOT_FOUND_COPY)).toBeTruthy();
++    });
++    expect(screen.queryByText(UNAVAILABLE_COPY)).toBeNull();
++  });
++
++  it("clears the unavailable panel when the visitor switches to By Certificate ID", async () => {
++    rpc.mockResolvedValue({
++      data: null,
++      error: { code: "42501", message: "permission denied for function search_certificates" },
++    });
++
++    renderPage();
++    await searchByName();
++    await waitFor(() => {
++      expect(screen.getByText(UNAVAILABLE_COPY)).toBeTruthy();
++    });
++
++    // getByText would match twice here: the mode button AND the words
++    // "verify by certificate ID" inside the message we just asserted. The role
++    // query is unambiguous. (Caught by this test failing on the FIXED
++    // component — the test was wrong, not the fix.)
++    fireEvent.click(screen.getByRole("button", { name: /By Certificate ID/i }));
++    await waitFor(() => {
++      expect(screen.queryByText(UNAVAILABLE_COPY)).toBeNull();
++    });
++  });
++});
+diff --git a/src/pages/verifyCertificateErrors.ts b/src/pages/verifyCertificateErrors.ts
+new file mode 100644
+index 0000000..e4fc6a9
+--- /dev/null
++++ b/src/pages/verifyCertificateErrors.ts
+@@ -0,0 +1,39 @@
++/**
++ * P31 · TELL "DENIED" APART FROM "EMPTY".
++ *
++ * Before this, handleSearchByDetails collapsed every failure into one branch:
++ *
++ *     if (error || !data || data.length === 0) { setNotFound(true); }
++ *
++ * so a `42501 permission denied` and a genuine empty result rendered the same
++ * "No Certificates Found". Once EXECUTE on search_certificates is revoked from
++ * anon (P31, supabase/migrations/20260910_0001), a real certificate holder
++ * searching for their own name is told their certificate does not exist. That
++ * is a confident wrong answer, and nobody reports it as a bug.
++ *
++ * TWO CODES, NOT ONE, because there are two ways the revoke can surface:
++ *   42501    PostgREST reached the function and Postgres refused the caller.
++ *   PGRST202 PostgREST's schema cache no longer lists the function for this
++ *            role, so the call never reaches Postgres. Which one appears
++ *            depends on whether the schema cache has reloaded since the
++ *            revoke, and both mean the same thing to a visitor.
++ *
++ * The message substring is a deliberate last resort, not the primary test:
++ * codes are the contract, prose is not. It is here because a proxy or an older
++ * PostgREST can deliver the refusal without the code, and reverting to "not
++ * found" in that case would restore the exact defect this function exists to
++ * remove.
++ *
++ * Exported so it can be tested without rendering the page. A control that can
++ * only be exercised through a full render is a control that stops being run.
++ */
++export const SEARCH_UNAVAILABLE_CODES = ["42501", "PGRST202"] as const;
++
++export function isSearchUnavailableError(error: unknown): boolean {
++  if (!error || typeof error !== "object") return false;
++  const e = error as { code?: unknown; message?: unknown };
++  const code = typeof e.code === "string" ? e.code : "";
++  if ((SEARCH_UNAVAILABLE_CODES as readonly string[]).includes(code)) return true;
++  const message = typeof e.message === "string" ? e.message.toLowerCase() : "";
++  return message.includes("permission denied");
++}
+--
+2.43.0

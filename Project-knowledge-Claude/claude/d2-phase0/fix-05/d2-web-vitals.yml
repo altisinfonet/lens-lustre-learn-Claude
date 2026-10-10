@@ -1,0 +1,243 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# D2 — THE BASELINE AND THE WEB VITALS HARNESS. REPORT-ONLY, ON PURPOSE.
+#
+# Addendum A, Phase 0, units 0.4 and 0.5. This workflow measures. It does not
+# judge, and in Phase 0 it must not.
+#
+# ⚠ WHY NO VITALS NUMBER CAN MAKE THIS JOB RED.
+#
+# scripts/web-vitals-report.mjs exits 0 on every path it has — measured, not
+# measured, Playwright missing, Chromium refusing to launch, the harness itself
+# throwing. That is a deliberate property of the script and this workflow
+# depends on it; it is asserted below by a step that reads the exit code back
+# and fails if it is ever non-zero.
+#
+# Turning a byte budget into a build-breaking ceiling is unit P13, in PHASE 5,
+# and it is meant to happen against numbers this harness will have been
+# collecting for weeks by then. A threshold set before anyone knows the spread
+# of the measurement is a threshold that goes red on its first run, gets waved
+# through twice, and is thereafter ignored — and an ignored gate is worse than
+# no gate, because it looks like coverage. The owner already said this in plain
+# words about a different gate: "we will build one gate you will break another
+# gate which is working. This should not happen."
+#
+# So the exit code here is not sloppiness to be tidied up later. It is the unit.
+# The commit that changes it is P13's, it changes web-vitals-report.mjs's header
+# and this comment together, and it arrives with the numbers that justify the
+# number it picks.
+#
+# ⚠ WHAT *CAN* MAKE THIS JOB RED, AND WHY THAT IS CORRECT.
+#
+#   * `npm ci` or `npm run build` failing. That is the site failing to build.
+#     web-build.yml already fails on it; this job is not entitled to be quieter.
+#   * scripts/web-baseline.mjs exiting non-zero. It does that only when there is
+#     nothing honest to measure — no dist/, no JavaScript in it, no resolvable
+#     entry module. A baseline of zeroes reads as a tiny bundle, and that lie is
+#     exactly what this unit exists to prevent.
+#
+# Neither of those is a performance verdict. No LCP, CLS, INP or byte count
+# reaches the exit code of this workflow.
+#
+# ⚠ EMULATED, NOT A DEVICE. The Android profile is Chromium with a 4x CPU
+# throttle, a 360x800 viewport at DPR 3 and Slow-4G network conditions. It is a
+# repeatable proxy, good for comparing two commits. The standard of practice
+# requires a REAL mid-range Android for any before/after performance claim, and
+# that leg cannot run on a GitHub runner. It is BLOCKED here and is measured by
+# hand; every record this workflow produces carries realDevice:false so the two
+# can never be confused in the evidence.
+#
+# ⚠ NO `${{ }}` INSIDE ANY `run:` BLOCK. That was F-47. Values arrive through
+# `env:` and are read as shell variables.
+#
+# ⚠ THE PUBLIC LANE VALUES BELOW ARE COPIED FROM web-build.yml's staging job.
+# They are public — they ship in every browser bundle — and no secret and no
+# GitHub Environment is involved. web-build.yml remains the authority: if its
+# staging block changes, this block must follow. That duplication is a known
+# cost, recorded here rather than discovered later.
+# ─────────────────────────────────────────────────────────────────────────────
+name: D2 web baseline and vitals (report-only)
+
+on:
+  push:
+    branches: [staging]
+  pull_request:
+    branches: [staging]
+    # The workflow and the scripts are in these paths, so a change to any of
+    # them is exercised by its own PR. A CI rule that has never run on the
+    # change that introduced it has not been tested.
+    paths:
+      - ".github/workflows/d2-web-vitals.yml"
+      - "scripts/web-*.mjs"
+      - "src/**"
+      - "index.html"
+      - "vite.config.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d2-web-vitals-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  baseline:
+    name: Measure the build, and the vitals, and judge neither
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      # Staging lane, public values. Stated explicitly, never inherited: an
+      # omitted variable falls back to the PRODUCTION default in
+      # scripts/lane-config.mjs, which would measure a staging commit against
+      # production's origin and CDN.
+      VITE_SUPABASE_URL: https://ztzutckwdhetphwghuzj.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0enV0Y2t3ZGhldHBod2dodXpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczMjY3MDYsImV4cCI6MjEwMjkwMjcwNn0.yXoPpBeyTIxMLL0dh7lGIjsDHKNrg8ewKF8Rbt9qoKI
+      VITE_SUPABASE_PROJECT_ID: ztzutckwdhetphwghuzj
+      VITE_CDN_HOST: cdn-staging.50mmretina.com
+      VITE_SITE_ORIGIN: https://staging.50mmretina.com
+
+      # Where this runner keeps its browsers. Playwright is already a
+      # devDependency of this repository; nothing new is installed here, and the
+      # Phase 0 dependency window is closed.
+      PLAYWRIGHT_BROWSERS_PATH: /opt/pw-browsers
+
+      EVIDENCE_DIR: docs/evidence/d2/baseline
+      # Home first, then the two heaviest surfaces a member actually opens.
+      # A route that does not exist still measures — the SPA serves index.html
+      # and the record says which route it was.
+      VITALS_ROUTES: /,/feed,/wall
+      VITALS_RUNS: "3"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Read from .node-version, deliberately, so this job and Cloudflare Pages
+      # cannot drift apart. Pages reads that same file.
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+
+      - name: Build the staging lane
+        run: npm run build
+
+      # ── 0.4 ────────────────────────────────────────────────────────────
+      # This step MAY fail, and should: it fails only when there is nothing
+      # honest to measure. See the header.
+      - name: Baseline — entry bundle, every chunk, per-language dictionaries
+        run: node scripts/web-baseline.mjs --dist=dist --out="$EVIDENCE_DIR"
+
+      - name: The instrument's own tests
+        run: node --test scripts/web-baseline.test.mjs
+
+      # ── 0.5 ────────────────────────────────────────────────────────────
+      # ⚠ THE `|| true` IS NOT HERE, AND MUST NOT BE ADDED. The script's own
+      # exit code is already 0 on every path; a `|| true` would hide the day
+      # that stops being true, which is the day P13 lands. The next step proves
+      # the property instead of assuming it.
+      - name: Web Vitals on an emulated mid-range Android (report-only)
+        id: vitals
+        run: |
+          set -uo pipefail
+          node scripts/web-vitals-report.mjs \
+            --dist=dist \
+            --routes="$VITALS_ROUTES" \
+            --runs="$VITALS_RUNS" \
+            --out="$EVIDENCE_DIR"
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: The vitals harness is still report-only
+        env:
+          VITALS_EXIT: ${{ steps.vitals.outputs.code }}
+        run: |
+          set -euo pipefail
+          echo "web-vitals-report.mjs exited with $VITALS_EXIT"
+          if [ "$VITALS_EXIT" != "0" ]; then
+            echo "::error::web-vitals-report.mjs exited $VITALS_EXIT. In Phase 0 this harness reports and never blocks; a non-zero exit means either the script gained a blocking path before P13 authorised one, or it crashed outside its own error handling. Both are defects in the harness, not in the site." >&2
+            exit 1
+          fi
+
+      # ── Review F-2, 2026-09-02 ──────────────────────────────────────────
+      # The script exits 0 on every path, by design, and reports a failure to
+      # measure as an honest `status: "unmeasured"` record. The two guards around
+      # this step check the ENVELOPE — the exit code, that files exist, that
+      # every line is stamped — and a browser that never launched satisfies all
+      # three: exit 0, one stamped record, job green, no LCP anywhere. That was
+      # demonstrated with --chromium=/nonexistent/chrome.
+      #
+      # This step checks the CONTENT. Zero values is not a value. A red number
+      # is P13's business and stays report-only here; no number at all is a
+      # harness fault and fails the job. Nothing about a measured value can
+      # trip this step — only the absence of any measurement.
+      - name: The harness measured something (a malfunction is not a value)
+        run: |
+          set -euo pipefail
+          node -e '
+            const fs = require("node:fs"), path = require("node:path");
+            const dir = process.env.EVIDENCE_DIR;
+            const name = fs.readdirSync(dir).filter((n) => /^web-vitals-.*\.ndjson$/.test(n)).sort().pop();
+            if (!name) { console.error("::error::no web-vitals-*.ndjson was written"); process.exit(1); }
+            const recs = fs.readFileSync(path.join(dir, name), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+            const run = recs.find((r) => r.type === "run" && r.status === "unmeasured");
+            if (run) { console.error("::error::the harness did not run: " + run.reason); process.exit(1); }
+            const measured = recs.filter((r) => r.type === "sample" && r.status === "measured").length;
+            if (measured === 0) {
+              console.error("::error::no route produced a measurement. A value over budget is report-only; no value at all is a harness fault, not a site result.");
+              process.exit(1);
+            }
+            console.log(measured + " measured sample(s) in " + name + " — the harness ran. Values are report-only until P13.");
+          '
+
+      # A harness that ran and wrote nothing is indistinguishable from one that
+      # did not run. Prove the evidence exists and that every line is stamped.
+      - name: The evidence exists, and every line carries a UTC timestamp
+        run: |
+          set -euo pipefail
+          test -d "$EVIDENCE_DIR"
+          baseline=$(find "$EVIDENCE_DIR" -name 'web-baseline-*.ndjson' | wc -l)
+          vitals=$(find "$EVIDENCE_DIR" -name 'web-vitals-*.ndjson' | wc -l)
+          echo "baseline files: $baseline   vitals files: $vitals"
+          test "$baseline" -ge 1
+          test "$vitals" -ge 1
+          node -e '
+            const fs = require("node:fs"), path = require("node:path");
+            const dir = process.env.EVIDENCE_DIR;
+            let lines = 0;
+            for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".ndjson"))) {
+              for (const line of fs.readFileSync(path.join(dir, f), "utf8").trim().split("\n")) {
+                const rec = JSON.parse(line);
+                if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(rec.measuredAtUtc || "")) {
+                  console.error(`${f}: a ${rec.type} record has no UTC measuredAtUtc`);
+                  process.exit(1);
+                }
+                lines += 1;
+              }
+            }
+            console.log(`${lines} records, every one stamped UTC`);
+          '
+
+      - name: Summary
+        run: |
+          set -euo pipefail
+          {
+            echo "### D2 baseline and vitals — report-only"
+            echo ""
+            echo "No number on this page can fail a build. That becomes possible at P13 (Phase 5)."
+            echo "Vitals are measured on an EMULATED mid-range Android; the real-device leg is BLOCKED in CI."
+            echo ""
+            echo '```'
+            find "$EVIDENCE_DIR" -name '*.ndjson' -exec basename {} \;
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: d2-baseline-${{ github.run_id }}
+          path: docs/evidence/d2/baseline/*.ndjson
+          if-no-files-found: error
+          retention-days: 90

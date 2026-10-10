@@ -1,0 +1,52 @@
+path	status	added	deleted	category	risk	blob_sha_at_RC	bytes_at_RC	touched_by_replacement_RC	check
+src/__tests__/adEngagement.test.ts	M	59	0	test	LOW	8c1b8a1cbf76954990bfdd49aa84614df9f1b07f	17132	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/__tests__/candidatePatternWidening.test.ts	M	18	5	test	LOW	e90f9139a97a964fbf5368badee2afc65d4d7527	24947	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/__tests__/certificatePalette.test.ts	A	144	0	test	LOW	6d6daa7dac2fdcb3723826a061af0ca69c295ec1	5986	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/__tests__/corsOriginAllowlist.test.ts	A	115	0	test	LOW	8c56d56a05f652fa423227165d225aad6efcc11f	5126	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/__tests__/laneIsolation.test.ts	A	214	0	test	LOW	92cd80a403ed5a204b4b5273135d868e44faa988	10541	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/__tests__/manifestMigrator.test.ts	M	18	1	test	LOW	90af1f8e5d08bcaf83f1e5d213203728ef011655	27395	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/__tests__/measurePostMediaReadOnly.test.ts	M	6	2	test	LOW	52d0516a0bd0eb435213d305d966286b722af588	5638	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/__tests__/noComponentDefinedInRender.test.ts	M	112	4	test	LOW	d1dfb7def1d00ca154e3dd0977871a86b3488903	15662	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/__tests__/onePostFunnel.test.ts	M	27	2	test	LOW	d3c5b32060ec3388eecd6a5371466e8a248f6e98	12851	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/__tests__/seoLaneRequired.test.ts	A	61	0	test	LOW	5c968235b79b38a0964551ab23ae1695fc8664d2	2942	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/__tests__/storageLane.test.ts	A	187	0	test	LOW	2649a887130024cfce96eecd0452dc841009e769	9210	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/components/AutoBadge.tsx	M	48	3	web component	LOW	5208912f2de9ce9d7063146e69179aef426570c3	4010	no	Does it render unescaped user-supplied strings? Does it change an auth or privacy boundary?
+src/components/CommentsSection.tsx	M	4	1	web component	LOW	d02ee97e471a7dc08c2b5fa34e23c439ee57bcaf	28534	no	Does it render unescaped user-supplied strings? Does it change an auth or privacy boundary?
+src/components/MentionInput.tsx	M	43	6	web component	LOW	3dbeba858d6769d627387b0cf632453997cceb6e	18892	no	Does it render unescaped user-supplied strings? Does it change an auth or privacy boundary?
+src/components/PageSEO.tsx	M	2	1	web component	LOW	f2ded9dc8f9bb3cd4eec1e819b1a5084ef006d00	5982	no	Does it render unescaped user-supplied strings? Does it change an auth or privacy boundary?
+src/components/PostCommentsSection.tsx	M	62	402	web component	LOW	9486d2814c850d746c176f88a785a329db295aad	9839	no	Does it render unescaped user-supplied strings? Does it change an auth or privacy boundary?
+src/components/ReactionSummaryTooltip.tsx	M	89	10	web component	LOW	ae5a494390a6e142a61f7f67c44d1f6bc9e5f346	12739	no	Does it render unescaped user-supplied strings? Does it change an auth or privacy boundary?
+src/components/ShareSummaryTooltip.tsx	M	40	2	web component	LOW	c896ae71962240bfd8962b3baf709f41b5a779a5	7389	no	Does it render unescaped user-supplied strings? Does it change an auth or privacy boundary?
+src/components/__tests__/BrandBadgeEverywhere.test.tsx	A	143	0	test	LOW	ce3c1296f1a54118224cd876488c9ebd1d6a3748	7110	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/components/__tests__/ComposerEnterKey.test.tsx	A	146	0	test	LOW	81725b3ddd86dd4c070899a2ee8beb7277dc6ec1	6406	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/components/__tests__/PrivacyGapDisclosed.test.ts	M	62	4	test	LOW	e2e3adcbbd456535991e86f4e92bd74c1366cf36	9591	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/components/__tests__/SendButtonTapTarget.test.ts	M	35	5	test	LOW	8637a70f15238a10245fbc9eaa447071cde2e63e	12603	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/components/__tests__/SummaryTriggerTapTarget.test.ts	A	108	0	test	LOW	be524dcb14746d6d82890438f31d65f122ff9912	5299	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/components/admin/AdminEmailTemplates.tsx	M	2	1	web component	LOW	8dc138c618f1179ec13a3c834efee330de9bffaf	23658	no	Does it render unescaped user-supplied strings? Does it change an auth or privacy boundary?
+src/components/admin/AdminEmployee.tsx	M	2	1	web component	LOW	bde8d0335bcb62af2ab555046c0dbfeb663e2ffc	19388	no	Does it render unescaped user-supplied strings? Does it change an auth or privacy boundary?
+src/components/admin/AdminSEO.tsx	M	4	3	web component	LOW	f1dee54c24c4d03375a4c6d4c73dbfaaa138afde	56371	no	Does it render unescaped user-supplied strings? Does it change an auth or privacy boundary?
+src/components/admin/CloudflareEdgeChecklist.tsx	M	6	3	web component	LOW	a3f30f09aa747ad97c22be0c0ef542462b3d311a	12225	no	Does it render unescaped user-supplied strings? Does it change an auth or privacy boundary?
+src/components/ads/AdComments.tsx	M	104	307	web component	LOW	27d9d8c682410f4f50fd9e61291791bfba7d1422	7928	no	Does it render unescaped user-supplied strings? Does it change an auth or privacy boundary?
+src/components/ads/AdEngagementBar.tsx	M	42	76	web component	LOW	ff7025d4744a6debe854922bd20a48de02d996df	6843	no	Does it render unescaped user-supplied strings? Does it change an auth or privacy boundary?
+src/components/ads/__tests__/StoryCardComments.test.tsx	A	201	0	test	LOW	fd2b6b50b892c205f5ecb961f3a2ddc6b87e7ebd	8714	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/components/ads/__tests__/StoryCardReactions.test.tsx	A	218	0	test	LOW	626449ba3209ef7dabc67b83b734a67c61b7419d	9126	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/components/comments/CommentThread.tsx	A	588	0	web component	LOW	6bc6554b5e86252c61ffb7d211501d6b1a30b07d	26202	no	Does it render unescaped user-supplied strings? Does it change an auth or privacy boundary?
+src/components/comments/__tests__/CommentLineBreaks.test.tsx	A	196	0	test	LOW	d6b5a47007e3b6cc446a416c2ce3351a22004b10	9205	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/components/post/PostActionRow.tsx	A	248	0	web component	LOW	633cb654eee21fb228356da748f907383906d9b1	10752	no	Does it render unescaped user-supplied strings? Does it change an auth or privacy boundary?
+src/components/post/PostCard.tsx	M	57	152	web component	LOW	fc388858d386ac854b1ce934161f6910e2195bc0	36781	no	Does it render unescaped user-supplied strings? Does it change an auth or privacy boundary?
+src/components/post/PostMedia.tsx	M	13	5	web component	LOW	bc38b6c7468467ea923fbb7df951f4e093bc50ab	40097	no	Does it render unescaped user-supplied strings? Does it change an auth or privacy boundary?
+src/components/post/PrivacyGapNotice.tsx	M	24	5	web component	LOW	eec581bf387831147fdc000c2c8335b3ffc9c13e	4673	no	Does it render unescaped user-supplied strings? Does it change an auth or privacy boundary?
+src/components/post/__tests__/PostFullBleedAndTapTargets.test.ts	M	119	17	test	LOW	2bc6bdb76c962f7f37dd77824611874e4230c578	25454	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/components/post/__tests__/feedScreenFindings.test.ts	M	40	9	test	LOW	6cd5622ead60d968aa8c505e99539ff459c90774	9680	no	Does it require live provider credentials? Does it skip silently when they are absent?
+src/components/profile/QRCodeCard.tsx	M	2	1	web component	LOW	177beaa183c59cfc7380141bdbf2718126cddf7a	3588	no	Does it render unescaped user-supplied strings? Does it change an auth or privacy boundary?
+src/lib/cdnImage.ts	M	3	2	web library	LOW	0a8f0811d7448512280678424db976b9dfdb5422	5888	no	Does it construct SQL, URLs or HTML from unvalidated input?
+src/lib/env.ts	A	68	0	web library	LOW	d041569de92a6575ecd933691f4503161722c35a	3767	no	Does it construct SQL, URLs or HTML from unvalidated input?
+src/lib/generateArticlePdf.ts	M	2	1	web library	LOW	0fd36e35f64f3685c282047e0ce9a3ebc14278e7	31585	no	Does it construct SQL, URLs or HTML from unvalidated input?
+src/lib/generateCertificatePdf.ts	M	39	7	web library	LOW	b19b06f24c8d76fa12263f2ed39b647db29d96e7	29845	no	Does it construct SQL, URLs or HTML from unvalidated input?
+src/lib/media/postMediaRead.ts	M	6	1	web library	LOW	660d66e190378dd78b6849f4687f9d3ff3ca36da	9564	no	Does it construct SQL, URLs or HTML from unvalidated input?
+src/lib/profilePhoto.ts	M	2	2	web library	LOW	90b0c7d74c4299f6e9d7d3195f55219331e71c9e	5245	no	Does it construct SQL, URLs or HTML from unvalidated input?
+src/lib/publicUrl.ts	M	4	1	web library	LOW	8319519d9e440b30f896a343e9190ec569e302ee	3608	no	Does it construct SQL, URLs or HTML from unvalidated input?
+src/lib/queryKeys.ts	M	2	0	web library	LOW	3b66ba8c5410b2f68c80752b6b963373649e943c	8823	no	Does it construct SQL, URLs or HTML from unvalidated input?
+src/lib/reportImageError.ts	M	2	1	web library	LOW	a155fd87e95f73f16d5beac225bfc015d7aa5ab2	6393	no	Does it construct SQL, URLs or HTML from unvalidated input?
+src/pages/EditProfile.tsx	M	2	1	web page	LOW	c84578a426a45fb3ff4f522fdb8a32949e8f38c0	72240	no	same as web component, plus: does it change a route or its guard?
+src/pages/Profile.tsx	M	3	2	web page	LOW	b161073d9c007ce4ad325c9429f6acc411756e65	28754	no	same as web component, plus: does it change a route or its guard?

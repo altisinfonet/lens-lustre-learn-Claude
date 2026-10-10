@@ -1,0 +1,258 @@
+From c821c1857968b8156484b0e3b76fabee8fb6f359 Mon Sep 17 00:00:00 2001
+From: "Developer 2 (Client & Delivery)" <noreply@anthropic.com>
+Date: Thu, 3 Sep 2026 08:00:21 +0000
+Subject: [PATCH] =?UTF-8?q?test(typecheck):=20F-60=20=E2=80=94=20assert=20?=
+ =?UTF-8?q?the=20property,=20not=20the=20spelling;=20accept=20-b,=20still?=
+ =?UTF-8?q?=20reject=20narrowed=20or=20vacuous?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Unit: F-60. src/__tests__/typecheckIsNotVacuous.test.ts pinned CI to
+`tsc --noEmit -p tsconfig.app.json`; CI was widened to `tsc -b
+tsconfig.json` (F-52, both projects). The test was stale, not the
+workflow. Reproduced on pristine 69a7f87: 1 failed | 8 passed.
+
+Cause, not symptom: the assertion checked a spelling instead of the
+property the file exists for. It now extracts the single tsc `run:`
+from typecheck.yml and requires (1) build mode over the solution file,
+the only form that follows references; (2) no -p/--project, so it can
+never be narrowed to one project; (3) tsconfig.json still references
+both tsconfig.app.json and tsconfig.node.json, so "both" stays true.
+
+Shown failing first on three planted workflow copies — narrowed to one
+project, vacuous -p on the solution file, bare tsc --noEmit — each
+1 failed | 8 passed; then 9 passed on the real workflow, which was
+restored byte-for-byte. The stale header sentence is corrected too
+(Standing Rule 21).
+
+Evidence: docs/evidence/d2/f60/.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017fdB5mybV9pixsM7n9b9Tf
+---
+ docs/evidence/d2/f60/01-before-fix.txt        | 83 +++++++++++++++++++
+ docs/evidence/d2/f60/02-after-fix.txt         | 13 +++
+ docs/evidence/d2/f60/03-planted-workflows.txt | 20 +++++
+ docs/evidence/d2/f60/README.md                | 18 ++++
+ src/__tests__/typecheckIsNotVacuous.test.ts   | 35 +++++++-
+ 5 files changed, 165 insertions(+), 4 deletions(-)
+ create mode 100644 docs/evidence/d2/f60/01-before-fix.txt
+ create mode 100644 docs/evidence/d2/f60/02-after-fix.txt
+ create mode 100644 docs/evidence/d2/f60/03-planted-workflows.txt
+ create mode 100644 docs/evidence/d2/f60/README.md
+
+diff --git a/docs/evidence/d2/f60/01-before-fix.txt b/docs/evidence/d2/f60/01-before-fix.txt
+new file mode 100644
+index 0000000..13388ff
+--- /dev/null
++++ b/docs/evidence/d2/f60/01-before-fix.txt
+@@ -0,0 +1,83 @@
++
++ RUN  v3.2.4 /home/claude/d2/staging
++
++(node:2272) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
++(Use `node --trace-deprecation ...` to show where the warning was created)
++ ❯ src/__tests__/typecheckIsNotVacuous.test.ts (9 tests | 1 failed) 2934ms
++   ✓ the typecheck command points at a config that has files > there is a `typecheck` script, so nobody has to remember the flags 2ms
++   ✓ the typecheck command points at a config that has files > it names a project config — bare `tsc --noEmit` compiles NOTHING here 1ms
++   ✓ the typecheck command points at a config that has files > the root config really is the empty one, so this is not superstition 1ms
++   × the typecheck command points at a config that has files > CI runs the same command as the script — one of them being right is not enough 8ms
++     → expected 'name: Typecheck\n\non:\n  push:\n    …' to match /tsc --noEmit -p tsconfig\.app\.json/
++   ✓ the typecheck command points at a config that has files > the app config actually includes src 1ms
++   ✓ every source file parses — the gap between the checks > finds the source tree (a vacuity guard on THIS test) 0ms
++   ✓ every source file parses — the gap between the checks > parses every one of them  2866ms
++   ✓ the React 19 type changes that were missed > useRef is never called with no argument — React 19 requires one 52ms
++   ✓ the React 19 type changes that were missed > the global JSX namespace is imported where it is used 1ms
++
++⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
++
++ FAIL  src/__tests__/typecheckIsNotVacuous.test.ts > the typecheck command points at a config that has files > CI runs the same command as the script — one of them being right is not enough
++AssertionError: expected 'name: Typecheck\n\non:\n  push:\n    …' to match /tsc --noEmit -p tsconfig\.app\.json/
++
++[32m- Expected:[39m
++/tsc --noEmit -p tsconfig\.app\.json/
++
++[31m+ Received:[39m
++"name: Typecheck
++
++on:
++  push:
++    branches: [main, staging]
++  pull_request:
++    branches: [main, staging]
++
++permissions:
++  contents: read
++
++jobs:
++  typecheck:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-node@v4
++        with:
++          node-version: 20
++      - name: Install dependencies
++        run: npm ci --no-audit --no-fund
++      # ⚠ F-52 CLOSED HERE, 2026-09-01.
++      #
++      # This step used to run `-p tsconfig.app.json` and nothing else. That
++      # project sets \"strict\": false and \"noImplicitAny\": false, and it does not
++      # include `vite.config.ts`. The STRICT project — tsconfig.node.json,
++      # \"strict\": true — was compiled by `npx tsc -b tsconfig.json` inside
++      # android-build.yml AND NOWHERE ELSE, and that workflow only runs when
++      # its own file changes. So on a normal pull request the strict project was
++      # checked by nothing at all. That is how a missing `scripts/lane-config.d.mts`
++      # reached `main` and killed builds #113 and #114 after the merge, where it
++      # is expensive, instead of on the pull request, where it is free.
++      #
++      # `-b tsconfig.json` builds BOTH referenced projects. Do not change it back
++      # to `-p tsconfig.json`: tsconfig.json is a solution file (`files: []`),
++      # and without `-b` tsc ignores the references and exits 0 having checked
++      # zero files — proved with `--listFiles`.
++      - name: TypeScript check — BOTH projects, app and strict
++        run: npx tsc -b tsconfig.json
++"
++
++ ❯ src/__tests__/typecheckIsNotVacuous.test.ts:59:16
++     57|   it("CI runs the same command as the script — one of them being right…
++     58|     const ci = readFileSync(join(root, ".github/workflows/typecheck.ym…
++     59|     expect(ci).toMatch(/tsc --noEmit -p tsconfig\.app\.json/);
++       |                ^
++     60|   });
++     61|
++
++⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
++
++
++ Test Files  1 failed (1)
++      Tests  1 failed | 8 passed (9)
++   Start at  07:59:04
++   Duration  4.82s (transform 164ms, setup 190ms, collect 92ms, tests 2.93s, environment 780ms, prepare 393ms)
++
+diff --git a/docs/evidence/d2/f60/02-after-fix.txt b/docs/evidence/d2/f60/02-after-fix.txt
+new file mode 100644
+index 0000000..9a69835
+--- /dev/null
++++ b/docs/evidence/d2/f60/02-after-fix.txt
+@@ -0,0 +1,13 @@
++
++ RUN  v3.2.4 /home/claude/d2/staging
++
++(node:2365) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
++(Use `node --trace-deprecation ...` to show where the warning was created)
++ ✓ src/__tests__/typecheckIsNotVacuous.test.ts (9 tests) 2349ms
++   ✓ every source file parses — the gap between the checks > parses every one of them  2299ms
++
++ Test Files  1 passed (1)
++      Tests  9 passed (9)
++   Start at  07:59:31
++   Duration  3.45s (transform 110ms, setup 87ms, collect 88ms, tests 2.35s, environment 438ms, prepare 155ms)
++
+diff --git a/docs/evidence/d2/f60/03-planted-workflows.txt b/docs/evidence/d2/f60/03-planted-workflows.txt
+new file mode 100644
+index 0000000..1881a7a
+--- /dev/null
++++ b/docs/evidence/d2/f60/03-planted-workflows.txt
+@@ -0,0 +1,20 @@
++=== PLANT A — narrowed to one project (the pre-F-52 form) — 2026-09-03T07:59:46Z
++39:        run: npx tsc --noEmit -p tsconfig.app.json
++⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
++      Tests  1 failed | 8 passed (9)
++   × the typecheck command points at a config that has files > CI's tsc follows the references and covers BOTH projects — the build form, never a narrowed or vacuous one 8ms
++     → expected 'npx tsc --noEmit -p tsconfig.app.json' to match /\btsc\b.*\s(?:-b|--build)\s+tsconfig\…/
++
++=== PLANT B — vacuous: -p on the solution file (files: [])
++39:        run: npx tsc --noEmit -p tsconfig.json
++⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
++      Tests  1 failed | 8 passed (9)
++   × the typecheck command points at a config that has files > CI's tsc follows the references and covers BOTH projects — the build form, never a narrowed or vacuous one 9ms
++     → expected 'npx tsc --noEmit -p tsconfig.json' to match /\btsc\b.*\s(?:-b|--build)\s+tsconfig\…/
++
++=== PLANT C — bare tsc --noEmit (the 2026-08-15 fault)
++39:        run: npx tsc --noEmit
++⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
++      Tests  1 failed | 8 passed (9)
++   × the typecheck command points at a config that has files > CI's tsc follows the references and covers BOTH projects — the build form, never a narrowed or vacuous one 8ms
++     → expected 'npx tsc --noEmit' to match /\btsc\b.*\s(?:-b|--build)\s+tsconfig\…/
+diff --git a/docs/evidence/d2/f60/README.md b/docs/evidence/d2/f60/README.md
+new file mode 100644
+index 0000000..c06372a
+--- /dev/null
++++ b/docs/evidence/d2/f60/README.md
+@@ -0,0 +1,18 @@
++# F-60 — the stale typecheck assertion · evidence
++
++**Branch** `d2/F60-typecheck-assertion-20260903` off `origin/staging` @ `69a7f87` · D2 · 2026-09-03
++
++**Finding (register rev 4):** `src/__tests__/typecheckIsNotVacuous.test.ts:59` asserted the CI workflow matches `/tsc --noEmit -p tsconfig\.app\.json/`. The workflow was widened to `tsc -b tsconfig.json` (F-52, both projects). **The test was stale, not the workflow.**
++
++**Cause, not symptom:** the assertion pinned a *spelling* instead of the *property* the test exists to protect — that the typecheck cannot be vacuous. Fixed by asserting the property: build mode over the solution file (the only form that follows references), no `-p`/`--project` (never narrowed), and the solution file still references both projects.
++
++| Step | File | Result |
++|---|---|---|
++| Reproduce on pristine `69a7f87` | `01-before-fix.txt` | **1 failed \| 8 passed** — 07:58:58Z |
++| After the fix, real workflow | `02-after-fix.txt` | **9 passed** — 07:59:30Z |
++| Planted workflow A — narrowed to one project (`-p tsconfig.app.json`) | `03-planted-workflows.txt` | **fails** — 07:59:46Z |
++| Planted workflow B — vacuous (`-p tsconfig.json`, `files: []`) | same | **fails** |
++| Planted workflow C — bare `tsc --noEmit` (the 2026-08-15 fault) | same | **fails** |
++| Workflow restored to `origin/staging` bytes after the plants | — | `git diff --quiet` clean |
++
++Nothing under `.github/workflows/` is changed by this unit; the three plants were temporary and reverted. `package.json` untouched (window closed): test 2 still accepts the script's own `-p tsconfig.app.json`, which is the script, not CI.
+diff --git a/src/__tests__/typecheckIsNotVacuous.test.ts b/src/__tests__/typecheckIsNotVacuous.test.ts
+index 6e6fcae..35120c0 100644
+--- a/src/__tests__/typecheckIsNotVacuous.test.ts
++++ b/src/__tests__/typecheckIsNotVacuous.test.ts
+@@ -19,8 +19,14 @@
+  * The build caught the broken import; nothing caught the type errors, because
+  * `npm run build` uses esbuild, which strips types without checking them.
+  *
+- * The correct command — the one CI has always run — is
+- * `tsc --noEmit -p tsconfig.app.json`, now `npm run typecheck`.
++ * The correct command was `tsc --noEmit -p tsconfig.app.json` (now
++ * `npm run typecheck`). Since F-52 (2026-09-01) CI runs the stronger form,
++ * `tsc -b tsconfig.json`, which builds BOTH referenced projects — the app one
++ * and the strict one that owns vite.config.ts. F-60 (2026-09-03): this file
++ * still demanded the old single-project string of CI, so a strictly better
++ * workflow failed a test written to catch a strictly worse one. The CI
++ * assertion below now checks the PROPERTY — the command follows references and
++ * covers every project — not the spelling.
+  *
+  * THE LESSON, which is the same one this project keeps relearning: a green
+  * result from a command that checks nothing is indistinguishable from a green
+@@ -54,9 +60,30 @@ describe("the typecheck command points at a config that has files", () => {
+     expect(Array.isArray(rootCfg.references)).toBe(true);
+   });
+
+-  it("CI runs the same command as the script — one of them being right is not enough", () => {
++  it("CI's tsc follows the references and covers BOTH projects — the build form, never a narrowed or vacuous one", () => {
++    // F-60. The old assertion pinned the pre-F-52 spelling, `-p tsconfig.app.json`,
++    // and failed the moment CI was widened to `-b tsconfig.json`. What this test
++    // is FOR is the property behind the spelling: the command must (1) follow
++    // project references, because the solution file has files: [] and `-p` on
++    // it checks nothing (proved with --listFiles, 0 files); and (2) cover every
++    // referenced project, because `-p tsconfig.app.json` alone skipped the
++    // strict project and let a missing .d.mts reach main (#113, #114).
+     const ci = readFileSync(join(root, ".github/workflows/typecheck.yml"), "utf8");
+-    expect(ci).toMatch(/tsc --noEmit -p tsconfig\.app\.json/);
++    const runs = [...ci.matchAll(/^\s*run:\s*(.+)$/gm)].map((m) => m[1].trim());
++    const tsc = runs.filter((r) => /\btsc\b/.test(r));
++    expect(tsc, "typecheck.yml must run tsc somewhere").toHaveLength(1);
++    const cmd = tsc[0];
++    // (1) build mode over the solution file — the only form that follows references
++    expect(cmd).toMatch(/\btsc\b.*\s(?:-b|--build)\s+tsconfig\.json\b/);
++    // (2) never narrowed to a single project, and never the vacuous `-p tsconfig.json`
++    expect(cmd).not.toMatch(/\s-p\s|\s--project\s/);
++    // (3) "both projects" is only true if the solution file still references both
++    const rootCfg = JSON.parse(
++      readFileSync(join(root, "tsconfig.json"), "utf8").replace(/\/\/.*$/gm, ""),
++    );
++    const refs = (rootCfg.references ?? []).map((r: { path: string }) => r.path);
++    expect(refs).toContain("./tsconfig.app.json");
++    expect(refs).toContain("./tsconfig.node.json");
+   });
+
+   it("the app config actually includes src", () => {
+--
+2.43.0

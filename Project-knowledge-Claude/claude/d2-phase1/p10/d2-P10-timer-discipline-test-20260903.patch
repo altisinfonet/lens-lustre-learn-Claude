@@ -1,0 +1,307 @@
+From 94ce6f9fa246fac17d4d710310621462c06758a4 Mon Sep 17 00:00:00 2001
+From: "Developer 2 (Client & Delivery)" <noreply@anthropic.com>
+Date: Thu, 3 Sep 2026 12:34:34 +0000
+Subject: [PATCH] =?UTF-8?q?test(P10):=20the=20timer-discipline=20gate,=20a?=
+ =?UTF-8?q?sserted=20against=20src/=20=E2=80=94=20failing,=20as=20it=20sho?=
+ =?UTF-8?q?uld?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Phase 1 prep for P10. No production source is touched: this commit adds one
+test file and nothing else. It is EXPECTED TO FAIL until P10 lands; the failure
+list is P10's work queue.
+
+The gate has two clauses — "no timer fires more often than once a second" AND
+"every repeating timer is cleared on visibilitychange" — and a site passes only
+when both hold. That is how 0-D2-03 measured the code, and it is what this test
+implements. Against origin/staging it reports 20 violations across 21
+setInterval sites, file and line, matching the landed inventory site for site.
+The one pass is useEngagementHeartbeat.ts, the pattern P10 copies.
+
+A source scan, not a runtime test: the 21 sites live in pages, hooks and ad
+shells, several behind an admin role or an active judging session, and the ones
+nobody mounted would be exactly the ones that regress.
+
+Deliberately generous to existing code and never harsher than the gate: the
+visibilitychange clause is satisfied when a file mentions the event and calls
+clearInterval, without proving they are wired together. Nothing that satisfies
+the gate can fail this check, so every violation it reports is real. Tighten
+when P10 lands; do not loosen. An interval that cannot be resolved statically
+counts as a violation — unknown is not a pass (C-34).
+
+Five control tests run the same scanner over synthetic sources and prove it
+rejects a 200 ms timer that does handle visibilitychange, a 30 s timer that does
+not, an unresolvable delay, and resolves 1800/60 to 30 ms — so the checker is
+proved able to fail independently of src/, and stays proved after the list
+above is empty.
+
+Two refinements to the inventory, recorded not tidied: useJudgeSession.ts:173
+resolves to HEARTBEAT_INTERVAL = 30_000 (§3 shows "?"), and Index.tsx:191
+resolves to 30 ms, which confirms §3's note and corrects its Interval cell ("1").
+Both remain violations either way.
+
+npx tsc -b tsconfig.json exit 0; eslint clean; full suite 2486 passed with the
+two expected failures (this file's gate assertion, and the pre-existing stale
+typecheckIsNotVacuous assertion routed as F-60).
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017fdB5mybV9pixsM7n9b9Tf
+---
+ src/__tests__/timerDiscipline.test.ts | 245 ++++++++++++++++++++++++++
+ 1 file changed, 245 insertions(+)
+ create mode 100644 src/__tests__/timerDiscipline.test.ts
+
+diff --git a/src/__tests__/timerDiscipline.test.ts b/src/__tests__/timerDiscipline.test.ts
+new file mode 100644
+index 0000000..036110d
+--- /dev/null
++++ b/src/__tests__/timerDiscipline.test.ts
+@@ -0,0 +1,245 @@
++/**
++ * P10 — timer discipline, asserted against the source itself.
++ *
++ * ─────────────────────────────────────────────────────────────────────────────
++ * THE GATE, VERBATIM
++ *
++ * "No timer fires more often than once a second; every repeating timer is
++ * cleared on `visibilitychange`."
++ *
++ * TWO clauses, and a site passes only when BOTH hold. That is how 0-D2-03
++ * measured the code (docs/evidence/d2/baseline/client-inventory.md §3) and it
++ * is the reading this test implements: `AdZone.tsx` listens for
++ * `visibilitychange` and still fires every 200 ms, which is a battery cost on a
++ * backgrounded phone whether or not something is listening.
++ *
++ * ─────────────────────────────────────────────────────────────────────────────
++ * WHY THIS IS A SOURCE SCAN AND NOT A RUNTIME TEST
++ *
++ * A runtime test proves one component's timer. There are 21 of them across 20
++ * files, in pages, hooks and ad shells, several behind admin roles or an active
++ * judging session — mounting all of them costs more than it proves, and the
++ * ones nobody mounted would be exactly the ones that regress. The gate is a
++ * property of the source, so the source is what is read.
++ *
++ * The scan is deliberately GENEROUS to existing code and never harsher than the
++ * gate: `visibilitychange` is satisfied when the file mentions the event AND
++ * calls `clearInterval`, without proving they are wired to each other. A file
++ * can therefore pass this check and still be wrong — but no file that passes
++ * the gate can fail this check, so a violation reported here is real. Tighten
++ * it when P10 lands; do not loosen it.
++ *
++ * An interval that cannot be resolved statically is a VIOLATION, not a pass.
++ * "I could not tell" is not evidence of good behaviour (C-34).
++ *
++ * ─────────────────────────────────────────────────────────────────────────────
++ * THIS TEST IS EXPECTED TO FAIL UNTIL P10 IS DONE
++ *
++ * At `origin/staging` it reports 20 violations across 21 sites. The single pass
++ * is `useEngagementHeartbeat.ts` — the pattern P10 copies everywhere else. The
++ * failure list is the P10 work queue, and the day it is empty the gate is met.
++ */
++import { describe, expect, it } from "vitest";
++import { readdirSync, readFileSync, statSync } from "node:fs";
++import { join, relative, sep } from "node:path";
++
++const root = process.cwd();
++const SRC = join(root, "src");
++
++/** The inventory's scope: shipped source only — not tests, not the harness. */
++const SKIP_DIRS = new Set(["__tests__", "uiharness"]);
++const CODE = /\.(ts|tsx)$/;
++
++function sourceFiles(dir: string): string[] {
++  const out: string[] = [];
++  for (const name of readdirSync(dir)) {
++    const full = join(dir, name);
++    if (statSync(full).isDirectory()) {
++      if (!SKIP_DIRS.has(name)) out.push(...sourceFiles(full));
++    } else if (CODE.test(name) && !/\.(test|spec)\.tsx?$/.test(name)) {
++      out.push(full);
++    }
++  }
++  return out;
++}
++
++/** Line number of an index, 1-based, so a violation names a place a person can open. */
++const lineOf = (text: string, index: number) => text.slice(0, index).split("\n").length;
++
++/** The arguments of a call, split at top-level commas. Strings and nesting respected. */
++function callArgs(text: string, openParen: number): string[] {
++  const args: string[] = [];
++  let depth = 0;
++  let start = openParen + 1;
++  let quote: string | null = null;
++  for (let i = openParen; i < text.length; i++) {
++    const c = text[i];
++    if (quote) {
++      if (c === "\\") i++;
++      else if (c === quote) quote = null;
++      continue;
++    }
++    if (c === '"' || c === "'" || c === "`") { quote = c; continue; }
++    if (c === "(" || c === "[" || c === "{") depth++;
++    else if (c === ")" || c === "]" || c === "}") {
++      depth--;
++      if (depth === 0) { args.push(text.slice(start, i)); return args; }
++    } else if (c === "," && depth === 1) {
++      args.push(text.slice(start, i));
++      start = i + 1;
++    }
++  }
++  return args;
++}
++
++const ARITHMETIC = /^[\d\s_+\-*/().]+$/;
++
++/** Evaluate a numeric expression, or return null. Digits and operators only — nothing else is executed. */
++function arithmetic(expr: string): number | null {
++  const clean = expr.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "").trim();
++  if (!clean || !ARITHMETIC.test(clean)) return null;
++  try {
++    // The input has just been proven to be digits and operators; nothing else can reach here.
++    const value = Function(`"use strict"; return (${clean.replace(/_/g, "")});`)() as unknown;
++    return typeof value === "number" && Number.isFinite(value) ? value : null;
++  } catch {
++    return null;
++  }
++}
++
++/** Resolve a delay expression: a literal, arithmetic, or a `const` declared in the same file. */
++function resolveDelay(expr: string, file: string, depth = 0): number | null {
++  const direct = arithmetic(expr);
++  if (direct !== null) return direct;
++  if (depth > 3) return null;
++
++  const name = expr.trim().replace(/\/\/.*$/gm, "").trim();
++  if (!/^[A-Za-z_$][\w$]*$/.test(name)) {
++    // An expression of identifiers, e.g. `duration / steps`: resolve each, then evaluate.
++    const substituted = expr.replace(/[A-Za-z_$][\w$]*/g, (id) => {
++      const v = resolveDelay(id, file, depth + 1);
++      return v === null ? "?" : String(v);
++    });
++    return substituted.includes("?") ? null : arithmetic(substituted);
++  }
++
++  const decl = new RegExp(`\\b(?:const|let|var)\\s+${name}\\s*(?::[^=]+)?=\\s*([^;\\n]+)`).exec(file);
++  return decl ? resolveDelay(decl[1], file, depth + 1) : null;
++}
++
++export interface TimerSite {
++  where: string;
++  delayMs: number | null;
++  fastEnough: boolean;
++  clearedOnHide: boolean;
++  passes: boolean;
++  reason: string;
++}
++
++function scan(text: string, label: string): TimerSite[] {
++  // File-level, and deliberately generous: the event is mentioned and a timer is cleared.
++  const clearedOnHide = /visibilitychange/.test(text) && /clearInterval/.test(text);
++  const sites: TimerSite[] = [];
++  const call = /\bsetInterval\s*\(/g;
++  let m: RegExpExecArray | null;
++  while ((m = call.exec(text)) !== null) {
++    const where = `${label}:${lineOf(text, m.index)}`;
++    const args = callArgs(text, m.index + m[0].length - 1);
++    const delayMs = args.length >= 2 ? resolveDelay(args[1], text) : null;
++    const fastEnough = delayMs !== null && delayMs >= 1000;
++    const passes = fastEnough && clearedOnHide;
++    const reason = delayMs === null
++      ? "the interval could not be resolved statically — unknown is not a pass"
++      : !fastEnough
++        ? `fires every ${delayMs} ms — faster than once a second`
++        : !clearedOnHide
++          ? "no visibilitychange handling in this file"
++          : "";
++    sites.push({ where, delayMs, fastEnough, clearedOnHide, passes, reason });
++  }
++  return sites;
++}
++
++const SITES: TimerSite[] = sourceFiles(SRC).flatMap((f) =>
++  scan(readFileSync(f, "utf8"), relative(root, f).split(sep).join("/")),
++);
++
++describe("P10 — no timer faster than 1 s, and every repeating timer cleared on visibilitychange", () => {
++  it("every setInterval site in src/ satisfies both clauses of the gate", () => {
++    const violations = SITES.filter((s) => !s.passes);
++    const report = violations.map((s) => `  ${s.where} — ${s.reason}`).join("\n");
++    expect(
++      violations,
++      `${violations.length} of ${SITES.length} setInterval sites fail P10:\n${report}\n`,
++    ).toEqual([]);
++  });
++
++  it("the one site that already passes keeps passing — the pattern P10 copies", () => {
++    const heartbeat = SITES.find((s) => s.where.includes("useEngagementHeartbeat"));
++    expect(heartbeat, "useEngagementHeartbeat.ts must contain a setInterval").toBeDefined();
++    expect(heartbeat?.passes).toBe(true);
++  });
++
++  it("the inventory still describes the code — 21 sites, as measured for 0-D2-03", () => {
++    expect(
++      SITES.length,
++      "the setInterval count moved; re-measure and update docs/evidence/d2/baseline/client-inventory.md before changing this number",
++    ).toBe(21);
++  });
++});
++
++/**
++ * The checker's own controls. A checker nobody proved can fail is not evidence
++ * (C-34), and these run against synthetic sources so they stay true after P10
++ * has emptied the list above.
++ */
++describe("the checker itself rejects what the gate rejects", () => {
++  const one = (src: string) => scan(src, "synthetic.ts")[0];
++
++  it("rejects a sub-second timer even when the file handles visibilitychange", () => {
++    const s = one(`
++      document.addEventListener("visibilitychange", () => clearInterval(t));
++      const t = setInterval(tick, 200);
++    `);
++    expect(s.passes).toBe(false);
++    expect(s.delayMs).toBe(200);
++  });
++
++  it("rejects a slow timer in a file that never mentions visibilitychange", () => {
++    const s = one(`const t = setInterval(tick, 30_000); clearInterval(t);`);
++    expect(s.passes).toBe(false);
++    expect(s.reason).toMatch(/visibilitychange/);
++  });
++
++  it("rejects an interval it cannot resolve", () => {
++    const s = one(`
++      document.addEventListener("visibilitychange", noop);
++      clearInterval(x);
++      const t = setInterval(tick, props.everyMs);
++    `);
++    expect(s.delayMs).toBeNull();
++    expect(s.passes).toBe(false);
++  });
++
++  it("accepts a timer that satisfies both clauses, however the delay is spelled", () => {
++    const s = one(`
++      const TICK_MS = 15_000;
++      document.addEventListener("visibilitychange", onHide);
++      const t = setInterval(tick, TICK_MS);
++      function onHide() { clearInterval(t); }
++    `);
++    expect(s.delayMs).toBe(15000);
++    expect(s.passes).toBe(true);
++  });
++
++  it("resolves an interval computed from two constants — Index.tsx's 1800/60", () => {
++    const s = one(`
++      const duration = 1800;
++      const steps = 60;
++      const interval = duration / steps;
++      const t = setInterval(tick, interval);
++    `);
++    expect(s.delayMs).toBe(30);
++    expect(s.passes).toBe(false);
++  });
++});
+--
+2.43.0

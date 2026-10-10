@@ -1,0 +1,431 @@
+From cf3eb6a3404b6542b405c7f4415764b8f19f87af Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 21 Aug 2026 15:28:08 +0000
+Subject: [PATCH] =?UTF-8?q?web:=20environment=20isolation=20=E2=80=94=20re?=
+ =?UTF-8?q?move=20committed=20.env,=20add=20bundle-isolation=20guard?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The committed .env made production the silent default backend for every build
+(proven: env-less build contained the production ref 14x). This change makes a
+build's backend explicit and machine-verified:
+
+- delete .env; add .env.example (placeholders) and gitignore all env files
+- index.html: Supabase preconnect/dns-prefetch via %VITE_SUPABASE_URL%
+- reportImageError.ts / CloudflareEdgeChecklist.tsx: refs derived from env,
+  never literals
+- public/_redirects (production-specific artifact) replaced by build-time
+  generation (scripts/generate-redirects.mjs) — refuses to emit without env
+- scripts/verify-bundle-isolation.mjs: post-build guard, rules R1-R5, scans
+  every text asset incl. extensionless (_redirects); fails closed
+- scripts/test-isolation-guard.mjs: RED baseline 8 cases + 6 mutations
+  (4 kill, 2 fail-closed-under-mutation), refuses red baselines
+- vitest.config.ts: hermetic synthetic test env (suite no longer depends on
+  the deleted .env; 2261 tests green with zero external env)
+- web-build.yml: guard self-test + production-lane guard after build
+
+Proven on real builds: no-env build fails closed at generate-redirects;
+production-env build PASS (263 assets, no staging ref); synthetic-staging
+build contains zero production refs.
+
+REQUIRES before merge: production Pages project env vars
+VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY / VITE_SUPABASE_PROJECT_ID
+set in Cloudflare Pages settings (values from the old .env), build command
+'npm run build && node scripts/verify-bundle-isolation.mjs'.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_014S2dbQLtUhvPYcgetMD892
+---
+ .env                                          |  5 -
+ .env.example                                  |  9 ++
+ .github/workflows/web-build.yml               |  9 ++
+ .gitignore                                    |  5 +
+ index.html                                    |  4 +-
+ package.json                                  |  6 +-
+ public/_redirects                             |  1 -
+ scripts/generate-redirects.mjs                | 13 +++
+ scripts/test-isolation-guard.mjs              | 92 +++++++++++++++++++
+ scripts/verify-bundle-isolation.mjs           | 67 ++++++++++++++
+ .../admin/CloudflareEdgeChecklist.tsx         |  8 +-
+ src/lib/reportImageError.ts                   | 14 ++-
+ vitest.config.ts                              |  8 ++
+ 13 files changed, 224 insertions(+), 17 deletions(-)
+ delete mode 100644 .env
+ create mode 100644 .env.example
+ delete mode 100644 public/_redirects
+ create mode 100644 scripts/generate-redirects.mjs
+ create mode 100644 scripts/test-isolation-guard.mjs
+ create mode 100644 scripts/verify-bundle-isolation.mjs
+
+diff --git a/.env b/.env
+deleted file mode 100644
+index 8a5c3b9..0000000
+--- a/.env
++++ /dev/null
+@@ -1,5 +0,0 @@
+-SUPABASE_PUBLISHABLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0ZHRlaHVxdGluanhyb3Bra2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzI3MjEsImV4cCI6MjA5OTE0ODcyMX0.qY8BI5LXb6uLzTwbpf8AleZ6UZyfeaOA0q4_TC5CEpo"
+-SUPABASE_URL="https://jtdtehuqtinjxropkkcn.supabase.co"
+-VITE_SUPABASE_PROJECT_ID="jtdtehuqtinjxropkkcn"
+-VITE_SUPABASE_PUBLISHABLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0ZHRlaHVxdGluanhyb3Bra2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzI3MjEsImV4cCI6MjA5OTE0ODcyMX0.qY8BI5LXb6uLzTwbpf8AleZ6UZyfeaOA0q4_TC5CEpo"
+-VITE_SUPABASE_URL="https://jtdtehuqtinjxropkkcn.supabase.co"
+diff --git a/.env.example b/.env.example
+new file mode 100644
+index 0000000..ea9e464
+--- /dev/null
++++ b/.env.example
+@@ -0,0 +1,9 @@
++# 50mm Retina World — web client environment (EXAMPLE — contains no real values)
++# Copy to .env.local for local development. .env.local is gitignored.
++# The real values per environment live ONLY in Cloudflare Pages project settings:
++#   production Pages project -> production values
++#   50mm-staging Pages project -> staging values
++# A build with these unset FAILS at the isolation guard (scripts/verify-bundle-isolation.mjs).
++VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
++VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
++VITE_SUPABASE_PROJECT_ID=YOUR_PROJECT_REF
+diff --git a/.github/workflows/web-build.yml b/.github/workflows/web-build.yml
+index a97ca2d..2fb4aa8 100644
+--- a/.github/workflows/web-build.yml
++++ b/.github/workflows/web-build.yml
+@@ -57,3 +57,12 @@ jobs:
+           count=$(find dist/assets -name '*.js' | wc -l)
+           echo "dist/assets carries $count JavaScript chunks"
+           test "$count" -gt 0
++
++      - name: Bundle isolation guard (self-test)
++        run: node scripts/test-isolation-guard.mjs
++
++      - name: Bundle isolation guard (production lane)
++        env:
++          VITE_SUPABASE_URL: https://jtdtehuqtinjxropkkcn.supabase.co
++          ISOLATION_FORBIDDEN_REFS: ""
++        run: node scripts/verify-bundle-isolation.mjs
+diff --git a/.gitignore b/.gitignore
+index 59faa56..c635d1a 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -26,3 +26,8 @@ dist-ssr
+
+ # Screenshots produced by tools/uishot/capture.mjs — build output, not source.
+ /ui-shots/
++
++# environment files are never committed (staging isolation, 2026-08-21)
++.env
++.env.local
++.env.*.local
+diff --git a/index.html b/index.html
+index 7cc5a04..0a1ed66 100644
+--- a/index.html
++++ b/index.html
+@@ -59,8 +59,8 @@
+         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+       />
+     </noscript>
+-    <link rel="preconnect" href="https://jtdtehuqtinjxropkkcn.supabase.co" />
+-    <link rel="dns-prefetch" href="https://jtdtehuqtinjxropkkcn.supabase.co" />
++    <link rel="preconnect" href="%VITE_SUPABASE_URL%" />
++    <link rel="dns-prefetch" href="%VITE_SUPABASE_URL%" />
+     <title>50mm Retina World — Competitions, Education & Journal for Photographers</title>
+     <meta name="description" content="Join 50mm Retina World — the ultimate platform for photographers. Enter global competitions, master your craft through expert courses, and explore our photography journal.">
+     <meta name="keywords" content="photography, competitions, photography courses, photo journal, wildlife photography, street photography, portrait photography, photography platform, 50mm Retina World">
+diff --git a/package.json b/package.json
+index 5f87683..77ba1cc 100644
+--- a/package.json
++++ b/package.json
+@@ -5,7 +5,7 @@
+   "type": "module",
+   "scripts": {
+     "dev": "vite",
+-    "build": "vite build",
++    "build": "vite build && node scripts/generate-redirects.mjs",
+     "build:dev": "vite build --mode development",
+     "lint": "eslint .",
+     "preview": "vite preview",
+@@ -19,7 +19,9 @@
+     "ui:shot": "node tools/uishot/capture.mjs",
+     "ui:gate": "node tools/uishot/gate.mjs",
+     "typecheck": "tsc --noEmit -p tsconfig.app.json",
+-    "gate": "npm run typecheck && npm run test && npm run build"
++    "gate": "npm run typecheck && npm run test && npm run build",
++    "verify:isolation": "node scripts/verify-bundle-isolation.mjs",
++    "test:isolation-guard": "node scripts/test-isolation-guard.mjs"
+   },
+   "dependencies": {
+     "@hookform/resolvers": "^3.10.0",
+diff --git a/public/_redirects b/public/_redirects
+deleted file mode 100644
+index 11f27c0..0000000
+--- a/public/_redirects
++++ /dev/null
+@@ -1 +0,0 @@
+-/sitemap.xml  https://jtdtehuqtinjxropkkcn.supabase.co/functions/v1/sitemap  200
+diff --git a/scripts/generate-redirects.mjs b/scripts/generate-redirects.mjs
+new file mode 100644
+index 0000000..4f83722
+--- /dev/null
++++ b/scripts/generate-redirects.mjs
+@@ -0,0 +1,13 @@
++#!/usr/bin/env node
++/** Generates dist/_redirects from the build environment (isolation guard, 2026-08-21).
++ *  public/_redirects was a committed production artifact; environment-specific
++ *  artifacts are generated, never committed. Fails closed if the env is absent. */
++import { writeFileSync, existsSync } from "node:fs";
++const url = (process.env.VITE_SUPABASE_URL || "").trim().replace(/\/$/, "");
++if (!/^https:\/\/[a-z0-9]{15,25}\.supabase\.co$/.test(url)) {
++  console.error("generate-redirects FAIL: VITE_SUPABASE_URL unset/invalid — refusing to emit _redirects");
++  process.exit(1);
++}
++if (!existsSync("dist")) { console.error("generate-redirects FAIL: dist/ missing"); process.exit(1); }
++writeFileSync("dist/_redirects", `/sitemap.xml  ${url}/functions/v1/sitemap  200\n`);
++console.log(`generate-redirects OK: /sitemap.xml -> ${url}/functions/v1/sitemap`);
+diff --git a/scripts/test-isolation-guard.mjs b/scripts/test-isolation-guard.mjs
+new file mode 100644
+index 0000000..0c15db0
+--- /dev/null
++++ b/scripts/test-isolation-guard.mjs
+@@ -0,0 +1,92 @@
++#!/usr/bin/env node
++/** RED + mutation harness for verify-bundle-isolation.mjs.
++ *  Refuses to certify on a red baseline: every expectation is asserted, and
++ *  five mutations of the guard must each be DETECTED (i.e. the mutated guard
++ *  lets a bad bundle through or blocks a good one, and this harness notices).
++ */
++import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
++import { tmpdir } from "node:os";
++import { join } from "node:path";
++import { spawnSync } from "node:child_process";
++
++const GUARD = new URL("./verify-bundle-isolation.mjs", import.meta.url).pathname;
++const PROD = "jtdtehuqtinjxropkkcn";
++const STAG = "stgabcdefghijklmnopq"; // synthetic 20-char staging ref
++const results = [];
++function runGuard(guardPath, dist, env) {
++  return spawnSync(process.execPath, [guardPath], {
++    env: { ...process.env, ISOLATION_DIST_DIR: dist, ...env }, encoding: "utf8" });
++}
++function fixture(kind) {
++  const d = mkdtempSync(join(tmpdir(), "dist-"));
++  mkdirSync(join(d, "assets"), { recursive: true });
++  const put = (f, s) => writeFileSync(join(d, f), s);
++  if (kind === "staging-clean")   { put("index.html", `<link rel="preconnect" href="https://${STAG}.supabase.co">`); put("assets/app.js", `const u="https://${STAG}.supabase.co";`); }
++  if (kind === "staging-leaky")   { put("index.html", `<link rel="preconnect" href="https://${PROD}.supabase.co">`); put("assets/app.js", `const u="https://${STAG}.supabase.co";const bad="https://${PROD}.supabase.co";`); }
++  if (kind === "env-ignored")     { put("index.html", "<html></html>"); put("assets/app.js", `const u="https://thirdprojectref9999x.supabase.co";`); } // env ignored: bundle holds neither expected nor forbidden ref
++  if (kind === "prod-clean")      { put("index.html", `<link rel="preconnect" href="https://${PROD}.supabase.co">`); put("assets/app.js", `const u="https://${PROD}.supabase.co";`); }
++  if (kind === "empty")           { /* nothing */ }
++  if (kind === "redirects-leak") { put("index.html", `ok https://${STAG}.supabase.co`); put("_redirects", `/sitemap.xml https://${PROD}.supabase.co/functions/v1/sitemap 200`); }
++  if (kind === "split-css-js")    { put("assets/style.css", `/* ${STAG} marker: https://${STAG}.supabase.co */`); put("assets/app.js", `const bad="https://${PROD}.supabase.co";`); }
++  return d;
++}
++function expect(name, r, wantExit, wantSnippet) {
++  const out = (r.stdout || "") + (r.stderr || "");
++  const ok = r.status === wantExit && (!wantSnippet || out.includes(wantSnippet));
++  results.push({ name, ok, exit: r.status, out: out.trim().split("\n").pop() });
++  return ok;
++}
++const stagingEnv = { VITE_SUPABASE_URL: `https://${STAG}.supabase.co`, ISOLATION_FORBIDDEN_REFS: PROD };
++const prodEnv    = { VITE_SUPABASE_URL: `https://${PROD}.supabase.co`, ISOLATION_FORBIDDEN_REFS: STAG };
++
++// ---- BASELINE (RED first: the leak cases must FAIL before anything passes) ----
++expect("RED-1 staging bundle containing production ref -> FAIL R3", runGuard(GUARD, fixture("staging-leaky"), stagingEnv), 1, "[R3]");
++expect("RED-2 staging build that ignored env (.env fallback shape) -> FAIL R2", runGuard(GUARD, fixture("env-ignored"), stagingEnv), 1, "[R2]");
++expect("RED-3 VITE_SUPABASE_URL unset -> FAIL R1", runGuard(GUARD, fixture("staging-clean"), { ISOLATION_FORBIDDEN_REFS: PROD }), 1, "[R1]");
++expect("RED-4 empty dist -> FAIL R4", runGuard(GUARD, fixture("empty"), stagingEnv), 1, "[R4]");
++expect("RED-5 expected ref also forbidden -> FAIL R5", runGuard(GUARD, fixture("staging-clean"), { VITE_SUPABASE_URL: `https://${STAG}.supabase.co`, ISOLATION_FORBIDDEN_REFS: `${PROD},${STAG}` }), 1, "[R5]");
++expect("RED-6 leak in extensionless _redirects -> FAIL R3", runGuard(GUARD, fixture("redirects-leak"), stagingEnv), 1, "[R3]");
++expect("GREEN-1 clean staging bundle -> PASS", runGuard(GUARD, fixture("staging-clean"), stagingEnv), 0, "ISOLATION-GUARD PASS");
++expect("GREEN-2 clean production bundle (inverse lane) -> PASS", runGuard(GUARD, fixture("prod-clean"), prodEnv), 0, "ISOLATION-GUARD PASS");
++
++if (results.some(r => !r.ok)) { report(); console.error("\nBASELINE RED — refusing to run mutations over a failing baseline."); process.exit(1); }
++
++// ---- MUTATIONS: each mutated guard must be DETECTED by these fixtures ----
++const src = readFileSync(GUARD, "utf8");
++// KILL mutations: the mutated guard must let a bad bundle PASS (escape), which this harness detects.
++const killMutations = [
++  ["W1 forbidden scan removed",            src.replace("if (body.includes(ref)) leaks.push", "if (false) leaks.push"),
++     g => runGuard(g, fixture("staging-leaky"), stagingEnv).status === 0],
++  ["W2 expected-ref check inverted",       src.replace("if (!expectedSeen)", "if (expectedSeen && false)"),
++     g => runGuard(g, fixture("env-ignored"), stagingEnv).status === 0],
++  ["W3 fail() no longer exits nonzero",    src.replace("process.exit(1);", "process.exit(0);"),
++     g => runGuard(g, fixture("staging-leaky"), stagingEnv).status === 0],
++  ["W6 scan scope narrowed to .css only",  src.replace(/const TEXT_EXT = new Set\(\[[^\]]*\]\);/, 'const TEXT_EXT = new Set([".css"]);'),
++     g => runGuard(g, fixture("split-css-js"), stagingEnv).status === 0],
++];
++// EQUIVALENT-REDUNDANT mutations (W4/W5): R2 backstops them, so the end state cannot change.
++// Per standing rule 9 the target is RETARGETED, invariant restated: under these mutations the
++// guard must STILL fail closed (exit nonzero) — defense-in-depth proven, nothing weakened.
++const failClosedMutations = [
++  ["W4 empty-dist rule dropped -> must still fail closed (via R2 backstop)",
++     src.replace('if (files.length === 0) fail("R4"', 'if (false) fail("R4"'),
++     g => runGuard(g, fixture("empty"), stagingEnv).status !== 0],
++  ["W5 URL validation loosened -> garbage URL must still fail closed (via R2 backstop)",
++     src.replace(/const m = url.match\([^\n]+\);/, 'const m = ["", url.replace(/[^a-z0-9]/g, "").slice(0,20) || "x"];'),
++     g => runGuard(g, fixture("staging-clean"), { VITE_SUPABASE_URL: "http://evil.example", ISOLATION_FORBIDDEN_REFS: PROD }).status !== 0],
++];
++let detected = 0;
++const mutTotal = killMutations.length + failClosedMutations.length;
++for (const [name, mutated, check] of [...killMutations, ...failClosedMutations]) {
++  const mp = join(mkdtempSync(join(tmpdir(), "mut-")), "guard.mjs");
++  writeFileSync(mp, mutated);
++  const ok = check(mp);
++  results.push({ name: `MUT ${name}`, ok, exit: ok ? "DETECTED/HELD" : "NOT-DETECTED", out: "" });
++  if (ok) detected++;
++}
++function report() {
++  for (const r of results) console.log(`${r.ok ? "PASS" : "FAIL"}  ${r.name}${r.out ? "  | " + r.out : ""}`);
++}
++report();
++console.log(`\nMutations detected/held: ${detected}/${mutTotal}`);
++process.exit(results.every(r => r.ok) && detected === mutTotal ? 0 : 1);
+diff --git a/scripts/verify-bundle-isolation.mjs b/scripts/verify-bundle-isolation.mjs
+new file mode 100644
+index 0000000..8ef75fc
+--- /dev/null
++++ b/scripts/verify-bundle-isolation.mjs
+@@ -0,0 +1,67 @@
++#!/usr/bin/env node
++/**
++ * BUNDLE ISOLATION GUARD — verify-bundle-isolation.mjs
++ *
++ * Fails the build if the produced bundle is wired to the wrong backend.
++ * This is the enforcement half of the staging/production boundary:
++ * a staging build must NEVER silently contain the production Supabase ref,
++ * and a production build must never contain the staging ref.
++ *
++ * Usage (CI and Pages build command, after `npm run build`):
++ *   node scripts/verify-bundle-isolation.mjs
++ *
++ * Required environment:
++ *   VITE_SUPABASE_URL        the URL the build was given (same var Vite baked in)
++ *   ISOLATION_FORBIDDEN_REFS comma-separated project refs that must NOT appear
++ *                            (production lane: the staging ref, once it exists;
++ *                             staging lane: jtdtehuqtinjxropkkcn)
++ * Optional:
++ *   ISOLATION_DIST_DIR       default "dist"
++ *
++ * FAIL-CLOSED RULES (each is deliberate; the mutation harness pins them):
++ *   R1 VITE_SUPABASE_URL unset/empty            -> exit 1 (a build with no target is wrong)
++ *   R2 expected ref not found anywhere in dist  -> exit 1 (env was ignored => .env fallback)
++ *   R3 any forbidden ref found anywhere in dist -> exit 1 (cross-environment leak)
++ *   R4 dist missing or contains no text assets  -> exit 1 (nothing verified is not a pass)
++ *   R5 expected ref listed as forbidden         -> exit 1 (misconfiguration, refuse to run)
++ */
++import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
++import { join, extname } from "node:path";
++
++const DIST = process.env.ISOLATION_DIST_DIR || "dist";
++const url = (process.env.VITE_SUPABASE_URL || "").trim();
++const forbidden = (process.env.ISOLATION_FORBIDDEN_REFS || "")
++  .split(",").map(s => s.trim()).filter(Boolean);
++
++const TEXT_EXT = new Set([".html", ".js", ".mjs", ".css", ".json", ".txt", ".webmanifest", ".map", ".svg"]);
++const fail = (code, msg) => { console.error(`ISOLATION-GUARD FAIL [${code}]: ${msg}`); process.exit(1); };
++
++const m = url.match(/^https:\/\/([a-z0-9]{15,25})\.supabase\.co\/?$/);
++if (!m) fail("R1", `VITE_SUPABASE_URL is unset or not a https://<ref>.supabase.co URL (got: "${url}")`);
++const expectedRef = m[1];
++if (forbidden.includes(expectedRef)) fail("R5", `expected ref "${expectedRef}" is also listed in ISOLATION_FORBIDDEN_REFS`);
++if (forbidden.length === 0) console.warn("ISOLATION-GUARD WARN: ISOLATION_FORBIDDEN_REFS is empty — leak check limited to R2.");
++
++if (!existsSync(DIST)) fail("R4", `dist directory "${DIST}" does not exist`);
++const files = [];
++(function walk(dir) {
++  for (const name of readdirSync(dir)) {
++    const p = join(dir, name);
++    const st = statSync(p);
++    if (st.isDirectory()) walk(p);
++    else { const e = extname(name).toLowerCase(); if (TEXT_EXT.has(e) || e === "") files.push(p); } // extensionless (_redirects, _headers) are text artifacts too
++  }
++})(DIST);
++if (files.length === 0) fail("R4", `no text assets found under "${DIST}" — nothing was verified`);
++
++let expectedSeen = false;
++const leaks = [];
++for (const f of files) {
++  const body = readFileSync(f, "utf8");
++  if (body.includes(expectedRef)) expectedSeen = true;
++  for (const ref of forbidden) if (body.includes(ref)) leaks.push(`${ref} in ${f}`);
++}
++if (leaks.length > 0) fail("R3", `forbidden backend ref(s) present in bundle:\n  ${leaks.join("\n  ")}`);
++if (!expectedSeen) fail("R2", `expected ref "${expectedRef}" not found in any bundle asset — the build ignored its environment (committed .env fallback?)`);
++
++console.log(`ISOLATION-GUARD PASS: expected=${expectedRef} present; forbidden=[${forbidden.join(",")}] absent; ${files.length} assets scanned.`);
+diff --git a/src/components/admin/CloudflareEdgeChecklist.tsx b/src/components/admin/CloudflareEdgeChecklist.tsx
+index a0fc3c4..88a2c74 100644
+--- a/src/components/admin/CloudflareEdgeChecklist.tsx
++++ b/src/components/admin/CloudflareEdgeChecklist.tsx
+@@ -1,5 +1,6 @@
+ import { useCallback, useEffect, useState } from "react";
+ import {
++
+   CheckCircle2,
+   Circle,
+   Copy,
+@@ -9,6 +10,9 @@ import {
+   XCircle,
+ } from "lucide-react";
+
++// Derived from the build environment — never a literal (isolation guard, 2026-08-21).
++const SUPA_REF = (import.meta.env.VITE_SUPABASE_PROJECT_ID as string) || (() => { try { return new URL(import.meta.env.VITE_SUPABASE_URL as string).hostname.split(".")[0]; } catch { return ""; } })();
++
+ const headingFont = { fontFamily: "var(--font-heading)" };
+ const bodyFont = { fontFamily: "var(--font-body)" };
+
+@@ -186,9 +190,9 @@ export default function CloudflareEdgeChecklist() {
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">
+           {[
+             ["ORIGIN_HOST", "lens-lustre-learn-claude.pages.dev"],
+-            ["SUPABASE_PROJECT_REF", "jtdtehuqtinjxropkkcn"],
++            ["SUPABASE_PROJECT_REF", SUPA_REF],
+             ["ENABLE_REWRITE", "false"],
+-            ["METADATA_FUNCTION_URL", "https://jtdtehuqtinjxropkkcn.functions.supabase.co/seo-route-metadata"],
++            ["METADATA_FUNCTION_URL", `https://${SUPA_REF}.functions.supabase.co/seo-route-metadata`],
+           ].map(([k, v]) => (
+             <div key={k} className="flex items-center justify-between gap-2 border border-border px-2 py-1.5">
+               <div className="min-w-0 flex-1">
+diff --git a/src/lib/reportImageError.ts b/src/lib/reportImageError.ts
+index 79d092c..631a0b8 100644
+--- a/src/lib/reportImageError.ts
++++ b/src/lib/reportImageError.ts
+@@ -36,11 +36,15 @@
+  */
+ import reportClientError from "@/lib/reportClientError";
+
+-/** Our own image hosts. Anything else is somebody else's problem. */
+-const OUR_IMAGE_HOSTS = [
+-  "cdn.50mmretina.com",
+-  "jtdtehuqtinjxropkkcn.supabase.co",
+-];
++/** Our own image hosts. Anything else is somebody else's problem.
++ *  The Supabase host is DERIVED from the build's environment so that a staging
++ *  build reports against staging and can never embed the production ref
++ *  (bundle-isolation guard, 2026-08-21). */
++const SUPABASE_HOST = (() => {
++  try { return new URL(import.meta.env.VITE_SUPABASE_URL as string).hostname; }
++  catch { return ""; }
++})();
++const OUR_IMAGE_HOSTS = ["cdn.50mmretina.com", SUPABASE_HOST].filter(Boolean);
+
+ const MAX_REPORTS_PER_PAGE = 5;
+
+diff --git a/vitest.config.ts b/vitest.config.ts
+index fefe05a..1caacb4 100644
+--- a/vitest.config.ts
++++ b/vitest.config.ts
+@@ -6,6 +6,14 @@ export default defineConfig({
+   plugins: [react()],
+   test: {
+     environment: "jsdom",
++    // Hermetic synthetic backend env for tests (isolation guard, 2026-08-21).
++    // The committed .env used to supply these silently; tests must never depend
++    // on a real environment, and CI provides none. Values are synthetic on purpose.
++    env: {
++      VITE_SUPABASE_URL: "https://testprojectref0000x.supabase.co",
++      VITE_SUPABASE_PUBLISHABLE_KEY: "test-publishable-key-not-real",
++      VITE_SUPABASE_PROJECT_ID: "testprojectref0000x",
++    },
+     globals: true,
+     setupFiles: ["./src/test/setup.ts"],
+     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+--
+2.43.0

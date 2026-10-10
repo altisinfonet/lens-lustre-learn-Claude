@@ -1,0 +1,92 @@
+# SESSION-2 PER-FILE DRIFT PARTITION — DERIVED AFTER CONTACT
+# label	DERIVED AFTER CONTACT
+# emitted_at_utc	2026-08-30T16:36:22Z
+# purpose	Pass-2 raw material for the join, per the auditor's ruling §3 of claude/JOIN_MAPPING_RULING_AND_PATCH_DEFECT_2026-08-30.md
+# parent	SESSION2_PER_FUNCTION_VERDICTS.tsv  sha256 6588bca59d538b77cd2c104ff323902fcf16f45bd2051530e55bd4803a1756e3  frozen 2026-08-30T16:22:20Z (BLIND)
+#
+# PROVENANCE — read this before using any column
+#   E1 columns are lifted verbatim from out/census.json, written 2026-08-30 ~14:05Z, BEFORE this session had any
+#     contact with Developer 1's vocabulary or list. Not recomputed here.
+#   E3 columns are a RE-RUN of the same unmodified comparator (tool/bundle.py) over the same frozen inputs, executed
+#     after contact solely because census.json stored per-file detail for E1 only. The re-run reproduces the frozen
+#     bucket_vs_E3 column for all 71 functions exactly — regression check passed — so it adds detail, not verdicts.
+#   No definition was changed. No threshold was tuned. This session has NOT seen Developer 1's per-function list.
+#   The column e3_only_differing_file_is_secureHeaders implements the auditor's Pass-2 test verbatim; it is this
+#     session's own answer to that test, computed without sight of the set it will be compared against.
+#
+# drift kinds	CONTENT_DIFFERS | WHITESPACE_ONLY | MISSING_IN_DEPLOYED | MISSING_IN_REPO. Files not listed are byte-identical.
+# E1	b671e1fb0c5bcf145d442076c229eca888afd674  refs/heads/main (destination)
+# E3	a42b209e4f70a6efed4f3dcdb654e0f994416594  true RC
+#
+function	bucket_E1	bucket_E3	deployed_files	e1_differing	e1_kinds	e3_differing	e3_kinds	e3_only_differing_file_is_secureHeaders
+ad-reward-credit	MATCH	MATCH	1	-	-	-	-	no
+admin-export-db	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+admin-process-withdrawal	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+admin-secure-settings	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+analyze-gallery-image	DRIFT	DRIFT	1	index.ts	CONTENT_DIFFERS	index.ts	CONTENT_DIFFERS	no
+apply-scheduled-boosts	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+ask-anything	DRIFT	DRIFT	1	index.ts	CONTENT_DIFFERS	index.ts	CONTENT_DIFFERS	no
+auth-email-hook	DRIFT	DRIFT	8	_shared/email-templates/email-change.tsx;_shared/email-templates/invite.tsx;_shared/email-templates/magic-link.tsx;_shared/email-templates/reauthentication.tsx;_shared/email-templates/recovery.tsx;_shared/email-templates/signup.tsx;index.ts	CONTENT_DIFFERS	_shared/email-templates/email-change.tsx;_shared/email-templates/invite.tsx;_shared/email-templates/magic-link.tsx;_shared/email-templates/reauthentication.tsx;_shared/email-templates/recovery.tsx;_shared/email-templates/signup.tsx;_shared/laneConfig.ts;index.ts	CONTENT_DIFFERS;MISSING_IN_DEPLOYED	no
+autoscale-ad-traffic	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+backfill-image-dims	DRIFT	DRIFT	3	_shared/s3.ts;index.ts	CONTENT_DIFFERS	_shared/s3.ts;index.ts	CONTENT_DIFFERS	no
+backfill-image-hashes	MATCH	MATCH	1	-	-	-	-	no
+backfill-thumbnails	MATCH	DRIFT	1	-	-	index.ts	CONTENT_DIFFERS	no
+backup-reminder	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+brevo-webhook	MATCH	MATCH	1	-	-	-	-	no
+cast-photo-vote	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+complete-round	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+create-payment-session	MATCH	DRIFT	2	-	-	_shared/laneConfig.ts;_shared/secureHeaders.ts;index.ts	CONTENT_DIFFERS;MISSING_IN_DEPLOYED	no
+dashboard-init	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+delete-my-account	DRIFT	DRIFT	1	index.ts	CONTENT_DIFFERS	index.ts	CONTENT_DIFFERS	no
+delete-user	DRIFT	DRIFT	1	index.ts	CONTENT_DIFFERS	index.ts	CONTENT_DIFFERS	no
+detect-ai-image	DRIFT	DRIFT	1	index.ts	CONTENT_DIFFERS	index.ts	CONTENT_DIFFERS	no
+detect-orphan-files	MATCH	DRIFT	3	-	-	_shared/referenceSet.ts;_shared/s3.ts	CONTENT_DIFFERS	no
+diagnose-brevo-key	MATCH	MATCH	1	-	-	-	-	no
+entry-final-votes	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+evaluate-round2	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+expire-gift-credits	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+fix-cache-headers	MATCH	MATCH	1	-	-	-	-	no
+ga-report	MATCH	MATCH	1	-	-	-	-	no
+get-payment-gateways-public	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+get-wallet-summary	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+get-wallet-transactions	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+handle-email-suppression	MATCH	MATCH	2	-	-	-	-	no
+handle-email-unsubscribe	MATCH	MATCH	2	-	-	-	-	no
+hard-delete-competition	MATCH	DRIFT	1	-	-	_shared/s3.ts;index.ts	CONTENT_DIFFERS;MISSING_IN_DEPLOYED	no
+judge-session-resume	MATCH	MATCH	2	-	-	-	-	no
+judging-invariants-nightly	MATCH	MATCH	1	-	-	-	-	no
+manage-notifications	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+measure-post-media	DRIFT	DRIFT	2	_shared/imageDims.ts;index.ts	CONTENT_DIFFERS	_shared/imageDims.ts;_shared/laneConfig.ts;index.ts	CONTENT_DIFFERS;MISSING_IN_DEPLOYED	no
+media-register-upload	DRIFT	DRIFT	3	_shared/imageDims.ts;_shared/s3.ts;index.ts	CONTENT_DIFFERS	_shared/imageDims.ts;_shared/s3.ts;index.ts	CONTENT_DIFFERS	no
+migrate-post-media	DRIFT	DRIFT	3	_shared/imageDims.ts;_shared/manifestPlan.ts;index.ts	CONTENT_DIFFERS	_shared/imageDims.ts;_shared/laneConfig.ts;_shared/manifestPlan.ts;index.ts	CONTENT_DIFFERS;MISSING_IN_DEPLOYED	no
+migrate-storage	MATCH	DRIFT	1	-	-	_shared/s3.ts;index.ts	CONTENT_DIFFERS;MISSING_IN_DEPLOYED	no
+moderate-comment	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+paypal-capture-order	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+preview-transactional-email	DRIFT	DRIFT	21	_shared/transactional-email-templates/account-deleted.tsx;_shared/transactional-email-templates/registry.ts;deno.json	CONTENT_DIFFERS;MISSING_IN_DEPLOYED	_shared/laneConfig.ts;_shared/transactional-email-templates/BrandHeader.tsx;_shared/transactional-email-templates/account-deleted.tsx;_shared/transactional-email-templates/entry-finalist.tsx;_shared/transactional-email-templates/entry-qualified-round.tsx;_shared/transactional-email-templates/entry-rejected.tsx;_shared/transactional-email-templates/entry-shortlisted.tsx;_shared/transactional-email-templates/entry-winner.tsx;_shared/transactional-email-templates/notification-alert.tsx;_shared/transactional-email-templates/reengagement-day-15.tsx;_shared/transactional-email-templates/reengagement-day-3.tsx;_shared/transactional-email-templates/reengagement-day-30.tsx;_shared/transactional-email-templates/reengagement-day-40.tsx;_shared/transactional-email-templates/reengagement-day-50.tsx;_shared/transactional-email-templates/reengagement-day-60.tsx;_shared/transactional-email-templates/reengagement-day-7.tsx;_shared/transactional-email-templates/registry.ts;_shared/transactional-email-templates/round-published-summary.tsx;deno.json	CONTENT_DIFFERS;MISSING_IN_DEPLOYED	no
+process-email-queue	DRIFT	DRIFT	21	_shared/transactional-email-templates/account-deleted.tsx;_shared/transactional-email-templates/registry.ts;deno.json;index.ts	CONTENT_DIFFERS;MISSING_IN_DEPLOYED	_shared/laneConfig.ts;_shared/transactional-email-templates/BrandHeader.tsx;_shared/transactional-email-templates/account-deleted.tsx;_shared/transactional-email-templates/entry-finalist.tsx;_shared/transactional-email-templates/entry-qualified-round.tsx;_shared/transactional-email-templates/entry-rejected.tsx;_shared/transactional-email-templates/entry-shortlisted.tsx;_shared/transactional-email-templates/entry-winner.tsx;_shared/transactional-email-templates/notification-alert.tsx;_shared/transactional-email-templates/reengagement-day-15.tsx;_shared/transactional-email-templates/reengagement-day-3.tsx;_shared/transactional-email-templates/reengagement-day-30.tsx;_shared/transactional-email-templates/reengagement-day-40.tsx;_shared/transactional-email-templates/reengagement-day-50.tsx;_shared/transactional-email-templates/reengagement-day-60.tsx;_shared/transactional-email-templates/reengagement-day-7.tsx;_shared/transactional-email-templates/registry.ts;_shared/transactional-email-templates/round-published-summary.tsx;deno.json;index.ts	CONTENT_DIFFERS;MISSING_IN_DEPLOYED	no
+publish-round	MATCH	MATCH	1	-	-	-	-	no
+publish-scheduled-posts	MATCH	MATCH	1	-	-	-	-	no
+purge-s3-orphans	DRIFT	DRIFT	2	_shared/s3.ts;index.ts	CONTENT_DIFFERS	_shared/s3.ts;index.ts	CONTENT_DIFFERS	no
+rank-feed	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+razorpay-verify-payment	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+s3-delete	MATCH	DRIFT	2	-	-	_shared/s3.ts;_shared/secureHeaders.ts;index.ts	CONTENT_DIFFERS;MISSING_IN_DEPLOYED	no
+s3-presign-upload	MATCH	DRIFT	2	-	-	_shared/s3.ts;_shared/secureHeaders.ts;index.ts	CONTENT_DIFFERS;MISSING_IN_DEPLOYED	no
+s3-signed-url	MATCH	DRIFT	2	-	-	_shared/s3.ts;_shared/secureHeaders.ts;index.ts	CONTENT_DIFFERS;MISSING_IN_DEPLOYED	no
+s3-upload	MATCH	DRIFT	2	-	-	_shared/s3.ts;_shared/secureHeaders.ts;index.ts	CONTENT_DIFFERS;MISSING_IN_DEPLOYED	no
+send-broadcast-push	MATCH	MATCH	1	-	-	-	-	no
+send-gift-credit	DRIFT	DRIFT	2	index.ts	CONTENT_DIFFERS	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+send-push	MATCH	MATCH	1	-	-	-	-	no
+send-reengagement-emails	DRIFT	DRIFT	1	deno.json;index.ts	CONTENT_DIFFERS;MISSING_IN_DEPLOYED	deno.json;index.ts	CONTENT_DIFFERS;MISSING_IN_DEPLOYED	no
+send-transactional-email	DRIFT	DRIFT	22	deno.json	MISSING_IN_DEPLOYED	_shared/laneConfig.ts;_shared/transactional-email-templates/BrandHeader.tsx;_shared/transactional-email-templates/account-deleted.tsx;_shared/transactional-email-templates/entry-finalist.tsx;_shared/transactional-email-templates/entry-qualified-round.tsx;_shared/transactional-email-templates/entry-rejected.tsx;_shared/transactional-email-templates/entry-shortlisted.tsx;_shared/transactional-email-templates/entry-winner.tsx;_shared/transactional-email-templates/notification-alert.tsx;_shared/transactional-email-templates/reengagement-day-15.tsx;_shared/transactional-email-templates/reengagement-day-3.tsx;_shared/transactional-email-templates/reengagement-day-30.tsx;_shared/transactional-email-templates/reengagement-day-40.tsx;_shared/transactional-email-templates/reengagement-day-50.tsx;_shared/transactional-email-templates/reengagement-day-60.tsx;_shared/transactional-email-templates/reengagement-day-7.tsx;_shared/transactional-email-templates/round-published-summary.tsx;deno.json;index.ts	CONTENT_DIFFERS;MISSING_IN_DEPLOYED	no
+seo-crawler-verify	MATCH	DRIFT	1	-	-	index.ts	CONTENT_DIFFERS	no
+seo-route-metadata	MATCH	DRIFT	1	-	-	_shared/laneConfig.ts;index.ts	CONTENT_DIFFERS;MISSING_IN_DEPLOYED	no
+sitemap	MATCH	DRIFT	1	-	-	_shared/laneConfig.ts;index.ts	CONTENT_DIFFERS;MISSING_IN_DEPLOYED	no
+submit-deposit	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts	CONTENT_DIFFERS	yes
+submit-judge-comment	MATCH	MATCH	2	-	-	-	-	no
+submit-judge-decision	MATCH	DRIFT	2	-	-	_shared/secureHeaders.ts;index.ts	CONTENT_DIFFERS;MISSING_IN_DEPLOYED	no
+submit-judge-score	MATCH	MATCH	2	-	-	-	-	no
+submit-judge-tag	MATCH	MATCH	2	-	-	-	-	no
+test-smtp	MATCH	MATCH	1	-	-	-	-	no
+translate-text	MATCH	MATCH	1	-	-	-	-	no
+verify-email-provider	MATCH	MATCH	1	-	-	-	-	no
+verify-image-hash	MATCH	MATCH	1	-	-	-	-	no

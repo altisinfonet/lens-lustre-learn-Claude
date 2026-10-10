@@ -1,0 +1,120 @@
+From a30866b4b433dfe964ee32b27381b3b41295ee66 Mon Sep 17 00:00:00 2001
+From: "Developer 2 (Client & Delivery)" <noreply@anthropic.com>
+Date: Thu, 3 Sep 2026 11:15:06 +0000
+Subject: [PATCH] ci(vitals): install Chromium instead of pointing at a path
+ the runner does not have
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Unit: F-2 guard follow-up (Auditor-accepted, VERIFIED on run 33746276312).
+On PR #137 the first real run of d2-web-vitals.yml failed at the F-2 guard:
+"the harness did not run: chromium would not launch: Executable doesn't exist
+at /opt/pw-browsers/chromium_headless_shell-1234/...". Zero measured samples.
+
+Cause, not symptom: the job pinned PLAYWRIGHT_BROWSERS_PATH to /opt/pw-browsers
+— a directory that exists in the sandbox this workflow was written in and not
+on a GitHub runner — and never installed a browser at all. The comment beside
+that variable ("nothing new is installed here") asserted the bug as a fact;
+Standing Rule 21, so it is deleted with the line rather than left to mislead.
+
+Fix: delete the pin so Playwright uses its default cache, and adopt ui-gate.yml's
+existing block verbatim — actions/cache@v4 on ~/.cache/ms-playwright, then
+`npx playwright install chromium` with a three-attempt retry and a hard error
+if all three fail. Its two YAML steps are byte-identical to ui-gate.yml's; only
+the surrounding comment differs, and it carries the same reasons (cache, retry,
+no --with-deps because apt hung builds 1107 and 1109).
+
+No dependency change: Playwright is already a devDependency and the Phase 0
+window stays closed. No `${{ }}` inside any run: block (F-47). The guard is not
+weakened — a browser that still cannot install fails the job, which is the whole
+point of the guard that caught this.
+
+Proved locally on this head, 2026-09-03T11:14Z: with the pin removed,
+`npx playwright install chromium` lands chromium-1234 and
+chromium_headless_shell-1234 in ~/.cache/ms-playwright — exactly the binary the
+failing run could not find — and the guard's own node script, run verbatim
+against the harness output, prints "6 measured sample(s) … the harness ran" and
+exits 0. Before: run 33746276312, guard exit 1, 0 samples.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017fdB5mybV9pixsM7n9b9Tf
+---
+ .github/workflows/d2-web-vitals.yml | 55 ++++++++++++++++++++++++++---
+ 1 file changed, 50 insertions(+), 5 deletions(-)
+
+diff --git a/.github/workflows/d2-web-vitals.yml b/.github/workflows/d2-web-vitals.yml
+index abd4c49..bb9e17a 100644
+--- a/.github/workflows/d2-web-vitals.yml
++++ b/.github/workflows/d2-web-vitals.yml
+@@ -97,11 +97,6 @@ jobs:
+       VITE_CDN_HOST: cdn-staging.50mmretina.com
+       VITE_SITE_ORIGIN: https://staging.50mmretina.com
+
+-      # Where this runner keeps its browsers. Playwright is already a
+-      # devDependency of this repository; nothing new is installed here, and the
+-      # Phase 0 dependency window is closed.
+-      PLAYWRIGHT_BROWSERS_PATH: /opt/pw-browsers
+-
+       EVIDENCE_DIR: docs/evidence/d2/baseline
+       # Home first, then the two heaviest surfaces a member actually opens.
+       # A route that does not exist still measures — the SPA serves index.html
+@@ -121,6 +116,56 @@ jobs:
+       - name: Clean install
+         run: npm ci --no-audit --no-fund
+
++      # ⚠ THE F-2 GUARD CAUGHT THIS ON ITS FIRST REAL RUN, 2026-09-03.
++      #
++      # Run 33746276312 (PR #137) failed at "The harness measured something"
++      # with: chromium would not launch: Executable doesn't exist at
++      # /opt/pw-browsers/chromium_headless_shell-1234/... . Two faults, one
++      # cause: this job set PLAYWRIGHT_BROWSERS_PATH to /opt/pw-browsers — a
++      # directory that exists in the sandbox this workflow was written in and
++      # NOT on a GitHub runner — and it never installed a browser at all. The
++      # comment beside that variable said "nothing new is installed here",
++      # which was true and was the bug. Both are gone: the pin is deleted, so
++      # Playwright uses its default cache, and the browser is installed here.
++      #
++      # This is `ui-gate.yml`'s block, deliberately unchanged rather than a
++      # second way of doing the same thing — including the reasons it has the
++      # shape it has:
++      #
++      #   * CACHED, because the download is the slow part on a repeat run.
++      #   * RETRIED three times, because build 1107 died on Ubuntu's mirror,
++      #     not on anything wrong with this repository.
++      #   * NO `--with-deps`, and that is the fix, not an omission: `--with-deps`
++      #     runs apt, apt hung builds 1107 and 1109 past the job budget, and it
++      #     does not fail fast, so the retry never reached attempt two. The
++      #     GitHub ubuntu image already ships the shared libraries Chromium
++      #     needs.
++      #   * AND IF IT STILL CANNOT INSTALL, THIS FAILS. A harness that cannot
++      #     launch a browser measures nothing, and nothing is not a value —
++      #     which is precisely what the F-2 guard downstream exists to say.
++      #
++      # No dependency change: Playwright is already a devDependency, and the
++      # Phase 0 dependency window stays closed.
++      - name: Cache the Playwright browser
++        uses: actions/cache@v4
++        with:
++          path: ~/.cache/ms-playwright
++          key: playwright-chromium-${{ hashFiles('package-lock.json') }}
++
++      - name: Install Chromium for Playwright
++        run: |
++          set -uo pipefail
++          for attempt in 1 2 3; do
++            if npx playwright install chromium; then
++              echo "Chromium ready (attempt ${attempt})."
++              exit 0
++            fi
++            echo "::warning::Chromium download attempt ${attempt} failed; retrying."
++            sleep $((attempt * 15))
++          done
++          echo "::error::Chromium could not be downloaded after 3 attempts."
++          exit 1
++
+       - name: Build the staging lane
+         run: npm run build
+
+--
+2.43.0

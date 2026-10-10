@@ -1,0 +1,319 @@
+From ee0486b5bc510fbd12a7ac8104b693a499d7d670 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 3 Sep 2026 15:07:55 +0000
+Subject: [PATCH] =?UTF-8?q?D2:=20TC-v3=20-=20=C2=A73.4=20SUBSTITUTED=20gat?=
+ =?UTF-8?q?e,=20a=20discriminating=20instrument=20that=20needs=20no=20brow?=
+ =?UTF-8?q?ser?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Unit: OWNER-RULING-2026-09-03-02, client half. Answers F-68.
+
+Paths touched:
+  src/__tests__/topContributorsV3.substituted.test.tsx  NEW - the instrument
+  docs/evidence/d2/tc-v3/run-substituted-gate.mjs       NEW - one-command runner
+
+No SQL, no supabase/**, no docs/gates/**, no ledger. No change to the four
+client-half source files - Index.tsx was mutated for the control run and
+restored byte-identical (git diff empty).
+
+WHY: on staging recent_score == contributor_score on every row (764/509/509
+both, measured 13:09:11.219771Z), so §3.4's descending check passes whether the
+card renders the ranking figure or the lifetime one. It cannot fail on the
+defect. This supplies production's trio, where they disagree and rank 3 holds
+the LARGEST lifetime figure: recent 7,055/6,978/6,823 against lifetime
+9,551/8,888/11,546.
+
+Renders the REAL Home card (src/pages/Index.tsx) and the signed-out sidebar
+through @testing-library, and reads both figures out of the RENDERED DOM. jsdom
+ships no IntersectionObserver and the card's entry animation constructs one, so
+a never-firing stub is installed in beforeAll; without it the tree throws before
+anything renders.
+
+MUTATION CONTROL (C-34), 2026-09-03: with the Home card's primary reverted to
+contributor_score, the gate fails -
+  expected [ 9551, 8888, 11546 ] to deeply equal [ 7055, 6978, 6823 ]
+  expected [ 9551, 8888, 11546 ] to not include 9551
+Restored; 5 passed. The instrument can fail on the defect it exists to catch.
+
+Two bugs in the harness itself, caught by running it rather than reasoning
+about it, both recorded in the file: an unanchored primary pattern also matched
+the wrapper, whose textContent is both lines concatenated; and digits() over
+"✦ 7,055 30d" returned 705530 because the label's own digits joined the figure.
+
+THE ELLIPSIS IS NOT ASSERTED and cannot be: jsdom performs no layout,
+clientWidth/scrollWidth are always 0 and text-overflow is never computed. The
+MECHANISM is asserted from the rendered DOM instead - the name element carries
+truncate and its flex parent carries min-w-0, the half that silently disables
+truncation when removed.
+
+SUBSTITUTED proves the CARD, never the lane. It does not replace the production
+reading after promotion and must not be recorded as one.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GV4h68oafMCN25g8cYMJ9V
+---
+ .../d2/tc-v3/run-substituted-gate.mjs         |  77 ++++++++
+ .../topContributorsV3.substituted.test.tsx    | 166 ++++++++++++++++++
+ 2 files changed, 243 insertions(+)
+ create mode 100644 docs/evidence/d2/tc-v3/run-substituted-gate.mjs
+ create mode 100644 src/__tests__/topContributorsV3.substituted.test.tsx
+
+diff --git a/docs/evidence/d2/tc-v3/run-substituted-gate.mjs b/docs/evidence/d2/tc-v3/run-substituted-gate.mjs
+new file mode 100644
+index 0000000..b55bf39
+--- /dev/null
++++ b/docs/evidence/d2/tc-v3/run-substituted-gate.mjs
+@@ -0,0 +1,77 @@
++#!/usr/bin/env node
++/**
++ * TC-v3 - section 3.4 SUBSTITUTED gate - runner. NO BROWSER REQUIRED.
++ *
++ *   node docs/evidence/d2/tc-v3/run-substituted-gate.mjs
++ *
++ * Exit 0 = gate passes. Exit 1 = 3.4 FAILS, stop and report. Exit 2 = the
++ * harness could not run, which is NOT a pass.
++ *
++ * WHY A RUNNER AND NOT JUST A TEST
++ *
++ * The instrument is src/__tests__/topContributorsV3.substituted.test.tsx, a
++ * vitest file so it runs in CI with everything else and cannot rot unnoticed.
++ * This wrapper exists so there is ONE command printing a 3.4 verdict rather
++ * than a test summary to interpret - the role after-measure.prepared.mjs plays
++ * for the render measurements, minus the browser that never worked here.
++ *
++ * WHAT IT PROVES, AND WHAT IT DOES NOT
++ *
++ * PROVES: given production's trio - recent 7,055/6,978/6,823 against lifetime
++ * 9,551/8,888/11,546 - the rendered card displays the ranking figures and they
++ * descend, while the lifetime figures it also shows do not. Shown FAILING on a
++ * mutated component (primary reverted to contributor_score), 2026-09-03:
++ *
++ *     FAIL  displays the 30-day figures, and they DESCEND
++ *           expected [ 9551, 8888, 11546 ] to deeply equal [ 7055, 6978, 6823 ]
++ *     FAIL  never presents the lifetime figure as the primary one
++ *           expected [ 9551, 8888, 11546 ] to not include 9551
++ *
++ * DOES NOT PROVE: the lane's data, the ellipsis, or any rendered geometry.
++ * jsdom performs no layout. SUBSTITUTED data proves the CARD, never the lane -
++ * it does not replace the production reading after promotion.
++ */
++import { spawn } from 'node:child_process';
++import path from 'node:path';
++import { fileURLToPath } from 'node:url';
++
++const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
++const TEST = 'src/__tests__/topContributorsV3.substituted.test.tsx';
++
++console.log('TC-v3 section 3.4 SUBSTITUTED gate');
++console.log('repo:', REPO);
++console.log('instrument:', TEST, '\n');
++
++const child = spawn('npx', ['vitest', 'run', TEST, '--reporter=basic'], {
++  cwd: REPO, stdio: ['ignore', 'pipe', 'pipe'], env: process.env,
++});
++
++let out = '';
++child.stdout.on('data', (b) => { const s = b.toString(); out += s; process.stdout.write(s); });
++child.stderr.on('data', (b) => { const s = b.toString(); out += s; process.stderr.write(s); });
++
++child.on('error', (e) => {
++  console.error('\nHARNESS COULD NOT RUN: ' + e.message);
++  console.error('This is NOT a pass. Install dependencies (npm ci) and retry.');
++  process.exit(2);
++});
++
++child.on('close', (code) => {
++  const ran = /Tests\s+\d+/.test(out);
++  console.log('\n' + '-'.repeat(64));
++  if (!ran) {
++    console.error('3.4 VERDICT: HARNESS DID NOT RUN - not a pass. Exit 2.');
++    process.exit(2);
++  }
++  if (code === 0) {
++    console.log('3.4 VERDICT: PASS - the displayed figures descend on production data,');
++    console.log('             and the lifetime figures the card also shows do not.');
++    console.log('             SUBSTITUTED: proves the card, not the lane. The production');
++    console.log('             reading after promotion is still owed.');
++    process.exit(0);
++  }
++  console.error('3.4 VERDICT: FAIL - STOP AND REPORT. Do not tune.');
++  console.error('             The ranking field and the displayed field disagree;');
++  console.error('             the change has not fixed the thing it was written for.');
++  process.exit(1);
++});
+diff --git a/src/__tests__/topContributorsV3.substituted.test.tsx b/src/__tests__/topContributorsV3.substituted.test.tsx
+new file mode 100644
+index 0000000..85a7b3c
+--- /dev/null
++++ b/src/__tests__/topContributorsV3.substituted.test.tsx
+@@ -0,0 +1,166 @@
++/**
++ * TC-v3 · §3.4 · the SUBSTITUTED discriminating gate.
++ *
++ * ─────────────────────────────────────────────────────────────────────────────
++ * WHY THIS FILE EXISTS — F-68
++ *
++ * §3.4 asks that the three displayed numbers descend down the card. On staging
++ * that check CANNOT FAIL: measured 2026-09-03 13:09:11.219771Z, every row has
++ * recent_score == contributor_score (764/509/509 for both), so the numbers
++ * descend whether the card renders the ranking figure or the lifetime one. A
++ * green §3.4 on staging would have been green on the broken card too.
++ *
++ * This harness supplies the data staging cannot: PRODUCTION's trio, where the
++ * two fields disagree and rank 3 holds the LARGEST lifetime figure.
++ *
++ *   rank 1  recent 7,055   lifetime  9,551
++ *   rank 2  recent 6,978   lifetime  8,888
++ *   rank 3  recent 6,823   lifetime 11,546   ← largest lifetime, lowest rank
++ *
++ * Read read-only from production 2026-09-03 08:45:05Z (equivalence proof) and
++ * 09:18:25.228393Z (display names). If the card renders contributor_score, the
++ * displayed sequence is 9,551 / 8,888 / 11,546 — NOT descending — and this file
++ * fails. That is the whole point: it is the only §3.4 instrument that can fail
++ * on the defect.
++ *
++ * SUBSTITUTED: the data is injected, not read from a lane. It proves the CARD,
++ * never the lane's data. It is not a substitute for the production reading after
++ * promotion, and must not be recorded as one.
++ *
++ * ─────────────────────────────────────────────────────────────────────────────
++ * ⚠ THE ELLIPSIS IS NOT ASSERTED HERE, AND CANNOT BE
++ *
++ * jsdom performs no layout: clientWidth and scrollWidth are always 0 and
++ * text-overflow is never computed. An assertion that the 21-character name
++ * "truncates" would pass on an element 0px wide, on one that overflows, and on
++ * one that wraps — it could not fail, so under C-34 it is not evidence.
++ *
++ * The MECHANISM is asserted instead, from the rendered DOM rather than source
++ * text: the name element carries `truncate`, and its flex parent carries
++ * `min-w-0`. Without `min-w-0` a flex child will not shrink below its content
++ * width and `truncate` silently does nothing — that is the realistic regression.
++ * The ellipsis itself needs a real engine at a real width.
++ */
++import { describe, it, expect, vi, beforeAll } from "vitest";
++import { render, screen, within } from "@testing-library/react";
++import { MemoryRouter } from "react-router-dom";
++import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
++
++/** The longest display name on production eligible for the card — 21 chars,
++ *  read-only 2026-09-03 09:18:25.228393Z. Staging's longest is 12, shorter than
++ *  "Amit Baran Sen" (14), which is why the name is substituted too. */
++export const SUBSTITUTED_LONGEST_NAME = "Partha Sarathi Moulik";
++
++const ROWS = [
++  { id: "u1", full_name: SUBSTITUTED_LONGEST_NAME, avatar_url: null, badges: [], roles: [], contributor_score: 9551,  recent_score: 7055, rank_position: 1 },
++  { id: "u2", full_name: SUBSTITUTED_LONGEST_NAME, avatar_url: null, badges: [], roles: [], contributor_score: 8888,  recent_score: 6978, rank_position: 2 },
++  { id: "u3", full_name: SUBSTITUTED_LONGEST_NAME, avatar_url: null, badges: [], roles: [], contributor_score: 11546, recent_score: 6823, rank_position: 3 },
++];
++
++vi.mock("@/hooks/useTopContributors", () => ({
++  useTopContributors: () => ({ data: ROWS, isLoading: false, isSuccess: true, isError: false }),
++}));
++
++beforeAll(() => {
++  // jsdom ships no IntersectionObserver. The card's entry animation and the
++  // lazy images construct one on mount, so without this the tree throws before
++  // anything renders. A stub that never fires is correct here: framer-motion's
++  // whileInView falls back to the mounted state, which is what we measure.
++  if (typeof globalThis.IntersectionObserver === "undefined") {
++    class IO {
++      observe() {} unobserve() {} disconnect() {}
++      takeRecords() { return []; }
++      root = null; rootMargin = ""; thresholds = [];
++    }
++    // @ts-expect-error test stub
++    globalThis.IntersectionObserver = IO;
++  }
++});
++
++/** First run of digits over "✦ 7,055 30d" returned 705530 — the label's own
++ *  digits joined the figure. Take the FIRST comma-grouped number only. */
++const digits = (s: string | null | undefined) =>
++  Number((String(s ?? "").match(/[\d,]+/) ?? ["0"])[0].replace(/,/g, ""));
++
++/** Pull the two figures out of the RENDERED DOM, not out of source text. */
++const readFigures = (root: HTMLElement) => {
++  const text = (el: Element) => (el.textContent ?? "").trim();
++  const all = Array.from(root.querySelectorAll("div, span")).map(text);
++  // Both patterns are FULLY anchored on purpose. An unanchored `^✦` also matches
++  // the wrapper, whose textContent is the two lines concatenated
++  // ("✦ 7,055 30dLifetime 9,551") and whose digits collapse into one nonsense
++  // number — which is exactly how this harness failed on its first run.
++  const primary = all.filter((t) => /^✦\s*[\d,]+\s*30d$/.test(t)).map(digits);
++  const lifetime = all.filter((t) => /^Lifetime\s+[\d,]+$/.test(t)).map(digits);
++  return { primary, lifetime };
++};
++
++const descends = (xs: number[]) => xs.every((n, i) => i === 0 || xs[i - 1] >= n);
++
++const renderHome = async () => {
++  const Index = (await import("@/pages/Index")).default;
++  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
++  const r = render(
++    <QueryClientProvider client={qc}>
++      <MemoryRouter><Index /></MemoryRouter>
++    </QueryClientProvider>,
++  );
++  await screen.findByText(/Top Contributors/i);
++  return r;
++};
++
++const renderSidebar = async () => {
++  const Sidebar = (await import("@/components/sidebar/SidebarTopContributors")).default;
++  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
++  return render(
++    <QueryClientProvider client={qc}>
++      <MemoryRouter><Sidebar /></MemoryRouter>
++    </QueryClientProvider>,
++  );
++};
++
++describe("§3.4 SUBSTITUTED · Home page card", () => {
++  it("displays the 30-day figures, and they DESCEND", async () => {
++    const { container } = await renderHome();
++    const { primary } = readFigures(container);
++    expect(primary).toEqual([7055, 6978, 6823]);
++    expect(descends(primary)).toBe(true);
++  });
++
++  it("shows the lifetime figures too, and they do NOT descend", async () => {
++    // The discriminator. If the card ever renders contributor_score as its
++    // primary figure again, the assertion above sees 9,551/8,888/11,546 and
++    // fails. This one proves the data really was non-monotonic, so that first
++    // assertion had something to catch.
++    const { container } = await renderHome();
++    const { lifetime } = readFigures(container);
++    expect(lifetime).toEqual([9551, 8888, 11546]);
++    expect(descends(lifetime)).toBe(false);
++  });
++
++  it("never presents the lifetime figure as the primary one", async () => {
++    const { container } = await renderHome();
++    const { primary } = readFigures(container);
++    for (const n of [9551, 8888, 11546]) expect(primary).not.toContain(n);
++  });
++
++  it("keeps the truncation MECHANISM on the 21-character name", async () => {
++    // Not an ellipsis assertion — see the header. jsdom cannot compute one.
++    const { container } = await renderHome();
++    const name = Array.from(container.querySelectorAll(".truncate"))
++      .find((el) => (el.textContent ?? "").includes(SUBSTITUTED_LONGEST_NAME));
++    expect(name, "no .truncate element carries the substituted name").toBeTruthy();
++    const flexParent = name!.closest(".min-w-0");
++    expect(flexParent, "the name's flex parent must carry min-w-0 or truncate is inert").toBeTruthy();
++  });
++});
++
++describe("§3.4 SUBSTITUTED · signed-out sidebar does not drift", () => {
++  it("displays the same descending 30-day figures", async () => {
++    const { container } = await renderSidebar();
++    const { primary, lifetime } = readFigures(container);
++    expect(primary).toEqual([7055, 6978, 6823]);
++    expect(lifetime).toEqual([9551, 8888, 11546]);
++    expect(descends(primary)).toBe(true);
++  });
++});
+--
+2.43.0
