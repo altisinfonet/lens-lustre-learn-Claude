@@ -25,6 +25,14 @@ export interface SeoEnv {
   SUPABASE_PROJECT_REF?: string;
   SUPABASE_ANON_KEY?: string;
   SITE_ORIGIN?: string;
+  /**
+   * OPTIONAL, AND ONLY FOR WRITES. Read by `serviceRoleKey()` below and by
+   * nothing else. The three variables above are required because a lane that
+   * lacks them would silently read and advertise production; this one is
+   * different — a lane that lacks it simply cannot perform the one write a
+   * Pages Function makes, and must say so rather than fall back to `anon`.
+   */
+  SUPABASE_SERVICE_ROLE_KEY?: string;
 }
 
 /**
@@ -63,6 +71,28 @@ export function supabaseAnon(env: SeoEnv | undefined): string {
 export function site(env: SeoEnv | undefined): string {
   return laneValue("SITE_ORIGIN", env?.SITE_ORIGIN).replace(/\/+$/, "");
 }
+/**
+ * The lane's service-role key, or `null` when the lane does not define one.
+ *
+ * DELIBERATELY NOT `laneValue()`. The three readers above throw on an unset
+ * variable because serving a page with the wrong origin is worse than serving
+ * no page at all. This one is the opposite case: it exists for a view counter,
+ * and a view counter must never be able to break the page it counts. So an
+ * absent key returns `null` and the CALLER is obliged to say so loudly and skip
+ * the write — see functions/page/[slug].ts.
+ *
+ * There is no fallback to the anon key, and there must never be one. The write
+ * this key authorises is exactly the grant Phase 1 is closing to `anon`; an
+ * anon-keyed retry would be a silent re-opening of the hole by the client that
+ * was moved to the edge to avoid it.
+ */
+export function serviceRoleKey(env: SeoEnv | undefined): string | null {
+  const raw = env?.SUPABASE_SERVICE_ROLE_KEY;
+  if (raw === undefined || raw === null) return null;
+  const value = String(raw).trim();
+  return value === "" ? null : value;
+}
+
 export const DEFAULT_OG =
   "https://pub-f3e7af944f2746b7bb4fb6e679dd78de.r2.dev/site-assets/seo/1775321074863-k3b5rusybos.jpg";
 
