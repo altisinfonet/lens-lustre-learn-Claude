@@ -138,6 +138,9 @@ async function handleMediaRequest(req, env, deps) {
   if (key.startsWith("/") || key.includes("//") || key.includes("\\") || key.split("/").includes("..")) {
     return refuse(400, req, env);
   }
+  if (/^(video|upload)\//.test(key) && (/%2f|%5c/i.test(url.pathname) || key.split("/").includes("."))) {
+    return refuse(400, req, env);
+  }
   if (key.startsWith("upload/")) return refuse(404, req, env);
   if (!key.startsWith("video/")) return deps.passthrough(req);
   if (req.method === "OPTIONS") {

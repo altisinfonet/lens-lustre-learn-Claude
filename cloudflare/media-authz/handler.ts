@@ -124,6 +124,12 @@ export async function handleMediaRequest(req: Request, env: MediaAuthzEnv, deps:
   if (key.startsWith("/") || key.includes("//") || key.includes("\\") || key.split("/").includes("..")) {
     return refuse(400, req, env);
   }
+  // SEC-VID-12: on the restricted prefixes the key must be spelled plainly. An encoded
+  // separator (%2F, %5C) or a "." segment names the same object by another spelling, so
+  // it is refused rather than normalised. Photos keep today's pass-through untouched.
+  if (/^(video|upload)\//.test(key) && (/%2f|%5c/i.test(url.pathname) || key.split("/").includes("."))) {
+    return refuse(400, req, env);
+  }
 
   if (key.startsWith("upload/")) return refuse(404, req, env);
   if (!key.startsWith("video/")) return deps.passthrough(req);

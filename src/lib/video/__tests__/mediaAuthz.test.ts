@@ -151,7 +151,7 @@ describe("the restricted check runs on the DECODED key (the origin decodes too)"
   for (const path of [`%76ideo/${OWNER}/${VID_A}/v1/240p_0.m4s`, `video%2F${OWNER}/${VID_A}/v1/240p_0.m4s`, `%75pload/video/${OWNER}/${VID_A}/v1/240p_0.m4s`]) {
     it(`${path.slice(0, 16)}… is not passed to the origin`, async () => {
       const r = await handleMediaRequest(get(path), env, deps);
-      expect([403, 404]).toContain(r.status);
+      expect([400, 403, 404]).toContain(r.status);
       expect(passed).toEqual([]);
     });
   }
@@ -162,6 +162,23 @@ describe("the restricted check runs on the DECODED key (the origin decodes too)"
       const r = await handleMediaRequest(get(p), env, deps);
       expect(r.status, p).toBe(400);
     }
+    expect(passed).toEqual([]);
+  });
+  it("SEC-VID-12: an encoded '/' or '\\' or a '.' segment on video/ → 400 even with a valid token, R2 never read", async () => {
+    // A valid token for A, so only the path rule can refuse: each spelling decodes to a key under A's prefix.
+    // ("%2E" / "%2e%2e" segments need no case: the URL parser resolves them before any Worker sees the path.)
+    const t = await tokenFor(A);
+    for (const p of [
+      `video%2F${OWNER}/${VID_A}/v1/240p_0.m4s`,
+      `video/${OWNER}%2f${VID_A}/v1/240p_0.m4s`,
+      `video/${OWNER}/${VID_A}%5Cv1/240p_0.m4s`,
+      `upload%2Fvideo/${OWNER}/${VID_A}/v1/240p_0.m4s`,
+    ]) {
+      const r = await handleMediaRequest(get(`${p}?t=${t}`), env, deps);
+      expect(r.status, p).toBe(400);
+      expect((await bytes(r)).length, p).toBe(0);
+    }
+    expect(r2.reads).toEqual([]);
     expect(passed).toEqual([]);
   });
 });
