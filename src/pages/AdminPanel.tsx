@@ -20,7 +20,7 @@ import {
   Heart, FileText, Globe, BarChart3, Megaphone, Zap, Bell, HeartPulse,
   UserPlus, HelpCircle, Mail, ClipboardList, Database, LogIn,
   ExternalLink, Tag, Gavel, Search, Shield, BookMarked, Wallet, Gift, ShieldCheck,
-  Bug,
+  Bug, ToggleRight,
 } from "lucide-react";
 
 // ─── Lazy-loaded modules ────────────────────────────────────
@@ -51,6 +51,7 @@ const AdminSEO = lazy(() => import("@/components/admin/AdminSEO"));
 const AdminPageManagement = lazy(() => import("@/components/admin/AdminPageManagement"));
 const AdminAnalytics = lazy(() => import("@/components/admin/AdminAnalytics"));
 const AdminAdvertisements = lazy(() => import("@/components/admin/AdminAdvertisements"));
+const AdminFeatures = lazy(() => import("@/components/admin/AdminFeatures"));
 const AdminPushBroadcast = lazy(() => import("@/components/admin/AdminPushBroadcast"));
 const AdminPerformance = lazy(() => import("@/components/admin/AdminPerformance"));
 const AdminAnnouncements = lazy(() => import("@/components/admin/AdminAnnouncements"));
@@ -90,7 +91,7 @@ const VALID_ROUTES = new Set([
   "users", "applications", "referrals", "engagement", "employee",
   "comments", "keyword_blocklist", "reports", "post_reports",
   "wallet", "gifts", "transactions", "orders",
-  "seo", "advertisements", "push_notification", "performance", "announcements", "newsletter_faq", "analytics",
+  "seo", "advertisements", "features", "push_notification", "performance", "announcements", "newsletter_faq", "analytics",
   "page_management", "menu_builder", "redirects",
   "settings", "auth_pages", "email_templates", "database",
   "health", "app_events", "activity_logs", "admin_notifications", "notifications_health", "test_agent",
@@ -163,6 +164,7 @@ const tabGroups = [
   { label: "Marketing & SEO", items: [
     ["seo", "SEO Settings", Globe],
     ["advertisements", "Advertisements", Megaphone],
+    ["features", "Features", ToggleRight],
     ["push_notification", "Push Notification", Bell],
     ["performance", "Performance", Zap],
     ["announcements", "Announcements", Bell],
@@ -283,6 +285,7 @@ const AdminPanel = () => {
       {/* Marketing & SEO */}
       {currentRoute === "seo" && <LazyTab><AdminSEO user={user} /></LazyTab>}
       {currentRoute === "advertisements" && <LazyTab><AdminAdvertisements user={user} /></LazyTab>}
+      {currentRoute === "features" && <LazyTab><AdminFeatures /></LazyTab>}
       {currentRoute === "push_notification" && <LazyTab><AdminPushBroadcast /></LazyTab>}
       {currentRoute === "performance" && <LazyTab><AdminPerformance user={user} /></LazyTab>}
       {currentRoute === "announcements" && <LazyTab><AdminAnnouncements user={user} /></LazyTab>}
