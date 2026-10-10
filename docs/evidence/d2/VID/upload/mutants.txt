@@ -1,0 +1,67 @@
+=== MUTANT M1 SEC-VID-1: upload-urls presigns the SERVED key
+   × /api/video/upload-urls > SEC-VID-1: every URL is for upload/video/…, never a served key 72ms
+   × /api/video/complete > verifies, copies to the served prefix itself, and marks uploaded with the served audio's hash 41ms
+   × /api/video/complete > SEC-VID-1: a re-PUT to the upload key AFTER complete changes nothing viewers get 34ms
+   × /api/video/complete > missing files → 409 with the list, nothing marked 45ms
+   × /api/video/complete > a file whose bytes differ from the manifest is deleted and reported, nothing marked 31ms
+   × /api/video/complete > F-D3-17: a video rendition carrying a sound track is refused 43ms
+   × /api/video/complete > F-D3-17: an audio rendition that is not one sound track is refused 43ms
+   × /api/video/complete > SEC condition 2: a poster that is not a JPEG is refused 44ms
+   × VID-1 · the device upload job > encoded → uploaded → checking → ready → ONE post linked to the video 91ms
+   × VID-1 · the device upload job > the link drops mid-upload: the job keeps what was sent and resumes with only the missing files 71ms
+   × VID-1 · the device upload job > the post key is made once: a publish retried after a lost answer is still ONE post 54ms
+   × VID-1 · the device upload job > a music match parks the job for the remedy screen; nothing is posted 94ms
+      Tests  12 failed | 27 passed (39)
+⎯⎯⎯⎯⎯⎯ Failed Tests 12 ⎯⎯⎯⎯⎯⎯⎯
+=== MUTANT M2 SEC-VID-1: complete does not copy (trusts what the client put)
+   × /api/video/complete > verifies, copies to the served prefix itself, and marks uploaded with the served audio's hash 71ms
+   × /api/video/complete > SEC-VID-1: a re-PUT to the upload key AFTER complete changes nothing viewers get 64ms
+   × VID-1 · the device upload job > encoded → uploaded → checking → ready → ONE post linked to the video 122ms
+      Tests  3 failed | 36 passed (39)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+=== MUTANT M3 F-D3-17: no hdlr check
+   × /api/video/complete > F-D3-17: a video rendition carrying a sound track is refused 93ms
+   × /api/video/complete > F-D3-17: an audio rendition that is not one sound track is refused 53ms
+      Tests  2 failed | 37 passed (39)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+=== MUTANT M4 SEC cond. 3: absolute URIs allowed
+   × /api/video/complete > SEC condition 3: an absolute URI or an EXT-X-KEY in a playlist is refused 64ms
+      Tests  1 failed | 38 passed (39)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+=== MUTANT M5 SEC cond. 2: poster magic not checked
+   × /api/video/complete > SEC condition 2: a poster that is not a JPEG is refused 74ms
+      Tests  1 failed | 38 passed (39)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+=== MUTANT M6 F-D3-18: uploads allowed while the media host is public
+   × F-D3-18 · no upload while the media host is public > both endpoints answer 503 VID-ENV-002 until VIDEO_DELIVERY_PRIVATE=1, and write nothing 55ms
+      Tests  1 failed | 38 passed (39)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+=== MUTANT M7 OFF-2 rule: a new video key on every attempt
+   × VID-1 · the device upload job > the video key is made once: a replayed begin returns the same video, never a second 57ms
+      Tests  1 failed | 38 passed (39)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+=== MUTANT M8 OFF-2 rule: publish ignores the post key (23505 not read back)
+   × VID-1 · the device upload job > the post key is made once: a publish retried after a lost answer is still ONE post 78ms
+      Tests  1 failed | 38 passed (39)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+=== MUTANT M9 Owner 9:16: the preview uses the photo frame rule instead of the 9:16 card
+   × VideoPostComposer > a 9:16 video fills the 9:16 card edge to edge, no fill layer 148ms
+   × VideoPostComposer > a 16:9 video is fitted WHOLE into the same 9:16 card, with the blurred fill (never cropped) 36ms
+      Tests  2 failed | 37 passed (39)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+=== MUTANT M10 R-104: Post allowed without categories
+   × VideoPostComposer > Post stays off until 1–5 categories are chosen 89ms
+      Tests  1 failed | 38 passed (39)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+=== MUTANT M11 R-97: no length limit before encoding
+   × VideoPostComposer > a 4-minute video is refused before anything is encoded 1034ms
+      Tests  1 failed | 38 passed (39)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+=== MUTANT M12 VID-1 §3.4: a mismatched upload is not deleted
+   × /api/video/complete > a file whose bytes differ from the manifest is deleted and reported, nothing marked 55ms
+      Tests  1 failed | 38 passed (39)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+=== MUTANT M13 Owner 9:16: a non-9:16 video gets no fill (black bars)
+   × VideoPostComposer > a 16:9 video is fitted WHOLE into the same 9:16 card, with the blurred fill (never cropped) 1065ms
+      Tests  1 failed | 38 passed (39)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯

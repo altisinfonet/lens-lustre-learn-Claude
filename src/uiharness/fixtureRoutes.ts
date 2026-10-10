@@ -246,6 +246,18 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
    *     rendered too rather than only reasoned about;
    *   - one impersonal type carrying no actor at all.
    */
+  /**
+   * VID-7 · `feature_allowed_me(_feature)`. Every switch ships Off, so the
+   * harness answers false: the screens look exactly as they did before video
+   * existed — which is the property the Off default promises. A scene that
+   * wants the video button sets `window.__harnessFeatures = ["video_posts"]`.
+   */
+  feature_allowed_me: (body: Record<string, unknown>) => {
+    const f = body?._feature;
+    const on = (globalThis as { __harnessFeatures?: string[] }).__harnessFeatures ?? [];
+    return typeof f === "string" && on.includes(f);
+  },
+
   get_my_notifications_grouped: () => [
     {
       group_key: "g-following",
