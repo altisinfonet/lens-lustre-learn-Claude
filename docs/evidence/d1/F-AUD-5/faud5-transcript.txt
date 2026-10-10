@@ -1,0 +1,34 @@
+# F-AUD-5 harness run · 2026-10-10T05:55:30Z · 16.15 · pg_cron 1.6 · pgmq 1.5.1 · merged PROBE = 070132a · fixed PROBE = working tree
+
+══ 0 · the fixed PROBE uses PROBE_p9c's literal scan byte for byte
+  PASS  E1 scan = p9c scan (regexp_matches …, length >= 17, own name exempt)
+  PASS  OPEN scan = p9c scan
+  PASS  no '[^'']{17,}' left in the fixed PROBE's code (the header comment names it)
+
+══ staging · OPEN list
+  lane shape: staging · queues transactional_emails · process-email-queue jobs 0 · 0006 applied
+  PASS  FAIL FIRST — merged PROBE lists the two-short-literal job as OPEN: rollup-engagement-daily
+  PASS  fixed PROBE passes, OPEN: none
+  PASS  control — fixed PROBE still lists a real long literal, one with '' inside, and an http_post; own name exempt: a-long-literal, b-long-with-quote, c-http
+        (merged PROBE on the same set lists: a-long-literal, b-long-with-quote, c-http, judging-invariants-nightly, rollup-engagement-daily)
+
+══ staging · E1: no process-email-queue job on this lane — E1 has nothing to read (same as the live lane)
+  PASS  fixed PROBE: 'job absent on this lane'
+
+══ production · OPEN list
+  lane shape: production · queues auth_emails,auth_emails_dlq,transactional_emails,transactional_emails_dlq · process-email-queue jobs 1 · 0006 applied
+  PASS  FAIL FIRST — merged PROBE lists the two-short-literal job as OPEN: rollup-engagement-daily
+  PASS  fixed PROBE passes, OPEN: none
+  PASS  control — fixed PROBE still lists a real long literal, one with '' inside, and an http_post; own name exempt: a-long-literal, b-long-with-quote, c-http
+        (merged PROBE on the same set lists: a-long-literal, b-long-with-quote, c-http, judging-invariants-nightly, rollup-engagement-daily)
+
+══ production · E1 (process-email-queue's own command)
+  PASS  fixed PROBE green on 0006's command: SELECT public.email_queue_tick();
+  PASS  FAIL FIRST — merged PROBE turns E1 red on short literals only (gap ' AND current_date > ' is 21 chars)
+  PASS  fixed PROBE green on the same command
+  PASS  control — fixed PROBE red on a real long literal in process-email-queue
+  PASS  control — the job's own name is not a credential (p9c rule)
+
+ALL CASES PASS
+
+# Regression · 2026-10-10T05:57:29Z · docs/evidence/d1/P9/p9-email-run-tests.sh on the fixed PROBE (production shape): 53 PASS, 0 FAIL — ALL CASES PASS
