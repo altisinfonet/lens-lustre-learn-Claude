@@ -1,0 +1,54 @@
+-- P33 clause 2 — the four definer views, definitions as read LIVE from staging
+-- (fpszggreishhuvdpkmdr), 2026-09-21, via:
+--
+--   SELECT viewname, definition FROM pg_views WHERE schemaname='public'
+--    AND viewname IN ('judge_comments_owner_safe','judge_decisions_owner_safe',
+--                      'judge_tag_assignments_owner_safe','entry_public_status');
+--
+-- This is a READ-ONLY snapshot for evidence and for
+-- src/__tests__/p33DefinerViewPredicates.test.ts to pin against. It is not
+-- itself applied anywhere and defines nothing — no CREATE statement here is
+-- authoritative; the live database is. If the live definition changes, this
+-- snapshot goes stale and the static test (which reads THIS file, not the
+-- live database) will not catch a live-only change — see P33/README.md §4
+-- for what this control does and does not catch.
+
+-- === judge_decisions_owner_safe ===============================================
+--  SELECT entry_id, photo_index, decision, round_number
+--    FROM judge_decisions jd
+--   WHERE (EXISTS ( SELECT 1
+--            FROM (competition_round_publish crp
+--              JOIN competition_entries ce ON ((ce.competition_id = crp.competition_id)))
+--           WHERE ((ce.id = jd.entry_id) AND (ce.user_id = auth.uid()) AND (crp.round_number = jd.round_number) AND (crp.published_at IS NOT NULL))));
+
+-- === judge_comments_owner_safe =================================================
+--  SELECT id, entry_id, photo_index, comment, created_at
+--    FROM judge_comments jc
+--   WHERE (EXISTS ( SELECT 1
+--            FROM (competition_entries ce
+--              JOIN competition_round_publish crp ON ((crp.competition_id = ce.competition_id)))
+--           WHERE ((ce.id = jc.entry_id) AND (ce.user_id = auth.uid()) AND (crp.published_at IS NOT NULL))));
+
+-- === judge_tag_assignments_owner_safe ==========================================
+--  SELECT id, entry_id, tag_id, photo_index, round_number, created_at
+--    FROM judge_tag_assignments jta
+--   WHERE (EXISTS ( SELECT 1
+--            FROM (competition_entries ce
+--              JOIN competition_round_publish crp ON ((crp.competition_id = ce.competition_id)))
+--           WHERE ((ce.id = jta.entry_id) AND (ce.user_id = auth.uid()) AND (crp.published_at IS NOT NULL))));
+
+-- === entry_public_status ========================================================
+-- (abridged to the two clauses the static test pins — full definition is
+--  ~80 lines of derived-status CASE logic and is not reproduced verbatim
+--  here; see docs/evidence/d1/P33/README.md §3 for the full live read.)
+--
+--  ... FROM base
+--  WHERE ((status = ANY (ARRAY['submitted','approved','winner','runner_up',
+--         'honorary','finalist','shortlisted','qualified','round1_qualified',
+--         'round2_qualified','round3_qualified']))
+--         OR ( SELECT has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) AS has_role));
+--
+-- No column in entry_public_status's SELECT list is a raw score/mark column —
+-- every award-shaped column (public_placement, public_r4_tags, r4_public_award)
+-- is itself conditioned on latest_published_round, never on the unconditioned
+-- base-table value.

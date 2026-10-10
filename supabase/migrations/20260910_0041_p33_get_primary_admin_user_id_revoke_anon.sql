@@ -1,0 +1,87 @@
+-- P33 clause 5 — get_primary_admin_user_id() closed to anon.
+--
+-- =============================================================================
+-- WHAT THIS FIXES
+--
+-- `docs/gates/GATE_REGISTER.md` P33 (verbatim): "...`get_primary_admin_user_id`
+-- either closed or its exposure written down." This file closes it.
+--
+--   CREATE OR REPLACE FUNCTION public.get_primary_admin_user_id()
+--    RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
+--   AS $$
+--     SELECT user_id FROM public.user_roles WHERE role = 'admin'
+--     ORDER BY created_at ASC NULLS LAST, user_id ASC LIMIT 1
+--   $$;
+--
+-- SECURITY DEFINER, no argument, no internal role check, callable by anyone
+-- holding the public anon key. It resolves and returns one real member's
+-- `user_id` (the earliest-created admin) to an anonymous caller — a single
+-- SELECT is enough to learn that uuid, which is exactly the shape of
+-- information a SECURITY DEFINER function is supposed to guard rather than
+-- volunteer. It is not the "medical data by name" misread C-60 corrected; the
+-- exposure here is the admin's identity itself, and the fix is unconditional
+-- closure, not a justification.
+--
+-- Confirmed by `pg_get_functiondef` (2026-09-21) that nothing internal gates
+-- the caller (`gatesItself` in securityDefinerGrants.test.ts's terms: no
+-- auth.uid()/has_role reference in the body) — so a REVOKE by name is the
+-- only available control, not a redundant one.
+--
+-- =============================================================================
+-- THE F-62 SHAPE, AGAIN — the original author got this half right
+--
+-- The creating migration (`20260704120420_3d0eaaec-…sql`) already reads:
+--
+--   REVOKE ALL ON FUNCTION public.get_primary_admin_user_id() FROM PUBLIC;
+--   GRANT EXECUTE ON FUNCTION public.get_primary_admin_user_id() TO authenticated;
+--
+-- — the intent was authenticated-only, and PUBLIC was correctly revoked. What
+-- was missed is exactly F-62: `ALTER DEFAULT PRIVILEGES` grants EXECUTE to
+-- the NAMED role `anon` independently of PUBLIC on every new function in
+-- `public`, and revoking PUBLIC does not touch a named role's own grant.
+-- Measured 2026-09-21: `anon` held EXECUTE the whole time despite the PUBLIC
+-- revoke. This file adds the missing explicit `REVOKE … FROM anon`.
+--
+-- =============================================================================
+-- WHO STILL NEEDS IT
+--
+-- `authenticated` and `service_role` are UNCHANGED by this file — and
+-- genuinely needed: `supabase/migrations/20260719000300_feed_stories_bar.sql`
+-- and `20260731000000_public_stories_and_view_counts.sql` both call
+-- `public.get_primary_admin_user_id()` internally from a CTE (`official AS
+-- (SELECT public.get_primary_admin_user_id() AS oid)`) inside functions
+-- reachable by `authenticated`. No caller in `src/` or `supabase/functions/`
+-- invokes this RPC directly at all — `src/integrations/supabase/types.ts` is
+-- the only client-side reference, a generated type with no call site — so
+-- `anon` never needed it, direct or otherwise (searched 2026-09-21).
+--
+-- =============================================================================
+-- WHY THIS FILE EXISTS DESPITE THE FIX ALREADY BEING LIVE ON STAGING
+--
+-- This exact REVOKE was applied to staging (`fpszggreishhuvdpkmdr`) on
+-- 2026-09-15 through the Supabase MCP `apply_migration` tool, not through
+-- `apply-migration.yml`, and was never captured as a committed migration
+-- file. Nothing here changes staging's current ACL — REVOKE is idempotent —
+-- this file exists so the fix survives a staging reset and so
+-- `apply-migration.yml` has a real run number for it, per
+-- `claude/2026-09-15-phase1-status-done-and-pending.md` §4.
+-- =============================================================================
+
+REVOKE ALL ON FUNCTION public.get_primary_admin_user_id() FROM PUBLIC, anon;
+
+COMMENT ON FUNCTION public.get_primary_admin_user_id() IS
+  'Resolves the earliest-created admin user_id. SECURITY DEFINER, ungated internally. P33: anon and PUBLIC EXECUTE revoked 2026-09-21 (durable capture of the 2026-09-15 staging fix) — no anonymous caller needs it; authenticated/service_role unchanged. ⚠ If this function is ever recreated with DROP+CREATE it REOPENS to PUBLIC (F-62/F-66) and this file must be re-applied and re-proved.';
+
+-- =============================================================================
+-- VERIFY AFTER RUNNING
+--
+--   SELECT has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_exec,
+--          p.proacl::text
+--     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+--    WHERE n.nspname = 'public' AND p.proname = 'get_primary_admin_user_id';
+--
+--   expect anon_exec = false, acl = {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+--
+-- Matches the live staging reading taken 2026-09-21 before this file was
+-- written (PROBE_p33_get_primary_admin_user_id_closed.sql is the same query).
+-- =============================================================================
