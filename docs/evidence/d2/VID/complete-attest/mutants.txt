@@ -1,0 +1,26 @@
+KILLED · M1 SEC-VID-10 equality check removed →⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ Tests 3 failed | 41 passed (44)
+KILLED · M2 equality without trim →⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ Tests 1 failed | 43 passed (44)
+KILLED · M3 any lane string accepted →⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ Tests 1 failed | 43 passed (44)
+KILLED · M4 issued_at in milliseconds →⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+ Tests 8 failed | 36 passed (44)
+KILLED · M5 no-audio word dropped →⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ Tests 2 failed | 42 passed (44)
+KILLED · M6 field order swapped →⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ Tests 3 failed | 41 passed (44)
+KILLED · M7 upper-case hex →⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ Tests 2 failed | 42 passed (44)
+KILLED · M8 key floor lowered to 16 →⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ Tests 1 failed | 43 passed (44)
+KILLED · M9 env check moved after the copy →⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ Tests 3 failed | 41 passed (44)
+KILLED · M10 DB attest refusals not mapped to 503 →⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ Tests 3 failed | 41 passed (44)
+KILLED · M11 stored audio-flag check removed →⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ Tests 1 failed | 43 passed (44)
+KILLED · M12 attestation not sent →⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ Tests 2 failed | 42 passed (44)
+KILLED · M13 lane hard-coded →⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ Tests 2 failed | 42 passed (44)

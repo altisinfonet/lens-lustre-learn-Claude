@@ -12,6 +12,7 @@ import {
 import { handleUploadUrls } from "../../../../functions/api/video/upload-urls";
 import { handleComplete } from "../../../../functions/api/video/complete";
 import type { R2BucketLike, VideoEnv } from "../../../../functions/api/video/_lib";
+import type { AttestEnv } from "../../../../functions/api/video/attest";
 import { SERVED_PREFIX, totalBytes } from "../shared/rules";
 import type { HlsPackage } from "../hlsPackager";
 
@@ -35,7 +36,9 @@ function server(pkg: HlsPackage) {
     beginCalls: 0, puts: [] as string[],
   };
   const bucket = new Bucket();
-  const env: VideoEnv = {
+  // F-D1-4: a configured lane carries its attest key + lane word, or complete answers 503 (by design).
+  const env: VideoEnv & AttestEnv = {
+    VIDEO_COMPLETE_ATTEST_KEY: "upload-job-test-attest-key-0123456789", VIDEO_ATTEST_LANE: "staging",
     SUPABASE_PROJECT_REF: "ref", SUPABASE_ANON_KEY: "anon", MEDIA: bucket,
     R2_ACCOUNT_ID: "acct", R2_BUCKET: "b", R2_UPLOAD_KEY_ID: "k", R2_UPLOAD_KEY_SECRET: "s", VIDEO_DELIVERY_PRIVATE: "1",
   };
