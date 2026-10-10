@@ -1,0 +1,170 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- P33 · PRODUCTION ONLY — move the plpgsql_check extension out of `public`.
+--
+-- ⚠⚠ PREPARED, NOT ALLOCATED, NOT DISPATCHED. ⚠⚠
+-- This file deliberately carries NO ordinal and lives under docs/evidence, not
+-- supabase/migrations. Work order §5 forbids self-selecting a migration
+-- ordinal, and docs/gates/phase-1-kickoff.md §2.2 requires the Auditor to
+-- allocate "a disjoint ordinal range per unit ... before any SQL is written".
+-- No range has been allocated to P33-production. See BLOCKER-2.
+-- To promote it: rename to supabase/migrations/20260910_00XX_p33_production_
+-- plpgsql_check_set_schema.sql using the ALLOCATED ordinal, and move its
+-- sibling rollback to supabase/rollback/ with the matching name.
+--
+-- ⚠ THIS FILE IS FOR PRODUCTION (jtdtehuqtinjxropkkcn) AND FOR PRODUCTION
+-- ALONE, WHICH INVERTS THE USUAL RULE. "Staging always first" (skill §4)
+-- cannot be satisfied here because staging is ALREADY in the target state and
+-- there is nothing to run there:
+--     staging    fpszggreishhuvdpkmdr  — plpgsql_check 2.8 in `extensions`,
+--                                        24 functions.  VERIFIED read-only
+--                                        2026-09-22T05:39Z.
+--     production jtdtehuqtinjxropkkcn  — plpgsql_check in `public`,
+--                                        24 functions, prosecdef=false,
+--                                        default ACL.  RELAYED from the
+--                                        Auditor's two-lane diff; NOT read by
+--                                        the session that wrote this file
+--                                        (BLOCKER-1).
+-- The 24/24 match across lanes is the one independent corroboration available
+-- from here: the same extension at the same function count, in two different
+-- schemas.
+--
+-- ⚠ THERE IS NO STAGING MIGRATION TO USE AS A REFERENCE, AND THE WORK ORDER'S
+-- ASSUMPTION THAT ONE EXISTS IS WRONG. `grep -rl plpgsql_check
+-- supabase/migrations supabase/rollback` returns exactly two files
+-- (2026-09-22T05:39Z): UNAPPLIED_20260911101721_new_project_full_schema_
+-- bootstrap.sql, which merely NAMES it in a prerequisites comment, and
+-- 20260719000500_fix_judging_wallet_rpcs.sql, which mentions it as the tool
+-- that found six broken RPCs. Staging's extension is in `extensions` because
+-- that is where it was installed, not because a migration moved it.
+-- The reference used instead is the project's OWN precedent for this exact
+-- operation: 20260417161211_cfe37f1a-...sql, "Step Security Fix 2/3: Move
+-- pg_trgm out of the public schema" — including its rollback path, which this
+-- file's sibling follows.
+--
+-- ⚠ WHY pg_trgm NEEDED FOUR EXTRA STEPS AND THIS NEEDS NONE OF THEM.
+-- pg_trgm's move had to drop and recreate three GIN indexes, because the
+-- operator class `gin_trgm_ops` becomes schema-qualified once the extension
+-- moves. plpgsql_check ships 24 FUNCTIONS and no operator class, no operator,
+-- no type used in a stored definition. Functions move WITH the extension and
+-- keep working. So there is no index to rebuild and no window in which search
+-- degrades. Stating the difference rather than copying the ceremony.
+--
+-- ⚠ WHAT "CONFIRM NOTHING DEPENDS ON THE public-QUALIFIED NAMES" MEANS HERE,
+-- AND WHY IT IS A GUARD RATHER THAN AN ASSERTION.
+-- Repository side, confirmed 2026-09-22T05:39Z:
+--     grep -rn 'public\.plpgsql_check|plpgsql_check\(' over *.sql, *.ts, *.mjs
+--     → ZERO hits. Nothing in this codebase calls it at all; it is a
+--       development-time static analyser, not a runtime dependency.
+-- Catalogue side: this session cannot read production, so the catalogue check
+-- CANNOT be asserted from here. It is therefore written into the migration as
+-- a PRE-FLIGHT GUARD that runs on the lane, at apply time, and ABORTS the
+-- transaction if any dependent is found. A guard that runs where the truth
+-- lives beats a claim made from a lane that cannot see it.
+--
+-- SEQUENCE — this is an EXPAND-class change under skill §4: nothing is
+-- dropped, no body changes, no grant changes, and the rollback restores the
+-- prior schema exactly. A redeploy can undo it.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+BEGIN;
+
+DO $preflight$
+DECLARE
+  ext_oid    oid;
+  ext_schema text;
+  fn_count   integer;
+  dep_count  integer;
+  dep_sample text;
+BEGIN
+  SELECT e.oid, n.nspname INTO ext_oid, ext_schema
+    FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace
+   WHERE e.extname = 'plpgsql_check';
+
+  -- P1 · the extension exists. If it does not, this lane is not the lane this
+  -- file was written for and it must not proceed silently.
+  IF ext_oid IS NULL THEN
+    RAISE EXCEPTION 'P1 ABORT — extension plpgsql_check is not installed on % . This file targets production, where the Auditor measured it resident in public with 24 functions.', current_database();
+  END IF;
+
+  -- P2 · it is where this file expects to find it. If it is already in
+  -- `extensions`, this lane is staging (or production has already been moved)
+  -- and re-running is a no-op that should say so rather than error.
+  IF ext_schema = 'extensions' THEN
+    RAISE NOTICE 'P2 — plpgsql_check is ALREADY in schema extensions on %. Nothing to do; this file is idempotent by refusal, not by repetition.', current_database();
+    RETURN;
+  END IF;
+  IF ext_schema <> 'public' THEN
+    RAISE EXCEPTION 'P2 ABORT — plpgsql_check is in schema %, which is neither public (the measured production state) nor extensions (the target). The premise of this migration does not hold on this lane.', ext_schema;
+  END IF;
+
+  -- P3 · the population matches what was measured. 24 on production per the
+  -- Auditor's diff; 24 on staging, verified read-only 2026-09-22T05:39Z. A
+  -- different count means a different extension version and a different set of
+  -- objects moving.
+  SELECT count(*) INTO fn_count
+    FROM pg_depend d JOIN pg_proc p ON p.oid = d.objid
+   WHERE d.refobjid = ext_oid AND d.deptype = 'e' AND d.classid = 'pg_proc'::regclass;
+  IF fn_count <> 24 THEN
+    RAISE EXCEPTION 'P3 ABORT — plpgsql_check owns % functions on this lane, not the 24 measured on both lanes. Re-measure before moving it.', fn_count;
+  END IF;
+
+  -- P4 · THE DEPENDENCY CHECK the work order asks for, run where it can
+  -- actually be answered. Anything OUTSIDE the extension that depends on one
+  -- of the extension's own objects would break on the move. `deptype = 'e'`
+  -- is the extension's own membership and is excluded; a `pg_extension`
+  -- referrer is the extension itself.
+  SELECT count(*), string_agg(DISTINCT cl.relname || '/' || d.classid::regclass::text, ', ')
+    INTO dep_count, dep_sample
+    FROM pg_depend d
+    LEFT JOIN pg_class cl ON cl.oid = d.objid
+   WHERE d.refobjid IN (
+           SELECT objid FROM pg_depend
+            WHERE refobjid = ext_oid AND deptype = 'e')
+     AND d.deptype <> 'e'
+     AND d.classid <> 'pg_extension'::regclass;
+
+  IF dep_count > 0 THEN
+    RAISE EXCEPTION
+      'P4 ABORT — % object(s) outside plpgsql_check depend on its objects (%). Moving the extension would break them. This is exactly the case the pg_trgm move (20260417161211) had to handle by dropping and recreating three GIN indexes; if the same is true here, that handling must be written FIRST, in its own file, and not improvised inside this transaction.',
+      dep_count, COALESCE(dep_sample, 'unnamed');
+  END IF;
+
+  RAISE NOTICE 'PRE-FLIGHT PASSED on % — plpgsql_check in public, 24 functions, 0 external dependents. Proceeding.', current_database();
+END
+$preflight$;
+
+-- The target schema. Idempotent; on production it may not exist yet, since
+-- 20260417161211 (which created it on the original project) predates the
+-- production lane's own history.
+CREATE SCHEMA IF NOT EXISTS extensions;
+GRANT USAGE ON SCHEMA extensions TO postgres, anon, authenticated, service_role;
+
+-- The move. The 24 functions travel with the extension.
+ALTER EXTENSION plpgsql_check SET SCHEMA extensions;
+
+-- Make the extensions schema discoverable, exactly as 20260417161211 did for
+-- pg_trgm, so any unqualified call from a superuser session keeps resolving.
+-- ⚠ ALTER DATABASE takes effect on NEW sessions only; existing pooled
+-- connections keep the old search_path until they are recycled. For an
+-- analyser with zero runtime callers that is harmless, and it is stated rather
+-- than discovered later.
+ALTER DATABASE postgres SET search_path TO "$user", public, extensions;
+
+-- Post-condition, in the same transaction, so a failure rolls the move back.
+DO $verify$
+DECLARE s text; BEGIN
+  SELECT n.nspname INTO s FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace
+   WHERE e.extname = 'plpgsql_check';
+  IF s IS DISTINCT FROM 'extensions' THEN
+    RAISE EXCEPTION 'POST-CONDITION FAILED — plpgsql_check is in schema % after the move, expected extensions.', COALESCE(s,'(gone)');
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+              JOIN pg_depend d ON d.objid = p.oid AND d.deptype = 'e'
+              JOIN pg_extension e ON e.oid = d.refobjid AND e.extname = 'plpgsql_check'
+             WHERE n.nspname = 'public') THEN
+    RAISE EXCEPTION 'POST-CONDITION FAILED — at least one plpgsql_check function is still in public after the move.';
+  END IF;
+  RAISE NOTICE 'POST-CONDITION PASSED — plpgsql_check and all 24 of its functions are in schema extensions.';
+END $verify$;
+
+COMMIT;

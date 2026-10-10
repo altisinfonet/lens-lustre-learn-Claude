@@ -1,0 +1,583 @@
+[
+ {
+  "set": "A",
+  "name": "claim_username",
+  "invocation": [
+   "src/components/OnboardingModal.tsx:338"
+  ],
+  "test": []
+ },
+ {
+  "set": "A",
+  "name": "change_custom_url",
+  "invocation": [
+   "src/pages/EditProfile.tsx:513"
+  ],
+  "test": []
+ },
+ {
+  "set": "A",
+  "name": "clear_custom_url",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "_gen_competition_order_no",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "admin_flag_entry_for_review",
+  "invocation": [
+   "src/components/judge/CinemaFullView.tsx:1747"
+  ],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "admin_rewind_stage",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "admin_search_users",
+  "invocation": [
+   "src/components/AdminGiftCredit.tsx:59"
+  ],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "admin_set_photo_rejected",
+  "invocation": [
+   "src/modules/admin/EntriesModule.tsx:27"
+  ],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "apply_decision_to_remaining",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "backfill_judging_notifications",
+  "invocation": [
+   "src/components/admin/NotificationsHealthAudit.tsx:57"
+  ],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "backfill_tag_decision_drift_admin",
+  "invocation": [
+   "src/components/admin/JudgingInvariantsAudit.tsx:152"
+  ],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "fix_certificate_readiness_admin",
+  "invocation": [
+   "src/components/admin/AwardsIntegrityAudit.tsx:72"
+  ],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "fix_gift_drift_admin",
+  "invocation": [
+   "src/components/admin/WalletReconciliationAudit.tsx:72"
+  ],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "fix_referral_drift_admin",
+  "invocation": [
+   "src/components/admin/WalletReconciliationAudit.tsx:90"
+  ],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "get_broadcast_feed",
+  "invocation": [
+   "src/hooks/feed/useFeedQuery.ts:91"
+  ],
+  "test": [
+   "src/uiharness/__tests__/harnessHonesty.test.ts:72"
+  ]
+ },
+ {
+  "set": "B",
+  "name": "get_certificate_drift_admin",
+  "invocation": [
+   "src/components/admin/CertificateDriftAudit.tsx:58"
+  ],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "get_derived_status_drift_admin",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "get_judge_collusion_admin",
+  "invocation": [
+   "src/components/admin/CollusionAudit.tsx:46"
+  ],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "get_judging_tag_assignment_counts",
+  "invocation": [
+   "src/pages/admin/AdminTagSemanticsAudit.tsx:95"
+  ],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "increment_managed_page_view",
+  "invocation": [
+   "src/pages/ManagedPageView.tsx:69"
+  ],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "judging_write_decision_atomic",
+  "invocation": [
+   "supabase/functions/submit-judge-decision/index.ts:215"
+  ],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "log_app_event",
+  "invocation": [
+   "src/lib/logger.ts:275"
+  ],
+  "test": [
+   "src/lib/__tests__/loggingStandard.test.ts:293"
+  ]
+ },
+ {
+  "set": "B",
+  "name": "log_client_error",
+  "invocation": [
+   "src/lib/reportClientError.ts:167"
+  ],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "recompute_entry_from_tag_assignments",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "recompute_entry_public_status",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "record_test_agent_run",
+  "invocation": [
+   "scripts/test-agent/run-checks.mjs:139 [REST]"
+  ],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "register_push_token",
+  "invocation": [
+   "src/lib/native/push.ts:83",
+   "src/lib/native/push.ts:93"
+  ],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "request_withdrawal",
+  "invocation": [
+   "src/hooks/wallet/useWalletWithdrawals.ts:46"
+  ],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "set_write_path",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "submit_competition_entry",
+  "invocation": [
+   "src/hooks/competition/useCompetitionEntryMutations.ts:35"
+  ],
+  "test": []
+ },
+ {
+  "set": "B",
+  "name": "unregister_push_token",
+  "invocation": [
+   "src/lib/native/push.ts:134"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "_ensure_stats_row",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "acquire_judge_lock",
+  "invocation": [
+   "src/hooks/judging/useJudgingLock.ts:73"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "admin_delete_auth_user",
+  "invocation": [
+   "supabase/functions/delete-my-account/index.ts:80",
+   "supabase/functions/delete-user/index.ts:71"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "admin_list_certificates",
+  "invocation": [
+   "src/components/admin/AdminCertificates.tsx:148"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "admin_purge_orphan_user_data",
+  "invocation": [
+   "supabase/functions/delete-my-account/index.ts:168",
+   "supabase/functions/delete-user/index.ts:157"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "admin_reject_wallet_transaction",
+  "invocation": [
+   "src/components/admin/AdminTransactions.tsx:514"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "admin_search_certificate_recipients",
+  "invocation": [
+   "src/components/admin/AdminCertificates.tsx:260"
+  ],
+  "test": [
+   "src/__tests__/adminCertificates.test.ts:181"
+  ]
+ },
+ {
+  "set": "C",
+  "name": "admin_search_users_v2",
+  "invocation": [
+   "scripts/test-schema-dependencies.mjs:105",
+   "scripts/test-schema-dependencies.mjs:91",
+   "src/components/admin/AdminUsers.tsx:277"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "admin_wallet_credit",
+  "invocation": [
+   "src/components/AdminGiftCredit.tsx:212",
+   "src/components/admin/AdminWalletTab.tsx:121",
+   "supabase/functions/ad-reward-credit/index.ts:149",
+   "supabase/functions/send-gift-credit/index.ts:85"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "approve_deposit",
+  "invocation": [
+   "src/components/admin/AdminTransactions.tsx:486"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "create_pending_deposit",
+  "invocation": [
+   "supabase/functions/submit-deposit/index.ts:70"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "create_system_post",
+  "invocation": [
+   "scripts/test-schema-dependencies.mjs:341",
+   "src/lib/profilePostHelper.ts:41",
+   "src/pages/MyPhotos.tsx:409"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "delete_email",
+  "invocation": [
+   "supabase/functions/process-email-queue/index.ts:271",
+   "supabase/functions/process-email-queue/index.ts:355"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "emit_birthday_notifications",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "emit_notification",
+  "invocation": [
+   "supabase/functions/publish-round/index.ts:259"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "enqueue_post_job",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "enroll_in_course",
+  "invocation": [
+   "src/pages/CourseDetail.tsx:61"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "expire_gift_credit",
+  "invocation": [
+   "supabase/functions/expire-gift-credits/index.ts:63"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "expiring_post_drafts",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "generate_custom_url",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "heartbeat_judge_lock",
+  "invocation": [
+   "src/hooks/judging/useJudgingLock.ts:109"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "issue_course_completion_certificate",
+  "invocation": [
+   "src/pages/CourseDetail.tsx:85"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "judge_apply_single_tag",
+  "invocation": [
+   "supabase/functions/submit-judge-tag/index.ts:144"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "log_push_outcome",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "mark_expiring_post_drafts",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "move_to_dlq",
+  "invocation": [
+   "supabase/functions/process-email-queue/index.ts:72"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "password_verification_hook",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "pj_handle_comment_notification",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "pj_handle_reaction_notification",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "pj_handle_recount_engagement",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "pj_handle_tag_notification",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "process_post_jobs",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "prune_activity_minutes",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "prune_client_errors",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "prune_old_notifications",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "reap_post_drafts",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "record_activity_minute",
+  "invocation": [
+   "src/lib/engagement/activityPing.ts:125"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "recount_hashtags",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "refresh_viewer_buckets",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "release_judge_lock",
+  "invocation": [
+   "src/hooks/judging/useJudgingLock.ts:165",
+   "src/hooks/judging/useJudgingLock.ts:183 [REST]",
+   "src/hooks/judging/useJudgingLock.ts:59"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "rollup_engagement_daily",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "soft_void_wallet_transactions",
+  "invocation": [
+   "supabase/functions/hard-delete-competition/index.ts:385",
+   "supabase/functions/hard-delete-competition/index.ts:429"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "wallet_ledger_apply_v2",
+  "invocation": [
+   "supabase/functions/cast-photo-vote/index.ts:42",
+   "supabase/functions/expire-gift-credits/index.ts:11",
+   "supabase/functions/paypal-capture-order/index.ts:11",
+   "supabase/functions/razorpay-verify-payment/index.ts:13"
+  ],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "wallet_ledger_v2_diff_snapshot",
+  "invocation": [],
+  "test": []
+ },
+ {
+  "set": "C",
+  "name": "wallet_transaction",
+  "invocation": [
+   "src/hooks/wallet/useWallet.ts:66",
+   "src/hooks/wallet/useWallet.ts:79",
+   "supabase/functions/admin-process-withdrawal/index.ts:75",
+   "supabase/functions/cast-photo-vote/index.ts:248",
+   "supabase/functions/cast-photo-vote/index.ts:266",
+   "supabase/functions/cast-photo-vote/index.ts:294",
+   "supabase/functions/cast-photo-vote/index.ts:311",
+   "supabase/functions/paypal-capture-order/index.ts:168",
+   "supabase/functions/razorpay-verify-payment/index.ts:160"
+  ],
+  "test": []
+ }
+]
