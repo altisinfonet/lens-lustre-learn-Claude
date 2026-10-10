@@ -1,0 +1,103 @@
+name: P2 · profiles dead-row reading (production, read-only)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# R-68 · 2-D1-04 · the seven-day window runs on PRODUCTION.
+#
+# ONE read-only SELECT against production, once a day, printing ONE line:
+#   read_at | n_live_tup | n_dead_tup | dead_pct | n_tup_upd | n_tup_hot_upd |
+#   last_autovacuum | last_vacuum | stats_reset
+# for public.profiles -- the column list of the SELECT in
+# docs/evidence/d1/phase2/profiles-deadrows-7day.md, verbatim (R-69), so a
+# quiet day (no updates) cannot be mistaken for a working fix. The line is what gets copied into
+# docs/evidence/d1/phase2/profiles-deadrows-7day.md, and the Auditor re-reads
+# it independently. Day 1 = the first reading < 10 % after 20260920_0003 is
+# applied on production (R-68, step 6).
+#
+# READ-ONLY BY CONSTRUCTION, THREE WAYS:
+#   * the transaction is opened READ ONLY (BEGIN READ ONLY … ROLLBACK), so the
+#     server itself refuses any write inside it;
+#   * it ends in ROLLBACK, never COMMIT;
+#   * the only statement between them is the SELECT below. No other statement.
+#
+# THE CREDENTIAL. The same Environment secret apply-migration.yml uses
+# (Environment `production`, SUPABASE_DB_URL). It is never printed: it is
+# passed to psql through the environment, and every check below prints only
+# the parsed project ref and port. It must be the session pooler
+# (postgres.<ref>, port 5432) for the production ref jtdtehuqtinjxropkkcn;
+# anything else is refused before psql starts, exactly as apply-migration.yml
+# refuses it.
+#
+# Scheduled runs execute on the default branch (main). A manual dispatch from
+# any other branch is refused, so this can never read production on behalf of
+# an unreviewed copy of itself.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p2-deadrows-daily
+  cancel-in-progress: false
+
+jobs:
+  read:
+    name: profiles dead-row ratio (production, read-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    env:
+      DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BRANCH_REF: ${{ github.ref_name }}
+    steps:
+      - name: Only from main
+        run: |
+          set -euo pipefail
+          if [ "$BRANCH_REF" != "main" ]; then
+            echo "::error::This reads production and runs only from main; this run is on '$BRANCH_REF'. Refusing."
+            exit 1
+          fi
+
+      - name: Refuse to start without the database credential
+        run: |
+          if [ -z "$DB_URL" ]; then
+            echo "::error::SUPABASE_DB_URL is not set in the production Environment. Refusing."
+            exit 1
+          fi
+          echo "Credential present. Its value is never printed by this workflow."
+
+      - name: The credential must be production's session pooler
+        run: |
+          set -euo pipefail
+          REF=$(printf '%s' "$DB_URL" | sed -E 's|^postgres(ql)?://([^:]+):.*|\2|' | cut -d. -f2)
+          PORT=$(printf '%s' "$DB_URL" | sed -E 's|^[^@]*@[^:/]+:([0-9]+).*|\1|')
+          if [ "$REF" != "jtdtehuqtinjxropkkcn" ]; then
+            echo "::error::secret points at '${REF:-unparseable}', not production (jtdtehuqtinjxropkkcn). Refusing."
+            exit 1
+          fi
+          if [ "$PORT" != "5432" ]; then
+            echo "::error::port '${PORT:-unparseable}' is not the session pooler (5432). Refusing."
+            exit 1
+          fi
+          echo "Credential points at production (jtdtehuqtinjxropkkcn), session pooler 5432."
+
+      - name: Install psql
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+          psql --version
+
+      - name: Read (one read-only SELECT)
+        run: |
+          set -euo pipefail
+          psql "$DB_URL" --no-psqlrc --quiet --tuples-only --no-align \
+            --set ON_ERROR_STOP=1 --field-separator ' | ' \
+            -c "BEGIN READ ONLY" \
+            -c "SELECT now() AS read_at_db_clock, s.n_live_tup, s.n_dead_tup, round(100.0 * s.n_dead_tup / nullif(s.n_live_tup + s.n_dead_tup, 0), 1) AS dead_pct, s.n_tup_upd, s.n_tup_hot_upd, s.last_autovacuum, s.last_vacuum, (SELECT stats_reset FROM pg_stat_database WHERE datname = current_database()) AS stats_reset FROM pg_stat_user_tables s WHERE s.relid = 'public.profiles'::regclass" \
+            -c "ROLLBACK"
