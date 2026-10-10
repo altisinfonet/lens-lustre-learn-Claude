@@ -15,8 +15,10 @@
  * Environment (Pages, per lane, in addition to _lib.ts):
  *   MEDIA_TOKEN_KEY  — the D-003 key, base64 of 32 bytes; the SAME value the
  *                      media-authz Worker holds. Never in the repo or the app.
- *   MEDIA_CDN_HOST   — the lane's CDN host (cdn-staging.50mmretina.com /
- *                      cdn.50mmretina.com). It is also the token's `aud`.
+ *   MEDIA_CDN_HOST   — the lane's own CDN host, set per Pages project (never
+ *                      written in the repo: the isolation guard forbids the other
+ *                      lane's host name in any shipped file). It is also the
+ *                      token's `aud`.
  *   VIDEO_DELIVERY_PRIVATE = "1" — as for upload (F-D3-18). Until the Worker
  *                      is live a token would protect nothing, so: 503.
  *

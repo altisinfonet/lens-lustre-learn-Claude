@@ -18,3 +18,6 @@ Unit: feed player — 9:16 card (R-105), muted autoplay while in view, pause out
 ## Not proven here (needs the live system)
 - Real playback needs the `media-authz` Worker `video/` branch + R2 + `VIDEO_DELIVERY_PRIVATE=1` (Owner/Auditor). No device measurement yet (real mid-range Android): waits for the Owner's phone.
 - ui:gate not run locally (no browser harness here); CI runs it. The card is not yet in the uishot fixtures.
+
+## CI correction (2026-10-10 ~03:25 UTC)
+First push (77455fd): "Staging lane build" FAILED — `verify-bundle-isolation` R8: the production CDN host name appeared in a header comment of `functions/api/video/play-token.ts` (the guard scans `functions/` too). Fixed by removing the literal host from the comment (the host is a per-lane Pages env value, never written in the repo). Reproduced and re-run locally with the CI lane env: build 0, `verify-bundle-isolation` PASS (404 assets, 3 roots), bundle budget PASS (258 checks, 0 failures). I had run the budget but not the isolation guard before pushing.
