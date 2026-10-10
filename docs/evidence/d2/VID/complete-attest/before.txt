@@ -1,0 +1,182 @@
+
+ RUN  v3.2.4 /home/claude/lens-lustre-learn-claude
+
+ ❯ src/lib/video/__tests__/videoFunctions.test.ts (26 tests | 10 failed) 1859ms
+   ✓ SigV4 presigning > reproduces AWS's documented presigned-URL example byte for byte 45ms
+   ✓ /api/video/upload-urls > SEC-VID-1: every URL is for upload/video/…, never a served key 102ms
+   ✓ /api/video/upload-urls > each URL signs content-length, content-type, host and the sha256, for 1 h, on the R2 S3 host 40ms
+   ✓ /api/video/upload-urls > stores the canonical manifest server-side, and skips files already uploaded (resume) 34ms
+   ✓ /api/video/upload-urls > refuses: no sign-in 401 · a stranger 404 · a manifest the database did not declare 409 · a bad file name 400 12ms
+   ✓ /api/video/upload-urls > refuses a video that is not uploading any more 30ms
+   ✓ F-D3-18 · no upload while the media host is public > both endpoints answer 503 VID-ENV-002 until VIDEO_DELIVERY_PRIVATE=1, and write nothing 22ms
+   × /api/video/complete > verifies, copies to the served prefix itself, and marks uploaded with the served audio's hash 961ms
+     → expected [ { …(3) } ] to deeply equal [ { …(5) } ]
+   ✓ /api/video/complete > SEC-VID-1: a re-PUT to the upload key AFTER complete changes nothing viewers get 99ms
+   ✓ /api/video/complete > missing files → 409 with the list, nothing marked 34ms
+   ✓ /api/video/complete > a file whose bytes differ from the manifest is deleted and reported, nothing marked 31ms
+   ✓ /api/video/complete > F-D3-17: a video rendition carrying a sound track is refused 42ms
+   ✓ /api/video/complete > F-D3-17: an audio rendition that is not one sound track is refused 20ms
+   ✓ /api/video/complete > SEC condition 3: an absolute URI or an EXT-X-KEY in a playlist is refused 51ms
+   ✓ /api/video/complete > SEC condition 2: a poster that is not a JPEG is refused 25ms
+   ✓ /api/video/complete > a retry after success answers without doing anything (outbox replay) 8ms
+   × F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argument form) > no audio → _audio_sha256 null, the message says 'none', and the attestation verifies 56ms
+     → expected [ { …(3) } ] to deeply equal [ { …(5) } ]
+   × F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argument form) > issued_at is the clock at signing, in Unix SECONDS 24ms
+     → expected undefined to be 1791612000 // Object.is equality
+   × F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argument form) > SEC-VID-10: attest key equal to MEDIA_TOKEN_KEY → 503 VID-ENV-003 BEFORE any work: nothing copied, nothing marked 32ms
+     → expected 200 to be 503 // Object.is equality
+   × F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argument form) > no attest key on the lane → 503 VID-ENV-003 BEFORE any work: nothing copied, nothing marked 27ms
+     → expected 200 to be 503 // Object.is equality
+   × F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argument form) > no lane word on the lane → 503 VID-ENV-003 BEFORE any work: nothing copied, nothing marked 22ms
+     → expected 200 to be 503 // Object.is equality
+   × F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argument form) > the database refusing the attestation (VID-MU-004) → 503 to retry later, never a member-facing "refused" 30ms
+     → expected 409 to be 503 // Object.is equality
+   × F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argument form) > the database refusing the attestation (VID-MU-005) → 503 to retry later, never a member-facing "refused" 25ms
+     → expected 409 to be 503 // Object.is equality
+   × F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argument form) > the database refusing the attestation (VID-MU-006) → 503 to retry later, never a member-facing "refused" 27ms
+     → expected 409 to be 503 // Object.is equality
+   × F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argument form) > the manifest's audio flag disagreeing with the stored version → 409 before any copy (0007 signs the STORED flag) 32ms
+     → expected 200 to be 409 // Object.is equality
+   ✓ F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argument form) > any other database refusal keeps today's answer (409 VID-DB-001) 23ms
+ ✓ src/lib/video/__tests__/completeAttest.test.ts (18 tests) 13ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 10 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/video/__tests__/videoFunctions.test.ts > /api/video/complete > verifies, copies to the served prefix itself, and marks uploaded with the served audio's hash
+AssertionError: expected [ { …(3) } ] to deeply equal [ { …(5) } ]
+
+- Expected
++ Received
+
+  [
+    {
+-     "_attest": "2d86b5309f79a7be05f18b6ead8d59aadebd36945000a3a79d5c32a8bd26cafd",
+      "_audio_sha256": "bcf158d9d9f64ddf64f1c9131914aeb7d2bd8249c0dd1265ed5bc4c7c57111cf",
+-     "_issued_at": 1791612000,
+      "_version_no": 1,
+      "_video_id": "33333333-3333-4333-8333-333333333333",
+    },
+  ]
+
+ ❯ src/lib/video/__tests__/videoFunctions.test.ts:203:24
+    201|       lane: "staging", videoId: VID, versionNo: 1, manifestSha256: pkg…
+    202|     }));
+    203|     expect(w.rpcCalls).toEqual([{ _video_id: VID, _version_no: 1, _aud…
+       |                        ^
+    204|   });
+    205| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/10]⎯
+
+ FAIL  src/lib/video/__tests__/videoFunctions.test.ts > F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argument form) > no audio → _audio_sha256 null, the message says 'none', and the attestation verifies
+AssertionError: expected [ { …(3) } ] to deeply equal [ { …(5) } ]
+
+- Expected
++ Received
+
+  [
+    {
+-     "_attest": "69167d8b17d11eaaf9af61c6fd0f236c7759ee77556189c1644a374e7770a736",
+      "_audio_sha256": null,
+-     "_issued_at": 1791612000,
+      "_version_no": 1,
+      "_video_id": "33333333-3333-4333-8333-333333333333",
+    },
+  ]
+
+ ❯ src/lib/video/__tests__/videoFunctions.test.ts:297:24
+    295|     const issuedAt = Math.floor(NOW_MS / 1000);
+    296|     const expected = await signAttest(ATTEST_KEY, `v1|staging|${VID}|1…
+    297|     expect(w.rpcCalls).toEqual([{ _video_id: VID, _version_no: 1, _aud…
+       |                        ^
+    298|   });
+    299| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/10]⎯
+
+ FAIL  src/lib/video/__tests__/videoFunctions.test.ts > F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argument form) > issued_at is the clock at signing, in Unix SECONDS
+AssertionError: expected undefined to be 1791612000 // Object.is equality
+
+- Expected: 
+1791612000
+
++ Received: 
+undefined
+
+ ❯ src/lib/video/__tests__/videoFunctions.test.ts:304:38
+    302|     await uploadAll(w, pkg);
+    303|     await handleComplete(post({ video_id: VID, version_no: 1 }), w.env…
+    304|     expect(w.rpcCalls[0]._issued_at).toBe(Math.floor(NOW_MS / 1000));
+       |                                      ^
+    305|   });
+    306| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/10]⎯
+
+ FAIL  src/lib/video/__tests__/videoFunctions.test.ts > F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argument form) > SEC-VID-10: attest key equal to MEDIA_TOKEN_KEY → 503 VID-ENV-003 BEFORE any work: nothing copied, nothing marked
+ FAIL  src/lib/video/__tests__/videoFunctions.test.ts > F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argument form) > no attest key on the lane → 503 VID-ENV-003 BEFORE any work: nothing copied, nothing marked
+ FAIL  src/lib/video/__tests__/videoFunctions.test.ts > F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argument form) > no lane word on the lane → 503 VID-ENV-003 BEFORE any work: nothing copied, nothing marked
+AssertionError: expected 200 to be 503 // Object.is equality
+
+- Expected
++ Received
+
+- 503
++ 200
+
+ ❯ src/lib/video/__tests__/videoFunctions.test.ts:317:24
+    315|       Object.assign(w.env, patch);
+    316|       const r = await handleComplete(post({ video_id: VID, version_no:…
+    317|       expect(r.status).toBe(503);
+       |                        ^
+    318|       expect(((await r.json()) as { error: string }).error).toBe("VID-…
+    319|       expect([...w.bucket.map.keys()].some((k) => k.startsWith(SERVED_…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/10]⎯
+
+ FAIL  src/lib/video/__tests__/videoFunctions.test.ts > F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argument form) > the database refusing the attestation (VID-MU-004) → 503 to retry later, never a member-facing "refused"
+ FAIL  src/lib/video/__tests__/videoFunctions.test.ts > F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argument form) > the database refusing the attestation (VID-MU-005) → 503 to retry later, never a member-facing "refused"
+ FAIL  src/lib/video/__tests__/videoFunctions.test.ts > F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argument form) > the database refusing the attestation (VID-MU-006) → 503 to retry later, never a member-facing "refused"
+AssertionError: expected 409 to be 503 // Object.is equality
+
+- Expected
++ Received
+
+- 503
++ 409
+
+ ❯ src/lib/video/__tests__/videoFunctions.test.ts:329:24
+    327|       await uploadAll(w, pkg);
+    328|       const r = await handleComplete(post({ video_id: VID, version_no:…
+    329|       expect(r.status).toBe(503);
+       |                        ^
+    330|       expect(((await r.json()) as { error: string }).error).toBe("VID-…
+    331|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/10]⎯
+
+ FAIL  src/lib/video/__tests__/videoFunctions.test.ts > F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argument form) > the manifest's audio flag disagreeing with the stored version → 409 before any copy (0007 signs the STORED flag)
+AssertionError: expected 200 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 200
+
+ ❯ src/lib/video/__tests__/videoFunctions.test.ts:341:22
+    339|     o.storedHasAudio = false;
+    340|     const r = await handleComplete(post({ video_id: VID, version_no: 1…
+    341|     expect(r.status).toBe(409);
+       |                      ^
+    342|     expect(((await r.json()) as { error: string }).error).toBe("VID-CM…
+    343|     expect([...w.bucket.map.keys()].some((k) => k.startsWith(SERVED_PR…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/10]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  10 failed | 34 passed (44)
+   Start at  13:16:36
+   Duration  4.18s (transform 303ms, setup 151ms, collect 344ms, tests 1.87s, environment 821ms, prepare 213ms)
+

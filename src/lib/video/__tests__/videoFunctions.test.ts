@@ -13,6 +13,7 @@ import { fakePackage } from "./fixtures";
 import { handleUploadUrls } from "../../../../functions/api/video/upload-urls";
 import { handleComplete } from "../../../../functions/api/video/complete";
 import { presign, type R2BucketLike, type VideoEnv } from "../../../../functions/api/video/_lib";
+import { attestMessage, signAttest, type AttestEnv } from "../../../../functions/api/video/attest";
 import { SERVED_PREFIX, UPLOAD_PREFIX, sha256Hex, totalBytes, uploadKey, servedKey, manifestKey, type VideoManifest } from "../shared/rules";
 import type { HlsPackage } from "../hlsPackager";
 
@@ -33,21 +34,27 @@ class FakeBucket implements R2BucketLike {
   async delete(k: string | string[]) { for (const x of Array.isArray(k) ? k : [k]) this.map.delete(x); }
 }
 
+/** F-D1-4: the lane's attest key (≥ 32 chars, ≠ MEDIA_TOKEN_KEY) and the lane WORD. */
+const ATTEST_KEY = "test-attest-key-0123456789abcdef-staging";
+/** complete's clock in these tests: 2026-10-10 06:00:00 UTC, in ms. */
+const NOW_MS = Date.UTC(2026, 9, 10, 6, 0, 0);
+
 interface World {
   bucket: FakeBucket;
-  env: VideoEnv;
+  env: VideoEnv & AttestEnv;
   fetch: typeof fetch;
   rpcCalls: Array<Record<string, unknown>>;
   state: { value: string };
 }
 
-function world(pkg: HlsPackage, opts: { state?: string; manifestSha?: string } = {}): World {
+function world(pkg: HlsPackage, opts: { state?: string; manifestSha?: string; markError?: string; storedHasAudio?: boolean } = {}): World {
   const bucket = new FakeBucket();
   const rpcCalls: Array<Record<string, unknown>> = [];
   const state = { value: opts.state ?? "uploading" };
-  const env: VideoEnv = {
+  const env: VideoEnv & AttestEnv = {
     SUPABASE_PROJECT_REF: "testref", SUPABASE_ANON_KEY: "anon", MEDIA: bucket,
     R2_ACCOUNT_ID: "acct123", R2_BUCKET: "media-staging", R2_UPLOAD_KEY_ID: "AKIDTEST", R2_UPLOAD_KEY_SECRET: "secret", VIDEO_DELIVERY_PRIVATE: "1",
+    VIDEO_COMPLETE_ATTEST_KEY: ATTEST_KEY, VIDEO_ATTEST_LANE: "staging",
   };
   const fakeFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -59,11 +66,12 @@ function world(pkg: HlsPackage, opts: { state?: string; manifestSha?: string } =
     if (url.includes("/rest/v1/video_versions?")) {
       return ok(uid === OWNER ? [{
         manifest_sha256: opts.manifestSha ?? pkg.manifestSha256, total_bytes: totalBytes(pkg.manifest),
-        declared_duration_s: pkg.manifest.duration_s, has_audio: pkg.manifest.has_audio,
+        declared_duration_s: pkg.manifest.duration_s, has_audio: opts.storedHasAudio ?? pkg.manifest.has_audio,
       }] : []);
     }
     if (url.endsWith("/rest/v1/rpc/video_mark_uploaded")) {
       rpcCalls.push(JSON.parse(String(init?.body)));
+      if (opts.markError) return new Response(JSON.stringify({ code: "P0001", message: opts.markError }), { status: 400 });
       state.value = "ready";
       return ok({ video_id: VID, version_no: 1, state: "ready" });
     }
@@ -177,7 +185,7 @@ describe("/api/video/complete", () => {
   it("verifies, copies to the served prefix itself, and marks uploaded with the served audio's hash", async () => {
     const w = world(pkg);
     await uploadAll(w, pkg);
-    const r = await handleComplete(post({ video_id: VID, version_no: 1 }), w.env, w.fetch);
+    const r = await handleComplete(post({ video_id: VID, version_no: 1 }), w.env, w.fetch, () => NOW_MS);
     expect(r.status).toBe(200);
     for (const [name, bytes] of pkg.files) {
       expect(Array.from(w.bucket.map.get(servedKey(OWNER, VID, 1, name)) ?? []), name).toEqual(Array.from(bytes));
@@ -186,7 +194,13 @@ describe("/api/video/complete", () => {
       .sort((a, b) => Number(a.match(/\d+/)![0]) - Number(b.match(/\d+/)![0])).map((n) => pkg.files.get(n)!)];
     const all = new Uint8Array(audio.reduce((a, p) => a + p.length, 0));
     let o = 0; for (const p of audio) { all.set(p, o); o += p.length; }
-    expect(w.rpcCalls).toEqual([{ _video_id: VID, _version_no: 1, _audio_sha256: await sha256Hex(all) }]);
+    const audioSha = await sha256Hex(all);
+    const issuedAt = Math.floor(NOW_MS / 1000);
+    // F-D1-4: the 5-argument form, signed over exactly what 0007 rebuilds from the stored row.
+    const expected = await signAttest(ATTEST_KEY, attestMessage({
+      lane: "staging", videoId: VID, versionNo: 1, manifestSha256: pkg.manifestSha256, hasAudio: true, audioSha256: audioSha, issuedAt,
+    }));
+    expect(w.rpcCalls).toEqual([{ _video_id: VID, _version_no: 1, _audio_sha256: audioSha, _issued_at: issuedAt, _attest: expected }]);
   });
 
   it("SEC-VID-1: a re-PUT to the upload key AFTER complete changes nothing viewers get", async () => {
@@ -268,5 +282,73 @@ describe("/api/video/complete", () => {
     expect(r.status).toBe(200);
     expect(((await r.json()) as { replayed: boolean }).replayed).toBe(true);
     expect(w.rpcCalls).toEqual([]);
+  });
+});
+
+describe("F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argument form)", () => {
+  it("no audio → _audio_sha256 null, the message says 'none', and the attestation verifies", async () => {
+    const p = await fakePackage({ seconds: 10, audio: false });
+    const w = world(p);
+    await uploadAll(w, p);
+    const r = await handleComplete(post({ video_id: VID, version_no: 1 }), w.env, w.fetch, () => NOW_MS);
+    expect(r.status).toBe(200);
+    const issuedAt = Math.floor(NOW_MS / 1000);
+    const expected = await signAttest(ATTEST_KEY, `v1|staging|${VID}|1|${p.manifestSha256}|false|none|${issuedAt}`);
+    expect(w.rpcCalls).toEqual([{ _video_id: VID, _version_no: 1, _audio_sha256: null, _issued_at: issuedAt, _attest: expected }]);
+  });
+
+  it("issued_at is the clock at signing, in Unix SECONDS", async () => {
+    const w = world(pkg);
+    await uploadAll(w, pkg);
+    await handleComplete(post({ video_id: VID, version_no: 1 }), w.env, w.fetch, () => NOW_MS + 999);
+    expect(w.rpcCalls[0]._issued_at).toBe(Math.floor(NOW_MS / 1000));
+  });
+
+  for (const [name, patch] of [
+    ["SEC-VID-10: attest key equal to MEDIA_TOKEN_KEY", { MEDIA_TOKEN_KEY: ATTEST_KEY }],
+    ["no attest key on the lane", { VIDEO_COMPLETE_ATTEST_KEY: undefined }],
+    ["no lane word on the lane", { VIDEO_ATTEST_LANE: undefined }],
+  ] as const) {
+    it(`${name} → 503 VID-ENV-003 BEFORE any work: nothing copied, nothing marked`, async () => {
+      const w = world(pkg);
+      await uploadAll(w, pkg);
+      Object.assign(w.env, patch);
+      const r = await handleComplete(post({ video_id: VID, version_no: 1 }), w.env, w.fetch, () => NOW_MS);
+      expect(r.status).toBe(503);
+      expect(((await r.json()) as { error: string }).error).toBe("VID-ENV-003");
+      expect([...w.bucket.map.keys()].some((k) => k.startsWith(SERVED_PREFIX))).toBe(false);
+      expect(w.rpcCalls).toEqual([]);
+    });
+  }
+
+  for (const code of ["VID-MU-004", "VID-MU-005", "VID-MU-006"]) {
+    it(`the database refusing the attestation (${code}) → 503 to retry later, never a member-facing "refused"`, async () => {
+      const w = world(pkg, { markError: `${code}: attestation refused` });
+      await uploadAll(w, pkg);
+      const r = await handleComplete(post({ video_id: VID, version_no: 1 }), w.env, w.fetch, () => NOW_MS);
+      expect(r.status).toBe(503);
+      expect(((await r.json()) as { error: string }).error).toBe("VID-ENV-003");
+    });
+  }
+
+  it("the manifest's audio flag disagreeing with the stored version → 409 before any copy (0007 signs the STORED flag)", async () => {
+    // upload-urls already refuses this mismatch, so the stored row changes AFTER the upload (opts is read per request).
+    const o: { storedHasAudio?: boolean } = {};
+    const w = world(pkg, o);
+    await uploadAll(w, pkg);
+    o.storedHasAudio = false;
+    const r = await handleComplete(post({ video_id: VID, version_no: 1 }), w.env, w.fetch, () => NOW_MS);
+    expect(r.status).toBe(409);
+    expect(((await r.json()) as { error: string }).error).toBe("VID-CMP-002");
+    expect([...w.bucket.map.keys()].some((k) => k.startsWith(SERVED_PREFIX))).toBe(false);
+    expect(w.rpcCalls).toEqual([]);
+  });
+
+  it("any other database refusal keeps today's answer (409 VID-DB-001)", async () => {
+    const w = world(pkg, { markError: "VID-MU-001: not your video" });
+    await uploadAll(w, pkg);
+    const r = await handleComplete(post({ video_id: VID, version_no: 1 }), w.env, w.fetch, () => NOW_MS);
+    expect(r.status).toBe(409);
+    expect(((await r.json()) as { error: string }).error).toBe("VID-DB-001");
   });
 });

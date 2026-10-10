@@ -19,9 +19,18 @@
  *   5. init segments: every video rendition exactly one `vide` and no `soun`;
  *      the audio rendition exactly one `soun`; none when has_audio = false;
  *      the master's CODECS carry an audio codec exactly when there is audio.
- * Then it copies, and calls video_mark_uploaded(video, version, audio_sha256)
- * as the member, where audio_sha256 = sha256(audio.mp4 ‖ audio_*.m4s in
- * playlist order) — VID-1 §6.1's definition.
+ * Then it copies, and calls video_mark_uploaded(video, version, audio_sha256,
+ * issued_at, attest) as the member, where audio_sha256 = sha256(audio.mp4 ‖
+ * audio_*.m4s in playlist order) — VID-1 §6.1's definition — and attest is the
+ * lane's HMAC over the stored version (F-D1-4, 0007; ./attest.ts). Only this
+ * Function holds the key, so a member calling the RPC directly cannot reach
+ * `ready` (the hole 0007 closes).
+ *
+ * The lane's attest configuration is checked FIRST, before any read or copy:
+ * a lane without its key (or with the play-token key reused, SEC-VID-10)
+ * answers 503 VID-ENV-003 and writes nothing. The database's own attestation
+ * refusals (VID-MU-004/005/006) are the lane's configuration or clock, not the
+ * member's video, so they answer 503 too and the upload job retries.
  */
 import {
   canonicalManifest, contentTypeFor, manifestKey, servedKey, sha256Hex, uploadKey, type VideoManifest,
@@ -29,13 +38,17 @@ import {
 import { playlistUris } from "../../../src/lib/video/shared/playlist";
 import { judgeUploadContent } from "../../../src/lib/video/shared/judge";
 import { HttpError, requirePrivateDelivery, asMember, handleError, json, loadUploadingVersion, member, needEnv, readJson, type VideoEnv } from "./_lib";
+import { ATTEST_DB_CODES, attestMessage, checkAttestEnv, signAttest, type AttestEnv } from "./attest";
 
 const dec = new TextDecoder();
 
-export async function handleComplete(request: Request, env: VideoEnv, fetchImpl: typeof fetch = fetch): Promise<Response> {
+export async function handleComplete(
+  request: Request, env: VideoEnv & AttestEnv, fetchImpl: typeof fetch = fetch, nowMs: () => number = Date.now,
+): Promise<Response> {
   try {
     if (request.method !== "POST") throw new HttpError(405, "VID-REQ-000", "POST only");
     requirePrivateDelivery(env);
+    const attest = checkAttestEnv(env);
     const who = await member(request, env, fetchImpl);
     const body = await readJson<{ video_id?: string; version_no?: number }>(request);
     const row = await loadUploadingVersion(env, who, String(body.video_id ?? ""), Number(body.version_no), fetchImpl);
@@ -52,6 +65,8 @@ export async function handleComplete(request: Request, env: VideoEnv, fetchImpl:
     if ((await sha256Hex(mText)) !== row.manifest_sha256) throw new HttpError(409, "VID-CMP-002", "the stored manifest is not this version's");
     const manifest = JSON.parse(mText) as VideoManifest;
     if (canonicalManifest(manifest) !== mText) throw new HttpError(409, "VID-CMP-002", "the stored manifest is not canonical");
+    // 0007 signs the STORED audio flag; a manifest that disagrees would only be refused later, after the copy.
+    if (manifest.has_audio !== row.has_audio) throw new HttpError(409, "VID-CMP-002", "the manifest's audio flag is not this version's");
 
     // 1. presence
     const missing: string[] = [];
@@ -117,14 +132,30 @@ export async function handleComplete(request: Request, env: VideoEnv, fetchImpl:
       audioSha = await sha256Hex(all);
     }
 
-    const marked = await asMember<{ state?: string }>(env, who.jwt, "rpc/video_mark_uploaded", {
-      method: "POST",
-      body: JSON.stringify({ _video_id: vid, _version_no: ver, _audio_sha256: audioSha }),
-    }, fetchImpl);
+    // F-D1-4: signed only now, after every check and the SEC-VID-1 copy succeeded.
+    // The manifest hash is the stored one complete verified the manifest against.
+    const issuedAt = Math.floor(nowMs() / 1000);
+    const signature = await signAttest(attest.key, attestMessage({
+      lane: attest.lane, videoId: vid, versionNo: ver, manifestSha256: row.manifest_sha256,
+      hasAudio: row.has_audio, audioSha256: audioSha, issuedAt,
+    }));
+    let marked: { state?: string } | null;
+    try {
+      marked = await asMember<{ state?: string }>(env, who.jwt, "rpc/video_mark_uploaded", {
+        method: "POST",
+        body: JSON.stringify({ _video_id: vid, _version_no: ver, _audio_sha256: audioSha, _issued_at: issuedAt, _attest: signature }),
+      }, fetchImpl);
+    } catch (e) {
+      const refusal = e instanceof HttpError ? ATTEST_DB_CODES.find((c) => e.message.includes(c)) : undefined;
+      if (refusal) {
+        throw new HttpError(503, "VID-ENV-003", `video uploads are not configured on this lane yet: the database refused the attestation (${refusal}) — check VIDEO_COMPLETE_ATTEST_KEY, VIDEO_ATTEST_LANE and the clock`);
+      }
+      throw e;
+    }
     return json(200, { video_id: vid, version_no: ver, state: marked?.state ?? "checking", audio_sha256: audioSha });
   } catch (e) {
     return handleError(e);
   }
 }
 
-export const onRequest = (context: { request: Request; env: VideoEnv }) => handleComplete(context.request, context.env);
+export const onRequest = (context: { request: Request; env: VideoEnv & AttestEnv }) => handleComplete(context.request, context.env);

@@ -1,0 +1,13 @@
+
+ RUN  v3.2.4 /home/claude/lens-lustre-learn-claude
+
+ ✓ src/lib/video/__tests__/videoFunctions.test.ts (26 tests) 1743ms
+   ✓ /api/video/complete > verifies, copies to the served prefix itself, and marks uploaded with the served audio's hash  935ms
+ ✓ src/lib/video/__tests__/uploadJobs.test.ts (8 tests) 342ms
+ ✓ src/lib/video/__tests__/completeAttest.test.ts (18 tests) 9ms
+
+ Test Files  3 passed (3)
+      Tests  52 passed (52)
+   Start at  14:06:26
+   Duration  4.41s (transform 214ms, setup 129ms, collect 353ms, tests 2.09s, environment 957ms, prepare 257ms)
+
