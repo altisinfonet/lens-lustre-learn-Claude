@@ -57,8 +57,33 @@ function server(pkg: HlsPackage) {
   }) as typeof fetch;
   let online = true;
   let failPutAfter = Infinity;
+  /**
+   * video_publish_post (20261011_0003), as the database does it: one
+   * transaction — the post and its link are written together or not at all —
+   * and the same key returns the post that key already made.
+   */
+  const publish = (args: Record<string, unknown>) => {
+    const key = String(args._idempotency_key);
+    const videoId = String(args._video_id);
+    const prior = [...db.posts.values()].find((p) => p.key === key);
+    if (prior) {
+      const linked = db.postVideos.get(prior.id);
+      if (linked && linked !== videoId) return { data: null, error: { message: "VID-PUB-003: this publish key already belongs to another video", code: "23505" } };
+      if (!linked) db.postVideos.set(prior.id, videoId);
+      return { data: prior.id, error: null };
+    }
+    const cats = (args._categories as string[] | null) ?? [];
+    if (db.videos.get(videoId)?.state !== "ready") return { data: null, error: { message: "VID-LINK-001: post_videos needs a ready post video", code: "23514" } };
+    if (cats.length < 1 || cats.length > 5) return { data: null, error: { message: "VID-CAT-001: a video post needs between 1 and 5 categories", code: "23514" } };
+    if ([...db.postVideos.values()].includes(videoId)) return { data: null, error: { message: "duplicate key value violates unique constraint \"post_videos_video_id_key\"", code: "23505" } };
+    const id = `post-${db.posts.size + 1}`;
+    db.posts.set(id, { id, key, categories: cats });
+    db.postVideos.set(id, videoId);
+    return { data: id, error: null };
+  };
   const deps: JobDeps = {
     rpc: async (fn, args) => {
+      if (fn === "video_publish_post") return publish(args);
       if (fn !== "video_begin_upload") return { data: null, error: { message: "no such rpc" } };
       db.beginCalls++;
       const existing = [...db.videos.values()].find((x) => x.key === args._idempotency_key);
@@ -69,20 +94,6 @@ function server(pkg: HlsPackage) {
       return { data: { video_id: id, version_no: 1, replayed: false }, error: null };
     },
     videoState: async (id) => db.videos.get(id)?.state ?? null,
-    insertPost: async (row) => {
-      const dup = [...db.posts.values()].find((p) => p.key === row.idempotency_key);
-      if (dup) return { id: null, error: { message: "duplicate key value violates unique constraint \"posts_user_idempotency_key\"", code: "23505" } };
-      const id = `post-${db.posts.size + 1}`;
-      db.posts.set(id, { id, key: String(row.idempotency_key), categories: row.categories as string[] });
-      return { id, error: null };
-    },
-    findPostByKey: async (_u, key) => [...db.posts.values()].find((p) => p.key === key)?.id ?? null,
-    insertPostVideo: async (postId, videoId) => {
-      if (db.videos.get(videoId)?.state !== "ready") return { error: { message: "VID-LINK-001: post_videos needs a ready post video", code: "23514" } };
-      if (db.postVideos.has(postId)) return { error: { message: "dup", code: "23505" } };
-      db.postVideos.set(postId, videoId);
-      return { error: null };
-    },
     api: async (path, body) => {
       const req = new Request(`https://app.test${path}`, { method: "POST", headers: { authorization: "Bearer jwt" }, body: JSON.stringify(body) });
       const res = path.endsWith("upload-urls") ? await handleUploadUrls(req, env, new Date(), fetchImpl) : await handleComplete(req, env, fetchImpl);
@@ -180,20 +191,38 @@ describe("VID-1 · the device upload job", () => {
     expect(s.db.videos.size).toBe(1);
   });
 
-  it("the post key is made once: a publish retried after a lost answer is still ONE post", async () => {
+  it("the post key is made once: a publish retried after a lost answer is still ONE post, with its video", async () => {
     const s = server(pkg);
     let j = await advanceJob(await newJob(), s.deps);
     s.musicCheckPasses();
-    const realLink = s.deps.insertPostVideo;
-    s.deps.insertPostVideo = async () => { throw new TypeError("Failed to fetch"); }; // post written, link lost
+    const realRpc = s.deps.rpc;
+    s.deps.rpc = async (fn, args) => {
+      if (fn !== "video_publish_post") return realRpc(fn, args);
+      await realRpc(fn, args); // the database published it…
+      throw new TypeError("Failed to fetch"); // …and the answer was lost
+    };
     j = await advanceJob(j, s.deps);
-    expect(j.step).toBe("ready");
+    expect(j.step).toBe("ready"); // kept, to retry
     expect(s.db.posts.size).toBe(1);
-    s.deps.insertPostVideo = realLink;
-    j = await advanceJob({ ...j, postId: undefined, nextAt: 0 }, s.deps); // even if the read-back id was lost too
+    expect(s.db.postVideos.size).toBe(1); // never a post without its video
+    s.deps.rpc = realRpc;
+    j = await advanceJob({ ...j, nextAt: 0 }, s.deps);
     expect(j.step).toBe("published");
     expect(s.db.posts.size).toBe(1);
     expect(s.db.postVideos.size).toBe(1);
+  });
+
+  it("a refused publish leaves NO post behind (one transaction) and is said out loud", async () => {
+    const s = server(pkg);
+    let j = await newJob();
+    j = { ...j, post: { ...j.post, categories: [] } }; // the database refuses: VID-CAT-001
+    j = await advanceJob(j, s.deps);
+    s.musicCheckPasses();
+    j = await advanceJob(j, s.deps);
+    expect(j.step).toBe("failed");
+    expect(j.lastError).toMatch(/VID-CAT-001/);
+    expect(s.db.posts.size).toBe(0);
+    expect(s.db.postVideos.size).toBe(0);
   });
 
   it("a refusal from the server is final and said out loud (never retried for ever)", async () => {

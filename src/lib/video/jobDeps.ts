@@ -16,9 +16,7 @@ type Res = { data: Record<string, unknown> | null; error: Err };
 interface Chain extends PromiseLike<Res> {
   select(columns: string): Chain;
   eq(column: string, value: unknown): Chain;
-  insert(row: unknown): Chain;
   maybeSingle(): PromiseLike<Res>;
-  single(): PromiseLike<Res>;
 }
 interface LooseDb {
   rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: Err }>;
@@ -40,18 +38,6 @@ export const realJobDeps: JobDeps = {
     const { data, error } = await db.from("videos").select("state").eq("id", videoId).maybeSingle();
     if (error) throw error;
     return (data?.state as string | undefined) ?? null;
-  },
-  insertPost: async (row) => {
-    const { data, error } = await db.from("posts").insert(row).select("id").single();
-    return { id: (data?.id as string | undefined) ?? null, error: error as Err };
-  },
-  findPostByKey: async (userId, key) => {
-    const { data } = await db.from("posts").select("id").eq("user_id", userId).eq("idempotency_key", key).maybeSingle();
-    return (data?.id as string | undefined) ?? null;
-  },
-  insertPostVideo: async (postId, videoId) => {
-    const { error } = await db.from("post_videos").insert({ post_id: postId, video_id: videoId });
-    return { error: error as Err };
   },
   api: async (path, body) => {
     const token = await bearer();
