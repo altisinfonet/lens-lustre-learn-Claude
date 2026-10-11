@@ -2,6 +2,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPostMediaMap, resolvePostImageUrls } from "@/lib/media/postMediaRead";
+import { fetchPostVideoMap, type FeedVideo } from "@/lib/video/postVideoRead";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
 import type { UnifiedPost, TaggedPerson } from "@/types/post";
@@ -82,7 +83,7 @@ async function fetchAndEnrich(
   const postIds = postsData.map((p) => p.id);
 
   // Merge reaction queries into ONE — filter user reactions client-side
-  const [profileMap, adminIds, allReactionsRes, tagsRes, postMediaMap] = await Promise.all([
+  const [profileMap, adminIds, allReactionsRes, tagsRes, postMediaMap, postVideoMap] = await Promise.all([
     fetchProfileMap(authorIds),
     getAdminIds(),
     supabase.from("post_reactions").select("post_id, reaction_type, user_id").in("post_id", postIds),
@@ -101,6 +102,9 @@ async function fetchAndEnrich(
      * differently.
      */
     fetchPostMediaMap(postIds),
+    // VID-1: the same video read as the feed — without it a video post showed
+    // on the wall as an empty post (Owner, staging 2026-10-11).
+    fetchPostVideoMap(postIds),
   ]);
 
   /**
@@ -149,7 +153,9 @@ async function fetchAndEnrich(
     }
   });
 
-  const posts: UnifiedPost[] = postsData.map((p: any) => {
+  // A post whose video is not playable for this viewer (not ready, not visible)
+  // is left out, exactly as the feed does.
+  const posts: UnifiedPost[] = postsData.filter((p: any) => postVideoMap.get(p.id) !== "hidden").map((p: any) => {
     const userRx = userReactionMap.get(p.id) as ReactionType | undefined;
     const typeCounts = reactionTypeCounts[p.id] || {};
     const topReactions = Object.entries(typeCounts)
@@ -168,6 +174,7 @@ async function fetchAndEnrich(
       content: p.content || "",
       image_url: p.image_url || null,
       image_urls: imageUrls,
+      video: ((): FeedVideo | null => { const v = postVideoMap.get(p.id); return v && v !== "hidden" ? v : null; })(),
       // Stored thumbnails (posts.thumbnail_urls) — the select("*") above
       // already fetches them; the card shows the small copy when they align.
       thumbnail_urls: p.thumbnail_urls ?? null,
