@@ -197,7 +197,12 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
 
     await new Promise<void>((resolve, reject) => {
       let lastFrameAt = performance.now();
+      // Exactly one frame callback outstanding at a time (a second one would
+      // encode the same frame twice).
+      let waiting = false;
+      const ask = () => { if (!waiting) { waiting = true; video.requestVideoFrameCallback(onFrame); } };
       const onFrame = async (_now: number, meta: VideoFrameCallbackMetadata) => {
+        waiting = false;
         lastFrameAt = performance.now();
         try {
           if (opts.signal?.aborted) throw new DOMException("aborted", "AbortError");
@@ -217,9 +222,13 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
             poster = await posterCanvas.convertToBlob({ type: "image/jpeg", quality: 0.85 });
           }
           opts.onProgress?.(Math.min(0.95, meta.mediaTime / duration));
-          if (!video.ended) video.requestVideoFrameCallback(onFrame);
+          if (video.ended) return;
+          // Hidden by now (the event may have fired before this loop listened):
+          // stop here; onVisibility resumes from this exact frame.
+          if (document.hidden) { video.pause(); return; }
+          ask();
         } catch (e) {
-          clearInterval(watchdog);
+          stop();
           reject(e);
         }
       };
@@ -227,15 +236,32 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
       // and never ends (Firefox + HEVC / 10-bit). Fail clearly after 10 s without
       // a frame instead of waiting forever.
       const watchdog = setInterval(() => {
-        if (!video.ended && performance.now() - lastFrameAt > 10_000) {
-          clearInterval(watchdog);
+        if (!video.ended && !document.hidden && performance.now() - lastFrameAt > 10_000) {
+          stop();
           reject(new Error(`VID-ENC-004: ${UNDECODABLE_MESSAGE}`));
         }
       }, 1_000);
-      video.onended = () => { clearInterval(watchdog); resolve(); };
-      video.onerror = () => { clearInterval(watchdog); reject(new Error("VID-ENC-002: playback failed while encoding")); };
-      video.requestVideoFrameCallback(onFrame);
-      video.play().catch((e) => { clearInterval(watchdog); reject(e); });
+      // A background tab gets no frame callbacks while the muted video keeps
+      // playing — frames would be lost and the watchdog would misfire. Pause
+      // while hidden; resume (and restart the watchdog clock) when visible.
+      const onVisibility = () => {
+        if (document.hidden) { video.pause(); return; }
+        lastFrameAt = performance.now();
+        if (!video.ended) {
+          ask();
+          video.play().catch((e) => { stop(); reject(e); });
+        }
+      };
+      document.addEventListener("visibilitychange", onVisibility);
+      const stop = () => { clearInterval(watchdog); document.removeEventListener("visibilitychange", onVisibility); };
+      video.onended = () => { stop(); resolve(); };
+      video.onerror = () => { stop(); reject(new Error("VID-ENC-002: playback failed while encoding")); };
+      // Started while the tab is hidden (e.g. switched away during the audio
+      // step): wait — onVisibility starts playback when the member comes back.
+      if (!document.hidden) {
+        ask();
+        video.play().catch((e) => { stop(); reject(e); });
+      }
     });
 
     const videoInputs: VideoRenditionInput[] = [];

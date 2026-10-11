@@ -39,16 +39,25 @@ export async function encodeAacWasm(
     if (e.data.ok) p.resolve(e.data.result);
     else p.reject(new Error(`VID-ENC-003: ${e.data.error}`));
   });
-  worker.addEventListener("error", (e) => {
-    failure = new Error(`VID-ENC-003: the AAC encoder could not start (${e.message || "worker error"})`);
-    for (const p of pending.values()) p.reject(failure);
+  const failAll = (err: Error) => {
+    failure = err;
+    for (const p of pending.values()) p.reject(err);
     pending.clear();
-  });
+  };
+  worker.addEventListener("error", (e) => failAll(new Error(`VID-ENC-003: the AAC encoder could not start (${e.message || "worker error"})`)));
+  worker.addEventListener("messageerror", () => failAll(new Error("VID-ENC-003: the AAC encoder sent a message that could not be read")));
+  // A stuck worker must not hang the upload: init may compile the WASM (seconds
+  // on a slow phone), one frame is milliseconds.
   const send = <T>(command: AacCommand, transfer: Transferable[] = []): Promise<T> => {
     if (failure) return Promise.reject(failure);
     const id = nextId++;
+    const limitMs = command.type === "init" ? 60_000 : 15_000;
     return new Promise<T>((resolve, reject) => {
-      pending.set(id, { resolve: resolve as (v: unknown) => void, reject });
+      const timer = setTimeout(() => failAll(new Error(`VID-ENC-003: the AAC encoder stopped responding (${command.type})`)), limitMs);
+      pending.set(id, {
+        resolve: (v) => { clearTimeout(timer); (resolve as (v: unknown) => void)(v); },
+        reject: (e) => { clearTimeout(timer); reject(e); },
+      });
       worker.postMessage({ id, command }, transfer);
     });
   };

@@ -64,6 +64,7 @@ export function readVideoFacts(file: File, timeoutMs = 15_000, firstFrameMs = 8_
       v.pause();
       URL.revokeObjectURL(url);
       v.removeAttribute("src");
+      v.load(); // releases the decoder now, not at garbage collection
       fn();
     };
     const t = setTimeout(() => done(() => reject(new Error("VID-META-001: the video's details did not load"))), timeoutMs);
@@ -81,7 +82,12 @@ export function readVideoFacts(file: File, timeoutMs = 15_000, firstFrameMs = 8_
       const ok = () => done(() => resolve(facts));
       if (typeof v.requestVideoFrameCallback === "function") v.requestVideoFrameCallback(() => ok());
       else v.addEventListener("timeupdate", () => { if (v.currentTime > 0) ok(); });
-      v.play().catch(() => { /* an undecodable video surfaces through the timer or onerror */ });
+      v.play().catch((e: unknown) => {
+        // Autoplay refused by the browser's policy says nothing about the format:
+        // accept the header and let the encoder's own watchdog judge decoding.
+        if ((e as { name?: string })?.name === "NotAllowedError") ok();
+        // Otherwise an undecodable video surfaces through the timer or onerror.
+      });
     };
     // Header read but frames refused = a format this browser cannot decode (Firefox
     // + HEVC / 10-bit): say why and what to do. No header at all = not a video.

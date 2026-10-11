@@ -21,3 +21,12 @@
 **Not testable here:** real Safari/iOS (needs an Apple device). Safari 26+ has native WebCodecs AAC; if not, the same WASM fallback applies.
 
 Tests: `aacFallback.test.ts` 12 — fail-first: 3 red on the old encoder/CSP (Firefox support ×2, wasm CSP), 12/12 after; video suite 46/46; `tsc -b` 0; budget 262 checks PASS.
+
+## Security review (independent sub-agent) — ACCEPT-WITH-CONDITIONS; LOW findings fixed in this PR
+- **Background tab:** browsers stop frame callbacks in a hidden tab while the muted video keeps playing (lost frames / false "can't play"). Now the encoder pauses while hidden and resumes on return; it also handles a tab hidden *before* the video stage starts. Proof `tabswitch-output.txt` (12 s hidden mid-encode): Firefox and Chrome both finish, 0 problems (before the fix: 3 problems).
+- **Stuck worker:** per-request time limits (init 60 s, frame 15 s) + `messageerror` handler → clear VID-ENC-003 instead of a hang.
+- **Autoplay refused:** NotAllowedError no longer reported as "can't play this format"; `v.load()` releases the decoder.
+- **Licences:** `public/third-party-notices.txt` (FFmpeg LGPL-2.1, mediabunny MPL-2.0, hls.js Apache-2.0, mp4-muxer MIT).
+- Supply chain (LOW, accepted): 1.61.3 is 6 days old, single maintainer; pinned exactly, sha512 from registry.npmjs.org, no install scripts.
+
+Re-run after the fixes: Chrome 10/10, Edge 10/10, Firefox 7/10 + 3 clear refusals (enc-*.txt).
