@@ -22,6 +22,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import OptimizedImage from "@/components/OptimizedImage";
 import CategoryChips, { canPublishCategories } from "@/components/post/CategoryChips";
 import { PostAudienceChooser, type Privacy } from "@/components/post/PostAudienceChooser";
 import { videoFrameAspect, videoNeedsFill } from "@/lib/video/videoFrame";
@@ -212,7 +213,7 @@ export default function VideoPostComposer({ open, onOpenChange, encode, initialF
             <div className="flex items-start gap-3">
               <div className="relative w-16 shrink-0 overflow-hidden rounded bg-black" style={{ aspectRatio: String(frame) }}>
                 {cover?.kind === "image" ? (
-                  <img src={cover.url} alt={t("video.coverPreview", "Your cover")} className="h-full w-full object-contain" />
+                  <OptimizedImage src={cover.url} alt={t("video.coverPreview", "Your cover")} loading="eager" className="h-full w-full object-contain" />
                 ) : (
                   <video ref={coverVideoRef} src={url} muted playsInline preload="auto" tabIndex={-1}
                     aria-label={t("video.coverPreview", "Your cover")} className="h-full w-full object-contain"
