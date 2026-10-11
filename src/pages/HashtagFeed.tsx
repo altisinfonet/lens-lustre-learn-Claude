@@ -8,6 +8,8 @@ import { fetchProfileMap } from "@/lib/profileMapCache";
 import { useAuth } from "@/hooks/core/useAuth";
 import RichContentRenderer from "@/components/RichContentRenderer";
 import FacebookPhotoGrid from "@/components/FacebookPhotoGrid";
+import FeedVideoCard from "@/components/video/FeedVideoCard";
+import { fetchPostVideoMap, type FeedVideo } from "@/lib/video/postVideoRead";
 import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import PresenceAvatar from "@/components/PresenceAvatar";
@@ -29,6 +31,8 @@ interface HashPost {
   author_handle: string | null;
   author_badges: string[];
   author_last_active: string | null;
+  /** VID-1: the post's playable video, when it is a video post. */
+  video: FeedVideo | null;
 }
 
 const HashtagFeed = () => {
@@ -93,11 +97,18 @@ const HashtagFeed = () => {
      * hashtag page must not show a different photograph from the feed for the
      * same post.
      */
-    const postMediaMap = await fetchPostMediaMap(visiblePosts.map((p) => p.id));
+    const visibleIds = visiblePosts.map((p) => p.id);
+    // VID-1: the same video read as the feed and the wall.
+    const [postMediaMap, postVideoMap] = await Promise.all([
+      fetchPostMediaMap(visibleIds),
+      fetchPostVideoMap(visibleIds),
+    ]);
 
     setPosts(
-      visiblePosts.map((p) => ({
+      // A post whose video is not playable for this viewer is left out, as on the feed.
+      visiblePosts.filter((p) => postVideoMap.get(p.id) !== "hidden").map((p) => ({
         ...p,
+        video: ((): FeedVideo | null => { const v = postVideoMap.get(p.id); return v && v !== "hidden" ? v : null; })(),
         image_urls: resolvePostImageUrls(
           postMediaMap,
           p.id,
@@ -192,6 +203,13 @@ const HashtagFeed = () => {
                   <p className="text-[15px] leading-[1.4] whitespace-pre-wrap">
                     <RichContentRenderer content={post.content} />
                   </p>
+                </div>
+              )}
+
+              {/* Video */}
+              {post.video && (
+                <div data-testid="post-video">
+                  <FeedVideoCard video={post.video} />
                 </div>
               )}
 

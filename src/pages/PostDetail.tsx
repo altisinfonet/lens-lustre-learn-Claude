@@ -4,6 +4,7 @@ import { publicUrl } from "@/lib/publicUrl";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPostMediaMap, resolvePostImageUrls } from "@/lib/media/postMediaRead";
+import { fetchPostVideoMap, type FeedVideo } from "@/lib/video/postVideoRead";
 import { useAuth } from "@/hooks/core/useAuth";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { Globe, Users, Lock, ArrowLeft, Share2, Copy, Flag, MoreHorizontal, MessageCircle, Eye } from "lucide-react";
@@ -49,6 +50,8 @@ interface PostData {
   user_reaction: ReactionType | null;
   top_reactions: string[];
   reaction_counts: Record<string, number>;
+  /** VID-1: the post's playable video, when it is a video post. */
+  video?: FeedVideo | null;
 }
 
 const PostDetail = () => {
@@ -122,7 +125,18 @@ const PostDetail = () => {
        * function is still the batching one because there must be exactly one
        * media reader in this codebase.
        */
-      const postMediaMap = await fetchPostMediaMap([rawPost.id]);
+      const [postMediaMap, postVideoMap] = await Promise.all([
+        fetchPostMediaMap([rawPost.id]),
+        // VID-1: same video read as the feed; a video that is not playable for
+        // this viewer (not ready, not visible) hides the post, as the feed does.
+        fetchPostVideoMap([rawPost.id]),
+      ]);
+      const videoEntry = postVideoMap.get(rawPost.id);
+      if (videoEntry === "hidden") {
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
 
       setPost({
         id: rawPost.id,
@@ -130,6 +144,7 @@ const PostDetail = () => {
         content: rawPost.content || "",
         image_url: rawPost.image_url,
         image_urls: resolvePostImageUrls(postMediaMap, rawPost.id, (rawPost as any).image_urls || []),
+        video: videoEntry ?? null, // "hidden" returned above: here it is a FeedVideo or absent
         privacy: (rawPost.privacy || "public") as Privacy,
         created_at: rawPost.created_at,
         author_name: profile?.full_name || null,
