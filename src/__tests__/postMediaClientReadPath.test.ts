@@ -76,6 +76,14 @@ const row = (post_id: string, ord: number, object_path: string | null) => ({
   post_id, ord, object_path, width: 1600, height: 1200, mime: "image/webp", bytes: 1,
 });
 
+/**
+ * The ONE module that reads a post's attachments (photographs + video) for
+ * every surface (Owner, 2026-10-11: one surface had not been taught about
+ * video and showed video posts empty). It is where the batching reader and the
+ * resolver are called; the surfaces call it.
+ */
+const ATTACHMENTS = "src/lib/posts/postAttachments.ts";
+
 /** The four surfaces that build the media array. There must be no fifth. */
 const PRODUCERS = [
   "src/hooks/feed/useFeedQuery.ts",
@@ -296,26 +304,28 @@ describe("there is exactly one media reader, and every surface uses it", () => {
     ).toEqual([]);
   });
 
-  it("all four media-producing surfaces call the batching reader", () => {
+  it("all four media-producing surfaces read through the one attachments module, which calls the batching reader", () => {
+    const shared = strip(read(ATTACHMENTS));
+    expect(/fetchPostMediaMap\(/.test(shared), `${ATTACHMENTS} does not call fetchPostMediaMap.`).toBe(true);
+    expect(
+      /resolvePostImageUrls\(/.test(shared),
+      `${ATTACHMENTS} fetches media but does not use it, which is the quiet failure this file exists for.`,
+    ).toBe(true);
     for (const f of PRODUCERS) {
       const code = strip(read(f));
-      expect(
-        /fetchPostMediaMap\(/.test(code),
-        `${f} does not call fetchPostMediaMap — it is still legacy-only.`,
-      ).toBe(true);
-      expect(
-        /resolvePostImageUrls\(/.test(code),
-        `${f} fetches media but does not use it, which is the quiet failure this file exists for.`,
-      ).toBe(true);
+      expect(/fetchPostAttachments\(/.test(code), `${f} does not call fetchPostAttachments — it reads media some other way.`).toBe(true);
+      expect(/attachmentsFor\(/.test(code), `${f} fetches attachments but does not use them.`).toBe(true);
+      expect(/fetchPostMediaMap\(/.test(code), `${f} calls fetchPostMediaMap itself — go through ${ATTACHMENTS}.`).toBe(false);
     }
   });
 
   it("no surface calls the reader once per post", () => {
     for (const f of PRODUCERS) {
       const code = strip(read(f));
-      // `posts.map(p => fetchPostMediaMap([p.id]))` in any spelling.
+      // `posts.map(p => fetchPostMediaMap([p.id]))` in any spelling — or the
+      // same through the attachments module.
       expect(
-        /\.map\((?:async\s*)?\(?[A-Za-z_$][\w$]*\)?\s*=>[\s\S]{0,200}?fetchPostMediaMap\(/.test(code),
+        /\.map\((?:async\s*)?\(?[A-Za-z_$][\w$]*\)?\s*=>[\s\S]{0,200}?(fetchPostMediaMap|fetchPostAttachments)\(/.test(code),
         `${f} calls the media RPC inside a per-post map — that is the N+1.`,
       ).toBe(false);
     }
@@ -323,7 +333,7 @@ describe("there is exactly one media reader, and every surface uses it", () => {
 
   it("the feed resolves media inside its existing Promise.all, costing no extra round trip", () => {
     const code = strip(read("src/hooks/feed/useFeedQuery.ts"));
-    const at = code.indexOf("fetchPostMediaMap(postIds)");
+    const at = code.indexOf("fetchPostAttachments(postIds)");
     expect(at, "the feed no longer batches the page's post ids into one call").toBeGreaterThan(0);
     // The call must sit INSIDE a Promise.all array: the nearest `Promise.all([`
     // before it must be nearer than the nearest `]);` before it. If the array
@@ -341,7 +351,7 @@ describe("there is exactly one media reader, and every surface uses it", () => {
     for (const f of PRODUCERS) {
       const code = strip(read(f));
       expect(
-        /resolvePostImageUrls\([\s\S]{0,300}?image_urls/.test(code),
+        /attachmentsFor\([\s\S]{0,300}?image_urls/.test(code),
         `${f} calls the resolver without passing image_urls — the 57 unmigrated ` +
           `posts would render blank.`,
       ).toBe(true);

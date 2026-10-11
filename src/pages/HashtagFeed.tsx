@@ -3,13 +3,13 @@ import { useEffect, useState, useCallback } from "react";
 import { Hash, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { memberPath } from "@/lib/urlHelpers";
-import { fetchPostMediaMap, resolvePostImageUrls } from "@/lib/media/postMediaRead";
+import { fetchPostAttachments, attachmentsFor } from "@/lib/posts/postAttachments";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { useAuth } from "@/hooks/core/useAuth";
 import RichContentRenderer from "@/components/RichContentRenderer";
 import FacebookPhotoGrid from "@/components/FacebookPhotoGrid";
 import FeedVideoCard from "@/components/video/FeedVideoCard";
-import { fetchPostVideoMap, type FeedVideo } from "@/lib/video/postVideoRead";
+import type { FeedVideo } from "@/lib/video/postVideoRead";
 import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import PresenceAvatar from "@/components/PresenceAvatar";
@@ -92,27 +92,20 @@ const HashtagFeed = () => {
     }
 
     /**
-     * ITEM E — same sanctioned media read path as the feed, the wall and the
-     * photo detail page. One batched call for the whole result set; the
-     * hashtag page must not show a different photograph from the feed for the
-     * same post.
+     * ITEM E + VID-1 — photographs and video through the one module every
+     * surface uses (postAttachments.ts), one batched call for the whole result
+     * set: the hashtag page must not show a post differently from the feed.
      */
-    // VID-1: the same video read as the feed and the wall, batched beside it.
-    const [postMediaMap, postVideoMap] = await Promise.all([
-      fetchPostMediaMap(visiblePosts.map((p) => p.id)),
-      fetchPostVideoMap(visiblePosts.map((p) => p.id)),
-    ]);
+    const attachments = await fetchPostAttachments(visiblePosts.map((p) => p.id));
+    const attachedById = new Map(visiblePosts.map((p) => [p.id, attachmentsFor(
+      attachments, p.id, (p as any).image_urls || (p.image_url ? [p.image_url] : []),
+    )]));
 
     setPosts(
-      // A post whose video is not playable for this viewer is left out, as on the feed.
-      visiblePosts.filter((p) => postVideoMap.get(p.id) !== "hidden").map((p) => ({
+      // A post whose video is not playable for this viewer is left out (null), as on the feed.
+      visiblePosts.filter((p) => attachedById.get(p.id) !== null).map((p) => ({
         ...p,
-        video: ((): FeedVideo | null => { const v = postVideoMap.get(p.id); return v && v !== "hidden" ? v : null; })(),
-        image_urls: resolvePostImageUrls(
-          postMediaMap,
-          p.id,
-          (p as any).image_urls || (p.image_url ? [p.image_url] : []),
-        ),
+        ...attachedById.get(p.id)!,
         author_name: resolveName(p.user_id, profileMap.get(p.user_id)?.full_name ?? null, adminIds),
         author_avatar: profileMap.get(p.user_id)?.avatar_url || null,
         author_handle: profileMap.get(p.user_id)?.custom_url ?? null,
