@@ -12,9 +12,14 @@
  *
  * EXACTLY ONCE, the OFF-2 way: every key is made ONCE when the job is created
  * and stored with it — the video's idempotency key (video_begin_upload returns
- * the same row for the same key) and the post's (posts_user_idempotency_key:
- * a repeat insert is a 23505, read back by key). A retry can never make a
- * second video or a second post.
+ * the same row for the same key) and the post's (video_publish_post returns
+ * the post that key already made). A retry can never make a second video or a
+ * second post.
+ *
+ * ONE STEP TO PUBLISH (20261011_0003): the post and its video link are written
+ * by one database call in one transaction, so there is never a post without
+ * its video — the old two-request publish left an empty post on the wall when
+ * the second request failed, and the duplicate guard could not see the video.
  *
  * WHY NOT THE OFF-2 OUTBOX ITSELF: the outbox sends single table writes from
  * D1's contract (scripts/db-off2-outbox-contract.json) and its guard fails the
@@ -29,6 +34,9 @@
  */
 import { backoffMs } from "@/lib/offline/outbox";
 import { isNetworkError } from "@/lib/offline/retryPolicy";
+
+/** Postgres says "try again", not "no": statement/lock timeout, serialisation, deadlock. */
+const RETRYABLE_DB_CODES = new Set(["57014", "55P03", "40001", "40P01"]);
 import { safeRandomUUID } from "@/lib/safeUuid";
 import { renditionBytes, totalBytes, uploadOrder, type VideoManifest, type VideoPurpose } from "./shared/rules";
 
@@ -135,10 +143,6 @@ export interface JobDeps {
   rpc(fn: string, args: Record<string, unknown>): Promise<{ data: unknown; error: { message: string; code?: string } | null }>;
   /** select one video's state through RLS */
   videoState(videoId: string): Promise<string | null>;
-  /** insert the post; returns its id, or the 23505 read-back by idempotency key */
-  insertPost(row: Record<string, unknown>): Promise<{ id: string | null; error: { message: string; code?: string } | null }>;
-  findPostByKey(userId: string, key: string): Promise<string | null>;
-  insertPostVideo(postId: string, videoId: string): Promise<{ error: { message: string; code?: string } | null }>;
   /** POST to /api/video/* with the member's JWT */
   api(path: string, body: unknown): Promise<{ status: number; body: Record<string, unknown> }>;
   /** the PUT itself */
@@ -269,27 +273,18 @@ export async function advanceJob(job: VideoJob, d: JobDeps): Promise<VideoJob> {
       else { j = { ...j, nextAt: d.now() + 15_000 }; await save(j); return j; } // still checking: look again soon
     }
     if (j.step === "ready") {
-      let postId = j.postId ?? null;
-      if (!postId) {
-        const ins = await d.insertPost({
-          user_id: j.userId, content: j.post.content, privacy: j.post.privacy, categories: j.post.categories,
-          idempotency_key: j.post.idempotencyKey,
-        });
-        if (ins.error?.code === "23505") postId = await d.findPostByKey(j.userId, j.post.idempotencyKey);
-        else if (ins.error) {
-          if (isNetworkError(ins.error)) throw ins.error;
-          throw new Refused(ins.error.message, ins.error.code);
-        } else postId = ins.id;
-        if (!postId) throw new Error("the post was written but could not be read back");
-        j = { ...j, postId };
-        await save(j);
+      // The post AND its video link, one transaction; the same key returns the
+      // same post, so a retry after a lost answer is safe.
+      const { data, error } = await d.rpc("video_publish_post", {
+        _video_id: j.videoId, _content: j.post.content, _privacy: j.post.privacy,
+        _categories: j.post.categories, _idempotency_key: j.post.idempotencyKey,
+      });
+      if (error) {
+        if (isNetworkError(error) || RETRYABLE_DB_CODES.has(error.code ?? "")) throw error;
+        throw new Refused(error.message, error.code ?? codeOf(error.message));
       }
-      const link = await d.insertPostVideo(postId, j.videoId!);
-      if (link.error && link.error.code !== "23505") {
-        if (isNetworkError(link.error)) throw link.error;
-        throw new Refused(link.error.message, link.error.code);
-      }
-      j = { ...j, step: "published" };
+      if (typeof data !== "string" || !data) throw new Error("the post was published but its id did not come back");
+      j = { ...j, postId: data, step: "published" };
       await s.deleteFiles(j.id);
       await s.deleteJob(j.id);
       emit({ type: "published", job: j });
