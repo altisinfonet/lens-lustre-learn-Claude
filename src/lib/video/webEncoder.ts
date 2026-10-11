@@ -19,10 +19,13 @@
  * Then hlsPackager muxes each rendition on its own (one `vide` per video init,
  * one `soun` in the audio init) and writes the playlists and the manifest.
  *
- * A browser without WebCodecs H.264 + AAC encoding is told so and pointed at
- * the app (VID-1 §2.4: "Video upload isn't supported in this browser — use the app").
+ * AAC: the browser's own AudioEncoder when it has one (Chrome, Edge, Safari);
+ * otherwise FFmpeg's AAC encoder in WASM (aacWasm.ts — Firefox has WebCodecs
+ * H.264 but no AAC). Only a browser without WebCodecs H.264 encoding at all is
+ * told "Video upload isn't supported in this browser — use the app" (VID-1 §2.4).
  */
 import { packageHls, renditionsFor, KEYFRAME_SECONDS, type HlsPackage, type RawChunk, type VideoRenditionInput } from "./hlsPackager";
+import { UNDECODABLE_MESSAGE } from "./limits";
 
 export const UNSUPPORTED_MESSAGE = "Video upload isn't supported in this browser — use the app.";
 
@@ -44,12 +47,31 @@ export class VideoEncodeUnsupported extends Error {
   constructor() { super(UNSUPPORTED_MESSAGE); }
 }
 
+/** Native WebCodecs encoding of this audio config? (false when AudioEncoder is missing) */
+async function nativeAudioSupported(codec: string, sampleRate: number, numberOfChannels: number): Promise<boolean> {
+  if (typeof AudioEncoder === "undefined") return false;
+  try {
+    return Boolean((await AudioEncoder.isConfigSupported({ codec, sampleRate, numberOfChannels, bitrate: AUDIO_BITRATE })).supported);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * AAC without a native encoder (Firefox): FFmpeg's AAC encoder in WASM, in a
+ * worker served from /assets/ (aacWasm.ts). Needs WASM + workers and the CSP's
+ * script-src 'wasm-unsafe-eval'.
+ */
+function wasmAacPossible(choice: CodecChoice): boolean {
+  return choice.audio.mux === "aac" && typeof WebAssembly === "object" && typeof Worker !== "undefined";
+}
+
 export async function encoderSupported(choice: CodecChoice = H264_AAC): Promise<boolean> {
-  if (typeof VideoEncoder === "undefined" || typeof AudioEncoder === "undefined") return false;
+  if (typeof VideoEncoder === "undefined") return false;
   try {
     const v = await VideoEncoder.isConfigSupported({ codec: choice.video.codec(720), width: 1280, height: 720, bitrate: 2_000_000, framerate: 30 });
-    const a = await AudioEncoder.isConfigSupported({ codec: choice.audio.codec, sampleRate: 48_000, numberOfChannels: 2, bitrate: AUDIO_BITRATE });
-    return Boolean(v.supported && a.supported);
+    if (!v.supported) return false;
+    return (await nativeAudioSupported(choice.audio.codec, 48_000, 2)) || wasmAacPossible(choice);
   } catch {
     return false;
   }
@@ -76,6 +98,25 @@ async function encodeAudio(file: File, choice: CodecChoice, signal?: AbortSignal
   }
   if (!decoded || decoded.length === 0) return null;
   const channels = Math.min(2, decoded.numberOfChannels);
+
+  if (!(await nativeAudioSupported(choice.audio.codec, decoded.sampleRate, channels))) {
+    if (!wasmAacPossible(choice)) throw new VideoEncodeUnsupported();
+    const { encodeAacWasm, AAC_SAMPLE_RATES } = await import("./aacWasm");
+    let buf = decoded;
+    if (!AAC_SAMPLE_RATES.includes(buf.sampleRate)) {
+      // An odd device rate (e.g. 192 kHz): resample to 48 kHz first.
+      const off = new OfflineAudioContext(channels, Math.ceil(buf.duration * 48_000), 48_000);
+      const src = off.createBufferSource();
+      src.buffer = buf;
+      src.connect(off.destination);
+      src.start();
+      buf = await off.startRendering();
+    }
+    const planes = Array.from({ length: channels }, (_, c) => buf.getChannelData(c));
+    const r = await encodeAacWasm(planes, buf.sampleRate, AUDIO_BITRATE, signal);
+    return { chunks: r.chunks, decoderConfig: r.decoderConfig, sampleRate: buf.sampleRate, channels };
+  }
+
   const sampleRate = decoded.sampleRate;
   const chunks: RawChunk[] = [];
   let decoderConfig: AudioDecoderConfig | undefined;
@@ -155,7 +196,9 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
     const posterAt = Math.min(1, duration / 2);
 
     await new Promise<void>((resolve, reject) => {
+      let lastFrameAt = performance.now();
       const onFrame = async (_now: number, meta: VideoFrameCallbackMetadata) => {
+        lastFrameAt = performance.now();
         try {
           if (opts.signal?.aborted) throw new DOMException("aborted", "AbortError");
           const ts = Math.round(meta.mediaTime * 1e6);
@@ -176,13 +219,23 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
           opts.onProgress?.(Math.min(0.95, meta.mediaTime / duration));
           if (!video.ended) video.requestVideoFrameCallback(onFrame);
         } catch (e) {
+          clearInterval(watchdog);
           reject(e);
         }
       };
-      video.onended = () => resolve();
-      video.onerror = () => reject(new Error("VID-ENC-002: playback failed while encoding"));
+      // Stall guard: a video the browser cannot decode never fires another frame
+      // and never ends (Firefox + HEVC / 10-bit). Fail clearly after 10 s without
+      // a frame instead of waiting forever.
+      const watchdog = setInterval(() => {
+        if (!video.ended && performance.now() - lastFrameAt > 10_000) {
+          clearInterval(watchdog);
+          reject(new Error(`VID-ENC-004: ${UNDECODABLE_MESSAGE}`));
+        }
+      }, 1_000);
+      video.onended = () => { clearInterval(watchdog); resolve(); };
+      video.onerror = () => { clearInterval(watchdog); reject(new Error("VID-ENC-002: playback failed while encoding")); };
       video.requestVideoFrameCallback(onFrame);
-      video.play().catch(reject);
+      video.play().catch((e) => { clearInterval(watchdog); reject(e); });
     });
 
     const videoInputs: VideoRenditionInput[] = [];

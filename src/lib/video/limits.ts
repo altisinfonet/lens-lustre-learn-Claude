@@ -32,22 +32,62 @@ export function videoLimitProblems(f: VideoFacts, purpose: VideoPurpose): string
   return out;
 }
 
-/** Read duration and size from the file itself, with the browser's own decoder. */
-export function readVideoFacts(file: File, timeoutMs = 15_000): Promise<VideoFacts> {
+/**
+ * Said when the browser reads a video's header but cannot decode its frames —
+ * in practice H.265/HEVC or 10-bit H.264 in Firefox (cross-browser run,
+ * 2026-10-11). Without this check the encoder waited forever on a video that
+ * never played.
+ */
+export const UNDECODABLE_MESSAGE =
+  "This browser can't play this video's format — usually H.265 (HEVC) or 10-bit video from a newer phone. " +
+  "Open the site in Chrome or Edge, or on iPhone set Settings → Camera → Formats → Most Compatible.";
+
+/**
+ * Read duration and size from the file itself, with the browser's own decoder,
+ * and prove the browser can decode a frame of it (VID-META-003) before the
+ * member is offered "Post".
+ */
+export function readVideoFacts(file: File, timeoutMs = 15_000, firstFrameMs = 8_000): Promise<VideoFacts> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const v = document.createElement("video");
-    v.preload = "metadata";
+    v.preload = "metadata"; // header first; play() then proves a frame decodes
     v.muted = true;
-    const done = (fn: () => void) => { clearTimeout(t); URL.revokeObjectURL(url); v.removeAttribute("src"); fn(); };
+    v.playsInline = true;
+    let frameTimer: ReturnType<typeof setTimeout> | undefined;
+    let settled = false;
+    const done = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(t);
+      clearTimeout(frameTimer);
+      v.pause();
+      URL.revokeObjectURL(url);
+      v.removeAttribute("src");
+      fn();
+    };
     const t = setTimeout(() => done(() => reject(new Error("VID-META-001: the video's details did not load"))), timeoutMs);
-    v.onloadedmetadata = () => done(() => resolve({
-      durationSeconds: Number.isFinite(v.duration) ? v.duration : 0,
-      bytes: file.size,
-      width: v.videoWidth,
-      height: v.videoHeight,
-    }));
-    v.onerror = () => done(() => reject(new Error("VID-META-002: this file is not a video we can play")));
+    let headerRead = false;
+    v.onloadedmetadata = () => {
+      headerRead = true;
+      clearTimeout(t);
+      const facts: VideoFacts = {
+        durationSeconds: Number.isFinite(v.duration) ? v.duration : 0,
+        bytes: file.size,
+        width: v.videoWidth,
+        height: v.videoHeight,
+      };
+      frameTimer = setTimeout(() => done(() => reject(new Error(`VID-META-003: ${UNDECODABLE_MESSAGE}`))), firstFrameMs);
+      const ok = () => done(() => resolve(facts));
+      if (typeof v.requestVideoFrameCallback === "function") v.requestVideoFrameCallback(() => ok());
+      else v.addEventListener("timeupdate", () => { if (v.currentTime > 0) ok(); });
+      v.play().catch(() => { /* an undecodable video surfaces through the timer or onerror */ });
+    };
+    // Header read but frames refused = a format this browser cannot decode (Firefox
+    // + HEVC / 10-bit): say why and what to do. No header at all = not a video.
+    v.onerror = () => done(() => reject(new Error(headerRead
+      ? `VID-META-003: ${UNDECODABLE_MESSAGE}`
+      : "VID-META-002: this file is not a video we can play")));
     v.src = url;
   });
 }

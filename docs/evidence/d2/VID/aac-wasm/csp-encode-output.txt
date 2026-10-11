@@ -1,0 +1,27 @@
+page CSP served: staging CSP + wasm-unsafe-eval ✔
+Firefox   {"name":"mp4_h264_aac.mp4","audio":true,"problems":0}
+Firefox   {"name":"mov_h264_aac.mov","audio":true,"problems":0}
+Firefox   {"name":"webm_vp9_opus.webm","audio":true,"problems":0}
+Firefox   {"name":"mp4_hevc_aac.mp4","error":"VID-META-003: This browser can't play this video's format — usually H.265 (HEVC) or 10-bit"}
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+page.evaluate: ReferenceError: fn is not defined
+    at eval (eval at evaluate (:291:30), <anonymous>:1:13)
+    at UtilityScript.evaluate (<anonymous>:293:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+    at C:\Users\Neil\AppData\Local\Temp\claude\d--50mm-Retina-World-lens-lustre-learn-Claude-Final\ecc703d1-2975-4c06-83a8-9f14a0421c7f\scratchpad\xb\csp-encode.mjs:44:66
+    at run (C:\Users\Neil\AppData\Local\Temp\claude\d--50mm-Retina-World-lens-lustre-learn-Claude-Final\ecc703d1-2975-4c06-83a8-9f14a0421c7f\scratchpad\xb\csp-encode.mjs:16:21)
+    at C:\Users\Neil\AppData\Local\Temp\claude\d--50mm-Retina-World-lens-lustre-learn-Claude-Final\ecc703d1-2975-4c06-83a8-9f14a0421c7f\scratchpad\xb\csp-encode.mjs:44:9
+
+Node.js v24.20.0
+page CSP served: staging CSP + wasm-unsafe-eval ✔
+Chrome    {"name":"mp4_h264_aac.mp4","audio":true,"problems":0}
+Chrome    {"name":"mov_h264_aac.mov","audio":true,"problems":0}
+Chrome    {"name":"webm_vp9_opus.webm","audio":true,"problems":0}
+Chrome    {"name":"mp4_hevc_aac.mp4","audio":true,"problems":0}
+Edge      {"name":"mp4_h264_aac.mp4","audio":true,"problems":0}
+Edge      {"name":"mov_h264_aac.mov","audio":true,"problems":0}
+Edge      {"name":"webm_vp9_opus.webm","audio":true,"problems":0}
+Edge      {"name":"mp4_hevc_aac.mp4","audio":true,"problems":0}

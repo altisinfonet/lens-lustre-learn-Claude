@@ -7,6 +7,8 @@ import { laneDefine, laneHtmlTokens } from "./scripts/lane-config.mjs";
 // F-AUD-1: every build names its commit in index.html, so a measurement can
 // wait for THIS build to be served. See scripts/web-build-commit.mjs.
 import { buildCommitPlugin } from "./scripts/web-build-commit.mjs";
+// VID-1: the AAC WASM core for browsers without native AAC (Firefox) → plain ESM.
+import { aacCoreEsmPlugin } from "./scripts/web-aac-core-esm.mjs";
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -57,7 +59,12 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
+  // VID-1: the AAC worker is an ES module worker (Firefox ≥ 114, Safari ≥ 15);
+  // dev serves the core through aacCoreEsmPlugin instead of the dep optimizer.
+  worker: { format: "es" as const, plugins: () => [aacCoreEsmPlugin()] },
+  optimizeDeps: { exclude: ["@mediabunny-aac-core"] },
   plugins: [
+    aacCoreEsmPlugin(),
     laneHtmlPlugin(),
     buildCommitPlugin(),
     react(),
@@ -72,6 +79,13 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // VID-1: the AAC-LC WASM core (FFmpeg's encoder) from @mediabunny/aac-encoder,
+      // loaded ONLY by src/lib/video/aacWasm.worker.ts for browsers without native
+      // AAC encoding (Firefox). The package's own bundle starts its worker from a
+      // blob: URL; importing the core directly lets Vite emit our worker to
+      // /assets/ so the CSP keeps worker-src 'self'. The package "exports" field
+      // hides this file, hence the alias.
+      "@mediabunny-aac-core": path.resolve(__dirname, "./node_modules/@mediabunny/aac-encoder/dist/modules/build/aac.js"),
     },
     dedupe: ["react", "react-dom", "react/jsx-runtime", "@tanstack/react-query", "@tanstack/query-core"],
   },
