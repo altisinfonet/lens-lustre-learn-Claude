@@ -1,0 +1,22 @@
+50mm Retina World — third-party software notices
+
+The web app includes the following open-source components. Their licences
+apply to those components only.
+
+1. FFmpeg AAC encoder (libavcodec), compiled to WebAssembly
+   Used only in browsers without built-in AAC encoding (for example Firefox),
+   only while a video is being prepared for upload.
+   Licence: GNU Lesser General Public License v2.1 or later
+   Source: https://ffmpeg.org/ — build used: https://github.com/Vanilagy/mediabunny/tree/main/packages/aac-encoder
+
+2. @mediabunny/aac-encoder 1.61.3 and mediabunny 1.61.3
+   Licence: Mozilla Public License 2.0 — https://mozilla.org/MPL/2.0/
+   Source: https://github.com/Vanilagy/mediabunny
+
+3. hls.js 1.7.3
+   Licence: Apache License 2.0 — https://www.apache.org/licenses/LICENSE-2.0
+   Source: https://github.com/video-dev/hls.js
+
+4. mp4-muxer 5.2.2
+   Licence: MIT
+   Source: https://github.com/Vanilagy/mp4-muxer

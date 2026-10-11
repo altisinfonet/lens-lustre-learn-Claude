@@ -8,6 +8,7 @@
     "jspdf.es.min.js": 397312,
     "html2canvas.esm.js": 207872,
     "index.css": 215040,
-    "hls.js": 611328
+    "hls.js": 611328,
+    "aacWasm.worker.js": 716800
   }
 }
