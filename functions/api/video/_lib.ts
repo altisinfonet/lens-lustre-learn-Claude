@@ -142,8 +142,13 @@ export async function loadUploadingVersion(env: VideoEnv, who: { uid: string; jw
   // 404, never 403: a stranger learns nothing about someone else's video.
   if (!v || v.owner_id !== who.uid) throw new HttpError(404, "VID-REQ-002", "no such video of yours");
   if (v.current_version !== versionNo) throw new HttpError(409, "VID-REQ-003", `version ${versionNo} is not the current version`);
+  // manifest_sha256 / total_bytes are not readable by API roles (0005 column
+  // grants), so they come from the owner-only RPC (20261011_0001: caller's own,
+  // not-deleted video, current version; state is judged by the endpoints).
+  // A direct video_versions read here was "permission denied" (Owner, 2026-10-11).
   const vers = await asMember<Array<{ manifest_sha256: string; total_bytes: number; declared_duration_s: number; has_audio: boolean }>>(
-    env, who.jwt, `video_versions?video_id=eq.${videoId}&version_no=eq.${versionNo}&select=manifest_sha256,total_bytes,declared_duration_s,has_audio`, {}, fetchImpl);
+    env, who.jwt, "rpc/video_upload_info",
+    { method: "POST", body: JSON.stringify({ _video_id: videoId, _version_no: versionNo }) }, fetchImpl);
   const ver = vers?.[0];
   if (!ver) throw new HttpError(404, "VID-REQ-002", "no such video of yours");
   return {
