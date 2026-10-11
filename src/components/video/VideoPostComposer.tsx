@@ -9,6 +9,8 @@
  *      rest, as Instagram does), so what they see is what the post will be;
  *   3. the limits, said before anything is encoded (3 min / 500 MB; the server
  *      re-checks and also counts 10 a day);
+ *   3b. the COVER (Owner 2026-10-11): a frame picked with a slider, or an
+ *      uploaded picture (cover.ts); untouched → the frame at 1 s, as before;
  *   4. a caption, the audience and 1–5 categories (CategoryChips, required —
  *      the same rule as photos; the database backstops it: VID-CAT-001);
  *   5. Post → encode on the device (progress shown) → the upload job takes over,
@@ -20,10 +22,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import OptimizedImage from "@/components/OptimizedImage";
 import CategoryChips, { canPublishCategories } from "@/components/post/CategoryChips";
 import { PostAudienceChooser, type Privacy } from "@/components/post/PostAudienceChooser";
 import { videoFrameAspect, videoNeedsFill } from "@/lib/video/videoFrame";
 import { readVideoFacts, videoLimitProblems, formatDuration, type VideoFacts } from "@/lib/video/limits";
+import { coverFromImage, coverFromVideoAt } from "@/lib/video/cover";
 import { createJob, runVideoJobs } from "@/lib/video/uploadJobs";
 import { realJobDeps } from "@/lib/video/jobDeps";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -36,12 +40,18 @@ export interface VideoPostComposerProps {
   /** UI harness: open with this file already picked. */
   initialFile?: File;
   /** Test seam (the UI harness): skip the device encoder. */
-  encode?: (file: File, opts: { mute: boolean; onProgress: (f: number) => void }) => Promise<{
+  encode?: (file: File, opts: { mute: boolean; onProgress: (f: number) => void; poster?: Uint8Array }) => Promise<{
     files: Map<string, Uint8Array>; manifest: import("@/lib/video/shared/rules").VideoManifest; manifestSha256: string;
   }>;
 }
 
 type Phase = { kind: "pick" } | { kind: "reading" } | { kind: "ready"; facts: VideoFacts } | { kind: "encoding"; facts: VideoFacts; progress: number } | { kind: "error"; message: string };
+
+/** null = untouched: the encoder takes the frame at 1 s, as it always has. */
+type Cover = null | { kind: "frame"; at: number } | { kind: "image"; url: string; bytes: Uint8Array };
+
+/** The encoder's own default cover time (webEncoder.ts), so the slider starts where the cover already is. */
+const defaultCoverAt = (duration: number) => Math.min(1, duration / 2);
 
 export default function VideoPostComposer({ open, onOpenChange, encode, initialFile }: VideoPostComposerProps) {
   const t = useT();
@@ -53,11 +63,18 @@ export default function VideoPostComposer({ open, onOpenChange, encode, initialF
   const [categories, setCategories] = useState<string[]>([]);
   const [privacy, setPrivacy] = useState<Privacy>("public");
   const [mute, setMute] = useState(false);
+  const [cover, setCover] = useState<Cover>(null);
+  const [coverError, setCoverError] = useState<string | null>(null);
+  const [coverBusy, setCoverBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const coverVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
+  const coverUrl = cover?.kind === "image" ? cover.url : null;
+  useEffect(() => () => { if (coverUrl) URL.revokeObjectURL(coverUrl); }, [coverUrl]);
   useEffect(() => {
-    if (!open) { setFile(null); setUrl(null); setPhase({ kind: "pick" }); setCaption(""); setCategories([]); setMute(false); }
+    if (!open) { setFile(null); setUrl(null); setPhase({ kind: "pick" }); setCaption(""); setCategories([]); setMute(false); setCover(null); setCoverError(null); }
   }, [open]);
 
   useEffect(() => {
@@ -70,13 +87,41 @@ export default function VideoPostComposer({ open, onOpenChange, encode, initialF
   const aspect = facts ? facts.width / facts.height : null;
   const frame = videoFrameAspect();
   const padded = videoNeedsFill(aspect);
-  const canPost = phase.kind === "ready" && problems.length === 0 && canPublishCategories(categories) && !!user;
+  const canPost = phase.kind === "ready" && problems.length === 0 && canPublishCategories(categories) && !!user && !coverBusy;
+  const coverAt = cover?.kind === "frame" ? cover.at : facts ? defaultCoverAt(facts.durationSeconds) : 0;
+
+  // The small cover preview is the video itself, paused on the chosen frame.
+  useEffect(() => {
+    const v = coverVideoRef.current;
+    if (v && cover?.kind !== "image") {
+      try { v.currentTime = coverAt; } catch { /* not seekable yet: loadedmetadata below retries */ }
+    }
+  }, [coverAt, cover?.kind, url]);
+
+  async function pickCoverImage(f: File | undefined) {
+    if (!f) return;
+    setCoverError(null);
+    setCoverBusy(true);
+    try {
+      // Made now, not at Post: an unreadable picture (e.g. HEIC in Chrome) is
+      // said straight away, and Post sends exactly what the preview shows.
+      const bytes = await coverFromImage(f);
+      setCover({ kind: "image", url: URL.createObjectURL(f), bytes });
+    } catch (e) {
+      setCoverError((e as Error).message.replace(/^VID-[A-Z]+-\d+: /, ""));
+    } finally {
+      setCoverBusy(false);
+      if (coverInputRef.current) coverInputRef.current.value = "";
+    }
+  }
 
   async function pick(f: File | undefined) {
     if (!f) return;
     if (url) URL.revokeObjectURL(url);
     setFile(f);
     setUrl(URL.createObjectURL(f));
+    setCover(null);
+    setCoverError(null);
     setPhase({ kind: "reading" });
     try {
       setPhase({ kind: "ready", facts: await readVideoFacts(f) });
@@ -91,9 +136,12 @@ export default function VideoPostComposer({ open, onOpenChange, encode, initialF
     setPhase({ kind: "encoding", facts: f, progress: 0 });
     try {
       const onProgress = (p: number) => setPhase({ kind: "encoding", facts: f, progress: p });
+      const poster = cover?.kind === "image" ? cover.bytes
+        : cover?.kind === "frame" ? await coverFromVideoAt(file, cover.at)
+        : undefined;
       const pkg = encode
-        ? await encode(file, { mute, onProgress })
-        : await (await import("@/lib/video/webEncoder")).encodeVideoToHls(file, { mute, onProgress });
+        ? await encode(file, { mute, onProgress, poster })
+        : await (await import("@/lib/video/webEncoder")).encodeVideoToHls(file, { mute, onProgress, poster });
       await createJob({
         userId: user.id, purpose: "post", manifest: pkg.manifest, manifestSha256: pkg.manifestSha256, files: pkg.files,
         post: { content: caption.trim(), categories, privacy },
@@ -158,6 +206,62 @@ export default function VideoPostComposer({ open, onOpenChange, encode, initialF
           </ul>
         )}
         {phase.kind === "error" && <p className="text-sm text-destructive" role="alert">{phase.message}</p>}
+
+        {url && facts && (
+          <div className="space-y-2" data-testid="video-cover" data-cover-kind={cover?.kind ?? "default"}>
+            <p className="text-sm font-medium">{t("video.cover", "Cover")}</p>
+            <div className="flex items-start gap-3">
+              <div className="relative w-16 shrink-0 overflow-hidden rounded bg-black" style={{ aspectRatio: String(frame) }}>
+                {cover?.kind === "image" ? (
+                  <OptimizedImage src={cover.url} alt={t("video.coverPreview", "Your cover")} loading="eager" className="h-full w-full object-contain" />
+                ) : (
+                  <video ref={coverVideoRef} src={url} muted playsInline preload="auto" tabIndex={-1}
+                    aria-label={t("video.coverPreview", "Your cover")} className="h-full w-full object-contain"
+                    onLoadedMetadata={(e) => { try { e.currentTarget.currentTime = coverAt; } catch { /* ignore */ } }} />
+                )}
+              </div>
+              <div className="min-w-0 flex-1 space-y-2">
+                {cover?.kind !== "image" && (
+                  <label className="block text-xs text-muted-foreground">
+                    {t("video.coverFrame", "Slide to choose a frame")}
+                    <input
+                      type="range"
+                      min={0}
+                      max={Math.max(0.1, facts.durationSeconds)}
+                      step={0.1}
+                      value={coverAt}
+                      disabled={phase.kind === "encoding"}
+                      onChange={(e) => setCover({ kind: "frame", at: Number(e.target.value) })}
+                      className="mt-1 block min-h-11 w-full"
+                      aria-label={t("video.coverFrame", "Slide to choose a frame")}
+                    />
+                  </label>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" size="sm" className="min-h-11"
+                    disabled={coverBusy || phase.kind === "encoding"} onClick={() => coverInputRef.current?.click()}>
+                    {cover?.kind === "image" ? t("video.coverChange", "Change cover image") : t("video.coverUpload", "Upload a cover image")}
+                  </Button>
+                  {cover?.kind === "image" && phase.kind !== "encoding" && (
+                    <Button type="button" variant="ghost" size="sm" className="min-h-11"
+                      onClick={() => setCover({ kind: "frame", at: defaultCoverAt(facts.durationSeconds) })}>
+                      {t("video.coverUseFrame", "Use a frame instead")}
+                    </Button>
+                  )}
+                </div>
+                {coverError && <p className="text-xs text-destructive" role="alert">{coverError}</p>}
+              </div>
+            </div>
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              aria-label={t("video.coverUpload", "Upload a cover image")}
+              onChange={(e) => void pickCoverImage(e.target.files?.[0])}
+            />
+          </div>
+        )}
 
         {url && (
           <>

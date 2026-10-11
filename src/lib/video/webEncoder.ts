@@ -15,7 +15,9 @@
  *           real time: a 3-minute video takes about 3 minutes. The app path
  *           (Capacitor + Media3 Transformer) is the fast one; the web path is the
  *           fallback for members on a desktop browser.
- *   poster — the frame at 1 s (or the first frame of a shorter video), JPEG.
+ *   poster — the member's chosen cover (cover.ts: a picked frame or an uploaded
+ *            image) when there is one; otherwise the frame at 1 s (or the
+ *            middle of a shorter video), JPEG.
  * Then hlsPackager muxes each rendition on its own (one `vide` per video init,
  * one `soun` in the audio init) and writes the playlists and the manifest.
  *
@@ -84,6 +86,8 @@ export interface EncodeOptions {
   signal?: AbortSignal;
   /** Test seam: the CI browser has no H.264/AAC encoder, so the harness passes VP9 + Opus. */
   codecs?: CodecChoice;
+  /** The member's chosen cover, JPEG (cover.ts). Absent → the frame at 1 s. */
+  poster?: Uint8Array;
 }
 
 async function encodeAudio(file: File, choice: CodecChoice, signal?: AbortSignal) {
@@ -191,7 +195,7 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
       return { t, chunks, encoder, canvas, ctx2d, state, get decoderConfig() { return decoderConfig; } };
     });
 
-    let poster: Blob | null = null;
+    let poster: Blob | null = opts.poster ? new Blob([opts.poster as BlobPart], { type: "image/jpeg" }) : null;
     const posterCanvas = new OffscreenCanvas(Math.min(1280, sw), Math.round(Math.min(1280, sw) * (sh / sw)));
     const posterAt = Math.min(1, duration / 2);
 
