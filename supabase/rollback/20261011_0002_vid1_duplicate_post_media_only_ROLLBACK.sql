@@ -1,7 +1,23 @@
 -- ROLLBACK for 20261011_0002_vid1_duplicate_post_media_only.sql
 -- Restores the exact 20260814234152 body. Video posts then fail again as
--- "Duplicate post detected" for every second video within 10 minutes.
+-- "Duplicate post detected" for every second video within 10 minutes, and a
+-- captioned retry is refused as a duplicate of itself.
 BEGIN;
+
+DO $lane_assert$
+BEGIN
+  IF coalesce(current_setting('p32.lane', true), '') NOT IN ('staging', 'production') THEN
+    RAISE EXCEPTION
+      'ROLLBACK REFUSED — p32.lane is not asserted as staging or production (read: %). '
+      'Set it in THIS session before running: SET p32.lane = ''staging'';',
+      coalesce(current_setting('p32.lane', true), '(unset)')
+    USING ERRCODE = 'raise_exception';
+  END IF;
+END
+$lane_assert$;
+
+SET LOCAL lock_timeout = '5s';
+
 CREATE OR REPLACE FUNCTION public.detect_duplicate_post()
  RETURNS trigger
  LANGUAGE plpgsql

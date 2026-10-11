@@ -7,6 +7,8 @@
 --        the "Duplicate post detected" refusal.
 --   D3 · still SECURITY DEFINER with search_path public; trigger still BEFORE
 --        INSERT on public.posts; trg_rate_limit_posts still attached.
+--   D4 · a replay (same user_id + idempotency_key) passes through to the
+--        unique index, and that index exists, is unique and valid.
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN READ ONLY;
 DO $probe$
@@ -44,10 +46,21 @@ BEGIN
     hits := hits || E'\n  D3 trg_rate_limit_posts is not attached (spam volume would be unlimited)';
   END IF;
 
+  IF position('AND idempotency_key = NEW.idempotency_key' IN _src) = 0 THEN
+    hits := hits || E'\n  D4 the idempotency-key replay pass-through is not in detect_duplicate_post()';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
+    WHERE i.indrelid = 'public.posts'::regclass AND c.relname = 'posts_user_idempotency_key'
+      AND i.indisunique AND i.indisvalid
+  ) THEN
+    hits := hits || E'\n  D4 unique index posts_user_idempotency_key is missing or invalid';
+  END IF;
+
   IF hits <> '' THEN
     RAISE EXCEPTION 'PROBE FAIL VID-DUP:%', hits;
   END IF;
-  RAISE NOTICE 'PROBE PASS VID-DUP: media-only posts skip the hash check; text/photo check intact; rate limit attached';
+  RAISE NOTICE 'PROBE PASS VID-DUP: media-only posts skip the hash check; replays reach the unique index; text/photo check intact; rate limit attached';
 END
 $probe$;
 ROLLBACK;

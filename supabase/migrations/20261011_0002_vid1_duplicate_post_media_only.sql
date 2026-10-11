@@ -21,7 +21,17 @@
 -- with a text/photo post either). Duplicate VIDEOS are already prevented by the
 -- upload's idempotency key (video_begin_upload) and post_videos' unique link;
 -- spam volume is limited by trg_rate_limit_posts, which is unchanged. Text and
--- photo posts behave exactly as before (same hash, lock and 10-minute window).
+-- photo posts behave exactly as before (same hash, lock and 10-minute window),
+-- with one addition: a REPLAY (a row with the same user_id + idempotency_key
+-- already exists) skips the window check so it reaches the unique index and
+-- fails as 23505, which uploadJobs.ts and post_publish_with_media read back as
+-- "already posted" (independent review, MEDIUM: a captioned video retry was
+-- refused as a duplicate of itself and its video was never linked).
+--
+-- KNOWN LIMIT (unchanged behaviour): two DIFFERENT videos posted with the SAME
+-- caption within 10 minutes — the second is refused, exactly as the same text
+-- posted twice is today. The guard runs before the video is linked and cannot
+-- see it; the proper fix is an atomic publish-with-video RPC (later unit).
 --
 -- Body otherwise byte-for-byte the 20260814234152 version (SECURITY DEFINER,
 -- search_path public, advisory lock). The trigger is unchanged.
@@ -60,6 +70,14 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.posts'::regclass AND tgname = 'trg_detect_duplicate_post') THEN
     RAISE EXCEPTION 'VID-DUP-PRE-003: trg_detect_duplicate_post is not attached to public.posts';
+  END IF;
+  -- The replay pass-through below relies on this index refusing the insert.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
+    WHERE i.indrelid = 'public.posts'::regclass AND c.relname = 'posts_user_idempotency_key'
+      AND i.indisunique AND i.indisvalid
+  ) THEN
+    RAISE EXCEPTION 'VID-DUP-PRE-004: unique index posts_user_idempotency_key is missing or invalid';
   END IF;
 END
 $pre$;
@@ -100,6 +118,21 @@ BEGIN
   -- appear in, and both submits pass the guard (measured: 2 rows).
   PERFORM pg_advisory_xact_lock(hashtextextended(NEW.user_id::text || ':' || hash_val, 0));
 
+  -- VID-1 (20261011_0002): a replay of an insert that already landed (same
+  -- member, same idempotency key) is let through to posts_user_idempotency_key,
+  -- whose 23505 the client reads back as "already posted". Without this a
+  -- captioned retry was refused here as a duplicate of ITSELF and its video was
+  -- never linked. Checked after the lock, so a concurrent first insert of the
+  -- same content has committed and is visible. Not a bypass: the row exists,
+  -- so the unique index refuses this insert anyway.
+  IF NEW.idempotency_key IS NOT NULL AND EXISTS (
+    SELECT 1 FROM public.posts
+    WHERE user_id = NEW.user_id
+      AND idempotency_key = NEW.idempotency_key
+  ) THEN
+    RETURN NEW;
+  END IF;
+
   -- Check for duplicate by same user within 10 minutes
   SELECT EXISTS (
     SELECT 1 FROM public.posts
@@ -118,7 +151,7 @@ $function$;
 
 DO $post$
 BEGIN
-  RAISE NOTICE 'VID-DUP-0002: detect_duplicate_post() skips media-only posts (no text, no photos); text/photo posts unchanged';
+  RAISE NOTICE 'VID-DUP-0002: detect_duplicate_post() skips media-only posts (no text, no photos) and replays (same idempotency key); text/photo window unchanged';
 END
 $post$;
 
