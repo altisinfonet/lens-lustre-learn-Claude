@@ -98,10 +98,16 @@ export default function FeedVideoCard({ video, className = "" }: { video: FeedVi
       v.src = g.master_url; // Safari / iOS: native HLS (no level cap available there)
       if (resumeAt) v.currentTime = resumeAt;
     } else {
-      const { default: Hls } = await import("hls.js");
+      // workerPath: hls.js's demux worker is served from our own /assets/ (hashed,
+      // always the same version as the library), so the CSP needs only
+      // worker-src 'self' — never blob: (VID-1 CSP review, PR #396).
+      const [{ default: Hls }, { default: workerPath }] = await Promise.all([
+        import("hls.js"),
+        import("hls.js/dist/hls.worker.js?url"),
+      ]);
       if (!Hls.isSupported()) { setFailed(true); return false; }
       if (hls.current) { hls.current.destroy(); hls.current = null; }
-      const h = new Hls({ startLevel: 0, capLevelToPlayerSize: false, enableWorker: true, startPosition: resumeAt || -1 }) as unknown as HlsInstance;
+      const h = new Hls({ startLevel: 0, capLevelToPlayerSize: false, enableWorker: true, workerPath, startPosition: resumeAt || -1 }) as unknown as HlsInstance;
       const applyCap = () => {
         const cap = levelCap(h.levels, getNetState().slow);
         h.autoLevelCapping = Number.isFinite(cap) ? cap : -1;

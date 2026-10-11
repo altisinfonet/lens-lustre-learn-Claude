@@ -28,11 +28,14 @@ describe("CSP lets video play (VID-1)", () => {
     expect(m).toMatch(/https:\/\/__CDN_HOST__(\s|$)/);
   });
 
-  it("worker-src allows hls.js's blob: worker", () => {
-    const w = directive("worker-src");
-    expect(w).toMatch(/^worker-src /);
-    expect(w).toMatch(/'self'/);
-    expect(w).toMatch(/(^|\s)blob:(\s|$)/);
+  it("worker-src is 'self' only — hls.js's worker is served from /assets/, never blob:", () => {
+    // Security review of #396: blob: here is unnecessary once hls.js gets a
+    // workerPath; without one, a blocked blob: worker silently falls back to
+    // inline demuxing (slower, still plays).
+    expect(directive("worker-src")).toBe("worker-src 'self'");
+    const card = readFileSync("src/components/video/FeedVideoCard.tsx", "utf8");
+    expect(card).toMatch(/import\("hls\.js\/dist\/hls\.worker\.js\?url"\)/);
+    expect(card).toMatch(/new Hls\(\{[^}]*\bworkerPath\b/);
   });
 
   it("nothing is widened beyond that: no wildcard, no data:, no http:", () => {
