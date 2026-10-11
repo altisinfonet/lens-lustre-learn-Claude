@@ -5,9 +5,10 @@
 --   U2 · EXECUTE: authenticated yes; anon and PUBLIC no.
 --   U3 · the column grants of video_versions are unchanged: API roles still
 --        cannot read manifest_sha256 / total_bytes directly.
---   U4 · behaviour, as `authenticated` with a forged sub: a random uuid gets
---        ZERO rows for someone else's video; the owner gets exactly ONE row for
---        their own current version (only when a not-deleted video exists).
+--   U4 · behaviour, as `authenticated` with a forged sub (only when a
+--        not-deleted video exists): no session (NULL auth.uid()) → 0 rows;
+--        another member → 0 rows; the owner → exactly 1 row for the current
+--        version and 0 rows for any other version number.
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN READ ONLY;
 DO $probe$
@@ -44,22 +45,38 @@ BEGIN
   SELECT v.id, v.current_version, v.owner_id INTO _vid, _ver, _own
     FROM public.videos v WHERE v.deleted_at IS NULL ORDER BY v.created_at DESC LIMIT 1;
   IF _vid IS NOT NULL THEN
+    -- auth.uid() reads request.jwt.claim.sub first, then request.jwt.claims->>'sub':
+    -- clear the first so only the forged claims decide.
+    PERFORM set_config('request.jwt.claim.sub', '', true);
+
+    -- a. no session at all (NULL auth.uid()) → zero rows
+    PERFORM set_config('request.jwt.claims', json_build_object('role', 'authenticated')::text, true);
+    SET LOCAL ROLE authenticated;
+    SELECT count(*) INTO _n FROM public.video_upload_info(_vid, _ver);
+    IF _n <> 0 THEN hits := hits || format(E'\n  U4 a NULL auth.uid() got %s row(s)', _n); END IF;
+    RESET ROLE;
+
+    -- b. another member → zero rows
     PERFORM set_config('request.jwt.claims', json_build_object('sub', gen_random_uuid()::text, 'role', 'authenticated')::text, true);
     SET LOCAL ROLE authenticated;
     SELECT count(*) INTO _n FROM public.video_upload_info(_vid, _ver);
     IF _n <> 0 THEN hits := hits || format(E'\n  U4 a stranger got %s row(s) for someone else''s video', _n); END IF;
     RESET ROLE;
+
+    -- c. the owner: current version → one row; any other version number → zero rows
     PERFORM set_config('request.jwt.claims', json_build_object('sub', _own::text, 'role', 'authenticated')::text, true);
     SET LOCAL ROLE authenticated;
     SELECT count(*) INTO _n FROM public.video_upload_info(_vid, _ver);
-    IF _n <> 1 THEN hits := hits || format(E'\n  U4 the owner got %s row(s) for their own video (expected 1)', _n); END IF;
+    IF _n <> 1 THEN hits := hits || format(E'\n  U4 the owner got %s row(s) for their own current version (expected 1)', _n); END IF;
+    SELECT count(*) INTO _n FROM public.video_upload_info(_vid, _ver + 1);
+    IF _n <> 0 THEN hits := hits || format(E'\n  U4 the owner got %s row(s) for a non-current version', _n); END IF;
     RESET ROLE;
   END IF;
 
   IF hits <> '' THEN
     RAISE EXCEPTION 'PROBE FAIL VID-UI:%', hits;
   END IF;
-  RAISE NOTICE 'PROBE PASS VID-UI: owner-only, current version; stranger 0 rows, owner 1 row (%)',
+  RAISE NOTICE 'PROBE PASS VID-UI: owner-only, current version; no-session 0, stranger 0, owner 1, owner non-current 0 (%)',
     CASE WHEN _vid IS NULL THEN 'U4 not exercised — no video on this lane' ELSE 'U4 exercised on a live video row' END;
 END
 $probe$;

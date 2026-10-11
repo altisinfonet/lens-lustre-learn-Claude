@@ -37,6 +37,20 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN;
 
+DO $lane_assert$
+BEGIN
+  IF coalesce(current_setting('p32.lane', true), '') NOT IN ('staging', 'production') THEN
+    RAISE EXCEPTION
+      'APPLY REFUSED — p32.lane is not asserted as staging or production (read: %). '
+      'Set it in THIS session before running: SET p32.lane = ''staging'';',
+      coalesce(current_setting('p32.lane', true), '(unset)')
+    USING ERRCODE = 'raise_exception';
+  END IF;
+END
+$lane_assert$;
+
+SET LOCAL lock_timeout = '5s';
+
 DO $pre$
 BEGIN
   IF to_regclass('public.videos') IS NULL OR to_regclass('public.video_versions') IS NULL THEN

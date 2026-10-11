@@ -159,6 +159,18 @@ Still open for the Owner (unchanged): the music vendor (§7.1, ACRCloud recommen
 
 **Build order** (R-91): after OFF-1 and OFF-2. The shapes in §2–§9 are frozen like an interface file (R-96), **as amended by A1**; neither D1 nor D2 changes one without the Auditor reopening it.
 
+## A3 · Amendment, 2026-10-11 (single session; independent security review of #400)
+
+### A3.1 · The owner may read their OWN manifest hash (exception to A1-D.11)
+A1-D.11 says the manifest hash is hidden from every API role. That stays true for the **table**: 0005's column grants are unchanged and the PROBE (U3) proves no API role can read `manifest_sha256` / `total_bytes` from `video_versions`. **Exception:** `public.video_upload_info(_video_id, _version_no)` (20261011_0001) returns those values — and `declared_duration_s`, `has_audio` — for **the caller's own, not-deleted video at its current version only** (no session, other members, admins: zero rows; no error, so existence is not revealed).
+- **Why:** `/api/video/upload-urls` and `/complete` act as the member (no service role in Pages Functions, owner command 2026-10-05) and must compare the uploaded manifest with the stored one. Reading the column directly was refused ("permission denied for table video_versions", Owner, staging 2026-10-11) and blocked every upload.
+- **Why it is safe:** the owner gains nothing they did not already have — they computed and sent that hash to `video_begin_upload`. Completing an upload still needs `complete`'s HMAC attestation (0007), whose key never leaves the vault / Pages secret.
+- **Review:** independent security review of #400 — ACCEPT WITH CONDITIONS (M1 = this record; L1 lane assert, L2 comment, L3 PROBE cases — all done in #400).
+
+### A3.2 · Owner rulings 2026-10-11 (to implement as their own units)
+- **Limits:** "restrict on MB not on timing. Less than 500 MB is okay but minutes will be FREE — no boundary on timing." → members' 3-minute (and ads' 5-minute) duration caps are to be removed; 500 MB stays. Needs a D1 limit change (video_validate_version / video_begin_upload) + client (`shared/rules.ts VIDEO_LIMITS`, `limits.ts`). Note for the Owner: the browser converts in real time (a 30-minute video takes ~30 minutes with the page open); the encoded package for long videos may exceed 500 MB and needs a stated rule.
+- **Cost:** "Choose option all only FREE." No paid video conversion service (Cloudflare Containers / Stream). Formats no browser can open (AVI, WMV, MPEG-2, MPEG-TS, 3GP/H.263, ProRes; HEVC/10-bit in Firefox) get a clear message until a free conversion path is chosen.
+
 ---
 
 ## 1 · Secrets and who holds them (none in the repo; none in the browser or app; no service role outside Supabase)
