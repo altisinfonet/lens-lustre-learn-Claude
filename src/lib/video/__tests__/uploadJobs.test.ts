@@ -48,7 +48,10 @@ function server(pkg: HlsPackage) {
     const v = db.videos.get(VID);
     if (url.endsWith("/auth/v1/user")) return ok({ id: OWNER });
     if (url.includes("/rest/v1/videos?")) return ok(v ? [{ id: VID, owner_id: OWNER, state: v.state, current_version: 1, purpose: "post" }] : []);
-    if (url.includes("/rest/v1/video_versions?")) return ok(v ? [{ manifest_sha256: v.manifest_sha256, total_bytes: totalBytes(pkg.manifest), declared_duration_s: pkg.manifest.duration_s, has_audio: pkg.manifest.has_audio }] : []);
+    // Like the real database: manifest_sha256 / total_bytes are not readable directly (0005);
+    // they come from the owner-only RPC (20261011_0001).
+    if (url.includes("/rest/v1/video_versions?") && /manifest_sha256|total_bytes/.test(url)) return new Response(JSON.stringify({ message: "permission denied for table video_versions" }), { status: 403 });
+    if (url.endsWith("/rest/v1/rpc/video_upload_info")) return ok(v ? [{ manifest_sha256: v.manifest_sha256, total_bytes: totalBytes(pkg.manifest), declared_duration_s: pkg.manifest.duration_s, has_audio: pkg.manifest.has_audio }] : []);
     if (url.endsWith("/rpc/video_mark_uploaded")) { v!.state = "checking"; return ok({ state: "checking" }); }
     return new Response("{}", { status: 404 });
   }) as typeof fetch;

@@ -63,7 +63,13 @@ function world(pkg: HlsPackage, opts: { state?: string; manifestSha?: string; ma
     const ok = (b: unknown) => new Response(JSON.stringify(b), { status: 200 });
     if (url.endsWith("/auth/v1/user")) return uid ? ok({ id: uid }) : new Response("{}", { status: 401 });
     if (url.includes("/rest/v1/videos?")) return ok(uid === OWNER ? [{ id: VID, owner_id: OWNER, state: state.value, current_version: 1, purpose: "post" }] : []);
-    if (url.includes("/rest/v1/video_versions?")) {
+    // Like the real database (0005 column grants): API roles cannot read
+    // manifest_sha256 / total_bytes from video_versions directly.
+    if (url.includes("/rest/v1/video_versions?") && /manifest_sha256|total_bytes/.test(url)) {
+      return new Response(JSON.stringify({ code: "42501", message: "permission denied for table video_versions" }), { status: 403 });
+    }
+    // 20261011_0001: owner-only, current version (any state; the endpoints judge state).
+    if (url.endsWith("/rest/v1/rpc/video_upload_info")) {
       return ok(uid === OWNER ? [{
         manifest_sha256: opts.manifestSha ?? pkg.manifestSha256, total_bytes: totalBytes(pkg.manifest),
         declared_duration_s: pkg.manifest.duration_s, has_audio: opts.storedHasAudio ?? pkg.manifest.has_audio,
