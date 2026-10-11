@@ -1,0 +1,42 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# Unit tests (vitest) on every pull request and every push to staging/main.
+#
+# Until 2026-10-11 the ONLY place `npm test` ran was android-build.yml, which
+# runs on a push to main — so for weeks nothing on staging was unit-tested at
+# all (independent reviewer finding on #399; last android-build run
+# 2026-09-15). A PR could break a test and still merge green. This job makes
+# the same `npm test` the app build already gates on a check on every PR.
+#
+# The backend env is synthetic and comes from vitest.config.ts (hermetic: a
+# test must never reach a real backend), so this job needs no secrets.
+# ═══════════════════════════════════════════════════════════════════════════
+name: Unit tests
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main, staging]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vitest-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vitest:
+    name: Unit tests pass (vitest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # The same Node as android-build.yml's test step (vitest needs >= 22).
+          node-version: 22
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: npm test (vitest run, the whole suite)
+        run: npm test
