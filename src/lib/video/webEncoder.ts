@@ -28,6 +28,7 @@
  */
 import { packageHls, renditionsFor, KEYFRAME_SECONDS, type HlsPackage, type RawChunk, type VideoRenditionInput } from "./hlsPackager";
 import { UNDECODABLE_MESSAGE } from "./limits";
+import { startVisibilityInterval } from "@/lib/timers/visibilityInterval";
 
 export const UNSUPPORTED_MESSAGE = "Video upload isn't supported in this browser — use the app.";
 
@@ -238,8 +239,9 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
       };
       // Stall guard: a video the browser cannot decode never fires another frame
       // and never ends (Firefox + HEVC / 10-bit). Fail clearly after 10 s without
-      // a frame instead of waiting forever.
-      const watchdog = setInterval(() => {
+      // a frame instead of waiting forever. P10: the client's one repeating timer
+      // (stops while the tab is hidden — encoding is paused then anyway).
+      const stopWatchdog = startVisibilityInterval(() => {
         if (!video.ended && !document.hidden && performance.now() - lastFrameAt > 10_000) {
           stop();
           reject(new Error(`VID-ENC-004: ${UNDECODABLE_MESSAGE}`));
@@ -257,7 +259,7 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
         }
       };
       document.addEventListener("visibilitychange", onVisibility);
-      const stop = () => { clearInterval(watchdog); document.removeEventListener("visibilitychange", onVisibility); };
+      const stop = () => { stopWatchdog(); document.removeEventListener("visibilitychange", onVisibility); };
       video.onended = () => { stop(); resolve(); };
       video.onerror = () => { stop(); reject(new Error("VID-ENC-002: playback failed while encoding")); };
       // Started while the tab is hidden (e.g. switched away during the audio

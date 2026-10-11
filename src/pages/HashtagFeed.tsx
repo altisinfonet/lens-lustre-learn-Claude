@@ -97,11 +97,10 @@ const HashtagFeed = () => {
      * hashtag page must not show a different photograph from the feed for the
      * same post.
      */
-    const visibleIds = visiblePosts.map((p) => p.id);
-    // VID-1: the same video read as the feed and the wall.
+    // VID-1: the same video read as the feed and the wall, batched beside it.
     const [postMediaMap, postVideoMap] = await Promise.all([
-      fetchPostMediaMap(visibleIds),
-      fetchPostVideoMap(visibleIds),
+      fetchPostMediaMap(visiblePosts.map((p) => p.id)),
+      fetchPostVideoMap(visiblePosts.map((p) => p.id)),
     ]);
 
     setPosts(
