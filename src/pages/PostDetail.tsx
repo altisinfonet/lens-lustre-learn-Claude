@@ -3,8 +3,8 @@ import { useBlockedUsers } from "@/hooks/core/useBlockedUsers";
 import { publicUrl } from "@/lib/publicUrl";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchPostMediaMap, resolvePostImageUrls } from "@/lib/media/postMediaRead";
-import { fetchPostVideoMap, type FeedVideo } from "@/lib/video/postVideoRead";
+import { fetchPostAttachments, attachmentsFor } from "@/lib/posts/postAttachments";
+import type { FeedVideo } from "@/lib/video/postVideoRead";
 import { useAuth } from "@/hooks/core/useAuth";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { Globe, Users, Lock, ArrowLeft, Share2, Copy, Flag, MoreHorizontal, MessageCircle, Eye } from "lucide-react";
@@ -120,19 +120,15 @@ const PostDetail = () => {
         .eq("post_id", postId) as any);
 
       /**
-       * ITEM E — the photo detail page reads media through the same sanctioned
-       * path as the feed and the wall. One post, so one batch of one; the
-       * function is still the batching one because there must be exactly one
-       * media reader in this codebase.
+       * ITEM E + VID-1 — photographs and video through the one module every
+       * surface uses (postAttachments.ts). One post, so one batch of one. A
+       * video that is not playable for this viewer (not ready, not visible)
+       * hides the post, as the feed does.
        */
-      const [postMediaMap, postVideoMap] = await Promise.all([
-        fetchPostMediaMap([rawPost.id]),
-        // VID-1: same video read as the feed; a video that is not playable for
-        // this viewer (not ready, not visible) hides the post, as the feed does.
-        fetchPostVideoMap([rawPost.id]),
-      ]);
-      const videoEntry = postVideoMap.get(rawPost.id);
-      if (videoEntry === "hidden") {
+      const attached = attachmentsFor(
+        await fetchPostAttachments([rawPost.id]), rawPost.id, (rawPost as any).image_urls || [],
+      );
+      if (attached === null) {
         setNotFound(true);
         setLoading(false);
         return;
@@ -143,8 +139,8 @@ const PostDetail = () => {
         user_id: rawPost.user_id,
         content: rawPost.content || "",
         image_url: rawPost.image_url,
-        image_urls: resolvePostImageUrls(postMediaMap, rawPost.id, (rawPost as any).image_urls || []),
-        video: videoEntry ?? null, // "hidden" returned above: here it is a FeedVideo or absent
+        image_urls: attached.image_urls,
+        video: attached.video,
         privacy: (rawPost.privacy || "public") as Privacy,
         created_at: rawPost.created_at,
         author_name: profile?.full_name || null,
