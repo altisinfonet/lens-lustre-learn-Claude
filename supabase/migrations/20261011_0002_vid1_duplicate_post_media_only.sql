@@ -24,9 +24,11 @@
 -- photo posts behave exactly as before (same hash, lock and 10-minute window),
 -- with one addition: a REPLAY (a row with the same user_id + idempotency_key
 -- already exists) skips the window check so it reaches the unique index and
--- fails as 23505, which uploadJobs.ts and post_publish_with_media read back as
--- "already posted" (independent review, MEDIUM: a captioned video retry was
--- refused as a duplicate of itself and its video was never linked).
+-- fails as 23505, which uploadJobs.ts reads back as "already posted"
+-- (independent review, MEDIUM: a captioned video retry was refused as a
+-- duplicate of itself and its video was never linked). post_publish_with_media
+-- looks the key up BEFORE inserting, so for photos only two simultaneous calls
+-- with one key reach this path; the second now gets 23505 instead of P0001.
 --
 -- KNOWN LIMIT (unchanged behaviour): two DIFFERENT videos posted with the SAME
 -- caption within 10 minutes — the second is refused, exactly as the same text
