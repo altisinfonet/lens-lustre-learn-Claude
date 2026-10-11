@@ -84,6 +84,9 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = 'public.post_videos'::regclass AND polname = 'post_videos_insert_own') THEN
     RAISE EXCEPTION 'VID-PUB-PRE-005: post_videos_insert_own policy is missing';
   END IF;
+  IF to_regclass('public.post_media') IS NULL THEN
+    RAISE EXCEPTION 'VID-PUB-PRE-006: public.post_media is missing (the replay path checks it)';
+  END IF;
 END
 $pre$;
 
@@ -110,13 +113,26 @@ BEGIN
     RAISE EXCEPTION 'VID-PUB-002: idempotency_key must be 8–200 characters' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
+  -- One publish per (member, key) at a time: a concurrent second call waits
+  -- here and then takes the replay path below instead of failing with 23505
+  -- (independent review C1).
+  PERFORM pg_advisory_xact_lock(hashtextextended('video_publish_post:' || _uid::text || ':' || _idempotency_key, 0));
+
   -- A replay of a publish that already landed: return that post. A post left
-  -- unlinked by the older two-step publish is linked now.
+  -- unlinked by the older two-step publish is linked now — but never a photo
+  -- post: post_publish_with_media sets keys too, and a video never joins a
+  -- post that already carries photographs (independent review C2).
   SELECT p.id INTO _post FROM public.posts p
    WHERE p.user_id = _uid AND p.idempotency_key = _idempotency_key;
   IF _post IS NOT NULL THEN
     SELECT pv.video_id INTO _linked FROM public.post_videos pv WHERE pv.post_id = _post;
     IF _linked IS NULL THEN
+      IF EXISTS (SELECT 1 FROM public.posts p
+                  WHERE p.id = _post
+                    AND (COALESCE(cardinality(p.image_urls), 0) > 0 OR COALESCE(p.image_url, '') <> ''))
+         OR EXISTS (SELECT 1 FROM public.post_media pm WHERE pm.post_id = _post) THEN
+        RAISE EXCEPTION 'VID-PUB-003: this publish key belongs to a photo post' USING ERRCODE = 'unique_violation';
+      END IF;
       INSERT INTO public.post_videos (post_id, video_id) VALUES (_post, _video_id);
     ELSIF _linked <> _video_id THEN
       RAISE EXCEPTION 'VID-PUB-003: this publish key already belongs to another video' USING ERRCODE = 'unique_violation';

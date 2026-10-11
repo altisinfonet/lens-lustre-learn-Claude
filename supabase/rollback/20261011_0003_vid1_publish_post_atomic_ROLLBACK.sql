@@ -20,6 +20,16 @@ $lane_assert$;
 
 SET LOCAL lock_timeout = '5s';
 
+-- Only undo what 0003 did: refuse if detect_duplicate_post() is no longer the
+-- 0003 body (a later change would otherwise be reverted silently).
+DO $pre$
+BEGIN
+  IF position('vid1.publishing_video' IN coalesce((SELECT prosrc FROM pg_proc WHERE oid = to_regprocedure('public.detect_duplicate_post()')), '')) = 0 THEN
+    RAISE EXCEPTION 'VID-PUB-RB-001: detect_duplicate_post() is not the 20261011_0003 body — read it before rolling back';
+  END IF;
+END
+$pre$;
+
 DROP FUNCTION IF EXISTS public.video_publish_post(uuid, text, text, text[], text);
 
 CREATE OR REPLACE FUNCTION public.detect_duplicate_post()
@@ -89,5 +99,15 @@ BEGIN
 END;
 $function$;
 
-DO $post$ BEGIN RAISE NOTICE 'VID-PUB-0003 ROLLBACK: video_publish_post() dropped; detect_duplicate_post() restored to 20261011_0002'; END $post$;
+DO $post$
+DECLARE _src text := (SELECT prosrc FROM pg_proc WHERE oid = to_regprocedure('public.detect_duplicate_post()'));
+BEGIN
+  IF to_regprocedure('public.video_publish_post(uuid,text,text,text[],text)') IS NOT NULL
+     OR position('vid1.publishing_video' IN _src) > 0
+     OR position('AND idempotency_key = NEW.idempotency_key' IN _src) = 0 THEN
+    RAISE EXCEPTION 'VID-PUB-RB-002: rollback did not restore the 20261011_0002 state';
+  END IF;
+  RAISE NOTICE 'VID-PUB-0003 ROLLBACK: video_publish_post() dropped; detect_duplicate_post() restored to 20261011_0002';
+END
+$post$;
 COMMIT;

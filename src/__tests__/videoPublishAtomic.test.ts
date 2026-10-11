@@ -52,6 +52,18 @@ describe("video_publish_post — post and video link in one transaction", () => 
     expect(replay).toBeLessThan(fn.indexOf("INSERT INTO public.posts"));
   });
 
+  it("serialises one member's same-key calls BEFORE the replay lookup (review C1)", () => {
+    const lock = fn.indexOf("pg_advisory_xact_lock(hashtextextended('video_publish_post:'");
+    expect(lock).toBeGreaterThan(-1);
+    expect(lock).toBeLessThan(fn.indexOf("p.idempotency_key = _idempotency_key"));
+  });
+
+  it("never links a video onto a photo post found by its key (review C2)", () => {
+    const refuse = fn.indexOf("this publish key belongs to a photo post");
+    expect(refuse).toBeGreaterThan(-1);
+    expect(fn.slice(0, refuse)).toMatch(/image_urls[\s\S]*image_url[\s\S]*public\.post_media/);
+  });
+
   it("sets the duplicate-guard marker transaction-locally, only around its own post insert", () => {
     const on = fn.indexOf("set_config('vid1.publishing_video', _video_id::text, true)");
     const off = fn.indexOf("set_config('vid1.publishing_video', '', true)");

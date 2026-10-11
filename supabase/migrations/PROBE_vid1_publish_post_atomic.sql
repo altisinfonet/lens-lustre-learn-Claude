@@ -5,7 +5,8 @@
 --        search_path '', returns uuid.
 --   P2 · EXECUTE: authenticated yes; anon and PUBLIC no.
 --   P3 · its body writes the post AND the post_videos link, sets the
---        transaction-local marker, and has the idempotent replay.
+--        transaction-local marker, has the idempotent replay (serialised per
+--        member + key) and never links a video onto a photo post.
 --   P4 · detect_duplicate_post(): the video-publish skip re-checks the video
 --        (ready, author's own, purpose post, not yet linked); the 0002 parts
 --        (media-only early return, lock, replay pass-through, 10-minute window)
@@ -45,7 +46,9 @@ BEGIN
   IF position('INSERT INTO public.posts (user_id, content, privacy, categories, idempotency_key)' IN _p.prosrc) = 0
      OR position('INSERT INTO public.post_videos (post_id, video_id) VALUES (_post, _video_id)' IN _p.prosrc) = 0
      OR position('set_config(''vid1.publishing_video'', _video_id::text, true)' IN _p.prosrc) = 0
-     OR position('p.idempotency_key = _idempotency_key' IN _p.prosrc) = 0 THEN
+     OR position('p.idempotency_key = _idempotency_key' IN _p.prosrc) = 0
+     OR position('pg_advisory_xact_lock(hashtextextended(''video_publish_post:''' IN _p.prosrc) = 0
+     OR position('this publish key belongs to a photo post' IN _p.prosrc) = 0 THEN
     hits := hits || E'\n  P3 the body is not the one-step publish (post + link + marker + replay)';
   END IF;
 
