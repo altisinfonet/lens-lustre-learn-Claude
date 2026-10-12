@@ -228,3 +228,31 @@ describe("the control bar (Owner 2026-10-12: drag to move through the video)", (
     expect([formatClock(0), formatClock(7.9), formatClock(448), formatClock(3725), formatClock(NaN)]).toEqual(["0:00", "0:07", "7:28", "1:02:05", "0:00"]);
   });
 });
+
+describe("a video longer than the 15-minute play token (no time limit)", () => {
+  it("the token is renewed mid-play, shortly before it ends, and the stream goes on at the same second", async () => {
+    const soon = Math.floor(Date.now() / 1000) + 60; // inside the last 90 s
+    // Both startup fetches (poster, then stream) get a token inside its last 90 s.
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify({ ...GRANT, expires_at: soon }), { status: 200 }));
+    render(<FeedVideoCard video={{ ...vid(), durationS: 3600 }} />);
+    fire(nearObs(), 0.1); fire(view(), 1); await flush();
+    const v = screen.getByTestId("feed-video-card").querySelector("video")!;
+    const callsBefore = fetchMock.mock.calls.length;
+    v.currentTime = 840;
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify({ ...GRANT, master_url: GRANT.master_url.replace("t=x", "t=renewed"), expires_at: Math.floor(Date.now() / 1000) + 900 }), { status: 200 }));
+    await act(async () => { v.dispatchEvent(new Event("timeupdate")); });
+    await flush();
+    expect(fetchMock.mock.calls.length).toBe(callsBefore + 1);
+    expect(v.src).toContain("t=renewed");
+    expect(v.currentTime).toBe(840);
+  });
+
+  it("a token with plenty of time left is not renewed on every timeupdate", async () => {
+    render(<FeedVideoCard video={vid()} />);
+    fire(nearObs(), 0.1); fire(view(), 1); await flush();
+    const n = fetchMock.mock.calls.length;
+    const v = screen.getByTestId("feed-video-card").querySelector("video")!;
+    for (let i = 0; i < 5; i++) await act(async () => { v.dispatchEvent(new Event("timeupdate")); });
+    expect(fetchMock.mock.calls.length).toBe(n);
+  });
+});

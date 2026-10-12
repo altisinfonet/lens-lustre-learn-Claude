@@ -25,11 +25,24 @@
 
 export type VideoPurpose = "post" | "ad";
 
-/** R-97: members 3 min / 500 MB; ads (admins only) 5 min / 500 MB. */
+/**
+ * Owner ruling 2026-10-11 (DECISION A3.2): no time limit — 500 MB is the limit,
+ * for members and ads alike. 24 h is only a technical guard on the declared
+ * number, the same as the database's (20261012_0001).
+ */
 export const VIDEO_LIMITS: Record<VideoPurpose, { maxSeconds: number; maxBytes: number }> = {
-  post: { maxSeconds: 180, maxBytes: 524_288_000 },
-  ad: { maxSeconds: 300, maxBytes: 524_288_000 },
+  post: { maxSeconds: 86_400, maxBytes: 524_288_000 },
+  ad: { maxSeconds: 86_400, maxBytes: 524_288_000 },
 };
+
+/**
+ * Per-file caps (review C1 on #410). With no time cap, the bytes-per-second
+ * ceilings below divide by a DECLARED length; these keep any single file —
+ * and so any single download a viewer's player makes — small, whatever is
+ * declared. Our encoder's 4 s segments are ~0.1–1.5 MB; init segments a few KB.
+ */
+export const SEGMENT_MAX_BYTES = 8_388_608;
+export const INIT_MAX_BYTES = 1_048_576;
 
 /** Bytes per declared second, per rendition (SEC F-D3-15 condition 4 = D1's _ceiling). */
 export const RENDITION_CEILING_BPS = { "240p": 61_440, "480p": 163_840, "720p": 358_400, audio: 16_384 } as const;
@@ -145,6 +158,8 @@ export function manifestProblems(m: unknown, purpose: VideoPurpose): string[] {
     if (seen.has(f.name)) out.push(`file ${f.name} is listed twice`);
     seen.add(f.name);
     if (!Number.isInteger(f.bytes) || f.bytes < 1) out.push(`file ${f.name} has no size`);
+    else if (f.name.endsWith(".m4s") && f.bytes > SEGMENT_MAX_BYTES) out.push(`segment ${f.name} is ${f.bytes} bytes, above ${SEGMENT_MAX_BYTES}`);
+    else if (f.name.endsWith(".mp4") && f.bytes > INIT_MAX_BYTES) out.push(`init segment ${f.name} is ${f.bytes} bytes, above ${INIT_MAX_BYTES}`);
     if (typeof f.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(f.sha256)) out.push(`file ${f.name} has no sha256`);
     total += Number(f.bytes) || 0;
   }
@@ -155,6 +170,27 @@ export function manifestProblems(m: unknown, purpose: VideoPurpose): string[] {
   if (x.has_audio === true && !seen.has("audio.m3u8")) out.push("has_audio is true but there is no audio.m3u8");
   if (x.has_audio === false && [...seen].some((n) => n.startsWith("audio"))) out.push("has_audio is false but audio files are listed");
   return out;
+}
+
+/**
+ * The AUDIO FINGERPRINT handed to video_mark_uploaded and signed in the
+ * attestation (VID-1 §6.1 as amended A4, 2026-10-12): sha256 over one line per
+ * audio file — "name:sha256\n" — for audio.mp4 and then every audio segment
+ * in playlist order. Each per-file sha256 is the hash of the SERVED bytes,
+ * verified by /complete when it copied that file, so this binds the exact
+ * audio viewers get (same strength as hashing the bytes themselves: a change
+ * to any byte changes that file's hash) — without re-reading hours of audio
+ * in one request, which Cloudflare's 1,000-calls-per-request limit forbids.
+ */
+export async function audioFingerprint(m: VideoManifest, audioSegmentsInOrder: readonly string[]): Promise<string> {
+  const sha = new Map(m.files.map((f) => [f.name, f.sha256]));
+  const lines: string[] = [];
+  for (const name of ["audio.mp4", ...audioSegmentsInOrder]) {
+    const h = sha.get(name);
+    if (!h) throw new Error(`VID-AUD-001: ${name} is not in the manifest`);
+    lines.push(`${name}:${h}\n`);
+  }
+  return sha256Hex(lines.join(""));
 }
 
 /** D1's `rendition_bytes` argument: per-rendition totals that add up to total_bytes. */

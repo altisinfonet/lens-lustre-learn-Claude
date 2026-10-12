@@ -2,10 +2,18 @@
  * VID-1 §5 · the limits a member is told about BEFORE anything is encoded.
  *
  * UX only: the database re-checks every one (video_begin_upload, VID-LIM-001…006).
- * Members: 3 min / 500 MB / 10 a day. Ads (admins only): 5 min / 500 MB.
- * The daily count is the server's to judge — the app only shows its answer.
+ * Owner ruling 2026-10-11 (A3.2): NO time limit — 500 MB (the picked file),
+ * 10 a day. A long video is fitted into the 500 MB package by giving up
+ * quality, never length (ladder.ts). The daily count is the server's to judge.
+ *
+ * The one real bound on length today is THIS DEVICE: the web encoder decodes
+ * the whole sound track into memory (about 1.4 GB per hour of stereo), so a
+ * very long video can be too big for a phone's browser. That is said plainly,
+ * with the way out ("Remove sound", or a computer) — see memoryProblem().
  */
 import { VIDEO_LIMITS, type VideoPurpose } from "./shared/rules";
+import { planLadder } from "./ladder";
+import { renditionsFor } from "./hlsPackager";
 
 export interface VideoFacts {
   durationSeconds: number;
@@ -24,12 +32,42 @@ export function videoLimitProblems(f: VideoFacts, purpose: VideoPurpose): string
   const lim = VIDEO_LIMITS[purpose];
   const out: string[] = [];
   if (!(f.durationSeconds > 0)) out.push("This video has no length we can read. Try another file.");
-  else if (f.durationSeconds > lim.maxSeconds) {
-    out.push(`This video is ${formatDuration(f.durationSeconds)}. Videos can be up to ${formatDuration(lim.maxSeconds)} — trim it first.`);
-  }
+  else if (f.durationSeconds > lim.maxSeconds) out.push("This video is longer than 24 hours. Split it into parts.");
   if (f.bytes > lim.maxBytes) out.push(`This video is ${Math.round(f.bytes / 1_048_576)} MB. Videos can be up to 500 MB.`);
   if (!(f.width > 0 && f.height > 0)) out.push("We couldn't read this video's size. Try another file.");
   return out;
+}
+
+/** Decoded stereo sound at 48 kHz, 32-bit float — what decodeAudioData holds for the whole track. */
+const PCM_BYTES_PER_SECOND = 48_000 * 2 * 4;
+
+/** About how much memory the web encoder needs: the file, the whole decoded sound, and the package twice (encoded + packaged). */
+export function encodeMemoryBytes(f: VideoFacts, mute: boolean): number {
+  let pkg = 0;
+  try {
+    pkg = planLadder(renditionsFor(Math.max(2, f.width), Math.max(2, f.height)), Math.max(1, f.durationSeconds), !mute).estimatedBytes;
+  } catch {
+    pkg = 524_288_000;
+  }
+  return f.bytes + (mute ? 0 : f.durationSeconds * PCM_BYTES_PER_SECOND) + 2 * pkg;
+}
+
+/** The share of this device's memory the encoder may plan to use. navigator.deviceMemory is capped at 8 (GB); Firefox/Safari don't say → 4. */
+export function deviceMemoryBudget(nav: { deviceMemory?: number } = (typeof navigator !== "undefined" ? navigator : {}) as { deviceMemory?: number }): number {
+  const gb = typeof nav.deviceMemory === "number" && nav.deviceMemory > 0 ? nav.deviceMemory : 4;
+  return gb * 1e9 * 0.35;
+}
+
+const gb = (b: number) => (b / 1e9).toFixed(1);
+
+/** Null when this device can prepare the video; otherwise what to do. */
+export function memoryProblem(f: VideoFacts, mute: boolean, budget = deviceMemoryBudget()): string | null {
+  const need = encodeMemoryBytes(f, mute);
+  if (need <= budget) return null;
+  const withoutSound = encodeMemoryBytes(f, true);
+  return withoutSound <= budget && !mute
+    ? `This video is long for this browser to prepare with its sound (needs about ${gb(need)} GB of memory). Turn on "Remove sound", or post it from a computer in Chrome or Edge.`
+    : `This video is too long for this browser to prepare (needs about ${gb(need)} GB of memory). Post it from a computer in Chrome or Edge.`;
 }
 
 /**

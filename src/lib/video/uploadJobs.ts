@@ -58,6 +58,8 @@ export interface VideoJob {
   uploaded: string[];         // file names confirmed in R2
   post: { content: string; categories: string[]; privacy: string; idempotencyKey: string };
   postId?: string;
+  /** /complete's progress for a long video (it finishes in rounds): files copied of total. */
+  serverProgress?: { copied: number; total: number };
   attempts: number;
   nextAt: number;
   lastError?: string;
@@ -247,7 +249,16 @@ export async function advanceJob(job: VideoJob, d: JobDeps): Promise<VideoJob> {
           j = { ...j, uploaded: [...done] };
           await save(j);
         }
-        const c = await d.api("/api/video/complete", { video_id: j.videoId, version_no: j.versionNo });
+        let c = await d.api("/api/video/complete", { video_id: j.videoId, version_no: j.versionNo });
+        // A long video is finished in rounds (Cloudflare's per-request limit): 202 = "more
+        // to copy" — ask again at once; each round only moves forward, nothing is redone.
+        for (let more = 0; c.status === 202 && more < 1000; more++) {
+          j = { ...j, serverProgress: { copied: Number(c.body.copied) || 0, total: Number(c.body.total) || 0 } };
+          await save(j);
+          if (!d.online()) return j;
+          c = await d.api("/api/video/complete", { video_id: j.videoId, version_no: j.versionNo });
+        }
+        if (c.status === 202) throw new Error("complete still copying after 1000 rounds");
         if (c.status === 200) {
           const st = String(c.body.state ?? "checking");
           j = { ...j, step: st === "ready" ? "ready" : "checking", attempts: 0 };

@@ -74,10 +74,20 @@ describe("VideoPostComposer", () => {
     await waitFor(() => expect((postBtn as HTMLButtonElement).disabled).toBe(false));
   });
 
-  it("a 4-minute video is refused before anything is encoded", async () => {
-    vi.mocked(readVideoFacts).mockResolvedValueOnce({ ...facts, durationSeconds: 240 });
+  it("no time limit (Owner 2026-10-11): the Owner's 7:28 video can be posted, and says how long preparing takes", async () => {
+    vi.mocked(readVideoFacts).mockResolvedValueOnce({ ...facts, durationSeconds: 448, bytes: 91 * 1_048_576 });
     render(<VideoPostComposer open onOpenChange={() => {}} initialFile={file} />);
-    expect(await screen.findByText(/This video is 4:00\. Videos can be up to 3:00/)).toBeTruthy();
+    expect(await screen.findByText(/Up to 500 MB, any length/)).toBeTruthy();
+    expect((await screen.findByTestId("video-long-note")).textContent).toMatch(/about its own length \(7:28\)/);
+    expect(screen.queryByText(/Videos can be up to/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /add category/ }));
+    await waitFor(() => expect((screen.getByRole("button", { name: "Post video" }) as HTMLButtonElement).disabled).toBe(false));
+  });
+
+  it("a video too long for this browser's memory says so, and Remove sound is offered as the way out", async () => {
+    vi.mocked(readVideoFacts).mockResolvedValueOnce({ ...facts, durationSeconds: 3 * 3600, bytes: 400 * 1_048_576 });
+    render(<VideoPostComposer open onOpenChange={() => {}} initialFile={file} />);
+    expect(await screen.findByText(/too long for this browser|Remove sound/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /add category/ }));
     expect((screen.getByRole("button", { name: "Post video" }) as HTMLButtonElement).disabled).toBe(true);
   });

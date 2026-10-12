@@ -26,8 +26,12 @@
  *
  * hls.js is a lazy chunk (P13): it is imported on the first card that needs it.
  * Safari / iOS plays HLS natively. The token (15 min) is fetched from
- * /api/video/play-token as the viewer and renewed only when playback starts
- * inside its last 90 s — there is no timer.
+ * /api/video/play-token as the viewer and renewed inside its last 90 s — when
+ * playback starts, and, for a video longer than the token (no time limit since
+ * 2026-10-12), DURING playback: the element's own timeupdate notices the token
+ * is due and the stream is re-attached at the same second. A segment refused
+ * with 403 (a token that ran out anyway) gets one fresh token before the card
+ * gives up. There is no timer.
  */
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Pause, Play, Volume2, VolumeX } from "lucide-react";
@@ -131,7 +135,17 @@ export default function FeedVideoCard({ video, className = "" }: { video: FeedVi
         h.autoLevelCapping = Number.isFinite(cap) ? cap : -1;
       };
       h.on("hlsManifestParsed", applyCap);
-      h.on("hlsError", (_e: unknown, d: { fatal?: boolean }) => { if (d?.fatal) { setFailed(true); pause(); } });
+      h.on("hlsError", (_e: unknown, d: { fatal?: boolean; response?: { code?: number } }) => {
+        if (!d?.fatal) return;
+        // The token ran out mid-play (a long video): one fresh token, same second.
+        if (d.response?.code === 403 && !renewedAfter403.current) {
+          renewedAfter403.current = true;
+          grant.current = null;
+          void renew();
+          return;
+        }
+        setFailed(true); pause();
+      });
       h.loadSource(g.master_url);
       h.attachMedia(v);
       hls.current = h;
@@ -195,6 +209,36 @@ export default function FeedVideoCard({ video, className = "" }: { video: FeedVi
   }, [cardId]);
 
   const tapPlay = () => { setNeedsTap(false); void start(); };
+
+  /** A fresh token and the stream re-attached at the same second; playback goes on. */
+  const renewing = useRef(false);
+  const renewedAfter403 = useRef(false);
+  const renew = useCallback(async () => {
+    const v = el.current;
+    if (!v || renewing.current) return;
+    renewing.current = true;
+    try {
+      const wasPlaying = playing.current;
+      if (await ensureSource()) {
+        if (wasPlaying) await v.play().catch(() => {});
+        renewedAfter403.current = false;
+      }
+    } finally {
+      renewing.current = false;
+    }
+  }, [ensureSource]);
+
+  // A video longer than the 15-minute token: renew it shortly before it ends, mid-play.
+  useEffect(() => {
+    const v = el.current;
+    if (!v) return;
+    const onTime = () => {
+      if (!playing.current || renewing.current || !attached.current) return;
+      if (tokenNeedsRefresh(grant.current?.expires_at, Math.floor(Date.now() / 1000))) void renew();
+    };
+    v.addEventListener("timeupdate", onTime);
+    return () => v.removeEventListener("timeupdate", onTime);
+  }, [renew]);
 
   // Time and length, from the element itself (the stream knows its real length).
   useEffect(() => {

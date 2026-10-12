@@ -31,8 +31,17 @@ export interface R2ObjectLike {
 export interface R2BucketLike {
   head(key: string): Promise<{ size: number } | null>;
   get(key: string): Promise<R2ObjectLike | null>;
-  put(key: string, value: ArrayBuffer | Uint8Array | string, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
+  put(key: string, value: ArrayBuffer | Uint8Array | string, options?: {
+    httpMetadata?: { contentType?: string };
+    customMetadata?: Record<string, string>;
+  }): Promise<unknown>;
   delete(key: string | string[]): Promise<void>;
+  /** One call returns up to 1,000 keys (the R2 binding's page size). */
+  list(options: { prefix: string; cursor?: string; include?: Array<"customMetadata" | "httpMetadata"> }): Promise<{
+    objects: Array<{ key: string; size: number; customMetadata?: Record<string, string> }>;
+    truncated: boolean;
+    cursor?: string;
+  }>;
 }
 
 export interface VideoEnv {

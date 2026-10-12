@@ -9,8 +9,10 @@
  *      rest, as Instagram does; 2026-10-12: the card fills the width, capped
  *      by the screen height, exactly like the feed card), so what they see is
  *      what the post will be;
- *   3. the limits, said before anything is encoded (3 min / 500 MB; the server
- *      re-checks and also counts 10 a day);
+ *   3. the limits, said before anything is encoded (500 MB, any length — Owner
+ *      2026-10-11; the server re-checks and also counts 10 a day). A long video
+ *      says how long this device takes to prepare it, and a video too long for
+ *      this browser's memory says so with the way out (limits.ts);
  *   3b. the COVER (Owner 2026-10-11): a frame picked with a slider, or an
  *      uploaded picture (cover.ts); untouched → the frame at 1 s, as before;
  *   4. a caption, the audience and 1–5 categories (CategoryChips, required —
@@ -28,7 +30,7 @@ import OptimizedImage from "@/components/OptimizedImage";
 import CategoryChips, { canPublishCategories } from "@/components/post/CategoryChips";
 import { PostAudienceChooser, type Privacy } from "@/components/post/PostAudienceChooser";
 import { videoFrameAspect } from "@/lib/video/videoFrame";
-import { readVideoFacts, videoLimitProblems, formatDuration, type VideoFacts } from "@/lib/video/limits";
+import { readVideoFacts, videoLimitProblems, memoryProblem, formatDuration, type VideoFacts } from "@/lib/video/limits";
 import { coverFromImage, coverFromVideoAt } from "@/lib/video/cover";
 import { createJob, runVideoJobs } from "@/lib/video/uploadJobs";
 import { realJobDeps } from "@/lib/video/jobDeps";
@@ -85,7 +87,12 @@ export default function VideoPostComposer({ open, onOpenChange, encode, initialF
   }, [open, initialFile]);
 
   const facts = phase.kind === "ready" || phase.kind === "encoding" ? phase.facts : null;
-  const problems = useMemo(() => (facts ? videoLimitProblems(facts, "post") : []), [facts]);
+  const problems = useMemo(() => {
+    if (!facts) return [];
+    const p = videoLimitProblems(facts, "post");
+    const mem = memoryProblem(facts, mute);
+    return mem ? [...p, mem] : p;
+  }, [facts, mute]);
   const frame = videoFrameAspect();
   const canPost = phase.kind === "ready" && problems.length === 0 && canPublishCategories(categories) && !!user && !coverBusy;
   const coverAt = cover?.kind === "frame" ? cover.at : facts ? defaultCoverAt(facts.durationSeconds) : 0;
@@ -161,7 +168,7 @@ export default function VideoPostComposer({ open, onOpenChange, encode, initialF
             the aspect-ratio frame then paints over the rows below it. */}
         <div className="flex min-w-0 flex-col gap-3">
         <DialogTitle>{t("video.newTitle", "New video post")}</DialogTitle>
-        <DialogDescription>{t("video.limits", "Up to 3 minutes and 500 MB.")}</DialogDescription>
+        <DialogDescription>{t("video.limits", "Up to 500 MB, any length.")}</DialogDescription>
 
         <input
           ref={inputRef}
@@ -198,6 +205,11 @@ export default function VideoPostComposer({ open, onOpenChange, encode, initialF
         {facts && (
           <p className="text-sm text-muted-foreground">
             {formatDuration(facts.durationSeconds)} · {Math.max(1, Math.round(facts.bytes / 1_048_576))} MB
+          </p>
+        )}
+        {facts && facts.durationSeconds > 180 && problems.length === 0 && (
+          <p className="text-xs text-muted-foreground" data-testid="video-long-note">
+            {t("video.longNote", "Long video: this device prepares it in about its own length ({len}). Keep this tab open and in front until it says it is uploading.").replace("{len}", formatDuration(facts.durationSeconds))}
           </p>
         )}
         {problems.length > 0 && (

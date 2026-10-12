@@ -7,6 +7,11 @@
  *   SEC condition 3  playlists: relative URIs in the manifest only; no key /
  *                    session / define tags; TARGETDURATION ≤ 6; EXTINF sums
  *                    within ±2 s of the declared duration
+ *   review C1 (#410) with no time cap: every EXTINF ≤ TARGETDURATION; each
+ *                    segment listed once, in its own rendition's playlist
+ *                    only; every segment file listed; each segment's bytes ≤
+ *                    2 × its rendition's bytes/s ceiling × its own EXTINF
+ *                    (+256 KB for a keyframe in a short last segment)
  *   SEC F-D3-17      every video init: exactly one `vide`, no `soun`; the audio
  *                    init exactly one `soun`; none when has_audio = false; the
  *                    master's CODECS name an audio codec exactly when there is audio
@@ -15,7 +20,7 @@
  */
 import { isJpeg, trackHandlers } from "./mp4";
 import { judgePlaylist, masterCodecs } from "./playlist";
-import type { VideoManifest } from "./rules";
+import { RENDITION_CEILING_BPS, type VideoManifest } from "./rules";
 
 const dec = new TextDecoder();
 
@@ -26,9 +31,26 @@ export function judgeUploadContent(manifest: VideoManifest, small: ReadonlyMap<s
   const poster = small.get("poster.jpg");
   if (!poster || !isJpeg(poster)) problems.push("poster.jpg is not a JPEG");
 
+  const size = new Map(manifest.files.map((f) => [f.name, f.bytes]));
+  const listedIn = new Map<string, string>();
   for (const [name, bytes] of small) {
     if (!name.endsWith(".m3u8")) continue;
-    problems.push(...judgePlaylist(name, dec.decode(bytes), names, manifest.duration_s).problems);
+    const v = judgePlaylist(name, dec.decode(bytes), names, manifest.duration_s);
+    problems.push(...v.problems);
+    const rendition = name.replace(/\.m3u8$/, "") as keyof typeof RENDITION_CEILING_BPS;
+    const ceiling = RENDITION_CEILING_BPS[rendition];
+    for (const seg of v.segments) {
+      const other = listedIn.get(seg.uri);
+      if (other && other !== name) problems.push(`${seg.uri} is listed in both ${other} and ${name}`);
+      listedIn.set(seg.uri, name);
+      const b = size.get(seg.uri);
+      if (ceiling && b !== undefined && b > ceiling * seg.seconds * 2 + 262_144) {
+        problems.push(`${seg.uri}: ${b} bytes for ${seg.seconds} s is above twice the ${rendition} ceiling`);
+      }
+    }
+  }
+  for (const n of names) {
+    if (n.endsWith(".m4s") && !listedIn.has(n)) problems.push(`${n} is uploaded but no playlist lists it`);
   }
 
   const variants = [...names].filter((n) => /^(240|480|720)p\.m3u8$/.test(n));

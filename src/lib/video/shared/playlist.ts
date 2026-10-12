@@ -80,6 +80,8 @@ export interface PlaylistVerdict {
   problems: string[];
   /** summed EXTINF, for media playlists */
   seconds: number;
+  /** media playlists: each segment and the EXTINF it claims, in order */
+  segments: Array<{ uri: string; seconds: number }>;
 }
 
 /**
@@ -101,18 +103,38 @@ export function judgePlaylist(name: string, text: string, names: ReadonlySet<str
   }
   const td = /#EXT-X-TARGETDURATION:(\d+)/.exec(text);
   let seconds = 0;
+  const segments: Array<{ uri: string; seconds: number }> = [];
   const isMedia = name !== "master.m3u8";
   if (isMedia) {
+    const target = td ? Number(td[1]) : NaN;
     if (!td) problems.push(`${name}: no EXT-X-TARGETDURATION`);
-    else if (Number(td[1]) > 6) problems.push(`${name}: EXT-X-TARGETDURATION ${td[1]} is above 6`);
-    for (const m of text.matchAll(/#EXTINF:([0-9.]+)/g)) seconds += Number(m[1]);
+    else if (target > 6) problems.push(`${name}: EXT-X-TARGETDURATION ${td[1]} is above 6`);
+    // Each EXTINF and the segment line after it (review C1, #410): with no
+    // time cap, a single "#EXTINF:86400," must not carry the declared length.
+    const rendition = name.replace(/\.m3u8$/, "");
+    const lines = text.split(/\r?\n/).map((l) => l.trim());
+    const seen = new Set<string>();
+    for (let i = 0; i < lines.length; i++) {
+      const m = /^#EXTINF:([0-9.]+)/.exec(lines[i]);
+      if (!m) continue;
+      const s = Number(m[1]);
+      const uri = lines.slice(i + 1).find((l) => l && !l.startsWith("#")) ?? "";
+      seconds += s;
+      segments.push({ uri, seconds: s });
+      if (!(s > 0)) problems.push(`${name}: a segment claims ${m[1]} s`);
+      // HLS: an EXTINF rounded to the nearest second must not exceed TARGETDURATION.
+      if (Number.isFinite(target) && Math.round(s) > target) problems.push(`${name}: ${uri} claims ${s} s, above EXT-X-TARGETDURATION ${target}`);
+      if (seen.has(uri)) problems.push(`${name}: ${uri} is listed twice`);
+      seen.add(uri);
+      if (!new RegExp(`^${rendition}_\\d{1,4}\\.m4s$`).test(uri)) problems.push(`${name}: ${uri} is not one of ${rendition}'s own segments`);
+    }
     if (Math.abs(seconds - declared) > 2) {
       problems.push(`${name}: segments add up to ${seconds.toFixed(2)} s, declared ${declared} s (±2 s)`);
     }
   } else if (/#EXTINF/.test(text)) {
     problems.push(`${name}: the master playlist must not list segments`);
   }
-  return { problems, seconds };
+  return { problems, seconds, segments };
 }
 
 /** CODECS strings in the master playlist, per variant playlist name. */
