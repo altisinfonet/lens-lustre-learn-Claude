@@ -301,6 +301,9 @@ export default function VideoPostComposer({ open, onOpenChange, encode, initialF
             <p className="text-xs text-muted-foreground">
               {t("video.preparing", "Preparing your video on this device…")} {Math.round(phase.progress * 100)}%
             </p>
+            <p className="text-xs text-muted-foreground">
+              {t("video.keepInFront", "Keep this tab open and in front: preparing pauses while you are in another tab, and carries on when you come back.")}
+            </p>
           </div>
         )}
 

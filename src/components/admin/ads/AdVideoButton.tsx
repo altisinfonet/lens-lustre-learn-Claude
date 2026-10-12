@@ -163,6 +163,7 @@ export default function AdVideoButton({ creativeId, videoState, onChanged }: AdV
                   <div className="h-full bg-primary transition-[width]" style={{ width: `${Math.round(phase.progress * 100)}%` }} />
                 </div>
                 <p className="text-xs text-muted-foreground">Preparing the video on this device… {Math.round(phase.progress * 100)}%</p>
+                <p className="text-xs text-muted-foreground">Keep this tab open and in front: preparing pauses while you are in another tab, and carries on when you come back.</p>
               </div>
             )}
             <div className="flex gap-2">
