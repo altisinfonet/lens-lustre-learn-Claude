@@ -12,14 +12,19 @@
  * Refuses (no URL at all): not signed in (401) · not the owner (404) · not
  * uploading (409) · a manifest whose sha256 is not the one the database holds
  * for this version, or whose shape breaks the VID-1 rules (400/409).
+ *
+ * CONVERTER PATH (20261012_0002): a body with `claim_token` is the converter
+ * VM. The video is read through video_converter_version (its claimed job's
+ * video only — 404 otherwise) and every URL lives no longer than the claim's
+ * lease. Everything else — the manifest checks, upload/video/ only — is the same.
  */
 import {
   canonicalManifest, contentTypeFor, manifestKey, manifestProblems, sha256Hex, totalBytes, uploadKey, uploadOrder,
   type VideoManifest,
 } from "../../../src/lib/video/shared/rules";
 import {
-  HttpError, requirePrivateDelivery, amzDateOf, handleError, hexToBase64, json, loadUploadingVersion, member, needEnv, presign, readJson,
-  type VideoEnv,
+  HttpError, requirePrivateDelivery, amzDateOf, handleError, hexToBase64, json, loadConverterVersion, loadUploadingVersion, member, needEnv,
+  presign, readJson, ttlWithinLease, type VideoEnv,
 } from "./_lib";
 
 export const UPLOAD_URL_TTL_S = 3600;
@@ -37,8 +42,12 @@ export async function handleUploadUrls(request: Request, env: VideoEnv, now: Dat
     if (request.method !== "POST") throw new HttpError(405, "VID-REQ-000", "POST only");
     requirePrivateDelivery(env);
     const who = await member(request, env, fetchImpl);
-    const body = await readJson<{ video_id?: string; version_no?: number; manifest?: VideoManifest }>(request);
-    const row = await loadUploadingVersion(env, who, String(body.video_id ?? ""), Number(body.version_no), fetchImpl);
+    const body = await readJson<{ video_id?: string; version_no?: number; manifest?: VideoManifest; claim_token?: string }>(request);
+    const conv = body.claim_token !== undefined
+      ? await loadConverterVersion(env, who, String(body.video_id ?? ""), Number(body.version_no), String(body.claim_token), fetchImpl)
+      : null;
+    const row = conv ?? await loadUploadingVersion(env, who, String(body.video_id ?? ""), Number(body.version_no), fetchImpl);
+    const ttl = conv ? ttlWithinLease(conv.lease_until_ms, now.getTime(), UPLOAD_URL_TTL_S) : UPLOAD_URL_TTL_S;
     if (row.state !== "uploading") throw new HttpError(409, "VID-REQ-004", `the video is ${row.state}, not uploading`);
 
     const manifest = body.manifest as VideoManifest;
@@ -89,12 +98,12 @@ export async function handleUploadUrls(request: Request, env: VideoEnv, now: Dat
       };
       const url = await presign({
         method: "PUT", host, path: `/${bucketName}/${key}`, region: "auto", service: "s3",
-        accessKeyId: keyId, secretAccessKey: secret, amzDate, expires: UPLOAD_URL_TTL_S,
+        accessKeyId: keyId, secretAccessKey: secret, amzDate, expires: ttl,
         headers: { ...headers, "content-length": String(f.bytes) },
       });
       urls.push({ name, key, url, headers });
     }
-    return json(200, { video_id: row.video_id, version_no: row.current_version, expires_in: UPLOAD_URL_TTL_S, urls, done });
+    return json(200, { video_id: row.video_id, version_no: row.current_version, expires_in: ttl, urls, done });
   } catch (e) {
     return handleError(e);
   }

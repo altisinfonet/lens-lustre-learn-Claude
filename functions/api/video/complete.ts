@@ -33,6 +33,11 @@
  * Files verified in the same round stay served; nothing is viewable until the
  * video is ready (a play token needs state = ready).
  *
+ * CONVERTER PATH (20261012_0002): a body with `claim_token` is the converter
+ * VM; the video is read through video_converter_version (its claimed job's
+ * video only) and video_mark_uploaded accepts it only while that claim is
+ * live (video_converter_acting). Verify, copy, judge and attest are the same.
+ *
  * The lane's attest configuration is checked FIRST, before any read or copy:
  * a lane without its key (or with the play-token key reused, SEC-VID-10)
  * answers 503 VID-ENV-003 and writes nothing. The database's own attestation
@@ -44,7 +49,10 @@ import {
 } from "../../../src/lib/video/shared/rules";
 import { playlistUris } from "../../../src/lib/video/shared/playlist";
 import { judgeUploadContent } from "../../../src/lib/video/shared/judge";
-import { HttpError, requirePrivateDelivery, asMember, handleError, json, loadUploadingVersion, member, needEnv, readJson, type VideoEnv } from "./_lib";
+import {
+  HttpError, requirePrivateDelivery, asMember, handleError, json, loadConverterVersion, loadUploadingVersion, member, needEnv, readJson,
+  type VideoEnv,
+} from "./_lib";
 import { ATTEST_DB_CODES, attestMessage, checkAttestEnv, signAttest, type AttestEnv } from "./attest";
 
 const dec = new TextDecoder();
@@ -66,8 +74,10 @@ export async function handleComplete(
     requirePrivateDelivery(env);
     const attest = checkAttestEnv(env);
     const who = await member(request, env, fetchImpl);
-    const body = await readJson<{ video_id?: string; version_no?: number }>(request);
-    const row = await loadUploadingVersion(env, who, String(body.video_id ?? ""), Number(body.version_no), fetchImpl);
+    const body = await readJson<{ video_id?: string; version_no?: number; claim_token?: string }>(request);
+    const row = body.claim_token !== undefined
+      ? await loadConverterVersion(env, who, String(body.video_id ?? ""), Number(body.version_no), String(body.claim_token), fetchImpl)
+      : await loadUploadingVersion(env, who, String(body.video_id ?? ""), Number(body.version_no), fetchImpl);
     if (row.state !== "uploading") {
       // An outbox retry after a success: answer, change nothing.
       return json(200, { video_id: row.video_id, version_no: row.current_version, state: row.state, replayed: true });

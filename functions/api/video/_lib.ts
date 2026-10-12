@@ -17,6 +17,14 @@
  *                                               bucket a public custom domain serves.
  * No service role. Every database call is made AS THE MEMBER, with the member's
  * own JWT, so RLS and the SECURITY DEFINER RPCs' `auth.uid()` decide.
+ *
+ * SERVER CONVERSION (20261012_0002, CONVERTER-DESIGN.md v2): the converter VM
+ * is just another caller with its own JWT. It reaches a video ONLY through
+ * video_converter_version(video, version, claim_token) — which answers only for
+ * the video of the source it holds a live claim on — never video_upload_info,
+ * and every URL minted for it lives no longer than that claim's lease.
+ * Originals sit at upload/source/<source_id>/source (sourceKey): under
+ * upload/, which the media-authz Worker never serves.
  * A missing variable is a 500 that names it — never a guessed default.
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -29,7 +37,7 @@ export interface R2ObjectLike {
   arrayBuffer(): Promise<ArrayBuffer>;
 }
 export interface R2BucketLike {
-  head(key: string): Promise<{ size: number } | null>;
+  head(key: string): Promise<{ size: number; etag?: string } | null>;
   get(key: string): Promise<R2ObjectLike | null>;
   put(key: string, value: ArrayBuffer | Uint8Array | string, options?: {
     httpMetadata?: { contentType?: string };
@@ -127,6 +135,25 @@ export async function asMember<T>(env: VideoEnv, jwt: string, path: string, init
   return body as T;
 }
 
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** Where a member's ORIGINAL waits for the converter. Under upload/ — never served. */
+export function sourceKey(sourceId: string): string {
+  if (!UUID_RE.test(sourceId)) throw new HttpError(400, "VID-REQ-001", "source_id must be a lowercase uuid");
+  return `upload/source/${sourceId}/source`;
+}
+
+/**
+ * Seconds a URL minted for the converter may live: never past its claim's
+ * lease (review R2), never more than `max`, and a claim about to lapse gets
+ * nothing — the VM heartbeats first.
+ */
+export function ttlWithinLease(leaseUntilMs: number, nowMs: number, max: number): number {
+  const left = Math.floor((leaseUntilMs - nowMs) / 1000) - 30;
+  if (!Number.isFinite(left) || left < 60) throw new HttpError(409, "VID-CONV-010", "the claim's lease is about to run out — heartbeat, then ask again");
+  return Math.min(max, left);
+}
+
 export interface VersionRow {
   video_id: string;
   owner_id: string;
@@ -164,6 +191,33 @@ export async function loadUploadingVersion(env: VideoEnv, who: { uid: string; jw
     video_id: v.id, owner_id: v.owner_id, state: v.state, current_version: v.current_version, purpose: v.purpose,
     manifest_sha256: ver.manifest_sha256, total_bytes: Number(ver.total_bytes),
     declared_duration_s: Number(ver.declared_duration_s), has_audio: ver.has_audio,
+  };
+}
+
+/**
+ * The converter's view of the same facts, for the video of the source it holds
+ * a live claim on (video_converter_version, 20261012_0002). Anyone else — a
+ * member, a wrong token, an expired lease, a device-path video — gets no row:
+ * the same 404 as a stranger.
+ */
+export async function loadConverterVersion(env: VideoEnv, who: { uid: string; jwt: string }, videoId: string, versionNo: number,
+  claimToken: string, fetchImpl: typeof fetch = fetch): Promise<VersionRow & { lease_until_ms: number }> {
+  if (!UUID_RE.test(videoId) || !Number.isInteger(versionNo) || versionNo < 1 || !UUID_RE.test(claimToken)) {
+    throw new HttpError(400, "VID-REQ-001", "video_id, version_no and claim_token are required");
+  }
+  const rows = await asMember<Array<{
+    video_id: string; owner_id: string; state: string; current_version: number; purpose: "post" | "ad";
+    manifest_sha256: string; total_bytes: number | string; declared_duration_s: number | string; has_audio: boolean; lease_until: string;
+  }>>(env, who.jwt, "rpc/video_converter_version",
+    { method: "POST", body: JSON.stringify({ _video_id: videoId, _version_no: versionNo, _claim_token: claimToken }) }, fetchImpl);
+  const r = rows?.[0];
+  if (!r) throw new HttpError(404, "VID-REQ-002", "no such video of yours");
+  const lease = Date.parse(r.lease_until);
+  if (!Number.isFinite(lease)) throw new HttpError(502, "VID-DB-002", "the claim has no lease");
+  return {
+    video_id: r.video_id, owner_id: r.owner_id, state: r.state, current_version: r.current_version, purpose: r.purpose,
+    manifest_sha256: r.manifest_sha256, total_bytes: Number(r.total_bytes), declared_duration_s: Number(r.declared_duration_s),
+    has_audio: r.has_audio, lease_until_ms: lease,
   };
 }
 
