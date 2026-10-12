@@ -6,7 +6,10 @@
  *   • no URL a client is given ever names a served key (video/…), only upload/video/…;
  *   • the served copy is written by `complete` from bytes it verified, so a
  *     re-PUT to the upload key after `complete` changes nothing viewers get;
- *   • the audio hash sent to video_mark_uploaded is the hash of the served audio.
+ *   • the audio fingerprint sent to video_mark_uploaded binds the served audio
+ *     (sha256 over "name:sha256" lines, audio.mp4 then segments in playlist order — A4);
+ *   • complete works in ROUNDS under Cloudflare's per-request call limit (202 + progress),
+ *     never copies a file twice, and upload-urls lists instead of one head per file.
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import { fakePackage } from "./fixtures";
@@ -23,15 +26,35 @@ const VID = "33333333-3333-4333-8333-333333333333";
 
 class FakeBucket implements R2BucketLike {
   map = new Map<string, Uint8Array>();
+  meta = new Map<string, Record<string, string>>();
+  /** R2 returns at most 1,000 keys per list call; tests lower this to exercise the cursor. */
+  pageSize = 1000;
+  listCalls = 0;
+  async list(o: { prefix: string; cursor?: string; include?: string[] }) {
+    this.listCalls++;
+    const keys = [...this.map.keys()].filter((k) => k.startsWith(o.prefix)).sort();
+    const from = o.cursor ? Number(o.cursor) : 0;
+    const page = keys.slice(from, from + this.pageSize);
+    return {
+      objects: page.map((key) => ({
+        key, size: this.map.get(key)!.length,
+        ...(o.include?.includes("customMetadata") ? { customMetadata: this.meta.get(key) ?? {} } : {}),
+      })),
+      truncated: from + this.pageSize < keys.length,
+      cursor: from + this.pageSize < keys.length ? String(from + this.pageSize) : undefined,
+    };
+  }
+
   async head(k: string) { const v = this.map.get(k); return v ? { size: v.length } : null; }
   async get(k: string) {
     const v = this.map.get(k);
     return v ? { size: v.length, arrayBuffer: async () => v.slice().buffer } : null;
   }
-  async put(k: string, value: ArrayBuffer | Uint8Array | string) {
+  async put(k: string, value: ArrayBuffer | Uint8Array | string, o?: { customMetadata?: Record<string, string> }) {
     this.map.set(k, typeof value === "string" ? new TextEncoder().encode(value) : new Uint8Array(value instanceof Uint8Array ? value : new Uint8Array(value)).slice());
+    if (o?.customMetadata) this.meta.set(k, o.customMetadata); else this.meta.delete(k);
   }
-  async delete(k: string | string[]) { for (const x of Array.isArray(k) ? k : [k]) this.map.delete(x); }
+  async delete(k: string | string[]) { for (const x of Array.isArray(k) ? k : [k]) { this.map.delete(x); this.meta.delete(x); } }
 }
 
 /** F-D1-4: the lane's attest key (≥ 32 chars, ≠ MEDIA_TOKEN_KEY) and the lane WORD. */
@@ -188,7 +211,7 @@ describe("F-D3-18 · no upload while the media host is public", () => {
 });
 
 describe("/api/video/complete", () => {
-  it("verifies, copies to the served prefix itself, and marks uploaded with the served audio's hash", async () => {
+  it("verifies, copies to the served prefix itself, and marks uploaded with the served audio's fingerprint", async () => {
     const w = world(pkg);
     await uploadAll(w, pkg);
     const r = await handleComplete(post({ video_id: VID, version_no: 1 }), w.env, w.fetch, () => NOW_MS);
@@ -196,11 +219,13 @@ describe("/api/video/complete", () => {
     for (const [name, bytes] of pkg.files) {
       expect(Array.from(w.bucket.map.get(servedKey(OWNER, VID, 1, name)) ?? []), name).toEqual(Array.from(bytes));
     }
-    const audio = [pkg.files.get("audio.mp4")!, ...[...pkg.files.keys()].filter((n) => /^audio_\d+\.m4s$/.test(n))
-      .sort((a, b) => Number(a.match(/\d+/)![0]) - Number(b.match(/\d+/)![0])).map((n) => pkg.files.get(n)!)];
-    const all = new Uint8Array(audio.reduce((a, p) => a + p.length, 0));
-    let o = 0; for (const p of audio) { all.set(p, o); o += p.length; }
-    const audioSha = await sha256Hex(all);
+    // A4: one "name:sha256" line per served audio file — audio.mp4, then the segments in order —
+    // where each sha256 is computed here from the SERVED bytes, independently of the Function.
+    const segs = [...pkg.files.keys()].filter((n) => /^audio_\d+\.m4s$/.test(n))
+      .sort((a, b) => Number(a.match(/\d+/)![0]) - Number(b.match(/\d+/)![0]));
+    let lines = "";
+    for (const n of ["audio.mp4", ...segs]) lines += `${n}:${await sha256Hex(w.bucket.map.get(servedKey(OWNER, VID, 1, n))!)}\n`;
+    const audioSha = await sha256Hex(lines);
     const issuedAt = Math.floor(NOW_MS / 1000);
     // F-D1-4: the 5-argument form, signed over exactly what 0007 rebuilds from the stored row.
     const expected = await signAttest(ATTEST_KEY, attestMessage({
@@ -237,7 +262,10 @@ describe("/api/video/complete", () => {
     expect(r.status).toBe(409);
     expect((await r.json() as { mismatched: string[] }).mismatched).toEqual(["240p_0.m4s"]);
     expect(w.bucket.map.has(k)).toBe(false);
-    expect([...w.bucket.map.keys()].some((x) => x.startsWith(SERVED_PREFIX))).toBe(false);
+    // The bad file is never served. (Files verified in the same round may be — rounds keep their
+    // work — but nothing is viewable: the video is not marked, and a play token needs "ready".)
+    expect(w.bucket.map.has(servedKey(OWNER, VID, 1, "240p_0.m4s"))).toBe(false);
+    expect(w.rpcCalls).toEqual([]);
   });
 
   async function withSwap(name: string, bytes: Uint8Array) {
@@ -356,5 +384,90 @@ describe("F-D1-4 · /api/video/complete signs video_mark_uploaded (0007's 5-argu
     const r = await handleComplete(post({ video_id: VID, version_no: 1 }), w.env, w.fetch, () => NOW_MS);
     expect(r.status).toBe(409);
     expect(((await r.json()) as { error: string }).error).toBe("VID-DB-001");
+  });
+});
+
+describe("/api/video/complete in rounds (no time limit: Cloudflare allows 1,000 storage calls per request)", () => {
+  it("a video bigger than one round: 202 with progress until every file is served, then 200 — no file copied twice", async () => {
+    const w = world(pkg);
+    await uploadAll(w, pkg);
+    const puts = new Map<string, number>();
+    const realPut = w.bucket.put.bind(w.bucket);
+    w.bucket.put = async (k, v, o) => { if (k.startsWith(SERVED_PREFIX)) puts.set(k, (puts.get(k) ?? 0) + 1); return realPut(k, v, o); };
+    const total = pkg.manifest.files.length;
+    const progress: number[] = [];
+    let r: Response;
+    for (let round = 0; ; round++) {
+      r = await handleComplete(post({ video_id: VID, version_no: 1 }), w.env, w.fetch, () => NOW_MS, { calls: 25, ms: 60_000 });
+      if (r.status !== 202) break;
+      const b = await r.json() as { copied: number; total: number; state: string };
+      expect(b.state).toBe("uploading");
+      expect(b.total).toBe(total);
+      progress.push(b.copied);
+      expect(w.rpcCalls).toEqual([]); // nothing is marked before every file is served
+      if (round > 50) throw new Error("never finished");
+    }
+    expect(r.status).toBe(200);
+    expect(progress.length).toBeGreaterThan(1);
+    expect(progress).toEqual([...progress].sort((a, b) => a - b)); // only ever forward
+    expect([...puts.values()].every((n) => n === 1)).toBe(true);
+    expect(puts.size).toBe(total);
+    expect(w.rpcCalls.length).toBe(1);
+  });
+
+  it("never spends more storage calls in one request than its budget", async () => {
+    const w = world(pkg);
+    await uploadAll(w, pkg);
+    let calls = 0;
+    for (const m of ["get", "put", "delete", "list", "head"] as const) {
+      const real = (w.bucket as any)[m].bind(w.bucket);
+      (w.bucket as any)[m] = (...a: unknown[]) => { calls++; return real(...a); };
+    }
+    const r = await handleComplete(post({ video_id: VID, version_no: 1 }), w.env, w.fetch, () => NOW_MS, { calls: 25, ms: 60_000 });
+    expect(r.status).toBe(202);
+    expect(calls).toBeLessThanOrEqual(25);
+  });
+
+  it("listing pages through the cursor (more files than one list page)", async () => {
+    const w = world(pkg);
+    await uploadAll(w, pkg);
+    w.bucket.pageSize = 4;
+    let r = await handleComplete(post({ video_id: VID, version_no: 1 }), w.env, w.fetch, () => NOW_MS, { calls: 40, ms: 60_000 });
+    while (r.status === 202) r = await handleComplete(post({ video_id: VID, version_no: 1 }), w.env, w.fetch, () => NOW_MS, { calls: 40, ms: 60_000 });
+    expect(r.status).toBe(200);
+  });
+
+  it("a served copy without the right hash (an older or broken copy) is copied again", async () => {
+    const w = world(pkg);
+    await uploadAll(w, pkg);
+    const k = servedKey(OWNER, VID, 1, "240p_1.m4s");
+    w.bucket.map.set(k, new Uint8Array(pkg.files.get("240p_1.m4s")!.length)); // same size, no/incorrect metadata
+    const r = await handleComplete(post({ video_id: VID, version_no: 1 }), w.env, w.fetch, () => NOW_MS);
+    expect(r.status).toBe(200);
+    expect(Array.from(w.bucket.map.get(k)!)).toEqual(Array.from(pkg.files.get("240p_1.m4s")!));
+  });
+
+  it("the time budget also ends a round (slow storage)", async () => {
+    const w = world(pkg);
+    await uploadAll(w, pkg);
+    let t = NOW_MS;
+    const realGet = w.bucket.get.bind(w.bucket);
+    w.bucket.get = async (k) => { t += 1_000; return realGet(k); }; // each read "takes" 1 s
+    const r = await handleComplete(post({ video_id: VID, version_no: 1 }), w.env, w.fetch, () => t, { calls: 800, ms: 5_000 });
+    expect(r.status).toBe(202);
+  });
+});
+
+describe("/api/video/upload-urls for a long video", () => {
+  it("finds what is already uploaded with list calls, not one head per file", async () => {
+    const w = world(pkg);
+    let heads = 0;
+    const realHead = w.bucket.head.bind(w.bucket);
+    w.bucket.head = async (k) => { heads++; return realHead(k); };
+    w.bucket.pageSize = 5;
+    const r = await handleUploadUrls(post({ video_id: VID, version_no: 1, manifest: pkg.manifest }), w.env, new Date(NOW_MS), w.fetch);
+    expect(r.status).toBe(200);
+    expect(heads).toBe(0);
+    expect(w.bucket.listCalls).toBeGreaterThanOrEqual(1);
   });
 });

@@ -27,6 +27,7 @@
  * told "Video upload isn't supported in this browser — use the app" (VID-1 §2.4).
  */
 import { packageHls, renditionsFor, KEYFRAME_SECONDS, type HlsPackage, type RawChunk, type VideoRenditionInput } from "./hlsPackager";
+import { DEFAULT_AUDIO_BITRATE, planLadder } from "./ladder";
 import { UNDECODABLE_MESSAGE } from "./limits";
 import { startVisibilityInterval } from "@/lib/timers/visibilityInterval";
 
@@ -43,8 +44,8 @@ export const H264_AAC: CodecChoice = {
   audio: { mux: "aac", codec: "mp4a.40.2", playlist: "mp4a.40.2" },
 };
 
-const BITRATE: Record<string, number> = { "240p": 300_000, "480p": 900_000, "720p": 2_000_000 };
-const AUDIO_BITRATE = 96_000;
+/** The sound's rate when the ladder keeps full quality; long videos use less (ladder.ts). */
+const AUDIO_BITRATE = DEFAULT_AUDIO_BITRATE;
 
 export class VideoEncodeUnsupported extends Error {
   constructor() { super(UNSUPPORTED_MESSAGE); }
@@ -91,7 +92,7 @@ export interface EncodeOptions {
   poster?: Uint8Array;
 }
 
-async function encodeAudio(file: File, choice: CodecChoice, signal?: AbortSignal) {
+async function encodeAudio(file: File, choice: CodecChoice, signal?: AbortSignal, bitrate: number = AUDIO_BITRATE) {
   let decoded: AudioBuffer;
   const ctx = new AudioContext();
   try {
@@ -118,7 +119,7 @@ async function encodeAudio(file: File, choice: CodecChoice, signal?: AbortSignal
       buf = await off.startRendering();
     }
     const planes = Array.from({ length: channels }, (_, c) => buf.getChannelData(c));
-    const r = await encodeAacWasm(planes, buf.sampleRate, AUDIO_BITRATE, signal);
+    const r = await encodeAacWasm(planes, buf.sampleRate, bitrate, signal);
     return { chunks: r.chunks, decoderConfig: r.decoderConfig, sampleRate: buf.sampleRate, channels };
   }
 
@@ -135,7 +136,7 @@ async function encodeAudio(file: File, choice: CodecChoice, signal?: AbortSignal
     },
     error: (e) => { failure = e; },
   });
-  enc.configure({ codec: choice.audio.codec, sampleRate, numberOfChannels: channels, bitrate: AUDIO_BITRATE });
+  enc.configure({ codec: choice.audio.codec, sampleRate, numberOfChannels: channels, bitrate });
   const frame = 1024;
   const planes = Array.from({ length: channels }, (_, c) => decoded.getChannelData(c));
   for (let off = 0; off < decoded.length; off += frame) {
@@ -170,9 +171,11 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
     });
     const duration = video.duration;
     const sw = video.videoWidth, sh = video.videoHeight;
-    const targets = renditionsFor(sw, sh);
+    // Any length fits 500 MB: a long video keeps its length and gives up quality (ladder.ts).
+    const plan = planLadder(renditionsFor(sw, sh), duration, !opts.mute);
+    const targets = plan.renditions;
 
-    const audio = opts.mute ? null : await encodeAudio(file, choice, opts.signal);
+    const audio = opts.mute ? null : await encodeAudio(file, choice, opts.signal, plan.audioBitrate);
 
     const renditions = targets.map((t) => {
       const chunks: RawChunk[] = [];
@@ -188,7 +191,7 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
         error: (e) => { state.failure = e; },
       });
       encoder.configure({
-        codec: choice.video.codec(t.height), width: t.width, height: t.height, bitrate: BITRATE[t.name], framerate: 30,
+        codec: choice.video.codec(t.height), width: t.width, height: t.height, bitrate: t.bitrate, framerate: 30,
         ...(choice.video.mux === "avc" ? { avc: { format: "avc" as const } } : {}),
       });
       const canvas = new OffscreenCanvas(t.width, t.height);

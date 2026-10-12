@@ -21,10 +21,32 @@ const VID = "33333333-3333-4333-8333-333333333333";
 
 class Bucket implements R2BucketLike {
   map = new Map<string, Uint8Array>();
+  meta = new Map<string, Record<string, string>>();
+  /** R2 returns at most 1,000 keys per list call; tests lower this to exercise the cursor. */
+  pageSize = 1000;
+  listCalls = 0;
+  async list(o: { prefix: string; cursor?: string; include?: string[] }) {
+    this.listCalls++;
+    const keys = [...this.map.keys()].filter((k) => k.startsWith(o.prefix)).sort();
+    const from = o.cursor ? Number(o.cursor) : 0;
+    const page = keys.slice(from, from + this.pageSize);
+    return {
+      objects: page.map((key) => ({
+        key, size: this.map.get(key)!.length,
+        ...(o.include?.includes("customMetadata") ? { customMetadata: this.meta.get(key) ?? {} } : {}),
+      })),
+      truncated: from + this.pageSize < keys.length,
+      cursor: from + this.pageSize < keys.length ? String(from + this.pageSize) : undefined,
+    };
+  }
+
   async head(k: string) { const v = this.map.get(k); return v ? { size: v.length } : null; }
   async get(k: string) { const v = this.map.get(k); return v ? { size: v.length, arrayBuffer: async () => v.slice().buffer } : null; }
-  async put(k: string, v: ArrayBuffer | Uint8Array | string) { this.map.set(k, typeof v === "string" ? new TextEncoder().encode(v) : new Uint8Array(v as ArrayBuffer).slice()); }
-  async delete(k: string | string[]) { for (const x of Array.isArray(k) ? k : [k]) this.map.delete(x); }
+  async put(k: string, v: ArrayBuffer | Uint8Array | string, o?: { customMetadata?: Record<string, string> }) {
+    this.map.set(k, typeof v === "string" ? new TextEncoder().encode(v) : new Uint8Array(v as ArrayBuffer).slice());
+    if (o?.customMetadata) this.meta.set(k, o.customMetadata); else this.meta.delete(k);
+  }
+  async delete(k: string | string[]) { for (const x of Array.isArray(k) ? k : [k]) { this.map.delete(x); this.meta.delete(x); } }
 }
 
 /** A tiny server: the video row, its version, posts, post_videos — with D1's uniqueness rules. */
@@ -249,5 +271,24 @@ describe("VID-1 · the device upload job", () => {
     expect(s.db.beginCalls).toBe(0);
     expect(await clearVideoUploads()).toBe(true);
     expect(await jobsFor("99999999-9999-4999-8999-999999999999")).toEqual([]);
+  });
+});
+
+describe("VID-1 · a long video: complete answers in rounds", () => {
+  it("202 + progress → the job asks again at once and reaches checking; progress only grows", async () => {
+    const s = server(pkg);
+    const realApi = s.deps.api;
+    let rounds = 0;
+    s.deps.api = async (path, body) => {
+      if (path.endsWith("/complete") && rounds < 3) {
+        rounds++;
+        return { status: 202, body: { state: "uploading", copied: rounds * 10, total: 40 } };
+      }
+      return realApi(path, body);
+    };
+    let j = await advanceJob(await newJob(), s.deps);
+    expect(rounds).toBe(3);
+    expect(j.step).toBe("checking");
+    expect(j.serverProgress).toEqual({ copied: 30, total: 40 });
   });
 });

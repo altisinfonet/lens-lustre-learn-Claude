@@ -68,11 +68,21 @@ export async function handleUploadUrls(request: Request, env: VideoEnv, now: Dat
     const byName = new Map(manifest.files.map((f) => [f.name, f]));
     const urls: UploadUrl[] = [];
     const done: string[] = [];
+    // What is already in upload/ (resume): ONE list call per 1,000 files, not a
+    // head per file — Cloudflare allows 1,000 storage calls per request and a
+    // long video has thousands of files (measured 2026-10-12).
+    const prefix = uploadKey(row.owner_id, row.video_id, row.current_version, "poster.jpg").replace(/poster\.jpg$/, "");
+    const have = new Map<string, number>();
+    let cursor: string | undefined;
+    do {
+      const page = await bucket.list({ prefix, cursor });
+      for (const o of page.objects) have.set(o.key.slice(prefix.length), o.size);
+      cursor = page.truncated ? page.cursor : undefined;
+    } while (cursor);
     for (const name of uploadOrder(manifest.files.map((f) => f.name))) {
       const f = byName.get(name)!;
       const key = uploadKey(row.owner_id, row.video_id, row.current_version, name);
-      const head = await bucket.head(key);
-      if (head && head.size === f.bytes) { done.push(name); continue; }
+      if (have.get(name) === f.bytes) { done.push(name); continue; }
       const headers = {
         "content-type": contentTypeFor(name)!,
         "x-amz-checksum-sha256": hexToBase64(f.sha256),

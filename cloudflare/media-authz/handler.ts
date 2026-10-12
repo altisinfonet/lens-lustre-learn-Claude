@@ -94,6 +94,12 @@ function refuse(status: number, req: Request, env: MediaAuthzEnv, extra: Record<
 
 /** Rewrite every URI in a playlist to carry the token. Null = it names something that is not a sibling file. */
 export function rewritePlaylist(text: string, token: string): string | null {
+  // Review #411 C1: hls.js also breaks lines on a lone CR and on U+2028/2029,
+  // so a line this "\n" split sees as one can be two to the player — the second
+  // an outside URL. Serve only printable ASCII and LF (CR only in CRLF); the
+  // same rule as the upload judge (src/lib/video/shared/playlist.ts), here too
+  // so a video already READY is covered.
+  if (/[^\x20-\x7E\r\n]|\r(?!\n)/.test(text)) return null;
   const t = encodeURIComponent(token);
   const sibling = (u: string) => isAllowedFileName(u);
   let bad = false;

@@ -228,3 +228,44 @@ describe("the control bar (Owner 2026-10-12: drag to move through the video)", (
     expect([formatClock(0), formatClock(7.9), formatClock(448), formatClock(3725), formatClock(NaN)]).toEqual(["0:00", "0:07", "7:28", "1:02:05", "0:00"]);
   });
 });
+
+describe("a video longer than the 15-minute play token (no time limit)", () => {
+  let perf = 1_000_000;
+  beforeEach(() => { perf = 1_000_000; vi.spyOn(performance, "now").mockImplementation(() => perf); });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("the token is renewed mid-play, 90 s before its 15 minutes end on the DEVICE clock, and the stream goes on at the same second", async () => {
+    render(<FeedVideoCard video={{ ...vid(), durationS: 3600 }} />);
+    fire(nearObs(), 0.1); fire(view(), 1); await flush();
+    const v = screen.getByTestId("feed-video-card").querySelector("video")!;
+    const callsBefore = fetchMock.mock.calls.length;
+    v.currentTime = 840;
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify({ ...GRANT, master_url: GRANT.master_url.replace("t=x", "t=renewed") }), { status: 200 }));
+    perf += 14 * 60 * 1000; // 14 minutes of playback later
+    await act(async () => { v.dispatchEvent(new Event("timeupdate")); });
+    await flush();
+    expect(fetchMock.mock.calls.length).toBe(callsBefore + 1);
+    expect(v.src).toContain("t=renewed");
+    expect(v.currentTime).toBe(840);
+  });
+
+  it("a token with plenty of time left is not renewed on every timeupdate", async () => {
+    render(<FeedVideoCard video={vid()} />);
+    fire(nearObs(), 0.1); fire(view(), 1); await flush();
+    const n = fetchMock.mock.calls.length;
+    const v = screen.getByTestId("feed-video-card").querySelector("video")!;
+    for (let k = 0; k < 5; k++) { perf += 1000; await act(async () => { v.dispatchEvent(new Event("timeupdate")); }); }
+    expect(fetchMock.mock.calls.length).toBe(n);
+  });
+
+  it("C6: a phone whose wall clock runs 14 minutes fast does not renew at all (Date.now is not the token clock)", async () => {
+    render(<FeedVideoCard video={vid()} />);
+    fire(nearObs(), 0.1); fire(view(), 1); await flush();
+    const n = fetchMock.mock.calls.length;
+    const realNow = Date.now;
+    vi.spyOn(Date, "now").mockImplementation(() => realNow() + 14 * 60 * 1000);
+    const v = screen.getByTestId("feed-video-card").querySelector("video")!;
+    for (let k = 0; k < 5; k++) await act(async () => { v.dispatchEvent(new Event("timeupdate")); });
+    expect(fetchMock.mock.calls.length).toBe(n);
+  });
+});

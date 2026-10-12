@@ -26,18 +26,35 @@
  *
  * hls.js is a lazy chunk (P13): it is imported on the first card that needs it.
  * Safari / iOS plays HLS natively. The token (15 min) is fetched from
- * /api/video/play-token as the viewer and renewed only when playback starts
- * inside its last 90 s — there is no timer.
+ * /api/video/play-token as the viewer and renewed inside its last 90 s — when
+ * playback starts, and, for a video longer than the token (no time limit since
+ * 2026-10-12), DURING playback: the element's own timeupdate notices the token
+ * is due and the stream is re-attached at the same second. A segment refused
+ * with 403 (a token that ran out anyway) gets one fresh token before the card
+ * gives up. There is no timer.
  */
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getNetState, subscribeNetState } from "@/lib/offline/networkQuality";
-import { claimPlayback, levelCap, releasePlayback, shouldPlay, tokenNeedsRefresh } from "@/lib/video/playback";
+import { claimPlayback, levelCap, releasePlayback, shouldPlay } from "@/lib/video/playback";
+import { PLAY_TOKEN_TTL_S } from "@/lib/video/shared/playToken";
 import { VIDEO_FRAME_ASPECT } from "@/lib/video/videoFrame";
 import type { FeedVideo } from "@/lib/video/postVideoRead";
 
-interface PlayGrant { master_url: string; poster_url: string; expires_at: number }
+/** receivedAt: performance.now() when it arrived — the device's own clock, never Date.now() (review #411 C6). */
+interface PlayGrant { master_url: string; poster_url: string; expires_at: number; receivedAt: number }
+
+/**
+ * A token is "due" 90 s before its 15 minutes run out, measured on the
+ * MONOTONIC clock from when it arrived. Date.now() would follow the phone's
+ * wall clock: one set 13½ minutes fast made every token look due, and the
+ * card fetched tokens back to back (review #411 C6).
+ */
+const GRANT_FRESH_MS = (PLAY_TOKEN_TTL_S - 90) * 1000;
+const grantDue = (g: PlayGrant | null | undefined) => !g || performance.now() - g.receivedAt > GRANT_FRESH_MS;
+/** Never renew more often than this, whatever happens. */
+const MIN_RENEW_GAP_MS = 60_000;
 
 async function requestGrant(videoId: string): Promise<PlayGrant | null> {
   try {
@@ -51,7 +68,7 @@ async function requestGrant(videoId: string): Promise<PlayGrant | null> {
     if (!res.ok) return null;
     const b = (await res.json()) as Partial<PlayGrant>;
     return typeof b.master_url === "string" && typeof b.poster_url === "string" && typeof b.expires_at === "number"
-      ? { master_url: b.master_url, poster_url: b.poster_url, expires_at: b.expires_at }
+      ? { master_url: b.master_url, poster_url: b.poster_url, expires_at: b.expires_at, receivedAt: performance.now() }
       : null;
   } catch {
     return null;
@@ -104,8 +121,7 @@ export default function FeedVideoCard({ video, className = "" }: { video: FeedVi
   const ensureSource = useCallback(async (): Promise<boolean> => {
     const v = el.current;
     if (!v) return false;
-    const now = Math.floor(Date.now() / 1000);
-    if (attached.current && !tokenNeedsRefresh(grant.current?.expires_at, now)) return true;
+    if (attached.current && !grantDue(grant.current)) return true;
     const g = await requestGrant(video.id);
     if (!g) { setFailed(true); return false; }
     grant.current = g;
@@ -131,7 +147,20 @@ export default function FeedVideoCard({ video, className = "" }: { video: FeedVi
         h.autoLevelCapping = Number.isFinite(cap) ? cap : -1;
       };
       h.on("hlsManifestParsed", applyCap);
-      h.on("hlsError", (_e: unknown, d: { fatal?: boolean }) => { if (d?.fatal) { setFailed(true); pause(); } });
+      h.on("hlsError", (_e: unknown, d: { fatal?: boolean; response?: { code?: number } }) => {
+        if (!d?.fatal) return;
+        // The token ran out mid-play (a long video): one fresh token, same second.
+        if (d.response?.code === 403 && !renewedAfter403.current) {
+          renewedAfter403.current = true;
+          grant.current = null;
+          void renew();
+          return;
+        }
+        setFailed(true); pause();
+      });
+      // A segment really loaded: the 403 retry is available again (a LASTING 403 —
+      // a revoked video — must not loop: review #411 C6).
+      h.on("hlsFragLoaded", () => { renewedAfter403.current = false; });
       h.loadSource(g.master_url);
       h.attachMedia(v);
       hls.current = h;
@@ -195,6 +224,35 @@ export default function FeedVideoCard({ video, className = "" }: { video: FeedVi
   }, [cardId]);
 
   const tapPlay = () => { setNeedsTap(false); void start(); };
+
+  /** A fresh token and the stream re-attached at the same second; playback goes on. */
+  const renewing = useRef(false);
+  const renewedAfter403 = useRef(false);
+  const lastRenewAt = useRef(-Infinity);
+  const renew = useCallback(async () => {
+    const v = el.current;
+    if (!v || renewing.current) return;
+    renewing.current = true;
+    lastRenewAt.current = performance.now();
+    try {
+      const wasPlaying = playing.current;
+      if (await ensureSource() && wasPlaying) await v.play().catch(() => {});
+    } finally {
+      renewing.current = false;
+    }
+  }, [ensureSource]);
+
+  // A video longer than the 15-minute token: renew it shortly before it ends, mid-play.
+  useEffect(() => {
+    const v = el.current;
+    if (!v) return;
+    const onTime = () => {
+      if (!playing.current || renewing.current || !attached.current) return;
+      if (grantDue(grant.current) && performance.now() - lastRenewAt.current >= MIN_RENEW_GAP_MS) void renew();
+    };
+    v.addEventListener("timeupdate", onTime);
+    return () => v.removeEventListener("timeupdate", onTime);
+  }, [renew]);
 
   // Time and length, from the element itself (the stream knows its real length).
   useEffect(() => {

@@ -171,6 +171,21 @@ A1-D.11 says the manifest hash is hidden from every API role. That stays true fo
 - **Limits:** "restrict on MB not on timing. Less than 500 MB is okay but minutes will be FREE — no boundary on timing." → members' 3-minute (and ads' 5-minute) duration caps are to be removed; 500 MB stays. Needs a D1 limit change (video_validate_version / video_begin_upload) + client (`shared/rules.ts VIDEO_LIMITS`, `limits.ts`). Note for the Owner: the browser converts in real time (a 30-minute video takes ~30 minutes with the page open); the encoded package for long videos may exceed 500 MB and needs a stated rule.
 - **Cost:** "Choose option all only FREE." No paid video conversion service (Cloudflare Containers / Stream). Formats no browser can open (AVI, WMV, MPEG-2, MPEG-TS, 3GP/H.263, ProRes; HEVC/10-bit in Firefox) get a clear message until a free conversion path is chosen.
 
+## A4 · Amendment, 2026-10-12 — no time limit, implemented (A3.2), within Cloudflare's FREE plan
+
+**Measured on this account (temporary Worker, deleted after):** 900 R2 calls in one request succeed, 1,100 fail ("Too many API requests by single Worker invocation") — the Free plan's 1,000 internal subrequests; each call ~50 ms; hashing 500 MB in one request is fine. `complete` used ~4 calls per file, so even a 3½-minute HD video (~800 calls) was near the edge.
+
+| # | Change | Where |
+|---|---|---|
+| A4.1 | **Database:** the 180 s / 300 s caps become a 24 h technical guard on the declared number; 500 MB, 2 MB poster+playlists, the bytes/s ceilings and 10/day unchanged. | `20261012_0001` (#410) |
+| A4.2 | **`/api/video/complete` works in rounds:** each request verifies and copies as many files as fit in ~800 calls / ~20 s and answers `202 {state:"uploading", copied, total}`; the client calls again at once. A served object carries the sha256 of the verified bytes it was written from (R2 custom metadata), so a later round never copies it again and an old/broken copy is copied again. The content judge runs on the SERVED copies once all are present. | `complete.ts`, `uploadJobs.ts` |
+| A4.3 | **`/api/video/upload-urls`** finds already-uploaded files with one `list` per 1,000 files instead of one `head` per file. | `upload-urls.ts` |
+| A4.4 | **Audio fingerprint (§6.1 redefined):** `audio_sha256 = sha256( "audio.mp4:<sha256>\n" + "audio_<i>.m4s:<sha256>\n" … )`, segments in playlist order, each sha256 the hash of the served bytes verified at copy time. Same binding as hashing the bytes (any changed byte changes that file's hash), without re-reading hours of audio in one request. No music-check provider existed yet, so nothing else computes the old form. | `shared/rules.ts audioFingerprint` |
+| A4.5 | **Per-segment rules (independent review C1 on #410):** every EXTINF ≤ TARGETDURATION (≤ 6); each segment listed once, only in its own rendition's playlist; every uploaded segment listed; each segment's bytes ≤ 2 × its rendition's bytes/s ceiling × its own EXTINF (+256 KB); any `.m4s` ≤ 8 MB, any init ≤ 1 MB. Without these, a declared length the segments do not have could carry huge files under the per-second ceilings. | `shared/playlist.ts`, `shared/judge.ts`, `shared/rules.ts` |
+| A4.6 | **Fitting any length into 500 MB:** the encoder keeps the full length and gives up quality — full ladder → without 720p → 240p only → lower rates (sound 64 / 48 kb/s). ~20 min keeps full quality; refused only past ~5½ h ("too long to fit in 500 MB", a size message). | `ladder.ts`, `webEncoder.ts` |
+| A4.7 | **This device's memory** is the one remaining bound on length today: the web encoder decodes the whole sound track (~1.4 GB per hour of stereo). The upload screen says so when a video is too big for this browser, with the way out ("Remove sound", or a computer). A streaming encoder (decode in pieces, faster than real time) removes this bound — next unit. | `limits.ts memoryProblem` |
+| A4.8 | **Upload screen:** "Up to 500 MB, any length."; a long video says it is prepared in about its own length with the tab open. | `VideoPostComposer.tsx` |
+
 ---
 
 ## 1 · Secrets and who holds them (none in the repo; none in the browser or app; no service role outside Supabase)
