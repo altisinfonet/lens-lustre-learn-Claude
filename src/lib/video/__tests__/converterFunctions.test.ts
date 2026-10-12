@@ -19,7 +19,7 @@ import { handleConvertClaim } from "../../../../functions/api/video/convert/clai
 import { handleConvertFinish } from "../../../../functions/api/video/convert/finish";
 import { handleUploadUrls } from "../../../../functions/api/video/upload-urls";
 import { handleComplete } from "../../../../functions/api/video/complete";
-import { sourceKey, ttlWithinLease, type R2BucketLike, type VideoEnv } from "../../../../functions/api/video/_lib";
+import { presign, sourceKey, ttlWithinLease, type R2BucketLike, type VideoEnv } from "../../../../functions/api/video/_lib";
 import type { AttestEnv } from "../../../../functions/api/video/attest";
 import { totalBytes, uploadKey, UPLOAD_PREFIX } from "../shared/rules";
 import type { HlsPackage } from "../hlsPackager";
@@ -36,7 +36,11 @@ const BYTES = 1234;
 class FakeBucket implements R2BucketLike {
   map = new Map<string, { data: Uint8Array; etag: string }>();
   deleted: string[] = [];
-  async head(k: string) { const v = this.map.get(k); return v ? { size: v.data.length, etag: v.etag } : null; }
+  headThrows = false;
+  async head(k: string) {
+    if (this.headThrows) throw new Error("R2 is having a moment");
+    const v = this.map.get(k); return v ? { size: v.data.length, etag: v.etag } : null;
+  }
   async get(k: string) { const v = this.map.get(k); return v ? { size: v.data.length, arrayBuffer: async () => v.data.slice().buffer } : null; }
   async put(k: string, value: ArrayBuffer | Uint8Array | string) {
     const data = typeof value === "string" ? new TextEncoder().encode(value) : new Uint8Array(value instanceof Uint8Array ? value : new Uint8Array(value)).slice();
@@ -84,6 +88,7 @@ function world(opts: Partial<Pick<World, "job" | "failAnswer" | "refuseClaim" | 
       w.rpc.push({ fn, body });
       if (fn === "video_source_uploaded") { if (uid !== OWNER) return refuse("VID-SRC-004"); w.source.status = "queued"; w.source.etag = body._etag; return ok({ status: "queued" }); }
       if (fn === "video_source_cancel") { if (uid !== OWNER) return refuse("VID-SRC-004"); w.source.status = "cancelled"; return ok("cancelled"); }
+      if (fn === "video_converter_version" && uid !== CONV) return ok([]);
       if (uid !== CONV) return refuse("VID-CONV-001: converter only");
       if (fn === "video_source_claim") return ok(w.job);
       if (fn === "video_source_fail") return w.refuseClaim ? refuse("VID-CONV-002: this claim is not held") : ok(w.failAnswer);
@@ -122,6 +127,12 @@ describe("/api/video/source-url (member)", () => {
     expect(u.searchParams.get("X-Amz-Expires")).toBe("3600");
     expect(b.headers).toEqual({ "content-type": "application/octet-stream" });
     expect(b.bytes).toBe(BYTES);
+    // The signature binds the declared size: re-sign with it → the same URL; with any other size → a different one.
+    const sign = (len: number) => presign({ method: "PUT", host: "acct123.r2.cloudflarestorage.com", path: `/media-staging/upload/source/${SRC}/source`,
+      region: "auto", service: "s3", accessKeyId: "AKIDTEST", secretAccessKey: "secret", amzDate: "20261012T120000Z", expires: 3600,
+      headers: { "content-type": "application/octet-stream", "content-length": String(len) } });
+    expect(b.url).toBe(await sign(BYTES));
+    expect(b.url).not.toBe(await sign(BYTES + 1));
   });
   it("refuses: no sign-in 401 · someone else's source 404 · a source past its upload 409", async () => {
     const w = world();
@@ -154,6 +165,15 @@ describe("/api/video/source-complete (member)", () => {
     expect(w.rpc.find((c) => c.fn === "video_source_uploaded")?.body).toEqual({ _source_id: SRC, _etag: "etag" + BYTES });
     const again = await (await handleSourceComplete(post({ source_id: SRC }), w.env, w.fetch)).json() as { replayed: boolean; status: string };
     expect(again).toMatchObject({ replayed: true, status: "queued" });
+  });
+});
+
+describe("/api/video/source-complete — a stored object without a usable ETag", () => {
+  it("→ 502, nothing queued", async () => {
+    const w = world(); w.bucket.map.set(sourceKey(SRC), { data: new Uint8Array(BYTES), etag: 'bad "etag" with spaces' });
+    const r = await handleSourceComplete(post({ source_id: SRC }), w.env, w.fetch);
+    expect(r.status).toBe(502);
+    expect(w.rpc.some((c) => c.fn === "video_source_uploaded")).toBe(false);
   });
 });
 
@@ -201,6 +221,35 @@ describe("/api/video/convert/claim (VM)", () => {
     expect(r.status).toBe(409);
     expect(w.rpc.find((c) => c.fn === "video_source_fail")?.body).toMatchObject({ _source_id: SRC, _claim_token: TOKEN, _code: "source_missing" });
   });
+  it("a lane missing a variable refuses BEFORE any claim is taken (review #417 finding 1)", async () => {
+    const w = world({ job: JOB() }); putSource(w);
+    delete w.env.R2_UPLOAD_KEY_SECRET;
+    const r = await handleConvertClaim(post({}, "conv-jwt"), w.env, NOW, w.fetch);
+    expect(r.status).toBe(500);
+    expect(w.rpc.some((c) => c.fn === "video_source_claim")).toBe(false);
+  });
+  it("storage failing AFTER the claim → the claim is handed back at once ('internal', requeued), never stranded (review #417 finding 1)", async () => {
+    const w = world({ job: JOB(), failAnswer: "queued" }); putSource(w);
+    w.bucket.headThrows = true;
+    const r = await handleConvertClaim(post({}, "conv-jwt"), w.env, NOW, w.fetch);
+    expect(r.status).toBe(500);
+    expect(JSON.stringify(await r.json())).not.toContain(TOKEN);
+    expect(w.rpc.find((c) => c.fn === "video_source_fail")?.body).toMatchObject({ _source_id: SRC, _claim_token: TOKEN, _code: "internal" });
+    expect(w.bucket.map.has(sourceKey(SRC))).toBe(true); // the original stays for the retry
+  });
+  it("the wrong size → failed as source_missing and deleted", async () => {
+    const w = world({ job: JOB() }); putSource(w, BYTES + 7);
+    const r = await handleConvertClaim(post({}, "conv-jwt"), w.env, NOW, w.fetch);
+    expect(r.status).toBe(409);
+    expect(w.rpc.find((c) => c.fn === "video_source_fail")?.body).toMatchObject({ _code: "source_missing" });
+    expect(w.bucket.map.has(sourceKey(SRC))).toBe(false);
+  });
+  it("if the database does not accept the failure, NOTHING is deleted", async () => {
+    const w = world({ job: JOB({ source_etag: "etag-other" }), refuseClaim: true }); putSource(w);
+    const r = await handleConvertClaim(post({}, "conv-jwt"), w.env, NOW, w.fetch);
+    expect(r.status).toBe(409);
+    expect(w.bucket.map.has(sourceKey(SRC))).toBe(true);
+  });
   it("the original changed after it was queued (ETag) → failed, deleted, no URL", async () => {
     const w = world({ job: JOB({ source_etag: "etag-other" }) }); putSource(w);
     const r = await handleConvertClaim(post({}, "conv-jwt"), w.env, NOW, w.fetch);
@@ -227,6 +276,12 @@ describe("/api/video/convert/finish (VM)", () => {
     const w = world({ failAnswer: "failed" }); putSource(w);
     await handleConvertFinish(post({ source_id: SRC, claim_token: TOKEN, outcome: "fail", code: "damaged", detail: "moov atom not found" }, "conv-jwt"), w.env, w.fetch);
     expect(w.rpc.find((c) => c.fn === "video_source_fail")?.body).toMatchObject({ _code: "damaged", _detail: "moov atom not found" });
+    expect(w.bucket.map.has(sourceKey(SRC))).toBe(false);
+  });
+  it("a failure the database turns into done (the upload already went through) → the original is deleted", async () => {
+    const w = world({ failAnswer: "done" }); putSource(w);
+    const r = await handleConvertFinish(post({ source_id: SRC, claim_token: TOKEN, outcome: "fail", code: "internal" }, "conv-jwt"), w.env, w.fetch);
+    expect(await r.json()).toMatchObject({ status: "done" });
     expect(w.bucket.map.has(sourceKey(SRC))).toBe(false);
   });
   it("a claim the database does not accept → 409 and NOTHING deleted (the VM cannot delete what it does not hold)", async () => {
@@ -280,6 +335,19 @@ describe("the converter path of /upload-urls and /complete", () => {
     expect(r.status).toBe(200);
     expect(w.rpc.some((c) => c.fn === "video_mark_uploaded")).toBe(true);
     expect(w.rpc.some((c) => c.fn === "video_upload_info")).toBe(false);
+  });
+});
+
+describe("the converter path refuses without the claim", () => {
+  it("/complete with a wrong token, or a member sending a claim_token → 404, nothing copied, nothing marked", async () => {
+    const pkg = await fakePackage({ seconds: 10 });
+    const w = world({ pkg });
+    const wrong = await handleComplete(post({ video_id: VID, version_no: 1, claim_token: "77777777-7777-4777-8777-777777777777" }, "conv-jwt"), w.env, w.fetch, () => NOW.getTime());
+    expect(wrong.status).toBe(404);
+    const member = await handleComplete(post({ video_id: VID, version_no: 1, claim_token: TOKEN }, "owner-jwt"), w.env, w.fetch, () => NOW.getTime());
+    expect(member.status).toBe(404);
+    expect(w.rpc.some((c) => c.fn === "video_mark_uploaded")).toBe(false);
+    expect([...w.bucket.map.keys()].some((k) => k.startsWith("video/"))).toBe(false);
   });
 });
 
