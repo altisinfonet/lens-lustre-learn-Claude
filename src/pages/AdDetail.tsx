@@ -197,7 +197,7 @@ const AdDetail = () => {
               the video plays/pauses/seeks, so it cannot also be the link). */}
           {creative.video && (
             <>
-              <FeedVideoCard video={creative.video} className="rounded-none" />
+              <FeedVideoCard video={creative.video} />
               {creative.click_url && (
                 <a href={creative.click_url} target="_blank" rel="noopener noreferrer"
                   className="flex min-h-11 items-center justify-between gap-3 border-y border-border px-3 py-2 text-sm hover:bg-muted/40">

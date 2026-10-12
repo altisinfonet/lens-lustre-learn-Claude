@@ -77,13 +77,14 @@ describe("fetchAdCreatives carries each creative's video", () => {
 
 describe("the ad slot (AdZone) and the ad page play it", () => {
   const zone = stripComments(readFileSync("src/components/ads/AdZone.tsx", "utf8"));
-  it("a video creative plays in the zone's own frame (fillParent), with the link as a CTA bar under it", () => {
-    expect(zone).toMatch(/c\.mode === "own" && chosen\?\.video &&/);
+  it("a video creative plays in the story card's own frame (fillParent), with the link as a TRACKED CTA bar under it", () => {
+    expect(zone).toMatch(/c\.mode === "own" && zone === "story-card" && chosen\?\.video &&/);
+    expect(zone).toMatch(/onClick=\{handleClick\}\s*data-testid="ad-video-cta"/);
     expect(zone).toMatch(/<FeedVideoCard video=\{chosen\.video\} fillParent \/>/);
     expect(zone).toMatch(/data-testid="ad-video-cta"/);
   });
   it("the picture path does not also draw for a video creative", () => {
-    expect(zone).toMatch(/c\.mode === "own" && !chosen\?\.video && cr\.image_source !== "code"/);
+    expect(zone).toMatch(/c\.mode === "own" && !\(zone === "story-card" && chosen\?\.video\) && cr\.image_source !== "code"/);
   });
   it("the ad's own page plays the video too, picture as fallback", () => {
     const page = stripComments(readFileSync("src/pages/AdDetail.tsx", "utf8"));

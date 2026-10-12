@@ -36,10 +36,17 @@ export const realJobDeps: JobDeps = {
     return { data, error: error as Err };
   },
   linkAdVideo: async (creativeId, videoId, categories) => {
+    const prev = await db.from("ad_videos").select("video_id").eq("ad_creative_id", creativeId).maybeSingle();
     const { error } = await db.from("ad_videos").upsert(
       { ad_creative_id: creativeId, video_id: videoId, categories }, { onConflict: "ad_creative_id" },
     );
-    return { error: error as Err };
+    if (error) return { error: error as Err };
+    // The video this one REPLACED is no longer on any ad: mark it deleted so
+    // video_housekeeping purges it (review #412 — it was left ready for ever).
+    // Best effort: a failure here leaves an unlinked video nobody can play.
+    const old = prev.data?.video_id;
+    if (typeof old === "string" && old !== videoId) await db.rpc("video_delete", { _video_id: old });
+    return { error: null };
   },
   videoState: async (videoId) => {
     const { data, error } = await db.from("videos").select("state").eq("id", videoId).maybeSingle();

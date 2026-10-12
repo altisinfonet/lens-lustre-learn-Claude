@@ -25,8 +25,15 @@ vi.mock("@/lib/video/webEncoder", () => ({
   encodeVideoToHls: vi.fn(async () => ({ files: new Map(), manifest: { v: 1 }, manifestSha256: "m" })),
 }));
 const del = vi.fn(async (_c: string, _v: string) => ({ error: null }));
+const rpc = vi.fn(async (_f: string, _a: Record<string, unknown>) => ({ data: "deleted", error: null }));
 vi.mock("@/integrations/supabase/client", () => ({
-  supabase: { from: () => ({ delete: () => ({ eq: (c: string, v: string) => del(c, v) }) }) },
+  supabase: {
+    from: () => ({
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { video_id: "old-video" } }) }) }),
+      delete: () => ({ eq: (c: string, v: string) => del(c, v) }),
+    }),
+    rpc: (f: string, a: Record<string, unknown>) => rpc(f, a),
+  },
 }));
 vi.mock("@/lib/ads/adCreatives", () => ({ invalidateAdCreatives: vi.fn() }));
 
@@ -52,7 +59,7 @@ describe("AdVideoButton", () => {
     expect(screen.getByRole("button", { name: /Replace video/ })).toBeTruthy();
     expect(screen.getByText("Video live")).toBeTruthy();
     rerender(<AdVideoButton creativeId="c1" videoState="pending" />);
-    expect(screen.getByText(/being checked/)).toBeTruthy();
+    expect(screen.getByText(/not available/)).toBeTruthy();
   });
 
   it("an upload becomes an AD job for THIS creative (not a post), after 1–5 categories", async () => {
@@ -70,9 +77,15 @@ describe("AdVideoButton", () => {
     expect(createJob.mock.calls[0][0]).toMatchObject({ purpose: "ad", ad: { creativeId: "creative-42" }, post: { categories: ["travel"] } });
   });
 
-  it("Remove video takes the video off the ad (the picture shows again)", async () => {
+  it("Remove video takes the video off the ad (the picture shows again) and marks the old video deleted", async () => {
     render(<AdVideoButton creativeId="creative-7" videoState="ready" />);
     fireEvent.click(screen.getByRole("button", { name: "Remove the video" }));
     await waitFor(() => expect(del).toHaveBeenCalledWith("ad_creative_id", "creative-7"));
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith("video_delete", { _video_id: "old-video" }));
+  });
+
+  it("a video that is linked but no longer playable says so plainly", () => {
+    render(<AdVideoButton creativeId="c1" videoState="pending" />);
+    expect(screen.getByText(/Video not available/)).toBeTruthy();
   });
 });

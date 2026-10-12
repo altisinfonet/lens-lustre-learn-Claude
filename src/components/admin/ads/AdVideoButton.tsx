@@ -31,7 +31,7 @@ type Phase = { kind: "pick" } | { kind: "reading" } | { kind: "ready"; facts: Vi
 
 export interface AdVideoButtonProps {
   creativeId: string;
-  /** "ready" = the ad has a playable video; "pending" = one is linked but not ready; null = none */
+  /** "ready" = the ad has a playable video; "pending" = one is linked but no longer playable (taken down / deleted); null = none */
   videoState: "ready" | "pending" | null;
   onChanged?: () => void;
 }
@@ -96,10 +96,16 @@ export default function AdVideoButton({ creativeId, videoState, onChanged }: AdV
   }
 
   async function removeVideo() {
-    const { error } = await (supabase.from("ad_videos" as never) as unknown as {
+    const t = supabase.from("ad_videos" as never) as unknown as {
+      select(c: string): { eq(c: string, v: string): { maybeSingle(): PromiseLike<{ data: { video_id?: string } | null }> } };
       delete(): { eq(c: string, v: string): PromiseLike<{ error: { message: string } | null }> };
-    }).delete().eq("ad_creative_id", creativeId);
+    };
+    const prev = await t.select("video_id").eq("ad_creative_id", creativeId).maybeSingle();
+    const { error } = await t.delete().eq("ad_creative_id", creativeId);
     if (error) { toast({ title: "Couldn't remove the video", description: error.message, variant: "destructive" }); return; }
+    // No longer on the ad: mark it deleted so housekeeping purges it (review #412).
+    const old = prev.data?.video_id;
+    if (old) await (supabase.rpc as unknown as (f: string, a: Record<string, unknown>) => PromiseLike<unknown>)("video_delete", { _video_id: old });
     invalidateAdCreatives();
     toast({ title: "Video removed — the ad shows its picture again" });
     onChanged?.();
@@ -112,7 +118,7 @@ export default function AdVideoButton({ creativeId, videoState, onChanged }: AdV
         <Film className="h-3 w-3" /> {videoState ? "Replace video" : "Add video"}
       </button>
       {videoState === "ready" && <span className="text-[10px] text-primary">Video live</span>}
-      {videoState === "pending" && <span className="text-[10px] text-muted-foreground">Video being checked…</span>}
+      {videoState === "pending" && <span className="text-[10px] text-destructive">Video not available — upload a new one</span>}
       {videoState && (
         <button type="button" onClick={() => void removeVideo()} title="Remove the video (the picture shows again)"
           aria-label="Remove the video" className="text-muted-foreground hover:text-destructive">

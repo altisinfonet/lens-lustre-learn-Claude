@@ -478,10 +478,11 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
         </div>
       )}
 
-      {/* OWN — VIDEO creative (VID-5): the video plays in the zone's own frame.
+      {/* OWN — VIDEO creative (VID-5), in the feed's story card only (the sidebar
+          and lightbox frames have no fixed height for a video — review #412):
           A tap on a video plays/pauses/seeks, so the ad's link cannot wrap it:
           it moves to a call-to-action bar under the video, as on Instagram. */}
-      {c.mode === "own" && chosen?.video && (
+      {c.mode === "own" && zone === "story-card" && chosen?.video && (
         <>
           <div className={mediaBox.className} style={mediaBox.style} data-testid="ad-video">
             <FeedVideoCard video={chosen.video} fillParent />
@@ -498,7 +499,7 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
       )}
 
       {/* OWN — image creative (library picture, or the zone's single image) */}
-      {c.mode === "own" && !chosen?.video && cr.image_source !== "code" && cr.image_url && (
+      {c.mode === "own" && !(zone === "story-card" && chosen?.video) && cr.image_source !== "code" && cr.image_url && (
         cr.click_url ? (
           <a href={cr.click_url} target="_blank" rel="noopener noreferrer" className="block relative" onClick={handleClick}>
             <div className={mediaBox.className} style={mediaBox.style}>

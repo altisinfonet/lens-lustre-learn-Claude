@@ -30,6 +30,7 @@ import { feedAdSlotLabel } from "@/lib/ads/feedAdPlacement";
 import type { AdZoneId } from "@/lib/ads/adZonesV2";
 import AdVideoButton from "@/components/admin/ads/AdVideoButton";
 import { fetchAdVideoMap } from "@/lib/video/postVideoRead";
+import { subscribeVideoJobs } from "@/lib/video/uploadJobs";
 
 interface Row {
   id: string;
@@ -86,6 +87,9 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
     const vids = await fetchAdVideoMap(list.map((r) => r.id));
     setVideoStates(new Map([...vids].map(([id, v]) => [id, v === "hidden" ? "pending" : "ready"])));
   }, [zone]);
+
+  // VID-5: an ad video that finishes uploading shows as "Video live" without a reload.
+  useEffect(() => subscribeVideoJobs((e) => { if (e.type === "published" && e.job.purpose === "ad") void load(); }), [load]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -266,7 +270,9 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
                   </button>
                 </div>
                 {/* VID-5 · a video for this ad (only when Video ads is on for this admin). */}
-                <AdVideoButton creativeId={r.id} videoState={videoStates.get(r.id) ?? null} onChanged={() => void load()} />
+                {zone === "story-card" && (
+                  <AdVideoButton creativeId={r.id} videoState={videoStates.get(r.id) ?? null} onChanged={() => void load()} />
+                )}
                 <input
                   className={input}
                   style={bFont}
