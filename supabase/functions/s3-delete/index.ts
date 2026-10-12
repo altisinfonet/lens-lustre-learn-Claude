@@ -1,6 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecureHeaders } from "../_shared/secureHeaders.ts";
-import { assertStorageLane } from "../_shared/s3.ts";
+import {
+  assertStorageLane,
+  storageKeyWithPrefix,
+  storageObjectUrl,
+  validateStorageKey,
+} from "../_shared/s3.ts";
 
 // ── Path-ownership gate (SEC-2) — mirrors s3-presign-upload ──────
 const SHARED_PREFIXES = ["inline/", "journal/", "gallery/", "covers/"] as const;
@@ -16,14 +21,16 @@ async function isAdminUser(adminClient: any, userId: string): Promise<boolean> {
   return !!data;
 }
 
-function isPathAllowed(rawPath: string, userId: string, isAdmin: boolean): boolean {
-  const parts = rawPath.split("/");
+// `key` must already have passed validateStorageKey: these rules read the key
+// literally, so they are only meaningful for a key nothing will re-interpret.
+function isPathAllowed(key: string, userId: string, isAdmin: boolean): boolean {
+  const parts = key.split("/");
   const ownsPath = parts.some((p) => p === userId);
   if (isAdmin) return true;
   if (ownsPath) return true;
-  const inStrict = STRICT_PRIVATE_PREFIXES.some((p) => rawPath.startsWith(p));
+  const inStrict = STRICT_PRIVATE_PREFIXES.some((p) => key.startsWith(p));
   if (inStrict) return false;
-  return SHARED_PREFIXES.some((p) => rawPath.startsWith(p));
+  return SHARED_PREFIXES.some((p) => key.startsWith(p));
 }
 
 interface S3Settings {
@@ -133,28 +140,53 @@ Deno.serve(async (req) => {
       });
     }
 
-    const results: { path: string; success: boolean; error?: string }[] = [];
+    const results: { path: string | null; success: boolean; error?: string }[] = [];
 
     // SEC-2 ownership gate (per-path; foreign paths return {success:false, error:"forbidden"})
     const callerIsAdmin = await isAdminUser(adminClient, userData.user.id);
 
-    for (const filePath of paths) {
+    // Every entry is checked BEFORE any request reaches the store, in order:
+    //   1. the strict storage-key grammar (validateStorageKey) — otherwise
+    //      "invalid path";
+    //   2. the ownership gate, applied to that validated key — otherwise
+    //      "forbidden";
+    //   3. the request URL, built from the same key and proven to address it
+    //      exactly (storageObjectUrl).
+    // A refused entry never touches storage; the others proceed as before.
+    type Planned =
+      | { path: string | null; refused: string }
+      | { path: string; refused: null; url: string };
+    const planned: Planned[] = [];
+    for (const rawPath of paths) {
+      const filePath = validateStorageKey(rawPath);
+      if (!filePath) {
+        planned.push({ path: typeof rawPath === "string" ? rawPath : null, refused: "invalid path" });
+        continue;
+      }
       if (!isPathAllowed(filePath, userData.user.id, callerIsAdmin)) {
-        results.push({ path: filePath, success: false, error: "forbidden" });
+        planned.push({ path: filePath, refused: "forbidden" });
+        continue;
+      }
+      const s3Key = storageKeyWithPrefix(s3.path_prefix, filePath);
+      if (!s3Key) {
+        planned.push({ path: filePath, refused: "storage path prefix is misconfigured" });
         continue;
       }
       try {
-        const s3Key = s3.path_prefix
-          ? `${s3.path_prefix.replace(/\/+$/, "")}/${filePath}`
-          : filePath;
+        planned.push({ path: filePath, refused: null, url: storageObjectUrl(s3, s3Key) });
+      } catch {
+        planned.push({ path: filePath, refused: "invalid path" });
+      }
+    }
 
-        const host = s3.endpoint
-          ? s3.endpoint.replace(/^https?:\/\//, "").replace(/\/+$/, "")
-          : `${s3.bucket_name}.s3.${s3.region}.amazonaws.com`;
-        const baseUrl = s3.endpoint
-          ? `${s3.endpoint.replace(/\/+$/, "")}/${s3.bucket_name}`
-          : `https://${host}`;
-        const url = `${baseUrl}/${s3Key}`;
+    for (const entry of planned) {
+      if (entry.refused !== null) {
+        results.push({ path: entry.path, success: false, error: entry.refused });
+        continue;
+      }
+      const { path: filePath, url } = entry;
+      try {
+        const target = new URL(url);
 
         const now = new Date();
         const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
@@ -163,12 +195,13 @@ Deno.serve(async (req) => {
         const scope = `${dateStamp}/${s3.region}/s3/aws4_request`;
 
         const canonicalHeaders =
-          `host:${new URL(url).host}\nx-amz-content-sha256:${emptyHash}\nx-amz-date:${amzDate}\n`;
+          `host:${target.host}\nx-amz-content-sha256:${emptyHash}\nx-amz-date:${amzDate}\n`;
         const signedHeaders = "host;x-amz-content-sha256;x-amz-date";
 
+        // target.pathname is exactly "/<bucket>/<checked key>" (storageObjectUrl).
         const canonicalRequest = [
           "DELETE",
-          new URL(url).pathname,
+          target.pathname,
           "",
           canonicalHeaders,
           signedHeaders,

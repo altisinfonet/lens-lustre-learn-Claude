@@ -61,7 +61,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
-import { getS3Settings, readS3Object } from "../_shared/s3.ts";
+import { getS3Settings, readS3Object, validateStorageKey } from "../_shared/s3.ts";
 import { imageDimsFromBytes } from "../_shared/imageDims.ts";
 
 const corsHeaders = {
@@ -121,6 +121,9 @@ export function objectKeyForOwner(raw: string, ownerId: string): string | null {
   if (key.includes("..")) return null;
   if (key.includes("\\")) return null;
   if (key.includes("//")) return null;
+  // The storage functions' strict key grammar (_shared/s3.ts): what is
+  // authorised below is, character for character, what readS3Object requests.
+  if (validateStorageKey(key) === null) return null;
 
   // ── THE WHOLE AUTHORIZATION, STATED ONCE ────────────────────────────────
   //
