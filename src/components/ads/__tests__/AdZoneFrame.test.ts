@@ -57,9 +57,9 @@ describe("the story-card ad picture gets the full 4:5, like a post photo", () =>
     expect(adZone).not.toContain('"relative overflow-hidden rounded-sm w-full"');
   });
 
-  it("both own-image paths render through the shared media box", () => {
+  it("both own-image paths — and the video creative (VID-5) — render through the shared media box", () => {
     const matches = adZone.match(/className=\{mediaBox\.className\} style=\{mediaBox\.style\}/g) ?? [];
-    expect(matches.length).toBe(2); // with click_url and without
+    expect(matches.length).toBe(3); // picture with click_url, picture without, and the video in the same frame
   });
 });
 

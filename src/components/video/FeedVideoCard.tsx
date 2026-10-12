@@ -90,7 +90,12 @@ export function formatClock(seconds: number): string {
 
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
 
-export default function FeedVideoCard({ video, className = "" }: { video: FeedVideo; className?: string }) {
+/**
+ * `fillParent`: fill the parent's box instead of drawing the 9:16 card — for
+ * an ad zone, whose own frame (story card, banner …) sets the shape. The video
+ * is still fitted whole over its blurred poster.
+ */
+export default function FeedVideoCard({ video, className = "", fillParent = false }: { video: FeedVideo; className?: string; fillParent?: boolean }) {
   const cardId = useId();
   const box = useRef<HTMLDivElement>(null);
   const el = useRef<HTMLVideoElement>(null);
@@ -292,8 +297,10 @@ export default function FeedVideoCard({ video, className = "" }: { video: FeedVi
       data-testid="feed-video-card"
       data-frame-aspect={VIDEO_FRAME_ASPECT.toFixed(3)}
       data-fill="blurred"
-      className={`relative w-full overflow-hidden rounded-lg bg-black ${className}`}
-      style={{ width: "100%", aspectRatio: String(VIDEO_FRAME_ASPECT), maxHeight: "min(85dvh, 900px)" }}
+      className={`relative w-full overflow-hidden ${fillParent ? "h-full" : "rounded-lg"} bg-black ${className}`}
+      style={fillParent
+        ? { width: "100%", height: "100%" }
+        : { width: "100%", aspectRatio: String(VIDEO_FRAME_ASPECT), maxHeight: "min(85dvh, 900px)" }}
     >
       {poster && (
         <div aria-hidden="true" data-testid="feed-video-fill"

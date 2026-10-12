@@ -34,6 +34,8 @@ import { useSiteLogo } from "@/hooks/core/useSiteLogo";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import AdEngagementBar from "@/components/ads/AdEngagementBar";
+import FeedVideoCard from "@/components/video/FeedVideoCard";
+import { fetchAdVideoMap, type FeedVideo } from "@/lib/video/postVideoRead";
 import PageSEO from "@/components/PageSEO";
 
 interface Creative {
@@ -47,6 +49,8 @@ interface Creative {
   advertiser_name: string;
   advertiser_logo_url: string;
   is_active: boolean;
+  /** VID-5 · the ad's video when it has a ready one; the picture is the fallback. */
+  video: FeedVideo | null;
 }
 
 const AdDetail = () => {
@@ -70,8 +74,11 @@ const AdDetail = () => {
         )
         .eq("id", creativeId)
         .maybeSingle();
+      // VID-5: the same video read as the feed's ad zones.
+      const videos = data ? await fetchAdVideoMap([creativeId]) : new Map();
       if (!alive) return;
       const row = data as any;
+      const v = videos.get(creativeId);
       setCreative(
         row
           ? {
@@ -83,6 +90,7 @@ const AdDetail = () => {
               subtext: row.subtext || "",
               cta: row.cta || "",
               click_url: row.click_url || "",
+              video: v && v !== "hidden" ? v : null,
             }
           : null,
       );
@@ -185,8 +193,23 @@ const AdDetail = () => {
             </div>
           </div>
 
+          {/* VID-5 · a video ad plays here; its link is the bar under it (a tap on
+              the video plays/pauses/seeks, so it cannot also be the link). */}
+          {creative.video && (
+            <>
+              <FeedVideoCard video={creative.video} className="rounded-none" />
+              {creative.click_url && (
+                <a href={creative.click_url} target="_blank" rel="noopener noreferrer"
+                  className="flex min-h-11 items-center justify-between gap-3 border-y border-border px-3 py-2 text-sm hover:bg-muted/40">
+                  <span className="min-w-0 truncate">{creative.headline || creative.alt_text || creative.advertiser_name || "Sponsored"}</span>
+                  <span className="shrink-0 font-semibold text-primary">{creative.cta || "Learn more"} ›</span>
+                </a>
+              )}
+            </>
+          )}
+
           {/* Picture. Clicking it goes where the ad goes, and nowhere else. */}
-          {creative.image_url &&
+          {!creative.video && creative.image_url &&
             (creative.click_url ? (
               <a href={creative.click_url} target="_blank" rel="noopener noreferrer" className="block">
                 <img

@@ -17,6 +17,7 @@ interface Chain extends PromiseLike<Res> {
   select(columns: string): Chain;
   eq(column: string, value: unknown): Chain;
   maybeSingle(): PromiseLike<Res>;
+  upsert(row: unknown, opts: { onConflict: string }): PromiseLike<Res>;
 }
 interface LooseDb {
   rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: Err }>;
@@ -33,6 +34,12 @@ export const realJobDeps: JobDeps = {
   rpc: async (fn, args) => {
     const { data, error } = await db.rpc(fn, args);
     return { data, error: error as Err };
+  },
+  linkAdVideo: async (creativeId, videoId, categories) => {
+    const { error } = await db.from("ad_videos").upsert(
+      { ad_creative_id: creativeId, video_id: videoId, categories }, { onConflict: "ad_creative_id" },
+    );
+    return { error: error as Err };
   },
   videoState: async (videoId) => {
     const { data, error } = await db.from("videos").select("state").eq("id", videoId).maybeSingle();

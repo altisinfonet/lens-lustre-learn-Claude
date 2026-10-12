@@ -59,6 +59,11 @@ export function toPostVideoMap(rows: readonly PostVideoRow[]): PostVideoMap {
   return map;
 }
 
+/** An ad creative's video row (ad_videos, VID-5), the same embedded shape. */
+export interface AdVideoRow { ad_creative_id: string; video_id: string; videos: VideoRow | null }
+export const AD_VIDEO_SELECT =
+  "ad_creative_id, video_id, videos(id, state, current_version, video_versions(version_no, width, height, declared_duration_s, has_audio))";
+
 type LooseFrom = (t: string) => {
   select(s: string): { in(c: string, v: readonly string[]): PromiseLike<{ data: PostVideoRow[] | null; error: { message: string } | null }> };
 };
@@ -84,4 +89,38 @@ export async function fetchPostVideoMap(postIds: readonly string[]): Promise<Pos
     return data ?? [];
   }));
   return toPostVideoMap(rows.flat());
+}
+
+/**
+ * VID-5 · the videos of ad creatives — creative id → its playable video, or
+ * "hidden" when it has one that is not ready (the ad then shows its picture).
+ * One batched read, like the posts' (RLS: ad_videos_read + videos_read let
+ * anyone see a READY video linked to an ad). A lane without the video tables
+ * (production before promotion) answers 42P01: that is "no video ads", quietly.
+ */
+export async function fetchAdVideoMap(creativeIds: readonly string[]): Promise<PostVideoMap> {
+  const ids = [...new Set(creativeIds)].filter(Boolean);
+  if (ids.length === 0) return new Map();
+  const batches: string[][] = [];
+  for (let i = 0; i < ids.length; i += POST_VIDEO_ID_BATCH) batches.push(ids.slice(i, i + POST_VIDEO_ID_BATCH));
+  const from = (supabase.from as unknown as (t: string) => {
+    select(s: string): { in(c: string, v: readonly string[]): PromiseLike<{ data: AdVideoRow[] | null; error: { message: string; code?: string } | null }> };
+  }).bind(supabase);
+  const rows = await Promise.all(batches.map(async (b) => {
+    const { data, error } = await from("ad_videos").select(AD_VIDEO_SELECT).in("ad_creative_id", b);
+    if (error) {
+      if (error.code !== "42P01" && error.code !== "PGRST205") {
+        logger.warn({
+          code: "VID-5001", event: "AD_VIDEO_READ_FAILED", fn: "fetchAdVideoMap", file: FILE,
+          message: "The video read for these ads failed.", reason: error.message,
+          expected: "ad_videos with the embedded ready video", actual: "PostgREST errored",
+          nextStep: "These ads show their picture instead of their video until the next fetch.",
+          detail: { batchSize: b.length },
+        });
+      }
+      return [] as AdVideoRow[];
+    }
+    return data ?? [];
+  }));
+  return toPostVideoMap(rows.flat().map((r) => ({ post_id: r.ad_creative_id, video_id: r.video_id, videos: r.videos })));
 }
