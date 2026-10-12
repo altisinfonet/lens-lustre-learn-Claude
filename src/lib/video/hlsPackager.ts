@@ -104,7 +104,13 @@ export function muxVideo(r: VideoRenditionInput): Muxed {
     target: out.target,
     video: { codec: r.muxCodec, width: r.width, height: r.height },
     fastStart: "fragmented",
-    minFragmentDuration: SEGMENT_SECONDS - 0.1, // mp4-muxer cuts only once a fragment is LONGER than this
+    // mp4-muxer cuts at the first keyframe once a fragment is LONGER than this.
+    // Just over one keyframe interval: a normal video (keyframe every 2 s) still
+    // gets 4 s segments, and a slideshow whose held pictures are re-sent as
+    // keyframes (webEncoder) cannot pass the judge's 6 s (review #418 F1: worst
+    // ~2.15 + 2 + 1.5 ≈ 5.65 s). The 0.15 s covers sources down to ~7 fps, whose
+    // 2 s keyframe can land up to one frame late.
+    minFragmentDuration: KEYFRAME_SECONDS + 0.15,
     firstTimestampBehavior: "offset",
   });
   r.chunks.forEach((c, i) => {

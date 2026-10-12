@@ -313,10 +313,12 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
       };
       // Once a second (P10: the client's one repeating timer; it stops while the
       // tab is hidden — encoding is paused then anyway):
-      //   • a HELD picture (playback moves, no new frame for ~1 s) is sent again
-      //     at the playhead, so the encoded video keeps a frame at least every
-      //     second and a keyframe every 2 s — segments stay within the judge's
-      //     6 s, whatever the source does;
+      //   • a HELD picture (playback moves, no new frame for 0.5 s) is sent again
+      //     at the playhead as a keyframe. With video fragments cut only after
+      //     KEYFRAME_SECONDS + 0.15 (hlsPackager muxVideo), the worst segment is
+      //     ~2.15 + 2 + 1.5 ≈ 5.65 s — within the judge's 6 s even for a slideshow
+      //     with cross-fades (independent review #418 F1: at 0.9 s / 3.9 s it
+      //     reached 6.0–7.8 s); a normal 30 fps video still gets 4 s segments;
       //   • stall guard: a video the browser cannot decode never moves
       //     (Firefox + HEVC / 10-bit). Fail clearly after 10 s of NO PLAYBACK
       //     instead of waiting forever.
@@ -327,7 +329,7 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
         if (at > lastPlayhead + 0.001) {
           lastPlayhead = at;
           lastMoveAt = now;
-          if (at * 1e6 - lastTs >= 900_000) {
+          if (at * 1e6 - lastTs >= 500_000) {
             try { encodeAt(Math.round(at * 1e6), true); } catch (e) { stop(); reject(e); }
           }
           return;
@@ -355,7 +357,7 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
         stop();
         // A picture held to the very end: close it at the real end, so the
         // segments add up to the declared length.
-        try { if (lastTs >= 0 && duration * 1e6 - lastTs > 500_000) encodeAt(Math.round((duration - 0.04) * 1e6), true); }
+        try { if (lastTs >= 0 && duration * 1e6 - lastTs > 500_000) encodeAt(Math.round((duration - 0.04) * 1e6)); } // a delta frame: never a lone 0.03 s segment (review #418 F3)
         catch (e) { reject(e); return; }
         resolve();
       };

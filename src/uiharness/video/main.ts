@@ -19,6 +19,8 @@ import landscape from "../fixtures/video/landscape-1280x720.webm?url";
 import portrait from "../fixtures/video/portrait-360x640.webm?url";
 // A slideshow-style video: one picture held for 12 s at a time (no new frame for 12 s while it plays).
 import held from "../fixtures/video/held-frames-640x360.webm?url";
+// A slideshow with 1.5 s cross-fades between 4 s held pictures (review #418 F1).
+import crossfade from "../fixtures/video/crossfade-slides-1280x720.webm?url";
 
 if (!import.meta.env.DEV) throw new Error("video harness is development-only");
 
@@ -34,7 +36,7 @@ function b64(u: Uint8Array): string {
 }
 
 async function run(which: string, mute: boolean) {
-  const src = which === "portrait" ? portrait : which === "held" ? held : landscape;
+  const src = which === "portrait" ? portrait : which === "held" ? held : which === "crossfade" ? crossfade : landscape;
   const blob = await (await fetch(src)).blob();
   const file = new File([blob], `${which}.webm`, { type: "video/webm" });
   const t0 = performance.now();

@@ -14,7 +14,8 @@
  * Cases: a landscape video with sound; a portrait video with "remove sound";
  * a slideshow-style video that HOLDS each picture for 12 s (Owner, staging
  * 2026-10-12: a promo with a still address card was refused as "can't play this
- * format" and lost its opening seconds).
+ * format" and lost its opening seconds); a slideshow with 1.5 s cross-fades
+ * (independent review #418 F1: segments above the judge's 6 s).
  * PASS = no problems from the server's rules, every hash matches, every
  * rendition under its bytes-per-second ceiling, and ffprobe reads a video
  * stream (+ an audio stream exactly when there is sound).
@@ -61,7 +62,7 @@ function ffprobe(dir) {
   catch { return { available: true, streams: [], stderr: (r.stderr || r.stdout).slice(0, 400) }; }
 }
 
-const CASES = [["landscape", false], ["portrait", true], ["held", false]];
+const CASES = [["landscape", false], ["portrait", true], ["held", false], ["crossfade", false]];
 const result = { at: new Date().toISOString(), cases: [], verdict: "FAIL" };
 let code = 1;
 try {
