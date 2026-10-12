@@ -52,8 +52,11 @@ const isClaimGone = (e: unknown) =>
 
 export async function prepareJobDir(dir: string): Promise<void> {
   await fs.rm(dir, { recursive: true, force: true });
-  await fs.mkdir(dir, { recursive: true, mode: 0o2770 });
-  if (process.platform !== "win32") await fs.chmod(dir, 0o2770); // setgid: what ffjob writes stays group convjob
+  // 0770 under the unit's UMask=0007. The set-group-ID bit (so what ffjob
+  // writes stays group convjob) is INHERITED from the jobs root (setup.sh:
+  // 2750) — never requested here: the worker's RestrictSUIDSGID=yes refuses a
+  // mkdir/chmod that asks for it (EPERM), and a plain chmod would clear it.
+  await fs.mkdir(dir, { recursive: true, mode: 0o770 });
 }
 
 export async function wipeJobDir(dir: string, log: JobDeps["log"]): Promise<void> {

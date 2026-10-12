@@ -27,7 +27,7 @@ as_converter() { runuser -u converter -- "$@"; }
 
 newjob() {
   local id; id="$(cat /proc/sys/kernel/random/uuid)"
-  as_converter mkdir -m 2770 "$JOBS/$id"
+  as_converter mkdir -m 0770 "$JOBS/$id"   # set-group-ID is inherited from the jobs root, as for the worker
   echo "$id"
 }
 
@@ -36,7 +36,7 @@ run() {
   local id="$1" tool="$2" limit="$3"; shift 3
   local r="$JOBS/$id/.run"
   as_converter rm -rf "$r"
-  as_converter mkdir -m 2770 "$r"
+  as_converter mkdir -m 0770 "$r"
   printf '%s' "$tool" | as_converter tee "$r/tool" >/dev/null
   printf '%s' "$limit" | as_converter tee "$r/timeout" >/dev/null
   printf '%s\0' "$@" | as_converter tee "$r/args" >/dev/null
@@ -51,6 +51,8 @@ mountpoint -q "$JOBS" && ok "the job space is a separate mount ($(findmnt -no SI
 
 # 1. a run starts, FFmpeg works inside
 J="$(newjob)"
+jd="$(stat -c '%U:%G %A' "$JOBS/$J")"
+if [[ "$jd" == "converter:convjob drwxrws---" ]]; then ok "a job directory is converter:convjob drwxrws--- (set-group-ID inherited)"; else bad "a job directory is $jd"; fi
 if run "$J" ffmpeg 60 -hide_banner -nostdin -loglevel error -f lavfi -i testsrc2=size=320x240:rate=10:duration=1 -c:v libx264 -preset ultrafast -f mp4 out.mp4 \
    && [[ "$(exit_of "$J")" == "0" && -s "$JOBS/$J/out.mp4" ]]; then
   ok "converter starts converter-ff@<uuid>; FFmpeg encodes inside it (as $(stat -c %U "$JOBS/$J/out.mp4"))"

@@ -163,8 +163,8 @@ export class SystemdLauncher implements Launcher {
     const systemctl = this.opts.systemctl ?? "/usr/bin/systemctl";
     const runDir = path.join(spec.jobDir, ".run");
     await fs.rm(runDir, { recursive: true, force: true });
-    await fs.mkdir(runDir, { mode: 0o2770 });
-    await fs.chmod(runDir, 0o2770); // mkdir's mode is masked by the umask
+    // Group convjob and set-group-ID come from the job directory (inherited, see job.ts prepareJobDir).
+    await fs.mkdir(runDir, { mode: 0o770 });
     for (const a of spec.args) if (a.includes("\0")) throw new Error("an argument contains NUL");
     await fs.writeFile(path.join(runDir, "tool"), spec.tool, { mode: 0o640 });
     await fs.writeFile(path.join(runDir, "args"), spec.args.map((a) => `${a}\0`).join(""), { mode: 0o640 });
