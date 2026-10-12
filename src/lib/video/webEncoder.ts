@@ -274,8 +274,10 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
        * HELD picture is always a keyframe (`held`): a keyframe of a still picture
        * costs little, and it keeps every segment within the judge's 6 s when the
        * re-sends are ~1 s apart (a keyframe only every 2 s could then land 3 s apart).
+       * The closing frame (`close`) is never a keyframe: a keyframe there would
+       * start a lone 0.03 s segment (independent review #418 F3).
        */
-      const encodeAt = (ts: number, held = false) => {
+      const encodeAt = (ts: number, kind: "frame" | "held" | "close" = "frame") => {
         if (ts <= lastTs) return;
         lastTs = ts;
         for (const r of renditions) {
@@ -285,7 +287,7 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
           if (enc.encodeQueueSize > 8) continue; // the encoder is behind: drop this frame for this rendition
           r.ctx2d.drawImage(video, 0, 0, r.t.width, r.t.height);
           const f = new VideoFrame(r.canvas, { timestamp: ts });
-          const key = held || ts - r.state.lastKey >= KEYFRAME_SECONDS * 1e6;
+          const key = kind === "held" || (kind === "frame" && ts - r.state.lastKey >= KEYFRAME_SECONDS * 1e6);
           if (key) r.state.lastKey = ts;
           enc.encode(f, { keyFrame: key });
           f.close();
@@ -329,9 +331,12 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
         if (at > lastPlayhead + 0.001) {
           lastPlayhead = at;
           lastMoveAt = now;
-          if (at * 1e6 - lastTs >= 500_000) {
-            try { encodeAt(Math.round(at * 1e6), true); } catch (e) { stop(); reject(e); }
-          }
+          try {
+            // No frame yet (the opening picture could not be taken before playback): take it now, at 0:00.
+            if (lastTs < 0) encodeAt(0, "held");
+            // Not in the last 0.6 s: a re-send there would start a lone final segment; the closing frame covers the end.
+            if (at * 1e6 - lastTs >= 500_000 && duration - at > 0.6) encodeAt(Math.round(at * 1e6), "held");
+          } catch (e) { stop(); reject(e); }
           return;
         }
         if (now - lastMoveAt > 10_000) {
@@ -357,7 +362,7 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
         stop();
         // A picture held to the very end: close it at the real end, so the
         // segments add up to the declared length.
-        try { if (lastTs >= 0 && duration * 1e6 - lastTs > 500_000) encodeAt(Math.round((duration - 0.04) * 1e6)); } // a delta frame: never a lone 0.03 s segment (review #418 F3)
+        try { if (lastTs >= 0 && duration * 1e6 - lastTs > 500_000) encodeAt(Math.round((duration - 0.04) * 1e6), "close"); }
         catch (e) { reject(e); return; }
         resolve();
       };
