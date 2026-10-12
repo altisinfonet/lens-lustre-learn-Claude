@@ -166,7 +166,6 @@ describe("review #411: the playlist grammar — what the player reads is what wa
   });
   it("re-review: an init with no playlist of its own (a spare 720p.mp4) is refused", async () => {
     const p = await judgeWith((_files, m) => { m.files.push({ name: "720p.mp4", bytes: 1000, sha256: "a".repeat(64) }); });
-    expect(p.join("
-")).toMatch(/720p.mp4 is uploaded but there is no 720p.m3u8/);
+    expect(p.join("\n")).toMatch(/720p\.mp4 is uploaded but there is no 720p\.m3u8/);
   });
 });
