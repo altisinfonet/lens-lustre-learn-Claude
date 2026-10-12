@@ -171,6 +171,9 @@ A1-D.11 says the manifest hash is hidden from every API role. That stays true fo
 - **Limits:** "restrict on MB not on timing. Less than 500 MB is okay but minutes will be FREE — no boundary on timing." → members' 3-minute (and ads' 5-minute) duration caps are to be removed; 500 MB stays. Needs a D1 limit change (video_validate_version / video_begin_upload) + client (`shared/rules.ts VIDEO_LIMITS`, `limits.ts`). Note for the Owner: the browser converts in real time (a 30-minute video takes ~30 minutes with the page open); the encoded package for long videos may exceed 500 MB and needs a stated rule.
 - **Cost:** "Choose option all only FREE." No paid video conversion service (Cloudflare Containers / Stream). Formats no browser can open (AVI, WMV, MPEG-2, MPEG-TS, 3GP/H.263, ProRes; HEVC/10-bit in Firefox) get a clear message until a free conversion path is chosen.
 
+### A3.3 · Owner ruling 2026-10-12 — formats a browser cannot open: keep the current behaviour
+Offered (free only): (a) keep the clear message, (b) an in-browser FFmpeg converter (slow), (c) an Oracle Always Free conversion server. Owner: **"video format, keep current"** → (a). The upload screen keeps refusing, before anything is encoded, a file the browser cannot decode (`readVideoFacts` decode proof, VID-META-003, `UNDECODABLE_MESSAGE`: use Chrome/Edge, or on iPhone Settings → Camera → Formats → Most Compatible). No conversion path is built. Revisit only on a new Owner ruling.
+
 ---
 
 ## 1 · Secrets and who holds them (none in the repo; none in the browser or app; no service role outside Supabase)
