@@ -50,17 +50,24 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { UnifiedPost } from "@/types/post";
+import { postMedia, type SubjectMedia } from "@/lib/posts/subjectMedia";
 
+/**
+ * `media` is what the overlay shows beside the thread — the SAME value the
+ * tapped card drew (src/lib/posts/subjectMedia.ts): a video plays here when
+ * the card played one. Owner, staging 2026-10-12: "Video running but comment
+ * box still image" — the ad subject used to carry only its picture.
+ */
 export type CommentsSubject =
-  | { kind: "post"; post: UnifiedPost }
-  | { kind: "ad"; creativeId: string; imageUrl: string | null };
+  | { kind: "post"; post: UnifiedPost; media: SubjectMedia }
+  | { kind: "ad"; creativeId: string; media: SubjectMedia };
 
 interface CommentsOverlayContextValue {
   /** What the overlay is showing, or null when it is closed. */
   subject: CommentsSubject | null;
   isOpen: boolean;
   openPostComments: (post: UnifiedPost, onCommentCountChange?: (postId: string, delta: number) => void) => void;
-  openAdComments: (creativeId: string, imageUrl: string | null, onCommentsChanged?: () => void) => void;
+  openAdComments: (creativeId: string, media: SubjectMedia, onCommentsChanged?: () => void) => void;
   closeComments: () => void;
   /** Forwards to whatever `onCommentCountChange` the opener passed in — the same callback Feed/WallPosts/PostDetail already wire into PostCard. */
   notifyCommentCountChange: (delta: number) => void;
@@ -83,7 +90,7 @@ export const CommentsOverlayProvider = ({ children }: { children: ReactNode }) =
   const openPostComments = useCallback(
     (nextPost: UnifiedPost, onCommentCountChange?: (postId: string, delta: number) => void) => {
       postCountChangeRef.current = onCommentCountChange;
-      setSubject({ kind: "post", post: nextPost });
+      setSubject({ kind: "post", post: nextPost, media: postMedia(nextPost) });
       setIsOpen(true);
       const next = new URLSearchParams(searchParams);
       next.set(COMMENTS_PARAM, nextPost.id);
@@ -93,9 +100,9 @@ export const CommentsOverlayProvider = ({ children }: { children: ReactNode }) =
   );
 
   const openAdComments = useCallback(
-    (creativeId: string, imageUrl: string | null, onCommentsChanged?: () => void) => {
+    (creativeId: string, media: SubjectMedia, onCommentsChanged?: () => void) => {
       adChangeRef.current = onCommentsChanged;
-      setSubject({ kind: "ad", creativeId, imageUrl });
+      setSubject({ kind: "ad", creativeId, media });
       setIsOpen(true);
       const next = new URLSearchParams(searchParams);
       next.set(COMMENTS_PARAM, `${AD_PREFIX}${creativeId}`);

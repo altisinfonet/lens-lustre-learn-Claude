@@ -56,6 +56,8 @@ import { memo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Images, Heart, MessageCircle } from "lucide-react";
 import type { UnifiedPost } from "@/types/post";
+import { postMedia } from "@/lib/posts/subjectMedia";
+import VideoPoster from "@/components/video/VideoPoster";
 
 interface Props {
   posts: UnifiedPost[];
@@ -172,6 +174,8 @@ const GridTile = memo(function GridTile({ post }: { post: UnifiedPost }) {
   const [revealed, setRevealed] = useState(false);
   const src = failed ? post.image_urls?.[0] ?? null : tileSrc(post);
   const count = post.image_urls?.length ?? 0;
+  // A video post shows its own still frame, never an empty photo tile (src/lib/posts/subjectMedia.ts).
+  const { video } = postMedia(post);
 
   /**
    * FIRST TAP SHOWS THE COUNTS; THE SECOND OPENS THE POST.
@@ -214,7 +218,9 @@ const GridTile = memo(function GridTile({ post }: { post: UnifiedPost }) {
          The photograph beats the sentence, so 4:5 it is. */
       className="group relative aspect-[4/5] overflow-hidden bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
-      {src ? (
+      {video ? (
+        <VideoPoster video={video} />
+      ) : src ? (
         <img
           src={src}
           alt=""
@@ -259,6 +265,8 @@ const ShowcaseTile = memo(function ShowcaseTile({ post }: { post: UnifiedPost })
   const thumb = post.thumbnail_urls?.[0] ?? null;
   const src = failed ? full : full ?? thumb;
   const count = post.image_urls?.length ?? 0;
+  // A video post: its still frame, whole, over a blurred copy — the band never crops (src/lib/posts/subjectMedia.ts).
+  const { video } = postMedia(post);
 
   /**
    * NOTHING IS MEASURED HERE, AND THAT IS THE POINT.
@@ -279,7 +287,9 @@ const ShowcaseTile = memo(function ShowcaseTile({ post }: { post: UnifiedPost })
       style={{ aspectRatio: String(SHOWCASE_ASPECT) }}
       className="group relative col-span-3 w-full overflow-hidden bg-muted/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
-      {src ? (
+      {video ? (
+        <VideoPoster video={video} fit="contain" />
+      ) : src ? (
         <>
           {/* The bar filler. Decorative only, and it is the SMALL copy blown up
               and blurred past recognition, so it costs almost nothing. Hidden

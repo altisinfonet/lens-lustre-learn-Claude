@@ -32,6 +32,7 @@ import { detectDevice, trackZoneEvent } from "@/lib/ads/adTrackV2";
 import { type AdCreative, fetchAdCreatives, pickCreativeForSlot } from "@/lib/ads/adCreatives";
 import AdEngagementBar from "@/components/ads/AdEngagementBar";
 import FeedVideoCard from "@/components/video/FeedVideoCard";
+import { adMedia } from "@/lib/posts/subjectMedia";
 
 /** Only the inline zones are valid here. */
 type InlineZone = Extract<AdZoneId, "sidebar" | "story-card" | "lightbox">;
@@ -347,6 +348,19 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
     : { ...c.own, advertiser_name: "", advertiser_logo_url: "" };
 
   /**
+   * WHAT THIS AD SHOWS — one value (src/lib/posts/subjectMedia.ts), drawn by
+   * the card below AND handed to its comments box, so the two can never show
+   * different things (Owner, staging 2026-10-12: "Video running but comment
+   * box still image"). A video plays only in the story card — the sidebar and
+   * lightbox frames have no fixed height for one (review #412) — elsewhere the
+   * creative's picture shows; raw ad code is not media.
+   */
+  const media = adMedia({
+    video: zone === "story-card" ? chosen?.video ?? null : null,
+    image_url: cr.image_source !== "code" ? cr.image_url : null,
+  });
+
+  /**
    * WHOSE NAME GOES ON THE AD.
    *
    * Empty — which is every creative today, and the whole single-image path —
@@ -482,10 +496,10 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
           and lightbox frames have no fixed height for a video — review #412):
           A tap on a video plays/pauses/seeks, so the ad's link cannot wrap it:
           it moves to a call-to-action bar under the video, as on Instagram. */}
-      {c.mode === "own" && zone === "story-card" && chosen?.video && (
+      {c.mode === "own" && media.video && (
         <>
           <div className={mediaBox.className} style={mediaBox.style} data-testid="ad-video">
-            <FeedVideoCard video={chosen.video} fillParent />
+            <FeedVideoCard video={media.video} fillParent />
           </div>
           {cr.click_url && (
             <a href={cr.click_url} target="_blank" rel="noopener noreferrer" onClick={handleClick}
@@ -499,17 +513,17 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
       )}
 
       {/* OWN — image creative (library picture, or the zone's single image) */}
-      {c.mode === "own" && !(zone === "story-card" && chosen?.video) && cr.image_source !== "code" && cr.image_url && (
+      {c.mode === "own" && media.imageUrls.length > 0 && (
         cr.click_url ? (
           <a href={cr.click_url} target="_blank" rel="noopener noreferrer" className="block relative" onClick={handleClick}>
             <div className={mediaBox.className} style={mediaBox.style}>
-              <img src={cr.image_url} alt={cr.alt_text || "Sponsored"} className={frame.image} loading="lazy" />
+              <img src={media.imageUrls[0]} alt={cr.alt_text || "Sponsored"} className={frame.image} loading="lazy" />
               <CreativeOverlay headline={cr.creative_headline} subtext={cr.creative_subtext} cta={cr.creative_cta} />
             </div>
           </a>
         ) : (
           <div className={mediaBox.className} style={mediaBox.style}>
-            <img src={cr.image_url} alt={cr.alt_text || "Sponsored"} className={frame.image} loading="lazy" />
+            <img src={media.imageUrls[0]} alt={cr.alt_text || "Sponsored"} className={frame.image} loading="lazy" />
             <CreativeOverlay headline={cr.creative_headline} subtext={cr.creative_subtext} cta={cr.creative_cta} />
           </div>
         )
@@ -530,7 +544,7 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
 
           Only the story card gets it: the sidebar and lightbox zones are small
           banners beside content, not posts in a feed. */}
-      {zone === "story-card" && chosen && <AdEngagementBar creativeId={chosen.id} imageUrl={cr.image_url || null} />}
+      {zone === "story-card" && chosen && <AdEngagementBar creativeId={chosen.id} media={media} />}
 
       {/* OWN — raw sanitized HTML (single-image path only; libraries are pictures) */}
       {c.mode === "own" && !chosen && c.own.image_source === "code" && c.own.ad_code && (

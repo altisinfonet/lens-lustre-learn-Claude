@@ -35,6 +35,7 @@ import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import AdEngagementBar from "@/components/ads/AdEngagementBar";
 import FeedVideoCard from "@/components/video/FeedVideoCard";
+import { adMedia } from "@/lib/posts/subjectMedia";
 import { fetchAdVideoMap, type FeedVideo } from "@/lib/video/postVideoRead";
 import PageSEO from "@/components/PageSEO";
 
@@ -125,6 +126,8 @@ const AdDetail = () => {
 
   const advertiser = creative.advertiser_name.trim();
   const advertiserLogo = creative.advertiser_logo_url.trim();
+  // Video, else picture — the same answer the feed card and the comments box use (src/lib/posts/subjectMedia.ts).
+  const media = adMedia(creative);
 
   return (
     <>
@@ -195,9 +198,9 @@ const AdDetail = () => {
 
           {/* VID-5 · a video ad plays here; its link is the bar under it (a tap on
               the video plays/pauses/seeks, so it cannot also be the link). */}
-          {creative.video && (
+          {media.video && (
             <>
-              <FeedVideoCard video={creative.video} />
+              <FeedVideoCard video={media.video} />
               {creative.click_url && (
                 <a href={creative.click_url} target="_blank" rel="noopener noreferrer"
                   className="flex min-h-11 items-center justify-between gap-3 border-y border-border px-3 py-2 text-sm hover:bg-muted/40">
@@ -209,11 +212,11 @@ const AdDetail = () => {
           )}
 
           {/* Picture. Clicking it goes where the ad goes, and nowhere else. */}
-          {!creative.video && creative.image_url &&
+          {media.imageUrls.length > 0 &&
             (creative.click_url ? (
               <a href={creative.click_url} target="_blank" rel="noopener noreferrer" className="block">
                 <img
-                  src={creative.image_url}
+                  src={media.imageUrls[0]}
                   alt={creative.alt_text || "Sponsored"}
                   className="w-full h-auto"
                   loading="lazy"
@@ -221,7 +224,7 @@ const AdDetail = () => {
               </a>
             ) : (
               <img
-                src={creative.image_url}
+                src={media.imageUrls[0]}
                 alt={creative.alt_text || "Sponsored"}
                 className="w-full h-auto"
                 loading="lazy"

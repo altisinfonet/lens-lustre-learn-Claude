@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/core/useAuth";
 import RichContentRenderer from "@/components/RichContentRenderer";
 import FacebookPhotoGrid from "@/components/FacebookPhotoGrid";
 import FeedVideoCard from "@/components/video/FeedVideoCard";
+import { postMedia } from "@/lib/posts/subjectMedia";
 import type { FeedVideo } from "@/lib/video/postVideoRead";
 import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
@@ -198,17 +199,17 @@ const HashtagFeed = () => {
                 </div>
               )}
 
-              {/* Video */}
-              {post.video && (
-                <div data-testid="post-video">
-                  <FeedVideoCard video={post.video} />
-                </div>
-              )}
-
-              {/* Images */}
-              {post.image_urls.length > 0 && (
-                <FacebookPhotoGrid urls={post.image_urls} author={{ userId: post.user_id, name: post.author_name ?? null, handle: post.author_handle ?? null }} />
-              )}
+              {/* Video, else photographs — the one answer every screen uses (src/lib/posts/subjectMedia.ts) */}
+              {(() => {
+                const media = postMedia(post);
+                return media.video ? (
+                  <div data-testid="post-video">
+                    <FeedVideoCard video={media.video} />
+                  </div>
+                ) : media.imageUrls.length > 0 ? (
+                  <FacebookPhotoGrid urls={media.imageUrls} author={{ userId: post.user_id, name: post.author_name ?? null, handle: post.author_handle ?? null }} />
+                ) : null;
+              })()}
             </div>
           ))}
         </div>

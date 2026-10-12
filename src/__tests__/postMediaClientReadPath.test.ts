@@ -84,12 +84,17 @@ const row = (post_id: string, ord: number, object_path: string | null) => ({
  */
 const ATTACHMENTS = "src/lib/posts/postAttachments.ts";
 
-/** The four surfaces that build the media array. There must be no fifth. */
+/**
+ * The surfaces that build the media array. There must be no other. The fifth,
+ * Feed.tsx, is the feed's live-arrival path (a post delivered by realtime),
+ * which built posts from the bare row and so dropped their video (2026-10-12).
+ */
 const PRODUCERS = [
   "src/hooks/feed/useFeedQuery.ts",
   "src/hooks/feed/useUserPostsQuery.ts",
   "src/pages/PostDetail.tsx",
   "src/pages/HashtagFeed.tsx",
+  "src/pages/Feed.tsx",
 ];
 
 beforeEach(() => {
@@ -304,7 +309,7 @@ describe("there is exactly one media reader, and every surface uses it", () => {
     ).toEqual([]);
   });
 
-  it("all four media-producing surfaces read through the one attachments module, which calls the batching reader", () => {
+  it("every media-producing surface reads through the one attachments module, which calls the batching reader", () => {
     const shared = strip(read(ATTACHMENTS));
     expect(/fetchPostMediaMap\(/.test(shared), `${ATTACHMENTS} does not call fetchPostMediaMap.`).toBe(true);
     expect(

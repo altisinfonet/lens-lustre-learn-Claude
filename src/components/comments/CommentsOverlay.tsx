@@ -32,14 +32,44 @@
  * "Like Comment share is required like a normal post" (owner, 2026-08-11)
  * means an ad's thread opens exactly the way a post's does, not a second,
  * ad-shaped modal beside this one.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE SUBJECT'S MEDIA IS NOT DECIDED HERE
+ *
+ * Owner, staging 2026-10-12: "Video running but comment box still image". This
+ * file used to work out its own picture — the first photograph of a post, the
+ * still image of an ad — so a video ad played in the feed and showed a still
+ * here, and a video post showed nothing at all. It now draws `subject.media`,
+ * the value the tapped card drew (src/lib/posts/subjectMedia.ts): a video plays
+ * in the same FeedVideoCard the feed uses, a photograph is the photograph.
  */
-import type { ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { useCommentsOverlay } from "@/contexts/CommentsOverlayContext";
 import { useIsMobile } from "@/hooks/core/use-mobile";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import PostCommentsSection from "@/components/PostCommentsSection";
 import AdComments from "@/components/ads/AdComments";
+import { hasMedia, type SubjectMedia } from "@/lib/posts/subjectMedia";
+
+// Lazy (P13): the overlay is mounted at the app root; the video card's code is
+// fetched the first time a video subject's comments open, never before.
+const FeedVideoCard = lazy(() => import("@/components/video/FeedVideoCard"));
+
+/** Web only, beside the thread: the subject's video (playing, with its controls) or its photograph. */
+const SubjectMediaPanel = ({ media }: { media: SubjectMedia }) => (
+  <div className="relative hidden min-h-0 bg-black md:block" data-testid="comments-subject-media">
+    {media.video ? (
+      <Suspense fallback={null}>
+        <FeedVideoCard video={media.video} fillParent />
+      </Suspense>
+    ) : (
+      <div className="flex h-full w-full items-center justify-center">
+        <img src={media.imageUrls[0]} alt="" className="max-w-full max-h-full object-contain" />
+      </div>
+    )}
+  </div>
+);
 
 const CommentsOverlay = () => {
   const { subject, isOpen, closeComments, notifyCommentCountChange, notifyAdCommentsChanged } = useCommentsOverlay();
@@ -53,12 +83,10 @@ const CommentsOverlay = () => {
   // nothing.
   if (!subject) return null;
 
-  let coverImage: string | undefined;
+  const { media } = subject;
   let thread: ReactNode;
   if (subject.kind === "post") {
     const { post } = subject;
-    const imageUrls = post.image_urls?.length ? post.image_urls : post.image_url ? [post.image_url] : [];
-    coverImage = imageUrls[0];
     thread = (
       <PostCommentsSection
         postId={post.id}
@@ -69,7 +97,6 @@ const CommentsOverlay = () => {
       />
     );
   } else {
-    coverImage = subject.imageUrl ?? undefined;
     thread = (
       <AdComments
         creativeId={subject.creativeId}
@@ -131,19 +158,12 @@ const CommentsOverlay = () => {
         className="max-w-3xl w-[calc(100vw-2rem)] h-[85vh] max-h-[720px] p-0 gap-0 overflow-hidden grid grid-cols-1 md:grid-cols-[1.1fr_1fr] motion-reduce:!animate-none motion-reduce:!duration-0"
         aria-describedby={undefined}
       >
-        {/* Subject context — the photograph the comments belong to, so the
-            panel never reads as a comment list floating with no idea what it
-            is attached to. Hidden below md: on a narrow viewport the modal is
-            comments-only, matching the sheet, and there isn't room for both. */}
-        {coverImage && (
-          <div className="hidden md:flex items-center justify-center bg-black">
-            <img
-              src={coverImage}
-              alt=""
-              className="max-w-full max-h-full object-contain"
-            />
-          </div>
-        )}
+        {/* Subject context — the video or photograph the comments belong to,
+            so the panel never reads as a comment list floating with no idea
+            what it is attached to. Hidden below md: on a narrow viewport the
+            modal is comments-only, matching the sheet, and there isn't room
+            for both. */}
+        {hasMedia(media) && <SubjectMediaPanel media={media} />}
 
         <div className="flex flex-col min-h-0 h-full">
           {/* Same header as the sheet — one surface, two shapes, not two

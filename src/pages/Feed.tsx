@@ -25,6 +25,7 @@ import { useActivityLog } from "@/hooks/core/useActivityLog";
 import { useFeedQuery, flattenFeedPages, getNetworkIds, type FeedPost } from "@/hooks/feed/useFeedQuery";
 import { useFeedCacheUpdaters } from "@/hooks/feed/useFeedCacheUpdaters";
 import PostCard from "@/components/post/PostCard";
+import { fetchPostAttachments, attachmentsFor, type AttachedMedia } from "@/lib/posts/postAttachments";
 import PostCardSkeleton from "@/components/post/PostCardSkeleton";
 import WallPosts from "@/components/WallPosts";
 import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
@@ -98,13 +99,27 @@ const Feed = () => {
   }, [user, authLoading, navigate]);
 
   // ── Realtime handlers ──
-  const handleNewPost = useCallback((rawPost: any) => {
+  const handleNewPost = useCallback(async (rawPost: any) => {
+    const legacyImageUrls: string[] = rawPost.image_urls?.length > 0 ? rawPost.image_urls : rawPost.image_url ? [rawPost.image_url] : [];
+    // VID-1 · photographs AND video through the one reader every surface uses
+    // (src/lib/posts/postAttachments.ts). A video post arriving live used to
+    // show as an empty text post until the next refresh: this handler built
+    // the post from the bare row, which carries no video.
+    let attached: AttachedMedia | null;
+    try {
+      attached = attachmentsFor(await fetchPostAttachments([rawPost.id]), rawPost.id, legacyImageUrls);
+    } catch {
+      attached = { image_urls: legacyImageUrls, video: null };
+    }
+    // A video this viewer may not play (not ready / not visible): no empty post.
+    if (attached === null) return;
     const fp: FeedPost = {
       id: rawPost.id,
       user_id: rawPost.user_id,
       content: rawPost.content || "",
       image_url: rawPost.image_url || null,
-      image_urls: rawPost.image_urls?.length > 0 ? rawPost.image_urls : rawPost.image_url ? [rawPost.image_url] : [],
+      image_urls: attached.image_urls,
+      video: attached.video,
       privacy: rawPost.privacy || "public",
       created_at: rawPost.created_at,
       author_name: null,

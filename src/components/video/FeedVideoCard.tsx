@@ -35,15 +35,12 @@
  */
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Pause, Play, Volume2, VolumeX } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { getNetState, subscribeNetState } from "@/lib/offline/networkQuality";
 import { claimPlayback, levelCap, releasePlayback, shouldPlay } from "@/lib/video/playback";
+import { requestGrant, type PlayGrant } from "@/lib/video/playGrant";
 import { PLAY_TOKEN_TTL_S } from "@/lib/video/shared/playToken";
 import { VIDEO_FRAME_ASPECT } from "@/lib/video/videoFrame";
 import type { FeedVideo } from "@/lib/video/postVideoRead";
-
-/** receivedAt: performance.now() when it arrived — the device's own clock, never Date.now() (review #411 C6). */
-interface PlayGrant { master_url: string; poster_url: string; expires_at: number; receivedAt: number }
 
 /**
  * A token is "due" 90 s before its 15 minutes run out, measured on the
@@ -55,25 +52,6 @@ const GRANT_FRESH_MS = (PLAY_TOKEN_TTL_S - 90) * 1000;
 const grantDue = (g: PlayGrant | null | undefined) => !g || performance.now() - g.receivedAt > GRANT_FRESH_MS;
 /** Never renew more often than this, whatever happens. */
 const MIN_RENEW_GAP_MS = 60_000;
-
-async function requestGrant(videoId: string): Promise<PlayGrant | null> {
-  try {
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
-    const res = await fetch("/api/video/play-token", {
-      method: "POST",
-      headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify({ video_id: videoId }),
-    });
-    if (!res.ok) return null;
-    const b = (await res.json()) as Partial<PlayGrant>;
-    return typeof b.master_url === "string" && typeof b.poster_url === "string" && typeof b.expires_at === "number"
-      ? { master_url: b.master_url, poster_url: b.poster_url, expires_at: b.expires_at, receivedAt: performance.now() }
-      : null;
-  } catch {
-    return null;
-  }
-}
 
 type HlsInstance = {
   loadSource(u: string): void; attachMedia(v: HTMLVideoElement): void; destroy(): void;
