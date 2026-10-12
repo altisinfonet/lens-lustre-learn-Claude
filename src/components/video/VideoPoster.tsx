@@ -15,6 +15,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { Play } from "lucide-react";
+import OptimizedImage from "@/components/OptimizedImage";
 import { requestGrant } from "@/lib/video/playGrant";
 import { formatClock } from "@/components/video/FeedVideoCard";
 import type { FeedVideo } from "@/lib/video/postVideoRead";
@@ -49,7 +50,7 @@ export default function VideoPoster({ video, fit = "cover" }: { video: FeedVideo
           style={{ backgroundImage: `url("${poster}")` }} />
       )}
       {poster && (
-        <img src={poster} alt="" loading="lazy" decoding="async"
+        <OptimizedImage src={poster} alt=""
           className={`relative h-full w-full ${fit === "contain" ? "object-contain" : "object-cover"}`} />
       )}
       <span className="pointer-events-none absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white" aria-hidden="true">
