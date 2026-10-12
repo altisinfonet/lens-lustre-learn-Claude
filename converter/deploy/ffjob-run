@@ -1,0 +1,50 @@
+#!/bin/bash
+# 50mm Retina World · runs INSIDE converter-ff@<job>.service (user ffjob, the
+# sandbox). Installed root-owned 0755 at /usr/local/lib/converter/ffjob-run.
+#
+# The worker leaves in <job>/.run/:
+#   tool     "ffmpeg" or "ffprobe" (nothing else is ever run)
+#   args     the arguments, NUL-separated
+#   timeout  seconds (clamped here to 10..21600)
+# and reads back:
+#   stdout   the tool's stdout (ffprobe's JSON)
+#   stderr   the LAST 64 KiB of its stderr
+#   exit     its exit status (124/137 = the time cap ended it)
+# The unit itself always succeeds unless it is killed (memory cap, stop):
+# then there is no `exit` file and the worker treats the run as killed.
+set -u
+
+inst="${1:-}"
+if [[ ! "$inst" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+  echo "ffjob-run: the job id must be a uuid" >&2
+  exit 64
+fi
+dir="/var/lib/converter/jobs/$inst"
+run="$dir/.run"
+if [[ ! -d "$run" || -L "$run" || -L "$dir" ]]; then
+  echo "ffjob-run: no run directory for this job" >&2
+  exit 64
+fi
+
+tool="$(head -c 16 "$run/tool" 2>/dev/null)"
+case "$tool" in
+  ffmpeg) bin=/usr/bin/ffmpeg ;;
+  ffprobe) bin=/usr/bin/ffprobe ;;
+  *) echo "ffjob-run: tool must be ffmpeg or ffprobe" >&2; exit 64 ;;
+esac
+
+limit="$(head -c 8 "$run/timeout" 2>/dev/null)"
+[[ "$limit" =~ ^[0-9]{1,5}$ ]] || limit=600
+(( limit < 10 )) && limit=10
+(( limit > 21600 )) && limit=21600
+
+args=()
+mapfile -t -d '' args < "$run/args"
+
+cd "$dir" || exit 64
+rm -f "$run/stdout" "$run/stderr" "$run/exit"
+# stderr → pipe → keep only its tail; stdout → file.
+timeout --kill-after=15 "$limit" "$bin" "${args[@]}" 2>&1 >"$run/stdout" </dev/null | tail -c 65536 >"$run/stderr"
+rc=${PIPESTATUS[0]}
+printf '%s\n' "$rc" >"$run/exit"
+exit 0

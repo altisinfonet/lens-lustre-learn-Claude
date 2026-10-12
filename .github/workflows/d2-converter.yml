@@ -1,0 +1,101 @@
+name: D2 · VID-1 converter worker (real FFmpeg 6.1 + the systemd sandbox)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING REAL. HOLDS NO SECRET. Runs on the GitHub runner only —
+# never on the converter VM.
+#
+# CONVERTER-DESIGN.md v2 (§3, §6 [R1]) on Ubuntu 24.04 — the VM's OS, systemd
+# 255, Ubuntu's own FFmpeg 6.1 (the VM's FFmpeg):
+#   1. the converter's tests with REAL ffmpeg + ffprobe (the e2e tests skip
+#      without them — npm test on the plain runner has neither);
+#   2. the single-file bundle builds;
+#   3. deploy/setup.sh on this machine, systemd-analyze verify on the units;
+#   4. deploy/sandbox-check.sh --selftest: as user `converter`, through polkit,
+#      a converter-ff@<uuid> run works; nothing else can be started; the run
+#      cannot read the secrets, has no network, cannot write outside its job,
+#      and the time cap ends it; then the worker's self-test under the REAL
+#      converter.service sandbox.
+# What this cannot prove: aarch64 (the VM is Ampere; the runner is x86_64).
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'converter/**'
+      - 'src/lib/video/**'
+      - 'functions/api/video/**'
+      - 'vitest.config.ts'
+      - 'tsconfig.converter.json'
+      - '.github/workflows/d2-converter.yml'
+  push:
+    branches: [staging]
+    paths:
+      - 'converter/**'
+      - 'src/lib/video/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  converter:
+    name: Converter converts with real FFmpeg; the sandbox holds on systemd 255
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Install (lockfile only)
+        run: npm ci --no-audit --no-fund
+      - name: Ubuntu's FFmpeg (the VM's) and polkit
+        run: |
+          set -euo pipefail
+          sudo DEBIAN_FRONTEND=noninteractive apt-get update -q
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q ffmpeg polkitd
+          ffmpeg -hide_banner -version | head -1
+          ffprobe -hide_banner -version | head -1
+          systemctl --version | head -1
+      - name: Converter tests with real ffmpeg + ffprobe (required here, not skipped)
+        env:
+          CONVERTER_REQUIRE_FFMPEG: '1'
+        run: npx vitest run converter src/lib/video/__tests__/packageFromFragmented.test.ts src/lib/video/__tests__/converterCodecs.test.ts --reporter=verbose
+      - name: Build the single-file worker
+        run: |
+          set -euo pipefail
+          npm run converter:build
+          ls -l converter/dist/
+          node --check converter/dist/worker.mjs
+      - name: Keep the built worker (what the deploy step installs — its sha256 is in the file beside it)
+        uses: actions/upload-artifact@v4
+        with:
+          name: converter-worker
+          path: |
+            converter/dist/worker.mjs
+            converter/dist/worker.mjs.sha256
+          retention-days: 14
+      - name: setup.sh on this runner (1 GB job space)
+        run: |
+          set -euo pipefail
+          sudo env JOBS_FS_SIZE=1G NODE_BIN="$(command -v node)" bash converter/deploy/setup.sh --worker converter/dist/worker.mjs
+      - name: systemd-analyze verify (strict) and the security exposure
+        run: |
+          set -euo pipefail
+          d="$(mktemp -d)"
+          cp /etc/systemd/system/converter.service "$d/"
+          cp /etc/systemd/system/converter-ff@.service "$d/converter-ff@00000000-0000-4000-8000-000000000000.service"
+          out="$(sudo systemd-analyze verify "$d/converter.service" "$d/converter-ff@00000000-0000-4000-8000-000000000000.service" 2>&1 || true)"
+          echo "$out"
+          if echo "$out" | grep -E "Unknown (key|section)|Failed to parse|Invalid|unknown lvalue" ; then exit 1; fi
+          sudo systemd-analyze security --no-pager converter-ff@00000000-0000-4000-8000-000000000000.service | tail -25
+          sudo systemd-analyze security --no-pager converter.service | tail -3
+      - name: sandbox-check.sh --selftest
+        run: sudo bash converter/deploy/sandbox-check.sh --selftest
+      - name: On failure — the units' journal
+        if: failure()
+        run: |
+          sudo journalctl -u 'converter*' --no-pager -n 200 || true
+          sudo journalctl -u polkit --no-pager -n 50 || true

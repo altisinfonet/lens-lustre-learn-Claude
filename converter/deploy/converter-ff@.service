@@ -1,0 +1,75 @@
+# 50mm Retina World · ONE sandboxed ffprobe/ffmpeg run for converter job %i
+# (docs/evidence/d2/phase5/VID-1/CONVERTER-DESIGN.md v2 §6, review [R1]).
+#
+# Started ONLY by the worker (user `converter`), which polkit allows to start
+# and stop units of exactly the name converter-ff@<uuid>.service and nothing
+# else (50-converter-ff.rules). Every sandbox property lives HERE, in a
+# root-owned file: the worker can choose WHAT runs (ffmpeg or ffprobe, and
+# their arguments, via <job>/.run/), never HOW it is confined.
+#
+# The run's own time cap is ffjob-run's `timeout` (3 x video length + 10 min,
+# at most 6 h — the design's RuntimeMaxSec; RuntimeMaxSec itself has no effect
+# on Type=oneshot). TimeoutStartSec below is the backstop.
+
+[Unit]
+Description=Converter FFmpeg run for job %i
+RequiresMountsFor=/var/lib/converter/jobs/%i
+CollectMode=inactive-or-failed
+
+[Service]
+Type=oneshot
+User=ffjob
+Group=ffjob
+SupplementaryGroups=convjob
+UMask=0007
+ExecStart=/usr/local/lib/converter/ffjob-run %i
+TimeoutStartSec=6h 10min
+Nice=10
+OOMScoreAdjust=500
+
+# Resources (Ampere A1: 4 OCPU / 24 GB — the worker and the system keep the rest)
+MemoryMax=12G
+MemorySwapMax=0
+CPUQuota=350%
+TasksMax=256
+LimitNOFILE=1024
+LimitFSIZE=2G
+LimitCORE=0
+
+# Files: everything read-only, the secrets and the worker's state invisible,
+# this job's directory the only writable place.
+ProtectSystem=strict
+ReadWritePaths=/var/lib/converter/jobs/%i
+InaccessiblePaths=-/var/lib/converter/secrets -/var/lib/converter/state -/etc/converter
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+
+# Network: none at all
+PrivateNetwork=yes
+IPAddressDeny=any
+RestrictAddressFamilies=AF_UNIX
+
+# Privileges and kernel
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM

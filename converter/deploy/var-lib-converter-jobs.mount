@@ -1,0 +1,16 @@
+# 50mm Retina World · the converter's job space: a size-capped filesystem
+# (a loop-mounted ext4 image, 4 GB by default — CONVERTER-DESIGN.md v2 §6), so
+# a run that writes too much fills THIS, never the VM's disk. One directory
+# per job (<uuid>), wiped after every job. Nothing on it can be executed.
+
+[Unit]
+Description=Converter job space (size-capped)
+
+[Mount]
+What=/var/lib/converter/jobs.img
+Where=/var/lib/converter/jobs
+Type=ext4
+Options=loop,nodev,nosuid,noexec
+
+[Install]
+WantedBy=multi-user.target
