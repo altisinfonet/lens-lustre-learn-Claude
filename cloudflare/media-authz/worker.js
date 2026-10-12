@@ -2,7 +2,7 @@
 // src/lib/video/shared/{playToken,rules}.ts. Do not edit; paste this whole file into the
 // Cloudflare dashboard (cloudflare/media-authz/README.md). CI fails if it is stale.
 // src/lib/video/shared/rules.ts
-var VIDEO_FILE_RE = /^(master|(240|480|720)p|audio)(_\d{1,4})?\.(m3u8|m4s|mp4)$|^poster\.jpg$/;
+var VIDEO_FILE_RE = /^(?:(?:master|240p|480p|720p|audio)\.m3u8|(?:240p|480p|720p|audio)\.mp4|(?:240p|480p|720p|audio)_(?:0|[1-9]\d{0,3})\.m4s|poster\.jpg)$/;
 function isAllowedFileName(name) {
   return typeof name === "string" && VIDEO_FILE_RE.test(name);
 }
@@ -103,6 +103,7 @@ function refuse(status, req, env, extra = {}) {
   });
 }
 function rewritePlaylist(text, token) {
+  if (/[^\x20-\x7E\r\n]|\r(?!\n)/.test(text)) return null;
   const t = encodeURIComponent(token);
   const sibling = (u) => isAllowedFileName(u);
   let bad = false;

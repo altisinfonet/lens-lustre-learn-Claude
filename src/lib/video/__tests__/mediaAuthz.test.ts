@@ -21,6 +21,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { handleMediaRequest, type MediaAuthzEnv, type MediaAuthzDeps } from "../../../../cloudflare/media-authz/handler";
 import { signPlayToken, playPrefix, PLAY_TOKEN_TTL_S } from "../shared/playToken";
+import { rewritePlaylist as rewriteForTest } from "../../../../cloudflare/media-authz/handler";
 
 const KEY_B64 = btoa(String.fromCharCode(...Array.from({ length: 32 }, (_, i) => i + 1)));
 const HOST = "cdn-staging.example.test";
@@ -326,5 +327,15 @@ describe("the BUILT worker.js (what the Owner deploys) behaves like the handler"
       vi.useRealTimers();
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe("review #411 C1: the Worker serves only plain playlists", () => {
+  it("a lone CR (a second line to hls.js) or U+2028 → refused (null → 502); CRLF and LF are fine", () => {
+    const ok = "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\n240p.m3u8\n";
+    expect(rewriteForTest(ok, "tok")).toContain("240p.m3u8?t=tok");
+    expect(rewriteForTest(ok.replace(/\n/g, "\r\n"), "tok")).toContain("240p.m3u8?t=tok");
+    expect(rewriteForTest("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\rhttps://evil.supabase.co/a.m3u8\n240p.m3u8\n", "tok")).toBeNull();
+    expect(rewriteForTest("#EXTM3U\n240p.m3u8\u2028https://evil.example/a.m3u8\n", "tok")).toBeNull();
   });
 });

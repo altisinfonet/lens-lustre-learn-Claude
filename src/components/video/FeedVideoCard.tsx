@@ -37,11 +37,24 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getNetState, subscribeNetState } from "@/lib/offline/networkQuality";
-import { claimPlayback, levelCap, releasePlayback, shouldPlay, tokenNeedsRefresh } from "@/lib/video/playback";
+import { claimPlayback, levelCap, releasePlayback, shouldPlay } from "@/lib/video/playback";
+import { PLAY_TOKEN_TTL_S } from "@/lib/video/shared/playToken";
 import { VIDEO_FRAME_ASPECT } from "@/lib/video/videoFrame";
 import type { FeedVideo } from "@/lib/video/postVideoRead";
 
-interface PlayGrant { master_url: string; poster_url: string; expires_at: number }
+/** receivedAt: performance.now() when it arrived — the device's own clock, never Date.now() (review #411 C6). */
+interface PlayGrant { master_url: string; poster_url: string; expires_at: number; receivedAt: number }
+
+/**
+ * A token is "due" 90 s before its 15 minutes run out, measured on the
+ * MONOTONIC clock from when it arrived. Date.now() would follow the phone's
+ * wall clock: one set 13½ minutes fast made every token look due, and the
+ * card fetched tokens back to back (review #411 C6).
+ */
+const GRANT_FRESH_MS = (PLAY_TOKEN_TTL_S - 90) * 1000;
+const grantDue = (g: PlayGrant | null | undefined) => !g || performance.now() - g.receivedAt > GRANT_FRESH_MS;
+/** Never renew more often than this, whatever happens. */
+const MIN_RENEW_GAP_MS = 60_000;
 
 async function requestGrant(videoId: string): Promise<PlayGrant | null> {
   try {
@@ -55,7 +68,7 @@ async function requestGrant(videoId: string): Promise<PlayGrant | null> {
     if (!res.ok) return null;
     const b = (await res.json()) as Partial<PlayGrant>;
     return typeof b.master_url === "string" && typeof b.poster_url === "string" && typeof b.expires_at === "number"
-      ? { master_url: b.master_url, poster_url: b.poster_url, expires_at: b.expires_at }
+      ? { master_url: b.master_url, poster_url: b.poster_url, expires_at: b.expires_at, receivedAt: performance.now() }
       : null;
   } catch {
     return null;
@@ -108,8 +121,7 @@ export default function FeedVideoCard({ video, className = "" }: { video: FeedVi
   const ensureSource = useCallback(async (): Promise<boolean> => {
     const v = el.current;
     if (!v) return false;
-    const now = Math.floor(Date.now() / 1000);
-    if (attached.current && !tokenNeedsRefresh(grant.current?.expires_at, now)) return true;
+    if (attached.current && !grantDue(grant.current)) return true;
     const g = await requestGrant(video.id);
     if (!g) { setFailed(true); return false; }
     grant.current = g;
@@ -146,6 +158,9 @@ export default function FeedVideoCard({ video, className = "" }: { video: FeedVi
         }
         setFailed(true); pause();
       });
+      // A segment really loaded: the 403 retry is available again (a LASTING 403 —
+      // a revoked video — must not loop: review #411 C6).
+      h.on("hlsFragLoaded", () => { renewedAfter403.current = false; });
       h.loadSource(g.master_url);
       h.attachMedia(v);
       hls.current = h;
@@ -213,16 +228,15 @@ export default function FeedVideoCard({ video, className = "" }: { video: FeedVi
   /** A fresh token and the stream re-attached at the same second; playback goes on. */
   const renewing = useRef(false);
   const renewedAfter403 = useRef(false);
+  const lastRenewAt = useRef(-Infinity);
   const renew = useCallback(async () => {
     const v = el.current;
     if (!v || renewing.current) return;
     renewing.current = true;
+    lastRenewAt.current = performance.now();
     try {
       const wasPlaying = playing.current;
-      if (await ensureSource()) {
-        if (wasPlaying) await v.play().catch(() => {});
-        renewedAfter403.current = false;
-      }
+      if (await ensureSource() && wasPlaying) await v.play().catch(() => {});
     } finally {
       renewing.current = false;
     }
@@ -234,7 +248,7 @@ export default function FeedVideoCard({ video, className = "" }: { video: FeedVi
     if (!v) return;
     const onTime = () => {
       if (!playing.current || renewing.current || !attached.current) return;
-      if (tokenNeedsRefresh(grant.current?.expires_at, Math.floor(Date.now() / 1000))) void renew();
+      if (grantDue(grant.current) && performance.now() - lastRenewAt.current >= MIN_RENEW_GAP_MS) void renew();
     };
     v.addEventListener("timeupdate", onTime);
     return () => v.removeEventListener("timeupdate", onTime);

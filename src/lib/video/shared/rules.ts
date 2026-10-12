@@ -51,8 +51,18 @@ export const OTHER_MAX_BYTES = 2_097_152;
 
 export type RenditionKey = "240p" | "480p" | "720p" | "audio" | "other";
 
-/** The VID-1 §3 allow-list (SEC condition 1): no `/`, no `..`, no other extension. */
-export const VIDEO_FILE_RE = /^(master|(240|480|720)p|audio)(_\d{1,4})?\.(m3u8|m4s|mp4)$|^poster\.jpg$/;
+/**
+ * The VID-1 §3 allow-list (SEC condition 1): no `/`, no `..`, no other extension.
+ * Tightened (review #411 C3): a playlist per rendition + the master; ONE init
+ * per rendition (`240p.mp4`, `audio.mp4`); numbered pieces only for segments
+ * (`240p_17.m4s`), no leading zeros — so no file can exist that the judge
+ * never looks at (`240p_3.mp4`, `master.m4s`, `audio_1.mp4` were allowed).
+ */
+export const VIDEO_FILE_RE =
+  /^(?:(?:master|240p|480p|720p|audio)\.m3u8|(?:240p|480p|720p|audio)\.mp4|(?:240p|480p|720p|audio)_(?:0|[1-9]\d{0,3})\.m4s|poster\.jpg)$/;
+
+/** Review #411 C4: a cap on files per version (a 5½-hour video at 4 s segments is ~5,000 per rendition). */
+export const MAX_MANIFEST_FILES = 12_000;
 
 export function isAllowedFileName(name: string): boolean {
   return typeof name === "string" && VIDEO_FILE_RE.test(name);
@@ -151,6 +161,7 @@ export function manifestProblems(m: unknown, purpose: VideoPurpose): string[] {
     out.push("width and height must be positive integers");
   }
   if (!Array.isArray(x.files) || x.files.length === 0) return [...out, "files must be a non-empty list"];
+  if (x.files.length > MAX_MANIFEST_FILES) return [...out, `${x.files.length} files is above ${MAX_MANIFEST_FILES}`];
   const seen = new Set<string>();
   let total = 0;
   for (const f of x.files) {

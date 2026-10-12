@@ -253,7 +253,10 @@ export async function advanceJob(job: VideoJob, d: JobDeps): Promise<VideoJob> {
         // A long video is finished in rounds (Cloudflare's per-request limit): 202 = "more
         // to copy" — ask again at once; each round only moves forward, nothing is redone.
         for (let more = 0; c.status === 202 && more < 1000; more++) {
-          j = { ...j, serverProgress: { copied: Number(c.body.copied) || 0, total: Number(c.body.total) || 0 } };
+          const copied = Number(c.body.copied) || 0;
+          // A round that moved nothing would repeat for ever (and cost storage calls): stop, retry later.
+          if (j.serverProgress && copied <= j.serverProgress.copied) throw new Error("complete made no progress this round");
+          j = { ...j, serverProgress: { copied, total: Number(c.body.total) || 0 } };
           await save(j);
           if (!d.online()) return j;
           c = await d.api("/api/video/complete", { video_id: j.videoId, version_no: j.versionNo });

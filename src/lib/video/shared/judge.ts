@@ -11,7 +11,10 @@
  *                    segment listed once, in its own rendition's playlist
  *                    only; every segment file listed; each segment's bytes ≤
  *                    2 × its rendition's bytes/s ceiling × its own EXTINF
- *                    (+256 KB for a keyframe in a short last segment)
+ *                    (+256 KB for the last segment only)
+ *   review C1–C3 (#411): the playlist GRAMMAR (shared/playlist.ts) — printable
+ *                    ASCII only, a fixed tag list, segments only after a strict
+ *                    EXTINF, exactly one EXT-X-MAP = the rendition's own init
  *   SEC F-D3-17      every video init: exactly one `vide`, no `soun`; the audio
  *                    init exactly one `soun`; none when has_audio = false; the
  *                    master's CODECS name an audio codec exactly when there is audio
@@ -39,15 +42,17 @@ export function judgeUploadContent(manifest: VideoManifest, small: ReadonlyMap<s
     problems.push(...v.problems);
     const rendition = name.replace(/\.m3u8$/, "") as keyof typeof RENDITION_CEILING_BPS;
     const ceiling = RENDITION_CEILING_BPS[rendition];
-    for (const seg of v.segments) {
+    v.segments.forEach((seg, i) => {
       const other = listedIn.get(seg.uri);
       if (other && other !== name) problems.push(`${seg.uri} is listed in both ${other} and ${name}`);
       listedIn.set(seg.uri, name);
       const b = size.get(seg.uri);
-      if (ceiling && b !== undefined && b > ceiling * seg.seconds * 2 + 262_144) {
+      // +256 KB only for the LAST segment (a keyframe in a short tail) — review #411 C5.
+      const slack = i === v.segments.length - 1 ? 262_144 : 0;
+      if (ceiling && b !== undefined && b > ceiling * seg.seconds * 2 + slack) {
         problems.push(`${seg.uri}: ${b} bytes for ${seg.seconds} s is above twice the ${rendition} ceiling`);
       }
-    }
+    });
   }
   for (const n of names) {
     if (n.endsWith(".m4s") && !listedIn.has(n)) problems.push(`${n} is uploaded but no playlist lists it`);
