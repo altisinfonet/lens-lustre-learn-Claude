@@ -47,6 +47,31 @@ export const H264_AAC: CodecChoice = {
 /** The sound's rate when the ladder keeps full quality; long videos use less (ladder.ts). */
 const AUDIO_BITRATE = DEFAULT_AUDIO_BITRATE;
 
+/**
+ * Chrome takes back an IDLE codec when its tab is in the background: the
+ * encoder's error callback fires with "QuotaExceededError: Codec reclaimed due
+ * to inactivity" (Owner, staging 2026-10-12, a 7:28 video; reproduced with the
+ * tab hidden for 2 minutes). Encoding pauses while the tab is hidden (no frame
+ * callbacks run there), so its encoders are idle — and get reclaimed. That is
+ * not a failure of the video: the encoder is opened again and encoding goes on.
+ */
+export function isReclaimed(e: unknown): boolean {
+  const name = (e as { name?: string } | null)?.name;
+  const message = String((e as { message?: string } | null)?.message ?? "");
+  return name === "QuotaExceededError" || /reclaim/i.test(message);
+}
+
+const bytesOf = (d: AllowSharedBufferSource | undefined): Uint8Array | null =>
+  !d ? null : d instanceof ArrayBuffer ? new Uint8Array(d) : new Uint8Array(d.buffer, d.byteOffset, d.byteLength);
+
+/** Same codec and the same parameter sets (avcC / vpcC) — a reopened encoder must match the init segment already planned. */
+export function sameDecoderConfig(a: { codec: string; description?: AllowSharedBufferSource }, b: { codec: string; description?: AllowSharedBufferSource }): boolean {
+  if (a.codec !== b.codec) return false;
+  const x = bytesOf(a.description), y = bytesOf(b.description);
+  if (!x || !y) return x === y;
+  return x.length === y.length && x.every((v, i) => v === y[i]);
+}
+
 export class VideoEncodeUnsupported extends Error {
   constructor() { super(UNSUPPORTED_MESSAGE); }
 }
@@ -175,29 +200,54 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
     const plan = planLadder(renditionsFor(sw, sh), duration, !opts.mute);
     const targets = plan.renditions;
 
-    const audio = opts.mute ? null : await encodeAudio(file, choice, opts.signal, plan.audioBitrate);
+    // The sound is encoded in one go; an encoder taken back mid-way (a tab
+    // hidden at the wrong moment) is simply run again, once.
+    const encodeSound = () => encodeAudio(file, choice, opts.signal, plan.audioBitrate);
+    let audio: Awaited<ReturnType<typeof encodeAudio>> = null;
+    if (!opts.mute) {
+      try { audio = await encodeSound(); } catch (e) { if (!isReclaimed(e)) throw e; audio = await encodeSound(); }
+    }
 
-    const renditions = targets.map((t) => {
-      const chunks: RawChunk[] = [];
-      let decoderConfig: VideoDecoderConfig | undefined;
-      const state = { failure: null as unknown, lastKey: -Infinity };
-      const encoder = new VideoEncoder({
+    // Video encoders are opened only when frames actually flow (never while
+    // waiting in a hidden tab), and opened AGAIN if the browser takes one back.
+    type Rendition = {
+      t: (typeof targets)[number]; chunks: RawChunk[]; encoder: VideoEncoder | null;
+      canvas: OffscreenCanvas; ctx2d: OffscreenCanvasRenderingContext2D;
+      state: { failure: unknown; lastKey: number; reopened: number }; decoderConfig?: VideoDecoderConfig;
+    };
+    const renditions: Rendition[] = targets.map((t) => {
+      const canvas = new OffscreenCanvas(t.width, t.height);
+      return { t, chunks: [], encoder: null, canvas, ctx2d: canvas.getContext("2d")!, state: { failure: null, lastKey: -Infinity, reopened: 0 } };
+    });
+    const open = (r: Rendition) => {
+      const enc = new VideoEncoder({
         output: (chunk, meta) => {
           const data = new Uint8Array(chunk.byteLength);
           chunk.copyTo(data);
-          chunks.push({ data, key: chunk.type === "key", timestamp: chunk.timestamp, duration: chunk.duration ?? 0 });
-          if (meta?.decoderConfig && !decoderConfig) decoderConfig = meta.decoderConfig;
+          r.chunks.push({ data, key: chunk.type === "key", timestamp: chunk.timestamp, duration: chunk.duration ?? 0 });
+          const dc = meta?.decoderConfig;
+          if (!dc) return;
+          if (!r.decoderConfig) r.decoderConfig = dc;
+          else if (!sameDecoderConfig(r.decoderConfig, dc)) {
+            r.state.failure = new Error("VID-ENC-007: the video encoder restarted with different settings. Keep this tab in front while the video is prepared, then try again.");
+          }
         },
-        error: (e) => { state.failure = e; },
+        error: (e) => {
+          if (isReclaimed(e)) { if (r.encoder === enc) r.encoder = null; return; } // reopened on the next frame
+          r.state.failure = e;
+        },
       });
-      encoder.configure({
-        codec: choice.video.codec(t.height), width: t.width, height: t.height, bitrate: t.bitrate, framerate: 30,
+      enc.configure({
+        codec: choice.video.codec(r.t.height), width: r.t.width, height: r.t.height, bitrate: r.t.bitrate, framerate: 30,
         ...(choice.video.mux === "avc" ? { avc: { format: "avc" as const } } : {}),
       });
-      const canvas = new OffscreenCanvas(t.width, t.height);
-      const ctx2d = canvas.getContext("2d")!;
-      return { t, chunks, encoder, canvas, ctx2d, state, get decoderConfig() { return decoderConfig; } };
-    });
+      if (r.encoder !== null || r.chunks.length > 0) {
+        r.state.reopened++;
+        console.info(`VID-ENC: ${r.t.name} encoder reopened after the browser took it back (${r.state.reopened})`);
+      }
+      r.encoder = enc;
+      r.state.lastKey = -Infinity; // a new encoder starts on a keyframe
+    };
 
     let poster: Blob | null = opts.poster ? new Blob([opts.poster as BlobPart], { type: "image/jpeg" }) : null;
     const posterCanvas = new OffscreenCanvas(Math.min(1280, sw), Math.round(Math.min(1280, sw) * (sh / sw)));
@@ -217,12 +267,14 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
           const ts = Math.round(meta.mediaTime * 1e6);
           for (const r of renditions) {
             if (r.state.failure) throw r.state.failure;
-            if (r.encoder.encodeQueueSize > 8) continue; // the encoder is behind: drop this frame for this rendition
+            if (!r.encoder || r.encoder.state === "closed") open(r);
+            const enc = r.encoder!;
+            if (enc.encodeQueueSize > 8) continue; // the encoder is behind: drop this frame for this rendition
             r.ctx2d.drawImage(video, 0, 0, r.t.width, r.t.height);
             const f = new VideoFrame(r.canvas, { timestamp: ts });
             const key = ts - r.state.lastKey >= KEYFRAME_SECONDS * 1e6;
             if (key) r.state.lastKey = ts;
-            r.encoder.encode(f, { keyFrame: key });
+            enc.encode(f, { keyFrame: key });
             f.close();
           }
           if (!poster && meta.mediaTime >= posterAt) {
@@ -275,9 +327,13 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
 
     const videoInputs: VideoRenditionInput[] = [];
     for (const r of renditions) {
-      await r.encoder.flush();
-      r.encoder.close();
+      const enc = r.encoder;
+      if (enc && enc.state !== "closed") {
+        try { await enc.flush(); } catch (e) { if (!isReclaimed(e)) throw e; } // taken back at the very end: its output is already in
+        if ((enc.state as string) !== "closed") enc.close(); // it may have been taken back during the flush
+      }
       if (r.state.failure) throw r.state.failure;
+      if (r.chunks.length === 0) throw new Error("VID-ENC-008: no video frames were encoded");
       // chunk durations from the next timestamp; the last frame lasts one 30 fps frame
       r.chunks.sort((a, b) => a.timestamp - b.timestamp);
       r.chunks.forEach((c, i) => { c.duration = i + 1 < r.chunks.length ? r.chunks[i + 1].timestamp - c.timestamp : 33_333; });
