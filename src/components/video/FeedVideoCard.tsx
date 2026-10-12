@@ -35,45 +35,16 @@
  */
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Pause, Play, Volume2, VolumeX } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { getNetState, subscribeNetState } from "@/lib/offline/networkQuality";
-import { claimPlayback, levelCap, releasePlayback, shouldPlay } from "@/lib/video/playback";
-import { PLAY_TOKEN_TTL_S } from "@/lib/video/shared/playToken";
+import { claimPlayback, leavePlayback, levelCap, releasePlayback, shouldPlay } from "@/lib/video/playback";
+import { grantDue, requestGrant, type PlayGrant } from "@/lib/video/playGrant";
 import { VIDEO_FRAME_ASPECT } from "@/lib/video/videoFrame";
 import type { FeedVideo } from "@/lib/video/postVideoRead";
 
-/** receivedAt: performance.now() when it arrived — the device's own clock, never Date.now() (review #411 C6). */
-interface PlayGrant { master_url: string; poster_url: string; expires_at: number; receivedAt: number }
-
-/**
- * A token is "due" 90 s before its 15 minutes run out, measured on the
- * MONOTONIC clock from when it arrived. Date.now() would follow the phone's
- * wall clock: one set 13½ minutes fast made every token look due, and the
- * card fetched tokens back to back (review #411 C6).
- */
-const GRANT_FRESH_MS = (PLAY_TOKEN_TTL_S - 90) * 1000;
-const grantDue = (g: PlayGrant | null | undefined) => !g || performance.now() - g.receivedAt > GRANT_FRESH_MS;
+// When a token is "due" (90 s before its 15 minutes end, on the device's
+// monotonic clock — review #411 C6): grantDue in src/lib/video/playGrant.ts.
 /** Never renew more often than this, whatever happens. */
 const MIN_RENEW_GAP_MS = 60_000;
-
-async function requestGrant(videoId: string): Promise<PlayGrant | null> {
-  try {
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
-    const res = await fetch("/api/video/play-token", {
-      method: "POST",
-      headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify({ video_id: videoId }),
-    });
-    if (!res.ok) return null;
-    const b = (await res.json()) as Partial<PlayGrant>;
-    return typeof b.master_url === "string" && typeof b.poster_url === "string" && typeof b.expires_at === "number"
-      ? { master_url: b.master_url, poster_url: b.poster_url, expires_at: b.expires_at, receivedAt: performance.now() }
-      : null;
-  } catch {
-    return null;
-  }
-}
 
 type HlsInstance = {
   loadSource(u: string): void; attachMedia(v: HTMLVideoElement): void; destroy(): void;
@@ -114,6 +85,8 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
   const scrubbing = useRef(false);
   /** A seek asked for before the stream is attached: applied once it is. */
   const pendingSeek = useRef<number | null>(null);
+  /** This card's own play/pause rule, so a card that paused it can hand playback back (leavePlayback). */
+  const decideRef = useRef<(() => void) | null>(null);
 
   const pause = useCallback(() => {
     playing.current = false;
@@ -122,12 +95,12 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     releasePlayback(cardId);
   }, [cardId]);
 
-  /** token → source. Safe to call again after a pause: it only works when the token is due. */
-  const ensureSource = useCallback(async (): Promise<boolean> => {
+  /** token → source. Safe to call again after a pause: it only works when the token is due. `fresh`: never a shared grant (after a 403). */
+  const ensureSource = useCallback(async (fresh = false): Promise<boolean> => {
     const v = el.current;
     if (!v) return false;
-    if (attached.current && !grantDue(grant.current)) return true;
-    const g = await requestGrant(video.id);
+    if (attached.current && !grantDue(grant.current) && !fresh) return true;
+    const g = await requestGrant(video.id, { fresh });
     if (!g) { setFailed(true); return false; }
     grant.current = g;
     setPoster(g.poster_url);
@@ -158,7 +131,7 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
         if (d.response?.code === 403 && !renewedAfter403.current) {
           renewedAfter403.current = true;
           grant.current = null;
-          void renew();
+          void renew(true);
           return;
         }
         setFailed(true); pause();
@@ -179,7 +152,7 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     if (!v || playing.current) return;
     playing.current = true;
     if (!(await ensureSource())) { playing.current = false; return; }
-    claimPlayback(cardId, pause);
+    claimPlayback(cardId, pause, () => decideRef.current?.());
     try {
       await v.play();
       setIsPlaying(true);
@@ -196,7 +169,7 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     const node = box.current;
     if (!node || typeof IntersectionObserver === "undefined") return;
     let ratio = 0;
-    const decide = () => {
+    const decide = (): void => {
       const want = shouldPlay({
         ratio, wasPlaying: playing.current,
         tabVisible: document.visibilityState === "visible",
@@ -205,12 +178,13 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
       if (want && !playing.current) void start();
       else if (!want && playing.current) pause();
     };
+    decideRef.current = decide;
     const near = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) setNear(true); }, { rootMargin: "600px 0px" });
     const view = new IntersectionObserver((es) => { ratio = es[es.length - 1]?.intersectionRatio ?? 0; decide(); }, { threshold: [0, 0.3, 0.6, 1] });
     near.observe(node); view.observe(node);
     document.addEventListener("visibilitychange", decide);
     const off = subscribeNetState(decide);
-    return () => { near.disconnect(); view.disconnect(); document.removeEventListener("visibilitychange", decide); off(); };
+    return () => { decideRef.current = null; near.disconnect(); view.disconnect(); document.removeEventListener("visibilitychange", decide); off(); };
   }, [start, pause]);
 
   // Poster only — the cheapest thing a card near the screen can do.
@@ -221,9 +195,10 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     return () => { live = false; };
   }, [near, video.id]);
 
-  // Leaving the page releases the decoder and the network for good.
+  // Leaving the page releases the decoder and the network for good — and lets
+  // the card this one paused (the feed card under the comments box) carry on.
   useEffect(() => () => {
-    releasePlayback(cardId);
+    leavePlayback(cardId);
     hls.current?.destroy(); hls.current = null;
     const v = el.current; if (v) { v.pause(); v.removeAttribute("src"); v.load(); }
   }, [cardId]);
@@ -234,14 +209,14 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
   const renewing = useRef(false);
   const renewedAfter403 = useRef(false);
   const lastRenewAt = useRef(-Infinity);
-  const renew = useCallback(async () => {
+  const renew = useCallback(async (fresh = false) => {
     const v = el.current;
     if (!v || renewing.current) return;
     renewing.current = true;
     lastRenewAt.current = performance.now();
     try {
       const wasPlaying = playing.current;
-      if (await ensureSource() && wasPlaying) await v.play().catch(() => {});
+      if (await ensureSource(fresh) && wasPlaying) await v.play().catch(() => {});
     } finally {
       renewing.current = false;
     }

@@ -58,13 +58,39 @@ export function tokenNeedsRefresh(expiresAtS: number | null | undefined, nowS: n
 
 /** One card plays at a time. */
 type Pauser = () => void;
-let current: { id: string; pause: Pauser } | null = null;
-export function claimPlayback(id: string, pause: Pauser): void {
-  if (current && current.id !== id) { try { current.pause(); } catch { /* a stale card must not block the next */ } }
-  current = { id, pause };
+interface Holder { id: string; pause: Pauser; resume?: () => void }
+let current: Holder | null = null;
+/**
+ * The card a newer one paused, and who paused it. When that newer card goes
+ * AWAY (unmounts — the comments box closing over the feed card it copied), the
+ * paused card is asked to decide again (`resume` re-runs its own in-view rule,
+ * it never forces play). Review #415: the feed video used to sit paused behind
+ * a Play button after the comments box closed. A card that is merely paused
+ * (a tap, scrolled away) hands nothing back — tapping pause in the comments box
+ * must not start the video behind it.
+ */
+let preempted: { card: Holder; by: string } | null = null;
+export function claimPlayback(id: string, pause: Pauser, resume?: () => void): void {
+  const prev = current; // its pause() releases it, which clears `current`
+  if (prev && prev.id !== id) {
+    try { prev.pause(); } catch { /* a stale card must not block the next */ }
+    preempted = { card: prev, by: id };
+  }
+  if (preempted?.card.id === id) preempted = null; // it is playing again by itself
+  current = { id, pause, resume };
 }
 export function releasePlayback(id: string): void {
   if (current?.id === id) current = null;
 }
+/** The card is gone for good (unmounted): release it, and let the card it paused decide again. */
+export function leavePlayback(id: string): void {
+  releasePlayback(id);
+  const p = preempted;
+  if (p?.card.id === id) { preempted = null; return; }
+  if (p?.by === id) {
+    preempted = null;
+    try { p.card.resume?.(); } catch { /* a stale card must not throw into an unmount */ }
+  }
+}
 export function currentPlaybackId(): string | null { return current?.id ?? null; }
-export function resetPlayback(): void { current = null; }
+export function resetPlayback(): void { current = null; preempted = null; }

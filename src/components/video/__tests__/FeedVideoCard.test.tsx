@@ -22,6 +22,7 @@ vi.mock("@/lib/offline/networkQuality", () => ({
 
 import FeedVideoCard, { formatClock } from "../FeedVideoCard";
 import { resetPlayback } from "@/lib/video/playback";
+import { resetGrantCache } from "@/lib/video/playGrant";
 
 type IO = { cb: IntersectionObserverCallback; opts?: IntersectionObserverInit; el?: Element };
 let observers: IO[] = [];
@@ -48,7 +49,7 @@ const vid = (over: Partial<{ id: string; width: number | null; height: number | 
 const flush = () => act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
 
 beforeEach(() => {
-  observers = []; listeners.clear(); resetPlayback();
+  observers = []; listeners.clear(); resetPlayback(); resetGrantCache();
   net.online = true; net.slow = false;
   vi.stubGlobal("IntersectionObserver", FakeIO);
   fetchMock = vi.fn(async () => new Response(JSON.stringify(GRANT), { status: 200 }));

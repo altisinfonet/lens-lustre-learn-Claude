@@ -19,6 +19,9 @@ const BUILDERS = [
   "src/hooks/feed/useUserPostsQuery.ts",
   "src/pages/PostDetail.tsx",
   "src/pages/HashtagFeed.tsx",
+  // The feed's live-arrival path (handleNewPost): a video post arriving by
+  // realtime showed as an empty post until a refresh (2026-10-12).
+  "src/pages/Feed.tsx",
 ];
 
 describe("src/lib/posts/postAttachments.ts — the one attachments reader", () => {

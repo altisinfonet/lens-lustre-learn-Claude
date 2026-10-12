@@ -1,7 +1,7 @@
 /** VID-1 part 2 · the player's rules: in view → play, out of view → pause, slow → 240p, one at a time. */
 import { describe, it, expect, beforeEach } from "vitest";
 import {
-  PAUSE_RATIO, PLAY_RATIO, TOKEN_REFRESH_MARGIN_S, claimPlayback, currentPlaybackId, levelCap, releasePlayback, resetPlayback, shouldPlay, tokenNeedsRefresh,
+  PAUSE_RATIO, PLAY_RATIO, TOKEN_REFRESH_MARGIN_S, claimPlayback, currentPlaybackId, leavePlayback, levelCap, releasePlayback, resetPlayback, shouldPlay, tokenNeedsRefresh,
 } from "../playback";
 
 const base = { ratio: 1, wasPlaying: false, tabVisible: true, online: true, reducedMotion: false };
@@ -65,5 +65,57 @@ describe("one card plays at a time", () => {
     claimPlayback("b", () => {});
     releasePlayback("a");
     expect(currentPlaybackId()).toBe("b");
+  });
+});
+
+/**
+ * Review #415: the comments box plays a copy of the feed video, which pauses
+ * the feed card; when the box closed, the feed card stayed paused.
+ */
+describe("a card paused by a newer one gets the say back when that one goes away", () => {
+  beforeEach(resetPlayback);
+  it("the newer card unmounts → the card it paused decides again (its own in-view rule)", () => {
+    const resumed: string[] = [];
+    claimPlayback("feed", () => {}, () => resumed.push("feed"));
+    claimPlayback("overlay", () => {}, () => resumed.push("overlay"));
+    leavePlayback("overlay");
+    expect(resumed).toEqual(["feed"]);
+    expect(currentPlaybackId()).toBeNull();
+  });
+  it("merely pausing the newer card hands nothing back (a tap on pause in the comments box must not start the video behind it)", () => {
+    const resumed: string[] = [];
+    claimPlayback("feed", () => {}, () => resumed.push("feed"));
+    claimPlayback("overlay", () => {}, () => resumed.push("overlay"));
+    releasePlayback("overlay");
+    expect(resumed).toEqual([]);
+    leavePlayback("overlay"); // and closing it afterwards still lets the feed card decide
+    expect(resumed).toEqual(["feed"]);
+  });
+  it("the paused card playing again by itself forgets the hand-back", () => {
+    const resumed: string[] = [];
+    claimPlayback("feed", () => {}, () => resumed.push("feed"));
+    claimPlayback("overlay", () => {}, () => resumed.push("overlay"));
+    claimPlayback("feed", () => {}, () => resumed.push("feed")); // the member taps play on the feed card
+    leavePlayback("overlay");
+    expect(resumed).toEqual([]);
+    expect(currentPlaybackId()).toBe("feed");
+  });
+  it("a real card's pause releases itself while being paused — the hand-back still works", () => {
+    // FeedVideoCard's pause() calls releasePlayback(itself), which clears the
+    // current holder in the middle of claimPlayback (caught by the card's own suite).
+    const resumed: string[] = [];
+    claimPlayback("feed", () => releasePlayback("feed"), () => resumed.push("feed"));
+    claimPlayback("overlay", () => releasePlayback("overlay"), () => resumed.push("overlay"));
+    expect(currentPlaybackId()).toBe("overlay");
+    leavePlayback("overlay");
+    expect(resumed).toEqual(["feed"]);
+  });
+  it("the paused card going away first leaves nothing to hand back", () => {
+    const resumed: string[] = [];
+    claimPlayback("feed", () => {}, () => resumed.push("feed"));
+    claimPlayback("overlay", () => {}, () => resumed.push("overlay"));
+    leavePlayback("feed");
+    leavePlayback("overlay");
+    expect(resumed).toEqual([]);
   });
 });

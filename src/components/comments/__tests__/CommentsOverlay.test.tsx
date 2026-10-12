@@ -17,6 +17,7 @@ import { MemoryRouter } from "react-router-dom";
 import { CommentsOverlayProvider, useCommentsOverlay } from "@/contexts/CommentsOverlayContext";
 import CommentsOverlay from "@/components/comments/CommentsOverlay";
 import type { UnifiedPost } from "@/types/post";
+import { adMedia } from "@/lib/posts/subjectMedia";
 
 vi.mock("@/hooks/feed/usePostComments", () => ({
   usePostComments: () => ({
@@ -59,6 +60,14 @@ vi.mock("@/hooks/core/useBlockedUsers", () => ({
   }),
 }));
 
+// The real card has its own suite (FeedVideoCard.test.tsx); here the question is
+// only whether the overlay hands the subject's video to it.
+vi.mock("@/components/video/FeedVideoCard", () => ({
+  default: ({ video, fillParent }: { video: { id: string }; fillParent?: boolean }) => (
+    <div data-testid="feed-video-card" data-fill-parent={String(!!fillParent)}>video {video.id}</div>
+  ),
+}));
+
 vi.mock("@/components/ads/AdComments", () => ({
   default: ({ creativeId }: { creativeId: string }) => (
     <div data-testid="ad-comments-stub">ad thread for {creativeId}</div>
@@ -96,7 +105,20 @@ const AD_IMAGE_URL = "https://example.com/ad.jpg";
 /** Exercises the context the way AdEngagementBar actually does. */
 const OpenAdButton = () => {
   const { openAdComments } = useCommentsOverlay();
-  return <button onClick={() => openAdComments(AD_CREATIVE_ID, AD_IMAGE_URL)}>open ad comments</button>;
+  return <button onClick={() => openAdComments(AD_CREATIVE_ID, adMedia({ image_url: AD_IMAGE_URL }))}>open ad comments</button>;
+};
+
+const VIDEO = { id: "33333333-3333-4333-8333-333333333333", width: 1080, height: 1920, durationS: 20, hasAudio: true };
+const VIDEO_POST = { ...MOCK_POST, id: "post-video-1", image_url: null, image_urls: [], video: VIDEO } as unknown as UnifiedPost;
+
+/** A video ad: the card plays the video, so the comments box must too (Owner, staging 2026-10-12). */
+const OpenVideoAdButton = () => {
+  const { openAdComments } = useCommentsOverlay();
+  return <button onClick={() => openAdComments(AD_CREATIVE_ID, adMedia({ video: VIDEO, image_url: AD_IMAGE_URL }))}>open video ad comments</button>;
+};
+const OpenVideoPostButton = () => {
+  const { openPostComments } = useCommentsOverlay();
+  return <button onClick={() => openPostComments(VIDEO_POST)}>open video post comments</button>;
 };
 
 const setViewportWidth = (width: number) => {
@@ -110,6 +132,8 @@ const draw = () =>
       <CommentsOverlayProvider>
         <OpenButton />
         <OpenAdButton />
+        <OpenVideoAdButton />
+        <OpenVideoPostButton />
         <CommentsOverlay />
       </CommentsOverlayProvider>
     </MemoryRouter>,
@@ -203,6 +227,45 @@ describe("the same overlay opens an ad's thread", () => {
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByTestId("ad-comments-stub")).toBeInTheDocument();
     expect(dialog).not.toHaveTextContent(/no comments yet/i);
+  });
+});
+
+describe("the comments box shows what the card shows — a video plays there too", () => {
+  it("a video ad: its video beside the thread, never its still picture", async () => {
+    draw();
+    fireEvent.click(screen.getByText("open video ad comments"));
+    const dialog = screen.getByRole("dialog");
+    const card = await within(dialog).findByTestId("feed-video-card");
+    expect(card).toHaveTextContent(VIDEO.id);
+    expect(card).toHaveAttribute("data-fill-parent", "true");
+    expect(within(dialog).queryByAltText("")).toBeNull();
+    expect(dialog.innerHTML).not.toContain(AD_IMAGE_URL);
+    expect(within(dialog).getByTestId("ad-comments-stub")).toBeInTheDocument();
+  });
+
+  it("a video post: its video beside the thread (it used to show nothing at all)", async () => {
+    draw();
+    fireEvent.click(screen.getByText("open video post comments"));
+    const dialog = screen.getByRole("dialog");
+    expect(await within(dialog).findByTestId("feed-video-card")).toHaveTextContent(VIDEO.id);
+    expect(within(dialog).getByText(/no comments yet/i)).toBeInTheDocument();
+  });
+
+  it("a photo post still shows its photograph, and no video card", () => {
+    draw();
+    fireEvent.click(screen.getByText("open comments"));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByAltText("")).toHaveAttribute("src", MOCK_POST.image_url);
+    expect(within(dialog).queryByTestId("feed-video-card")).toBeNull();
+  });
+
+  it("on mobile the sheet draws no media of its own — the card stays in view above it", () => {
+    setViewportWidth(375);
+    draw();
+    fireEvent.click(screen.getByText("open video ad comments"));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).queryByTestId("feed-video-card")).toBeNull();
+    expect(within(dialog).queryByRole("img")).toBeNull();
   });
 });
 
