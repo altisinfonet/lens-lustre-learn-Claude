@@ -42,12 +42,17 @@ beforeEach(() => {
 const file = new File([new Uint8Array(10)], "v.mp4", { type: "video/mp4" });
 
 describe("VideoPostComposer", () => {
-  it("a 9:16 video fills the 9:16 card edge to edge, no fill layer", async () => {
+  it("the preview fills the dialog's width (no empty strip beside it), 9:16 capped by the screen, blurred copy behind", async () => {
     render(<VideoPostComposer open onOpenChange={() => {}} initialFile={file} />);
     const frame = await screen.findByTestId("video-preview-frame");
     await waitFor(() => expect(screen.getByText(/0:30/)).toBeTruthy());
     expect(frame.getAttribute("data-frame-aspect")).toBe("0.563");
-    expect(frame.querySelectorAll("video").length).toBe(1);
+    expect(frame.style.width).toBe("100%");
+    expect(frame.style.maxHeight).toBe("62dvh");
+    expect(frame.className).not.toMatch(/max-w-|mx-auto/);
+    expect(frame.querySelectorAll("video").length).toBe(2); // the blurred copy + the video
+    const main = [...frame.querySelectorAll("video")].find((v) => !v.hasAttribute("aria-hidden"))!;
+    expect(main.className).toMatch(/object-contain/); // never cropped
   });
 
   it("a 16:9 video is fitted WHOLE into the same 9:16 card, with the blurred fill (never cropped)", async () => {

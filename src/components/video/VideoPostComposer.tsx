@@ -6,7 +6,9 @@
  *   2. the PREVIEW, in the 9:16 VIDEO card (src/lib/video/videoFrame.ts —
  *      Owner 2026-10-05: every video is shown 9:16; any other shape is fitted
  *      whole, never cropped, with a blurred copy of the video filling the
- *      rest, as Instagram does), so what they see is what the post will be;
+ *      rest, as Instagram does; 2026-10-12: the card fills the width, capped
+ *      by the screen height, exactly like the feed card), so what they see is
+ *      what the post will be;
  *   3. the limits, said before anything is encoded (3 min / 500 MB; the server
  *      re-checks and also counts 10 a day);
  *   3b. the COVER (Owner 2026-10-11): a frame picked with a slider, or an
@@ -25,7 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import OptimizedImage from "@/components/OptimizedImage";
 import CategoryChips, { canPublishCategories } from "@/components/post/CategoryChips";
 import { PostAudienceChooser, type Privacy } from "@/components/post/PostAudienceChooser";
-import { videoFrameAspect, videoNeedsFill } from "@/lib/video/videoFrame";
+import { videoFrameAspect } from "@/lib/video/videoFrame";
 import { readVideoFacts, videoLimitProblems, formatDuration, type VideoFacts } from "@/lib/video/limits";
 import { coverFromImage, coverFromVideoAt } from "@/lib/video/cover";
 import { createJob, runVideoJobs } from "@/lib/video/uploadJobs";
@@ -84,9 +86,7 @@ export default function VideoPostComposer({ open, onOpenChange, encode, initialF
 
   const facts = phase.kind === "ready" || phase.kind === "encoding" ? phase.facts : null;
   const problems = useMemo(() => (facts ? videoLimitProblems(facts, "post") : []), [facts]);
-  const aspect = facts ? facts.width / facts.height : null;
   const frame = videoFrameAspect();
-  const padded = videoNeedsFill(aspect);
   const canPost = phase.kind === "ready" && problems.length === 0 && canPublishCategories(categories) && !!user && !coverBusy;
   const coverAt = cover?.kind === "frame" ? cover.at : facts ? defaultCoverAt(facts.durationSeconds) : 0;
 
@@ -180,15 +180,15 @@ export default function VideoPostComposer({ open, onOpenChange, encode, initialF
 
         {url && (
           <div
-            className="relative mx-auto w-full max-w-[min(100%,calc(62dvh*9/16))] shrink-0 overflow-hidden rounded-lg bg-black"
-            style={{ aspectRatio: String(frame) }}
+            className="relative w-full shrink-0 overflow-hidden rounded-lg bg-black"
+            style={{ width: "100%", aspectRatio: String(frame), maxHeight: "62dvh" }}
             data-testid="video-preview-frame"
             data-frame-aspect={frame.toFixed(3)}
           >
-            {padded && (
-              <video src={url} muted playsInline aria-hidden="true" tabIndex={-1}
-                className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-xl" />
-            )}
+            {/* Same picture as the feed card (Owner 2026-10-12): the frame fills the
+                width; whatever the video does not cover shows its own blurred copy. */}
+            <video src={url} muted playsInline aria-hidden="true" tabIndex={-1}
+              className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-xl" />
             <video src={url} muted playsInline controls className="relative h-full w-full object-contain"
               aria-label={t("video.preview", "Preview of your video")} />
           </div>

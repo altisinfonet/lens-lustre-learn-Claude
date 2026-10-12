@@ -1,6 +1,8 @@
 /**
  * VID-1 part 2 · the feed video card, as the member meets it (R-105):
- *   • always a 9:16 card; a 9:16 video fills it, any other shape is fitted whole with a blurred fill;
+ *   • a 9:16 card filling the post's width (capped at 85 % of the screen height); the video is fitted
+ *     whole and anything it does not cover shows a blurred copy of its poster (Owner 2026-10-12);
+ *   • a control bar: play/pause, a seek bar that can be dragged, elapsed / total time, sound;
  *   • nothing is fetched for a card that is nowhere near the screen;
  *   • muted autoplay when in view, pause when out of view, pause when the tab hides, no autoplay offline / reduced motion;
  *   • one card plays at a time; a failed token shows a calm message, never a crash.
@@ -18,7 +20,7 @@ vi.mock("@/lib/offline/networkQuality", () => ({
   subscribeNetState: (f: () => void) => { listeners.add(f); return () => listeners.delete(f); },
 }));
 
-import FeedVideoCard from "../FeedVideoCard";
+import FeedVideoCard, { formatClock } from "../FeedVideoCard";
 import { resetPlayback } from "@/lib/video/playback";
 
 type IO = { cb: IntersectionObserverCallback; opts?: IntersectionObserverInit; el?: Element };
@@ -63,13 +65,18 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("the 9:16 card (R-105)", () => {
-  it("a 9:16 video fills the card: no blurred fill", async () => {
+  it("the card fills the post's width (no empty strip beside it), 9:16, capped by the screen height", async () => {
     render(<FeedVideoCard video={vid()} />);
     fire(nearObs(), 0.1); await flush();
     const card = screen.getByTestId("feed-video-card");
     expect(card.getAttribute("data-frame-aspect")).toBe("0.563");
-    expect(card.getAttribute("data-fill")).toBe("none");
-    expect(screen.queryByTestId("feed-video-fill")).toBeNull();
+    expect(card.style.width).toBe("100%");
+    expect(card.style.maxHeight).toMatch(/85dvh/);
+    expect(card.className).not.toMatch(/max-w-|mx-auto/); // the old narrow 9:16 strip
+    // When the cap makes the card wider than the video, the poster's blur fills the sides.
+    expect(card.getAttribute("data-fill")).toBe("blurred");
+    expect(screen.getByTestId("feed-video-fill")).toBeTruthy();
+    expect(card.querySelector("video")!.className).toContain("object-contain");
   });
   it("a 16:9 video is fitted whole (object-contain) over a blurred fill, in the same 9:16 card", async () => {
     render(<FeedVideoCard video={vid({ width: 1280, height: 720 })} />);
@@ -170,5 +177,54 @@ describe("autoplay rules", () => {
   it("a video with no audio has no sound button", () => {
     render(<FeedVideoCard video={{ ...vid(), hasAudio: false }} />);
     expect(screen.queryByRole("button", { name: /sound/ })).toBeNull();
+  });
+});
+
+describe("the control bar (Owner 2026-10-12: drag to move through the video)", () => {
+  it("shows a seek bar and the total length before anything plays", () => {
+    render(<FeedVideoCard video={{ ...vid(), durationS: 448 }} />);
+    const seek = screen.getByRole("slider", { name: "Seek" }) as HTMLInputElement;
+    expect(seek.max).toBe("448");
+    expect(screen.getByTestId("video-clock").textContent).toBe("0:00 / 7:28");
+  });
+
+  it("dragging the bar on a playing video moves it to that point", async () => {
+    render(<FeedVideoCard video={vid()} />);
+    fire(nearObs(), 0.1); fire(view(), 1); await flush();
+    const v = screen.getByTestId("feed-video-card").querySelector("video")!;
+    fireEvent.change(screen.getByRole("slider", { name: "Seek" }), { target: { value: "12.5" } });
+    expect(v.currentTime).toBe(12.5);
+    expect(screen.getByTestId("video-clock").textContent).toBe("0:12 / 0:20");
+  });
+
+  it("dragging before it has started starts it at that point", async () => {
+    render(<FeedVideoCard video={vid()} />);
+    fireEvent.change(screen.getByRole("slider", { name: "Seek" }), { target: { value: "8" } });
+    await flush();
+    expect(playSpy).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("feed-video-card").querySelector("video")!.currentTime).toBe(8);
+  });
+
+  it("a tap on the bar never toggles playback (only the picture does)", async () => {
+    render(<FeedVideoCard video={vid()} />);
+    fire(nearObs(), 0.1); fire(view(), 1); await flush();
+    pauseSpy.mockClear();
+    fireEvent.click(screen.getByTestId("video-controls"));
+    expect(pauseSpy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("feed-video-card").querySelector("video")!);
+    expect(pauseSpy).toHaveBeenCalled();
+  });
+
+  it("the bar's own play/pause button works", async () => {
+    render(<FeedVideoCard video={vid()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    await flush();
+    expect(playSpy).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+    expect(pauseSpy).toHaveBeenCalled();
+  });
+
+  it("formatClock", () => {
+    expect([formatClock(0), formatClock(7.9), formatClock(448), formatClock(3725), formatClock(NaN)]).toEqual(["0:00", "0:07", "7:28", "1:02:05", "0:00"]);
   });
 });
