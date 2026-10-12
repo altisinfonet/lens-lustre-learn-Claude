@@ -76,15 +76,22 @@ export default function AdminVideoFeature({ feature }: { feature: FeatureKey }) 
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [shown, setShown] = useState(MEMBERS_PAGE);
   const numbers = useNumbers(feature);
-  const firstLoad = useRef(true);
+  /** The server values the form was last set from (to reset it only when THEY change). */
+  const lastServer = useRef<{ mode: FeatureMode; note: string | null } | null>(null);
 
   const load = useCallback(async () => {
     const { data, error: e } = await rpc("feature_admin_state");
     if (e) { setLoadError(featureErrorMessage(e)); return; }
     setLoadError(null);
     const mine = parseFeatureState(data).find((c) => c.feature === feature) ?? null;
-    // The first load sets the draft together with the state (no moment where Save looks enabled).
-    if (mine && firstLoad.current) { firstLoad.current = false; setMode(mine.mode); setNote(mine.note ?? ""); }
+    // The form follows the SERVER only when the server's value changes (first load, after Save,
+    // another admin) — set here, in the same update as the state. A useEffect did this after the
+    // render, and on a slow machine ran AFTER the admin's first click and undid it.
+    if (mine && (!lastServer.current || lastServer.current.mode !== mine.mode || lastServer.current.note !== mine.note)) {
+      lastServer.current = { mode: mine.mode, note: mine.note };
+      setMode(mine.mode);
+      setNote(mine.note ?? "");
+    }
     setS(mine);
     if (!mine) return;
     const ids = new Set<string>();
@@ -95,8 +102,6 @@ export default function AdminVideoFeature({ feature }: { feature: FeatureKey }) 
   }, [feature]);
 
   useEffect(() => { void load(); }, [load]);
-  // The server's truth wins whenever it changes (after Save, or another admin).
-  useEffect(() => { if (s) { setMode(s.mode); setNote(s.note ?? ""); } }, [s?.mode, s?.note]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const memberIds = useMemo(() => new Set((s?.members ?? []).map((m) => m.user_id)), [s?.members]);
   const visibleMembers = useMemo(() => {
