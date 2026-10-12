@@ -32,7 +32,7 @@ A free Oracle Always Free VM (Ampere A1, 4 OCPU / 24 GB, Mumbai) converts a 1080
    - **`video_conversion = 'server'` for the lane — refused otherwise [R7]**;
    - **at most 2 open sources per member [R7]**;
    - the daily and in-progress caps, **counted over device videos AND sources together, each upload once [R5]**.
-2. **Member** sends `POST /api/video/source-url {source_id}`. Pages answers with ONE presigned PUT for `upload/source/<owner>/<source_id>/source`: content-length = declared bytes, content-type fixed to `application/octet-stream`, valid 1 h [R-Q4]. The upload shows progress and can be resumed by asking again.
+2. **Member** sends `POST /api/video/source-url {source_id}`. Pages answers with ONE presigned PUT for `upload/source/<source_id>/source` (the URL is minted only after the owner check): content-length = declared bytes, content-type fixed to `application/octet-stream`, valid 1 h [R-Q4]. The upload shows progress and can be resumed by asking again.
 3. **Member** sends `POST /api/video/source-complete {source_id}`. The Function `head`s the object (size == declared, ≤ 500 MB) and records its **ETag** [R6]. Then `rpc video_source_uploaded` sets the status to `queued`. The member may close the app.
 4. **VM worker** — a systemd service polling every 10 s, backing off when idle. It signs in as the dedicated converter user (§4, [R9]) and calls `POST /api/video/convert/claim`.
    - The Function verifies the JWT, then calls `rpc video_source_claim()`. The claim takes **the next source in round-robin order by owner, oldest first [R7]**, using FOR UPDATE SKIP LOCKED. It sets a fresh `claim_token`, a 30-min lease and attempts + 1 (at most 3).
@@ -75,7 +75,7 @@ A free Oracle Always Free VM (Ampere A1, 4 OCPU / 24 GB, Mumbai) converts a 1080
 10. **Failures:** `rpc video_source_fail(source_id, claim_token, code, detail)`. `code` is one of a fixed list (`internal`, `unsupported_format`, `no_video`, `too_long`, `too_big`, `damaged`, `source_missing`); the member reads **fixed text** for it, never the VM's words (`detail` goes to the audit trail only). `internal` is retried while attempts remain; the others are final. A failure reported after `complete` went through ends the job as `done`. **`video_source_cancel(source_id)`** lets the member stop a queued or converting job [R8].
 11. **Cleanup [R-Q4]:**
     - Pages deletes the source object with its R2 binding on success, final failure, cancel or account deletion. The VM gets no DELETE URL.
-    - Backstop: a free R2 lifecycle rule expires `upload/source/` and `upload/video/` after 2 days.
+    - Backstop: a free R2 lifecycle rule expires `upload/video/` after 2 days and `upload/source/` after **4 days** — longer than the 48 h queue wait + a requeue + a 6 h claim, so an original is never removed while its job can still run (review #417 finding 4).
     - The VM wipes its job directory after every job and never logs presigned URLs.
     - The media-authz Worker never serves `upload/` (already true; asserted in its test).
 
@@ -97,7 +97,7 @@ Independent review of #416 (CHANGES-REQUIRED, all fixed): every source counts fo
   - member: `video_source_begin`, `video_source_uploaded`, `video_source_cancel`;
   - converter: `video_source_claim`, `video_source_heartbeat`, `video_converter_begin_version`, `video_converter_version` (the claimed video's facts for upload-urls/complete — the may-act check), `video_source_fail`, `video_source_done`;
   - change: the converter branch of `video_mark_uploaded` (owner's switch, [R3]).
-- Account deletion: the existing account-deletion path removes `video_sources` rows (ON DELETE CASCADE from the owner); their objects go with the 2-day lifecycle rule and the housekeeping sweep [R8].
+- Account deletion: the existing account-deletion path removes `video_sources` rows (ON DELETE CASCADE from the owner); their objects go with the lifecycle rule (4 days for originals) and the housekeeping sweep [R8].
 - Housekeeping: its own cron job, every 5 min (`video_source_housekeeping`); the existing health check reads `video_converter_health()` as the service role:
   - expired leases go back to `queued` (attempts + 1), and become `failed` after 3;
   - `done`, `failed` and `cancelled` sources are purged after 2 days;
@@ -107,9 +107,16 @@ Independent review of #416 (CHANGES-REQUIRED, all fixed): every source counts fo
 - New:
   - `source-url`, `source-complete` (member; source-complete records the ETag);
   - `convert/claim` (converter; ETag-pinned GET, lifetime ≤ lease);
-  - `convert/heartbeat` (converter, also records the VM heartbeat).
+  - `convert/finish` (converter: done / fail with a code; deletes the original only after the database accepted the claim and ended the job).
+  - Heartbeat, begin_version: the VM calls the RPCs directly through PostgREST with its JWT (no Pages endpoint needed).
 - Changed: `upload-urls` and `complete` accept the converter path only through `video_converter_version(video_id, version_no, claim_token)`.
 - The attestation key stays in Pages, unchanged.
+
+## 5b · Notes from the independent review of #417 (APPROVE-WITH-NITS)
+- `convert/claim` reads the lane's configuration before taking a claim, and hands a claim back at once (`fail 'internal'`, requeued) if anything fails after it — a claim is never stranded for 30 minutes (finding 1, fixed).
+- The signed `If-Match` on the source GET is correct SigV4, but R2's enforcement on a presigned GET is not yet proven: a **staging smoke test** before go-live — GET with the header 200, without it 403, after an overwrite 412. The VM also compares the response's ETag with `job.source_etag` and stops at the declared byte count (finding 2).
+- A member's source PUT URL stays valid for its hour; overwriting after queueing only fails their own job; an orphan after cancel is removed by the 4-day rule (finding 3, accepted).
+- A source GET URL is not re-issued for a held claim: a VM that restarts mid-download fails the job as `internal` (one attempt) (finding 6, accepted).
 
 ## 6 · The VM [R1]
 - Ubuntu 24.04 aarch64, unattended security upgrades, **Ubuntu Pro (free for personal use) enabled**, so `universe` FFmpeg gets security patches. Without Pro, the fallback is a pinned static FFmpeg build with CVE tracking.
