@@ -42,11 +42,12 @@ BEGIN
   BEGIN PERFORM public.video_validate_version('ad', _sha, 86000000, 7200, true, '{"240p": 80000000, "audio": 5000000, "other": 1000000}'::jsonb);
   EXCEPTION WHEN OTHERS THEN hits := hits || E'\n  N4 a 2 h ad was refused: ' || SQLERRM; END;
   BEGIN PERFORM public.video_validate_version('post', _sha, 1000, 86401, false, '{"240p": 1000}'::jsonb); hits := hits || E'\n  N4 24 h + 1 s was accepted';
-  EXCEPTION WHEN OTHERS THEN NULL; END;
+  EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT LIKE 'VID-LIM-001%' THEN hits := hits || E'\n  N4 24 h + 1 s refused for the wrong reason: ' || SQLERRM; END IF; END;
   BEGIN PERFORM public.video_validate_version('post', _sha, 1000, 0, false, '{"240p": 1000}'::jsonb); hits := hits || E'\n  N4 0 s was accepted';
-  EXCEPTION WHEN OTHERS THEN NULL; END;
-  BEGIN PERFORM public.video_validate_version('post', _sha, 524288001, 3600, false, '{"240p": 524288001}'::jsonb); hits := hits || E'\n  N4 500 MB + 1 byte was accepted';
-  EXCEPTION WHEN OTHERS THEN NULL; END;
+  EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT LIKE 'VID-LIM-001%' THEN hits := hits || E'\n  N4 0 s refused for the wrong reason: ' || SQLERRM; END IF; END;
+  -- 86400 s keeps 524288001 bytes under the 240p bytes/s ceiling (6068 B/s), so only the 500 MB rule can refuse it.
+  BEGIN PERFORM public.video_validate_version('post', _sha, 524288001, 86400, false, '{"240p": 524288001}'::jsonb); hits := hits || E'\n  N4 500 MB + 1 byte was accepted';
+  EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT LIKE 'VID-LIM-002%' THEN hits := hits || E'\n  N4 500 MB + 1 refused for the wrong reason: ' || SQLERRM; END IF; END;
 
   IF hits <> '' THEN RAISE EXCEPTION 'PROBE FAIL VID-NOCAP:%', hits; END IF;
   RAISE NOTICE 'PROBE PASS VID-NOCAP: no time limit (24 h technical guard); 500 MB, 2 MB, bytes/s ceilings intact; internal only; 448 s post + 2 h ad pass';

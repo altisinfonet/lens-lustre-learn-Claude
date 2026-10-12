@@ -16,6 +16,11 @@
 -- Unchanged: 500 MB total (VID-LIM-002), the per-rendition bytes-per-second
 -- ceilings (VID-LIM-006 — maximums, so longer videos pass them more easily),
 -- poster + playlists <= 2 MB, 10 a day, every other check.
+-- In practice this RAISES the real per-post maximum: under the 180 s cap the
+-- ceilings allowed about 110 MB; now a post can use the full 500 MB.
+-- The bytes/s ceilings divide by the DECLARED length, so with no cap the
+-- upload checks (D2: complete/judge) must bound each segment by its own
+-- EXTINF and size before the client limit is lifted (review C1, #410).
 --
 -- ROLLBACK: supabase/rollback/20261012_0001_vid1_no_duration_cap_ROLLBACK.sql
 -- PROBE:    supabase/migrations/PROBE_vid1_no_duration_cap.sql

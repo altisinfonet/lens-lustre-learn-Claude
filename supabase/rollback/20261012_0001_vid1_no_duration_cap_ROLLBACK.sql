@@ -3,6 +3,11 @@
 -- check. Rows already longer than 300 s are left as they are: the check is
 -- re-added NOT VALID (it binds new rows; existing long videos stay readable).
 -- Revert the client's limits (shared/rules.ts VIDEO_LIMITS) first.
+-- ⚠ NOT VALID still binds every UPDATE: a version longer than 300 s that is
+-- still uploading or checking when this runs can no longer be updated by
+-- video_mark_uploaded (0007) or music_check_record (0006) — it stays stuck.
+-- Check first: SELECT video_id, version_no FROM video_versions WHERE
+-- declared_duration_s > 300 AND the video is not ready.
 BEGIN;
 
 DO $lane_assert$
