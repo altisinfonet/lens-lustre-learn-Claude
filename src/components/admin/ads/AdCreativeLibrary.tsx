@@ -28,6 +28,9 @@ import { adPath } from "@/lib/ads/adEngagement";
 import { publicUrl } from "@/lib/publicUrl";
 import { feedAdSlotLabel } from "@/lib/ads/feedAdPlacement";
 import type { AdZoneId } from "@/lib/ads/adZonesV2";
+import AdVideoButton from "@/components/admin/ads/AdVideoButton";
+import { fetchAdVideoMap } from "@/lib/video/postVideoRead";
+import { subscribeVideoJobs } from "@/lib/video/uploadJobs";
 
 interface Row {
   id: string;
@@ -60,6 +63,8 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null);
   const [tableMissing, setTableMissing] = useState(false);
+  /** VID-5 · each creative's video: "ready" (playing on the ad), "pending" (linked, not ready yet), or none. */
+  const [videoStates, setVideoStates] = useState<Map<string, "ready" | "pending">>(new Map());
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -77,8 +82,14 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
       return;
     }
     setTableMissing(false);
-    setRows((data as unknown as Row[]) || []);
+    const list = (data as unknown as Row[]) || [];
+    setRows(list);
+    const vids = await fetchAdVideoMap(list.map((r) => r.id));
+    setVideoStates(new Map([...vids].map(([id, v]) => [id, v === "hidden" ? "pending" : "ready"])));
   }, [zone]);
+
+  // VID-5: an ad video that finishes uploading shows as "Video live" without a reload.
+  useEffect(() => subscribeVideoJobs((e) => { if (e.type === "published" && e.job.purpose === "ad") void load(); }), [load]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -258,6 +269,10 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
+                {/* VID-5 · a video for this ad (only when Video ads is on for this admin). */}
+                {zone === "story-card" && (
+                  <AdVideoButton creativeId={r.id} videoState={videoStates.get(r.id) ?? null} onChanged={() => void load()} />
+                )}
                 <input
                   className={input}
                   style={bFont}

@@ -31,6 +31,7 @@ import {
 import { detectDevice, trackZoneEvent } from "@/lib/ads/adTrackV2";
 import { type AdCreative, fetchAdCreatives, pickCreativeForSlot } from "@/lib/ads/adCreatives";
 import AdEngagementBar from "@/components/ads/AdEngagementBar";
+import FeedVideoCard from "@/components/video/FeedVideoCard";
 
 /** Only the inline zones are valid here. */
 type InlineZone = Extract<AdZoneId, "sidebar" | "story-card" | "lightbox">;
@@ -477,8 +478,28 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
         </div>
       )}
 
+      {/* OWN — VIDEO creative (VID-5), in the feed's story card only (the sidebar
+          and lightbox frames have no fixed height for a video — review #412):
+          A tap on a video plays/pauses/seeks, so the ad's link cannot wrap it:
+          it moves to a call-to-action bar under the video, as on Instagram. */}
+      {c.mode === "own" && zone === "story-card" && chosen?.video && (
+        <>
+          <div className={mediaBox.className} style={mediaBox.style} data-testid="ad-video">
+            <FeedVideoCard video={chosen.video} fillParent />
+          </div>
+          {cr.click_url && (
+            <a href={cr.click_url} target="_blank" rel="noopener noreferrer" onClick={handleClick}
+              data-testid="ad-video-cta"
+              className="flex min-h-11 items-center justify-between gap-3 border-y border-border px-3 py-2 text-sm hover:bg-muted/40">
+              <span className="min-w-0 truncate text-foreground">{cr.creative_headline || cr.alt_text || cr.advertiser_name || "Sponsored"}</span>
+              <span className="shrink-0 font-semibold text-primary">{cr.creative_cta || "Learn more"} ›</span>
+            </a>
+          )}
+        </>
+      )}
+
       {/* OWN — image creative (library picture, or the zone's single image) */}
-      {c.mode === "own" && cr.image_source !== "code" && cr.image_url && (
+      {c.mode === "own" && !(zone === "story-card" && chosen?.video) && cr.image_source !== "code" && cr.image_url && (
         cr.click_url ? (
           <a href={cr.click_url} target="_blank" rel="noopener noreferrer" className="block relative" onClick={handleClick}>
             <div className={mediaBox.className} style={mediaBox.style}>

@@ -26,6 +26,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import type { AdZoneId } from "./adZonesV2";
+import { fetchAdVideoMap, type FeedVideo } from "@/lib/video/postVideoRead";
 
 export interface AdCreative {
   id: string;
@@ -47,6 +48,11 @@ export interface AdCreative {
   /** The advertiser's own logo. Empty falls back to a letter avatar, then to the site logo. */
   advertiser_logo_url: string;
   sort_order: number;
+  /**
+   * VID-5 · the creative's video, when an admin added one and it is READY.
+   * The picture stays: it is what shows when there is no playable video.
+   */
+  video: FeedVideo | null;
 }
 
 const CACHE_TTL_MS = 60_000;
@@ -82,14 +88,21 @@ export const fetchAdCreatives = async (zone: AdZoneId): Promise<AdCreative[]> =>
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true });
       if (error) throw error;
-      const rows = ((data as unknown as AdCreative[]) || [])
-        .filter((r) => typeof r?.image_url === "string" && r.image_url.trim().length > 0)
+      const base = ((data as unknown as AdCreative[]) || [])
+        .filter((r) => typeof r?.image_url === "string" && r.image_url.trim().length > 0);
+      // VID-5: which of these creatives have a playable video (one batched read).
+      const videos = await fetchAdVideoMap(base.map((r) => r.id));
+      const rows = base
         // NULL becomes "" here, once, so every caller can just test truthiness.
-        .map((r) => ({
-          ...r,
-          advertiser_name: (r.advertiser_name ?? "") as string,
-          advertiser_logo_url: (r.advertiser_logo_url ?? "") as string,
-        }));
+        .map((r) => {
+          const v = videos.get(r.id);
+          return {
+            ...r,
+            advertiser_name: (r.advertiser_name ?? "") as string,
+            advertiser_logo_url: (r.advertiser_logo_url ?? "") as string,
+            video: v && v !== "hidden" ? v : null,
+          };
+        });
       cache.set(zone, { at: Date.now(), rows });
       return rows;
     } catch {

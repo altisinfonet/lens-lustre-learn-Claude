@@ -11,6 +11,7 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/core/useAuth";
 import { toast } from "@/hooks/core/use-toast";
+import { invalidateAdCreatives } from "@/lib/ads/adCreatives";
 import { jobsFor, runVideoJobs, subscribeVideoJobs } from "@/lib/video/uploadJobs";
 import { realJobDeps } from "@/lib/video/jobDeps";
 import { useVisibilityInterval } from "@/lib/timers/visibilityInterval";
@@ -28,12 +29,18 @@ export default function VideoUploadBridge() {
     const kick = () => { void runVideoJobs(userId, realJobDeps); };
     const off = subscribeVideoJobs((e) => {
       if (e.job.userId !== userId) return;
+      const isAd = e.job.purpose === "ad"; // VID-5: an ad video goes on its ad, not into a post
       if (e.type === "published") {
-        void qc.invalidateQueries({ queryKey: ["feed"] });
-        void qc.invalidateQueries({ queryKey: ["user-wall-posts"] });
-        toast({ title: "Your video is posted" });
+        if (isAd) {
+          invalidateAdCreatives();
+          toast({ title: "Your ad video is live on the ad" });
+        } else {
+          void qc.invalidateQueries({ queryKey: ["feed"] });
+          void qc.invalidateQueries({ queryKey: ["user-wall-posts"] });
+          toast({ title: "Your video is posted" });
+        }
       } else if (e.type === "failed") {
-        toast({ title: "Your video couldn't be posted", description: e.job.lastError, variant: "destructive" });
+        toast({ title: isAd ? "Your ad video couldn't be added" : "Your video couldn't be posted", description: e.job.lastError, variant: "destructive" });
       }
     });
     window.addEventListener("online", kick);

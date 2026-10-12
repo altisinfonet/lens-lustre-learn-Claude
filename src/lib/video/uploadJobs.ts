@@ -57,6 +57,8 @@ export interface VideoJob {
   versionNo?: number;
   uploaded: string[];         // file names confirmed in R2
   post: { content: string; categories: string[]; privacy: string; idempotencyKey: string };
+  /** VID-5 · an AD video: the creative it is for. The ready step links it there instead of posting. */
+  ad?: { creativeId: string };
   postId?: string;
   /** /complete's progress for a long video (it finishes in rounds): files copied of total. */
   serverProgress?: { copied: number; total: number };
@@ -145,6 +147,8 @@ export interface JobDeps {
   rpc(fn: string, args: Record<string, unknown>): Promise<{ data: unknown; error: { message: string; code?: string } | null }>;
   /** select one video's state through RLS */
   videoState(videoId: string): Promise<string | null>;
+  /** VID-5 · put a ready ad video on its creative (ad_videos, admin + video_ads only — RLS + link guard). */
+  linkAdVideo(creativeId: string, videoId: string, categories: string[]): Promise<{ error: { message: string; code?: string } | null }>;
   /** POST to /api/video/* with the member's JWT */
   api(path: string, body: unknown): Promise<{ status: number; body: Record<string, unknown> }>;
   /** the PUT itself */
@@ -167,12 +171,14 @@ function newKey(): string {
 export async function createJob(input: {
   userId: string; purpose: VideoPurpose; manifest: VideoManifest; manifestSha256: string;
   files: Map<string, Uint8Array>; post: { content: string; categories: string[]; privacy: string };
+  ad?: { creativeId: string };
 }, now = Date.now()): Promise<VideoJob> {
   const s = getStore();
   const job: VideoJob = {
     id: newKey(), userId: input.userId, purpose: input.purpose, createdAt: now, step: "encoded",
     manifest: input.manifest, manifestSha256: input.manifestSha256, uploaded: [],
     post: { ...input.post, idempotencyKey: newKey() }, attempts: 0, nextAt: 0,
+    ...(input.ad ? { ad: input.ad } : {}),
   };
   for (const [name, bytes] of input.files) await s.putFile(job.id, name, new Blob([bytes]));
   await s.putJob(job);
@@ -285,6 +291,21 @@ export async function advanceJob(job: VideoJob, d: JobDeps): Promise<VideoJob> {
       else if (st === "music_blocked") { j = { ...j, step: "music_blocked" }; await save(j); return j; }
       else if (st === "failed" || st === "deleted" || st === "taken_down") throw new Refused(`the video is ${st}`, "VID-STATE");
       else { j = { ...j, nextAt: d.now() + 15_000 }; await save(j); return j; } // still checking: look again soon
+    }
+    if (j.step === "ready" && j.purpose === "ad") {
+      // VID-5: an ad video is not a post — it goes on its creative. Upsert by
+      // creative, so a retry (or a replacement video) is safe.
+      if (!j.ad?.creativeId) throw new Refused("this ad video has no ad to go on", "VID-AD-001");
+      const link = await d.linkAdVideo(j.ad.creativeId, j.videoId!, j.post.categories);
+      if (link.error) {
+        if (isNetworkError(link.error) || RETRYABLE_DB_CODES.has(link.error.code ?? "")) throw link.error;
+        throw new Refused(link.error.message, link.error.code ?? codeOf(link.error.message));
+      }
+      j = { ...j, step: "published" };
+      await s.deleteFiles(j.id);
+      await s.deleteJob(j.id);
+      emit({ type: "published", job: j });
+      return j;
     }
     if (j.step === "ready") {
       // The post AND its video link, one transaction; the same key returns the

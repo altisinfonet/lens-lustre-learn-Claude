@@ -55,6 +55,7 @@ function server(pkg: HlsPackage) {
     videos: new Map<string, { id: string; key: string; state: string; manifest_sha256: string }>(),
     posts: new Map<string, { id: string; key: string; categories: string[] }>(),
     postVideos: new Map<string, string>(),
+    adVideos: new Map<string, { video: string; categories: string[] }>(),
     beginCalls: 0, puts: [] as string[],
   };
   const bucket = new Bucket();
@@ -116,6 +117,13 @@ function server(pkg: HlsPackage) {
       return { data: { video_id: id, version_no: 1, replayed: false }, error: null };
     },
     videoState: async (id) => db.videos.get(id)?.state ?? null,
+    // ad_videos as the database has it: PK ad_creative_id (upsert), the video READY (link guard), 1–5 categories.
+    linkAdVideo: async (creativeId, videoId, categories) => {
+      if (db.videos.get(videoId)?.state !== "ready") return { error: { message: "VID-LINK-001: ad_videos needs a ready ad video", code: "23514" } };
+      if (categories.length < 1 || categories.length > 5) return { error: { message: "ad_videos_categories_1_5", code: "23514" } };
+      db.adVideos.set(creativeId, { video: videoId, categories });
+      return { error: null };
+    },
     api: async (path, body) => {
       const req = new Request(`https://app.test${path}`, { method: "POST", headers: { authorization: "Bearer jwt" }, body: JSON.stringify(body) });
       const res = path.endsWith("upload-urls") ? await handleUploadUrls(req, env, new Date(), fetchImpl) : await handleComplete(req, env, fetchImpl);
@@ -290,5 +298,30 @@ describe("VID-1 · a long video: complete answers in rounds", () => {
     expect(rounds).toBe(3);
     expect(j.step).toBe("checking");
     expect(j.serverProgress).toEqual({ copied: 30, total: 40 });
+  });
+});
+
+describe("VID-5 · an AD video goes on its creative, never into a post", () => {
+  it("the ready step links the video to the ad creative (no post is made) and the job is done", async () => {
+    const s = server(pkg);
+    const base = await newJob();
+    let j: VideoJob = { ...base, purpose: "ad", ad: { creativeId: "creative-1" } };
+    j = await advanceJob(j, s.deps);
+    s.musicCheckPasses();
+    j = await advanceJob(j, s.deps);
+    expect(j.step).toBe("published");
+    expect(s.db.posts.size).toBe(0);
+    expect(s.db.adVideos.get("creative-1")?.video).toBe(j.videoId);
+  });
+
+  it("an ad job without its creative is refused out loud, nothing linked", async () => {
+    const s = server(pkg);
+    let j: VideoJob = { ...(await newJob()), purpose: "ad" };
+    j = await advanceJob(j, s.deps);
+    s.musicCheckPasses();
+    j = await advanceJob(j, s.deps);
+    expect(j.step).toBe("failed");
+    expect(j.lastError).toMatch(/no ad to go on/);
+    expect(s.db.adVideos.size).toBe(0);
   });
 });
