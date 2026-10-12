@@ -1,10 +1,11 @@
 # OFF-5 · Offline and poor-network behaviour per screen, and the sync rules on reconnect
 
-**Unit:** OFF-5 (workstream OFF, MASTER R-90) · **Lane:** D2 + D1 (written by the D3 session; docs only) · **Date:** 2026-10-04 · **Status:** waiting for the Owner's signature · **Path:** `docs/evidence/d2/phase5/OFF-5/` (R-82 rule 2)
+**Unit:** OFF-5 (workstream OFF, MASTER R-90) · **Lane:** D2 + D1 (written by the D3 session; docs only) · **Date:** 2026-10-04 · **Status:** SIGNED by the Owner, 2026-10-12 · **Path:** `docs/evidence/d2/phase5/OFF-5/` (R-82 rule 2)
 
 **What MASTER R-90 asks for:** "OFF-5 (D2 + D1): sync rules when the app comes back. Server wins for counts; deletes are honoured; no ghost posts." The R-93 D3 row asks for "the OFF-5 offline UX decision (what each screen shows offline)". This file decides both. It is the specification that OFF-1, OFF-2, OFF-3, OFF-4, OFF-6, OFF-7 and OFF-8 build against.
 
-> **OWNER SIGN-OFF:** [ ] Approved as written · Name: ______________ · Date (UTC): ______________
+> **OWNER SIGN-OFF:** [x] Approved as written · Name: Neil Basu (Owner) · Date (UTC): 2026-10-12 (17:19Z)
+> Recorded by the Claude session at the Owner's instruction, in the Owner's words: "OFF-5 - mark i signed". The Owner also set the order: the remaining offline units (OFF-7, OFF-8 and a real-phone test) start only after the video work is fully done.
 
 To sign, tick the box or comment `OFF-5 approved` on the PR (merging also counts, R-88). Changes go on the same line, e.g. "approved, but voting may queue".
 
