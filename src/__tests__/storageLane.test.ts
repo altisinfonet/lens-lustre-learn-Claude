@@ -98,6 +98,21 @@ describe("assertStorageLane — each lane keeps its own objects", () => {
   it("an empty bucket name throws", () => {
     expect(() => assertStorageLane({ bucket_name: "" }, PROD_URL)).toThrow(/bucket_name is empty/);
   });
+
+  // The video lane has its own bucket and its own functions; these settings
+  // drive the PHOTO storage functions only. Refused on every project, in any
+  // case, so the photo functions can never be pointed at the video bucket.
+  it("a bucket named for video is refused on every lane", () => {
+    for (const bucket of ["50mm-staging-video", "50mm-video", "Video", "photos-VIDEO-archive"]) {
+      expect(() => assertStorageLane({ bucket_name: bucket }, STAGING_URL), bucket).toThrow(/names a video bucket/);
+      expect(() => assertStorageLane({ bucket_name: bucket }, PROD_URL), bucket).toThrow(/names a video bucket/);
+    }
+  });
+
+  it("the photo buckets themselves are unaffected by the video rule", () => {
+    expect(() => assertStorageLane({ bucket_name: PRODUCTION_BUCKET }, PROD_URL)).not.toThrow();
+    expect(() => assertStorageLane({ bucket_name: "50mm-staging" }, STAGING_URL)).not.toThrow();
+  });
 });
 
 /**
