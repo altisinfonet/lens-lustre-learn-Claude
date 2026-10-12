@@ -77,8 +77,9 @@ describe("fetchAdCreatives carries each creative's video", () => {
 
 describe("the ad slot (AdZone) and the ad page play it", () => {
   const zone = stripComments(readFileSync("src/components/ads/AdZone.tsx", "utf8"));
-  it("one media value for the slot — video only in the story card (review #412), never raw ad code", () => {
-    expect(zone).toMatch(/const media = adMedia\(\{\s*video: zone === "story-card" \? chosen\?\.video \?\? null : null,\s*image_url: cr\.image_source !== "code" \? cr\.image_url : null,\s*\}\);/);
+  it("one media value for the slot — own ads only, video only in the story card (review #412), never raw ad code", () => {
+    expect(zone).toMatch(/const own = c\.mode === "own";/);
+    expect(zone).toMatch(/const media = adMedia\(\{\s*video: own && zone === "story-card" \? chosen\?\.video \?\? null : null,\s*image_url: own && cr\.image_source !== "code" \? cr\.image_url : null,\s*\}\);/);
   });
   it("a video creative plays in the story card's own frame (fillParent), with the link as a TRACKED CTA bar under it", () => {
     expect(zone).toMatch(/c\.mode === "own" && media\.video &&/);

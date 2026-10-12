@@ -56,9 +56,14 @@ import { hasMedia, type SubjectMedia } from "@/lib/posts/subjectMedia";
 // fetched the first time a video subject's comments open, never before.
 const FeedVideoCard = lazy(() => import("@/components/video/FeedVideoCard"));
 
-/** Web only, beside the thread: the subject's video (playing, with its controls) or its photograph. */
+/**
+ * Web only, beside the thread: the subject's video (playing, with its controls)
+ * or its photograph. It comes AFTER the thread in the page order and is placed
+ * in the left column by `md:order-first`: the dialog focuses the first control
+ * it finds, which must be in the thread, not the video's Play button (review #415).
+ */
 const SubjectMediaPanel = ({ media }: { media: SubjectMedia }) => (
-  <div className="relative hidden min-h-0 bg-black md:block" data-testid="comments-subject-media">
+  <div className="relative hidden min-h-0 bg-black md:order-first md:block" data-testid="comments-subject-media">
     {media.video ? (
       <Suspense fallback={null}>
         <FeedVideoCard video={media.video} fillParent />
@@ -158,13 +163,6 @@ const CommentsOverlay = () => {
         className="max-w-3xl w-[calc(100vw-2rem)] h-[85vh] max-h-[720px] p-0 gap-0 overflow-hidden grid grid-cols-1 md:grid-cols-[1.1fr_1fr] motion-reduce:!animate-none motion-reduce:!duration-0"
         aria-describedby={undefined}
       >
-        {/* Subject context — the video or photograph the comments belong to,
-            so the panel never reads as a comment list floating with no idea
-            what it is attached to. Hidden below md: on a narrow viewport the
-            modal is comments-only, matching the sheet, and there isn't room
-            for both. */}
-        {hasMedia(media) && <SubjectMediaPanel media={media} />}
-
         <div className="flex flex-col min-h-0 h-full">
           {/* Same header as the sheet — one surface, two shapes, not two
               different-looking panels. Visible here too, so the modal's
@@ -174,6 +172,13 @@ const CommentsOverlay = () => {
           </DialogTitle>
           {thread}
         </div>
+
+        {/* Subject context — the video or photograph the comments belong to,
+            so the panel never reads as a comment list floating with no idea
+            what it is attached to. Hidden below md: on a narrow viewport the
+            modal is comments-only, matching the sheet, and there isn't room
+            for both. */}
+        {hasMedia(media) && <SubjectMediaPanel media={media} />}
       </DialogContent>
     </Dialog>
   );

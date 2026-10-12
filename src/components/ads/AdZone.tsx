@@ -353,11 +353,13 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
    * different things (Owner, staging 2026-10-12: "Video running but comment
    * box still image"). A video plays only in the story card — the sidebar and
    * lightbox frames have no fixed height for one (review #412) — elsewhere the
-   * creative's picture shows; raw ad code is not media.
+   * creative's picture shows; raw ad code is not media, and an AdSense slot
+   * shows none of the creative's media (review #415).
    */
+  const own = c.mode === "own";
   const media = adMedia({
-    video: zone === "story-card" ? chosen?.video ?? null : null,
-    image_url: cr.image_source !== "code" ? cr.image_url : null,
+    video: own && zone === "story-card" ? chosen?.video ?? null : null,
+    image_url: own && cr.image_source !== "code" ? cr.image_url : null,
   });
 
   /**

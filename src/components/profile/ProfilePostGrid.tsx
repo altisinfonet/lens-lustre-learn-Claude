@@ -58,6 +58,7 @@ import { Images, Heart, MessageCircle } from "lucide-react";
 import type { UnifiedPost } from "@/types/post";
 import { postMedia } from "@/lib/posts/subjectMedia";
 import VideoPoster from "@/components/video/VideoPoster";
+import { formatClock } from "@/components/video/FeedVideoCard";
 
 interface Props {
   posts: UnifiedPost[];
@@ -128,9 +129,16 @@ export function tileSrc(post: UnifiedPost): string | null {
   return post.image_urls?.[0] ?? null;
 }
 
-/** Caption or a plain fallback — a photograph's only text, so it is the label. */
+/**
+ * Caption or a plain fallback — a photograph's only text, so it is the label.
+ * A video post says so first, with its length: the label replaces the tile's
+ * contents for a screen reader, so the poster's own "Video, 0:20" is never read
+ * (review #415).
+ */
 function tileLabel(post: UnifiedPost): string {
   const c = post.content?.trim();
+  const { video } = postMedia(post);
+  if (video) return c ? `Video, ${formatClock(video.durationS)}: ${c.slice(0, 120)}` : `Open video, ${formatClock(video.durationS)}`;
   return c ? c.slice(0, 120) : "Open photograph";
 }
 

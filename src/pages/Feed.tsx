@@ -25,7 +25,7 @@ import { useActivityLog } from "@/hooks/core/useActivityLog";
 import { useFeedQuery, flattenFeedPages, getNetworkIds, type FeedPost } from "@/hooks/feed/useFeedQuery";
 import { useFeedCacheUpdaters } from "@/hooks/feed/useFeedCacheUpdaters";
 import PostCard from "@/components/post/PostCard";
-import { fetchPostAttachments, attachmentsFor, type AttachedMedia } from "@/lib/posts/postAttachments";
+import { fetchPostAttachments, attachmentsFor } from "@/lib/posts/postAttachments";
 import PostCardSkeleton from "@/components/post/PostCardSkeleton";
 import WallPosts from "@/components/WallPosts";
 import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
@@ -99,27 +99,36 @@ const Feed = () => {
   }, [user, authLoading, navigate]);
 
   // ── Realtime handlers ──
+
+  /**
+   * Posts that arrived by realtime, with their photographs and video read
+   * through postAttachments in ONE batched call. A post whose video this viewer
+   * may not play is dropped (attached === null), never shown empty. If the
+   * read fails, the posts keep what their rows carry.
+   */
+  const attachLive = useCallback(async (live: FeedPost[]): Promise<FeedPost[]> => {
+    if (live.length === 0) return [];
+    try {
+      const a = await fetchPostAttachments(live.map((p) => p.id));
+      return live.flatMap((p) => {
+        const attached = attachmentsFor(a, p.id, p.image_urls);
+        if (attached === null) return [];
+        return [{ ...p, image_urls: attached.image_urls, video: attached.video }];
+      });
+    } catch {
+      return live;
+    }
+  }, []);
+
   const handleNewPost = useCallback(async (rawPost: any) => {
     const legacyImageUrls: string[] = rawPost.image_urls?.length > 0 ? rawPost.image_urls : rawPost.image_url ? [rawPost.image_url] : [];
-    // VID-1 · photographs AND video through the one reader every surface uses
-    // (src/lib/posts/postAttachments.ts). A video post arriving live used to
-    // show as an empty text post until the next refresh: this handler built
-    // the post from the bare row, which carries no video.
-    let attached: AttachedMedia | null;
-    try {
-      attached = attachmentsFor(await fetchPostAttachments([rawPost.id]), rawPost.id, legacyImageUrls);
-    } catch {
-      attached = { image_urls: legacyImageUrls, video: null };
-    }
-    // A video this viewer may not play (not ready / not visible): no empty post.
-    if (attached === null) return;
     const fp: FeedPost = {
       id: rawPost.id,
       user_id: rawPost.user_id,
       content: rawPost.content || "",
       image_url: rawPost.image_url || null,
-      image_urls: attached.image_urls,
-      video: attached.video,
+      image_urls: legacyImageUrls,
+      video: null,
       privacy: rawPost.privacy || "public",
       created_at: rawPost.created_at,
       author_name: null,
@@ -136,13 +145,20 @@ const Feed = () => {
     };
     // Own post -> show at top instantly; others -> keep behind the banner.
     if (user?.id && rawPost.user_id === user.id) {
-      insertPost(fp);
+      // VID-1 · photographs AND video through the one reader every surface
+      // uses. A video post arriving live used to show as an empty text post
+      // until a refresh: the bare row carries no video. Other people's posts
+      // are read in ONE batch when the banner is tapped (handleShowNewPosts) —
+      // not two reads per post on every open feed (review #415).
+      const [withMedia] = await attachLive([fp]);
+      if (!withMedia) return; // a video this viewer may not play: no empty post
+      insertPost(withMedia);
       window.scrollTo({ top: 0, behavior: "smooth" });
       window.setTimeout(() => { void refetch(); }, 5000);
     } else {
       bufferPost(fp);
     }
-  }, [relevantUserIds, bufferPost, insertPost, refetch, user?.id]);
+  }, [relevantUserIds, bufferPost, insertPost, refetch, user?.id, attachLive]);
 
   /**
    * A realtime `posts` UPDATE is now the ONLY writer of the three counters.
@@ -197,10 +213,10 @@ const Feed = () => {
     onReactionChange: handleReactionChange,
   });
 
-  const handleShowNewPosts = useCallback(() => {
+  const handleShowNewPosts = useCallback(async () => {
     const posts = flushBuffer();
-    posts.forEach((p) => insertPost(p));
     window.scrollTo({ top: 0, behavior: "smooth" });
+    (await attachLive(posts)).forEach((p) => insertPost(p));
   }, [flushBuffer, insertPost]);
 
   const handleReact = useCallback((postId: string, reactionType: ReactionType) => {

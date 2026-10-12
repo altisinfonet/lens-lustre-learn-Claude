@@ -45,6 +45,6 @@ export function adMedia(creative: { video?: FeedVideo | null; image_url?: string
 }
 
 /** A subject with nothing to show (a text post; an ad bar given no media). */
-export const NO_MEDIA: SubjectMedia = Object.freeze({ video: null, imageUrls: [] as string[] }) as SubjectMedia;
+export const NO_MEDIA: SubjectMedia = Object.freeze({ video: null, imageUrls: Object.freeze([]) as unknown as string[] }) as SubjectMedia;
 
 export const hasMedia = (m: SubjectMedia): boolean => m.video !== null || m.imageUrls.length > 0;
