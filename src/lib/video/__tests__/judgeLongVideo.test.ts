@@ -164,4 +164,9 @@ describe("review #411: the playlist grammar — what the player reads is what wa
     });
     expect(p.join("\n")).toMatch(/240p_0\.m4s: .* above twice the 240p ceiling/);
   });
+  it("re-review: an init with no playlist of its own (a spare 720p.mp4) is refused", async () => {
+    const p = await judgeWith((_files, m) => { m.files.push({ name: "720p.mp4", bytes: 1000, sha256: "a".repeat(64) }); });
+    expect(p.join("
+")).toMatch(/720p.mp4 is uploaded but there is no 720p.m3u8/);
+  });
 });

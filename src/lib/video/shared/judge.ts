@@ -56,6 +56,9 @@ export function judgeUploadContent(manifest: VideoManifest, small: ReadonlyMap<s
   }
   for (const n of names) {
     if (n.endsWith(".m4s") && !listedIn.has(n)) problems.push(`${n} is uploaded but no playlist lists it`);
+    // Re-review #411: an init with no playlist of its own is a blob the judge never reads.
+    const init = /^(240p|480p|720p|audio)\.mp4$/.exec(n);
+    if (init && !names.has(`${init[1]}.m3u8`)) problems.push(`${n} is uploaded but there is no ${init[1]}.m3u8`);
   }
 
   const variants = [...names].filter((n) => /^(240|480|720)p\.m3u8$/.test(n));
