@@ -61,6 +61,7 @@ function ffprobe(dir) {
   catch { return { available: true, streams: [], stderr: (r.stderr || r.stdout).slice(0, 400) }; }
 }
 
+const CASES = [["landscape", false], ["portrait", true], ["held", false]];
 const result = { at: new Date().toISOString(), cases: [], verdict: "FAIL" };
 let code = 1;
 try {
@@ -71,7 +72,7 @@ try {
   page.on("pageerror", (e) => console.error("pageerror:", e.message));
   await page.goto(`${BASE}/videoharness.html`, { waitUntil: "load" });
   await page.waitForFunction(() => typeof window.__vidEncode === "function", null, { timeout: 60_000 });
-  for (const [which, mute] of [["landscape", false], ["portrait", true], ["held", false]]) {
+  for (const [which, mute] of CASES) {
     const r = await page.evaluate(([w, m]) => window.__vidEncode(w, m), [which, mute]);
     const dir = mkdtempSync(join(tmpdir(), `vid-${which}-`));
     for (const [name, b64] of Object.entries(r.files)) writeFileSync(join(dir, name), Buffer.from(b64, "base64"));
@@ -94,7 +95,7 @@ try {
     result.cases.push(c);
   }
   await browser.close();
-  const ok = result.cases.length === 2 && result.cases.every((c) => c.pass);
+  const ok = result.cases.length === CASES.length && result.cases.every((c) => c.pass);
   result.verdict = ok ? "PASS" : "FAIL";
   code = ok ? 0 : 1;
 } catch (e) {
