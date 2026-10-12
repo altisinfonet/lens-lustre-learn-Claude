@@ -254,29 +254,48 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
     const posterAt = Math.min(1, duration / 2);
 
     await new Promise<void>((resolve, reject) => {
-      let lastFrameAt = performance.now();
+      // Is playback MOVING? That — not "a new picture arrived" — is what tells
+      // a video the browser cannot decode (it never starts) from one that holds
+      // a still picture for many seconds (a slideshow, a title card: no new
+      // frame while it plays). Owner, staging 2026-10-12: a 1:00 promo with an
+      // address card, playing fine in the preview, was refused as "can't play
+      // this format" because no new frame came for 10 s.
+      let lastPlayhead = -1;
+      let lastMoveAt = performance.now();
+      // The last timestamp handed to the encoders: frames go in strictly in
+      // order (a held picture is re-sent, never an earlier one).
+      let lastTs = -1;
       // Exactly one frame callback outstanding at a time (a second one would
       // encode the same frame twice).
       let waiting = false;
       const ask = () => { if (!waiting) { waiting = true; video.requestVideoFrameCallback(onFrame); } };
+      /**
+       * The picture on screen now, into every rendition, at `ts` µs. A re-sent
+       * HELD picture is always a keyframe (`held`): a keyframe of a still picture
+       * costs little, and it keeps every segment within the judge's 6 s when the
+       * re-sends are ~1 s apart (a keyframe only every 2 s could then land 3 s apart).
+       */
+      const encodeAt = (ts: number, held = false) => {
+        if (ts <= lastTs) return;
+        lastTs = ts;
+        for (const r of renditions) {
+          if (r.state.failure) throw r.state.failure;
+          if (!r.encoder || r.encoder.state === "closed") open(r);
+          const enc = r.encoder!;
+          if (enc.encodeQueueSize > 8) continue; // the encoder is behind: drop this frame for this rendition
+          r.ctx2d.drawImage(video, 0, 0, r.t.width, r.t.height);
+          const f = new VideoFrame(r.canvas, { timestamp: ts });
+          const key = held || ts - r.state.lastKey >= KEYFRAME_SECONDS * 1e6;
+          if (key) r.state.lastKey = ts;
+          enc.encode(f, { keyFrame: key });
+          f.close();
+        }
+      };
       const onFrame = async (_now: number, meta: VideoFrameCallbackMetadata) => {
         waiting = false;
-        lastFrameAt = performance.now();
         try {
           if (opts.signal?.aborted) throw new DOMException("aborted", "AbortError");
-          const ts = Math.round(meta.mediaTime * 1e6);
-          for (const r of renditions) {
-            if (r.state.failure) throw r.state.failure;
-            if (!r.encoder || r.encoder.state === "closed") open(r);
-            const enc = r.encoder!;
-            if (enc.encodeQueueSize > 8) continue; // the encoder is behind: drop this frame for this rendition
-            r.ctx2d.drawImage(video, 0, 0, r.t.width, r.t.height);
-            const f = new VideoFrame(r.canvas, { timestamp: ts });
-            const key = ts - r.state.lastKey >= KEYFRAME_SECONDS * 1e6;
-            if (key) r.state.lastKey = ts;
-            enc.encode(f, { keyFrame: key });
-            f.close();
-          }
+          encodeAt(Math.round(meta.mediaTime * 1e6));
           if (!poster && meta.mediaTime >= posterAt) {
             posterCanvas.getContext("2d")!.drawImage(video, 0, 0, posterCanvas.width, posterCanvas.height);
             poster = await posterCanvas.convertToBlob({ type: "image/jpeg", quality: 0.85 });
@@ -292,12 +311,28 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
           reject(e);
         }
       };
-      // Stall guard: a video the browser cannot decode never fires another frame
-      // and never ends (Firefox + HEVC / 10-bit). Fail clearly after 10 s without
-      // a frame instead of waiting forever. P10: the client's one repeating timer
-      // (stops while the tab is hidden — encoding is paused then anyway).
+      // Once a second (P10: the client's one repeating timer; it stops while the
+      // tab is hidden — encoding is paused then anyway):
+      //   • a HELD picture (playback moves, no new frame for ~1 s) is sent again
+      //     at the playhead, so the encoded video keeps a frame at least every
+      //     second and a keyframe every 2 s — segments stay within the judge's
+      //     6 s, whatever the source does;
+      //   • stall guard: a video the browser cannot decode never moves
+      //     (Firefox + HEVC / 10-bit). Fail clearly after 10 s of NO PLAYBACK
+      //     instead of waiting forever.
       const stopWatchdog = startVisibilityInterval(() => {
-        if (!video.ended && !document.hidden && performance.now() - lastFrameAt > 10_000) {
+        if (video.ended || document.hidden) return;
+        const now = performance.now();
+        const at = video.currentTime;
+        if (at > lastPlayhead + 0.001) {
+          lastPlayhead = at;
+          lastMoveAt = now;
+          if (at * 1e6 - lastTs >= 900_000) {
+            try { encodeAt(Math.round(at * 1e6), true); } catch (e) { stop(); reject(e); }
+          }
+          return;
+        }
+        if (now - lastMoveAt > 10_000) {
           stop();
           reject(new Error(`VID-ENC-004: ${UNDECODABLE_MESSAGE}`));
         }
@@ -307,19 +342,35 @@ export async function encodeVideoToHls(file: File, opts: EncodeOptions = {}): Pr
       // while hidden; resume (and restart the watchdog clock) when visible.
       const onVisibility = () => {
         if (document.hidden) { video.pause(); return; }
-        lastFrameAt = performance.now();
+        lastMoveAt = performance.now();
         if (!video.ended) {
+          try { takeOpening(); } catch (e) { stop(); reject(e); return; }
           ask();
           video.play().catch((e) => { stop(); reject(e); });
         }
       };
       document.addEventListener("visibilitychange", onVisibility);
       const stop = () => { stopWatchdog(); document.removeEventListener("visibilitychange", onVisibility); };
-      video.onended = () => { stop(); resolve(); };
+      video.onended = () => {
+        stop();
+        // A picture held to the very end: close it at the real end, so the
+        // segments add up to the declared length.
+        try { if (lastTs >= 0 && duration * 1e6 - lastTs > 500_000) encodeAt(Math.round((duration - 0.04) * 1e6), true); }
+        catch (e) { reject(e); return; }
+        resolve();
+      };
       video.onerror = () => { stop(); reject(new Error("VID-ENC-002: playback failed while encoding")); };
+      // The opening picture is on screen before playback starts, and a frame
+      // callback only fires for the NEXT one — which, for a held title card,
+      // may come many seconds later (the first 12 s of a slideshow were lost).
+      // So the picture at 0:00 is taken now.
+      const takeOpening = () => {
+        if (lastTs < 0 && video.readyState >= 2 && video.currentTime === 0) encodeAt(0);
+      };
       // Started while the tab is hidden (e.g. switched away during the audio
       // step): wait — onVisibility starts playback when the member comes back.
       if (!document.hidden) {
+        try { takeOpening(); } catch (e) { stop(); reject(e); return; }
         ask();
         video.play().catch((e) => { stop(); reject(e); });
       }
