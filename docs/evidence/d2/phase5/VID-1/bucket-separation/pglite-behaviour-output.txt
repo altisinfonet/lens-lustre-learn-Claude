@@ -1,0 +1,30 @@
+# run 2026-10-12T17:17:02Z · node v24.20.0 · @electric-sql/pglite 0.2.17
+# PGlite, PostgreSQL 16.4
+# probe: supabase/migrations/PROBE_vid1_bucket_separation.sql, LF-normalised sha256 67e8a86441ce28a6b9e4fa3a5418fd71b0aa5df387b58330bafd0744504fc49b
+ok   1 no row: PASS — PROBE PASS VID-1-R4: lane staging; no s3_storage_settings row — the photo functions sign nothing
+ok   2 staging, good row: PASS — PROBE PASS VID-1-R4: lane staging; enabled; photo bucket_name 50mm-staging (not a video bucket); endpoint = bare R2 account endpoint (value withheld); public_url host cdn-staging.50mmretina.com; B4 run: staging pinned to 50mm-staging
+ok   3 staging, endpoint with trailing slash, no public_url: PASS — PROBE PASS VID-1-R4: lane staging; enabled; photo bucket_name 50mm-staging (not a video bucket); endpoint = bare R2 account endpoint (value withheld); public_url host (none); B4 run: staging pinned to 50mm-staging
+ok   4 production, good row: PASS — PROBE PASS VID-1-R4: lane production; enabled; photo bucket_name 50mm (not a video bucket); endpoint = bare R2 account endpoint (value withheld); public_url host cdn.50mmretina.com; B4 run: production pinned to 50mm
+ok   5 lane unset, good row: PASS — PROBE PASS VID-1-R4: lane unset; enabled; photo bucket_name 50mm-staging (not a video bucket); endpoint = bare R2 account endpoint (value withheld); public_url host (none); B4 not run (p32.lane unset)
+ok   6 disabled row, good config: PASS — PROBE PASS VID-1-R4: lane staging; DISABLED (checked anyway); photo bucket_name 50mm-staging (not a video bucket); endpoint = bare R2 account endpoint (value withheld); public_url host (none); B4 run: staging pinned to 50mm-staging
+ok   7 disabled row naming the video bucket (still checked): FAIL — PROBE FAIL VID-1-R4: / B1 bucket_name IS the staging video bucket 50mm-staging-video / B4 lane staging but bucket_name is 50mm-staging-video, not 50mm-staging
+ok   8 the video bucket: FAIL — PROBE FAIL VID-1-R4: / B1 bucket_name IS the staging video bucket 50mm-staging-video / B4 lane staging but bucket_name is 50mm-staging-video, not 50mm-staging
+ok   9 another video bucket, lane unset: FAIL — PROBE FAIL VID-1-R4: / B1 bucket_name 50mm-video names a video bucket
+ok  10 endpoint with a path: FAIL — PROBE FAIL VID-1-R4: / B2 endpoint is not a bare R2 account endpoint (value withheld: it carries the account id)
+ok  11 endpoint with a bucket sub-domain: FAIL — PROBE FAIL VID-1-R4: / B2 endpoint is not a bare R2 account endpoint (value withheld: it carries the account id)
+ok  12 no endpoint: FAIL — PROBE FAIL VID-1-R4: / B2 endpoint is not a bare R2 account endpoint (value withheld: it carries the account id)
+ok  13 path_prefix with ../: FAIL — PROBE FAIL VID-1-R4: / B3 path_prefix holds a character outside [A-Za-z0-9_/-] (value withheld)
+ok  14 staging row naming 50mm: FAIL — PROBE FAIL VID-1-R4: / B4 lane staging but bucket_name is 50mm, not 50mm-staging
+ok  15 invalid bucket name: FAIL — PROBE FAIL VID-1-R4: / B1 bucket_name is not a valid R2 bucket name (value withheld)
+ok  16 L2 · access key id pasted into Bucket Name: FAIL — PROBE FAIL VID-1-R4: / B4 lane staging but bucket_name is <hex withheld>, not 50mm-staging
+ok  17 L2 · secret pasted into Bucket Name: FAIL — PROBE FAIL VID-1-R4: / B1 bucket_name is not a valid R2 bucket name (value withheld) / B4 lane staging but bucket_name is (withheld: not a valid bucket name), not 50mm-staging
+ok  18 L2 · JWT pasted into Bucket Name: FAIL — PROBE FAIL VID-1-R4: / B1 bucket_name is not a valid R2 bucket name (value withheld) / B4 lane staging but bucket_name is (withheld: not a valid bucket name), not 50mm-staging
+ok  19 L2 · uuid pasted into Bucket Name: FAIL — PROBE FAIL VID-1-R4: / B4 lane staging but bucket_name is <uuid withheld>, not 50mm-staging
+ok  20 L2 · long token in Bucket Name, lane unset (masked in the PASS line): PASS — PROBE PASS VID-1-R4: lane unset; enabled; photo bucket_name <withheld> (not a video bucket); endpoint = bare R2 account endpoint (value withheld); public_url host (none); B4 not run (p32.lane unset)
+ok  21 L2 · S3 endpoint pasted into Public URL: FAIL — PROBE FAIL VID-1-R4: / B5 public_url holds 32 hex characters or names r2.cloudflarestorage.com (value withheld)
+ok  22 L2 · 64 hex in Public URL: FAIL — PROBE FAIL VID-1-R4: / B5 public_url holds 32 hex characters or names r2.cloudflarestorage.com (value withheld)
+ok  23 L2 · JWT in Public URL (withheld, not a 50mmretina.com host): PASS — PROBE PASS VID-1-R4: lane staging; enabled; photo bucket_name 50mm-staging (not a video bucket); endpoint = bare R2 account endpoint (value withheld); public_url host (withheld: not a 50mmretina.com host); B4 run: staging pinned to 50mm-staging
+ok  24 another public host (withheld): PASS — PROBE PASS VID-1-R4: lane staging; enabled; photo bucket_name 50mm-staging (not a video bucket); endpoint = bare R2 account endpoint (value withheld); public_url host (withheld: not a 50mmretina.com host); B4 run: staging pinned to 50mm-staging
+ok  25 upper-case public_url (printed lower-case): PASS — PROBE PASS VID-1-R4: lane staging; enabled; photo bucket_name 50mm-staging (not a video bucket); endpoint = bare R2 account endpoint (value withheld); public_url host cdn-staging.50mmretina.com; B4 run: staging pinned to 50mm-staging
+25 ok, 0 bad (25 cases)
+# exit 0
