@@ -1,0 +1,184 @@
+// @vitest-environment node
+/**
+ * REAL FFmpeg, end to end-ish: a generated test video (lavfi testsrc2 + sine)
+ * converted with the worker's own command lines, packaged by
+ * packageFromFragmented, judged by the server's own judge — zero problems,
+ * segments ≤ 6 s, every byte ceiling respected.
+ *
+ * Runs when an ffmpeg binary is available (FFMPEG_PATH, or `ffmpeg` on PATH —
+ * the GitHub ubuntu runner has one); skipped cleanly otherwise. ffprobe
+ * (FFPROBE_PATH or PATH) is optional: without it the facts are given, and the
+ * tests that need the probe are skipped.
+ */
+import { describe, it, expect, afterEach } from "vitest";
+import { spawnSync } from "node:child_process";
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import { judgeUploadContent, smallFiles } from "../../src/lib/video/shared/judge";
+import { findAll } from "../../src/lib/video/shared/mp4";
+import { INIT_MAX_BYTES, manifestProblems, RENDITION_CEILING_BPS, SEGMENT_MAX_BYTES, totalBytes } from "../../src/lib/video/shared/rules";
+import { convertSource } from "../src/convert";
+import { runJob } from "../src/job";
+import { DirectLauncher } from "../src/launcher";
+import { mediaPlaylistSegments, targetDuration } from "../src/playlistFacts";
+import { judgeProbe } from "../src/probe";
+import { selfTest } from "../src/selftest";
+import { apiFor, fakeServer, noSleep, probeJson, send, sha256, SRC, tempDir, TOKEN, VIDEO, withAuth, OWNER, type FakeServer } from "./helpers";
+
+function findBinary(envName: string, name: string): string | null {
+  const fromEnv = process.env[envName];
+  if (fromEnv) return fromEnv;
+  const r = spawnSync(name, ["-hide_banner", "-version"], { encoding: "utf8" });
+  return r.status === 0 ? name : null;
+}
+const FFMPEG = findBinary("FFMPEG_PATH", "ffmpeg");
+const FFPROBE = findBinary("FFPROBE_PATH", "ffprobe");
+/** The converter workflow (d2-converter.yml) installs both and sets this: there, a skip would be a silent pass. */
+const REQUIRED = process.env.CONVERTER_REQUIRE_FFMPEG === "1";
+
+describe.runIf(REQUIRED)("converter · real FFmpeg is required here", () => {
+  it("ffmpeg and ffprobe are both present", () => {
+    expect(FFMPEG, "ffmpeg").toBeTruthy();
+    expect(FFPROBE, "ffprobe").toBeTruthy();
+  });
+});
+const dec = new TextDecoder();
+const dirs: string[] = [];
+let server: FakeServer | null = null;
+afterEach(async () => {
+  await server?.close(); server = null;
+  for (const d of dirs.splice(0)) await fs.rm(d, { recursive: true, force: true });
+});
+
+const launcher = () => new DirectLauncher({ ffmpeg: FFMPEG!, ffprobe: FFPROBE ?? "ffprobe" });
+
+async function makeSource(o: { width: number; height: number; fps: number; seconds: number; audio: boolean }): Promise<{ root: string; dir: string }> {
+  const root = await tempDir("conv-e2e-");
+  dirs.push(root);
+  const dir = path.join(root, SRC);
+  await fs.mkdir(dir);
+  const args = ["-hide_banner", "-nostdin", "-loglevel", "error", "-y", "-f", "lavfi", "-i", `testsrc2=size=${o.width}x${o.height}:rate=${o.fps}:duration=${o.seconds}`];
+  if (o.audio) args.push("-f", "lavfi", "-i", `sine=frequency=440:sample_rate=44100:duration=${o.seconds}`);
+  args.push("-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", ...(o.audio ? ["-c:a", "aac", "-shortest"] : []), "-f", "mp4", "source");
+  const r = await launcher().run({ tool: "ffmpeg", args, jobDir: dir, timeoutS: 120 });
+  expect(r.exitCode, r.stderr).toBe(0);
+  return { root, dir };
+}
+
+/** avcC: profile_idc and level_idc of a video init segment. */
+function avc(init: Uint8Array): { profile: number; level: number } {
+  const avcC = findAll(init, ["moov", "trak", "mdia", "minf", "stbl", "stsd"])[0];
+  for (let i = avcC.body; i < avcC.end - 8; i++) {
+    if (init[i] === 0x61 && init[i + 1] === 0x76 && init[i + 2] === 0x63 && init[i + 3] === 0x43) return { profile: init[i + 5], level: init[i + 7] };
+  }
+  throw new Error("no avcC");
+}
+
+function expectServerAccepts(pkg: Awaited<ReturnType<typeof convertSource>>["pkg"], seconds: number) {
+  expect(manifestProblems(pkg.manifest, "post")).toEqual([]);
+  expect(judgeUploadContent(pkg.manifest, smallFiles(pkg.files))).toEqual([]);
+  for (const [name, bytes] of pkg.files) {
+    if (name.endsWith(".m3u8") && name !== "master.m3u8") expect(targetDuration(dec.decode(bytes)), name).toBeLessThanOrEqual(6);
+    if (name.endsWith(".m4s")) expect(bytes.length, name).toBeLessThanOrEqual(SEGMENT_MAX_BYTES);
+    if (name.endsWith(".mp4")) expect(bytes.length, name).toBeLessThanOrEqual(INIT_MAX_BYTES);
+  }
+  const segs = mediaPlaylistSegments(pkg.files);
+  for (const s of segs) {
+    expect(s.seconds, s.uri).toBeLessThanOrEqual(6);
+    if (!s.last) expect(s.seconds, s.uri).toBeGreaterThanOrEqual(3.9);
+    const rendition = s.playlist.replace(".m3u8", "") as keyof typeof RENDITION_CEILING_BPS;
+    expect(s.bytes, s.uri).toBeLessThanOrEqual(RENDITION_CEILING_BPS[rendition] * s.seconds * 2 + (s.last ? 262_144 : 0));
+  }
+  for (const pl of new Set(segs.map((s) => s.playlist))) {
+    const sum = segs.filter((s) => s.playlist === pl).reduce((a, s) => a + s.seconds, 0);
+    expect(Math.abs(sum - seconds), pl).toBeLessThan(0.15);
+  }
+  expect(totalBytes(pkg.manifest)).toBe([...pkg.files.values()].reduce((a, b) => a + b.length, 0));
+  const poster = pkg.files.get("poster.jpg")!;
+  expect([poster[0], poster[1], poster[2]]).toEqual([0xff, 0xd8, 0xff]);
+}
+
+describe.skipIf(!FFMPEG)("converter · real FFmpeg", () => {
+  it("1280x720 30 fps + sound, 10 s → 240p/480p/720p + audio that the server's judge accepts with zero problems", async () => {
+    const { dir } = await makeSource({ width: 1280, height: 720, fps: 30, seconds: 10, audio: true });
+    const facts = FFPROBE ? undefined : judgeProbe(probeJson({ width: 1280, height: 720, duration: 10, fps: "30/1" }));
+    const { pkg, plan } = await convertSource({ launcher: launcher(), jobDir: dir, purpose: "post", preset: "veryfast", facts });
+    expect(plan.video.map((v) => v.name)).toEqual(["240p", "480p", "720p"]);
+    expectServerAccepts(pkg, plan.durationS);
+    expect(pkg.manifest.has_audio).toBe(true);
+    const master = dec.decode(pkg.files.get("master.m3u8")!);
+    expect(master).toContain('RESOLUTION=426x240,CODECS="avc1.42E01E,mp4a.40.2"');
+    expect(master).toContain('RESOLUTION=854x480,CODECS="avc1.42E01E,mp4a.40.2"');
+    expect(master).toContain('RESOLUTION=1280x720,CODECS="avc1.42E01F,mp4a.40.2"');
+    // The bytes say what the playlist says: Baseline (66), level 3.0 / 3.1.
+    expect(avc(pkg.files.get("240p.mp4")!)).toEqual({ profile: 66, level: 30 });
+    expect(avc(pkg.files.get("480p.mp4")!)).toEqual({ profile: 66, level: 30 });
+    expect(avc(pkg.files.get("720p.mp4")!)).toEqual({ profile: 66, level: 31 });
+    // 4 s segments: 4 + 4 + 2
+    expect(mediaPlaylistSegments(pkg.files).filter((s) => s.playlist === "240p.m3u8").map((s) => Math.round(s.seconds * 10) / 10)).toEqual([4, 4, 2]);
+  }, 180_000);
+
+  it("no sound, 640x360 25 fps, 4.5 s → 240p only, has_audio false, accepted", async () => {
+    const { dir } = await makeSource({ width: 640, height: 360, fps: 25, seconds: 4.5, audio: false });
+    const facts = FFPROBE ? undefined : judgeProbe(probeJson({ width: 640, height: 360, duration: 4.5, fps: "25/1", audio: false }));
+    const { pkg, plan } = await convertSource({ launcher: launcher(), jobDir: dir, purpose: "post", preset: "veryfast", facts });
+    expect(plan.video.map((v) => v.name)).toEqual(["240p"]);
+    expect(pkg.manifest.has_audio).toBe(false);
+    expect([...pkg.files.keys()].some((n) => n.startsWith("audio"))).toBe(false);
+    expectServerAccepts(pkg, plan.durationS);
+  }, 180_000);
+
+  it("portrait 720x1280 at 60 fps, 5 s → 30 fps out, 240x426 / 480x854 / 720x1280, accepted", async () => {
+    const { dir } = await makeSource({ width: 720, height: 1280, fps: 60, seconds: 5, audio: true });
+    const facts = FFPROBE ? undefined : judgeProbe(probeJson({ width: 720, height: 1280, duration: 5, fps: "60/1" }));
+    const { pkg, plan } = await convertSource({ launcher: launcher(), jobDir: dir, purpose: "post", preset: "veryfast", facts });
+    expect(plan.fps.text).toBe("30");
+    expect(plan.video.map((v) => `${v.width}x${v.height}`)).toEqual(["240x426", "480x854", "720x1280"]);
+    expectServerAccepts(pkg, plan.durationS);
+  }, 180_000);
+
+  it.skipIf(!FFPROBE)("ffprobe reads the real file: facts match what was generated", async () => {
+    const { dir } = await makeSource({ width: 1280, height: 720, fps: 30, seconds: 3, audio: true });
+    const { facts } = await convertSource({ launcher: launcher(), jobDir: dir, purpose: "post", preset: "ultrafast" });
+    expect(facts).toMatchObject({ width: 1280, height: 720, hasAudio: true, videoCodec: "h264", fpsRational: "30/1" });
+    expect(Math.abs(facts.durationS - 3)).toBeLessThan(0.2);
+  }, 180_000);
+
+  it.skipIf(!FFPROBE)("a whole job with real ffprobe + FFmpeg against the fake Supabase/Pages/R2: finish done, every byte uploaded", async () => {
+    const { root, dir } = await makeSource({ width: 854, height: 480, fps: 30, seconds: 6, audio: true });
+    const source = await fs.readFile(path.join(dir, "source"));
+    await fs.rm(dir, { recursive: true, force: true }); // the job downloads it again
+    const s = await fakeServer();
+    server = s;
+    withAuth(s);
+    const stored = new Map<string, Buffer>();
+    s.on("POST", "/api/video/convert/claim", (_req, res) => send(res, 200, {
+      job: { source_id: SRC, owner_id: OWNER, purpose: "post", source_bytes: source.length, source_etag: "real", claim_token: TOKEN, lease_until: new Date(Date.now() + 1_800_000).toISOString(), attempt: 1 },
+      source: { url: `${s.url}/r2/source`, headers: { "if-match": '"real"' }, bytes: source.length, expires_in: 1770 },
+    }));
+    s.on("GET", "/r2/source", (_req, res) => { res.writeHead(200, { etag: '"real"', "content-length": String(source.length) }); res.end(source); });
+    s.on("POST", "/rest/v1/rpc/video_converter_begin_version", (_req, res) => send(res, 200, { video_id: VIDEO, version_no: 1, state: "uploading" }));
+    s.on("POST", "/api/video/upload-urls", (req, res) => {
+      const m = (req.json as { manifest: { files: Array<{ name: string; sha256: string }> } }).manifest;
+      send(res, 200, { urls: m.files.map((f) => ({ name: f.name, url: `${s.url}/r2/put/${f.name}`, headers: { "content-type": "application/octet-stream" } })), done: [] });
+    });
+    s.on("PUT", "/r2/put/*", (req, res) => { stored.set(req.path.slice(8), req.body); res.writeHead(200); res.end(); });
+    s.on("POST", "/api/video/complete", (_req, res) => send(res, 200, { state: "checking" }));
+    s.on("POST", "/api/video/convert/finish", (_req, res) => send(res, 200, { status: "done" }));
+    const { api } = apiFor(s);
+    const claim = await api.claim();
+    const out = await runJob(claim!, { api, launcher: launcher(), jobsRoot: root, preset: "veryfast", heartbeatMs: 60_000, sleep: noSleep, log: () => undefined, allowUrl: () => true });
+    expect(out).toEqual({ result: "done", videoId: VIDEO, state: "checking" });
+    const manifest = (s.requests.find((r) => r.path === "/api/video/upload-urls")!.json as { manifest: { files: Array<{ name: string; sha256: string }> } }).manifest;
+    for (const f of manifest.files) expect(sha256(stored.get(f.name)!)).toBe(f.sha256);
+  }, 180_000);
+
+  it.skipIf(!FFPROBE)("the self-test passes (what the worker runs at every start)", async () => {
+    const root = await tempDir("conv-self-");
+    dirs.push(root);
+    const r = await selfTest({ launcher: launcher(), jobsRoot: root, preset: "ultrafast" });
+    expect(r).toMatchObject({ ok: true, renditions: ["240p", "480p", "720p"], has_audio: true });
+    expect(r.max_segment_s!).toBeLessThanOrEqual(6);
+    expect(await fs.readdir(root)).toEqual([]);
+  }, 180_000);
+});
