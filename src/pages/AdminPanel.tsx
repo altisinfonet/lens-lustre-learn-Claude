@@ -20,7 +20,7 @@ import {
   Heart, FileText, Globe, BarChart3, Megaphone, Zap, Bell, HeartPulse,
   UserPlus, HelpCircle, Mail, ClipboardList, Database, LogIn,
   ExternalLink, Tag, Gavel, Search, Shield, BookMarked, Wallet, Gift, ShieldCheck,
-  Bug, ToggleRight,
+  Bug, Film, Clapperboard, Music2,
 } from "lucide-react";
 
 // ─── Lazy-loaded modules ────────────────────────────────────
@@ -51,7 +51,7 @@ const AdminSEO = lazy(() => import("@/components/admin/AdminSEO"));
 const AdminPageManagement = lazy(() => import("@/components/admin/AdminPageManagement"));
 const AdminAnalytics = lazy(() => import("@/components/admin/AdminAnalytics"));
 const AdminAdvertisements = lazy(() => import("@/components/admin/AdminAdvertisements"));
-const AdminFeatures = lazy(() => import("@/components/admin/AdminFeatures"));
+const AdminVideoFeature = lazy(() => import("@/components/admin/video/AdminVideoFeature"));
 const AdminPushBroadcast = lazy(() => import("@/components/admin/AdminPushBroadcast"));
 const AdminPerformance = lazy(() => import("@/components/admin/AdminPerformance"));
 const AdminAnnouncements = lazy(() => import("@/components/admin/AdminAnnouncements"));
@@ -92,6 +92,7 @@ const VALID_ROUTES = new Set([
   "comments", "keyword_blocklist", "reports", "post_reports",
   "wallet", "gifts", "transactions", "orders",
   "seo", "advertisements", "features", "push_notification", "performance", "announcements", "newsletter_faq", "analytics",
+  "video_posts", "video_ads", "video_music_check",
   "page_management", "menu_builder", "redirects",
   "settings", "auth_pages", "email_templates", "database",
   "health", "app_events", "activity_logs", "admin_notifications", "notifications_health", "test_agent",
@@ -164,11 +165,18 @@ const tabGroups = [
   { label: "Marketing & SEO", items: [
     ["seo", "SEO Settings", Globe],
     ["advertisements", "Advertisements", Megaphone],
-    ["features", "Features", ToggleRight],
     ["push_notification", "Push Notification", Bell],
     ["performance", "Performance", Zap],
     ["announcements", "Announcements", Bell],
     ["newsletter_faq", "Newsletter & FAQ", Mail],
+  ] as const },
+  /* Owner 2026-10-12: video switches get their own main menu (they were
+     "Features" under Marketing & SEO). /admin/features still works: it
+     redirects to Video Posts. */
+  { label: "Video Feature", items: [
+    ["video_posts", "Video Posts", Film],
+    ["video_ads", "Video Ads", Clapperboard],
+    ["video_music_check", "Copyright Music Check", Music2],
   ] as const },
   { label: "Pages & Navigation", items: [
     ["page_management", "Page Management", FileText],
@@ -229,6 +237,11 @@ const AdminPanel = () => {
     }
   }, [rawRoute, authLoading, rolesLoading, hasAdminPanelAccess, adminSubRoles, defaultRoute, navigate]);
 
+  // The old Marketing → Features link now lives under Video Feature.
+  useEffect(() => {
+    if (rawRoute === "features") navigate("/admin/video_posts", { replace: true });
+  }, [rawRoute, navigate]);
+
   useEffect(() => {
     if (!authLoading && !rolesLoading && !hasAdminPanelAccess && user !== undefined) navigate("/");
   }, [hasAdminPanelAccess, authLoading, rolesLoading, navigate, user]);
@@ -285,7 +298,9 @@ const AdminPanel = () => {
       {/* Marketing & SEO */}
       {currentRoute === "seo" && <LazyTab><AdminSEO user={user} /></LazyTab>}
       {currentRoute === "advertisements" && <LazyTab><AdminAdvertisements user={user} /></LazyTab>}
-      {currentRoute === "features" && <LazyTab><AdminFeatures /></LazyTab>}
+      {(currentRoute === "video_posts" || currentRoute === "features") && <LazyTab><AdminVideoFeature feature="video_posts" /></LazyTab>}
+      {currentRoute === "video_ads" && <LazyTab><AdminVideoFeature feature="video_ads" /></LazyTab>}
+      {currentRoute === "video_music_check" && <LazyTab><AdminVideoFeature feature="copyright_music_check" /></LazyTab>}
       {currentRoute === "push_notification" && <LazyTab><AdminPushBroadcast /></LazyTab>}
       {currentRoute === "performance" && <LazyTab><AdminPerformance user={user} /></LazyTab>}
       {currentRoute === "announcements" && <LazyTab><AdminAnnouncements user={user} /></LazyTab>}
