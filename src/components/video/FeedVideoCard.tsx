@@ -1,10 +1,17 @@
 /**
- * VID-1 part 2 · THE FEED VIDEO CARD — always 9:16 (R-105, MASTER §3u).
+ * VID-1 part 2 · THE FEED VIDEO CARD — 9:16, filling the post (R-105, MASTER §3u).
  *
- * A 9:16 video fills the card. Any other shape is fitted WHOLE (object-contain,
- * never cropped) with a blurred, enlarged copy of the same video behind it
- * (src/lib/video/videoFrame.ts) — the same picture the member saw in the
- * upload preview.
+ * The card spans the post's full width at 9:16, capped at 85 % of the screen
+ * height (Owner, staging 2026-10-12: "card size and video size are not
+ * filled" — the card used to shrink to a narrow 9:16 strip with empty space
+ * beside it on a computer). The video is fitted WHOLE (object-contain, never
+ * cropped); whatever it does not cover — the sides of a capped card, or above
+ * and below a landscape clip — shows a blurred, enlarged copy of its poster
+ * (src/lib/video/videoFrame.ts). No black bars, nothing cut off.
+ *
+ * Controls (Owner, same day: "no bar … to fast dragging"): play/pause, a seek
+ * bar you can drag, elapsed / total time, and sound. Tapping the picture
+ * plays/pauses; the bar never does.
  *
  * Behaviour (rules live in src/lib/video/playback.ts, tested there):
  *   • muted autoplay while ≥ 60 % of the card is in view; pause when it falls
@@ -23,11 +30,11 @@
  * inside its last 90 s — there is no timer.
  */
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { Play, Volume2, VolumeX } from "lucide-react";
+import { Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getNetState, subscribeNetState } from "@/lib/offline/networkQuality";
 import { claimPlayback, levelCap, releasePlayback, shouldPlay, tokenNeedsRefresh } from "@/lib/video/playback";
-import { VIDEO_FRAME_ASPECT, videoNeedsFill } from "@/lib/video/videoFrame";
+import { VIDEO_FRAME_ASPECT } from "@/lib/video/videoFrame";
 import type { FeedVideo } from "@/lib/video/postVideoRead";
 
 interface PlayGrant { master_url: string; poster_url: string; expires_at: number }
@@ -57,6 +64,13 @@ type HlsInstance = {
   levels: Array<{ height?: number; bitrate?: number }>; autoLevelCapping: number; startLevel: number;
 };
 
+/** 0:07, 7:28, 1:02:05 */
+export function formatClock(seconds: number): string {
+  const s = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = String(s % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${r}` : `${m}:${r}`;
+}
+
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
 
 export default function FeedVideoCard({ video, className = "" }: { video: FeedVideo; className?: string }) {
@@ -73,8 +87,11 @@ export default function FeedVideoCard({ video, className = "" }: { video: FeedVi
   const [failed, setFailed] = useState(false);
   const [needsTap, setNeedsTap] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const aspect = video.width && video.height ? video.width / video.height : null;
-  const fill = videoNeedsFill(aspect);
+  const [time, setTime] = useState(0);
+  const [duration, setDuration] = useState(video.durationS || 0);
+  const scrubbing = useRef(false);
+  /** A seek asked for before the stream is attached: applied once it is. */
+  const pendingSeek = useRef<number | null>(null);
 
   const pause = useCallback(() => {
     playing.current = false;
@@ -93,7 +110,8 @@ export default function FeedVideoCard({ video, className = "" }: { video: FeedVi
     if (!g) { setFailed(true); return false; }
     grant.current = g;
     setPoster(g.poster_url);
-    const resumeAt = attached.current ? v.currentTime : 0;
+    const resumeAt = pendingSeek.current ?? (attached.current ? v.currentTime : 0);
+    pendingSeek.current = null;
     if (v.canPlayType("application/vnd.apple.mpegurl")) {
       v.src = g.master_url; // Safari / iOS: native HLS (no level cap available there)
       if (resumeAt) v.currentTime = resumeAt;
@@ -178,16 +196,48 @@ export default function FeedVideoCard({ video, className = "" }: { video: FeedVi
 
   const tapPlay = () => { setNeedsTap(false); void start(); };
 
+  // Time and length, from the element itself (the stream knows its real length).
+  useEffect(() => {
+    const v = el.current;
+    if (!v) return;
+    const onTime = () => { if (!scrubbing.current) setTime(v.currentTime); };
+    const onDur = () => { if (Number.isFinite(v.duration) && v.duration > 0) setDuration(v.duration); };
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+    v.addEventListener("timeupdate", onTime);
+    v.addEventListener("durationchange", onDur);
+    v.addEventListener("loadedmetadata", onDur);
+    v.addEventListener("play", onPlay);
+    v.addEventListener("pause", onPause);
+    return () => {
+      v.removeEventListener("timeupdate", onTime);
+      v.removeEventListener("durationchange", onDur);
+      v.removeEventListener("loadedmetadata", onDur);
+      v.removeEventListener("play", onPlay);
+      v.removeEventListener("pause", onPause);
+    };
+  }, []);
+
+  const seek = (to: number) => {
+    const t = Math.max(0, Math.min(duration || to, to));
+    setTime(t);
+    const v = el.current;
+    if (v && attached.current) { v.currentTime = t; return; }
+    // Not streaming yet (only the poster): start, at that point.
+    pendingSeek.current = t;
+    tapPlay();
+  };
+
   return (
     <div
       ref={box}
       data-testid="feed-video-card"
       data-frame-aspect={VIDEO_FRAME_ASPECT.toFixed(3)}
-      data-fill={fill ? "blurred" : "none"}
-      className={`relative mx-auto w-full max-w-[min(100%,calc(78dvh*9/16))] overflow-hidden rounded-lg bg-black ${className}`}
-      style={{ aspectRatio: String(VIDEO_FRAME_ASPECT) }}
+      data-fill="blurred"
+      className={`relative w-full overflow-hidden rounded-lg bg-black ${className}`}
+      style={{ width: "100%", aspectRatio: String(VIDEO_FRAME_ASPECT), maxHeight: "min(85dvh, 900px)" }}
     >
-      {fill && poster && (
+      {poster && (
         <div aria-hidden="true" data-testid="feed-video-fill"
           className="absolute inset-0 scale-110 bg-cover bg-center opacity-60 blur-xl"
           style={{ backgroundImage: `url("${poster}")` }} />
@@ -210,17 +260,45 @@ export default function FeedVideoCard({ video, className = "" }: { video: FeedVi
         </button>
       )}
       {failed && (
-        <p role="status" className="absolute inset-x-0 bottom-0 bg-black/70 p-2 text-center text-xs text-white">
+        <p role="status" className="absolute inset-x-0 bottom-12 bg-black/70 p-2 text-center text-xs text-white">
           This video can't play right now.
         </p>
       )}
-      {video.hasAudio && (
-        <button type="button" aria-label={muted ? "Turn sound on" : "Turn sound off"} aria-pressed={!muted}
-          onClick={() => setMuted((m) => !m)}
-          className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white">
-          {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+      {/* The control bar: never toggles playback itself (taps stop here). */}
+      <div
+        data-testid="video-controls"
+        onClick={(e) => e.stopPropagation()}
+        className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/75 to-transparent px-2 pb-2 pt-8 text-white"
+      >
+        <button type="button" aria-label={isPlaying ? "Pause" : "Play"} onClick={() => (playing.current ? pause() : tapPlay())}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15">
+          {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
         </button>
-      )}
+        <input
+          type="range"
+          aria-label="Seek"
+          aria-valuetext={`${formatClock(time)} of ${formatClock(duration)}`}
+          min={0}
+          max={Math.max(0.1, duration)}
+          step={0.1}
+          value={Math.min(time, Math.max(0.1, duration))}
+          onPointerDown={() => { scrubbing.current = true; }}
+          onPointerUp={() => { scrubbing.current = false; }}
+          onPointerCancel={() => { scrubbing.current = false; }}
+          onChange={(e) => seek(Number(e.target.value))}
+          className="h-9 min-w-0 flex-1 cursor-pointer accent-white"
+        />
+        <span className="shrink-0 text-[11px] tabular-nums" data-testid="video-clock">
+          {formatClock(time)} / {formatClock(duration)}
+        </span>
+        {video.hasAudio && (
+          <button type="button" aria-label={muted ? "Turn sound on" : "Turn sound off"} aria-pressed={!muted}
+            onClick={() => setMuted((m) => !m)}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15">
+            {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
