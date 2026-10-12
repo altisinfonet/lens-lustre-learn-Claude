@@ -8,7 +8,9 @@
  *   R2_ACCOUNT_ID, R2_BUCKET                  — for the presigned S3 host/path
  *   R2_UPLOAD_KEY_ID, R2_UPLOAD_KEY_SECRET    — an R2 API token scoped to that one
  *                                               bucket, Object Read & Write. Used ONLY
- *                                               to sign PUT URLs under upload/video/.
+ *                                               to sign URLs under upload/: PUTs under
+ *                                               upload/video/ and upload/source/, and the
+ *                                               converter's ETag-pinned GET of an original.
  *   VIDEO_DELIVERY_PRIVATE = "1"              — set ONLY once the lane's media host no
  *                                               longer serves upload/ and video/ without a
  *                                               token (the D-003 media-authz Worker, VID-1
