@@ -74,8 +74,19 @@ A free Oracle Always Free VM (Ampere A1, 4 OCPU / 24 GB, Mumbai) converts a 1080
 9. **Publishing ([R-Q2]):** the member's app (job store) sees `done`, shows the READY video for a preview, and the member taps **Post**. The app calls the existing `video_publish_post` with the caption, categories and privacy saved with the job. For ads, it calls the existing admin `linkAdVideo`. If the member never comes back, the unposted video stays theirs, under their uploads, as it does today.
 10. **Failures:** `rpc video_source_fail(source_id, claim_token, code, detail)`. `code` is one of a fixed list (`internal`, `unsupported_format`, `no_video`, `too_long`, `too_big`, `damaged`, `source_missing`); the member reads **fixed text** for it, never the VM's words (`detail` goes to the audit trail only). `internal` is retried while attempts remain; the others are final. A failure reported after `complete` went through ends the job as `done`. **`video_source_cancel(source_id)`** lets the member stop a queued or converting job [R8].
 11. **Cleanup [R-Q4]:**
-    - Pages deletes the source object with its R2 binding on success, final failure, cancel or account deletion. The VM gets no DELETE URL.
-    - Backstop: a free R2 lifecycle rule expires `upload/video/` after 2 days and `upload/source/` after **4 days** — longer than the 48 h queue wait + a requeue + a 6 h claim, so an original is never removed while its job can still run (review #417 finding 4).
+    - Pages deletes the source object with its R2 binding when one of its Functions sees the job end:
+      - success or failure reported through `convert/finish`;
+      - an unusable original at `convert/claim`;
+      - a cancel through `source-cancel`.
+
+      **Not on account deletion, and not when the database itself ends a job** (the upload or queue timeout, a lapsed last lease). No code deletes the object then; the lifecycle rule below is the only remover. *(Corrected 2026-10-12, review of #419 L3; see `R2-LIFECYCLE-staging.md` §6.)* The VM gets no DELETE URL.
+    - Backstop: a free R2 lifecycle rule expires `upload/video/` after 2 days and `upload/source/` after **8 days**. An original can be needed for about **181 h** after its PUT:
+      - up to 24 h before it is queued;
+      - up to 48 h in the queue, three times, because every requeue restarts `queued_at`;
+      - two requeued attempts of under 6 h each;
+      - it is last read at the start of the third attempt.
+
+      8 days is 192 h, so an original is never removed while its job can still run (review #417 finding 4). *(Corrected 2026-10-12, review of #419 M1: the earlier "4 days" counted one requeue only. The derivation is in `R2-LIFECYCLE-staging.md` §1. Live on staging since 2026-10-12T16:59:54Z.)*
     - The VM wipes its job directory after every job and never logs presigned URLs.
     - The media-authz Worker never serves `upload/` (already true; asserted in its test).
 
@@ -97,7 +108,7 @@ Independent review of #416 (CHANGES-REQUIRED, all fixed): every source counts fo
   - member: `video_source_begin`, `video_source_uploaded`, `video_source_cancel`;
   - converter: `video_source_claim`, `video_source_heartbeat`, `video_converter_begin_version`, `video_converter_version` (the claimed video's facts for upload-urls/complete — the may-act check), `video_source_fail`, `video_source_done`;
   - change: the converter branch of `video_mark_uploaded` (owner's switch, [R3]).
-- Account deletion: the existing account-deletion path removes `video_sources` rows (ON DELETE CASCADE from the owner); their objects go with the lifecycle rule (4 days for originals) and the housekeeping sweep [R8].
+- Account deletion: the existing account-deletion path removes `video_sources` rows (ON DELETE CASCADE from the owner). Nothing deletes their objects: `delete-my-account` and `delete-user` contain no video code, and the housekeeping sweep purges rows, not objects. The lifecycle rules are the only remover: originals after 8 days, `upload/video/` parts after 2 days [R8]. *(Corrected 2026-10-12, review of #419.)*
 - Housekeeping: its own cron job, every 5 min (`video_source_housekeeping`); the existing health check reads `video_converter_health()` as the service role:
   - expired leases go back to `queued` (attempts + 1), and become `failed` after 3;
   - `done`, `failed` and `cancelled` sources are purged after 2 days;
@@ -115,7 +126,7 @@ Independent review of #416 (CHANGES-REQUIRED, all fixed): every source counts fo
 ## 5b · Notes from the independent review of #417 (APPROVE-WITH-NITS)
 - `convert/claim` reads the lane's configuration before taking a claim, and hands a claim back at once (`fail 'internal'`, requeued) if anything fails after it — a claim is never stranded for 30 minutes (finding 1, fixed).
 - The signed `If-Match` on the source GET is correct SigV4, but R2's enforcement on a presigned GET is not yet proven: a **staging smoke test** before go-live — GET with the header 200, without it 403, after an overwrite 412. The VM also compares the response's ETag with `job.source_etag` and stops at the declared byte count (finding 2).
-- A member's source PUT URL stays valid for its hour; overwriting after queueing only fails their own job; an orphan after cancel is removed by the 4-day rule (finding 3, accepted).
+- A member's source PUT URL stays valid for its hour; overwriting after queueing only fails their own job; an orphan after cancel is removed by the 8-day rule (finding 3, accepted; was "4-day", corrected 2026-10-12).
 - A source GET URL is not re-issued for a held claim: a VM that restarts mid-download fails the job as `internal` (one attempt) (finding 6, accepted).
 
 ## 6 · The VM [R1]
