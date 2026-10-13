@@ -58,13 +58,18 @@
 --   The 'new_follower' notification then runs send_notification_email
 --   (enqueues to pgmq transactional_emails) and push_on_notification
 --   (net.http_post to push_config.function_url). Neither is created or
---   changed here. As read on staging 2026-10-13: the email queue has no
---   worker wired (no p9_cron_http:process-email-queue secret, no drain cron
---   job; 51 messages pending since 2026-09-14), so nothing is sent; but
---   push_config.function_url names PRODUCTION's send-push
---   (jtdtehuqtinjxropkkcn) — a pre-existing cross-lane wiring that already
---   fires for every staging notification, and that each staging sign-up will
---   now also reach once. Recorded in the PR as a separate finding.
+--   changed here. As read on staging 2026-10-13:
+--   * EMAIL — nothing is sent. The transactional queue has no worker wired
+--     (no p9_cron_http:process-email-queue secret, so email_queue_wake
+--     returns 'no target'; no drain cron job). It holds 51 messages, enqueued
+--     2026-09-11 14:42Z -> 2026-09-14 14:24Z: 49 'New Follower' to the official
+--     account at @example.invalid and 2 'New Badge!' to one @staging.test
+--     address — reserved TLDs, undeliverable even if a drainer were wired.
+--     Staging has no auth_emails queue at all (so no p9_email_wake on one).
+--   * PUSH — push_config.function_url named PRODUCTION's send-push
+--     (jtdtehuqtinjxropkkcn): pre-existing cross-lane wiring, repointed by a
+--     separate unit. PRE-005 refuses this file until that repoint has landed,
+--     so a staging sign-up can never reach production through this path.
 --   sync_oauth_on_login: returns at once unless last_sign_in_at changed; on a
 --   login it only fills a NULL full_name (or re-asserts the admin brand name).
 --   For the 50 existing staging users it updates no row (0 NULL names; the
@@ -75,14 +80,22 @@
 -- TRIGGER needs the TRIGGER privilege on the table plus EXECUTE on the
 -- function — measured on staging 2026-10-13: postgres holds TRIGGER on
 -- auth.users (relacl postgres=ar*wdDxtm/supabase_auth_admin) and owns both
--- functions. PRE-001 re-checks it. DROP TRIGGER would need ownership; the
--- rollback relies on supautils.drop_trigger_grants, which lists postgres for
--- auth.users on staging (measured the same day).
+-- functions. PRE-001 re-checks it. That is proven from the catalog, not yet by
+-- execution on Supabase; the PROBE pass after the apply closes it. DROP TRIGGER
+-- would need ownership; the rollback relies on supautils.drop_trigger_grants,
+-- which lists postgres for auth.users on staging (measured the same day) —
+-- likewise unproven until the rollback is ever run.
 --
 -- LOCK. CREATE TRIGGER takes SHARE ROW EXCLUSIVE on auth.users, which waits
 -- for in-flight sign-ins/logins and makes new ones wait behind it.
 -- lock_timeout 5s bounds that; on timeout nothing is applied — re-dispatch.
 -- PostgREST's ddl watch sends one schema-cache reload on CREATE TRIGGER.
+--
+-- ORDERING (PRE-005). Apply only AFTER staging's public.push_config.function_url
+-- is NULL or names staging's own project (https://fpszggreishhuvdpkmdr.supabase.co/…).
+-- Until then every staging sign-up would POST a 'new_follower' push to
+-- production's send-push. PRE-005 reads the column (read-only) and refuses;
+-- its message names only the host, never the URL's path or query.
 --
 -- RE-RUN: idempotent. A trigger already present with production's exact
 -- definition is left alone; one present under either name with ANY other
@@ -188,6 +201,22 @@ BEGIN
   LOOP
     _bad := _bad || E'\n  PRE-004 unexpected user trigger on auth.users: ' || r.def;
   END LOOP;
+
+  -- PRE-005 · ordering: staging push must not point off-lane before sign-ups start
+  -- producing notifications. push_on_notification POSTs to push_config.function_url;
+  -- it must be NULL or staging's own project. Only the host is ever printed.
+  IF to_regclass('public.push_config') IS NOT NULL THEN
+    FOR r IN
+      SELECT coalesce(substring(pc.function_url FROM '^[a-zA-Z]+://([^/?#]+)'), '(unparseable)') AS host
+        FROM public.push_config pc
+       WHERE pc.function_url IS NOT NULL
+         AND left(pc.function_url, length('https://fpszggreishhuvdpkmdr.supabase.co/'))
+             IS DISTINCT FROM 'https://fpszggreishhuvdpkmdr.supabase.co/'
+    LOOP
+      _bad := _bad || E'\n  PRE-005 public.push_config.function_url points at host ' || r.host
+                   || ' — repoint staging push to https://fpszggreishhuvdpkmdr.supabase.co/ (or NULL) first';
+    END LOOP;
+  END IF;
 
   IF _bad <> '' THEN
     RAISE EXCEPTION 'AUTHTRG-0002-PRE: staging is not in the state this file was written for — nothing applied:%', _bad

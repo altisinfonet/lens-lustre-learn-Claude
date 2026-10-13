@@ -17,8 +17,13 @@
 --   G4 · each calls the public function production's calls (tgfoid), not a
 --        same-named function in another schema.
 --   G5 · public.handle_new_user() / public.sync_oauth_on_login(): md5(prosrc),
---        SECURITY DEFINER, search_path=public and owner equal production's, so
---        the triggers run production's bodies.
+--        SECURITY DEFINER, search_path=public, returns trigger, plpgsql and
+--        owner equal production's (same attributes as the migration's PRE-002),
+--        so the triggers run production's bodies.
+--   G6 · public.push_config.function_url is NULL or names staging's own
+--        project (https://fpszggreishhuvdpkmdr.supabase.co/…), so the
+--        'new_follower' push each sign-up now produces stays on staging.
+--        Only the host is printed.
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN READ ONLY;
 SET LOCAL search_path TO public;
@@ -79,7 +84,8 @@ BEGIN
   -- G5 · the called bodies are production's.
   FOR r IN
     SELECT v.fn, v.want_md5, p.oid AS fn_oid, md5(p.prosrc) AS got_md5, p.prosecdef,
-           p.proconfig::text AS cfg, p.proowner::regrole::text AS owner
+           p.proconfig::text AS cfg, p.proowner::regrole::text AS owner,
+           p.prorettype::regtype::text AS rettype, l.lanname
       -- (hash listed first: the gitleaks generic-api-key rule takes a name that
       --  contains the word auth followed by a hex literal for a credential)
       FROM (VALUES
@@ -88,22 +94,40 @@ BEGIN
       ) AS v(want_md5, fn)
       LEFT JOIN pg_proc p
         ON p.pronamespace = 'public'::regnamespace AND p.proname::text = v.fn AND p.pronargs = 0
+      LEFT JOIN pg_language l ON l.oid = p.prolang
   LOOP
     IF r.fn_oid IS NULL
        OR r.got_md5 IS DISTINCT FROM r.want_md5
        OR r.prosecdef IS DISTINCT FROM true
        OR r.cfg IS DISTINCT FROM '{search_path=public}'
+       OR r.rettype IS DISTINCT FROM 'trigger'
+       OR r.lanname IS DISTINCT FROM 'plpgsql'
        OR r.owner IS DISTINCT FROM 'postgres' THEN
       _bad := _bad || E'\n  G5 public.' || r.fn || '() differs from production (md5 ' || coalesce(r.got_md5, 'missing')
                    || ', definer ' || coalesce(r.prosecdef::text, '?') || ', config ' || coalesce(r.cfg, 'NULL')
+                   || ', returns ' || coalesce(r.rettype, '?') || ', ' || coalesce(r.lanname, '?')
                    || ', owner ' || coalesce(r.owner, '?') || ')';
     END IF;
   END LOOP;
 
+  -- G6 · staging push stays on staging.
+  IF to_regclass('public.push_config') IS NOT NULL THEN
+    FOR r IN
+      SELECT coalesce(substring(pc.function_url FROM '^[a-zA-Z]+://([^/?#]+)'), '(unparseable)') AS host
+        FROM public.push_config pc
+       WHERE pc.function_url IS NOT NULL
+         AND left(pc.function_url, length('https://fpszggreishhuvdpkmdr.supabase.co/'))
+             IS DISTINCT FROM 'https://fpszggreishhuvdpkmdr.supabase.co/'
+    LOOP
+      _bad := _bad || E'\n  G6 public.push_config.function_url points at host ' || r.host
+                   || ', expected NULL or fpszggreishhuvdpkmdr.supabase.co';
+    END LOOP;
+  END IF;
+
   IF _bad <> '' THEN
     RAISE EXCEPTION 'PROBE FAIL 20261013_0002:%', _bad;
   END IF;
-  RAISE NOTICE 'PROBE PASS 20261013_0002: auth.users carries exactly production''s two user triggers, definitions identical (pg_get_triggerdef), enabled, calling production''s handle_new_user / sync_oauth_on_login bodies';
+  RAISE NOTICE 'PROBE PASS 20261013_0002: auth.users carries exactly production''s two user triggers, definitions identical (pg_get_triggerdef), enabled, calling production''s handle_new_user / sync_oauth_on_login bodies; staging push stays on staging';
 END
 $probe$;
 ROLLBACK;
