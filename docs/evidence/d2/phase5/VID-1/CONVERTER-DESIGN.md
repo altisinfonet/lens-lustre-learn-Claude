@@ -2,6 +2,7 @@
 
 **Date:** 2026-10-12 · **Status:** DESIGN v2: the independent review's required changes are folded in. Database part written: `supabase/migrations/20261012_0002_vid1_converter_sources.sql` (+ rollback, PROBE; PGlite behaviour 67/67). · **Owner rulings:** A3.2 (no time limit, 500 MB, FREE only). A3.3 is superseded: the Owner created an Oracle Cloud account ("do all needful on behalf me") and said "okay go on".
 **Review:** independent design review, verdict **SOUND-WITH-CHANGES** (2026-10-12). Every required change (HIGH 1–4, MEDIUM 5–8, LOW 9) is addressed below and tagged **[R1]**…**[R9]**.
+**Amendment A1 (2026-10-13):** which streams are converted, HDR tone mapping, the FFmpeg sandbox as a root-owned template unit, and the poster follow-up — §10. Where §3 or §6 disagrees with §10, §10 applies.
 
 ## 1 · Why
 The web encoder converts in REAL TIME on the member's device and pauses whenever the tab is hidden. A 7:28 video takes about 7½ minutes with the tab in front (Owner, 2026-10-12: "since last one hour this is processing… can't test anything"). Phones run out of memory on long videos (A4.7). Formats a browser cannot decode (HEVC in Firefox, AVI, ProRes…) cannot be posted at all.
@@ -40,15 +41,16 @@ A free Oracle Always Free VM (Ampere A1, 4 OCPU / 24 GB, Mumbai) converts a 1080
    - Pages **re-HEADs the original** (the member's `video_source_uploaded` is not trusted for the ETag), then returns the job and a presigned **GET pinned to the recorded ETag** (signed `If-Match`) [R6]. A missing or changed original fails the job as `source_missing` (final). The GET's lifetime never exceeds the remaining lease [R2].
 5. **VM: convert, in an isolated FFmpeg sandbox (§6, [R1])**.
    - Download with a hard byte cap (= declared size).
-   - `ffprobe` under limits. Reject anything that is not exactly one video stream with at most one audio stream. Also reject: duration > 15 h (at ~2.9× real time a longer one could not finish inside a claim's 6 h ceiling; refused as `too_long`), resolution > 4096 on either side, fps outside 1–120, attached_pic, or data/subtitle streams.
+   - `ffprobe` under limits. Reject anything that is not exactly one video stream with at most one audio stream. Also reject: duration > 15 h (at ~2.9× real time a longer one could not finish inside a claim's 6 h ceiling; refused as `too_long`), resolution > 4096 on either side, fps outside 1–120, attached_pic, or data/subtitle streams. ***Amended A1 (§10.1):*** *extra video/audio/data/subtitle streams and cover pictures are now allowed and ignored; the video and audio streams are chosen and mapped by index.*
    - `planLadder()` (shared code) picks the renditions and bitrates.
    - FFmpeg settings:
      - `-protocol_whitelist file`, with an explicit demuxer allow-list (mov/mp4, matroska/webm, avi, mpegts, 3gp) and **no hls, concat or subfile**;
-     - `-map 0:v:0 -map 0:a:0?`, `-map_metadata -1`;
+     - `-map 0:v:0 -map 0:a:0?`, `-map_metadata -1`; ***A1 (§10.1):*** *`-map 0:<index>` of the chosen streams instead, plus `-sn -dn`;*
      - libx264 baseline, keyframes every 2 s (`-force_key_frames expr:gte(t,n_forced*2)`);
      - fragmented MP4 (`-movflags +frag_keyframe+empty_moov+default_base_moof`, 4 s fragments), `-maxrate/-bufsize` = rendition bitrate × 1.2 / × 2;
      - AAC 96 kb/s as a separate rendition.
-   - Poster = the member's cover if they uploaded one, else the frame at 1 s.
+     - ***Amended A1 (§10.2):*** *an HDR source (PQ, HLG or BT.2020) is tone-mapped to SDR BT.709 8-bit.*
+   - Poster = the member's cover if they uploaded one, else the frame at 1 s. ***A1 (§10.4):*** *for now always the frame; the member's cover in server mode is a recorded follow-up.*
    - Then `packageFromFragmented()` — the browser's own packager (`src/lib/video/hlsPackager.ts`, split out on branch `d2/VID-converter-core-20261012`) — does the naming (`240p.m3u8 / 240p.mp4 / 240p_<n>.m4s …`), the playlists (shared `mediaPlaylist()/masterPlaylist()`, never FFmpeg's own text, so they match the strict grammar of #411), the manifest and the sha256 hashes.
    - The VM runs `judgeUploadContent` itself before uploading, to fail fast.
    - It calls `rpc video_source_heartbeat(source_id, claim_token)` every 2 min while working; the lease is extended only while the token and status still match [R2], and a claim lives at most **6 h**.
@@ -136,6 +138,7 @@ Independent review of #416 (CHANGES-REQUIRED, all fixed): every source counts fo
   - `PrivateNetwork=yes`, `InaccessiblePaths=/var/lib/converter/secrets`, `ReadWritePaths=` = that job's directory only;
   - `NoNewPrivileges`, empty `CapabilityBoundingSet`, `PrivateDevices`, `PrivateTmp`, `ProtectSystem=strict`, `ProtectHome`, `ProtectKernelTunables/Modules/Logs`, `ProtectControlGroups`, `RestrictNamespaces`, `RestrictSUIDSGID`, `LockPersonality`, `SystemCallFilter=@system-service`, `MemoryMax`, `CPUQuota`, `TasksMax`;
   - `RuntimeMaxSec` = 3 × video length + 10 min.
+  - ***Amended A1 (§10.3):*** *not a transient `systemd-run` unit — the same properties in a root-owned template unit, `converter-ff@<job>.service`, which polkit lets `converter` only start or stop.*
 - Job directory: a **size-capped filesystem** (a loop-mounted 4 GB ext4), one sub-directory per job, wiped after each job.
 - One job at a time (also enforced in the database). The worker keeps its current claim token on disk (0600) so a restart can `fail` or finish the job instead of waiting out the lease.
 - Oracle may reclaim an IDLE Always Free instance (under about 20 % CPU/network/memory for 7 days), and Ampere capacity in Mumbai is often unavailable. That is acceptable **best-effort only**:
@@ -162,3 +165,51 @@ Independent review of #416 (CHANGES-REQUIRED, all fixed): every source counts fo
 4. Client server mode + job-store states.
 5. Bucket separation proof (§7).
 6. End-to-end on staging: a 7:28 phone video, an HEVC .mov, an AVI. Each posted from Chrome, Edge and Firefox with the tab closed during conversion, and played back.
+
+## 10 · Amendment A1 (2026-10-13)
+**Decided by the session for the Owner: iPhone videos must work and keep their colours.** Implemented in PR #420 (the converter worker, `converter/`). Where §3 or §6 says otherwise, this section applies. The independent reviewer checks the code against it.
+
+### 10.1 Which streams are converted (replaces the stream refusals of §3 step 5)
+- **Video:** the first stream whose `codec_type` is video, that is **not** a cover picture (`disposition.attached_pic`) and whose codec FFmpeg knows. It is mapped **by its index** (`[0:<index>]` / `-map 0:<index>`), never `0:v:0`, so a cover picture listed first can never be the one converted. A file with no such stream, including a file that holds only a cover picture, is refused as `no_video`. Video streams whose codecs FFmpeg does not know are refused as `unsupported_format`.
+- **Audio:** the stream marked `default`, else the first audio stream, counting only streams whose codec FFmpeg knows. iPhone spatial audio (APAC) is listed by ffprobe as `unknown` and skipped. The chosen stream is mapped by index and streams are never mixed. A file whose audio FFmpeg cannot decode at all gets a version without sound, as the browser path does with sound it cannot decode.
+- **Everything else is allowed and ignored:** timed metadata (`mebx`), timecode (`tmcd`), subtitles, attachments, cover pictures and further audio tracks are never mapped. Mapping is explicit, `-sn -dn` is set as well, plus `-map_metadata -1` and `-map_chapters -1`.
+- **Still refused:**
+  - width or height above 4096: `too_big`;
+  - fps outside 1–120: `unsupported_format`;
+  - longer than 15 h: `too_long`;
+  - no readable size or length: `damaged`;
+  - a demuxer outside the allow-list, or more than 64 streams (a bound for hostile files): `unsupported_format`.
+
+### 10.2 HDR is tone-mapped to SDR BT.709 (adds to §3 step 5's FFmpeg settings)
+- **When:** the source's transfer is PQ (`smpte2084`) or HLG (`arib-std-b67`), or its primaries are `bt2020`. The source is then tone-mapped to SDR BT.709 8-bit, per rendition, after that rendition's scale (fewer pixels than the source):
+  `zscale=tin=<src>:pin=<src>:min=<src>:rin=<src>:t=linear:npl=100:p=<src>,format=gbrpf32le,zscale=p=709,tonemap=tonemap=hable:desat=0,zscale=t=709:m=709:r=limited,format=yuv420p`
+- **Source description stated explicitly:** the source's transfer, primaries, matrix and range are written into the chain.
+  - A value the file does not state takes the HDR default: BT.2020 primaries, the BT.2020 non-constant-luminance matrix, limited range.
+  - For a file with BT.2020 primaries but no PQ/HLG transfer, the transfer defaults to BT.2020's SDR curve.
+  - `p=` is repeated on the first zscale because zscale takes any output property not stated from the frame. With an untagged frame that fails with "no path between colorspaces" (measured).
+- **Tags and poster:** the outputs are tagged `bt709` (`-color_primaries bt709 -color_trc bt709 -colorspace bt709 -color_range tv`). The poster goes through the same chain.
+- **SDR sources are untouched:** no tone mapping, no tags added.
+- **What FFmpeg must have:** `zscale` (libzimg) and `tonemap`. Ubuntu 24.04's FFmpeg 6.1.1 has both, and the converter workflow checks them before its tests.
+  - The worker's start-up self-test also converts an HDR-tagged source, so a VM whose FFmpeg lacks them claims nothing.
+  - CI converts a synthetic 10-bit PQ / BT.2020 HEVC source and checks that every rendition is 8-bit BT.709 and that the package passes the judge with no problems.
+- **Dolby Vision (iPhone):** the HLG-compatible base layer is converted; the Dolby Vision metadata is ignored.
+
+### 10.3 The FFmpeg sandbox is a root-owned template unit (amends §6)
+- **Why the change:** §6 runs every ffprobe/ffmpeg as `systemd-run --uid=ffjob -p …`. But the worker runs as the unprivileged user `converter`. Starting a **transient** unit is polkit's `org.freedesktop.systemd1.manage-units` action, with no unit name or properties a rule could inspect. A grant would therefore let a stolen worker start any unit, with any properties, **as root**: the compromised-VM case of §2 would become root on the VM.
+- **What replaces it:** the same properties live in the root-owned `converter/deploy/converter-ff@.service`.
+  - The polkit rule `50-converter-ff.rules` lets `converter` only `start` or `stop` units named `converter-ff@<uuid>.service`.
+  - The worker hands over *what* runs in `<job>/.run/{tool,args,timeout}`.
+  - `ffjob-run` (root-owned, inside the sandbox) runs only `/usr/bin/ffmpeg` or `/usr/bin/ffprobe`.
+- **Time cap:** `RuntimeMaxSec` (3 × length + 10 min) has no effect on `Type=oneshot`, so it becomes `ffjob-run`'s `timeout` (at most 6 h, a claim's ceiling). `TimeoutStartSec` is the backstop.
+- **Extra hardening** beyond the §6 list: `MemoryDenyWriteExecute`, `IPAddressDeny=any`, `RestrictAddressFamilies=AF_UNIX`, `PrivateIPC`, `ProtectClock`, `ProtectHostname`, `ProtectProc=invisible`.
+- **The worker unit itself** (`converter.service`) is hardened too, including `NoNewPrivileges` and `RestrictSUIDSGID`. Its job directories get their set-group-ID bit by inheritance from the jobs root, never by request.
+- **Proof:** on systemd 255, the converter workflow's `sandbox-check.sh` shows:
+  - the polkit grant works, and no other unit or verb is allowed;
+  - the secrets and the worker's state are unreadable from inside a run;
+  - a run has no network and cannot write outside its own job directory;
+  - the time cap ends an endless run;
+  - the self-test passes under the real `converter.service`.
+- **Smaller note:** the secret on the VM is the converter account's email and password in a 0600 file. The worker keeps its Supabase session (and the rotating refresh token) in memory only; §6 spoke of a refresh-token file.
+
+### 10.4 Known follow-up: the poster in server mode
+§3 step 5 says the poster is "the member's cover if they uploaded one, else the frame at 1 s". The claim carries no cover, so for now the converter always uses the frame at min(1 s, duration/2). **Follow-up:** bring the member's chosen cover into server mode, for example as a cover object stored beside the original that the claim hands out.
