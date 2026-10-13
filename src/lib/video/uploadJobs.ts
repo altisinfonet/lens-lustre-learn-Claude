@@ -30,6 +30,18 @@
  * The server side decides everything that matters (feature switch, limits,
  * daily count, file checks, music check, publish gate); this file only carries
  * the job through it and reports what the server said.
+ *
+ * SERVER CONVERSION (CONVERTER-DESIGN.md v2 §3, §8 — site setting
+ * video_conversion = "server"): nothing is encoded here. The ORIGINAL goes up
+ * once, our converter makes the package through the same gates, and the job
+ * carries it there and back:
+ *
+ *   source ─begin→PUT→complete─▶ converting ─(row done)─▶ checking ─▶ review ─Post─▶ ready ─▶ published
+ *                                    └▶ failed (the row's own fixed text) · cancelled
+ *
+ * The member PUBLISHES (design §3.9): a ready video waits in `review` until
+ * they have watched it and tapped Post — the control against a converter that
+ * substitutes content. From `ready` on it is the device path's own publish.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { backoffMs } from "@/lib/offline/outbox";
@@ -43,16 +55,25 @@ import { renditionBytes, totalBytes, uploadOrder, type VideoManifest, type Video
 export const VIDEO_DB = "retina-video-uploads";
 export const MAX_ATTEMPTS = 12;
 
-export type JobStep = "encoded" | "begun" | "checking" | "ready" | "published" | "music_blocked" | "failed";
+export type JobStep = "encoded" | "begun" | "checking" | "ready" | "published" | "music_blocked" | "failed"
+  // server conversion only
+  | "source" | "converting" | "review";
 
 export interface VideoJob {
-  id: string;                 // = the video's idempotency key, made once
+  id: string;                 // = the video's (or the source's) idempotency key, made once
   userId: string;
   purpose: VideoPurpose;
   createdAt: number;
   step: JobStep;
-  manifest: VideoManifest;
-  manifestSha256: string;
+  /** The encoded package — device jobs only (a server job has none until the converter makes it). */
+  manifest?: VideoManifest;
+  manifestSha256?: string;
+  /** "server": prepared by our converter, not this device. Absent = this device (as before). */
+  mode?: "server";
+  /** Server jobs: the original's size and name, and the source row once video_source_begin made it. */
+  source?: { id?: string; bytes: number; name: string };
+  /** Server jobs: the VID code a refusal carried (VID-SRC-001 = server mode was switched off). */
+  errorCode?: string;
   videoId?: string;
   versionNo?: number;
   uploaded: string[];         // file names confirmed in R2
@@ -153,11 +174,19 @@ export interface JobDeps {
   api(path: string, body: unknown): Promise<{ status: number; body: Record<string, unknown> }>;
   /** the PUT itself */
   put(url: string, headers: Record<string, string>, data: Blob): Promise<number>;
+  /** Server conversion: the original's PUT, with upload progress; the signal stops it (Cancel). */
+  upload?(url: string, headers: Record<string, string>, data: Blob, onProgress: (sent: number, total: number) => void, signal: AbortSignal): Promise<number>;
+  /** Server conversion: the member's own video_sources row (RLS owner read), null when there is none. */
+  sourceRow?(sourceId: string): Promise<{ status: string; video_id: string | null; error: string | null } | null>;
   online(): boolean;
   now(): number;
 }
 
-export type JobEvent = { type: "changed"; job: VideoJob } | { type: "failed"; job: VideoJob } | { type: "published"; job: VideoJob };
+export type JobEvent = { type: "changed"; job: VideoJob } | { type: "failed"; job: VideoJob } | { type: "published"; job: VideoJob }
+  /** A server job's original going up — not saved (it changes many times a second). */
+  | { type: "progress"; job: VideoJob; sent: number; total: number }
+  /** A server job the member cancelled or dismissed. */
+  | { type: "removed"; job: VideoJob };
 const listeners = new Set<(e: JobEvent) => void>();
 export function subscribeVideoJobs(fn: (e: JobEvent) => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }
 function emit(e: JobEvent) { listeners.forEach((l) => { try { l(e); } catch { /* never break the runner */ } }); }
@@ -203,6 +232,7 @@ function codeOf(message: string): string | undefined {
 }
 
 async function save(j: VideoJob) {
+  if (isDropped(j)) return; // cancelled while a step was in flight: never bring it back
   await getStore().putJob(j);
   emit({ type: "changed", job: j });
 }
@@ -211,13 +241,18 @@ async function save(j: VideoJob) {
  * Carry one job as far as it can go now. Returns when it is published, waits
  * on the network / the server's check, or is refused. Never throws.
  */
-export async function advanceJob(job: VideoJob, d: JobDeps): Promise<VideoJob> {
+export async function advanceJob(job: VideoJob, d: JobDeps, opts: { beginOnly?: boolean } = {}): Promise<VideoJob> {
   const s = getStore();
   let j: VideoJob = { ...job };
   try {
     if (!d.online()) return j;
+    if (j.mode === "server") {
+      j = await advanceSource(j, d, opts.beginOnly === true);
+      if (opts.beginOnly || j.step === "source" || j.step === "converting") return j;
+    }
     if (j.step === "encoded") {
       const m = j.manifest;
+      if (!m || !j.manifestSha256) throw new Refused("this video has no prepared package on this device", "VID-LOCAL-002");
       const { data, error } = await d.rpc("video_begin_upload", {
         _purpose: j.purpose, _manifest_sha256: j.manifestSha256, _total_bytes: totalBytes(m),
         _declared_duration_s: m.duration_s, _has_audio: m.has_audio, _idempotency_key: j.id,
@@ -287,11 +322,13 @@ export async function advanceJob(job: VideoJob, d: JobDeps): Promise<VideoJob> {
     }
     if (j.step === "checking") {
       const st = await d.videoState(j.videoId!);
-      if (st === "ready") { j = { ...j, step: "ready" }; await save(j); }
+      // A server-made video waits for the member to watch it and tap Post (design §3.9).
+      if (st === "ready") { j = { ...j, step: j.mode === "server" ? "review" : "ready" }; await save(j); }
       else if (st === "music_blocked") { j = { ...j, step: "music_blocked" }; await save(j); return j; }
       else if (st === "failed" || st === "deleted" || st === "taken_down") throw new Refused(`the video is ${st}`, "VID-STATE");
       else { j = { ...j, nextAt: d.now() + 15_000 }; await save(j); return j; } // still checking: look again soon
     }
+    if (j.step === "review") return j;
     if (j.step === "ready" && j.purpose === "ad") {
       // VID-5: an ad video is not a post — it goes on its creative. Upsert by
       // creative, so a retry (or a replacement video) is safe.
@@ -327,23 +364,304 @@ export async function advanceJob(job: VideoJob, d: JobDeps): Promise<VideoJob> {
     }
     return j;
   } catch (e) {
+    if (j.mode === "server") clearProgress(j.id);
     if (e instanceof Refused) {
-      j = { ...j, step: "failed", lastError: e.message };
+      j = { ...j, step: "failed", lastError: e.message, ...(j.mode === "server" ? { errorCode: e.code || "VID-REFUSED" } : {}) };
       await save(j);
-      emit({ type: "failed", job: j });
+      if (!isDropped(j)) emit({ type: "failed", job: j });
       return j;
     }
     const attempts = j.attempts + 1;
     if (attempts >= MAX_ATTEMPTS) {
-      j = { ...j, step: "failed", attempts, lastError: (e as Error)?.message ?? String(e) };
+      j = { ...j, step: "failed", attempts, lastError: (e as Error)?.message ?? String(e), ...(j.mode === "server" ? { errorCode: "VID-RETRIES" } : {}) };
       await save(j);
-      emit({ type: "failed", job: j });
+      if (!isDropped(j)) emit({ type: "failed", job: j });
       return j;
     }
     j = { ...j, attempts, nextAt: d.now() + backoffMs(attempts), lastError: (e as Error)?.message ?? String(e) };
     await save(j);
     return j;
   }
+}
+
+/* ── server conversion (CONVERTER-DESIGN.md v2 §3, §8) ──────────────────── */
+
+/** How often a converting job reads its row: modest — one small read, and only while the app is in front (P10). */
+export const SOURCE_POLL_MS = 30_000;
+/** The original's name in the job's file store. */
+export const SOURCE_FILE = "source";
+
+/** Steps that wait for the member (or are over): nothing for the runner to do. */
+const AT_REST: ReadonlySet<JobStep> = new Set<JobStep>(["failed", "music_blocked", "published", "review"]);
+
+/** The picked file, held for this session: the upload reads it directly (and it is the copy when the device store is full). */
+const originals = new Map<string, Blob>();
+/** The background copy of each original into the device store, so a reload can resume the upload. */
+const persisting = new Map<string, Promise<void>>();
+/** The original's PUT in flight, per job — Cancel stops it. */
+const uploads = new Map<string, AbortController>();
+/** The last progress reported per job, for a screen that opens mid-upload. */
+const progress = new Map<string, { sent: number; total: number }>();
+/** Server jobs being advanced right now — never two runs of one job. */
+const busy = new Set<string>();
+/** Server jobs the member cancelled or dismissed: a step still in flight must not save them again. */
+const dropped = new Set<string>();
+
+function isDropped(j: VideoJob): boolean {
+  return j.mode === "server" && dropped.has(j.id);
+}
+
+function clearProgress(id: string) {
+  progress.delete(id);
+}
+
+/** The original's upload so far, or undefined when it is not going up right now. */
+export function uploadProgress(jobId: string): { sent: number; total: number } | undefined {
+  return progress.get(jobId);
+}
+
+const retryable = (status: number) => status >= 500 || status === 408 || status === 429;
+
+async function originalOf(j: VideoJob): Promise<Blob | null> {
+  return originals.get(j.id) ?? (await getStore().getFile(j.id, SOURCE_FILE));
+}
+
+/** The original is on our server now (or the job is over): free the device. */
+async function dropOriginal(id: string): Promise<void> {
+  originals.delete(id);
+  await persisting.get(id)?.catch(() => {});
+  persisting.delete(id);
+  await getStore().deleteFiles(id);
+}
+
+async function jobById(id: string): Promise<VideoJob | undefined> {
+  try {
+    return (await getStore().allJobs()).find((j) => j.id === id);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Put a picked video on the device as a SERVER job. Both keys are made here,
+ * once: the source's (video_source_begin returns the same row for the same
+ * key) and the post's. Nothing is encoded.
+ */
+export async function createServerJob(input: {
+  userId: string; purpose: VideoPurpose; file: Blob; name: string;
+  post: { content: string; categories: string[]; privacy: string };
+  ad?: { creativeId: string };
+}, now = Date.now()): Promise<VideoJob> {
+  const s = getStore();
+  const job: VideoJob = {
+    id: newKey(), userId: input.userId, purpose: input.purpose, createdAt: now, step: "source", mode: "server",
+    source: { bytes: input.file.size, name: input.name }, uploaded: [],
+    post: { ...input.post, idempotencyKey: newKey() }, attempts: 0, nextAt: 0,
+    ...(input.ad ? { ad: input.ad } : {}),
+  };
+  originals.set(job.id, input.file);
+  await s.putJob(job);
+  // Copied in the background: the upload starts at once from the picked file,
+  // and a reload or a lost link resumes from the copy. Best effort — a full
+  // device store leaves this session's file, which an unbroken upload needs.
+  persisting.set(job.id, s.putFile(job.id, SOURCE_FILE, input.file).catch(() => {}));
+  emit({ type: "changed", job });
+  return job;
+}
+
+/**
+ * The server half of advanceJob: begin → PUT the original → complete → poll
+ * the row until the converter is done. Throws Refused / Error to advanceJob's
+ * own catch, so a server job fails, backs off and retries by the same rules.
+ */
+async function advanceSource(job: VideoJob, d: JobDeps, beginOnly: boolean): Promise<VideoJob> {
+  let j = job;
+  if (!j.source) throw new Refused("this video has no original to upload", "VID-LOCAL-002");
+  if (j.step === "source" && !j.source.id) {
+    const { data, error } = await d.rpc("video_source_begin", {
+      _purpose: j.purpose, _source_bytes: j.source.bytes, _idempotency_key: j.id,
+    });
+    if (error) {
+      if (isNetworkError(error) || !codeOf(error.message)) throw error;
+      throw new Refused(error.message, codeOf(error.message));
+    }
+    const r = data as { source_id: string; status: string };
+    j = { ...j, source: { ...j.source, id: r.source_id }, attempts: 0 };
+    // A replay of a job that already went further (lost answer, crash): the poll reads where it is.
+    if (r.status !== "awaiting_upload") j = { ...j, step: "converting" };
+    await save(j);
+  }
+  if (beginOnly) return j;
+  // Just uploaded (or still waiting to): nothing to ask yet — the converter
+  // cannot be done this instant. The first look is SOURCE_POLL_MS later.
+  if (j.step === "source") return uploadSource(j, d);
+  if (j.step === "converting") {
+    if (!d.sourceRow) throw new Error("this app cannot read its server videos");
+    const row = await d.sourceRow(j.source!.id!);
+    if (!row) throw new Refused("We can't find this video on our server any more. Please post it again.", "VID-SRC-004");
+    if (row.status === "done" && row.video_id) {
+      j = { ...j, step: "checking", videoId: row.video_id, attempts: 0 };
+      await save(j);
+    } else if (row.status === "failed") {
+      // The database's own fixed, member-safe text (video_source_reason_text) — said as it is.
+      throw new Refused(row.error || "Converting this video failed. Please try again.", "VID-SRC-FAILED");
+    } else if (row.status === "cancelled") {
+      throw new Refused("This video was cancelled.", "VID-SRC-CANCELLED");
+    } else if (row.status === "awaiting_upload") {
+      j = { ...j, step: "source" }; // the original never arrived whole: send it again
+      await save(j);
+    } else {
+      j = { ...j, nextAt: d.now() + SOURCE_POLL_MS, attempts: 0 }; // queued or converting: look again later
+      await save(j);
+    }
+  }
+  return j;
+}
+
+/** One presigned PUT for the whole original (design §3.2), then source-complete (§3.3). */
+async function uploadSource(job: VideoJob, d: JobDeps): Promise<VideoJob> {
+  let j = job;
+  const sourceId = j.source!.id!;
+  for (let round = 0; round < 3; round++) {
+    const u = await d.api("/api/video/source-url", { source_id: sourceId });
+    // Already past its upload (an answer lost after complete): the poll reads where it is.
+    if (u.status === 409 && u.body.error === "VID-SRC-008") {
+      j = { ...j, step: "converting" };
+      await save(j);
+      return j;
+    }
+    if (u.status >= 400) {
+      if (retryable(u.status)) throw new Error(`source-url ${u.status}`);
+      throw new Refused(String(u.body.message ?? `source-url refused (${u.status})`), String(u.body.error ?? ""));
+    }
+    const blob = await originalOf(j);
+    if (!blob) throw new Refused("The video file is no longer on this device. Please post it again.", "VID-LOCAL-001");
+    if (blob.size !== Number(u.body.bytes)) throw new Refused("The video file on this device changed size. Please post it again.", "VID-LOCAL-003");
+    if (!d.online()) return j;
+    if (!d.upload) throw new Error("this app cannot upload an original");
+    const ctl = new AbortController();
+    uploads.set(j.id, ctl);
+    const total = blob.size;
+    let shown = -1;
+    const report = (sent: number) => {
+      const pct = Math.floor((sent / Math.max(1, total)) * 100);
+      if (pct === shown) return; // one event per percent, not one per network packet
+      shown = pct;
+      progress.set(j.id, { sent, total });
+      emit({ type: "progress", job: j, sent, total });
+    };
+    let status: number;
+    try {
+      report(0);
+      // Exactly the headers the URL was signed with (content-type application/octet-stream).
+      status = await d.upload(String(u.body.url), (u.body.headers as Record<string, string>) ?? {}, blob, report, ctl.signal);
+    } finally {
+      uploads.delete(j.id);
+    }
+    if (status === 403) { clearProgress(j.id); continue; } // the hour ran out or was refused: a fresh URL
+    if (status < 200 || status >= 300) throw new Error(`PUT source ${status}`);
+    report(total);
+    const c = await d.api("/api/video/source-complete", { source_id: sourceId });
+    if (c.status === 200) {
+      clearProgress(j.id);
+      // The device's copy goes FIRST: closed between the two, the job retries,
+      // hears VID-SRC-008 and polls — never a 500 MB original orphaned on the device.
+      await dropOriginal(j.id);
+      j = { ...j, step: "converting", nextAt: d.now() + SOURCE_POLL_MS, attempts: 0 };
+      await save(j);
+      return j;
+    }
+    // Not there yet, or the wrong size (the server deleted it): send it again.
+    if (c.status === 409 && (c.body.error === "VID-SRC-006" || c.body.error === "VID-SRC-010")) { clearProgress(j.id); continue; }
+    if (retryable(c.status)) throw new Error(`source-complete ${c.status}`);
+    throw new Refused(String(c.body.message ?? `source-complete refused (${c.status})`), String(c.body.error ?? ""));
+  }
+  throw new Error("the original did not arrive after 3 rounds");
+}
+
+/**
+ * Advance one server job, if no run of it is already going. Reads it fresh
+ * from the store. `onlyIfDue`: the runner's call — the fresh row's own nextAt
+ * decides, so a poll another run just made is not made again.
+ */
+export async function runServerJob(id: string, d: JobDeps, onlyIfDue = false): Promise<void> {
+  if (busy.has(id) || dropped.has(id)) return;
+  busy.add(id);
+  try {
+    const j = await jobById(id);
+    if (!j || j.mode !== "server" || AT_REST.has(j.step)) return;
+    if (onlyIfDue && j.nextAt > d.now()) return;
+    await advanceJob(j, d);
+  } finally {
+    busy.delete(id);
+  }
+}
+
+/**
+ * The composer's first step: video_source_begin only, so a refusal — above
+ * all VID-SRC-001, server mode switched off meanwhile — is answered on the
+ * screen the member is looking at. The upload then runs on its own.
+ */
+export async function startServerJob(job: VideoJob, d: JobDeps): Promise<VideoJob> {
+  busy.add(job.id);
+  try {
+    return await advanceJob(job, d, { beginOnly: true });
+  } finally {
+    busy.delete(job.id);
+  }
+}
+
+/** The member watched the ready video and tapped Post: publish it the device path's way. */
+export async function approveServerJob(id: string, d: JobDeps): Promise<void> {
+  const j = await jobById(id);
+  if (!j || j.mode !== "server" || j.step !== "review") return;
+  await save({ ...j, step: "ready", attempts: 0, nextAt: 0 });
+  await runServerJob(id, d);
+}
+
+async function removeServerJob(j: VideoJob): Promise<void> {
+  dropped.add(j.id);
+  uploads.get(j.id)?.abort();
+  clearProgress(j.id);
+  await dropOriginal(j.id);
+  await getStore().deleteJob(j.id);
+  emit({ type: "removed", job: j });
+}
+
+/**
+ * Cancel (or discard) a server job. While the original is going up or being
+ * converted: POST /api/video/source-cancel — the database stops it and drops
+ * any half-made video, and Pages deletes the original. A video already made
+ * but not posted is deleted (nobody will post it). Returns false when the
+ * server could not be told; the job is then kept, so nothing is left behind.
+ */
+export async function cancelServerJob(id: string, d: JobDeps): Promise<boolean> {
+  const j = await jobById(id);
+  if (!j || j.mode !== "server") return true;
+  try {
+    const sourceId = j.source?.id;
+    if (sourceId && (j.step === "source" || j.step === "converting")) {
+      const r = await d.api("/api/video/source-cancel", { source_id: sourceId });
+      if (r.status >= 400 && r.status !== 404) return false;
+      // It finished a moment ago: the video exists, and the member asked for it gone.
+      if (r.body.status === "done") {
+        const row = await d.sourceRow?.(sourceId).catch(() => null);
+        if (row?.video_id) await d.rpc("video_delete", { _video_id: row.video_id });
+      }
+    } else if (j.videoId && (j.step === "checking" || j.step === "review")) {
+      await d.rpc("video_delete", { _video_id: j.videoId });
+    }
+  } catch {
+    return false;
+  }
+  await removeServerJob(j);
+  return true;
+}
+
+/** A failed (or music-blocked) server job, read and put away. Nothing on the server changes. */
+export async function dismissServerJob(id: string): Promise<void> {
+  const j = await jobById(id);
+  if (j && j.mode === "server") await removeServerJob(j);
 }
 
 let running = false;
@@ -353,8 +671,9 @@ export async function runVideoJobs(userId: string, d: JobDeps): Promise<void> {
   running = true;
   try {
     for (const j of await jobsFor(userId)) {
-      if (j.step === "failed" || j.step === "music_blocked" || j.step === "published") continue;
+      if (j.step === "failed" || j.step === "music_blocked" || j.step === "published" || j.step === "review") continue;
       if (j.nextAt > d.now()) continue;
+      if (j.mode === "server") { await runServerJob(j.id, d, true); continue; }
       await advanceJob(j, d);
     }
   } finally {
@@ -371,7 +690,13 @@ export async function discardJob(id: string): Promise<void> {
 
 /** Sign-out (OFF-5 G6): every member's jobs and files. Never throws. */
 export async function clearVideoUploads(): Promise<boolean> {
+  for (const c of uploads.values()) c.abort();
+  originals.clear();
+  progress.clear();
   try { await getStore().clear(); return true; } catch { return false; }
 }
 
-export function __resetVideoJobs() { running = false; listeners.clear(); }
+export function __resetVideoJobs() {
+  running = false; listeners.clear();
+  originals.clear(); persisting.clear(); uploads.clear(); progress.clear(); busy.clear(); dropped.clear();
+}

@@ -25,6 +25,33 @@ interface LooseDb {
 }
 const db = supabase as unknown as LooseDb;
 
+/**
+ * Server conversion: the ORIGINAL's PUT. XMLHttpRequest, not fetch — fetch
+ * reports no upload progress, and a 500 MB original on a phone takes minutes.
+ * Exactly the signed headers are sent (content-type application/octet-stream,
+ * whatever the file is); the browser sets content-length from the file, which
+ * is the size the URL was signed for. A network failure rejects as "Failed to
+ * fetch" so the job's retry rules treat it like any other dropped link.
+ */
+export function xhrPut(
+  url: string, headers: Record<string, string>, data: Blob,
+  onProgress: (sent: number, total: number) => void, signal: AbortSignal,
+): Promise<number> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) { reject(new DOMException("The upload was cancelled", "AbortError")); return; }
+    const x = new XMLHttpRequest();
+    x.open("PUT", url);
+    for (const [k, v] of Object.entries(headers)) x.setRequestHeader(k, v);
+    x.upload.onprogress = (e) => onProgress(e.loaded, e.lengthComputable ? e.total : data.size);
+    x.onload = () => resolve(x.status);
+    x.onerror = () => reject(new TypeError("Failed to fetch"));
+    x.ontimeout = () => reject(new TypeError("Failed to fetch"));
+    x.onabort = () => reject(new DOMException("The upload was cancelled", "AbortError"));
+    signal.addEventListener("abort", () => x.abort(), { once: true });
+    x.send(data);
+  });
+}
+
 async function bearer(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
   return data.session?.access_token ?? null;
@@ -67,6 +94,18 @@ export const realJobDeps: JobDeps = {
   put: async (url, headers, data) => {
     const res = await fetch(url, { method: "PUT", headers, body: data });
     return res.status;
+  },
+  upload: (url, headers, data, onProgress, signal) => xhrPut(url, headers, data, onProgress, signal),
+  sourceRow: async (sourceId) => {
+    // The owner's own row through RLS (video_sources_owner_read); only the columns granted to them.
+    const { data, error } = await db.from("video_sources").select("status, video_id, error").eq("id", sourceId).maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return {
+      status: String(data.status ?? ""),
+      video_id: typeof data.video_id === "string" ? data.video_id : null,
+      error: typeof data.error === "string" ? data.error : null,
+    };
   },
   online: () => onlineManager.isOnline() && getNetState().online,
   now: () => Date.now(),
