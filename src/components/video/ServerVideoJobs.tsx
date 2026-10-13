@@ -15,10 +15,14 @@
  * then POSTs /api/video/source-cancel. Device-prepared videos never appear
  * here: their path is unchanged and says itself in toasts.
  *
+ * It lives in the BOTTOM DOCK (src/lib/ui/bottomDock.ts): above the bottom bar,
+ * the cookie banner and the update prompt, and the round buttons (Ask
+ * anything, Back to top) rise above it while it shows — nothing overlaps.
+ *
  * Mounted by VideoUploadBridge (lazy, signed-in only). Renders nothing until
  * a server job exists.
  */
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, Loader2, Server, UploadCloud, X, type LucideIcon } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -32,6 +36,7 @@ import {
 } from "@/lib/video/uploadJobs";
 import { realJobDeps } from "@/lib/video/jobDeps";
 import { withoutCode } from "@/lib/video/startOnServer";
+import { useDockLayer } from "@/lib/ui/bottomDock";
 
 const ServerVideoReview = lazy(() => import("./ServerVideoReview"));
 
@@ -113,20 +118,27 @@ export function ServerJobsTray({ jobs, progress, pendingId, onPreview, onCancel,
   onDismiss: (j: VideoJob) => void;
 }) {
   const t = useT() as T;
+  const dock = useRef<HTMLElement>(null);
+  // In the bottom dock (src/lib/ui/bottomDock.ts): above the bottom bar and any
+  // banner, with the round buttons (Ask anything, Back to top) lifted above it.
+  useDockLayer("videos", dock, jobs.length > 0);
   if (jobs.length === 0) return null;
   return (
     <section
+      ref={dock}
       aria-label={t("video.srv.region", "Your videos on our server")}
-      className="pointer-events-none fixed inset-x-3 bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-[45] mx-auto flex max-w-md flex-col gap-2 lg:inset-x-auto lg:bottom-6 lg:left-6 lg:mx-0 lg:w-[22rem]"
+      className="dock-videos pointer-events-none fixed inset-x-3 z-[45] mx-auto max-w-md lg:inset-x-auto lg:left-6 lg:mx-0 lg:w-[22rem]"
       data-testid="server-video-jobs"
     >
+      {/* One opaque panel, a hairline between jobs: no gap, and no page text showing through (Firefox draws no blur behind a translucent card). */}
+      <div className="pointer-events-auto divide-y divide-border overflow-hidden rounded-xl border border-border bg-card shadow-lg">
       {jobs.map((j) => {
         const v = jobView(j, progress[j.id], t);
         const Icon = v.icon;
         const pending = pendingId === j.id;
         return (
           <div key={j.id} data-testid="server-job" data-step={j.step}
-            className="pointer-events-auto flex items-center gap-3 rounded-xl border border-border bg-card/95 py-1.5 pl-3 pr-1.5 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-card/85">
+            className="flex items-center gap-3 py-1.5 pl-3 pr-1.5">
             <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${TONE[v.tone]}`}>
               <Icon className={`h-[18px] w-[18px] ${v.spin ? "animate-spin" : ""}`} aria-hidden="true" />
             </div>
@@ -163,6 +175,7 @@ export function ServerJobsTray({ jobs, progress, pendingId, onPreview, onCancel,
           </div>
         );
       })}
+      </div>
     </section>
   );
 }

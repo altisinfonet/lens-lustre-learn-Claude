@@ -1,16 +1,24 @@
+import { useRef } from "react";
 import { useCookieConsent } from "@/hooks/core/useCookieConsent";
 import { Shield, Cookie, ChevronRight } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useDockLayer } from "@/lib/ui/bottomDock";
 import CookiePreferencesModal from "./CookiePreferencesModal";
 
 const CookieConsentBanner = () => {
   const { showBanner, acceptAll, rejectNonEssential, setShowPreferences, showPreferences } = useCookieConsent();
+  // The first layer of the bottom dock (src/lib/ui/bottomDock.ts): its place is
+  // unchanged; what floats above it (the update prompt, the server-video card,
+  // the round buttons) rises clear of it while it shows.
+  const dock = useRef<HTMLDivElement>(null);
+  useDockLayer("consent", dock, showBanner);
 
   return (
     <>
       <AnimatePresence>
         {showBanner && (
           <motion.div
+            ref={dock}
             initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 100, opacity: 0 }}

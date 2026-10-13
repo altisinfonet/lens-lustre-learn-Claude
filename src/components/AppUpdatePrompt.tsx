@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Download, X } from "lucide-react";
 import {
@@ -6,6 +6,7 @@ import {
   checkForAppUpdate,
   startAppUpdate,
 } from "@/lib/native/appUpdate";
+import { useDockLayer } from "@/lib/ui/bottomDock";
 
 /**
  * "Update available" prompt (Android app only) — Google Play In-App Updates.
@@ -20,6 +21,11 @@ const AppUpdatePrompt = () => {
   const [immediateAllowed, setImmediateAllowed] = useState(false);
   const [version, setVersion] = useState<string | undefined>();
   const [updating, setUpdating] = useState(false);
+  // In the bottom dock (src/lib/ui/bottomDock.ts): its usual bottom-20, above
+  // the cookie banner if that is up; the server-video card and the round
+  // buttons rise above it while it shows.
+  const dock = useRef<HTMLDivElement>(null);
+  useDockLayer("update", dock, visible);
 
   useEffect(() => {
     if (!appUpdateSupported()) return;
@@ -64,11 +70,12 @@ const AppUpdatePrompt = () => {
     <AnimatePresence>
       {visible && (
         <motion.div
+          ref={dock}
           initial={{ y: 120, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 120, opacity: 0 }}
           transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-          className="fixed inset-x-3 bottom-20 z-[95] rounded-lg border border-border bg-card shadow-2xl p-4"
+          className="fixed inset-x-3 dock-update z-[95] rounded-lg border border-border bg-card shadow-2xl p-4"
           role="dialog"
           aria-label="App update available"
         >
