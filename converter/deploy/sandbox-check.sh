@@ -133,16 +133,25 @@ echo
 systemd-analyze security --no-pager "converter-ff@$J.service" 2>/dev/null | tail -1 || true
 systemd-analyze security --no-pager converter.service 2>/dev/null | tail -1 || true
 
-# start_oneshot <what>: start converter.service (with the drop-in) and prove it RAN
-# this time — a new invocation that exited 0 — not merely that `start` returned 0.
+# start_oneshot <event>: start converter.service (with the drop-in) and prove that THIS
+# start ran and passed — not merely that `systemctl start` returned 0 (re-review N3).
+# The proof is the worker's own result line, {"event":"<event>","ok":true,…}, in the
+# journal AFTER the cursor taken just before the start. (The unit's properties cannot be
+# used for this: a finished oneshot is unloaded and `systemctl show` then reads zeros for
+# its start time and status — measured in CI.)
 start_oneshot() {
-  local before after status
-  before="$(systemctl show -p ExecMainStartTimestampMonotonic --value converter.service)"
-  systemctl start converter.service || return 1
-  after="$(systemctl show -p ExecMainStartTimestampMonotonic --value converter.service)"
-  status="$(systemctl show -p ExecMainStatus --value converter.service)"
-  [[ "${after:-0}" =~ ^[0-9]+$ && "${before:-0}" =~ ^[0-9]+$ ]] && (( ${after:-0} > ${before:-0} )) && [[ "$status" == "0" ]] \
-    || { echo "  (converter.service did not run anew: started at ${before:-?} -> ${after:-?} µs, status ${status:-?})"; return 1; }
+  local event="$1" cursor lines line hit="" rc=0
+  cursor="$(journalctl -n 1 -o cat --show-cursor --no-pager 2>/dev/null | sed -n 's/^-- cursor: //p' | tail -1)"
+  [[ -n "$cursor" ]] || { echo "  (no journal cursor: cannot prove that the unit ran)"; return 1; }
+  systemctl start converter.service || rc=$?
+  journalctl --sync 2>/dev/null || true
+  lines="$(journalctl -u converter.service --after-cursor="$cursor" -o cat --no-pager 2>/dev/null || true)"
+  grep -E '"event":"(worker\.(selftest|netcheck)|job\.)' <<<"$lines" || true
+  (( rc == 0 )) || { echo "  (systemctl start converter.service returned $rc)"; return 1; }
+  while IFS= read -r line; do
+    [[ "$line" == *"\"event\":\"$event\""* && "$line" == *'"ok":true'* ]] && hit=1
+  done <<<"$lines"
+  [[ -n "$hit" ]] || { echo "  (no \"$event\" line with ok:true in the journal since this start: the unit did not run it)"; return 1; }
 }
 
 if [[ "${1:-}" == "--selftest" ]]; then
@@ -166,8 +175,7 @@ ExecStart=
 ExecStart=$node_bin /opt/converter/worker.mjs --selftest
 EOF
     systemctl daemon-reload
-    if start_oneshot; then ok "self-test passed under converter.service"; else bad "self-test failed under converter.service"; fi
-    journalctl -u converter.service -o cat --no-pager -n 20 | grep -E '"event":"(worker\.selftest|job\.)' || true
+    if start_oneshot worker.selftest; then ok "self-test passed under converter.service"; else bad "self-test failed under converter.service"; fi
 
     echo
     echo "== the worker unit's network: DNS + HTTPS out work, the link-local metadata address does not (IPAddressDeny=link-local)"
@@ -179,8 +187,7 @@ ExecStart=
 ExecStart=$node_bin /opt/converter/worker.mjs --netcheck ${NETCHECK_URL:-https://example.com}
 EOF
     systemctl daemon-reload
-    if start_oneshot; then ok "under converter.service: names resolve, HTTPS goes out, 169.254.169.254 is unreachable"; else bad "the network check failed under converter.service"; fi
-    journalctl -u converter.service -o cat --no-pager -n 5 | grep -E '"event":"worker\.netcheck"' || true
+    if start_oneshot worker.netcheck; then ok "under converter.service: names resolve, HTTPS goes out, 169.254.169.254 is unreachable"; else bad "the network check failed under converter.service"; fi
     # The positive control (re-review N6d): the same user, OUTSIDE the unit. Only if the
     # metadata address answers here does "unreachable" above prove IPAddressDeny.
     if as_converter "$node_bin" /opt/converter/worker.mjs --netcheck-control >/dev/null 2>&1; then

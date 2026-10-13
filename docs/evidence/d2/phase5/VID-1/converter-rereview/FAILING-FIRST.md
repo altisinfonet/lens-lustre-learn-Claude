@@ -101,3 +101,24 @@ Reproduced locally with the Windows build of the **same release and source commi
 | new control "the self-test's HDR source carries its tags on the frames", with the frame tags taken out again | **fails**: `transfer ""`, `primaries ""`, `hdr false` (and the self-test fails) |
 | fixed | whole converter suite: 14 files, **145 passed**, 3 skipped (POSIX-only), 0 failed |
 | fixed, on FFmpeg 6.0 | real-FFmpeg file: 15 passed |
+
+## 6 · Found by CI: the "ran in this start" proof of N3 read the wrong thing
+
+Run 38395036552 (head `33770727`): all 147 tests passed on both architectures with the pinned
+build, and every sandbox line said PASS — but `sandbox-check.sh --selftest` still failed two
+lines, although the journal printed right below them showed `worker.selftest ok:true` and
+`worker.netcheck ok:true`:
+
+```
+  (converter.service did not run anew: started at 0 -> 0 µs, status 0)
+FAIL  self-test failed under converter.service
+```
+
+Cause: the proof compared the unit's `ExecMainStartTimestampMonotonic` before and after. Once a
+oneshot has finished, systemd unloads the unit and `systemctl show` reads zeros. Fix: the proof is
+now the worker's own result line (`"event":"worker.selftest"` / `"worker.netcheck"` with
+`"ok":true`) in the journal after a cursor taken just before the start (`journalctl --sync`
+first). The check stays as strict as intended — a start that runs nothing still fails:
+tested with stand-ins for `systemctl` / `journalctl` (8 cases: ran and passed; start returned 0
+but nothing ran; `ok:false`; another event's `ok:true`; no cursor → fails closed), and on real
+systemd 255 by the workflow.
