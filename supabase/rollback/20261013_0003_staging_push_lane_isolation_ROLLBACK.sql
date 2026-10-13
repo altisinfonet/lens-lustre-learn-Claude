@@ -10,6 +10,12 @@
 -- catch-all handler — see the migration header). Prefer a forward fix; use
 -- this file only on an explicit, recorded Owner decision.
 --
+-- ⚠ ORDER: if 20261013_0002 (the two auth.users triggers, PR #425) is applied
+-- on staging, roll back 0002 FIRST. Rolling back this file alone restores
+-- production's URL while sign-ups create notifications → staging sign-ups
+-- would reach production's push sender. This file does not check for those
+-- triggers (a refusal is planned in the push_config hardening follow-up).
+--
 -- Restores exactly the non-secret values 20261013_0003 changed:
 --   function_url = https://jtdtehuqtinjxropkkcn.supabase.co/functions/v1/send-push
 --   updated_at   = 2026-07-31 10:52:12.705409+00 (the value read on staging
