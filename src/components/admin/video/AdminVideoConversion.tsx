@@ -57,7 +57,8 @@ export default function AdminVideoConversion() {
       const ids = new Set<string>(changes.map((c) => c.by).filter((x): x is string => !!x));
       if (state.updatedBy) ids.add(state.updatedBy);
       if (ids.size === 0) return;
-      const { data: rows } = await supabase.from("profiles").select("id, full_name").in("id", [...ids]);
+      // F-98: a name never travels without its handle (as the other Video Feature pages read it).
+      const { data: rows } = await supabase.from("profiles").select("id, full_name, custom_url").in("id", [...ids]);
       setNames(new Map(((rows ?? []) as Array<{ id: string; full_name: string | null }>).filter((r) => r.full_name).map((r) => [r.id, r.full_name as string])));
     } catch (e) {
       setLoadError((e as Error).message || "The setting could not be read.");
