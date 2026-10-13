@@ -16,6 +16,12 @@
 --
 -- RB-PRE-001 refuses unless the objects are exactly in 20261013_0001's post-state, so
 -- this cannot run before 20261013_0001, twice, or over a later change.
+--
+-- WHEN TO USE IT: only for a caller that 20261013_0001 demonstrably broke. Prefer a
+-- small PR that re-grants the ONE privilege that caller needs (with its own
+-- evidence) over this file, which re-opens everything 20261013_0001 closed. This file
+-- is valid only until the next migration touches any of these objects; after
+-- that RB-PRE-001 refuses by design and a targeted re-grant is the only route.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 BEGIN;
