@@ -64,6 +64,11 @@ SystemCallFilter=@system-service
 SystemCallErrorNumber=EPERM
 # HTTPS out (IPv4/6), D-Bus to systemd/polkit (unix), glibc's resolver (netlink)
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+# Never the link-local range: 169.254.169.254 is the cloud's instance-metadata
+# service (and, on OCI, its DNS resolver). DNS is unaffected — the worker asks
+# systemd-resolved at 127.0.0.53 (Ubuntu's default), and resolved, outside this
+# unit, asks upstream. Proven by `sandbox-check.sh --selftest` (worker.mjs --netcheck).
+IPAddressDeny=link-local
 # Not set on purpose: MemoryDenyWriteExecute (Node's JIT needs it off),
 # PrivateNetwork (the worker talks to Supabase, Pages and R2).
 

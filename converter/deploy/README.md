@@ -59,17 +59,35 @@ is `ffjob-run`'s `timeout` (RuntimeMaxSec has no effect on `Type=oneshot`), capp
    cd ~/converter-deploy/deploy
    sudo bash setup.sh --worker ../worker.mjs
    ```
-4. **Configure** `/etc/converter/converter.env`: the lane's site origin, Supabase URL and anon key.
-5. **Check the sandbox** (no credentials needed):
+4. **Configure** `/etc/converter/converter.env`: the lane's site origin, Supabase URL and anon key,
+   and the lane's R2 host (`CONVERTER_R2_HOST`, `<account id>.r2.cloudflarestorage.com` — the only
+   host a presigned URL may name) and video bucket (`CONVERTER_R2_BUCKET`).
+5. **Ubuntu Pro — security updates for FFmpeg (once, by the Owner).** Ubuntu's FFmpeg is in
+   `universe`, which gets security fixes only through Ubuntu Pro's `esm-apps`. Pro is free for
+   personal use (up to 5 machines):
+   1. sign in at https://ubuntu.com/pro and copy your personal token;
+   2. on the VM: `sudo pro attach <token>` (type or paste it there; **never** put the token in this
+      repository, a file, or a chat), then `sudo pro status` — `esm-apps` must say `enabled`;
+   3. run `sudo bash setup.sh` again. It checks `pro status`: without `esm-apps` it prints a loud
+      WARNING and writes `/etc/converter/ffmpeg-no-security-updates`, which the worker reports at
+      every start ("ffmpeg receives no security updates"); with it, the marker is removed.
+
+   **Fallback** (design §6), if Pro cannot be used: a pinned static FFmpeg build with CVE
+   tracking — `ffjob-run` then points at that binary instead of `/usr/bin/ffmpeg`, and someone
+   owns following FFmpeg's security announcements and replacing the build.
+6. **Check the sandbox** (no credentials needed):
    ```
    sudo bash sandbox-check.sh --selftest
    ```
-   Every line must say `PASS`. `--selftest` also runs the worker's self-test (a synthetic video,
-   converted and judged by the server's own rules) under the real `converter.service` sandbox.
-6. **Credentials**: the separate provisioning step writes
+   Every line must say `PASS`. `--selftest` also runs, under the real `converter.service`
+   sandbox, the worker's self-test (synthetic SDR and HDR videos, converted and judged by the
+   server's own rules) and its network check: names resolve and HTTPS goes out, while the
+   instance-metadata address 169.254.169.254 is unreachable (`IPAddressDeny=link-local`; DNS keeps
+   working because the worker asks systemd-resolved at 127.0.0.53 — Ubuntu's default).
+7. **Credentials**: the separate provisioning step writes
    `/var/lib/converter/secrets/credentials.json` as `{"email": "…", "password": "…"}`,
    `converter:converter`, mode `0600`. Never print it.
-7. **Start**:
+8. **Start**:
    ```
    sudo systemctl enable --now converter.service
    journalctl -u converter.service -f
@@ -98,12 +116,19 @@ is `ffjob-run`'s `timeout` (RuntimeMaxSec has no effect on `Type=oneshot`), capp
 - FFmpeg: one run for all video renditions (decode once), one for audio, one for the poster;
   H.264 Baseline at the browser's codec strings/levels, keyframes every 2 s, ~4 s fMP4 fragments,
   AAC-LC 48 kHz as its own rendition; `-protocol_whitelist file` and the demuxer allow-list on
-  every run over a member's file. HDR sources (PQ / HLG / BT.2020) are tone-mapped to SDR BT.709
-  8-bit (zscale + tonemap hable) and tagged bt709; SDR sources are untouched.
+  every run over a member's file. Rate control is sized so no rendition can exceed the database's
+  bytes-per-second ceiling, short clips included (buffer and maxrate scaled to ceiling × length).
+  HDR sources (PQ / HLG / BT.2020) are tone-mapped ONCE at the largest rendition's size to SDR
+  BT.709 8-bit (zscale + tonemap hable, peak from the file's HDR10 metadata or PQ 10,000 / HLG
+  1,000 nits, clamped to the legal limited range) and tagged bt709; SDR sources are untouched.
 - `packageFromFragmented()` (the browser's own packager), then the server's own
-  `manifestProblems` + `judgeUploadContent` before anything is uploaded.
+  `manifestProblems` + `judgeUploadContent` and the database's own version arithmetic
+  (`video_validate_version`, mirrored exactly) before anything is declared or uploaded.
 - `video_converter_begin_version` → `upload-urls` → PUTs (with the signed headers) →
   `complete` rounds → `finish done`. The job directory is wiped after every job.
+- A run that hits its own time cap ends the job as `too_long` (final, not retried). After a job
+  ends `internal` the worker backs off (30 s, 1, 2, 4 min … ≤ 15 min); after 3 in a row it
+  re-runs its self-test and claims nothing until it passes.
 
 ## Known limits / follow-ups
 
@@ -111,7 +136,7 @@ is `ffjob-run`'s `timeout` (RuntimeMaxSec has no effect on `Type=oneshot`), capp
   (a recorded follow-up, design §10.4).
 - HDR tone mapping needs FFmpeg's `zscale` (libzimg) and `tonemap`; Ubuntu 24.04's FFmpeg has
   both. The start-up self-test converts an HDR-tagged source, so a VM without them claims nothing.
-- Tone mapping runs in floating point per rendition: HDR conversions are slower than SDR ones;
-  not yet measured on the Ampere VM.
+- Tone mapping runs in floating point (once, at the largest rendition's size): HDR conversions are
+  slower than SDR ones; not yet measured on the Ampere VM.
 - `MemoryDenyWriteExecute=yes` on the FFmpeg runs is proven on x86_64 (CI); on the aarch64 VM the
   start-up self-test is the proof — if it fails there, check `journalctl -u 'converter-ff@*'`.

@@ -117,6 +117,41 @@ if [[ -n "$worker" ]]; then
   sha256sum /opt/converter/worker.mjs
 fi
 
+say "security updates for FFmpeg (Ubuntu Pro esm-apps — design §6)"
+# Ubuntu's FFmpeg is in `universe`: it gets security fixes only through Ubuntu Pro's
+# esm-apps (free for personal use). The token is attached by the Owner on the VM
+# (README.md) — it is never in this repository. Without it the worker logs a warning
+# at every start (the marker below).
+marker=/etc/converter/ffmpeg-no-security-updates
+esm="unknown"
+if command -v pro >/dev/null 2>&1; then
+  esm="$(pro status --format json 2>/dev/null | python3 -c 'import json,sys
+try:
+    d = json.load(sys.stdin)
+    print(next((s.get("status") or "not-attached" for s in d.get("services", []) if s.get("name") == "esm-apps"), "absent"))
+except Exception:
+    print("unreadable")' 2>/dev/null || echo unreadable)"
+else
+  esm="no-pro-client"
+fi
+if [[ "$esm" == "enabled" ]]; then
+  rm -f "$marker"
+  echo "esm-apps: enabled — FFmpeg receives security updates"
+else
+  printf 'esm-apps: %s\nffmpeg receives no security updates (Ubuntu Pro esm-apps is not enabled)\n' "$esm" > "$marker"
+  chmod 0644 "$marker"
+  cat >&2 <<EOF
+
+  ##########################################################################
+  ##  WARNING: Ubuntu Pro esm-apps is not enabled (status: $esm).
+  ##  Ubuntu's FFmpeg (universe) receives NO security updates without it.
+  ##  The Owner attaches a free Ubuntu Pro token (README.md, "Ubuntu Pro"),
+  ##  then runs this script again. Until then the worker logs this warning.
+  ##########################################################################
+
+EOF
+fi
+
 say "unit files check (systemd-analyze verify)"
 tmpd="$(mktemp -d)"
 cp /etc/systemd/system/converter.service "$tmpd/"
@@ -137,9 +172,10 @@ fi
 say "done"
 cat <<EOF
 Next:
-  1. fill in /etc/converter/converter.env (the lane's site origin, Supabase URL, anon key)
-  2. the credentials step writes $BASE/secrets/credentials.json (converter:converter 0600)
-  3. check the sandbox:   sudo bash $here/sandbox-check.sh --selftest
-  4. start the worker:    sudo systemctl enable --now converter.service
+  1. fill in /etc/converter/converter.env (the lane's site origin, Supabase URL, anon key, R2 host)
+  2. Ubuntu Pro (once, by the Owner): sudo pro attach <token>   — then run setup.sh again
+  3. the credentials step writes $BASE/secrets/credentials.json (converter:converter 0600)
+  4. check the sandbox:   sudo bash $here/sandbox-check.sh --selftest
+  5. start the worker:    sudo systemctl enable --now converter.service
      logs:                journalctl -u converter.service -f
 EOF

@@ -175,14 +175,21 @@ Independent review of #416 (CHANGES-REQUIRED, all fixed): every source counts fo
 - **Everything else is allowed and ignored:** timed metadata (`mebx`), timecode (`tmcd`), subtitles, attachments, cover pictures and further audio tracks are never mapped. Mapping is explicit, `-sn -dn` is set as well, plus `-map_metadata -1` and `-map_chapters -1`.
 - **Still refused:**
   - width or height above 4096: `too_big`;
-  - fps outside 1–120: `unsupported_format`;
+  - fps outside 1–240 for a source up to 1920×1080 in either orientation (iPhone slow motion records 240 fps), or 1–120 above that: `unsupported_format`. The output stays at most 30 fps. *(Review of #420, M2.)*
+  - more than 4096 × 2160 × 60 = 530,841,600 decoded pixels per second (coded width × height × fps), so 4K60 and 1080p240 (497,664,000) both pass: `unsupported_format`. *(Review of #420, M2.)*
   - longer than 15 h: `too_long`;
+  - a conversion that reaches its own time cap (3 × length + 10 min): `too_long`, final rather than retried, because it would reach the cap again. An ffprobe that times out is `damaged`. *(Review of #420, M2.)*
   - no readable size or length: `damaged`;
   - a demuxer outside the allow-list, or more than 64 streams (a bound for hostile files): `unsupported_format`.
 
 ### 10.2 HDR is tone-mapped to SDR BT.709 (adds to §3 step 5's FFmpeg settings)
-- **When:** the source's transfer is PQ (`smpte2084`) or HLG (`arib-std-b67`), or its primaries are `bt2020`. The source is then tone-mapped to SDR BT.709 8-bit, per rendition, after that rendition's scale (fewer pixels than the source):
-  `zscale=tin=<src>:pin=<src>:min=<src>:rin=<src>:t=linear:npl=100:p=<src>,format=gbrpf32le,zscale=p=709,tonemap=tonemap=hable:desat=0,zscale=t=709:m=709:r=limited,format=yuv420p`
+- **When:** the source's transfer is PQ (`smpte2084`) or HLG (`arib-std-b67`), or its primaries are `bt2020`. The source is then tone-mapped to SDR BT.709 8-bit **once**, at the largest rendition's size, and the smaller renditions are scaled down from that (as revised after the review of #420; first written as per-rendition):
+  `zscale=tin=<src>:pin=<src>:min=<src>:rin=<src>:t=linear:npl=100:p=<src>,format=gbrpf32le,zscale=p=709,tonemap=tonemap=hable:desat=0:peak=<P>,zscale=t=709:m=709:r=limited,format=yuv420p,limiter=min=16:max=235:planes=1,limiter=min=16:max=240:planes=6`
+- **Peak and clamp** (review of #420):
+  - `<P>` is the content's peak in units of 100 nits. It comes from the file's HDR10 MaxCLL, else the mastering display's peak. Without either, it is PQ's own maximum (10,000 nits, so nothing a PQ file holds can clip) or HLG's nominal 1,000 nits (zscale maps HLG's full signal to about 10.07).
+  - Measured on a 10-bit PQ frame with 100 / 1,000 / 2,000 / 4,000-nit bands, the limited-range luma came out as follows. Before the change: 151 / 235 / 247 / 254, so everything from 1,000 nits up was clipped into super-white. After: 138 / 214 / 224 / 231, strictly increasing and all legal.
+  - The `limiter` clamps make sure nothing leaves the legal limited range (out-of-gamut colours, scaling overshoot). It runs again after each rendition's scale.
+  - A BT.2020 file with an SDR transfer gets the gamut conversion only (`tonemap=clip`: identity up to white).
 - **Source description stated explicitly:** the source's transfer, primaries, matrix and range are written into the chain.
   - A value the file does not state takes the HDR default: BT.2020 primaries, the BT.2020 non-constant-luminance matrix, limited range.
   - For a file with BT.2020 primaries but no PQ/HLG transfer, the transfer defaults to BT.2020's SDR curve.

@@ -64,7 +64,7 @@ jobs:
       - name: This FFmpeg has what amendment A1 needs (zscale + tonemap for HDR; libx265 for the HDR test source)
         run: |
           set -euo pipefail
-          ffmpeg -hide_banner -filters | grep -E '^ *[.A-Z|]+ +(zscale|tonemap) '
+          ffmpeg -hide_banner -filters | grep -E '^ *[.A-Z|]+ +(zscale|tonemap|limiter) '
           ffmpeg -hide_banner -encoders | grep -E '^ *[.A-Z]+ +libx265 '
           ffmpeg -hide_banner -version | tr ' ' '\n' | grep -E '^--enable-lib(zimg|x265)$'
       - name: Converter tests with real ffmpeg + ffprobe (required here, not skipped)
