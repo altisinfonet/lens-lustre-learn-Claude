@@ -122,3 +122,26 @@ first). The check stays as strict as intended — a start that runs nothing stil
 tested with stand-ins for `systemctl` / `journalctl` (8 cases: ran and passed; start returned 0
 but nothing ran; `ok:false`; another event's `ok:true`; no cursor → fails closed), and on real
 systemd 255 by the workflow.
+
+## 7 · Found by CI: the update path ran the self-test under the caller's umask
+
+Run 38397002617 (head `85fd63b4`): steps up to and including `sandbox-check.sh --selftest`, the N1
+control and the N3 control passed on both architectures. The next step — "update-ffmpeg.sh — the
+real update path" — failed on both:
+
+```
+self-test through the sandbox with the new FFmpeg …
+{"event":"worker.selftest","ok":false,"ms":86,"code":"internal","detail":"ffmpeg exit none (killed): "}
+SELF-TEST FAILED with the new FFmpeg — rolling back
+```
+
+Cause: the worker made its job directories `0770` *under the unit's* `UMask=0007`.
+`update-ffmpeg.sh` starts the worker's self-test outside the unit (`runuser -u converter`), under
+root's mask 022, so the directories were `0750`; the FFmpeg run (user `ffjob`, group `convjob`)
+could not write its exit file, and the run counted as killed. On the VM every update would have
+been rolled back (the rollback itself worked as designed). Fix at the cause: the worker sets its
+own mask 0007 first thing (`job.ts` `setWorkerUmask`, `main.ts`).
+
+Control: `job.test.ts` "job directories are 0770 whatever mask the worker was started under"
+(POSIX only — runs in CI): under mask 022 a job directory is 0750 without the call (the fault,
+asserted) and 0770 with it. And the workflow step itself, failing first in the run above.
