@@ -417,6 +417,61 @@ export const dbAuditLogs = [
   },
 ];
 
+/*
+ * ── THE HOME PAGE (/home), added 2026-10-13 ─────────────────────────────────
+ * The first scene to mount it (screen-home-server-card, the bottom dock).
+ * Each source is answered with rows shaped exactly as its query reads them,
+ * because the populated page is what members see: an empty hero, gallery or
+ * "Photo of the day" shows "Coming Soon" placeholders that no production visit
+ * meets. Images are the harness's own fixtures — no network.
+ */
+const HOME_FIX = "/src/uiharness/fixtures";
+
+/** Index.tsx: hero_banners · id, title, category, image_url, sort_order · is_active. */
+export const heroBanners = [
+  { id: "hero-1", title: "Monsoon over the Hooghly", category: "Landscape", image_url: `${HOME_FIX}/land-w1500h1000.svg`, sort_order: 1, is_active: true },
+  { id: "hero-2", title: "Kumartuli at dusk", category: "Street", image_url: `${HOME_FIX}/port-w1000h1250.svg`, sort_order: 2, is_active: true },
+];
+
+/** Index.tsx: portfolio_images · the home gallery, visible ones only. */
+export const portfolioImages = ["land-w1500h1000", "port-w1000h1250", "tall-w900h1600", "land-w1500h1000", "port-w1000h1250", "pano-w6000h1000"]
+  .map((file, i) => ({
+    id: `portfolio-${i + 1}`, title: `Selected work ${i + 1}`, category: i % 2 ? "Street" : "Landscape",
+    image_url: `${HOME_FIX}/${file}.svg`, thumbnail_url: `${HOME_FIX}/${file}.svg`, sort_order: i + 1,
+    is_pinned: i === 0, is_trending: i === 1, view_count: 1200 - i * 90, active_from: null, active_until: null, is_visible: true,
+  }));
+
+/** PhotoOfTheDay.tsx: photo_of_the_day · active ones, newest featured_date first. */
+export const photoOfTheDay = [
+  { id: "potd-1", image_url: `${HOME_FIX}/land-w1500h1000.svg`, thumbnail_url: `${HOME_FIX}/land-w1500h1000.svg`, title: "Fog lifting off the ghats",
+    photographer_name: "Avijit Sheel", description: "Shot at first light from the Howrah side.", featured_date: "2026-10-12", is_active: true },
+];
+
+/** FeaturedArtist.tsx: featured_artists · the latest active one (limit 1). */
+export const featuredArtists = [
+  { id: "fa-1", title: "Seeing the city slowly", slug: "seeing-the-city-slowly", excerpt: "A decade of walking Kolkata with one 50mm lens.",
+    cover_image_url: `${HOME_FIX}/port-w1000h1250.svg`, artist_name: "Somnath Roy", artist_avatar_url: null, is_active: true, published_at: "2026-10-01T00:00:00.000Z" },
+];
+
+/** useChatSession: faq_entries · what "Ask anything" can answer without a person. */
+export const faqEntries = [
+  { id: "faq-1", question: "How do I enter a competition?", answer: "Open Compete, choose a competition and upload your photographs.", keywords: ["competition", "enter"], is_active: true },
+  { id: "faq-2", question: "What size can a photograph be?", answer: "Up to 20 MB; we keep the original and make smaller copies for the feed.", keywords: ["size", "upload"], is_active: true },
+];
+
+/**
+ * get_top_contributors_v3 · scores strictly descending (the bar scales by rank 1).
+ * The two fixture members WITHOUT a photograph, on purpose: this card's avatar
+ * is `loading="lazy"` and the card draws only when its data arrives, which can
+ * be after the sweep's lazy-image scroll pass — a photo would then be "not
+ * rendered" on some runs and not others. The initials fallback is drawn every
+ * run; photographed avatars are covered by every other signed-in scene.
+ */
+export const topContributors = [
+  { user_id: "22222222-2222-4222-8222-222222222222", rank_position: 1, contributor_score: 412, recent_score: 128 },
+  { user_id: "55555555-5555-4555-8555-555555555555", rank_position: 2, contributor_score: 301, recent_score: 96 },
+];
+
 /** Categories drive the feed's filter row: enough of them to overflow 360px,
  *  which is the only interesting question the row asks. */
 export const categories = [

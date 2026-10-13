@@ -25,6 +25,21 @@ export function isSignedOutScene(name: string): boolean {
 }
 
 /**
+ * Scenes photographed with the COOKIE BANNER still up (consent not yet given).
+ * Every other scene is seeded as already answered (fakeBackend.ts), because
+ * the banner would sit over every screen. Added 2026-10-13 with the bottom
+ * dock (src/lib/ui/bottomDock.ts): the banner, the server-video card and the
+ * "Ask anything" button have to be seen TOGETHER to show none sits on another.
+ */
+export const CONSENT_PENDING_SCENES: readonly string[] = [
+  "screen-home-server-card-consent",
+];
+
+export function isConsentPendingScene(name: string): boolean {
+  return CONSENT_PENDING_SCENES.includes(name);
+}
+
+/**
  * The `screen-` prefix means "this scene mounts a REAL PAGE and brings its own
  * provider stack" — router, auth, theme, i18n, query client, the real Layout.
  *

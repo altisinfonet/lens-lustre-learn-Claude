@@ -39,6 +39,7 @@ import ServerVideoReview from "@/components/video/ServerVideoReview";
 import AdminVideoConversion from "@/components/admin/video/AdminVideoConversion";
 import type { ConversionMode } from "@/lib/video/conversionMode";
 import type { VideoJob } from "@/lib/video/uploadJobs";
+import { serverJob } from "./serverVideoFixtures";
 import landscapeVideoUrl from "./fixtures/video/landscape-1280x720.webm?url";
 import portraitVideoUrl from "./fixtures/video/portrait-360x640.webm?url";
 
@@ -65,16 +66,6 @@ function VideoComposerHarness({ src, name, conversion }: { src: string; name: st
 function VideoComposerUnplayableHarness() {
   const [file] = useState(() => new File([new Uint8Array(2_400_000)], "holiday.avi", { type: "video/x-msvideo" }));
   return <VideoPostComposer open onOpenChange={() => {}} initialFile={file} conversion="server" />;
-}
-
-/** A server job exactly as the job store keeps it; each scene states only what differs. */
-function serverJob(id: string, over: Partial<VideoJob>): VideoJob {
-  return {
-    id, userId: "harness", purpose: "post", createdAt: 1, step: "converting", mode: "server",
-    source: { id: "55555555-5555-4555-8555-555555555555", bytes: 91_000_000, name: "IMG_4412.MOV" }, uploaded: [],
-    post: { content: "Evening light over the Hooghly — shot handheld on the ferry back from Belur.", categories: ["street", "documentary"], privacy: "public", idempotencyKey: "k" },
-    attempts: 0, nextAt: 0, ...over,
-  };
 }
 
 /**

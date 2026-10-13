@@ -17,7 +17,7 @@
  *
  * ⚠ CONSOLE ERRORS ARE PART OF THE OUTPUT, not noise to be swallowed. A React
  * key warning or a failed image is a visual bug that has not shown itself yet.
- * Two are filtered, with the reason stated at IGNORED below, and nothing else.
+ * Three are filtered, with the reason stated at IGNORED below, and nothing else.
  */
 
 import { chromium } from "playwright";
@@ -70,8 +70,19 @@ const VIEWPORTS = [
  *    supabase.co. Harness scenes use literal data and never need it — but a
  *    scene that DID try to fetch would show up as an empty render, which is
  *    visible in the screenshot, which is the point.
+ *  • framer-motion's "container has a non-static position" notice (added
+ *    2026-10-13 with the first scene of the home page). It is DEVELOPMENT-ONLY
+ *    — framer-motion wraps it in `NODE_ENV !== "production"`, so no release
+ *    build can print it — and it fires for any `useScroll({ target })` that
+ *    tracks the window, because the window's scroll container, <html>, is
+ *    `position: static` on every page. The home page's scroll-coloured
+ *    backdrop is exactly that. Matched by its exact words, nothing wider.
  */
-const IGNORED = [/X-Frame-Options may only be set via an HTTP header/, /ERR_CONNECTION_RESET|ERR_TUNNEL_CONNECTION_FAILED/];
+const IGNORED = [
+  /X-Frame-Options may only be set via an HTTP header/,
+  /ERR_CONNECTION_RESET|ERR_TUNNEL_CONNECTION_FAILED/,
+  /^Please ensure that the container has a non-static position, like 'relative', 'fixed', or 'absolute' to ensure scroll offset is calculated correctly\.$/,
+];
 
 /**
  * The container ships a pinned Chromium whose build number will not match what
@@ -184,6 +195,11 @@ for (const scene of scenes) {
         await new Promise((r) => setTimeout(r, 60));
       }
       window.scrollTo(0, 0);
+      // A lazy image the pass went by too fast for — a busy machine runs
+      // Chrome's lazy-load check late, and 60ms a screen outran it on the
+      // home page's demo post (2026-10-13, a full sweep only) — is asked for
+      // outright. A broken one still loads nothing and is still reported.
+      for (const img of document.images) if (img.loading === "lazy" && !img.complete) img.loading = "eager";
     });
     await page
       .waitForFunction(
@@ -691,6 +707,20 @@ for (const scene of scenes) {
          * case this check exists for.
          */
         if (!img.offsetParent && getComputedStyle(img).position !== "fixed") continue;
+        /**
+         * A LAZY IMAGE OFF SCREEN THAT IS NOT COMPLETE HAS NOT BEEN ASKED FOR.
+         *
+         * Measured 2026-10-13 on the home page's demo post, which rotates and
+         * so mounts a FRESH <img loading="lazy"> after the scroll pass above:
+         * by the time this runs (check 4b has just scrolled to the end and
+         * back) it is off screen, unrequested, `complete === false` — and was
+         * reported as "not rendered" on some runs. A broken image is
+         * different: the browser marks it `complete` with no pixels, and that
+         * is still reported, as is a lazy image ON screen that never loaded.
+         */
+        const ir = img.getBoundingClientRect();
+        const offScreen = ir.bottom < 0 || ir.top > window.innerHeight;
+        if (img.loading === "lazy" && !img.complete && offScreen) continue;
         if (!img.complete || img.naturalWidth === 0) broken.push((img.getAttribute("src") || "(no src)").slice(0, 80));
       }
       if (broken.length) out.push(`images not rendered (${broken.length}): ${broken.slice(0, 4).join(", ")}`);
@@ -791,6 +821,16 @@ for (const scene of scenes) {
       //       other shape covering a control is caught by NEITHER check. Named
       //       here so the next person finds it written down instead of
       //       discovering it the way the DOB fault was discovered.
+      //       ⚠ NARROWED 2026-10-13 (review of #423), and the hole with it: the
+      //       handoff is for a control that can be SCROLLED out from under the
+      //       bar. A FLOATING control — itself `position: fixed`, with no
+      //       scrolling box between it and its fixed layer — never moves, so a
+      //       fixed layer painted over its centre covers it for good: that is
+      //       judged here. Found by its absence: the server-video card covered
+      //       the home page's "Ask anything" button and this sweep reported 0
+      //       problems. (A chip in a fixed strip that scrolls sideways is still
+      //       4b's: the desktop feed's category strip parks its last chip under
+      //       its own "›" arrow, and a sideways scroll brings it clear.)
       //    ─────────────────────────────────────────────────────────────────
       const controls = [];
       const unreachable = [];
@@ -890,12 +930,25 @@ for (const scene of scenes) {
             const behindAnotherModal =
               (openDialogs.length > 0 && elDialog === null) ||
               (hitDialog !== null && hitDialog !== elDialog);
-            // Exception 4 — a fixed bar over a scrollable page is check 4b's.
-            let hitIsFixed = false;
-            for (let n = hit; n; n = n.parentElement) {
-              if (getComputedStyle(n).position === "fixed") { hitIsFixed = true; break; }
+            // Exception 4 — a fixed bar over a scrollable page is check 4b's,
+            // unless the control FLOATS: it is fixed itself and no scrolling
+            // box sits between it and its fixed layer, so nothing ever scrolls
+            // it out from under the layer on top. (A chip in a fixed strip that
+            // scrolls sideways can be scrolled clear, and stays 4b's.)
+            const fixedIn = (node) => {
+              for (let n = node; n; n = n.parentElement) if (getComputedStyle(n).position === "fixed") return n;
+              return null;
+            };
+            const hitIsFixed = fixedIn(hit) !== null;
+            const layer = fixedIn(el);
+            let controlFloats = layer !== null;
+            for (let n = el.parentElement; controlFloats && n && n !== layer.parentElement; n = n.parentElement) {
+              const ns = getComputedStyle(n);
+              const scrolls = /(auto|scroll)/.test(ns.overflowX + ns.overflowY)
+                && (n.scrollWidth > n.clientWidth + 1 || n.scrollHeight > n.clientHeight + 1);
+              if (scrolls) controlFloats = false;
             }
-            if (!behindAnotherModal && !(hitIsFixed && pageScrolls)) {
+            if (!behindAnotherModal && !(hitIsFixed && pageScrolls && !controlFloats)) {
               reachable = !!hit && (hit === el || el.contains(hit));
               if (!reachable) {
                 unreachable.push(`${path(el)} centre is painted by ${hit ? path(hit) : "nothing"}, not itself`);

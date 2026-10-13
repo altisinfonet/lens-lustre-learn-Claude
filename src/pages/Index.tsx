@@ -601,7 +601,10 @@ const Index = () => {
             </motion.div>
           </motion.div>
         </div>
-        <motion.button initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ delay: 3, duration: 1 }} onClick={() => document.getElementById("spotlight")?.scrollIntoView({ behavior: "smooth" })} className="absolute bottom-20 md:bottom-10 left-1/2 -translate-x-1/2 z-20 group cursor-pointer" aria-label={t("home.aria.scrollSpotlight", "Scroll to spotlight")}>
+        {/* 44px to tap (it was the 20px arrow alone — found by the first harness
+            scene of this page, 2026-10-13). `-mb-3` takes the extra 12px back
+            out below, so the arrow itself sits exactly where it always did. */}
+        <motion.button initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ delay: 3, duration: 1 }} onClick={() => document.getElementById("spotlight")?.scrollIntoView({ behavior: "smooth" })} className="absolute bottom-20 md:bottom-10 left-1/2 -translate-x-1/2 -mb-3 z-20 grid h-11 w-11 place-items-center group cursor-pointer" aria-label={t("home.aria.scrollSpotlight", "Scroll to spotlight")}>
           <motion.div animate={{ y: [0, 8, 0] }} transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}>
             <ArrowDown className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors duration-500" />
           </motion.div>
