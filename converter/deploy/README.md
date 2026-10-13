@@ -19,7 +19,7 @@ it is the converter account's email + password, in
 `/var/lib/converter/secrets/credentials.json` (`converter:converter`, `0600`), written by a
 separate Owner-run step. The worker refuses to start if that file is readable by anyone else.
 
-### Why a template unit, not `systemd-run`
+### Why a template unit, not `systemd-run` (design amendment A1, §10.3)
 
 The design (§6) names `systemd-run --uid=ffjob -p …`. An unprivileged worker cannot do that:
 starting a *transient* unit is polkit's `manage-units` with no unit name or properties a rule
@@ -91,11 +91,15 @@ is `ffjob-run`'s `timeout` (RuntimeMaxSec has no effect on `Type=oneshot`), capp
   (claim gone) stops the job at once.
 - Download with the signed `If-Match` sent exactly, at most the declared bytes, ETag and size
   checked (`source_missing` otherwise).
-- ffprobe under limits, then the refusals of design §3 step 5 (fixed codes).
+- ffprobe under limits, then stream selection and the remaining refusals (design §3 step 5 as
+  amended by A1, §10): the first real video stream (never a cover picture) and the default audio
+  stream (else the first), both mapped by index; metadata / timecode / subtitle tracks, cover
+  pictures and other audio are ignored.
 - FFmpeg: one run for all video renditions (decode once), one for audio, one for the poster;
   H.264 Baseline at the browser's codec strings/levels, keyframes every 2 s, ~4 s fMP4 fragments,
   AAC-LC 48 kHz as its own rendition; `-protocol_whitelist file` and the demuxer allow-list on
-  every run over a member's file.
+  every run over a member's file. HDR sources (PQ / HLG / BT.2020) are tone-mapped to SDR BT.709
+  8-bit (zscale + tonemap hable) and tagged bt709; SDR sources are untouched.
 - `packageFromFragmented()` (the browser's own packager), then the server's own
   `manifestProblems` + `judgeUploadContent` before anything is uploaded.
 - `video_converter_begin_version` → `upload-urls` → PUTs (with the signed headers) →
@@ -103,11 +107,11 @@ is `ffjob-run`'s `timeout` (RuntimeMaxSec has no effect on `Type=oneshot`), capp
 
 ## Known limits / follow-ups
 
-- HDR (HLG/PQ) sources are converted to 8-bit BT.709 without tone mapping (HLG looks acceptable;
-  PQ will look flat). A `zscale`/`tonemap` step is a follow-up.
-- The poster is always the frame at 1 s: the claim carries no member cover.
-- Data/subtitle tracks are refused as the design says (`ALLOW_DATA_STREAMS = false` in
-  `converter/src/probe.ts`) — iPhone `.mov` files usually carry metadata tracks and two-audio
-  files (spatial audio) are refused too; see the PR's open questions.
+- The poster is always the frame at min(1 s, duration/2): the claim carries no member cover
+  (a recorded follow-up, design §10.4).
+- HDR tone mapping needs FFmpeg's `zscale` (libzimg) and `tonemap`; Ubuntu 24.04's FFmpeg has
+  both. The start-up self-test converts an HDR-tagged source, so a VM without them claims nothing.
+- Tone mapping runs in floating point per rendition: HDR conversions are slower than SDR ones;
+  not yet measured on the Ampere VM.
 - `MemoryDenyWriteExecute=yes` on the FFmpeg runs is proven on x86_64 (CI); on the aarch64 VM the
   start-up self-test is the proof — if it fails there, check `journalctl -u 'converter-ff@*'`.

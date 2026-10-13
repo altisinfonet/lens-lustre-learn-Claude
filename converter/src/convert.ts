@@ -78,10 +78,16 @@ export async function convertSource(o: ConvertOptions): Promise<Converted> {
   const facts = o.facts ?? (await probeSource(o));
   log("job.probed", {
     format: facts.formatName, codec: facts.videoCodec, width: facts.width, height: facts.height, rotation: facts.rotation,
-    fps: Math.round(facts.fps * 100) / 100, duration_s: Math.round(facts.durationS * 10) / 10, audio: facts.audioCodec, ms: now() - t0,
+    fps: Math.round(facts.fps * 100) / 100, duration_s: Math.round(facts.durationS * 10) / 10, audio: facts.audioCodec,
+    video_stream: facts.videoIndex, audio_stream: facts.audioIndex, ignored_streams: facts.ignoredStreams,
+    hdr: facts.hdr, transfer: facts.colour.transfer || null, primaries: facts.colour.primaries || null, pix_fmt: facts.colour.pixFmt || null,
+    ms: now() - t0,
   });
   const plan = planEncode(facts);
-  log("job.planned", { step: plan.ladder.step, renditions: plan.video.map((v) => `${v.name}:${v.width}x${v.height}@${v.bitrate}`), audio_bps: plan.audio?.bitrate ?? 0, fps: plan.fps.text });
+  log("job.planned", {
+    step: plan.ladder.step, renditions: plan.video.map((v) => `${v.name}:${v.width}x${v.height}@${v.bitrate}`), audio_bps: plan.audio?.bitrate ?? 0,
+    fps: plan.fps.text, tone_map: plan.toneMap !== null,
+  });
 
   const limit = runLimitS(plan.durationS);
   t0 = now();

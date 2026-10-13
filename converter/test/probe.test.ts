@@ -1,23 +1,84 @@
 // @vitest-environment node
 /**
  * Step 3 · what ffprobe found, judged before any decoder runs over the file
- * (CONVERTER-DESIGN.md v2 §3 step 5): the refusals map to the fixed codes.
+ * (CONVERTER-DESIGN.md v2 §3 step 5, amendment A1 of 2026-10-13): which
+ * streams are converted, which are ignored, the refusals that remain (fixed
+ * codes), and the HDR test.
  */
 import { describe, it, expect } from "vitest";
-import { ALLOW_DATA_STREAMS, INPUT_FORMAT_WHITELIST, judgeProbe, outputFps, probeArgs } from "../src/probe";
+import { INPUT_FORMAT_WHITELIST, isHdr, judgeProbe, outputFps, probeArgs } from "../src/probe";
 import { JobFailure } from "../src/failures";
-import { probeJson } from "./helpers";
+import { iphoneProbeJson, probeJson } from "./helpers";
 
 function code(json: string): string {
   try { judgeProbe(json); return "ok"; } catch (e) { return e instanceof JobFailure ? e.code : `threw ${String(e)}`; }
 }
 
 describe("converter · ffprobe facts", () => {
-  it("a normal phone video: one H.264 video + one AAC audio → facts", () => {
+  it("a normal phone video: one H.264 video + one AAC audio → facts, both streams by index", () => {
     const f = judgeProbe(probeJson({ width: 1920, height: 1080, duration: 448.2, fps: "30000/1001" }));
-    expect(f).toMatchObject({ width: 1920, height: 1080, rotation: 0, hasAudio: true, audioChannels: 2, videoCodec: "h264", fpsRational: "30000/1001" });
+    expect(f).toMatchObject({
+      width: 1920, height: 1080, rotation: 0, hasAudio: true, audioChannels: 2, videoCodec: "h264", fpsRational: "30000/1001",
+      videoIndex: 0, audioIndex: 1, ignoredStreams: 0, hdr: false,
+    });
     expect(f.durationS).toBeCloseTo(448.2);
     expect(f.fps).toBeCloseTo(29.97, 2);
+  });
+
+  it("an iPhone .mov (A1): cover picture listed FIRST, HLG HEVC, spatial audio FFmpeg does not know, 4 metadata tracks → converted, not refused", () => {
+    const f = judgeProbe(iphoneProbeJson());
+    expect(f).toMatchObject({
+      videoIndex: 1,          // the real video, never the cover picture at index 0
+      audioIndex: 3,          // the AAC track: the spatial track (index 2, codec unknown) is skipped
+      audioCodec: "aac", audioChannels: 2,
+      ignoredStreams: 6,      // cover, spatial audio, 4 × mebx — never mapped
+      width: 1080, height: 1920, rotation: 270, videoCodec: "hevc", hdr: true,
+    });
+    expect(f.colour).toEqual({ transfer: "arib-std-b67", primaries: "bt2020", matrix: "bt2020nc", range: "tv", pixFmt: "yuv420p10le" });
+  });
+
+  it("data, timecode, subtitle and attachment streams are allowed and ignored (A1)", () => {
+    const extra = [
+      { codec_type: "data", codec_name: "none", tags: { handler_name: "Core Media Metadata" } },
+      { codec_type: "data", codec_name: "none", tags: { handler_name: "Time Code Media Handler" } },
+      { codec_type: "subtitle", codec_name: "mov_text" },
+      { codec_type: "attachment", codec_name: "ttf" },
+    ];
+    expect(judgeProbe(probeJson({ extra }))).toMatchObject({ videoIndex: 0, audioIndex: 1, ignoredStreams: 4 });
+  });
+
+  it("several video streams: the first real one; a cover picture is never chosen, wherever it is listed", () => {
+    const cover = { codec_type: "video", codec_name: "mjpeg", width: 600, height: 600, avg_frame_rate: "0/0", disposition: { attached_pic: 1 } };
+    // cover picture after the video
+    expect(judgeProbe(probeJson({ extra: [cover] }))).toMatchObject({ videoIndex: 0, width: 1280 });
+    // cover picture first, real video second (indices as the file says)
+    const p = JSON.parse(probeJson());
+    p.streams = [{ ...cover, index: 0 }, { ...p.streams[0], index: 1 }, { ...p.streams[1], index: 2 }];
+    expect(judgeProbe(JSON.stringify(p))).toMatchObject({ videoIndex: 1, audioIndex: 2, width: 1280, ignoredStreams: 1 });
+    // a second real video stream is ignored
+    expect(judgeProbe(probeJson({ extra: [{ codec_type: "video", codec_name: "h264", width: 640, height: 360, avg_frame_rate: "30/1" }] })))
+      .toMatchObject({ videoIndex: 0, width: 1280, ignoredStreams: 1 });
+    // a video stream with a codec FFmpeg does not know is skipped for one it knows
+    const q = JSON.parse(probeJson());
+    q.streams = [{ ...q.streams[0], index: 0, codec_name: "unknown" }, { ...q.streams[0], index: 1, width: 800, height: 600 }, { ...q.streams[1], index: 2 }];
+    expect(judgeProbe(JSON.stringify(q))).toMatchObject({ videoIndex: 1, width: 800 });
+  });
+
+  it("several audio streams (A1): the default one, else the first; never mixed", () => {
+    const second = { codec_type: "audio", codec_name: "aac", channels: 1 };
+    // both default (as mov files usually say) → the first
+    expect(judgeProbe(probeJson({ extra: [{ ...second, disposition: { default: 1 } }] }))).toMatchObject({ audioIndex: 1, audioChannels: 2 });
+    // only the second is default → the second
+    const p = JSON.parse(probeJson({ extra: [{ ...second, disposition: { default: 1 } }] }));
+    p.streams[1].disposition.default = 0;
+    expect(judgeProbe(JSON.stringify(p))).toMatchObject({ audioIndex: 2, audioChannels: 1 });
+    // none default → the first
+    p.streams[2].disposition.default = 0;
+    expect(judgeProbe(JSON.stringify(p))).toMatchObject({ audioIndex: 1 });
+    // only audio FFmpeg does not know → a version without sound (as the browser path does with sound it cannot decode)
+    const q = JSON.parse(probeJson());
+    q.streams[1].codec_name = "unknown";
+    expect(judgeProbe(JSON.stringify(q))).toMatchObject({ hasAudio: false, audioIndex: null, audioCodec: null });
   });
 
   it("rotation (display matrix -90 / tags.rotate 90) gives the DISPLAY size, as the browser's videoWidth/Height", () => {
@@ -35,18 +96,32 @@ describe("converter · ffprobe facts", () => {
   });
 
   it("no audio is fine (a version without sound)", () => {
-    expect(judgeProbe(probeJson({ audio: false }))).toMatchObject({ hasAudio: false, audioChannels: 0, audioCodec: null });
+    expect(judgeProbe(probeJson({ audio: false }))).toMatchObject({ hasAudio: false, audioChannels: 0, audioCodec: null, audioIndex: null });
   });
 
-  it("refusals → the fixed codes", () => {
-    const video = { codec_type: "video", codec_name: "h264", width: 640, height: 360, avg_frame_rate: "30/1" };
+  it("HDR (A1): PQ or HLG transfer, or BT.2020 primaries; SDR stays SDR", () => {
+    expect(judgeProbe(probeJson({ colour: { transfer: "smpte2084", primaries: "bt2020", matrix: "bt2020nc", range: "tv", pixFmt: "yuv420p10le" } })).hdr).toBe(true);
+    expect(judgeProbe(probeJson({ colour: { transfer: "arib-std-b67", primaries: "bt2020" } })).hdr).toBe(true);
+    expect(judgeProbe(probeJson({ colour: { transfer: "bt2020-10", primaries: "bt2020" } })).hdr).toBe(true);
+    expect(judgeProbe(probeJson({ colour: { transfer: "smpte2084" } })).hdr).toBe(true);
+    expect(judgeProbe(probeJson({ colour: { transfer: "bt709", primaries: "bt709", matrix: "bt709" } })).hdr).toBe(false);
+    expect(judgeProbe(probeJson({ colour: { transfer: "smpte170m", primaries: "smpte170m" } })).hdr).toBe(false);
+    expect(judgeProbe(probeJson()).hdr).toBe(false); // untagged
+    expect(judgeProbe(probeJson({ colour: { transfer: "unknown", primaries: "unknown" } })).colour).toMatchObject({ transfer: "", primaries: "" });
+    expect(isHdr({ transfer: "", primaries: "" })).toBe(false);
+  });
+
+  it("the refusals that remain → their fixed codes", () => {
     const audio = { codec_type: "audio", codec_name: "aac", channels: 2 };
     expect(code(JSON.stringify({ format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "5" }, streams: [audio] }))).toBe("no_video");
-    expect(code(probeJson({ extra: [video] }))).toBe("unsupported_format"); // two video streams
-    expect(code(probeJson({ extra: [audio] }))).toBe("unsupported_format"); // two audio streams
-    expect(code(probeJson({ extra: [{ ...video, codec_name: "mjpeg", disposition: { attached_pic: 1 } }] }))).toBe("unsupported_format");
-    expect(code(probeJson({ extra: [{ codec_type: "subtitle", codec_name: "mov_text" }] }))).toBe("unsupported_format");
-    expect(code(probeJson({ extra: [{ codec_type: "attachment", codec_name: "ttf" }] }))).toBe("unsupported_format");
+    // only a cover picture: still no video
+    expect(code(JSON.stringify({ format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "5" }, streams: [
+      { index: 0, codec_type: "video", codec_name: "mjpeg", width: 600, height: 600, disposition: { attached_pic: 1 } }, { index: 1, ...audio },
+    ] }))).toBe("no_video");
+    const unknownVideo = JSON.parse(probeJson());
+    unknownVideo.streams[0].codec_name = "unknown";
+    expect(code(JSON.stringify(unknownVideo))).toBe("unsupported_format");
+    expect(code(probeJson({ extra: Array.from({ length: 63 }, () => ({ codec_type: "data", codec_name: "none" })) }))).toBe("unsupported_format"); // 65 streams
     expect(code(probeJson({ width: 4097, height: 2160 }))).toBe("too_big");
     expect(code(probeJson({ width: 2160, height: 4097 }))).toBe("too_big");
     expect(code(probeJson({ width: 4096, height: 2160 }))).toBe("ok");
@@ -61,11 +136,6 @@ describe("converter · ffprobe facts", () => {
     expect(code("not json")).toBe("damaged");
     expect(code(JSON.stringify({ streams: [] }))).toBe("damaged");
     expect(code(probeJson({ width: 0, height: 0 }))).toBe("damaged");
-  });
-
-  it("data streams (phone timed metadata) are refused while ALLOW_DATA_STREAMS is false, as the design says", () => {
-    expect(ALLOW_DATA_STREAMS).toBe(false);
-    expect(code(probeJson({ extra: [{ codec_type: "data", codec_name: "bin_data" }] }))).toBe("unsupported_format");
   });
 
   it("a length: the container's, else the longest stream's; none → damaged", () => {

@@ -1,22 +1,32 @@
 /**
  * Step 3 · what is in the member's file, read by ffprobe UNDER LIMITS and
  * judged here before any decoder runs over the whole file
- * (CONVERTER-DESIGN.md v2 §3 step 5).
+ * (CONVERTER-DESIGN.md v2 §3 step 5, as amended 2026-10-13 — A1).
+ *
+ * WHICH STREAMS (amendment A1, "iPhone videos must work and keep their colours"):
+ *   video  the first video stream that is NOT a cover picture (attached_pic)
+ *          and has a codec FFmpeg knows — mapped BY ITS INDEX, so a cover
+ *          picture listed first can never be the one converted;
+ *   audio  the stream marked default, else the first audio stream (among
+ *          those with a codec FFmpeg knows), by its index — never mixed;
+ *   every other stream (iPhone timed metadata "mebx", timecode "tmcd",
+ *          subtitles, attachments, cover pictures, more audio) is ALLOWED and
+ *          IGNORED: never mapped.
  *
  * Refused (fixed codes, failures.ts):
- *   no video stream                                   → no_video
- *   more than one video stream, more than one audio
- *   stream, a cover picture (attached_pic), any data /
- *   subtitle / attachment stream, a demuxer outside
- *   the allow-list, fps outside 1–120                 → unsupported_format
- *   width or height above 4096                         → too_big
- *   longer than 15 h                                   → too_long
- *   unreadable size / length                           → damaged
+ *   no real video stream (none, or only cover pictures) → no_video
+ *   video streams, but none with a codec FFmpeg knows,
+ *   a demuxer outside the allow-list, fps outside 1–120,
+ *   more than 64 streams                                 → unsupported_format
+ *   width or height above 4096                           → too_big
+ *   longer than 15 h                                     → too_long
+ *   unreadable size / length                             → damaged
  *
  * The facts that come out are the DISPLAY size (rotation and non-square
  * pixels applied — what a browser's video.videoWidth/Height says, which is
- * what the device path declares), the length the package will have, and
- * the output frame rate (see outputFps).
+ * what the device path declares), the length the package will have, the
+ * chosen streams' indices, and the colour description (HDR → tone-mapped to
+ * SDR BT.709 by encode.ts).
  */
 import { JobFailure } from "./failures";
 
@@ -34,13 +44,8 @@ export const MIN_FPS = 1;
 export const MAX_FPS = 120;
 /** At ~2.9× real time a longer video cannot finish inside a claim's 6 h ceiling (design §3 step 5). */
 export const MAX_DURATION_S = 15 * 3600;
-
-/**
- * Design §3 step 5 refuses data/subtitle streams. Phones commonly add timed
- * metadata tracks (iPhone "mebx", "tmcd"), which this refuses as
- * unsupported_format — kept as specified; flip only on a recorded decision.
- */
-export const ALLOW_DATA_STREAMS = false;
+/** A sanity bound on a hostile file, far above any camera's (an iPhone .mov has ~5). */
+export const MAX_STREAMS = 64;
 
 /** The input-side options every ffprobe/ffmpeg run on a member's file carries. */
 export function inputGuardArgs(): string[] {
@@ -63,10 +68,25 @@ export function probeArgs(input = "source"): string[] {
   ];
 }
 
+/** The source's colour description, as ffprobe names it ("" when the file does not say). */
+export interface ColourFacts {
+  transfer: string;
+  primaries: string;
+  matrix: string;
+  range: string;
+  pixFmt: string;
+}
+
 export interface ProbeFacts {
   formatName: string;
   /** seconds: the package's length (format duration; the longest stream when the container has none) */
   durationS: number;
+  /** the chosen video stream's index in the file (`-map 0:<index>`) */
+  videoIndex: number;
+  /** the chosen audio stream's index, or null when the version has no sound */
+  audioIndex: number | null;
+  /** streams in the file that are not converted (metadata, timecode, cover pictures, other audio …) */
+  ignoredStreams: number;
   /** coded size of the video stream */
   codedWidth: number;
   codedHeight: number;
@@ -81,6 +101,9 @@ export interface ProbeFacts {
   hasAudio: boolean;
   audioChannels: number;
   audioCodec: string | null;
+  colour: ColourFacts;
+  /** PQ or HLG transfer, or BT.2020 primaries → tone-mapped to SDR BT.709 (encode.ts) */
+  hdr: boolean;
 }
 
 interface RawStream {
@@ -94,6 +117,11 @@ interface RawStream {
   duration?: string;
   channels?: number;
   sample_aspect_ratio?: string;
+  pix_fmt?: string;
+  color_range?: string;
+  color_space?: string;
+  color_transfer?: string;
+  color_primaries?: string;
   disposition?: Record<string, number>;
   tags?: Record<string, string>;
   side_data_list?: Array<{ side_data_type?: string; rotation?: number | string }>;
@@ -101,6 +129,9 @@ interface RawStream {
 interface RawProbe { format?: { format_name?: string; duration?: string; nb_streams?: number }; streams?: RawStream[] }
 
 const RATIONAL = /^(\d{1,9})\/(\d{1,9})$/;
+/** ffprobe prints "unknown" for a codec FFmpeg has no descriptor for (e.g. Apple's spatial audio, APAC). */
+const knownCodec = (s: RawStream) => !!s.codec_name && s.codec_name !== "unknown" && s.codec_name !== "none";
+const isPicture = (s: RawStream) => s.disposition?.attached_pic === 1;
 
 function rate(s: string | undefined): { text: string; value: number } | null {
   const m = RATIONAL.exec(String(s ?? ""));
@@ -125,6 +156,16 @@ function rotationOf(v: RawStream): 0 | 90 | 180 | 270 {
   return r as 0 | 90 | 180 | 270;
 }
 
+function streamIndex(s: RawStream, fallback: number): number {
+  const i = Number(s.index);
+  return Number.isInteger(i) && i >= 0 ? i : fallback;
+}
+
+/** HDR as decision A1 defines it: a PQ or HLG transfer, or BT.2020 primaries. */
+export function isHdr(c: Pick<ColourFacts, "transfer" | "primaries">): boolean {
+  return c.transfer === "smpte2084" || c.transfer === "arib-std-b67" || c.primaries === "bt2020";
+}
+
 /** Judge ffprobe's JSON. Throws JobFailure with the fixed code; returns the facts otherwise. */
 export function judgeProbe(json: string): ProbeFacts {
   let p: RawProbe;
@@ -139,27 +180,23 @@ export function judgeProbe(json: string): ProbeFacts {
   if (!formatName.split(",").some((f) => allowed.has(f))) throw new JobFailure("unsupported_format", `container ${formatName.slice(0, 40) || "unknown"}`);
 
   const streams = p.streams;
-  if (streams.length > 64) throw new JobFailure("unsupported_format", `${streams.length} streams`);
-  const pictures = streams.filter((s) => s.codec_type === "video" && s.disposition?.attached_pic === 1);
-  if (pictures.length) throw new JobFailure("unsupported_format", "the file carries a cover picture stream (attached_pic)");
-  const video = streams.filter((s) => s.codec_type === "video");
-  const audio = streams.filter((s) => s.codec_type === "audio");
-  const other = streams.filter((s) => s.codec_type !== "video" && s.codec_type !== "audio");
-  if (video.length === 0) throw new JobFailure("no_video", "no video stream");
-  if (video.length > 1) throw new JobFailure("unsupported_format", `${video.length} video streams`);
-  if (audio.length > 1) throw new JobFailure("unsupported_format", `${audio.length} audio streams`);
-  const refusedOther = ALLOW_DATA_STREAMS ? other.filter((s) => s.codec_type !== "data") : other;
-  if (refusedOther.length) {
-    throw new JobFailure("unsupported_format", `extra streams: ${refusedOther.map((s) => s.codec_type ?? "unknown").join(",").slice(0, 60)}`);
-  }
+  if (streams.length > MAX_STREAMS) throw new JobFailure("unsupported_format", `${streams.length} streams`);
 
-  const v = video[0];
+  // The video: the first real (not cover-picture) video stream FFmpeg can decode.
+  const realVideo = streams.filter((s) => s.codec_type === "video" && !isPicture(s));
+  if (realVideo.length === 0) throw new JobFailure("no_video", streams.some((s) => s.codec_type === "video") ? "only a cover picture, no video" : "no video stream");
+  const v = realVideo.find(knownCodec);
+  if (!v) throw new JobFailure("unsupported_format", "unknown video codec");
+
+  // The sound: the default stream, else the first — among streams FFmpeg can decode.
+  const audio = streams.filter((s) => s.codec_type === "audio" && knownCodec(s));
+  const a = audio.find((s) => s.disposition?.default === 1) ?? audio[0];
+
   const codedWidth = Number(v.width), codedHeight = Number(v.height);
   if (!Number.isInteger(codedWidth) || !Number.isInteger(codedHeight) || codedWidth < 2 || codedHeight < 2) {
     throw new JobFailure("damaged", "the video has no readable size");
   }
   if (codedWidth > MAX_SIDE || codedHeight > MAX_SIDE) throw new JobFailure("too_big", `${codedWidth}x${codedHeight} is above ${MAX_SIDE} on a side`);
-  if (!v.codec_name || v.codec_name === "none") throw new JobFailure("unsupported_format", "unknown video codec");
 
   const r = rate(v.avg_frame_rate) ?? rate(v.r_frame_rate);
   if (!r) throw new JobFailure("unsupported_format", "no frame rate");
@@ -182,12 +219,21 @@ export function judgeProbe(json: string): ProbeFacts {
   }
   if (rotation === 90 || rotation === 270) [width, height] = [height, width];
 
-  const a = audio[0];
-  const channels = a ? Math.max(1, Math.min(64, Number(a.channels) || 2)) : 0;
+  const tag = (x: string | undefined) => (x && x !== "unknown" && x !== "reserved" ? x : "");
+  const colour: ColourFacts = {
+    transfer: tag(v.color_transfer), primaries: tag(v.color_primaries), matrix: tag(v.color_space),
+    range: tag(v.color_range), pixFmt: String(v.pix_fmt ?? ""),
+  };
+  const videoIndex = streamIndex(v, streams.indexOf(v));
+  const audioIndex = a ? streamIndex(a, streams.indexOf(a)) : null;
   return {
-    formatName, durationS, codedWidth, codedHeight, width, height, rotation,
+    formatName, durationS, videoIndex, audioIndex,
+    ignoredStreams: streams.length - 1 - (a ? 1 : 0),
+    codedWidth, codedHeight, width, height, rotation,
     videoCodec: String(v.codec_name), fpsRational: r.text, fps: r.value,
-    hasAudio: !!a, audioChannels: channels, audioCodec: a ? String(a.codec_name ?? "unknown") : null,
+    hasAudio: !!a, audioChannels: a ? Math.max(1, Math.min(64, Number(a.channels) || 2)) : 0,
+    audioCodec: a ? String(a.codec_name) : null,
+    colour, hdr: isHdr(colour),
   };
 }
 

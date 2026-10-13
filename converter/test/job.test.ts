@@ -13,7 +13,7 @@ import type { ServerResponse } from "node:http";
 import { canonicalManifest, type VideoManifest } from "../../src/lib/video/shared/rules";
 import { runJob, type JobDeps } from "../src/job";
 import type { RunSpec } from "../src/launcher";
-import { apiFor, FakeLauncher, fakeServer, noSleep, probeJson, send, sha256, SRC, tempDir, TOKEN, VIDEO, withAuth, OWNER, type FakeServer, type Recorded } from "./helpers";
+import { apiFor, FakeLauncher, fakeServer, iphoneProbeJson, noSleep, probeJson, send, sha256, SRC, tempDir, TOKEN, VIDEO, withAuth, OWNER, type FakeServer, type Recorded } from "./helpers";
 
 const SOURCE = Buffer.alloc(50_000, 7);
 const ETAG = "e7e7e7";
@@ -168,12 +168,28 @@ describe("converter · one job, start to end", () => {
   });
 
   it("a probe refusal ends the job with its fixed code — nothing declared, nothing uploaded", async () => {
-    const w = await world({ probe: probeJson({ extra: [{ codec_type: "audio", codec_name: "aac", channels: 2 }] }) });
+    const w = await world({ probe: probeJson({ width: 5120, height: 2880 }) });
     const out = await claimAndRun(w);
-    expect(out).toMatchObject({ result: "failed", code: "unsupported_format", status: "failed" });
-    expect(w.finish).toEqual([{ source_id: SRC, claim_token: TOKEN, outcome: "fail", code: "unsupported_format", detail: "2 audio streams" }]);
+    expect(out).toMatchObject({ result: "failed", code: "too_big", status: "failed" });
+    expect(w.finish).toEqual([{ source_id: SRC, claim_token: TOKEN, outcome: "fail", code: "too_big", detail: "5120x2880 is above 4096 on a side" }]);
     expect(w.server.requests.some((r) => r.path.includes("begin_version") || r.path.includes("upload-urls"))).toBe(false);
     await expect(fs.stat(path.join(w.deps.jobsRoot, SRC))).rejects.toThrow();
+  });
+
+  it("an iPhone .mov (A1: cover picture first, HLG, spatial audio, metadata tracks) goes all the way: index maps, tone mapping, done", async () => {
+    const w = await world({ probe: iphoneProbeJson() });
+    expect(await claimAndRun(w)).toMatchObject({ result: "done" });
+    const runs = w.launcher.calls.filter((c) => c.tool === "ffmpeg").map((c) => c.args);
+    const video = runs.find((a) => a.includes("-filter_complex"))!;
+    expect(video[video.indexOf("-filter_complex") + 1]).toMatch(/^\[0:1\]fps=/);
+    expect(video[video.indexOf("-filter_complex") + 1]).toContain("tonemap=tonemap=hable:desat=0");
+    expect(video.join(" ")).toContain("-color_primaries bt709 -color_trc bt709 -colorspace bt709 -color_range tv");
+    const audio = runs.find((a) => a.includes("aac"))!;
+    expect(audio[audio.indexOf("-map") + 1]).toBe("0:3");
+    const bv = w.server.requests.find((r) => r.path === "/rest/v1/rpc/video_converter_begin_version")!.json as Record<string, unknown>;
+    expect(bv).toMatchObject({ _has_audio: true, _declared_duration_s: 12.35 });
+    const uu = w.server.requests.find((r) => r.path === "/api/video/upload-urls")!.json as { manifest: { width: number; height: number } };
+    expect(uu.manifest).toMatchObject({ width: 1080, height: 1920 }); // the display size (rotated)
   });
 
   it("FFmpeg cannot decode the file → damaged; FFmpeg killed by its time cap → internal (retried)", async () => {

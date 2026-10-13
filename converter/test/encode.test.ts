@@ -2,13 +2,14 @@
 /**
  * Step 4 · the FFmpeg command lines, flag by flag: the server must make the
  * same package shape as the browser (webEncoder.ts), and every run on a
- * member's file carries the input hygiene of design §3 step 5.
+ * member's file carries the input hygiene of design §3 step 5; streams by index
+ * and HDR tone mapping as amendment A1 (2026-10-13) says.
  */
 import { describe, it, expect } from "vitest";
-import { audioArgs, AUDIO_CODEC, MIN_FRAGMENT_US, planEncode, posterArgs, runLimitS, videoArgs, videoCodecFor } from "../src/encode";
+import { audioArgs, AUDIO_CODEC, BT709_TAGS, MIN_FRAGMENT_US, planEncode, posterArgs, runLimitS, toneMapChain, videoArgs, videoCodecFor } from "../src/encode";
 import { judgeProbe, INPUT_FORMAT_WHITELIST } from "../src/probe";
 import { JobFailure } from "../src/failures";
-import { probeJson } from "./helpers";
+import { iphoneProbeJson, probeJson } from "./helpers";
 
 const facts = (o: Parameters<typeof probeJson>[0] = {}) => judgeProbe(probeJson(o));
 const after = (args: string[], flag: string, from = 0) => args[args.indexOf(flag, from) + 1];
@@ -44,7 +45,7 @@ describe("converter · the FFmpeg commands", () => {
     expect(a).toContain("-nostdin");
     expect(after(a, "-i")).toBe("source");
     const graph = after(a, "-filter_complex");
-    expect(graph).toMatch(/^\[0:v:0\]fps=fps=30\/1:start_time=0,tpad=stop_mode=clone:stop_duration=10\.000,split=3\[s0\]\[s1\]\[s2\];/);
+    expect(graph).toMatch(/^\[0:0\]fps=fps=30\/1:start_time=0,tpad=stop_mode=clone:stop_duration=10\.000,split=3\[s0\]\[s1\]\[s2\];/);
     expect(graph).toContain("[s0]scale=w=426:h=240:flags=bicubic,setsar=1,format=yuv420p[o0]");
     expect(graph).toContain("[s2]scale=w=1280:h=720:flags=bicubic,setsar=1,format=yuv420p[o2]");
     // one output block per rendition
@@ -75,6 +76,53 @@ describe("converter · the FFmpeg commands", () => {
     expect(MIN_FRAGMENT_US).toBe(3_900_000);
     // never a network or playlist input, never FFmpeg's own HLS muxer
     expect(a.join(" ")).not.toMatch(/\bhls\b|concat|subfile|http/);
+    // SDR: untouched — no tone mapping, no colour tags forced
+    expect(p.toneMap).toBeNull();
+    expect(graph).not.toMatch(/zscale|tonemap/);
+    expect(a).not.toContain("-color_primaries");
+  });
+
+  it("streams by INDEX (A1): an iPhone .mov maps its real video (not the cover picture) and its AAC track; nothing else", () => {
+    const p = planEncode(judgeProbe(iphoneProbeJson()));
+    expect(p).toMatchObject({ videoIndex: 1, audioIndex: 3 });
+    const v = videoArgs(p);
+    expect(after(v, "-filter_complex")).toMatch(/^\[0:1\]fps=/);
+    expect(v.filter((x) => x === "-map")).toHaveLength(p.video.length); // only the filter outputs
+    expect(v.join(" ")).not.toMatch(/0:v:0|0:a:0/);
+    const a = audioArgs(p);
+    expect(a.filter((x) => x === "-map")).toEqual(["-map"]);
+    expect(after(a, "-map")).toBe("0:3");
+    expect(after(posterArgs(p), "-map")).toBe("0:1");
+    for (const args of [v, a, posterArgs(p)]) expect(args).toEqual(expect.arrayContaining(["-sn", "-dn", "-map_metadata"]));
+  });
+
+  it("HDR (A1): every rendition tone-mapped to SDR BT.709 8-bit after its scale, outputs tagged bt709; the poster too", () => {
+    const p = planEncode(facts({ width: 1920, height: 1080, colour: { transfer: "smpte2084", primaries: "bt2020", matrix: "bt2020nc", range: "tv", pixFmt: "yuv420p10le" } }));
+    const chain = "zscale=tin=smpte2084:pin=2020:min=2020_ncl:rin=limited:t=linear:npl=100:p=2020,format=gbrpf32le,zscale=p=709,"
+      + "tonemap=tonemap=hable:desat=0,zscale=t=709:m=709:r=limited,format=yuv420p";
+    expect(p.toneMap).toBe(chain);
+    const a = videoArgs(p);
+    const graph = after(a, "-filter_complex");
+    p.video.forEach((v, i) => expect(graph).toContain(`[s${i}]scale=w=${v.width}:h=${v.height}:flags=bicubic,setsar=1,${chain}[o${i}]`));
+    const starts = a.map((x, i) => (x === "-map" ? i : -1)).filter((i) => i >= 0);
+    starts.forEach((s, i) => {
+      const block = a.slice(s, starts[i + 1] ?? a.length);
+      expect(block.join(" ")).toContain("-color_primaries bt709 -color_trc bt709 -colorspace bt709 -color_range tv");
+      expect(after(block, "-pix_fmt")).toBe("yuv420p");
+      expect(after(block, "-profile:v")).toBe("baseline");
+    });
+    expect(after(posterArgs(p), "-vf")).toBe(`scale=w=1280:h=-2:flags=bicubic,setsar=1,${chain}`);
+  });
+
+  it("HDR input description: HLG, untagged values take the HDR defaults; BT.2020 primaries with an SDR transfer", () => {
+    expect(toneMapChain({ transfer: "arib-std-b67", primaries: "bt2020", matrix: "bt2020nc", range: "tv", pixFmt: "" }))
+      .toMatch(/^zscale=tin=arib-std-b67:pin=2020:min=2020_ncl:rin=limited:t=linear:npl=100:p=2020,/);
+    expect(toneMapChain({ transfer: "smpte2084", primaries: "", matrix: "", range: "", pixFmt: "" }))
+      .toMatch(/^zscale=tin=smpte2084:pin=2020:min=2020_ncl:rin=limited:/);
+    expect(toneMapChain({ transfer: "bt2020-10", primaries: "bt2020", matrix: "bt2020c", range: "pc", pixFmt: "" }))
+      .toMatch(/^zscale=tin=2020_10:pin=2020:min=2020_cl:rin=full:/);
+    expect(toneMapChain({ transfer: "", primaries: "bt2020", matrix: "", range: "", pixFmt: "" })).toMatch(/^zscale=tin=2020_10:/);
+    expect(BT709_TAGS).toEqual(["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", "-color_range", "tv"]);
   });
 
   it("frame rate and GOP follow the output frame rate (60 → 30, 29.97 kept, 5 → 10)", () => {
@@ -90,7 +138,7 @@ describe("converter · the FFmpeg commands", () => {
     const a = audioArgs(p);
     expect(after(a, "-protocol_whitelist")).toBe("file");
     expect(after(a, "-format_whitelist")).toBe(INPUT_FORMAT_WHITELIST);
-    expect(after(a, "-map")).toBe("0:a:0");
+    expect(after(a, "-map")).toBe("0:1");
     expect(a).toEqual(expect.arrayContaining(["-vn", "-sn", "-dn"]));
     expect(after(a, "-c:a")).toBe("aac");
     expect(after(a, "-b:a")).toBe("96000");

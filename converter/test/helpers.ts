@@ -87,16 +87,45 @@ export function withAuth(server: FakeServer, counters = { password: 0, refresh: 
   return counters;
 }
 
-/** ffprobe JSON for a file like a phone's: one H.264 video, one AAC audio. */
-export function probeJson(o: { width?: number; height?: number; duration?: number; fps?: string; audio?: boolean; extra?: unknown[]; rotation?: number; format?: string } = {}): string {
-  const streams: unknown[] = [{
+/**
+ * ffprobe JSON for a file like a phone's: one H.264 video, one AAC audio, then
+ * any `extra` streams (indexed in order unless they say otherwise). `colour`
+ * adds the video's colour tags (e.g. a PQ / HLG source).
+ */
+export function probeJson(o: {
+  width?: number; height?: number; duration?: number; fps?: string; audio?: boolean; extra?: Array<Record<string, unknown>>;
+  rotation?: number; format?: string; colour?: { transfer?: string; primaries?: string; matrix?: string; range?: string; pixFmt?: string };
+} = {}): string {
+  const streams: Array<Record<string, unknown>> = [{
     index: 0, codec_type: "video", codec_name: "h264", width: o.width ?? 1280, height: o.height ?? 720,
-    avg_frame_rate: o.fps ?? "30/1", r_frame_rate: o.fps ?? "30/1", sample_aspect_ratio: "1:1", disposition: { attached_pic: 0 },
+    avg_frame_rate: o.fps ?? "30/1", r_frame_rate: o.fps ?? "30/1", sample_aspect_ratio: "1:1", disposition: { attached_pic: 0, default: 1 },
+    pix_fmt: o.colour?.pixFmt ?? "yuv420p",
+    ...(o.colour?.transfer ? { color_transfer: o.colour.transfer } : {}),
+    ...(o.colour?.primaries ? { color_primaries: o.colour.primaries } : {}),
+    ...(o.colour?.matrix ? { color_space: o.colour.matrix } : {}),
+    ...(o.colour?.range ? { color_range: o.colour.range } : {}),
     ...(o.rotation !== undefined ? { side_data_list: [{ side_data_type: "Display Matrix", rotation: o.rotation }] } : {}),
   }];
-  if (o.audio !== false) streams.push({ index: 1, codec_type: "audio", codec_name: "aac", channels: 2, sample_rate: "48000", disposition: { attached_pic: 0 } });
-  streams.push(...(o.extra ?? []));
+  if (o.audio !== false) streams.push({ index: 1, codec_type: "audio", codec_name: "aac", channels: 2, sample_rate: "48000", disposition: { attached_pic: 0, default: 1 } });
+  for (const x of o.extra ?? []) streams.push({ index: streams.length, ...x });
   return JSON.stringify({ format: { format_name: o.format ?? "mov,mp4,m4a,3gp,3g2,mj2", duration: String(o.duration ?? 10), nb_streams: streams.length }, streams });
+}
+
+/** An iPhone-like .mov as ffprobe lists it: HEVC HDR video, stereo AAC (default), spatial audio FFmpeg does not know, mebx metadata ×4, a cover picture first. */
+export function iphoneProbeJson(): string {
+  const streams = [
+    { index: 0, codec_type: "video", codec_name: "mjpeg", width: 320, height: 240, avg_frame_rate: "0/0", r_frame_rate: "90000/1", disposition: { attached_pic: 1, default: 0 } },
+    { index: 1, codec_type: "video", codec_name: "hevc", width: 1920, height: 1080, avg_frame_rate: "30/1", r_frame_rate: "30/1", sample_aspect_ratio: "1:1",
+      pix_fmt: "yuv420p10le", color_range: "tv", color_space: "bt2020nc", color_transfer: "arib-std-b67", color_primaries: "bt2020",
+      disposition: { attached_pic: 0, default: 1 }, side_data_list: [{ side_data_type: "Display Matrix", rotation: -90 }] },
+    { index: 2, codec_type: "audio", codec_name: "unknown", channels: 4, disposition: { attached_pic: 0, default: 1 } },
+    { index: 3, codec_type: "audio", codec_name: "aac", channels: 2, sample_rate: "44100", disposition: { attached_pic: 0, default: 1 } },
+    { index: 4, codec_type: "data", codec_name: "none", disposition: { attached_pic: 0, default: 1 }, tags: { handler_name: "Core Media Metadata" } },
+    { index: 5, codec_type: "data", codec_name: "none", disposition: { attached_pic: 0, default: 1 } },
+    { index: 6, codec_type: "data", codec_name: "none", disposition: { attached_pic: 0, default: 1 } },
+    { index: 7, codec_type: "data", codec_name: "none", disposition: { attached_pic: 0, default: 1 } },
+  ];
+  return JSON.stringify({ format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "12.345", nb_streams: streams.length }, streams });
 }
 
 /**

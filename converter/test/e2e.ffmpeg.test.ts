@@ -1,12 +1,13 @@
 // @vitest-environment node
 /**
- * REAL FFmpeg, end to end-ish: a generated test video (lavfi testsrc2 + sine)
+ * REAL FFmpeg, end to end-ish: generated test videos (lavfi testsrc2 + sine;
+ * an iPhone-like multi-stream file; a 10-bit PQ HEVC source for HDR, A1)
  * converted with the worker's own command lines, packaged by
  * packageFromFragmented, judged by the server's own judge — zero problems,
  * segments ≤ 6 s, every byte ceiling respected.
  *
  * Runs when an ffmpeg binary is available (FFMPEG_PATH, or `ffmpeg` on PATH —
- * the GitHub ubuntu runner has one); skipped cleanly otherwise. ffprobe
+ * d2-converter.yml installs Ubuntu's); skipped cleanly otherwise. ffprobe
  * (FFPROBE_PATH or PATH) is optional: without it the facts are given, and the
  * tests that need the probe are skipped.
  */
@@ -36,12 +37,30 @@ const FFPROBE = findBinary("FFPROBE_PATH", "ffprobe");
 /** The converter workflow (d2-converter.yml) installs both and sets this: there, a skip would be a silent pass. */
 const REQUIRED = process.env.CONVERTER_REQUIRE_FFMPEG === "1";
 
+/** What this FFmpeg build has: the tone-mapping filters (amendment A1) and libx265 (to make a 10-bit PQ test source). */
+function capability(kind: "-filters" | "-encoders", name: string): boolean {
+  if (!FFMPEG) return false;
+  const r = spawnSync(FFMPEG, ["-hide_banner", kind], { encoding: "utf8" });
+  return new RegExp(`^\\s*\\S+\\s+${name}\\s`, "m").test(String(r.stdout));
+}
+const TONE_MAP = capability("-filters", "zscale") && capability("-filters", "tonemap");
+const X265 = capability("-encoders", "libx265");
+
 describe.runIf(REQUIRED)("converter · real FFmpeg is required here", () => {
-  it("ffmpeg and ffprobe are both present", () => {
+  it("ffmpeg and ffprobe are both present, with zscale + tonemap (A1) and libx265 (the HDR test source)", () => {
     expect(FFMPEG, "ffmpeg").toBeTruthy();
     expect(FFPROBE, "ffprobe").toBeTruthy();
+    expect(TONE_MAP, "zscale + tonemap filters").toBe(true);
+    expect(X265, "libx265 encoder").toBe(true);
   });
 });
+
+/** ffprobe's view of a rendition FFmpeg wrote (the job directory still holds them after convertSource). */
+function probeStream(file: string): Record<string, string> {
+  const r = spawnSync(FFPROBE!, ["-v", "error", "-select_streams", "v:0", "-show_entries",
+    "stream=profile,pix_fmt,bits_per_raw_sample,color_primaries,color_transfer,color_space,color_range", "-of", "json", file], { encoding: "utf8" });
+  return (JSON.parse(String(r.stdout)) as { streams: Array<Record<string, string>> }).streams[0];
+}
 const dec = new TextDecoder();
 const dirs: string[] = [];
 let server: FakeServer | null = null;
@@ -52,16 +71,25 @@ afterEach(async () => {
 
 const launcher = () => new DirectLauncher({ ffmpeg: FFMPEG!, ffprobe: FFPROBE ?? "ffprobe" });
 
-async function makeSource(o: { width: number; height: number; fps: number; seconds: number; audio: boolean }): Promise<{ root: string; dir: string }> {
+async function jobDir(): Promise<{ root: string; dir: string }> {
   const root = await tempDir("conv-e2e-");
   dirs.push(root);
   const dir = path.join(root, SRC);
   await fs.mkdir(dir);
-  const args = ["-hide_banner", "-nostdin", "-loglevel", "error", "-y", "-f", "lavfi", "-i", `testsrc2=size=${o.width}x${o.height}:rate=${o.fps}:duration=${o.seconds}`];
+  return { root, dir };
+}
+
+async function generate(dir: string, args: string[]): Promise<void> {
+  const r = await launcher().run({ tool: "ffmpeg", args: ["-hide_banner", "-nostdin", "-loglevel", "error", "-y", ...args], jobDir: dir, timeoutS: 120 });
+  expect(r.exitCode, r.stderr).toBe(0);
+}
+
+async function makeSource(o: { width: number; height: number; fps: number; seconds: number; audio: boolean }): Promise<{ root: string; dir: string }> {
+  const { root, dir } = await jobDir();
+  const args = ["-f", "lavfi", "-i", `testsrc2=size=${o.width}x${o.height}:rate=${o.fps}:duration=${o.seconds}`];
   if (o.audio) args.push("-f", "lavfi", "-i", `sine=frequency=440:sample_rate=44100:duration=${o.seconds}`);
   args.push("-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", ...(o.audio ? ["-c:a", "aac", "-shortest"] : []), "-f", "mp4", "source");
-  const r = await launcher().run({ tool: "ffmpeg", args, jobDir: dir, timeoutS: 120 });
-  expect(r.exitCode, r.stderr).toBe(0);
+  await generate(dir, args);
   return { root, dir };
 }
 
@@ -116,7 +144,55 @@ describe.skipIf(!FFMPEG)("converter · real FFmpeg", () => {
     expect(avc(pkg.files.get("720p.mp4")!)).toEqual({ profile: 66, level: 31 });
     // 4 s segments: 4 + 4 + 2
     expect(mediaPlaylistSegments(pkg.files).filter((s) => s.playlist === "240p.m3u8").map((s) => Math.round(s.seconds * 10) / 10)).toEqual([4, 4, 2]);
+    // SDR is untouched (A1): no tone mapping, no colour tags added to an untagged source
+    expect(plan.toneMap).toBeNull();
+    if (FFPROBE) expect(probeStream(path.join(dir, "720p.mp4")).color_transfer).toBeUndefined();
   }, 180_000);
+
+  it.skipIf(!FFPROBE)("an iPhone-like file (A1): two audio tracks (the second is default), timecode tracks, cover art → video + the DEFAULT audio, the rest ignored", async () => {
+    const { dir } = await jobDir();
+    await generate(dir, ["-f", "lavfi", "-i", "testsrc2=size=320x240:duration=1", "-frames:v", "1", "-f", "image2", "cover.png"]);
+    await generate(dir, [
+      "-i", "cover.png", "-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=30:duration=4",
+      "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=4", "-f", "lavfi", "-i", "sine=frequency=880:sample_rate=48000:duration=4",
+      "-map", "0:v", "-map", "1:v", "-map", "2:a", "-map", "3:a",
+      "-c:v:0", "png", "-c:v:1", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac",
+      "-disposition:v:0", "attached_pic", "-disposition:v:1", "default", "-disposition:a:0", "0", "-disposition:a:1", "default",
+      "-timecode", "01:00:00:00", "-f", "mp4", "source",
+    ]);
+    const runs: string[][] = [];
+    const spy = launcher();
+    const recording = { run: (s: Parameters<typeof spy.run>[0]) => { runs.push(s.args); return spy.run(s); } };
+    const { pkg, facts, plan } = await convertSource({ launcher: recording, jobDir: dir, purpose: "post", preset: "veryfast" });
+    // what ffprobe lists for this file: video 0, audio 1 (not default), audio 2 (default), timecode data 3 & 4, cover picture 5
+    expect(facts).toMatchObject({ videoIndex: 0, audioIndex: 2, width: 1280, height: 720, ignoredStreams: 4, hdr: false });
+    expect(runs.find((a) => a.includes("aac"))!.join(" ")).toContain("-map 0:2");
+    expectServerAccepts(pkg, plan.durationS);
+    expect(pkg.manifest.has_audio).toBe(true);
+  }, 180_000);
+
+  it.skipIf(!FFPROBE || !TONE_MAP || !X265)("HDR (A1): a 10-bit PQ / BT.2020 HEVC source → every rendition 8-bit BT.709, accepted by the judge", async () => {
+    const { dir } = await jobDir();
+    await generate(dir, [
+      "-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=30:duration=5", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=5",
+      "-vf", "format=yuv420p10le", "-c:v", "libx265", "-preset", "ultrafast", "-x265-params", "log-level=error:colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc",
+      "-pix_fmt", "yuv420p10le", "-color_primaries", "bt2020", "-color_trc", "smpte2084", "-colorspace", "bt2020nc", "-color_range", "tv",
+      "-tag:v", "hvc1", "-c:a", "aac", "-shortest", "-f", "mp4", "source",
+    ]);
+    const { pkg, facts, plan } = await convertSource({ launcher: launcher(), jobDir: dir, purpose: "post", preset: "veryfast" });
+    expect(facts).toMatchObject({ hdr: true, videoCodec: "hevc", colour: { transfer: "smpte2084", primaries: "bt2020", pixFmt: "yuv420p10le" } });
+    expect(plan.toneMap).toContain("tonemap=tonemap=hable:desat=0");
+    expect(plan.video.map((v) => v.name)).toEqual(["240p", "480p", "720p"]);
+    for (const v of plan.video) {
+      const s = probeStream(path.join(dir, v.file));
+      expect(s, v.name).toMatchObject({ pix_fmt: "yuv420p", color_primaries: "bt709", color_transfer: "bt709", color_space: "bt709", color_range: "tv" });
+      expect(s.profile, v.name).toMatch(/Baseline/);
+    }
+    expect(avc(pkg.files.get("720p.mp4")!)).toEqual({ profile: 66, level: 31 });
+    expectServerAccepts(pkg, plan.durationS);
+    const poster = pkg.files.get("poster.jpg")!;
+    expect([poster[0], poster[1], poster[2]]).toEqual([0xff, 0xd8, 0xff]);
+  }, 240_000);
 
   it("no sound, 640x360 25 fps, 4.5 s → 240p only, has_audio false, accepted", async () => {
     const { dir } = await makeSource({ width: 640, height: 360, fps: 25, seconds: 4.5, audio: false });
@@ -173,11 +249,11 @@ describe.skipIf(!FFMPEG)("converter · real FFmpeg", () => {
     for (const f of manifest.files) expect(sha256(stored.get(f.name)!)).toBe(f.sha256);
   }, 180_000);
 
-  it.skipIf(!FFPROBE)("the self-test passes (what the worker runs at every start)", async () => {
+  it.skipIf(!FFPROBE || !TONE_MAP)("the self-test passes (what the worker runs at every start), its HDR case tone-mapped", async () => {
     const root = await tempDir("conv-self-");
     dirs.push(root);
     const r = await selfTest({ launcher: launcher(), jobsRoot: root, preset: "ultrafast" });
-    expect(r).toMatchObject({ ok: true, renditions: ["240p", "480p", "720p"], has_audio: true });
+    expect(r).toMatchObject({ ok: true, renditions: ["240p", "480p", "720p"], has_audio: true, hdr_tone_mapped: true });
     expect(r.max_segment_s!).toBeLessThanOrEqual(6);
     expect(await fs.readdir(root)).toEqual([]);
   }, 180_000);

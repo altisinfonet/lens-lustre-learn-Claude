@@ -7,7 +7,9 @@ name: D2 · VID-1 converter worker (real FFmpeg 6.1 + the systemd sandbox)
 # CONVERTER-DESIGN.md v2 (§3, §6 [R1]) on Ubuntu 24.04 — the VM's OS, systemd
 # 255, Ubuntu's own FFmpeg 6.1 (the VM's FFmpeg):
 #   1. the converter's tests with REAL ffmpeg + ffprobe (the e2e tests skip
-#      without them — npm test on the plain runner has neither);
+#      without them — npm test on the plain runner has neither), including
+#      amendment A1: an iPhone-like multi-stream file and a 10-bit PQ HEVC
+#      source tone-mapped to 8-bit BT.709 (zscale + tonemap, checked first);
 #   2. the single-file bundle builds;
 #   3. deploy/setup.sh on this machine, systemd-analyze verify on the units;
 #   4. deploy/sandbox-check.sh --selftest: as user `converter`, through polkit,
@@ -59,6 +61,12 @@ jobs:
           ffmpeg -hide_banner -version | head -1
           ffprobe -hide_banner -version | head -1
           systemctl --version | head -1
+      - name: This FFmpeg has what amendment A1 needs (zscale + tonemap for HDR; libx265 for the HDR test source)
+        run: |
+          set -euo pipefail
+          ffmpeg -hide_banner -filters | grep -E '^ *[.A-Z|]+ +(zscale|tonemap) '
+          ffmpeg -hide_banner -encoders | grep -E '^ *[.A-Z]+ +libx265 '
+          ffmpeg -hide_banner -version | tr ' ' '\n' | grep -E '^--enable-lib(zimg|x265)$'
       - name: Converter tests with real ffmpeg + ffprobe (required here, not skipped)
         env:
           CONVERTER_REQUIRE_FFMPEG: '1'
