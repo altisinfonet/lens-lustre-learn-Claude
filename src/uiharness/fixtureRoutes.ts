@@ -23,7 +23,7 @@
 import type { FakeRoute } from "./fakeBackend";
 import {
   HARNESS_USER_ID,
-  adCreatives, categories, certificates, dashboardInit, follows, posts,
+  adCreatives, categories, certificates, dashboardInit, dbAuditLogs, follows, posts,
   postComments, postReactions, profiles, profilesPublicData, siteSettings, userRoles,
 } from "./fixtures";
 
@@ -40,6 +40,8 @@ const TABLES: Record<string, unknown[]> = {
   follows,
   post_reactions: postReactions,
   ad_creatives: adCreatives,
+  /** Admin → Video Conversion's History (2026-10-12): the setting's one migration INSERT. */
+  db_audit_logs: dbAuditLogs,
   /**
    * The profile header's follower/following counts, added 2026-08-16 with the
    * Instagram-style header. Deliberately FOUR-DIGIT and uneven: a fixture of

@@ -34,6 +34,11 @@ import { PostAudienceChooser, type Privacy } from "@/components/post/PostAudienc
 import type { UnifiedPost } from "@/types/post";
 import { REAL_SCREENS } from "./realScreens";
 import VideoPostComposer from "@/components/video/VideoPostComposer";
+import { ServerJobsTray } from "@/components/video/ServerVideoJobs";
+import ServerVideoReview from "@/components/video/ServerVideoReview";
+import AdminVideoConversion from "@/components/admin/video/AdminVideoConversion";
+import type { ConversionMode } from "@/lib/video/conversionMode";
+import type { VideoJob } from "@/lib/video/uploadJobs";
 import landscapeVideoUrl from "./fixtures/video/landscape-1280x720.webm?url";
 import portraitVideoUrl from "./fixtures/video/portrait-360x640.webm?url";
 
@@ -43,12 +48,53 @@ import portraitVideoUrl from "./fixtures/video/portrait-360x640.webm?url";
  * 9:16 (Owner, 2026-10-05): a 9:16 video fills it; a 16:9 one is fitted whole
  * in the middle with a blurred copy of itself above and below (videoFrame.ts).
  */
-function VideoComposerHarness({ src, name }: { src: string; name: string }) {
+function VideoComposerHarness({ src, name, conversion }: { src: string; name: string; conversion?: ConversionMode }) {
   const [file, setFile] = useState<File | null>(null);
   if (!file) {
     void fetch(src).then((r) => r.blob()).then((b) => setFile(new File([b], name, { type: "video/webm" })));
   }
-  return file ? <VideoPostComposer open onOpenChange={() => {}} initialFile={file} /> : <p>loading video…</p>;
+  return file ? <VideoPostComposer open onOpenChange={() => {}} initialFile={file} conversion={conversion} /> : <p>loading video…</p>;
+}
+
+/**
+ * SERVER CONVERSION (CONVERTER-DESIGN.md v2 §8): a file this browser cannot
+ * play at all — 2.4 MB of zeros named .avi, so Chromium's own decoder refuses
+ * it every run. In server mode it may still be posted (the converter judges
+ * it); the preview frame says why it is blank instead of showing a black box.
+ */
+function VideoComposerUnplayableHarness() {
+  const [file] = useState(() => new File([new Uint8Array(2_400_000)], "holiday.avi", { type: "video/x-msvideo" }));
+  return <VideoPostComposer open onOpenChange={() => {}} initialFile={file} conversion="server" />;
+}
+
+/** A server job exactly as the job store keeps it; each scene states only what differs. */
+function serverJob(id: string, over: Partial<VideoJob>): VideoJob {
+  return {
+    id, userId: "harness", purpose: "post", createdAt: 1, step: "converting", mode: "server",
+    source: { id: "55555555-5555-4555-8555-555555555555", bytes: 91_000_000, name: "IMG_4412.MOV" }, uploaded: [],
+    post: { content: "Evening light over the Hooghly — shot handheld on the ferry back from Belur.", categories: ["street", "documentary"], privacy: "public", idempotencyKey: "k" },
+    attempts: 0, nextAt: 0, ...over,
+  };
+}
+
+/**
+ * The corner card over a page, so its place above the bottom bar (phone) and
+ * at the bottom left (desktop) is what gets photographed, not a card alone.
+ */
+function ServerJobsHarness({ jobs, progress }: { jobs: VideoJob[]; progress: Record<string, number | undefined> }) {
+  return (
+    <div className="min-h-screen bg-background p-4 text-foreground">
+      <div className="mx-auto max-w-xl space-y-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="overflow-hidden rounded-lg border border-border bg-card">
+            <img src={swatch(i + 4, "")} alt="" className="aspect-[4/3] w-full object-cover" />
+            <p className="p-3 text-sm text-muted-foreground">A post in the feed under the card.</p>
+          </div>
+        ))}
+      </div>
+      <ServerJobsTray jobs={jobs} progress={progress} onPreview={() => {}} onCancel={() => {}} onDismiss={() => {}} />
+    </div>
+  );
 }
 
 /** A deterministic stand-in image, so a scene never depends on the network. */
@@ -909,6 +955,47 @@ export const SCENES: Record<string, () => JSX.Element> = {
   "video-composer-landscape": () => <VideoComposerHarness src={landscapeVideoUrl} name="landscape.webm" />,
   /** VID-1: a 9:16 video filling the 9:16 card edge to edge. */
   "video-composer-portrait": () => <VideoComposerHarness src={portraitVideoUrl} name="portrait.webm" />,
+
+  /*
+   * ── SERVER CONVERSION (CONVERTER-DESIGN.md v2 §8), added 2026-10-12 ───────
+   * The composer when Admin → Video Conversion says "On our server": no cover
+   * row, no "Remove sound", one line saying the page may be closed at 100 %.
+   * Then the corner card through every state a member meets, the preview they
+   * post from, and the admin switch itself.
+   */
+  "video-composer-server": () => <VideoComposerHarness src={portraitVideoUrl} name="portrait.webm" conversion="server" />,
+  /** A format this browser cannot play: server mode still lets it go to the converter. */
+  "video-composer-server-unplayable": () => <VideoComposerUnplayableHarness />,
+  /** Uploading (42 %) and being prepared — the two cards a member sees right after Post. */
+  "video-server-jobs-progress": () => (
+    <ServerJobsHarness
+      jobs={[serverJob("up", { step: "source" }), serverJob("prep", { step: "converting", purpose: "ad", ad: { creativeId: "c" } })]}
+      progress={{ up: 42 }}
+    />
+  ),
+  /** Ready to watch and post, and a failure in the database's own words (video_source_reason_text). */
+  "video-server-jobs-ready-failed": () => (
+    <ServerJobsHarness
+      jobs={[
+        serverJob("ready", { step: "review", videoId: "v" }),
+        serverJob("fail", { step: "failed", errorCode: "VID-SRC-FAILED", lastError: "This file's format can't be converted. Try exporting it as MP4 and upload again." }),
+      ]}
+      progress={{}}
+    />
+  ),
+  /** The preview the member posts from. The player is a still: a real one would ask for a play token. */
+  "video-server-review": () => (
+    <ServerVideoReview
+      job={serverJob("ready", { step: "review", videoId: "v" })}
+      onClose={() => {}}
+      video={{ id: "v", width: 1080, height: 1920, durationS: 448, hasAudio: true }}
+      renderPlayer={() => <img src={swatch(7, "")} alt="" className="h-full w-full object-cover" />}
+    />
+  ),
+  /** Admin → Video Feature → Video Conversion, as staging has it (the migration's "device"). */
+  "admin-video-conversion": () => (
+    <div className="min-h-screen bg-background p-4 text-foreground sm:p-6"><AdminVideoConversion /></div>
+  ),
 
   /**
    * The row and composer ALONE, using no prop newer than the redesign, so the

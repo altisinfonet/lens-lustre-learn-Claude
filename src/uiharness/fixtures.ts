@@ -394,8 +394,28 @@ export const profilesPublicData = profiles.map((p, i) => ({
  * the screens are photographed on their DEFAULT branding path — the built-in
  * `SYSTEM_PAGES` menu and the bundled logo. The admin-configured logo and
  * custom navigation are NOT covered here and remain device/staging questions.
+ *
+ * ONE ROW, added 2026-10-12 with server conversion: `video_conversion`, exactly
+ * as migration 20261012_0002 leaves every lane ("device", nobody's edit yet).
+ * Only Admin → Video Conversion and the video composer read it, and "device"
+ * is what they already assumed without it, so no other scene changes.
  */
-export const siteSettings: Array<{ key: string; value: unknown }> = [];
+export const siteSettings: Array<{ key: string; value: unknown; updated_at?: string; updated_by?: string | null }> = [
+  { key: "video_conversion", value: "device", updated_at: "2026-10-12T12:40:49.000Z", updated_by: null },
+];
+
+/**
+ * The audit trail of that row (audit_site_settings → db_audit_logs): its one
+ * INSERT, by the migration (no member), so the admin page's History is drawn
+ * with a real entry rather than its empty state.
+ */
+export const dbAuditLogs = [
+  {
+    id: "a1", table_name: "site_settings", row_id: "video_conversion", operation: "INSERT",
+    created_at: "2026-10-12T12:40:49.000Z", changed_by: null, old_data: null,
+    new_data: { key: "video_conversion", value: "device", updated_by: null },
+  },
+];
 
 /** Categories drive the feed's filter row: enough of them to overflow 360px,
  *  which is the only interesting question the row asks. */
