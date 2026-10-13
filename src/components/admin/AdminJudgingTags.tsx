@@ -7,6 +7,7 @@ import { toast } from "@/hooks/core/use-toast";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { useConfirmAction } from "@/hooks/admin/useConfirmAction";
 import { generateImagePath, uploadImage } from "@/lib/imageUpload";
+import { storageSafeExtension } from "@/lib/storageSafeName";
 import JudgingStampBadge, { STAMP_ICONS } from "@/components/JudgingStampBadge";
 import SystemTagRequestForm from "@/components/admin/SystemTagRequestForm";
 
@@ -77,7 +78,7 @@ const AdminJudgingTags = ({ adminId }: Props) => {
       return null;
     }
 
-    const ext = file.name.split(".").pop() || "png";
+    const ext = storageSafeExtension(file.name, "png");
     const path = generateImagePath({ type: "judging-tag", ext });
 
     try {

@@ -1,6 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecureHeaders } from "../_shared/secureHeaders.ts";
-import { assertStorageLane } from "../_shared/s3.ts";
+import {
+  assertStorageLane,
+  storageKeyWithPrefix,
+  storageObjectUrl,
+  validateStorageKey,
+} from "../_shared/s3.ts";
 
 // ── Path-ownership gate (SEC-2) — mirrors s3-presign-upload ──────
 const SHARED_PREFIXES = ["inline/", "journal/", "gallery/", "covers/"] as const;
@@ -16,14 +21,16 @@ async function isAdminUser(adminClient: any, userId: string): Promise<boolean> {
   return !!data;
 }
 
-function isPathAllowed(rawPath: string, userId: string, isAdmin: boolean): boolean {
-  const parts = rawPath.split("/");
+// `key` must already have passed validateStorageKey: these rules read the key
+// literally, so they are only meaningful for a key nothing will re-interpret.
+function isPathAllowed(key: string, userId: string, isAdmin: boolean): boolean {
+  const parts = key.split("/");
   const ownsPath = parts.some((p) => p === userId);
   if (isAdmin) return true;
   if (ownsPath) return true;
-  const inStrict = STRICT_PRIVATE_PREFIXES.some((p) => rawPath.startsWith(p));
+  const inStrict = STRICT_PRIVATE_PREFIXES.some((p) => key.startsWith(p));
   if (inStrict) return false;
-  return SHARED_PREFIXES.some((p) => rawPath.startsWith(p));
+  return SHARED_PREFIXES.some((p) => key.startsWith(p));
 }
 
 interface S3Settings {
@@ -124,11 +131,18 @@ Deno.serve(async (req) => {
     // Parse multipart form data
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
-    const filePath = formData.get("path") as string | null;
+    const rawPath = formData.get("path");
     const isPrivate = formData.get("private") === "true";
 
-    if (!file || !filePath) {
+    if (!file || !rawPath) {
       return new Response(JSON.stringify({ error: "Missing file or path" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Strict storage-key grammar first: the ownership gate below and the URL
+    // that is signed must both see this same, literal key.
+    const filePath = validateStorageKey(rawPath);
+    if (!filePath) {
+      return new Response(JSON.stringify({ error: "Invalid path" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // SEC-2 ownership gate
@@ -138,17 +152,15 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Forbidden: path not owned by caller" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const fileBytes = new Uint8Array(await file.arrayBuffer());
-    const s3Key = s3.path_prefix ? `${s3.path_prefix.replace(/\/+$/, "")}/${filePath}` : filePath;
+    const s3Key = storageKeyWithPrefix(s3.path_prefix, filePath);
+    if (!s3Key) {
+      return new Response(JSON.stringify({ error: "Storage path prefix is misconfigured" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    // The URL is proven to address exactly "/<bucket>/<s3Key>" before anything is signed.
+    const url = storageObjectUrl(s3, s3Key);
+    const target = new URL(url);
 
-    // Build the S3 endpoint
-    const host = s3.endpoint
-      ? s3.endpoint.replace(/^https?:\/\//, "").replace(/\/+$/, "")
-      : `${s3.bucket_name}.s3.${s3.region}.amazonaws.com`;
-    const baseUrl = s3.endpoint
-      ? `${s3.endpoint.replace(/\/+$/, "")}/${s3.bucket_name}`
-      : `https://${host}`;
-    const url = `${baseUrl}/${s3Key}`;
+    const fileBytes = new Uint8Array(await file.arrayBuffer());
 
     // AWS Signature V4
     const now = new Date();
@@ -159,14 +171,14 @@ Deno.serve(async (req) => {
 
     const canonicalHeaders = [
       `content-type:${file.type || "application/octet-stream"}`,
-      `host:${new URL(url).host}`,
+      `host:${target.host}`,
       `x-amz-content-sha256:${contentHash}`,
       `x-amz-date:${amzDate}`,
     ].join("\n") + "\n";
 
     const signedHeaders = "content-type;host;x-amz-content-sha256;x-amz-date";
 
-    const canonicalUri = new URL(url).pathname;
+    const canonicalUri = target.pathname;
     const canonicalRequest = [
       "PUT",
       canonicalUri,

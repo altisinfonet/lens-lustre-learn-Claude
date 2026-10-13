@@ -1,0 +1,339 @@
+# node probe-pglite.mjs supabase/migrations/PROBE_storage_key_prereqs.sql
+# PGlite 0.5.8 · node v24.20.0 · 2026-10-13T03:21:08Z
+
+
+== PASS · valid settings, mixed rows
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 5 of 7 stored keys would be refused
+              R2 hero_banners.image_url: 2 of 4 portfolio-images paths contain % or non-ASCII; 3 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 1 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    NOTICE: PROBE PASS storage-keys: settings row present: t, object: t, enabled: t, path_prefix set: f, endpoint set: t
+    ok   PROBE PASS
+    ok   report: R1 support_tickets.attachment_url: absent on this lane
+    ok   report: R1 ticket_replies.attachment_url: 5 of 7 stored keys would be refused
+    ok   report: R2 hero_banners.image_url: 2 of 4 portfolio-images paths contain % or non-ASCII; 3 would be refused
+    ok   report: R2 portfolio_images.image_url: 0 of 1 portfolio-images paths contain % or non-ASCII; 0 would be refused
+    ok   booleans: path_prefix unset, endpoint set
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== PASS · prefix with trailing slash, endpoint with trailing slash
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 0 of 0 stored keys would be refused
+              R2 hero_banners.image_url: 0 of 0 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 0 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    NOTICE: PROBE PASS storage-keys: settings row present: t, object: t, enabled: t, path_prefix set: t, endpoint set: t
+    ok   PROBE PASS
+    ok   booleans: both set
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== PASS · no endpoint (virtual-host style), null prefix
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 0 of 0 stored keys would be refused
+              R2 hero_banners.image_url: 0 of 0 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 0 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    NOTICE: PROBE PASS storage-keys: settings row present: t, object: t, enabled: t, path_prefix set: f, endpoint set: f
+    ok   PROBE PASS
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== PASS · absent settings row
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 0 of 0 stored keys would be refused
+              R2 hero_banners.image_url: 0 of 0 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 0 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    NOTICE: PROBE PASS storage-keys: settings row present: f, object: f, enabled: f, path_prefix set: f, endpoint set: f
+    ok   PROBE PASS
+    ok   reports the row as absent
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== PASS · optional tables missing on this lane
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: absent on this lane
+              R2 hero_banners.image_url: absent on this lane
+              R2 portfolio_images.image_url: absent on this lane
+    NOTICE: PROBE PASS storage-keys: settings row present: t, object: t, enabled: t, path_prefix set: f, endpoint set: t
+    ok   PROBE PASS
+    ok   report: R1 ticket_replies.attachment_url: absent on this lane
+    ok   report: R2 hero_banners.image_url: absent on this lane
+    ok   report: R2 portfolio_images.image_url: absent on this lane
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== PASS · support_tickets carries attachment_url (column added outside the migrations)
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: 1 of 2 stored keys would be refused
+              R1 ticket_replies.attachment_url: 0 of 0 stored keys would be refused
+              R2 hero_banners.image_url: 0 of 0 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 0 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    NOTICE: PROBE PASS storage-keys: settings row present: t, object: t, enabled: t, path_prefix set: f, endpoint set: t
+    ok   PROBE PASS
+    ok   report: R1 support_tickets.attachment_url: 1 of 2 stored keys would be refused
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== FAIL · path_prefix with a leading slash
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 5 of 7 stored keys would be refused
+              R2 hero_banners.image_url: 2 of 4 portfolio-images paths contain % or non-ASCII; 3 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 1 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    ERROR:  PROBE FAIL storage-keys:
+              K2 path_prefix is outside the key grammar or starts with "/"
+    ok   PROBE FAIL raised
+    ok   reason K2 path_prefix is outside the key grammar
+    ok   report: R1 ticket_replies.attachment_url: 5 of 7
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== FAIL · path_prefix with a dot-dot segment
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 5 of 7 stored keys would be refused
+              R2 hero_banners.image_url: 2 of 4 portfolio-images paths contain % or non-ASCII; 3 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 1 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    ERROR:  PROBE FAIL storage-keys:
+              K2 path_prefix has a "." or ".." segment
+    ok   PROBE FAIL raised
+    ok   reason K2 path_prefix has a "." or ".." segment
+    ok   report: R1 ticket_replies.attachment_url: 5 of 7
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== FAIL · path_prefix with a dot segment
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 5 of 7 stored keys would be refused
+              R2 hero_banners.image_url: 2 of 4 portfolio-images paths contain % or non-ASCII; 3 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 1 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    ERROR:  PROBE FAIL storage-keys:
+              K2 path_prefix has a "." or ".." segment
+    ok   PROBE FAIL raised
+    ok   reason K2 path_prefix has a "." or ".." segment
+    ok   report: R1 ticket_replies.attachment_url: 5 of 7
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== FAIL · path_prefix with whitespace
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 5 of 7 stored keys would be refused
+              R2 hero_banners.image_url: 2 of 4 portfolio-images paths contain % or non-ASCII; 3 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 1 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    ERROR:  PROBE FAIL storage-keys:
+              K2 path_prefix is outside the key grammar or starts with "/"
+    ok   PROBE FAIL raised
+    ok   reason K2 path_prefix is outside the key grammar
+    ok   report: R1 ticket_replies.attachment_url: 5 of 7
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== FAIL · path_prefix with a percent sign
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 5 of 7 stored keys would be refused
+              R2 hero_banners.image_url: 2 of 4 portfolio-images paths contain % or non-ASCII; 3 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 1 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    ERROR:  PROBE FAIL storage-keys:
+              K2 path_prefix is outside the key grammar or starts with "/"
+    ok   PROBE FAIL raised
+    ok   reason K2 path_prefix is outside the key grammar
+    ok   report: R1 ticket_replies.attachment_url: 5 of 7
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== FAIL · path_prefix that is not a string
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 5 of 7 stored keys would be refused
+              R2 hero_banners.image_url: 2 of 4 portfolio-images paths contain % or non-ASCII; 3 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 1 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    ERROR:  PROBE FAIL storage-keys:
+              K2 path_prefix is not a string
+    ok   PROBE FAIL raised
+    ok   reason K2 path_prefix is not a string
+    ok   report: R1 ticket_replies.attachment_url: 5 of 7
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== FAIL · path_prefix over 512 characters
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 5 of 7 stored keys would be refused
+              R2 hero_banners.image_url: 2 of 4 portfolio-images paths contain % or non-ASCII; 3 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 1 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    ERROR:  PROBE FAIL storage-keys:
+              K2 path_prefix is longer than 512 characters
+    ok   PROBE FAIL raised
+    ok   reason K2 path_prefix is longer than 512 characters
+    ok   report: R1 ticket_replies.attachment_url: 5 of 7
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== FAIL · endpoint with a path
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 5 of 7 stored keys would be refused
+              R2 hero_banners.image_url: 2 of 4 portfolio-images paths contain % or non-ASCII; 3 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 1 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    ERROR:  PROBE FAIL storage-keys:
+              K3 endpoint is not a bare https://<32 hex>.r2.cloudflarestorage.com
+    ok   PROBE FAIL raised
+    ok   reason K3 endpoint is not a bare
+    ok   report: R1 ticket_replies.attachment_url: 5 of 7
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== FAIL · endpoint with a query
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 5 of 7 stored keys would be refused
+              R2 hero_banners.image_url: 2 of 4 portfolio-images paths contain % or non-ASCII; 3 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 1 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    ERROR:  PROBE FAIL storage-keys:
+              K3 endpoint is not a bare https://<32 hex>.r2.cloudflarestorage.com
+    ok   PROBE FAIL raised
+    ok   reason K3 endpoint is not a bare
+    ok   report: R1 ticket_replies.attachment_url: 5 of 7
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== FAIL · endpoint with whitespace
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 5 of 7 stored keys would be refused
+              R2 hero_banners.image_url: 2 of 4 portfolio-images paths contain % or non-ASCII; 3 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 1 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    ERROR:  PROBE FAIL storage-keys:
+              K3 endpoint is not a bare https://<32 hex>.r2.cloudflarestorage.com
+    ok   PROBE FAIL raised
+    ok   reason K3 endpoint is not a bare
+    ok   report: R1 ticket_replies.attachment_url: 5 of 7
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== FAIL · endpoint on another host
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 5 of 7 stored keys would be refused
+              R2 hero_banners.image_url: 2 of 4 portfolio-images paths contain % or non-ASCII; 3 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 1 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    ERROR:  PROBE FAIL storage-keys:
+              K3 endpoint is not a bare https://<32 hex>.r2.cloudflarestorage.com
+    ok   PROBE FAIL raised
+    ok   reason K3 endpoint is not a bare
+    ok   report: R1 ticket_replies.attachment_url: 5 of 7
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== FAIL · endpoint over http
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 5 of 7 stored keys would be refused
+              R2 hero_banners.image_url: 2 of 4 portfolio-images paths contain % or non-ASCII; 3 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 1 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    ERROR:  PROBE FAIL storage-keys:
+              K3 endpoint is not a bare https://<32 hex>.r2.cloudflarestorage.com
+    ok   PROBE FAIL raised
+    ok   reason K3 endpoint is not a bare
+    ok   report: R1 ticket_replies.attachment_url: 5 of 7
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== FAIL · endpoint with uppercase account id
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 5 of 7 stored keys would be refused
+              R2 hero_banners.image_url: 2 of 4 portfolio-images paths contain % or non-ASCII; 3 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 1 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    ERROR:  PROBE FAIL storage-keys:
+              K3 endpoint is not a bare https://<32 hex>.r2.cloudflarestorage.com
+    ok   PROBE FAIL raised
+    ok   reason K3 endpoint is not a bare
+    ok   report: R1 ticket_replies.attachment_url: 5 of 7
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== FAIL · endpoint that is not a string
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 5 of 7 stored keys would be refused
+              R2 hero_banners.image_url: 2 of 4 portfolio-images paths contain % or non-ASCII; 3 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 1 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    ERROR:  PROBE FAIL storage-keys:
+              K3 endpoint is not a string
+    ok   PROBE FAIL raised
+    ok   reason K3 endpoint is not a string
+    ok   report: R1 ticket_replies.attachment_url: 5 of 7
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== FAIL · bucket_name built from two names
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 5 of 7 stored keys would be refused
+              R2 hero_banners.image_url: 2 of 4 portfolio-images paths contain % or non-ASCII; 3 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 1 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    ERROR:  PROBE FAIL storage-keys:
+              K1 bucket_name is not a plain bucket name (3-63 of a-z 0-9 -)
+    ok   PROBE FAIL raised
+    ok   reason K1 bucket_name is not a plain bucket name
+    ok   report: R1 ticket_replies.attachment_url: 5 of 7
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== FAIL · bucket_name names the video lane
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 5 of 7 stored keys would be refused
+              R2 hero_banners.image_url: 2 of 4 portfolio-images paths contain % or non-ASCII; 3 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 1 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    ERROR:  PROBE FAIL storage-keys:
+              K1 bucket_name names a video bucket
+    ok   PROBE FAIL raised
+    ok   reason K1 bucket_name names a video bucket
+    ok   report: R1 ticket_replies.attachment_url: 5 of 7
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== FAIL · bucket_name missing
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 5 of 7 stored keys would be refused
+              R2 hero_banners.image_url: 2 of 4 portfolio-images paths contain % or non-ASCII; 3 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 1 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    ERROR:  PROBE FAIL storage-keys:
+              K1 bucket_name is missing or not a string
+    ok   PROBE FAIL raised
+    ok   reason K1 bucket_name is missing or not a string
+    ok   report: R1 ticket_replies.attachment_url: 5 of 7
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+== FAIL · all three at once
+    NOTICE: PROBE REPORT storage-keys (counts only, never fails):
+              R1 support_tickets.attachment_url: absent on this lane
+              R1 ticket_replies.attachment_url: 5 of 7 stored keys would be refused
+              R2 hero_banners.image_url: 2 of 4 portfolio-images paths contain % or non-ASCII; 3 would be refused by the key grammar
+              R2 portfolio_images.image_url: 0 of 1 portfolio-images paths contain % or non-ASCII; 0 would be refused by the key grammar
+    ERROR:  PROBE FAIL storage-keys:
+              K1 bucket_name is not a plain bucket name (3-63 of a-z 0-9 -)
+              K2 path_prefix is outside the key grammar or starts with "/"
+              K3 endpoint is not a bare https://<32 hex>.r2.cloudflarestorage.com
+    ok   PROBE FAIL raised
+    ok   reason K1 bucket_name is not a plain bucket name
+    ok   reason K2 path_prefix is outside the key grammar
+    ok   reason K3 endpoint is not a bare
+    ok   report: R1 ticket_replies.attachment_url: 5 of 7
+    ok   no settings / attachment / image value printed
+    ok   nothing written (settings row count unchanged)
+
+ALL EXPECTATIONS MET
+exit=0
