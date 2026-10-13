@@ -1,0 +1,670 @@
+{
+  "at": "2026-10-13T12:56:20.616Z",
+  "browsers": [
+    {
+      "browser": "chromium",
+      "version": "151.0.7922.34",
+      "checks": {
+        "A_first_page_has_session_seed": true,
+        "B_seen_after_1s_at_50pct": true,
+        "B_not_seen_under_1s": true,
+        "B_not_seen_when_never_shown": true,
+        "B_written_through_the_outbox_contract": true,
+        "C_one_view_per_post_per_session": true,
+        "D_pill_shows_the_count": true,
+        "D_list_did_not_move": true,
+        "D_no_feed_request_for_the_pill": true,
+        "D_pill_floats": true,
+        "E_seen_is_sent_before_the_new_deal": true,
+        "E_new_seed_from_the_first_page": true,
+        "E_one_request_for_the_new_deal": true,
+        "E_new_posts_lead": true,
+        "E_nothing_seen_on_the_first_screen": true,
+        "E_pill_gone_and_at_the_top": true,
+        "F_next_page_same_seed": true,
+        "F_no_post_twice": true,
+        "G_resent_with_the_same_ids": true,
+        "G_exactly_once": true,
+        "G_outbox_empty": true,
+        "H_says_couldnt_refresh": true,
+        "H_posts_still_shown": true,
+        "H_tap_recovers": true
+      },
+      "detail": {
+        "A_first_page_has_session_seed": {
+          "n": 1,
+          "kind": "rpc",
+          "seed": "65bae8ab-700a-485f-beb6-de89283224a7",
+          "exclude": 0,
+          "newest": 3,
+          "failed": false
+        },
+        "B_seen_after_1s_at_50pct": {
+          "atTop": [
+            "c0000000-0000-4000-8000-000000000036"
+          ],
+          "recorded": [
+            "c0000000-0000-4000-8000-000000000036"
+          ]
+        },
+        "B_not_seen_under_1s": {
+          "brief": "c0000000-0000-4000-8000-000000000035",
+          "briefWasEnough": true
+        },
+        "B_not_seen_when_never_shown": {
+          "never": "c0000000-0000-4000-8000-000000000030"
+        },
+        "B_written_through_the_outbox_contract": {
+          "writes": 1
+        },
+        "C_one_view_per_post_per_session": {
+          "c0000000-0000-4000-8000-000000000036": 1
+        },
+        "D_pill_shows_the_count": "2 new posts",
+        "D_list_did_not_move": {
+          "before": [
+            [
+              "0036",
+              577.2
+            ],
+            [
+              "0035",
+              986.3
+            ],
+            [
+              "0034",
+              1395.4
+            ],
+            [
+              "0017",
+              1804.5
+            ]
+          ],
+          "after": [
+            [
+              "0036",
+              577.2
+            ],
+            [
+              "0035",
+              986.3
+            ],
+            [
+              "0034",
+              1395.4
+            ],
+            [
+              "0017",
+              1804.5
+            ]
+          ],
+          "scrollY": [
+            0,
+            0
+          ]
+        },
+        "D_no_feed_request_for_the_pill": {
+          "before": 1,
+          "after": 1
+        },
+        "E_seen_is_sent_before_the_new_deal": {
+          "sentAt": 6,
+          "rpcAt": 8
+        },
+        "E_new_seed_from_the_first_page": {
+          "n": 8,
+          "kind": "rpc",
+          "seed": "922f8545-2c6b-4d0e-9af7-8121ce302c86",
+          "exclude": 0,
+          "newest": 3,
+          "failed": false
+        },
+        "E_new_posts_lead": {
+          "first3": [
+            "c0000000-0000-4000-8000-000000000038",
+            "c0000000-0000-4000-8000-000000000037",
+            "c0000000-0000-4000-8000-000000000016"
+          ],
+          "newIds": [
+            "c0000000-0000-4000-8000-000000000037",
+            "c0000000-0000-4000-8000-000000000038"
+          ]
+        },
+        "E_nothing_seen_on_the_first_screen": {
+          "dealt": 10,
+          "seenOnScreen": []
+        },
+        "E_pill_gone_and_at_the_top": 0,
+        "F_next_page_same_seed": {
+          "n": 9,
+          "kind": "rpc",
+          "seed": "922f8545-2c6b-4d0e-9af7-8121ce302c86",
+          "exclude": 10,
+          "newest": 0,
+          "failed": false
+        },
+        "F_no_post_twice": {
+          "cards": 20
+        },
+        "G_resent_with_the_same_ids": {
+          "sends": [
+            {
+              "lost": true,
+              "n": 2
+            },
+            {
+              "lost": true,
+              "n": 2
+            },
+            {
+              "lost": false,
+              "n": 2
+            }
+          ]
+        },
+        "G_outbox_empty": 0,
+        "H_says_couldnt_refresh": "Couldn't refresh — tap to retry"
+      },
+      "verdict": "PASS"
+    },
+    {
+      "browser": "chrome",
+      "version": "155.0.8059.40",
+      "checks": {
+        "A_first_page_has_session_seed": true,
+        "B_seen_after_1s_at_50pct": true,
+        "B_not_seen_under_1s": true,
+        "B_not_seen_when_never_shown": true,
+        "B_written_through_the_outbox_contract": true,
+        "C_one_view_per_post_per_session": true,
+        "D_pill_shows_the_count": true,
+        "D_list_did_not_move": true,
+        "D_no_feed_request_for_the_pill": true,
+        "D_pill_floats": true,
+        "E_seen_is_sent_before_the_new_deal": true,
+        "E_new_seed_from_the_first_page": true,
+        "E_one_request_for_the_new_deal": true,
+        "E_new_posts_lead": true,
+        "E_nothing_seen_on_the_first_screen": true,
+        "E_pill_gone_and_at_the_top": true,
+        "F_next_page_same_seed": true,
+        "F_no_post_twice": true,
+        "G_resent_with_the_same_ids": true,
+        "G_exactly_once": true,
+        "G_outbox_empty": true,
+        "H_says_couldnt_refresh": true,
+        "H_posts_still_shown": true,
+        "H_tap_recovers": true
+      },
+      "detail": {
+        "A_first_page_has_session_seed": {
+          "n": 1,
+          "kind": "rpc",
+          "seed": "73e5ddc6-ed13-45c5-9f11-39574fba139e",
+          "exclude": 0,
+          "newest": 3,
+          "failed": false
+        },
+        "B_seen_after_1s_at_50pct": {
+          "atTop": [
+            "c0000000-0000-4000-8000-000000000036"
+          ],
+          "recorded": [
+            "c0000000-0000-4000-8000-000000000036"
+          ]
+        },
+        "B_not_seen_under_1s": {
+          "brief": "c0000000-0000-4000-8000-000000000035",
+          "briefWasEnough": true
+        },
+        "B_not_seen_when_never_shown": {
+          "never": "c0000000-0000-4000-8000-000000000029"
+        },
+        "B_written_through_the_outbox_contract": {
+          "writes": 1
+        },
+        "C_one_view_per_post_per_session": {
+          "c0000000-0000-4000-8000-000000000036": 1
+        },
+        "D_pill_shows_the_count": "2 new posts",
+        "D_list_did_not_move": {
+          "before": [
+            [
+              "0036",
+              577.2
+            ],
+            [
+              "0035",
+              986.3
+            ],
+            [
+              "0034",
+              1395.4
+            ],
+            [
+              "0009",
+              1804.5
+            ]
+          ],
+          "after": [
+            [
+              "0036",
+              577.2
+            ],
+            [
+              "0035",
+              986.3
+            ],
+            [
+              "0034",
+              1395.4
+            ],
+            [
+              "0009",
+              1804.5
+            ]
+          ],
+          "scrollY": [
+            0,
+            0
+          ]
+        },
+        "D_no_feed_request_for_the_pill": {
+          "before": 1,
+          "after": 1
+        },
+        "E_seen_is_sent_before_the_new_deal": {
+          "sentAt": 6,
+          "rpcAt": 8
+        },
+        "E_new_seed_from_the_first_page": {
+          "n": 8,
+          "kind": "rpc",
+          "seed": "57a0d7fc-4659-4589-98aa-8c362461860f",
+          "exclude": 0,
+          "newest": 3,
+          "failed": false
+        },
+        "E_new_posts_lead": {
+          "first3": [
+            "c0000000-0000-4000-8000-000000000038",
+            "c0000000-0000-4000-8000-000000000037",
+            "c0000000-0000-4000-8000-000000000020"
+          ],
+          "newIds": [
+            "c0000000-0000-4000-8000-000000000037",
+            "c0000000-0000-4000-8000-000000000038"
+          ]
+        },
+        "E_nothing_seen_on_the_first_screen": {
+          "dealt": 10,
+          "seenOnScreen": []
+        },
+        "E_pill_gone_and_at_the_top": 0,
+        "F_next_page_same_seed": {
+          "n": 9,
+          "kind": "rpc",
+          "seed": "57a0d7fc-4659-4589-98aa-8c362461860f",
+          "exclude": 10,
+          "newest": 0,
+          "failed": false
+        },
+        "F_no_post_twice": {
+          "cards": 20
+        },
+        "G_resent_with_the_same_ids": {
+          "sends": [
+            {
+              "lost": true,
+              "n": 1
+            },
+            {
+              "lost": true,
+              "n": 1
+            },
+            {
+              "lost": false,
+              "n": 1
+            }
+          ]
+        },
+        "G_outbox_empty": 0,
+        "H_says_couldnt_refresh": "Couldn't refresh — tap to retry"
+      },
+      "verdict": "PASS"
+    },
+    {
+      "browser": "msedge",
+      "version": "155.0.4283.45",
+      "checks": {
+        "A_first_page_has_session_seed": true,
+        "B_seen_after_1s_at_50pct": true,
+        "B_not_seen_under_1s": true,
+        "B_not_seen_when_never_shown": true,
+        "B_written_through_the_outbox_contract": true,
+        "C_one_view_per_post_per_session": true,
+        "D_pill_shows_the_count": true,
+        "D_list_did_not_move": true,
+        "D_no_feed_request_for_the_pill": true,
+        "D_pill_floats": true,
+        "E_seen_is_sent_before_the_new_deal": true,
+        "E_new_seed_from_the_first_page": true,
+        "E_one_request_for_the_new_deal": true,
+        "E_new_posts_lead": true,
+        "E_nothing_seen_on_the_first_screen": true,
+        "E_pill_gone_and_at_the_top": true,
+        "F_next_page_same_seed": true,
+        "F_no_post_twice": true,
+        "G_resent_with_the_same_ids": true,
+        "G_exactly_once": true,
+        "G_outbox_empty": true,
+        "H_says_couldnt_refresh": true,
+        "H_posts_still_shown": true,
+        "H_tap_recovers": true
+      },
+      "detail": {
+        "A_first_page_has_session_seed": {
+          "n": 1,
+          "kind": "rpc",
+          "seed": "285fccc2-1378-4d5f-9f20-6094586b1e8b",
+          "exclude": 0,
+          "newest": 3,
+          "failed": false
+        },
+        "B_seen_after_1s_at_50pct": {
+          "atTop": [
+            "c0000000-0000-4000-8000-000000000036"
+          ],
+          "recorded": [
+            "c0000000-0000-4000-8000-000000000036"
+          ]
+        },
+        "B_not_seen_under_1s": {
+          "brief": "c0000000-0000-4000-8000-000000000035",
+          "briefWasEnough": true
+        },
+        "B_not_seen_when_never_shown": {
+          "never": "c0000000-0000-4000-8000-000000000023"
+        },
+        "B_written_through_the_outbox_contract": {
+          "writes": 1
+        },
+        "C_one_view_per_post_per_session": {
+          "c0000000-0000-4000-8000-000000000036": 1
+        },
+        "D_pill_shows_the_count": "2 new posts",
+        "D_list_did_not_move": {
+          "before": [
+            [
+              "0036",
+              577.2
+            ],
+            [
+              "0035",
+              986.3
+            ],
+            [
+              "0034",
+              1395.4
+            ],
+            [
+              "0026",
+              1804.5
+            ]
+          ],
+          "after": [
+            [
+              "0036",
+              577.2
+            ],
+            [
+              "0035",
+              986.3
+            ],
+            [
+              "0034",
+              1395.4
+            ],
+            [
+              "0026",
+              1804.5
+            ]
+          ],
+          "scrollY": [
+            0,
+            0
+          ]
+        },
+        "D_no_feed_request_for_the_pill": {
+          "before": 1,
+          "after": 1
+        },
+        "E_seen_is_sent_before_the_new_deal": {
+          "sentAt": 6,
+          "rpcAt": 8
+        },
+        "E_new_seed_from_the_first_page": {
+          "n": 8,
+          "kind": "rpc",
+          "seed": "feea0d05-9bb0-4b75-9f0b-4bad673d1293",
+          "exclude": 0,
+          "newest": 3,
+          "failed": false
+        },
+        "E_new_posts_lead": {
+          "first3": [
+            "c0000000-0000-4000-8000-000000000038",
+            "c0000000-0000-4000-8000-000000000037",
+            "c0000000-0000-4000-8000-000000000014"
+          ],
+          "newIds": [
+            "c0000000-0000-4000-8000-000000000037",
+            "c0000000-0000-4000-8000-000000000038"
+          ]
+        },
+        "E_nothing_seen_on_the_first_screen": {
+          "dealt": 10,
+          "seenOnScreen": []
+        },
+        "E_pill_gone_and_at_the_top": 0,
+        "F_next_page_same_seed": {
+          "n": 9,
+          "kind": "rpc",
+          "seed": "feea0d05-9bb0-4b75-9f0b-4bad673d1293",
+          "exclude": 10,
+          "newest": 0,
+          "failed": false
+        },
+        "F_no_post_twice": {
+          "cards": 20
+        },
+        "G_resent_with_the_same_ids": {
+          "sends": [
+            {
+              "lost": true,
+              "n": 1
+            },
+            {
+              "lost": true,
+              "n": 1
+            },
+            {
+              "lost": false,
+              "n": 1
+            }
+          ]
+        },
+        "G_outbox_empty": 0,
+        "H_says_couldnt_refresh": "Couldn't refresh — tap to retry"
+      },
+      "verdict": "PASS"
+    },
+    {
+      "browser": "firefox",
+      "version": "153.0",
+      "checks": {
+        "A_first_page_has_session_seed": true,
+        "B_seen_after_1s_at_50pct": true,
+        "B_not_seen_under_1s": true,
+        "B_not_seen_when_never_shown": true,
+        "B_written_through_the_outbox_contract": true,
+        "C_one_view_per_post_per_session": true,
+        "D_pill_shows_the_count": true,
+        "D_list_did_not_move": true,
+        "D_no_feed_request_for_the_pill": true,
+        "D_pill_floats": true,
+        "E_seen_is_sent_before_the_new_deal": true,
+        "E_new_seed_from_the_first_page": true,
+        "E_one_request_for_the_new_deal": true,
+        "E_new_posts_lead": true,
+        "E_nothing_seen_on_the_first_screen": true,
+        "E_pill_gone_and_at_the_top": true,
+        "F_next_page_same_seed": true,
+        "F_no_post_twice": true,
+        "G_resent_with_the_same_ids": true,
+        "G_exactly_once": true,
+        "G_outbox_empty": true,
+        "H_says_couldnt_refresh": true,
+        "H_posts_still_shown": true,
+        "H_tap_recovers": true
+      },
+      "detail": {
+        "A_first_page_has_session_seed": {
+          "n": 1,
+          "kind": "rpc",
+          "seed": "e0b43c93-bb6a-4dbf-afd8-31a88e857e14",
+          "exclude": 0,
+          "newest": 3,
+          "failed": false
+        },
+        "B_seen_after_1s_at_50pct": {
+          "atTop": [
+            "c0000000-0000-4000-8000-000000000036"
+          ],
+          "recorded": [
+            "c0000000-0000-4000-8000-000000000036"
+          ]
+        },
+        "B_not_seen_under_1s": {
+          "brief": "c0000000-0000-4000-8000-000000000035",
+          "briefWasEnough": true
+        },
+        "B_not_seen_when_never_shown": {
+          "never": "c0000000-0000-4000-8000-000000000022"
+        },
+        "B_written_through_the_outbox_contract": {
+          "writes": 1
+        },
+        "C_one_view_per_post_per_session": {
+          "c0000000-0000-4000-8000-000000000036": 1
+        },
+        "D_pill_shows_the_count": "2 new posts",
+        "D_list_did_not_move": {
+          "before": [
+            [
+              "0036",
+              577.2
+            ],
+            [
+              "0035",
+              986.3
+            ],
+            [
+              "0034",
+              1395.5
+            ],
+            [
+              "0029",
+              1804.6
+            ]
+          ],
+          "after": [
+            [
+              "0036",
+              577.2
+            ],
+            [
+              "0035",
+              986.3
+            ],
+            [
+              "0034",
+              1395.5
+            ],
+            [
+              "0029",
+              1804.6
+            ]
+          ],
+          "scrollY": [
+            0,
+            0
+          ]
+        },
+        "D_no_feed_request_for_the_pill": {
+          "before": 1,
+          "after": 1
+        },
+        "E_seen_is_sent_before_the_new_deal": {
+          "sentAt": 6,
+          "rpcAt": 8
+        },
+        "E_new_seed_from_the_first_page": {
+          "n": 8,
+          "kind": "rpc",
+          "seed": "54e5588b-45bb-4c3a-8357-dac141a59426",
+          "exclude": 0,
+          "newest": 3,
+          "failed": false
+        },
+        "E_new_posts_lead": {
+          "first3": [
+            "c0000000-0000-4000-8000-000000000038",
+            "c0000000-0000-4000-8000-000000000037",
+            "c0000000-0000-4000-8000-000000000009"
+          ],
+          "newIds": [
+            "c0000000-0000-4000-8000-000000000037",
+            "c0000000-0000-4000-8000-000000000038"
+          ]
+        },
+        "E_nothing_seen_on_the_first_screen": {
+          "dealt": 10,
+          "seenOnScreen": []
+        },
+        "E_pill_gone_and_at_the_top": 0,
+        "F_next_page_same_seed": {
+          "n": 9,
+          "kind": "rpc",
+          "seed": "54e5588b-45bb-4c3a-8357-dac141a59426",
+          "exclude": 10,
+          "newest": 0,
+          "failed": false
+        },
+        "F_no_post_twice": {
+          "cards": 20
+        },
+        "G_resent_with_the_same_ids": {
+          "sends": [
+            {
+              "lost": true,
+              "n": 2
+            },
+            {
+              "lost": true,
+              "n": 2
+            },
+            {
+              "lost": false,
+              "n": 2
+            }
+          ]
+        },
+        "G_outbox_empty": 0,
+        "H_says_couldnt_refresh": "Couldn't refresh — tap to retry"
+      },
+      "verdict": "PASS"
+    }
+  ],
+  "verdict": "PASS"
+}

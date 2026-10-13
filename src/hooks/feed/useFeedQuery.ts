@@ -1,5 +1,5 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
-import { useRef, useMemo } from "react";
+import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useRef, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPostAttachments, attachmentsFor } from "@/lib/posts/postAttachments";
 import { persistFeedPage, getCachedFeed } from "@/lib/feedCache";
@@ -71,29 +71,86 @@ async function fetchRelevantUsers(userId: string): Promise<string[]> {
  *
  * Only page 0 gets them. Later pages pass 0, because pinning the newest posts
  * again further down would show them twice.
+ *
+ * ⚠ R-LIVE-5 (Owner, 13 Oct 2026, "YES"): newest first applies ONLY UNTIL THE
+ * MEMBER HAS SEEN THEM. The rule lives in the RPC (20261013_0005): it drops a
+ * pinned post the member has already seen. Until Stage L2 nothing was ever
+ * recorded as seen, so these three sat on top of every refresh (F-REV4-8).
  */
 const NEWEST_PINNED_ON_FIRST_PAGE = 3;
+
+/**
+ * Stage L2 · set once per app session when the database does not have the
+ * 5-argument get_broadcast_feed yet (20261013_0005 not applied on this lane):
+ * every later page goes straight to the 4-argument call instead of failing
+ * first. Expand/contract — remove with the contract step.
+ */
+let sessionSeedRpcMissing = false;
+/** Test seam. */
+export function __resetSessionSeedRpcProbe() { sessionSeedRpcMissing = false; }
+
+/** PostgREST / Postgres: "this function (signature) does not exist". */
+function isMissingFunction(error: { code?: string } | null | undefined): boolean {
+  return !!error && (error.code === "PGRST202" || error.code === "42883");
+}
+
+/** A fresh per-refresh seed: a CSPRNG UUID (never derived from the date or the member). */
+export function newFeedSessionSeed(): string {
+  const c = (globalThis as { crypto?: Crypto }).crypto;
+  if (c && typeof c.randomUUID === "function") return c.randomUUID();
+  const b = new Uint8Array(16);
+  c?.getRandomValues?.(b);
+  return [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+
+interface BroadcastPage {
+  rows: any[];
+  /** Served by the DB-3004 chronological fallback, not the feed RPC: show it as stale. */
+  degraded: boolean;
+}
 
 async function fetchBroadcastPage(
   excludeIds: string[],
   newestFirst: number,
   categories: string[] | null,
-): Promise<any[]> {
+  sessionSeed: string | null,
+): Promise<BroadcastPage> {
   /**
    * `_categories: null` is "All" — the RPC then applies no category predicate
    * at all, which is exactly what keeps posts created before this feature
    * visible. A category filter uses `&&`, which an empty array never matches.
    *
-   * The 4-argument overload is called by name. The 3-argument one still exists
-   * and still works, so an installed Android build carrying the old bundle is
-   * unaffected until it is rebuilt.
+   * Stage L2: the 5-argument overload is called by name with this refresh's
+   * `_session_seed`, kept for every page of the session (stable pages;
+   * `_exclude_ids` keeps them duplicate-free). If the database does not have it
+   * yet, the 4-argument call — the hourly order — is used instead, so this
+   * bundle and the migration can ship in either order. The 2- and 3-argument
+   * overloads still exist for installed Android builds.
    */
-  const { data, error } = await supabase.rpc("get_broadcast_feed" as any, {
+  const args = {
     _exclude_ids: excludeIds,
     _limit: PAGE_SIZE,
     _newest_first: newestFirst,
     _categories: categories,
-  });
+  };
+  let res: { data: unknown; error: { code?: string; message?: string } | null } | null = null;
+  if (sessionSeed && !sessionSeedRpcMissing) {
+    res = await supabase.rpc("get_broadcast_feed" as any, { ...args, _session_seed: sessionSeed } as any);
+    if (isMissingFunction(res.error)) {
+      sessionSeedRpcMissing = true;
+      logger.warn({
+        code: "DB-3007",
+        event: "FEED_SESSION_SEED_RPC_MISSING",
+        fn: "fetchBroadcastPage",
+        file: FILE,
+        message: "The 5-argument get_broadcast_feed is not deployed; the feed used the 4-argument call (hourly order).",
+        reason: res.error?.message ?? res.error?.code ?? "missing function",
+      });
+      res = null;
+    }
+  }
+  if (!res) res = await supabase.rpc("get_broadcast_feed" as any, args);
+  const { data, error } = res;
   if (error || !data) {
     logger.error({
       code: "DB-3004",
@@ -152,9 +209,30 @@ async function fetchBroadcastPage(
      * and this is the line that stopped confusing them.
      */
     if (fallbackError) throw fallbackError;
-    return fallback || [];
+    return { rows: fallback || [], degraded: true };
   }
-  return data as any[];
+  return { rows: data as any[], degraded: false };
+}
+
+/**
+ * Stage L2 · the newest created_at this member can see, excluding their own
+ * posts, read when a session starts — BEFORE the page is dealt, so nothing
+ * created in between can be missed. useNewPostsCount counts what appears after
+ * it (ids already in the feed are subtracted). RLS decides "can see"; private
+ * posts are left out because an admin can READ everyone's and the feed never
+ * deals them — the pill must not promise what a refresh will not bring. null
+ * when the read fails: the session simply shows no "new posts" pill.
+ */
+async function fetchWatermark(userId: string, categories: string[] | null): Promise<string | null> {
+  try {
+    let q = supabase.from("posts").select("created_at").neq("user_id", userId).neq("privacy", "private").order("created_at", { ascending: false }).limit(1);
+    if (categories && categories.length > 0) q = q.overlaps("categories", categories);
+    const { data, error } = await q;
+    if (error) return null;
+    return (data as { created_at: string }[] | null)?.[0]?.created_at ?? new Date(0).toISOString();
+  } catch {
+    return null;
+  }
 }
 
 /** Reduced enrichment — uses precomputed counts, fewer queries */
@@ -432,10 +510,19 @@ function reorderNoBackToBack<T extends { user_id: string }>(
 
 /* ── The hook ── */
 
-interface FeedPage {
+/** Stage L2: see `refetchOnWindowFocus` in useFeedQuery. */
+export const refetchOnlyAfterFailure = (query: { state: { status: string } }): boolean => query.state.status === "error";
+
+export interface FeedPage {
   posts: FeedPost[];
   nextCursor: number | null;
   networkIds: string[];
+  /** Stage L2: this page came from the DB-3004 chronological fallback — show "Couldn't refresh". */
+  degraded?: boolean;
+  /** Stage L2: the refresh this page belongs to (same seed for every page of one session). */
+  sessionSeed?: string;
+  /** Stage L2 (page 0 only): see fetchWatermark. */
+  watermark?: string | null;
 }
 
 /**
@@ -457,6 +544,14 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
   // Last author of the previous page — lets the no-back-to-back rule
   // hold across page boundaries.
   const lastAuthorByPageRef = useRef<Map<number, string | null>>(new Map());
+  // Stage L2: this refresh's seed. Made when page 0 is fetched (pull-to-refresh,
+  // the "new posts" pill, returning to the feed) and kept for every later page.
+  const sessionSeedRef = useRef<string | null>(null);
+  // Stage L2: this session's watermark (fetchWatermark), handed to EVERY page —
+  // `maxPages` drops page 0 once a member has scrolled six pages down, and the
+  // "new posts" pill must not stop working for exactly the member who has been
+  // reading longest.
+  const sessionWatermarkRef = useRef<string | null | undefined>(undefined);
 
   // Build placeholderData from localStorage cache for instant render
   const placeholderData = useMemo(() => {
@@ -510,6 +605,29 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
     refetchOnMount: "always",
 
     /**
+     * Stage L2 · NO RE-DEAL BEHIND THE MEMBER'S BACK.
+     *
+     * App.tsx turns `refetchOnWindowFocus` on for every query, and with
+     * `staleTime: 0` that meant the feed refetched every time the tab or the
+     * app came back to the front. Until L2 that was invisible: nothing was ever
+     * recorded as seen and the order was fixed for the clock hour, so the
+     * refetch returned the same list. Now every page-0 fetch is a NEW deal (new
+     * session seed, and what was seen has moved to the back) — so answering a
+     * message and coming back would replace the list under the member's thumb
+     * and lose their place. The plan says the opposite: "the reading position
+     * is kept; new posts are applied only when the member pulls to refresh or
+     * taps the pill."
+     *
+     * So focus and reconnect refetch ONLY when the last attempt failed — the
+     * signal came back, try again (the same recovery as before). A feed that is
+     * on screen stays as it is; the "N new posts" pill (useNewPostsCount, which
+     * does check on resume) is how the member learns there is more. Returning
+     * to /feed from another page still deals a new hand (`refetchOnMount`).
+     */
+    refetchOnWindowFocus: refetchOnlyAfterFailure,
+    refetchOnReconnect: refetchOnlyAfterFailure,
+
+    /**
      * THREE ATTEMPTS, BACKING OFF — because the failure being recovered from is
      * a weak mobile signal, not a broken endpoint.
      *
@@ -529,31 +647,54 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
       const pageIndex = (pageParam as number | undefined) ?? 0;
       const isFirstPage = pageIndex === 0;
 
-      if (isFirstPage) {
-        // Network list is fetched ONLY to label `is_suggested`.
-        const networkIds = await fetchRelevantUsers(userId!);
-        networkIdsRef.current = networkIds;
+      /**
+       * Stage L2 · A NEW SESSION IS PREPARED HERE AND COMMITTED ONLY WHEN ITS
+       * FIRST PAGE HAS ARRIVED (commitSession below).
+       *
+       * Page 0 used to reset the refs first and ask second. A refresh that then
+       * failed left the OLD posts on screen with a NEW seed and EMPTY exclude
+       * lists behind them, so the next "load more" dealt from a session the
+       * member had never seen (and could repeat what was already on screen). A
+       * failed refresh must change nothing.
+       *
+       * The network list is fetched ONLY to label `is_suggested`. The watermark
+       * rides the same round trip, and is read BEFORE the page is dealt.
+       */
+      const fresh = isFirstPage
+        ? await Promise.all([fetchRelevantUsers(userId!), fetchWatermark(userId!, cats)])
+            .then(([ids, wm]) => ({ networkIds: ids, watermark: wm, seed: newFeedSessionSeed() }))
+        : null;
+      const commitSession = () => {
+        if (!fresh) return;
+        networkIdsRef.current = fresh.networkIds;
+        sessionWatermarkRef.current = fresh.watermark;
+        sessionSeedRef.current = fresh.seed;
         excludeByPageRef.current = new Map([[0, []]]);
         lastAuthorByPageRef.current = new Map([[0, null]]);
-      }
+      };
 
-      const networkIds = networkIdsRef.current;
-      const excludeIds = excludeByPageRef.current.get(pageIndex) ?? [];
+      const networkIds = fresh ? fresh.networkIds : networkIdsRef.current;
+      const excludeIds = fresh ? [] : excludeByPageRef.current.get(pageIndex) ?? [];
+      const sessionSeed = fresh ? fresh.seed : sessionSeedRef.current ?? (sessionSeedRef.current = newFeedSessionSeed());
+      const watermark = fresh ? fresh.watermark : sessionWatermarkRef.current;
 
-      const rawPosts = await fetchBroadcastPage(
+      const { rows: rawPosts, degraded } = await fetchBroadcastPage(
         excludeIds,
         isFirstPage ? NEWEST_PINNED_ON_FIRST_PAGE : 0,
         cats,
+        sessionSeed,
       );
 
       if (rawPosts.length === 0) {
         // Everything visible has been delivered this session — feed end.
         // (Tier 2 recycling already happened server-side, so reaching here
         // means the user scrolled through literally every visible post twice.)
-        return { posts: [], nextCursor: null, networkIds };
+        commitSession();
+        return { posts: [], nextCursor: null, networkIds, degraded, sessionSeed, watermark };
       }
 
       const enriched = await enrichPosts(rawPosts, networkIds, userId!);
+      commitSession();
 
       // Keep server order (tier + fairness), then apply the one client-side
       // rule: no same author back-to-back.
@@ -579,6 +720,9 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
         posts: ordered,
         nextCursor: pageIndex + 1,
         networkIds,
+        degraded,
+        sessionSeed,
+        watermark,
       };
     },
 
@@ -635,4 +779,35 @@ export function flattenFeedPages(pages: FeedPage[] | undefined): FeedPost[] {
 
 export function getNetworkIds(pages: FeedPage[] | undefined): string[] {
   return pages?.[0]?.networkIds ?? [];
+}
+
+/**
+ * Stage L2 · THE ONE WAY TO ASK FOR A NEW DEAL: pull-to-refresh, the "N new
+ * posts" pill, "Couldn't refresh — tap to retry", and the refresh after the
+ * member's own post.
+ *
+ * It restarts the feed from its FIRST page, and that is not a nicety:
+ *   · `refetch()` on an infinite query refetches the pages it still HOLDS, in
+ *     order. With `maxPages: 5`, a member who has scrolled six pages down no
+ *     longer holds page 0 — so a plain refetch never fetched page 0, never made
+ *     a new session seed, and re-read pages 1–5 with the old seed and the old
+ *     exclude lists. The refresh the Owner asked for did nothing for exactly
+ *     the member who had scrolled the most.
+ *   · and when page 0 IS held, refetching all five pages was five RPCs and five
+ *     enrichments to show the ten posts at the top.
+ * One page, one new seed; the rest load as the member scrolls, as always.
+ *
+ * Resolves true when the new deal arrived, false when the refresh failed (the
+ * posts on screen stay, and Feed.tsx says "Couldn't refresh").
+ */
+export function useFeedRefresh(categories?: string[] | null): () => Promise<boolean> {
+  const qc = useQueryClient();
+  const catsKey = categories && categories.length ? [...categories].sort().join(",") : "";
+  return useCallback(async () => {
+    const queryKey = queryKeys.feed(catsKey ? catsKey.split(",") : null);
+    qc.setQueryData<InfiniteData<FeedPage, number>>(queryKey, (d) =>
+      d && d.pages.length > 0 ? { pages: d.pages.slice(0, 1), pageParams: [0] } : d);
+    await qc.refetchQueries({ queryKey, exact: true, type: "active" });
+    return qc.getQueryState(queryKey)?.status === "success";
+  }, [qc, catsKey]);
 }

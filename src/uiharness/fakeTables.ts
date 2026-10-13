@@ -10,6 +10,7 @@
  *   post_reactions  UNIQUE (post_id, user_id)                 natural key
  *   post_comments   UNIQUE (user_id, idempotency_key)         0008, NULL keys never collide
  *   reports         UNIQUE (reporter_id, idempotency_key)     0008
+ *   feed_events     PRIMARY KEY (id)                           client-made id (Stage L2)
  *
  * A conflicting insert answers 409 with code 23505 naming the constraint —
  * unless the request says `Prefer: resolution=ignore-duplicates` AND
@@ -36,6 +37,8 @@ export const CONSTRAINTS: Record<string, { name: string; cols: string[] }[]> = {
   post_reactions: [{ name: "post_reactions_post_id_user_id_key", cols: ["post_id", "user_id"] }],
   post_comments: [{ name: "post_comments_user_idempotency_key", cols: ["user_id", "idempotency_key"] }],
   reports: [{ name: "reports_reporter_idempotency_key", cols: ["reporter_id", "idempotency_key"] }],
+  // Stage L2: the client makes each seen-event's primary key once; a resend is the same row.
+  feed_events: [{ name: "feed_events_pkey", cols: ["id"] }],
 };
 
 export class LostAnswer extends TypeError {

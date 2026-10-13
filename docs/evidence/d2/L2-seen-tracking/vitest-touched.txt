@@ -1,0 +1,5 @@
+STAGE L2 · PR B — the touched suites on this branch (2026-10-13, vitest, Windows worktree)
+npx vitest run src/hooks/feed src/lib/offline/__tests__/outboxFeedEvents.test.ts src/lib/offline/__tests__/outbox.test.ts src/components/post/__tests__/feedScreenFindings.test.ts
+
+ Test Files  10 passed (10)
+      Tests  118 passed (118)

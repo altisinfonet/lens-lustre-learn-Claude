@@ -34,6 +34,9 @@
  *     capped at 60 s, ±20 % jitter, at most MAX_ATTEMPTS sends. Paused offline.
  *   • any other 4xx (RLS, a deleted post, bad input) is final: the item is
  *     dropped and the failure is announced, never retried and never hidden.
+ *   • Stage L2: feed_events (what the member has seen) is UNORDERED — it never
+ *     stops the drain and nothing waits for it (UNORDERED_KINDS); OutboxBridge
+ *     does not announce its failures (telemetry, logged instead).
  *
  * This file talks to no server. The sender (outboxSender.ts) does; tests and
  * the offline harness give it their own.
@@ -48,12 +51,45 @@ export const MAX_ATTEMPTS = 8;
 export const MAX_BACKOFF_MS = 60_000;
 
 export type ReportTarget = "post" | "user" | "comment";
+/**
+ * Stage L2 · one feed event as the outbox carries it. `id` is the row's primary
+ * key, made ONCE by the tracker (crypto.randomUUID) when the event is recorded
+ * — the same rule as an item key: every resend carries the same id, and the
+ * server's ON CONFLICT (id) DO NOTHING turns a repeat into "already there".
+ */
+export interface FeedEventPayload {
+  id: string;
+  post_id: string;
+  author_id: string;
+  event_type: "view" | "like" | "share" | "comment" | "click";
+  dwell_ms: number;
+}
 export type OutboxAction =
   | { kind: "react"; postId: string; reactionType: string; replace: boolean }
   | { kind: "unreact"; postId: string }
   | { kind: "comment"; postId: string; content: string; parentId: string | null }
-  | { kind: "report"; targetType: ReportTarget; targetId: string; reason: string };
+  | { kind: "report"; targetType: ReportTarget; targetId: string; reason: string }
+  | { kind: "feed_events"; events: FeedEventPayload[] };
 export type OutboxKind = OutboxAction["kind"];
+
+/**
+ * Stage L2 · kinds with no order relative to anything else in the outbox.
+ *
+ * Feed events ("this member saw this post") are telemetry the feed ranks by,
+ * not something a member did and waits on. FIFO exists so a reply never lands
+ * before the comment it answers (R1/G8); a seen-event answers nothing, so one
+ * waiting on back-off must not hold a member's comment behind it, and a member's
+ * comment must not wait for it. Such an item is skipped while it waits and
+ * re-scheduled on a retryable failure, instead of stopping the drain.
+ */
+export const UNORDERED_KINDS: ReadonlySet<OutboxKind> = new Set<OutboxKind>(["feed_events"]);
+
+/**
+ * At most this many unsent feed_events items per member (≤ 25 events each).
+ * Past it the OLDEST is dropped: a member scrolling a saved feed offline for
+ * hours must not grow the device store without bound for ranking telemetry.
+ */
+export const MAX_FEED_EVENT_ITEMS = 40;
 
 /**
  * Every table the outbox writes, and how the server makes a repeat harmless.
@@ -65,6 +101,7 @@ export const OUTBOX_TARGETS: Record<OutboxKind, { table: string; kind: "key" | "
   unreact: { table: "post_reactions", kind: "natural", onConflict: "post_id,user_id" },
   comment: { table: "post_comments", kind: "key", owner: "user_id", onConflict: "user_id,idempotency_key" },
   report: { table: "reports", kind: "key", owner: "reporter_id", onConflict: "reporter_id,idempotency_key" },
+  feed_events: { table: "feed_events", kind: "natural", onConflict: "id" },
 };
 
 export interface OutboxItem {
@@ -204,6 +241,12 @@ export async function enqueue(userId: string, action: OutboxAction, now = Date.n
       if (i.userId === userId && i.key !== inflight && togglePost(i.action) === post) await s.delete(i.key);
     }
   }
+  if (action.kind === "feed_events") {
+    const waiting = (await s.getAll())
+      .filter((i) => i.userId === userId && i.key !== inflight && i.action.kind === "feed_events")
+      .sort((a, b) => a.createdAt - b.createdAt || a.seq - b.seq);
+    for (const i of waiting.slice(0, Math.max(0, waiting.length - MAX_FEED_EVENT_ITEMS + 1))) await s.delete(i.key);
+  }
   const item: OutboxItem = { key: makeKey(), userId, action, createdAt: now, seq: ++seqCounter, attempts: 0, nextAt: 0 };
   await s.put(item);
   emit({ type: "changed" });
@@ -228,10 +271,24 @@ function schedule(at: number, now: number) {
 async function drainOnce(now: () => number) {
   if (!sender || !activeUser || !isOnlineFn()) return;
   const s = getStore();
+  /** Earliest moment something skipped in this pass is due again. */
+  let wake = Infinity;
+  /**
+   * An ORDERED item is waiting on back-off: every later ordered item waits too
+   * (FIFO — nothing goes ahead of it). UNORDERED items (UNORDERED_KINDS) are
+   * neither held by this nor able to cause it.
+   */
+  let blocked = false;
   for (const item of await pending(activeUser)) {
     if (!isOnlineFn()) return;
+    const unordered = UNORDERED_KINDS.has(item.action.kind);
+    if (blocked && !unordered) continue;
     const t = now();
-    if (item.nextAt > t) { schedule(item.nextAt, t); return; }
+    if (item.nextAt > t) {
+      wake = Math.min(wake, item.nextAt);
+      if (!unordered) blocked = true;
+      continue;
+    }
     inflight = item.key;
     let r: SendResult;
     try {
@@ -253,13 +310,15 @@ async function drainOnce(now: () => number) {
       const t2 = now();
       const nextAt = t2 + backoffMs(attempts);
       await s.put({ ...item, attempts, nextAt, lastError: describe(f.error) });
-      schedule(nextAt, t2);
-      return; // FIFO: nothing goes ahead of an item that is waiting
+      wake = Math.min(wake, nextAt);
+      if (!unordered) blocked = true; // FIFO: no ordered item goes ahead of one that is waiting
+      continue;
     }
     await s.delete(item.key);
     outcomes.set(item.key, { delivered: false, error: f.error });
     emit({ type: "failed", item: { ...item, attempts }, error: f.error, awaited: awaited.has(item.key) });
   }
+  if (wake !== Infinity) schedule(wake, now());
 }
 
 function describe(e: unknown): string {
