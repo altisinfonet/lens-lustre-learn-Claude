@@ -64,6 +64,9 @@ export const PRODUCTION_PROJECT_REF = "jtdtehuqtinjxropkkcn"; // isolation-allow
 export const PRODUCTION_BUCKET = "50mm";
 export const PRODUCTION_CDN_HOST = "cdn.50mmretina.com"; // isolation-allow: same — assertStorageLane compares against this to catch a non-production lane serving production media
 
+/** A plain bucket name: 3–63 of [a-z0-9-], starting and ending with [a-z0-9]. */
+export const BUCKET_NAME = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/;
+
 export interface StorageLaneSubject {
   bucket_name: string;
   endpoint?: string;
@@ -89,10 +92,23 @@ export function assertStorageLane(s3: StorageLaneSubject, supabaseUrl: unknown):
     );
   }
 
-  const bucket = (s3.bucket_name ?? "").trim();
-  if (bucket === "") {
+  const raw: unknown = s3.bucket_name;
+  if (raw === undefined || raw === null || (typeof raw === "string" && raw.trim() === "")) {
     throw new Error(`storage lane: bucket_name is empty for project ref "${ref}" — a bucketless S3 client signs requests at nothing.`);
   }
+
+  // The bucket name goes into the host (virtual-host style) or the path (path
+  // style) of every request URL, so it must be a plain bucket name. Checked on
+  // the RAW value — never a trimmed or otherwise cleaned copy — and before any
+  // comparison below, so no lane rule ever compares a value that is not the one
+  // that will be signed. The value itself is not echoed.
+  if (typeof raw !== "string" || !BUCKET_NAME.test(raw)) {
+    throw new Error(
+      `storage lane: bucket_name for project ref "${ref}" is not a valid bucket name ` +
+        `(3–63 characters: lowercase letters, digits and "-", starting and ending with a letter or digit).`,
+    );
+  }
+  const bucket = raw;
 
   // The video lane has its own bucket and its own functions. These settings
   // drive the PHOTO storage functions only, so a bucket named for video is a
