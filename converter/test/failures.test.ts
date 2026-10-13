@@ -23,7 +23,9 @@ describe("converter · failure codes", () => {
     expect(run("Format not on whitelist 'mov,mp4'")).toBe("unsupported_format");
     expect(run("No space left on device")).toBe("internal");
     expect(run("Cannot allocate memory")).toBe("internal");
-    expect(run("anything", { timedOut: true })).toBe("internal");
+    // its own time cap would be hit again on every retry (review of #420, M2): final
+    expect(run("anything", { timedOut: true })).toBe("too_long");
+    expect(classifyToolFailure("ffprobe", { exitCode: null, timedOut: true, killed: false, stderr: "" }).code).toBe("damaged");
     expect(run("Invalid data found", { killed: true })).toBe("internal");
     expect(run("something we have never seen")).toBe("internal");
     expect(classifyToolFailure("ffprobe", { exitCode: 1, timedOut: false, killed: false, stderr: "source: Invalid data found when processing input" }).code).toBe("unsupported_format");

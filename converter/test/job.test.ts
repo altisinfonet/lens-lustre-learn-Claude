@@ -192,11 +192,15 @@ describe("converter · one job, start to end", () => {
     expect(uu.manifest).toMatchObject({ width: 1080, height: 1920 }); // the display size (rotated)
   });
 
-  it("FFmpeg cannot decode the file → damaged; FFmpeg killed by its time cap → internal (retried)", async () => {
+  it("FFmpeg cannot decode → damaged; FFmpeg reaches its own time cap → too_long, FINAL (review of #420, M2); killed from outside → internal", async () => {
     let w = await world({ fail: (spec) => (spec.tool === "ffmpeg" ? { exitCode: 1, stdout: "", stderr: "source: Invalid data found when processing input", timedOut: false, killed: false } : null) });
     expect(await claimAndRun(w)).toMatchObject({ result: "failed", code: "damaged" });
     await server!.close();
     w = await world({ fail: (spec) => (spec.tool === "ffmpeg" ? { exitCode: null, stdout: "", stderr: "", timedOut: true, killed: false } : null) });
+    expect(await claimAndRun(w)).toMatchObject({ result: "failed", code: "too_long", status: "failed" });
+    expect((w.finish.at(-1) as { code: string; detail: string })).toMatchObject({ outcome: "fail", code: "too_long" });
+    await server!.close();
+    w = await world({ fail: (spec) => (spec.tool === "ffmpeg" ? { exitCode: null, stdout: "", stderr: "", timedOut: false, killed: true } : null) });
     expect(await claimAndRun(w)).toMatchObject({ result: "failed", code: "internal", status: "queued" });
   });
 

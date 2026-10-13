@@ -19,6 +19,8 @@ export interface SessionOptions {
   now?: () => number;
   /** refresh when fewer than this many ms are left (default 5 min) */
   refreshMarginMs?: number;
+  /** told when Supabase refuses the refresh token (revoked, expired — or REUSED: possible theft) before the password sign-in */
+  onRefreshRefused?: (status: number, message: string) => void;
 }
 
 export class AuthError extends Error {
@@ -87,6 +89,7 @@ export class Session {
       } catch (e) {
         // A refused refresh (revoked, reused, expired) → password sign-in. A network error is just thrown.
         if (!(e instanceof AuthError) || e.status >= 500) throw e;
+        this.o.onRefreshRefused?.(e.status, e.message);
         this.refresh = null;
       }
     }
@@ -100,6 +103,7 @@ export class Session {
       headers: { apikey: this.o.anonKey, "content-type": "application/json", accept: "application/json" },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(30_000),
+      redirect: "error",
     });
     const text = await res.text();
     if (!res.ok) {

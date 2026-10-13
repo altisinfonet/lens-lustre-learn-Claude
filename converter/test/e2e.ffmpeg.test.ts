@@ -17,7 +17,8 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { judgeUploadContent, smallFiles } from "../../src/lib/video/shared/judge";
 import { findAll } from "../../src/lib/video/shared/mp4";
-import { INIT_MAX_BYTES, manifestProblems, RENDITION_CEILING_BPS, SEGMENT_MAX_BYTES, totalBytes } from "../../src/lib/video/shared/rules";
+import { INIT_MAX_BYTES, manifestProblems, RENDITION_CEILING_BPS, renditionBytes, SEGMENT_MAX_BYTES, totalBytes } from "../../src/lib/video/shared/rules";
+import { dbVersionProblems, DB_CEILING_BPS } from "../src/dbRules";
 import { convertSource } from "../src/convert";
 import { runJob } from "../src/job";
 import { DirectLauncher } from "../src/launcher";
@@ -248,6 +249,85 @@ describe.skipIf(!FFMPEG)("converter · real FFmpeg", () => {
     const manifest = (s.requests.find((r) => r.path === "/api/video/upload-urls")!.json as { manifest: { files: Array<{ name: string; sha256: string }> } }).manifest;
     for (const f of manifest.files) expect(sha256(stored.get(f.name)!)).toBe(f.sha256);
   }, 180_000);
+
+  /*
+   * Review of #420, M1: very short, very detailed clips used to break the
+   * database's bytes-per-second rule (a 0.5 s detailed 720p still: 670,972 B/s
+   * against 358,400). Worst cases here: a full-colour noise still (nothing
+   * compresses less) at 0.5 s and 1 s with noise sound, and 3 s of noise that
+   * changes every frame. Each must pass checkPackage (convertSource runs it,
+   * the DB arithmetic included) — and the DB arithmetic is checked again here.
+   */
+  const shortClip = async (o: { seconds: number; moving: boolean }) => {
+    const { dir } = await jobDir();
+    const noise = "format=yuv444p,noise=alls=100:allf=u" + (o.moving ? "+t" : "");
+    if (o.moving) {
+      await generate(dir, [
+        "-f", "lavfi", "-i", `color=c=gray:s=1280x720:r=30:d=${o.seconds},${noise}`,
+        "-f", "lavfi", "-i", `anoisesrc=d=${o.seconds}:c=white:r=48000:a=0.9`,
+        "-c:v", "libx264", "-preset", "ultrafast", "-qp", "8", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "256k", "-ac", "2", "-shortest", "-f", "mp4", "source",
+      ]);
+    } else {
+      await generate(dir, ["-f", "lavfi", "-i", `color=c=gray:s=1280x720:d=0.04,${noise}`, "-frames:v", "1", "-f", "image2", "still.png"]);
+      await generate(dir, [
+        "-loop", "1", "-framerate", "30", "-i", "still.png", "-f", "lavfi", "-i", `anoisesrc=d=${o.seconds}:c=white:r=48000:a=0.9`,
+        "-t", String(o.seconds), "-c:v", "libx264", "-preset", "ultrafast", "-qp", "0", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "256k", "-ac", "2",
+        "-f", "mp4", "source",
+      ]);
+    }
+    const { pkg, plan } = await convertSource({ launcher: launcher(), jobDir: dir, purpose: "post", preset: "veryfast" });
+    expect(dbVersionProblems(pkg.manifest)).toEqual([]);
+    const per = renditionBytes(pkg.manifest) as Record<string, number>;
+    const share: Record<string, number> = {};
+    for (const [k, c] of Object.entries(DB_CEILING_BPS)) {
+      if (per[k] === undefined) continue;
+      share[k] = per[k] / pkg.manifest.duration_s / c;
+      expect(share[k], `${k}: ${per[k]} B over ${pkg.manifest.duration_s} s`).toBeLessThan(1);
+    }
+    expectServerAccepts(pkg, plan.durationS);
+    return { plan, share };
+  };
+
+  it.skipIf(!FFPROBE)("M1: a 0.5 s full-detail 1280x720 still with noise sound passes the database's bytes-per-second rule", async () => {
+    const { plan, share } = await shortClip({ seconds: 0.5, moving: false });
+    expect(plan.video.map((v) => v.name)).toEqual(["240p", "480p", "720p"]);
+    expect(Object.keys(share).sort()).toEqual(["240p", "480p", "720p", "audio"]);
+  }, 240_000);
+
+  it.skipIf(!FFPROBE)("M1: a 1 s full-detail 1280x720 still with noise sound passes the database's bytes-per-second rule", async () => {
+    const { share } = await shortClip({ seconds: 1, moving: false });
+    expect(Object.keys(share).sort()).toEqual(["240p", "480p", "720p", "audio"]);
+  }, 240_000);
+
+  it.skipIf(!FFPROBE)("M1: worst case — 3 s of 1280x720 noise changing every frame — passes the database's bytes-per-second rule", async () => {
+    const { share } = await shortClip({ seconds: 3, moving: true });
+    expect(Object.keys(share).sort()).toEqual(["240p", "480p", "720p", "audio"]);
+  }, 240_000);
+
+  it.skipIf(!FFPROBE || !TONE_MAP || !X265)("HDR highlights (review of #420): a 4000-nit PQ frame rolls off — 100 < 1000 < 2000 < 4000 nits stay distinct and inside limited range", async () => {
+    const { dir } = await jobDir();
+    // 640x360 yuv420p10le, four bands at 100 / 1,000 / 2,000 / 4,000 nits (PQ, 10-bit limited-range codes), neutral chroma
+    const W = 640, H = 360, codes = [509, 723, 789, 855];
+    const y = Buffer.alloc(W * H * 2), c = Buffer.alloc((W / 2) * (H / 2) * 2);
+    for (let r = 0; r < H; r++) for (let x = 0; x < W; x++) y.writeUInt16LE(codes[Math.floor((x * 4) / W)], (r * W + x) * 2);
+    for (let i = 0; i < c.length; i += 2) c.writeUInt16LE(512, i);
+    await fs.writeFile(path.join(dir, "frame.yuv"), Buffer.concat([y, c, c]));
+    await generate(dir, [
+      "-f", "rawvideo", "-pix_fmt", "yuv420p10le", "-s", `${W}x${H}`, "-r", "25", "-i", "frame.yuv", "-vf", "loop=loop=49:size=1",
+      "-c:v", "libx265", "-preset", "ultrafast", "-x265-params", "log-level=error", "-pix_fmt", "yuv420p10le",
+      "-color_primaries", "bt2020", "-color_trc", "smpte2084", "-colorspace", "bt2020nc", "-color_range", "tv", "-tag:v", "hvc1", "-f", "mp4", "source",
+    ]);
+    const { pkg, plan } = await convertSource({ launcher: launcher(), jobDir: dir, purpose: "post", preset: "veryfast" });
+    expect(plan.toneMap).toContain("tonemap=tonemap=hable:desat=0:peak=100,");
+    expectServerAccepts(pkg, plan.durationS);
+    // the first frame of the 240p rendition, its luma plane as stored (limited range, no conversion)
+    await generate(dir, ["-i", "240p.mp4", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "yuv420p", "frame0.yuv"]);
+    const out = await fs.readFile(path.join(dir, "frame0.yuv"));
+    const w = plan.video[0].width, row = Math.floor(plan.video[0].height / 2) * w;
+    const luma = [0.125, 0.375, 0.625, 0.875].map((f) => out[row + Math.floor(f * w)]);
+    for (let i = 1; i < luma.length; i++) expect(luma[i], `luma ${luma.join("/")}`).toBeGreaterThan(luma[i - 1]);
+    for (const v of luma) { expect(v).toBeGreaterThanOrEqual(16); expect(v).toBeLessThanOrEqual(235); }
+  }, 240_000);
 
   it.skipIf(!FFPROBE || !TONE_MAP)("the self-test passes (what the worker runs at every start), its HDR case tone-mapped", async () => {
     const root = await tempDir("conv-self-");

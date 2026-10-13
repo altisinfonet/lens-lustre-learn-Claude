@@ -34,7 +34,7 @@ describe("converter · ffprobe facts", () => {
       ignoredStreams: 6,      // cover, spatial audio, 4 × mebx — never mapped
       width: 1080, height: 1920, rotation: 270, videoCodec: "hevc", hdr: true,
     });
-    expect(f.colour).toEqual({ transfer: "arib-std-b67", primaries: "bt2020", matrix: "bt2020nc", range: "tv", pixFmt: "yuv420p10le" });
+    expect(f.colour).toEqual({ transfer: "arib-std-b67", primaries: "bt2020", matrix: "bt2020nc", range: "tv", pixFmt: "yuv420p10le", peakNits: null });
   });
 
   it("data, timecode, subtitle and attachment streams are allowed and ignored (A1)", () => {
@@ -111,6 +111,21 @@ describe("converter · ffprobe facts", () => {
     expect(isHdr({ transfer: "", primaries: "" })).toBe(false);
   });
 
+  it("HDR10 peak (review of #420): MaxCLL, else the mastering display's max luminance (ffprobe's rational), within 100–10,000 nits", () => {
+    const withSideData = (sd: unknown[]) => {
+      const p = JSON.parse(probeJson({ colour: { transfer: "smpte2084", primaries: "bt2020" } }));
+      p.streams[0].side_data_list = sd;
+      return judgeProbe(JSON.stringify(p)).colour.peakNits;
+    };
+    const mastering = { side_data_type: "Mastering display metadata", max_luminance: "40000000/10000", min_luminance: "50/10000" };
+    const cll = { side_data_type: "Content light level metadata", max_content: 1500, max_average: 400 };
+    expect(withSideData([mastering, cll])).toBe(1500);
+    expect(withSideData([mastering])).toBe(4000);
+    expect(withSideData([{ ...cll, max_content: 0 }, mastering])).toBe(4000); // MaxCLL 0 = unknown
+    expect(withSideData([{ side_data_type: "Display Matrix", rotation: 0 }])).toBeNull();
+    expect(withSideData([{ ...mastering, max_luminance: "20/1" }])).toBeNull(); // nonsense → the default
+  });
+
   it("the refusals that remain → their fixed codes", () => {
     const audio = { codec_type: "audio", codec_name: "aac", channels: 2 };
     expect(code(JSON.stringify({ format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "5" }, streams: [audio] }))).toBe("no_video");
@@ -126,7 +141,17 @@ describe("converter · ffprobe facts", () => {
     expect(code(probeJson({ width: 2160, height: 4097 }))).toBe("too_big");
     expect(code(probeJson({ width: 4096, height: 2160 }))).toBe("ok");
     expect(code(probeJson({ fps: "1/2" }))).toBe("unsupported_format");
-    expect(code(probeJson({ fps: "240/1" }))).toBe("unsupported_format");
+    expect(code(probeJson({ fps: "240/1" }))).toBe("ok");                       // 1280x720 slow motion (M2)
+    expect(code(probeJson({ fps: "241/1" }))).toBe("unsupported_format");
+    expect(code(probeJson({ width: 1080, height: 1920, fps: "240/1" }))).toBe("ok"); // portrait 1080p240
+    expect(code(probeJson({ width: 1920, height: 1080, fps: "240/1" }))).toBe("ok"); // 497,664,000 px/s
+    expect(code(probeJson({ width: 2560, height: 1440, fps: "240/1" }))).toBe("unsupported_format"); // above 1080p: 120 max
+    expect(code(probeJson({ width: 2560, height: 1440, fps: "121/1" }))).toBe("unsupported_format");
+    expect(code(probeJson({ width: 2560, height: 1440, fps: "120/1" }))).toBe("ok"); // 442,368,000 px/s
+    expect(code(probeJson({ width: 3840, height: 2160, fps: "60/1" }))).toBe("ok");  // UHD 4K60
+    expect(code(probeJson({ width: 4096, height: 2160, fps: "60/1" }))).toBe("ok");  // DCI 4K60: the pixel-rate ceiling itself
+    expect(code(probeJson({ width: 4096, height: 2160, fps: "61/1" }))).toBe("unsupported_format"); // above 530,841,600 px/s
+    expect(code(probeJson({ width: 3840, height: 2160, fps: "120/1" }))).toBe("unsupported_format");
     expect(code(probeJson({ fps: "120/1" }))).toBe("ok");
     expect(code(probeJson({ fps: "1/1" }))).toBe("ok");
     expect(code(probeJson({ duration: 15 * 3600 + 1 }))).toBe("too_long");

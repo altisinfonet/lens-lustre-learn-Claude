@@ -6,7 +6,13 @@
  *   • POST /convert/claim every 10 s; while the queue is empty the wait doubles
  *     up to ~60 s; after a job the next claim is asked for at once;
  *   • the claim is written to the state file (0600) before any work starts and
- *     removed once the database has heard how the job ended.
+ *     removed once the database has heard how the job ended;
+ *   • after a job ends 'internal' (or its claim was lost, or its end could not
+ *     be delivered) the worker backs off before claiming again: 30 s, 1, 2,
+ *     4 min … (at most 15 min), and after every 3rd such job in a row it
+ *     re-runs its self-test and claims NOTHING until that passes (review of
+ *     #420, M3) — a broken VM must not burn every member's three attempts. Any
+ *     job that ends otherwise (done, or a final code about the file) resets it.
  */
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -25,6 +31,24 @@ export interface WorkerDeps extends JobDeps {
   maxJobs?: number;
   /** stop after this many loop turns (tests) */
   maxTurns?: number;
+  /** the self-test, re-run after every SELFTEST_AFTER internal results in a row (main.ts passes the real one) */
+  selfTest?: () => Promise<{ ok: boolean; code?: string; detail?: string }>;
+  /** first back-off after an internal result (default 30 s) and its ceiling (default 15 min) */
+  internalBackoffMs?: number;
+  internalBackoffMaxMs?: number;
+}
+
+export const SELFTEST_AFTER = 3;
+
+/** Did this job end in a way that says more about the VM than about the file? */
+export function endedInternal(o: JobOutcome): boolean {
+  return (o.result === "failed" && o.code === "internal") || o.result === "lost" || o.result === "unfinished";
+}
+
+/** 30 s, 1 min, 2 min, 4 min … for the 1st, 2nd, 3rd … internal result in a row; at most `max`. */
+export function internalBackoff(streak: number, base = 30_000, max = 15 * 60_000): number {
+  if (streak <= 0) return 0;
+  return Math.min(max, base * 2 ** Math.min(streak - 1, 20));
 }
 
 /** Remove job directories a crash left behind (only uuid-named ones). */
@@ -82,6 +106,9 @@ export async function workerLoop(d: WorkerDeps, stop?: AbortSignal): Promise<{ j
   const wait = interruptible(d.sleep, stop);
   const jobs: JobOutcome[] = [];
   let idle = d.pollMs;
+  let internalStreak = 0;
+  const base = d.internalBackoffMs ?? 30_000;
+  const max = d.internalBackoffMaxMs ?? 15 * 60_000;
   for (let turn = 0; !stop?.aborted; turn++) {
     if (d.maxTurns !== undefined && turn >= d.maxTurns) break;
     if (!(await recoverStaleClaim(d).catch((e) => { d.log("worker.recover_error", { error: scrub(String(e)) }); return false; }))) {
@@ -110,6 +137,22 @@ export async function workerLoop(d: WorkerDeps, stop?: AbortSignal): Promise<{ j
     // Kept on disk only while the database has not heard how it ended.
     if (outcome.result !== "unfinished") await d.state.clear();
     if (d.maxJobs !== undefined && jobs.length >= d.maxJobs) break;
+
+    if (!endedInternal(outcome)) { internalStreak = 0; continue; }
+    internalStreak++;
+    let delay = internalBackoff(internalStreak, base, max);
+    d.log("worker.internal_backoff", { in_a_row: internalStreak, wait_ms: delay });
+    await wait(delay);
+    if (d.selfTest && internalStreak % SELFTEST_AFTER === 0) {
+      // Claim nothing until this machine converts its own test video again.
+      for (let tries = 1; !stop?.aborted; tries++) {
+        const r = await d.selfTest().catch((e) => ({ ok: false, code: "internal", detail: scrub(String(e)) }));
+        if (r.ok) { d.log("worker.selftest_recheck", { ok: true, in_a_row: internalStreak, tries }); break; }
+        delay = internalBackoff(internalStreak + tries, base, max);
+        d.log("worker.selftest_failed_not_claiming", { level: "ALERT", in_a_row: internalStreak, tries, code: r.code, detail: r.detail, retry_in_ms: delay });
+        await wait(delay);
+      }
+    }
   }
   return { jobs };
 }

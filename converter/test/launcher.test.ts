@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { DirectLauncher, readJobFile, SystemdLauncher, type Exec } from "../src/launcher";
 import { tempDir } from "./helpers";
@@ -124,6 +125,15 @@ describe("converter · readJobFile (what the sandbox wrote)", () => {
     await fs.symlink(path.join(dir, "secret"), path.join(dir, "240p.mp4"));
     await expect(readJobFile(path.join(dir, "240p.mp4"), 1000)).rejects.toThrow();
   });
+
+  it.skipIf(process.platform === "win32")("a FIFO planted as an output is refused at once — it cannot freeze the worker (review of #420, L1)", async () => {
+    const { dir } = await jobDir();
+    const fifo = path.join(dir, "240p.mp4");
+    execFileSync("mkfifo", [fifo]);
+    const started = Date.now();
+    await expect(readJobFile(fifo, 1000)).rejects.toThrow(/not a regular file/);
+    expect(Date.now() - started).toBeLessThan(2000);
+  }, 10_000);
 });
 
 describe("converter · DirectLauncher (tests, dev)", () => {

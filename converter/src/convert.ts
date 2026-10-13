@@ -11,6 +11,7 @@ import { packageFromFragmented, type HlsPackage } from "../../src/lib/video/hlsP
 import { judgeUploadContent, smallFiles } from "../../src/lib/video/shared/judge";
 import { manifestProblems, type VideoPurpose } from "../../src/lib/video/shared/rules";
 import { audioArgs, planEncode, posterArgs, runLimitS, videoArgs, type EncodePlan, type X264Preset } from "./encode";
+import { dbVersionProblems } from "./dbRules";
 import { classifyToolFailure, JobFailure } from "./failures";
 import { readJobFile, STDOUT_MAX, type Launcher } from "./launcher";
 import { judgeProbe, probeArgs, PROBE_TIMEOUT_S, type ProbeFacts } from "./probe";
@@ -55,14 +56,21 @@ async function output(dir: string, name: string, max: number, tooBig: JobFailure
 }
 
 export async function makePoster(o: ConvertOptions, plan: EncodePlan): Promise<Uint8Array> {
-  const attempts: Array<{ at: number; q: number }> = [{ at: plan.poster.atS, q: 3 }, { at: plan.poster.atS, q: 10 }, { at: 0, q: 10 }];
+  // Same moment, smaller file, then a narrower one (poster + playlists must stay ≤ 2 MB, VID-LIM-005); then frame 0.
+  const narrow = Math.min(plan.poster.width, 640);
+  const attempts: Array<{ at: number; q: number; w: number; last?: boolean }> = [
+    { at: plan.poster.atS, q: 3, w: plan.poster.width },
+    { at: plan.poster.atS, q: 10, w: plan.poster.width },
+    { at: plan.poster.atS, q: 15, w: narrow, last: true },
+    { at: 0, q: 10, w: narrow, last: true },
+  ];
   let lastError: JobFailure | null = null;
   for (const a of attempts) {
-    const r = await o.launcher.run({ tool: "ffmpeg", args: posterArgs(plan, a.at, a.q), jobDir: o.jobDir, timeoutS: 300, signal: o.signal });
+    const r = await o.launcher.run({ tool: "ffmpeg", args: posterArgs(plan, a.at, a.q, a.w), jobDir: o.jobDir, timeoutS: 300, signal: o.signal });
     if (r.exitCode !== 0) { lastError = classifyToolFailure("ffmpeg", r); if (lastError.code !== "damaged") throw lastError; continue; }
     try {
       const jpeg = await output(o.jobDir, plan.poster.file, POSTER_HARD_MAX, new JobFailure("internal", "the poster is too large"));
-      if (jpeg.length > POSTER_SOFT_MAX && a.q < 10) continue; // a noisy frame: same moment, smaller file
+      if (jpeg.length > POSTER_SOFT_MAX && !a.last) continue;
       return jpeg;
     } catch (e) {
       lastError = e instanceof JobFailure ? e : new JobFailure("internal", String(e));
@@ -85,7 +93,7 @@ export async function convertSource(o: ConvertOptions): Promise<Converted> {
   });
   const plan = planEncode(facts);
   log("job.planned", {
-    step: plan.ladder.step, renditions: plan.video.map((v) => `${v.name}:${v.width}x${v.height}@${v.bitrate}`), audio_bps: plan.audio?.bitrate ?? 0,
+    step: plan.ladder.step, renditions: plan.video.map((v) => `${v.name}:${v.width}x${v.height}@${v.bitrate}/${v.maxrate}/${v.bufsize}`), audio_bps: plan.audio?.bitrate ?? 0,
     fps: plan.fps.text, tone_map: plan.toneMap !== null,
   });
 
@@ -123,11 +131,22 @@ export async function convertSource(o: ConvertOptions): Promise<Converted> {
   return { pkg, facts, plan };
 }
 
-/** The server's own rules, run here first (design §3 step 5: fail fast, before any upload). */
+/**
+ * The server's own rules, run here first (design §3 step 5: fail fast, before
+ * any upload): the manifest rules, the content judge, and the DATABASE's
+ * version arithmetic exactly as video_validate_version computes it
+ * (dbRules.ts, review of #420 M1) — the worker never declares what
+ * video_converter_begin_version would refuse.
+ */
 export function checkPackage(pkg: HlsPackage, purpose: VideoPurpose): void {
   const problems = [...manifestProblems(pkg.manifest, purpose), ...judgeUploadContent(pkg.manifest, smallFiles(pkg.files))];
-  if (!problems.length) return;
-  // Only the package being too big overall is the FILE's fault; anything else is ours (retried).
-  const size = problems.some((p) => /^total \d+ bytes is above|files is above/.test(p));
-  throw new JobFailure(size ? "too_big" : "internal", `the package breaks the upload rules: ${problems.slice(0, 3).join("; ").slice(0, 200)}`);
+  const db = dbVersionProblems(pkg.manifest);
+  if (!problems.length && !db.length) return;
+  const all = [...db.map((d) => `${d.code} ${d.message}`), ...problems];
+  const detail = `the package breaks the upload rules: ${all.slice(0, 3).join("; ").slice(0, 200)}`;
+  // What the FILE makes too big or too long is final; anything else is ours (retried).
+  if (db.some((d) => d.code === "VID-LIM-001")) throw new JobFailure("too_long", detail);
+  const size = db.some((d) => d.code === "VID-LIM-002" || d.code === "VID-LIM-005" || d.code === "VID-LIM-006")
+    || problems.some((p) => /^total \d+ bytes is above|files is above/.test(p));
+  throw new JobFailure(size ? "too_big" : "internal", detail);
 }

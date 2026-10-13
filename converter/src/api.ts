@@ -6,6 +6,7 @@
  * service role, no attestation key is ever on the VM (design §2.1).
  */
 import { Session } from "./auth";
+import { UUID_RE } from "./launcher";
 
 export interface ClaimedJob {
   source_id: string;
@@ -70,6 +71,7 @@ export class Api {
         headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json", accept: "application/json", ...(init.headers ?? {}) },
         body: JSON.stringify(init.body),
         signal: AbortSignal.timeout(this.o.requestTimeoutMs ?? 90_000),
+        redirect: "error",
       });
     } catch (e) {
       throw new ApiError(0, "NETWORK", `${new URL(url).pathname}: ${(e as Error)?.message ?? String(e)}`);
@@ -104,6 +106,10 @@ export class Api {
     const job = a.body.job as ClaimedJob;
     const source = a.body.source as ClaimedSource;
     if (!job.source_id || !job.claim_token || !source?.url) throw new ApiError(502, "VID-CONV-BAD", "/convert/claim answered without a job or source");
+    // Before any path is built from them or any file deleted (review of #420, L2): lowercase UUIDs only.
+    if (!UUID_RE.test(String(job.source_id)) || !UUID_RE.test(String(job.claim_token))) {
+      throw new ApiError(502, "VID-CONV-BAD", "/convert/claim answered with a source_id or claim_token that is not a lowercase uuid");
+    }
     return { job: { ...job, source_bytes: Number(job.source_bytes), attempt: Number(job.attempt) }, source: { ...source, bytes: Number(source.bytes) } };
   }
 

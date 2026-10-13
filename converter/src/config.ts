@@ -21,7 +21,16 @@ export interface Config {
   heartbeatMs: number;
   preset: X264Preset;
   startupSelfTest: boolean;
+  /** this lane's R2 S3 endpoint host (<account>.r2.cloudflarestorage.com): the only host presigned URLs may name */
+  r2Host: string;
+  /** this lane's video bucket: presigned paths must start /<bucket>/upload/ (optional) */
+  r2Bucket: string;
+  /** written by setup.sh when Ubuntu Pro esm-apps is off: FFmpeg gets no security updates */
+  noUpdatesMarker: string;
 }
+
+const R2_HOST = /^[0-9a-f]{32}\.r2\.cloudflarestorage\.com$/;
+const BUCKET = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/;
 
 function url(name: string, v: string | undefined, required: boolean): string {
   const s = String(v ?? "").trim().replace(/\/+$/, "");
@@ -53,6 +62,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, opts: { require
   if (!X264_PRESETS.includes(preset)) throw new Error(`CONVERTER_X264_PRESET must be one of ${X264_PRESETS.join(", ")}`);
   const anonKey = String(env.CONVERTER_SUPABASE_ANON_KEY ?? "").trim();
   if (net && !anonKey) throw new Error("CONVERTER_SUPABASE_ANON_KEY is not set");
+  const r2Host = String(env.CONVERTER_R2_HOST ?? "").trim().toLowerCase();
+  if (net && !R2_HOST.test(r2Host)) throw new Error("CONVERTER_R2_HOST must be this lane's <account id>.r2.cloudflarestorage.com");
+  const r2Bucket = String(env.CONVERTER_R2_BUCKET ?? "").trim();
+  if (r2Bucket && !BUCKET.test(r2Bucket)) throw new Error("CONVERTER_R2_BUCKET is not a bucket name");
   return {
     apiBase: url("CONVERTER_API_BASE", env.CONVERTER_API_BASE, net),
     supabaseUrl: url("CONVERTER_SUPABASE_URL", env.CONVERTER_SUPABASE_URL, net),
@@ -69,5 +82,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, opts: { require
     heartbeatMs: int("CONVERTER_HEARTBEAT_MS", env.CONVERTER_HEARTBEAT_MS, 120_000, 10_000, 600_000),
     preset,
     startupSelfTest: env.CONVERTER_STARTUP_SELFTEST !== "0",
+    r2Host,
+    r2Bucket,
+    noUpdatesMarker: env.CONVERTER_NO_UPDATES_MARKER ?? "/etc/converter/ffmpeg-no-security-updates",
   };
 }

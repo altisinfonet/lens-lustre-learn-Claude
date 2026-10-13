@@ -16,7 +16,9 @@
  * Refused (fixed codes, failures.ts):
  *   no real video stream (none, or only cover pictures) → no_video
  *   video streams, but none with a codec FFmpeg knows,
- *   a demuxer outside the allow-list, fps outside 1–120,
+ *   a demuxer outside the allow-list, fps outside 1–240
+ *   (up to 1920×1080) / 1–120 (above), more than
+ *   4096×2160×60 pixels per second,
  *   more than 64 streams                                 → unsupported_format
  *   width or height above 4096                           → too_big
  *   longer than 15 h                                     → too_long
@@ -41,7 +43,15 @@ export const PROBE_TIMEOUT_S = 120;
 
 export const MAX_SIDE = 4096;
 export const MIN_FPS = 1;
+/** Above 1920×1080 (either orientation). */
 export const MAX_FPS = 120;
+/** Up to 1920×1080: iPhone slow motion records 240 fps (review of #420, M2). The output is ≤ 30 fps either way. */
+export const MAX_FPS_UP_TO_1080P = 240;
+/**
+ * Decoding cost bound, coded width × height × fps (review of #420, M2):
+ * 4096×2160 at 60 fps — so DCI/UHD 4K60 and 1080p240 (497,664,000) both pass.
+ */
+export const MAX_PIXEL_RATE = 4096 * 2160 * 60;
 /** At ~2.9× real time a longer video cannot finish inside a claim's 6 h ceiling (design §3 step 5). */
 export const MAX_DURATION_S = 15 * 3600;
 /** A sanity bound on a hostile file, far above any camera's (an iPhone .mov has ~5). */
@@ -75,6 +85,8 @@ export interface ColourFacts {
   matrix: string;
   range: string;
   pixFmt: string;
+  /** HDR10 metadata: MaxCLL, else the mastering display's peak (nits); null when the file has neither */
+  peakNits?: number | null;
 }
 
 export interface ProbeFacts {
@@ -124,7 +136,7 @@ interface RawStream {
   color_primaries?: string;
   disposition?: Record<string, number>;
   tags?: Record<string, string>;
-  side_data_list?: Array<{ side_data_type?: string; rotation?: number | string }>;
+  side_data_list?: Array<{ side_data_type?: string; rotation?: number | string; max_content?: number | string; max_luminance?: number | string }>;
 }
 interface RawProbe { format?: { format_name?: string; duration?: string; nb_streams?: number }; streams?: RawStream[] }
 
@@ -154,6 +166,23 @@ function rotationOf(v: RawStream): 0 | 90 | 180 | 270 {
   if (deg === undefined && v.tags?.rotate !== undefined && Number.isFinite(Number(v.tags.rotate))) deg = Number(v.tags.rotate);
   const r = ((Math.round((deg ?? 0) / 90) * 90) % 360 + 360) % 360;
   return r as 0 | 90 | 180 | 270;
+}
+
+/** A number or an ffprobe rational ("10000000/10000"). */
+function num(v: number | string | undefined): number {
+  if (typeof v === "number") return v;
+  const m = /^(-?\d+(?:\.\d+)?)(?:\/(\d+(?:\.\d+)?))?$/.exec(String(v ?? "").trim());
+  if (!m) return NaN;
+  return m[2] !== undefined ? Number(m[1]) / Number(m[2]) : Number(m[1]);
+}
+
+/** HDR10 peak: Content light level MaxCLL, else Mastering display max luminance (nits), within 100–10,000. */
+function peakNitsOf(v: RawStream): number | null {
+  const sd = v.side_data_list ?? [];
+  const cll = num(sd.find((x) => /content light level/i.test(String(x?.side_data_type)))?.max_content);
+  const mastering = num(sd.find((x) => /mastering display/i.test(String(x?.side_data_type)))?.max_luminance);
+  for (const n of [cll, mastering]) if (Number.isFinite(n) && n >= 100 && n <= 10_000) return n;
+  return null;
 }
 
 function streamIndex(s: RawStream, fallback: number): number {
@@ -200,7 +229,15 @@ export function judgeProbe(json: string): ProbeFacts {
 
   const r = rate(v.avg_frame_rate) ?? rate(v.r_frame_rate);
   if (!r) throw new JobFailure("unsupported_format", "no frame rate");
-  if (r.value < MIN_FPS || r.value > MAX_FPS) throw new JobFailure("unsupported_format", `${r.value.toFixed(2)} fps is outside ${MIN_FPS}–${MAX_FPS}`);
+  const upTo1080p = Math.max(codedWidth, codedHeight) <= 1920 && Math.min(codedWidth, codedHeight) <= 1080;
+  const maxFps = upTo1080p ? MAX_FPS_UP_TO_1080P : MAX_FPS;
+  if (r.value < MIN_FPS || r.value > maxFps) {
+    throw new JobFailure("unsupported_format", `${r.value.toFixed(2)} fps is outside ${MIN_FPS}–${maxFps} at ${codedWidth}x${codedHeight}`);
+  }
+  const pixelRate = codedWidth * codedHeight * r.value;
+  if (pixelRate > MAX_PIXEL_RATE) {
+    throw new JobFailure("unsupported_format", `${codedWidth}x${codedHeight} at ${r.value.toFixed(2)} fps is ${Math.round(pixelRate)} pixels/s, above ${MAX_PIXEL_RATE}`);
+  }
 
   let durationS = seconds(p.format.duration);
   if (!(durationS > 0)) {
@@ -222,7 +259,7 @@ export function judgeProbe(json: string): ProbeFacts {
   const tag = (x: string | undefined) => (x && x !== "unknown" && x !== "reserved" ? x : "");
   const colour: ColourFacts = {
     transfer: tag(v.color_transfer), primaries: tag(v.color_primaries), matrix: tag(v.color_space),
-    range: tag(v.color_range), pixFmt: String(v.pix_fmt ?? ""),
+    range: tag(v.color_range), pixFmt: String(v.pix_fmt ?? ""), peakNits: peakNitsOf(v),
   };
   const videoIndex = streamIndex(v, streams.indexOf(v));
   const audioIndex = a ? streamIndex(a, streams.indexOf(a)) : null;

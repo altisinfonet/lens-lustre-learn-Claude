@@ -30,6 +30,20 @@ export function isStorageUrl(u: string): boolean {
   }
 }
 
+/**
+ * The production rule (review of #420): R2 over HTTPS AND exactly this lane's
+ * account host (CONVERTER_R2_HOST) — and, when the bucket is configured, a
+ * path under /<bucket>/upload/ (the only prefix Pages ever presigns for the VM).
+ */
+export function storageUrlRule(host: string, bucket = ""): (u: string) => boolean {
+  return (u) => {
+    if (!isStorageUrl(u)) return false;
+    const x = new URL(u);
+    if (x.hostname !== host) return false;
+    return !bucket || x.pathname.startsWith(`/${bucket}/upload/`);
+  };
+}
+
 function bareEtag(v: string | null): string {
   return String(v ?? "").trim().replace(/^W\//, "").replace(/"/g, "");
 }

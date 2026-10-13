@@ -6,7 +6,11 @@
  * and HDR tone mapping as amendment A1 (2026-10-13) says.
  */
 import { describe, it, expect } from "vitest";
-import { audioArgs, AUDIO_CODEC, BT709_TAGS, MIN_FRAGMENT_US, planEncode, posterArgs, runLimitS, toneMapChain, videoArgs, videoCodecFor } from "../src/encode";
+import {
+  audioArgs, audioBitrateFor, AUDIO_CODEC, BT709_TAGS, bufferCapBits, CEILING_SHARE, LIMITED_RANGE_CLAMP, MIN_FRAGMENT_US, planEncode, posterArgs, runLimitS,
+  toneMapChain, toneMapOperator, vbvFor, videoArgs, videoCodecFor, VIDEO_RESERVE_BYTES,
+} from "../src/encode";
+import { DB_CEILING_BPS } from "../src/dbRules";
 import { judgeProbe, INPUT_FORMAT_WHITELIST } from "../src/probe";
 import { JobFailure } from "../src/failures";
 import { iphoneProbeJson, probeJson } from "./helpers";
@@ -62,8 +66,12 @@ describe("converter · the FFmpeg commands", () => {
       expect(after(block, "-level:v")).toBe(v.level);
       expect(after(block, "-pix_fmt")).toBe("yuv420p");
       expect(Number(after(block, "-b:v"))).toBe(v.bitrate);
-      expect(Number(after(block, "-maxrate"))).toBe(Math.round(v.bitrate * 1.2));
-      expect(Number(after(block, "-bufsize"))).toBe(v.bitrate * 2);
+      expect(Number(after(block, "-maxrate"))).toBe(v.maxrate);
+      expect(Number(after(block, "-bufsize"))).toBe(v.bufsize);
+      // the VBV worst case stays inside 85 % of the DB ceiling × length, less the container reserve (M1)
+      expect(v.bufsize + v.maxrate * 10).toBeLessThanOrEqual((CEILING_SHARE * DB_CEILING_BPS[v.name] * 10 - VIDEO_RESERVE_BYTES) * 8);
+      expect(v.bufsize).toBeLessThanOrEqual(bufferCapBits(v.name));
+      expect(v.bitrate).toBeLessThanOrEqual(v.maxrate);
       expect(after(block, "-g")).toBe("60");
       expect(after(block, "-keyint_min")).toBe("60");
       expect(after(block, "-sc_threshold")).toBe("0");
@@ -96,14 +104,19 @@ describe("converter · the FFmpeg commands", () => {
     for (const args of [v, a, posterArgs(p)]) expect(args).toEqual(expect.arrayContaining(["-sn", "-dn", "-map_metadata"]));
   });
 
-  it("HDR (A1): every rendition tone-mapped to SDR BT.709 8-bit after its scale, outputs tagged bt709; the poster too", () => {
+  it("HDR (A1 + review): tone-mapped ONCE at the largest rendition's size, PQ peak 10,000 nits, clamped to limited range; tagged bt709; the poster too", () => {
     const p = planEncode(facts({ width: 1920, height: 1080, colour: { transfer: "smpte2084", primaries: "bt2020", matrix: "bt2020nc", range: "tv", pixFmt: "yuv420p10le" } }));
+    const clamp = "limiter=min=16:max=235:planes=1,limiter=min=16:max=240:planes=6";
     const chain = "zscale=tin=smpte2084:pin=2020:min=2020_ncl:rin=limited:t=linear:npl=100:p=2020,format=gbrpf32le,zscale=p=709,"
-      + "tonemap=tonemap=hable:desat=0,zscale=t=709:m=709:r=limited,format=yuv420p";
+      + `tonemap=tonemap=hable:desat=0:peak=100,zscale=t=709:m=709:r=limited,format=yuv420p,${clamp}`;
+    expect(LIMITED_RANGE_CLAMP).toBe(clamp);
     expect(p.toneMap).toBe(chain);
     const a = videoArgs(p);
     const graph = after(a, "-filter_complex");
-    p.video.forEach((v, i) => expect(graph).toContain(`[s${i}]scale=w=${v.width}:h=${v.height}:flags=bicubic,setsar=1,${chain}[o${i}]`));
+    // one tone-mapping, at 1280x720 (the largest rendition), then split
+    expect(graph.split("tonemap=tonemap=").length - 1).toBe(1);
+    expect(graph).toContain(`tpad=stop_mode=clone:stop_duration=10.000,scale=w=1280:h=720:flags=bicubic,setsar=1,${chain},split=3[s0][s1][s2];`);
+    p.video.forEach((v, i) => expect(graph).toContain(`[s${i}]scale=w=${v.width}:h=${v.height}:flags=bicubic,setsar=1,format=yuv420p,${clamp}[o${i}]`));
     const starts = a.map((x, i) => (x === "-map" ? i : -1)).filter((i) => i >= 0);
     starts.forEach((s, i) => {
       const block = a.slice(s, starts[i + 1] ?? a.length);
@@ -123,6 +136,40 @@ describe("converter · the FFmpeg commands", () => {
       .toMatch(/^zscale=tin=2020_10:pin=2020:min=2020_cl:rin=full:/);
     expect(toneMapChain({ transfer: "", primaries: "bt2020", matrix: "", range: "", pixFmt: "" })).toMatch(/^zscale=tin=2020_10:/);
     expect(BT709_TAGS).toEqual(["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", "-color_range", "tv"]);
+  });
+
+  it("tone-map peak (review of #420): the file's HDR10 peak, else PQ 10,000 / HLG 1,000 nits; BT.2020-SDR gets the gamut conversion only", () => {
+    const c = (o: Partial<Parameters<typeof toneMapOperator>[0]>) => ({ transfer: "", primaries: "bt2020", matrix: "", range: "", pixFmt: "", ...o });
+    expect(toneMapOperator(c({ transfer: "smpte2084" }))).toEqual({ op: "hable", peak: 100 });
+    expect(toneMapOperator(c({ transfer: "smpte2084", peakNits: 4000 }))).toEqual({ op: "hable", peak: 40 });
+    expect(toneMapOperator(c({ transfer: "arib-std-b67" }))).toEqual({ op: "hable", peak: 10 });
+    expect(toneMapOperator(c({ transfer: "bt2020-10" }))).toEqual({ op: "clip", peak: null });
+    expect(toneMapChain(c({ transfer: "smpte2084", peakNits: 1500 }))).toContain("tonemap=tonemap=hable:desat=0:peak=15,");
+    expect(toneMapChain(c({ transfer: "bt2020-10" }))).toContain("tonemap=tonemap=clip:desat=0,");
+  });
+
+  it("rate control (review of #420, M1): buffer caps in proportion to each ceiling; short clips get buffer + maxrate scaled to ceiling × length", () => {
+    expect([bufferCapBits("240p"), bufferCapBits("480p"), bufferCapBits("720p")]).toEqual([342_857, 914_285, 2_000_000]);
+    // a long video keeps the plan (720p: 2 Mb/s target, 2.4 Mb/s max), buffer capped at 2 Mbit (was 4)
+    expect(vbvFor("720p", 2_000_000, 60)).toEqual({ bitrate: 2_000_000, maxrate: 2_400_000, bufsize: 2_000_000 });
+    for (const name of ["240p", "480p", "720p"] as const) {
+      for (const d of [0.2, 0.5, 1, 2, 4, 10, 30, 600]) {
+        const planned = { "240p": 300_000, "480p": 900_000, "720p": 2_000_000 }[name];
+        const v = vbvFor(name, planned, d);
+        const budget = (CEILING_SHARE * DB_CEILING_BPS[name] * d - VIDEO_RESERVE_BYTES) * 8;
+        if (budget > 100_000) expect(v.bufsize + v.maxrate * d, `${name} ${d}s`).toBeLessThanOrEqual(budget);
+        expect(v.bufsize, `${name} ${d}s`).toBeLessThanOrEqual(bufferCapBits(name));
+        expect(v.bitrate).toBeLessThanOrEqual(v.maxrate);
+        expect(v.maxrate).toBeLessThanOrEqual(Math.round(planned * 1.2));
+      }
+    }
+    // the sound: the plan for anything but a very short clip
+    expect(audioBitrateFor(96_000, 10)).toBe(96_000);
+    expect(audioBitrateFor(96_000, 2)).toBe(96_000);
+    expect(audioBitrateFor(96_000, 0.5)).toBeLessThan(96_000);
+    expect(audioBitrateFor(96_000, 0.2)).toBeLessThanOrEqual(48_000);
+    expect(audioBitrateFor(48_000, 0.05)).toBe(24_000); // the floor
+    expect(audioBitrateFor(48_000, 3600)).toBe(48_000); // never above the plan
   });
 
   it("frame rate and GOP follow the output frame rate (60 → 30, 29.97 kept, 5 → 10)", () => {
@@ -165,6 +212,9 @@ describe("converter · the FFmpeg commands", () => {
     expect(a.indexOf("-ss")).toBeLessThan(a.indexOf("-i"));
     expect(after(a, "-frames:v")).toBe("1");
     expect(after(a, "-vf")).toBe("scale=w=1280:h=-2:flags=bicubic,setsar=1");
+    expect(after(a, "-map_chapters")).toBe("-1"); // review of #420 nit
+    expect(after(posterArgs(p, 1, 15, 640), "-vf")).toContain("scale=w=640:h=-2"); // the narrower fallback
+    expect(after(posterArgs(p, 1, 15, 640), "-q:v")).toBe("15");
     expect(after(a, "-c:v")).toBe("mjpeg");
     expect(a.at(-1)).toBe("poster.jpg");
     expect(after(posterArgs(planEncode(facts({ duration: 1.2 }))), "-ss")).toBe("0.600");

@@ -62,7 +62,12 @@ export function vidCode(message: string): string | undefined {
 
 /**
  * ffprobe/ffmpeg said no. Decide whether the FILE is at fault (final code) or
- * this run was (internal: killed, out of time, out of memory, out of disk).
+ * this run was (internal: killed from outside, out of memory, out of disk).
+ *
+ * A run that reaches its OWN time cap (3 × length + 10 min) would reach it
+ * again on every retry: final (review of #420, M2) — too_long for an FFmpeg
+ * conversion; for ffprobe (2 min on bounded probing) the file itself is the
+ * problem: damaged.
  */
 export function classifyToolFailure(
   tool: "ffprobe" | "ffmpeg",
@@ -70,7 +75,8 @@ export function classifyToolFailure(
 ): JobFailure {
   const tail = scrub(r.stderr.trim().split(/\r?\n/).slice(-3).join(" | ")).slice(0, 220);
   const detail = `${tool} exit ${r.exitCode ?? "none"}${r.timedOut ? " (time limit)" : ""}${r.killed ? " (killed)" : ""}: ${tail}`;
-  if (r.timedOut || r.killed) return new JobFailure("internal", detail);
+  if (r.timedOut) return new JobFailure(tool === "ffmpeg" ? "too_long" : "damaged", detail);
+  if (r.killed) return new JobFailure("internal", detail);
   const s = r.stderr;
   if (/No space left on device|Cannot allocate memory|Resource temporarily unavailable|Too many open files/i.test(s)) {
     return new JobFailure("internal", detail);

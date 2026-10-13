@@ -10,7 +10,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { ApiError } from "../src/api";
 import { ClaimStateStore } from "../src/state";
-import { claimErrorDelay, recoverStaleClaim, sweepJobsRoot, workerLoop, type WorkerDeps } from "../src/worker";
+import { claimErrorDelay, endedInternal, internalBackoff, recoverStaleClaim, sweepJobsRoot, workerLoop, type WorkerDeps } from "../src/worker";
 import { apiFor, FakeLauncher, fakeServer, probeJson, send, SRC, tempDir, TOKEN, withAuth, OWNER, type FakeServer } from "./helpers";
 
 let server: FakeServer | null = null;
@@ -124,5 +124,45 @@ describe("converter · the worker loop", () => {
     await fs.mkdir(path.join(deps.jobsRoot, "lost+found"));
     expect(await sweepJobsRoot(deps.jobsRoot, () => undefined)).toBe(1);
     expect(await fs.readdir(deps.jobsRoot)).toEqual(["lost+found"]);
+  });
+
+  it("after 'internal' jobs (M3): back off 30 s, 1, 2, 4 min; after 3 in a row re-run the self-test and claim nothing until it passes; any other ending resets", async () => {
+    const { s, deps, sleeps } = await base();
+    const plan = ["internal", "internal", "internal", "internal", "final", "internal"];
+    const events: string[] = [];
+    let n = 0;
+    s.on("POST", "/api/video/convert/claim", (_req, res) => {
+      const kind = plan[n++] ?? "none";
+      events.push(`claim:${kind}`);
+      if (kind === "none") { send(res, 200, { job: null }); return; }
+      send(res, 200, {
+        job: { source_id: SRC, owner_id: OWNER, purpose: "post", source_bytes: 4, source_etag: "e", claim_token: TOKEN, lease_until: new Date(Date.now() + 1_800_000).toISOString(), attempt: 1 },
+        source: { url: `${s.url}/r2/${kind}`, headers: { "if-match": '"e"' }, bytes: 4, expires_in: 600 },
+      });
+    });
+    s.on("GET", "/r2/internal", (_req, res) => { res.writeHead(500); res.end(); });                          // → internal
+    s.on("GET", "/r2/final", (_req, res) => { res.writeHead(200, { etag: '"changed"', "content-length": "4" }); res.end("abcd"); }); // → source_missing
+    s.on("POST", "/api/video/convert/finish", (req, res) => send(res, 200, { status: (req.json as { code?: string }).code === "internal" ? "queued" : "failed" }));
+    let selfTests = 0;
+    const selfTest = async () => { selfTests++; events.push(`selftest:${selfTests}`); return { ok: selfTests >= 2, code: "internal", detail: "zscale missing" }; };
+    const logs: string[] = [];
+    const { jobs } = await workerLoop({ ...deps, selfTest, maxTurns: 6, log: (e) => { logs.push(e); } });
+    expect(jobs.map((j) => (j.result === "failed" ? j.code : j.result))).toEqual(["internal", "internal", "internal", "internal", "source_missing", "internal"]);
+    // 30 s, 1 min, 2 min; the failed self-test waits 4 min; the 4th in a row waits 4 min; the final ending resets; 30 s again
+    expect(sleeps).toEqual([30_000, 60_000, 120_000, 240_000, 240_000, 30_000]);
+    // nothing was claimed between the failed and the passing self-test
+    expect(events).toEqual(["claim:internal", "claim:internal", "claim:internal", "selftest:1", "selftest:2", "claim:internal", "claim:final", "claim:internal"]);
+    expect(logs).toContain("worker.selftest_failed_not_claiming");
+    expect(logs.filter((e) => e === "worker.internal_backoff")).toHaveLength(5);
+  });
+
+  it("the back-off schedule: 30 s doubling, capped at 15 min; lost claims and undelivered ends count as internal", () => {
+    expect([1, 2, 3, 4, 5, 6, 7, 30].map((k) => internalBackoff(k))).toEqual([30_000, 60_000, 120_000, 240_000, 480_000, 900_000, 900_000, 900_000]);
+    expect(internalBackoff(0)).toBe(0);
+    expect(endedInternal({ result: "failed", code: "internal", detail: "", status: "queued" })).toBe(true);
+    expect(endedInternal({ result: "lost", detail: "" })).toBe(true);
+    expect(endedInternal({ result: "unfinished", detail: "" })).toBe(true);
+    expect(endedInternal({ result: "failed", code: "damaged", detail: "", status: "failed" })).toBe(false);
+    expect(endedInternal({ result: "done", videoId: "v", state: "checking" })).toBe(false);
   });
 });

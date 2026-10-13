@@ -59,11 +59,14 @@ export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
 
 /**
  * Read a file the sandbox may have written: never through a symlink, only a
- * regular file, at most `max` bytes (a hostile FFmpeg must not be able to make
+ * regular file (never a FIFO or device: opened non-blocking), at most `max`
+ * bytes (a hostile FFmpeg must not be able to make
  * the worker read the secrets, or a huge file).
  */
 export async function readJobFile(file: string, max: number): Promise<Uint8Array> {
-  const h = await fs.open(file, fsc.O_RDONLY | (fsc.O_NOFOLLOW ?? 0));
+  // O_NONBLOCK (review of #420, L1): opening a FIFO the sandbox planted would otherwise wait for a writer for ever;
+  // the regular-file check below then refuses it.
+  const h = await fs.open(file, fsc.O_RDONLY | (fsc.O_NOFOLLOW ?? 0) | (fsc.O_NONBLOCK ?? 0));
   try {
     const st = await h.stat();
     if (!st.isFile()) throw new Error(`${path.basename(file)} is not a regular file`);

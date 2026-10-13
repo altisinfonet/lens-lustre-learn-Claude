@@ -46,9 +46,15 @@ describe("converter · Supabase session", () => {
       if ((req.json as { refresh_token?: string }).refresh_token) { send(res, 400, { error_code: "refresh_token_already_used", msg: "Invalid Refresh Token" }); return; }
       send(res, 200, { access_token: `a${n}`, refresh_token: `r${n}`, expires_in: 60 });
     });
-    const s = new Session({ supabaseUrl: server.url, anonKey: "anon", credentials: async () => ({ email: "c@x.test", password: PW }) });
+    const refused: Array<[number, string]> = [];
+    const s = new Session({
+      supabaseUrl: server.url, anonKey: "anon", credentials: async () => ({ email: "c@x.test", password: PW }),
+      onRefreshRefused: (status, message) => refused.push([status, message]),
+    });
     expect(await s.token()).toBe("a1");
     expect(await s.token()).toBe("a3"); // 60 s left < margin: refresh refused (n=2), password (n=3)
+    // told BEFORE the password sign-in (possible reuse detection — review of #420), with Supabase's code
+    expect(refused).toEqual([[400, "sign-in (refresh_token) refused: HTTP 400 refresh_token_already_used"]]);
   });
 
   it("a refused password sign-in throws without the password in the message", async () => {
@@ -74,6 +80,44 @@ describe("converter · Supabase session", () => {
     const api = new Api({ apiBase: server.url, supabaseUrl: server.url, anonKey: "anon", session });
     expect(await api.claim()).toBeNull();
     expect(calls).toBe(2);
+  });
+
+  it("redirects are refused on the Pages and Supabase calls (review of #420): the JWT never follows a Location", async () => {
+    server = await fakeServer();
+    let followed = 0;
+    server.on("POST", "/auth/v1/token", (_req, res) => send(res, 200, { access_token: "a1", refresh_token: "r1", expires_in: 3600 }));
+    server.on("POST", "/api/video/convert/claim", (_req, res) => { res.writeHead(307, { location: `${server!.url}/elsewhere` }); res.end(); });
+    server.on("POST", "/elsewhere", (_req, res) => { followed++; send(res, 200, { job: null }); });
+    const session = new Session({ supabaseUrl: server.url, anonKey: "anon", credentials: async () => ({ email: "c@x.test", password: PW }) });
+    const api = new Api({ apiBase: server.url, supabaseUrl: server.url, anonKey: "anon", session });
+    await expect(api.claim()).rejects.toMatchObject({ status: 0, code: "NETWORK" });
+    expect(followed).toBe(0);
+    // and the sign-in itself
+    server.on("POST", "/auth/v1/token", (_req, res) => { res.writeHead(302, { location: `${server!.url}/elsewhere` }); res.end(); });
+    const fresh = new Session({ supabaseUrl: server.url, anonKey: "anon", credentials: async () => ({ email: "c@x.test", password: PW }) });
+    await expect(fresh.token()).rejects.toThrow();
+    expect(followed).toBe(0);
+  });
+
+  it("a claim whose source_id or claim_token is not a lowercase uuid is refused before any path is built (review of #420, L2)", async () => {
+    server = await fakeServer();
+    server.on("POST", "/auth/v1/token", (_req, res) => send(res, 200, { access_token: "a1", refresh_token: "r1", expires_in: 3600 }));
+    const job = { owner_id: "11111111-1111-4111-8111-111111111111", purpose: "post", source_bytes: 4, source_etag: "e", lease_until: new Date().toISOString(), attempt: 1 };
+    let answer: Record<string, unknown> = {};
+    server.on("POST", "/api/video/convert/claim", (_req, res) => send(res, 200, answer));
+    const session = new Session({ supabaseUrl: server.url, anonKey: "anon", credentials: async () => ({ email: "c@x.test", password: PW }) });
+    const api = new Api({ apiBase: server.url, supabaseUrl: server.url, anonKey: "anon", session });
+    const source = { url: "https://x.r2.cloudflarestorage.com/b/k", headers: {}, bytes: 4, expires_in: 60 };
+    for (const [source_id, claim_token] of [
+      ["../../etc", "66666666-6666-4666-8666-666666666666"],
+      ["55555555-5555-4555-8555-555555555555", "x/../y"],
+      ["55555555-5555-4555-8555-55555555555A", "66666666-6666-4666-8666-666666666666"], // upper case
+    ]) {
+      answer = { job: { ...job, source_id, claim_token }, source };
+      await expect(api.claim()).rejects.toMatchObject({ code: "VID-CONV-BAD" });
+    }
+    answer = { job: { ...job, source_id: "55555555-5555-4555-8555-555555555555", claim_token: "66666666-6666-4666-8666-666666666666" }, source };
+    expect(await api.claim()).not.toBeNull();
   });
 });
 
