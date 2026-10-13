@@ -21,7 +21,12 @@
 -- WHAT THIS FILE DOES — and nothing else:
 --   UPDATE public.push_config SET function_url = staging's own send-push
 --     https://fpszggreishhuvdpkmdr.supabase.co/functions/v1/send-push
---   and updated_at = now(). internal_secret is NOT read, printed or changed.
+--   and updated_at = now(). internal_secret is never printed, logged or
+--   changed. It is read only inside this file's DO blocks: reduced to an md5
+--   fingerprint that is compared before/after the UPDATE to prove the column
+--   was not touched (POST-002), checked for presence, and covered by
+--   POST-001's whole-row test for the production ref (a true/false result).
+--   Neither the value nor the fingerprint is ever output.
 --   No function, trigger, grant, policy or other row is touched.
 --   Staging's send-push is deployed (list_edge_functions on staging,
 --   2026-10-13: slug send-push, ACTIVE, version 4, verify_jwt true).

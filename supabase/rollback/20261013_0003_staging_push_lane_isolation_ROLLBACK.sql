@@ -14,7 +14,11 @@
 --   function_url = https://jtdtehuqtinjxropkkcn.supabase.co/functions/v1/send-push
 --   updated_at   = 2026-07-31 10:52:12.705409+00 (the value read on staging
 --                  2026-10-13 before the change)
--- internal_secret is not read, printed or changed (20261013_0003 never touched it).
+-- internal_secret is never printed, logged or changed (20261013_0003 never
+-- changed it either). It is read only inside this file's apply block: reduced
+-- to an md5 fingerprint that is compared before/after the UPDATE to prove the
+-- column was not touched (a missing value is refused). Neither the value nor
+-- the fingerprint is ever output.
 --
 -- RB-PRE-001 refuses unless push_config is exactly in 20261013_0003's post-state
 -- (one row, naming staging's send-push), so this cannot run before the
