@@ -23,10 +23,8 @@ export interface Config {
   startupSelfTest: boolean;
   /** this lane's R2 S3 endpoint host (<account>.r2.cloudflarestorage.com): the only host presigned URLs may name */
   r2Host: string;
-  /** this lane's video bucket: presigned paths must start /<bucket>/upload/ (optional) */
+  /** this lane's video bucket: presigned paths must start /<bucket>/upload/ (required with the network config — re-review N4) */
   r2Bucket: string;
-  /** written by setup.sh when Ubuntu Pro esm-apps is off: FFmpeg gets no security updates */
-  noUpdatesMarker: string;
 }
 
 const R2_HOST = /^[0-9a-f]{32}\.r2\.cloudflarestorage\.com$/;
@@ -65,7 +63,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, opts: { require
   const r2Host = String(env.CONVERTER_R2_HOST ?? "").trim().toLowerCase();
   if (net && !R2_HOST.test(r2Host)) throw new Error("CONVERTER_R2_HOST must be this lane's <account id>.r2.cloudflarestorage.com");
   const r2Bucket = String(env.CONVERTER_R2_BUCKET ?? "").trim();
-  if (r2Bucket && !BUCKET.test(r2Bucket)) throw new Error("CONVERTER_R2_BUCKET is not a bucket name");
+  if ((net || r2Bucket) && !BUCKET.test(r2Bucket)) throw new Error("CONVERTER_R2_BUCKET must be this lane's video bucket (presigned paths must start /<bucket>/upload/)");
   return {
     apiBase: url("CONVERTER_API_BASE", env.CONVERTER_API_BASE, net),
     supabaseUrl: url("CONVERTER_SUPABASE_URL", env.CONVERTER_SUPABASE_URL, net),
@@ -84,6 +82,5 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, opts: { require
     startupSelfTest: env.CONVERTER_STARTUP_SELFTEST !== "0",
     r2Host,
     r2Bucket,
-    noUpdatesMarker: env.CONVERTER_NO_UPDATES_MARKER ?? "/etc/converter/ffmpeg-no-security-updates",
   };
 }

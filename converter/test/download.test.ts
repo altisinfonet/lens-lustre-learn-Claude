@@ -44,7 +44,7 @@ describe("converter · downloading the original", () => {
     expect(server!.requests).toHaveLength(0);
   });
 
-  it("the production rule is pinned to this lane's R2 account host, and to /<bucket>/upload/ when the bucket is set (review of #420)", () => {
+  it("the production rule is pinned to this lane's R2 account host AND /<bucket>/upload/ (review of #420; bucket required, N4)", () => {
     const host = "0123456789abcdef0123456789abcdef.r2.cloudflarestorage.com";
     const rule = storageUrlRule(host, "50mm-staging-video");
     expect(rule(`https://${host}/50mm-staging-video/upload/source/x/source?X-Amz-Signature=s`)).toBe(true);
@@ -53,7 +53,8 @@ describe("converter · downloading the original", () => {
     expect(rule(`https://${host}/another-bucket/upload/source/x/source`)).toBe(false);
     expect(rule(`https://${host}/50mm-staging-video/video/o/v/v1/240p_0.m4s`)).toBe(false); // the served prefix: never
     expect(rule(`http://${host}/50mm-staging-video/upload/source/x/source`)).toBe(false);
-    expect(storageUrlRule(host)(`https://${host}/any-bucket/any/key`)).toBe(true); // host pin only
+    expect(storageUrlRule(host, "")(`https://${host}/any-bucket/upload/key`)).toBe(false); // no bucket → nothing passes (fails closed)
+    expect(rule(`https://${host}/50mm-staging-video/upload/../video/o/v/v1/240p_0.m4s`)).toBe(false); // URL parsing resolves the dot segments first
   });
 
   it("sends the signed If-Match exactly and writes exactly the declared bytes", async () => {

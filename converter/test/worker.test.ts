@@ -37,7 +37,7 @@ async function base(): Promise<{ s: FakeServer; deps: WorkerDeps; sleeps: number
   return { s, deps, sleeps, root };
 }
 
-describe("converter · the worker loop", () => {
+describe("converter · the worker loop", { timeout: 20_000 }, () => {
   it("idle: claims every 10 s, then 20, 40, 60, 60 … while the queue is empty", async () => {
     const { s, deps, sleeps } = await base();
     s.on("POST", "/api/video/convert/claim", (_req, res) => send(res, 200, { job: null }));
@@ -156,11 +156,65 @@ describe("converter · the worker loop", () => {
     expect(logs.filter((e) => e === "worker.internal_backoff")).toHaveLength(5);
   });
 
-  it("the back-off schedule: 30 s doubling, capped at 15 min; lost claims and undelivered ends count as internal", () => {
+  it("re-review N6e: a lost claim (the member cancelled) neither counts toward the internal streak nor resets it", async () => {
+    const { s, deps, sleeps } = await base();
+    const plan = ["internal", "internal", "lost", "internal", "lost"];
+    const events: string[] = [];
+    let n = 0;
+    s.on("POST", "/api/video/convert/claim", (_req, res) => {
+      const kind = plan[n++] ?? "none";
+      events.push(`claim:${kind}`);
+      if (kind === "none") { send(res, 200, { job: null }); return; }
+      send(res, 200, {
+        job: { source_id: SRC, owner_id: OWNER, purpose: "post", source_bytes: 4, source_etag: "e", claim_token: TOKEN, lease_until: new Date(Date.now() + 1_800_000).toISOString(), attempt: 1 },
+        source: { url: `${s.url}/r2/${kind}`, headers: { "if-match": '"e"' }, bytes: 4, expires_in: 600 },
+      });
+    });
+    s.on("GET", "/r2/internal", (_req, res) => { res.writeHead(500); res.end(); });
+    // the member cancelled while it downloaded: the finish says the claim is not held → "lost"
+    s.on("GET", "/r2/lost", (_req, res) => { res.writeHead(500); res.end(); });
+    s.on("POST", "/api/video/convert/finish", (req, res) => {
+      const lost = events[events.length - 1] === "claim:lost";
+      if (lost) send(res, 409, { error: "VID-DB-001", message: "VID-CONV-002: this claim is not held" });
+      else send(res, 200, { status: (req.json as { code?: string }).code === "internal" ? "queued" : "failed" });
+    });
+    let selfTests = 0;
+    const selfTest = async () => { selfTests++; events.push(`selftest:${selfTests}`); return { ok: true }; };
+    const { jobs } = await workerLoop({ ...deps, selfTest, maxTurns: 5 });
+    expect(jobs.map((j) => (j.result === "failed" ? j.code : j.result))).toEqual(["internal", "internal", "lost", "internal", "lost"]);
+    // 30 s, 1 min; the lost one: no wait, no count; the 3rd internal in a row: 2 min + the self-test; lost again: nothing
+    expect(sleeps).toEqual([30_000, 60_000, 120_000]);
+    expect(events).toEqual(["claim:internal", "claim:internal", "claim:lost", "claim:internal", "selftest:1", "claim:lost"]);
+  });
+
+  it("re-review N4: a presigned URL refused by the R2 pin ends that job, then the loop STOPS claiming with an ALERT (main exits 4)", async () => {
+    const { s, deps } = await base();
+    let claims = 0;
+    s.on("POST", "/api/video/convert/claim", (_req, res) => {
+      claims++;
+      send(res, 200, {
+        job: { source_id: SRC, owner_id: OWNER, purpose: "post", source_bytes: 4, source_etag: "e", claim_token: TOKEN, lease_until: new Date(Date.now() + 1_800_000).toISOString(), attempt: 1 },
+        source: { url: `${s.url}/r2/source`, headers: { "if-match": '"e"' }, bytes: 4, expires_in: 600 },
+      });
+    });
+    s.on("POST", "/api/video/convert/finish", (_req, res) => send(res, 200, { source_id: SRC, status: "queued" }));
+    const logs: Array<{ e: string; f?: Record<string, unknown> }> = [];
+    const out = await workerLoop({ ...deps, allowUrl: () => false, maxTurns: 5, log: (e, f) => { logs.push({ e, f }); } });
+    expect(out.fatal).toBe("storage_url_refused");
+    expect(out.jobs).toHaveLength(1);
+    expect(out.jobs[0]).toMatchObject({ result: "failed", code: "internal", fatal: "storage_url_refused" });
+    expect(claims).toBe(1);                                   // nothing claimed after it
+    expect(s.requests.filter((r) => r.path.endsWith("/finish"))).toHaveLength(1); // that job was ended (requeued)
+    expect(s.requests.some((r) => r.path.startsWith("/r2/"))).toBe(false);       // the refused URL was never fetched
+    expect(await deps.state.load()).toBeNull();
+    expect(logs.find((l) => l.e === "worker.stopped_not_claiming")?.f).toMatchObject({ level: "ALERT", reason: "storage_url_refused" });
+  });
+
+  it("the back-off schedule: 30 s doubling, capped at 15 min; undelivered ends count as internal, lost claims (member cancels) do not (N6e)", () => {
     expect([1, 2, 3, 4, 5, 6, 7, 30].map((k) => internalBackoff(k))).toEqual([30_000, 60_000, 120_000, 240_000, 480_000, 900_000, 900_000, 900_000]);
     expect(internalBackoff(0)).toBe(0);
     expect(endedInternal({ result: "failed", code: "internal", detail: "", status: "queued" })).toBe(true);
-    expect(endedInternal({ result: "lost", detail: "" })).toBe(true);
+    expect(endedInternal({ result: "lost", detail: "" })).toBe(false);
     expect(endedInternal({ result: "unfinished", detail: "" })).toBe(true);
     expect(endedInternal({ result: "failed", code: "damaged", detail: "", status: "failed" })).toBe(false);
     expect(endedInternal({ result: "done", videoId: "v", state: "checking" })).toBe(false);

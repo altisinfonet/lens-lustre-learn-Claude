@@ -13,16 +13,20 @@
  *          subtitles, attachments, cover pictures, more audio) is ALLOWED and
  *          IGNORED: never mapped.
  *
- * Refused (fixed codes, failures.ts):
+ * Refused (fixed codes, failures.ts) — OWNER GOAL "any format, like
+ * Instagram" (re-review of #420, N5): everything a phone records is accepted,
+ * up to 4K at 120 fps; only what is beyond any camera is refused, and as
+ * "too large", never as "export it as MP4" (which would not help):
  *   no real video stream (none, or only cover pictures) → no_video
  *   video streams, but none with a codec FFmpeg knows,
- *   a demuxer outside the allow-list, fps outside 1–240
- *   (up to 1920×1080) / 1–120 (above), more than
- *   4096×2160×60 pixels per second,
+ *   a demuxer outside the allow-list, under 1 fps,
  *   more than 64 streams                                 → unsupported_format
- *   width or height above 4096                           → too_big
+ *   width or height above 4096, more than 240 fps (up to
+ *   1920×1080) / 120 fps (above), more than just above
+ *   4096×2160×120 decoded pixels per second (1 % slack
+ *   for variable-rate phone files, FPS_SLACK)            → too_big
  *   longer than 15 h                                     → too_long
- *   unreadable size / length                             → damaged
+ *   unreadable size / length, a length under 0.005 s     → damaged
  *
  * The facts that come out are the DISPLAY size (rotation and non-square
  * pixels applied — what a browser's video.videoWidth/Height says, which is
@@ -43,15 +47,23 @@ export const PROBE_TIMEOUT_S = 120;
 
 export const MAX_SIDE = 4096;
 export const MIN_FPS = 1;
-/** Above 1920×1080 (either orientation). */
+/** Above 1920×1080 (either orientation): 4K120 is accepted (re-review N5). */
 export const MAX_FPS = 120;
 /** Up to 1920×1080: iPhone slow motion records 240 fps (review of #420, M2). The output is ≤ 30 fps either way. */
 export const MAX_FPS_UP_TO_1080P = 240;
 /**
- * Decoding cost bound, coded width × height × fps (review of #420, M2):
- * 4096×2160 at 60 fps — so DCI/UHD 4K60 and 1080p240 (497,664,000) both pass.
+ * A phone's variable-rate file reports an AVERAGE rate a hair off its nominal one
+ * (a 120 fps clip can say 120.04): the fps limits and the pixel-rate ceiling
+ * carry 1 % slack, so a real 120 / 240 fps recording is never "too big".
  */
-export const MAX_PIXEL_RATE = 4096 * 2160 * 60;
+export const FPS_SLACK = 1.01;
+/**
+ * Decoding cost bound, width × height × fps: just above 4096×2160 at 120 fps
+ * (4096 × 2160 × 121.2 = 1,072,300,032; re-review N5) — UHD/DCI 4K120 and
+ * 1080p240 pass; the per-run time cap (3 × length + 10 min) bounds how long
+ * any of them may take.
+ */
+export const MAX_PIXEL_RATE = 1_072_300_032;
 /** At ~2.9× real time a longer video cannot finish inside a claim's 6 h ceiling (design §3 step 5). */
 export const MAX_DURATION_S = 15 * 3600;
 /** A sanity bound on a hostile file, far above any camera's (an iPhone .mov has ~5). */
@@ -231,12 +243,12 @@ export function judgeProbe(json: string): ProbeFacts {
   if (!r) throw new JobFailure("unsupported_format", "no frame rate");
   const upTo1080p = Math.max(codedWidth, codedHeight) <= 1920 && Math.min(codedWidth, codedHeight) <= 1080;
   const maxFps = upTo1080p ? MAX_FPS_UP_TO_1080P : MAX_FPS;
-  if (r.value < MIN_FPS || r.value > maxFps) {
-    throw new JobFailure("unsupported_format", `${r.value.toFixed(2)} fps is outside ${MIN_FPS}–${maxFps} at ${codedWidth}x${codedHeight}`);
-  }
+  if (r.value < MIN_FPS) throw new JobFailure("unsupported_format", `${r.value.toFixed(2)} fps is below ${MIN_FPS}`);
+  // Beyond any camera: a resource limit, so "too large to convert" (re-review N5).
+  if (r.value > maxFps * FPS_SLACK) throw new JobFailure("too_big", `${r.value.toFixed(2)} fps is above ${maxFps} at ${codedWidth}x${codedHeight}`);
   const pixelRate = codedWidth * codedHeight * r.value;
   if (pixelRate > MAX_PIXEL_RATE) {
-    throw new JobFailure("unsupported_format", `${codedWidth}x${codedHeight} at ${r.value.toFixed(2)} fps is ${Math.round(pixelRate)} pixels/s, above ${MAX_PIXEL_RATE}`);
+    throw new JobFailure("too_big", `${codedWidth}x${codedHeight} at ${r.value.toFixed(2)} fps is ${Math.round(pixelRate)} pixels/s, above ${MAX_PIXEL_RATE}`);
   }
 
   let durationS = seconds(p.format.duration);
@@ -245,6 +257,8 @@ export function judgeProbe(json: string): ProbeFacts {
     durationS = each.length ? Math.max(...each) : NaN;
   }
   if (!(durationS > 0) || !Number.isFinite(durationS)) throw new JobFailure("damaged", "no readable length");
+  // The declared length has 2 decimals (numeric(7,2)): one that rounds to 0 is not a video (re-review N6f).
+  if (Math.round(durationS * 100) < 1) throw new JobFailure("damaged", `a length of ${durationS} s rounds to 0`);
   if (durationS > MAX_DURATION_S) throw new JobFailure("too_long", `${Math.round(durationS)} s is above ${MAX_DURATION_S} s`);
 
   const rotation = rotationOf(v);

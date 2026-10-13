@@ -27,6 +27,10 @@ ExecStart=@NODE_BIN@ /opt/converter/worker.mjs
 WorkingDirectory=/var/lib/converter
 Restart=always
 RestartSec=30
+# Exit 4 = stopped on purpose: a presigned URL outside this lane's R2 pin (a misconfiguration,
+# or Pages changed). Not restarted — every further job would fail too (re-review N4).
+# After fixing /etc/converter/converter.env: sudo systemctl start converter.service
+RestartPreventExitStatus=4
 # SIGTERM to the worker only: it ends its job with `finish fail internal`
 # (requeued at once), stops its FFmpeg run, and exits.
 KillMode=mixed

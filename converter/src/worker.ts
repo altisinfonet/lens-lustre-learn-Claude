@@ -7,18 +7,22 @@
  *     up to ~60 s; after a job the next claim is asked for at once;
  *   • the claim is written to the state file (0600) before any work starts and
  *     removed once the database has heard how the job ended;
- *   • after a job ends 'internal' (or its claim was lost, or its end could not
- *     be delivered) the worker backs off before claiming again: 30 s, 1, 2,
- *     4 min … (at most 15 min), and after every 3rd such job in a row it
- *     re-runs its self-test and claims NOTHING until that passes (review of
- *     #420, M3) — a broken VM must not burn every member's three attempts. Any
- *     job that ends otherwise (done, or a final code about the file) resets it.
+ *   • after a job ends 'internal' (or its end could not be delivered) the
+ *     worker backs off before claiming again: 30 s, 1, 2, 4 min … (at most
+ *     15 min), and after every 3rd such job in a row it re-runs its self-test
+ *     and claims NOTHING until that passes (review of #420, M3) — a broken VM
+ *     must not burn every member's three attempts. A job whose claim was lost
+ *     (most often: the member cancelled it) neither counts nor resets (re-review
+ *     N6e); any other ending (done, or a final code about the file) resets it;
+ *   • a presigned URL outside this lane's R2 pin (StorageUrlRefused) ends that
+ *     job and STOPS the loop with an ALERT — main exits 4, which converter.service
+ *     does not restart (re-review N4): a misconfiguration must not fail every job.
  */
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { ApiError, type Api } from "./api";
 import { scrub, vidCode } from "./failures";
-import { runJob, type JobDeps, type JobOutcome } from "./job";
+import { runJob, type Fatal, type JobDeps, type JobOutcome } from "./job";
 import { UUID_RE } from "./launcher";
 import type { ClaimStateStore } from "./state";
 
@@ -42,7 +46,7 @@ export const SELFTEST_AFTER = 3;
 
 /** Did this job end in a way that says more about the VM than about the file? */
 export function endedInternal(o: JobOutcome): boolean {
-  return (o.result === "failed" && o.code === "internal") || o.result === "lost" || o.result === "unfinished";
+  return (o.result === "failed" && o.code === "internal") || o.result === "unfinished";
 }
 
 /** 30 s, 1 min, 2 min, 4 min … for the 1st, 2nd, 3rd … internal result in a row; at most `max`. */
@@ -102,7 +106,7 @@ function interruptible(sleep: (ms: number) => Promise<void>, signal?: AbortSigna
   });
 }
 
-export async function workerLoop(d: WorkerDeps, stop?: AbortSignal): Promise<{ jobs: JobOutcome[] }> {
+export async function workerLoop(d: WorkerDeps, stop?: AbortSignal): Promise<{ jobs: JobOutcome[]; fatal?: Fatal }> {
   const wait = interruptible(d.sleep, stop);
   const jobs: JobOutcome[] = [];
   let idle = d.pollMs;
@@ -136,8 +140,16 @@ export async function workerLoop(d: WorkerDeps, stop?: AbortSignal): Promise<{ j
     jobs.push(outcome);
     // Kept on disk only while the database has not heard how it ended.
     if (outcome.result !== "unfinished") await d.state.clear();
+    if (outcome.result !== "done" && outcome.fatal) {
+      d.log("worker.stopped_not_claiming", {
+        level: "ALERT", reason: outcome.fatal,
+        detail: "a presigned URL was not this lane's R2 host/bucket (CONVERTER_R2_HOST / CONVERTER_R2_BUCKET, or Pages changed) — fix the configuration, then start converter.service again",
+      });
+      return { jobs, fatal: outcome.fatal };
+    }
     if (d.maxJobs !== undefined && jobs.length >= d.maxJobs) break;
 
+    if (outcome.result === "lost") continue; // usually a member's cancel: neither counts nor resets
     if (!endedInternal(outcome)) { internalStreak = 0; continue; }
     internalStreak++;
     let delay = internalBackoff(internalStreak, base, max);

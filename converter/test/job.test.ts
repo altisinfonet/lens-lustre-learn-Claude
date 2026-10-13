@@ -121,7 +121,8 @@ async function claimAndRun(w: World) {
   return runJob(claim!, w.deps);
 }
 
-describe("converter · one job, start to end", () => {
+// Each test runs whole jobs (encode stand-in, packager, fake HTTP servers): slow on a busy machine.
+describe("converter · one job, start to end", { timeout: 20_000 }, () => {
   it("happy path: every file PUT with its signed headers, complete in rounds, finish done, nothing left behind", async () => {
     const w = await world();
     const out = await claimAndRun(w);
@@ -250,13 +251,21 @@ describe("converter · one job, start to end", () => {
     expect(await claimAndRun(w)).toMatchObject({ result: "unfinished" });
   });
 
-  it("a PUT URL that is not R2's (default rule) is never used: internal, no PUT made", async () => {
+  it("a PUT URL outside the lane's R2 pin is never used: internal, no PUT made, and the job is marked fatal (N4: the worker stops claiming)", async () => {
     const w = await world();
     w.deps.allowUrl = (u) => u.includes("/r2/source"); // the source GET is allowed; every PUT URL is "foreign"
     const out = await claimAndRun(w);
-    expect(out).toMatchObject({ result: "failed", code: "internal" });
-    expect((out as { detail: string }).detail).toContain("not an R2 storage URL");
+    expect(out).toMatchObject({ result: "failed", code: "internal", fatal: "storage_url_refused" });
+    expect((out as { detail: string }).detail).toContain("not this lane's R2 storage URL");
     expect(w.server.requests.some((r) => r.method === "PUT")).toBe(false);
+  });
+
+  it("an ordinary internal failure is not fatal (the worker keeps claiming, with its back-off)", async () => {
+    const w = await world();
+    w.server.on("POST", "/api/video/upload-urls", (_req, res) => send(res, 409, { error: "VID-MAN-002", message: "no" }));
+    const out = await claimAndRun(w);
+    expect(out).toMatchObject({ result: "failed", code: "internal" });
+    expect((out as { fatal?: string }).fatal).toBeUndefined();
   });
 
   it("an upload-urls refusal that is not about the lease is internal, with the server's code in the detail", async () => {

@@ -304,6 +304,24 @@ describe.skipIf(!FFMPEG)("converter · real FFmpeg", () => {
     expect(Object.keys(share).sort()).toEqual(["240p", "480p", "720p", "audio"]);
   }, 240_000);
 
+  it.skipIf(!FFPROBE)("re-review N6f: a clip so short its sound cannot fit the per-second rule keeps its video and drops the sound — never a failure", async () => {
+    for (const seconds of [0.04, 0.1]) {
+      const { dir } = await jobDir();
+      await generate(dir, [
+        "-f", "lavfi", "-i", `testsrc2=size=1280x720:rate=30:duration=${seconds}`,
+        "-f", "lavfi", "-i", `sine=frequency=440:sample_rate=48000:duration=${seconds}`,
+        "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-f", "mp4", "source",
+      ]);
+      const events: string[] = [];
+      const { pkg, plan } = await convertSource({ launcher: launcher(), jobDir: dir, purpose: "post", preset: "veryfast", log: (e) => { events.push(e); } });
+      expect(dbVersionProblems(pkg.manifest), `${seconds} s`).toEqual([]);
+      expectServerAccepts(pkg, plan.durationS);
+      // the sound is either kept within the rule, or dropped — and then said so in the log
+      expect(pkg.manifest.has_audio || events.includes("job.audio_dropped"), `${seconds} s: has_audio ${pkg.manifest.has_audio}`).toBe(true);
+      if (seconds === 0.04) expect(pkg.manifest.has_audio, "0.04 s: the audio init segment alone is above 16,384 B/s").toBe(false);
+    }
+  }, 240_000);
+
   it.skipIf(!FFPROBE || !TONE_MAP || !X265)("HDR highlights (review of #420): a 4000-nit PQ frame rolls off — 100 < 1000 < 2000 < 4000 nits stay distinct and inside limited range", async () => {
     const { dir } = await jobDir();
     // 640x360 yuv420p10le, four bands at 100 / 1,000 / 2,000 / 4,000 nits (PQ, 10-bit limited-range codes), neutral chroma

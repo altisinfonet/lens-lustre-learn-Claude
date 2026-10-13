@@ -4,10 +4,10 @@
  *   node worker.mjs                     the service (deploy/converter.service)
  *   node worker.mjs --selftest          convert synthetic videos in the sandbox, print one JSON line, exit 0/1
  *   node worker.mjs --netcheck <url>    (deploy check) DNS + HTTPS egress work, the link-local metadata address does not
+ *   node worker.mjs --netcheck-control  (deploy check, outside the unit) the metadata address IS reachable here
  *
  * Bundled to ONE file by `npm run converter:build` (converter/build.mjs).
  */
-import { existsSync } from "node:fs";
 import { lookup } from "node:dns/promises";
 import { connect } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
@@ -57,9 +57,24 @@ async function netcheck(url: string, log: Log): Promise<number> {
   return ok ? 0 : 1;
 }
 
+/**
+ * The positive control for netcheck (re-review N6d), run OUTSIDE the unit: is
+ * the metadata address reachable here at all? Only then does "unreachable"
+ * inside converter.service prove the IPAddressDeny. Exit 0 = reachable.
+ */
+async function netcheckControl(log: Log): Promise<number> {
+  const metadata = await canConnect("169.254.169.254", 80, 3000);
+  log("worker.netcheck_control", { metadata_reachable: metadata.ok, metadata_error: metadata.error ?? null });
+  return metadata.ok ? 0 : 1;
+}
+
+/** Exit code for "stopped on purpose, do not restart" (converter.service RestartPreventExitStatus=4). */
+export const EXIT_STOPPED_NOT_CLAIMING = 4;
+
 async function main(argv: string[]): Promise<number> {
   const log = jsonLogger();
   if (argv[0] === "--netcheck") return netcheck(argv[1] ?? "https://example.com", log);
+  if (argv[0] === "--netcheck-control") return netcheckControl(log);
   const selftestOnly = argv.includes("--selftest");
   let c: Config;
   try {
@@ -67,10 +82,6 @@ async function main(argv: string[]): Promise<number> {
   } catch (e) {
     log("worker.config_error", { error: scrub((e as Error).message) });
     return 2;
-  }
-  if (existsSync(c.noUpdatesMarker)) {
-    // setup.sh found Ubuntu Pro esm-apps off (review of #420, M4).
-    log("worker.warning", { level: "WARNING", warning: "ffmpeg receives no security updates: Ubuntu Pro esm-apps is not enabled (deploy/README.md)" });
   }
   const launcher = launcherFor(c);
   if (launcher instanceof SystemdLauncher && !selftestOnly) {
@@ -110,15 +121,15 @@ async function main(argv: string[]): Promise<number> {
 
   const swept = await sweepJobsRoot(c.jobsRoot, log);
   log("worker.start", { version: VERSION, launcher: c.launcher, preset: c.preset, api: c.apiBase, r2_host: c.r2Host, swept });
-  await workerLoop({
+  const { fatal } = await workerLoop({
     api, state, launcher, jobsRoot: c.jobsRoot, preset: c.preset, heartbeatMs: c.heartbeatMs,
     pollMs: c.pollMs, pollMaxMs: c.pollMaxMs, log,
     sleep: (ms) => delay(ms).then(() => undefined),
     allowUrl: storageUrlRule(c.r2Host, c.r2Bucket),
     selfTest: async () => { const r = await runSelfTest(); log("worker.selftest", { ...r }); return r; },
   }, stop.signal);
-  log("worker.stopped", {});
-  return 0;
+  log("worker.stopped", fatal ? { fatal, exit: EXIT_STOPPED_NOT_CLAIMING } : {});
+  return fatal ? EXIT_STOPPED_NOT_CLAIMING : 0;
 }
 
 main(process.argv.slice(2)).then(

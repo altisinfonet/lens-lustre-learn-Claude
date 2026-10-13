@@ -140,20 +140,28 @@ describe("converter · ffprobe facts", () => {
     expect(code(probeJson({ width: 4097, height: 2160 }))).toBe("too_big");
     expect(code(probeJson({ width: 2160, height: 4097 }))).toBe("too_big");
     expect(code(probeJson({ width: 4096, height: 2160 }))).toBe("ok");
-    expect(code(probeJson({ fps: "1/2" }))).toBe("unsupported_format");
+    expect(code(probeJson({ fps: "1/2" }))).toBe("unsupported_format");         // under 1 fps: not a video stream we can use
+    expect(code(probeJson({ fps: "1/1" }))).toBe("ok");
+    expect(code(probeJson({ fps: "120/1" }))).toBe("ok");
     expect(code(probeJson({ fps: "240/1" }))).toBe("ok");                       // 1280x720 slow motion (M2)
-    expect(code(probeJson({ fps: "241/1" }))).toBe("unsupported_format");
+    expect(code(probeJson({ fps: "242/1" }))).toBe("ok");                       // within the 1 % slack (variable-rate average)
+    expect(code(probeJson({ fps: "245/1" }))).toBe("too_big");                  // N5: beyond any camera → too big, not "export as MP4"
     expect(code(probeJson({ width: 1080, height: 1920, fps: "240/1" }))).toBe("ok"); // portrait 1080p240
     expect(code(probeJson({ width: 1920, height: 1080, fps: "240/1" }))).toBe("ok"); // 497,664,000 px/s
-    expect(code(probeJson({ width: 2560, height: 1440, fps: "240/1" }))).toBe("unsupported_format"); // above 1080p: 120 max
-    expect(code(probeJson({ width: 2560, height: 1440, fps: "121/1" }))).toBe("unsupported_format");
+    expect(code(probeJson({ width: 2560, height: 1440, fps: "240/1" }))).toBe("too_big"); // above 1080p: 120 max
+    expect(code(probeJson({ width: 2560, height: 1440, fps: "125/1" }))).toBe("too_big");
     expect(code(probeJson({ width: 2560, height: 1440, fps: "120/1" }))).toBe("ok"); // 442,368,000 px/s
+    // N5 (OWNER GOAL "any format, like Instagram"): 4K at 120 fps is accepted
     expect(code(probeJson({ width: 3840, height: 2160, fps: "60/1" }))).toBe("ok");  // UHD 4K60
-    expect(code(probeJson({ width: 4096, height: 2160, fps: "60/1" }))).toBe("ok");  // DCI 4K60: the pixel-rate ceiling itself
-    expect(code(probeJson({ width: 4096, height: 2160, fps: "61/1" }))).toBe("unsupported_format"); // above 530,841,600 px/s
-    expect(code(probeJson({ width: 3840, height: 2160, fps: "120/1" }))).toBe("unsupported_format");
-    expect(code(probeJson({ fps: "120/1" }))).toBe("ok");
-    expect(code(probeJson({ fps: "1/1" }))).toBe("ok");
+    expect(code(probeJson({ width: 3840, height: 2160, fps: "120/1" }))).toBe("ok"); // UHD 4K120 (995,328,000 px/s)
+    expect(code(probeJson({ width: 2160, height: 3840, fps: "120/1" }))).toBe("ok"); // portrait 4K120
+    expect(code(probeJson({ width: 4096, height: 2160, fps: "120/1" }))).toBe("ok"); // DCI 4K120 (1,061,683,200 px/s)
+    expect(code(probeJson({ width: 3840, height: 2160, fps: "120060/1000" }))).toBe("ok"); // a phone's VFR average a hair above 120
+    expect(code(probeJson({ width: 4096, height: 2160, fps: "123/1" }))).toBe("too_big");
+    expect(code(probeJson({ width: 4096, height: 4096, fps: "63/1" }))).toBe("ok");      // 1,056,964,608 px/s
+    expect(code(probeJson({ width: 4096, height: 4096, fps: "64/1" }))).toBe("too_big"); // 1,073,741,824 px/s: above the pixel-rate ceiling
+    expect(code(probeJson({ duration: 0.004 }))).toBe("damaged");               // N6f: a length that rounds to 0.00 s
+    expect(code(probeJson({ duration: 0.005 }))).toBe("ok");
     expect(code(probeJson({ duration: 15 * 3600 + 1 }))).toBe("too_long");
     expect(code(probeJson({ duration: 15 * 3600 }))).toBe("ok");
     expect(code(probeJson({ format: "hls" }))).toBe("unsupported_format");

@@ -88,7 +88,9 @@ export class Session {
         return await this.grant("refresh_token", { refresh_token: this.refresh });
       } catch (e) {
         // A refused refresh (revoked, reused, expired) → password sign-in. A network error is just thrown.
-        if (!(e instanceof AuthError) || e.status >= 500) throw e;
+        // A server error, a rate limit (429) or a timeout (408) is transient: try again later, keep the
+        // refresh token, and do not call it theft (re-review N6g).
+        if (!(e instanceof AuthError) || e.status >= 500 || e.status === 429 || e.status === 408) throw e;
         this.o.onRefreshRefused?.(e.status, e.message);
         this.refresh = null;
       }

@@ -57,6 +57,34 @@ describe("converter · Supabase session", () => {
     expect(refused).toEqual([[400, "sign-in (refresh_token) refused: HTTP 400 refresh_token_already_used"]]);
   });
 
+  it("re-review N6g: a refresh answered 429 / 408 / 5xx is transient — thrown, the refresh token kept, NOT reported as refused (no theft alarm)", async () => {
+    for (const status of [429, 408, 503]) {
+      server = await fakeServer();
+      let n = 0;
+      let refreshAnswer = status;
+      const bodies: unknown[] = [];
+      server.on("POST", "/auth/v1/token", (req, res) => {
+        n++;
+        bodies.push(req.json);
+        if ((req.json as { refresh_token?: string }).refresh_token && refreshAnswer !== 200) { send(res, refreshAnswer, { error_code: "over_request_rate_limit", msg: "slow down" }); return; }
+        send(res, 200, { access_token: `a${n}`, refresh_token: `r${n}`, expires_in: 60 });
+      });
+      const refused: number[] = [];
+      const s = new Session({
+        supabaseUrl: server.url, anonKey: "anon", credentials: async () => ({ email: "c@x.test", password: PW }),
+        onRefreshRefused: (st) => refused.push(st),
+      });
+      expect(await s.token()).toBe("a1");
+      await expect(s.token()).rejects.toThrow(new RegExp(`HTTP ${status}`)); // 60 s left < margin → refresh → transient
+      expect(refused).toEqual([]);                                          // not "refused": no theft alarm
+      expect(bodies.filter((b) => (b as { password?: string }).password)).toHaveLength(1); // no password sign-in instead
+      refreshAnswer = 200;
+      expect(await s.token()).toBe("a3");                                   // later: the SAME refresh token works
+      expect(bodies[2]).toEqual({ refresh_token: "r1" });
+      await server.close(); server = null;
+    }
+  });
+
   it("a refused password sign-in throws without the password in the message", async () => {
     server = await fakeServer();
     server.on("POST", "/auth/v1/token", (_req, res) => send(res, 400, { error_code: "invalid_credentials", msg: `Invalid login credentials ${PW}` }));

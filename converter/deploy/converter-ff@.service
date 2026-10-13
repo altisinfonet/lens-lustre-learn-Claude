@@ -26,6 +26,9 @@ ExecStart=/usr/local/lib/converter/ffjob-run %i
 TimeoutStartSec=6h 10min
 Nice=10
 OOMScoreAdjust=500
+# Out of memory (MemoryMax): the whole run is killed and no exit file is written, so the
+# worker reports it as killed (internal, retried) — never as "too long" (re-review N2).
+OOMPolicy=kill
 
 # Resources (Ampere A1: 4 OCPU / 24 GB — the worker and the system keep the rest)
 MemoryMax=12G

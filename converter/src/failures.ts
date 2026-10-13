@@ -23,6 +23,20 @@ export class JobFailure extends Error {
   }
 }
 
+/**
+ * A presigned URL that is not this lane's R2 host/bucket (CONVERTER_R2_HOST /
+ * CONVERTER_R2_BUCKET). Not the member's fault and not something a retry fixes:
+ * either the VM is misconfigured or Pages changed. The job is ended 'internal'
+ * and the worker STOPS claiming (exit 4, which systemd does not restart — re-review
+ * of #420, N4), so a misconfiguration cannot use up every member's attempts.
+ */
+export class StorageUrlRefused extends JobFailure {
+  constructor(detail: string) {
+    super("internal", detail);
+    this.name = "StorageUrlRefused";
+  }
+}
+
 /** The claim is no longer ours (wrong token, lease ran out, 6 h ceiling): nothing more can be said about the job. */
 export class ClaimLost extends Error {
   constructor(detail: string) {

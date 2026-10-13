@@ -18,7 +18,7 @@ import { ApiError, type Api, type Claim } from "./api";
 import { convertSource } from "./convert";
 import { downloadSource } from "./download";
 import type { X264Preset } from "./encode";
-import { ClaimLost, JobFailure, scrub, toFailure, vidCode, type FailCode } from "./failures";
+import { ClaimLost, JobFailure, scrub, StorageUrlRefused, toFailure, vidCode, type FailCode } from "./failures";
 import type { Launcher } from "./launcher";
 import type { ProbeFacts } from "./probe";
 import { uploadPackage } from "./upload";
@@ -39,13 +39,16 @@ export interface JobDeps {
   allowUrl?: (u: string) => boolean;
 }
 
+/** Set when the worker must stop claiming after this job (a presigned URL outside the R2 pin — N4). */
+export type Fatal = "storage_url_refused";
+
 export type JobOutcome =
   | { result: "done"; videoId: string; state: string }
-  | { result: "failed"; code: FailCode; detail: string; status: string }
+  | { result: "failed"; code: FailCode; detail: string; status: string; fatal?: Fatal }
   /** the claim was gone (nothing to tell the database) */
-  | { result: "lost"; detail: string }
+  | { result: "lost"; detail: string; fatal?: Fatal }
   /** finish could not be delivered — keep the claim on disk so the next start (or loop) ends it */
-  | { result: "unfinished"; detail: string };
+  | { result: "unfinished"; detail: string; fatal?: Fatal };
 
 const isClaimGone = (e: unknown) =>
   e instanceof ApiError && (e.code === "VID-CONV-002" || /VID-CONV-002/.test(e.message));
@@ -177,11 +180,12 @@ export async function runJob(claim: Claim, d: JobDeps, outer?: AbortSignal): Pro
     }
     const reason = ac.signal.aborted && !(e instanceof JobFailure) ? new JobFailure("internal", "the worker stopped during this job") : e;
     const { code, detail } = toFailure(reason);
-    d.log("job.failed", { source_id: job.source_id, code, detail, total_ms: now() - started });
+    const fatal: Fatal | undefined = e instanceof StorageUrlRefused ? "storage_url_refused" : undefined;
+    d.log("job.failed", { source_id: job.source_id, code, detail, total_ms: now() - started, ...(fatal ? { fatal } : {}) });
     const f = await finish(d, claim, { code, detail });
-    if ("lost" in f) return { result: "lost", detail: f.lost };
-    if ("unfinished" in f) return { result: "unfinished", detail: f.unfinished };
-    return { result: "failed", code, detail, status: f.status };
+    if ("lost" in f) return { result: "lost", detail: f.lost, ...(fatal ? { fatal } : {}) };
+    if ("unfinished" in f) return { result: "unfinished", detail: f.unfinished, ...(fatal ? { fatal } : {}) };
+    return { result: "failed", code, detail, status: f.status, ...(fatal ? { fatal } : {}) };
   } finally {
     clearInterval(timer);
     outer?.removeEventListener("abort", onOuter);

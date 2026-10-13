@@ -64,6 +64,27 @@ describe("converter · SystemdLauncher (production)", () => {
       .toMatchObject({ exitCode: 1, killed: false, timedOut: false });
   });
 
+  it("re-review N2: 137 (SIGKILL) is the time cap only when the run lasted the cap; before it (memory cap, OOMPolicy=kill) → killed", async () => {
+    const { root, dir } = await jobDir();
+    // a clock that moves `took` seconds while the unit runs
+    const run137 = async (took: number, timeoutS: number) => {
+      let t = 1_000_000;
+      const exec: Exec = async () => { t += took * 1000; await fs.writeFile(path.join(dir, ".run", "exit"), "137\n"); return { code: 1, stderr: "" }; };
+      return new SystemdLauncher({ jobsRoot: root, now: () => t }, exec).run({ tool: "ffmpeg", args: [], jobDir: dir, timeoutS });
+    };
+    // killed after 3 s of a 60 s cap: the memory cap, not the time cap → killed (→ internal), never too_long
+    expect(await run137(3, 60)).toMatchObject({ exitCode: null, timedOut: false, killed: true });
+    // killed at / after the cap (timeout's -k backstop) → the time cap
+    expect(await run137(60, 60)).toMatchObject({ exitCode: null, timedOut: true, killed: false });
+    expect(await run137(75, 60)).toMatchObject({ exitCode: null, timedOut: true, killed: false });
+    // the cap compared is the one handed over (clamped to ≥ 10 s), not the requested one
+    expect(await run137(5, 1)).toMatchObject({ timedOut: false, killed: true });
+    expect(await run137(10, 1)).toMatchObject({ timedOut: true, killed: false });
+    const { classifyToolFailure } = await import("../src/failures");
+    expect(classifyToolFailure("ffmpeg", { ...(await run137(3, 60)), stderr: "" }).code).toBe("internal");
+    expect(classifyToolFailure("ffmpeg", { ...(await run137(60, 60)), stderr: "" }).code).toBe("too_long");
+  });
+
   it("the time cap handed over is clamped to 10 s .. 6 h", async () => {
     const { root, dir } = await jobDir();
     const seen: string[] = [];

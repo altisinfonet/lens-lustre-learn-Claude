@@ -9,9 +9,11 @@
 # and reads back:
 #   stdout   the tool's stdout (ffprobe's JSON)
 #   stderr   the LAST 64 KiB of its stderr
-#   exit     its exit status (124/137 = the time cap ended it)
-# The unit itself always succeeds unless it is killed (memory cap, stop):
-# then there is no `exit` file and the worker treats the run as killed.
+#   exit     its exit status (124 = the time cap ended it; 137 = SIGKILLed — see below)
+# The unit itself always succeeds unless it is killed (memory cap — OOMPolicy=kill —
+# or stop): then there is usually no `exit` file; when bash still writes one (137 from
+# a SIGKILL), the worker counts 137 as the time cap only once the cap has elapsed
+# (launcher.ts, re-review of #420 N2) — otherwise as killed.
 set -u
 
 inst="${1:-}"
@@ -28,8 +30,8 @@ fi
 
 tool="$(head -c 16 "$run/tool" 2>/dev/null)"
 case "$tool" in
-  ffmpeg) bin=/usr/bin/ffmpeg ;;
-  ffprobe) bin=/usr/bin/ffprobe ;;
+  ffmpeg) bin=/opt/converter/ffmpeg/current/bin/ffmpeg ;;   # the pinned build (ffmpeg.pin, update-ffmpeg.sh)
+  ffprobe) bin=/opt/converter/ffmpeg/current/bin/ffprobe ;;
   *) echo "ffjob-run: tool must be ffmpeg or ffprobe" >&2; exit 64 ;;
 esac
 

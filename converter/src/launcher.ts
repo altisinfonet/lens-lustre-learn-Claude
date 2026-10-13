@@ -134,7 +134,7 @@ export const execFileSimple: Exec = (cmd, args, signal) => new Promise((resolve,
 /** Production: the sandboxed template unit, one run at a time per job. */
 export class SystemdLauncher implements Launcher {
   constructor(
-    private readonly opts: { jobsRoot: string; unitPrefix?: string; systemctl?: string },
+    private readonly opts: { jobsRoot: string; unitPrefix?: string; systemctl?: string; now?: () => number },
     private readonly exec: Exec = execFileSimple,
   ) {}
 
@@ -171,7 +171,10 @@ export class SystemdLauncher implements Launcher {
     for (const a of spec.args) if (a.includes("\0")) throw new Error("an argument contains NUL");
     await fs.writeFile(path.join(runDir, "tool"), spec.tool, { mode: 0o640 });
     await fs.writeFile(path.join(runDir, "args"), spec.args.map((a) => `${a}\0`).join(""), { mode: 0o640 });
-    await fs.writeFile(path.join(runDir, "timeout"), String(Math.max(10, Math.min(21_600, Math.ceil(spec.timeoutS)))), { mode: 0o640 });
+    const limitS = Math.max(10, Math.min(21_600, Math.ceil(spec.timeoutS)));
+    await fs.writeFile(path.join(runDir, "timeout"), String(limitS), { mode: 0o640 });
+    const now = this.opts.now ?? Date.now;
+    const t0 = now();
 
     let aborted = false;
     const stop = () => { aborted = true; void this.exec(systemctl, ["--no-ask-password", "stop", unit]).catch(() => undefined); };
@@ -195,10 +198,14 @@ export class SystemdLauncher implements Launcher {
     const stdout = (await read("stdout", STDOUT_MAX)) ?? "";
     const stderr = (await read("stderr", STDERR_MAX * 2)) ?? (started.code !== 0 ? `systemctl: ${started.stderr}` : "");
     const exit = exitText !== null && /^\d{1,3}\s*$/.test(exitText) ? Number(exitText.trim()) : null;
-    // timeout(1): 124 = timed out (TERM), 137 = timed out and KILLed.
-    const timedOut = exit === 124 || exit === 137;
-    // No exit file: the unit was stopped or killed (memory cap, TimeoutStartSec, abort).
-    const killed = aborted || exit === null;
+    // timeout(1): 124 = it timed out (TERM). 137 = SIGKILL — by timeout's --kill-after only once the
+    // cap has passed; a 137 BEFORE the cap is something else killing FFmpeg (the memory cap: the unit
+    // has OOMPolicy=kill, but bash can still win the race and write the exit file) — killed, never
+    // "too long" (re-review of #420, N2).
+    const elapsedS = (now() - t0) / 1000;
+    const timedOut = exit === 124 || (exit === 137 && elapsedS >= limitS);
+    // No exit file, or a 137 before the cap: the unit was stopped or killed (memory cap, TimeoutStartSec, abort).
+    const killed = aborted || exit === null || (exit === 137 && !timedOut);
     return { exitCode: timedOut || killed ? null : exit, stdout, stderr, timedOut, killed };
   }
 }

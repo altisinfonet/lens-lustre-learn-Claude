@@ -111,24 +111,38 @@ export async function convertSource(o: ConvertOptions): Promise<Converted> {
   const poster = await makePoster(o, plan);
 
   const tooBig = new JobFailure("too_big", "a rendition is larger than the whole package limit");
-  const video = [];
+  const video: Array<{ name: "240p" | "480p" | "720p"; width: number; height: number; codecString: string; file: Uint8Array }> = [];
   for (const r of plan.video) {
     video.push({ name: r.name, width: r.width, height: r.height, codecString: r.codecString, file: await output(o.jobDir, r.file, MAX_RENDITION_FILE, tooBig) });
   }
   const audio = plan.audio ? { codecString: plan.audio.codecString, file: await output(o.jobDir, plan.audio.file, MAX_RENDITION_FILE, tooBig) } : null;
 
-  let pkg: HlsPackage;
-  try {
-    pkg = await packageFromFragmented({ video, audio, poster, durationSeconds: plan.durationS, sourceWidth: plan.sourceWidth, sourceHeight: plan.sourceHeight });
-  } catch (e) {
-    throw new JobFailure("internal", `packaging: ${(e as Error).message.slice(0, 160)}`);
-  }
+  const pack = async (withAudio: typeof audio): Promise<HlsPackage> => {
+    try {
+      return await packageFromFragmented({ video, audio: withAudio, poster, durationSeconds: plan.durationS, sourceWidth: plan.sourceWidth, sourceHeight: plan.sourceHeight });
+    } catch (e) {
+      throw new JobFailure("internal", `packaging: ${(e as Error).message.slice(0, 160)}`);
+    }
+  };
+  let pkg = await pack(audio);
   for (const r of plan.video) {
     if (![...pkg.files.keys()].some((n) => n.startsWith(`${r.name}_`))) throw new JobFailure("damaged", `no ${r.name} frames could be decoded`);
   }
+  if (audio && onlyTheSoundIsTooDense(pkg)) {
+    // A clip so short that the sound's fixed overhead (its ~700-byte init segment) alone breaks
+    // the per-second rule for "audio": the video is kept, without sound (re-review N6f).
+    log("job.audio_dropped", { reason: "the sound cannot fit the database's bytes-per-second rule for so short a clip", duration_s: pkg.manifest.duration_s });
+    pkg = await pack(null);
+  }
   checkPackage(pkg, o.purpose);
-  log("job.packaged", { files: pkg.manifest.files.length, bytes: pkg.manifest.files.reduce((a, f) => a + f.bytes, 0) });
+  log("job.packaged", { files: pkg.manifest.files.length, bytes: pkg.manifest.files.reduce((a, f) => a + f.bytes, 0), has_audio: pkg.manifest.has_audio });
   return { pkg, facts, plan };
+}
+
+/** The database would refuse this package for one reason only: the audio rendition's bytes per second. */
+export function onlyTheSoundIsTooDense(pkg: HlsPackage): boolean {
+  const db = dbVersionProblems(pkg.manifest);
+  return db.length > 0 && db.every((d) => d.code === "VID-LIM-006" && d.message.startsWith("audio "));
 }
 
 /**
@@ -145,7 +159,8 @@ export function checkPackage(pkg: HlsPackage, purpose: VideoPurpose): void {
   const all = [...db.map((d) => `${d.code} ${d.message}`), ...problems];
   const detail = `the package breaks the upload rules: ${all.slice(0, 3).join("; ").slice(0, 200)}`;
   // What the FILE makes too big or too long is final; anything else is ours (retried).
-  if (db.some((d) => d.code === "VID-LIM-001")) throw new JobFailure("too_long", detail);
+  // A length that rounds to 0 is not a video (re-review N6f); only one above 24 h is "too long".
+  if (db.some((d) => d.code === "VID-LIM-001")) throw new JobFailure(pkg.manifest.duration_s > 0 ? "too_long" : "damaged", detail);
   const size = db.some((d) => d.code === "VID-LIM-002" || d.code === "VID-LIM-005" || d.code === "VID-LIM-006")
     || problems.some((p) => /^total \d+ bytes is above|files is above/.test(p));
   throw new JobFailure(size ? "too_big" : "internal", detail);

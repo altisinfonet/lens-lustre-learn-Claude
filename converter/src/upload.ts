@@ -13,7 +13,7 @@ import type { HlsPackage } from "../../src/lib/video/hlsPackager";
 import { uploadOrder } from "../../src/lib/video/shared/rules";
 import { ApiError, type Api, type Answer } from "./api";
 import { isStorageUrl } from "./download";
-import { JobFailure } from "./failures";
+import { JobFailure, StorageUrlRefused } from "./failures";
 
 export interface UploadIds { video_id: string; version_no: number; claim_token: string }
 
@@ -91,7 +91,7 @@ async function putAll(d: UploadDeps, pkg: HlsPackage, urls: Array<{ name: string
   const byName = new Map(urls.map((u) => [u.name, u]));
   const allow = d.allowUrl ?? isStorageUrl;
   const foreign = urls.find((u) => !allow(u.url));
-  if (foreign) throw new JobFailure("internal", `upload-urls gave a URL for ${foreign.name} that is not an R2 storage URL`);
+  if (foreign) throw new StorageUrlRefused(`upload-urls gave a URL for ${foreign.name} that is not this lane's R2 storage URL`);
   const queue = uploadOrder(urls.map((u) => u.name));
   let failed = 0;
   const worker = async () => {

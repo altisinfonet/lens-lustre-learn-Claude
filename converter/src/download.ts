@@ -11,7 +11,7 @@
  */
 import { createWriteStream } from "node:fs";
 import { once } from "node:events";
-import { JobFailure } from "./failures";
+import { JobFailure, StorageUrlRefused } from "./failures";
 import type { ClaimedJob, ClaimedSource } from "./api";
 
 export const DOWNLOAD_IDLE_MS = 60_000;
@@ -32,15 +32,16 @@ export function isStorageUrl(u: string): boolean {
 
 /**
  * The production rule (review of #420): R2 over HTTPS AND exactly this lane's
- * account host (CONVERTER_R2_HOST) — and, when the bucket is configured, a
- * path under /<bucket>/upload/ (the only prefix Pages ever presigns for the VM).
+ * account host (CONVERTER_R2_HOST) AND a path under /<bucket>/upload/ — the
+ * only prefix Pages ever presigns for the VM. The bucket is required (re-review
+ * N4): an empty one matches nothing, so a missing setting fails closed.
  */
-export function storageUrlRule(host: string, bucket = ""): (u: string) => boolean {
+export function storageUrlRule(host: string, bucket: string): (u: string) => boolean {
   return (u) => {
-    if (!isStorageUrl(u)) return false;
+    if (!isStorageUrl(u) || !bucket) return false;
     const x = new URL(u);
     if (x.hostname !== host) return false;
-    return !bucket || x.pathname.startsWith(`/${bucket}/upload/`);
+    return x.pathname.startsWith(`/${bucket}/upload/`);
   };
 }
 
@@ -55,7 +56,7 @@ export async function downloadSource(
   opts: { fetch?: typeof fetch; signal?: AbortSignal; idleMs?: number; allowUrl?: (u: string) => boolean } = {},
 ): Promise<number> {
   const f = opts.fetch ?? fetch;
-  if (!(opts.allowUrl ?? isStorageUrl)(source.url)) throw new JobFailure("internal", "the source URL is not an R2 storage URL");
+  if (!(opts.allowUrl ?? isStorageUrl)(source.url)) throw new StorageUrlRefused("the source URL is not this lane's R2 storage URL");
   const declared = Number(job.source_bytes);
   if (!Number.isSafeInteger(declared) || declared < 1) throw new JobFailure("internal", "the claim has no declared size");
   if (Number(source.bytes) !== declared) throw new JobFailure("internal", "the claim's source size disagrees with the job");

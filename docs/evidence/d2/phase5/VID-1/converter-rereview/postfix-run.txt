@@ -1,0 +1,16 @@
+# vitest run converter + packager tests — the SAME tests on the fixed source, 2026-10-13 (same machine)
+ ✓ converter/test/download.test.ts > converter · downloading the original > the production rule is pinned to this lane's R2 account host AND /<bucket>/upload/ (review of #420; bucket required, N4)
+ ✓ converter/test/dbRules.test.ts > converter · the database's version arithmetic > re-review N6f: only the sound too dense (a very short clip) → the video is kept without sound; anything else is not
+ ✓ converter/test/dbRules.test.ts > converter · the database's version arithmetic > re-review N6f: a declared length of 0 (VID-LIM-001) is damaged, not too_long; above 24 h stays too_long
+ ✓ converter/test/launcher.test.ts > converter · SystemdLauncher (production) > re-review N2: 137 (SIGKILL) is the time cap only when the run lasted the cap; before it (memory cap, OOMPolicy=kill) → killed
+ ✓ converter/test/auth.test.ts > converter · Supabase session > re-review N6g: a refresh answered 429 / 408 / 5xx is transient — thrown, the refresh token kept, NOT reported as refused (no theft alarm)
+ ✓ converter/test/probe.test.ts > converter · ffprobe facts > the refusals that remain → their fixed codes
+ ✓ converter/test/config.test.ts > converter · configuration > re-review N4: CONVERTER_R2_BUCKET is required with the network config, and must be a bucket name
+ ✓ converter/test/config.test.ts > converter · configuration > there is no security-updates marker setting any more (owner ruling R-VM-1: the pinned build)
+ ✓ converter/test/worker.test.ts > converter · the worker loop > re-review N6e: a lost claim (the member cancelled) neither counts toward the internal streak nor resets it
+ ✓ converter/test/worker.test.ts > converter · the worker loop > re-review N4: a presigned URL refused by the R2 pin ends that job, then the loop STOPS claiming with an ALERT (main exits 4)
+ ✓ converter/test/worker.test.ts > converter · the worker loop > the back-off schedule: 30 s doubling, capped at 15 min; undelivered ends count as internal, lost claims (member cancels) do not (N6e)
+ ✓ converter/test/job.test.ts > converter · one job, start to end > a PUT URL outside the lane's R2 pin is never used: internal, no PUT made, and the job is marked fatal (N4: the worker stops claiming)
+ ✓ converter/test/e2e.ffmpeg.test.ts > converter · real FFmpeg > re-review N6f: a clip so short its sound cannot fit the per-second rule keeps its video and drops the sound — never a failure
+ Test Files  14 passed (14)
+      Tests  144 passed | 3 skipped (147)

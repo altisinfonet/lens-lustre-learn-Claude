@@ -6,7 +6,8 @@
  */
 import { describe, it, expect } from "vitest";
 import { dbVersionProblems, DB_CEILING_BPS } from "../src/dbRules";
-import { checkPackage } from "../src/convert";
+import { checkPackage, onlyTheSoundIsTooDense } from "../src/convert";
+import type { HlsPackage } from "../../src/lib/video/hlsPackager";
 import { JobFailure } from "../src/failures";
 import type { VideoManifest } from "../../src/lib/video/shared/rules";
 import { packageFromFragmented } from "../../src/lib/video/hlsPackager";
@@ -64,5 +65,22 @@ describe("converter · the database's version arithmetic", () => {
     expect(e).toBeInstanceOf(JobFailure);
     expect(e!.code).toBe("too_big");
     expect(e!.detail).toMatch(/VID-LIM-006 240p is \d+ bytes\/s, above its ceiling of 61440/);
+  });
+  it("re-review N6f: only the sound too dense (a very short clip) → the video is kept without sound; anything else is not", () => {
+    const pkg = (m: VideoManifest) => ({ manifest: m }) as unknown as HlsPackage;
+    // 0.05 s: the audio rendition's ~700-byte init alone is 14,000 B/s — fine; 1,000 bytes is 20,000 B/s > 16,384
+    expect(onlyTheSoundIsTooDense(pkg(manifest(0.05, { "240p": 3000, audio: 1000, other: 5000 })))).toBe(true);
+    // the video is too dense as well → not "only the sound": the package stays refused
+    expect(onlyTheSoundIsTooDense(pkg(manifest(0.05, { "240p": 4000, audio: 1000, other: 5000 })))).toBe(false);
+    // nothing wrong → nothing to drop
+    expect(onlyTheSoundIsTooDense(pkg(manifest(10, { "240p": 3000, audio: 1000, other: 5000 })))).toBe(false);
+    // no audio at all → nothing to drop
+    expect(onlyTheSoundIsTooDense(pkg(manifest(0.05, { "240p": 3000, other: 5000 })))).toBe(false);
+  });
+
+  it("re-review N6f: a declared length of 0 (VID-LIM-001) is damaged, not too_long; above 24 h stays too_long", () => {
+    const fail = (m: VideoManifest) => { try { checkPackage({ manifest: m, files: new Map() } as unknown as HlsPackage, "post"); return null; } catch (x) { return (x as JobFailure).code; } };
+    expect(fail(manifest(0, { "240p": 1000, other: 1000 }, false))).toBe("damaged");
+    expect(fail(manifest(86_400.01, { "240p": 1000, other: 1000 }, false))).toBe("too_long");
   });
 });

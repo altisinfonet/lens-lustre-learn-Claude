@@ -18,7 +18,9 @@
 #   --selftest: the worker's own self-test, run under the REAL converter.service,
 #               then its network check (DNS + HTTPS out work, 169.254.169.254 does
 #               not — NETCHECK_URL, default https://example.com), each through
-#               a temporary drop-in, removed afterwards
+#               a temporary drop-in, removed afterwards; plus the positive control
+#               (outside the unit the metadata address DOES answer, where it exists).
+#               Refused while converter.service is running: stop it first.
 set -uo pipefail
 
 [[ $EUID -eq 0 ]] || { echo "run as root" >&2; exit 1; }
@@ -49,7 +51,7 @@ exit_of() { cat "$JOBS/$1/.run/exit" 2>/dev/null | tr -d '\n'; }
 stderr_of() { cat "$JOBS/$1/.run/stderr" 2>/dev/null; }
 
 echo "systemd: $(systemctl --version | head -1)"
-echo "ffmpeg:  $(/usr/bin/ffmpeg -hide_banner -version | head -1)"
+echo "ffmpeg:  $(/opt/converter/ffmpeg/current/bin/ffmpeg -hide_banner -version | head -1)  ($(readlink /opt/converter/ffmpeg/current))"
 mountpoint -q "$JOBS" && ok "the job space is a separate mount ($(findmnt -no SIZE,OPTIONS "$JOBS"))" || bad "the job space is not mounted"
 
 # 1. a run starts, FFmpeg works inside
@@ -75,15 +77,22 @@ if as_converter systemctl --no-ask-password restart "converter-ff@$J.service" 2>
 #    world-readable, so FILE PERMISSIONS alone would let ffjob read it (checked outside
 #    the sandbox first); inside a run it must still be refused. The real credentials
 #    stay 0600 converter throughout; the modes are restored at once (and on exit).
+#    Every write here is done AS converter (re-review N1): these directories are
+#    converter's, so root never creates, chmods or writes through a name in them —
+#    a planted symlink gets no more than converter's own rights.
 restore_dirs() {
-  rm -f /var/lib/converter/secrets/.sandbox-check /var/lib/converter/state/.sandbox-check
-  chmod 0700 /var/lib/converter/secrets /var/lib/converter/state 2>/dev/null || true
+  for d in secrets state; do
+    as_converter rm -f "/var/lib/converter/$d/.sandbox-check" 2>/dev/null || true
+    as_converter chmod 0700 "/var/lib/converter/$d" 2>/dev/null || true
+  done
 }
 trap restore_dirs EXIT
 for d in secrets state; do
   probe="/var/lib/converter/$d/.sandbox-check"
-  chmod 0711 "/var/lib/converter/$d"
-  printf 'not-a-real-secret' > "$probe"; chmod 0644 "$probe"
+  as_converter chmod 0711 "/var/lib/converter/$d"
+  as_converter rm -f "$probe"
+  # shellcheck disable=SC2016  # $1 is expanded by the inner sh, as converter
+  as_converter sh -c 'umask 022; printf not-a-real-secret > "$1"' sh "$probe"
   if runuser -u ffjob -- cat "$probe" >/dev/null 2>&1; then
     run "$J" ffprobe 30 -hide_banner -v error -i "$probe" || true
     if stderr_of "$J" | grep -qiE "permission denied|no such file"; then
@@ -94,7 +103,7 @@ for d in secrets state; do
   else
     bad "check setup: ffjob could not read the world-readable probe in $d/ outside the sandbox, so this check would prove nothing"
   fi
-  rm -f "$probe"; chmod 0700 "/var/lib/converter/$d"
+  as_converter rm -f "$probe"; as_converter chmod 0700 "/var/lib/converter/$d"
 done
 
 # 4. no network
@@ -124,38 +133,67 @@ echo
 systemd-analyze security --no-pager "converter-ff@$J.service" 2>/dev/null | tail -1 || true
 systemd-analyze security --no-pager converter.service 2>/dev/null | tail -1 || true
 
+# start_oneshot <what>: start converter.service (with the drop-in) and prove it RAN
+# this time — a new invocation that exited 0 — not merely that `start` returned 0.
+start_oneshot() {
+  local before after status
+  before="$(systemctl show -p ExecMainStartTimestampMonotonic --value converter.service)"
+  systemctl start converter.service || return 1
+  after="$(systemctl show -p ExecMainStartTimestampMonotonic --value converter.service)"
+  status="$(systemctl show -p ExecMainStatus --value converter.service)"
+  [[ "${after:-0}" =~ ^[0-9]+$ && "${before:-0}" =~ ^[0-9]+$ ]] && (( ${after:-0} > ${before:-0} )) && [[ "$status" == "0" ]] \
+    || { echo "  (converter.service did not run anew: started at ${before:-?} -> ${after:-?} µs, status ${status:-?})"; return 1; }
+}
+
 if [[ "${1:-}" == "--selftest" ]]; then
   echo
-  echo "== the worker's self-test under the real converter.service sandbox"
-  dropin=/etc/systemd/system/converter.service.d
-  mkdir -p "$dropin"
-  node_bin="$(sed -n 's#^ExecStart=\([^ ]*\) /opt/converter/worker.mjs$#\1#p' /etc/systemd/system/converter.service)"
-  cat > "$dropin/zz-sandbox-check.conf" <<EOF
+  # Re-review N3: while the real worker runs, `systemctl start converter.service` is a
+  # no-op that returns 0 — the checks below would PASS without running. Refuse instead.
+  state="$(systemctl show -p ActiveState --value converter.service)"
+  if [[ "$state" != "inactive" && "$state" != "failed" ]]; then
+    bad "converter.service is $state — stop it first (sudo systemctl stop converter.service), then run --selftest again; the self-test and network check were NOT run"
+  else
+    echo "== the worker's self-test under the real converter.service sandbox"
+    dropin=/etc/systemd/system/converter.service.d
+    mkdir -p "$dropin"
+    trap 'restore_dirs; rm -f "$dropin/zz-sandbox-check.conf"; rmdir "$dropin" 2>/dev/null; systemctl daemon-reload' EXIT
+    node_bin="$(sed -n 's#^ExecStart=\([^ ]*\) /opt/converter/worker.mjs$#\1#p' /etc/systemd/system/converter.service)"
+    cat > "$dropin/zz-sandbox-check.conf" <<EOF
 [Service]
 Type=oneshot
 Restart=no
 ExecStart=
 ExecStart=$node_bin /opt/converter/worker.mjs --selftest
 EOF
-  systemctl daemon-reload
-  if systemctl start converter.service; then ok "self-test passed under converter.service"; else bad "self-test failed under converter.service"; fi
-  journalctl -u converter.service -o cat --no-pager -n 20 | grep -E '"event":"(worker\.selftest|job\.)' || true
+    systemctl daemon-reload
+    if start_oneshot; then ok "self-test passed under converter.service"; else bad "self-test failed under converter.service"; fi
+    journalctl -u converter.service -o cat --no-pager -n 20 | grep -E '"event":"(worker\.selftest|job\.)' || true
 
-  echo
-  echo "== the worker unit's network: DNS + HTTPS out work, the link-local metadata address does not (IPAddressDeny=link-local)"
-  cat > "$dropin/zz-sandbox-check.conf" <<EOF
+    echo
+    echo "== the worker unit's network: DNS + HTTPS out work, the link-local metadata address does not (IPAddressDeny=link-local)"
+    cat > "$dropin/zz-sandbox-check.conf" <<EOF
 [Service]
 Type=oneshot
 Restart=no
 ExecStart=
 ExecStart=$node_bin /opt/converter/worker.mjs --netcheck ${NETCHECK_URL:-https://example.com}
 EOF
-  systemctl daemon-reload
-  if systemctl start converter.service; then ok "under converter.service: names resolve, HTTPS goes out, 169.254.169.254 is unreachable"; else bad "the network check failed under converter.service"; fi
-  journalctl -u converter.service -o cat --no-pager -n 5 | grep -E '"event":"worker\.netcheck"' || true
-  rm -f "$dropin/zz-sandbox-check.conf"
-  rmdir "$dropin" 2>/dev/null || true
-  systemctl daemon-reload
+    systemctl daemon-reload
+    if start_oneshot; then ok "under converter.service: names resolve, HTTPS goes out, 169.254.169.254 is unreachable"; else bad "the network check failed under converter.service"; fi
+    journalctl -u converter.service -o cat --no-pager -n 5 | grep -E '"event":"worker\.netcheck"' || true
+    # The positive control (re-review N6d): the same user, OUTSIDE the unit. Only if the
+    # metadata address answers here does "unreachable" above prove IPAddressDeny.
+    if as_converter "$node_bin" /opt/converter/worker.mjs --netcheck-control >/dev/null 2>&1; then
+      ok "positive control: outside converter.service the same user DOES reach 169.254.169.254 — the unit's IPAddressDeny is what blocks it"
+    else
+      echo "NOTE  169.254.169.254 does not answer on this machine even outside the unit, so the unit's refusal above is not proof of IPAddressDeny by itself (systemd-analyze security and the unit file still show it)"
+    fi
+    rm -f "$dropin/zz-sandbox-check.conf"
+    rmdir "$dropin" 2>/dev/null || true
+    systemctl daemon-reload
+    systemctl reset-failed converter.service 2>/dev/null || true
+    trap restore_dirs EXIT
+  fi
 fi
 
 echo

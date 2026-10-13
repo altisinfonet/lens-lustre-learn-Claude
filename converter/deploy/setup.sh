@@ -14,10 +14,13 @@
 #              mounted loop,nodev,nosuid,noexec at /var/lib/converter/jobs
 #   units      converter.service, converter-ff@.service, var-lib-converter-jobs.mount
 #   polkit     50-converter-ff.rules (converter may start/stop converter-ff@<uuid> only)
+#   FFmpeg     the PINNED static build (ffmpeg.pin, sha256-verified; owner ruling
+#              R-VM-1 — nothing paid or chargeable) at /opt/converter/ffmpeg/current
 # It does NOT write the credentials (a separate, Owner-run step does) and does
 # NOT start the worker unless --enable is given AND the credentials exist.
 #
-# Environment: JOBS_FS_SIZE (4G) · NODE_BIN (the `node` on PATH) · SKIP_APT=1
+# Environment: JOBS_FS_SIZE (4G) · NODE_BIN (the `node` on PATH) · SKIP_APT=1 ·
+#              FFMPEG_TARBALL (a pre-downloaded copy of the pinned file; still verified)
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -43,9 +46,10 @@ echo "os: ${PRETTY_NAME:-unknown}  arch: $(uname -m)  systemd: $(systemctl --ver
 [[ "${VERSION_ID:-}" == "24.04" ]] || echo "WARNING: written for Ubuntu 24.04; this is ${VERSION_ID:-unknown}"
 
 need_apt=()
-[[ -x /usr/bin/ffmpeg && -x /usr/bin/ffprobe ]] || need_apt+=(ffmpeg)
 [[ -x /usr/lib/polkit-1/polkitd ]] || need_apt+=(polkitd)
 command -v timeout >/dev/null || need_apt+=(coreutils)
+command -v curl >/dev/null || need_apt+=(curl)
+command -v xz >/dev/null || need_apt+=(xz-utils)
 if [[ ${#need_apt[@]} -gt 0 ]]; then
   if [[ "${SKIP_APT:-0}" == "1" ]]; then
     echo "missing: ${need_apt[*]} (SKIP_APT=1, not installing)" >&2; exit 1
@@ -54,7 +58,11 @@ if [[ ${#need_apt[@]} -gt 0 ]]; then
   DEBIAN_FRONTEND=noninteractive apt-get update -q
   DEBIAN_FRONTEND=noninteractive apt-get install -y -q "${need_apt[@]}"
 fi
-echo "ffmpeg: $(/usr/bin/ffmpeg -hide_banner -version | head -1)"
+
+say "FFmpeg: the pinned static build (ffmpeg.pin — owner ruling R-VM-1)"
+# Ubuntu's own `ffmpeg` package (universe) is NOT used or installed: its security fixes come only
+# through a subscription that owner ruling R-VM-1 excludes.
+bash "$here/update-ffmpeg.sh" --no-selftest "$here/ffmpeg.pin"
 
 NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
 [[ -n "$NODE_BIN" && -x "$NODE_BIN" ]] || { echo "Node 22 is required (NODE_BIN or node on PATH)" >&2; exit 1; }
@@ -102,7 +110,7 @@ install -o root -g root -m 0644 "$here/50-converter-ff.rules" /etc/polkit-1/rule
 [[ -f "$here/README.md" ]] && install -o root -g root -m 0644 "$here/README.md" /opt/converter/README.md
 if [[ ! -f /etc/converter/converter.env ]]; then
   install -o root -g converter -m 0640 "$here/converter.env.example" /etc/converter/converter.env
-  echo "wrote /etc/converter/converter.env from the example — fill in the three REPLACE values"
+  echo "wrote /etc/converter/converter.env from the example — fill in the REPLACE values (site origin, Supabase URL, anon key, R2 host)"
 fi
 systemctl daemon-reload
 # polkitd re-reads rules.d by itself; a restart makes it certain.
@@ -117,39 +125,14 @@ if [[ -n "$worker" ]]; then
   sha256sum /opt/converter/worker.mjs
 fi
 
-say "security updates for FFmpeg (Ubuntu Pro esm-apps — design §6)"
-# Ubuntu's FFmpeg is in `universe`: it gets security fixes only through Ubuntu Pro's
-# esm-apps (free for personal use). The token is attached by the Owner on the VM
-# (README.md) — it is never in this repository. Without it the worker logs a warning
-# at every start (the marker below).
-marker=/etc/converter/ffmpeg-no-security-updates
-esm="unknown"
-if command -v pro >/dev/null 2>&1; then
-  esm="$(pro status --format json 2>/dev/null | python3 -c 'import json,sys
-try:
-    d = json.load(sys.stdin)
-    print(next((s.get("status") or "not-attached" for s in d.get("services", []) if s.get("name") == "esm-apps"), "absent"))
-except Exception:
-    print("unreadable")' 2>/dev/null || echo unreadable)"
+say "operating-system security updates"
+# FFmpeg is the pinned build (update-ffmpeg.sh). Everything else comes from Ubuntu's
+# main archive, whose security fixes are free — as long as they are applied.
+uu="$(apt-config dump APT::Periodic::Unattended-Upgrade 2>/dev/null | head -1 || true)"
+if [[ "$uu" == *'"1"'* ]]; then
+  echo "unattended-upgrades: on"
 else
-  esm="no-pro-client"
-fi
-if [[ "$esm" == "enabled" ]]; then
-  rm -f "$marker"
-  echo "esm-apps: enabled — FFmpeg receives security updates"
-else
-  printf 'esm-apps: %s\nffmpeg receives no security updates (Ubuntu Pro esm-apps is not enabled)\n' "$esm" > "$marker"
-  chmod 0644 "$marker"
-  cat >&2 <<EOF
-
-  ##########################################################################
-  ##  WARNING: Ubuntu Pro esm-apps is not enabled (status: $esm).
-  ##  Ubuntu's FFmpeg (universe) receives NO security updates without it.
-  ##  The Owner attaches a free Ubuntu Pro token (README.md, "Ubuntu Pro"),
-  ##  then runs this script again. Until then the worker logs this warning.
-  ##########################################################################
-
-EOF
+  echo "WARNING: unattended security upgrades are not on ($uu) — enable them: sudo dpkg-reconfigure -plow unattended-upgrades" >&2
 fi
 
 say "unit files check (systemd-analyze verify)"
@@ -172,10 +155,10 @@ fi
 say "done"
 cat <<EOF
 Next:
-  1. fill in /etc/converter/converter.env (the lane's site origin, Supabase URL, anon key, R2 host)
-  2. Ubuntu Pro (once, by the Owner): sudo pro attach <token>   — then run setup.sh again
-  3. the credentials step writes $BASE/secrets/credentials.json (converter:converter 0600)
-  4. check the sandbox:   sudo bash $here/sandbox-check.sh --selftest
-  5. start the worker:    sudo systemctl enable --now converter.service
+  1. fill in /etc/converter/converter.env (the lane's site origin, Supabase URL, anon key, R2 host, R2 bucket)
+  2. the credentials step writes $BASE/secrets/credentials.json (converter:converter 0600)
+  3. check the sandbox:   sudo bash $here/sandbox-check.sh --selftest   (with converter.service stopped)
+  4. start the worker:    sudo systemctl enable --now converter.service
      logs:                journalctl -u converter.service -f
+  FFmpeg updates:         sudo bash $here/update-ffmpeg.sh   (after a PR changes ffmpeg.pin — README.md)
 EOF
